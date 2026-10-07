@@ -170,9 +170,12 @@ an import, and are checked one preset at a time on load.
 ## 5. The workspace
 
 **Presets** (formerly Rune priority).
-- *Choose preset* heads the page; nothing below it is active until a preset
-  is chosen.
-- The page lists the imported presets by content, plus the player's own.
+- *Content* and *Preset* head the page; nothing below them is active until a
+  preset is chosen.
+- *Content* lists only the contents — Default, each content the imported
+  presets are played in, and the player's own. Default is chosen there
+  outright; any other content offers its presets in *Preset*, each shown with
+  the faces of its team.
 - *Create preset* sits at the right and is available only while live sync is
   off.
 - The order of monsters within a preset is their priority for runes. Rune

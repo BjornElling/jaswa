@@ -7,6 +7,8 @@ import { MonsterLink } from './monster-link';
 import { warmMonsterPortraits } from '../lib/monster-portrait-image';
 import type { OpenMonsterOverlay } from './monster-link';
 import { PageHeader } from './page-chrome';
+import { PresetTeamPicker } from './preset-team-picker';
+import type { TeamChoice } from './preset-team-picker';
 import { SpeedVerdictMark } from './speed-verdict-mark';
 import { reorderKeyStep, useDragReorder } from './use-drag-reorder';
 import { WorkspacePage } from './workspace-page';
@@ -61,6 +63,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   onOptimize: (presetId: string, unitId: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
+  const [pickedGroup, setPickedGroup] = useState<string | null>(null);
   const createButton = useRef<HTMLButtonElement>(null);
   const preset = presets.find((entry) => entry.id === selectedId) ?? null;
   const own = preset?.kind === 'own' ? preferences.presets.find((entry) => entry.id === preset.id) ?? null : null;
@@ -85,6 +88,28 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   }, [owned, priority]);
   const reorder = useDragReorder<HTMLOListElement>({ count: priority.length, onMove: move });
   const editable = preset !== null && preset.kind !== 'game';
+  const groups = useMemo(() => presetGroupsOf(presets), [presets]);
+  /* The content follows the chosen preset; only between choosing a content and
+     choosing one of its presets is it a choice of its own. */
+  const group = groups.find((entry) => (preset ? entry.presets.includes(preset) : entry.label === pickedGroup)) ?? null;
+  const teams = useMemo<TeamChoice[]>(() => (!group || group.presets.some((entry) => entry.kind === 'default') ? []
+    : group.presets.map((entry) => ({ id: entry.id, name: entry.name, faces: entry.members.map((unitId) => {
+      const choice = owned.get(unitId);
+      const display = choice ? monsterPresentation(choice.masterId) : undefined;
+      return { key: unitId, name: choice?.name ?? 'Not in this import', imageFilename: display?.imageFilename, initial: display?.shortName ?? '?' };
+    }) }))), [group, owned]);
+
+  function chooseGroup(label: string) {
+    const next = groups.find((entry) => entry.label === label);
+    const fallback = next?.presets.find((entry) => entry.kind === 'default');
+    setPickedGroup(next && !fallback ? next.label : null);
+    if (fallback) onSelect(fallback.id);
+    else if (preset && !next?.presets.includes(preset)) onSelect('');
+  }
+
+  function warmTeams() {
+    warmMonsterPortraits(teams.flatMap((team) => team.faces.map((face) => face.imageFilename)));
+  }
 
   function writeOwn(change: (current: OwnPreset) => OwnPreset) {
     if (!own) return;
@@ -146,6 +171,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   function deleteOwn() {
     if (!own) return;
     onWrite.ownPresets((current) => current.filter((entry) => entry.id !== own.id));
+    setPickedGroup(null);
     onSelect('');
   }
 
@@ -162,33 +188,38 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
     </WorkspacePage>;
   }
 
-  const groups = presetGroupsOf(presets);
   return <WorkspacePage header={<PresetsHeader />}>
     <div className="monster-priority">
       <div className="panel monster-priority-add-panel">
-        <div className="monster-priority-fields">
-          <div className="filter-group monster-priority-add">
-            <label className="filter-label" htmlFor="preset-choice">Preset</label>
-            <Dropdown id="preset-choice" className="monster-priority-select" value={preset ? preset.id : ''} placeholder="Choose preset"
-              onChange={(event) => onSelect(event.target.value)}>
-              {groups.map((group) => <optgroup key={group.label} label={group.label}>
-                {group.presets.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-              </optgroup>)}
-            </Dropdown>
-          </div>
-          <div className="filter-group monster-priority-add">
-            <label className="filter-label" htmlFor="monster-priority-add">Add mon</label>
-            {/* Back to its placeholder after every pick: the field adds to the list
-                rather than holding a choice of its own. */}
-            <Dropdown id="monster-priority-add" className="monster-priority-select" value="" placeholder="Choose a monster"
-              disabled={!canAdd || choices.length === 0}
-              onFocus={warmChoices} onPointerDown={warmChoices}
-              onChange={(event) => { if (event.target.value) add(event.target.value); }}>
-              {choices.map((choice) => <option key={choice.unitId} value={choice.unitId}>{choice.name}</option>)}
-            </Dropdown>
-          </div>
+        {/* Content first, then which of its presets: twenty Arena Attack decks in
+            one flat menu buried the one being looked for. Default is a content
+            of one and is chosen from here outright. */}
+        <div className="filter-group monster-priority-add monster-priority-content">
+          <label className="filter-label" htmlFor="preset-content">Content</label>
+          <Dropdown id="preset-content" className="monster-priority-select" value={group?.label ?? ''} placeholder="Choose content"
+            onChange={(event) => chooseGroup(event.target.value)}>
+            {groups.map((entry) => <option key={entry.label} value={entry.label}>{entry.label}</option>)}
+          </Dropdown>
         </div>
-        <p className="monster-priority-about">{preset ? presetFacts(preset) : 'Choose a preset to see who gets first pick of its runes.'}</p>
+        {/* Always on the page, and only disabled where there is nothing to pick,
+            so choosing a content moves nothing beside it (AGENTS.md §2). */}
+        <div className="filter-group monster-priority-add monster-priority-preset">
+          <label className="filter-label" htmlFor="preset-choice">Preset</label>
+          <PresetTeamPicker id="preset-choice" teams={teams} value={preset && preset.kind !== 'default' ? preset.id : ''}
+            placeholder="Choose preset" disabled={teams.length === 0} onOpen={warmTeams} onChange={onSelect} />
+        </div>
+        <div className="filter-group monster-priority-add monster-priority-add-monster">
+          <label className="filter-label" htmlFor="monster-priority-add">Add mon</label>
+          {/* Back to its placeholder after every pick: the field adds to the list
+              rather than holding a choice of its own. */}
+          <Dropdown id="monster-priority-add" className="monster-priority-select" value="" placeholder="Choose a monster"
+            disabled={!canAdd || choices.length === 0}
+            onFocus={warmChoices} onPointerDown={warmChoices}
+            onChange={(event) => { if (event.target.value) add(event.target.value); }}>
+            {choices.map((choice) => <option key={choice.unitId} value={choice.unitId}>{choice.name}</option>)}
+          </Dropdown>
+        </div>
+        <p className="monster-priority-about">{preset ? presetWarnings(preset) : ''}</p>
         <div className="monster-priority-actions">
           <Button ref={createButton} tone="important" disabled={!canCreate} onClick={() => setCreating(true)}
             title={canCreate ? undefined : 'Automatic synchronization is on: presets come from the game.'}>Create preset</Button>
@@ -264,16 +295,14 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   </WorkspacePage>;
 }
 
-/* One line of what the chosen preset is: where it is played, and whether it
-   holds its own gear. A sold item it still names is said here, where the
-   user meets the preset, rather than hidden in a total. */
-function presetFacts(preset: Preset): string {
-  if (preset.kind === 'default') return 'Every monster on its own gear, outside any preset.';
-  const parts = [preset.content?.name ?? 'Content not yet named',
-    preset.savesGear ? 'saves runes and artifacts' : 'saves monsters only, each on its Default gear'];
+/* What the chosen preset names and the account no longer has, said here, where
+   the user meets the preset, rather than hidden in a total. Nothing otherwise:
+   the content and the faces in the field above already say what it is. */
+function presetWarnings(preset: Preset): string {
+  const parts: string[] = [];
   const sold = preset.missingRuneIds.length + preset.missingArtifactIds.length;
-  if (sold > 0) parts.push(`names ${sold} sold item${sold === 1 ? '' : 's'}`);
-  if (preset.missingUnitIds.length > 0) parts.push(`names ${preset.missingUnitIds.length} monster${preset.missingUnitIds.length === 1 ? '' : 's'} not in this import`);
+  if (sold > 0) parts.push(`Names ${sold} sold item${sold === 1 ? '' : 's'}`);
+  if (preset.missingUnitIds.length > 0) parts.push(`${parts.length > 0 ? 'names' : 'Names'} ${preset.missingUnitIds.length} monster${preset.missingUnitIds.length === 1 ? '' : 's'} not in this import`);
   return parts.join(' · ');
 }
 

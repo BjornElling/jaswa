@@ -314,7 +314,7 @@ label[for] {
 .field-lead > span, .overlay-block-title, .speed-basis-title,
 .overlay-facts dd, .rune-overlay-location .monster-name, .rune-build-centre-name,
 .rune-optimization-monster-select .jaswa-select, .jaswa-select.monster-priority-select,
-.jaswa-select.rune-optimization-preset-select {
+.jaswa-select.rune-optimization-preset-select, .jaswa-select.preset-team-button {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
   font-weight: 600;
@@ -352,7 +352,8 @@ label[for] {
 .rune-build-card-innate, .rune-build-card-subs, .rune-build-change-list, .rune-build-change-none,
 .rune-build-missing, .rune-build-card-where-value, .rune-optimization-choose,
 .speed-summary, .speed-basis-level, .speed-basis-bonus, .speed-dungeon-facts dd,
-.monster-priority-place, .monster-priority-empty, .monster-priority-about, .monster-priority-count {
+.monster-priority-place, .monster-priority-empty, .monster-priority-about, .monster-priority-count,
+.preset-team-option {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -2355,17 +2356,21 @@ label[for] {
    line the eye can cross, which a 3440 px wide row is not. */
 .monster-priority { display: grid; gap: var(--s5); max-width: 1120px; }
 .monster-priority .panel { padding: var(--s4) var(--s5); }
-/* The fields the list is made from, on the left as Rune Optimization's are,
-   beside them what the chosen preset is, and the page's own actions at the far
-   edge. */
+/* The content and which of its presets on one line, read left to right; the
+   field the list is filled from under the content, what the preset names and
+   no longer has beside it, and the page's own actions at the far edge. The
+   preset takes the wide column because it carries a team's faces. */
 .monster-priority-add-panel {
   display: grid;
-  grid-template-columns: minmax(0, 48ch) minmax(0, 1fr) max-content;
+  grid-template-columns: minmax(0, 40ch) minmax(0, 1fr) max-content;
+  grid-template-areas: "content preset actions" "add about actions";
   align-items: end;
   gap: var(--s4) var(--s7);
 }
-.monster-priority-fields { display: grid; gap: var(--s4); }
-.monster-priority-actions { display: grid; gap: var(--s2); align-self: end; }
+.monster-priority-content { grid-area: content; }
+.monster-priority-preset { grid-area: preset; }
+.monster-priority-add-monster { grid-area: add; }
+.monster-priority-actions { grid-area: actions; display: grid; gap: var(--s2); align-self: end; }
 .monster-priority-add { display: grid; gap: var(--s2); justify-items: start; }
 /* As tall and as wide as Rune Optimization's monster field, and fixed, so no
    name in the menu can widen it. The width is the column's, counted in the
@@ -2373,10 +2378,41 @@ label[for] {
    text beside it. */
 .monster-priority-add { width: 100%; }
 .jaswa-select.monster-priority-select { width: 100%; height: 52px; }
+/* The preset field and its list share one pair of columns — the name, then
+   room for the largest team's faces — so every name starts and every row of
+   faces starts on the same vertical, in the field and down the list. */
+.preset-team-picker { position: relative; width: 100%; }
+.preset-team-button, .preset-team-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) calc(6 * 28px + 5 * var(--s1));
+  align-items: center;
+  column-gap: var(--s3);
+  text-align: left;
+}
+.jaswa-select.preset-team-button { display: grid; height: 52px; cursor: pointer; }
+.jaswa-select.preset-team-button:disabled { cursor: default; }
+.preset-team-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset-team-faces { display: flex; gap: var(--s1); }
+.preset-team-list {
+  list-style: none;
+  right: 0;
+  width: 100%;
+  padding: var(--s1);
+}
+.preset-team-option {
+  min-height: 44px;
+  padding: var(--s2) calc(var(--s6) - var(--s1)) var(--s2) calc(var(--s3) - var(--s1));
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+.preset-team-option[data-active] { background: var(--sunk); color: var(--text-strong); }
+.preset-team-option[aria-selected="true"] { color: var(--text-accent); }
 /* Body size but dimmed: the list explains itself, and this only names who reads it.
    Sat on the field's own row and as tall as it, so its middle is the field's
    middle rather than the middle of the label and field together. */
 .monster-priority-about {
+  grid-area: about;
   max-width: 64ch;
   margin: 0;
   color: var(--text-muted);
@@ -5731,7 +5767,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    table heading, which is 30 and sits directly under the strip — at the 10 the
    overlay's menus use, the middle of this list was painted over by the heading
    row and the options behind it could not be clicked. */
-.token-choice-panel {
+.token-choice-panel, .preset-team-list {
   position: absolute;
   z-index: 31;
   top: calc(100% + var(--s1));

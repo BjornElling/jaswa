@@ -42,6 +42,15 @@ async function openPresets(page: Page) {
   await expect(page.getByRole('heading', { name: 'Presets', exact: true })).toBeVisible();
 }
 
+/* One of the chosen content's presets, from the list that shows each one's team. */
+async function choosePreset(page: Page, name: string) {
+  const field = page.getByLabel('Preset', { exact: true });
+  await field.click();
+  await page.getByRole('listbox').getByRole('option')
+    .filter({ has: page.locator('.preset-team-name').getByText(name, { exact: true }) }).click();
+  await expect(field.locator('.preset-team-name')).toHaveText(name);
+}
+
 test('imports two saved decks that place one rune on different monsters, and both defense decks', async ({ page }, testInfo) => {
   await freshWorkspace(page);
   await page.screenshot({ path: testInfo.outputPath('before-import.png') });
@@ -57,19 +66,21 @@ test('imports two saved decks that place one rune on different monsters, and bot
 
   /* Every deck is reachable: the rune is engraved once in each attack preset, on its own monster. */
   await openPresets(page);
-  const choice = page.getByLabel('Preset', { exact: true });
-  await expect(choice.locator('option')).toHaveText(['Choose preset', 'Default', 'Arena Attack 1', 'Arena Attack 2', 'Arena Defense', 'Arena Interserver Defense']);
-  for (const presetId of ['deck-1-1', 'deck-1-2']) {
-    await choice.selectOption(presetId);
+  await expect(page.getByLabel('Content', { exact: true }).locator('option'))
+    .toHaveText(['Choose content', 'Default', 'Arena Attack', 'Arena Defense', 'Arena Interserver Defense']);
+  await page.getByLabel('Content', { exact: true }).selectOption('Arena Attack');
+  for (const name of ['Arena Attack 1', 'Arena Attack 2']) {
+    await choosePreset(page, name);
     const entries = page.locator('.monster-priority-entry');
     await expect(entries).toHaveCount(1);
     await expect(entries.first().getByRole('img', { name: '1 of 6 runes engraved' })).toBeVisible();
   }
-  await choice.selectOption('arena-defense');
+  await page.getByLabel('Content', { exact: true }).selectOption('Arena Defense');
+  await choosePreset(page, 'Arena Defense');
   /* A defense deck has no leader field: the game leads with the first position. */
   await expect(page.locator('.monster-priority-entry')).toHaveCount(2);
   await expect(page.locator('.monster-priority-entry').first().getByRole('img', { name: 'Leader' })).toBeVisible();
-  await expect(page.locator('.monster-priority-about')).toHaveText('Arena Defense · saves monsters only, each on its Default gear');
+  await expect(page.locator('.monster-priority-about')).toHaveText('');
 });
 
 test('a rune a deck still names after it was sold stays visible', async ({ page }, testInfo) => {
@@ -79,8 +90,9 @@ test('a rune a deck still names after it was sold stays visible', async ({ page 
   ]));
   await expect(page.getByText('sold-rune.json')).toBeVisible();
   await openPresets(page);
-  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-1');
-  await expect(page.locator('.monster-priority-about')).toHaveText('Arena Attack · saves runes and artifacts · names 1 sold item');
+  await page.getByLabel('Content', { exact: true }).selectOption('Arena Attack');
+  await choosePreset(page, 'Arena Attack 1');
+  await expect(page.locator('.monster-priority-about')).toHaveText('Names 1 sold item');
   /* The sold rune is named beside the count, not counted as engraved. */
   await expect(page.locator('.monster-priority-entry').getByRole('img', { name: '1 of 6 runes engraved, and 1 sold' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('sold-rune.png') });
