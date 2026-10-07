@@ -83,18 +83,46 @@ test('engraving a build moves its runes into the saved account and survives relo
   const action = detail.getByRole('button', { name: 'Engrave on monster' });
   await expect(action).toBeEnabled();
   await expect(detail.locator('.rune-build-card-where-value .monster-link').first()).toBeVisible();
+  const cards = detail.locator('.rune-build-card');
+  const cardBoxes = () => cards.evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return [rect.x, rect.y, rect.width, rect.height].map(Math.round).join(',');
+  }));
+  const previously = detail.locator('.rune-build-card-where[data-visible="true"]').filter({ hasText: 'Previously' });
+  /* Nothing has moved since the import, so no card has a past to report. */
+  await expect(previously).toHaveCount(0);
   const before = await box(detail.locator('.rune-build-head'));
+  const cardsBefore = await cardBoxes();
+  const buttonBefore = await box(action);
   await page.screenshot({ path: testInfo.outputPath('engrave-before.png') });
   await action.click();
-  await expect(detail).toBeHidden();
-  await page.getByRole('button', { name: `Show build ${chosen}`, exact: true }).click();
+
+  /* The overlay stays open; the button is the confirmation, in green. */
+  const engraved = detail.getByRole('button', { name: 'Engraved', exact: true });
+  await expect(engraved).toBeDisabled();
+  await expect(engraved).toHaveAttribute('data-done', 'true');
   await expect(detail.locator('.rune-build-card-where-value').filter({ hasText: 'This monster' })).toHaveCount(6);
-  await expect(action).toBeDisabled();
+  /* Each rune that moved names where the import had it; one that was already
+     on this monster has nothing to say. */
+  await expect(previously.first()).toBeVisible();
+  await expect(previously.locator('.monster-link').first()).toBeVisible();
+  const moved = await previously.count();
+  expect(moved).toBeGreaterThan(0);
+  expect(moved).toBeLessThanOrEqual(6);
   expect(await box(detail.locator('.rune-build-head'))).toEqual(before);
+  expect(await cardBoxes()).toEqual(cardsBefore);
+  expect(await box(engraved)).toEqual(buttonBefore);
   await page.screenshot({ path: testInfo.outputPath('engrave-after.png') });
+
+  /* Reopened after a reload, the build still says where its runes came from. */
   await page.reload();
   await openOptimization(page);
   await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('11');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: `Show build ${chosen}`, exact: true }).click();
+  await expect(previously).toHaveCount(moved);
+  await page.keyboard.press('Escape');
+  await expect(detail).toBeHidden();
   const stored = await page.evaluate(async () => new Promise<{ runes: Array<{ rune_id: number; occupied_id: number; occupied_type: number }>; unit_list: Array<{ unit_id: number; runes: Array<{ rune_id: number }> }> }>((resolve) => {
     const request = indexedDB.open('jaswa-local', 1);
     request.onsuccess = () => {
@@ -115,6 +143,17 @@ test('engraving a build moves its runes into the saved account and survives relo
   for (const unit of stored.unit_list) expect(unit.runes.map((rune) => rune.rune_id).sort())
     .toEqual(stored.runes.filter((rune) => rune.occupied_type === 1 && rune.occupied_id === unit.unit_id)
       .map((rune) => rune.rune_id).sort());
+
+  /* A fresh import is the account as the game has it: nothing has moved, and no
+     card remembers a place from the import before. */
+  await page.getByRole('button', { name: 'Home', exact: true }).first().click();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await page.getByRole('dialog').getByRole('button', { name: 'Replace data', exact: true }).click();
+  await openOptimization(page);
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: `Show build ${chosen}`, exact: true }).click();
+  await expect(detail.getByRole('button', { name: 'Engrave on monster' })).toBeEnabled();
+  await expect(previously).toHaveCount(0);
 });
 
 test('live synchronization explains why engraving is unavailable', async ({ page }, testInfo) => {

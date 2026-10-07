@@ -8,7 +8,17 @@ import type { SpeedTuningPreferences } from './speed-tuning-preferences';
 
 export type ImportReport = { valid: boolean; message: string; knownSections: string[]; unknownMonsterIds: string[] };
 export type HelperSession = { instanceId: string; sessionId: number };
-export type ImportedGame = { fileName: string; importedAt: string; data: Record<string, unknown>; report: ImportReport; helperSession?: HelperSession };
+export type ImportedGame = {
+  fileName: string; importedAt: string; data: Record<string, unknown>; report: ImportReport; helperSession?: HelperSession;
+  /**
+   * Where each rune JASWA has moved since this import sat when it was loaded:
+   * the wearer's `unit_id`, or `null` for the inventory. Written by an engrave,
+   * the first time a rune moves, and never again, so a rune moved twice still
+   * names where the game had it. Absent on every fresh import, file or helper
+   * alike — the account is then where the game says, and nothing has moved.
+   */
+  loadedRuneLocations?: Record<string, string | null>;
+};
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type ArtifactConversionStoneMode = 'none' | 'owned' | 'theoretical';

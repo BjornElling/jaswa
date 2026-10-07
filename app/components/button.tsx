@@ -75,9 +75,15 @@ const sizeClass: Record<ButtonSize, string> = {
  * and gets the stacked-label treatment for free; there is no version of this
  * component that swaps the wording by conditional rendering, so the resize
  * cannot come back.
+ *
+ * `done` is the third wording a button can show: its work is finished and there
+ * is nothing left to press, said in the verdict green — a machine reporting its
+ * own state (`AGENTS.md` §5). It replaces the label rather than greying it out,
+ * because "Engraved" is an answer and a dashed "Engrave on monster" would read
+ * as a question nobody can ask.
  */
 export function Button({
-  tone = 'quiet', size = 'regular', busy = false, busyLabel,
+  tone = 'quiet', size = 'regular', busy = false, busyLabel, done = false, doneLabel,
   className, disabled, children, ...rest
 }: NativeButtonProps & {
   tone?: ButtonTone;
@@ -87,15 +93,22 @@ export function Button({
   busy?: boolean;
   /** What the button reads while `busy`. Both wordings stay in the layout. */
   busyLabel?: ReactNode;
+  /** The button's work is finished: it disables itself and reads `doneLabel`. */
+  done?: boolean;
+  /** What the button reads once `done`. Every wording stays in the layout. */
+  doneLabel?: ReactNode;
 }) {
   const classes = ['button', toneClass[tone], sizeClass[size], className]
     .filter(Boolean).join(' ');
+  const faces: Record<string, ReactNode> = { idle: children };
+  if (busyLabel !== undefined) faces.busy = busyLabel;
+  if (doneLabel !== undefined) faces.done = doneLabel;
+  const showing = done && doneLabel !== undefined ? 'done' : busy && busyLabel !== undefined ? 'busy' : 'idle';
 
   return <button type="button" {...rest} className={classes}
-    disabled={disabled || busy} aria-busy={busy || undefined}>
-    {busyLabel === undefined
-      ? children
-      : <LabelSwap showing={busy ? 'busy' : 'idle'} faces={{ idle: children, busy: busyLabel }} />}
+    disabled={disabled || busy || done} aria-busy={busy || undefined}
+    data-done={done && doneLabel !== undefined ? 'true' : undefined}>
+    {Object.keys(faces).length === 1 ? children : <LabelSwap showing={showing} faces={faces} />}
   </button>;
 }
 

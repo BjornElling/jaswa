@@ -10,9 +10,8 @@ import type { OpenRuneOverlay } from './rune-link';
 import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
 import type { PickedRune } from '../lib/compute/rune-optimization-protocol';
 import { formatNumber } from '../lib/formatting';
-import { pickIssueText, shortText } from '../lib/rune-build-issues';
+import { pickIssueText } from '../lib/rune-build-issues';
 import type { EndStateLine } from '../lib/rune-craft-end-state';
-import type { RankFigure } from '../lib/rune-optimization-problem';
 import type { CurrentPick } from '../lib/rune-optimization-refresh';
 import { runeLineFigure, runeLineStat } from '../lib/runes';
 import { flatMainPropertyAtTwelve } from '../lib/rune-properties';
@@ -115,10 +114,26 @@ function ChangeLine({ change, format }: { change: Change; format: (value: number
   </li>;
 }
 
-function RuneCard({ picked, rune, thisMonster, wearer, format, onOpenRune, onOpenMonster }: {
+/* A place as the card names it: this monster, the inventory, or a link to the
+   monster wearing the rune. */
+function placeName(
+  place: string | null, thisMonster: string,
+  wearer: (unitId: string) => BuildWearer | undefined, onOpenMonster: OpenMonsterOverlay,
+): ReactNode {
+  if (place === null) return 'Inventory';
+  if (place === thisMonster) return 'This monster';
+  const worn = wearer(place);
+  return worn
+    ? <MonsterLink target={{ kind: 'copy', unitId: place, masterId: worn.masterId }} name={worn.name} onOpen={onOpenMonster} />
+    : 'Monster not in this import';
+}
+
+function RuneCard({ picked, rune, thisMonster, loadedPlace, wearer, format, onOpenRune, onOpenMonster }: {
   picked: CurrentPick;
   rune: Rune | undefined;
   thisMonster: string;
+  /** Where the rune sat when the import was loaded, where JASWA has moved it since; else `undefined`. */
+  loadedPlace: string | null | undefined;
   wearer: (unitId: string) => BuildWearer | undefined;
   format: (value: number) => string;
   onOpenRune: OpenRuneOverlay;
@@ -132,15 +147,15 @@ function RuneCard({ picked, rune, thisMonster, wearer, format, onOpenRune, onOpe
   let location: ReactNode;
   if (picked.locked) location = 'Locked to this monster';
   else if (picked.issue?.kind === 'locked-away' && rune.occupiedId === null) location = 'Locked in the inventory';
-  else if (rune.occupiedId === null) location = 'Inventory';
-  else if (rune.occupiedId === thisMonster) location = 'This monster';
-  else {
-    const worn = wearer(rune.occupiedId);
-    const link = worn
-      ? <MonsterLink target={{ kind: 'copy', unitId: rune.occupiedId, masterId: worn.masterId }} name={worn.name} onOpen={onOpenMonster} />
-      : 'Monster not in this import';
+  else if (rune.occupiedId === null || rune.occupiedId === thisMonster) {
+    location = placeName(rune.occupiedId, thisMonster, wearer, onOpenMonster);
+  } else {
+    const link = placeName(rune.occupiedId, thisMonster, wearer, onOpenMonster);
     location = picked.issue?.kind === 'locked-away' ? <>Locked to {link}</> : link;
   }
+  /* Only where the rune has really moved since the import: one moved and moved
+     back is where the game has it, and has nothing to report. */
+  const moved = loadedPlace !== undefined && loadedPlace !== rune.occupiedId;
   return <li className="rune-build-card" data-slot={picked.slot} aria-label={`Slot ${picked.slot}`}>
     <div className="rune-build-card-head">
       <RuneEmblem setName={rune.setName} slot={rune.slot} />
@@ -174,19 +189,28 @@ function RuneCard({ picked, rune, thisMonster, wearer, format, onOpenRune, onOpe
       <span className="rune-build-card-where-label">Location</span>
       <span className="rune-build-card-where-value">{location}</span>
     </div>
+    {/* Always in the card and hidden when there is nothing to say, so engraving
+        the build cannot make six cards grow under the click (`AGENTS.md` §2). */}
+    <div className="rune-build-card-where" data-visible={moved} aria-hidden={!moved}>
+      <span className="rune-build-card-where-label">Previously</span>
+      <span className="rune-build-card-where-value">
+        {moved ? placeName(loadedPlace, thisMonster, wearer, onOpenMonster) : ''}
+      </span>
+    </div>
   </li>;
 }
 
 export function RuneBuildOverlay({
-  index, buildName, moves, runes, short, runesById, monster, wearer, general, canEngrave, onEngrave, onClose, onOpenRune, onOpenMonster,
+  index, buildName, moves, runes, runesById, loadedRuneLocations, monster, wearer, general, canEngrave, onEngrave, onClose,
+  onOpenRune, onOpenMonster,
 }: {
   index: number;
   buildName: string;
   moves: number;
   runes: readonly CurrentPick[];
-  /** The targets the build's figures no longer reach, since the account changed under it. */
-  short: readonly RankFigure[];
   runesById: ReadonlyMap<string, Rune>;
+  /** Where the runes JASWA has moved sat when the import was loaded (`ImportedGame`). */
+  loadedRuneLocations: Readonly<Record<string, string | null>> | undefined;
   /** Drawn in the middle of the circle, and the wearer its own runes read as staying on. */
   monster: BuildMonster;
   wearer: (unitId: string) => BuildWearer | undefined;
@@ -212,7 +236,6 @@ export function RuneBuildOverlay({
     { label: 'Changes', value: formatNumber(moves, general) },
     { label: 'Gems', value: formatNumber(gems, general) },
     { label: 'Grindstones', value: formatNumber(grinds, general) },
-    { label: 'Targets', value: short.length === 0 ? 'Met' : shortText(short) },
   ];
   const wearerName = (unitId: string) => wearer(unitId)?.name;
   const complete = bySlot.length === 6 && bySlot.every((picked) => runesById.has(picked.runeId));
@@ -222,8 +245,9 @@ export function RuneBuildOverlay({
     setSaving(true);
     setSaveError(false);
     try {
+      /* The overlay stays open: the button turns to Engraved and each card says
+         where its rune came from, which is the confirmation. */
       await onEngrave(monster.unitId, bySlot.map((picked) => picked.runeId));
-      onClose();
     } catch {
       setSaveError(true);
     } finally {
@@ -241,8 +265,9 @@ export function RuneBuildOverlay({
         </div>)}
       </dl>
       <div className="rune-build-engrave">
-        <Button type="button" tone="primary" disabled={!canEngrave || !complete || alreadyEngraved} busy={saving}
-          busyLabel="Engraving…" onClick={() => void engrave()}>Engrave on monster</Button>
+        <Button type="button" tone="primary" disabled={!canEngrave || !complete} busy={saving}
+          busyLabel="Engraving…" done={alreadyEngraved} doneLabel="Engraved"
+          onClick={() => void engrave()}>Engrave on monster</Button>
         <span className="rune-build-engrave-info" tabIndex={canEngrave ? -1 : 0}
           role="img" aria-hidden={canEngrave}
           aria-label={canEngrave ? undefined : 'To engrave a build, choose Read on game start or Load a JSON file instead of Always synchronized.'}
@@ -263,7 +288,8 @@ export function RuneBuildOverlay({
       <div className="rune-build-circle">
         <ol className="rune-build-runes" aria-label="Runes">
           {bySlot.map((picked) => <RuneCard key={picked.slot} picked={picked} rune={runesById.get(picked.runeId)}
-            thisMonster={monster.unitId} wearer={wearer} format={format} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />)}
+            thisMonster={monster.unitId} loadedPlace={loadedRuneLocations?.[picked.runeId]}
+            wearer={wearer} format={format} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />)}
         </ol>
         <div className="rune-build-centre">
           <MonsterLink target={{ kind: 'copy', unitId: monster.unitId, masterId: monster.masterId }}

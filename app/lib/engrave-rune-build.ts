@@ -1,5 +1,44 @@
 import type { GameRecord } from './game-data';
 import { readRune } from './runes';
+import type { ImportedGame } from './types';
+
+/* A rune record's place as the export states it: its wearer, or `null`. */
+function placeOf(record: GameRecord): string | null {
+  return record.occupied_type === 1 ? String(record.occupied_id) : null;
+}
+
+/**
+ * Engrave a build on a whole import, remembering where each rune it moves sat
+ * when the import was loaded. A rune already remembered keeps its first entry:
+ * the question the record answers is "where did the game have it", not "where
+ * was it a moment ago".
+ */
+export function engraveImportedGame(game: ImportedGame, unitId: string, runeIds: readonly string[]): ImportedGame {
+  const data = engraveRuneBuild(game.data, unitId, runeIds);
+  const before = new Map((game.data.runes as GameRecord[]).map((record) => [String(record.rune_id), placeOf(record)]));
+  const loaded = { ...game.loadedRuneLocations };
+  for (const record of data.runes as GameRecord[]) {
+    const id = String(record.rune_id);
+    const was = before.get(id);
+    if (was === undefined || was === placeOf(record) || id in loaded) continue;
+    loaded[id] = was;
+  }
+  return { ...game, data, loadedRuneLocations: loaded };
+}
+
+/**
+ * The stored record read back one rune at a time (`AGENTS.md` §6): an entry
+ * that is not a rune id against a wearer id or `null` is dropped, and the rest
+ * kept. A malformed record costs the "Previously" line, never the import.
+ */
+export function readLoadedRuneLocations(value: unknown): Record<string, string | null> | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const read: Record<string, string | null> = {};
+  for (const [runeId, place] of Object.entries(value)) {
+    if (runeId.length > 0 && (place === null || (typeof place === 'string' && place.length > 0))) read[runeId] = place;
+  }
+  return Object.keys(read).length > 0 ? read : undefined;
+}
 
 /** Move six physical runes in the prepared import, then rebuild each monster's
  * equipment from the account list so every workspace reads the same placement. */

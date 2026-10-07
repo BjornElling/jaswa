@@ -18,7 +18,7 @@ import type { RuneOptimizationSettings } from './lib/rune-optimization-settings'
 import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
-import { engraveRuneBuild } from './lib/engrave-rune-build';
+import { engraveImportedGame, readLoadedRuneLocations } from './lib/engrave-rune-build';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import type { MonsterPriority } from './lib/monster-priority';
 import { statesSomething } from './lib/monster-preferences';
@@ -96,7 +96,11 @@ export default function Home() {
 
   useEffect(() => {
     Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
-      const savedCurrentGame = savedGame && isValidImportedGame(savedGame) ? savedGame : null;
+      const validGame = savedGame && isValidImportedGame(savedGame) ? savedGame : null;
+      /* The engrave record is read on its own, so a malformed one loses the
+         record and keeps the import. */
+      const loadedRuneLocations = readLoadedRuneLocations(validGame?.loadedRuneLocations);
+      const savedCurrentGame = validGame === null ? null : { ...validGame, loadedRuneLocations };
       setGame(savedCurrentGame);
       if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
       const savedCurrentPreferences = readPreferences(savedPreferences, savedCurrentGame);
@@ -262,7 +266,7 @@ export default function Home() {
       throw new Error('This build cannot be engraved in the current import mode.');
     }
     try {
-      const next = { ...game, data: engraveRuneBuild(game.data, unitId, runeIds) };
+      const next = engraveImportedGame(game, unitId, runeIds);
       await saveImportedGame(next);
       setGame(next);
       setMessage('');

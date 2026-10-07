@@ -6,7 +6,6 @@ import type { BandedChoices, MonsterCopyPreferences } from './monster-preference
 import { statedBand } from './monster-preferences';
 import { effectSlot, monsterBaseStats, monsterEffects } from './monster-stats';
 import { relicMainPercent, relicMaximumLevel } from './relic-properties';
-import { mainPropertyMaximum } from './rune-properties';
 
 /**
  * **Which main stat a copy's gear should carry, worked out rather than polled.**

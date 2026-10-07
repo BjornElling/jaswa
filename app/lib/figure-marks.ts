@@ -1,5 +1,5 @@
 import { artifactMainPropertyOrder } from './artifact-properties';
-import type { GearKind, GearMainAdvice, MainStat, MainStatAdvice, MainStatBasis } from './main-stat-model';
+import type { GearKind, GearMainAdvice, MainStatAdvice, MainStatBasis } from './main-stat-model';
 import { contradictsAdvice, honouredMainStat, mainStatStatement } from './main-stat-model';
 import type { MonsterCopyPreferences } from './monster-preferences';
 import type { Shortfall } from './monster-shortfall';

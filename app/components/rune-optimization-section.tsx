@@ -572,8 +572,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
 
     {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
-      moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes} short={builds[chosenBuild].short}
-      runesById={runesById} monster={buildMonster} wearer={(id) => wearers.get(id)}
+      moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
+      runesById={runesById} loadedRuneLocations={game?.loadedRuneLocations} monster={buildMonster} wearer={(id) => wearers.get(id)}
       general={general} canEngrave={canEngrave} onEngrave={onEngrave}
       onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;

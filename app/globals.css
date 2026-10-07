@@ -2630,7 +2630,7 @@ label[for] {
 .rune-build-card {
   min-width: 0;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto auto;
   gap: var(--s2);
   padding: var(--s3);
   border: 1px solid var(--line);
@@ -2656,6 +2656,7 @@ label[for] {
 /* Where the rune is now, on one line that gives way to an ellipsis, so a long
    nickname cannot push the card out of its ring. */
 .rune-build-card-where { display: flex; align-items: baseline; gap: var(--s2); min-width: 0; }
+.rune-build-card-where[data-visible='false'] { visibility: hidden; }
 .rune-build-card-where-label { flex: none; color: var(--text-muted); }
 .rune-build-card-where-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 .rune-build-card-where-value .monster-link { max-width: 100%; }
@@ -4205,6 +4206,15 @@ input[type='checkbox']:checked {
   border-color: var(--gold-edge);
   border-style: solid;
   color: var(--text-muted);
+}
+/* Finished, not unavailable: the verdict green, solid, whatever the tone. */
+.button[data-done='true']:disabled,
+.button.primary[data-done='true']:disabled {
+  background: color-mix(in srgb, var(--state-good) 12%, transparent);
+  border-color: var(--state-good);
+  border-style: solid;
+  color: var(--state-good);
+  cursor: default;
 }
 
 .button-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
