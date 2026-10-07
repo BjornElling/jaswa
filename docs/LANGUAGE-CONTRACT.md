@@ -25,6 +25,11 @@ accessibility. Keep humour short; make the action or meaning obvious first.
 Use “monster” and “monsters” by default. **Mon** and **mons** are acceptable
 informal alternatives when explicitly requested by the user.
 
+A rune, artifact or relic on a monster is **engraved**, never equipped or
+worn; one on no monster is **in inventory**. A **preset** is the game's saved
+deck and nothing else; a monster's own arrangement outside presets is
+**Default**. `DECK-PRESETS.md` §2 holds the full table.
+
 ## Exceptions
 
 Verbatim game names, player-supplied data, imported game data, quotations, and

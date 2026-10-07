@@ -30,10 +30,10 @@ file is corrected.
 - Validate only the current contract. Reject malformed or obsolete input
   rather than repairing it into a newer shape.
 - **Except the user's own choices, which always survive a change.** The one
-  saved state that does exist is the developer's own preferences — presets,
-  settings, the import mode — and a change to the code must never reset them.
-  Rejection happens one choice at a time: a setting, a preset, a monster's
-  field, a team the stored copy cannot satisfy starts from its default, and
+  saved state that does exist is the developer's own preferences — roles,
+  presets built in JASWA, settings, the import mode — and a change to the code must never reset them.
+  Rejection happens one choice at a time: a setting, a role, a preset, a
+  monster's field the stored copy cannot satisfy starts from its default, and
   every other choice is kept. Never reject a whole preferences document because
   one part of it predates the change just made; that is what made every dev
   server restart after a contract change put everything back to defaults.
@@ -200,7 +200,7 @@ was not the target of the click is a bug.
 filled in and with everything filled in.** Most real bugs live at these two
 ends, not in the middle.
 
-**Nothing filled in.** No import, no presets, an empty list, a record with only
+**Nothing filled in.** No import, no roles, no presets, an empty list, a record with only
 a name, every number field blank. Specifically:
 
 - An empty numeric field is *absent*, not `0`. A stat the user left blank means
@@ -223,7 +223,7 @@ large numbers, many records. Specifically:
 - Selecting every option in a group must not re-wrap or overflow its container.
 - Duplicate names are allowed; duplicate identifiers are not.
 
-**Nothing assumed from the defaults.** The presets JASWA ships with are
+**Nothing assumed from the defaults.** The roles JASWA ships with are
 starting values the user may edit or delete. Never assume a field is populated
 because the shipped data populated it.
 
@@ -341,7 +341,7 @@ parts an agent must not quietly break:
   rather than stored, what a previous approach cost. Match that. Do not narrate
   what the next line plainly does.
 - **Derived values are derived, never stored twice.** `DMG`, `E.HP` and
-  `E.HP D` are computed from a preset's own stats on every save, so a preset
+  `E.HP D` are computed from a role's own stats on every save, so a role
   cannot carry a stale composite. Any figure that follows from another follows
   it in one place.
 - **One artifact calculation, however many views read it.** Every page under
@@ -362,10 +362,18 @@ parts an agent must not quietly break:
     not depend on which page it is read from.
 
   `npm run verify:artifact-score-agreement` is the check. It runs both readers
-  over every equipped artifact at every acceptable-worth setting and fails on
+  over every engraved artifact at every acceptable-worth setting and fails on
   any disagreement, including a disagreement about which pairs are judged at
   all. It runs inside `npm run test:domain` against the repository fixture, and
   takes a real export as an argument for a wider sweep.
+- **One placement model: Default and presets.** `docs/DECK-PRESETS.md` is
+  binding. A rune or artifact is engraved at most once per context — Default
+  or one preset — and may be engraved in many contexts at once; the Siege
+  Battle defense presets share one pool; a relic belongs to Default and is read
+  into every preset. Placement is resolved once at import, no item carries an
+  owner field, and every reading of a monster's slots, stats or speed takes its
+  context as an argument. Gear on a monster is **engraved**, never equipped or
+  worn, and **preset** means the game's preset and nothing else.
 - **One Gem rule and one Grindstone rule, however many workspaces spend them.**
   `app/lib/rune-craft-end-state.ts` is the only module that applies
   `RUNE-CANONICAL.md` §8, and `app/lib/rune-craft-items.ts` is the only one that
