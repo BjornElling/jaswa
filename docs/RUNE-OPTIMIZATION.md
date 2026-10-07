@@ -52,10 +52,12 @@ that stage is visible on screen.
 The monster's profile — its *preset*, in the page's own words — states the
 answer's shape: the builds it will accept, the mains of slots 2, 4 and 6, whether
 a rune may complete no set (no unless the owner said yes), whether an Intangible
-rune and an Immemorial Gem or Grindstone may be spent (both yes unless the owner
-said no), whether the monster always crits or always has element advantage, its
-crit lead (none unless stated), the range each figure must fall in, and the figure
-to rank by. The page opens on exactly that, read *resolved*
+rune may be spent (yes unless the owner said no), whether the monster always crits
+or always has element advantage, its leads (none unless stated), the range each
+figure must fall in, and the figure to rank by. Whether a held Immemorial Gem or
+Grindstone may be spent is not the profile's: it is one setting on this page,
+shared by every monster, because the stock it spends is the account's. The page
+opens on exactly that, read *resolved*
 (`monster-preference-resolution.ts`), so a slot the owner never answered carries
 the community's answer — and says so under the field.
 
@@ -105,19 +107,35 @@ and a CRI Rate floor is never asked. Because the lift is on the base, the card's
 shader needs no rule of its own. Every CRI Rate *shown* is the monster's own, with
 the green info mark after it.
 
-*Always element advantage* adds 15 CRI Rate points and *Crit lead* adds the
-stated percentage points. They add to each other and to the copy's own CRI Rate
-for DMG, capped at 100 % there. CRI Rate floors and ceilings apply to the copy's
-own displayed CRI Rate before these bonuses. A range of 67–69 with a 33-point
-lead therefore still requires 67–69 on the copy. The bonuses do not alter the
-CRI Rate printed on screen. The green mark beside that figure explains each
-contribution on hover. A blank lead means no stated bonus; an explicit zero is
-kept as the user's choice. *Always crits* still makes every CRI Rate target moot.
+*Always element advantage* adds 15 CRI Rate points to the copy's own CRI Rate for
+DMG, capped at 100 % there. It is a condition of the fight, not of the copy: CRI
+Rate floors and ceilings never count it, and no figure shown carries it except the
+DMG it buys. *Always crits* still makes every CRI Rate target moot.
+
+### 2.2.2 Leads
+
+A copy states up to five leads — *Crit lead*, *Attack*, *Defence*, *Speed* and
+*HP* — each a whole percentage, CRI Rate in points. `monster-stats.ts`
+`addLeaderEffects` is the one place a lead joins a calculation: it adds each lead
+to the accumulator its stat sums in, before any rune, so ATK, DEF and HP leads are
+a share of base summed with every other percentage and rounded once, exactly as
+the game counts a leader skill. SPD with a lead is therefore
+⌈B·(1 + Swift + lead)⌉ + rune speed — the dungeon speed `speed-tick.ts`
+`combatSpeed` states, without the totem; `verify:monster-display-stats` holds the
+two equal for every combination of Swift, rune speed and lead.
+
+**A lead is counted and never shown.** Every range is judged with the copy's leads
+— a SPD floor of 200 with a 24 % lead asks for 200 dungeon speed — and so is every
+figure a search ranks by. Every figure printed as the copy's own, on the profile,
+on this page and in the table of builds, is summed without them: a build carries
+its `figures` as shown and its `counted` figures as judged, and a shortfall mark
+says "with its lead" where the two differ. The green mark after a figure names each
+lead that reaches it. A blank lead means none; an explicit zero is kept as the
+user's choice.
 
 ### 2.3 The figure to rank by
 
-The profile's *When these are met show me Rune suggestions based on the highest…*
-names it. Where it names none, the monster's archetype decides: **DMG** for
+The profile's *When met, sort by*, in the twelfth cell beside its ranges, names it. Where it names none, the monster's archetype decides: **DMG** for
 Attack, **SPD** for Support, **E.HP** for everything else — a build that keeps a
 monster alive is never a wrong answer where nothing better is known. The caption
 says the figure was chosen from the monster's type.

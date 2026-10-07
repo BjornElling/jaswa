@@ -152,17 +152,9 @@ test('saved relic choices constrain engraving and survive a reload', async ({ pa
   const elucia = monsterRow(page, 'Elucia');
   await elucia.getByRole('button', { name: /Elucia/ }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByRole('button', { name: /^Relic main stats:/ }).click();
-  const mains = dialog.locator('.choice-menu-panel').filter({ has: page.getByRole('checkbox', { name: /^HP/ }) });
-  for (const checkbox of await mains.getByRole('checkbox').all()) {
-    const name = await checkbox.getAttribute('aria-label') ?? await checkbox.evaluate((input: HTMLInputElement) => input.labels?.[0]?.textContent ?? '');
-    await checkbox.setChecked(name.startsWith('ATK'));
-  }
-  await page.keyboard.press('Escape');
-  await dialog.getByRole('button', { name: /^Relic unique properties:/ }).click();
-  const uniques = dialog.locator('.choice-menu-panel');
-  for (const checkbox of await uniques.getByRole('checkbox').all()) await checkbox.uncheck();
-  await page.keyboard.press('Escape');
+  /* ATK is the only main the copy will take, and the uniques are left at Any. */
+  await dialog.getByRole('button', { name: /^Main stat, preferred:/ }).click();
+  await page.getByRole('menu', { name: 'Main stat, preferred' }).getByRole('menuitem', { name: 'ATK', exact: true }).click();
   await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(dialog).toBeHidden();
   await expect(recommended(elucia)).toContainText('Sharp Conquest');
@@ -170,8 +162,10 @@ test('saved relic choices constrain engraving and survive a reload', async ({ pa
   await page.reload();
   await expect(recommended(monsterRow(page, 'Elucia'))).toContainText('Sharp Conquest');
   await monsterRow(page, 'Elucia').getByRole('button', { name: /Elucia/ }).click();
-  await expect(page.getByRole('dialog').getByRole('button', { name: /^Relic main stats:/ })).toContainText('ATK');
-  await expect(page.getByRole('dialog').getByRole('button', { name: /^Relic unique properties:/ })).toContainText('Any unique');
+  await expect(page.getByRole('dialog').getByRole('button', { name: /^Main stat, preferred:/ }))
+    .toHaveAttribute('aria-label', 'Main stat, preferred: ATK');
+  await expect(page.getByRole('dialog').getByRole('button', { name: /^Relic uniques, preferred:/ }))
+    .toHaveAttribute('aria-label', 'Relic uniques, preferred: Any');
 });
 test('the current relic cell shows every relic a monster wears', async ({ page }) => {
   await importAccount(page);

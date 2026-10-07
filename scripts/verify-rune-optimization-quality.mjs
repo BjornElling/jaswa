@@ -18,7 +18,7 @@ for (let index = 0; index < 8; index += 1) {
     allowBroken: true, allowIntangible: false, alwaysCrits: false, rankBy: index % 2 ? 'ehp' : 'dmg', ceilings: {} };
   input.runes = input.runes.filter((rune) => rune.setId !== 25).map((rune) => ({ ...rune, setId: 13 }));
   const sample = Array.from({ length: 6 }, (_, slot) => input.runes.find((rune) => rune.slot === slot + 1));
-  const figures = buildFigures(input.monster, sample.map((rune) => ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), input.requirements);
+  const figures = buildFigures(input.monster, sample.map((rune) => ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), input.requirements).counted;
   input.requirements.targets = Object.fromEntries(['spd', 'acc', 'hp'].map((stat) => [stat, Math.floor(figures[figureIndex(stat)] * 0.98)]));
   const problems = runeOptimizationDepths.map((depth) => {
     input.settings.depth = depth;
@@ -115,7 +115,7 @@ ceilingInput.holds = {}; ceilingInput.spared = [];
 ceilingInput.settings = { ...ceilingInput.settings, depth: 'quick', gems: 'none', grinds: 'none', runesOnOtherMonsters: true, resultCount: 10 };
 ceilingInput.requirements = { ...ceilingInput.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
   allowBroken: true, allowIntangible: false, alwaysCrits: false, alwaysElementAdvantage: false,
-  critLead: undefined, targets: {}, ceilings: { spd: 115 }, rankBy: 'dmg' };
+  leads: {}, targets: {}, ceilings: { spd: 115 }, rankBy: 'dmg' };
 const ceilingTemplates = Array.from({ length: 6 }, (_, slot) => ceilingInput.runes.find((rune) => rune.slot === slot + 1));
 ceilingInput.runes = [];
 let ceilingId = 1;
@@ -167,13 +167,13 @@ intangible.holds = {}; intangible.spared = [];
 intangible.settings = { ...intangible.settings, depth: 'complete', gems: 'none', grinds: 'none', runesOnOtherMonsters: true };
 intangible.requirements = { ...intangible.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
   allowBroken: true, allowIntangible: true, alwaysCrits: false, alwaysElementAdvantage: false,
-  critLead: undefined, targets: {}, ceilings: {}, rankBy: 'ehp' };
+  leads: {}, targets: {}, ceilings: {}, rankBy: 'ehp' };
 intangible.runes = Array.from({ length: 6 }, (_, slot) => ({
   ...intangible.runes.find((rune) => rune.slot === slot + 1),
   id: String(slot + 1), occupiedId: null, setId: [1, 2, 4, 25, 1, 2][slot], subProperties: [], prefixStatId: null, prefixValue: 0,
 }));
 const exactFigures = buildFigures(intangible.monster, intangible.runes.map((rune) =>
-  ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), intangible.requirements);
+  ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), intangible.requirements).counted;
 intangible.settings.unfinishedAtMaximum = false;
 intangible.requirements.targets = Object.fromEntries(['hp', 'def', 'criRate'].map((key) => [key, exactFigures[figureIndex(key)]]));
 const intangibleResult = searchRuneBuilds(prepareRuneOptimization(intangible));
@@ -197,7 +197,7 @@ assert.equal(ambiguousResult.builds.length, 1,
   'an ambiguous Intangible must remain usable when broken sets are allowed');
 assert.equal(ambiguousResult.builds[0].figures[ambiguousProblem.rank],
   buildFigures(ambiguousIntangible.monster, ambiguousIntangible.runes.map((rune) =>
-    ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), ambiguousIntangible.requirements)[ambiguousProblem.rank],
+    ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), ambiguousIntangible.requirements).counted[ambiguousProblem.rank],
   'an ambiguous Intangible must add no guessed set bonus');
 console.log('PASS: an Intangible that could complete two sets completes neither, without being discarded when broken sets are allowed.');
 
@@ -239,8 +239,8 @@ const supplyInput = generator.scenario(0);
 supplyInput.holds = {}; supplyInput.spared = [];
 supplyInput.monster = { ...supplyInput.monster, spd: 101 };
 supplyInput.requirements = { ...supplyInput.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
-  allowBroken: true, allowIntangible: false, allowImmemorial: true, alwaysCrits: false,
-  alwaysElementAdvantage: false, critLead: undefined, targets: {}, ceilings: {}, rankBy: 'spd' };
+  allowBroken: true, allowIntangible: false, alwaysCrits: false,
+  alwaysElementAdvantage: false, leads: {}, targets: {}, ceilings: {}, rankBy: 'spd' };
 supplyInput.settings = { ...supplyInput.settings, gems: 'none', grinds: 'owned', grindRollAssumption: 'maximum',
   runesOnOtherMonsters: true, resultCount: 1 };
 supplyInput.runes = Array.from({ length: 6 }, (_, at) => ({
@@ -284,8 +284,8 @@ console.log('PASS: partial grinding, lower owned grades, exact shared supply at 
 for (let index = 0; index < 16; index += 1) {
   const input = structuredClone(supplyInput);
   input.requirements = { ...input.requirements, rankBy: ['spd', 'dmg', 'ehp', 'atk'][index % 4],
-    ceilings: {}, targets: index % 2 ? { spd: 115 } : {}, allowImmemorial: index % 3 !== 0 };
-  input.settings = { ...input.settings, depth: 'complete', gems: 'owned', grinds: 'owned',
+    ceilings: {}, targets: index % 2 ? { spd: 115 } : {} };
+  input.settings = { ...input.settings, depth: 'complete', gems: 'owned', grinds: 'owned', allowImmemorial: index % 3 !== 0,
     gemRollAssumption: 'maximum', grindRollAssumption: 'maximum' };
   input.runes = input.runes.map((rune, at) => ({ ...rune, occupiedId: input.unitId,
     setId: at === 2 && index % 2 ? 15 : 13, ancient: at === 2 && index % 4 === 0,

@@ -55,14 +55,22 @@ for (const monster of mixed) {
 }
 assert.equal(together.recommendations.get('HP').displaceableWearers, 1);
 
-const preferences = { relics: { main: ['ATK'], unique: [1] } };
+const none = { preferred: [], acceptable: [] };
+const preferences = { mainStat: { preferred: ['ATK'], acceptable: [] }, relics: { unique: { preferred: [1], acceptable: [] } } };
 const before = JSON.stringify(preferences);
 const explicit = allocateRelicEngravings([subject('choice', hp, [], preferences)], relics, new Map());
 assert.equal(explicit.recommendations.get('choice').chosen.relic.id, '9003');
 assert.equal(JSON.stringify(preferences), before, 'Computing must not rewrite user choices');
-const cleared = allocateRelicEngravings([subject('cleared', hp, [], { relics: { main: [], unique: [] } })], relics, new Map());
+/* A preferred match outranks a stronger acceptable one: 9002 is the HP copy's
+   best relic by value, and accepting its main still puts the preferred 9003 first. */
+const ranked = { mainStat: { preferred: ['ATK'], acceptable: ['HP'] } };
+const tiered = allocateRelicEngravings([subject('tiered', hp, [], ranked)], relics, new Map());
+assert.equal(tiered.recommendations.get('tiered').chosen.relic.mainProperty, 'ATK', 'A preferred main must outrank an accepted one');
+assert.ok(rankRelicsForMonster(relics, hp, new Set(), ranked).some((candidate) => candidate.relic.id === '9002'),
+  'An accepted main must still be offered');
+const cleared = allocateRelicEngravings([subject('cleared', hp, [], { mainStat: none, relics: { unique: none } })], relics, new Map());
 assert.equal(cleared.recommendations.get('cleared').chosen.relic.id, '9002');
-const noMatch = allocateRelicEngravings([subject('no-match', hp, [], { relics: { unique: [16] } })], relics, new Map());
+const noMatch = allocateRelicEngravings([subject('no-match', hp, [], { relics: { unique: { preferred: [16], acceptable: [] } } })], relics, new Map());
 assert.equal(noMatch.recommendations.get('no-match').unavailable, 'preferences');
 
 const unruned = relicMonsterModel({ ...account.unit_list[0], runes: [] });
@@ -81,4 +89,4 @@ for (const model of [hp, atk]) {
   const max = Math.max(...relics.map((relic) => relicMonsterValue(relic, model).score));
   assert.equal(rankRelicsForMonster(relics, model)[0].value.score, max);
 }
-console.log('Relic engraving uses per-copy value; capacity, preferences, ties, small upgrades and roster-independent recommendations pass.');
+console.log('Relic engraving uses per-copy value; capacity, preference bands, ties, small upgrades and roster-independent recommendations pass.');

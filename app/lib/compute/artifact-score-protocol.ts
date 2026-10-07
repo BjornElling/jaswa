@@ -53,20 +53,6 @@ export type PackedArtifactScoreInput = {
   subPropertyIndexes: readonly [number, number, number, number];
   /** Each line's value in max-roll points: one maximum natural roll is one point. */
   subPropertyRollPoints: readonly [number, number, number, number];
-  /**
-   * Each line's value in the hundredths of a point the import stores, or `-1`
-   * for a legacy line whose value cannot be read.
-   *
-   * The roll points above are a *ratio* — how much of a maximum roll this line
-   * carries — and a floor is an absolute: "Damage Taken from Wind at 15 % or
-   * better". The ratio cannot answer it, because the same 15 % is a different
-   * fraction of the maximum on every property. So the absolute travels too.
-   *
-   * Optional only so a caller comparing a single pair can build a row without
-   * it; every packed artifact carries it, and it is required wherever a floor
-   * could apply.
-   */
-  subPropertyValueHundredths?: readonly [number, number, number, number];
 };
 
 export type PackedMonsterScoreInput = {
@@ -95,18 +81,6 @@ export type PackedMonsterScoreInput = {
   mainPreferences: readonly [number, number, number];
   /** One preference entry for every item in `scoredArtifactProperties`. */
   subPropertyPreferences: readonly number[];
-  /**
-   * The minimum roll each property must reach to count, in the hundredths the
-   * import stores, or `0` where any roll will do.
-   *
-   * A line below its floor contributes nothing, exactly as an unwanted one
-   * does: "at 15 % or better" is one preference, and a 6.8 % line does not
-   * answer it. Only a user can state a floor — the statistics record which
-   * properties are chosen and never how high they rolled — so this is all
-   * zeroes on a species row, and may be left out entirely by a caller building
-   * one row to compare a single pair.
-   */
-  subPropertyMinimums?: readonly number[];
   /**
    * Each property's observed share of this slot's distribution, in the same
    * order. The score deliberately does not read these — the preference band is

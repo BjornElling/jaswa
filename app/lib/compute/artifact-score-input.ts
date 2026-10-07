@@ -7,6 +7,7 @@ import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
 import type { GameRecord } from '../game-data';
 import type { MonsterCopyPreferences, MonsterPreferences } from '../monster-preferences';
+import { statedBand } from '../monster-preferences';
 import { monsterSpeciesPresentation } from '../monster-catalog';
 import { monsterSpeciesId } from '../monster-identity';
 import { labelledMonsterName } from '../monster-names';
@@ -76,17 +77,9 @@ function rollPoints(subProperty: ArtifactSubProperty): number {
   return artifactLineMaxRolls(subProperty.valueHundredths, subProperty.maximumHundredths);
 }
 
-/* A legacy line whose value cannot be read is `-1` rather than `0`: zero is a
-   real roll of nothing and would clear a floor of zero, where the point of the
-   marker is that this line cannot be compared against a floor at all. */
-function valueHundredths(subProperty: ArtifactSubProperty): number {
-  return subProperty.maximumHundredths === null ? -1 : subProperty.valueHundredths;
-}
-
 function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
   const indexes = artifact.subProperties.map((subProperty) => artifactPropertyIndex.get(subProperty.definition.id) ?? -1);
   const points = artifact.subProperties.map(rollPoints);
-  const values = artifact.subProperties.map(valueHundredths);
   return {
     id: artifact.id,
     category: categoryCode(artifact.category),
@@ -95,7 +88,6 @@ function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
     convertedPropertyIndex: artifact.convertedPropertyIndex ?? -1,
     subPropertyIndexes: [indexes[0], indexes[1], indexes[2], indexes[3]],
     subPropertyRollPoints: [points[0], points[1], points[2], points[3]],
-    subPropertyValueHundredths: [values[0], values[1], values[2], values[3]],
   };
 }
 
@@ -119,7 +111,6 @@ function packMonster(speciesId: string, category: ArtifactCategory): PackedMonst
       preferenceCode(preferences.main.HP), preferenceCode(preferences.main.ATK), preferenceCode(preferences.main.DEF),
     ],
     subPropertyPreferences: scoredArtifactProperties.map((property) => preferenceCode(preferences.sub.get(property.id))),
-    subPropertyMinimums: scoredArtifactProperties.map(() => 0),
     subPropertyShares: scoredArtifactProperties.map((property) => preferences.subShares.get(property.id) ?? 0),
   };
 }
@@ -146,32 +137,28 @@ function packStatedCopy(
 ): PackedMonsterScoreInput | undefined {
   const species = packMonster(speciesId, category);
   if (!species) return undefined;
-  const wishes = stated.artifacts?.[category];
-  if (!wishes || (wishes.main === undefined && wishes.sub === undefined)) return undefined;
+  const mains = stated.mainStat;
+  const subs = stated.artifacts?.sub?.[category];
+  if (mains === undefined && subs === undefined) return undefined;
 
-  const mains = wishes.main;
-  const subs = wishes.sub;
   return {
     ...species,
     id: unitId,
     ownerUnitId: unitId,
     name: labelledMonsterName(species.name, stated.label),
-    /* A stated list is exhaustive: a main the user did not name is one they do
-       not want, which is `unwanted`, not `acceptable`. Every named main is
-       preferred — the user drew no ranking, so the scorer must not invent one. */
+    /* The user's two bands are the scorer's two bands, and an option in neither
+       is unwanted — `statedBand` is the one reading of that, shared with the
+       per-artifact reader. */
     mainPreferences: mains === undefined
       ? species.mainPreferences
       : [
-        mains.includes('HP') ? 2 : 0,
-        mains.includes('ATK') ? 2 : 0,
-        mains.includes('DEF') ? 2 : 0,
+        preferenceCode(statedBand(mains, 'HP')),
+        preferenceCode(statedBand(mains, 'ATK')),
+        preferenceCode(statedBand(mains, 'DEF')),
       ],
     subPropertyPreferences: subs === undefined
       ? species.subPropertyPreferences
-      : scoredArtifactProperties.map((property) => (subs[String(property.id)] === undefined ? 0 : 2)),
-    subPropertyMinimums: subs === undefined
-      ? species.subPropertyMinimums
-      : scoredArtifactProperties.map((property) => subs[String(property.id)]?.minimumHundredths ?? 0),
+      : scoredArtifactProperties.map((property) => preferenceCode(statedBand(subs, property.id))),
   };
 }
 

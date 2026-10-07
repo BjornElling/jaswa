@@ -322,9 +322,10 @@ label[for] {
 
 /* Body — every sentence, label and value that is not a heading. */
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
-.overlay-current-value, .overlay-current-build, .overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
-.choice-menu-summary, .choice-menu-option-label, .rune-build-set,
-.overlay-substat-name, .overlay-toggle, .overlay-crit-lead, .choice-menu-empty,
+.overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
+.rune-build-set, .overlay-toggle, .overlay-lead,
+.worn-rune-main, .worn-rune-innate, .worn-rune-subs, .worn-artifact-main, .worn-artifact-subs,
+.worn-relic-main, .worn-relic-unique,
 .checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
 .statistics-lead, .best-artifact-ranking, .best-artifact-empty,
 .best-artifact-fact dt, .statistics dt, .empty-state p,
@@ -359,7 +360,8 @@ label[for] {
 
 /* Body emphasis — weight carries priority without changing the family or size. */
 .type-body-emphasis, .monster-name, .slider-choice, .relic-verdict, .rune-verdict, .speed-summary-name, .speed-basis-figure,
-.drop-zone.settled strong, .acceleration-adapter b, .rune-build-card-identity .rune-link, .rune-build-card-main {
+.drop-zone.settled strong, .acceleration-adapter b, .rune-build-card-identity .rune-link, .rune-build-card-main,
+.worn-rune-set {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 500;
@@ -384,7 +386,7 @@ label[for] {
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
 .rune-simulator-stats-table thead th, .overlay-facts dt, .rune-overlay-subs th,
 .rune-overlay-readings thead th, .speed-group-title, .rune-build-card-where-label, .rune-build-change-title,
-.monster-priority-head {
+.monster-priority-head, .worn-artifact-category {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -394,9 +396,8 @@ label[for] {
 .type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label, .craft-held-balance-label,
 .preset-type, .overlay-provenance, .usage-share,
-.overlay-stat-current, .overlay-substat-unit, .overlay-slot-name,
-.choice-menu-option-note,
-.overlay-suggestion-label, .speed-lane-turn text, .speed-lane-figure,
+.overlay-stat-current, .overlay-slot-name, .worn-rune-level, .worn-artifact-class,
+.speed-lane-turn text, .speed-lane-figure,
 .rune-optimization-provenance, .rune-build-card-grade, .rune-build-change-kind,
 .speed-summary-state, .speed-leader-skill, .monster-priority-optimize {
   font-family: var(--font-body);
@@ -4219,7 +4220,7 @@ input[type='checkbox']:checked {
    restyling one of their own: they are the same control asking the same kind
    of question, and a second definition is how two text boxes on one page come
    to have two different heights. */
-.field input, .field textarea, .stat-range-input, .overlay-substat input, .overlay-crit-lead input {
+.field input, .field textarea, .stat-range-input, .overlay-lead input {
   display: block; width: 100%;
   height: 36px;
   background: var(--sunk);
@@ -4263,7 +4264,7 @@ input[type='checkbox']:checked {
   font-family: var(--font-body); line-height: 1.55;
 }
 .field input:focus, .jaswa-select:focus, .field textarea:focus,
-.stat-range-input:focus, .overlay-substat input:focus, .overlay-crit-lead input:focus {
+.stat-range-input:focus, .overlay-lead input:focus {
   outline: none; border-color: var(--text-accent);
 }
 
@@ -5448,20 +5449,34 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    height, so a block cannot resize when its provenance changes. */
 .overlay-provenance { margin: 0; color: var(--text-muted); min-height: 1lh; }
 
-/* A fixed label column, so Current, Desired and Most common start their values
-   on one vertical line and the comparison is a single downward glance. */
+/* A fixed label column, so Desired and Most common start their values on one
+   vertical line and the comparison is a single downward glance. The label column
+   is the gear grid's too, so every answer on the left starts on one line. */
 .overlay-lines {
   display: grid;
-  grid-template-columns: 116px minmax(0, 1fr);
-  gap: var(--s3) var(--s4);
-  align-items: baseline;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: var(--s2) var(--s4);
+  align-items: center;
 }
 .overlay-row-label { margin: 0; color: var(--text-muted); }
 .overlay-row-value { min-width: 0; }
-/* What is worn now is reference under what is wanted, dimmed like the current
-   figure under a stat target: the statement leads, the fact qualifies it. */
-.overlay-current-value { color: var(--text-muted); }
 .overlay-empty { color: var(--text-muted); }
+
+/* ------------------------------------------------ monster overlay columns */
+
+/* What is wanted takes two thirds and what is worn the last third, read across
+   one line of sight. Both columns start at the top and size to their content,
+   so a copy wearing nothing leaves the right column short rather than moving
+   the answers on the left. */
+.monster-overlay-body {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--s6);
+  align-items: start;
+  padding-top: var(--s4);
+}
+.monster-overlay-wants, .monster-overlay-worn { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
+.monster-overlay-body .overlay-block { gap: var(--s2); }
+.monster-overlay-worn .notice { margin: 0; }
 
 /* The eleven ranges — the eight stats and the three composites — in two rows of
    six, because two fields a figure do not fit eleven abreast. Equal fractions
@@ -5500,97 +5515,94 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 /* CRI Rate carries its crit-context mark after its own figure. */
 .stat-range .overlay-stat-current, .overlay-stat .overlay-stat-current { display: flex; align-items: center; gap: var(--s1); }
 
-/* The tie-break question sits under the eleven fields it depends on, reading
-   as one sentence with its own answer at the end. */
-.overlay-suggestion {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--s2) var(--s3);
-  margin-top: var(--s4);
-  padding-top: var(--s3);
-  border-top: 1px solid var(--line);
+/* The profile's eleven ranges in two rows of six, each field sized to the
+   figure it holds rather than stretched to its share of the row: five digits for
+   a stat, six for the two survival composites, which run an order of magnitude
+   higher. The cells stay equal, so typing never moves a neighbour. */
+.overlay-stat-ranges { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s3) var(--s4); }
+.overlay-stat-ranges > .stat-range, .overlay-stat-ranges > .overlay-stat,
+.overlay-stat-ranges > .stat-range:is([data-figure='ehp'], [data-figure='ehpD']) { grid-column: auto; }
+/* The name and the figure the copy has share the line above the two fields —
+   name at the left edge, figure at the right edge of the pair — so a row of
+   ranges is two lines tall rather than three. The cell is exactly as wide as
+   its pair, so the figure always lands over the end of the range it qualifies. */
+.overlay-stat-ranges .stat-range {
+  --digits: 5;
+  --field: calc(var(--digits) * 1ch + 2 * var(--s2) + 2px);
+  width: calc(2 * var(--field) + var(--s2));
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'head current' 'fields fields';
+  align-items: baseline;
+  column-gap: var(--s2);
 }
-.overlay-suggestion-label { color: var(--text-muted); }
-/* Sized to its longest option rather than to the row: the answer is one short
-   word, and a field spanning the panel reads as the more important half of a
-   sentence whose subject is the question beside it. */
-.overlay-suggestion-select { width: 200px; flex: none; }
+.overlay-stat-ranges .stat-range:is([data-figure='ehp'], [data-figure='ehpD']) { --digits: 6; }
+.overlay-stat-ranges .stat-range .overlay-stat-head { grid-area: head; }
+.overlay-stat-ranges .stat-range .overlay-stat-current { grid-area: current; justify-content: end; }
+.overlay-stat-ranges .stat-range-fields {
+  grid-area: fields;
+  grid-template-columns: repeat(2, var(--field));
+  column-gap: var(--s2);
+}
+/* The dash between the two fields is the gap itself here: two fields this
+   short, side by side under one name, already read as a range. */
+.overlay-stat-ranges .stat-range-dash { display: none; }
+.overlay-stat-ranges .stat-range-input { padding-inline: var(--s2); }
 
-.overlay-equipment-panels {
+/* The tie-break, in the twelfth cell of the ranges it follows from: its name on
+   the line the figures' names sit on, its answer on the line of their fields. */
+.overlay-sort { display: grid; gap: var(--s1); align-content: start; min-width: 0; }
+
+/* The switches that qualify the answers: four toggles two by two, each owning a
+   fixed cell so checking one moves nothing, and the leads beside them under their
+   own name, two to a column, every field one width so a typed lead moves nothing
+   either. */
+.overlay-settings {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--seam);
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--s7);
+  align-items: start;
 }
-.overlay-equipment-panels .overlay-lines { grid-template-columns: 100px minmax(0, 1fr); }
-
-/* ------------------------------------------------- choice menus */
-
-/* A field that opens its vocabulary rather than printing it. The closed box is
-   the same size whatever was chosen: the summary is one ellipsised line, so a
-   monster wanting five rune builds and one wanting none read at the same
-   height and nothing around them moves (`AGENTS.md` §2). */
-.choice-menu { position: relative; min-width: 0; }
-.choice-menu-field {
-  width: 100%;
-  display: flex; align-items: center; gap: var(--s2);
-  padding: var(--s2) var(--s3);
-  background: var(--sunk);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-}
-.choice-menu-field:hover { border-color: var(--gold-edge); }
-.choice-menu-field[aria-expanded='true'] { border-color: var(--text-accent); }
-.choice-menu-field:disabled { cursor: default; opacity: .55; }
-.choice-menu-summary {
-  flex: 1; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.choice-menu-summary.empty { color: var(--text-muted); }
-/* Rotates in place, so the field cannot change height as the menu opens. */
-.choice-menu-chevron { width: 14px; height: 14px; flex: none; color: var(--text-muted); }
-.choice-menu-field[aria-expanded='true'] .choice-menu-chevron { transform: rotate(180deg); }
-
-/* Absolutely positioned, so opening moves nothing behind it. */
-.choice-menu-panel {
-  position: absolute;
-  z-index: 10;
-  top: calc(100% + var(--s1));
-  left: 0;
-  min-width: 100%;
-  max-height: 340px;
-  overflow: auto;
-  background: var(--raise);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, .55);
-}
-.choice-menu-list { list-style: none; margin: 0; padding: var(--s1); display: grid; }
-.choice-menu-option {
+.overlay-settings-toggles {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: repeat(2, max-content);
+  grid-auto-rows: 28px;
   align-items: center;
-  gap: var(--s2);
-  padding: var(--s2) var(--s2);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+  gap: var(--s1) var(--s5);
+}
+.overlay-leads { display: grid; gap: var(--s1); justify-items: start; }
+.overlay-leads-fields {
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  grid-auto-flow: column;
+  gap: var(--s1) var(--s6);
+}
+.overlay-lead { display: grid; grid-template-columns: 9ch auto auto; align-items: center; gap: var(--s2); color: var(--text-muted); }
+
+/* Every gear question on one grid: its name and the Preferred and Accepted
+   lines. The answer columns are equal, so a pill added in one never moves the
+   other, and every row is one control high (`AGENTS.md` §2). */
+.overlay-gear {
+  display: grid;
+  grid-template-columns: 148px repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--s1) var(--s4);
+}
+/* The population's artifacts, beside what is worn: a narrower label column,
+   since the right third has no room for the left's. */
+.overlay-common { grid-template-columns: 112px minmax(0, 1fr); gap: var(--s1) var(--s3); }
+/* Inline rather than flex, so a row too long for its column ends in an ellipsis
+   instead of a word cut in half. */
+.overlay-slot .usage-line, .overlay-lines .usage-line {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.choice-menu-option:hover { background: var(--sunk); }
-.choice-menu-option.unavailable { cursor: default; opacity: .5; }
-.choice-menu-option-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-/* The community share, as reference beside the option — never as a choice
-   already made. Always present so a row without one keeps its height. */
-.choice-menu-option-note {
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  min-width: 4ch;
-  text-align: right;
-}
-.choice-menu-empty { padding: var(--s3); color: var(--text-muted); }
+:is(.overlay-slot, .overlay-lines) .usage-entry + .usage-entry { margin-left: var(--s3); }
+/* A gear answer names long properties, so its pills get the room a filter's
+   single short value does not need. */
+.overlay-band-field .token-choice-pill { max-width: 22ch; }
 
 /* ------------------------------------------- token choice field */
 
@@ -5798,66 +5810,123 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 /* Already on the line: still there to point through, never to add twice. */
 .rune-build-set[aria-disabled='true'] { color: var(--text-muted); cursor: default; }
 
-/* What is worn and the Intangible concession read as one row, the concession
-   at the far end of the half. */
-.overlay-build-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--s2) var(--s4);
-}
-.overlay-current-build { color: var(--text-strong); }
 /* A concession rather than a statement, so it stays quiet: muted text, and a
-   box on the panel's ground ringed in the gold edge rather than a white hole. */
-.overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); cursor: pointer; }
+   box on the panel's ground ringed in the gold edge rather than a white hole.
+   Each owns a fixed cell of its row, so checking one leaves its neighbours still. */
+.overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
 .overlay-toggle input { border-color: var(--gold-edge); }
-.overlay-toggles { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); }
-/* Each crit source owns a fixed box, so checking one leaves its neighbours still. */
-.overlay-crit-options { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s4); margin-top: var(--s3); }
-.overlay-crit-lead { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); }
-.overlay-crit-lead input { width: 80px; font-variant-numeric: tabular-nums; }
+.overlay-lead input { width: calc(3ch + 2 * var(--s3) + 2px); font-variant-numeric: tabular-nums; }
 
-/* Three slots on one row: each names itself and opens its own mains. */
+/* Three slots on one row, under the build: each names itself, opens its own
+   mains, and carries its population on one line beneath. */
 .overlay-slot-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s3);
+  gap: var(--s4);
+  margin-top: var(--s1);
 }
 .overlay-slot { display: grid; gap: var(--s1); min-width: 0; align-content: start; }
 .overlay-slot-name { color: var(--text-muted); }
 
-/* The build takes the left half and the three slot mains the right, the same
-   seam the artifact pair below uses, so the block's middle lines up with theirs. */
-.overlay-runes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--seam);
-  align-items: start;
-}
-/* A slot's population reads on one row under its field, as the build's does
-   beside it; the gap is tighter because a third of a half is little room. */
-.overlay-slot .usage-line { flex-wrap: nowrap; gap: var(--s2); margin-top: var(--s1); white-space: nowrap; }
+/* ------------------------------------------------ what a copy wears now */
 
-/* One floor per chosen substat. Only the properties the user asked for appear,
-   so the list is as long as their answer rather than as the vocabulary. */
-.overlay-substats {
+/* Six runes in two rows of three, in slot order. Every card is one fixed shape —
+   emblem beside three lines, a step, then four sub-property rows — so an empty
+   slot, a rune without an innate and one with two sub properties draw the same
+   box and the grid never re-flows. */
+.worn-runes {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--s2) var(--s4);
-}
-.overlay-substat {
-  display: grid;
-  /* Wide enough for the word the empty field carries. At 7ch the placeholder
-     truncated to "an", which reads as a typo rather than as "any roll will
-     do". */
-  grid-template-columns: minmax(0, 1fr) 9ch auto auto;
-  align-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.overlay-substat-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.overlay-substat input { width: 100%; font-variant-numeric: tabular-nums; }
-.overlay-substat-unit { color: var(--text-muted); }
+.worn-rune {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-rows: repeat(3, 1lh) auto;
+  column-gap: var(--s2);
+  padding: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+}
+/* The overlay's emblem at a third, every layer by the same factor, so the slots
+   keep the proportions they have in the game's circle. */
+.worn-rune .rune-emblem, .worn-rune-blank { grid-row: 1 / span 3; width: 36px; height: 36px; border-radius: var(--radius-sm); }
+.worn-rune .rune-emblem-frame { width: 30px; }
+.worn-rune .rune-emblem[data-slot="1"] .rune-emblem-frame,
+.worn-rune .rune-emblem[data-slot="4"] .rune-emblem-frame { width: 25px; }
+.worn-rune .rune-emblem-glyph { width: 19px; }
+.worn-rune-blank {
+  display: grid; place-items: center;
+  border: 1px dashed var(--line-strong);
+  color: var(--text-muted);
+}
+.worn-rune-set, .worn-rune-main, .worn-rune-innate {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.worn-rune-set { display: flex; justify-content: space-between; gap: var(--s1); color: var(--text-strong); }
+.worn-rune-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.worn-rune-main { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.worn-rune[data-empty='true'] :is(.worn-rune-set, .worn-rune-main) { color: var(--text-muted); }
+.worn-rune-level { flex: none; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.worn-rune-innate .rune-sub { margin-right: 0; }
+.worn-rune-subs {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-auto-rows: 1lh;
+  margin: var(--s2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.worn-rune-subs .rune-sub { margin-right: 0; }
+.worn-rune[data-empty='true'] .worn-rune-subs { display: none; }
+.worn-rune[data-empty='true']::after { content: ''; grid-column: 1 / -1; height: calc(4lh + var(--s2)); }
+
+/* The two artifacts side by side, each the same five rows: its category and the
+   class it fits, the main named, and four lines that clip with the whole line in
+   the title rather than wrap and make one card taller than its neighbour. */
+.worn-artifacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
+.worn-artifact {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: 1lh 1lh auto;
+  gap: var(--s1);
+  padding: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+}
+.worn-artifact-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); margin: 0; min-width: 0; }
+.worn-artifact-category { color: var(--text-muted); }
+.worn-artifact-class { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.worn-artifact-main { margin: 0; color: var(--text-strong); }
+.worn-artifact-subs { display: grid; grid-auto-rows: 1lh; margin: 0; padding: 0; list-style: none; color: var(--text); }
+.worn-artifact-subs li { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
+.worn-artifact-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* A relic per line — main, unique, level — so a copy wearing several costs the
+   column one line each; the unique clips with the whole effect in its title. */
+.worn-relics { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
+.worn-relic {
+  display: grid;
+  grid-template-columns: 9ch minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: var(--s1) var(--s2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+}
+.worn-relic-main { color: var(--text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.worn-relic-unique { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 
 .usage-line { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s3); row-gap: 0; }
 /* Most common is reference, never an answer, so all of it reads muted. */

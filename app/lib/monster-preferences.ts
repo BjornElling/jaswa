@@ -1,9 +1,10 @@
 import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
-import { artifactMainPropertyOrder, artifactProperty } from './artifact-properties';
+import { artifactMainPropertyOrder, artifactPropertiesFor } from './artifact-properties';
 import type { RuneSlotKey } from './monster-defaults';
 import { runeSlotKeys } from './monster-defaults';
-import type { RelicMainProperty } from './relic-properties';
-import { relicMainPropertyOrder, relicProperty } from './relic-properties';
+import { relicProperty } from './relic-properties';
+import type { LeadStat, Leads } from './monster-stats';
+import { leadStats } from './monster-stats';
 import type { PresetTargets } from './rune-potential-presets';
 import { presetStatTargetKeys, presetTargetMaximum } from './rune-potential-presets';
 import type { RuneSlotMain } from './rune-slot-mains';
@@ -47,73 +48,71 @@ export const monsterStatTargetKeys: ReadonlyArray<keyof MonsterStatTargets> = [
 ];
 
 /*
- * **A user's statement is yes or no, never a band.**
+ * **Runes are stated yes or no; gear is stated in two bands.**
  *
- * This reverses `ARTIFACT-CANONICAL.md` §19.4's three-state model, in which the
- * user cycled every set and property through preferred, acceptable and cleared.
- * Two things were wrong with it. A preferred-versus-acceptable *ranking* is only
- * meaningful where something weighs it, and the only consumer — a future rune
- * and artifact optimizer — asks one question: may this be suggested or not. And
- * three states over twenty-three set names and eight main stats per slot made
- * the overlay a wall of chips to answer a yes/no question twenty times over.
+ * A rune build or a slot main is one the copy will take or it is not: the rune
+ * optimizer asks only whether a build may be suggested, so a ranking there would
+ * be weighed by nothing. Artifacts and relics are different, because their
+ * consumers do weigh a ranking — the artifact score counts an acceptable line at
+ * the user's acceptable worth (§19.6), and the relic plan offers a preferred
+ * match ahead of an acceptable one. So a gear answer is a `BandedChoices`: what
+ * the copy prefers, and what it will accept when nothing preferred is to hand.
  *
- * So a preference is now a **list of what the user will take**. The three
- * states collapse to two, and the distinction §19.4 was protecting survives in
- * the list itself rather than in a band:
+ * Whichever shape, the three states `ARTIFACT-CANONICAL.md` §19.4 protects are
+ * carried by the presence of the key:
  *
  * | State | How it is stored | Where the answer comes from |
  * | --- | --- | --- |
- * | Chosen | in the list | the user |
- * | Never stated | **no list at all** | the default |
- * | Deliberately cleared | an **empty list** | the user — *not* the default |
+ * | Chosen | in the list (or one of the two bands) | the user |
+ * | Never stated | **no key at all** | the default |
+ * | Deliberately cleared | an **empty list** (or two empty bands) | the user — *not* the default |
  *
- * The third row is still the one that gets got wrong, and it is still the
- * presence of the key that carries it: an empty array survives
+ * The third row is still the one that gets got wrong: an empty array survives
  * `JSON.stringify` where `undefined` does not, so a user who cleared every
  * choice keeps that answer across a reload instead of having the defaults
- * quietly returned to them.
+ * quietly returned to them. A cleared answer reads `Any` — it narrows nothing.
  */
 
 /**
- * A wanted substat, and how good it has to be.
- *
- * `minimumHundredths` is the floor in the same hundredths of a percentage point
- * the import stores (`ArtifactSubProperty.valueHundredths`), so the comparison
- * is exact integer arithmetic rather than a float that nearly matches. It is
- * what makes the ordinary real preference sayable: *an HP artifact carrying
- * Damage Taken from Wind at 15 % or better, and nothing else.*
- *
- * `undefined` means the property is wanted at any roll. That is a different
- * statement from a floor of `0`, and both have to survive a reload
- * (`AGENTS.md` §3).
+ * One gear question answered in two bands. An option sits in at most one of
+ * them; one in neither is not wanted, unless both are empty, which is `Any`.
  */
-export type ArtifactSubPreference = { minimumHundredths?: number };
+export type BandedChoices<T> = { preferred: T[]; acceptable: T[] };
 
-/** The most a substat floor may be asked for, in hundredths — well past any real roll. */
-export const substatMinimumMaximum = 100_00;
-
-export type ArtifactCategoryPreference = {
-  /**
-   * The main stats this copy will accept in this category.
-   *
-   * A single artifact carries one main, but the *question* is which mains are
-   * worth equipping, and a user building for bulk may be equally happy with HP
-   * or DEF. Naming both says so; naming one says the other is not wanted.
-   *
-   * **This reverses the earlier single-choice model.** `ARTIFACT-CANONICAL.md`
-   * §19.2 held that a main is one choice because a piece carries one, which
-   * confused what a piece *has* with what a user will *take*. The score matrix
-   * has carried a band per main all along
-   * (`PackedMonsterScoreInput.mainPreferences`), so a list is also the shape the
-   * optimizer already reads.
-   *
-   * An empty list is a statement that none is wanted; an absent one is a
-   * silence the default answers.
-   */
-  main?: ArtifactMainProperty[];
-  /** Wanted substats by property id, written decimal because JSON has no numeric key. */
-  sub?: Record<string, ArtifactSubPreference>;
+/**
+ * What a copy wants from its two artifacts beyond the main: the substats, per
+ * category. They are not one question — the two categories roll from different
+ * pools, and a `(category, property)` pair is the key `ARTIFACT-CANONICAL.md`
+ * §19.2 insists on. The main is `MonsterCopyPreferences.mainStat`.
+ */
+export type ArtifactPreferences = {
+  /** By the sub-property ids §15.4 numbers. */
+  sub?: Partial<Record<ArtifactCategory, BandedChoices<number>>>;
 };
+
+export type RelicPreferences = {
+  /** By the unique-property ids `RELIC-CANONICAL.md` §4 numbers. */
+  unique?: BandedChoices<number>;
+};
+
+/** Every option a banded answer names, preferred first. */
+export function bandedChoices<T>(choices: BandedChoices<T> | undefined): T[] {
+  return choices === undefined ? [] : [...choices.preferred, ...choices.acceptable];
+}
+
+/**
+ * The band a stated answer puts one option in — the single reading every scorer
+ * of a copy's gear takes, so two of them cannot disagree about what `Any` is.
+ *
+ * Two empty bands narrow nothing, so every option is preferred: the user cleared
+ * the question, and an answer of "none of them" would score every artifact at
+ * zero for an answer that reads `Any` on screen.
+ */
+export function statedBand<T>(choices: BandedChoices<T>, option: T): 'preferred' | 'acceptable' | 'unwanted' {
+  if (choices.preferred.length === 0 && choices.acceptable.length === 0) return 'preferred';
+  if (choices.preferred.includes(option)) return 'preferred';
+  return choices.acceptable.includes(option) ? 'acceptable' : 'unwanted';
+}
 
 export type MonsterCopyPreferences = {
   /** The owned copy's `unit_id`. The record's own key in the map repeats it. */
@@ -144,8 +143,6 @@ export type MonsterCopyPreferences = {
   allowBrokenSets?: boolean;
   /** Whether an Intangible rune may stand in for the one rune a set is short. Absent is yes. */
   allowIntangibleRunes?: boolean;
-  /** Whether an Immemorial Gem or Grindstone, which fits a rune of any set, may be spent. Absent is yes. */
-  allowImmemorialItems?: boolean;
   /**
    * Whether every hit this copy lands is a crit, whatever its CRI Rate — a skill,
    * a leader or a team that guarantees one. Every figure is then counted at a
@@ -155,24 +152,33 @@ export type MonsterCopyPreferences = {
   alwaysCrits?: boolean;
   /** Whether every target has elemental disadvantage against this copy. Absent is no. */
   alwaysElementAdvantage?: boolean;
-  /** CRI Rate points supplied by its leader. Absent is no lead; zero is a stated zero. */
+  /**
+   * What its leader adds, one field a stat: ATK, DEF, SPD and HP in percent of
+   * base, CRI Rate in points. Each is its own answer: absent is no lead, and zero
+   * is a stated zero. Counted in every range and composite, never in a figure
+   * shown as the copy's own (`monster-stats.ts` `addLeaderEffects`).
+   */
   critLead?: number;
+  atkLead?: number;
+  defLead?: number;
+  spdLead?: number;
+  hpLead?: number;
   /**
    * The main stats wanted in slots 2, 4 and 6 — several may be, so each slot
    * holds a list. Slots 1, 3 and 5 carry a fixed main and cannot be stated.
    */
   runeSlots?: Partial<Record<RuneSlotKey, string[]>>;
-  artifacts?: Partial<Record<ArtifactCategory, ArtifactCategoryPreference>>;
-  relics?: {
-    /** The mains this copy will accept, on the same reasoning as an artifact's. */
-    main?: RelicMainProperty[];
-    /**
-     * The unique properties wanted, by the ids `RELIC-CANONICAL.md` §4 numbers.
-     * A yes/no list rather than bands: the optimizer asks only whether a unique
-     * is one the user will take.
-     */
-    unique?: number[];
-  };
+  /**
+   * The main stat wanted on every piece of gear — both artifacts and the relic.
+   *
+   * **One answer, not three.** A copy built for bulk wants HP or DEF on
+   * whichever piece carries a main, and the three are drawn from the same three
+   * values; asking per artifact category and again per relic only ever produced
+   * three copies of one answer.
+   */
+  mainStat?: BandedChoices<ArtifactMainProperty>;
+  artifacts?: ArtifactPreferences;
+  relics?: RelicPreferences;
   /**
    * The stats this copy is being built toward.
    *
@@ -250,17 +256,12 @@ export function statesSomething(preferences: MonsterCopyPreferences): boolean {
   if (preferences.runeSets !== undefined) return true;
   if (preferences.allowBrokenSets !== undefined) return true;
   if (preferences.allowIntangibleRunes !== undefined) return true;
-  if (preferences.allowImmemorialItems !== undefined) return true;
   if (preferences.alwaysCrits !== undefined) return true;
   if (preferences.alwaysElementAdvantage !== undefined) return true;
-  if (preferences.critLead !== undefined) return true;
+  if (leadFields.some((field) => preferences[field] !== undefined)) return true;
   if (runeSlotKeys.some((key) => preferences.runeSlots?.[key] !== undefined)) return true;
-  for (const category of ['attribute', 'type'] as const) {
-    const artifact = preferences.artifacts?.[category];
-    if (artifact?.main !== undefined) return true;
-    if (artifact?.sub !== undefined && Object.keys(artifact.sub).length > 0) return true;
-  }
-  if (preferences.relics?.main !== undefined) return true;
+  if (preferences.mainStat !== undefined) return true;
+  if (preferences.artifacts?.sub?.attribute !== undefined || preferences.artifacts?.sub?.type !== undefined) return true;
   if (preferences.relics?.unique !== undefined) return true;
   if (preferences.runeSuggestionStat !== undefined) return true;
   for (const targets of [preferences.statTargets, preferences.statCeilings]) {
@@ -286,33 +287,30 @@ function isChosenList<T>(value: unknown, allows: (entry: unknown) => entry is T)
   return new Set(value).size === value.length;
 }
 
-function isSubstatId(key: string): boolean {
-  const id = Number(key);
-  return Number.isInteger(id) && String(id) === key && artifactProperty(id) !== null;
+/* Per category, not against the whole vocabulary: a property the category never
+   rolls is a wish no artifact can answer, and a stored one is malformed. */
+function isArtifactSubIn(category: ArtifactCategory) {
+  const allowed = new Set(artifactPropertiesFor(category).map((definition) => definition.id));
+  return (value: unknown): value is number => typeof value === 'number' && allowed.has(value);
 }
 
 function isRelicUniqueId(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && relicProperty(value) !== undefined;
 }
 
-function isSubPreferences(value: unknown): value is Record<string, ArtifactSubPreference> {
+/* Both bands present, each a chosen list, and no option in both: an option is
+   preferred or acceptable, and a document naming it twice was not written by
+   this editor. */
+function isBanded<T>(value: unknown, allows: (entry: unknown) => entry is T): value is BandedChoices<T> {
   if (!isRecord(value)) return false;
-  return Object.entries(value).every(([key, preference]) => {
-    if (!isSubstatId(key) || !isRecord(preference)) return false;
-    if (!Object.keys(preference).every((field) => field === 'minimumHundredths')) return false;
-    const minimum = preference.minimumHundredths;
-    return minimum === undefined
-      || (typeof minimum === 'number' && Number.isInteger(minimum)
-        && minimum >= 0 && minimum <= substatMinimumMaximum);
-  });
+  if (!Object.keys(value).every((key) => key === 'preferred' || key === 'acceptable')) return false;
+  if (!isChosenList(value.preferred, allows) || !isChosenList(value.acceptable, allows)) return false;
+  const preferred = new Set<T>(value.preferred);
+  return value.acceptable.every((entry) => !preferred.has(entry));
 }
 
 function isArtifactMain(value: unknown): value is ArtifactMainProperty {
   return typeof value === 'string' && artifactMainPropertyOrder.includes(value as ArtifactMainProperty);
-}
-
-function isRelicMain(value: unknown): value is RelicMainProperty {
-  return typeof value === 'string' && relicMainPropertyOrder.includes(value as RelicMainProperty);
 }
 
 /* Per slot, not against the whole vocabulary: a wish for a main the slot cannot
@@ -335,18 +333,57 @@ function isRuneBuildList(value: unknown): value is string[] {
   return new Set(value.map((id) => runeBuildKey(runeBuild(id)!))).size === value.length;
 }
 
-function isArtifactPreference(value: unknown): value is ArtifactCategoryPreference {
-  if (!isRecord(value)) return false;
-  if (!Object.keys(value).every((key) => key === 'main' || key === 'sub')) return false;
-  if (value.main !== undefined && !isChosenList(value.main, isArtifactMain)) return false;
-  return value.sub === undefined || isSubPreferences(value.sub);
+/*
+ * Gear is read one question at a time (`AGENTS.md` §0): the shared main, each
+ * category's substats and the uniques are four answers, and one the contract no
+ * longer honours costs that answer and not the three beside it.
+ */
+function readArtifactPreferences(value: unknown): ArtifactPreferences | undefined {
+  if (!isRecord(value)) return undefined;
+  const read: ArtifactPreferences = {};
+  if (isRecord(value.sub)) {
+    const sub: Partial<Record<ArtifactCategory, BandedChoices<number>>> = {};
+    for (const category of ['attribute', 'type'] as const) {
+      const stated = value.sub[category];
+      if (isBanded(stated, isArtifactSubIn(category))) sub[category] = stated;
+    }
+    if (Object.keys(sub).length > 0) read.sub = sub;
+  }
+  return Object.keys(read).length > 0 ? read : undefined;
 }
 
-function isRelicPreference(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  if (!Object.keys(value).every((key) => key === 'main' || key === 'unique')) return false;
-  if (value.main !== undefined && !isChosenList(value.main, isRelicMain)) return false;
-  return value.unique === undefined || isChosenList(value.unique, isRelicUniqueId);
+/** The most a lead may state, in percent or CRI Rate points. */
+export const leadMaximum = 100;
+
+/** One lead as typed: a whole number from 0 to `leadMaximum`, or `undefined` for an empty field. */
+export function readLeadField(raw: string): number | undefined {
+  const trimmed = raw.trim();
+  const parsed = Number(trimmed);
+  if (trimmed === '' || !Number.isFinite(parsed)) return undefined;
+  return Math.min(leadMaximum, Math.max(0, Math.round(parsed)));
+}
+
+/** The preference field each lead is kept in, by the stat it raises. */
+export const leadFieldOf: Readonly<Record<LeadStat, 'critLead' | 'atkLead' | 'defLead' | 'spdLead' | 'hpLead'>> = {
+  atk: 'atkLead', def: 'defLead', spd: 'spdLead', hp: 'hpLead', criRate: 'critLead',
+};
+const leadFields = leadStats.map((stat) => leadFieldOf[stat]);
+
+/** A copy's stated leads, as the calculation reads them. */
+export function statedLeads(preferences: MonsterCopyPreferences | undefined): Leads {
+  const leads: Leads = {};
+  for (const stat of leadStats) {
+    const lead = preferences?.[leadFieldOf[stat]];
+    if (lead !== undefined) leads[stat] = lead;
+  }
+  return leads;
+}
+
+function readRelicPreferences(value: unknown): RelicPreferences | undefined {
+  if (!isRecord(value)) return undefined;
+  const read: RelicPreferences = {};
+  if (isBanded(value.unique, isRelicUniqueId)) read.unique = value.unique;
+  return Object.keys(read).length > 0 ? read : undefined;
 }
 
 /*
@@ -393,30 +430,29 @@ function isRuneSlots(value: unknown): boolean {
       runeSlotKeys.includes(key as RuneSlotKey) && isChosenList(slot, isRuneMainStatIn(key as RuneSlotKey)));
 }
 
-function isArtifactPreferences(value: unknown): boolean {
-  return isRecord(value)
-    && Object.entries(value).every(([key, preference]) =>
-      (key === 'attribute' || key === 'type') && isArtifactPreference(preference));
-}
-
 /*
- * Every band is one of three strings, every set name and property id is one the
- * editor could have offered, every target is a whole number in range. Each
- * field is its own decision and is checked alone, so one the contract no longer
- * honours costs that field and not the rest of the copy.
+ * Every set name and property id is one the editor could have offered, every
+ * target is a whole number in range. Each field is its own decision and is
+ * checked alone, so one the contract no longer honours costs that field and not
+ * the rest of the copy. Gear has readers of its own, a question at a time.
  */
-const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId'>, (value: unknown) => boolean> = {
+const isLead = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= leadMaximum;
+
+const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | 'artifacts' | 'relics'>,
+  (value: unknown) => boolean> = {
   label: (value) => typeof value === 'string' && value.trim() === value && value.length <= monsterLabelMaximum,
   runeSets: isRuneBuildList,
   allowBrokenSets: (value) => typeof value === 'boolean',
   allowIntangibleRunes: (value) => typeof value === 'boolean',
-  allowImmemorialItems: (value) => typeof value === 'boolean',
   alwaysCrits: (value) => typeof value === 'boolean',
   alwaysElementAdvantage: (value) => typeof value === 'boolean',
-  critLead: (value) => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100,
+  critLead: isLead,
+  atkLead: isLead,
+  defLead: isLead,
+  spdLead: isLead,
+  hpLead: isLead,
   runeSlots: isRuneSlots,
-  artifacts: isArtifactPreferences,
-  relics: isRelicPreference,
+  mainStat: (value) => isBanded(value, isArtifactMain),
   statTargets: isStatTargets,
   statCeilings: isStatTargets,
   runeSuggestionStat: (value) => monsterStatTargetKeys.includes(value as keyof MonsterStatTargets),
@@ -436,6 +472,10 @@ export function readMonsterPreferences(value: unknown): MonsterPreferences {
     for (const [key, check] of Object.entries(copyFieldChecks)) {
       if (stored[key] !== undefined && check(stored[key])) copy[key] = stored[key];
     }
+    const artifacts = readArtifactPreferences(stored.artifacts);
+    if (artifacts !== undefined) copy.artifacts = artifacts;
+    const relics = readRelicPreferences(stored.relics);
+    if (relics !== undefined) copy.relics = relics;
     /* Each wanted build is its own choice (`AGENTS.md` §0): one the vocabulary no
        longer writes — `Violent/Broken`, from before broken slots became the
        copy's own switch — costs that build, not the builds beside it. A list

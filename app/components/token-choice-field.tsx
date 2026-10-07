@@ -12,12 +12,11 @@ import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } f
  * the least room. Here only the answer is on screen; the vocabulary appears
  * while it is being given.
  *
- * `MultiChoiceMenu` solves the same space problem for the monster overlay, and
- * stays: it reads its answer back as one ellipsised sentence, which suits a
- * panel of eight questions where the answers are reference rather than the thing
- * being worked. A filter is worked — a value goes on and comes off again as the
- * table is read — so each one is its own pill with its own ✕, and the menu
- * offers only what has not been chosen yet.
+ * Each value is its own pill with its own ✕, and the menu offers only what has
+ * not been chosen yet, so a value goes on and comes off again in one move. The
+ * monster overlay answers every one of its questions on this line too — builds,
+ * slot mains and each band of a gear answer — so one control reads alike there
+ * and in the filter strips.
  *
  * **The line's box never changes size** (`AGENTS.md` §2). It is one row high
  * whether it names nothing or everything: pills past the edge collapse into a

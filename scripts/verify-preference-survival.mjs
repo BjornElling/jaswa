@@ -93,6 +93,19 @@ try {
   /* A monster copy loses the field it cannot read, not the copy. */
   const monster = readPreferences({ ...chosen, monsterPreferences: { 17: { ...chosen.monsterPreferences[17], runeSets: ['NotASet'], retired: 1 } } }, null);
   assert.deepEqual(monster.monsterPreferences, chosen.monsterPreferences, 'an unreadable monster field costs only that field');
+  /* Gear is four questions, and one the contract no longer honours — here a
+     relic unique in both bands, and an artifact sub no Type artifact rolls —
+     costs that question and not the ones beside it. */
+  const gear = {
+    mainStat: { preferred: ['HP'], acceptable: ['DEF'] },
+    artifacts: { sub: { attribute: { preferred: [206], acceptable: [] }, type: { preferred: [301], acceptable: [] } } },
+    relics: { unique: { preferred: [1], acceptable: [1] } },
+  };
+  const geared = readPreferences({ ...chosen, monsterPreferences: { 17: { ...chosen.monsterPreferences[17], ...gear } } }, null);
+  assert.deepEqual(geared.monsterPreferences[17].mainStat, gear.mainStat, 'a readable main survives its unreadable neighbours');
+  assert.deepEqual(geared.monsterPreferences[17].artifacts, { sub: { attribute: gear.artifacts.sub.attribute } },
+    'an unreadable artifact question costs only that question');
+  assert.equal(geared.monsterPreferences[17].relics, undefined, 'an unreadable relic question costs only that question');
 
   /* A rune hold loses the choice it cannot read, not the rune's other choice or any other rune. */
   const holds = readPreferences({ ...chosen, runeHolds: { ...chosen.runeHolds, 902: { unsellable: true, locked: 'yes' }, 903: { locked: false } } }, null);

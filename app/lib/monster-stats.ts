@@ -247,6 +247,16 @@ type AccountStatModifiers = Partial<Record<'hpPercent' | 'atkPercent' | 'defPerc
  * imported game data is never silently guessed or invented.
  */
 export function calculateMonsterTotals(monster: RecordLike, accountModifiers: AccountStatModifiers = {}): MonsterTotals {
+  const totals = new Float64Array(baseStatCount);
+  totalsInto(monsterBaseStats(monster), monsterEffects(monster, accountModifiers), totals);
+  return {
+    hp: totals[0], atk: totals[1], def: totals[2], spd: totals[3],
+    criticalRate: totals[4], criticalDamage: totals[5], resistance: totals[6], accuracy: totals[7],
+  };
+}
+
+/** The twelve accumulators a copy's worn runes, equipment and completed sets add up to. */
+export function monsterEffects(monster: RecordLike, accountModifiers: AccountStatModifiers = {}): Float64Array {
   const effects = new Float64Array(effectSlotCount);
   effects[effectSlot.hpPercent] = numberValue(accountModifiers.hpPercent);
   effects[effectSlot.atkPercent] = numberValue(accountModifiers.atkPercent);
@@ -263,13 +273,7 @@ export function calculateMonsterTotals(monster: RecordLike, accountModifiers: Ac
   }
   addEquipmentEffects(monster, effects);
   addSetBonuses(counts, intangibleCompletion(counts), effects);
-
-  const totals = new Float64Array(baseStatCount);
-  totalsInto(monsterBaseStats(monster), effects, totals);
-  return {
-    hp: totals[0], atk: totals[1], def: totals[2], spd: totals[3],
-    criticalRate: totals[4], criticalDamage: totals[5], resistance: totals[6], accuracy: totals[7],
-  };
+  return effects;
 }
 
 /**
@@ -289,26 +293,56 @@ export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swi
 /**
  * A copy's combat crit conditions are added to its own CRI Rate while a search
  * judges a build. A guaranteed crit adds enough to reach the 100 % DMG cap;
- * element advantage and a lead each contribute their own points.
+ * element advantage adds its own fifteen points.
  *
  * It is a lift on the stat rather than a second DMG formula because Rune
  * Optimization's search, and the shader beside it, read CRI Rate from the monster's
  * base: lifting the base there is the whole of the rule, with no second
- * implementation to drift. A CRI Rate *shown* is always the monster's own —
- * `unliftedFigures` takes the lift back off. A guaranteed crit satisfies a
- * CRI Rate target by definition, so that target is never asked.
+ * implementation to drift. A CRI Rate *shown* or *aimed at* is the monster's own
+ * before these two — `unliftedFigures` takes the lift back off. A guaranteed crit
+ * satisfies a CRI Rate target by definition, so that target is never asked.
  */
 export const alwaysCritsLift = 100;
 
-export type CriticalRateBonuses = {
-  alwaysCrits: boolean;
-  alwaysElementAdvantage: boolean;
-  critLead?: number;
+/**
+ * The stats a leader skill can raise, each by a percentage: HP, ATK, DEF and SPD
+ * by a share of the monster's base stat, CRI Rate by points.
+ */
+export const leadStats = ['atk', 'def', 'spd', 'hp', 'criRate'] as const;
+export type LeadStat = typeof leadStats[number];
+export type Leads = Partial<Record<LeadStat, number>>;
+
+/* A lead is the same kind of bonus as the accumulator it lands in: a share of
+   base for the four, points for CRI Rate. Summed with every other percentage and
+   rounded once, SPD with a lead is ⌈B·(1 + Swift + lead)⌉ + rune speed — the
+   dungeon speed `speed-tick.ts` `combatSpeed` states, without the totem, and
+   `verify:monster-display-stats` holds the two equal. */
+const leadSlots: Readonly<Record<LeadStat, number>> = {
+  hp: effectSlot.hpPercent, atk: effectSlot.atkPercent, def: effectSlot.defPercent,
+  spd: effectSlot.spdPercent, criRate: effectSlot.criticalRate,
 };
 
-/** External CRI Rate points used by a calculation, never printed as the copy's own stat. */
-export const criticalRateLift = (bonuses: CriticalRateBonuses): number =>
-  (bonuses.alwaysCrits ? alwaysCritsLift : 0) + (bonuses.alwaysElementAdvantage ? 15 : 0) + (bonuses.critLead ?? 0);
+/**
+ * Add a copy's stated leads to `effects`: the one place a lead joins a calculation.
+ *
+ * **Counted, never shown.** A lead belongs to a battle, not to the monster's
+ * panel: every figure printed as the copy's own is summed without it, and every
+ * range the owner states, every composite a search ranks by, is judged with it.
+ */
+export function addLeaderEffects(leads: Leads | undefined, effects: Float64Array): void {
+  if (!leads) return;
+  for (const stat of leadStats) effects[leadSlots[stat]] += leads[stat] ?? 0;
+}
+
+export type CombatBonuses = {
+  alwaysCrits: boolean;
+  alwaysElementAdvantage: boolean;
+  leads?: Leads;
+};
+
+/** External CRI Rate points used by a calculation, never printed or aimed at as the copy's own stat. */
+export const criticalRateLift = (bonuses: CombatBonuses): number =>
+  (bonuses.alwaysCrits ? alwaysCritsLift : 0) + (bonuses.alwaysElementAdvantage ? 15 : 0);
 
 /** Figures summed over a lifted base, with the CRI Rate put back to the monster's own. */
 export function unliftedFigures<Figures extends { [index: number]: number }>(figures: Figures, lift: number): Figures {
@@ -324,20 +358,29 @@ export function unliftedFigures<Figures extends { [index: number]: number }>(fig
  * one answer. Two call sites deriving DMG separately is how one screen comes to
  * say a target is met while the other says it is not — and the composites are
  * derived here rather than stored precisely so that cannot happen
- * (`AGENTS.md` §6). The truncation is `RUNE-PRESET-METRICS.md`'s display rule,
- * so a figure compared here is the figure the user was shown.
+ * (`AGENTS.md` §6). The truncation is `RUNE-PRESET-METRICS.md`'s display rule.
+ *
+ * `shown` is the copy as its panel shows it; `counted` adds its leads, and is
+ * what a stated range and a shortfall are judged by (`addLeaderEffects`).
  */
-export function monsterTargetFigures(totals: MonsterTotals, bonuses: CriticalRateBonuses): {
+export type TargetFigures = {
   hp: number; atk: number; def: number; spd: number;
   criRate: number; criDmg: number; res: number; acc: number;
   dmg: number; ehp: number; ehpD: number;
-} {
+};
+
+export function monsterTargetFigures(
+  monster: RecordLike, bonuses: CombatBonuses, counting: 'shown' | 'counted' = 'shown',
+): TargetFigures {
   const lift = criticalRateLift(bonuses);
+  const effects = monsterEffects(monster);
+  if (counting === 'counted') addLeaderEffects(bonuses.leads, effects);
+  const base = monsterBaseStats(monster);
+  base[4] += lift;
+  const totals = new Float64Array(baseStatCount);
+  totalsInto(base, effects, totals);
   const figures = new Float64Array(targetFigureCount);
-  figuresInto([
-    totals.hp, totals.atk, totals.def, totals.spd,
-    totals.criticalRate + lift, totals.criticalDamage, totals.resistance, totals.accuracy,
-  ], figures);
+  figuresInto(totals, figures);
   unliftedFigures(figures, lift);
   return {
     hp: figures[0], atk: figures[1], def: figures[2], spd: figures[3],

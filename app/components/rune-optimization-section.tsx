@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Button } from './button';
 import { CalculationStatus } from './calculation-status';
 import { FigureMarks } from './figure-marks';
-import { buildIssueMarks, criticalRateMarks } from '../lib/figure-marks';
+import { buildIssueMarks, combatBonusMarks } from '../lib/figure-marks';
 import { CheckboxRow, RadioLine } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
@@ -36,7 +36,7 @@ import { monsterNameCollator } from '../lib/monster-grid';
 import { higherPriorityThan } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, readTargetField } from '../lib/monster-preferences';
-import { calculateMonsterTotals, monsterTargetFigures } from '../lib/monster-stats';
+import { monsterTargetFigures } from '../lib/monster-stats';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
 import { estimateRuneOptimizationBuilds, figureIndex } from '../lib/rune-optimization-problem';
@@ -236,7 +236,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
       targets: withoutCriRate(screenTargets), ceilings: withoutCriRate(screenCeilings),
       alwaysCrits: tableAlwaysCritsCount,
       alwaysElementAdvantage: current?.requirements.alwaysElementAdvantage ?? false,
-      critLead: current?.requirements.critLead,
+      leads: current?.requirements.leads,
     };
   }, [tableAlwaysCritsCount, screenTargets, screenCeilings, alwaysCrits, current]);
   const builds = useMemo(() => (current && selected && tableLimits
@@ -248,7 +248,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
     : undefined), [current, selected, tableLimits, resultCount, runesById, itemsById, preferences.runeHolds]);
   const figuresNow = useCallback((bonuses: RuneOptimizationRequirements) => {
     if (!selected) return undefined;
-    const figures = monsterTargetFigures(calculateMonsterTotals(selected.record), bonuses);
+    const figures = monsterTargetFigures(selected.record, bonuses);
     return monsterStatTargetKeys.map((key) => figures[key]);
   }, [selected]);
   const currentFigures = useMemo(() => requirements ? figuresNow(requirements) : undefined, [figuresNow, requirements]);
@@ -467,7 +467,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
                   disabled={crits} title={crits ? 'Always crits, so no CRI Rate is needed' : undefined}
                   current={<>
                     {currentFigures ? formatNumber(currentFigures[figureIndex(key)], general) : '—'}
-                    {key === 'criRate' && <FigureMarks marks={requirements ? criticalRateMarks(requirements) : []} reserve={1} />}
+                    <FigureMarks marks={combatBonusMarks(key, requirements)} reserve={1} />
                   </>} />;
               })}
             </div>
@@ -525,9 +525,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, onUpdate,
           </div>
           <div className="filter-group rune-optimization-items">
             <span className="filter-label">Gems/Grinds</span>
-            <CheckboxRow label="Allow Immemorial Gems and Grindstones" checked={requirements.allowImmemorial}
-              onChange={(checked) => change((state) => ({ ...state, allowImmemorial: checked }))} />
-            <Provenance>{changed(requirements.allowImmemorial === profile.requirements.allowImmemorial) ?? ''}</Provenance>
+            <CheckboxRow label="Allow Immemorial Gems and Grindstones" checked={settings.allowImmemorial}
+              onChange={(allowImmemorial) => onUpdate({ allowImmemorial })} />
           </div>
           <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} grade={settings.gemGrade} roll={settings.gemRollAssumption}
             onUse={(gems) => onUpdate({ gems })} onGrade={(gemGrade) => onUpdate({ gemGrade })} onRoll={(gemRollAssumption) => onUpdate({ gemRollAssumption })} />

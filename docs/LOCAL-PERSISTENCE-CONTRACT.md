@@ -21,11 +21,13 @@ The durable workspace contains:
 - the current imported game, including its prepared account data;
 - all preferences: import route and mode, graphics preference, formats and
   time zone, per-copy monster preferences (the user's own name for a copy, its
-  chosen rune sets and slot main stats, the one artifact main stat wanted in
-  each category, the substats wanted and the minimum roll asked of each, the one
-  relic main stat and its unique properties, and the stat targets the copy is
-  built toward — keyed by the game's `unit_id`, so two copies of one monster can
-  be built for different jobs), Rune Clean-up settings, Rune Clean-up
+  chosen rune builds and slot main stats, the switches that qualify them, its
+  leads (attack, defence, speed, HP and crit, one saved answer each), the
+  one main stat wanted on all its gear, the substats wanted in each artifact
+  category and the relic uniques — each of those three gear answers as a
+  preferred and an accepted band — and the stat ranges the copy is built toward,
+  keyed by the game's `unit_id`, so two copies of one monster can be built for
+  different jobs), Rune Clean-up settings, Rune Clean-up
   presets, and Artifact Optimization settings (whether to factor in only owned
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
   assumed stone value, and the acceptable-property factor), and Speed Tuning's
@@ -36,7 +38,9 @@ The durable workspace contains:
   and each standing
   rule about one monster — that it moves before or after another, or that it
   reaches, stays under or stays between figures — and which of display speed,
-  dungeon speed and arena speed it is checked in);
+  dungeon speed and arena speed it is checked in), and Rune Optimization's
+  settings, among them whether held Immemorial Gems and Grindstones may be spent —
+  one answer for every monster;
 - the chosen export-folder handle when the browser supports it.
 
 The first two records live in IndexedDB under the local `jaswa-local`
@@ -118,6 +122,6 @@ above does not accidentally create durable data.
 For monster preferences, verify all three of `ARTIFACT-CANONICAL.md` §19.4's
 states survive a reload: a stated choice, an untouched one still reading its
 statistics default, and a **deliberately cleared** one that must not revert to
-that default. Check a substat's minimum roll the same way — an empty floor and a
-floor of `0` are different saved answers — and confirm that a record whose every
-choice has been undone is removed rather than stored empty.
+that default. Check a gear answer the same way — two empty bands are a saved
+`Any`, not an absent answer — and confirm that a record whose every choice has
+been undone is removed rather than stored empty.

@@ -21,11 +21,11 @@ const cases = [
   make('two free set slots', { builds: ['Violent'] }),
   make('all sets specified', { builds: ['Violent/Will'], allowBroken: false }),
   make('Intangible allowed', { allowIntangible: true }),
-  make('owned items', { allowImmemorial: true }, { gems: 'owned', grinds: 'owned' }),
+  make('owned items', {}, { gems: 'owned', grinds: 'owned', allowImmemorial: true }),
   make('assumed Gems', {}, { gems: 'theoretical' }),
   make('assumed Grindstones', {}, { grinds: 'theoretical' }),
   make('assumed both', {}, { gems: 'theoretical', grinds: 'theoretical' }),
-  make('owned with ceiling', { allowImmemorial: true, ceilings: { spd: 180 } }, { gems: 'owned', grinds: 'owned' }),
+  make('owned with ceiling', { ceilings: { spd: 180 } }, { gems: 'owned', grinds: 'owned', allowImmemorial: true }),
   make('100 rows', {}, { resultCount: 100 }),
   make('depth 1', {}, { depth: 'quick' }),
   make('four locked slots', {}, {}, {

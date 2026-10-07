@@ -94,31 +94,34 @@ test('engraved relic mains appear in current stats, while a bare copy keeps its 
   await links.first().click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.locator('.stat-range[data-figure="hp"] .overlay-stat-current')).toContainText(/34[.,]390/);
-  const panels = dialog.locator('.overlay-equipment-panels > section');
-  await expect(panels).toHaveCount(3);
-  const boxes = await Promise.all([0, 1, 2].map((at) => panels.nth(at).boundingBox()));
-  expect(boxes.every((box) => box !== null)).toBe(true);
-  expect(Math.max(...boxes.map((box) => box!.width)) - Math.min(...boxes.map((box) => box!.width))).toBeLessThan(2);
+  /* Every worn card is one fixed shape, so a rune without an innate or with two
+     sub properties draws the same box as a full one. */
+  const sizes = async (selector: string) => (await dialog.locator(selector).evaluateAll((elements) =>
+    elements.map((element) => { const box = element.getBoundingClientRect(); return `${Math.round(box.width)}x${Math.round(box.height)}`; })));
+  const runeCards = await sizes('.worn-rune');
+  expect(runeCards).toHaveLength(6);
+  expect(new Set(runeCards).size).toBe(1);
+  const artifactCards = await sizes('.worn-artifact');
+  expect(artifactCards).toHaveLength(2);
+  expect(new Set(artifactCards).size).toBe(1);
   await page.screenshot({ path: testInfo.outputPath('relic-stat-equipped.png') });
   expect(await equippedRow.boundingBox()).toEqual(before);
+  /* The whole panel fits a 1080-pixel screen: nothing to scroll either way. */
   const body = dialog.locator('.overlay-body');
-  await body.evaluate((element) => { element.scrollTop = element.scrollHeight; });
-  expect(await body.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-  const commonSubs = panels.first().locator('.usage-line').last().locator('.usage-entry');
-  const firstLine = await commonSubs.nth(0).boundingBox();
-  const nextLine = await commonSubs.nth(1).boundingBox();
-  expect(firstLine && nextLine && nextLine.y - firstLine.y).toBeLessThanOrEqual(firstLine!.height + 2);
-  await page.screenshot({ path: testInfo.outputPath('equipment-filled.png') });
+  const fits = (element: Element) => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight;
+  expect(await body.evaluate(fits)).toBe(true);
 
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await links.nth(1).click();
   await expect(dialog.locator('.stat-range[data-figure="hp"] .overlay-stat-current')).toContainText(/16[.,]500/);
-  await dialog.locator('.overlay-body').evaluate((element) => { element.scrollTop = element.scrollHeight; });
-  expect(await dialog.locator('.overlay-body').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  /* A bare copy draws the same six cards and two artifact boxes, empty. */
+  expect(await sizes('.worn-rune')).toEqual(runeCards);
+  expect(await sizes('.worn-artifact')).toEqual(artifactCards);
+  expect(await dialog.locator('.overlay-body').evaluate(fits)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('relic-stat-bare.png') });
 });
 
-test('element advantage and a crit lead add to the calculation without changing shown CRI Rate', async ({ page }, testInfo) => {
+test('leads and element advantage add to the calculation without changing a shown figure', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await importAccount(page);
   await openOverlay(page);
@@ -134,12 +137,21 @@ test('element advantage and a crit lead add to the calculation without changing 
   const mark = rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate.*Crit lead adds 33% CRI Rate/ });
   await expect(mark).toBeVisible();
   await expect(mark).toHaveAttribute('title', /15%.*33%/);
+  /* A range counts the lead and not the advantage: 51 of its own and 33 led is 84. */
   const critFloor = rate.getByRole('spinbutton', { name: 'CtR%: at least' });
-  await critFloor.fill('51');
+  await critFloor.fill('84');
   await expect(rate.getByRole('img', { name: /You want CtR%/ })).toHaveCount(0);
-  await critFloor.fill('67');
-  await expect(rate.getByRole('img', { name: /You want CtR% at least 67, and this copy has 51/ })).toBeVisible();
+  await critFloor.fill('90');
+  await expect(rate.getByRole('img', { name: /You want CtR% at least 90, and this copy has 84 with its lead/ })).toBeVisible();
   await critFloor.fill('');
+
+  /* The other four leads the same way: counted in the range, never in the figure. */
+  const speed = dialog.locator('.stat-range[data-figure="spd"]');
+  const shownSpeed = await speed.locator('.overlay-stat-current').innerText();
+  await dialog.getByRole('spinbutton', { name: 'Speed lead, in percent' }).fill('24');
+  await expect(speed.locator('.overlay-stat-current')).toHaveText(shownSpeed);
+  await expect(speed.getByRole('img', { name: /Speed lead adds 24% SPD/ })).toBeVisible();
+  await dialog.getByRole('spinbutton', { name: 'Speed lead, in percent' }).fill('');
   expect(await rate.boundingBox()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('crit-bonuses-filled.png') });
   await dialog.getByRole('checkbox', { name: 'Always crits' }).check();
@@ -161,7 +173,8 @@ test('element advantage and a crit lead add to the calculation without changing 
   const optimizationStats = page.getByRole('group', { name: 'Stats', exact: true });
   await expect(optimizationStats.locator('.stat-range[data-figure="criRate"] .overlay-stat-current')).toContainText('51');
   await expect(optimizationStats.getByRole('img', { name: /Element advantage adds 15% CRI Rate.*Crit lead adds 33% CRI Rate/ })).toBeVisible();
-  await expect(optimizationStats.locator('.stat-range[data-figure="dmg"] .overlay-stat-current')).toContainText(/8[.,]183/);
+  /* Shown DMG carries the element advantage but not the lead: 51 + 15 points of crit. */
+  await expect(optimizationStats.locator('.stat-range[data-figure="dmg"] .overlay-stat-current')).toContainText(/6[.,]532/);
 });
 
 test('Optimize opens this copy in Rune Optimization and keeps an unsaved choice', async ({ page }, testInfo) => {
@@ -290,18 +303,15 @@ test('a stated preference is saved, and only what was stated', async ({ page }) 
   await importAccount(page);
   await openOverlay(page);
 
-  const mains = page.getByRole('button', { name: /^Attribute artifact main stats:/ });
-  await mains.scrollIntoViewIfNeeded();
-  await mains.click();
-  await page.getByRole('group', { name: 'Attribute artifact main stats' })
-    .getByRole('checkbox', { name: 'DEF' }).check();
-  /* Escape closes the menu without closing the panel behind it: these menus
-     take several answers, so they stay open until the reader leaves them. */
+  const preferred = page.getByRole('button', { name: /^Main stat, preferred:/ });
+  await preferred.click();
+  await page.getByRole('menu', { name: 'Main stat, preferred' }).getByRole('menuitem', { name: 'DEF', exact: true }).click();
+  /* Escape closes a menu without closing the panel behind it. */
+  await preferred.click();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeVisible();
 
   const spd = page.getByRole('spinbutton', { name: 'Spd: at least' });
-  await spd.scrollIntoViewIfNeeded();
   await spd.fill('130');
 
   await page.getByRole('button', { name: 'Save changes' }).click();
@@ -309,10 +319,44 @@ test('a stated preference is saved, and only what was stated', async ({ page }) 
 
   const stored = await storedPreferences(page);
   /* Nothing is seeded from the statistics: a record holds the user's own
-     statements and nothing else, or every default would look like a decision. */
+     statements and nothing else, or every default would look like a decision.
+     The main is one answer for every piece of gear, and the band it was not given in
+     is stored empty — the answer is the pair. */
   expect(stored).toEqual({
-    1: { unitId: '1', artifacts: { attribute: { main: ['DEF'] } }, statTargets: { spd: 130 } },
+    1: { unitId: '1', mainStat: { preferred: ['DEF'], acceptable: [] }, statTargets: { spd: 130 } },
   });
+});
+
+test('an option is preferred or accepted, never both, and an empty band says what it means', async ({ page }) => {
+  /* The screen the panel is composed for, where it does not scroll: on a
+     shorter one an opening menu scrolls the body, which moves the grid on screen
+     without moving it on the panel. */
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importAccount(page);
+  await openOverlay(page);
+  const dialog = page.getByRole('dialog');
+  const line = (band: 'preferred' | 'accepted') => dialog.getByRole('button', { name: new RegExp(`^Main stat, ${band}:`) });
+  const menu = (band: 'preferred' | 'accepted') => page.getByRole('menu', { name: `Main stat, ${band}` });
+  const gear = dialog.locator('.overlay-gear');
+  const before = await gear.boundingBox();
+
+  /* Nothing stated narrows nothing. */
+  await expect(line('preferred')).toHaveAttribute('aria-label', 'Main stat, preferred: Any');
+  await expect(line('accepted')).toHaveAttribute('aria-label', 'Main stat, accepted: Any');
+
+  await line('preferred').click();
+  await menu('preferred').getByRole('menuitem', { name: 'HP', exact: true }).click();
+  /* Once one band names something, the other band empty is a real answer. */
+  await expect(line('accepted')).toHaveAttribute('aria-label', 'Main stat, accepted: None');
+  await line('accepted').click();
+  await expect(menu('accepted').getByRole('menuitem', { name: 'HP', exact: true })).toHaveCount(0);
+  await menu('accepted').getByRole('menuitem', { name: 'ATK', exact: true }).click();
+  await expect(line('accepted')).toHaveAttribute('aria-label', 'Main stat, accepted: ATK');
+  /* Answering moves nothing outside the line that was answered. */
+  expect(await gear.boundingBox()).toEqual(before);
+
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  expect((await storedPreferences(page))?.['1']?.mainStat).toEqual({ preferred: ['HP'], acceptable: ['ATK'] });
 });
 
 test('a composite target is stated and kept, alongside the stat it is derived from', async ({ page }) => {
@@ -343,7 +387,6 @@ test('a cleared preference stays cleared, and does not fall back to the default'
      which is stored as an empty list rather than as a silence. An absent key
      would let the default quietly return the next time the overlay opened. */
   const slot4 = page.getByRole('button', { name: /^Slot 4 main stat:/ });
-  await slot4.scrollIntoViewIfNeeded();
   await slot4.click();
   await page.getByRole('menu', { name: 'Slot 4 main stat' }).getByRole('menuitem', { name: /^HP%/ }).click();
   await expect(slot4).toHaveAttribute('aria-label', 'Slot 4 main stat: HP%');
@@ -429,23 +472,31 @@ test('a rune build is chosen as a whole, set by set, never as loose sets', async
   expect(stored?.allowBrokenSets).toBe(true);
 });
 
-test('what is wanted leads each block, and what is worn follows as reference', async ({ page }) => {
+test('what is wanted takes the left, and what is worn the right third', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await importAccount(page);
   await openOverlay(page);
-  const runeLabels = await page.locator('.overlay-block').first().locator('.overlay-row-label').allTextContents();
-  expect(runeLabels).toEqual(['Desired builds', 'Current', 'Most common']);
-  /* The worn build is written the way a desired one is, and nothing else: not
-     the runes one by one, and no sample size beside the shares. */
-  const runes = page.locator('.overlay-block').first();
-  await expect(runes.locator('.overlay-current-build')).toHaveText(/^[A-Z][a-z]+(\/[A-Z][a-z]+)+$/);
-  await expect(runes.getByText(/measured/)).toHaveCount(0);
+  const dialog = page.getByRole('dialog');
+  const runeLabels = await dialog.locator('.monster-overlay-wants .overlay-block').first().locator('.overlay-row-label').allTextContents();
+  expect(runeLabels).toEqual(['Desired builds', 'Most common']);
+  const wants = (await dialog.locator('.monster-overlay-wants').boundingBox())!;
+  const worn = (await dialog.locator('.monster-overlay-worn').boundingBox())!;
+  expect(worn.x).toBeGreaterThan(wants.x + wants.width);
+  expect(Math.abs(worn.width / (wants.width + worn.width) - 1 / 3)).toBeLessThan(0.03);
+  /* The worn build heads the worn runes, written the way a desired one is, and
+     nothing else: no sample size beside the shares. */
+  const equipped = dialog.locator('.overlay-block').filter({ has: page.getByRole('heading', { name: 'Equipped runes' }) });
+  await expect(equipped.locator('.overlay-provenance')).toHaveText(/^[A-Z][a-z]+(\/[A-Z][a-z]+)+$/);
+  await expect(dialog.getByText(/measured/)).toHaveCount(0);
 });
 
 test('the Runes block opens the panel, above the stats', async ({ page }) => {
   await importAccount(page);
   await openOverlay(page);
   const titles = await page.locator('.overlay-block-title').allTextContents();
-  expect(titles.slice(0, 2)).toEqual(['Runes', 'Stats']);
+  expect(titles).toEqual([
+    'Runes', 'Stats', 'Settings', 'Artifacts and relics', 'Equipped runes', 'Equipped artifacts', 'Engraved relics', 'Most common artifacts',
+  ]);
 });
 
 test('a copy with nothing equipped says so in every panel', async ({ page }) => {

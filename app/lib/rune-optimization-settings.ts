@@ -102,6 +102,13 @@ export type RuneOptimizationSettings = {
   grindGrade: ItemGrade;
   grindRollAssumption: CraftRollAssumption;
   /**
+   * Whether a held Immemorial Gem or Grindstone — which fits a rune of any set —
+   * may be spent. One answer for every monster: the stock is the account's, and
+   * whether it is worth spending is a question about the stock, not about one
+   * copy. An assumed item is never Immemorial.
+   */
+  allowImmemorial: boolean;
+  /**
    * Whether a rune another monster wears may be moved onto this one. A locked rune
    * never may, whatever this says: the lock is the user's own word (`rune-holds.ts`).
    * The page asks it the other way round — *Only use runes from inventory* — so both
@@ -146,6 +153,7 @@ export const defaultRuneOptimizationSettings: RuneOptimizationSettings = {
   grinds: 'none',
   grindGrade: 'Hero',
   grindRollAssumption: defaultCraftRollAssumption,
+  allowImmemorial: true,
   runesOnOtherMonsters: true,
   includeHigherPriority: false,
   unfinishedAtMaximum: true,
@@ -163,6 +171,7 @@ export const runeOptimizationSettingChecks: FieldChecks<RuneOptimizationSettings
   grinds: isOneOf(craftUses),
   grindGrade: isOneOf<ItemGrade>(itemGrades),
   grindRollAssumption: isOneOf(craftRollAssumptions),
+  allowImmemorial: isBoolean,
   runesOnOtherMonsters: isBoolean,
   includeHigherPriority: isBoolean,
   unfinishedAtMaximum: isBoolean,

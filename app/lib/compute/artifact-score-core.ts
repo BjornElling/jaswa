@@ -27,34 +27,6 @@ function fits(artifact: PackedArtifactScoreInput, monster: PackedMonsterScoreInp
   return artifactFitsClassCodes(artifact.category, artifact.restriction, monster.element, monster.archetype);
 }
 
-/**
- * Whether a rolled line clears the floor its monster asked for.
- *
- * "Damage Taken from Wind at 15 % or better" is one preference, not two, and a
- * 6.8 % line does not half-answer it — so a line below the floor contributes
- * nothing at all, exactly as an unwanted property does. A floor of `0` is the
- * ordinary case and every roll clears it.
- *
- * A legacy line, whose value the import cannot read, is marked `-1` and fails
- * any real floor: the honest answer to "is this at least 15 %" is that nobody
- * can tell, and crediting it would let an unreadable line outscore a readable
- * one that genuinely fell short.
- */
-function clearsMinimum(
-  artifact: PackedArtifactScoreInput,
-  monster: PackedMonsterScoreInput,
-  index: number,
-  propertyIndex: number,
-): boolean {
-  /* A row that states no floors at all is the ordinary case — every species row
-     is one — so an absent list reads as "no floor anywhere" rather than as a
-     malformed row. It keeps a caller that builds a row by hand from having to
-     spell out a list of zeroes to mean nothing. */
-  const minimum = monster.subPropertyMinimums?.[propertyIndex] ?? 0;
-  if (minimum <= 0) return true;
-  return (artifact.subPropertyValueHundredths?.[index] ?? -1) >= minimum;
-}
-
 function sourceContribution(
   artifact: PackedArtifactScoreInput,
   monster: PackedMonsterScoreInput,
@@ -63,7 +35,6 @@ function sourceContribution(
 ): number {
   const propertyIndex = artifact.subPropertyIndexes[index];
   if (propertyIndex < 0) return 0;
-  if (!clearsMinimum(artifact, monster, index, propertyIndex)) return 0;
   return weight(monster.subPropertyPreferences[propertyIndex] ?? 0, acceptableWorth)
     * artifact.subPropertyRollPoints[index];
 }

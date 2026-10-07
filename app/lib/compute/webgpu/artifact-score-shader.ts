@@ -9,9 +9,9 @@ import {
   artifactCategoryAt, artifactConvertedPropertyAt, artifactMainPropertyAt,
   artifactRestrictionAt, artifactScoreLanes, artifactStride,
   artifactSubPropertyCount, artifactSubPropertyIndexesAt,
-  artifactSubPropertyRollPointsAt, artifactSubPropertyValuesAt,
+  artifactSubPropertyRollPointsAt,
   monsterArchetypeAt, monsterElementAt, monsterMainPreferencesAt, monsterStride,
-  monsterSubPropertyMinimumsAt, monsterSubPropertyPreferencesAt,
+  monsterSubPropertyPreferencesAt,
 } from './artifact-score-layout';
 
 
@@ -32,13 +32,11 @@ const ARTIFACT_MAIN_AT: u32 = ${artifactMainPropertyAt}u;
 const ARTIFACT_CONVERTED_AT: u32 = ${artifactConvertedPropertyAt}u;
 const ARTIFACT_INDEXES_AT: u32 = ${artifactSubPropertyIndexesAt}u;
 const ARTIFACT_ROLL_POINTS_AT: u32 = ${artifactSubPropertyRollPointsAt}u;
-const ARTIFACT_VALUES_AT: u32 = ${artifactSubPropertyValuesAt}u;
 const ARTIFACT_SUB_PROPERTY_COUNT: u32 = ${artifactSubPropertyCount}u;
 const MONSTER_ELEMENT_AT: u32 = ${monsterElementAt}u;
 const MONSTER_ARCHETYPE_AT: u32 = ${monsterArchetypeAt}u;
 const MONSTER_MAIN_PREFERENCES_AT: u32 = ${monsterMainPreferencesAt}u;
 const MONSTER_SUB_PREFERENCES_AT: u32 = ${monsterSubPropertyPreferencesAt}u;
-const MONSTER_SUB_MINIMUMS_AT: u32 = ${monsterSubPropertyMinimumsAt}u;
 const INTANGIBLE_RESTRICTION: i32 = ${intangibleRestrictionCode};
 // Interpolated from the same constants artifactScorePointBenchmark() uses, so the
 // two backends cannot drift apart on the denominator every score is divided by.
@@ -135,15 +133,7 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     let fraction = artifacts[artifactOffset + ARTIFACT_ROLL_POINTS_AT + line];
     var contribution: f32 = 0.0;
     if (propertyIndex >= 0) {
-      // A line below the floor its monster asked for contributes nothing, as an
-      // unwanted property does. Must match clearsMinimum() in
-      // artifact-score-core.ts exactly. A floor of 0 admits every roll; a legacy
-      // line carries -1 and clears no real floor.
-      let minimum = monsters[monsterOffset + MONSTER_SUB_MINIMUMS_AT + u32(propertyIndex)];
-      let lineValue = artifacts[artifactOffset + ARTIFACT_VALUES_AT + line];
-      if (minimum <= 0.0 || lineValue >= minimum) {
-        contribution = preferenceWeight(i32(monsters[monsterOffset + MONSTER_SUB_PREFERENCES_AT + u32(propertyIndex)])) * fraction;
-      }
+      contribution = preferenceWeight(i32(monsters[monsterOffset + MONSTER_SUB_PREFERENCES_AT + u32(propertyIndex)])) * fraction;
     }
     sourceContribution[line] = contribution;
     weighted = weighted + contribution;

@@ -2,9 +2,9 @@ import type { Artifact } from './artifacts';
 import type { ArtifactCategory } from './artifact-properties';
 import { artifactProperty } from './artifact-properties';
 import type { GameRecord } from './game-data';
-import type { MonsterTotals } from './monster-stats';
 import { monsterTargetFigures } from './monster-stats';
 import type { PreferenceSource, ResolvedMonsterPreferences } from './monster-preference-resolution';
+import { resolvedOptions } from './monster-preference-resolution';
 import type { MonsterStatTargets } from './monster-preferences';
 import type { Relic } from './relics';
 import { runeSlotKeys } from './monster-defaults';
@@ -58,11 +58,13 @@ export type Shortfall = {
    * different failure from the wrong thing being equipped and reads differently.
    */
   present?: string;
-  /** For a stat or a substat floor: what was asked for and what is there. */
+  /** For a stat: what was asked for and what is there. */
   target?: number;
   current?: number;
   /** A stat past the upper end of its range, rather than short of the lower. */
   over?: boolean;
+  /** For a stat: `current` counts the copy's lead, so it is not the figure shown beside it. */
+  withLead?: boolean;
   /** Which artifact category or rune slot this concerns, where one applies. */
   where?: string;
 };
@@ -161,51 +163,36 @@ function artifactShortfalls(
     const artifact = worn[category];
     const where = categoryLabels[category];
 
+    const mains = resolvedOptions(wishes.main);
     if (!artifact) {
       shortfalls.push({
         kind: 'artifact-missing',
         source: wishes.main.source,
-        wanted: wishes.main.chosen.join(' or ') || 'an artifact',
+        wanted: mains.join(' or ') || 'an artifact',
         where,
       });
       continue;
     }
 
-    /* Any one of the wanted mains answers the wish — the piece carries one, and
-       the user named every one they would accept. */
-    if (wishes.main.chosen.length > 0 && !wishes.main.chosen.includes(artifact.mainProperty)) {
+    /* Any one of the wanted mains answers the wish — the piece carries one — and
+       an acceptable main answers it as well as a preferred one: accepting it is
+       saying it will do. */
+    if (mains.length > 0 && !mains.includes(artifact.mainProperty)) {
       shortfalls.push({
         kind: 'artifact-main',
         source: wishes.main.source,
-        wanted: wishes.main.chosen.join(' or '),
+        wanted: mains.join(' or '),
         present: artifact.mainProperty,
         where,
       });
     }
 
-    const rolled = new Map(artifact.subProperties.map((property) => [property.definition.id, property]));
-    for (const [id, wish] of wishes.sub) {
-      const line = rolled.get(id);
-      const name = artifactProperty(id)?.name ?? `Property ${id}`;
-      if (!line) {
-        shortfalls.push({ kind: 'artifact-sub', source: wish.source, wanted: name, where });
-        continue;
-      }
-      /* A floor the roll does not clear is a shortfall even though the property
-         is present: "Damage Taken from Wind at 15 % or better" is one wish, not
-         two, and a 6 % line answers only half of it. An absent floor means the
-         property is wanted at any roll and a present line always satisfies it. */
-      if (wish.minimumHundredths !== undefined && line.valueHundredths < wish.minimumHundredths) {
-        shortfalls.push({
-          kind: 'artifact-sub',
-          source: wish.source,
-          wanted: name,
-          present: name,
-          target: wish.minimumHundredths,
-          current: line.valueHundredths,
-          where,
-        });
-      }
+    const rolled = new Set(artifact.subProperties.map((property) => property.definition.id));
+    for (const id of wishes.sub.preferred) {
+      if (rolled.has(id)) continue;
+      shortfalls.push({
+        kind: 'artifact-sub', source: wishes.sub.source, wanted: artifactProperty(id)?.name ?? `Property ${id}`, where,
+      });
     }
   }
 
@@ -217,33 +204,36 @@ function relicShortfalls(resolved: ResolvedMonsterPreferences, worn: readonly Re
   const wishes = resolved.relics;
   if (!wishes.judged) return shortfalls;
 
+  const mains = resolvedOptions(wishes.main);
+  const uniques = resolvedOptions(wishes.unique);
   if (worn.length === 0) {
     shortfalls.push({
       kind: 'relic-missing',
       source: wishes.main.source,
-      wanted: wishes.main.chosen.join(' or ') || 'a relic',
+      wanted: mains.join(' or ') || 'a relic',
     });
     return shortfalls;
   }
 
   /* A monster wears several relics at once and any of them can answer the wish,
-     so the question is whether *none* does — not whether each one does. */
-  if (wishes.main.chosen.length > 0 && !worn.some((relic) => wishes.main.chosen.includes(relic.mainProperty))) {
+     so the question is whether *none* does — not whether each one does. As with
+     an artifact's main, an acceptable answer answers it. */
+  if (mains.length > 0 && !worn.some((relic) => mains.includes(relic.mainProperty))) {
     shortfalls.push({
       kind: 'relic-main',
       source: wishes.main.source,
-      wanted: wishes.main.chosen.join(' or '),
+      wanted: mains.join(' or '),
       present: [...new Set(worn.map((relic) => relic.mainProperty))].join(', '),
     });
   }
 
-  if (wishes.unique.chosen.length > 0) {
+  if (uniques.length > 0) {
     const engraved = new Set(worn.map((relic) => relic.unique.definition.id));
-    if (!wishes.unique.chosen.some((id) => engraved.has(id))) {
+    if (!uniques.some((id) => engraved.has(id))) {
       shortfalls.push({
         kind: 'relic-unique',
         source: wishes.unique.source,
-        wanted: wishes.unique.chosen.map(relicUniqueName).join(' or '),
+        wanted: uniques.map(relicUniqueName).join(' or '),
         present: [...new Set(worn.map((relic) => relicPropertyLabel(relic.unique.definition)))].join(', '),
       });
     }
@@ -252,9 +242,13 @@ function relicShortfalls(resolved: ResolvedMonsterPreferences, worn: readonly Re
   return shortfalls;
 }
 
-function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTotals): Shortfall[] {
+function statShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreferences): Shortfall[] {
   const shortfalls: Shortfall[] = [];
-  const current = monsterTargetFigures(totals, resolved);
+  /* A range is judged with the copy's leads, never on the figure shown beside it;
+     where the two differ the sentence says so. */
+  const current = monsterTargetFigures(monster, resolved, 'counted');
+  const shown = monsterTargetFigures(monster, resolved, 'shown');
+  const withLead = (key: keyof MonsterStatTargets) => (current[key] !== shown[key] ? { withLead: true } : {});
   for (const [key, target] of Object.entries(resolved.statTargets)) {
     if (!target) continue;
     const statKey = key as keyof MonsterStatTargets;
@@ -270,6 +264,7 @@ function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTot
       wanted: statLabels[statKey] ?? statKey,
       target: target.value,
       current: reached,
+      ...withLead(statKey),
     });
   }
   /* The upper end of a range, read the same way: a figure past it is as far from
@@ -287,17 +282,16 @@ function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTot
       target: ceiling.value,
       current: reached,
       over: true,
+      ...withLead(statKey),
     });
   }
   return shortfalls;
 }
 
 /**
- * Every way this copy does not yet match what it is for.
- *
- * `totals` is passed in rather than computed here so the overlay and the roster
- * show one stat sheet: a second call site is a second chance to pass different
- * account modifiers and print two different speeds for one monster.
+ * Every way this copy does not yet match what it is for. Its stats are read from
+ * the one stat sheet, `monsterTargetFigures`, so the overlay and this check print
+ * the same speed for one monster.
  *
  * An empty array means every preferred wish that *could* be checked is met —
  * which is not the same as there being nothing to check. Where neither the user
@@ -307,13 +301,12 @@ function statShortfalls(resolved: ResolvedMonsterPreferences, totals: MonsterTot
 export function monsterShortfalls(
   monster: GameRecord,
   resolved: ResolvedMonsterPreferences,
-  totals: MonsterTotals,
   gear: { artifacts?: Partial<Record<ArtifactCategory, Artifact>>; relics?: readonly Relic[] } = {},
 ): Shortfall[] {
   return [
     ...runeShortfalls(monster, resolved),
     ...artifactShortfalls(resolved, gear.artifacts ?? {}),
     ...relicShortfalls(resolved, gear.relics ?? []),
-    ...statShortfalls(resolved, totals),
+    ...statShortfalls(monster, resolved),
   ];
 }

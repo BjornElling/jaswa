@@ -1,18 +1,31 @@
 import { relicEngravingLimit } from './relic-properties';
 import type { Relic } from './relics';
 import type { MonsterCopyPreferences } from './monster-preferences';
+import { statedBand } from './monster-preferences';
 import { relicMonsterValue } from './relic-monster-value';
 import type { RelicMonsterModel, RelicMonsterValue } from './relic-monster-value';
 
 export { relicEngravingLimit };
 export type RelicCandidate = { relic: Relic; value: RelicMonsterValue };
 
-/** Saved choices constrain the search; a cleared menu says Any, as the overlay does. */
-function acceptsRelic(relic: Relic, preferences?: MonsterCopyPreferences): boolean {
-  const mains = preferences?.relics?.main;
-  const uniques = preferences?.relics?.unique;
-  return (!mains?.length || mains.includes(relic.mainProperty))
-    && (!uniques?.length || uniques.includes(relic.unique.definition.id));
+/**
+ * How well a relic answers the copy's stated choices: `0` where every stated
+ * question is answered from its preferred band, `1` where one is answered only
+ * from its acceptable band, and `undefined` where one is not answered at all.
+ * A question never stated, or cleared to `Any`, is answered by every relic.
+ *
+ * The tier ranks ahead of the score, as a preferred artifact conversion
+ * displaces an acceptable one (`ARTIFACT-CANONICAL.md` §17.5): accepting a
+ * property says it will do when nothing preferred is to hand, so a strong
+ * acceptable relic does not outrank a preferred one that is merely weaker.
+ */
+function relicTier(relic: Relic, preferences?: MonsterCopyPreferences): 0 | 1 | undefined {
+  const bands = [
+    preferences?.mainStat === undefined ? 'preferred' : statedBand(preferences.mainStat, relic.mainProperty),
+    preferences?.relics?.unique === undefined ? 'preferred' : statedBand(preferences.relics.unique, relic.unique.definition.id),
+  ];
+  if (bands.includes('unwanted')) return undefined;
+  return bands.includes('acceptable') ? 1 : 0;
 }
 
 /** Only floating-point ties are suppressed, never a small mathematical upgrade. */
@@ -22,18 +35,20 @@ export function rankRelicsForMonster(
   relics: readonly Relic[], model: RelicMonsterModel,
   worn: ReadonlySet<string> = new Set(), preferences?: MonsterCopyPreferences,
 ): RelicCandidate[] {
-  const candidates: RelicCandidate[] = [];
+  const candidates: Array<RelicCandidate & { tier: number }> = [];
   for (const relic of relics) {
-    if (!acceptsRelic(relic, preferences)) continue;
+    const tier = relicTier(relic, preferences);
+    if (tier === undefined) continue;
     const value = relicMonsterValue(relic, model);
-    if (value) candidates.push({ relic, value });
+    if (value) candidates.push({ relic, value, tier });
   }
   return candidates.sort((left, right) => {
     const difference = right.value.score - left.value.score;
-    return (Math.abs(difference) > relicScoreTolerance ? difference : 0)
+    return left.tier - right.tier
+      || (Math.abs(difference) > relicScoreTolerance ? difference : 0)
       || Number(worn.has(right.relic.id)) - Number(worn.has(left.relic.id))
       || left.relic.obtainedOrder - right.relic.obtainedOrder;
-  });
+  }).map(({ relic, value }) => ({ relic, value }));
 }
 
 export type RelicRecommendation = {

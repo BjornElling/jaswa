@@ -20,9 +20,8 @@ import {
   artifactCategoryAt, artifactConvertedPropertyAt, artifactMainPropertyAt,
   artifactRestrictionAt, artifactScoreLanes, artifactStride,
   artifactSubPropertyIndexesAt, artifactSubPropertyRollPointsAt,
-  artifactSubPropertyValuesAt, artifactSubPropertyCount, equipClassRows, monsterArchetypeAt,
+  artifactSubPropertyCount, equipClassRows, monsterArchetypeAt,
   monsterElementAt, monsterMainPreferencesAt, monsterMainPropertyCount, monsterStride,
-  monsterSubPropertyMinimumsAt,
   monsterSubPropertyPreferencesAt,
 } from '../webgpu/artifact-score-layout';
 import type { GpuContext } from '../gpu/gpu-context';
@@ -43,12 +42,9 @@ function packed(request: ArtifactScoreRequest) {
     artifacts[at + artifactRestrictionAt] = artifact.restriction;
     artifacts[at + artifactMainPropertyAt] = artifact.mainProperty;
     artifacts[at + artifactConvertedPropertyAt] = artifact.convertedPropertyIndex;
-    const values = artifact.subPropertyValueHundredths
-      ?? new Array<number>(artifactSubPropertyCount).fill(-1);
     for (let line = 0; line < artifactSubPropertyCount; line += 1) {
       artifacts[at + artifactSubPropertyIndexesAt + line] = artifact.subPropertyIndexes[line];
       artifacts[at + artifactSubPropertyRollPointsAt + line] = artifact.subPropertyRollPoints[line];
-      artifacts[at + artifactSubPropertyValuesAt + line] = values[line];
     }
   }
   const monsters = new Float32Array(request.monsters.length * monsterStride);
@@ -62,8 +58,6 @@ function packed(request: ArtifactScoreRequest) {
     for (let property = 0; property < scoredArtifactProperties.length; property += 1) {
       monsters[at + monsterSubPropertyPreferencesAt + property] =
         monster.subPropertyPreferences[property];
-      monsters[at + monsterSubPropertyMinimumsAt + property] =
-        monster.subPropertyMinimums?.[property] ?? 0;
     }
   }
   /* One row of flags per equip class, indexed by the class code the artifacts
@@ -119,8 +113,9 @@ export async function calculateArtifactScoresOnGpu(
  *
  * The battery is built here rather than taken from an import, so it exists before
  * anything has been imported. It covers the four branches the shader could get wrong
- * on its own: an artifact its monster's equip class refuses, one it accepts, a line
- * below a stated floor, and a conversion the import owns a stone for.
+ * on its own: an artifact its monster's equip class refuses, one it accepts, a
+ * preferred line against an acceptable one, and a conversion the import owns a
+ * stone for.
  */
 export async function artifactScoreAgreement(context: GpuContext): Promise<boolean> {
   const request = agreementRequest();
@@ -148,17 +143,13 @@ function agreementRequest(): ArtifactScoreRequest {
     id: `agreement-${category}-${restriction}-${mainProperty}`,
     category, restriction, mainProperty, convertedPropertyIndex,
     subPropertyIndexes, subPropertyRollPoints,
-    subPropertyValueHundredths: [1200, 900, 600, 300],
   });
-  const monster = (
-    id: string, element: number, archetype: number, minimum: number,
-  ): PackedMonsterScoreInput => ({
+  const monster = (id: string, element: number, archetype: number): PackedMonsterScoreInput => ({
     id, name: id, element, archetype,
     mainPreferences: [2, 1, 0],
     /* A preferred band, an accepted one and a great many unwanted ones, so a wrong
        weight cannot hide behind a uniform preference. */
     subPropertyPreferences: zeros.map((_, index) => (index % 7 === 0 ? 2 : index % 5 === 0 ? 1 : 0)),
-    subPropertyMinimums: zeros.map((_, index) => (index === 0 ? minimum : 0)),
     subPropertyShares: zeros.map((_, index) => (index % 3) / 10),
   });
   return {
@@ -167,7 +158,7 @@ function agreementRequest(): ArtifactScoreRequest {
       artifact(1, 2, 1, 0, [0, 5, 7, 9], [100, 60, 30, 10]),
       artifact(2, 1, 2, -1, [1, 2, 3, 4], [90, 80, 70, 60]),
     ],
-    monsters: [monster('fire-attack', 1, 1, 0), monster('water-support', 2, 3, 40)],
+    monsters: [monster('fire-attack', 1, 1), monster('water-support', 2, 3)],
     acceptableWorth: 50,
     conversionMode: 1,
     conversionRollFractions: zeros.map(() => 0.75),

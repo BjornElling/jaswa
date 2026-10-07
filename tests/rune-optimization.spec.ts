@@ -467,7 +467,7 @@ test('a monster that always crits is counted at a certain crit and shows its own
   await page.screenshot({ path: testInfo.outputPath('always-crits-table.png'), fullPage: true });
 });
 
-test('CRI Rate range stays on the displayed stat when a crit lead is active', async ({ page }, testInfo) => {
+test('a CRI Rate range counts the crit lead, and the table shows each build\'s own CRI Rate', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
@@ -492,10 +492,12 @@ test('CRI Rate range stays on the displayed stat when a crit lead is active', as
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(table).toBeVisible();
   const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
+  /* The range is met with the lead; the column is the build's own figure. */
+  expect(await rows.count()).toBeGreaterThan(0);
   for (const row of await rows.all()) {
-    const value = Number(await row.getByRole('cell').nth(7).innerText());
-    expect(value).toBeGreaterThanOrEqual(67);
-    expect(value).toBeLessThanOrEqual(69);
+    const own = Number(await row.getByRole('cell').nth(7).innerText());
+    expect(own + 33).toBeGreaterThanOrEqual(67);
+    expect(own + 33).toBeLessThanOrEqual(69);
   }
   await page.screenshot({ path: testInfo.outputPath('raw-crit-range-results.png'), fullPage: true });
 });

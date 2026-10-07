@@ -100,7 +100,7 @@ try {
         /* A copy that states its own answers is scored on those, under its own
            row keyed by `unit_id`. Both readers have to reach the same number
            through the user's statement exactly as they do through the
-           statistics — the floors and the plural mains are the two parts that
+           statistics — the two bands and the shared main are the parts that
            can silently diverge, so the stated case is exercised below. */
         const library = artifactValueOnMonster(artifact, unit, settings);
         const engine = artifactPairScore(requests, artifact.id, species, { conversions: false });
@@ -118,41 +118,44 @@ try {
           `${where}: the library says ${libraryPercent} % and the packed scorer says ${enginePercent} %.`);
         compared += 1;
 
-        /* The same artifact again, against a statement its owner made: both
-           mains wanted, and every property the artifact actually carries wanted
-           at a floor just above the roll it has. Every line therefore falls
-           short, which is the case that distinguishes "below its floor" from
-           "wanted at any roll" — and the two readers must agree on it. */
+        /* The same artifact again, against two statements its owner could make.
+           The first uses both bands: the main it carries only accepted, and the
+           properties it carries split between preferred and accepted, so a
+           disagreement about what an accepted line is worth cannot hide. The
+           second clears both questions to `Any`, which is the one stated answer
+           that reaches a legacy line — and the two readers must agree on it. */
         const carried = artifact.subProperties.filter((line) => line.maximumHundredths !== null);
         if (carried.length === 0) continue;
-        const stated = {
-          unitId,
-          artifacts: {
-            [artifact.category]: {
-              main: ['HP', 'ATK', 'DEF'],
-              sub: Object.fromEntries(carried.map((line) =>
-                [String(line.definition.id), { minimumHundredths: line.valueHundredths + 1 }])),
-            },
+        const ids = carried.map((line) => line.definition.id);
+        const statements = [
+          {
+            main: { preferred: ['HP', 'ATK', 'DEF'].filter((main) => main !== artifact.mainProperty), acceptable: [artifact.mainProperty] },
+            sub: { preferred: ids.filter((_, at) => at % 2 === 0), acceptable: ids.filter((_, at) => at % 2 === 1) },
           },
-        };
-        const statedRequests = buildArtifactScoreRequestsForMonsterIds(
-          game, [...bySpecies.keys()], settings, undefined, { [unitId]: stated },
-        );
-        const statedLibrary = artifactValueOnMonster(artifact, unit, settings, stated);
-        const statedEngine = artifactPairScore(statedRequests, artifact.id, unitId, { conversions: false });
-        const statedLibraryPercent = statedLibrary === undefined ? undefined : Math.round(statedLibrary * 100);
-        const statedEnginePercent = statedEngine === undefined ? undefined : statedEngine.value;
-        const statedWhere = `artifact ${artifact.id} on stated copy ${unitId}`
-          + ` at acceptableWorth ${acceptableWorth} %`;
-        assert.equal(statedLibraryPercent === undefined, statedEnginePercent === undefined,
-          `${statedWhere}: the library ${statedLibraryPercent === undefined ? 'does not judge' : `says ${statedLibraryPercent} %`}`
-          + ` but the packed scorer ${statedEnginePercent === undefined ? 'does not judge' : `says ${statedEnginePercent} %`}.`);
-        if (statedLibraryPercent === undefined) continue;
-        assert.equal(statedLibraryPercent, statedEnginePercent,
-          `${statedWhere}: the library says ${statedLibraryPercent} %`
-          + ` and the packed scorer says ${statedEnginePercent} %.`);
-        compared += 1;
-        statedCompared += 1;
+          { main: { preferred: [], acceptable: [] }, sub: { preferred: [], acceptable: [] } },
+        ];
+        for (const { main, sub } of statements) {
+          const stated = { unitId, mainStat: main, artifacts: { sub: { [artifact.category]: sub } } };
+          const statedRequests = buildArtifactScoreRequestsForMonsterIds(
+            game, [...bySpecies.keys()], settings, undefined, { [unitId]: stated },
+          );
+          const statedLibrary = artifactValueOnMonster(artifact, unit, settings, stated);
+          const statedEngine = artifactPairScore(statedRequests, artifact.id, unitId, { conversions: false });
+          const statedLibraryPercent = statedLibrary === undefined ? undefined : Math.round(statedLibrary * 100);
+          const statedEnginePercent = statedEngine === undefined ? undefined : statedEngine.value;
+          const statedWhere = `artifact ${artifact.id} on stated copy ${unitId}`
+            + ` (${main.preferred.length + main.acceptable.length === 0 ? 'Any' : 'banded'})`
+            + ` at acceptableWorth ${acceptableWorth} %`;
+          assert.equal(statedLibraryPercent === undefined, statedEnginePercent === undefined,
+            `${statedWhere}: the library ${statedLibraryPercent === undefined ? 'does not judge' : `says ${statedLibraryPercent} %`}`
+            + ` but the packed scorer ${statedEnginePercent === undefined ? 'does not judge' : `says ${statedEnginePercent} %`}.`);
+          if (statedLibraryPercent === undefined) continue;
+          assert.equal(statedLibraryPercent, statedEnginePercent,
+            `${statedWhere}: the library says ${statedLibraryPercent} %`
+            + ` and the packed scorer says ${statedEnginePercent} %.`);
+          compared += 1;
+          statedCompared += 1;
+        }
       }
     }
   }
@@ -162,7 +165,7 @@ try {
   console.log(`Both artifact score readers agree on ${compared} judged readings`
     + ` (${pairs} equipped artifacts across ${bySpecies.size} species,`
     + ` at each of ${acceptableWorthChoices.length} acceptable-worth settings;`
-    + ` ${statedCompared} of them against a per-copy statement with substat floors).`);
+    + ` ${statedCompared} of them against a per-copy statement in two bands or cleared to Any).`);
 } finally {
   await server.close();
 }

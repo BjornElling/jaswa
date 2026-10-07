@@ -1,5 +1,6 @@
 import type { Shortfall } from './monster-shortfall';
-import type { CriticalRateBonuses } from './monster-stats';
+import type { CombatBonuses, LeadStat } from './monster-stats';
+import { leadStats } from './monster-stats';
 import { formatNumber } from './formatting';
 import type { GeneralSettings } from './types';
 
@@ -13,14 +14,28 @@ export type FigureMark = {
   glyph: 'ring' | 'info' | 'slashed';
 };
 
-/** One fixed-size mark explains every invisible contribution to a crit calculation. */
-export function criticalRateMarks(bonuses: CriticalRateBonuses): FigureMark[] {
+const leadWords: Readonly<Record<LeadStat, { name: string; stat: string }>> = {
+  atk: { name: 'Attack lead', stat: 'ATK' },
+  def: { name: 'Defence lead', stat: 'DEF' },
+  spd: { name: 'Speed lead', stat: 'SPD' },
+  hp: { name: 'HP lead', stat: 'HP' },
+  criRate: { name: 'Crit lead', stat: 'CRI Rate' },
+};
+
+/**
+ * One fixed-size mark after a figure explains every contribution the calculation
+ * adds to it that the figure itself does not show: a lead, and for CRI Rate the
+ * crit conditions. A stat with none carries no mark.
+ */
+export function combatBonusMarks(figure: string, bonuses: CombatBonuses): FigureMark[] {
+  const lead = (leadStats as readonly string[]).includes(figure) ? bonuses.leads?.[figure as LeadStat] : undefined;
+  const words = leadWords[figure as LeadStat];
   const reading = [
-    bonuses.alwaysCrits ? 'Always crits' : undefined,
-    bonuses.alwaysElementAdvantage ? 'Element advantage adds 15% CRI Rate' : undefined,
-    bonuses.critLead ? `Crit lead adds ${bonuses.critLead}% CRI Rate` : undefined,
+    figure === 'criRate' && bonuses.alwaysCrits ? 'Always crits' : undefined,
+    figure === 'criRate' && bonuses.alwaysElementAdvantage ? 'Element advantage adds 15% CRI Rate' : undefined,
+    lead ? `${words.name} adds ${lead}% ${words.stat}, counted in its range` : undefined,
   ].filter(Boolean).join('. ');
-  return reading === '' ? [] : [{ key: 'crit-bonuses', tone: 'green', reading, glyph: 'info' }];
+  return reading === '' ? [] : [{ key: 'combat-bonuses', tone: 'green', reading, glyph: 'info' }];
 }
 
 /** Whose wish it was stays in the sentence, so a user choice and a population default make different claims. */
@@ -30,13 +45,7 @@ function describeShortfall(shortfall: Shortfall, general: GeneralSettings): stri
 
   if (shortfall.kind === 'stat' && shortfall.target !== undefined && shortfall.current !== undefined) {
     return `${where}${whose} ${shortfall.wanted} ${shortfall.over ? 'at most' : 'at least'} ${formatNumber(shortfall.target, general)},`
-      + ` and this copy has ${formatNumber(shortfall.current, general)}.`;
-  }
-  /* A substat floor states both figures in percentage points, since that is how
-     the game shows a roll and how the user typed the floor. */
-  if (shortfall.target !== undefined && shortfall.current !== undefined) {
-    return `${where}${whose} ${shortfall.wanted} at ${(shortfall.target / 100).toFixed(2)} % or better,`
-      + ` and this copy rolled ${(shortfall.current / 100).toFixed(2)} %.`;
+      + ` and this copy has ${formatNumber(shortfall.current, general)}${shortfall.withLead ? ' with its lead' : ''}.`;
   }
   if (shortfall.present === undefined) {
     return `${where}${whose} ${shortfall.wanted}, and this copy has none.`;

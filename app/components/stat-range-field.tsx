@@ -27,7 +27,7 @@ export function StatRangeField({
   firstField?: Ref<HTMLInputElement>;
 }) {
   return <div className="stat-range" data-figure={figure} role="group" aria-label={label}>
-    <p className="overlay-stat-head">{label}</p>
+    <span className="overlay-stat-head">{label}</span>
     <div className="stat-range-fields">
       <input ref={firstField} className="stat-range-input" type="number" min={0} step={1} inputMode="numeric"
         placeholder="min" aria-label={`${label}: at least`} disabled={disabled} title={title}
@@ -37,6 +37,9 @@ export function StatRangeField({
         placeholder="max" aria-label={`${label}: at most`} disabled={disabled} title={title}
         value={atMost ?? ''} onChange={(event) => onAtMost(event.target.value)} />
     </div>
-    <p className="overlay-stat-current">{current}</p>
+    {/* Spans, not paragraphs, here and in the name above: inside a dialog
+        `.dialog p` outranks the label and caption voices, and printed the figure
+        as loud as the fields it qualifies. */}
+    <span className="overlay-stat-current">{current}</span>
   </div>;
 }

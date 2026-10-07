@@ -212,8 +212,8 @@ export const defaultThresholds = {
   runeSlotMain: { preferred: 0.4, acceptable: 0.1 },
   artifactMain: { preferred: 0.4, acceptable: 0.1 },
   /* One cut, not two. A second band here would hold fourteen properties out of
-     twenty-three, which distinguishes nothing — and the user states substats as
-     a list of what they want, with a minimum roll, rather than as two tiers. */
+     twenty-three, which distinguishes nothing; the user can draw that second
+     band themselves, where they know which properties are concessions. */
   artifactSub: { preferred: 0.06, acceptable: 0.06 },
   relicMain: { preferred: 0.4, acceptable: 0.1 },
   relicUnique: { preferred: 0.15, acceptable: 0.0625 },

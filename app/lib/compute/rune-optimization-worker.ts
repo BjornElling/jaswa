@@ -8,8 +8,7 @@
  * has to reconstruct a candidate from an index. It has no policy of its own: the
  * engine is chosen by `runAccelerated` and reported as it answered.
  */
-import { unliftedFigures } from '../monster-stats';
-import { prepareRuneOptimization } from '../rune-optimization-problem';
+import { prepareRuneOptimization, searchedBuildFigures } from '../rune-optimization-problem';
 import { searchRuneBuildsAccelerated } from './rune-optimization-engine';
 import type {
   OptimizedBuild, RuneOptimizationWorkerRequest, RuneOptimizationWorkerResponse,
@@ -61,8 +60,9 @@ self.onmessage = async (event: MessageEvent<RuneOptimizationWorkerRequest>) => {
     }, preferWebGpu);
     const builds: OptimizedBuild[] = outcome.builds.map((build) => ({
       ...build,
-      /* The search ranks over the lifted base; the table shows the monster's own CRI Rate. */
-      figures: unliftedFigures([...build.figures], problem.criticalRateLift),
+      /* The search ranks over the lifted base with the leads counted; the table
+         shows the monster's own figures and judges its ranges with the leads. */
+      ...searchedBuildFigures(problem, build.picks),
       runes: build.picks.map((at, slot) => {
         const candidate = problem.slots[slot][at];
         return {

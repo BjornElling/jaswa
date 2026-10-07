@@ -4,9 +4,10 @@ import type {
 } from './monster-defaults';
 import { monsterDefaults, runeSlotKeys } from './monster-defaults';
 import type {
-  ArtifactSubPreference, MonsterCopyPreferences, MonsterStatTargets,
+  BandedChoices, MonsterCopyPreferences, MonsterStatTargets,
 } from './monster-preferences';
-import { monsterStatTargetKeys } from './monster-preferences';
+import { monsterStatTargetKeys, statedLeads } from './monster-preferences';
+import type { Leads } from './monster-stats';
 import type { RelicMainProperty } from './relic-properties';
 import type { RuneSlotMain } from './rune-slot-mains';
 
@@ -26,9 +27,10 @@ import type { RuneSlotMain } from './rune-slot-mains';
  * keyed on `unit_master_id` and cannot be otherwise. Both are taken here so no
  * other module has to know that.
  *
- * **A resolved answer is a list, not a ranking.** The user says which options
- * they will take; the community share travels beside each one as evidence, and
- * the overlay shows it as reference. Nothing here ranks an option above another.
+ * **A rune answer is a list; a gear answer is two bands.** The user says which
+ * runes they will take, and which gear they prefer and which they merely accept;
+ * the community share travels beside each option as evidence, and the overlay
+ * shows it as reference. The share orders a list for reading and ranks nothing.
  */
 
 /**
@@ -55,13 +57,25 @@ export type ResolvedChoices<T> = {
   shares: ReadonlyMap<T, number>;
 };
 
-/** A wanted substat: the floor the user asked for, and what the population does. */
-export type ResolvedSubstat = {
-  /** The user's floor in hundredths, or `undefined` for "at any roll". */
-  minimumHundredths?: number;
+/**
+ * One resolved gear answer, in its two bands, with provenance and evidence.
+ *
+ * Where the user has spoken, their two bands are the whole answer; where they
+ * have not, the dataset's own bands stand in. An option in neither is not
+ * wanted — unless both are empty, which narrows nothing.
+ */
+export type ResolvedBands<T> = {
+  /** In the dataset's descending order of use, as every other row is. */
+  preferred: readonly T[];
+  acceptable: readonly T[];
   source: PreferenceSource;
-  share?: number;
+  shares: ReadonlyMap<T, number>;
 };
+
+/** Every option a resolved answer names, preferred first. */
+export function resolvedOptions<T>(bands: ResolvedBands<T>): T[] {
+  return [...bands.preferred, ...bands.acceptable];
+}
 
 export type ResolvedRunes = {
   /** The exact builds wanted, as `rune-set-pairs.ts` names them. */
@@ -71,24 +85,21 @@ export type ResolvedRunes = {
   allowBroken: boolean;
   /** Whether an Intangible rune may complete a set that is one short. */
   allowIntangible: boolean;
-  /** Whether an Immemorial Gem or Grindstone may be spent on this copy's runes. */
-  allowImmemorial: boolean;
   /** `false` where neither the user nor the dataset says anything about runes. */
   judged: boolean;
 };
 
 export type ResolvedArtifactCategory = {
-  main: ResolvedChoices<ArtifactMainProperty>;
-  /** Wanted substats by property id, in descending community share. */
-  sub: Map<number, ResolvedSubstat>;
-  /** Whether the substats are the user's own statement rather than the population's. */
-  subSource: PreferenceSource;
+  /** The copy's one main answer, or this category's own default where it gave none. */
+  main: ResolvedBands<ArtifactMainProperty>;
+  /** Substats by property id. */
+  sub: ResolvedBands<number>;
   judged: boolean;
 };
 
 export type ResolvedRelics = {
-  main: ResolvedChoices<RelicMainProperty>;
-  unique: ResolvedChoices<number>;
+  main: ResolvedBands<RelicMainProperty>;
+  unique: ResolvedBands<number>;
   judged: boolean;
 };
 
@@ -116,7 +127,8 @@ export type ResolvedMonsterPreferences = {
   /** Whether every figure is counted at a certain crit (`monster-stats.ts` `alwaysCritsLift`). */
   alwaysCrits: boolean;
   alwaysElementAdvantage: boolean;
-  critLead?: number;
+  /** What its leader adds, stat by stat; a stat it does not name gets nothing. */
+  leads: Leads;
 };
 
 const noChoices = <T,>(): ResolvedChoices<T> => ({ chosen: [], source: 'default', shares: new Map<T, number>() });
@@ -156,43 +168,26 @@ function resolveChoices<T>(
 }
 
 /**
- * The substats a category wants, ordered by how widely they are used.
- *
- * Where the user has stated any substat at all, their list is the whole answer:
- * a user who asked for one property and no others means the others are not
- * wanted, so the defaults do not top the list back up. Where they have stated
- * none, the population's preferred properties stand in — at no floor, since the
- * dataset records which properties are chosen and never how high they rolled.
+ * One stated pair of bands resolved against one default map: the user's two
+ * bands where they spoke — including two empty ones, which are not topped back
+ * up — and the dataset's own bands otherwise.
  */
-function resolveSubstats(
-  stated: Record<string, ArtifactSubPreference> | undefined,
-  defaults: Map<number, DefaultEntry> | undefined,
-): { sub: Map<number, ResolvedSubstat>; source: PreferenceSource } {
-  const shareOf = (id: number) => defaults?.get(id)?.share;
-  const entries: Array<[number, ResolvedSubstat]> = [];
-  const source: PreferenceSource = stated !== undefined ? 'user' : 'default';
-
+function resolveBands<T extends string | number>(
+  stated: BandedChoices<T> | undefined,
+  defaults: Map<T, DefaultEntry> | undefined,
+): ResolvedBands<T> {
+  const shares = sharesOf(defaults);
+  const ordered = (values: Iterable<T>) => [...values].sort((left, right) =>
+    (shares.get(right) ?? 0) - (shares.get(left) ?? 0) || String(left).localeCompare(String(right)));
   if (stated !== undefined) {
-    for (const [key, preference] of Object.entries(stated)) {
-      const id = Number(key);
-      if (!Number.isInteger(id)) continue;
-      const share = shareOf(id);
-      entries.push([id, {
-        ...(preference.minimumHundredths === undefined ? {} : { minimumHundredths: preference.minimumHundredths }),
-        source: 'user',
-        ...(share === undefined ? {} : { share }),
-      }]);
-    }
-  } else if (defaults) {
-    for (const [id, entry] of defaults) {
-      if (entry.band === 'unwanted') continue;
-      entries.push([id, { source: 'default', share: entry.share }]);
-    }
+    return { preferred: ordered(stated.preferred), acceptable: ordered(stated.acceptable), source: 'user', shares };
   }
-
-  entries.sort(([leftId, left], [rightId, right]) => (right.share ?? 0) - (left.share ?? 0) || leftId - rightId);
-  return { sub: new Map(entries), source };
+  const inBand = (band: 'preferred' | 'acceptable') =>
+    ordered([...(defaults ?? new Map<T, DefaultEntry>())].filter(([, entry]) => entry.band === band).map(([key]) => key));
+  return { preferred: inBand('preferred'), acceptable: inBand('acceptable'), source: 'default', shares };
 }
+
+const answers = <T,>(bands: ResolvedBands<T>) => bands.preferred.length + bands.acceptable.length > 0;
 
 function resolveRunes(
   stated: MonsterCopyPreferences | undefined,
@@ -224,7 +219,6 @@ function resolveRunes(
     /* Off unless the owner switched it on: a broken set is stats given away, and
        an optimizer that offered one unasked would be answering a looser question. */
     allowBroken: stated?.allowBrokenSets ?? false,
-    allowImmemorial: stated?.allowImmemorialItems ?? true,
     judged,
   };
 }
@@ -235,10 +229,9 @@ function resolveArtifactCategory(
   category: ArtifactCategory,
 ): ResolvedArtifactCategory {
   const categoryDefaults = defaults?.artifacts?.[category];
-  const categoryStated = stated?.artifacts?.[category];
-  const main = resolveChoices(categoryStated?.main, categoryDefaults?.main);
-  const { sub, source } = resolveSubstats(categoryStated?.sub, categoryDefaults?.sub);
-  return { main, sub, subSource: source, judged: main.chosen.length > 0 || sub.size > 0 };
+  const main = resolveBands(stated?.mainStat, categoryDefaults?.main);
+  const sub = resolveBands(stated?.artifacts?.sub?.[category], categoryDefaults?.sub);
+  return { main, sub, judged: answers(main) || answers(sub) };
 }
 
 function resolveRelics(
@@ -246,9 +239,11 @@ function resolveRelics(
   defaults: MonsterDefaults | undefined,
 ): ResolvedRelics {
   const relicDefaults = defaults?.relics;
-  const main = resolveChoices(stated?.relics?.main, relicDefaults?.main);
-  const unique = resolveChoices(stated?.relics?.unique, relicDefaults?.unique);
-  return { main, unique, judged: main.chosen.length > 0 || unique.chosen.length > 0 };
+  /* The one main answer serves the relic as it serves both artifacts; where it
+     was never given, the relic panel's own statistics stand in. */
+  const main = resolveBands(stated?.mainStat, relicDefaults?.main);
+  const unique = resolveBands(stated?.relics?.unique, relicDefaults?.unique);
+  return { main, unique, judged: answers(main) || answers(unique) };
 }
 
 function resolveStatTargets(
@@ -293,6 +288,6 @@ export function resolveMonsterPreferences(
     ...(stated?.runeSuggestionStat === undefined ? {} : { runeSuggestionStat: stated.runeSuggestionStat }),
     alwaysCrits: stated?.alwaysCrits ?? false,
     alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
-    critLead: stated?.critLead,
+    leads: statedLeads(stated),
   };
 }

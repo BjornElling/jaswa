@@ -2497,8 +2497,8 @@ equip rule is checked against them.
 
 `npm run verify:artifact-score-agreement` holds both readers to one answer on
 both kinds of row: it compares every equipped artifact against its species and
-then again against a stated copy whose floors every line falls short of, which is
-the case that separates "below its floor" from "wanted at any roll".
+then again against two stated copies — one answering in both bands, so the worth
+of an accepted line is compared, and one cleared to `Any`.
 
 A preference is keyed by **`(category, property)`**, not by property alone. A
 monster wears one artifact of each category, so "which property do I want here"
@@ -2517,21 +2517,29 @@ distinction that matters.
 Nothing is shared between copies, and preferences are not copyable from one to
 another. The defaults below are what spare the user a roster of empty forms.
 
-**A main stat is a list of what the user will take.** This reverses an earlier
-decision that it was one choice, on the grounds that a piece carries a single
-main. That confused what a piece *has* with what its owner will *equip*: someone
-building for bulk is equally glad of HP or DEF, and naming both says so where
-naming one says the other is unwanted. The score matrix has carried a band per
-main all along (`PackedMonsterScoreInput.mainPreferences`), so a list is also the
-shape the optimizer already read. The default that stands in is still the single
-leading entry — the statistics answer "which one do players pick", and inflating
-that into a list would be inventing an answer the dataset did not give.
+**A main stat is one answer for all the copy's gear.** HP, ATK and DEF are the
+mains of both artifact categories and of a relic alike, and someone building for
+bulk wants HP or DEF on whichever piece carries a main; asking per artifact
+category and again per relic only ever produced three copies of one answer, so
+`MonsterCopyPreferences.mainStat` is stated once and read by the artifact scorer
+for both categories and by the relic plan. Several mains may be named — someone
+building for bulk is equally glad of HP or DEF. Where it is never stated, each
+piece's own statistics panel stands in, so an artifact category and the relic may
+still default differently.
 
-Sub properties work the same way, and each may carry a **minimum roll** —
-`Damage Taken from Wind at 15 % or better` is one preference, and a 6.8 % line
-answers half of it. The floor is stored in the same hundredths of a point the
-import uses, so the comparison is exact. **A line below its floor scores zero**,
-exactly as an unwanted property does, in both readers.
+**A gear answer is two bands: preferred and accepted.** The main, each
+category's substats and the relic uniques are each a `BandedChoices` — what the
+copy prefers, and what it will accept when nothing preferred is to hand. They
+are the scorer's own two bands: a preferred line is worth a full roll and an
+accepted one the acceptable worth of §19.6, so a copy's answer is weighed exactly
+as the statistics are. An option sits in at most one band; one in neither is not
+wanted. **Two empty bands are `Any`** — the question narrows nothing, and every
+option counts as preferred — because "none of these" would score every artifact
+at zero for an answer the overlay reads as `Any`.
+
+A sub property has no minimum roll. One was offered — `Damage Taken from Wind at
+15 % or better` — and removed with the overlay that asked for it: the bands say
+what is wanted, and how well it rolled is what the score already measures.
 
 ### 19.3 The statistics supply the defaults, by fixed shares
 
@@ -2560,9 +2568,9 @@ exactly four, and no captured monster gets none. It stays one fixed percentage
 rather than a fixed count, so a monster whose player base really does use only
 two substats still shows two.
 
-Only the overlay's cut has a single band: the user states substats as a list of
-what they want with a minimum roll, not as two tiers, and a second band here
-would hold fourteen of twenty-three properties and distinguish nothing.
+Only the overlay's cut has a single band: a second band here would hold fourteen
+of twenty-three properties and distinguish nothing. The user can draw that
+second band themselves (§19.2), where they know which properties are concessions.
 
 #### The other two panels
 
@@ -2665,22 +2673,24 @@ accident: a stated answer is an array of the options chosen, *never stated* is
 **an absent key**, and *cleared* is **an empty array**. `undefined` does not
 survive `JSON.stringify` where `[]` does, which is what lets the third row keep
 its answer across a reload; the validator in `app/lib/monster-preferences.ts`
-rejects any key holding anything else. A substat's minimum roll follows the same
-rule: no floor means the property is wanted at any roll, and a floor of `0` is a
-stated floor of nothing.
+rejects any key holding anything else. A gear answer keeps the same three states
+as a pair of bands: absent, two lists, or two empty lists.
 
 The interface has to offer both endings, or the third state is unreachable:
 **Reset to defaults** returns a choice to absent, so the statistics stand in
 again, where clearing every option in a menu leaves the empty list.
 
-**A statement is yes or no, not a band.** This reverses the preferred/acceptable
-/cleared cycle the table above once described. A ranking is only meaningful
-where something weighs it, and the consumers ask one question — may this be
-suggested for this copy or not; meanwhile three states across twenty-three set
-names and eight mains per slot made the overlay a wall of chips answering a
-yes/no question twenty times over. The *global* acceptable-worth factor in §19.6
-is untouched: it grades what the **statistics** call acceptable, which is a
-different question from what the user will take.
+**A rune statement is yes or no; a gear statement is two bands.** A ranking is
+only meaningful where something weighs it. The rune optimizer asks one question
+of a build or a slot main — may this be suggested or not — so a rune answer is a
+list. The artifact scorer and the relic plan do weigh a ranking: an accepted
+artifact line is worth the acceptable worth of §19.6, and the relic plan offers a
+relic answering from the preferred bands ahead of a stronger one answering only
+from an accepted band, as a preferred conversion displaces an acceptable one
+(§17.5). So a gear answer is two bands (§19.2). Each is chosen on its own token
+line, never by cycling a chip through three states — that cycle across
+twenty-three set names and eight mains per slot was the wall of chips this
+replaced.
 
 ### 19.5 A species with no preferences is not judged
 

@@ -34,7 +34,11 @@ export type PickedRune = {
   locked: boolean;
 };
 
-export type OptimizedBuild = FoundBuild & { runes: PickedRune[] };
+/**
+ * A found build as the page reads it: `figures` the copy's own, as its panel would
+ * show them, and `counted` with its leads, which every range is judged by.
+ */
+export type OptimizedBuild = FoundBuild & { runes: PickedRune[]; counted: number[] };
 
 export type RuneOptimizationAnswer = Omit<SearchOutcome, 'builds'> & {
   builds: OptimizedBuild[];

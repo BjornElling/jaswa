@@ -17,20 +17,16 @@ export const artifactConvertedPropertyAt = 3;
 export const artifactSubPropertyIndexesAt = 4;
 export const artifactSubPropertyRollPointsAt =
   artifactSubPropertyIndexesAt + artifactSubPropertyCount;
-export const artifactSubPropertyValuesAt =
-  artifactSubPropertyRollPointsAt + artifactSubPropertyCount;
 export const artifactStride =
-  artifactSubPropertyValuesAt + artifactSubPropertyCount;
+  artifactSubPropertyRollPointsAt + artifactSubPropertyCount;
 
 export const monsterElementAt = 0;
 export const monsterArchetypeAt = 1;
 export const monsterMainPreferencesAt = 2;
 export const monsterSubPropertyPreferencesAt =
   monsterMainPreferencesAt + 3;
-export const monsterSubPropertyMinimumsAt =
-  monsterSubPropertyPreferencesAt + scoredArtifactProperties.length;
 export const monsterStride =
-  monsterSubPropertyMinimumsAt + scoredArtifactProperties.length;
+  monsterSubPropertyPreferencesAt + scoredArtifactProperties.length;
 
 /** One invocation evaluates one artifact/monster pair. */
 export const artifactScoreLanes = 64;

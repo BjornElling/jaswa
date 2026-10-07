@@ -9,9 +9,9 @@ const source = captured ?? scenarioGenerator(20261004, [2, 2]).scenario(0);
 const input = captured ? { ...source, settings: { ...source.settings, depth: 'quick' } } : {
   ...source, holds: {}, spared: [],
   requirements: { ...source.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
-    allowBroken: true, allowIntangible: false, allowImmemorial: true, alwaysCrits: false,
+    allowBroken: true, allowIntangible: false, alwaysCrits: false,
     targets: {}, ceilings: {}, rankBy: 'dmg' },
-  settings: { ...source.settings, depth: 'complete', gems: 'owned', grinds: 'owned',
+  settings: { ...source.settings, depth: 'complete', gems: 'owned', grinds: 'owned', allowImmemorial: true,
     runesOnOtherMonsters: true, resultCount: 5 },
   craftItems: ['gem', 'grindstone'].flatMap((kind) => [2, 4, 6, 8].flatMap((statId) =>
     ['Hero', 'Legend'].map((grade) => ({ id: `${kind}-${statId}-${grade}`, kind,

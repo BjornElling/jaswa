@@ -115,7 +115,15 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
     const allowImmemorial = random() < 0.7;
     const alwaysCrits = random() < 0.3;
     const alwaysElementAdvantage = index % 4 === 0;
+    /* Leads drawn from the index alone, so the accounts every seed produces stay as
+       they were: a crit lead now and then, and the four percentage leads in two
+       pairs, so a lead on SPD, ATK, DEF and HP each meets a range and a ranking. */
     const critLead = index % 5 === 0 ? [0, 19, 24, 33][index % 4] : undefined;
+    const leads = {
+      ...(critLead === undefined ? {} : { criRate: critLead }),
+      ...(index % 6 === 1 ? { spd: 24, atk: 33 } : {}),
+      ...(index % 6 === 2 ? { hp: 30, def: 20 } : {}),
+    };
     const allowBroken = random() < 0.5;
     /* The other end of a range now and then: a ceiling turns "more is better" off on
        what it reads, which is exactly what the exact reduction must notice. */
@@ -137,10 +145,10 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
       requirements: {
         builds: wantedBuilds,
         slotMains: { slot2: random() < 0.3 ? ['Spd'] : [], slot4: [], slot6: [] },
-        allowBroken, allowIntangible, allowImmemorial, alwaysCrits, alwaysElementAdvantage, critLead, targets, ceilings, rankBy,
+        allowBroken, allowIntangible, alwaysCrits, alwaysElementAdvantage, leads, targets, ceilings, rankBy,
       },
       settings: {
-        ...defaultRuneOptimizationSettings, gems, grinds, gemGrade: 'Legend', grindGrade: 'Hero',
+        ...defaultRuneOptimizationSettings, gems, grinds, gemGrade: 'Legend', grindGrade: 'Hero', allowImmemorial,
         runesOnOtherMonsters: random() < 0.7, unfinishedAtMaximum: random() < 0.5,
         depth: 'complete', resultCount: 5,
       },
@@ -163,10 +171,10 @@ export function craftedRangeScenarios() {
     }));
     input.holds = Object.fromEntries(input.runes.filter((rune) => rune.slot < 5).map((rune) => [rune.id, { locked: true }]));
     input.requirements = { ...input.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
-      allowBroken: true, allowIntangible: false, allowImmemorial: true, alwaysCrits: index % 7 === 0,
-      alwaysElementAdvantage: false, critLead: undefined, targets: {}, ceilings: {},
+      allowBroken: true, allowIntangible: false, alwaysCrits: index % 7 === 0,
+      alwaysElementAdvantage: false, leads: {}, targets: {}, ceilings: {},
       rankBy: ['dmg', 'ehp', 'spd'][index % 3] };
-    input.settings = { ...input.settings, depth: 'complete', gems: 'owned', grinds: 'owned',
+    input.settings = { ...input.settings, depth: 'complete', gems: 'owned', grinds: 'owned', allowImmemorial: true,
       runesOnOtherMonsters: true, resultCount: 3 };
     input.craftItems = ['standard', 'ancient', 'immemorial'].flatMap((lineage) =>
       (lineage === 'immemorial' ? [null] : [13, 15]).flatMap((setId) =>
