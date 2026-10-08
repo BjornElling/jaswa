@@ -262,9 +262,30 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   await expect(opener).toBeFocused();
   expect(await box(table)).toEqual(tableBefore);
 
-  /* Every column sorts. */
-  await table.getByRole('button', { name: 'E.HP', exact: true }).click();
+  /* The table holds the best builds by one figure, so its headers do not sort it:
+     choosing another figure to rank by searches again, in place. */
+  const ranked = (await table.getByRole('columnheader').allInnerTexts()).map((text) => text.trim());
+  await expect(table.locator('thead th[aria-sort]')).toHaveCount(1);
+  await expect(table.locator('thead button')).toHaveCount(0);
+  /* This copy ranks by SPD from its type; choosing it again starts nothing. */
+  await expect(page.getByLabel('Rank by', { exact: true })).toHaveValue('spd');
+  await page.getByLabel('Rank by', { exact: true }).selectOption('spd');
+  await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
+  const ehpAt = ranked.indexOf('E.HP');
+  const buildRows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
+  const column = (at: number) => buildRows.evaluateAll((rows, index) =>
+    rows.map((row) => Number((row.children[index] as HTMLElement).innerText.replace(/\D/g, ''))), at);
+  const bySpeed = await column(ehpAt);
+  await page.getByLabel('Rank by', { exact: true }).selectOption('ehp');
   await expect(table.getByRole('columnheader', { name: 'E.HP', exact: true })).toHaveAttribute('aria-sort', 'descending');
+  await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
+  await expect(page.locator('.rune-optimization-stale')).not.toHaveAttribute('data-shown', 'true');
+  const lives = await column(ehpAt);
+  expect(lives.length).toBeGreaterThan(0);
+  expect(lives).toEqual([...lives].sort((left, right) => right - left));
+  /* A search, not a re-sort: its best E.HP is at least the best the SPD table held. */
+  expect(lives[0]).toBeGreaterThanOrEqual(Math.max(...bySpeed));
+  await page.screenshot({ path: testInfo.outputPath('optimization-reranked.png'), fullPage: true });
 
   /* The calculation's own changes never reach the profile. */
   const stored = await storedPreferences(page);
@@ -869,7 +890,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await page.screenshot({ path: testInfo.outputPath('selection-after.png'), fullPage: true });
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
-  await expect(table.getByRole('button', { name: 'Changes', exact: true })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Changes', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Show build 2', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
@@ -912,10 +933,7 @@ test('an empty monster respects the maximum changes when filling its six slots',
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   const table = page.getByRole('table', { name: 'Rune builds' });
   const changesHeading = table.getByRole('columnheader', { name: 'Changes', exact: true });
-  expect(await changesHeading.locator('.sort-button-label').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-  const beforeSort = await box(table);
-  await changesHeading.getByRole('button').click();
-  expect(await box(table)).toEqual(beforeSort);
+  expect(await changesHeading.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   const column = await table.getByRole('columnheader').allTextContents();
   const at = column.findIndex((text) => text.includes('Changes'));
   for (const row of await table.locator('tbody tr').all()) {

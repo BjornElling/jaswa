@@ -17,10 +17,7 @@ import { buildIssueReading } from '../lib/rune-build-issues';
 import type { OpenRuneOverlay } from './rune-link';
 import { RuneSlotMainField } from './rune-slot-main-field';
 import { StatRangeField } from './stat-range-field';
-import { SortableHeader } from './sortable-table';
 import { TableColumnGroup } from './data-table-page';
-import { useSortedRows } from './use-sorted-rows';
-import type { SortableColumn } from './use-sorted-rows';
 import { WorkspacePage } from './workspace-page';
 import { useRuneOptimizationWork } from './use-rune-optimization-work';
 import { runeOptimizationFinishedWarning, runeOptimizationWorkWarning } from '../lib/rune-optimization-work';
@@ -69,7 +66,7 @@ import type { ImportedGame, ItemGrade, Preferences } from '../lib/types';
  * builds, slot mains, targets, the figure to rank by — laid out for this one
  * calculation, where any part may be changed without touching the profile; how to
  * search is a separate panel of settings that hold for every monster. The answer is
- * a table of whole builds, ranked by the chosen figure and sortable by any other,
+ * a table of whole builds, ranked by the chosen figure — choosing another searches again —
  * with the monster's current build pinned above it as the thing to beat.
  *
  * Nothing here calculates. The requirements come from `rune-optimization-requirements.ts`,
@@ -177,6 +174,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const [showingBuild, setShowingBuild] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const buildOpener = useRef<HTMLElement | null>(null);
+  const searchId = useRef(0);
 
   /* A search the user walked away from gives the processor back. */
   useEffect(() => () => cancelRuneOptimization(), []);
@@ -242,7 +240,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      fewer builds is the same table cut shorter. */
   const { resultCount, ...searchSettings } = settings;
   const activePresetId = preset?.id ?? defaultPresetId;
-  const inputKey = JSON.stringify({ presetId: activePresetId, unitId, requirements, settings: searchSettings, spared });
+  const keyOf = (asked: RuneOptimizationRequirements | undefined) =>
+    JSON.stringify({ presetId: activePresetId, unitId, requirements: asked, settings: searchSettings, spared });
+  const inputKey = keyOf(requirements);
   /* A table stays on screen while its monster is chosen, whatever is changed above
      it: it is still the answer to the question it was asked, read with that
      question's own requirements, and the warning beside Find builds says the
@@ -317,23 +317,41 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     if (opener?.isConnected) opener.focus();
   }
 
-  async function calculate() {
-    if (!input || !requirements) return;
+  /* `asked` is the question on screen, except when Rank by starts the search in the
+     same event that changes it, before a render has carried the new figure into
+     `input`. The trial measured the question on screen, so only that one may reuse
+     its prepared pool or record its time. */
+  async function calculate(asked: RuneOptimizationRequirements | undefined = requirements) {
+    if (!input || !asked) return;
+    const onScreen = asked === requirements;
     const searched = {
-      presetId: activePresetId, unitId, requirements, settings, spared, runes: runesById, items: itemsById, resultCount,
+      presetId: activePresetId, unitId, requirements: asked, settings, spared, runes: runesById, items: itemsById, resultCount,
     };
+    const id = ++searchId.current;
     trial.cancel();
     setState('calculating');
     setPhase('candidates');
     setError('');
     setProgress(0);
     setChosenBuild(null);
-    const outcome = await optimizeRuneBuilds(input, preferences.hardwareAcceleration, setProgress, setPhase, trial.problem);
+    const outcome = await optimizeRuneBuilds(onScreen ? input : { ...input, requirements: asked },
+      preferences.hardwareAcceleration, setProgress, setPhase, onScreen ? trial.problem : undefined);
+    /* A search replaced by a newer one leaves the page to it. */
+    if (id !== searchId.current) return;
     if (outcome.status === 'superseded') { setState('idle'); return; }
     if (outcome.status === 'failed') { setError(outcome.message); setState('error'); return; }
-    trial.record(outcome.answer);
-    setCalculation((previous) => ({ inputKey, answer: outcome.answer, ...searched, id: (previous?.id ?? 0) + 1 }));
+    if (onScreen) trial.record(outcome.answer);
+    setCalculation((previous) => ({ inputKey: keyOf(asked), answer: outcome.answer, ...searched, id: (previous?.id ?? 0) + 1 }));
     setState('idle');
+  }
+
+  /* The table holds only the best builds by one figure, so another figure is another
+     search. With a table on screen, or a search under way, choosing it starts that search. */
+  function rankBy(figure: RankFigure) {
+    if (!requirements || figure === requirements.rankBy) return;
+    const next = { ...requirements, rankBy: figure };
+    setEdits({ unitId, requirements: next });
+    if (current || state === 'calculating') void calculate(next);
   }
 
   if (!game) {
@@ -483,7 +501,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             <div className="filter-group rune-optimization-rank">
               <label className="filter-label" htmlFor="rune-optimization-rank">Rank by</label>
               <Dropdown id="rune-optimization-rank" value={requirements.rankBy}
-                onChange={(event) => change((state) => ({ ...state, rankBy: event.target.value as RankFigure }))}>
+                onChange={(event) => rankBy(event.target.value as RankFigure)}>
                 {monsterStatTargetKeys.map((key) => <option key={key} value={key}>{figureLabels[key]}</option>)}
               </Dropdown>
               <Provenance>{changed(requirements.rankBy === profile.requirements.rankBy)
@@ -670,20 +688,24 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
   chosen: number | null;
   onChoose: (index: number, opener: HTMLElement) => void;
 }) {
-  const rows = useMemo<ResultRow[]>(() => builds.map((build, index) => ({
-    index, build, name: buildNameOf(build.runes.map((rune) => rune.setId)), issue: describe(build),
-  })), [builds, describe]);
-  const columns = useMemo<SortableColumn<ResultRow>[]>(() => [
-    { key: 'index', label: '#', align: 'left', compare: (left, right) => left.index - right.index },
-    { key: 'build', label: 'Build', align: 'left', compare: (left, right) => left.name.localeCompare(right.name) },
-    { key: 'moves', label: 'Changes', align: 'right', compare: (left, right) => left.build.moves - right.build.moves },
-    ...monsterStatTargetKeys.map((key): SortableColumn<ResultRow> => ({
-      key, label: figureLabels[key], align: 'right', initialDirection: 'descending',
-      compare: (left, right) => figureOf(left.build, figureIndex(key)) - figureOf(right.build, figureIndex(key)),
-    })),
+  /* The table is ordered by the figure it was searched for and by nothing else. The
+     search only ever holds the best builds by that one figure — every other build was
+     ruled out unseen — so re-sorting by another column would rank a sample, not the
+     account. A different order is a different search, which Rank by starts. A sync
+     can still move a build's figures, so the order is read from them, ties kept in
+     the search's own order. */
+  const rows = useMemo<ResultRow[]>(() => {
+    const rank = figureIndex(rankBy);
+    return builds.map((build, index) => ({
+      index, build, name: buildNameOf(build.runes.map((rune) => rune.setId)), issue: describe(build),
+    })).sort((left, right) => figureOf(right.build, rank) - figureOf(left.build, rank) || left.index - right.index);
+  }, [builds, describe, rankBy]);
+  const columns = useMemo(() => [
+    { key: 'index', label: '#', align: 'left' as const },
+    { key: 'build', label: 'Build', align: 'left' as const },
+    { key: 'moves', label: 'Changes', align: 'right' as const },
+    ...monsterStatTargetKeys.map((key) => ({ key, label: figureLabels[key], align: 'right' as const })),
   ], []);
-  const { sorted, sort, toggle } = useSortedRows(rows, columns, { key: rankBy, direction: 'descending' },
-    (left, right) => left.index - right.index);
   const cell = columnClasses(columns);
   const slots = answer.report.slots;
 
@@ -691,7 +713,8 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
     <h3 id="rune-optimization-results-title" className="type-heading">Builds</h3>
     <table className="grid-table rune-optimization-table" aria-label="Rune builds">
       <TableColumnGroup columns={runeOptimizationTableColumns} />
-      <SortableHeader columns={columns} sort={sort} onToggle={toggle} />
+      <thead><tr>{columns.map((column) => <th key={column.key} scope="col" className={cell(column.key)}
+        aria-sort={column.key === rankBy ? 'descending' : undefined}>{column.label}</th>)}</tr></thead>
       <tbody>
         <tr className="rune-optimization-current">
           <td className={cell('index')}>Now</td>
@@ -701,7 +724,7 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
             {formatNumber(currentFigures[figureIndex(key)], general)}
           </td>)}
         </tr>
-        {sorted.length === 0 && <tr><td className="table-empty-state" colSpan={columns.length}>
+        {rows.length === 0 &&<tr><td className="table-empty-state" colSpan={columns.length}>
           {!answer.complete
             ? 'No build found before the search stopped. This does not rule out a build that meets your requirements. Try greater depth or narrower requirements.'
             : slots.some((slot) => slot.kept === 0)
@@ -714,7 +737,7 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
             keyboard, and the element focus returns to when the overlay closes. */}
         {/* A build that no longer holds keeps its row, dimmed and marked, so the
             reader does not lose the one they were following. */}
-        {sorted.map((row) => <tr key={row.index} data-chosen={chosen === row.index ? 'true' : undefined}
+        {rows.map((row) => <tr key={row.index} data-chosen={chosen === row.index ? 'true' : undefined}
           data-stale={row.issue === '' ? undefined : 'true'}
           onClick={(event) => onChoose(row.index, event.currentTarget.querySelector('button') ?? event.currentTarget)}>
           <td className={cell('index')}>

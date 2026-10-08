@@ -859,8 +859,14 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    the two; a search that stopped at its limit says so above the table. A change
    to the runes or locks since the search is not announced here: the rows it
    touches say so themselves (item 6).
-5. **Builds** — the current build pinned first as `Now`, then the ranked builds.
-   Every column sorts; the order starts on the ranking figure. Choosing a row opens
+5. **Builds** — the current build pinned first as `Now`, then the ranked builds,
+   in the order of the ranking figure, ties in the search's own order. The headers
+   do not sort: the search holds only the best builds by that one figure, having
+   ruled every other build out unseen (§4–§6), so ordering its table by another
+   column would rank a sample rather than the account. Another order is another
+   search, and *Rank by* starts it: with a table on screen or a search running,
+   choosing a figure searches again at once, with everything else on screen as it
+   stands. With no table it only sets the figure for *Find builds*. Choosing a row opens
    the build in an overlay: its six runes in the game's rune circle — slot 1 at
    the top, the rest clockwise — each as it is in the account now: set, level,
    main, innate, sub properties and where the rune is; and beside the circle, slot
@@ -912,7 +918,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 
    Row marks report changed runes or locks; a better build the change made possible
    is only found by searching again. Listing fewer builds cuts
-   the same table shorter. Changing the requirements or the other search settings —
+   the same table shorter. Changing any other requirement or search setting —
    or listing more builds than were searched — marks the table as stale; a monster
    that left the account says so.
 
