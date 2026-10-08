@@ -227,6 +227,7 @@ let allocatedCases = 0;
 let alwaysCritting = 0;
 /* Searches that had to leave a higher-priority copy's runes where they were. */
 let sparedChecked = 0;
+let ownKeptChecked = 0;
 /* Brute force is only a proof while it finishes, and a theoretical Gem multiplies a
    rune into a dozen end states. An account whose unreduced combinations run past
    this is drawn again rather than searched for minutes. */
@@ -290,6 +291,20 @@ for (let index = 0; index < scenarios; index += 1) {
       const unspared = prepareRuneOptimization({ ...input, spared: [] }, { reduce: false });
       if (unspared.slots.flat().some((candidate) => input.spared.includes(placeOf(candidate)))) sparedChecked += 1;
     }
+  }
+  /* Taking nothing from the preset still leaves the copy its own runes: the switch
+     refuses the rest of the team's, never the ones being rearranged. */
+  if (!input.settings.runesOnOtherMonsters) {
+    const placeByRuneId = new Map(input.runes.map((rune) => [rune.id, rune.occupiedId]));
+    const narrowed = prepareRuneOptimization(input, { reduce: false }).slots.flat();
+    assert.ok(narrowed.every((candidate) => [null, input.unitId].includes(placeByRuneId.get(candidate.runeId))),
+      `scenario ${index}: a rune engraved on another monster of the preset was offered`);
+    const ownIds = (slots) => [...new Set(slots.flat().map((candidate) => candidate.runeId)
+      .filter((runeId) => placeByRuneId.get(runeId) === input.unitId))].sort();
+    const own = ownIds(narrowed);
+    const widened = prepareRuneOptimization({ ...input, settings: { ...input.settings, runesOnOtherMonsters: true } }, { reduce: false }).slots;
+    assert.deepEqual(own, ownIds(widened), `scenario ${index}: the copy lost its own runes to the preset switch`);
+    if (own.length > 0) ownKeptChecked += 1;
   }
   const context = `scenario ${index}: ${JSON.stringify({ builds: input.requirements.builds, broken: input.requirements.allowBroken, rank: input.requirements.rankBy, targets: input.requirements.targets, ceilings: input.requirements.ceilings, gems: input.settings.gems, grinds: input.settings.grinds })}`;
   assert.ok(whole.complete, `${context} did not finish`);
@@ -682,6 +697,7 @@ assert.ok(refusedMidway > scenarios / 4, 'too few searches lost their card midwa
 assert.ok(lockedAwayChecked > personalScenarios / 4, `only ${lockedAwayChecked} builds had a rune to lock away`);
 assert.ok(itemsChecked >= personalScenarios / 10, `only ${itemsChecked} builds spent a held item`);
 assert.ok(sparedChecked > personalScenarios / 10, `only ${sparedChecked} searches had a higher-priority monster's runes to leave alone`);
+assert.ok(ownKeptChecked > scenarios / 20, `only ${ownKeptChecked} searches took nothing from the preset while the copy carried runes of its own`);
 assert.ok(alwaysCritting > scenarios / 10, `only ${alwaysCritting} builds were for a monster that always crits`);
 console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds — the search, whole and split three ways,`
   + ` and resource matching on ${allocatedCases} pools,`
