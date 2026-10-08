@@ -5,7 +5,7 @@ import type { SortableColumn, SortDirection, SortState } from './use-sorted-rows
  * The sort arrow. Both arrowheads are always drawn and only their opacity
  * changes, so the mark's footprint never varies with the sort state.
  */
-function SortMark({ direction }: { direction: SortDirection | 'none' }) {
+export function SortMark({ direction }: { direction: SortDirection | 'none' }) {
   return <span className="sort-mark" aria-hidden="true" data-direction={direction}>
     <svg viewBox="0 0 12 12" width="12" height="12" focusable="false">
       <path d="M6 2.5 L9 6 L3 6 Z" className="sort-mark-up" />

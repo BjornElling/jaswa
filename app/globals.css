@@ -6284,6 +6284,15 @@ th.align-center .sort-button { justify-content: center; }
 .sort-mark path { fill: currentColor; opacity: .25; }
 .sort-mark[data-direction='ascending'] .sort-mark-up,
 .sort-mark[data-direction='descending'] .sort-mark-down { opacity: 1; }
+/* A table ordered by its search rather than by its headings (Rune Optimization):
+   the ranked column wears the sorted look, and every other heading keeps the
+   mark's box with nothing drawn in it, since no click there can order anything. */
+.rank-heading { display: flex; align-items: center; gap: var(--s2); }
+th.align-right .rank-heading { justify-content: flex-end; }
+th.align-center .rank-heading { justify-content: center; }
+.rank-heading[data-ranked='true'] { color: var(--text-strong); }
+.rank-heading .sort-mark[data-direction='none'] path { opacity: 0; }
+.rank-heading-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* Every conversion worth taking, listed under one another, best first (§17.5).
    The order is what ranks them, so each line is just the instruction and the

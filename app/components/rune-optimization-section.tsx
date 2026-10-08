@@ -18,6 +18,7 @@ import type { OpenRuneOverlay } from './rune-link';
 import { RuneSlotMainField } from './rune-slot-main-field';
 import { StatRangeField } from './stat-range-field';
 import { TableColumnGroup } from './data-table-page';
+import { SortMark } from './sortable-table';
 import { WorkspacePage } from './workspace-page';
 import { useRuneOptimizationWork } from './use-rune-optimization-work';
 import { runeOptimizationFinishedWarning, runeOptimizationWorkWarning } from '../lib/rune-optimization-work';
@@ -56,7 +57,7 @@ import { runeBuildName } from '../lib/rune-set-pairs';
 import { readRunes } from '../lib/runes';
 import type { Rune } from '../lib/runes';
 import { useSessionStorageState } from '../lib/session-storage-state';
-import { runeOptimizationTableColumns, columnClasses } from '../lib/table-layouts';
+import { runeOptimizationTableColumns, columnClasses, sortMarkSide } from '../lib/table-layouts';
 import type { ImportedGame, ItemGrade, Preferences } from '../lib/types';
 
 /**
@@ -713,8 +714,20 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
     <h3 id="rune-optimization-results-title" className="type-heading">Builds</h3>
     <table className="grid-table rune-optimization-table" aria-label="Rune builds">
       <TableColumnGroup columns={runeOptimizationTableColumns} />
-      <thead><tr>{columns.map((column) => <th key={column.key} scope="col" className={cell(column.key)}
-        aria-sort={column.key === rankBy ? 'descending' : undefined}>{column.label}</th>)}</tr></thead>
+      {/* The ranked column reads as a sorted one does elsewhere — clear ink and a
+          direction mark — but is no button. Every heading holds the mark's space,
+          so the next search ranking another column moves no label (`AGENTS.md` §2). */}
+      <thead><tr>{columns.map((column) => {
+        const ranked = column.key === rankBy;
+        const mark = <SortMark direction={ranked ? 'descending' : 'none'} />;
+        return <th key={column.key} scope="col" className={cell(column.key)} aria-sort={ranked ? 'descending' : undefined}>
+          <span className="rank-heading" data-ranked={ranked ? 'true' : undefined}>
+            {sortMarkSide(column.align) === 'before' && mark}
+            <span className="rank-heading-label">{column.label}</span>
+            {sortMarkSide(column.align) === 'after' && mark}
+          </span>
+        </th>;
+      })}</tr></thead>
       <tbody>
         <tr className="rune-optimization-current">
           <td className={cell('index')}>Now</td>

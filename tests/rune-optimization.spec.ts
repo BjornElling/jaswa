@@ -276,8 +276,18 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   const column = (at: number) => buildRows.evaluateAll((rows, index) =>
     rows.map((row) => Number((row.children[index] as HTMLElement).innerText.replace(/\D/g, ''))), at);
   const bySpeed = await column(ehpAt);
+  const headingColour = (name: string) => table.getByRole('columnheader', { name, exact: true })
+    .locator('.rank-heading').evaluate((element) => getComputedStyle(element).color);
+  const labelsBefore = await Promise.all((await table.locator('.rank-heading-label').all()).map(box));
+  expect(await headingColour('Spd')).not.toBe(await headingColour('E.HP'));
   await page.getByLabel('Rank by', { exact: true }).selectOption('ehp');
   await expect(table.getByRole('columnheader', { name: 'E.HP', exact: true })).toHaveAttribute('aria-sort', 'descending');
+  /* The clear ink and the mark move to the new column; no heading moves with them. */
+  await expect(table.getByRole('columnheader', { name: 'Spd', exact: true })).not.toHaveAttribute('aria-sort');
+  expect(await Promise.all((await table.locator('.rank-heading-label').all()).map(box))).toEqual(labelsBefore);
+  expect(await headingColour('E.HP')).not.toBe(await headingColour('Spd'));
+  expect(await table.getByRole('columnheader', { name: 'E.HP', exact: true }).locator('.sort-mark')
+    .getAttribute('data-direction')).toBe('descending');
   await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
   await expect(page.locator('.rune-optimization-stale')).not.toHaveAttribute('data-shown', 'true');
   const lives = await column(ehpAt);
