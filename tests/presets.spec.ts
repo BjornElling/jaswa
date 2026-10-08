@@ -138,17 +138,17 @@ test('the page opens on Default, and a content\'s presets are chosen by their fa
   const still = await fields();
   await page.screenshot({ path: testInfo.outputPath('presets-choose.png'), fullPage: true });
 
-  /* A content opens its presets in the field below it, each with its team's faces; the
-     field was there all along, so nothing moves. */
+  /* A content opens on its first area, and the area on its first preset, in the
+     fields below it; the fields were there all along, so nothing moves. */
   await contentChoice(page).selectOption('Arena');
   await expect(areaChoice(page)).toBeEnabled();
   await expect(areaChoice(page).locator('option')).toHaveText(['Arena Attack', 'Arena Defense', 'Arena Interserver Defense']);
   await expect(areaChoice(page)).toHaveValue('Arena Attack');
   await expect(presetChoice(page)).toBeEnabled();
-  await expect(chosenPreset(page)).toHaveText('Choose preset');
-  await expect(page.getByText('No preset chosen yet.', { exact: true })).toBeVisible();
+  await expect(chosenPreset(page)).toHaveText('Arena Attack 4');
+  await expect(page.locator('.monster-priority-entry')).toHaveCount(2);
+  /* A game preset's monsters are the game's. */
   await expect(addMenu(page)).toBeDisabled();
-  /* A preset can be added to the content before one of its presets is chosen. */
   await expect(page.getByRole('button', { name: 'Add preset' })).toBeEnabled();
   expect(await fields()).toEqual(still);
   await presetChoice(page).click();
@@ -172,6 +172,8 @@ test('the page opens on Default, and a content\'s presets are chosen by their fa
     'Cliff of Tough Beast Men', 'Ruin of Silent Death', 'Castle of Forgotten Heroes', 'Hellground of Raging Fires',
     'Dimension Raid Phase 1', 'Dimension Raid Phase 2', 'Dimension Raid Phase 3']);
   await expect(presetChoice(page)).toBeDisabled();
+  await expect(chosenPreset(page)).toHaveText('Choose preset');
+  await expect(page.getByText('No presets here yet.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add preset' })).toBeEnabled();
   expect(await fields()).toEqual(still);
   await contentChoice(page).selectOption('Temple of Chaos');
@@ -179,15 +181,23 @@ test('the page opens on Default, and a content\'s presets are chosen by their fa
   await expect(areaChoice(page)).toHaveValue('Temple of Chaos');
   expect(await fields()).toEqual(still);
 
+  /* Another area of the same tab opens on its own first preset too. */
+  await contentChoice(page).selectOption('Arena');
+  await expect(chosenPreset(page)).toHaveText('Arena Attack 4');
+  await areaChoice(page).selectOption('Arena Defense');
+  await expect(chosenPreset(page)).toHaveText('Choose preset');
+  await areaChoice(page).selectOption('Arena Attack');
+  await expect(chosenPreset(page)).toHaveText('Arena Attack 4');
+
   /* The keys: arrows open and walk, Enter takes, Escape leaves the choice alone. */
   await chooseContent(page, "Giant's Keep");
-  await expect(chosenPreset(page)).toHaveText('Choose preset');
+  await expect(chosenPreset(page)).toHaveText("Giant's Keep 1");
   await presetChoice(page).focus();
   await page.keyboard.press('ArrowDown');
   await expect(page.getByRole('listbox')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('listbox')).toHaveCount(0);
-  await expect(chosenPreset(page)).toHaveText('Choose preset');
+  await expect(chosenPreset(page)).toHaveText("Giant's Keep 1");
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   await expect(chosenPreset(page)).toHaveText("Giant's Keep 1");
@@ -463,7 +473,7 @@ test('a preset built here is created, filled, led and deleted without moving the
   expect(await order(page)).toEqual([names[11]]);
   expect((await stored(page)).presets[0]).toMatchObject({ members: ['11'], leaderUnitId: null });
 
-  /* Kept across a reload; deleted, it is gone, and the page stays in its content, which still has the game's preset. */
+  /* Kept across a reload; deleted, it is gone, and the page stays in its content, on the game's preset it still has. */
   await page.reload();
   await openPresets(page);
   await expect(chosenPreset(page)).toHaveText('Arena draft');
@@ -471,8 +481,7 @@ test('a preset built here is created, filled, led and deleted without moving the
   await page.getByRole('button', { name: 'Delete preset' }).click();
   await expect(contentChoice(page)).toHaveValue('Arena');
   await expect(areaChoice(page)).toHaveValue('Arena Attack');
-  await expect(chosenPreset(page)).toHaveText('Choose preset');
-  await expect(page.getByText('No preset chosen yet.', { exact: true })).toBeVisible();
+  await expect(chosenPreset(page)).toHaveText('Arena Attack 4');
   expect((await stored(page)).presets).toEqual([]);
 });
 

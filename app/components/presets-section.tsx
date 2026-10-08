@@ -80,9 +80,9 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const tab = located?.tab ?? menu.find((entry) => entry.label === picked?.tab) ?? menu[0];
   const area = located?.area ?? tab.areas.find((entry) => entry.label === picked?.area) ?? tab.areas[0];
   const onDefault = tab === menu[0];
-  /* Default until the user says otherwise: the page always opens on a list, and
-     is empty only between choosing a content and choosing one of its presets. */
-  const preset = selected ?? (onDefault ? area.presets[0] ?? null : null);
+  /* An area always shows its first preset until another is chosen, so the page
+     is empty only in an area that holds none. */
+  const preset = selected ?? area.presets[0] ?? null;
   const own = preset?.kind === 'own' ? preferences.presets.find((entry) => entry.id === preset.id) ?? null : null;
   const priority = useMemo(() => (preset ? presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority) : []),
     [preset, preferences.monsterPriority, preferences.presetPriority]);
@@ -136,24 +136,20 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const suggestedName = areaContent === null ? ''
     : `${areaContent.name} ${Math.max(area.presets.length, ...area.presets.map((entry) => entry.number ?? 0)) + 1}`;
 
-  /* A tab opens on the first content of its menu, as the game's does. */
+  /* A tab opens on the first content of its menu, as the game's does, and an
+     area on its first preset. */
   function chooseTab(label: string) {
     const next = menu.find((entry) => entry.label === label);
     if (!next || next === tab) return;
-    if (next === menu[0]) {
-      setPicked(null);
-      const fallback = next.areas[0].presets[0];
-      if (fallback) onSelect(fallback.id);
-      return;
-    }
-    setPicked({ tab: next.label, area: next.areas[0].label });
-    onSelect('');
+    setPicked(next === menu[0] ? null : { tab: next.label, area: next.areas[0].label });
+    onSelect(next.areas[0].presets[0]?.id ?? '');
   }
 
   function chooseArea(label: string) {
-    if (label === area.label) return;
-    setPicked({ tab: tab.label, area: label });
-    onSelect('');
+    const next = tab.areas.find((entry) => entry.label === label);
+    if (!next || next === area) return;
+    setPicked({ tab: tab.label, area: next.label });
+    onSelect(next.presets[0]?.id ?? '');
   }
 
   function warmTeams() {
@@ -227,14 +223,15 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
     onSelect(id);
   }
 
-  /* Back to the content it was in, which stays in the menu however few presets
-     it has left; only the presets not yet named leave it once they are gone. */
+  /* Back to the content it was in, on the first preset it has left. The content
+     stays in the menu however few that is; only the presets not yet named leave
+     it once they are gone. */
   function deletePreset() {
     if (!preset || !deletable) return;
     if (own) onWrite.ownPresets((current) => current.filter((entry) => entry.id !== own.id));
     else void onWrite.deleteGamePreset(preset.id);
     setPicked({ tab: tab.label, area: area.label });
-    onSelect('');
+    onSelect(area.presets.find((entry) => entry !== preset)?.id ?? '');
   }
 
   function warmChoices() {
@@ -305,7 +302,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
       <section className="panel monster-priority-list-panel" aria-labelledby="monster-priority-list-title" aria-disabled={preset === null || undefined}>
         <h3 id="monster-priority-list-title" className="type-heading">Priority</h3>
         {preset === null
-          ? <p className="monster-priority-empty">No preset chosen yet.</p>
+          ? <p className="monster-priority-empty">No presets here yet.</p>
           : priority.length === 0
             ? <p className="monster-priority-empty">{preset.kind === 'game' ? 'This preset holds no monsters.' : 'Nobody here yet. Add a monster above, and the first one in takes #1.'}</p>
             /* Each entry is dragged by any part of it; the arrows beside it, and
@@ -482,5 +479,5 @@ function AddPresetDialog({ content: chosenContent, name: suggestedName, onCancel
 
 function PresetsHeader() {
   return <PageHeader title="Presets"
-    tagline="Somebody has to be the favourite. The rune economy is not a democracy." />;
+    tagline="One rune can serve every preset. Just not two monsters in the same one." />;
 }
