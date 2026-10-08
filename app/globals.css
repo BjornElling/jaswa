@@ -6818,6 +6818,8 @@ th.align-center .rank-heading { justify-content: center; }
   position: absolute; left: calc(var(--s7) * 2); bottom: 0; translate: 0 50%; z-index: 1;
   padding: 0 var(--s2); background: var(--raise); border: 1px solid var(--line); border-radius: var(--radius-sm);
   color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums;
+  /* A recipient's name can be long; it stops at the name column's edge. */
+  max-width: calc(100% - var(--s7) * 2); overflow: hidden; text-overflow: ellipsis; box-sizing: border-box;
 }
 .speed-slot { border-bottom: 1px solid var(--line); }
 /* Dragged as any list is (see "Reordering by dragging"), except that each cell

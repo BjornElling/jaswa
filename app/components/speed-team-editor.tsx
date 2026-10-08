@@ -7,7 +7,7 @@ import { useDragReorder } from './use-drag-reorder';
 import { formatNumber } from '../lib/formatting';
 import { moveItem } from '../lib/list-order';
 import type { MonsterCopyName } from '../lib/monster-names';
-import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
+import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortAllyBoost, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
 import { leaderAreaReaches } from '../lib/speed-tick';
 import { combatSpeedName, displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
 import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
@@ -200,15 +200,15 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         /* Until the dungeon is chosen its enemies are nobody's, so neither is a range. */
         const range = rangeText(enemiesKnown ? monster.range : null, general);
         const noRange = enemiesKnown && monster.range === null;
-        /* What this monster's turn does to the turns after it, hung on the line
-           below its slot, where the next monster waits. Only an attack-bar
-           boost to the whole team is named — a boost to one ally or to itself
-           does not pass down the order, and a speed buff changes how fast the
-           bars fill rather than pushing one — and the mark beside the name
-           explains the rest. */
-        const boostTag = [...new Set(monster.profile.effects
-          .filter((effect) => effect.kind === 'allies-attack-bar')
-          .map(shortTurnEffect))].join(' + ');
+        /* What this monster's turn does to the other bars, hung on the line
+           below its slot. A boost to the whole team is named by its size; a
+           boost to one ally also names who its first turn gave it to, as that
+           ally may stand anywhere in the order. A boost to itself or a speed
+           buff is left to the mark beside the name. */
+        const boostTag = [...new Set([
+          ...monster.profile.effects.filter((effect) => effect.kind === 'allies-attack-bar').map(shortTurnEffect),
+          ...monster.firstAllyBoosts.map((boost) => shortAllyBoost(boost.amount, names[boost.unitId]?.name ?? 'a teammate')),
+        ])].join(' + ');
         return <tbody key={member.unitId} className="speed-slot" {...reorder.entryProps(at)}>
           <tr className="speed-row">
             <td className="speed-order" rowSpan={2}>{number}</td>

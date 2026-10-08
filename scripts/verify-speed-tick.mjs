@@ -102,6 +102,29 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
   check(run(227).join() === 'booster,enemy,second', '227 combat speed lets the enemy cut in');
 }
 {
+  /* §4: a one-ally boost goes to the lowest other bar under auto battle — never
+     to the caster, whose bar has just emptied — unless the skill names the
+     highest. The Giant's Keep team that showed it, at its dungeon speeds:
+     Konamiya fills Teshar, who has just moved, and Teshar's second turn comes
+     before Prilea's, as observed in the game on October 8, 2026. */
+  const fill = (target) => [{ kind: 'ally-attack-bar', amount: 10_000, target }];
+  const giants = (target) => simulateBattle(
+    [unit('Prilea', 182), unit('Teshar', 181), unit('Konamiya', 176, fill(target)), unit('Homunculus', 173), unit('Lyn', 172)],
+    { done: (events) => events.length >= 7 },
+  );
+  const lowest = giants('lowest-attack-bar');
+  check(lowest.events.map((event) => event.key).join() === 'Prilea,Teshar,Konamiya,Homunculus,Lyn,Teshar,Prilea',
+    `a filled bar goes to the lowest: Teshar moves again before Prilea (${lowest.events.map((event) => event.key).join()})`);
+  check(lowest.events[2].allyBoosts.length === 1 && lowest.events[2].allyBoosts[0].key === 'Teshar' && lowest.events[2].allyBoosts[0].amount === 10_000,
+    'the turn names the ally its boost went to');
+  check(giants('highest-attack-bar').events[2].allyBoosts[0].key === 'Homunculus', 'a skill naming the highest bar boosts the highest');
+  /* One target per turn: a fill and a buff in one skill reach the same ally. */
+  const both = simulateBattle([unit('caster', 300, [...fill('lowest-attack-bar'), { kind: 'ally-speed-buff', turns: 2, target: 'lowest-attack-bar' }]),
+    unit('fast', 290), unit('slow', 100)], { done: (events) => events.length >= 2 });
+  check(both.events[0].allyBoosts[0].key === 'slow' && both.events[1].key === 'slow' && both.snapshots[both.events[1].tick - 1].bars.slow > 10_000,
+    'a skill that fills a bar and grants a buff gives both to the same ally');
+}
+{
   const trace = simulateBattle([unit('buffer', 200, [{ kind: 'allies-speed-buff', turns: 2 }]), unit('ally', 100)], {
     done: (events) => events.filter((event) => event.key === 'ally').length >= 1,
   });
@@ -149,6 +172,16 @@ check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is
     'Eye of the Storm marks Leo, and only Leo');
   const chasun = speedSkillProfile({ skills: [[9113, 2]] });
   check(chasun.effects.length === 0 && chasun.uncounted.includes('Fallen Blossoms'), 'a balanced bar is not counted, and says so');
+  /* "Fills up an ally target's Attack Bar" is a full bar, to the lowest. */
+  const konamiya = speedSkillProfile({ skills: [[1901, 9], [1906, 3], [1911, 6]] });
+  check(konamiya.uncounted.length === 0 && konamiya.effects.length === 1 && konamiya.effects[0].kind === 'ally-attack-bar'
+    && konamiya.effects[0].amount === 10_000 && konamiya.effects[0].target === 'lowest-attack-bar', 'Resurge fills the lowest ally\'s bar');
+  const swordOfJustice = speedSkillProfile({ skills: [[23501, 1]] });
+  check(swordOfJustice.effects.some((effect) => effect.kind === 'ally-attack-bar' && effect.target === 'highest-attack-bar'),
+    'a skill naming the highest attack bar keeps its own target');
+  const breeze = speedSkillProfile({ skills: [[11801, 1]] });
+  check(breeze.effects.some((effect) => effect.kind === 'ally-attack-bar' && effect.target === 'lowest-attack-bar'),
+    'a skill naming the lowest attack bar goes there');
 }
 for (const id of dungeonIds) {
   const content = speedContent(id);

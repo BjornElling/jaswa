@@ -526,6 +526,37 @@ test('arena presets face a worst-case enemy', async ({ page }, testInfo) => {
   await page.screenshot({ path: testInfo.outputPath('speed-arena.png'), fullPage: true });
 });
 
+test('a boost to one ally names who gets it: the lowest bar, as auto battle sends it', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await freshWorkspace(page);
+  /* Konamiya, whose Resurge fills one ally's bar, moves first: the others'
+     bars stand near full, and Veromos, the slowest, is the lowest. */
+  const konamiya = { ...base.unit_list[3], unit_id: 7, unit_master_id: 10911, attribute: 1, spd: 109, runes: [], skills: [[1901, 9], [1906, 3], [1911, 6]] };
+  await importAccount(page, {
+    ...base,
+    unit_list: [...base.unit_list, konamiya],
+    deck_list: [deck(24, 101, [7, 4, 5, 6, 0])],
+  });
+  await openSpeedTuning(page);
+  await presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), "Giant's Keep 1").click();
+  const draft = page.getByRole('dialog', { name: "Giant's Keep 1" });
+  const caster = draft.locator('.speed-slot').first();
+  const slotBox = await box(caster);
+  await draft.screenshot({ path: testInfo.outputPath('speed-one-ally-before.png') });
+  await expect(caster.locator('.speed-boost-tag')).toHaveText('+100 % ATB → Veromos');
+  /* No longer "not counted": a full bar is a number. */
+  await expect(caster.getByRole('img', { name: /Konamiya — Resurge: \+100 % attack bar to the ally with the lowest attack bar/ })).toHaveCount(1);
+  /* Veromos's next turn follows Konamiya's straight away, ahead of both Lushens. */
+  await expect(draft.locator('.speed-verdict').nth(3)).toContainText('moves 2nd');
+
+  /* Behind both Lushens, Konamiya fills the one that moved last: its bar has
+     had the fewest ticks since it emptied. */
+  await draft.getByLabel("What-if display speed for Konamiya in Giant's Keep 1").fill('100');
+  await expect(caster.locator('.speed-boost-tag')).toHaveText('+100 % ATB → Lushen #2');
+  expectSameHeight((await box(caster)).height, slotBox.height);
+  await draft.screenshot({ path: testInfo.outputPath('speed-one-ally-after.png') });
+});
+
 test('each slot states the display speeds that hold it, and a what-if is selected rather than dragged', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   await freshWorkspace(page);

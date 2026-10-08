@@ -1,7 +1,7 @@
 # Speed and turn order — canonical rules
 
 **Status:** Binding rule basis for JASWA Speed Tuning
-**Reviewed:** October 1, 2026
+**Reviewed:** October 8, 2026
 **Game:** *Summoners War: Sky Arena*
 
 This document states the game rules Speed Tuning is built on. `app/lib/speed-tick.ts`
@@ -199,8 +199,25 @@ A monster's turn applies its speed effects (`TurnEffect`):
 **Modelled, unverified:** an "all allies" boost does not reach the monster
 casting it, because its bar empties as its turn is taken; a boost a skill names
 for the caster itself lands after that reset. An "all allies" speed buff does
-include the caster. A single-target boost or buff goes to the ally closest to
-its turn (the fullest other bar), which is how a booster is used.
+include the caster.
+
+**Auto battle decides every choice.** Speed Tuning reads a team as the game's
+full auto plays it, never as a player picking targets by hand.
+
+**One ally: the lowest attack bar.** A boost or speed buff to one ally goes to
+the other ally with the lowest attack bar as the turn begins — established game
+behaviour under auto battle — unless the skill's own words name its target, and
+then the words decide: "the ally with the highest Attack Bar" (*Tactical Bomb*,
+*Sword of Justice*) goes to the highest. The caster is never its own target. The
+target is chosen once per turn, so a skill that fills a bar and grants a buff
+gives both to the same ally. Level bars go to the monster listed first.
+
+Observed October 8, 2026, in Giant's Keep on full auto, at dungeon speeds 182,
+181, 176, 173 and 172: Prilea, Teshar, Konamiya — whose *Resurge* fills Teshar,
+the lowest bar, having just moved — Homunculus, Lyn, then Teshar again before
+Prilea. The fullest bar, modelled here before, would have filled Homunculus,
+who was already past 100 %. The team table names the recipient of a member's
+first turn in the tag under it: `+100 % ATB → Teshar`.
 
 Verdehile's Boiling Blood passes over allies that carry a similar passive
 (`skipsSimilar`), as its text says.
@@ -227,7 +244,8 @@ of itself, counted only up to the copy's own skill level: Bernard's 30 % at
 Where `quantity` is 0 or empty, the skill's own words decide:
 
 - "increases … Attack Bar … by 20%" is 20 %;
-- "fills up the Attack Bar" or "to the MAX" is a full bar;
+- "fills up the Attack Bar" or "to the MAX" is a full bar, whichever way the
+  target is worded — "an ally target's", "the target ally's", "the ally's";
 - a speed buff's turns are read from "for 2 turns".
 
 Anything else — a boost in proportion to damage or to harmful effects, a bar

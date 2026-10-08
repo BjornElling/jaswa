@@ -57,6 +57,12 @@ export type MemberReading = {
   /** Where it really moves among the team, from 1. */
   actualPosition: number;
   firstTurnTick: number;
+  /**
+   * The one-ally boosts its first turn gave, and to whom. The recipient is
+   * whoever the bars make it on that turn, so it is read off the team's trace
+   * rather than the profile, and the opening is the turn a tune is judged by.
+   */
+  firstAllyBoosts: ReadonlyArray<{ unitId: string; amount: number }>;
   verdict: MemberVerdict;
   /**
    * The stages, from 1, whose first enemy turn comes before this member's
@@ -502,6 +508,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
       profile: candidate.profile,
       actualPosition: actualOrder.indexOf(member.unitId) + 1,
       firstTurnTick: first.get(member.unitId)?.tick ?? Number.POSITIVE_INFINITY,
+      firstAllyBoosts: (first.get(member.unitId)?.allyBoosts ?? []).map(({ key, amount }) => ({ unitId: key, amount })),
       verdict,
       cutInAt: enemies.flatMap((stage, at) => stage.cutsBefore.includes(member.unitId) ? [at + 1] : []),
       range,

@@ -140,14 +140,21 @@ export type TurnEffect =
    * kind of passive themselves.
    */
   | { kind: 'allies-attack-bar'; amount: number; skipsSimilar: boolean }
-  /** One ally's attack bar — the ally closest to its turn. */
-  | { kind: 'ally-attack-bar'; amount: number }
+  /** One other ally's attack bar, chosen by `target`. */
+  | { kind: 'ally-attack-bar'; amount: number; target: AllyTarget }
   /** The acting monster's own bar, after its turn has emptied it. */
   | { kind: 'self-attack-bar'; amount: number }
   /** A speed buff for a number of the recipient's own turns. */
   | { kind: 'allies-speed-buff'; turns: number }
-  | { kind: 'ally-speed-buff'; turns: number }
+  | { kind: 'ally-speed-buff'; turns: number; target: AllyTarget }
   | { kind: 'self-speed-buff'; turns: number };
+
+/**
+ * Which ally a one-ally effect lands on (`SPEED-TICK-CANONICAL.md` §4): the
+ * lowest attack bar, which is where the game's auto battle sends it, unless
+ * the skill's own words name the highest.
+ */
+export type AllyTarget = 'lowest-attack-bar' | 'highest-attack-bar';
 
 export type TickUnit = {
   key: string;
@@ -177,6 +184,8 @@ export type TurnEvent = {
    * by field position, which this page cannot see.
    */
   tiedWith: string[];
+  /** Every one-ally attack-bar boost this turn gave, in hundredths of a percent. */
+  allyBoosts: Array<{ key: string; amount: number }>;
 };
 
 export type TickSnapshot = {
@@ -252,7 +261,8 @@ export function simulateBattle(units: readonly TickUnit[], options: {
     const mover = contenders[0];
     const turn = (turns.get(mover.key) ?? 0) + 1;
     turns.set(mover.key, turn);
-    events.push({ tick, key: mover.key, side: mover.side, turn, attackBar: fullest / clockScale, tiedWith: contenders.slice(1).map((unit) => unit.key) });
+    const allyBoosts: TurnEvent['allyBoosts'] = [];
+    events.push({ tick, key: mover.key, side: mover.side, turn, attackBar: fullest / clockScale, tiedWith: contenders.slice(1).map((unit) => unit.key), allyBoosts });
     if (snapshot) snapshot.mover = mover.key;
 
     /* The bar empties as the turn is taken, so an effect that fills "all
@@ -262,8 +272,16 @@ export function simulateBattle(units: readonly TickUnit[], options: {
     const hadBuff = (buffTurns.get(mover.key) ?? 0) > 0;
     let refreshedOwnBuff = false;
     const allies = units.filter((unit) => unit.side === mover.side && unit.key !== mover.key);
-    const closestAlly = [...allies].sort((left, right) => (bars.get(right.key) ?? 0) - (bars.get(left.key) ?? 0)
+    /* A one-ally target is chosen from the bars as the turn begins, so a skill
+       that fills a bar and grants a buff gives both to the same ally rather
+       than letting its own boost send the buff elsewhere. Level bars go to the
+       one listed first. */
+    const byBar = [...allies].sort((left, right) => (bars.get(left.key) ?? 0) - (bars.get(right.key) ?? 0)
+      || (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0));
+    const lowestBar = byBar[0];
+    const highestBar = [...allies].sort((left, right) => (bars.get(right.key) ?? 0) - (bars.get(left.key) ?? 0)
       || (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0))[0];
+    const targetOf = (target: AllyTarget) => target === 'highest-attack-bar' ? highestBar : lowestBar;
     const grantBuff = (key: string, count: number) => {
       buffTurns.set(key, Math.max(buffTurns.get(key) ?? 0, count));
       if (key === mover.key) refreshedOwnBuff = true;
@@ -274,9 +292,14 @@ export function simulateBattle(units: readonly TickUnit[], options: {
         case 'allies-attack-bar':
           for (const ally of allies) if (!(effect.skipsSimilar && ally.similarBoostPassive)) boost(ally.key, effect.amount);
           break;
-        case 'ally-attack-bar':
-          if (closestAlly) boost(closestAlly.key, effect.amount);
+        case 'ally-attack-bar': {
+          const ally = targetOf(effect.target);
+          if (ally) {
+            boost(ally.key, effect.amount);
+            allyBoosts.push({ key: ally.key, amount: effect.amount });
+          }
           break;
+        }
         case 'self-attack-bar':
           boost(mover.key, effect.amount);
           break;
@@ -284,9 +307,11 @@ export function simulateBattle(units: readonly TickUnit[], options: {
           grantBuff(mover.key, effect.turns);
           for (const ally of allies) grantBuff(ally.key, effect.turns);
           break;
-        case 'ally-speed-buff':
-          if (closestAlly) grantBuff(closestAlly.key, effect.turns);
+        case 'ally-speed-buff': {
+          const ally = targetOf(effect.target);
+          if (ally) grantBuff(ally.key, effect.turns);
           break;
+        }
         case 'self-speed-buff':
           grantBuff(mover.key, effect.turns);
           break;

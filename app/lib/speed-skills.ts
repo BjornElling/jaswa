@@ -12,7 +12,7 @@
 import speedSkillData from '../data/swarfarm-speed-skills.json';
 import type { GameRecord } from './game-data';
 import { speedBuffPercent } from './speed-tick';
-import type { LeaderArea, SpeedLeaderSkill, TurnEffect } from './speed-tick';
+import type { AllyTarget, LeaderArea, SpeedLeaderSkill, TurnEffect } from './speed-tick';
 
 type SnapshotEffect = {
   effect: 'attack-bar' | 'speed-buff';
@@ -137,7 +137,12 @@ function recoveryMultiplierPercent(skill: SnapshotSkill, level: number): number 
  * part of that skill and is not counted either.
  */
 const statedAttackBar = /(?:increases?|recovers?)\s+(?:the\s+)?(?:your\s+)?attack bar(?:\s+of\s+(?:all allies|an ally|the ally|the target ally))?\s+by\s+(\d+)\s?%/i;
-const filledAttackBar = /fills? up (?:the |an |your |the ally's |an ally's |their )?(?:target's |ally's )?attack bar|attack bar to the max/i;
+/* "an ally target's", "the target ally's" and "the ally's" are one target in
+   three word orders; missing the first left Konamiya's Resurge uncounted. */
+const filledAttackBar = /fills? up (?:the |an |your |their )?(?:(?:ally|target)(?:'s)? )*attack bar|attack bar to the max/i;
+/* A one-ally effect goes to the lowest attack bar, as auto battle sends it,
+   unless the skill names the highest ("the ally with the highest Attack Bar"). */
+const highestAttackBarTarget = /\bhighest attack bar\b/i;
 const statedTurns = /for (\d+) turns?/i;
 
 type Reading = { amount: number } | null;
@@ -159,6 +164,7 @@ function speedBuffTurns(effect: SnapshotEffect, skill: SnapshotSkill): Reading {
 
 function turnEffects(skill: SnapshotSkill, level: number): { effects: TurnEffect[]; uncounted: boolean } {
   const boostScale = recoveryMultiplierPercent(skill, level);
+  const target: AllyTarget = highestAttackBarTarget.test(skill.description) ? 'highest-attack-bar' : 'lowest-attack-bar';
   let uncounted = false;
   const effects = skill.effects.flatMap((effect): TurnEffect[] => {
     const reading = effect.effect === 'attack-bar' ? attackBarQuantity(effect, skill) : speedBuffTurns(effect, skill);
@@ -171,11 +177,11 @@ function turnEffects(skill: SnapshotSkill, level: number): { effects: TurnEffect
         /* Percent × (100 + upgrades) is the boost in hundredths of a percent. */
         const amount = reading.amount * boostScale;
         if (recipient === 'allies') return { kind: 'allies-attack-bar', amount, skipsSimilar: skill.passive && effect.onCrit };
-        return recipient === 'ally' ? { kind: 'ally-attack-bar', amount } : { kind: 'self-attack-bar', amount };
+        return recipient === 'ally' ? { kind: 'ally-attack-bar', amount, target } : { kind: 'self-attack-bar', amount };
       }
       const turns = reading.amount;
       if (recipient === 'allies') return { kind: 'allies-speed-buff', turns };
-      return recipient === 'ally' ? { kind: 'ally-speed-buff', turns } : { kind: 'self-speed-buff', turns };
+      return recipient === 'ally' ? { kind: 'ally-speed-buff', turns, target } : { kind: 'self-speed-buff', turns };
     });
   });
   return { effects, uncounted };
@@ -255,15 +261,25 @@ function percent(amount: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
 }
 
+const targetWords: Record<AllyTarget, string> = {
+  'lowest-attack-bar': 'lowest attack bar',
+  'highest-attack-bar': 'highest attack bar',
+};
+
 export function describeTurnEffect(effect: TurnEffect): string {
   switch (effect.kind) {
     case 'allies-attack-bar': return `+${percent(effect.amount)} % attack bar to allies`;
-    case 'ally-attack-bar': return `+${percent(effect.amount)} % attack bar to one ally`;
+    case 'ally-attack-bar': return `+${percent(effect.amount)} % attack bar to the ally with the ${targetWords[effect.target]}`;
     case 'self-attack-bar': return `+${percent(effect.amount)} % own attack bar`;
     case 'allies-speed-buff': return `speed buff to allies for ${effect.turns} turns`;
-    case 'ally-speed-buff': return `speed buff to one ally for ${effect.turns} turns`;
+    case 'ally-speed-buff': return `speed buff to the ally with the ${targetWords[effect.target]} for ${effect.turns} turns`;
     case 'self-speed-buff': return `own speed buff for ${effect.turns} turns`;
   }
+}
+
+/** A one-ally boost as the tag between two slots names it: `+100 % ATB → Teshar`. */
+export function shortAllyBoost(amount: number, recipient: string): string {
+  return `+${percent(amount)} % ATB → ${recipient}`;
 }
 
 /** The same effect in a few characters, for the tag a team table hangs between two slots. */
