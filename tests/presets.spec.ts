@@ -67,7 +67,18 @@ async function box(locator: Locator) {
 }
 
 const contentChoice = (page: Page) => page.getByLabel('Content', { exact: true });
+const areaChoice = (page: Page) => page.getByLabel('Area', { exact: true });
 const presetChoice = (page: Page) => page.getByLabel('Preset', { exact: true });
+/* The game's tabs, every one on every account, before the decks not yet named. */
+const tabs = ['Default', 'Arena', 'Guild', 'Cairos', 'Trial of Ascension', 'Temple of Chaos', 'Rift of Worlds', 'Dimension Hole'];
+const tabOf: Record<string, string> = { 'Arena Attack': 'Arena', 'Arena Defense': 'Arena', "Giant's Keep": 'Cairos' };
+
+/* A content is its tab, then its area in the tab's menu. */
+async function chooseContent(page: Page, content: string) {
+  const tab = tabOf[content] ?? content;
+  await contentChoice(page).selectOption(tab);
+  if (tab !== content) await areaChoice(page).selectOption(content);
+}
 const chosenPreset = (page: Page) => presetChoice(page).locator('.preset-team-name');
 const teamOption = (page: Page, name: string) => page.getByRole('listbox').getByRole('option')
   .filter({ has: page.locator('.preset-team-name').getByText(name, { exact: true }) });
@@ -75,7 +86,7 @@ const addMenu = (page: Page) => page.getByLabel('Add mon', { exact: true });
 
 /* A content first, then one of its presets from the list with the faces. */
 async function choosePreset(page: Page, content: string, name: string) {
-  await contentChoice(page).selectOption(content);
+  await chooseContent(page, content);
   await presetChoice(page).click();
   await teamOption(page, name).click();
   await expect(chosenPreset(page)).toHaveText(name);
@@ -116,7 +127,9 @@ test('the page opens on Default, and a content\'s presets are chosen by their fa
   /* Default has no content to add a preset to. */
   await expect(page.getByRole('button', { name: 'Add preset' })).toBeDisabled();
   /* Only the contents, as the game groups them: Default alone, each content, then the decks not yet named. */
-  await expect(contentChoice(page).locator('option')).toHaveText(['Default', 'Arena Attack', "Giant's Keep", 'Not yet named']);
+  await expect(contentChoice(page).locator('option')).toHaveText([...tabs, 'Not yet named']);
+  await expect(areaChoice(page)).toBeDisabled();
+  await expect(areaChoice(page)).toHaveValue('Default');
   const fields = () => page.locator('.monster-priority-add-panel > *').evaluateAll((elements) =>
     elements.map((element) => {
       const rect = element.getBoundingClientRect();
@@ -127,7 +140,10 @@ test('the page opens on Default, and a content\'s presets are chosen by their fa
 
   /* A content opens its presets in the field below it, each with its team's faces; the
      field was there all along, so nothing moves. */
-  await contentChoice(page).selectOption('Arena Attack');
+  await contentChoice(page).selectOption('Arena');
+  await expect(areaChoice(page)).toBeEnabled();
+  await expect(areaChoice(page).locator('option')).toHaveText(['Arena Attack', 'Arena Defense', 'Arena Interserver Defense']);
+  await expect(areaChoice(page)).toHaveValue('Arena Attack');
   await expect(presetChoice(page)).toBeEnabled();
   await expect(chosenPreset(page)).toHaveText('Choose preset');
   await expect(page.getByText('No preset chosen yet.', { exact: true })).toBeVisible();
@@ -150,8 +166,21 @@ test('the page opens on Default, and a content\'s presets are chosen by their fa
   expect(await fields()).toEqual(still);
   await page.screenshot({ path: testInfo.outputPath('presets-team-chosen.png'), fullPage: true });
 
+  /* Every content of a tab is in its menu, the empty ones too, and an empty one has no preset to pick. */
+  await contentChoice(page).selectOption('Dimension Hole');
+  await expect(areaChoice(page).locator('option')).toHaveText(['Forest of Roaring Beasts', 'Sanctuary of Dreaming Fairies',
+    'Cliff of Tough Beast Men', 'Ruin of Silent Death', 'Castle of Forgotten Heroes', 'Hellground of Raging Fires',
+    'Dimension Raid Phase 1', 'Dimension Raid Phase 2', 'Dimension Raid Phase 3']);
+  await expect(presetChoice(page)).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Add preset' })).toBeEnabled();
+  expect(await fields()).toEqual(still);
+  await contentChoice(page).selectOption('Temple of Chaos');
+  await expect(areaChoice(page)).toBeDisabled();
+  await expect(areaChoice(page)).toHaveValue('Temple of Chaos');
+  expect(await fields()).toEqual(still);
+
   /* The keys: arrows open and walk, Enter takes, Escape leaves the choice alone. */
-  await contentChoice(page).selectOption("Giant's Keep");
+  await chooseContent(page, "Giant's Keep");
   await expect(chosenPreset(page)).toHaveText('Choose preset');
   await presetChoice(page).focus();
   await page.keyboard.press('ArrowDown');
@@ -298,7 +327,8 @@ test('a game preset shows the game\'s monsters and gear; its order, leader and p
   expect((await stored(page)).monsterPriority).toEqual([]);
   await page.reload();
   await openPresets(page);
-  await expect(contentChoice(page)).toHaveValue('Arena Attack');
+  await expect(contentChoice(page)).toHaveValue('Arena');
+  await expect(areaChoice(page)).toHaveValue('Arena Attack');
   await expect(chosenPreset(page)).toHaveText('Arena Attack 4');
   expect(await order(page)).toEqual([names[11], names[12]]);
 
@@ -332,14 +362,14 @@ test('a game preset shows the game\'s monsters and gear; its order, leader and p
   await choosePreset(page, 'Not yet named', 'Deck 99 · 1');
   expect(await order(page)).toEqual([names[12]]);
 
-  /* Deleted, it is gone from the import; the content it was the last of goes with it, and the page is back on Default. */
+  /* Deleted, it is gone from the import; the last deck not yet named takes that entry with it, and the page is back on Default. */
   await page.getByRole('button', { name: 'Delete preset' }).click();
   await expect(contentChoice(page)).toHaveValue('Default');
-  await expect(contentChoice(page).locator('option')).toHaveText(['Default', 'Arena Attack', "Giant's Keep"]);
+  await expect(contentChoice(page).locator('option')).toHaveText(tabs);
   await expect.poll(async () => (await savedDecks(page)).map((deck) => `${deck.deck_type}-${deck.deck_seq}`)).toEqual(['1-4', '24-101']);
   await page.reload();
   await openPresets(page);
-  await expect(contentChoice(page).locator('option')).toHaveText(['Default', 'Arena Attack', "Giant's Keep"]);
+  await expect(contentChoice(page).locator('option')).toHaveText(tabs);
 });
 
 test('a preset built here is created, filled, led and deleted without moving the page', async ({ page }, testInfo) => {
@@ -351,7 +381,7 @@ test('a preset built here is created, filled, led and deleted without moving the
 
   /* A preset is added to the chosen content, offered the name the game would give its next one.
      The dialog opens on that name, Escape closes it and gives focus back. */
-  await contentChoice(page).selectOption('Arena Attack');
+  await chooseContent(page, 'Arena Attack');
   const create = page.getByRole('button', { name: 'Add preset' });
   await create.click();
   const dialog = page.getByRole('dialog', { name: 'Add preset' });
@@ -377,8 +407,9 @@ test('a preset built here is created, filled, led and deleted without moving the
   await expect(dialog).toHaveCount(0);
 
   /* Created, it is the chosen preset, in its content after the game's, empty and saying what to do. */
-  await expect(contentChoice(page)).toHaveValue('Arena Attack');
-  await expect(contentChoice(page).locator('option')).toHaveText(['Default', 'Arena Attack', "Giant's Keep", 'Not yet named']);
+  await expect(contentChoice(page)).toHaveValue('Arena');
+  await expect(areaChoice(page)).toHaveValue('Arena Attack');
+  await expect(contentChoice(page).locator('option')).toHaveText([...tabs, 'Not yet named']);
   await expect(chosenPreset(page)).toHaveText('Arena draft');
   await presetChoice(page).click();
   await expect(page.getByRole('listbox').locator('.preset-team-name')).toHaveText(['Arena Attack 4', 'Arena draft']);
@@ -438,7 +469,8 @@ test('a preset built here is created, filled, led and deleted without moving the
   await expect(chosenPreset(page)).toHaveText('Arena draft');
   expect(await order(page)).toEqual([names[11]]);
   await page.getByRole('button', { name: 'Delete preset' }).click();
-  await expect(contentChoice(page)).toHaveValue('Arena Attack');
+  await expect(contentChoice(page)).toHaveValue('Arena');
+  await expect(areaChoice(page)).toHaveValue('Arena Attack');
   await expect(chosenPreset(page)).toHaveText('Choose preset');
   await expect(page.getByText('No preset chosen yet.', { exact: true })).toBeVisible();
   expect((await stored(page)).presets).toEqual([]);

@@ -10,8 +10,8 @@
 import { readDeckPresets } from './deck-presets';
 import type { DeckPreset } from './deck-presets';
 import type { GameRecord } from './game-data';
-import { deckContent, isPresetContentId, presetContent } from './preset-contents';
-import type { PresetContent, PresetContentId } from './preset-contents';
+import { deckContent, isPresetContentId, presetContent, presetContentRank, presetTabs, tabContents } from './preset-contents';
+import type { PresetContent, PresetContentId, PresetTab } from './preset-contents';
 import { isRecord } from './preference-reading';
 
 export const defaultPresetId = 'default';
@@ -41,6 +41,8 @@ export type Preset = {
   kind: PresetKind;
   /** `null` for Default and for a game deck whose numbers are not yet matched to a content. */
   content: PresetContent | null;
+  /** Whether the content is the likeliest reading of the deck's numbers rather than one the game's screen confirmed. */
+  contentAssumed: boolean;
   /** The preset's number within its content, as the game counts it; `null` where there is none. */
   number: number | null;
   name: string;
@@ -79,7 +81,7 @@ function readDefault(data: GameRecord): Preset {
   const runesOf = new Map(units.map((unit) => [String(unit.unit_id), ids(unit.runes, 'rune_id')]));
   const artifactsOf = new Map(units.map((unit) => [String(unit.unit_id), ids(unit.artifacts, 'rid')]));
   return {
-    id: defaultPresetId, kind: 'default', content: null, number: null, name: 'Default',
+    id: defaultPresetId, kind: 'default', content: null, contentAssumed: false, number: null, name: 'Default',
     members: units.map((unit) => String(unit.unit_id)), leaderUnitId: null, savesGear: true,
     runesOf, artifactsOf, runeOwner: owners(runesOf), artifactOwner: owners(artifactsOf),
     missingRuneIds: [], missingArtifactIds: [], missingUnitIds: [], deck: null,
@@ -100,13 +102,14 @@ function gamePresetName(deck: DeckPreset, content: PresetContent | null, number:
 
 function readGamePreset(deck: DeckPreset, fallback: Preset): Preset {
   const named = deck.source.kind === 'deck' ? deckContent(deck.source.deckType, deck.source.deckSequence)
-    : { content: presetContent(deck.source.kind), number: null };
+    : { content: presetContent(deck.source.kind), number: null, assumed: false };
   const content = named?.content ?? null;
   const number = named?.number ?? null;
+  const contentAssumed = named?.assumed ?? false;
   const runesOf = effectiveGear(deck.members, (unitId) => deck.savesGear ? deck.gear.get(unitId)?.runeIds : undefined, fallback.runesOf);
   const artifactsOf = effectiveGear(deck.members, (unitId) => deck.savesGear ? deck.gear.get(unitId)?.artifactIds : undefined, fallback.artifactsOf);
   return {
-    id: deck.key, kind: 'game', content, number, name: gamePresetName(deck, content, number),
+    id: deck.key, kind: 'game', content, contentAssumed, number, name: gamePresetName(deck, content, number),
     members: deck.members, leaderUnitId: deck.leaderUnitId, savesGear: deck.savesGear,
     runesOf, artifactsOf, runeOwner: owners(runesOf), artifactOwner: owners(artifactsOf),
     missingRuneIds: deck.missingRuneIds, missingArtifactIds: deck.missingArtifactIds,
@@ -119,7 +122,7 @@ function readOwnPreset(own: OwnPreset, fallback: Preset, ownedRunes: ReadonlySet
   const artifactsOf = effectiveGear(own.members, (unitId) => own.gear?.[unitId]?.artifactIds, fallback.artifactsOf);
   const content = own.content ? presetContent(own.content) : null;
   return {
-    id: own.id, kind: 'own', content, number: null, name: own.name,
+    id: own.id, kind: 'own', content, contentAssumed: false, number: null, name: own.name,
     members: own.members, leaderUnitId: own.leaderUnitId, savesGear: own.gear !== null,
     runesOf, artifactsOf, runeOwner: owners(runesOf), artifactOwner: owners(artifactsOf),
     missingRuneIds: [...runesOf.values()].flat().filter((id) => !ownedRunes.has(id)),
@@ -129,21 +132,13 @@ function readOwnPreset(own: OwnPreset, fallback: Preset, ownedRunes: ReadonlySet
   };
 }
 
-/* The game's capacity table lists contents in a fixed order; a deck whose
-   content is not yet named follows every named one, in the export's order. */
-/* By content, and inside a content the game's presets by number before the
-   ones built here, which carry no number. */
+/* By content in the game's own structure, and inside a content the game's
+   presets by number before the ones built here, which carry no number. A deck
+   whose content is not yet named follows every named one, in the export's order. */
 function presetOrder(left: Preset, right: Preset): number {
-  const rank = (preset: Preset) => preset.content === null ? Number.MAX_SAFE_INTEGER : contentRank(preset.content.id);
+  const rank = (preset: Preset) => preset.content === null ? Number.MAX_SAFE_INTEGER : presetContentRank(preset.content.id);
   const built = (preset: Preset) => (preset.kind === 'own' ? 1 : 0);
   return rank(left) - rank(right) || built(left) - built(right) || (left.number ?? 0) - (right.number ?? 0);
-}
-
-const contentOrder: readonly PresetContentId[] = ['arena-attack', 'arena-defense', 'interserver-defense', 'trial-of-ascension', 'rift-raid', 'dimension-raid-1', 'dimension-raid-2', 'dimension-raid-3', 'guild-unconfirmed',
-  'giants', 'dragons', 'necropolis', 'spiritual', 'steel', 'punisher'];
-
-function contentRank(id: PresetContentId): number {
-  return contentOrder.indexOf(id);
 }
 
 /**
@@ -227,11 +222,13 @@ const presetNameMaximum = 60;
    that can be judged, and one that fails is dropped alone. */
 function readOwnPresetEntry(value: unknown): OwnPreset | null {
   if (!isRecord(value)) return null;
-  const { id, name, content, members, leaderUnitId, gear } = value;
+  const { id, name, members, leaderUnitId, gear } = value;
   if (!isIdentifier(id) || !id.startsWith('own-') || typeof name !== 'string' || name.trim() === '' || name.length > presetNameMaximum) return null;
-  if (content !== null && !isPresetContentId(content)) return null;
   if (!isIdList(members)) return null;
-  if (content !== null && members.length > presetContent(content).teamSize) return null;
+  /* The content binds nothing else in the preset, so one the current structure
+     does not hold, or whose team the members outnumber, starts from its default
+     — no content — and the preset's monsters and gear are kept. */
+  const content = isPresetContentId(value.content) && members.length <= presetContent(value.content).teamSize ? value.content : null;
   if (leaderUnitId !== null && !(isIdentifier(leaderUnitId) && members.includes(leaderUnitId))) return null;
   if (gear === null) return { id, name, content, members, leaderUnitId, gear: null };
   if (!isRecord(gear)) return null;
@@ -279,24 +276,36 @@ export function runesInPreset<T extends { id: string; occupiedId: string | null 
   });
 }
 
+/** One content under a tab of the preset menu, and the presets standing in it. */
+export type PresetMenuArea = { label: string; content: PresetContent | null; presets: Preset[] };
+
+/** One tab of the preset menu: Default, a tab of the game's, or the presets not yet named. */
+export type PresetMenuTab = { label: string; tab: PresetTab | null; areas: PresetMenuArea[] };
+
+export const notYetNamedLabel = 'Not yet named';
+
 /**
- * Presets as every preset menu groups them, following the game: Default alone,
- * then each content's presets together — the ones built here among them — then
- * the presets not matched to a content.
+ * The preset menu, in the game's own fixed structure: Default alone, then
+ * every tab of the Attack Deck screen with every content of its menu — empty
+ * or not, so the menu is the same on every account — and last, only while
+ * there are any, the presets matched to no content.
  */
-export function presetGroupsOf(presets: readonly Preset[]): { label: string; presets: Preset[] }[] {
-  const groups: { label: string; presets: Preset[] }[] = [];
-  for (const preset of presets) {
-    const label = preset.kind === 'default' ? 'Default' : presetGroupLabel(preset);
-    const group = groups.find((entry) => entry.label === label);
-    if (group) group.presets.push(preset); else groups.push({ label, presets: [preset] });
+export function presetMenu(presets: readonly Preset[]): PresetMenuTab[] {
+  const fallback = presets.filter((preset) => preset.kind === 'default');
+  const menu: PresetMenuTab[] = [{ label: 'Default', tab: null, areas: [{ label: 'Default', content: null, presets: fallback }] }];
+  for (const tab of presetTabs) {
+    menu.push({ label: tab, tab, areas: tabContents(tab).map((entry) => ({
+      label: entry.name, content: entry, presets: presets.filter((preset) => preset.content?.id === entry.id),
+    })) });
   }
-  return groups;
+  const unnamed = presets.filter((preset) => preset.kind !== 'default' && preset.content === null);
+  if (unnamed.length > 0) menu.push({ label: notYetNamedLabel, tab: null, areas: [{ label: notYetNamedLabel, content: null, presets: unnamed }] });
+  return menu;
 }
 
 /** The content a preset is listed under, whoever built it. */
 export function presetGroupLabel(preset: Preset): string {
-  return preset.content?.name ?? 'Not yet named';
+  return preset.content?.name ?? notYetNamedLabel;
 }
 
 /**

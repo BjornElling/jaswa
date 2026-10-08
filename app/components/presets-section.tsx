@@ -21,10 +21,10 @@ import { monsterCopyNames } from '../lib/monster-names';
 import { presetPriorityOf } from '../lib/monster-priority';
 import { presetSpeedTeam } from '../lib/speed-tuning-preferences';
 import type { MonsterPriority } from '../lib/monster-priority';
-import { presetContent, presetContents } from '../lib/preset-contents';
+import { presetContent, presetTabs, tabContents } from '../lib/preset-contents';
 import type { PresetContentId } from '../lib/preset-contents';
-import { accountItems, monsterInPreset, newOwnPresetId, presetGroupsOf } from '../lib/presets';
-import type { OwnPreset, Preset } from '../lib/presets';
+import { accountItems, monsterInPreset, newOwnPresetId, presetMenu } from '../lib/presets';
+import type { OwnPreset, Preset, PresetMenuArea, PresetMenuTab } from '../lib/presets';
 import type { ImportedGame, Preferences } from '../lib/types';
 
 type MonsterChoice = { unitId: string; masterId: string; name: string; record: GameRecord };
@@ -70,12 +70,18 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   onTuneSpeed: (presetId: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
-  const [pickedGroup, setPickedGroup] = useState<string | null>(null);
+  /* The tab and area chosen while no preset is: a chosen preset names its own. */
+  const [picked, setPicked] = useState<{ tab: string; area: string } | null>(null);
   const createButton = useRef<HTMLButtonElement>(null);
+  const menu = useMemo(() => presetMenu(presets), [presets]);
+  const selected = presets.find((entry) => entry.id === selectedId) ?? null;
+  const located = selected === null ? null : locate(menu, selected);
+  const tab = located?.tab ?? menu.find((entry) => entry.label === picked?.tab) ?? menu[0];
+  const area = located?.area ?? tab.areas.find((entry) => entry.label === picked?.area) ?? tab.areas[0];
+  const onDefault = tab === menu[0];
   /* Default until the user says otherwise: the page always opens on a list, and
      is empty only between choosing a content and choosing one of its presets. */
-  const preset = presets.find((entry) => entry.id === selectedId)
-    ?? (pickedGroup === null ? presets.find((entry) => entry.kind === 'default') ?? null : null);
+  const preset = selected ?? (onDefault ? area.presets[0] ?? null : null);
   const own = preset?.kind === 'own' ? preferences.presets.find((entry) => entry.id === preset.id) ?? null : null;
   const priority = useMemo(() => (preset ? presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority) : []),
     [preset, preferences.monsterPriority, preferences.presetPriority]);
@@ -106,30 +112,39 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const speed = preset?.kind === 'default' ? null : preset?.content?.speed ?? null;
   const tunable = preset !== null && speed !== null && preset.members.length > 0
     && presetSpeedTeam(preset, speed, preferences.speedTuning.presets[preset.id]) !== null;
-  const groups = useMemo(() => presetGroupsOf(presets), [presets]);
-  /* The content follows the chosen preset; only between choosing a content and
-     choosing one of its presets is it a choice of its own. */
-  const group = groups.find((entry) => (preset ? entry.presets.includes(preset) : entry.label === pickedGroup)) ?? null;
-  const teams = useMemo<TeamChoice[]>(() => (!group || group.presets.some((entry) => entry.kind === 'default') ? []
-    : group.presets.map((entry) => ({ id: entry.id, name: entry.name, faces: entry.members.map((unitId) => {
+  const teams = useMemo<TeamChoice[]>(() => (onDefault ? []
+    : area.presets.map((entry) => ({ id: entry.id, name: entry.name, faces: entry.members.map((unitId) => {
       const choice = owned.get(unitId);
       const display = choice ? monsterPresentation(choice.masterId) : undefined;
       return { key: unitId, name: choice?.name ?? 'Not in this import', imageFilename: display?.imageFilename, initial: display?.shortName ?? '?' };
-    }) }))), [group, owned]);
+    }) }))), [onDefault, area, owned]);
 
   /* A preset added here joins the chosen content as the game's own do, and is
      offered the name the game would give the next one: the content and the
      number after the highest it holds. */
-  const groupContent = group?.presets.find((entry) => entry.content !== null)?.content ?? null;
-  const suggestedName = groupContent === null || group === null ? ''
-    : `${groupContent.name} ${Math.max(group.presets.length, ...group.presets.map((entry) => entry.number ?? 0)) + 1}`;
+  const areaContent = area.content;
+  const warnings = preset ? presetWarnings(preset) : '';
+  const suggestedName = areaContent === null ? ''
+    : `${areaContent.name} ${Math.max(area.presets.length, ...area.presets.map((entry) => entry.number ?? 0)) + 1}`;
 
-  function chooseGroup(label: string) {
-    const next = groups.find((entry) => entry.label === label);
-    const fallback = next?.presets.find((entry) => entry.kind === 'default');
-    setPickedGroup(next && !fallback ? next.label : null);
-    if (fallback) onSelect(fallback.id);
-    else if (preset && !next?.presets.includes(preset)) onSelect('');
+  /* A tab opens on the first content of its menu, as the game's does. */
+  function chooseTab(label: string) {
+    const next = menu.find((entry) => entry.label === label);
+    if (!next || next === tab) return;
+    if (next === menu[0]) {
+      setPicked(null);
+      const fallback = next.areas[0].presets[0];
+      if (fallback) onSelect(fallback.id);
+      return;
+    }
+    setPicked({ tab: next.label, area: next.areas[0].label });
+    onSelect('');
+  }
+
+  function chooseArea(label: string) {
+    if (label === area.label) return;
+    setPicked({ tab: tab.label, area: label });
+    onSelect('');
   }
 
   function warmTeams() {
@@ -203,13 +218,13 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
     onSelect(id);
   }
 
-  /* Back to the content it was in while that content still has presets to
-     choose from, and to Default once it has none. */
+  /* Back to the content it was in, which stays in the menu however few presets
+     it has left; only the presets not yet named leave it once they are gone. */
   function deletePreset() {
     if (!preset || !deletable) return;
     if (own) onWrite.ownPresets((current) => current.filter((entry) => entry.id !== own.id));
     else void onWrite.deleteGamePreset(preset.id);
-    setPickedGroup(group && group.presets.length > 1 ? group.label : null);
+    setPicked({ tab: tab.label, area: area.label });
     onSelect('');
   }
 
@@ -229,14 +244,24 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   return <WorkspacePage header={<PresetsHeader />}>
     <div className="monster-priority">
       <div className="panel monster-priority-add-panel">
-        {/* Content first, then which of its presets: twenty Arena Attack decks in
-            one flat menu buried the one being looked for. Default is a content
-            of one and is chosen from here outright. */}
+        {/* The game's tab, then the content of its menu, then which preset:
+            twenty Arena Attack decks in one flat menu buried the one being
+            looked for. Default is a content of one and is chosen from here
+            outright. */}
         <div className="filter-group monster-priority-add monster-priority-content">
           <label className="filter-label" htmlFor="preset-content">Content</label>
-          <Dropdown id="preset-content" className="monster-priority-select" value={group?.label ?? ''}
-            onChange={(event) => chooseGroup(event.target.value)}>
-            {groups.map((entry) => <option key={entry.label} value={entry.label}>{entry.label}</option>)}
+          <Dropdown id="preset-content" className="monster-priority-select" value={tab.label}
+            onChange={(event) => chooseTab(event.target.value)}>
+            {menu.map((entry) => <option key={entry.label} value={entry.label}>{entry.label}</option>)}
+          </Dropdown>
+        </div>
+        {/* Always on the page, and disabled where the tab holds one content, so
+            choosing a tab moves nothing beside it (AGENTS.md §2). */}
+        <div className="filter-group monster-priority-add monster-priority-area">
+          <label className="filter-label" htmlFor="preset-area">Area</label>
+          <Dropdown id="preset-area" className="monster-priority-select" value={area.label}
+            disabled={tab.areas.length < 2} onChange={(event) => chooseArea(event.target.value)}>
+            {tab.areas.map((entry) => <option key={entry.label} value={entry.label}>{entry.label}</option>)}
           </Dropdown>
         </div>
         {/* Always on the page, and only disabled where there is nothing to pick,
@@ -257,11 +282,11 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
             {choices.map((choice) => <option key={choice.unitId} value={choice.unitId}>{choice.name}</option>)}
           </Dropdown>
         </div>
-        <p className="monster-priority-about">{preset ? presetWarnings(preset) : ''}</p>
+        <p className="monster-priority-about" title={warnings || undefined}>{warnings}</p>
         <div className="monster-priority-actions">
           {/* A preset is added to the content chosen, whether or not one of its
               presets is: Default has no content to add to. */}
-          <Button ref={createButton} tone="important" disabled={!canCreate || group === null || group.presets.some((entry) => entry.kind === 'default')}
+          <Button ref={createButton} tone="important" disabled={!canCreate || onDefault}
             onClick={() => setCreating(true)}
             title={canCreate ? undefined : 'Automatic synchronization is on: presets come from the game.'}>Add preset</Button>
           <Button tone="danger" disabled={!deletable} onClick={deletePreset}>Delete preset</Button>
@@ -338,9 +363,17 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
             </div>}
       </section>
     </div>
-    {creating && <AddPresetDialog content={groupContent?.id ?? null} name={suggestedName} onCancel={() => { setCreating(false); createButton.current?.focus(); }}
+    {creating && <AddPresetDialog content={areaContent?.id ?? null} name={suggestedName} onCancel={() => { setCreating(false); createButton.current?.focus(); }}
       onCreate={(name, content) => { setCreating(false); create(name, content); }} />}
   </WorkspacePage>;
+}
+
+function locate(menu: readonly PresetMenuTab[], preset: Preset): { tab: PresetMenuTab; area: PresetMenuArea } | null {
+  for (const tab of menu) {
+    const area = tab.areas.find((entry) => entry.presets.includes(preset));
+    if (area) return { tab, area };
+  }
+  return null;
 }
 
 /* What the chosen preset names and the account no longer has, said here, where
@@ -348,8 +381,9 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
    the content and the faces in the field above already say what it is. */
 function presetWarnings(preset: Preset): string {
   const parts: string[] = [];
+  if (preset.contentAssumed) parts.push('Content assumed, not yet confirmed in the game');
   const sold = preset.missingRuneIds.length + preset.missingArtifactIds.length;
-  if (sold > 0) parts.push(`Names ${sold} sold item${sold === 1 ? '' : 's'}`);
+  if (sold > 0) parts.push(`${parts.length > 0 ? 'names' : 'Names'} ${sold} sold item${sold === 1 ? '' : 's'}`);
   if (preset.missingUnitIds.length > 0) parts.push(`${parts.length > 0 ? 'names' : 'Names'} ${preset.missingUnitIds.length} monster${preset.missingUnitIds.length === 1 ? '' : 's'} not in this import`);
   return parts.join(' · ');
 }
@@ -424,7 +458,9 @@ function AddPresetDialog({ content: chosenContent, name: suggestedName, onCancel
       </label>
       <label className="field"><span>Content</span>
         <Dropdown value={content} placeholder="Any content" onChange={(event) => setContent(event.target.value as PresetContentId | '')}>
-          {presetContents.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          {presetTabs.map((group) => <optgroup key={group} label={group}>
+            {tabContents(group).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          </optgroup>)}
         </Dropdown>
       </label>
       <div className="dialog-actions">

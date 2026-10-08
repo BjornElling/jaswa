@@ -124,23 +124,52 @@ occurred in up to three decks at once, including different `deck_seq` under
 one `deck_type`; decks named one rune and several artifacts the account no
 longer owned.
 
-**The numeric `deck_type` values are matched to contents only from the game's
-own screen**, never by inferring from team sizes or order alone. A value not
-yet matched keeps its number on screen and is still used fully; a preset is
-never hidden for want of a name (AGENTS.md §0.1). Confirmed so far
-(`preset-contents.ts`):
+**The numeric `deck_type` values are matched to contents from the game's own
+screen where it has shown them, and otherwise to the content they most likely
+are**, so every saved deck stands in the structure below. An assumed match is
+marked on the preset (*Content assumed, not yet confirmed in the game*) until
+the screen confirms or corrects it. A value no reading covers keeps its number
+on screen and is still used fully; a preset is never hidden for want of a name
+(AGENTS.md §0.1). Matched so far (`preset-contents.ts`):
 
-| `deck_type` | Content | Number shown |
-| --- | --- | --- |
-| 1 | Arena Attack | `deck_seq` |
-| 2 | A three-monster guild content, not yet which (§7) | `deck_seq` |
-| 3 | Rift Raid | `deck_seq` |
-| 6 | Trial of Ascension | `deck_seq` |
-| 19, 20, 21 | Dimension Raid phases 1, 2, 3 | `deck_seq` |
-| 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 |
+| `deck_type` | Content | Number shown | Basis |
+| --- | --- | --- | --- |
+| 1 | Arena Attack | `deck_seq` | screen |
+| 2 | World Guild Battle | `deck_seq` | assumed: 14 three-monster decks numbered 1–15, World Guild Battle's capacity |
+| 3 | Rift Raid | `deck_seq` | screen |
+| 4 | Labyrinth Normal | `deck_seq` | assumed (§7) |
+| 6 | Trial of Ascension | `deck_seq` | screen |
+| 8 | Monster Subjugation Water | `deck_seq` | assumed (§7) |
+| 9 | Monster Subjugation Fire | `deck_seq` | assumed (§7) |
+| 19, 20, 21 | Dimension Raid phases 1, 2, 3 | `deck_seq` | screen |
+| 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 | screen |
 
 4 and 6 under type 24 were confirmed through the recent decks, whose Cairos
 sub-types 19–24 run in the same order and were matched on screen for all six.
+
+### 3.1 The structure
+
+The game's Attack Deck screen lists its contents under seven tabs, each with a
+menu of its contents, read row by row (screens of October 8, 2026). JASWA's
+preset menus are this structure, fixed: every tab and every content is listed
+on every account, with presets or without.
+
+| Tab | Contents |
+| --- | --- |
+| Arena | Arena Attack, Arena Defense, Arena Interserver Defense |
+| Guild | Siege Battle, Siege Battle Defense, World Guild Battle, World Guild Battle Defense, Labyrinth (Normal, Rescue, Explode, Cooldown Time Up, Speed Limit, Time Limit, Boss), Monster Subjugation (Water, Fire, Wind, Boss) |
+| Cairos | Giant's Keep, Dragon's Lair, Necropolis, Spiritual Realm, Steel Fortress, Punisher's Crypt |
+| Trial of Ascension | Trial of Ascension, Tower of Fire, Tower of Water, Tower of Wind, Tower of Light, Tower of Dark, Spires of Ascension |
+| Temple of Chaos | Temple of Chaos |
+| Rift of Worlds | Ice Beast, Fire Beast, Wind Beast, Light Beast, Dark Beast, Rift Raid |
+| Dimension Hole | Forest of Roaring Beasts, Sanctuary of Dreaming Fairies, Cliff of Tough Beast Men, Ruin of Silent Death, Castle of Forgotten Heroes, Hellground of Raging Fires, Dimension Raid phases 1, 2, 3 |
+
+The defense contents sit under the tab of their attack; the game keeps them on
+its Defense Deck screen. The Guild tab's menu is the one not yet read off the
+screen: its contents are the capacity table's guild rows, in its order.
+
+Default is not a content. It is the runes' ordinary placement — what Scenario
+and every battle outside a preset uses — and stands alone before the tabs.
 
 ## 4. The model
 
@@ -170,11 +199,14 @@ an import, and are checked one preset at a time on load.
 ## 5. The workspace
 
 **Presets** (formerly Rune priority).
-- *Content* heads the page with *Preset* below it, and opens on Default.
-- *Content* lists only the contents — Default, and each content a preset is
-  played in. Default is chosen there outright; any other content offers its
-  presets in *Preset*, each shown with the faces of its team, and the list
-  below is empty until one is chosen.
+- *Content* heads the page with *Area* beside it and *Preset* below, and
+  opens on Default.
+- *Content* lists Default, the game's seven tabs (§3.1) and, only while there
+  are any, the presets not yet named. *Area* lists the chosen tab's contents,
+  all of them, and is disabled where the tab holds one. Default is chosen in
+  *Content* outright; any other choice offers the area's presets in *Preset*,
+  each shown with the faces of its team, and the list below is empty until one
+  is chosen.
 - A preset built in JASWA stands in its content exactly as the game's do,
   after them; one without a content stands with the presets not yet named.
 - *Add preset* sits at the right, starts the new preset in the chosen content
@@ -285,9 +317,17 @@ and says so where it matters.
 - **`deck_type` 2 — which guild content.** Fourteen three-monster decks,
   numbered 1–15. More than ten rules out the Siege Battle defense presets, so
   they are not the shared pool. They are Siege Battle attack or World Guild
-  Battle / Guild Rival Battle attack; the developer has no guild access to look.
-  Shown as *Guild Battle (unconfirmed)*, judged as independent presets.
-- **`deck_type` 4, 8, 9.** Five-monster decks not yet matched on screen. Shown under their numbers.
+  Battle / Guild Rival Battle attack; fifteen is the latter's capacity where
+  Siege Battle's is 25, so they are read as World Guild Battle until the screen
+  says otherwise.
+- **`deck_type` 4, 8, 9.** Five-monster decks, three or fewer of each, holding
+  the same teams as one another. None is Temple of Chaos, whose presets the
+  screen showed empty, nor a Dimension Hole dungeon or Rift of Worlds beast,
+  whose teams are four and six. Two of type 9's teams were last fought in a
+  content whose recent-deck numbers fall in four groups — Monster
+  Subjugation's shape, with Labyrinth the other guild content of five. Read as
+  Labyrinth Normal (4), Monster Subjugation Water (8) and Fire (9); the areas
+  within each are a guess the Guild tab's screen will settle.
 - **Saving the Arena Interserver defense.** Not yet captured. The helper takes
   any answer carrying `server_arena_defense_deck_info` whole, as it does for
   the Arena defense, whose save is confirmed.
@@ -296,6 +336,10 @@ and says so where it matters.
   may share a rune (§1). Read as independent presets.
 - **The Siege Battle defense pool** is modelled (`sharedPool`) but no deck type
   is matched to it yet.
+- **Team sizes not seen on screen.** Siege Battle and World Guild Battle are
+  read as three, Labyrinth, Monster Subjugation, the Towers and Spires as five,
+  the Rift of Worlds beasts as six. Dimension Hole's four and Temple of Chaos's
+  five are from the screen.
 - **Speed Tuning outside arena and Cairos.** Trial of Ascension, raids and the
   rest have no enemy data or settled leader-skill area, so they are listed and
   not judged.

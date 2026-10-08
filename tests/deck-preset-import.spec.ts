@@ -67,15 +67,15 @@ test('imports two saved decks that place one rune on different monsters, and bot
   /* Every deck is reachable: the rune is engraved once in each attack preset, on its own monster. */
   await openPresets(page);
   await expect(page.getByLabel('Content', { exact: true }).locator('option'))
-    .toHaveText(['Default', 'Arena Attack', 'Arena Defense', 'Arena Interserver Defense']);
-  await page.getByLabel('Content', { exact: true }).selectOption('Arena Attack');
+    .toHaveText(['Default', 'Arena', 'Guild', 'Cairos', 'Trial of Ascension', 'Temple of Chaos', 'Rift of Worlds', 'Dimension Hole']);
+  await page.getByLabel('Content', { exact: true }).selectOption('Arena');
   for (const name of ['Arena Attack 1', 'Arena Attack 2']) {
     await choosePreset(page, name);
     const entries = page.locator('.monster-priority-entry');
     await expect(entries).toHaveCount(1);
     await expect(entries.first().getByRole('img', { name: '1 of 6 runes engraved' })).toBeVisible();
   }
-  await page.getByLabel('Content', { exact: true }).selectOption('Arena Defense');
+  await page.getByLabel('Area', { exact: true }).selectOption('Arena Defense');
   await choosePreset(page, 'Arena Defense');
   /* A defense deck has no leader field: the game leads with the first position. */
   const entries = page.locator('.monster-priority-entry');
@@ -99,7 +99,7 @@ test('a rune a deck still names after it was sold stays visible', async ({ page 
   ]));
   await expect(page.getByText('sold-rune.json')).toBeVisible();
   await openPresets(page);
-  await page.getByLabel('Content', { exact: true }).selectOption('Arena Attack');
+  await page.getByLabel('Content', { exact: true }).selectOption('Arena');
   await choosePreset(page, 'Arena Attack 1');
   await expect(page.locator('.monster-priority-about')).toHaveText('Names 1 sold item');
   /* The sold rune is named beside the count, not counted as engraved. */

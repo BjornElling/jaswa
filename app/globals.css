@@ -2358,18 +2358,20 @@ label[for] {
    line the eye can cross, which a 3440 px wide row is not. */
 .monster-priority { display: grid; gap: var(--s5); max-width: 1120px; }
 .monster-priority .panel { padding: var(--s4) var(--s5); }
-/* The content above which of its presets, read top to bottom as the choice is
+/* The tab beside its area, above which of its presets, read as the choice is
    made; the field the list is filled from beside the preset it fills, what the
-   preset names and no longer has above that, and the page's own actions at the
-   far edge. The column is as wide as a name and the largest team's faces. */
+   preset names and no longer has on a line of its own beneath, and the page's
+   own actions at the far edge. The first column is as wide as a name and the
+   largest team's faces. */
 .monster-priority-add-panel {
   display: grid;
   grid-template-columns: minmax(0, 56ch) minmax(0, 40ch) minmax(0, 1fr) max-content;
-  grid-template-areas: "content about about actions" "preset add . actions";
+  grid-template-areas: "content area . actions" "preset add . actions" "about about about .";
   align-items: end;
   gap: var(--s4) var(--s7);
 }
 .monster-priority-content { grid-area: content; }
+.monster-priority-area { grid-area: area; }
 .monster-priority-preset { grid-area: preset; }
 .monster-priority-add-monster { grid-area: add; }
 .monster-priority-actions { grid-area: actions; display: grid; gap: var(--s2); align-self: end; }
@@ -2411,17 +2413,16 @@ label[for] {
 .preset-team-option[data-active] { background: var(--sunk); color: var(--text-strong); }
 .preset-team-option[aria-selected="true"] { color: var(--text-accent); }
 /* Body size but dimmed: the list explains itself, and this only names who reads it.
-   Sat on the field's own row and as tall as it, so its middle is the field's
-   middle rather than the middle of the label and field together. */
+   One line, held open while empty and cut rather than wrapped when long, so a
+   preset with something to say moves nothing around it (AGENTS.md §2). */
 .monster-priority-about {
   grid-area: about;
-  max-width: 64ch;
   margin: 0;
   color: var(--text-muted);
-  align-self: end;
-  display: flex;
-  align-items: center;
-  min-height: 52px;
+  min-height: 1lh;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .monster-priority-list-panel { display: grid; gap: var(--s3); }
 .monster-priority-list-panel h3 { margin: 0; }

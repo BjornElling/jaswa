@@ -1,28 +1,48 @@
 /**
  * The contents a Deck Preset belongs to, as the game names them
- * (`docs/DECK-PRESETS.md` §1), and which of them the export's numbers are
- * known to mean.
+ * (`docs/DECK-PRESETS.md` §1), and which of them the export's numbers mean.
+ *
+ * The structure is the game's own and fixed: the tabs of the Attack Deck
+ * screen, and under each tab the contents of its menu. Every content is listed
+ * whether or not the account has a preset in it, so the menus read the same
+ * on every account and never rearrange as presets come and go.
  *
  * The export numbers a saved deck by `deck_type` and `deck_seq` and says
- * nothing about what either means. A number is matched to a content only once
- * the game's own Deck Building screen has confirmed it (§3); until then the
- * preset keeps its number on screen and is still read in full, because a
- * preset hidden for want of a name would be an import parity break.
+ * nothing about what either means (§3). A number the game's screen has
+ * confirmed is matched outright; the rest are matched to the content they
+ * most likely are and marked as assumed, so every preset stands in the
+ * structure rather than outside it.
  */
 import type { SpeedContentId } from './speed-contents';
 
 /** Where Speed Tuning lists a content: the page's three columns. */
 export type PresetColumn = 'dungeons' | 'arena' | 'other';
 
+/**
+ * The tabs of the game's Attack Deck screen, in its order. A tab holds one
+ * content or several — Cairos its six dungeons, Dimension Hole its six
+ * dungeons and the Dimension Raid phases — picked from a menu under the tab.
+ */
+export const presetTabs = ['Arena', 'Guild', 'Cairos', 'Trial of Ascension', 'Temple of Chaos', 'Rift of Worlds', 'Dimension Hole'] as const;
+
+export type PresetTab = typeof presetTabs[number];
+
 export type PresetContentId =
   | 'arena-attack' | 'arena-defense' | 'interserver-defense'
+  | 'siege' | 'siege-defense' | 'world-guild' | 'world-guild-defense'
+  | 'labyrinth-normal' | 'labyrinth-rescue' | 'labyrinth-explode' | 'labyrinth-cooldown' | 'labyrinth-speed-limit' | 'labyrinth-time-limit' | 'labyrinth-boss'
+  | 'subjugation-water' | 'subjugation-fire' | 'subjugation-wind' | 'subjugation-boss'
   | 'giants' | 'dragons' | 'necropolis' | 'spiritual' | 'steel' | 'punisher'
-  | 'trial-of-ascension' | 'rift-raid' | 'guild-unconfirmed'
+  | 'trial-of-ascension' | 'tower-fire' | 'tower-water' | 'tower-wind' | 'tower-light' | 'tower-dark' | 'spires'
+  | 'temple-of-chaos'
+  | 'ice-beast' | 'fire-beast' | 'wind-beast' | 'light-beast' | 'dark-beast' | 'rift-raid'
+  | 'roaring-beasts' | 'dreaming-fairies' | 'tough-beast-men' | 'silent-death' | 'forgotten-heroes' | 'raging-fires'
   | 'dimension-raid-1' | 'dimension-raid-2' | 'dimension-raid-3';
 
 export type PresetContent = {
   id: PresetContentId;
   name: string;
+  tab: PresetTab;
   column: PresetColumn;
   /** How many monsters a deck of this content holds. */
   teamSize: number;
@@ -36,34 +56,82 @@ export type PresetContent = {
   sharedPool: boolean;
 };
 
+function content(id: PresetContentId, name: string, tab: PresetTab, column: PresetColumn, teamSize: number,
+  speed: SpeedContentId | null = null, sharedPool = false): PresetContent {
+  return { id, name, tab, column, teamSize, speed, sharedPool };
+}
+
+/* In the order of the game's tabs, and inside a tab in the order its menu
+   reads, row by row; every preset list follows it. */
 const contents: readonly PresetContent[] = [
-  { id: 'arena-attack', name: 'Arena Attack', column: 'arena', teamSize: 4, speed: 'arena', sharedPool: false },
-  { id: 'arena-defense', name: 'Arena Defense', column: 'arena', teamSize: 4, speed: 'arena', sharedPool: false },
-  { id: 'interserver-defense', name: 'Arena Interserver Defense', column: 'arena', teamSize: 4, speed: 'arena', sharedPool: false },
-  { id: 'giants', name: "Giant's Keep", column: 'dungeons', teamSize: 5, speed: 'giants', sharedPool: false },
-  { id: 'dragons', name: "Dragon's Lair", column: 'dungeons', teamSize: 5, speed: 'dragons', sharedPool: false },
-  { id: 'necropolis', name: 'Necropolis', column: 'dungeons', teamSize: 5, speed: 'necropolis', sharedPool: false },
-  { id: 'spiritual', name: 'Spiritual Realm', column: 'dungeons', teamSize: 5, speed: 'spiritual', sharedPool: false },
-  { id: 'steel', name: 'Steel Fortress', column: 'dungeons', teamSize: 5, speed: 'steel', sharedPool: false },
-  { id: 'punisher', name: "Punisher's Crypt", column: 'dungeons', teamSize: 5, speed: 'punisher', sharedPool: false },
-  { id: 'trial-of-ascension', name: 'Trial of Ascension', column: 'other', teamSize: 5, speed: null, sharedPool: false },
-  { id: 'rift-raid', name: 'Rift Raid', column: 'other', teamSize: 6, speed: null, sharedPool: false },
-  { id: 'dimension-raid-1', name: 'Dimension Raid Phase 1', column: 'other', teamSize: 5, speed: null, sharedPool: false },
-  { id: 'dimension-raid-2', name: 'Dimension Raid Phase 2', column: 'other', teamSize: 5, speed: null, sharedPool: false },
-  { id: 'dimension-raid-3', name: 'Dimension Raid Phase 3', column: 'other', teamSize: 5, speed: null, sharedPool: false },
-  /* Siege Battle or World Guild Battle / Guild Rival Battle attack — three
-     monsters and more decks than Siege defense allows, so not its shared pool;
-     which of the two is open (`DECK-PRESETS.md` §7). */
-  { id: 'guild-unconfirmed', name: 'Guild Battle (unconfirmed)', column: 'other', teamSize: 3, speed: null, sharedPool: false },
+  content('arena-attack', 'Arena Attack', 'Arena', 'arena', 4, 'arena'),
+  content('arena-defense', 'Arena Defense', 'Arena', 'arena', 4, 'arena'),
+  content('interserver-defense', 'Arena Interserver Defense', 'Arena', 'arena', 4, 'arena'),
+  /* The Guild tab's menu has not been read off the screen; these are the guild
+     contents of the capacity table, in its order. */
+  content('siege', 'Siege Battle', 'Guild', 'other', 3),
+  content('siege-defense', 'Siege Battle Defense', 'Guild', 'other', 3, null, true),
+  content('world-guild', 'World Guild Battle', 'Guild', 'other', 3),
+  content('world-guild-defense', 'World Guild Battle Defense', 'Guild', 'other', 3),
+  content('labyrinth-normal', 'Labyrinth Normal', 'Guild', 'other', 5),
+  content('labyrinth-rescue', 'Labyrinth Rescue', 'Guild', 'other', 5),
+  content('labyrinth-explode', 'Labyrinth Explode', 'Guild', 'other', 5),
+  content('labyrinth-cooldown', 'Labyrinth Cooldown Time Up', 'Guild', 'other', 5),
+  content('labyrinth-speed-limit', 'Labyrinth Speed Limit', 'Guild', 'other', 5),
+  content('labyrinth-time-limit', 'Labyrinth Time Limit', 'Guild', 'other', 5),
+  content('labyrinth-boss', 'Labyrinth Boss', 'Guild', 'other', 5),
+  content('subjugation-water', 'Monster Subjugation Water', 'Guild', 'other', 5),
+  content('subjugation-fire', 'Monster Subjugation Fire', 'Guild', 'other', 5),
+  content('subjugation-wind', 'Monster Subjugation Wind', 'Guild', 'other', 5),
+  content('subjugation-boss', 'Monster Subjugation Boss', 'Guild', 'other', 5),
+  content('giants', "Giant's Keep", 'Cairos', 'dungeons', 5, 'giants'),
+  content('dragons', "Dragon's Lair", 'Cairos', 'dungeons', 5, 'dragons'),
+  content('necropolis', 'Necropolis', 'Cairos', 'dungeons', 5, 'necropolis'),
+  content('spiritual', 'Spiritual Realm', 'Cairos', 'dungeons', 5, 'spiritual'),
+  content('steel', 'Steel Fortress', 'Cairos', 'dungeons', 5, 'steel'),
+  content('punisher', "Punisher's Crypt", 'Cairos', 'dungeons', 5, 'punisher'),
+  content('trial-of-ascension', 'Trial of Ascension', 'Trial of Ascension', 'other', 5),
+  content('tower-fire', 'Tower of Fire', 'Trial of Ascension', 'other', 5),
+  content('tower-water', 'Tower of Water', 'Trial of Ascension', 'other', 5),
+  content('tower-wind', 'Tower of Wind', 'Trial of Ascension', 'other', 5),
+  content('tower-light', 'Tower of Light', 'Trial of Ascension', 'other', 5),
+  content('tower-dark', 'Tower of Dark', 'Trial of Ascension', 'other', 5),
+  content('spires', 'Spires of Ascension', 'Trial of Ascension', 'other', 5),
+  content('temple-of-chaos', 'Temple of Chaos', 'Temple of Chaos', 'other', 5),
+  content('ice-beast', 'Ice Beast', 'Rift of Worlds', 'dungeons', 6),
+  content('fire-beast', 'Fire Beast', 'Rift of Worlds', 'dungeons', 6),
+  content('wind-beast', 'Wind Beast', 'Rift of Worlds', 'dungeons', 6),
+  content('light-beast', 'Light Beast', 'Rift of Worlds', 'dungeons', 6),
+  content('dark-beast', 'Dark Beast', 'Rift of Worlds', 'dungeons', 6),
+  content('rift-raid', 'Rift Raid', 'Rift of Worlds', 'dungeons', 6),
+  content('roaring-beasts', 'Forest of Roaring Beasts', 'Dimension Hole', 'dungeons', 4),
+  content('dreaming-fairies', 'Sanctuary of Dreaming Fairies', 'Dimension Hole', 'dungeons', 4),
+  content('tough-beast-men', 'Cliff of Tough Beast Men', 'Dimension Hole', 'dungeons', 4),
+  content('silent-death', 'Ruin of Silent Death', 'Dimension Hole', 'dungeons', 4),
+  content('forgotten-heroes', 'Castle of Forgotten Heroes', 'Dimension Hole', 'dungeons', 4),
+  content('raging-fires', 'Hellground of Raging Fires', 'Dimension Hole', 'dungeons', 4),
+  content('dimension-raid-1', 'Dimension Raid Phase 1', 'Dimension Hole', 'dungeons', 5),
+  content('dimension-raid-2', 'Dimension Raid Phase 2', 'Dimension Hole', 'dungeons', 5),
+  content('dimension-raid-3', 'Dimension Raid Phase 3', 'Dimension Hole', 'dungeons', 5),
 ];
 
-/** Every content JASWA can name, in the order the game's capacity table lists them. */
+/** Every content JASWA can name, tab by tab in the game's order. */
 export const presetContents: readonly PresetContent[] = contents;
 
+/** The contents under one tab, in its menu's order. */
+export function tabContents(tab: PresetTab): PresetContent[] {
+  return contents.filter((entry) => entry.tab === tab);
+}
+
+/** Where a content stands among them, which is where its presets stand in every list. */
+export function presetContentRank(id: PresetContentId): number {
+  return contents.findIndex((entry) => entry.id === id);
+}
+
 export function presetContent(id: PresetContentId): PresetContent {
-  const content = contents.find((entry) => entry.id === id);
-  if (!content) throw new Error(`Unknown preset content ${id}.`);
-  return content;
+  const found = contents.find((entry) => entry.id === id);
+  if (!found) throw new Error(`Unknown preset content ${id}.`);
+  return found;
 }
 
 export function isPresetContentId(value: unknown): value is PresetContentId {
@@ -73,9 +141,6 @@ export function isPresetContentId(value: unknown): value is PresetContentId {
 /*
  * Confirmed against the Deck Building screen on October 7, 2026:
  * - `deck_type` 1 holds the Arena attack decks, numbered by `deck_seq`.
- * - `deck_type` 2 holds three-monster guild decks. Which guild content is not
- *   confirmed (`DECK-PRESETS.md` §7); its 14 decks rule out the ten Siege
- *   defense presets and their shared pool.
  * - `deck_type` 3 holds the Rift Raid decks, numbered by `deck_seq`.
  * - `deck_type` 6 holds the Trial of Ascension decks, numbered by `deck_seq`.
  * - `deck_type` 19, 20 and 21 hold Dimension Raid phases 1, 2 and 3.
@@ -85,23 +150,38 @@ export function isPresetContentId(value: unknown): value is PresetContentId {
  *   6 Punisher's Crypt — the capacity table's own order. 1, 2, 3 and 5 were
  *   confirmed on saved decks; 4 and 6 by the same order in the account's recent
  *   decks, whose Cairos sub-types 19–24 the screen confirmed for all six.
- * Every other number is unconfirmed.
  */
 const cairosByHundreds: Readonly<Record<number, PresetContentId>> = { 1: 'giants', 2: 'dragons', 3: 'necropolis', 4: 'spiritual', 5: 'steel', 6: 'punisher' };
 
-const dimensionRaidPhases: Readonly<Record<number, PresetContentId>> = { 19: 'dimension-raid-1', 20: 'dimension-raid-2', 21: 'dimension-raid-3' };
+const confirmed: Readonly<Record<number, PresetContentId>> = {
+  1: 'arena-attack', 3: 'rift-raid', 6: 'trial-of-ascension',
+  19: 'dimension-raid-1', 20: 'dimension-raid-2', 21: 'dimension-raid-3',
+};
 
-/** What a saved deck's two numbers mean, where that is confirmed. */
-export function deckContent(deckType: number, deckSequence: number): { content: PresetContent; number: number } | null {
-  if (deckType === 1) return { content: presetContent('arena-attack'), number: deckSequence };
-  if (deckType === 2) return { content: presetContent('guild-unconfirmed'), number: deckSequence };
-  if (deckType === 3) return { content: presetContent('rift-raid'), number: deckSequence };
-  if (deckType === 6) return { content: presetContent('trial-of-ascension'), number: deckSequence };
-  const phase = dimensionRaidPhases[deckType];
-  if (phase) return { content: presetContent(phase), number: deckSequence };
+/*
+ * Assumed, October 8, 2026, from one account's decks (`DECK-PRESETS.md` §7):
+ * - `deck_type` 2: fourteen three-monster decks numbered 1–15 — a guild attack,
+ *   and fifteen is World Guild Battle's capacity where Siege Battle's is 25.
+ * - `deck_type` 4, 8 and 9: five-monster decks of three or fewer, holding the
+ *   same teams as one another, and two of 9's were last fought in a content of
+ *   four areas — the shape of Monster Subjugation, with Labyrinth beside it.
+ */
+const assumed: Readonly<Record<number, PresetContentId>> = {
+  2: 'world-guild', 4: 'labyrinth-normal', 8: 'subjugation-water', 9: 'subjugation-fire',
+};
+
+/**
+ * What a saved deck's two numbers mean, and whether the screen confirmed it.
+ * `null` only for a number no reading covers, which still stands with the
+ * presets not yet named rather than being dropped.
+ */
+export function deckContent(deckType: number, deckSequence: number): { content: PresetContent; number: number; assumed: boolean } | null {
   if (deckType === 24) {
     const id = cairosByHundreds[Math.floor(deckSequence / 100)];
-    return id ? { content: presetContent(id), number: deckSequence % 100 } : null;
+    return id ? { content: presetContent(id), number: deckSequence % 100, assumed: false } : null;
   }
-  return null;
+  const sure = confirmed[deckType];
+  if (sure) return { content: presetContent(sure), number: deckSequence, assumed: false };
+  const likely = assumed[deckType];
+  return likely ? { content: presetContent(likely), number: deckSequence, assumed: true } : null;
 }

@@ -38,7 +38,7 @@ test('Back returns to the page the user came from, and Forward goes on again', a
 
   await rail(page, 'Presets').click();
   await expect(heading(page, 'Presets')).toBeVisible();
-  await page.getByLabel('Content', { exact: true }).selectOption("Giant's Keep");
+  await page.getByLabel('Content', { exact: true }).selectOption('Cairos');
   await page.getByLabel('Preset', { exact: true }).click();
   await page.getByRole('listbox').getByRole('option').first().click();
   await page.getByRole('button', { name: /^Optimize runes for / }).click();

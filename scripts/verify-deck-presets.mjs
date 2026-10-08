@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { readDeckPresets } from '../app/lib/deck-presets.ts';
 import { createImportedGame, validateGameFile } from '../app/lib/file-imports.ts';
 import {
-  accountItems, engravings, monsterInPreset, presetGroupsOf, readOwnPresets, readPresets, runesInPreset,
+  accountItems, engravings, monsterInPreset, presetMenu, readOwnPresets, readPresets, runesInPreset,
 } from '../app/lib/presets.ts';
 import { engraveImportedGame } from '../app/lib/engrave-rune-build.ts';
 import { readRunes } from '../app/lib/runes.ts';
@@ -122,10 +122,19 @@ assert.deepEqual(presets.map((preset) => preset.name),
   'Default first, every preset by content, the user\'s own after the game\'s in theirs, and anything without a content last');
 assert.deepEqual(presets.map((preset) => preset.kind), ['default', 'game', 'game', 'game', 'game', 'own', 'game', 'own']);
 assert.deepEqual(presets.map((preset) => preset.id), ['default', 'deck-1-4', 'deck-1-5', 'arena-defense', 'deck-24-101', 'own-a', 'deck-99-1', 'own-b']);
-assert.deepEqual(presetGroupsOf(presets).map((group) => group.label),
-  ['Default', 'Arena Attack', 'Arena Defense', "Giant's Keep", 'Not yet named'], 'the menu groups follow the game, the user\'s own presets in theirs');
-assert.deepEqual(presetGroupsOf(presets).find((group) => group.label === "Giant's Keep").presets.map((preset) => preset.name),
+const menu = presetMenu(presets);
+assert.deepEqual(menu.map((tab) => tab.label),
+  ['Default', 'Arena', 'Guild', 'Cairos', 'Trial of Ascension', 'Temple of Chaos', 'Rift of Worlds', 'Dimension Hole', 'Not yet named'],
+  'the menu is the game\'s tabs, every one of them, then the presets not yet named');
+assert.deepEqual(menu.find((tab) => tab.label === 'Dimension Hole').areas.map((area) => area.label),
+  ['Forest of Roaring Beasts', 'Sanctuary of Dreaming Fairies', 'Cliff of Tough Beast Men', 'Ruin of Silent Death',
+    'Castle of Forgotten Heroes', 'Hellground of Raging Fires', 'Dimension Raid Phase 1', 'Dimension Raid Phase 2', 'Dimension Raid Phase 3'],
+  'a tab holds every content of its menu, the empty ones too');
+assert.deepEqual(menu.find((tab) => tab.label === 'Cairos').areas.find((area) => area.label === "Giant's Keep").presets.map((preset) => preset.name),
   ["Giant's Keep 1", 'Draft'], 'a preset built here stands in its content beside the game\'s');
+assert.deepEqual(presetMenu(readPresets({ ...prepared, deck_list: [] }, [])).map((tab) => tab.label).at(-1), 'Dimension Hole',
+  'the presets not yet named leave the menu once there are none');
+assert.equal(presets.find((preset) => preset.id === 'deck-1-4').contentAssumed, false, 'a confirmed deck type is not marked assumed');
 assert.equal(presets.find((preset) => preset.id === 'deck-24-101').number, 1, 'a Cairos preset is numbered within its dungeon');
 assert.deepEqual(readPresets(undefined, []), [], 'no import, no presets');
 const presetById = new Map(presets.map((preset) => [preset.id, preset]));
@@ -182,7 +191,10 @@ const ownRead = readOwnPresets([
   { ...draft, id: 'own-content', content: 'world-arena' },
   'not a preset',
 ]);
-assert.deepEqual(ownRead.map((entry) => entry.id), ['own-a', 'own-b'], 'every malformed own preset is dropped alone, and the readable ones kept');
+assert.deepEqual(ownRead.map((entry) => entry.id), ['own-a', 'own-b', 'own-too-many', 'own-content'], 'every malformed own preset is dropped alone, and the readable ones kept');
+assert.deepEqual(ownRead.slice(2).map((entry) => entry.content), [null, null],
+  'a content the structure does not hold, or a team too large for it, starts from no content and keeps the preset');
+assert.deepEqual(ownRead[2].members, ['1', '2', '3', '4', '5', '6'], 'and keeps its monsters');
 assert.deepEqual(ownRead[0], draft, 'a readable own preset reads back unchanged');
 assert.deepEqual(readOwnPresets(undefined), [], 'no stored presets reads as none');
 assert.deepEqual(readOwnPresets([]), [], 'an emptied list stays empty');
