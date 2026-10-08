@@ -114,7 +114,7 @@ export type RuneOptimizationSettings = {
    * holds its own gear (`DECK-PRESETS.md` §1), so taking it costs them nothing. A
    * rune locked to another monster of the preset never may, whatever this says:
    * the lock is the user's own word (`rune-locks.ts`). The page asks it the other
-   * way round — *Only runes not engraved on others* — so both switches beside it
+   * way round — *Only runes not engraved in preset* — so both switches beside it
    * start off and each says what ticking it does.
    */
   runesOnOtherMonsters: boolean;

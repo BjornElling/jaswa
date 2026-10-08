@@ -275,8 +275,9 @@ an import, and are checked one preset at a time on load.
   presets cost nothing and are always candidates. `runesInPreset` gives each
   rune the monster carrying it in the chosen preset, so the search reads one
   preset's placement and no other.
-- *Only use runes from inventory* became *Only runes not engraved on others*:
-  ticked, no monster of the preset gives up a rune.
+- *Only use runes from inventory* became *Only runes not engraved in preset*:
+  ticked, no monster of the preset gives up a rune, while a rune engraved only
+  in other presets stays a candidate.
 - *Include runes from higher-priority monsters* refers to monsters of the same
   preset.
 - *Just fill in empty slots* and *Max changes* are measured against the

@@ -559,7 +559,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
           </div>
           <div className="filter-group rune-optimization-sources">
             <span className="filter-label">Selection</span>
-            <CheckboxRow label="Only runes not engraved on others" checked={!settings.runesOnOtherMonsters}
+            <CheckboxRow label="Only runes not engraved in preset" checked={!settings.runesOnOtherMonsters}
               onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
             <CheckboxRow label="Just fill in empty slots" checked={settings.fillEmptySlotsOnly}
               onChange={(fillEmptySlotsOnly) => onUpdate({ fillEmptySlotsOnly })} />

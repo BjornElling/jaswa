@@ -909,7 +909,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    - **another rune is locked into its slot** on this monster;
    - it has been **excluded** from this monster;
    - it now sits on **another monster** whose runes the search could not take —
-     *Only runes not engraved on others* was ticked, or that monster is above this
+     *Only runes not engraved in preset* was ticked, or that monster is above this
      one on the preset's priority list;
    - **another rune now fills the slot** while only empty slots may change;
    - the build now needs **more rune changes than its limit**;

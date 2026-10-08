@@ -1042,7 +1042,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
   await maximum.fill('6');
   await settings.getByLabel('Just fill in empty slots').check();
-  await settings.getByLabel('Only runes not engraved on others').check();
+  await settings.getByLabel('Only runes not engraved in preset').check();
   await settings.getByLabel('Include runes from higher-priority monsters').check();
   await settings.getByLabel('Count unfinished runes at their +15 main stat').check();
   await settings.getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
@@ -1065,7 +1065,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await page.reload();
   await expect(settings.getByLabel('Just fill in empty slots')).toBeChecked();
   await expect(settings.getByLabel('Slot 1/3/5 only counts at +12')).toBeChecked();
-  await expect(settings.getByLabel('Only runes not engraved on others')).toBeChecked();
+  await expect(settings.getByLabel('Only runes not engraved in preset')).toBeChecked();
   await expect(settings.getByLabel('Maximum changes')).toHaveValue('6');
   await expect(settings.getByLabel('Gems: grade')).toHaveValue('Legend');
   await maximum.fill('');

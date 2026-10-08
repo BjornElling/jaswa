@@ -669,7 +669,7 @@ test('Rune Optimization leaves a higher-priority monster\'s runes in the same pr
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
   await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-4');
-  const freeOnly = page.getByLabel('Only runes not engraved on others');
+  const freeOnly = page.getByLabel('Only runes not engraved in preset');
   const include = page.getByLabel('Include runes from higher-priority monsters');
   /* Both off, and neither ever disables the other. */
   await expect(freeOnly).not.toBeChecked();
@@ -718,7 +718,7 @@ test('a rune engraved on a monster in another preset is free here, and an engrav
   /* Default: 12 carries six runes, and with only free runes allowed they are refused. */
   await expect(page.getByLabel('Preset', { exact: true })).toHaveValue('default');
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
-  await page.getByLabel('Only runes not engraved on others').check();
+  await page.getByLabel('Only runes not engraved in preset').check();
   const inDefault = await find(page);
 
   /* Giant's Keep 1 holds 11 alone: 12's Default runes are engraved in another context and cost this preset nothing. */
