@@ -36,7 +36,7 @@ try {
       default: { 17: { unitId: '17', label: 'Arena defence', allowIntangibleRunes: true } },
       'deck-1-4': { 17: { unitId: '17', statCeilings: { spd: 180 } }, 18: { unitId: '18', alwaysCrits: true } },
     },
-    runeHolds: { 901: { unsellable: true }, 902: { unsellable: true, locked: true } },
+    runeHolds: { 901: { unsellable: true }, 902: { unsellable: true } },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
     runePotentialPresets: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
@@ -126,8 +126,8 @@ try {
     'an unreadable artifact question costs only that question');
   assert.equal(geared[17].relics, undefined, 'an unreadable relic question costs only that question');
 
-  /* A rune hold loses the choice it cannot read, not the rune's other choice or any other rune. */
-  const holds = readPreferences({ ...chosen, runeHolds: { ...chosen.runeHolds, 902: { unsellable: true, locked: 'yes' }, 903: { locked: false } } }, null);
+  /* A rune hold loses what it cannot read — a lock, which lives with the import now — not the rune's other choice or any other rune. */
+  const holds = readPreferences({ ...chosen, runeHolds: { ...chosen.runeHolds, 902: { unsellable: true, locked: true }, 903: { locked: true } } }, null);
   assert.deepEqual(holds.runeHolds, { 901: { unsellable: true }, 902: { unsellable: true } }, 'an unreadable rune hold costs only that choice');
 
   /* A priority entry that cannot be read costs that entry; the order of the rest stands. */

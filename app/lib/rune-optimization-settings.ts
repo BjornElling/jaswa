@@ -112,10 +112,10 @@ export type RuneOptimizationSettings = {
    * Whether a rune engraved on another monster *of the same preset* may be moved
    * onto this one. A rune engraved only in other presets is always free: a preset
    * holds its own gear (`DECK-PRESETS.md` §1), so taking it costs them nothing. A
-   * locked rune in Default never may, whatever this says: the lock is the user's
-   * own word (`rune-holds.ts`). The page asks it the other way round — *Only use
-   * runes free in this preset* — so both switches beside it start off and each
-   * says what ticking it does.
+   * rune locked to another monster of the preset never may, whatever this says:
+   * the lock is the user's own word (`rune-locks.ts`). The page asks it the other
+   * way round — *Only runes not engraved on others* — so both switches beside it
+   * start off and each says what ticking it does.
    */
   runesOnOtherMonsters: boolean;
   /**

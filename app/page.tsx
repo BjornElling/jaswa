@@ -18,7 +18,7 @@ import type { RuneOptimizationSettings } from './lib/rune-optimization-settings'
 import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
-import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements } from './lib/engrave-rune-build';
+import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements, runesWithLocked } from './lib/engrave-rune-build';
 import { deleteGamePreset, leadGamePreset } from './lib/game-preset-edits';
 import { usePageHistory } from './lib/page-history';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
@@ -30,6 +30,8 @@ import type { PresetWrites } from './components/presets-section';
 import { profileIn, profilesIn, withoutContext, withProfile } from './lib/monster-preferences';
 import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
+import { heldRuneLocks, lockedRuneIds, noRuneLocks, readRuneLocks, runeLockOf, runeLockScope, withRuneLock } from './lib/rune-locks';
+import type { RuneLock, RuneLocks } from './lib/rune-locks';
 import type { MonsterReference, OpenMonsterOverlay } from './components/monster-link';
 import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
 import { useSessionStorageState, writeSessionValue } from './lib/session-storage-state';
@@ -129,7 +131,8 @@ export default function Home() {
       /* The engrave record is read on its own, so a malformed one loses the
          record and keeps the import. */
       const loadedPlacements = readLoadedPlacements(validGame?.loadedPlacements);
-      const savedCurrentGame = validGame === null ? null : { ...validGame, loadedPlacements };
+      const runeLocks = readRuneLocks(validGame?.runeLocks);
+      const savedCurrentGame = validGame === null ? null : { ...validGame, loadedPlacements, runeLocks };
       setGame(savedCurrentGame);
       if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
       const savedCurrentPreferences = readPreferences(savedPreferences, savedCurrentGame);
@@ -224,6 +227,13 @@ export default function Home() {
      (`DECK-PRESETS.md` §4). */
   const presets = useMemo(() => readPresets(game?.data, preferences.presets), [game, preferences.presets]);
   const presetsReading = useMemo(() => ({ presets, ...engravings(presets) }), [presets]);
+  /* JASWA changes the account only while no live sync would put the game's own back. */
+  const canEngrave = preferences.importRoute === 'file' || preferences.directImportMode === 'on-load';
+  /* The locks every page reads: none while synchronized, and only those that still
+     hold against the placement on screen (`heldRuneLocks`). */
+  const runeLocks = useMemo(() => (canEngrave && game?.runeLocks ? heldRuneLocks(game.runeLocks, presets) : noRuneLocks),
+    [canEngrave, game, presets]);
+  const lockedRunes = useMemo(() => lockedRuneIds(runeLocks), [runeLocks]);
   const [selectedPreset, setSelectedPreset] = useSessionStorageState<string>(selectedPresetKey, '', isString);
 
   /* The overlay's rune is the same object for as long as the overlay and the import
@@ -307,16 +317,57 @@ export default function Home() {
       changePreferences((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? next : entry) }));
       return;
     }
-    if (!game || !preset || (preferences.importRoute === 'direct' && preferences.directImportMode === 'live')) {
+    if (!game || !preset || !canEngrave) {
       throw new Error('This build cannot be engraved in the current import mode.');
     }
     try {
-      const next = engraveImportedGame(game, preset, unitId, runeIds);
+      const engraved = engraveImportedGame(game, preset, unitId, runeIds);
+      /* A lock whose rune the build moved away is over, and is not stored to come back if the rune ever does. */
+      const locks = heldRuneLocks(engraved.runeLocks ?? noRuneLocks, readPresets(engraved.data, preferences.presets));
+      const next = { ...engraved, runeLocks: Object.keys(locks).length > 0 ? locks : undefined };
       await saveImportedGame(next);
       setGame(next);
       setMessage('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'JASWA could not save this build. Please try again.');
+      throw error;
+    }
+  }
+
+  /**
+   * The one route from a Lock or Exclude control to storage, wherever it sits.
+   * A lock engraves the rune on the monster first where it is not there yet, so
+   * a lock always names a rune its monster carries. The locks are written with
+   * the import — never the preferences — and only those still holding are kept.
+   */
+  async function lockRune(presetId: string, unitId: string, runeId: string, lock: RuneLock | null): Promise<void> {
+    const preset = presets.find((entry) => entry.id === presetId);
+    if (!game || !preset || !canEngrave) throw new Error('Runes cannot be locked or excluded while JASWA is synchronized with the game.');
+    const slots = new Map(readRunes(game.data).map((rune) => [rune.id, rune.slot]));
+    const slotOf = (id: string) => slots.get(id);
+    try {
+      let next = game;
+      let ownPresets = preferences.presets;
+      if (lock === 'locked' && preset.runeOwner.get(runeId) !== unitId) {
+        const runeIds = runesWithLocked(preset, unitId, runeId, slotOf);
+        if (preset.kind === 'own') {
+          const own = ownPresets.find((entry) => entry.id === presetId);
+          if (!own) throw new Error('This preset is no longer in your preferences.');
+          const engraved = engraveOwnPreset(own, preset, unitId, runeIds);
+          ownPresets = ownPresets.map((entry) => entry.id === presetId ? engraved : entry);
+          changePreferences((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? engraved : entry) }));
+        } else {
+          next = engraveImportedGame(next, preset, unitId, runeIds);
+        }
+      }
+      const locks: RuneLocks = heldRuneLocks(withRuneLock(runeLocks, runeLockScope(preset), unitId, runeId, lock, slotOf),
+        readPresets(next.data, ownPresets));
+      next = { ...next, runeLocks: Object.keys(locks).length > 0 ? locks : undefined };
+      await saveImportedGame(next);
+      setGame(next);
+      setMessage('');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'JASWA could not save this lock. Please try again.');
       throw error;
     }
   }
@@ -533,7 +584,7 @@ export default function Home() {
   /* A game preset lives in the import, so a change to one is saved there, as an
      engrave is; live sync would put the game's own back at once, so it refuses. */
   async function changeGamePreset(change: (current: ImportedGame) => ImportedGame): Promise<boolean> {
-    if (!game || (preferences.importRoute === 'direct' && preferences.directImportMode === 'live')) return false;
+    if (!game || !canEngrave) return false;
     try {
       const next = change(game);
       await saveImportedGame(next);
@@ -675,6 +726,7 @@ export default function Home() {
         game={game}
         profiles={preferences.monsterPreferences}
         runeHolds={preferences.runeHolds}
+        lockedRunes={lockedRunes}
         settings={preferences.runePotential}
         roles={preferences.runePotentialPresets}
         general={preferences.general}
@@ -740,7 +792,7 @@ export default function Home() {
         preferences={preferences}
         presets={presets}
         selectedId={selectedPreset}
-        canCreate={!(preferences.importRoute === 'direct' && preferences.directImportMode === 'live')}
+        canCreate={canEngrave}
         onSelect={setSelectedPreset}
         onWrite={presetWrites}
         onOpenMonster={openMonsterOverlay}
@@ -757,8 +809,10 @@ export default function Home() {
         presetId={selectedPreset}
         onSelectPreset={setSelectedPreset}
         onUpdate={updateRuneOptimizationSettings}
-        canEngrave={preferences.importRoute === 'file' || preferences.directImportMode === 'on-load'}
+        canEngrave={canEngrave}
         onEngrave={engraveBuild}
+        runeLocks={runeLocks}
+        onLock={lockRune}
         onOpenMonster={openMonsterOverlay}
         onOpenRune={openRuneOverlay}
       /></Suspense>}
@@ -817,6 +871,10 @@ export default function Home() {
       hardwareAcceleration={preferences.hardwareAcceleration}
       hold={preferences.runeHolds[overlayRune.id]}
       onHold={overlay?.kind === 'rune' && overlay.target.kind === 'account' ? updateRuneHold : undefined}
+      locked={overlayRune.occupiedId !== null
+        && runeLockOf(runeLocks, defaultPresetId, overlayRune.occupiedId, overlayRune.id) === 'locked'}
+      canLock={canEngrave}
+      onLock={(runeId, unitId, on) => lockRune(defaultPresetId, unitId, runeId, on ? 'locked' : null)}
       onOpenMonster={openMonsterOverlay}
       onClose={closeOverlay}
     /></Suspense>}

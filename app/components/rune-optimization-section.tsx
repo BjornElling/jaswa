@@ -37,7 +37,8 @@ import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monst
 import { monsterTargetFigures } from '../lib/monster-stats';
 import { accountItems, defaultPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
 import type { Preset } from '../lib/presets';
-import type { RuneHolds } from '../lib/rune-holds';
+import { runeLockOf, runeLockScope, runeLocksFor } from '../lib/rune-locks';
+import type { RuneLock, RuneLocks } from '../lib/rune-locks';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
 import { estimateRuneOptimizationBuilds, figureIndex } from '../lib/rune-optimization-problem';
@@ -134,18 +135,8 @@ function Provenance({ children }: { children: ReactNode }) {
   return <p className="rune-optimization-provenance">{children}</p>;
 }
 
-/* A lock keeps a rune where it sits in Default (`rune-holds.ts`); a preset holds
-   its own gear, so in a preset a Default lock neither holds nor refuses a rune. */
-function holdsIn(preset: Preset, holds: RuneHolds): RuneHolds {
-  if (preset.kind === 'default') return holds;
-  return Object.fromEntries(Object.entries(holds).flatMap(([runeId, hold]) => {
-    const rest = { ...hold };
-    delete rest.locked;
-    return Object.keys(rest).length > 0 ? [[runeId, rest]] : [];
-  }));
-}
-
-export function RuneOptimizationSection({ game, monsters, preferences, presets, presetId, onSelectPreset, onUpdate, canEngrave, onEngrave, onOpenMonster, onOpenRune }: {
+export function RuneOptimizationSection({ game, monsters, preferences, presets, presetId, onSelectPreset, onUpdate, canEngrave, onEngrave,
+  runeLocks, onLock, onOpenMonster, onOpenRune }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
@@ -157,6 +148,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   /** Whether builds may be engraved in the game's presets and Default; a preset built in JASWA always may. */
   canEngrave: boolean;
   onEngrave: (presetId: string, unitId: string, runeIds: readonly string[]) => Promise<void>;
+  /** Every lock that holds, empty while synchronized (`rune-locks.ts`). */
+  runeLocks: RuneLocks;
+  onLock: (presetId: string, unitId: string, runeId: string, lock: RuneLock | null) => Promise<void>;
   onOpenMonster: OpenMonsterOverlay;
   onOpenRune: OpenRuneOverlay;
 }) {
@@ -225,7 +219,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
   const defaultPlaces = useMemo(() => (preset && preset.kind !== 'default'
     ? new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId])) : undefined), [accountRunes, preset]);
-  const holds = useMemo(() => (preset ? holdsIn(preset, preferences.runeHolds) : preferences.runeHolds), [preset, preferences.runeHolds]);
+  /* The preset's locks as this monster reads them: its own locks and exclusions, and
+     the runes locked to the rest of the team, which it may not take. */
+  const locks = useMemo(() => (preset && unitId !== '' ? runeLocksFor(runeLocks, runeLockScope(preset), unitId) : {}),
+    [preset, unitId, runeLocks]);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
   const craftItems = useMemo(() => (game ? readCraftItems(game.data) : []), [game]);
   const itemsById = useMemo(() => new Map(craftItems.map((item) => [item.id, item])), [craftItems]);
@@ -238,8 +235,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     ? higherPriorityThan(presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority), unitId) : []),
   [sparing, preset, preferences.monsterPriority, preferences.presetPriority, unitId]);
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements && (!settings.limitChanges || settings.maxChanges !== undefined) ? {
-    unitId: selected.unitId, monster: selected.record, runes, holds, spared, craftItems, requirements, settings,
-  } : undefined), [selected, requirements, runes, holds, spared, craftItems, settings]);
+    unitId: selected.unitId, monster: selected.record, runes, locks, spared, craftItems, requirements, settings,
+  } : undefined), [selected, requirements, runes, locks, spared, craftItems, settings]);
   const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
   const trial = useRuneOptimizationWork(input, preferences.hardwareAcceleration, state === 'calculating');
   /* The question on screen. The account is never part of it: the player follows the
@@ -286,9 +283,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     ? currentBuilds(current.answer.builds.slice(0, resultCount), {
       unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings: current.settings, spared: current.spared,
       before: { runes: current.runes, items: current.items },
-      now: { runes: runesById, items: itemsById, holds },
+      now: { runes: runesById, items: itemsById, locks },
     })
-    : undefined), [current, selected, tableLimits, resultCount, runesById, itemsById, holds]);
+    : undefined), [current, selected, tableLimits, resultCount, runesById, itemsById, locks]);
   const figuresNow = useCallback((bonuses: RuneOptimizationRequirements) => {
     if (!selected) return undefined;
     const figures = monsterTargetFigures(selected.record, bonuses);
@@ -562,7 +559,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
           </div>
           <div className="filter-group rune-optimization-sources">
             <span className="filter-label">Selection</span>
-            <CheckboxRow label="Only use runes free in this preset" checked={!settings.runesOnOtherMonsters}
+            <CheckboxRow label="Only runes not engraved on others" checked={!settings.runesOnOtherMonsters}
               onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
             <CheckboxRow label="Just fill in empty slots" checked={settings.fillEmptySlotsOnly}
               onChange={(fillEmptySlotsOnly) => onUpdate({ fillEmptySlotsOnly })} />
@@ -644,6 +641,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
       runesById={runesById} presetId={activePresetId} loadedPlacements={game?.loadedPlacements?.[activePresetId]} defaultPlaces={defaultPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
+      canLock={canEngrave}
+      lockOf={(runeId) => (preset ? runeLockOf(runeLocks, runeLockScope(preset), buildMonster.unitId, runeId) : undefined)}
+      onLock={(runeId, lock) => onLock(activePresetId, buildMonster.unitId, runeId, lock)}
       onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
 }

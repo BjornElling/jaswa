@@ -252,18 +252,33 @@ function Evaluation({ rune, roles, explained }: {
  * **The user's own word on the rune**, which Rune Clean-up prints over its advice
  * and files under Keep. Stored by `rune_id`, so no import and no live sync resets it.
  *
- * The lock keeps the rune on its monster in Default (`rune-holds.ts`), so a rune
- * on no monster there cannot take one — but a rune that left its monster after
- * being locked keeps the lock and can still have it taken off, rather than
- * holding a choice the user can see and not undo.
+ * The lock is the one every Lock control sets (`rune-locks.ts`), here for the
+ * rune's monster in Default, so a rune on no monster there cannot take one. Like
+ * every lock it lasts until the next import and is off while synchronized.
  */
-function Instructions({ rune, hold, onHold }: { rune: Rune; hold: RuneHold | undefined; onHold: (next: RuneHold) => void }) {
-  const locked = hold?.locked === true;
-  const lockable = canLockRune(rune) || locked;
+function Instructions({ rune, hold, onHold, locked, canLock, onLock }: {
+  rune: Rune;
+  hold: RuneHold | undefined;
+  onHold: (next: RuneHold) => void;
+  locked: boolean;
+  canLock: boolean;
+  onLock: (on: boolean) => Promise<void>;
+}) {
+  const lockable = canLock && canLockRune(rune);
+  /* The box shows the choice from the click on, while it is being saved. */
+  const [saving, setSaving] = useState<boolean | null>(null);
   const change = (key: keyof RuneHold, on: boolean) => {
     const next: RuneHold = { ...hold };
     if (on) next[key] = true; else delete next[key];
     onHold(next);
+  };
+  /* A click while one is saving is let go rather than the box disabled: disabling the
+     box under the pointer drops its focus, and Escape with it. */
+  const lock = (on: boolean) => {
+    if (saving !== null) return;
+    setSaving(on);
+    /* A failed save is reported by the page; the box goes back to saying what is stored. */
+    void onLock(on).catch(() => undefined).finally(() => setSaving(null));
   };
   return <section className="rune-overlay-hold" aria-labelledby="rune-overlay-hold-title">
     <h3 id="rune-overlay-hold-title" className="overlay-block-title">Instructions</h3>
@@ -273,8 +288,9 @@ function Instructions({ rune, hold, onHold }: { rune: Rune; hold: RuneHold | und
         <span>Unsellable</span>
       </label>
       <label className="checkbox-row" data-disabled={!lockable || undefined}
-        title={lockable ? 'Keeps it on its monster in Default; presets hold their own runes' : 'Only a rune on a monster in Default can be locked to it'}>
-        <input type="checkbox" checked={locked} disabled={!lockable} onChange={(event) => change('locked', event.target.checked)} />
+        title={!canLock ? 'Locks are off while JASWA is synchronized with the game'
+          : lockable ? 'Keeps it on its monster in Default until the next import' : 'Only a rune on a monster in Default can be locked to it'}>
+        <input type="checkbox" checked={saving ?? locked} disabled={!lockable} aria-busy={saving !== null || undefined} onChange={(event) => lock(event.target.checked)} />
         <span>Lock to monster</span>
       </label>
     </div>
@@ -304,7 +320,7 @@ function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
   </span>;
 }
 
-export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcceleration, hold, onHold, onClose, onOpenMonster }: {
+export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcceleration, hold, onHold, locked, canLock, onLock, onClose, onOpenMonster }: {
   rune: Rune;
   game: GameRecord | undefined;
   general: GeneralSettings;
@@ -315,6 +331,11 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
   hold: RuneHold | undefined;
   /** Absent for a rune the account does not own — a simulated one has nothing to hold. */
   onHold?: (runeId: string, next: RuneHold) => void;
+  /** Whether the rune is locked to its monster in Default (`rune-locks.ts`). */
+  locked: boolean;
+  /** Whether locks may change: not while JASWA is synchronized with the game. */
+  canLock: boolean;
+  onLock: (runeId: string, unitId: string, on: boolean) => Promise<void>;
   onClose: () => void;
   onOpenMonster: OpenMonsterOverlay;
 }) {
@@ -422,7 +443,8 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
         </table>
       </div>
 
-      {onHold && <Instructions rune={rune} hold={hold} onHold={(next) => onHold(rune.id, next)} />}
+      {onHold && <Instructions rune={rune} hold={hold} onHold={(next) => onHold(rune.id, next)}
+        locked={locked} canLock={canLock} onLock={(on) => rune.occupiedId === null ? Promise.resolve() : onLock(rune.id, rune.occupiedId, on)} />}
 
       <Evaluation rune={rune} roles={roles} explained={explained} />
     </div>

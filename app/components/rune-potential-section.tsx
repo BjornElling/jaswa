@@ -309,11 +309,12 @@ export function RuneSetupSection({ game, settings, roles, general, hardwareAccel
 }
 
 export function RunePotentialSection({
-  game, profiles, runeHolds, settings, roles, general, hardwareAcceleration, onOpenRune,
+  game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune,
 }: {
   game: ImportedGame | null;
   profiles: MonsterPreferences;
   runeHolds: RuneHolds;
+  lockedRunes: ReadonlySet<string>;
   settings: RunePotentialSettings;
   roles: RuneRole[];
   general: GeneralSettings;
@@ -328,7 +329,7 @@ export function RunePotentialSection({
   >
     {/* No bar: the verdicts are the page's only content, and a disclosure
         with nothing beside it to fold away only adds a click and a frame. */}
-    <RuneRecommendations game={game} profiles={profiles} runeHolds={runeHolds} settings={settings} roles={roles} general={general}
+    <RuneRecommendations game={game} profiles={profiles} runeHolds={runeHolds} lockedRunes={lockedRunes} settings={settings} roles={roles} general={general}
       hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} />
   </WorkspacePage>;
 }

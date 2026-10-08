@@ -396,7 +396,7 @@ label[for] {
 .overlay-stat-current, .overlay-slot-name, .engraved-rune-level, .engraved-artifact-class,
 .speed-lane-turn text, .speed-lane-figure,
 .rune-optimization-provenance, .rune-build-card-grade, .rune-build-change-kind,
-.speed-summary-state, .speed-leader-skill, .monster-priority-optimize {
+.speed-summary-state, .speed-leader-skill, .inline-button {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -2442,13 +2442,7 @@ label[for] {
   color: var(--text-muted);
 }
 .monster-priority-list { list-style: none; margin: 0; padding: 0; }
-/* As tall as the arrows and as quiet, with a faint edge so each still reads as a
-   box; the margin holds the pair back from the counts, nearer the name. */
-.speed-icon-button.monster-priority-optimize {
-  width: auto;
-  padding: 0 var(--s2);
-  border-color: var(--line);
-}
+/* The margin holds the pair back from the counts, nearer the name. */
 .monster-priority-ways { display: flex; gap: var(--s2); margin-right: var(--s6); }
 .monster-priority-gear { display: inline-flex; align-items: center; gap: var(--s1); }
 .monster-priority-count { font-variant-numeric: tabular-nums; }
@@ -2638,7 +2632,7 @@ label[for] {
    content, so a rune with two sub properties draws the same card as one with
    four and the ring cannot lose its shape. */
 .rune-build-circle {
-  --rune-build-row: 116px;
+  --rune-build-row: 124px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(6, var(--rune-build-row));
@@ -2676,7 +2670,7 @@ label[for] {
 .rune-build-card {
   min-width: 0;
   display: grid;
-  grid-template-rows: auto auto 1fr auto auto;
+  grid-template-rows: auto auto 1fr auto;
   gap: var(--s2);
   padding: var(--s3);
   border: 1px solid var(--line);
@@ -2701,6 +2695,11 @@ label[for] {
 .rune-build-card-subs .rune-sub { margin-right: 0; }
 /* Where the rune is now, on one line that gives way to an ellipsis, so a long
    nickname cannot push the card out of its ring. */
+/* The places on the left, the card's Lock and Exclude stacked in its bottom right
+   corner at one width, the wider word's. */
+.rune-build-card-foot { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--s2); }
+.rune-build-card-places { display: grid; gap: var(--s2); min-width: 0; }
+.rune-build-card-locks { display: grid; gap: var(--s1); }
 .rune-build-card-where { display: flex; align-items: baseline; gap: var(--s2); min-width: 0; }
 .rune-build-card-where[data-visible='false'] { visibility: hidden; }
 .rune-build-card-where-label { flex: none; color: var(--text-muted); }
@@ -6873,6 +6872,7 @@ th.align-center .rank-heading { justify-content: center; }
   transition: color .12s, border-color .12s, background .12s;
 }
 .speed-icon-button:hover:not(:disabled),
+.inline-button:hover:not(:disabled),
 .button.monster-overlay-optimize:hover:not(:disabled) {
   color: var(--text-accent);
   border-color: var(--gold-edge);
@@ -6885,6 +6885,25 @@ th.align-center .rank-heading { justify-content: center; }
   background: color-mix(in srgb, var(--state-bad) 10%, transparent);
 }
 .speed-icon-button:disabled { opacity: .35; cursor: default; }
+
+/* `InlineButton`: as tall as the icon buttons and as quiet, with a faint edge so
+   each still reads as a box, and hovered as they are. A toggle not chosen is the
+   exception: hover lights only its edge and word, and the gold ground is kept for
+   pressed, so a pointer resting on a box never reads as a choice. */
+.inline-button {
+  height: 24px;
+  padding: 0 var(--s2);
+  display: inline-grid; place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.inline-button[aria-pressed='false']:hover:not(:disabled) { background: transparent; }
+.inline-button[aria-pressed='true'] { color: var(--text-accent); border-color: var(--gold-edge); background: var(--gold-deep); }
+.inline-button:disabled { opacity: .35; cursor: default; }
 .speed-icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .speed-slot-empty td { color: var(--text-muted); }
 

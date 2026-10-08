@@ -8,7 +8,7 @@ import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
 
 const source = process.argv[2] ? JSON.parse(readFileSync(process.argv[2], 'utf8')) : scenarioGenerator(20261004, [35, 45]).scenario(0);
 const make = (name, requirements = {}, settings = {}, changes = {}) => ({ name, input: {
-  ...source, holds: {}, spared: [], ...changes,
+  ...source, locks: {}, spared: [], ...changes,
   requirements: { ...source.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
     allowBroken: true, allowIntangible: false, targets: {}, ceilings: {}, alwaysCrits: false, rankBy: 'dmg', ...requirements },
   settings: { ...source.settings, depth: 'complete', gems: 'none', grinds: 'none', resultCount: 10,
@@ -29,7 +29,7 @@ const cases = [
   make('100 rows', {}, { resultCount: 100 }),
   make('depth 1', {}, { depth: 'quick' }),
   make('four locked slots', {}, {}, {
-    holds: Object.fromEntries([1, 2, 3, 4].map((slot) => [source.runes.find((rune) => rune.slot === slot).id, { locked: true }])),
+    locks: Object.fromEntries([1, 2, 3, 4].map((slot) => [source.runes.find((rune) => rune.slot === slot).id, 'locked'])),
     runes: source.runes.map((rune) => [1, 2, 3, 4].some((slot) => source.runes.find((candidate) => candidate.slot === slot).id === rune.id)
       ? { ...rune, occupiedId: source.unitId } : rune),
   }),

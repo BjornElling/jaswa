@@ -12,7 +12,7 @@ const identities = (problem) => problem.slots.map((slot) => new Set(slot.map((ca
   `${candidate.runeId}|${candidate.gemmedAt}|${candidate.effects}|${candidate.stock}`)));
 for (let index = 0; index < 8; index += 1) {
   const input = generator.scenario(index);
-  input.holds = {}; input.spared = [];
+  input.locks = {}; input.spared = [];
   input.settings = { ...input.settings, gems: 'none', grinds: 'none', runesOnOtherMonsters: true, resultCount: 10 };
   input.requirements = { ...input.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
     allowBroken: true, allowIntangible: false, alwaysCrits: false, rankBy: index % 2 ? 'ehp' : 'dmg', ceilings: {} };
@@ -61,7 +61,7 @@ for (const depth of runeOptimizationDepths) assert.ok(runeOptimizationSettingChe
 
 // Identical rune stats isolate set bonuses from rune quality and Gem alternatives.
 const setInput = generator.scenario(0);
-setInput.holds = {}; setInput.spared = [];
+setInput.locks = {}; setInput.spared = [];
 setInput.settings = { ...setInput.settings, gems: 'none', grinds: 'none', runesOnOtherMonsters: true };
 setInput.requirements = { ...setInput.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
   allowBroken: true, allowIntangible: false, alwaysCrits: false, targets: {}, ceilings: {}, rankBy: 'dmg' };
@@ -111,7 +111,7 @@ console.log('PASS: free-slot neutral sets merge only when their identity cannot 
    alternatives. Two high choices exceed the ceiling, while high + quiet is
    valid; the low-contribution lane must keep those alternatives at depth 1. */
 const ceilingInput = generator.scenario(0);
-ceilingInput.holds = {}; ceilingInput.spared = [];
+ceilingInput.locks = {}; ceilingInput.spared = [];
 ceilingInput.settings = { ...ceilingInput.settings, depth: 'quick', gems: 'none', grinds: 'none', runesOnOtherMonsters: true, resultCount: 10 };
 ceilingInput.requirements = { ...ceilingInput.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
   allowBroken: true, allowIntangible: false, alwaysCrits: false, alwaysElementAdvantage: false,
@@ -163,7 +163,7 @@ console.log('PASS: seeded and unseeded tables agree without duplicates, and time
 // An already engraved Intangible can finish a set without spending another slot.
 // Three two-sets each one piece short need two slots and that one credit, not three.
 const intangible = generator.scenario(0);
-intangible.holds = {}; intangible.spared = [];
+intangible.locks = {}; intangible.spared = [];
 intangible.settings = { ...intangible.settings, depth: 'complete', gems: 'none', grinds: 'none', runesOnOtherMonsters: true };
 intangible.requirements = { ...intangible.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
   allowBroken: true, allowIntangible: true, alwaysCrits: false, alwaysElementAdvantage: false,
@@ -205,7 +205,7 @@ const craftedGenerator = scenarioGenerator(20261004, [3, 4]);
 let spendingGuides = 0;
 for (let at = 0; at < 16; at += 1) {
   const input = craftedGenerator.scenario(at);
-  input.holds = {}; input.spared = [];
+  input.locks = {}; input.spared = [];
   input.settings = { ...input.settings, depth: 'quick', gems: 'owned', grinds: 'owned', runesOnOtherMonsters: true, resultCount: 10 };
   input.requirements = { ...input.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
     allowBroken: at % 2 === 0, allowIntangible: true, targets: { spd: 120 }, ceilings: {}, rankBy: 'dmg' };
@@ -236,7 +236,7 @@ assert.deepEqual(new Set(partial.map((variant) => [...variant.stock].sort().join
   'each held stone must be independently optional');
 
 const supplyInput = generator.scenario(0);
-supplyInput.holds = {}; supplyInput.spared = [];
+supplyInput.locks = {}; supplyInput.spared = [];
 supplyInput.monster = { ...supplyInput.monster, spd: 101 };
 supplyInput.requirements = { ...supplyInput.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
   allowBroken: true, allowIntangible: false, alwaysCrits: false,
@@ -296,7 +296,7 @@ for (let index = 0; index < 16; index += 1) {
       { statId: 9, value: 5, grind: 0, gemmed: false },
     ] : rune.subProperties,
   }));
-  input.holds = Object.fromEntries(input.runes.filter((_, at) => at !== 0 && at !== 2).map((rune) => [rune.id, { locked: true }]));
+  input.locks = Object.fromEntries(input.runes.filter((_, at) => at !== 0 && at !== 2).map((rune) => [rune.id, 'locked']));
   input.craftItems = ['standard', 'ancient'].flatMap((lineage) => [13, 15].flatMap((setId) =>
     ['Hero', 'Legend'].flatMap((grade) => [2, 4, 8].map((statId) => ({
       ...heldStone(`${lineage}-${setId}-${grade}-${statId}`, statId, grade, 1), lineage, setId,

@@ -457,7 +457,7 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
 
   /* The player locks that rune to the monster it is on, from its own overlay. */
   await card.getByRole('button', { name: new RegExp(`^${slot} `) }).click();
-  const runeDialog = page.getByRole('dialog').filter({ has: page.getByText('Lock to monster') });
+  const runeDialog = page.getByRole('dialog').filter({ has: page.getByRole('checkbox', { name: 'Lock to monster' }) });
   await runeDialog.getByLabel('Lock to monster').check();
   await page.keyboard.press('Escape');
   await expect(runeDialog).toBeHidden();
@@ -477,10 +477,19 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
   await expect(page.getByText('You should rebuild.', { exact: false })).toBeHidden();
 
   /* Then the rune is sold: the row has no figures left to show, and says why. */
-  const runeId = await page.evaluate(() => {
-    const stored = JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}') as { runeHolds?: Record<string, unknown> };
-    return Object.keys(stored.runeHolds ?? {})[0];
-  });
+  /* The lock lives with the import, by scope, monster and rune. */
+  const runeId = await page.evaluate(async () => new Promise<string>((resolve) => {
+    const request = indexedDB.open('jaswa-local', 1);
+    request.onsuccess = () => {
+      const db = request.result;
+      const read = db.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
+      read.onsuccess = () => {
+        const locks = (read.result.runeLocks ?? {}) as Record<string, Record<string, Record<string, string>>>;
+        resolve(Object.keys(Object.values(locks.default ?? {})[0] ?? {})[0]);
+        db.close();
+      };
+    };
+  }));
   const game = JSON.parse(readFileSync(account, 'utf8')) as {
     runes: Array<{ rune_id: number }>; unit_list: Array<{ runes: Array<{ rune_id: number }> }>;
   };
@@ -493,6 +502,132 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
   await expect(row.getByRole('img', { name: new RegExp(`${slot}: The rune is no longer in the account`) })).toBeVisible();
   await expect(row.getByRole('cell', { name: '—', exact: true })).toHaveCount(11);
   await page.screenshot({ path: testInfo.outputPath('optimization-after-sale.png') });
+});
+
+/* The import's locks as stored, by scope, monster and rune. */
+const storedLocks = (page: Page) => page.evaluate(async () => new Promise<unknown>((resolve) => {
+  const request = indexedDB.open('jaswa-local', 1);
+  request.onsuccess = () => {
+    const db = request.result;
+    const read = db.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
+    read.onsuccess = () => { resolve(read.result.runeLocks); db.close(); };
+  };
+}));
+
+test('Lock and Exclude on a build card bind one rune to this monster, move nothing, and last until the next import', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+
+  /* A build that takes a rune off the other monster, so the lock has to engrave it. */
+  const rows = await page.getByRole('table', { name: 'Rune builds' }).getByRole('button', { name: /^Show build \d+$/ }).count();
+  let chosen = 0;
+  let card = page.locator('.rune-build-card').first();
+  for (let build = 1; build <= rows && chosen === 0; build += 1) {
+    await page.getByRole('button', { name: `Show build ${build}`, exact: true }).click();
+    const borrowed = page.getByRole('dialog', { name: `Build ${build}` }).getByRole('listitem')
+      .filter({ has: page.locator('.rune-build-card-where-value .monster-link') });
+    if (await borrowed.count() > 0) { chosen = build; card = borrowed.first(); break; }
+    await page.keyboard.press('Escape');
+  }
+  expect(chosen, 'no build borrows a rune from the other monster').toBeGreaterThan(0);
+  const detail = page.getByRole('dialog', { name: `Build ${chosen}` });
+  const slot = (await card.getAttribute('aria-label')) ?? '';
+  const other = detail.locator(`.rune-build-card:not([aria-label="${slot}"])`).first();
+  const otherSlot = (await other.getAttribute('aria-label')) ?? '';
+  const cards = detail.locator('.rune-build-card');
+  const choices = detail.locator('.rune-build-card-locks button');
+  const boxes = async () => Promise.all([...await cards.all(), ...await choices.all()].map(box));
+  /* Every box stands inside its card's border, whatever the card holds. */
+  const spilling = () => cards.evaluateAll((list) => list.filter((card) => {
+    const edge = card.getBoundingClientRect();
+    return [...card.querySelectorAll('.rune-build-card-locks button')].some((button) => {
+      const inner = button.getBoundingClientRect();
+      return inner.bottom > edge.bottom - 1 || inner.right > edge.right - 1;
+    });
+  }).length);
+  expect(await spilling()).toBe(0);
+
+  /* Nothing chosen: every box is there, none pressed. */
+  await expect(choices).toHaveCount(12);
+  for (const choice of await choices.all()) await expect(choice).toHaveAttribute('aria-pressed', 'false');
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('build-locks-empty.png') });
+
+  /* Lock: the rune is engraved here and says so, and nothing in the circle moves. */
+  const lock = card.getByRole('button', { name: 'Lock to monster' });
+  await lock.click();
+  await expect(lock).toHaveAttribute('aria-pressed', 'true');
+  await expect(card.locator('.rune-build-card-where-value').first()).toHaveText('This monster');
+  await expect(detail.getByRole('region', { name: `${slot} modifications` })).toContainText('Locked, used as engraved');
+  expect(await boxes()).toEqual(before);
+
+  /* Exclude on another card: that rune is out of this monster's builds, and this build says so. */
+  const exclude = other.getByRole('button', { name: 'Exclude' });
+  await exclude.click();
+  await expect(exclude).toHaveAttribute('aria-pressed', 'true');
+  await expect(detail.getByRole('region', { name: `${otherSlot} modifications` })).toContainText('The rune is excluded from this monster');
+  expect(await boxes()).toEqual(before);
+  expect(await spilling()).toBe(0);
+  await page.screenshot({ path: testInfo.outputPath('build-locks-full.png') });
+
+  /* Lock and Exclude are one choice: locking the excluded rune replaces the exclusion; pressing it again takes it off. */
+  const otherLock = other.getByRole('button', { name: 'Lock to monster' });
+  await otherLock.click();
+  await expect(otherLock).toHaveAttribute('aria-pressed', 'true');
+  await expect(exclude).toHaveAttribute('aria-pressed', 'false');
+  await otherLock.click();
+  await expect(otherLock).toHaveAttribute('aria-pressed', 'false');
+  await exclude.click();
+  await expect(exclude).toHaveAttribute('aria-pressed', 'true');
+
+  /* Searched again, every build takes the locked rune as its slot's answer. */
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  const total = await page.getByRole('table', { name: 'Rune builds' }).getByRole('button', { name: /^Show build \d+$/ }).count();
+  for (let build = 1; build <= total; build += 1) {
+    await page.getByRole('button', { name: `Show build ${build}`, exact: true }).click();
+    const shown = page.getByRole('dialog', { name: `Build ${build}` });
+    await expect(shown.getByRole('listitem', { name: slot, exact: true }).getByRole('button', { name: 'Lock to monster' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(shown.getByRole('listitem', { name: otherSlot, exact: true }).getByRole('button', { name: 'Exclude' })).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('Escape');
+  }
+
+  /* The choices are stored with the import and reload with it; a new import is the game's word, and has none. */
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  expect(await storedLocks(page)).toBeTruthy();
+  await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await page.getByRole('button', { name: 'Replace data', exact: true }).click();
+  await expect.poll(() => storedLocks(page)).toBeUndefined();
+});
+
+test('Lock and Exclude are off while JASWA is synchronized with the game', async ({ page }) => {
+  await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.evaluate(() => {
+    const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');
+    localStorage.setItem('jaswa-preferences', JSON.stringify({ ...preferences, importRoute: 'direct', directImportMode: 'live',
+      updatedAt: new Date(Date.now() + 1000).toISOString() }));
+  });
+  await page.reload();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const choices = page.getByRole('dialog', { name: 'Build 1' }).locator('.rune-build-card-locks button');
+  await expect(choices).toHaveCount(12);
+  for (const choice of await choices.all()) await expect(choice).toBeDisabled();
 });
 
 test('a monster that always crits is counted at a certain crit and shows its own CRI Rate', async ({ page }, testInfo) => {
@@ -888,7 +1023,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
   await maximum.fill('6');
   await settings.getByLabel('Just fill in empty slots').check();
-  await settings.getByLabel('Only use runes free in this preset').check();
+  await settings.getByLabel('Only runes not engraved on others').check();
   await settings.getByLabel('Include runes from higher-priority monsters').check();
   await settings.getByLabel('Count unfinished runes at their +15 main stat').check();
   await settings.getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
@@ -911,7 +1046,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await page.reload();
   await expect(settings.getByLabel('Just fill in empty slots')).toBeChecked();
   await expect(settings.getByLabel('Slot 1/3/5 only counts at +12')).toBeChecked();
-  await expect(settings.getByLabel('Only use runes free in this preset')).toBeChecked();
+  await expect(settings.getByLabel('Only runes not engraved on others')).toBeChecked();
   await expect(settings.getByLabel('Maximum changes')).toHaveValue('6');
   await expect(settings.getByLabel('Gems: grade')).toHaveValue('Legend');
   await maximum.fill('');

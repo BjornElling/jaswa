@@ -34,7 +34,7 @@ import { assumedCraftHalf, craftVariants, heldCraftHalf } from './rune-craft-end
 import type { CraftHalf, CraftSupply, EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
 import { lineageFits } from './rune-craft-plan';
-import type { RuneHolds } from './rune-holds';
+import type { RuneLock } from './rune-locks';
 import { runeOptimizationDepthPlans } from './rune-optimization-settings';
 import { craftAllocationKey, craftRecipeKey, prepareCraftAllocation } from './rune-optimization-craft-allocation';
 import { availableStatSets, bindingRangeLimits, ceilingEffectSlots, figureEffectSlots } from './rune-optimization-ranges';
@@ -82,7 +82,12 @@ export type RuneOptimizationInput = {
   /** The copy's own export record: its base stats, artifacts and engraved relic. */
   monster: GameRecord;
   runes: readonly Rune[];
-  holds: RuneHolds;
+  /**
+   * The scope's locks as this monster reads them (`runeLocksFor`): `locked` for a
+   * rune locked to any monster of the preset — this one where it is engraved here —
+   * and `excluded` for one this monster may not use.
+   */
+  locks: Readonly<Record<string, RuneLock>>;
   /**
    * Copies whose engraved runes this calculation may not take, whatever the settings
    * say about other monsters: those above it on the priority list, resolved by the
@@ -362,8 +367,10 @@ function admission(input: RuneOptimizationInput, usableSets: ReadonlySet<number>
     const engraved = input.runes.find((entry) => entry.slot === rune.slot && entry.occupiedId === unitId);
     if (engraved) return engraved.id === rune.id ? 'locked' : 'refused';
   }
-  /* A lock anywhere else keeps the rune where it is. */
-  if (input.holds[rune.id]?.locked) return onThisMonster ? 'locked' : 'refused';
+  /* A lock keeps the rune where it is, and an exclusion keeps it off this monster. */
+  const lock = input.locks[rune.id];
+  if (lock === 'locked') return onThisMonster ? 'locked' : 'refused';
+  if (lock === 'excluded') return 'refused';
   if (!onThisMonster && rune.occupiedId !== null && !mayTakeFrom(input, rune.occupiedId)) return 'refused';
   if (rune.setId === intangibleSetId && !requirements.allowIntangible) return 'refused';
   if (usableSets !== null && rune.setId !== intangibleSetId && !usableSets.has(rune.setId)) return 'refused';
@@ -707,7 +714,7 @@ export function prepareRuneOptimization(
       const lines = rune.subProperties.map((line) => ({ ...line }));
       bySlot[slotIndex] = [{
         runeId: rune.id, slot: rune.slot, setId: rune.setId, effects: runeEffects(rune, rune.mainValue, lines),
-        mainValue: rune.mainValue, main: effectSlotOf(rune.mainStatId), lines, gemmedAt: -1, groundAt: [], stock: [], moves: false, locked: input.holds[rune.id]?.locked === true, proxy: 0,
+        mainValue: rune.mainValue, main: effectSlotOf(rune.mainStatId), lines, gemmedAt: -1, groundAt: [], stock: [], moves: false, locked: input.locks[rune.id] === 'locked', proxy: 0,
       }];
       runesSeen.add(rune.id);
       continue;

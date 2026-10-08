@@ -14,6 +14,7 @@ export function pickIssueText(issue: PickIssue, engravedOnName: (unitId: string)
       ? 'The rune is locked in the inventory'
       : `The rune is locked to ${engravedOnName(issue.engravedOn) ?? 'another monster'}`;
     case 'slot-taken': return 'Another rune is locked into this slot';
+    case 'excluded': return 'The rune is excluded from this monster';
     case 'engraved-elsewhere': return `The rune is now on ${engravedOnName(issue.engravedOn) ?? 'another monster'}, and the settings keep other monsters’ runes`;
     case 'slot-filled': return 'Another rune now fills this slot, and only empty slots may change';
     case 'changes-limit': return `The build now needs more than ${issue.maximum} rune changes`;

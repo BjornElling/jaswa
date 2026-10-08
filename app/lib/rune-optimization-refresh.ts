@@ -22,7 +22,7 @@
  *
  * Some changes leave a build that cannot be followed at all, and the build says so
  * rune by rune rather than leaving the table: the rune was sold or fed, it is locked
- * where it is, another rune is locked into its slot on this monster, it now sits on
+ * where it is, it is excluded from this monster, another rune is locked into its slot on this monster, it now sits on
  * a monster whose runes the settings or the priority list keep, or the Gems and Grindstones still to come
  * need more of an item than the account holds. The row keeps its place, so the player
  * does not lose the one they were reading.
@@ -36,7 +36,7 @@ import type { GameRecord } from './game-data';
 import { targetFigureKeys } from './monster-stats';
 import type { EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
-import type { RuneHolds } from './rune-holds';
+import type { RuneLock } from './rune-locks';
 import { buildFigures, figureIndex, mayTakeFrom, targetCeilings, targetFloors } from './rune-optimization-problem';
 import type { RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
@@ -50,6 +50,8 @@ export type PickIssue =
   | { kind: 'locked-away'; engravedOn: string | null }
   /** Another rune is locked into this slot on this monster. */
   | { kind: 'slot-taken'; runeId: string }
+  /** Excluded from this monster's builds since the search. */
+  | { kind: 'excluded' }
   /** Engraved on another monster, whose runes the settings or the priority list keep. */
   | { kind: 'engraved-elsewhere'; engravedOn: string }
   /** A Gem or Grindstone still to come needs more of a held item than the account has left. */
@@ -85,7 +87,8 @@ export type RefreshContext = {
   spared: readonly string[];
   /** The runes and held items the search read. */
   before: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem> };
-  now: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem>; holds: RuneHolds };
+  /** `locks` as the search reads them (`RuneOptimizationInput.locks`). */
+  now: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem>; locks: Readonly<Record<string, RuneLock>> };
 };
 
 const sameLine = (left: EndStateLine | undefined, right: EndStateLine | undefined) => left !== undefined && right !== undefined
@@ -191,7 +194,7 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
       picks.push({ ...found, issue: { kind: 'gone' } });
       continue;
     }
-    const locked = now.holds[found.runeId]?.locked === true;
+    const locked = now.locks[found.runeId] === 'locked';
     const lockedHere = locked && is.occupiedId === unitId;
     const picked = currentPick(found, was, is, unitId, lockedHere);
     if (picked !== found) changed = true;
@@ -199,6 +202,7 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
     let issue: PickIssue | null = null;
     const taken = lockedSlots.get(picked.slot);
     if (locked && !lockedHere) issue = { kind: 'locked-away', engravedOn: is.occupiedId };
+    else if (now.locks[found.runeId] === 'excluded') issue = { kind: 'excluded' };
     else if (taken !== undefined && taken !== found.runeId) issue = { kind: 'slot-taken', runeId: taken };
     else if (is.occupiedId !== null && is.occupiedId !== unitId && !mayTakeFrom(context, is.occupiedId)) {
       issue = { kind: 'engraved-elsewhere', engravedOn: is.occupiedId };
@@ -252,8 +256,8 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
 export function currentBuilds(builds: readonly OptimizedBuild[], context: RefreshContext): CurrentBuild[] {
   /* The slots a lock on this monster has already filled. */
   const lockedSlots = new Map<number, string>();
-  for (const [runeId, hold] of Object.entries(context.now.holds)) {
-    const rune = hold.locked ? context.now.runes.get(runeId) : undefined;
+  for (const [runeId, lock] of Object.entries(context.now.locks)) {
+    const rune = lock === 'locked' ? context.now.runes.get(runeId) : undefined;
     if (rune && rune.occupiedId === context.unitId) lockedSlots.set(rune.slot, runeId);
   }
   return builds.map((build) => readBuild(build, context, lockedSlots));

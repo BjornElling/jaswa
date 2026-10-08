@@ -28,10 +28,11 @@ function remember(game: ImportedGame, presetId: string, before: ReadonlyMap<stri
   return loaded;
 }
 
+/* Up to six runes, one per slot: a whole build, or a monster's runes with one locked in (`runesWithLocked`). */
 function checkBuild(data: GameRecord, unitId: string, runeIds: readonly string[]): void {
   const units = data.unit_list;
   const records = data.runes;
-  if (!Array.isArray(units) || !Array.isArray(records) || runeIds.length !== 6 || new Set(runeIds).size !== 6
+  if (!Array.isArray(units) || !Array.isArray(records) || runeIds.length === 0 || runeIds.length > 6 || new Set(runeIds).size !== runeIds.length
     || !units.some((unit) => isRecord(unit) && String(unit.unit_id) === unitId)) {
     throw new Error('This build cannot be engraved on the selected monster.');
   }
@@ -45,10 +46,21 @@ function checkBuild(data: GameRecord, unitId: string, runeIds: readonly string[]
     found += 1;
     slots.add(rune.slot);
   }
-  if (found !== 6 || slots.size !== 6) throw new Error('A rune in this build is missing or has the wrong slot.');
+  if (found !== runeIds.length || slots.size !== runeIds.length) throw new Error('A rune in this build is missing or has the wrong slot.');
 }
 
-/** Move six physical runes in Default, then rebuild each monster's runes from
+/**
+ * The runes a monster carries in a preset once `runeId` is engraved on it: the
+ * rune takes its slot, and whatever stood there goes to the inventory. What a
+ * lock engraves, through the same route as a whole build. A sold rune the
+ * preset still names has no slot to keep and is left out.
+ */
+export function runesWithLocked(preset: Preset, unitId: string, runeId: string, slotOf: (runeId: string) => number | undefined): string[] {
+  const slot = slotOf(runeId);
+  return [...(preset.runesOf.get(unitId) ?? []).filter((id) => id !== runeId && slotOf(id) !== undefined && slotOf(id) !== slot), runeId];
+}
+
+/** Move a monster's runes — a build's six, or its own with one locked in — in Default, then rebuild each monster's runes from
  * the account list so every workspace reads the same placement. */
 export function engraveRuneBuild(data: GameRecord, unitId: string, runeIds: readonly string[]): GameRecord {
   checkBuild(data, unitId, runeIds);

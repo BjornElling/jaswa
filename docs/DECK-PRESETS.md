@@ -211,7 +211,7 @@ it stands in.
   Default flows through. Moving a profile across is the user's act — *Copy
   profile from…* in the overlay — and copies it; afterwards each is its own.
 - Speed Tuning's order and what-ifs and a preset's priority list are already
-  per preset. A rune lock binds Default only (§5).
+  per preset, and so are a rune's Lock and Exclude (§5).
 - A preset deleted in JASWA takes its profiles, speed tuning and priority list
   with it; a copy taken out of a preset built in JASWA takes its profile there.
 - A copy is named by the profile of the context it is read in: the Presets page
@@ -275,7 +275,7 @@ an import, and are checked one preset at a time on load.
   presets cost nothing and are always candidates. `runesInPreset` gives each
   rune the monster carrying it in the chosen preset, so the search reads one
   preset's placement and no other.
-- *Only use runes from inventory* became *Only use runes free in this preset*:
+- *Only use runes from inventory* became *Only runes not engraved on others*:
   ticked, no monster of the preset gives up a rune.
 - *Include runes from higher-priority monsters* refers to monsters of the same
   preset.
@@ -283,9 +283,14 @@ an import, and are checked one preset at a time on load.
   monster's build in the chosen preset.
 - *Engrave* writes the build into the chosen preset and moves nothing out of
   any other context.
-- A lock keeps a rune on its monster in Default. A preset holds its own gear,
-  so a lock binds no preset; the stored locks the user already made keep their
-  meaning.
+- **Lock and Exclude** (`rune-locks.ts`) bind one rune to one monster in one
+  scope: Default, one preset, or — where a content's presets share one pool, as
+  the Siege Battle defense presets do — the whole pool. A lock engraves the rune
+  on the monster, makes it the slot's one answer and keeps it from every other
+  monster of the scope; an exclusion keeps it out of that monster's builds only.
+  Both are stored with the import rather than the preferences: a new file, a new
+  game session or a sync replaces them with the game's data, which has none, and
+  under *Always synchronized* both are off.
 
 **Speed Tuning.**
 - Rules are removed.

@@ -139,7 +139,7 @@ test('anywhere in a verdict row opens its rune, and selecting text there does no
   await expect(row.locator('.rune-link')).toBeFocused();
 });
 
-test('Instructions hold a rune under its own word, files it under Keep, and outlives a re-import', async ({ page }, testInfo) => {
+test('Instructions hold a rune under its own word and file it under Keep; Unsellable outlives a re-import and a lock does not', async ({ page }, testInfo) => {
   /* This flow calculates twice, once after a fresh import, so it needs room for
      two independent slot calibrations when the full suite drives eight browsers. */
   test.setTimeout(90_000);
@@ -191,26 +191,34 @@ test('Instructions hold a rune under its own word, files it under Keep, and outl
   await expect(fatalRow).toBeVisible();
   await page.getByRole('group', { name: 'Filter by advice' }).getByRole('button', { name: 'Keep', exact: true }).click();
 
-  /* A new import of the same account changes nothing the user chose. */
+  /* A lock reloads with the import it was made on… */
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(advice(fatalRow)).toHaveText('Locked', { timeout: 60_000 });
+
+  /* …and a new import of the account is the game's word: Unsellable stays, the lock goes. */
   await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await page.getByRole('button', { name: 'Replace data', exact: true }).click();
+  /* The dialog closes once the new import is saved. */
+  await expect(page.getByRole('button', { name: 'Replace data', exact: true })).toBeHidden();
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(advice(violentRow)).toHaveText('Unsellable', { timeout: 60_000 });
-  await expect(advice(fatalRow)).toHaveText('Locked');
+  await expect(advice(fatalRow)).toHaveText('Unsellable');
+  await fatalRow.locator('.rune-link').click();
+  await expect(page.getByRole('dialog', { name: 'Fatal' }).getByRole('checkbox', { name: 'Lock to monster' })).not.toBeChecked();
+  await page.keyboard.press('Escape');
 
-  /* Taking the choices off hands the row back to the engine. */
+  /* Taking the choice off hands the row back to the engine. */
   await violentRow.locator('.rune-link').click();
   await page.getByRole('dialog', { name: 'Violent' }).getByRole('checkbox', { name: 'Unsellable' }).uncheck();
   await page.keyboard.press('Escape');
   await expect(advice(violentRow)).toHaveText(engineVerdict);
-  await fatalRow.locator('.rune-link').click();
-  await page.getByRole('dialog', { name: 'Fatal' }).getByRole('checkbox', { name: 'Lock to monster' }).uncheck();
-  await page.keyboard.press('Escape');
-  await expect(advice(fatalRow)).toHaveText('Unsellable');
 });
 
 test('an engraved rune names its monster as a way into that monster', async ({ page }) => {

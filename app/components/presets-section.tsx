@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Button } from './button';
+import { Button, InlineButton } from './button';
 import { Dropdown } from './dropdown';
 import { ArrowIcon, RemoveIcon } from './list-icons';
 import { MonsterLink } from './monster-link';
@@ -352,10 +352,10 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
                       it is on every row, and disabled where there is no team to open, so the
                       rows keep one shape. */}
                   <span className="monster-priority-ways">
-                    <button type="button" className="speed-icon-button monster-priority-optimize" disabled={!tunable}
-                      aria-label={`Speed tuning for ${preset.name}, from ${name}`} onClick={() => onTuneSpeed(preset.id)}>Speed tuning</button>
-                    <button type="button" className="speed-icon-button monster-priority-optimize" disabled={!choice}
-                      aria-label={`Optimize runes for ${name}`} onClick={() => onOptimize(preset.id, unitId)}>Optimize</button>
+                    <InlineButton disabled={!tunable}
+                      aria-label={`Speed tuning for ${preset.name}, from ${name}`} onClick={() => onTuneSpeed(preset.id)}>Speed tuning</InlineButton>
+                    <InlineButton disabled={!choice}
+                      aria-label={`Optimize runes for ${name}`} onClick={() => onOptimize(preset.id, unitId)}>Optimize</InlineButton>
                   </span>
                   {choice ? <Gear monster={monsterInPreset(choice.record, preset, items)} preset={preset} unitId={unitId} /> : <><span /><span /><span /></>}
                   <span className="monster-priority-controls">

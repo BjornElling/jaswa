@@ -5,24 +5,19 @@ import type { Rune } from './runes';
 /**
  * **The runes the user has taken out of Rune Clean-up's hands.**
  *
- * Keyed by `rune_id`, the game's own persistent identifier, so a choice made
- * once survives every later import and every live sync from the helper. It is
- * the user's statement, not the account's: nothing an import carries sets,
- * clears or moves it, and a rune the next import no longer holds simply has
- * no row to engrave it on.
+ * Unsellable is keyed by `rune_id`, the game's own persistent identifier, so a
+ * choice made once survives every later import and every live sync from the
+ * helper. It is the user's statement, not the account's: nothing an import
+ * carries sets, clears or moves it.
  *
- * Both choices override the advice the same way a Keep does — a filter for
- * Keep shows them — and differ only in the word, so the table says which runes
- * the engine kept and which the user did.
+ * A rune locked to a monster (`rune-locks.ts`) is held the same way while the
+ * lock stands. Both override the advice as a Keep does — a filter for Keep
+ * shows them — and differ only in the word, so the table says which runes the
+ * engine kept and which the user did.
  */
 export type RuneHold = {
   /** Never to be sold, whatever the engine reads it as. */
   unsellable?: true;
-  /** Staying on the monster it is on in Default. A preset holds its own runes
-      (`DECK-PRESETS.md` §4), so the lock binds Default and no preset. Only a rune
-      engraved in Default can be locked, but a lock is kept when the rune leaves:
-      the next sync must not undo it. */
-  locked?: true;
 };
 
 export type RuneHolds = Record<string, RuneHold>;
@@ -38,8 +33,8 @@ export const runeHoldLabels: Record<RuneHoldVerdict, string> = {
   unsellable: 'Unsellable',
 };
 
-export function runeHoldVerdict(hold: RuneHold | undefined): RuneHoldVerdict | null {
-  if (hold?.locked) return 'locked';
+export function runeHoldVerdict(hold: RuneHold | undefined, locked = false): RuneHoldVerdict | null {
+  if (locked) return 'locked';
   if (hold?.unsellable) return 'unsellable';
   return null;
 }
@@ -48,7 +43,7 @@ export function runeHoldVerdict(hold: RuneHold | undefined): RuneHoldVerdict | n
 export const filteredRuneVerdict = (verdict: ShownRuneVerdict): RuneVerdict =>
   verdict === 'locked' || verdict === 'unsellable' ? 'keep' : verdict;
 
-/** Whether the lock can be put on: only a rune engraved in Default has a monster to be locked to. */
+/** Whether the rune overlay's lock can be put on: it locks a rune to its monster in Default, so only an engraved one. */
 export const canLockRune = (rune: Rune): boolean => rune.occupiedId !== null;
 
 /**
@@ -61,10 +56,7 @@ export function readRuneHolds(value: unknown): RuneHolds {
   const read: RuneHolds = {};
   for (const [runeId, stored] of Object.entries(value)) {
     if (runeId.length === 0 || !isRecord(stored)) continue;
-    const hold: RuneHold = {};
-    if (stored.unsellable === true) hold.unsellable = true;
-    if (stored.locked === true) hold.locked = true;
-    if (runeHoldVerdict(hold) !== null) read[runeId] = hold;
+    if (stored.unsellable === true) read[runeId] = { unsellable: true };
   }
   return read;
 }

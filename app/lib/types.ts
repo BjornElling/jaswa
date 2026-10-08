@@ -3,6 +3,7 @@ import type { MonsterPriority, PresetPriority } from './monster-priority';
 import type { OwnPreset } from './presets';
 import type { CraftRollAssumption } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
+import type { RuneLocks } from './rune-locks';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
 import type { RuneRole } from './rune-roles';
 import type { SpeedTuningPreferences } from './speed-tuning-preferences';
@@ -20,6 +21,8 @@ export type ImportedGame = {
    * where the game says, and nothing has moved.
    */
   loadedPlacements?: Record<string, Record<string, string | null>>;
+  /** The runes locked to and excluded from monsters since this import (`rune-locks.ts`); absent on every fresh import. */
+  runeLocks?: RuneLocks;
 };
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';

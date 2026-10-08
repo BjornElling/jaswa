@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Button } from './button';
+import { Button, InlineButton } from './button';
 import { AncientMark } from './ancient-mark';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -14,6 +14,7 @@ import { defaultPresetId } from '../lib/presets';
 import { pickIssueText } from '../lib/rune-build-issues';
 import type { EndStateLine } from '../lib/rune-craft-end-state';
 import type { CurrentPick } from '../lib/rune-optimization-refresh';
+import type { RuneLock } from '../lib/rune-locks';
 import { runeLineFigure, runeLineStat } from '../lib/runes';
 import { flatMainPropertyAtTwelve } from '../lib/rune-properties';
 import type { Rune } from '../lib/runes';
@@ -150,7 +151,26 @@ function gamePlaceName(runeId: string, place: string | null, places: Places): Re
     ? 'Inventory' : monsterName(inDefault, defaultPresetId, places);
 }
 
-function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
+/**
+ * The card's Lock and Exclude, for this rune and this monster in the build's
+ * preset (`rune-locks.ts`). One choice in two boxes: pressing the one that is on
+ * takes it off, pressing the other replaces it. Both are always drawn, and only
+ * disabled where no choice can be made, so the card keeps one shape.
+ */
+function LockChoices({ slot, lock, disabled, onLock }: {
+  slot: number;
+  lock: RuneLock | undefined;
+  disabled: boolean;
+  onLock: (lock: RuneLock | null) => void;
+}) {
+  const toggle = (choice: RuneLock) => onLock(lock === choice ? null : choice);
+  return <div className="rune-build-card-locks" role="group" aria-label={`Slot ${slot} rune for this monster`}>
+    <InlineButton pressed={lock === 'locked'} disabled={disabled} onClick={() => toggle('locked')}>Lock to monster</InlineButton>
+    <InlineButton pressed={lock === 'excluded'} disabled={disabled} onClick={() => toggle('excluded')}>Exclude</InlineButton>
+  </div>;
+}
+
+function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock, lockDisabled, onLock }: {
   picked: CurrentPick;
   rune: Rune | undefined;
   /** Where the rune sat when the import was loaded, where JASWA has moved it since; else `undefined`. */
@@ -158,6 +178,9 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
   places: Places;
   format: (value: number) => string;
   onOpenRune: OpenRuneOverlay;
+  lock: RuneLock | undefined;
+  lockDisabled: boolean;
+  onLock: (lock: RuneLock | null) => void;
 }) {
   if (!rune) {
     return <li className="rune-build-card" data-slot={picked.slot} aria-label={`Slot ${picked.slot}`}>
@@ -165,7 +188,8 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
     </li>;
   }
   let location: ReactNode;
-  if (picked.locked) location = 'Locked to this monster';
+  /* The pressed Lock beside it says the rest. */
+  if (picked.locked) location = 'This monster';
   else if (picked.issue?.kind === 'locked-away' && rune.occupiedId === null) location = 'Locked in the inventory';
   else if (rune.occupiedId === null || rune.occupiedId === places.thisMonster) {
     location = gamePlaceName(rune.id, rune.occupiedId, places);
@@ -205,24 +229,31 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune }: {
           : <li key={at} className="rune-sub" aria-hidden="true" />;
       })}
     </ul>
-    <div className="rune-build-card-where">
-      <span className="rune-build-card-where-label">Location</span>
-      <span className="rune-build-card-where-value">{location}</span>
-    </div>
-    {/* Always in the card and hidden when there is nothing to say, so engraving
-        the build cannot make six cards grow under the click (`AGENTS.md` §2). */}
-    <div className="rune-build-card-where" data-visible={moved} aria-hidden={!moved}>
-      <span className="rune-build-card-where-label">Previously</span>
-      <span className="rune-build-card-where-value">
-        {moved ? presetPlaceName(loadedPlace, places) : ''}
-      </span>
+    {/* Where the rune is on the left and what the user says about it at the
+        bottom right, so the two choices stand in the same corner of every card. */}
+    <div className="rune-build-card-foot">
+      <div className="rune-build-card-places">
+        <div className="rune-build-card-where">
+          <span className="rune-build-card-where-label">Location</span>
+          <span className="rune-build-card-where-value">{location}</span>
+        </div>
+        {/* Always in the card and hidden when there is nothing to say, so engraving
+            the build cannot make six cards grow under the click (`AGENTS.md` §2). */}
+        <div className="rune-build-card-where" data-visible={moved} aria-hidden={!moved}>
+          <span className="rune-build-card-where-label">Previously</span>
+          <span className="rune-build-card-where-value">
+            {moved ? presetPlaceName(loadedPlace, places) : ''}
+          </span>
+        </div>
+      </div>
+      <LockChoices slot={picked.slot} lock={lock} disabled={lockDisabled} onLock={onLock} />
     </div>
   </li>;
 }
 
 export function RuneBuildOverlay({
-  index, buildName, moves, runes, runesById, presetId, loadedPlacements, defaultPlaces, monster, engravedOn, general, canEngrave, onEngrave, onClose,
-  onOpenRune, onOpenMonster,
+  index, buildName, moves, runes, runesById, presetId, loadedPlacements, defaultPlaces, monster, engravedOn, general, canEngrave, onEngrave,
+  canLock, lockOf, onLock, onClose, onOpenRune, onOpenMonster,
 }: {
   index: number;
   /** The preset the build is for. */
@@ -241,12 +272,20 @@ export function RuneBuildOverlay({
   general: GeneralSettings;
   canEngrave: boolean;
   onEngrave: (unitId: string, runeIds: readonly string[]) => Promise<void>;
+  /** Whether Lock and Exclude may change: not while JASWA is synchronized with the game. */
+  canLock: boolean;
+  /** What the user has said about a rune for this monster in this preset. */
+  lockOf: (runeId: string) => RuneLock | undefined;
+  /** Sets or clears one rune's choice; a lock engraves the rune first. */
+  onLock: (runeId: string, lock: RuneLock | null) => Promise<void>;
   onClose: () => void;
   onOpenRune: OpenRuneOverlay;
   onOpenMonster: OpenMonsterOverlay;
 }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  /* The rune whose choice is being saved; every card waits for it, since a lock can move another card's rune. */
+  const [locking, setLocking] = useState<string | null>(null);
   const format = (value: number) => formatNumber(value, general);
   const bySlot = [...runes].sort((left, right) => left.slot - right.slot);
   const changes = bySlot.map((picked) => {
@@ -265,6 +304,21 @@ export function RuneBuildOverlay({
   const places: Places = { thisMonster: monster.unitId, presetId, defaultPlaces, engravedOn, onOpenMonster };
   const complete = bySlot.length === 6 && bySlot.every((picked) => runesById.has(picked.runeId));
   const alreadyEngraved = complete && bySlot.every((picked) => runesById.get(picked.runeId)?.occupiedId === monster.unitId);
+
+  /* A click while a choice is saving is let go rather than the boxes disabled:
+     disabling the box under the pointer drops its focus, and Escape with it. */
+  async function lock(runeId: string, choice: RuneLock | null) {
+    if (locking !== null || saving) return;
+    setLocking(runeId);
+    setSaveError(false);
+    try {
+      await onLock(runeId, choice);
+    } catch {
+      setSaveError(true);
+    } finally {
+      setLocking(null);
+    }
+  }
 
   async function engrave() {
     setSaving(true);
@@ -313,7 +367,9 @@ export function RuneBuildOverlay({
       <div className="rune-build-circle">
         <ol className="rune-build-runes" aria-label="Runes">
           {bySlot.map((picked) => <RuneCard key={picked.slot} picked={picked} rune={runesById.get(picked.runeId)}
-            loadedPlace={loadedPlacements?.[picked.runeId]} places={places} format={format} onOpenRune={onOpenRune} />)}
+            loadedPlace={loadedPlacements?.[picked.runeId]} places={places} format={format} onOpenRune={onOpenRune}
+            lock={lockOf(picked.runeId)} lockDisabled={!canLock}
+            onLock={(choice) => void lock(picked.runeId, choice)} />)}
         </ol>
         <div className="rune-build-centre">
           <MonsterLink target={{ kind: 'copy', unitId: monster.unitId, masterId: monster.masterId }}

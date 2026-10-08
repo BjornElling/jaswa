@@ -175,12 +175,15 @@ presets is therefore free here, because a preset holds its own gear.
 A **candidate** is one rune in one end state: as it stands, or with the Gem and
 Grindstones the settings allow. A rune enters its own slot's list when:
 
-- in Default, it is **not locked to another monster** (`rune-holds.ts`). A rune
-  locked to *this* monster is the slot's only candidate, exactly as engraved: no
-  filter removes it and no craft item is counted on it. A lock binds Default only;
-  in a preset it neither holds nor refuses a rune.
-- it is free in the preset, on this monster, or — unless *Only use runes free in
-  this preset* is ticked — on another monster of the preset;
+- it is **not locked to another monster** of the preset, and **not excluded**
+  from this one (`rune-locks.ts`). A rune locked to *this* monster is the slot's
+  only candidate, exactly as engraved: no filter removes it, no craft item is
+  counted on it, and the slot is not searched. Locks and exclusions bind one
+  scope — Default, one preset, or the pool a content's presets share — and no
+  other; they live with the import, so a new import has none, and they are off
+  under *Always synchronized*. Locking a rune engraves it on its monster first.
+- it is free in the preset, on this monster, or — unless *Only runes not
+  engraved on others* is ticked — on another monster of the preset;
 - that other monster is not **above it on the preset's priority list**
   (`monster-priority.ts`, the *Presets* page), unless *Include runes from
   higher-priority monsters* is ticked. A monster not on the list ranks below every monster on it, so it takes no
@@ -874,7 +877,10 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    main, innate, sub properties and where the rune is; and beside the circle, slot
    by slot, the modifications the build assumes — which line a Gem replaces and
    with what, which stone goes on which line, and a main counted at +12 or +15.
-   *Engrave on monster* engraves the six runes on the selected monster **in the
+   Each rune card carries *Lock to monster* and *Exclude* in its bottom right
+   corner, the same choice the rune overlay's lock makes: pressed, the rune is
+   locked to or excluded from this monster in the chosen preset; pressed again,
+   the choice is taken off. *Engrave on monster* engraves the six runes on the selected monster **in the
    chosen preset and nowhere else**. In Default it moves the physical runes in the
    saved import, its former runes returning to inventory; in a game preset it
    rewrites that deck's saved gear, a preset that saved only its monsters first
@@ -898,8 +904,9 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    - the rune was **sold or fed** — the row keeps no figures;
    - it is **locked where it is**, and that is not this monster (or the inventory);
    - **another rune is locked into its slot** on this monster;
+   - it has been **excluded** from this monster;
    - it now sits on **another monster** whose runes the search could not take —
-     *Only use runes free in this preset* was ticked, or that monster is above this
+     *Only runes not engraved on others* was ticked, or that monster is above this
      one on the preset's priority list;
    - **another rune now fills the slot** while only empty slots may change;
    - the build now needs **more rune changes than its limit**;

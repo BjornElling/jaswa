@@ -21,7 +21,7 @@ export function stockGuidanceScenarios(count = 40) {
   const generator = scenarioGenerator(20261005, [3, 5]);
   return Array.from({ length: count }, (_, index) => {
     const input = generator.scenario(index);
-    input.holds = {}; input.spared = [];
+    input.locks = {}; input.spared = [];
     input.runes = input.runes.map((rune) => ({ ...rune, setId: 13, occupiedId: null, ancient: false, level: 15 }));
     input.requirements = { ...input.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
       allowBroken: true, allowIntangible: false, alwaysCrits: false,
@@ -91,13 +91,16 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
         id += 1;
       }
     }
-    const holds = {};
+    const locks = {};
     if (random() < 0.3) {
       const engraved = runes.find((rune) => rune.occupiedId === '1');
-      if (engraved) holds[engraved.id] = { locked: true };
+      if (engraved) locks[engraved.id] = 'locked';
     }
     const other = runes.find((rune) => rune.occupiedId === '2');
-    if (other && random() < 0.5) holds[other.id] = { locked: true };
+    if (other && random() < 0.5) locks[other.id] = 'locked';
+    /* An exclusion now and then, drawn from the index alone so every seed's accounts stay as they were. */
+    const excluded = index % 5 === 4 ? runes.find((rune) => rune.slot === 3 && !(rune.id in locks)) : undefined;
+    if (excluded) locks[excluded.id] = 'excluded';
 
     const craftItems = [
       { id: '901', kind: 'gem', lineage: 'immemorial', setId: null, setName: null, statId: 8, statName: 'SPD', grade: 'Hero', amount: 1, range: undefined },
@@ -138,7 +141,7 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
         artifacts: [{ pri_effect: [101, 100] }, { pri_effect: [100, 1500] }],
         relics: index % 2 === 0 ? [{ pri_effect: [102, 12] }] : [],
       },
-      runes, holds, craftItems,
+      runes, locks, craftItems,
       /* Every fourth account ranks copy 2 above the one being searched for, without
          drawing on the generator, so the accounts the other seeds produce stay as they were. */
       spared: index % 4 === 3 ? ['2'] : [],
@@ -163,13 +166,13 @@ export function craftedRangeScenarios() {
   const generator = scenarioGenerator(20261006, [2, 2]);
   return Array.from({ length: 18 }, (_, index) => {
     const input = generator.scenario(0);
-    input.holds = {}; input.spared = [];
+    input.locks = {}; input.spared = [];
     input.runes = input.runes.filter((rune, at, all) => rune.slot >= 5
       || all.findIndex((other) => other.slot === rune.slot) === at).map((rune, at) => ({
       ...rune, occupiedId: rune.slot < 5 ? input.unitId : null, level: 15,
       setId: at % 3 === 0 ? 15 : 13, ancient: index % 3 === 0 && rune.slot === 5,
     }));
-    input.holds = Object.fromEntries(input.runes.filter((rune) => rune.slot < 5).map((rune) => [rune.id, { locked: true }]));
+    input.locks = Object.fromEntries(input.runes.filter((rune) => rune.slot < 5).map((rune) => [rune.id, 'locked']));
     input.requirements = { ...input.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
       allowBroken: true, allowIntangible: false, alwaysCrits: index % 7 === 0,
       alwaysElementAdvantage: false, leads: {}, targets: {}, ceilings: {},

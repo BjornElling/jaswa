@@ -20,7 +20,9 @@ The durable workspace contains:
 
 - the current imported game, including its prepared account data and, for
   each preset JASWA has engraved a build in, where each moved rune sat when the
-  import was loaded (`loadedPlacements`, the build overlay's *Previously*);
+  import was loaded (`loadedPlacements`, the build overlay's *Previously*), and
+  the runes locked to or excluded from monsters since (`runeLocks`,
+  `rune-locks.ts`) — both go with the import, so the next one starts without;
 - all preferences: import route and mode, graphics preference, formats and
   time zone, per-copy monster preferences (the user's own name for a copy, its
   chosen rune builds and slot main stats, the switches that qualify them, its

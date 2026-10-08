@@ -113,6 +113,24 @@ export function Button({
 }
 
 /**
+ * **A word in a small box, beside the thing it is about** — a row's Optimize and
+ * Speed tuning, a rune card's Lock and Exclude. It is quieter than `Button` on
+ * purpose: it sits among names and figures and should not outshout them.
+ *
+ * `pressed` makes it a toggle, said with `aria-pressed` and the accent alone —
+ * border, ground and ink, never weight or wording — so a choice cannot resize
+ * the box or move its neighbours (`AGENTS.md` §2). Left out, it simply acts.
+ */
+export function InlineButton({ pressed, className, children, ...rest }: NativeButtonProps & {
+  pressed?: boolean;
+}) {
+  const classes = ['inline-button', className].filter(Boolean).join(' ');
+  return <button type="button" {...rest} className={classes} aria-pressed={pressed}>
+    {children}
+  </button>;
+}
+
+/**
  * One option in a filter group, and the small clear button inside a search
  * field, which wears the same quiet box.
  *

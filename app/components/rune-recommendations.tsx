@@ -177,11 +177,13 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * nobody could read. What the player does in the game is different: a sync judges
  * only the runes it changed, and the rows keep their places (`rune-cleanup-refresh.ts`).
  */
-export function RuneRecommendations({ game, profiles, runeHolds, settings, roles, general, hardwareAcceleration, onOpenRune }: {
+export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune }: {
   game: ImportedGame | null;
   profiles: MonsterPreferences;
   /** The runes the user has said are not to be sold, which print their own word over the advice. */
   runeHolds: RuneHolds;
+  /** The runes locked to a monster anywhere (`rune-locks.ts`), which do the same. */
+  lockedRunes: ReadonlySet<string>;
   settings: RunePotentialSettings;
   roles: RuneRole[];
   general: GeneralSettings;
@@ -330,9 +332,9 @@ export function RuneRecommendations({ game, profiles, runeHolds, settings, roles
     () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index, gone }) => ({
       rune, advice, index, gone,
       ...placeOf(rune.id, gone),
-      hold: gone ? null : runeHoldVerdict(runeHolds[rune.id]),
+      hold: gone ? null : runeHoldVerdict(runeHolds[rune.id], lockedRunes.has(rune.id)),
     })),
-    [held, runesById, placeOf, runeHolds],
+    [held, runesById, placeOf, runeHolds, lockedRunes],
   );
   const rowsById = useMemo(() => new Map(rows.map((row) => [row.rune.id, row])), [rows]);
   const owned = rows.filter((row) => !row.gone).length;
