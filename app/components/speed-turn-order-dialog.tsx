@@ -132,7 +132,8 @@ export function SpeedTurnOrderDialog({ reading, title, names, general, onClose }
   onClose: () => void;
 }) {
   const choices = views(reading);
-  const [viewId, setViewId] = useState(choices[0].id);
+  /* Opened on the worst stage: the verdicts number each member's turns there. */
+  const [viewId, setViewId] = useState(choices[reading.worstStage ?? 0].id);
   const view = choices.find((entry) => entry.id === viewId) ?? choices[0];
 
   const speedName = combatSpeedName(reading);

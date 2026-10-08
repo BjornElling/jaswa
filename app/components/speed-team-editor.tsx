@@ -21,6 +21,14 @@ function ordinal(value: number): string {
   return `${value}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[value % 10] ?? 'th'}`;
 }
 
+/* ` · moves 2nd and 4th`: every turn the member takes in the opening, numbered
+   as the Ticks view numbers them. */
+function movesText(positions: readonly number[]): string {
+  if (positions.length === 0) return '';
+  const words = positions.map(ordinal);
+  return ` · moves ${words.length === 1 ? words[0] : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`}`;
+}
+
 /**
  * The one line under a member that says whether it is where it was put, where
  * to tune it, and last, which enemy gets in before it. The fix quotes the
@@ -36,8 +44,8 @@ function verdictText(member: MemberReading, names: Record<string, MonsterCopyNam
   const enemyWarning = !enemiesKnown || stages.length === 0 ? ''
     : area === 'arena' ? ' · worst-case enemy cuts in'
       : ` · enemy cuts in (stage${stages.length === 1 ? '' : 's'} ${stages.join(', ')})`;
-  const fault = verdict.kind === 'in-place' ? `In place · moves ${ordinal(member.actualPosition)}`
-    : verdict.kind === 'order' ? `Too fast · moves ${ordinal(member.actualPosition)}`
+  const fault = verdict.kind === 'in-place' ? `In place${movesText(member.turnPositions)}`
+    : verdict.kind === 'order' ? `Too fast${movesText(member.turnPositions)}`
       : `Tied with ${names[verdict.with]?.name ?? 'a teammate'}. Position decides.`;
   return `${fault}${fix === null ? '' : ` · ${fix}`}${enemyWarning}`;
 }

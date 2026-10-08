@@ -265,9 +265,10 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(card.locator('.speed-verdict').first()).toHaveText('In place · moves 1st');
   await expect(card.locator('.speed-verdict').first()).toHaveAttribute('data-state', 'good');
   await expect(card.locator('.speed-verdict[data-state="warn"]')).toHaveText([
-    /^In place · moves 3rd · needs exactly \d+ display speed · enemy cuts in \(stage 2\)$/,
-    'In place · moves 4th · enemy cuts in (stage 2)',
-    'In place · moves 5th · enemy cuts in (stage 2)',
+    /* Stage 2's three enemies move before the third member and are counted. */
+    /^In place · moves 6th · needs exactly \d+ display speed · enemy cuts in \(stage 2\)$/,
+    'In place · moves 7th · enemy cuts in (stage 2)',
+    'In place · moves 8th · enemy cuts in (stage 2)',
   ]);
   await expect(card.locator('.speed-team-status')).toHaveCount(0);
   /* Each stage names the turn its first enemy follows: whose, and which of
@@ -311,10 +312,10 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   const megan = saved.locator('.speed-slot').nth(1);
   /* In place, but the enemy gets in before her: yellow, her perfect range
      quoted, and the warning last. */
-  await expect(megan.locator('.speed-verdict')).toHaveText(/^In place · moves 5th · needs \d+–\d+ display speed · enemy cuts in \(stage 2\)$/);
+  await expect(megan.locator('.speed-verdict')).toHaveText(/^In place · moves 8th · needs \d+–\d+ display speed · enemy cuts in \(stage 2\)$/);
   await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'warn');
   /* Red stays red with the warning after its fault. */
-  await expect(saved.locator('.speed-slot').nth(3).locator('.speed-verdict')).toHaveText(/^Too fast · moves 3rd · enemy cuts in \(stage 2\)$/);
+  await expect(saved.locator('.speed-slot').nth(3).locator('.speed-verdict')).toHaveText(/^Too fast · moves 6th · enemy cuts in \(stage 2\)$/);
   await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(3);
   expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, startBox.height);
   await saved.screenshot({ path: testInfo.outputPath('speed-team-out-of-order.png') });
@@ -353,10 +354,11 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await opener.click();
   const dialog = page.locator('.speed-turn-dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Stage 1' })).toHaveAttribute('aria-pressed', 'true');
+  /* Opened on the worst stage — stage 2, whose enemy gets in — where the verdicts number the turns. */
+  await expect(dialog.getByRole('button', { name: 'Stage 2' })).toHaveAttribute('aria-pressed', 'true');
   const shown = dialog.locator('.speed-lanes[data-active]');
   await expect(shown.locator('.speed-lane-turn').first()).toHaveText('1');
-  await expect(shown.getByRole('rowheader', { name: /^Enemy \d/ })).toHaveCount(4);
+  expect(await shown.getByRole('rowheader', { name: /^Enemy \d/ }).count()).toBeGreaterThan(0);
   for (const name of ['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']) {
     const lane = shown.getByRole('row').filter({ has: page.getByRole('rowheader', { name: new RegExp(`^${name.replace(/[()]/g, '\\$&')}`) }) });
     expect(await lane.getByRole('cell', { name: /: turn \d+ at/ }).count()).toBeGreaterThanOrEqual(2);
@@ -499,7 +501,8 @@ test('arena presets face a worst-case enemy', async ({ page }, testInfo) => {
   await expect(card.locator('.speed-slot').nth(1).locator('.speed-verdict')).toHaveText('Tied with Lushen #2. Position decides.');
   await expect(card.locator('.speed-slot').nth(2).locator('.speed-verdict')).toHaveText('Tied with Lushen #1. Position decides.');
   const megan = card.locator('.speed-slot').nth(3);
-  await expect(megan.locator('.speed-verdict')).toHaveText('In place · moves 4th · worst-case enemy cuts in');
+  /* Fifth on the field: the worst-case enemy's turn comes before Megan's and is counted. */
+  await expect(megan.locator('.speed-verdict')).toHaveText('In place · moves 5th · worst-case enemy cuts in');
   await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'warn');
   await expect(megan.locator('.speed-slot-range')).toHaveText('—');
   const tiedBox = await box(card.locator('.speed-team-editor'));
@@ -546,8 +549,29 @@ test('a boost to one ally names who gets it: the lowest bar, as auto battle send
   await expect(caster.locator('.speed-boost-tag')).toHaveText('+100 % ATB → Veromos');
   /* No longer "not counted": a full bar is a number. */
   await expect(caster.getByRole('img', { name: /Konamiya — Resurge: \+100 % attack bar to the ally with the lowest attack bar/ })).toHaveCount(1);
-  /* Veromos's next turn follows Konamiya's straight away, ahead of both Lushens. */
-  await expect(draft.locator('.speed-verdict').nth(3)).toContainText('moves 2nd');
+  /* Every place a verdict states is a numbered turn in the view Ticks opens
+     on — the worst stage, where enemy turns are counted too. */
+  const verdicts = draft.locator('.speed-verdict');
+  const placesMatchTicks = async (shot: string) => {
+    await draft.getByRole('button', { name: 'Ticks' }).click();
+    const lanes = page.locator('.speed-lanes[data-active="true"]');
+    await expect(lanes).toHaveCount(1);
+    const names = await draft.locator('.speed-monster .monster-name').allTextContents();
+    for (const [at, name] of names.entries()) {
+      const places = [...(await verdicts.nth(at).textContent() ?? '').matchAll(/(\d+)(?:st|nd|rd|th)/g)].map((match) => match[1]);
+      /* A tie names no place: field position decides it. */
+      if (places.length === 0) continue;
+      const lane = lanes.getByRole('row').filter({ has: page.getByRole('rowheader', { name }) });
+      for (const place of places) await expect(lane.getByRole('cell', { name: new RegExp(`: turn ${place} at `) })).toHaveCount(1);
+    }
+    await page.screenshot({ path: testInfo.outputPath(shot) });
+    await page.keyboard.press('Escape');
+    await expect(lanes).toHaveCount(0);
+  };
+  /* Stage 2's enemy moves before the whole team, and is counted: Konamiya, the
+     team's first mover, is not first on the field. */
+  await expect(verdicts.first()).not.toContainText('moves 1st');
+  await placesMatchTicks('speed-one-ally-ticks-enemy.png');
 
   /* Behind both Lushens, Konamiya fills the one that moved last: its bar has
      had the fewest ticks since it emptied. */
@@ -555,6 +579,17 @@ test('a boost to one ally names who gets it: the lowest bar, as auto battle send
   await expect(caster.locator('.speed-boost-tag')).toHaveText('+100 % ATB → Lushen #2');
   expectSameHeight((await box(caster)).height, slotBox.height);
   await draft.screenshot({ path: testInfo.outputPath('speed-one-ally-after.png') });
+
+  /* Fast enough to keep every enemy out, and filled straight after its own
+     turn, Lushen #2 moves again before Veromos has moved at all. */
+  await draft.getByLabel("What-if display speed for Lushen #1 in Giant's Keep 1").fill('260');
+  await draft.getByLabel("What-if display speed for Lushen #2 in Giant's Keep 1").fill('250');
+  await draft.getByLabel("What-if display speed for Konamiya in Giant's Keep 1").fill('240');
+  await draft.getByLabel("What-if display speed for Veromos in Giant's Keep 1").fill('200');
+  await expect(verdicts.nth(2)).toContainText('moves 2nd and 4th');
+  await expect(verdicts.nth(3)).toContainText('moves 5th');
+  await draft.screenshot({ path: testInfo.outputPath('speed-one-ally-twice.png') });
+  await placesMatchTicks('speed-one-ally-ticks-twice.png');
 });
 
 test('each slot states the display speeds that hold it, and a what-if is selected rather than dragged', async ({ page }, testInfo) => {

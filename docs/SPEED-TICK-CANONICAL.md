@@ -308,6 +308,14 @@ tuning suggestion on the verdict line. A tie is not counted as out of place on
 the team summary; when it is the only order concern, the summary names the tie
 and shows a green check. A saved team always has a green check or a red cross.
 
+**Where it moves.** The verdict names a member's absolute place on the field,
+`moves 5th`, with every turn before it counted — enemy turns and a teammate's
+second turn alike. A member boosted into a second turn before the whole team
+has had a first names both: `moves 2nd and 4th`. The places are read on the
+worst stage, the one whose first enemy turn comes earliest (in arena the one
+worst-case enemy; with no enemies, the team alone), and the Ticks view opens on
+that stage, so every number on a verdict is a numbered disc there.
+
 ### 7.1 The tuning range — the one recommendation
 
 **Binding rule: every display speed the page offers a member can be tuned to.

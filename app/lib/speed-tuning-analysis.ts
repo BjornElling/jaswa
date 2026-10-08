@@ -54,8 +54,14 @@ export type MemberReading = {
   /** Arena speed or dungeon speed, by the team's content. */
   combatSpeed: number;
   profile: SpeedSkillProfile;
-  /** Where it really moves among the team, from 1. */
-  actualPosition: number;
+  /**
+   * Where its turns fall among every turn on the field, from 1, enemies'
+   * included, until every member has had its first — a boosted member may move
+   * twice in that time. Read on the worst stage (`TeamReading.worstStage`),
+   * the trace the Ticks view opens on, so the numbers cannot disagree. Empty
+   * when it never moves.
+   */
+  turnPositions: readonly number[];
   firstTurnTick: number;
   /**
    * The one-ally boosts its first turn gave, and to whom. The recipient is
@@ -109,6 +115,8 @@ export type TeamReading = {
   perfect: boolean;
   /** Arena: one reading against the worst-case enemy. Dungeon: one per stage. */
   enemies: EnemyStageReading[];
+  /** The index in `enemies` of the stage whose first enemy turn comes earliest, which members' places are read from; `null` without enemies. */
+  worstStage: number | null;
 };
 
 type Candidate = {
@@ -416,6 +424,12 @@ function worstArenaStage(units: readonly TickUnit[], trace: BattleTrace, drawn =
   return stageReading(units, [openingSpeed], 'arena', drawn);
 }
 
+/* How many turns come before a stage's first enemy turn: the fewer, the worse. */
+function firstEnemyAt(stage: EnemyStageReading): number {
+  const at = stage.trace.events.findIndex((event) => event.side === 'enemy');
+  return at === -1 ? Number.POSITIVE_INFINITY : at;
+}
+
 /** What the team faces: the worst-case enemy in arena, each stage in a dungeon. */
 function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: BattleTrace, drawn = true): EnemyStageReading[] {
   if (units.length === 0) return [];
@@ -467,8 +481,15 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const units = candidates.map((candidate) => tickUnit(candidate));
   const trace = teamTrace(units);
   const first = firstTurns(trace.events);
-  const actualOrder = [...first.keys()];
   const enemies = enemyStages(units, content, trace);
+  /* A member's place is its absolute one, enemy turns counted, on the stage
+     whose first enemy turn comes earliest — the one the Ticks view opens on.
+     Without enemies it is the team's own order. */
+  const worstStage = enemies.reduce<number | null>((worst, stage, at) =>
+    worst === null || firstEnemyAt(stage) < firstEnemyAt(enemies[worst]) ? at : worst, null);
+  const orderEvents = worstStage === null ? trace.events : enemies[worstStage].trace.events;
+  const lastFirstTurn = Math.max(-1, ...units.map((unit) => orderEvents.findIndex((event) => event.key === unit.key)));
+  const opening = orderEvents.slice(0, lastFirstTurn + 1);
   const shownSpeeds = present.map((member) => whatIfs?.get(member.unitId) ?? monsterSpeedParts(monsters.get(member.unitId) as GameRecord).displaySpeed);
 
   /* A member's own verdict looks only up the order: a monster below that
@@ -506,7 +527,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
       leaderPercent: candidate.base.percentOfBase - totemPercent,
       combatSpeed: units[index].speed,
       profile: candidate.profile,
-      actualPosition: actualOrder.indexOf(member.unitId) + 1,
+      turnPositions: opening.flatMap((event, at) => event.key === member.unitId ? [at + 1] : []),
       firstTurnTick: first.get(member.unitId)?.tick ?? Number.POSITIVE_INFINITY,
       firstAllyBoosts: (first.get(member.unitId)?.allyBoosts ?? []).map(({ key, amount }) => ({ unitId: key, amount })),
       verdict,
@@ -525,6 +546,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     trace,
     perfect: members.length > 0 && members.every((member) => member.verdict.kind === 'in-place'),
     enemies,
+    worstStage,
   };
 }
 
