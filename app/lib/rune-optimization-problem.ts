@@ -695,6 +695,14 @@ export function prepareRuneOptimization(
     return found;
   }
   const gemPlan: SupplyPlan = { use: settings.gems, kind: 'gem', grade: settings.gemGrade, roll: settings.gemRollAssumption };
+  /* With the gemmed property held, only Gems of that property are offered: which line
+     a Gem may replace stays `craftVariants`'s rule, and this narrows only what lands. */
+  function gemHalf(rune: Rune): CraftHalf | null {
+    const found = half(gemPlan, rune);
+    const kept = rune.subProperties.find((line) => line.gemmed)?.statId;
+    if (found === null || settings.allowGemStatChange || kept === undefined) return found;
+    return { choices: found.choices.map((options, statId) => (statId === kept ? options : [])) };
+  }
   const grindPlan: SupplyPlan = { use: settings.grinds, kind: 'grindstone', grade: settings.grindGrade, roll: settings.grindRollAssumption };
 
   const bySlot: Candidate[][] = [[], [], [], [], [], []];
@@ -730,7 +738,7 @@ export function prepareRuneOptimization(
     const lines: EndStateLine[] = rune.subProperties.map((line) => ({
       statId: line.statId, value: line.value, grind: line.grind, gemmed: line.gemmed,
     }));
-    const supply: CraftSupply = { gem: half(gemPlan, rune), grind: half(grindPlan, rune) };
+    const supply: CraftSupply = { gem: gemHalf(rune), grind: half(grindPlan, rune) };
     const variants = supply.gem === null && supply.grind === null
       ? [{ lines, gemmedAt: -1, stock: [] as number[] }]
       : craftVariants(supply, rune.slot, rune.mainStatId, rune.prefixStatId, lines, rune.level >= gemMinimumLevel, wanted,

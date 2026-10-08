@@ -707,6 +707,35 @@ console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds â€
   + ` every build read again against a re-sent account and a followed one (${withWork} with Gems or stones) kept its figures,`
   + ` and a sold rune, a lock (${lockedAwayChecked}) and spent items (${itemsChecked}) were each named on the slot they block.`);
 
+/* With the gemmed stat held, a gemmed rune's Gem lands only on the property that line
+   already carries, and every rune without one is offered exactly as with it allowed.
+   The same accounts with the change allowed do swap those properties, so the refusal
+   was one; and some re-roll the held property, so a same-stat Gem was not lost too. */
+let statChangeRefused = 0;
+let sameStatKept = 0;
+for (let index = 0; index < 40; index += 1) {
+  const input = scenario(index);
+  if (input.settings.gems === 'none') continue;
+  input.runes = input.runes.map((rune, at) => (at % 2 ? rune
+    : { ...rune, subProperties: rune.subProperties.map((line, lineAt) => (lineAt === 0 ? { ...line, gemmed: true } : line)) }));
+  const heldStat = new Map(input.runes.flatMap((rune) => rune.subProperties.filter((line) => line.gemmed).map((line) => [rune.id, line.statId])));
+  const offered = (allowGemStatChange) => prepareRuneOptimization({ ...input, settings: { ...input.settings, allowGemStatChange } }, { reduce: false }).slots.flat();
+  const changes = (candidate) => heldStat.has(candidate.runeId) && candidate.gemmedAt >= 0
+    && candidate.lines[candidate.gemmedAt].statId !== heldStat.get(candidate.runeId);
+  const rerolls = (candidate) => heldStat.has(candidate.runeId) && candidate.gemmedAt >= 0 && !changes(candidate);
+  const refused = offered(false);
+  const allowed = offered(true);
+  assert.ok(!refused.some(changes), `scenario ${index}: a gemmed line changed property although the gemmed stat is held`);
+  const reading = (candidate) => `${candidate.runeId}|${candidate.gemmedAt}|${JSON.stringify(candidate.lines)}`;
+  const untouched = (candidates) => candidates.filter((candidate) => !changes(candidate)).map(reading).sort();
+  assert.deepEqual(untouched(refused), untouched(allowed), `scenario ${index}: holding the gemmed stat changed more than the property swaps`);
+  if (allowed.some(changes)) statChangeRefused += 1;
+  if (refused.some(rerolls)) sameStatKept += 1;
+}
+assert.ok(statChangeRefused > 5, `only ${statChangeRefused} accounts had a gemmed property to hold`);
+assert.ok(sameStatKept > 0, 'no account re-rolled a held gemmed property');
+console.log(`PASS: holding the gemmed stat refused property swaps in ${statChangeRefused} accounts, kept same-property re-rolls in ${sameStatKept} and touched nothing else.`);
+
 // Filled slots stay untouched, including their craft work and unfinished mains.
 for (const filled of [0, 1, 3, 5, 6]) {
   const input = scenario(2);

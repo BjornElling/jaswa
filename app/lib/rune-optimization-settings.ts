@@ -109,6 +109,13 @@ export type RuneOptimizationSettings = {
    */
   allowImmemorial: boolean;
   /**
+   * Whether a Gem on a rune's converted line may turn it into another property.
+   * The game allows it, but the property a player once chose to gem in is often the
+   * one they mean the rune to carry. Off, that line may still be gemmed again for a
+   * better roll of the same property; a rune without a converted line is untouched.
+   */
+  allowGemStatChange: boolean;
+  /**
    * Whether a rune engraved on another monster *of the same preset* may be moved
    * onto this one. A rune engraved only in other presets is always free: a preset
    * holds its own gear (`DECK-PRESETS.md` §1), so taking it costs them nothing. A
@@ -158,6 +165,7 @@ export const defaultRuneOptimizationSettings: RuneOptimizationSettings = {
   grindGrade: 'Hero',
   grindRollAssumption: defaultCraftRollAssumption,
   allowImmemorial: true,
+  allowGemStatChange: true,
   runesOnOtherMonsters: true,
   includeHigherPriority: false,
   unfinishedAtMaximum: true,
@@ -176,6 +184,7 @@ export const runeOptimizationSettingChecks: FieldChecks<RuneOptimizationSettings
   grindGrade: isOneOf<ItemGrade>(itemGrades),
   grindRollAssumption: isOneOf(craftRollAssumptions),
   allowImmemorial: isBoolean,
+  allowGemStatChange: isBoolean,
   runesOnOtherMonsters: isBoolean,
   includeHigherPriority: isBoolean,
   unfinishedAtMaximum: isBoolean,

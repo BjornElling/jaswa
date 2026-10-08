@@ -591,6 +591,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             <span className="filter-label">Gems/Grinds</span>
             <CheckboxRow label="Allow Immemorial Gems and Grindstones" checked={settings.allowImmemorial}
               onChange={(allowImmemorial) => onUpdate({ allowImmemorial })} />
+            <CheckboxRow label="Allow changing a gemmed stat" checked={settings.allowGemStatChange}
+              disabled={settings.gems === 'none'}
+              onChange={(allowGemStatChange) => onUpdate({ allowGemStatChange })} />
           </div>
           <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} grade={settings.gemGrade} roll={settings.gemRollAssumption}
             onUse={(gems) => onUpdate({ gems })} onGrade={(gemGrade) => onUpdate({ gemGrade })} onRoll={(gemRollAssumption) => onUpdate({ gemRollAssumption })} />

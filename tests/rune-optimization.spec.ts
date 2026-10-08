@@ -195,9 +195,12 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   /* This copy has no profile, so the builds are open and the figures are its own. */
   await expect(requirements.getByText('The profile names no build, so any will do')).toBeVisible();
 
-  /* Intangible runes and Immemorial items are allowed until the owner says not. */
+  /* Intangible runes, Immemorial items and a new gemmed stat are allowed until the owner says not. */
   await expect(requirements.getByLabel('Allow Intangible runes')).toBeChecked();
   await expect(requirements.getByLabel('Allow Immemorial Gems and Grindstones')).toBeChecked();
+  await expect(requirements.getByLabel('Allow changing a gemmed stat')).toBeChecked();
+  /* It asks about a Gem, so it waits while no Gem is counted. */
+  await expect(requirements.getByLabel('Allow changing a gemmed stat')).toBeDisabled();
 
   /* A requirement changed here changes that field's caption and nothing else. */
   const panelBefore = await box(requirements);
@@ -311,8 +314,10 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   const findBefore = await box(page.getByRole('button', { name: 'Find builds' }));
   const rowsBefore = await table.getByRole('row').count();
   await page.screenshot({ path: testInfo.outputPath('optimization-before-stale.png') });
+  await expect(settings.getByLabel('Allow changing a gemmed stat')).toBeDisabled();
   await settings.getByRole('radio', { name: 'Theoretical' }).first().check();
   await expect(gradeSelect).toBeEnabled();
+  await expect(settings.getByLabel('Allow changing a gemmed stat')).toBeEnabled();
   expect(await box(settings)).toEqual(settingsBefore);
   /* The table stays; the warning beside Find builds says it answers the earlier
      question, and appearing moves neither the button nor the table. */

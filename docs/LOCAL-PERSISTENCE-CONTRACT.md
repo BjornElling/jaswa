@@ -42,8 +42,9 @@ The durable workspace contains:
   word on each preset (the turn order wanted and any what-if display speed
   tried on a monster — keyed by `unit_id`; the what-if is read only by the
   preset's overlay, never by the page or any other figure), and Rune Optimization's
-  settings, among them whether held Immemorial Gems and Grindstones may be spent —
-  one answer for every monster;
+  settings, among them whether held Immemorial Gems and Grindstones may be spent
+  and whether a Gem may change a gemmed line's property — one answer each for
+  every monster;
 - the chosen export-folder handle when the browser supports it.
 
 The first two records live in IndexedDB under the local `jaswa-local`

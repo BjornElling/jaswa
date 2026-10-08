@@ -200,6 +200,11 @@ A held Immemorial Gem or Grindstone is spent only where Immemorial items are all
 An assumed (*Theoretical*) item is always the rune's own lineage, so the switch does
 not touch it.
 
+A Gem may turn a rune's converted line into another property only where changing a
+gemmed stat is allowed (on by default). Off, that line may still be gemmed again for
+a better roll of the property it already carries, held or assumed Gems alike; a rune
+without a converted line is untouched.
+
 **Unfinished runes.** A main property grows deterministically with power-up level,
 so *Count unfinished runes at their +15 main stat* is a fact about what the rune
 will carry, not a projection of luck. Sub properties are counted as they stand.
@@ -856,7 +861,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    unstated answer came from. One third, down the
    whole box: *Runes* (broken sets and Intangible) from the profile; *Selection*
    (free runes, empty slots, priority and maximum changes); *Adjustments* (unfinished
-   mains and the +12 limit); *Gems/Grinds* (Immemorial from the profile), then Gems
+   mains and the +12 limit); *Gems/Grinds* (Immemorial from the profile, then changing a gemmed stat), then Gems
    and Grindstones. Selection, adjustments and craft assumptions are saved
    preferences and hold for every monster.
 4. **Status** — at the foot of the monster panel, under *Find builds*, dimmed:
