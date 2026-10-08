@@ -839,8 +839,9 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 ## 8. The page
 
 1. **Monster** — every owned copy by its copy name in a large field with its
-   portrait, *Open profile* under it, and the *Preset* the build is for under
-   that; the depth slider and table size beside it, because they
+   portrait, *Open profile* under it with *Reset to profile* to its right
+   (disabled until a requirement differs from the profile), and the *Preset* the
+   build is for under that; the depth slider and table size beside it, because they
    are read at the moment of searching; then *Find builds* and a square stop mark.
    The line under the depth gives a rough size of the search before it runs —
    the runes the filters admit, at most the depth's number per slot and set,
@@ -852,7 +853,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 2. **Requirements for this calculation** — two thirds: builds, the three slot
    mains, the figure to rank by and the eleven ranges in two rows, with a caption
    line under each that says only what differs from the profile or where an
-   unstated answer came from; *Reset to profile* under them. One third, down the
+   unstated answer came from. One third, down the
    whole box: *Runes* (broken sets and Intangible) from the profile; *Selection*
    (free runes, empty slots, priority and maximum changes); *Adjustments* (unfinished
    mains and the +12 limit); *Gems/Grinds* (Immemorial from the profile), then Gems

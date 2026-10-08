@@ -185,7 +185,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const activePresetId = preset?.id ?? defaultPresetId;
   const items = useMemo(() => accountItems(game?.data), [game]);
   /* The profile is the copy's in this preset and no other: names, requirements
-     and the Reset to profile below all read the one context the build is for. */
+     and the Reset to profile all read the one context the build is for. */
   const profiles = useMemo(() => profilesIn(preferences.monsterPreferences, activePresetId), [preferences.monsterPreferences, activePresetId]);
   const names = useMemo(() => monsterCopyNames(monsters, profiles), [monsters, profiles]);
   const options = useMemo<MonsterOption[]>(() => (preset ? monsters : [])
@@ -393,15 +393,19 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               {options.map((option) => <option key={option.unitId} value={option.unitId}>{option.name}</option>)}
             </Dropdown>
           </div>
-          {/* Always on screen and only enabled with a monster to open, so the
-              panel keeps its height whether or not one is chosen. */}
-          <Button size="compact" className="rune-optimization-open-profile" disabled={!selected}
-            aria-haspopup="dialog"
-            onClick={(event) => {
-              if (selected) onOpenMonster({ kind: 'copy', unitId: selected.unitId, masterId: selected.masterId }, event.currentTarget, activePresetId);
-            }}>
-            <PencilIcon /><span>Open profile</span>
-          </Button>
+          {/* Both always on screen and only enabled when they have something to
+              act on, so the panel keeps its height whether or not one is chosen.
+              The profile and the way back to it sit side by side. */}
+          <div className="rune-optimization-profile-row">
+            <Button size="compact" className="rune-optimization-open-profile" disabled={!selected}
+              aria-haspopup="dialog"
+              onClick={(event) => {
+                if (selected) onOpenMonster({ kind: 'copy', unitId: selected.unitId, masterId: selected.masterId }, event.currentTarget, activePresetId);
+              }}>
+              <PencilIcon /><span>Open profile</span>
+            </Button>
+            <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to profile</Button>
+          </div>
           {/* Under the monster, with the monster's own button between them: every
               build below is for this preset, and the same monster can carry a
               different build in each. */}
@@ -443,8 +447,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
           <div className="filter-group rune-optimization-count">
             <RadioLine name="rune-optimization-count" legend="Builds listed" current={String(settings.resultCount)}
               options={runeOptimizationResultCounts.map((count) => ({ value: String(count), label: String(count) }))}
-              onChange={(count) => onUpdate({ resultCount: Number(count) as RuneOptimizationSettings['resultCount'] })} />
-          </div>
+              onChange={(count) => onUpdate({ resultCount: Number(count) as RuneOptimizationSettings['resultCount'] })} />          </div>
         </div>
 
         <div className="rune-optimization-actions">
@@ -539,11 +542,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             </div>
             <Provenance>{changed(monsterStatTargetKeys.every((key) => requirements.targets[key] === profile.requirements.targets[key]
               && requirements.ceilings[key] === profile.requirements.ceilings[key])) ?? ''}</Provenance>
-          </div>
-          {/* Under the question it undoes, and always there: disabled until
-              something here differs from the profile. */}
-          <div className="rune-optimization-reset">
-            <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to profile</Button>
           </div>
         </div>
 

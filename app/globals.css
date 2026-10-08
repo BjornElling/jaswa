@@ -2341,8 +2341,9 @@ label[for] {
   pointer-events: none;
 }
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
-/* Held off the preset's label below it, so the button reads as the monster's. */
-.rune-optimization-open-profile { gap: var(--s2); margin-bottom: var(--s2); }
+/* Held off the preset's label below it, so the buttons read as the monster's. */
+.rune-optimization-profile-row { display: flex; gap: var(--s2); margin-bottom: var(--s2); }
+.rune-optimization-open-profile { gap: var(--s2); }
 /* The preset sits under the monster in the same voice and size as the monster
    field: the two together are the question every build answers. */
 .jaswa-select.rune-optimization-preset-select { width: 100%; height: 52px; }
@@ -2527,7 +2528,6 @@ label[for] {
 .rune-optimization-question { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
 .rune-optimization-slot-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s4); }
 .rune-optimization-targets { white-space: normal; }
-.rune-optimization-reset { display: flex; justify-content: flex-end; }
 .rune-optimization-settings {
   display: grid;
   gap: var(--s4);
