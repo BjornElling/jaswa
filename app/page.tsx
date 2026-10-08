@@ -18,7 +18,7 @@ import type { RuneOptimizationSettings } from './lib/rune-optimization-settings'
 import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
-import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements, runesWithLocked } from './lib/engrave-rune-build';
+import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements, runesWithLocked, runesWithout } from './lib/engrave-rune-build';
 import { deleteGamePreset, leadGamePreset } from './lib/game-preset-edits';
 import { usePageHistory } from './lib/page-history';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
@@ -337,8 +337,9 @@ export default function Home() {
   /**
    * The one route from a Lock or Exclude control to storage, wherever it sits.
    * A lock engraves the rune on the monster first where it is not there yet, so
-   * a lock always names a rune its monster carries. The locks are written with
-   * the import — never the preferences — and only those still holding are kept.
+   * a lock always names a rune its monster carries, and an exclusion takes a rune
+   * the monster carries off it. The locks are written with the import — never
+   * the preferences — and only those still holding are kept.
    */
   async function lockRune(presetId: string, unitId: string, runeId: string, lock: RuneLock | null): Promise<void> {
     const preset = presets.find((entry) => entry.id === presetId);
@@ -348,8 +349,11 @@ export default function Home() {
     try {
       let next = game;
       let ownPresets = preferences.presets;
-      if (lock === 'locked' && preset.runeOwner.get(runeId) !== unitId) {
-        const runeIds = runesWithLocked(preset, unitId, runeId, slotOf);
+      /* Locking a rune engraves it here; excluding one the monster carries takes it off (`runeLockLabels`). */
+      const onMonster = preset.runeOwner.get(runeId) === unitId;
+      const runeIds = lock === 'locked' && !onMonster ? runesWithLocked(preset, unitId, runeId, slotOf)
+        : lock === 'excluded' && onMonster ? runesWithout(preset, unitId, runeId, slotOf) : null;
+      if (runeIds !== null) {
         if (preset.kind === 'own') {
           const own = ownPresets.find((entry) => entry.id === presetId);
           if (!own) throw new Error('This preset is no longer in your preferences.');

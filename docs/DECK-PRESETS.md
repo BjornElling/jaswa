@@ -287,7 +287,10 @@ an import, and are checked one preset at a time on load.
   scope: Default, one preset, or — where a content's presets share one pool, as
   the Siege Battle defense presets do — the whole pool. A lock engraves the rune
   on the monster, makes it the slot's one answer and keeps it from every other
-  monster of the scope; an exclusion keeps it out of that monster's builds only.
+  monster of the scope; an exclusion keeps it out of that monster's builds only,
+  taking it off the monster first where it is engraved there. Every control
+  names that move: *Engrave and lock* or *Lock*, *Remove and exclude* or
+  *Exclude*, by where the rune is now.
   Both are stored with the import rather than the preferences: a new file, a new
   game session or a sync replaces them with the game's data, which has none, and
   under *Always synchronized* both are off.

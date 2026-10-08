@@ -457,8 +457,8 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
 
   /* The player locks that rune to the monster it is on, from its own overlay. */
   await card.getByRole('button', { name: new RegExp(`^${slot} `) }).click();
-  const runeDialog = page.getByRole('dialog').filter({ has: page.getByRole('checkbox', { name: 'Lock to monster' }) });
-  await runeDialog.getByLabel('Lock to monster').check();
+  const runeDialog = page.getByRole('dialog').filter({ has: page.getByRole('checkbox', { name: 'Lock', exact: true }) });
+  await runeDialog.getByLabel('Lock', { exact: true }).check();
   await page.keyboard.press('Escape');
   await expect(runeDialog).toBeHidden();
 
@@ -538,9 +538,17 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
   }
   expect(chosen, 'no build borrows a rune from the other monster').toBeGreaterThan(0);
   const detail = page.getByRole('dialog', { name: `Build ${chosen}` });
+  /* Each card held by its slot: what found it changes when its rune moves. */
   const slot = (await card.getAttribute('aria-label')) ?? '';
-  const other = detail.locator(`.rune-build-card:not([aria-label="${slot}"])`).first();
-  const otherSlot = (await other.getAttribute('aria-label')) ?? '';
+  card = detail.getByRole('listitem', { name: slot, exact: true });
+  /* A card whose rune this monster already carries. */
+  const carried = detail.locator('.rune-build-card')
+    .filter({ has: page.locator('.rune-build-card-where-value').getByText('This monster', { exact: true }) }).first();
+  await expect(carried, 'the build keeps none of the monster\'s own runes').toHaveCount(1);
+  const otherSlot = (await carried.getAttribute('aria-label')) ?? '';
+  const other = detail.getByRole('listitem', { name: otherSlot, exact: true });
+  const lockOf = (of: Locator) => of.locator('.rune-build-card-locks button').nth(0);
+  const excludeOf = (of: Locator) => of.locator('.rune-build-card-locks button').nth(1);
   const cards = detail.locator('.rune-build-card');
   const choices = detail.locator('.rune-build-card-locks button');
   const boxes = async () => Promise.all([...await cards.all(), ...await choices.all()].map(box));
@@ -560,32 +568,41 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
   const before = await boxes();
   await page.screenshot({ path: testInfo.outputPath('build-locks-empty.png') });
 
-  /* Lock: the rune is engraved here and says so, and nothing in the circle moves. */
-  const lock = card.getByRole('button', { name: 'Lock to monster' });
-  await lock.click();
-  await expect(lock).toHaveAttribute('aria-pressed', 'true');
+  /* Each box names the move it makes: a rune on another monster is engraved to be
+     locked, one this monster carries is taken off to be excluded. */
+  await expect(lockOf(card)).toHaveAccessibleName('Engrave and lock');
+  await expect(excludeOf(card)).toHaveAccessibleName('Exclude');
+  await expect(lockOf(other)).toHaveAccessibleName('Lock');
+  await expect(excludeOf(other)).toHaveAccessibleName('Remove and exclude');
+
+  /* Engrave and lock: the rune comes here and is locked, the box now says Lock, and nothing in the circle moves. */
+  await lockOf(card).click();
+  await expect(lockOf(card)).toHaveAttribute('aria-pressed', 'true');
+  await expect(lockOf(card)).toHaveAccessibleName('Lock');
   await expect(card.locator('.rune-build-card-where-value').first()).toHaveText('This monster');
   await expect(detail.getByRole('region', { name: `${slot} modifications` })).toContainText('Locked, used as engraved');
   expect(await boxes()).toEqual(before);
 
-  /* Exclude on another card: that rune is out of this monster's builds, and this build says so. */
-  const exclude = other.getByRole('button', { name: 'Exclude' });
-  await exclude.click();
-  await expect(exclude).toHaveAttribute('aria-pressed', 'true');
+  /* Remove and exclude: the rune leaves this monster and is out of its builds, and this build says so. */
+  await excludeOf(other).click();
+  await expect(excludeOf(other)).toHaveAttribute('aria-pressed', 'true');
+  await expect(excludeOf(other)).toHaveAccessibleName('Exclude');
+  await expect(lockOf(other)).toHaveAccessibleName('Engrave and lock');
+  await expect(other.locator('.rune-build-card-where-value').first()).toHaveText('Inventory');
   await expect(detail.getByRole('region', { name: `${otherSlot} modifications` })).toContainText('The rune is excluded from this monster');
   expect(await boxes()).toEqual(before);
   expect(await spilling()).toBe(0);
   await page.screenshot({ path: testInfo.outputPath('build-locks-full.png') });
 
-  /* Lock and Exclude are one choice: locking the excluded rune replaces the exclusion; pressing it again takes it off. */
-  const otherLock = other.getByRole('button', { name: 'Lock to monster' });
-  await otherLock.click();
-  await expect(otherLock).toHaveAttribute('aria-pressed', 'true');
-  await expect(exclude).toHaveAttribute('aria-pressed', 'false');
-  await otherLock.click();
-  await expect(otherLock).toHaveAttribute('aria-pressed', 'false');
-  await exclude.click();
-  await expect(exclude).toHaveAttribute('aria-pressed', 'true');
+  /* Lock and Exclude are one choice: locking the excluded rune replaces the exclusion; pressing it again takes the lock off and leaves the rune engraved. */
+  await lockOf(other).click();
+  await expect(lockOf(other)).toHaveAttribute('aria-pressed', 'true');
+  await expect(excludeOf(other)).toHaveAttribute('aria-pressed', 'false');
+  await lockOf(other).click();
+  await expect(lockOf(other)).toHaveAttribute('aria-pressed', 'false');
+  await expect(lockOf(other)).toHaveAccessibleName('Lock');
+  await excludeOf(other).click();
+  await expect(excludeOf(other)).toHaveAttribute('aria-pressed', 'true');
 
   /* Searched again, every build takes the locked rune as its slot's answer. */
   await page.keyboard.press('Escape');
@@ -595,8 +612,10 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
   for (let build = 1; build <= total; build += 1) {
     await page.getByRole('button', { name: `Show build ${build}`, exact: true }).click();
     const shown = page.getByRole('dialog', { name: `Build ${build}` });
-    await expect(shown.getByRole('listitem', { name: slot, exact: true }).getByRole('button', { name: 'Lock to monster' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(shown.getByRole('listitem', { name: otherSlot, exact: true }).getByRole('button', { name: 'Exclude' })).toHaveAttribute('aria-pressed', 'false');
+    const locked = lockOf(shown.getByRole('listitem', { name: slot, exact: true }));
+    await expect(locked).toHaveAttribute('aria-pressed', 'true');
+    await expect(locked).toHaveAccessibleName('Lock');
+    await expect(excludeOf(shown.getByRole('listitem', { name: otherSlot, exact: true }))).toHaveAttribute('aria-pressed', 'false');
     await page.keyboard.press('Escape');
   }
 

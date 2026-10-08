@@ -877,10 +877,13 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    main, innate, sub properties and where the rune is; and beside the circle, slot
    by slot, the modifications the build assumes — which line a Gem replaces and
    with what, which stone goes on which line, and a main counted at +12 or +15.
-   Each rune card carries *Lock to monster* and *Exclude* in its bottom right
-   corner, the same choice the rune overlay's lock makes: pressed, the rune is
-   locked to or excluded from this monster in the chosen preset; pressed again,
-   the choice is taken off. *Engrave on monster* engraves the six runes on the selected monster **in the
+   Each rune card carries a lock and an exclusion in its bottom right corner,
+   the same choice the rune overlay's *Lock* makes: pressed, the rune is locked
+   to or excluded from this monster in the chosen preset; pressed again, the
+   choice is taken off. Each names the move it makes (`runeLockLabels`): *Lock*
+   for a rune this monster carries and *Engrave and lock* for one it does not,
+   which engraves it here; *Exclude* for a rune it does not carry and *Remove and
+   exclude* for one it does, which takes it off to the inventory. *Engrave on monster* engraves the six runes on the selected monster **in the
    chosen preset and nowhere else**. In Default it moves the physical runes in the
    saved import, its former runes returning to inventory; in a game preset it
    rewrites that deck's saved gear, a preset that saved only its monsters first

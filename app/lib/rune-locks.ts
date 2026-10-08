@@ -16,7 +16,8 @@ import type { Preset } from './presets';
  *   monster of the scope. Locking a rune engraves it first, so a lock always
  *   names a rune the monster carries, and one rune is locked to one monster.
  * - **Excluded** keeps the rune out of every build the search finds for that
- *   monster, and says nothing about any other.
+ *   monster, and says nothing about any other. Excluding a rune the monster
+ *   carries takes it off first, so an exclusion never names a rune in use.
  *
  * Both belong to the import, not to the preferences: they are stored with the
  * game data (`ImportedGame.runeLocks`) and go with it, so a new file, a new
@@ -26,6 +27,20 @@ import type { Preset } from './presets';
  * engraving a lock makes.
  */
 export type RuneLock = 'locked' | 'excluded';
+
+/**
+ * **What a Lock or Exclude control says**, by whether the rune is on the monster
+ * in the scope now — one wording for every control in JASWA. A bare "Lock to
+ * monster" on a rune that sits on another monster left the reader guessing
+ * which monster it meant, so a control names the move it makes as well:
+ * locking a rune not yet on the monster engraves it there, and excluding a rune
+ * the monster carries takes it off. A control that can be either keeps both
+ * wordings in its box (`LabelSwap`), so the move cannot resize it.
+ */
+export const runeLockLabels: Readonly<Record<RuneLock, Readonly<{ onMonster: string; elsewhere: string }>>> = {
+  locked: { onMonster: 'Lock', elsewhere: 'Engrave and lock' },
+  excluded: { onMonster: 'Remove and exclude', elsewhere: 'Exclude' },
+};
 
 /** By scope, then the monster's `unit_id`, then the `rune_id`. */
 export type RuneLocks = Readonly<Record<string, Readonly<Record<string, Readonly<Record<string, RuneLock>>>>>>;

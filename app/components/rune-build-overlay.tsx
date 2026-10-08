@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Button, InlineButton } from './button';
+import { Button, InlineButton, LabelSwap } from './button';
 import { AncientMark } from './ancient-mark';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -14,6 +14,7 @@ import { defaultPresetId } from '../lib/presets';
 import { pickIssueText } from '../lib/rune-build-issues';
 import type { EndStateLine } from '../lib/rune-craft-end-state';
 import type { CurrentPick } from '../lib/rune-optimization-refresh';
+import { runeLockLabels } from '../lib/rune-locks';
 import type { RuneLock } from '../lib/rune-locks';
 import { runeLineFigure, runeLineStat } from '../lib/runes';
 import { flatMainPropertyAtTwelve } from '../lib/rune-properties';
@@ -155,18 +156,23 @@ function gamePlaceName(runeId: string, place: string | null, places: Places): Re
  * The card's Lock and Exclude, for this rune and this monster in the build's
  * preset (`rune-locks.ts`). One choice in two boxes: pressing the one that is on
  * takes it off, pressing the other replaces it. Both are always drawn, and only
- * disabled where no choice can be made, so the card keeps one shape.
+ * disabled where no choice can be made, so the card keeps one shape. Each names
+ * the move it makes (`runeLockLabels`), and holds both its wordings, since
+ * pressing it moves the rune and with it the wording.
  */
-function LockChoices({ slot, lock, disabled, onLock }: {
+function LockChoices({ slot, lock, onMonster, disabled, onLock }: {
   slot: number;
   lock: RuneLock | undefined;
+  /** Whether the rune is on this monster in the build's preset now. */
+  onMonster: boolean;
   disabled: boolean;
   onLock: (lock: RuneLock | null) => void;
 }) {
   const toggle = (choice: RuneLock) => onLock(lock === choice ? null : choice);
+  const label = (choice: RuneLock) => <LabelSwap faces={runeLockLabels[choice]} showing={onMonster ? 'onMonster' : 'elsewhere'} />;
   return <div className="rune-build-card-locks" role="group" aria-label={`Slot ${slot} rune for this monster`}>
-    <InlineButton pressed={lock === 'locked'} disabled={disabled} onClick={() => toggle('locked')}>Lock to monster</InlineButton>
-    <InlineButton pressed={lock === 'excluded'} disabled={disabled} onClick={() => toggle('excluded')}>Exclude</InlineButton>
+    <InlineButton pressed={lock === 'locked'} disabled={disabled} onClick={() => toggle('locked')}>{label('locked')}</InlineButton>
+    <InlineButton pressed={lock === 'excluded'} disabled={disabled} onClick={() => toggle('excluded')}>{label('excluded')}</InlineButton>
   </div>;
 }
 
@@ -246,7 +252,7 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
           </span>
         </div>
       </div>
-      <LockChoices slot={picked.slot} lock={lock} disabled={lockDisabled} onLock={onLock} />
+      <LockChoices slot={picked.slot} lock={lock} onMonster={rune.occupiedId === places.thisMonster} disabled={lockDisabled} onLock={onLock} />
     </div>
   </li>;
 }

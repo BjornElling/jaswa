@@ -28,11 +28,11 @@ function remember(game: ImportedGame, presetId: string, before: ReadonlyMap<stri
   return loaded;
 }
 
-/* Up to six runes, one per slot: a whole build, or a monster's runes with one locked in (`runesWithLocked`). */
+/* Up to six runes, one per slot: a whole build, or a monster's runes with one locked in or excluded (`runesWithLocked`, `runesWithout`). */
 function checkBuild(data: GameRecord, unitId: string, runeIds: readonly string[]): void {
   const units = data.unit_list;
   const records = data.runes;
-  if (!Array.isArray(units) || !Array.isArray(records) || runeIds.length === 0 || runeIds.length > 6 || new Set(runeIds).size !== runeIds.length
+  if (!Array.isArray(units) || !Array.isArray(records) || runeIds.length > 6 || new Set(runeIds).size !== runeIds.length
     || !units.some((unit) => isRecord(unit) && String(unit.unit_id) === unitId)) {
     throw new Error('This build cannot be engraved on the selected monster.');
   }
@@ -60,7 +60,12 @@ export function runesWithLocked(preset: Preset, unitId: string, runeId: string, 
   return [...(preset.runesOf.get(unitId) ?? []).filter((id) => id !== runeId && slotOf(id) !== undefined && slotOf(id) !== slot), runeId];
 }
 
-/** Move a monster's runes — a build's six, or its own with one locked in — in Default, then rebuild each monster's runes from
+/** The runes a monster carries in a preset once `runeId` is taken off it, to the inventory: what an exclusion removes. */
+export function runesWithout(preset: Preset, unitId: string, runeId: string, slotOf: (runeId: string) => number | undefined): string[] {
+  return (preset.runesOf.get(unitId) ?? []).filter((id) => id !== runeId && slotOf(id) !== undefined);
+}
+
+/** Move a monster's runes — a build's six, or its own with one locked in or taken off — in Default, then rebuild each monster's runes from
  * the account list so every workspace reads the same placement. */
 export function engraveRuneBuild(data: GameRecord, unitId: string, runeIds: readonly string[]): GameRecord {
   checkBuild(data, unitId, runeIds);

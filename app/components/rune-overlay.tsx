@@ -21,6 +21,7 @@ import type { RoleReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup
 import type { MatchRank } from '../lib/rune-cleanup-model';
 import { canLockRune } from '../lib/rune-holds';
 import type { RuneHold } from '../lib/rune-holds';
+import { runeLockLabels } from '../lib/rune-locks';
 import type { RuneRole } from '../lib/rune-roles';
 import { lastSubPropertyLevel } from '../lib/rune-properties';
 import { referenceLines } from '../lib/rune-reference-stats';
@@ -291,7 +292,8 @@ function Instructions({ rune, hold, onHold, locked, canLock, onLock }: {
         title={!canLock ? 'Locks are off while JASWA is synchronized with the game'
           : lockable ? 'Keeps it on its monster in Default until the next import' : 'Only a rune on a monster in Default can be locked to it'}>
         <input type="checkbox" checked={saving ?? locked} disabled={!lockable} aria-busy={saving !== null || undefined} onChange={(event) => lock(event.target.checked)} />
-        <span>Lock to monster</span>
+        {/* It locks a rune to the monster it is on, which moves nothing. */}
+        <span>{runeLockLabels.locked.onMonster}</span>
       </label>
     </div>
   </section>;

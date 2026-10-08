@@ -157,7 +157,7 @@ test('Instructions hold a rune under its own word and file it under Keep; Unsell
   await violentRow.locator('.rune-link').click();
   const violent = page.getByRole('dialog', { name: 'Violent' });
   const hold = violent.getByRole('region', { name: 'Instructions' });
-  await expect(hold.getByRole('checkbox', { name: 'Lock to monster' })).toBeDisabled();
+  await expect(hold.getByRole('checkbox', { name: 'Lock', exact: true })).toBeDisabled();
   const evaluation = violent.getByRole('region', { name: 'Evaluation' });
   await expect(evaluation.locator('tbody tr[aria-current="true"]')).toHaveCount(1);
   const before = { hold: await hold.boundingBox(), evaluation: await evaluation.boundingBox() };
@@ -172,7 +172,7 @@ test('Instructions hold a rune under its own word and file it under Keep; Unsell
   await fatalRow.locator('.rune-link').click();
   const fatal = page.getByRole('dialog', { name: 'Fatal' }).getByRole('region', { name: 'Instructions' });
   await fatal.getByRole('checkbox', { name: 'Unsellable' }).check();
-  await fatal.getByRole('checkbox', { name: 'Lock to monster' }).check();
+  await fatal.getByRole('checkbox', { name: 'Lock', exact: true }).check();
   await page.screenshot({ path: testInfo.outputPath('your-call-full.png') });
   /* Four sub properties, both choices and every role: the tallest the overlay gets,
      and still no scrollbar of its own. */
@@ -211,7 +211,7 @@ test('Instructions hold a rune under its own word and file it under Keep; Unsell
   await expect(advice(violentRow)).toHaveText('Unsellable', { timeout: 60_000 });
   await expect(advice(fatalRow)).toHaveText('Unsellable');
   await fatalRow.locator('.rune-link').click();
-  await expect(page.getByRole('dialog', { name: 'Fatal' }).getByRole('checkbox', { name: 'Lock to monster' })).not.toBeChecked();
+  await expect(page.getByRole('dialog', { name: 'Fatal' }).getByRole('checkbox', { name: 'Lock', exact: true })).not.toBeChecked();
   await page.keyboard.press('Escape');
 
   /* Taking the choice off hands the row back to the engine. */
