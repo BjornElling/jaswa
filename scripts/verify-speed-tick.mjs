@@ -30,6 +30,7 @@ import {
 } from '../app/lib/speed-tuning-preferences.ts';
 import { readSkyTribeTotem, skyTribeTotemProblem } from '../app/lib/sky-tribe-totem.ts';
 import { calculateMonsterTotals, monsterSpeedParts } from '../app/lib/monster-stats.ts';
+import { hasMonsterCatalogEntry } from '../app/lib/monster-catalog.ts';
 
 let checks = 0;
 function check(condition, message) {
@@ -189,6 +190,8 @@ for (const id of dungeonIds) {
     `${content.name} has a five-monster team and enemy stages`);
   check(content.stages.every((stage) => stage.resists.length === stage.speeds.length && stage.resists.every(Number.isFinite)),
     `${content.name} has a resistance for every enemy`);
+  check(content.stages.every((stage) => stage.monsters.length === stage.speeds.length && stage.monsters.every(hasMonsterCatalogEntry)),
+    `${content.name} names every enemy by a monster the catalogue knows`);
   const highest = Math.max(...content.stages.flatMap((stage) => stage.resists));
   check(fastestEnemySpeed(id) === Math.max(...content.stages.map((stage) => stage.fastest)) && usefulAccuracy(id) === Math.max(0, highest - 15),
     `${content.name}'s fastest enemy and useful accuracy follow its stages`);

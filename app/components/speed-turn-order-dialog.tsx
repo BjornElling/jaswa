@@ -9,16 +9,17 @@ import { combatSpeedName } from '../lib/speed-tuning-analysis';
 import type { TeamReading } from '../lib/speed-tuning-analysis';
 import type { GeneralSettings } from '../lib/types';
 
-type View = { id: string; label: string; trace: BattleTrace; enemySpeeds: readonly number[] };
+type View = { id: string; label: string; trace: BattleTrace; enemySpeeds: readonly number[]; enemyNames: readonly string[] };
 type Row = { key: string; name: string; speed: number; enemy: boolean };
 
 function views(reading: TeamReading): View[] {
-  const own: View = { id: 'team', label: 'Your team alone', trace: reading.trace, enemySpeeds: [] };
+  const own: View = { id: 'team', label: 'Your team alone', trace: reading.trace, enemySpeeds: [], enemyNames: [] };
   const enemies = reading.enemies.map((enemy, at): View => ({
     id: `stage-${at}`,
     label: reading.content.area === 'arena' ? 'Worst-case enemy' : `Stage ${at + 1}`,
     trace: enemy.trace,
     enemySpeeds: enemy.enemySpeeds,
+    enemyNames: enemy.enemyNames,
   }));
   return [...enemies, own];
 }
@@ -146,7 +147,7 @@ export function SpeedTurnOrderDialog({ reading, title, names, general, onClose }
     })),
     ...choice.enemySpeeds.map((speed, at) => ({
       key: `enemy-${at + 1}`,
-      name: choice.enemySpeeds.length > 1 ? `Enemy ${at + 1}` : 'Enemy',
+      name: choice.enemyNames[at] ?? 'Enemy',
       speed,
       enemy: true,
     })),

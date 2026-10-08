@@ -358,7 +358,8 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(dialog.getByRole('button', { name: 'Stage 2' })).toHaveAttribute('aria-pressed', 'true');
   const shown = dialog.locator('.speed-lanes[data-active]');
   await expect(shown.locator('.speed-lane-turn').first()).toHaveText('1');
-  expect(await shown.getByRole('rowheader', { name: /^Enemy \d/ }).count()).toBeGreaterThan(0);
+  /* The enemies are the game's monsters, by name, a name met twice numbered. */
+  await expect(shown.locator('.speed-lane-row[data-enemy] .speed-lane-name')).toHaveText(['Golem (Water) #1', 'Kuhn', 'Golem (Water) #2']);
   for (const name of ['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']) {
     const lane = shown.getByRole('row').filter({ has: page.getByRole('rowheader', { name: new RegExp(`^${name.replace(/[()]/g, '\\$&')}`) }) });
     expect(await lane.getByRole('cell', { name: /: turn \d+ at/ }).count()).toBeGreaterThanOrEqual(2);

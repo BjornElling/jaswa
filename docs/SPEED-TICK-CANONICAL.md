@@ -284,6 +284,14 @@ its first enemy moves. **Unverified:** whether the game resets bars between
 stages; the page counts each stage from its start. Several Abyss stages repeat
 the B12 speeds exactly on Swarfarm, which may be a gap in its data.
 
+Each enemy is also kept as the game's monster id (Swarfarm's `monster`,
+translated to its `com2us_id`), and the Ticks view names it as the catalogue
+does — `Golem (Water) #1`, `Kuhn`, `Golem (Water) #2` on Giant's Keep's
+stage 2. A handful of dungeon structures carry only a Korean placeholder on
+Swarfarm (Necropolis's `가드_보라(중)_심연층`, Spiritual Realm's
+`가드_정령(중)_심연층` and `타워(정령)`); until their in-game names are
+confirmed they read `Enemy n`, by their place on the stage.
+
 The snapshot also keeps each enemy's `resist`. It is not part of the turn
 order: the team overlay quotes the floor's fastest enemy and the accuracy a
 monster can still use there — the highest resistance less 15, because the game

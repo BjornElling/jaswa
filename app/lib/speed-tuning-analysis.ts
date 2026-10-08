@@ -13,8 +13,9 @@ import { formatNumber } from './formatting';
 import type { GameRecord } from './game-data';
 import { monsterSpeedParts } from './monster-stats';
 import { elementName } from './rune-sets';
+import { isReadableName, monsterPresentation } from './monster-catalog';
 import { speedContent } from './speed-contents';
-import type { SpeedContent } from './speed-contents';
+import type { DungeonStage, SpeedContent } from './speed-contents';
 import { speedLeaderSkill, speedSkillProfile } from './speed-skills';
 import type { SpeedSkillProfile } from './speed-skills';
 import {
@@ -100,6 +101,8 @@ export type EnemyStageReading = {
   trace: BattleTrace;
   /** Every enemy on the stage, in the trace as `enemy-1`, `enemy-2` …, with their speeds. */
   enemySpeeds: readonly number[];
+  /** Their names, in the same order — `Golem (Water) #1` — or `Enemy` for arena's hypothetical one. */
+  enemyNames: readonly string[];
 };
 
 export type TeamReading = {
@@ -388,7 +391,8 @@ function tuningRange(candidates: readonly Candidate[], content: SpeedContent, cu
 /* Leo's cap spares a boss, and a dungeon stage does not say which of its
    enemies is one, so in a dungeon every enemy is read as uncapped: the
    pessimistic reading. Arena has no bosses. */
-function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[], area: SpeedContent['area'], drawn = true): EnemyStageReading {
+function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[], enemyNames: readonly string[],
+  area: SpeedContent['area'], drawn = true): EnemyStageReading {
   const enemies: TickUnit[] = enemySpeeds.map((speed, at) => ({
     key: `enemy-${at + 1}`, side: 'enemy', speed, effects: [], exemptFromCap: area === 'dungeon',
   }));
@@ -409,7 +413,33 @@ function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[
     cutsBefore: firstEnemy === undefined ? [] : allyKeys.filter((key) => !movedBefore.has(key)),
     trace,
     enemySpeeds,
+    enemyNames,
   };
+}
+
+/* A stage's enemies by the game's names, a name met twice numbered as owned
+   copies are. A few dungeon structures carry only Swarfarm's Korean
+   placeholder, which no player would recognise; they read `Enemy 2` by their
+   place on the stage until their in-game name is known, rather than under a
+   name guessed for them. Named once per stage: the range search reads each
+   stage thousands of times. */
+const stageEnemyNames = new WeakMap<DungeonStage, readonly string[]>();
+function enemyNamesOf(stage: DungeonStage): readonly string[] {
+  const known = stageEnemyNames.get(stage);
+  if (known) return known;
+  const plain = stage.monsters.map((masterId, at) => {
+    const { name } = monsterPresentation(masterId);
+    return isReadableName(name) ? name : `Enemy ${at + 1}`;
+  });
+  const seen = new Map<string, number>();
+  const named = plain.map((name) => {
+    if (plain.filter((other) => other === name).length === 1) return name;
+    const number = (seen.get(name) ?? 0) + 1;
+    seen.set(name, number);
+    return `${name} #${number}`;
+  });
+  stageEnemyNames.set(stage, named);
+  return named;
 }
 
 /* The worst arena enemy is the fastest one that still cannot take the first
@@ -421,7 +451,7 @@ function worstArenaStage(units: readonly TickUnit[], trace: BattleTrace, drawn =
   const opener = trace.events[0]?.key;
   const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
   const openingSpeed = Math.min(units.find((unit) => unit.key === opener)?.speed ?? 1, ...leoSpeeds);
-  return stageReading(units, [openingSpeed], 'arena', drawn);
+  return stageReading(units, [openingSpeed], ['Enemy'], 'arena', drawn);
 }
 
 /* How many turns come before a stage's first enemy turn: the fewer, the worse. */
@@ -435,7 +465,7 @@ function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: B
   if (units.length === 0) return [];
   return content.area === 'arena'
     ? [worstArenaStage(units, trace, drawn)]
-    : content.stages.map((stage) => stageReading(units, stage.speeds, content.area, drawn));
+    : content.stages.map((stage) => stageReading(units, stage.speeds, enemyNamesOf(stage), content.area, drawn));
 }
 
 export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = false }: {

@@ -3,8 +3,8 @@
 /**
  * Creates the checked-in snapshot that Speed Tuning reads: every monster's
  * speed leader skill, every skill that moves an attack bar or grants a speed
- * buff, and the enemy speeds and resistances of the hardest floor of each
- * tuned dungeon.
+ * buff, and the enemies — monster, speed and resistance — of the hardest floor
+ * of each tuned dungeon.
  *
  * Like `refresh-swarfarm-monsters.mjs`, this is a human-triggered maintenance
  * command. It never runs in the app, on import, or in CI; the app reads only
@@ -148,11 +148,15 @@ function fastestEnemy(wave) {
 }
 
 /* A wave whose enemy lacks a speed or a resistance would quietly read as a
-   floor easier than it is, so it stops the refresh instead. */
-function checkedWave(level, wave) {
+   floor easier than it is, so it stops the refresh instead; one whose monster
+   Swarfarm cannot name would leave the Ticks view an anonymous lane. */
+function checkedWave(level, wave, com2usIdBySwarfarmId) {
   for (const enemy of wave.enemies) {
     if (!Number.isFinite(enemy.speed) || !Number.isFinite(enemy.resist)) {
       throw new Error(`Swarfarm level ${level.id} has an enemy (${enemy.id}) without a speed or resistance. The existing snapshot was kept.`);
+    }
+    if (!com2usIdBySwarfarmId.has(enemy.monster)) {
+      throw new Error(`Swarfarm level ${level.id} has an enemy (${enemy.id}) whose monster ${enemy.monster} is not in Swarfarm's monster list. The existing snapshot was kept.`);
     }
   }
   return {
@@ -160,6 +164,8 @@ function checkedWave(level, wave) {
     speeds: wave.enemies.map((enemy) => enemy.speed),
     /* Resistance percent, in the same order as the speeds. */
     resists: wave.enemies.map((enemy) => enemy.resist),
+    /* The game's monster id, in the same order: what the app names the enemy by. */
+    monsters: wave.enemies.map((enemy) => com2usIdBySwarfarmId.get(enemy.monster)),
   };
 }
 
@@ -175,7 +181,11 @@ async function main() {
      area outside the vocabulary is a Swarfarm change to look at, not a lead to
      file under the nearest one. */
   const leaders = [];
+  /* A dungeon enemy names its monster by Swarfarm's own key; the app knows
+     monsters by the game's. */
+  const com2usIdBySwarfarmId = new Map();
   await fetchAll('monsters/', (monster) => {
+    com2usIdBySwarfarmId.set(monster.id, monster.com2us_id);
     const lead = monster.leader_skill;
     if (!lead) return;
     if (!leaderAreas.has(lead.area)) throw new Error(`Swarfarm gives ${monster.name} (${monster.com2us_id}) a leader skill in an unknown area, ${JSON.stringify(lead.area)}. The existing snapshot was kept.`);
@@ -216,7 +226,7 @@ async function main() {
       floor: best.level.floor,
       /* How many monsters the player brings. */
       teamSize: best.level.total_slots,
-      stages: best.level.waves.map((wave) => checkedWave(best.level, wave)),
+      stages: best.level.waves.map((wave) => checkedWave(best.level, wave, com2usIdBySwarfarmId)),
     });
     console.log(`${target.id}: ${best.dungeon.name} floor ${best.level.floor} (level ${best.level.id})`);
   }

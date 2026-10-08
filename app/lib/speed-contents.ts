@@ -11,8 +11,8 @@ import type { SpeedArea } from './speed-tick';
 export type DungeonId = 'giants' | 'dragons' | 'necropolis' | 'spiritual' | 'steel' | 'punisher' | 'magic';
 export type SpeedContentId = 'arena' | DungeonId;
 
-/** One stage of a dungeon floor: its enemies' dungeon speeds and resistance percents, in one order. */
-export type DungeonStage = { fastest: number; speeds: readonly number[]; resists: readonly number[] };
+/** One stage of a dungeon floor: its enemies' dungeon speeds, resistance percents and game monster ids, in one order. */
+export type DungeonStage = { fastest: number; speeds: readonly number[]; resists: readonly number[]; monsters: readonly number[] };
 
 /* The game never lets a resistance fall below 15 per cent, however much
    accuracy meets it, so accuracy past the highest resistance less 15 buys
@@ -58,8 +58,9 @@ function dungeonContent(id: DungeonId): SpeedContent {
      dungeon to tune against nothing: the page would report every team as
      uninterruptible. Failing here fails the build's verification instead. */
   if (!snapshot) throw new Error(`The speed snapshot has no ${dungeonNames[id]} floor.`);
-  if (snapshot.stages.length === 0 || snapshot.stages.some((stage) => stage.speeds.length === 0 || stage.resists.length !== stage.speeds.length)) {
-    throw new Error(`The speed snapshot's ${dungeonNames[id]} floor has a stage without a speed and a resistance for every enemy.`);
+  if (snapshot.stages.length === 0 || snapshot.stages.some((stage) => stage.speeds.length === 0
+    || stage.resists.length !== stage.speeds.length || stage.monsters?.length !== stage.speeds.length)) {
+    throw new Error(`The speed snapshot's ${dungeonNames[id]} floor has a stage without a speed, a resistance and a monster for every enemy.`);
   }
   return {
     id,

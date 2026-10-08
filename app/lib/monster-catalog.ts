@@ -257,7 +257,7 @@ export function hasMonsterCatalogEntry(masterId: unknown): boolean {
 // catalogue, which read as noise beside their English counterpart. Where a name
 // is not usable, the species falls back to the generic name alone rather than
 // pairing a readable name with an unreadable one.
-function isReadableName(name: string): boolean {
+export function isReadableName(name: string): boolean {
   return /^[\x20-\x7EÀ-ɏ]+$/.test(name);
 }
 
