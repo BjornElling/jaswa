@@ -1,7 +1,7 @@
 # Rune Optimization — how six runes are chosen out of thousands
 
 **Status:** Binding contract for the Rune Optimization page and its engine
-**Reviewed:** 4 October 2026
+**Reviewed:** 8 October 2026
 
 Rune Optimization finds the rune builds one monster can have engraved that meet what its
 profile asks for, and ranks them by one figure. This document says what it
@@ -96,42 +96,63 @@ Each of the eleven figures has a range: a floor (`targets`, the profile's
 on its own. Absent means "no limit at that end"; `0` is a stated limit of nothing
 (`AGENTS.md` §3). A build outside any range is not listed at all.
 
-### 2.2.1 Crit conditions
+### 2.2.1 A stat is the copy's own; a composite is the fight's
+
+One rule decides what every figure on this page means, and every range is judged
+on the figure as the table shows it:
+
+- **The eight stats** — HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES and ACC — are the
+  copy's own, as its panel in the game shows them. They are entered, judged and
+  shown without anything a fight adds. A CRI Rate range of 67–69 on a copy with a
+  33-point crit lead asks the runes for 67–69, and the table's CRI Rate column
+  reads 67–69. A SPD range is display speed.
+- **The three composites** — DMG, E.HP and E.HP D — are what the copy does in the
+  fight, so they count everything the fight adds: that same copy deals its DMG at
+  100 % CRI Rate, and a DMG range or ranking judges that figure. The table shows it
+  too.
+
+`monster-stats.ts` states this once. `combatBase` puts what a fight adds into the
+copy's base, after its eight stats, at `combatAt`; `totalsInto` writes the eight
+stats without it and, beside them, HP, ATK, DEF and CRI Rate with it; only the
+composites read the second four. The search, the shader, a found build read again,
+the overlay and its shortfall marks all sum through that one sheet, so no figure can
+carry a lead the figure beside it lacks. `verify:monster-display-stats` holds the
+rule on a hand-built copy — including 67 % with a 33-point lead dealing DMG at 100 %
+— and `verify:rune-optimization` against brute force.
+
+A ceiling on a led stat needs one care in the search's bound: the stat is capped at
+the ceiling, but the composite reads the stat with its lead, which may stand above
+the ceiling by as much as the lead can add. `capTotal` caps that second figure at the
+ceiling plus `⌈B·L/100⌉` — the most one rounding of a lead can add — and CRI Rate at
+the ceiling plus its points, so the bound stays an upper bound.
+
+### 2.2.2 Crit conditions
 
 A monster whose owner says it always crits — a skill, a leader or a team that
-guarantees one — is counted at a certain crit. `monster-stats.ts` states the rule
-once, as `alwaysCritsLift`: a hundred points on the CRI Rate of the base the search
-reads. DMG reads CRI Rate capped at 100 %, so every hit is a crit and nothing a rune
-adds to CRI Rate moves a figure; the reductions stop comparing CRI Rate for DMG,
-and a CRI Rate floor is never asked. Because the lift is on the base, the card's
-shader needs no rule of its own. Every CRI Rate *shown* is the monster's own, with
-the green info mark after it.
+guarantees one — is counted at a certain crit: `alwaysCritsLift`, a hundred points
+on the CRI Rate DMG reads. DMG reads CRI Rate capped at 100 %, so every hit is a
+crit and nothing a rune adds to CRI Rate moves a figure; the reductions stop
+comparing CRI Rate for DMG, and a CRI Rate floor is never asked. *Always element
+advantage* adds 15 points to the same CRI Rate. Both are things the fight adds, so
+both reach DMG and never the CRI Rate shown or its range. *Always crits* still
+makes every CRI Rate target moot.
 
-*Always element advantage* adds 15 CRI Rate points to the copy's own CRI Rate for
-DMG, capped at 100 % there. It is a condition of the fight, not of the copy: CRI
-Rate floors and ceilings never count it, and no figure shown carries it except the
-DMG it buys. *Always crits* still makes every CRI Rate target moot.
+### 2.2.3 Leads
 
-### 2.2.2 Leads
+A copy states up to four leads — *Crit lead*, *Attack*, *Defence* and *HP* — each
+a whole percentage, CRI Rate in points. ATK, DEF and HP leads are a share of base
+summed with every other percentage and rounded once, exactly as the game counts a
+leader skill, so a lead is not a fixed number of points on the stat. Each reaches
+the composites that read its stat: ATK and CRI Rate reach DMG, HP and DEF reach E.HP
+and E.HP D.
 
-A copy states up to five leads — *Crit lead*, *Attack*, *Defence*, *Speed* and
-*HP* — each a whole percentage, CRI Rate in points. `monster-stats.ts`
-`addLeaderEffects` is the one place a lead joins a calculation: it adds each lead
-to the accumulator its stat sums in, before any rune, so ATK, DEF and HP leads are
-a share of base summed with every other percentage and rounded once, exactly as
-the game counts a leader skill. SPD with a lead is therefore
-⌈B·(1 + Swift + lead)⌉ + rune speed — the dungeon speed `speed-tick.ts`
-`combatSpeed` states, without the totem; `verify:monster-display-stats` holds the
-two equal for every combination of Swift, rune speed and lead.
+There is no Speed lead: no composite reads SPD, and a SPD range is display speed,
+so a speed lead would be an answer no calculation could act on. Speed Tuning reads a
+team's leader skill itself.
 
-**A lead is counted and never shown.** Every range is judged with the copy's leads
-— a SPD floor of 200 with a 24 % lead asks for 200 dungeon speed — and so is every
-figure a search ranks by. Every figure printed as the copy's own, on the profile,
-on this page and in the table of builds, is summed without them: a build carries
-its `figures` as shown and its `counted` figures as judged, and a shortfall mark
-says "with its lead" where the two differ. The green mark after a figure names each
-lead that reaches it. A blank lead means none; an explicit zero is kept as the
-user's choice.
+The green mark after a stat names the lead that reaches past it, and the green mark
+after a composite names what it counted. A blank lead means none; an explicit zero
+is kept as the user's choice.
 
 ### 2.3 The figure to rank by
 

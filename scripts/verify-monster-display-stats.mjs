@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { calculateMonsterTotals, monsterEffects, monsterTargetFigures } from '../app/lib/monster-stats.ts';
-import { combatSpeed } from '../app/lib/speed-tick.ts';
 import { readMonsterPreferences } from '../app/lib/monster-preferences.ts';
 import { relicMonsterModel } from '../app/lib/relic-monster-value.ts';
 
@@ -48,39 +47,40 @@ assert.equal(advantaged.dmg,
   Math.floor(totals.atk * (1 + Math.min(100, own.criRate + 15) / 100 * totals.criticalDamage / 100)));
 assert.ok(advantaged.dmg > own.dmg);
 
-/* A lead is counted and never shown: every figure shown is the panel's own, and
-   the counted ones carry each lead as a share of base summed with every other
-   percentage and rounded once. */
-const leads = { atk: 33, def: 20, spd: 24, hp: 30, criRate: 33 };
-const led = { ...plain, leads };
-assert.deepEqual(monsterTargetFigures(monster, led), own, 'a lead reached a figure shown as the copy\'s own');
-const counted = monsterTargetFigures(monster, led, 'counted');
+/* A stat is the copy's own and a composite is the fight's: no lead reaches one of
+   the eight stats, and each composite counts every lead as a share of base summed
+   with every other percentage and rounded once. */
+const leads = { atk: 33, def: 20, hp: 30, criRate: 33 };
+const led = monsterTargetFigures(monster, { ...plain, leads });
+const statKeys = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];
+for (const key of statKeys) assert.equal(led[key], own[key], `a lead reached ${key}, which is the copy's own`);
 const effects = monsterEffects(monster);
-assert.equal(counted.atk, Math.ceil(monster.atk * (100 + effects[2] + 33) / 100) + effects[3]);
-assert.equal(counted.def, Math.ceil(monster.def * (100 + effects[4] + 20) / 100) + effects[5]);
-assert.equal(counted.hp, Math.ceil(monster.con * 15 * (100 + effects[0] + 30) / 100) + effects[1]);
-assert.equal(counted.criRate, own.criRate + 33);
-assert.ok(counted.dmg > own.dmg && counted.ehp > own.ehp);
-/* SPD with a lead is the dungeon speed `speed-tick.ts` states, for every
-   combination of Swift and rune speed — one rule, held in two modules. */
-for (const swift of [false, true]) {
-  for (const runeSpeed of [0, 7, 41]) {
-    for (const lead of [0, 15, 24, 33]) {
-      const copy = { ...monster, artifacts: [], relics: [], runes: [
-        ...(swift ? Array.from({ length: 4 }, () => ({ set_id: 3, pri_eff: [0, 0], prefix_eff: [0, 0], sec_eff: [] })) : []),
-        { set_id: 0, pri_eff: [8, runeSpeed], prefix_eff: [0, 0], sec_eff: [] },
-      ] };
-      assert.equal(monsterTargetFigures(copy, { ...plain, leads: { spd: lead } }, 'counted').spd,
-        combatSpeed({ baseSpeed: monster.spd, runeSpeed, swift, percentOfBase: lead }),
-        `SPD with a ${lead} % lead, Swift ${swift}, ${runeSpeed} rune speed is not the dungeon speed`);
-    }
-  }
-}
+const ledAtk = Math.ceil(monster.atk * (100 + effects[2] + 33) / 100) + effects[3];
+const ledDef = Math.ceil(monster.def * (100 + effects[4] + 20) / 100) + effects[5];
+const ledHp = Math.ceil(monster.con * 15 * (100 + effects[0] + 30) / 100) + effects[1];
+assert.equal(led.dmg, Math.floor(ledAtk * (1 + Math.min(100, own.criRate + 33) / 100 * own.criDmg / 100)));
+assert.equal(led.ehp, Math.floor(ledHp * (1142 + 3.572 * ledDef) / 1000));
+assert.equal(led.ehpD, Math.floor(ledHp * (1142 + 3.572 * ledDef * 0.3) / 1000));
 
+/* The owner's own example: 67 % CRI Rate and a 33-point crit lead show 67 and deal
+   their damage at 100 %. */
+const keen = { ...monster, critical_rate: 67 };
+const keenFigures = monsterTargetFigures(keen, { ...plain, leads: { criRate: 33 } });
+assert.equal(keenFigures.criRate, 67);
+assert.equal(keenFigures.dmg, Math.floor(own.atk * (1 + own.criDmg / 100)));
+assert.equal(keenFigures.dmg, monsterTargetFigures(keen, { ...plain, alwaysCrits: true }).dmg);
+/* Past 100 % nothing more is dealt: the lead is added to the copy's own CRI Rate
+   first and the sum capped once, so 90 with the same lead and element advantage
+   deals exactly what 67 does — and below the cap the lead still counts in full. */
+const past = monsterTargetFigures({ ...monster, critical_rate: 90 }, { ...plain, alwaysElementAdvantage: true, leads: { criRate: 33 } });
+assert.equal(past.criRate, 90);
+assert.equal(past.dmg, keenFigures.dmg);
+const below = monsterTargetFigures({ ...monster, critical_rate: 40 }, { ...plain, leads: { criRate: 33 } });
+assert.equal(below.dmg, Math.floor(own.atk * (1 + 0.73 * own.criDmg / 100)));
 assert.deepEqual(readMonsterPreferences({ '1': {
-  unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, critLead: 101, spdLead: 24,
-} })['1'], { unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, spdLead: 24 },
-'a lead out of range costs that lead alone');
+  unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, critLead: 101, hpLead: 24, spdLead: 24,
+} })['1'], { unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, hpLead: 24 },
+'a lead out of range, or one no calculation reads, costs that lead alone');
 assert.equal(readMonsterPreferences({ '1': { unitId: '1', critLead: 0 } })['1'].critLead, 0);
 
-console.log('Monster display stats: Icaru DEF, empty gear, relic mains, hidden crit bonuses, leads counted as dungeon speed and never shown, and saved choices agree.');
+console.log('Monster display stats: Icaru DEF, empty gear, relic mains, crit bonuses and leads in the composites only, and saved choices agree.');

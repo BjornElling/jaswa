@@ -33,7 +33,7 @@
  */
 import type { OptimizedBuild, PickedRune } from './compute/rune-optimization-protocol';
 import type { GameRecord } from './game-data';
-import { criticalRateLift, targetFigureKeys } from './monster-stats';
+import { targetFigureKeys } from './monster-stats';
 import type { EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
@@ -64,10 +64,9 @@ export type CurrentPick = PickedRune & { issue: PickIssue | null };
  * account, the issue per rune, the targets its figures no longer reach and the
  * ceilings they have since passed.
  */
-export type CurrentBuild = Omit<OptimizedBuild, 'figures' | 'counted' | 'runes'> & {
+export type CurrentBuild = Omit<OptimizedBuild, 'figures' | 'runes'> & {
   runes: CurrentPick[];
   figures: number[] | null;
-  counted: number[] | null;
   short: RankFigure[];
   over: RankFigure[];
 };
@@ -232,20 +231,17 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
       picked.issue = { kind: 'changes-limit', maximum: context.settings.maxChanges };
     }
   }
-  if (gone) return { ...build, runes: picks, moves, figures: null, counted: null, short: [], over: [] };
+  if (gone) return { ...build, runes: picks, moves, figures: null, short: [], over: [] };
   /* Untouched since the search: its own figures, exactly. After a sync every build is
-     counted again, since gear can change as well as a rune. Ranges are judged
-     on the figures counted with the leads, never on the ones shown. */
-  const { figures, counted } = changed
-    ? buildFigures(context.monster, pieces, context.requirements)
-    : build;
+     counted again, since gear can change as well as a rune. A range is judged on
+     the figure the table shows beside it. */
+  const figures = changed ? buildFigures(context.monster, pieces, context.requirements) : build.figures;
   const floors = targetFloors(context.requirements);
-  const judged = (key: RankFigure) => counted[figureIndex(key)]
-    + (key === 'criRate' ? criticalRateLift(context.requirements) : 0);
+  const judged = (key: RankFigure) => figures[figureIndex(key)];
   const missed = targetFigureKeys.filter((key) => judged(key) < floors[figureIndex(key)]);
   const ceilings = targetCeilings(context.requirements);
   const past = targetFigureKeys.filter((key) => judged(key) > ceilings[figureIndex(key)]);
-  return { ...build, runes: picks, moves, figures, counted, short: missed, over: past };
+  return { ...build, runes: picks, moves, figures, short: missed, over: past };
 }
 
 /**

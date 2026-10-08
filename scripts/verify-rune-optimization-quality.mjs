@@ -18,7 +18,7 @@ for (let index = 0; index < 8; index += 1) {
     allowBroken: true, allowIntangible: false, alwaysCrits: false, rankBy: index % 2 ? 'ehp' : 'dmg', ceilings: {} };
   input.runes = input.runes.filter((rune) => rune.setId !== 25).map((rune) => ({ ...rune, setId: 13 }));
   const sample = Array.from({ length: 6 }, (_, slot) => input.runes.find((rune) => rune.slot === slot + 1));
-  const figures = buildFigures(input.monster, sample.map((rune) => ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), input.requirements).counted;
+  const figures = buildFigures(input.monster, sample.map((rune) => ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), input.requirements);
   input.requirements.targets = Object.fromEntries(['spd', 'acc', 'hp'].map((stat) => [stat, Math.floor(figures[figureIndex(stat)] * 0.98)]));
   const problems = runeOptimizationDepths.map((depth) => {
     input.settings.depth = depth;
@@ -173,7 +173,7 @@ intangible.runes = Array.from({ length: 6 }, (_, slot) => ({
   id: String(slot + 1), occupiedId: null, setId: [1, 2, 4, 25, 1, 2][slot], subProperties: [], prefixStatId: null, prefixValue: 0,
 }));
 const exactFigures = buildFigures(intangible.monster, intangible.runes.map((rune) =>
-  ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), intangible.requirements).counted;
+  ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), intangible.requirements);
 intangible.settings.unfinishedAtMaximum = false;
 intangible.requirements.targets = Object.fromEntries(['hp', 'def', 'criRate'].map((key) => [key, exactFigures[figureIndex(key)]]));
 const intangibleResult = searchRuneBuilds(prepareRuneOptimization(intangible));
@@ -197,7 +197,7 @@ assert.equal(ambiguousResult.builds.length, 1,
   'an ambiguous Intangible must remain usable when broken sets are allowed');
 assert.equal(ambiguousResult.builds[0].figures[ambiguousProblem.rank],
   buildFigures(ambiguousIntangible.monster, ambiguousIntangible.runes.map((rune) =>
-    ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), ambiguousIntangible.requirements).counted[ambiguousProblem.rank],
+    ({ rune, mainValue: rune.mainValue, lines: rune.subProperties })), ambiguousIntangible.requirements)[ambiguousProblem.rank],
   'an ambiguous Intangible must add no guessed set bonus');
 console.log('PASS: an Intangible that could complete two sets completes neither, without being discarded when broken sets are allowed.');
 

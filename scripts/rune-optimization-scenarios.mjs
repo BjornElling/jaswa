@@ -116,12 +116,12 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
     const alwaysCrits = random() < 0.3;
     const alwaysElementAdvantage = index % 4 === 0;
     /* Leads drawn from the index alone, so the accounts every seed produces stay as
-       they were: a crit lead now and then, and the four percentage leads in two
-       pairs, so a lead on SPD, ATK, DEF and HP each meets a range and a ranking. */
+       they were: a crit lead now and then, and the three percentage leads, so a lead
+       on ATK, DEF and HP each meets a range and a ranking. */
     const critLead = index % 5 === 0 ? [0, 19, 24, 33][index % 4] : undefined;
     const leads = {
       ...(critLead === undefined ? {} : { criRate: critLead }),
-      ...(index % 6 === 1 ? { spd: 24, atk: 33 } : {}),
+      ...(index % 6 === 1 ? { atk: 33 } : {}),
       ...(index % 6 === 2 ? { hp: 30, def: 20 } : {}),
     };
     const allowBroken = random() < 0.5;

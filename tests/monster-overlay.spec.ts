@@ -126,7 +126,7 @@ test('engraved relic mains appear in current stats, while a bare copy keeps its 
   await page.screenshot({ path: testInfo.outputPath('relic-stat-bare.png') });
 });
 
-test('leads and element advantage add to the calculation without changing a shown figure', async ({ page }, testInfo) => {
+test('leads and element advantage reach the composites, never a stat or its range', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await importAccount(page);
   await openOverlay(page);
@@ -139,24 +139,33 @@ test('leads and element advantage add to the calculation without changing a show
   await dialog.getByLabel('Always element advantage').check();
   await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
   await expect(rate.locator('.overlay-stat-current')).toContainText('51');
-  const mark = rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate.*Crit lead adds 33% CRI Rate/ });
+  const mark = rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate to DMG.*Crit lead adds 33% CRI Rate to DMG/ });
   await expect(mark).toBeVisible();
   await expect(mark).toHaveAttribute('title', /15%.*33%/);
-  /* A range counts the lead and not the advantage: 51 of its own and 33 led is 84. */
+  /* A range names the copy's own CRI Rate, whatever the fight adds: 51 meets a
+     floor of 51, and 84 — 51 with the lead — is not met by the lead. */
   const critFloor = rate.getByRole('spinbutton', { name: 'CtR%: at least' });
-  await critFloor.fill('84');
+  await critFloor.fill('51');
   await expect(rate.getByRole('img', { name: /You want CtR%/ })).toHaveCount(0);
-  await critFloor.fill('90');
-  await expect(rate.getByRole('img', { name: /You want CtR% at least 90, and this copy has 84 with its lead/ })).toBeVisible();
+  await critFloor.fill('84');
+  await expect(rate.getByRole('img', { name: /You want CtR% at least 84, and this copy has 51\./ })).toBeVisible();
   await critFloor.fill('');
+  const damage = dialog.locator('.stat-range[data-figure="dmg"]');
+  await expect(damage.getByRole('img', { name: 'Counted with Crit lead 33%, element advantage' })).toBeVisible();
 
-  /* The other four leads the same way: counted in the range, never in the figure. */
-  const speed = dialog.locator('.stat-range[data-figure="spd"]');
-  const shownSpeed = await speed.locator('.overlay-stat-current').innerText();
-  await dialog.getByRole('spinbutton', { name: 'Speed lead, in percent' }).fill('24');
-  await expect(speed.locator('.overlay-stat-current')).toHaveText(shownSpeed);
-  await expect(speed.getByRole('img', { name: /Speed lead adds 24% SPD/ })).toBeVisible();
-  await dialog.getByRole('spinbutton', { name: 'Speed lead, in percent' }).fill('');
+  /* The other leads the same way: in the composites they reach, never in the stat. */
+  const hp = dialog.locator('.stat-range[data-figure="hp"]');
+  const effective = dialog.locator('.stat-range[data-figure="ehp"]');
+  const shownHp = await hp.locator('.overlay-stat-current').innerText();
+  const effectiveBefore = await effective.locator('.overlay-stat-current').innerText();
+  await dialog.getByRole('spinbutton', { name: 'HP lead, in percent' }).fill('24');
+  await expect(hp.locator('.overlay-stat-current')).toHaveText(shownHp);
+  await expect(hp.getByRole('img', { name: /HP lead adds 24% HP to E\.HP and E\.HP D, not to this figure or its range/ })).toBeVisible();
+  await expect(effective.locator('.overlay-stat-current')).not.toHaveText(effectiveBefore);
+  await expect(effective.getByRole('img', { name: 'Counted with HP lead 24%' })).toBeVisible();
+  await dialog.getByRole('spinbutton', { name: 'HP lead, in percent' }).fill('');
+  /* No composite reads SPD, so there is no Speed lead to state. */
+  await expect(dialog.getByRole('spinbutton', { name: 'Speed lead, in percent' })).toHaveCount(0);
   expect(await rate.boundingBox()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('crit-bonuses-filled.png') });
   await dialog.getByRole('checkbox', { name: 'Always crits' }).check();
@@ -177,9 +186,9 @@ test('leads and element advantage add to the calculation without changing a show
   await dialog.getByRole('button', { name: /^Optimize runes for / }).click();
   const optimizationStats = page.getByRole('group', { name: 'Stats', exact: true });
   await expect(optimizationStats.locator('.stat-range[data-figure="criRate"] .overlay-stat-current')).toContainText('51');
-  await expect(optimizationStats.getByRole('img', { name: /Element advantage adds 15% CRI Rate.*Crit lead adds 33% CRI Rate/ })).toBeVisible();
-  /* Shown DMG carries the element advantage but not the lead: 51 + 15 points of crit. */
-  await expect(optimizationStats.locator('.stat-range[data-figure="dmg"] .overlay-stat-current')).toContainText(/6[.,]532/);
+  await expect(optimizationStats.getByRole('img', { name: /Element advantage adds 15% CRI Rate to DMG.*Crit lead adds 33% CRI Rate to DMG/ })).toBeVisible();
+  /* DMG is dealt at 51 + 15 + 33 = 99 % crit: the advantage and the lead both count. */
+  await expect(optimizationStats.locator('.stat-range[data-figure="dmg"] .overlay-stat-current')).toContainText(/8[.,]183/);
 });
 
 test('Optimize opens this copy in Rune Optimization and keeps an unsaved choice', async ({ page }, testInfo) => {

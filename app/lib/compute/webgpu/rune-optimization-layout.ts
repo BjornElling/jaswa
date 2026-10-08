@@ -21,7 +21,7 @@
  * The accumulator and figure positions are the stat sheet's own (`monster-stats.ts`),
  * taken from there rather than numbered again here.
  */
-import { effectSlot, effectSlotCount, targetFigureCount, targetFigureKeys } from '../../monster-stats';
+import { baseLength, combatAt, effectSlot, effectSlotCount, targetFigureCount, targetFigureKeys } from '../../monster-stats';
 
 const figure = (key: typeof targetFigureKeys[number]): number => targetFigureKeys.indexOf(key);
 
@@ -30,14 +30,18 @@ export const accumulatorStride = effectSlotCount;
 
 /* ------------------------------------------------------------ the question */
 
-/** The eight base stats, in `MonsterTotals` order — which is the figures' own order for the first eight. */
+/**
+ * The copy's base as `combatBase` gives it: the eight stats in `MonsterTotals`
+ * order — which is the figures' own order for the first eight — then what the
+ * fight adds for the composites, at `combatAt`.
+ */
 export const questionBaseAt = 0;
 /** One floor per figure. A figure with no floor carries the lowest finite float. */
-export const questionFloorsAt = 8;
+export const questionFloorsAt = questionBaseAt + baseLength;
 export const questionRankAt = questionFloorsAt + targetFigureCount;
 export const questionBarAt = questionRankAt + 1;
-/** 8 + 11 + 2 = 21, rounded up to 24 so a later field costs nothing. */
-export const questionLength = 24;
+/** 12 + 11 + 2 = 25, rounded up to 28 so a later field costs nothing. */
+export const questionLength = 28;
 
 /* --------------------------------------------------------------- the ranges */
 
@@ -121,6 +125,10 @@ export const runeOptimizationConstants: Readonly<Record<string, number>> = {
   FIGURE_DMG: figure('dmg'),
   FIGURE_EHP: figure('ehp'),
   FIGURE_EHP_D: figure('ehpD'),
+  COMBAT_HP: combatAt.hp,
+  COMBAT_ATK: combatAt.atk,
+  COMBAT_DEF: combatAt.def,
+  COMBAT_CRI_RATE: combatAt.criRate,
   QUESTION_BASE_AT: questionBaseAt,
   QUESTION_FLOORS_AT: questionFloorsAt,
   QUESTION_RANK_AT: questionRankAt,

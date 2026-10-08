@@ -29,8 +29,8 @@
  * sends back on the processor before it may enter the table.
  */
 import {
-  addSetBonuses, baseStatCount, effectSlot, effectSlotCount, figureOf, figuresInto, intangibleCompletion, intangibleSetId,
-  setIdBound, statSetBonuses, targetFigureCount, totalsInto,
+  addSetBonuses, baseStatCount, capTotal, effectSlot, effectSlotCount, figureOf, figuresInto, intangibleCompletion, intangibleSetId,
+  setIdBound, statSetBonuses, targetFigureCount, totalCount, totalsInto,
 } from './monster-stats';
 import { canStillFinishSets, canStillSatisfy, noBrokenSets, overCeiling, remainingSetSupport, satisfiesBuild } from './rune-optimization-problem';
 import type { RuneOptimizationProblem } from './rune-optimization-problem';
@@ -399,7 +399,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     const list: Group[] = [];
     const intervalValues = new Float64Array(counts[depth]);
     if (pruneCeilings && depth === lastTail) {
-      const totals = new Float64Array(baseStatCount);
+      const totals = new Float64Array(totalCount);
       problem.slots[order[depth]].forEach((candidate, at) => {
         totalsInto(problem.base, candidate.effects, totals);
         intervalValues[at] = figureOf(totals, intervalIndex ?? ceilingIndexes[0]);
@@ -600,7 +600,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
   const withFirst = new Float64Array(effectSlotCount);
   const finished = new Float64Array(effectSlotCount);
   const exactCounts = new Int32Array(setIdBound);
-  const totals = new Float64Array(baseStatCount);
+  const totals = new Float64Array(totalCount);
   const figures = new Float64Array(targetFigureCount);
 
   const table: FoundBuild[] = [];
@@ -628,7 +628,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     // A completion cannot exceed either the optimistic contribution or a
     // stated direct-stat ceiling. Composites read these tighter totals through
     // the shared sheet, so a forbidden ATK surplus cannot promise extra DMG.
-    for (const index of ceilingIndexes) if (index < baseStatCount) totals[index] = Math.min(totals[index], ceilings[index]);
+    for (const index of ceilingIndexes) if (index < baseStatCount) capTotal(problem.base, totals, index, ceilings[index]);
     for (let at = 0; at < targetIndexes.length; at += 1) {
       const index = targetIndexes[at];
       if (figureOf(totals, index) < targets[index]) return false;

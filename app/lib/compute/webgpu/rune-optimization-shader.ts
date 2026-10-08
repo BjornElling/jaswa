@@ -103,11 +103,14 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     figures[FIGURE_RES] = question[QUESTION_BASE_AT + FIGURE_RES] + effects[ACC_RESISTANCE];
     figures[FIGURE_ACC] = question[QUESTION_BASE_AT + FIGURE_ACC] + effects[ACC_ACCURACY];
 
+    // The composites read the fight's HP, ATK, DEF and CRI Rate (combatAt):
+    // each lead summed with the other percentages and rounded once.
+    let hp = max(0.0, roundedUp(baseHp * (100.0 + effects[ACC_HP_PERCENT] + question[QUESTION_BASE_AT + COMBAT_HP]) / 100.0) + effects[ACC_HP_FLAT]);
+    let atk = max(0.0, roundedUp(baseAtk * (100.0 + effects[ACC_ATK_PERCENT] + question[QUESTION_BASE_AT + COMBAT_ATK]) / 100.0) + effects[ACC_ATK_FLAT]);
+    let def = max(0.0, roundedUp(baseDef * (100.0 + effects[ACC_DEF_PERCENT] + question[QUESTION_BASE_AT + COMBAT_DEF]) / 100.0) + effects[ACC_DEF_FLAT]);
     // RUNE-ROLE-METRICS.md §2–4, as rune-potential-metrics.ts states them.
-    let hp = max(0.0, figures[FIGURE_HP]);
-    let def = max(0.0, figures[FIGURE_DEF]);
-    let criticalRate = min(1.0, max(0.0, figures[FIGURE_CRI_RATE]) / 100.0);
-    figures[FIGURE_DMG] = max(0.0, figures[FIGURE_ATK]) * (1.0 + criticalRate * max(0.0, figures[FIGURE_CRI_DMG]) / 100.0);
+    let criticalRate = min(1.0, max(0.0, figures[FIGURE_CRI_RATE] + question[QUESTION_BASE_AT + COMBAT_CRI_RATE]) / 100.0);
+    figures[FIGURE_DMG] = atk * (1.0 + criticalRate * max(0.0, figures[FIGURE_CRI_DMG]) / 100.0);
     figures[FIGURE_EHP] = hp * (1142.0 + 3.572 * def) / 1000.0;
     figures[FIGURE_EHP_D] = hp * (1142.0 + 3.572 * def * 0.3) / 1000.0;
 

@@ -1,6 +1,6 @@
 import {
-  baseStatCount, effectSlot, effectSlotCount, figuresInto, intangibleSetId,
-  statSetBonuses, targetFigureCount, targetFigureKeys, totalsInto,
+  effectSlot, effectSlotCount, figuresInto, intangibleSetId,
+  statSetBonuses, targetFigureCount, targetFigureKeys, totalCount, totalsInto,
 } from './monster-stats';
 import type { RankFigure, RuneOptimizationProblem } from './rune-optimization-problem';
 
@@ -65,7 +65,7 @@ export function bindingRangeLimits(problem: RangePool & Pick<RuneOptimizationPro
   for (let at = 0; at < effectSlotCount; at += 1) for (let slot = 0; slot < 6; slot += 1) {
     high[at] += maxima[slot][at]; low[at] += minima[slot][at];
   }
-  const totals = new Float64Array(baseStatCount);
+  const totals = new Float64Array(totalCount);
   const figures = new Float64Array(targetFigureCount);
   totalsInto(problem.base, high, totals); figuresInto(totals, figures);
   for (let at = 0; at < ceilings.length; at += 1) if (figures[at] <= ceilings[at]) ceilings[at] = NaN;

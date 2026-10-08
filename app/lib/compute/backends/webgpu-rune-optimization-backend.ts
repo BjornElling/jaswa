@@ -20,7 +20,7 @@
  * report and must say so rather than hand back a truncated list.
  */
 import {
-  baseStatCount, effectSlot, effectSlotCount, figuresInto, targetFigureCount, totalsInto,
+  baseLength, combatAt, effectSlot, effectSlotCount, figuresInto, targetFigureCount, totalCount, totalsInto,
 } from '../../monster-stats';
 import type { PassLimits, TailCard, TailPass, TailQuestion } from '../../rune-optimization-search';
 import { metricDmg, metricEhp, metricEhpD } from '../../rune-potential-metrics';
@@ -48,7 +48,7 @@ const floorOf = (value: number): number => (Number.isFinite(value) ? value : noF
 /** The card half of one search: the question packed once, and a function per pass. */
 export function tailCardOnGpu(question: TailQuestion, context: GpuContext): TailCard {
   const packedQuestion = new Float32Array(questionLength);
-  for (let at = 0; at < baseStatCount; at += 1) packedQuestion[questionBaseAt + at] = question.base[at];
+  for (let at = 0; at < baseLength; at += 1) packedQuestion[questionBaseAt + at] = question.base[at];
   for (let at = 0; at < targetFigureCount; at += 1) packedQuestion[questionFloorsAt + at] = floorOf(question.targets[at]);
   packedQuestion[questionRankAt] = question.rank;
   const candidates = Float32Array.from(question.candidates);
@@ -131,7 +131,8 @@ function battery(seed: number, firstCount: number, lastCount: number, blocks: nu
   let pairs = 0;
   for (let block = 0; block < blocks; block += 1) pairs += blockRanges[block * 4 + 1] * blockRanges[block * 4 + 3];
   const question: TailQuestion = {
-    base: Float64Array.of(10125, 714, 648, 101, 15, 50, 15, 0),
+    /* Every lead and a crit lift in play, so a misread combat slot changes a composite. */
+    base: Float64Array.of(10125, 714, 648, 101, 15, 50, 15, 0, 20, 33, 15, 30),
     targets: new Float64Array(targetFigureCount).fill(Number.NaN),
     rank: 8,
     candidates,
@@ -146,7 +147,7 @@ function battery(seed: number, firstCount: number, lastCount: number, blocks: nu
  * arithmetic that has gone wrong, not by generosity.
  */
 function generousFigures(base: Float64Array, effects: Float64Array, out: Float64Array) {
-  const raised = (stat: number, percent: number, flat: number) => base[stat] * (100 + effects[percent]) / 100 + 1 + effects[flat];
+  const raised = (stat: number, percent: number, flat: number, lead = 0) => base[stat] * (100 + effects[percent] + lead) / 100 + 1 + effects[flat];
   out[0] = raised(0, effectSlot.hpPercent, effectSlot.hpFlat);
   out[1] = raised(1, effectSlot.atkPercent, effectSlot.atkFlat);
   out[2] = raised(2, effectSlot.defPercent, effectSlot.defFlat);
@@ -155,9 +156,12 @@ function generousFigures(base: Float64Array, effects: Float64Array, out: Float64
   out[5] = base[5] + effects[effectSlot.criticalDamage];
   out[6] = base[6] + effects[effectSlot.resistance];
   out[7] = base[7] + effects[effectSlot.accuracy];
-  out[8] = metricDmg(out[1], out[4], out[5]);
-  out[9] = metricEhp(out[0], out[2]);
-  out[10] = metricEhpD(out[0], out[2]);
+  const hp = raised(0, effectSlot.hpPercent, effectSlot.hpFlat, base[combatAt.hp]);
+  const atk = raised(1, effectSlot.atkPercent, effectSlot.atkFlat, base[combatAt.atk]);
+  const def = raised(2, effectSlot.defPercent, effectSlot.defFlat, base[combatAt.def]);
+  out[8] = metricDmg(atk, out[4] + base[combatAt.criRate], out[5]);
+  out[9] = metricEhp(hp, def);
+  out[10] = metricEhpD(hp, def);
   for (let at = 0; at < targetFigureCount; at += 1) out[at] += Math.abs(out[at]) * relativeSlack + absoluteSlack;
 }
 
@@ -166,7 +170,7 @@ type Reading = { exact: Float64Array; generous: Float64Array };
 /** Every pair's figures, the processor's way and the card's intended way. */
 function readings({ question, pass }: Battery): Reading[][] {
   const effects = new Float64Array(effectSlotCount);
-  const totals = new Float64Array(baseStatCount);
+  const totals = new Float64Array(totalCount);
   const byBlock: Reading[][] = [];
   for (let block = 0; block < pass.blocks; block += 1) {
     const [firstStart, firstCount, lastStart, lastCount] = pass.ranges.subarray(block * 4, block * 4 + 4);

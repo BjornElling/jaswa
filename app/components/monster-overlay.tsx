@@ -82,17 +82,17 @@ import type { GeneralSettings } from '../lib/types';
 const categoryLabels: Record<ArtifactCategory, string> = { attribute: 'Attribute', type: 'Type' };
 const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
 
-/* The five leads, in the order the user asked for them: the crit lead first, as
-   it was alone before the other four joined it. */
+/* The four leads, in the order the user asked for them: the crit lead first, as
+   it was alone before the others joined it. */
 const leadRows: ReadonlyArray<{ stat: LeadStat; label: string; name: string }> = [
   { stat: 'criRate', label: 'Crit lead', name: 'Crit lead' },
   { stat: 'atk', label: 'Attack', name: 'Attack lead' },
   { stat: 'def', label: 'Defence', name: 'Defence lead' },
-  { stat: 'spd', label: 'Speed', name: 'Speed lead' },
   { stat: 'hp', label: 'HP', name: 'HP lead' },
 ];
-/* The figures a lead or a crit condition can mark, which keep room for two marks. */
-const leadFigures: ReadonlySet<string> = new Set(['criRate', 'atk', 'def', 'spd', 'hp']);
+/* The figures a lead or a crit condition can mark, which keep room for two marks:
+   a stat names where its lead goes, a composite what it counted. */
+const leadFigures: ReadonlySet<string> = new Set(['criRate', 'atk', 'def', 'hp', 'dmg', 'ehp', 'ehpD']);
 
 /** The eleven figures a copy can be built toward, in the order they are offered. */
 const targetRows: ReadonlyArray<{ key: keyof MonsterStatTargets; label: string }> =
@@ -296,9 +296,9 @@ export function MonsterOverlay({ target, game, general, preferences, presetId, o
     [target, masterId, draft, monster],
   );
 
-  /* The eleven figures this copy has, as its own panel shows them — no lead in
-     any of them. The three composites are derived rather than stored, from the
-     same stat sheet the shortfall check reads with the leads counted. */
+  /* The eleven figures this copy has: its stats as its own panel shows them, and
+     the three composites with its fight. They are derived rather than stored, from
+     the same stat sheet the shortfall check reads. */
   const current = useMemo(
     () => (monster ? monsterTargetFigures(monster, resolved) : undefined),
     [monster, resolved],

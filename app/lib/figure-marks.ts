@@ -18,28 +18,49 @@ export type FigureMark = {
   glyph: 'ring' | 'info' | 'slashed';
 };
 
-const leadWords: Readonly<Record<LeadStat, { name: string; stat: string }>> = {
-  atk: { name: 'Attack lead', stat: 'ATK' },
-  def: { name: 'Defence lead', stat: 'DEF' },
-  spd: { name: 'Speed lead', stat: 'SPD' },
-  hp: { name: 'HP lead', stat: 'HP' },
-  criRate: { name: 'Crit lead', stat: 'CRI Rate' },
+const leadWords: Readonly<Record<LeadStat, { name: string; stat: string; reaches: string }>> = {
+  atk: { name: 'Attack lead', stat: 'ATK', reaches: 'DMG' },
+  def: { name: 'Defence lead', stat: 'DEF', reaches: 'E.HP and E.HP D' },
+  hp: { name: 'HP lead', stat: 'HP', reaches: 'E.HP and E.HP D' },
+  criRate: { name: 'Crit lead', stat: 'CRI Rate', reaches: 'DMG' },
+};
+
+/* The leads each composite counts, in the order its formula reads them. */
+const compositeLeads: Readonly<Record<string, readonly LeadStat[]>> = {
+  dmg: ['atk', 'criRate'], ehp: ['hp', 'def'], ehpD: ['hp', 'def'],
 };
 
 /**
- * One fixed-size mark after a figure explains every contribution the calculation
- * adds to it that the figure itself does not show: a lead, and for CRI Rate the
- * crit conditions. A stat with none carries no mark.
+ * One fixed-size mark after a figure explains what the fight adds that the
+ * figure beside it does not show, or does. A stat is the copy's own, so its mark
+ * says where its lead goes instead; a composite counts the fight, so its mark
+ * names what it counted (`monster-stats.ts` `combatAt`). A figure with none
+ * carries no mark.
  */
 export function combatBonusMarks(figure: string, bonuses: CombatBonuses): FigureMark[] {
-  const lead = (leadStats as readonly string[]).includes(figure) ? bonuses.leads?.[figure as LeadStat] : undefined;
-  const words = leadWords[figure as LeadStat];
-  const reading = [
-    figure === 'criRate' && bonuses.alwaysCrits ? 'Always crits' : undefined,
-    figure === 'criRate' && bonuses.alwaysElementAdvantage ? 'Element advantage adds 15% CRI Rate' : undefined,
-    lead ? `${words.name} adds ${lead}% ${words.stat}, counted in its range` : undefined,
-  ].filter(Boolean).join('. ');
+  const leadOf = (stat: LeadStat) => bonuses.leads?.[stat];
+  const reading = figure in compositeLeads
+    ? compositeReading(figure, bonuses)
+    : [
+      figure === 'criRate' && bonuses.alwaysCrits ? 'Always crits' : undefined,
+      figure === 'criRate' && bonuses.alwaysElementAdvantage ? 'Element advantage adds 15% CRI Rate to DMG' : undefined,
+      (leadStats as readonly string[]).includes(figure) && leadOf(figure as LeadStat)
+        ? `${leadWords[figure as LeadStat].name} adds ${leadOf(figure as LeadStat)}% ${leadWords[figure as LeadStat].stat} to ${leadWords[figure as LeadStat].reaches}, not to this figure or its range`
+        : undefined,
+    ].filter(Boolean).join('. ');
   return reading === '' ? [] : [{ key: 'combat-bonuses', tone: 'green', reading, glyph: 'info' }];
+}
+
+function compositeReading(figure: string, bonuses: CombatBonuses): string {
+  const counted = [
+    ...compositeLeads[figure].flatMap((stat) => {
+      const lead = bonuses.leads?.[stat];
+      return lead ? [`${leadWords[stat].name} ${lead}%`] : [];
+    }),
+    figure === 'dmg' && bonuses.alwaysCrits ? 'a certain crit' : undefined,
+    figure === 'dmg' && bonuses.alwaysElementAdvantage ? 'element advantage' : undefined,
+  ].filter((part): part is string => Boolean(part));
+  return counted.length === 0 ? '' : `Counted with ${counted.join(', ')}`;
 }
 
 /** Whose wish it was stays in the sentence, so a user choice and a population default make different claims. */
@@ -49,7 +70,7 @@ function describeShortfall(shortfall: Shortfall, general: GeneralSettings): stri
 
   if (shortfall.kind === 'stat' && shortfall.target !== undefined && shortfall.current !== undefined) {
     return `${where}${whose} ${shortfall.wanted} ${shortfall.over ? 'at most' : 'at least'} ${formatNumber(shortfall.target, general)},`
-      + ` and this copy has ${formatNumber(shortfall.current, general)}${shortfall.withLead ? ' with its lead' : ''}.`;
+      + ` and this copy has ${formatNumber(shortfall.current, general)}.`;
   }
   if (shortfall.present === undefined) {
     return `${where}${whose} ${shortfall.wanted}, and this copy has none.`;

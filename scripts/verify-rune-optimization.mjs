@@ -52,11 +52,11 @@
  */
 import assert from 'node:assert/strict';
 import {
-  calculateMonsterTotals, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys, unliftedFigures,
+  calculateMonsterTotals, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys,
 } from '../app/lib/monster-stats.ts';
 import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
 import {
-  buildFigures, canStillFinishSets, canStillSatisfy, prepareRuneOptimization, remainingSetSupport, searchedBuildFigures,
+  buildFigures, canStillFinishSets, canStillSatisfy, prepareRuneOptimization, remainingSetSupport,
   targetCeilings, targetFloors,
 } from '../app/lib/rune-optimization-problem.ts';
 import { currentBuilds } from '../app/lib/rune-optimization-refresh.ts';
@@ -86,9 +86,9 @@ engraved.fill(0); engraved[13] = 2; engraved[15] = 1;
 assert.ok(canStillSatisfy(requiredSets, engraved, 3, future), 'a future Intangible must stay available to the support bound');
 console.log('PASS: remaining set support rejects impossible prefixes and preserves engraved and future Intangible completions.');
 
-/* The stat sheet of six chosen end states, through the Monsters page's own reader:
-   counted with the leads, as every range and ranking judges, or as shown. */
-function sheet(input, chosen, counting = 'counted') {
+/* The stat sheet of six chosen end states, through the overlay's own reader: each
+   stat the copy's own, each composite with its fight, as every range judges. */
+function sheet(input, chosen) {
   const record = {
     ...input.monster,
     runes: chosen.map((candidate) => {
@@ -101,7 +101,7 @@ function sheet(input, chosen, counting = 'counted') {
       };
     }),
   };
-  const read = monsterTargetFigures(record, input.requirements, counting);
+  const read = monsterTargetFigures(record, input.requirements);
   return figures.map((key) => read[key]);
 }
 
@@ -274,10 +274,7 @@ for (let index = 0; index < scenarios; index += 1) {
   shared = -Infinity;
   const sliced = mergeBuildResults(await Promise.all([0, 1, 2].map((part) => searchRuneBuildsInSlices(problem, part, 3, sharing))), problem.rank, problem.resultCount);
   const expected = bruteForce(input);
-  /* The search ranks over a lifted CRI Rate where the monster always crits, with the
-     leads counted; its own figures, less the lift, are what every range judges. */
-  const countedOf = (build) => unliftedFigures([...build.figures], problem.criticalRateLift);
-  const reading = (table) => table.builds.map((build) => ({ value: countedOf(build)[problem.rank], moves: build.moves }));
+  const reading = (table) => table.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves }));
   if (!input.settings.allowImmemorial) {
     const immemorial = new Set(input.craftItems.flatMap((item, at) => (item.lineage === 'immemorial' ? [at] : [])));
     assert.ok(problem.slots.flat().every((candidate) => candidate.stock.every((entry) => !immemorial.has(entry))),
@@ -340,7 +337,6 @@ for (let index = 0; index < scenarios; index += 1) {
   const itemsById = new Map(input.craftItems.map((item) => [item.id, item]));
   const found = whole.builds.map((build) => ({
     ...build,
-    ...searchedBuildFigures(problem, build.picks),
     runes: build.picks.map((at, slot) => {
       const candidate = problem.slots[slot][at];
       return {
@@ -359,12 +355,12 @@ for (let index = 0; index < scenarios; index += 1) {
   const issues = (build) => build.runes.flatMap((picked) => (picked.issue ? [`${picked.slot}:${picked.issue.kind}`] : []));
   for (const build of found) {
     const chosen = build.picks.map((at, slot) => problem.slots[slot][at]);
-    assert.deepEqual(build.figures, sheet(input, chosen, 'shown'), `${context}: a shown figure is not the stat sheet's`);
-    assert.deepEqual(build.counted, sheet(input, chosen), `${context}: a counted figure is not the stat sheet's with the leads`);
+    assert.deepEqual(build.figures, sheet(input, chosen), `${context}: a figure is not the stat sheet's`);
     assert.deepEqual(buildFigures(input.monster, build.runes.map((picked) => ({ rune: runesById.get(picked.runeId), mainValue: picked.mainValue, lines: picked.lines })), input.requirements),
-      { figures: build.figures, counted: build.counted }, `${context}: buildFigures disagrees with the search`);
-    if (input.requirements.alwaysCrits) {
-      /* Every hit a crit, written out: ATK × (1 + CRI Dmg). */
+      build.figures, `${context}: buildFigures disagrees with the search`);
+    if (input.requirements.alwaysCrits && !input.requirements.leads?.atk) {
+      /* Every hit a crit, written out: ATK × (1 + CRI Dmg). An Attack lead reaches
+         DMG and not the ATK shown, so that copy is held by the sheet above instead. */
       const [, atk, , , , criDmg] = build.figures;
       assert.equal(build.figures[figures.indexOf('dmg')], Math.floor(atk * (1 + criDmg / 100)), `${context}: Always crits did not count a certain crit`);
       alwaysCritting += 1;
@@ -480,44 +476,73 @@ for (let index = 0; index < scenarios; index += 1) {
    composites. A second figure supplies the rank, so a ceiling is not just a cap
    on the objective. The comparison reads actual sheets, not search bounds. */
 let intervalTables = 0;
-/* A CRI Rate range is judged with the crit lead counted and without element
-   advantage: the lead is part of the figure the owner aims at, the advantage only
-   of the DMG it buys. So only the advantage lifts the searched floor. */
+/* A CRI Rate range names the copy's own CRI Rate. A 33-point crit lead and element
+   advantage reach the DMG it deals and never the range, so 67–69 asks the runes for
+   67–69 whatever the fight adds — and ranked by DMG, the lead is seen to count
+   where it belongs. */
 for (const bonuses of [
-  { alwaysElementAdvantage: false, leads: { criRate: 33 }, lift: 0, seed: 33 },
-  { alwaysElementAdvantage: true, leads: { criRate: 33 }, lift: 15, seed: 48 },
+  { alwaysElementAdvantage: false, leads: { criRate: 33 }, seed: 33 },
+  { alwaysElementAdvantage: true, leads: { criRate: 33 }, seed: 48 },
 ]) {
-  const { lift, seed, ...conditions } = bonuses;
+  const { seed, ...conditions } = bonuses;
   const input = scenarioGenerator(20261025 + seed, [3, 3]).scenario(0);
   input.holds = {}; input.spared = [];
   Object.assign(input.requirements, {
     builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
-    alwaysCrits: false, ...conditions, targets: { criRate: 67 }, ceilings: { criRate: 69 }, rankBy: 'spd',
+    alwaysCrits: false, ...conditions, targets: { criRate: 67 }, ceilings: { criRate: 69 }, rankBy: 'dmg',
   });
   Object.assign(input.settings, { gems: 'none', grinds: 'none', runesOnOtherMonsters: true });
   const criRate = figures.indexOf('criRate');
-  assert.equal(targetFloors(input.requirements)[criRate], 67 + lift);
-  assert.equal(targetCeilings(input.requirements)[criRate], 69 + lift);
+  assert.equal(targetFloors(input.requirements)[criRate], 67);
+  assert.equal(targetCeilings(input.requirements)[criRate], 69);
   const problem = prepareRuneOptimization(input);
   const result = searchRuneBuilds(problem);
   assert.ok(result.complete, 'the CRI Rate interval search timed out');
   assert.deepEqual(result.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })),
-    bruteForce(input), 'the 67–69 CRI Rate interval disagrees with the stat sheets counted with the lead');
+    bruteForce(input), 'the 67–69 CRI Rate interval disagrees with the stat sheets');
+  assert.ok(result.builds.every((build) => build.figures[criRate] >= 67 && build.figures[criRate] <= 69),
+    'a crit lead or element advantage satisfied a CRI Rate range the copy\'s own CRI Rate does not');
   intervalTables += 1;
   const open = { ...input, requirements: { ...input.requirements, targets: {}, ceilings: {} } };
   const anchor = searchRuneBuilds(prepareRuneOptimization(open)).builds[0];
   assert.ok(anchor, 'a populated CRI Rate interval needs a build');
-  const countedRate = anchor.figures[criRate] - lift;
-  input.requirements.targets = { criRate: countedRate };
-  input.requirements.ceilings = { criRate: countedRate };
+  const ownRate = anchor.figures[criRate];
+  input.requirements.targets = { criRate: ownRate };
+  input.requirements.ceilings = { criRate: ownRate };
   const exact = prepareRuneOptimization(input);
   const populated = searchRuneBuilds(exact);
-  assert.ok(populated.builds.length > 0, 'element advantage must not move a CRI Rate build outside its own interval');
+  assert.ok(populated.builds.length > 0, 'the fight must not move a CRI Rate build outside its own interval');
   assert.deepEqual(populated.builds.map((build) => ({ value: build.figures[exact.rank], moves: build.moves })),
-    bruteForce(input), 'the populated CRI Rate interval disagrees with the stat sheets counted with the lead');
+    bruteForce(input), 'the populated CRI Rate interval disagrees with the stat sheets');
   intervalTables += 1;
 }
-for (let index = 0; index < figures.length; index += 1) {
+/* A ceiling on a stat the copy leads with: the search caps the stat at the ceiling
+   while bounding a composite, and the composite reads the stat with its lead, which
+   may stand above the ceiling by as much as the lead adds. A bound that capped the
+   led stat at the ceiling itself would prune the best builds. The ceilings sit at
+   the open table's own figures, so each one binds. */
+for (const [index, { leads, capped, rankBy }] of [
+  { leads: { hp: 30, def: 20 }, capped: ['hp', 'def'], rankBy: 'ehp' },
+  { leads: { atk: 33, criRate: 19 }, capped: ['atk'], rankBy: 'dmg' },
+].entries()) {
+  const input = scenarioGenerator(20261108 + index, [3, 3]).scenario(0);
+  input.holds = {}; input.spared = [];
+  Object.assign(input.requirements, {
+    builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
+    alwaysCrits: false, alwaysElementAdvantage: false, leads, targets: {}, ceilings: {}, rankBy,
+  });
+  Object.assign(input.settings, { gems: 'none', grinds: 'none', runesOnOtherMonsters: true, resultCount: 3 });
+  const open = searchRuneBuilds(prepareRuneOptimization(input)).builds;
+  assert.ok(open.length > 1, 'a led ceiling needs builds to bind against');
+  const middle = open[Math.floor(open.length / 2)];
+  input.requirements.ceilings = Object.fromEntries(capped.map((key) => [key, middle.figures[figures.indexOf(key)]]));
+  const problem = prepareRuneOptimization(input);
+  const result = searchRuneBuilds(problem);
+  assert.ok(result.complete && result.builds.length > 0, 'a led ceiling search found nothing');
+  assert.deepEqual(result.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })),
+    bruteForce(input), `a ceiling on a led ${capped.join(' and ')} disagrees with the stat sheets`);
+  intervalTables += 1;
+}for (let index = 0; index < figures.length; index += 1) {
   const input = scenarioGenerator(20261004 + index, [3, 3]).scenario(index);
   input.holds = {}; input.spared = [];
   Object.assign(input.requirements, {

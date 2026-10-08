@@ -1,6 +1,6 @@
 import {
-  addSetBonuses, baseStatCount, effectSlotCount, figuresInto, intangibleCompletion,
-  intangibleSetId, targetFigureCount, totalsInto,
+  addSetBonuses, effectSlotCount, figuresInto, intangibleCompletion,
+  intangibleSetId, targetFigureCount, totalCount, totalsInto,
 } from './monster-stats';
 import { availableStatSets, ceilingEffectSlots, rangeEnvelope } from './rune-optimization-ranges';
 import { craftAllocation, craftAllocationKey } from './rune-optimization-craft-allocation';
@@ -89,7 +89,7 @@ export function complementaryCandidates(problem: RuneOptimizationProblem, craftP
     .filter((candidate) => candidate.slot === slot + 1).map((candidate) => candidate.runeId)));
   const allocated = guidedCandidates({ ...problem, slots: problem.slots.map((slot, at) =>
     slot.filter((candidate) => families[at].has(candidate.runeId))) }, craftPools, true);
-  const totals = new Float64Array(baseStatCount);
+  const totals = new Float64Array(totalCount);
   const figures = new Float64Array(targetFigureCount);
   const rank = (build: Candidate[]) => {
     const effects = new Float64Array(problem.start);
@@ -176,7 +176,7 @@ function guidedCandidates(problem: RuneOptimizationProblem, craftPools: Candidat
       remaining[depth][stat] = remaining[depth + 1][stat] + sum / families.size;
     }
   }
-  const totals = new Float64Array(baseStatCount);
+  const totals = new Float64Array(totalCount);
   const figures = new Float64Array(targetFigureCount);
   const projected = new Float64Array(effectSlotCount);
   const limits = [...problem.targets.keys()].filter((at) => Number.isFinite(problem.targets[at]) || Number.isFinite(problem.ceilings[at]));
@@ -394,7 +394,7 @@ export function rangeFeasibleCandidates(problem: RuneOptimizationProblem): Candi
 function rangeFeasiblePass(problem: RuneOptimizationProblem): Candidate[][] {
   if (problem.slots.some((slot) => slot.length === 0)) return problem.slots;
   const { maxima, minima, highBonus, lowBonus } = rangeEnvelope(problem);
-  const totals = new Float64Array(baseStatCount);
+  const totals = new Float64Array(totalCount);
   const figures = new Float64Array(targetFigureCount);
   return problem.slots.map((slot, own) => {
     const high = new Float64Array(problem.start);

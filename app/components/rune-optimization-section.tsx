@@ -255,9 +255,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   /* A build is held to the stat ranges on screen, not to those it was searched
      under: moving a range after the search dims every row now outside it, so the
      table answers the bounds the player is looking at. Its figures are still
-     counted the way the search counted them, with combat crit points used only
-     for DMG; a CRI Rate range the Always crits switch has since set aside stops
-     counting. */
+     counted the way the search counted them, the fight in the composites only; a
+     CRI Rate range the Always crits switch has since set aside stops counting. */
   const tableAlwaysCritsCount = current?.requirements.alwaysCrits;
   const screenTargets = requirements?.targets;
   const screenCeilings = requirements?.ceilings;

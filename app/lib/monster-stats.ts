@@ -37,6 +37,27 @@ export const effectSlotCount = 12;
 /** The eight base stats in `MonsterTotals` order: HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES, ACC. */
 export const baseStatCount = 8;
 
+/**
+ * What a fight adds to a copy, kept in its base after the eight stats: the HP,
+ * ATK and DEF leads as a percentage of base, and the CRI Rate points its crit lead
+ * and crit conditions add. The totals carry the same four positions — HP, ATK, DEF
+ * and CRI Rate as the fight has them — and only the composites read those.
+ *
+ * **A stat is the copy's own; a composite is the fight's.** The eight stats are
+ * entered, judged and shown as the copy's panel shows them, so a CRI Rate range of
+ * 67 with a 33-point crit lead asks the runes for 67. DMG, E.HP and E.HP D are what
+ * the copy does in the fight, so they count every lead: that same copy deals its
+ * damage at 100 %. One sum gives both, so no figure can carry a lead another
+ * figure beside it lacks.
+ */
+export const combatAt = { hp: 8, atk: 9, def: 10, criRate: 11 } as const;
+
+/** A copy's base as every sheet reads it: the eight stats, then `combatAt`. */
+export const baseLength = 12;
+
+/** The totals `totalsInto` writes: the eight stats, then the four the composites read. */
+export const totalCount = 12;
+
 /* A rune property's effect id against the accumulator it feeds. The main, the
    innate and every sub property read through the same table, so a flat and a
    percentage line can never be confused by one of them. */
@@ -131,8 +152,9 @@ export function addSetBonuses(counts: ArrayLike<number>, completes: number, effe
 
 /**
  * The eight stats from a copy's base and its summed accumulators, into `out` in
- * `MonsterTotals` order. HP, ATK, DEF and SPD round up once, after every percentage
- * is summed, which is how the game shows them.
+ * `MonsterTotals` order, then HP, ATK, DEF and CRI Rate as the fight has them
+ * (`combatAt`). HP, ATK, DEF and SPD round up once, after every percentage is
+ * summed, which is how the game shows them. `out` holds `totalCount`.
  */
 export function totalsInto(base: ArrayLike<number>, effects: ArrayLike<number>, out: Float64Array): void {
   out[0] = Math.ceil(base[0] * (100 + effects[effectSlot.hpPercent]) / 100) + effects[effectSlot.hpFlat];
@@ -143,6 +165,26 @@ export function totalsInto(base: ArrayLike<number>, effects: ArrayLike<number>, 
   out[5] = base[5] + effects[effectSlot.criticalDamage];
   out[6] = base[6] + effects[effectSlot.resistance];
   out[7] = base[7] + effects[effectSlot.accuracy];
+  /* A lead is summed with every other percentage and rounded once, as the game
+     counts a leader skill — so it is not a fixed number of points on the stat. */
+  out[8] = base[8] === 0 ? out[0] : Math.ceil(base[0] * (100 + effects[effectSlot.hpPercent] + base[8]) / 100) + effects[effectSlot.hpFlat];
+  out[9] = base[9] === 0 ? out[1] : Math.ceil(base[1] * (100 + effects[effectSlot.atkPercent] + base[9]) / 100) + effects[effectSlot.atkFlat];
+  out[10] = base[10] === 0 ? out[2] : Math.ceil(base[2] * (100 + effects[effectSlot.defPercent] + base[10]) / 100) + effects[effectSlot.defFlat];
+  out[11] = out[4] + base[11];
+}
+
+/**
+ * Hold a stat's total, and the fight's total beside it, to what a ceiling on the
+ * stat allows — for a bound over builds not yet finished, which must stay an upper
+ * bound. A lead of `L` % adds at most `⌈B·L/100⌉` to a stat that rounds up, since
+ * `⌈x + y⌉ ≤ ⌈x⌉ + ⌈y⌉`; CRI Rate points add exactly.
+ */
+export function capTotal(base: ArrayLike<number>, totals: Float64Array, index: number, ceiling: number): void {
+  totals[index] = Math.min(totals[index], ceiling);
+  const combat = index === 4 ? combatAt.criRate : index < 3 ? combatAt.hp + index : -1;
+  if (combat < 0) return;
+  const reach = index === 4 ? base[combat] : Math.ceil(base[index] * base[combat] / 100);
+  totals[combat] = Math.min(totals[combat], ceiling + reach);
 }
 
 /**
@@ -173,9 +215,9 @@ export function figuresInto(totals: ArrayLike<number>, out: Float64Array): void 
  */
 export function figureOf(totals: ArrayLike<number>, index: number): number {
   switch (index) {
-    case 8: return Math.floor(Math.max(0, metricDmg(totals[1], totals[4], totals[5])));
-    case 9: return Math.floor(Math.max(0, metricEhp(totals[0], totals[2])));
-    case 10: return Math.floor(Math.max(0, metricEhpD(totals[0], totals[2])));
+    case 8: return Math.floor(Math.max(0, metricDmg(totals[combatAt.atk], totals[combatAt.criRate], totals[5])));
+    case 9: return Math.floor(Math.max(0, metricEhp(totals[combatAt.hp], totals[combatAt.def])));
+    case 10: return Math.floor(Math.max(0, metricEhpD(totals[combatAt.hp], totals[combatAt.def])));
     default: return totals[index];
   }
 }
@@ -184,12 +226,13 @@ function numberValue(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-/** A copy's base stats, in `MonsterTotals` order. HP is the export's `con` × 15. */
+/** A copy's base stats, in `MonsterTotals` order, with nothing a fight adds. HP is the export's `con` × 15. */
 export function monsterBaseStats(monster: RecordLike): Float64Array {
   return Float64Array.of(
     numberValue(monster.con) * 15, numberValue(monster.atk), numberValue(monster.def), numberValue(monster.spd),
     numberValue(monster.critical_rate), numberValue(monster.critical_damage),
     numberValue(monster.resist), numberValue(monster.accuracy),
+    0, 0, 0, 0,
   );
 }
 
@@ -247,7 +290,7 @@ type AccountStatModifiers = Partial<Record<'hpPercent' | 'atkPercent' | 'defPerc
  * imported game data is never silently guessed or invented.
  */
 export function calculateMonsterTotals(monster: RecordLike, accountModifiers: AccountStatModifiers = {}): MonsterTotals {
-  const totals = new Float64Array(baseStatCount);
+  const totals = new Float64Array(totalCount);
   totalsInto(monsterBaseStats(monster), monsterEffects(monster, accountModifiers), totals);
   return {
     hp: totals[0], atk: totals[1], def: totals[2], spd: totals[3],
@@ -291,48 +334,26 @@ export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swi
 }
 
 /**
- * A copy's combat crit conditions are added to its own CRI Rate while a search
- * judges a build. A guaranteed crit adds enough to reach the 100 % DMG cap;
- * element advantage adds its own fifteen points.
- *
- * It is a lift on the stat rather than a second DMG formula because Rune
- * Optimization's search, and the shader beside it, read CRI Rate from the monster's
- * base: lifting the base there is the whole of the rule, with no second
- * implementation to drift. A CRI Rate *shown* or *aimed at* is the monster's own
- * before these two — `unliftedFigures` takes the lift back off. A guaranteed crit
- * satisfies a CRI Rate target by definition, so that target is never asked.
+ * A guaranteed crit adds enough CRI Rate points to reach the 100 % DMG cap. Like
+ * every crit point a fight adds, it reaches DMG and nothing else (`combatAt`), and
+ * a CRI Rate target is met by definition, so that target is never asked.
  */
 export const alwaysCritsLift = 100;
 
+/** What element advantage adds to the CRI Rate DMG is dealt at. */
+export const elementAdvantageLift = 15;
+
 /**
- * The stats a leader skill can raise, each by a percentage: HP, ATK, DEF and SPD
- * by a share of the monster's base stat, CRI Rate by points.
+ * The stats a leader skill can raise for a composite: HP, ATK and DEF by a share
+ * of the monster's base stat, CRI Rate by points.
+ *
+ * There is no SPD lead. No composite reads SPD, and a SPD range is the copy's own
+ * display speed like every other stat range, so a speed lead would be an answer
+ * no calculation could act on. Speed Tuning reads a team's leader skill itself.
  */
-export const leadStats = ['atk', 'def', 'spd', 'hp', 'criRate'] as const;
+export const leadStats = ['atk', 'def', 'hp', 'criRate'] as const;
 export type LeadStat = typeof leadStats[number];
 export type Leads = Partial<Record<LeadStat, number>>;
-
-/* A lead is the same kind of bonus as the accumulator it lands in: a share of
-   base for the four, points for CRI Rate. Summed with every other percentage and
-   rounded once, SPD with a lead is ⌈B·(1 + Swift + lead)⌉ + rune speed — the
-   dungeon speed `speed-tick.ts` `combatSpeed` states, without the totem, and
-   `verify:monster-display-stats` holds the two equal. */
-const leadSlots: Readonly<Record<LeadStat, number>> = {
-  hp: effectSlot.hpPercent, atk: effectSlot.atkPercent, def: effectSlot.defPercent,
-  spd: effectSlot.spdPercent, criRate: effectSlot.criticalRate,
-};
-
-/**
- * Add a copy's stated leads to `effects`: the one place a lead joins a calculation.
- *
- * **Counted, never shown.** A lead belongs to a battle, not to the monster's
- * panel: every figure printed as the copy's own is summed without it, and every
- * range the owner states, every composite a search ranks by, is judged with it.
- */
-export function addLeaderEffects(leads: Leads | undefined, effects: Float64Array): void {
-  if (!leads) return;
-  for (const stat of leadStats) effects[leadSlots[stat]] += leads[stat] ?? 0;
-}
 
 export type CombatBonuses = {
   alwaysCrits: boolean;
@@ -340,14 +361,18 @@ export type CombatBonuses = {
   leads?: Leads;
 };
 
-/** External CRI Rate points used by a calculation, never printed or aimed at as the copy's own stat. */
-export const criticalRateLift = (bonuses: CombatBonuses): number =>
-  (bonuses.alwaysCrits ? alwaysCritsLift : 0) + (bonuses.alwaysElementAdvantage ? 15 : 0);
-
-/** Figures summed over a lifted base, with the CRI Rate put back to the monster's own. */
-export function unliftedFigures<Figures extends { [index: number]: number }>(figures: Figures, lift: number): Figures {
-  figures[4] -= lift;
-  return figures;
+/**
+ * A copy's base with what its fight adds: the one place a lead or a crit condition
+ * joins a calculation. Every sheet that reads it — the overlay, the search, the
+ * shader beside it, a found build read again — counts both the same way, because
+ * `totalsInto` is the only arithmetic that reads `combatAt`.
+ */
+export function combatBase(monster: RecordLike, bonuses: CombatBonuses): Float64Array {
+  const base = monsterBaseStats(monster);
+  for (const stat of leadStats) base[combatAt[stat]] += bonuses.leads?.[stat] ?? 0;
+  base[combatAt.criRate] += (bonuses.alwaysCrits ? alwaysCritsLift : 0)
+    + (bonuses.alwaysElementAdvantage ? elementAdvantageLift : 0);
+  return base;
 }
 
 /**
@@ -359,9 +384,7 @@ export function unliftedFigures<Figures extends { [index: number]: number }>(fig
  * say a target is met while the other says it is not — and the composites are
  * derived here rather than stored precisely so that cannot happen
  * (`AGENTS.md` §6). The truncation is `RUNE-ROLE-METRICS.md`'s display rule.
- *
- * `shown` is the copy as its panel shows it; `counted` adds its leads, and is
- * what a stated range and a shortfall are judged by (`addLeaderEffects`).
+ * The stats are the copy's own and the composites count its fight (`combatAt`).
  */
 export type TargetFigures = {
   hp: number; atk: number; def: number; spd: number;
@@ -369,19 +392,11 @@ export type TargetFigures = {
   dmg: number; ehp: number; ehpD: number;
 };
 
-export function monsterTargetFigures(
-  monster: RecordLike, bonuses: CombatBonuses, counting: 'shown' | 'counted' = 'shown',
-): TargetFigures {
-  const lift = criticalRateLift(bonuses);
-  const effects = monsterEffects(monster);
-  if (counting === 'counted') addLeaderEffects(bonuses.leads, effects);
-  const base = monsterBaseStats(monster);
-  base[4] += lift;
-  const totals = new Float64Array(baseStatCount);
-  totalsInto(base, effects, totals);
+export function monsterTargetFigures(monster: RecordLike, bonuses: CombatBonuses): TargetFigures {
+  const totals = new Float64Array(totalCount);
+  totalsInto(combatBase(monster, bonuses), monsterEffects(monster), totals);
   const figures = new Float64Array(targetFigureCount);
   figuresInto(totals, figures);
-  unliftedFigures(figures, lift);
   return {
     hp: figures[0], atk: figures[1], def: figures[2], spd: figures[3],
     criRate: figures[4], criDmg: figures[5], res: figures[6], acc: figures[7],

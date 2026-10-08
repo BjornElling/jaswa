@@ -25,9 +25,9 @@ import type { CombatBonuses } from './monster-stats';
 import type { RuneSlotKey } from './monster-defaults';
 import type { MonsterStatTargets } from './monster-preferences';
 import {
-  addGearEffects, addLeaderEffects, addSetBonuses, baseStatCount, criticalRateLift, effectSlot, effectSlotCount, effectSlotOf,
-  figuresInto, intangibleCompletion, intangibleSetId, monsterBaseStats, setIdBound,
-  statSetBonuses, targetFigureCount, targetFigureKeys, totalsInto, unliftedFigures,
+  addGearEffects, addSetBonuses, combatBase, effectSlot, effectSlotCount, effectSlotOf,
+  figuresInto, intangibleCompletion, intangibleSetId, setIdBound,
+  statSetBonuses, targetFigureCount, targetFigureKeys, totalCount, totalsInto,
 } from './monster-stats';
 import type { MonsterArchetype } from './monster-catalog';
 import { assumedCraftHalf, craftVariants, heldCraftHalf } from './rune-craft-end-state';
@@ -142,14 +142,10 @@ export type SlotReport = {
 export type RuneOptimizationProblem = {
   /** Craft recipes prepared once, then shared with the search workers. */
   craft?: CraftAllocationPreparation | null;
-  /** The copy's base stats, with combat CRI Rate points lifted for the search. */
+  /** The copy's base stats with what its fight adds for the composites (`combatBase`). */
   base: Float64Array;
-  /** What `base` lifted CRI Rate by, for the figures shown to take back off. */
-  criticalRateLift: number;
-  /** The accumulators before any rune: artifact and engraved relic mains, and the copy's leads. */
+  /** The accumulators before any rune: artifact and engraved relic mains. */
   start: Float64Array;
-  /** What the leads put into `start`, for the figures shown as the copy's own to leave out. */
-  leads: Float64Array;
   /** Index 0 is slot 1. Finite-depth candidates are ordered by `proxy`; guides are seeded separately. */
   slots: Candidate[][];
   /** Feasible whole-build guides, in slot order, checked again before seeding the table. */
@@ -193,22 +189,23 @@ export const figureIndex = (figure: RankFigure): number => targetFigureKeys.inde
  * The floors a calculation asks for, with `NaN` where none is set. A monster that
  * always crits is never asked for CRI Rate: every hit it lands is already a crit.
  */
-export function targetFloors(requirements: Pick<RuneOptimizationRequirements, 'targets' | 'alwaysCrits' | 'alwaysElementAdvantage'>): Float64Array {
-  return figureLimits(requirements.targets, requirements);
+export function targetFloors(requirements: Pick<RuneOptimizationRequirements, 'targets' | 'alwaysCrits'>): Float64Array {
+  return figureLimits(requirements.targets, requirements.alwaysCrits);
 }
 
 /** The ceilings a calculation asks for, read as `targetFloors` reads the floors. */
-export function targetCeilings(requirements: Pick<RuneOptimizationRequirements, 'ceilings' | 'alwaysCrits' | 'alwaysElementAdvantage'>): Float64Array {
-  return figureLimits(requirements.ceilings, requirements);
+export function targetCeilings(requirements: Pick<RuneOptimizationRequirements, 'ceilings' | 'alwaysCrits'>): Float64Array {
+  return figureLimits(requirements.ceilings, requirements.alwaysCrits);
 }
 
-function figureLimits(limits: Partial<Record<RankFigure, number>>, bonuses: CombatBonuses): Float64Array {
+/* A limit is taken as entered: it names the figure as the table shows it — a stat
+   as the copy's own, a composite with its fight — which is the figure the search
+   compares, so nothing is added to it here. */
+function figureLimits(limits: Partial<Record<RankFigure, number>>, alwaysCrits: boolean): Float64Array {
   const values = new Float64Array(targetFigureCount).fill(Number.NaN);
   for (const [key, value] of Object.entries(limits)) {
-    if (bonuses.alwaysCrits && key === 'criRate') continue;
-    // The search carries combat CRI Rate in its base; the entered range names the displayed stat.
-    if (typeof value === 'number' && Number.isFinite(value)) values[figureIndex(key as RankFigure)] =
-      value + (key === 'criRate' ? criticalRateLift(bonuses) : 0);
+    if (alwaysCrits && key === 'criRate') continue;
+    if (typeof value === 'number' && Number.isFinite(value)) values[figureIndex(key as RankFigure)] = value;
   }
   return values;
 }
@@ -235,7 +232,7 @@ export function defaultRankFigure(archetype: MonsterArchetype | undefined): Rank
 }
 
 const figureScratch = new Float64Array(targetFigureCount);
-const totalsScratch = new Float64Array(baseStatCount);
+const totalsScratch = new Float64Array(totalCount);
 
 function figuresOf(base: Float64Array, effects: Float64Array, out: Float64Array = figureScratch): Float64Array {
   totalsInto(base, effects, totalsScratch);
@@ -285,60 +282,25 @@ function runeEffects(rune: Rune, mainValue: number, lines: readonly EndStateLine
 /** One rune of a build in the end state a figure is counted in. */
 export type BuildPiece = { rune: Rune; mainValue: number; lines: readonly EndStateLine[] };
 
-/** The copy's base stats as the search reads them, including combat CRI Rate points. */
-export function searchBase(monster: GameRecord, bonuses: CombatBonuses): Float64Array {
-  const base = monsterBaseStats(monster);
-  base[4] += criticalRateLift(bonuses);
-  return base;
-}
-
 /**
  * The eleven figures of six runes on a copy, summed exactly as the search sums a
  * finished build — the artifacts, each rune's effects, the completed sets with the
- * Intangible's completion and the copy's combat crit conditions — so a build
+ * Intangible's completion, and the copy's fight in its composites — so a build
  * counted again after the account changed reads the figure the search would have
- * given it.
+ * given it. They are the figures the table shows and every range judges.
  */
-export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[], bonuses: CombatBonuses): BuildFigures {
+export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[], bonuses: CombatBonuses): number[] {
   const start = new Float64Array(effectSlotCount);
   addGearEffects(monster, start);
-  const leads = new Float64Array(effectSlotCount);
-  addLeaderEffects(bonuses.leads, leads);
-  return figuresWithAndWithoutLeads(searchBase(monster, bonuses), criticalRateLift(bonuses), start, leads,
-    pieces.map((piece) => ({ effects: runeEffects(piece.rune, piece.mainValue, piece.lines), setId: piece.rune.setId })));
-}
-
-/**
- * A build's figures both ways: `figures` as the copy's panel would show them,
- * and `counted` with its leads — what every range and every ranking judges.
- * Neither carries the combat crit lift; CRI Rate is the copy's own (with its lead
- * where counted).
- */
-export type BuildFigures = { figures: number[]; counted: number[] };
-
-/** The figures a found build is shown and judged by, from the problem the search read. */
-export function searchedBuildFigures(problem: RuneOptimizationProblem, picks: readonly number[]): BuildFigures {
-  const start = new Float64Array(problem.start);
-  for (let slot = 0; slot < effectSlotCount; slot += 1) start[slot] -= problem.leads[slot];
-  return figuresWithAndWithoutLeads(problem.base, problem.criticalRateLift, start, problem.leads,
-    picks.map((at, slot) => problem.slots[slot][at]));
-}
-
-function figuresWithAndWithoutLeads(
-  base: Float64Array, lift: number, start: Float64Array, leads: Float64Array,
-  pieces: ReadonlyArray<{ effects: Float64Array; setId: number }>,
-): BuildFigures {
   const effects = new Float64Array(start);
   const counts = new Int32Array(setIdBound);
   for (const piece of pieces) {
-    for (let slot = 0; slot < effectSlotCount; slot += 1) effects[slot] += piece.effects[slot];
-    if (piece.setId > 0 && piece.setId < setIdBound) counts[piece.setId] += 1;
+    const runeLines = runeEffects(piece.rune, piece.mainValue, piece.lines);
+    for (let slot = 0; slot < effectSlotCount; slot += 1) effects[slot] += runeLines[slot];
+    if (piece.rune.setId > 0 && piece.rune.setId < setIdBound) counts[piece.rune.setId] += 1;
   }
   addSetBonuses(counts, intangibleCompletion(counts), effects);
-  const shown = figuresOf(base, effects, new Float64Array(targetFigureCount));
-  for (let slot = 0; slot < effectSlotCount; slot += 1) effects[slot] += leads[slot];
-  const counted = figuresOf(base, effects, new Float64Array(targetFigureCount));
-  return { figures: Array.from(unliftedFigures(shown, lift)), counted: Array.from(unliftedFigures(counted, lift)) };
+  return Array.from(figuresOf(combatBase(monster, bonuses), effects, new Float64Array(targetFigureCount)));
 }
 
 /* The lines a Grindstone would newly touch: a stone bigger than the one the rune
@@ -667,12 +629,9 @@ export function prepareRuneOptimization(
   const { requirements, settings, unitId, monster } = input;
   if (settings.limitChanges && (settings.maxChanges === undefined || !Number.isInteger(settings.maxChanges)
     || settings.maxChanges < 1 || settings.maxChanges > 6)) throw new Error('Maximum changes must be a whole number from 1 to 6.');
-  const base = searchBase(monster, requirements);
+  const base = combatBase(monster, requirements);
   const start = new Float64Array(effectSlotCount);
   addGearEffects(monster, start);
-  const leads = new Float64Array(effectSlotCount);
-  addLeaderEffects(requirements.leads, leads);
-  for (let slot = 0; slot < effectSlotCount; slot += 1) start[slot] += leads[slot];
 
   const rank = figureIndex(requirements.rankBy);
   const targets = targetFloors(requirements);
@@ -807,7 +766,7 @@ export function prepareRuneOptimization(
     // Dominance is quadratic in the pool width. Range proofs are linear and
     // should remove impossible end states before asking who dominates whom.
     const ranged = rangeFeasibleCandidates({
-      base, criticalRateLift: criticalRateLift(requirements), start, leads, slots: bySlot, guides: [], builds,
+      base, start, slots: bySlot, guides: [], builds,
       allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
       targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock, timeLimitMs: 0,
       report: { runes: runesSeen.size, slots: [], keep: null },
@@ -877,7 +836,7 @@ export function prepareRuneOptimization(
     mainPlan[at + 1] = runeStatIds.find((id) => effectSlotOf(id) === mostCommon) ?? 0;
   }
   const referenceBase = Object.fromEntries(targetStats.map((stat, at) => [stat, base[at]])) as ReferenceStats;
-  const beforeRunes = new Float64Array(baseStatCount);
+  const beforeRunes = new Float64Array(totalCount);
   totalsInto(base, start, beforeRunes);
   const pressureTargets = Object.fromEntries(targetStats.flatMap((stat, at) => {
     const target = targets[figureIndex(stat)];
@@ -953,7 +912,7 @@ export function prepareRuneOptimization(
   }
 
   const problem: RuneOptimizationProblem = {
-    base, criticalRateLift: criticalRateLift(requirements), start, leads, slots, builds, guides: [],
+    base, start, slots, builds, guides: [],
     allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
     targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock,
     timeLimitMs: plan.seconds * 1000,

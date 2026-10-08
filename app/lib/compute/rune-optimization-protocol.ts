@@ -35,10 +35,10 @@ export type PickedRune = {
 };
 
 /**
- * A found build as the page reads it: `figures` the copy's own, as its panel would
- * show them, and `counted` with its leads, which every range is judged by.
+ * A found build as the page reads it. Its `figures` are the ones the table shows and
+ * every range judges: each stat the copy's own, each composite with its fight.
  */
-export type OptimizedBuild = FoundBuild & { runes: PickedRune[]; counted: number[] };
+export type OptimizedBuild = FoundBuild & { runes: PickedRune[] };
 
 export type RuneOptimizationAnswer = Omit<SearchOutcome, 'builds'> & {
   builds: OptimizedBuild[];

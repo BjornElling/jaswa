@@ -153,15 +153,14 @@ export type MonsterCopyPreferences = {
   /** Whether every target has elemental disadvantage against this copy. Absent is no. */
   alwaysElementAdvantage?: boolean;
   /**
-   * What its leader adds, one field a stat: ATK, DEF, SPD and HP in percent of
-   * base, CRI Rate in points. Each is its own answer: absent is no lead, and zero
-   * is a stated zero. Counted in every range and composite, never in a figure
-   * shown as the copy's own (`monster-stats.ts` `addLeaderEffects`).
+   * What its leader adds, one field a stat: ATK, DEF and HP in percent of base,
+   * CRI Rate in points. Each is its own answer: absent is no lead, and zero is a
+   * stated zero. Counted in the composites, never in a stat or its range
+   * (`monster-stats.ts` `combatBase`).
    */
   critLead?: number;
   atkLead?: number;
   defLead?: number;
-  spdLead?: number;
   hpLead?: number;
   /**
    * The main stats wanted in slots 2, 4 and 6 — several may be, so each slot
@@ -364,8 +363,8 @@ export function readLeadField(raw: string): number | undefined {
 }
 
 /** The preference field each lead is kept in, by the stat it raises. */
-export const leadFieldOf: Readonly<Record<LeadStat, 'critLead' | 'atkLead' | 'defLead' | 'spdLead' | 'hpLead'>> = {
-  atk: 'atkLead', def: 'defLead', spd: 'spdLead', hp: 'hpLead', criRate: 'critLead',
+export const leadFieldOf: Readonly<Record<LeadStat, 'critLead' | 'atkLead' | 'defLead' | 'hpLead'>> = {
+  atk: 'atkLead', def: 'defLead', hp: 'hpLead', criRate: 'critLead',
 };
 const leadFields = leadStats.map((stat) => leadFieldOf[stat]);
 
@@ -449,7 +448,6 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | '
   critLead: isLead,
   atkLead: isLead,
   defLead: isLead,
-  spdLead: isLead,
   hpLead: isLead,
   runeSlots: isRuneSlots,
   mainStat: (value) => isBanded(value, isArtifactMain),

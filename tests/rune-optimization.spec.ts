@@ -506,7 +506,7 @@ test('a monster that always crits is counted at a certain crit and shows its own
   await page.screenshot({ path: testInfo.outputPath('always-crits-table.png'), fullPage: true });
 });
 
-test('a CRI Rate range counts the crit lead, and the table shows each build\'s own CRI Rate', async ({ page }, testInfo) => {
+test('a CRI Rate range names the copy\'s own CRI Rate, and DMG is dealt with the crit lead', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
@@ -521,9 +521,9 @@ test('a CRI Rate range counts the crit lead, and the table shows each build\'s o
   const profile = page.getByRole('dialog').filter({ has: page.getByRole('spinbutton', { name: 'Crit lead, in percent' }) });
   await profile.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
   await profile.getByRole('button', { name: 'Save changes' }).click();
-  await rate.getByRole('spinbutton', { name: 'CtR%: at least' }).fill('67');
-  await rate.getByRole('spinbutton', { name: 'CtR%: at most' }).fill('69');
-  await expect(rate.getByRole('img', { name: /Crit lead adds 33% CRI Rate/ })).toBeVisible();
+  await rate.getByRole('spinbutton', { name: 'CtR%: at least' }).fill('34');
+  await rate.getByRole('spinbutton', { name: 'CtR%: at most' }).fill('36');
+  await expect(rate.getByRole('img', { name: /Crit lead adds 33% CRI Rate to DMG/ })).toBeVisible();
   await expect(rate.locator('.overlay-stat-current')).toHaveText(shown);
   expect(await box(rate)).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('raw-crit-range-filled.png') });
@@ -531,16 +531,18 @@ test('a CRI Rate range counts the crit lead, and the table shows each build\'s o
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(table).toBeVisible();
   const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
-  /* The range is met with the lead; the column is the build's own figure. */
+  /* The range is met by the copy's own CRI Rate, which the column shows; the lead
+     reaches DMG only, which is dealt at the CRI Rate the fight gives it. */
   expect(await rows.count()).toBeGreaterThan(0);
+  const figure = async (row: Locator, at: number) => Number((await row.getByRole('cell').nth(at).innerText()).replace(/\D/g, ''));
   for (const row of await rows.all()) {
-    const own = Number(await row.getByRole('cell').nth(7).innerText());
-    expect(own + 33).toBeGreaterThanOrEqual(67);
-    expect(own + 33).toBeLessThanOrEqual(69);
+    const own = await figure(row, 7);
+    expect(own).toBeGreaterThanOrEqual(34);
+    expect(own).toBeLessThanOrEqual(36);
+    expect(await figure(row, 11)).toBe(Math.floor(await figure(row, 4) * (1 + Math.min(100, own + 33) / 100 * await figure(row, 8) / 100)));
   }
   await page.screenshot({ path: testInfo.outputPath('raw-crit-range-results.png'), fullPage: true });
 });
-
 test('a target nothing can reach is answered with an empty table that says why', async ({ page }, testInfo) => {
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);

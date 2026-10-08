@@ -63,8 +63,6 @@ export type Shortfall = {
   current?: number;
   /** A stat past the upper end of its range, rather than short of the lower. */
   over?: boolean;
-  /** For a stat: `current` counts the copy's lead, so it is not the figure shown beside it. */
-  withLead?: boolean;
   /** Which artifact category or rune slot this concerns, where one applies. */
   where?: string;
 };
@@ -244,11 +242,9 @@ function relicShortfalls(resolved: ResolvedMonsterPreferences, engraved: readonl
 
 function statShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreferences): Shortfall[] {
   const shortfalls: Shortfall[] = [];
-  /* A range is judged with the copy's leads, never on the figure shown beside it;
-     where the two differ the sentence says so. */
-  const current = monsterTargetFigures(monster, resolved, 'counted');
-  const shown = monsterTargetFigures(monster, resolved, 'shown');
-  const withLead = (key: keyof MonsterStatTargets) => (current[key] !== shown[key] ? { withLead: true } : {});
+  /* A range is judged on the figure shown beside it: a stat as the copy's own, a
+     composite with its fight. */
+  const current = monsterTargetFigures(monster, resolved);
   for (const [key, target] of Object.entries(resolved.statTargets)) {
     if (!target) continue;
     const statKey = key as keyof MonsterStatTargets;
@@ -264,7 +260,6 @@ function statShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
       wanted: statLabels[statKey] ?? statKey,
       target: target.value,
       current: reached,
-      ...withLead(statKey),
     });
   }
   /* The upper end of a range, read the same way: a figure past it is as far from
@@ -282,7 +277,6 @@ function statShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
       target: ceiling.value,
       current: reached,
       over: true,
-      ...withLead(statKey),
     });
   }
   return shortfalls;
