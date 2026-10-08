@@ -34,14 +34,14 @@ function EngravedRune({ slot, rune, format }: {
   format: (value: number) => string;
 }) {
   if (!rune) {
-    return <li className="engraved-rune" data-empty="true" aria-label={`Slot ${slot}: empty`}>
+    return <li className="engraved-rune" data-slot={slot} data-empty="true" aria-label={`Slot ${slot}: empty`}>
       <span className="engraved-rune-blank" aria-hidden="true">{slot}</span>
       <span className="engraved-rune-set">Slot {slot}</span>
       <span className="engraved-rune-main">Empty</span>
     </li>;
   }
   const main = `${runeLineStat(rune.mainStatId) ?? `Stat ${rune.mainStatId}`} ${runeLineFigure(rune.mainStatId, rune.mainValue, format)}`;
-  return <li className="engraved-rune" aria-label={`Slot ${slot}: ${rune.setName}`}>
+  return <li className="engraved-rune" data-slot={slot} aria-label={`Slot ${slot}: ${rune.setName}`}>
     <RuneEmblem setName={rune.setName} slot={rune.slot} />
     {/* The level rides on the set's line: a third of a third of the panel holds
         `CRI Dmg +80%` or `+15` beside it, not both. */}

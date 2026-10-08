@@ -107,6 +107,12 @@ test('engraved relic mains appear in current stats, while a bare copy keeps its 
   const runeCards = await sizes('.engraved-rune');
   expect(runeCards).toHaveLength(6);
   expect(new Set(runeCards).size).toBe(1);
+  /* The six read as the game's circle: slot 1 top middle, the rest clockwise. */
+  const ringOrder = async () => (await dialog.locator('.engraved-rune').evaluateAll((elements) => elements
+    .map((element) => ({ box: element.getBoundingClientRect(), slot: element.getAttribute('aria-label')!.match(/^Slot (\d)/)![1] }))
+    .sort((a, b) => Math.round(a.box.top - b.box.top) || a.box.left - b.box.left)
+    .map(({ slot }) => slot))).join('');
+  expect(await ringOrder()).toBe('612543');
   const artifactCards = await sizes('.engraved-artifact');
   expect(artifactCards).toHaveLength(2);
   expect(new Set(artifactCards).size).toBe(1);
@@ -122,6 +128,7 @@ test('engraved relic mains appear in current stats, while a bare copy keeps its 
   await expect(dialog.locator('.stat-range[data-figure="hp"] .overlay-stat-current')).toContainText(/16[.,]500/);
   /* A bare copy draws the same six cards and two artifact boxes, empty. */
   expect(await sizes('.engraved-rune')).toEqual(runeCards);
+  expect(await ringOrder()).toBe('612543');
   expect(await sizes('.engraved-artifact')).toEqual(artifactCards);
   expect(await dialog.locator('.overlay-body').evaluate(fits)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('relic-stat-bare.png') });
