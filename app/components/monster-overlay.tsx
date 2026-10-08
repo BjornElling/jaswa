@@ -28,10 +28,11 @@ import { labelledMonsterName, numberedMonsterNames } from '../lib/monster-names'
 import type { RuneSlotKey } from '../lib/monster-defaults';
 import { runeSlotKeys } from '../lib/monster-defaults';
 import type {
-  BandedChoices, MonsterCopyPreferences, MonsterStatTargets,
+  BandedChoices, MonsterCopyPreferences, MonsterPreferences, MonsterStatTargets,
 } from '../lib/monster-preferences';
 import {
-  blankMonsterCopyPreferences, leadFieldOf, leadMaximum, monsterLabelMaximum, readLeadField, readTargetField,
+  blankMonsterCopyPreferences, copyProfile, leadFieldOf, leadMaximum, monsterLabelMaximum, profileIn, readLeadField,
+  readTargetField, statesSomething,
 } from '../lib/monster-preferences';
 import { resolveMonsterPreferences } from '../lib/monster-preference-resolution';
 import type { ResolvedMonsterPreferences } from '../lib/monster-preference-resolution';
@@ -245,35 +246,56 @@ function Nickname({ value, editing, onEditingChange, onCommit }: {
   </>;
 }
 
-export function MonsterOverlay({ target, game, general, preferences, presetId, onSave, onClose, onOptimize }: {
+export function MonsterOverlay({ target, game, general, profiles, presetId, onSave, onClose, onOptimize }: {
   target: MonsterReference;
   game: GameRecord | undefined;
   general: GeneralSettings;
-  preferences: MonsterCopyPreferences | undefined;
-  /** The preset the overlay was opened for, else the one chosen across the program; read here only where the copy stands in it. */
+  /** Every context's profiles; the panel reads and writes the one it is open on. */
+  profiles: MonsterPreferences;
+  /** The preset the overlay was opened for, else Default; read here only where the copy stands in it. */
   presetId: string;
-  onSave: (unitId: string, preferences: MonsterCopyPreferences) => void;
+  onSave: (presetId: string, unitId: string, preferences: MonsterCopyPreferences) => void;
   onClose: () => void;
   onOptimize: (unitId: string, presetId: string) => void;
 }) {
+  const unitId = target.kind === 'copy' ? target.unitId : '';
+  const presetsReading = usePresets();
+  /* The contexts this copy has a profile in: Default, and every preset it stands
+     in. Each is its own profile, gear and figures (`DECK-PRESETS.md` §4). */
+  const contexts = useMemo(() => presetsReading.presets
+    .filter((entry) => entry.kind === 'default' || (unitId !== '' && entry.members.includes(unitId))), [presetsReading.presets, unitId]);
+  const [contextId, setContextId] = useState(presetId);
+
+  /* One preset for the whole panel — the profile it edits, the gear it shows, the
+     figures it reads and the build Optimize opens — so the box in the head names
+     what everything below is about. It is the preset the overlay was opened for
+     where the copy stands in it, and Default where it does not. */
+  const preset = contexts.find((entry) => entry.id === contextId) ?? contexts.find((entry) => entry.kind === 'default');
+  const activeContextId = preset?.id ?? defaultPresetId;
   const [draft, setDraft] = useState<MonsterCopyPreferences>(
-    () => preferences ?? blankMonsterCopyPreferences(target.kind === 'copy' ? target.unitId : ''),
+    () => profileIn(profiles, activeContextId, unitId) ?? blankMonsterCopyPreferences(unitId),
   );
   const [dirty, setDirty] = useState(false);
   const [editingNickname, setEditingNickname] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
-  const presetsReading = usePresets();
 
-  /* One preset for the whole panel — the gear it shows, the figures it reads and
-     the build Optimize opens — so the box in the head names what everything
-     below is about. It is the preset the overlay was opened for — or, from a
-     place about no preset, the program's chosen one — where the copy stands in
-     it, and Default where it does not. */
-  const preset = useMemo(() => {
-    const unitId = target.kind === 'copy' ? target.unitId : '';
-    return presetsReading.presets.find((entry) => entry.id === presetId && (entry.kind === 'default' || entry.members.includes(unitId)))
-      ?? presetsReading.presets.find((entry) => entry.kind === 'default');
-  }, [presetsReading.presets, presetId, target]);
+  /* The other contexts whose profile of this copy says something, offered to be
+     copied in. Copying is the one way a profile crosses from one preset to
+     another, and it is the user's act: afterwards each is its own again. */
+  const copySources = contexts.filter((entry) => entry.id !== activeContextId)
+    .flatMap((entry) => {
+      const stated = profileIn(profiles, entry.id, unitId);
+      return stated !== undefined && statesSomething(stated) ? [{ id: entry.id, name: entry.name, stated }] : [];
+    });
+
+  /* Another context is another profile: the draft becomes that one's, unedited.
+     An edit is never carried across, which is why the choice waits for a save. */
+  function openContext(next: string) {
+    if (dirty || next === activeContextId) return;
+    setContextId(next);
+    setDraft(profileIn(profiles, next, unitId) ?? blankMonsterCopyPreferences(unitId));
+    setEditingNickname(false);
+  }
   const monster = useMemo(() => {
     if (target.kind !== 'copy' || !game) return undefined;
     const roster = Array.isArray(game.unit_list) ? game.unit_list : [];
@@ -292,8 +314,8 @@ export function MonsterOverlay({ target, game, general, preferences, presetId, o
   }, [game, target, display.name]);
   const usage: MonsterUsage = useMemo(() => monsterUsage(masterId), [masterId]);
   const resolved: ResolvedMonsterPreferences = useMemo(
-    () => resolveMonsterPreferences(target.kind === 'copy' ? target.unitId : '', masterId, draft, monster),
-    [target, masterId, draft, monster],
+    () => resolveMonsterPreferences(unitId, masterId, draft, monster),
+    [unitId, masterId, draft, monster],
   );
 
   /* The eleven figures this copy has: its stats as its own panel shows them, and
@@ -359,7 +381,7 @@ export function MonsterOverlay({ target, game, general, preferences, presetId, o
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (target.kind !== 'copy') return;
-    onSave(target.unitId, { ...draft, unitId: target.unitId });
+    onSave(activeContextId, target.unitId, { ...draft, unitId: target.unitId });
     setDirty(false);
     onClose();
   }
@@ -440,7 +462,7 @@ export function MonsterOverlay({ target, game, general, preferences, presetId, o
   return <Overlay labelledBy="monster-overlay-title" dismissible={!dirty} onClose={onClose} onSubmit={submit}
     actions={editable ? <>
       <OverlayAction kind="reset" label="Reset to defaults"
-        onClick={() => { setDraft(blankMonsterCopyPreferences(target.unitId)); setDirty(true); }} />
+        onClick={() => change(() => blankMonsterCopyPreferences(target.unitId))} />
       <OverlayAction kind="save" label="Save changes" type="submit" disabled={!dirty} />
     </> : undefined}>
       <header className="overlay-head monster-overlay-head">
@@ -466,14 +488,29 @@ export function MonsterOverlay({ target, game, general, preferences, presetId, o
         {editable && <Button size="prominent" className="monster-overlay-optimize"
           aria-label={`Optimize runes for ${heroName}`}
           onClick={() => {
-            if (dirty) onSave(target.unitId, { ...draft, unitId: target.unitId });
-            onOptimize(target.unitId, preset?.id ?? defaultPresetId);
+            if (dirty) onSave(activeContextId, target.unitId, { ...draft, unitId: target.unitId });
+            onOptimize(target.unitId, activeContextId);
           }}>Optimize</Button>}
-        {/* Which preset the build is for, where it cannot be missed: the same copy
-            carries a different build in each preset it stands in. */}
+        {/* Which preset the profile and build are for, where it cannot be missed:
+            the same copy has a profile and a build of its own in each preset it
+            stands in. Both menus are always there, and only disabled where they
+            have nothing to offer, so the box keeps its shape (`AGENTS.md` §2). */}
         {editable && <div className="monster-overlay-preset" role="group" aria-label="Build for preset">
-          <span className="monster-overlay-preset-label">Build for</span>
-          <span className="monster-overlay-preset-name" title={preset?.name}>{preset?.name ?? 'Default'}</span>
+          <label className="monster-overlay-preset-label" htmlFor="monster-overlay-preset">Build for</label>
+          <Dropdown id="monster-overlay-preset" className="monster-overlay-preset-select" value={activeContextId}
+            disabled={dirty || contexts.length < 2}
+            title={dirty ? 'Save or close to open another preset' : preset?.name}
+            onChange={(event) => openContext(event.target.value)}>
+            {contexts.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          </Dropdown>
+          <Dropdown className="monster-overlay-copy-select" aria-label="Copy the profile from another preset"
+            value="" placeholder="Copy profile from…" disabled={copySources.length === 0}
+            onChange={(event) => {
+              const source = copySources.find((entry) => entry.id === event.target.value);
+              if (source) change(() => copyProfile(source.stated, unitId));
+            }}>
+            {copySources.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          </Dropdown>
         </div>}
       </header>
 

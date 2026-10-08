@@ -33,7 +33,7 @@ import { monsterPresentation } from '../lib/monster-catalog';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
-import { monsterStatTargetKeys, readTargetField } from '../lib/monster-preferences';
+import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
 import { monsterTargetFigures } from '../lib/monster-stats';
 import { accountItems, defaultPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
 import type { Preset } from '../lib/presets';
@@ -163,7 +163,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const settings = preferences.runeOptimization;
   const general = preferences.general;
   const [unitId, setUnitId] = useSessionStorageState<string>(runeOptimizationMonsterKey, '', isString);
-  const [edits, setEdits] = useState<{ unitId: string; requirements: RuneOptimizationRequirements } | null>(null);
+  const [edits, setEdits] = useState<{ presetId: string; unitId: string; requirements: RuneOptimizationRequirements } | null>(null);
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
@@ -188,8 +188,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const presetChoices = useMemo(() => presets.filter((entry) => entry.kind === 'default' || (unitId !== '' && entry.members.includes(unitId))),
     [presets, unitId]);
   const preset = presetChoices.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === defaultPresetId);
+  const activePresetId = preset?.id ?? defaultPresetId;
   const items = useMemo(() => accountItems(game?.data), [game]);
-  const names = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
+  /* The profile is the copy's in this preset and no other: names, requirements
+     and the Reset to profile below all read the one context the build is for. */
+  const profiles = useMemo(() => profilesIn(preferences.monsterPreferences, activePresetId), [preferences.monsterPreferences, activePresetId]);
+  const names = useMemo(() => monsterCopyNames(monsters, profiles), [monsters, profiles]);
   const options = useMemo<MonsterOption[]>(() => (preset ? monsters : [])
     .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
     .map((monster) => {
@@ -210,9 +214,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const describeBuild = useCallback((build: CurrentBuild) => buildIssueReading(build, (id) => monstersByUnitId.get(id)?.name), [monstersByUnitId]);
 
   const profile = useMemo(() => (selected
-    ? profileRequirements(selected.unitId, selected.masterId, preferences.monsterPreferences[selected.unitId])
-    : undefined), [selected, preferences.monsterPreferences]);
-  const requirements = edits !== null && edits.unitId === unitId ? edits.requirements : profile?.requirements;
+    ? profileRequirements(selected.unitId, selected.masterId, profiles[selected.unitId])
+    : undefined), [selected, profiles]);
+  /* A change made here is for this copy in this preset: the same copy in another
+     preset is another question, and does not inherit it. */
+  const edited = edits !== null && edits.unitId === unitId && edits.presetId === activePresetId;
+  const requirements = edited ? edits.requirements : profile?.requirements;
 
   const accountRunes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
   const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
@@ -240,7 +247,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      brings that back updates the builds (`rune-optimization-refresh.ts`). Listing
      fewer builds is the same table cut shorter. */
   const { resultCount, ...searchSettings } = settings;
-  const activePresetId = preset?.id ?? defaultPresetId;
   const keyOf = (asked: RuneOptimizationRequirements | undefined) =>
     JSON.stringify({ presetId: activePresetId, unitId, requirements: asked, settings: searchSettings, spared });
   const inputKey = keyOf(requirements);
@@ -295,7 +301,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   function change(update: (current: RuneOptimizationRequirements) => RuneOptimizationRequirements) {
     if (!requirements) return;
-    setEdits({ unitId, requirements: update(requirements) });
+    setEdits({ presetId: activePresetId, unitId, requirements: update(requirements) });
   }
 
   function chooseMonster(next: string) {
@@ -351,7 +357,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   function rankBy(figure: RankFigure) {
     if (!requirements || figure === requirements.rankBy) return;
     const next = { ...requirements, rankBy: figure };
-    setEdits({ unitId, requirements: next });
+    setEdits({ presetId: activePresetId, unitId, requirements: next });
     if (current || state === 'calculating') void calculate(next);
   }
 
@@ -372,7 +378,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       : runeOptimizationWorkWarning(trial.work, plan.seconds * 1000);
   const workDetails = trial.work ? `After reduction: ${trial.work.slots.join(' × ')} choices by slot; ${trial.work.physicalRunes} physical runes, ${trial.work.variants} end states; ${trial.work.figures} judged figures, ${trial.work.ceilings} ceilings; up to ${trial.work.freeSlots} slots without a required set. Gems, Grindstones, stock limits and Intangible follow this calculation's settings.` : undefined;
   const changed = (same: boolean) => (same ? undefined : 'Changed for this calculation');
-  const edited = edits !== null && edits.unitId === unitId;
   const display = selected ? monsterPresentation(selected.masterId) : undefined;
 
   return <WorkspacePage header={<OptimizationHeader />}>

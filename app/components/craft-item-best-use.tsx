@@ -14,7 +14,7 @@ import { columnClasses } from '../lib/table-layouts';
 import { formatDecimal, formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterNameCollator } from '../lib/monster-grid';
-import { monsterCopyNames } from '../lib/monster-names';
+import { monsterCopyNamesIn } from '../lib/monster-names';
 import type { Engraving } from '../lib/presets';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
@@ -130,11 +130,11 @@ function ResultCard({ title, description, children, empty }: {
   </section>;
 }
 
-export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, roles, general, onOpenRune }: {
+export function CraftItemBestUse({ items, runes, monsters, profiles, roles, general, onOpenRune }: {
   items: readonly CraftItem[];
   runes: readonly Rune[];
   monsters: readonly GameRecord[];
-  monsterPreferences: MonsterPreferences;
+  profiles: MonsterPreferences;
   roles: readonly RuneRole[];
   general: GeneralSettings;
   onOpenRune: OpenRuneOverlay;
@@ -200,7 +200,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, r
   const selectedItemId = item?.id ?? '';
   const roleId = role?.id ?? '';
 
-  const monsterNames = useMemo(() => monsterCopyNames(monsters, monsterPreferences), [monsters, monsterPreferences]);
+  const namesIn = useMemo(() => monsterCopyNamesIn(monsters, profiles), [monsters, profiles]);
   const placements = usePresets();
 
   /* A follow-up grind is only a question for a gem, and only for one whose stat
@@ -317,7 +317,7 @@ export function CraftItemBestUse({ items, runes, monsters, monsterPreferences, r
       </RuneLink>
     </td>
     <td className={cell('location')}>
-      <EngravedPlace places={places} presets={placements.presets} monsterName={(unitId: string) => monsterNames[unitId]?.name ?? 'A monster not in this import'} />
+      <EngravedPlace places={places} presets={placements.presets} monsterName={(unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import'} />
     </td>
     {/* What lands where, in the game's own numbers: the property being spent
         on, and what it would read afterwards. A gem changes the stat as well

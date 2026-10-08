@@ -23,11 +23,11 @@ import { deleteGamePreset, leadGamePreset } from './lib/game-preset-edits';
 import { usePageHistory } from './lib/page-history';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import type { MonsterPriority } from './lib/monster-priority';
-import { engravings, readPresets, selectedPresetKey } from './lib/presets';
+import { defaultPresetId, engravings, readPresets, selectedPresetKey } from './lib/presets';
 import { PresetsContext } from './lib/presets-context';
 import type { OwnPreset } from './lib/presets';
 import type { PresetWrites } from './components/presets-section';
-import { statesSomething } from './lib/monster-preferences';
+import { profileIn, profilesIn, withoutContext, withProfile } from './lib/monster-preferences';
 import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
 import type { MonsterReference, OpenMonsterOverlay } from './components/monster-link';
@@ -60,6 +60,21 @@ type OverlayTarget =
 
 function WorkspaceLoading() {
   return <section className="panel" aria-busy="true"><p className="lead">Opening workspace…</p></section>;
+}
+
+/**
+ * The preferences without what was stated for one preset: its profiles, its
+ * speed tuning and its priority list. A deleted preset is gone in the game too,
+ * and what was said about its team is said about nothing.
+ */
+function withoutPreset(preferences: Preferences, presetId: string): Preferences {
+  const rest = <T,>(map: Readonly<Record<string, T>>) => Object.fromEntries(Object.entries(map).filter(([id]) => id !== presetId));
+  return {
+    ...preferences,
+    monsterPreferences: withoutContext(preferences.monsterPreferences, presetId),
+    presetPriority: rest(preferences.presetPriority),
+    speedTuning: { ...preferences.speedTuning, presets: rest(preferences.speedTuning.presets) },
+  };
 }
 
 export default function Home() {
@@ -322,7 +337,11 @@ export default function Home() {
 
   /* The preset the opener is about is the overlay's own, and leaves the one
      chosen across the program alone: looking at a monster of Arena Attack 1
-     from Speed Tuning is not a decision to read every page in Arena Attack 1. */
+     from Speed Tuning is not a decision to read every page in Arena Attack 1.
+     A place about no preset — the Monsters page, an artifact, a relic — shows
+     Default, so the overlay opens there too, never on whatever preset another
+     page last chose: that would put an edit into a profile the opener never
+     showed. */
   const openMonsterOverlay: OpenMonsterOverlay = (target, opener, presetId) => {
     overlayOpener.current = opener;
     setOverlay({ kind: 'monster', target, presetId });
@@ -345,20 +364,16 @@ export default function Home() {
 
   /**
    * The one route from a monster overlay's choice to storage — a named wrapper
-   * over `changePreferences`, never a second route.
+   * over `changePreferences`, never a second route. It writes one copy's profile
+   * in one context and touches no other (`monster-preferences.ts`).
    *
    * A record that ends up saying nothing is removed rather than kept as a husk,
    * so the map holds copies the user has actually decided something about and a
    * count of records is a count of decisions. A record holding only cleared
    * preferences still says something and stays.
    */
-  function updateMonsterPreferences(unitId: string, next: MonsterCopyPreferences) {
-    changePreferences((current) => {
-      const monsterPreferences = { ...current.monsterPreferences };
-      if (statesSomething(next)) monsterPreferences[unitId] = { ...next, unitId };
-      else delete monsterPreferences[unitId];
-      return { ...current, monsterPreferences };
-    });
+  function updateMonsterPreferences(contextId: string, unitId: string, next: MonsterCopyPreferences) {
+    changePreferences((current) => ({ ...current, monsterPreferences: withProfile(current.monsterPreferences, contextId, unitId, next) }));
   }
 
   /* The rune overlay's one route to storage. A rune left holding nothing is
@@ -484,14 +499,29 @@ export default function Home() {
       changePreferences((current) => ({ ...current, presetPriority: { ...current.presetPriority, [presetId]: [...order] } }));
     },
     ownPresets(change: (current: OwnPreset[]) => OwnPreset[]) {
-      changePreferences((current) => ({ ...current, presets: change(current.presets) }));
+      changePreferences((current) => {
+        const next = change(current.presets);
+        const kept = new Map(next.map((entry) => [entry.id, entry]));
+        let read: Preferences = { ...current, presets: next };
+        for (const entry of current.presets) {
+          const now = kept.get(entry.id);
+          if (now === undefined) { read = withoutPreset(read, entry.id); continue; }
+          /* A copy taken out of a preset takes its profile there with it: the
+             profile was what the copy was for in that team. */
+          for (const unitId of entry.members) {
+            if (!now.members.includes(unitId) && profileIn(read.monsterPreferences, entry.id, unitId) !== undefined) {
+              read = { ...read, monsterPreferences: withProfile(read.monsterPreferences, entry.id, unitId, undefined) };
+            }
+          }
+        }
+        return read;
+      });
     },
     async deleteGamePreset(presetId: string) {
       const preset = presets.find((entry) => entry.id === presetId);
       if (!preset) return;
       if (await changeGamePreset((current) => deleteGamePreset(current, preset))) {
-        changePreferences((current) => ({ ...current,
-          presetPriority: Object.fromEntries(Object.entries(current.presetPriority).filter(([id]) => id !== presetId)) }));
+        changePreferences((current) => withoutPreset(current, presetId));
       }
     },
     async leadGamePreset(presetId: string, unitId: string | null) {
@@ -643,7 +673,7 @@ export default function Home() {
 
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
         game={game}
-        monsterPreferences={preferences.monsterPreferences}
+        profiles={preferences.monsterPreferences}
         runeHolds={preferences.runeHolds}
         settings={preferences.runePotential}
         roles={preferences.runePotentialPresets}
@@ -656,7 +686,7 @@ export default function Home() {
         settings={preferences.artifacts}
         data={game?.data}
         monsters={monsters}
-        monsterPreferences={preferences.monsterPreferences}
+        defaultProfiles={profilesIn(preferences.monsterPreferences, defaultPresetId)}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onUpdate={updateArtifactSettings}
@@ -771,10 +801,10 @@ export default function Home() {
       target={overlay.target}
       game={game?.data}
       general={preferences.general}
-      preferences={overlay.target.kind === 'copy' ? preferences.monsterPreferences[overlay.target.unitId] : undefined}
+      profiles={preferences.monsterPreferences}
       onSave={updateMonsterPreferences}
       onClose={closeOverlay}
-      presetId={overlay.presetId ?? selectedPreset}
+      presetId={overlay.presetId ?? defaultPresetId}
       onOptimize={optimizeMonster}
     /></Suspense>}
 

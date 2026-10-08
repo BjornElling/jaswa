@@ -28,8 +28,9 @@ The durable workspace contains:
   one main stat wanted on all its gear, the substats wanted in each artifact
   category and the relic uniques — each of those three gear answers as a
   preferred and an accepted band — and the stat ranges the copy is built toward,
-  keyed by the game's `unit_id`, so two copies of one monster can be built for
-  different jobs), Rune Clean-up settings, Rune Clean-up
+  keyed by context — Default or one preset — and then by the game's `unit_id`,
+  so two copies of one monster, and one copy in two presets, can be built for
+  different jobs; `DECK-PRESETS.md` §4.1), Rune Clean-up settings, Rune Clean-up
   roles, and Artifact Optimization settings (whether to factor in only owned
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
   assumed stone value, and the acceptable-property factor), the presets built

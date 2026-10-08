@@ -300,7 +300,8 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   /* The calculation's own changes never reach the profile. */
   const stored = await storedPreferences(page);
   /* A fresh workspace writes nothing until a choice is saved, so no document at all passes too. */
-  expect((stored?.monsterPreferences as Record<string, unknown> | undefined)?.['11']).toBeUndefined();
+  expect(Object.values((stored?.monsterPreferences ?? {}) as Record<string, Record<string, unknown>>)
+    .some((profiles) => profiles['11'] !== undefined)).toBe(false);
 
   /* The page's settings are the user's and are kept; changing one says the table is stale. */
   const settings = page.getByRole('complementary', { name: 'Settings' });

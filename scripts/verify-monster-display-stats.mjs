@@ -77,10 +77,10 @@ assert.equal(past.criRate, 90);
 assert.equal(past.dmg, keenFigures.dmg);
 const below = monsterTargetFigures({ ...monster, critical_rate: 40 }, { ...plain, leads: { criRate: 33 } });
 assert.equal(below.dmg, Math.floor(own.atk * (1 + 0.73 * own.criDmg / 100)));
-assert.deepEqual(readMonsterPreferences({ '1': {
+assert.deepEqual(readMonsterPreferences({ 'deck-1-4': { '1': {
   unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, critLead: 101, hpLead: 24, spdLead: 24,
-} })['1'], { unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, hpLead: 24 },
+} } })['deck-1-4']['1'], { unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, hpLead: 24 },
 'a lead out of range, or one no calculation reads, costs that lead alone');
-assert.equal(readMonsterPreferences({ '1': { unitId: '1', critLead: 0 } })['1'].critLead, 0);
+assert.equal(readMonsterPreferences({ default: { '1': { unitId: '1', critLead: 0 } } }).default['1'].critLead, 0);
 
 console.log('Monster display stats: Icaru DEF, empty gear, relic mains, crit bonuses and leads in the composites only, and saved choices agree.');

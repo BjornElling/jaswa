@@ -569,7 +569,7 @@ test('the monster overlay names the preset its build is for, and Optimize opens 
   await page.locator('.monster-priority-entry').first().locator('.monster-link').click();
   const dialog = page.getByRole('dialog');
   const box = dialog.getByRole('group', { name: 'Build for preset' });
-  await expect(box).toHaveText('Build forArena Attack 4');
+  await expect(box.getByLabel('Build for', { exact: true })).toHaveValue('deck-1-4');
   await expect(box).toHaveCSS('border-top-color', 'rgb(217, 173, 82)');
   const filled = (scope: Locator) => scope.getByRole('list', { name: 'Engraved runes' }).locator('.engraved-rune:not([data-empty])');
   await expect(filled(dialog)).toHaveCount(3);
@@ -585,7 +585,7 @@ test('the monster overlay names the preset its build is for, and Optimize opens 
   /* In Default, it says so. */
   await page.getByLabel('Preset', { exact: true }).selectOption('default');
   await page.getByRole('button', { name: 'Open profile' }).click();
-  await expect(page.getByRole('dialog').getByRole('group', { name: 'Build for preset' })).toHaveText('Build forDefault');
+  await expect(page.getByRole('dialog').getByLabel('Build for', { exact: true })).toHaveValue('default');
   await expect(filled(page.getByRole('dialog'))).toHaveCount(6);
 });
 
@@ -603,7 +603,7 @@ test('a monster opened from a preset\'s Speed Tuning team is read and optimized 
   await page.screenshot({ path: testInfo.outputPath('speed-team-before.png') });
   await team.getByRole('button', { name: names[12], exact: true }).click();
   const overlay = page.getByRole('dialog').filter({ has: page.getByRole('group', { name: 'Build for preset' }) });
-  await expect(overlay.getByRole('group', { name: 'Build for preset' })).toHaveText('Build forArena Attack 4');
+  await expect(overlay.getByLabel('Build for', { exact: true })).toHaveValue('deck-1-4');
   await expect(overlay.getByRole('list', { name: 'Engraved runes' }).locator('.engraved-rune:not([data-empty])')).toHaveCount(3);
   await page.screenshot({ path: testInfo.outputPath('speed-team-monster.png') });
 
@@ -614,7 +614,7 @@ test('a monster opened from a preset\'s Speed Tuning team is read and optimized 
 
   /* Opened from a place about no preset, the overlay still reads the program's choice. */
   await page.getByRole('button', { name: 'Open profile' }).click();
-  await expect(page.getByRole('dialog').getByRole('group', { name: 'Build for preset' })).toHaveText('Build forArena Attack 4');
+  await expect(page.getByRole('dialog').getByLabel('Build for', { exact: true })).toHaveValue('deck-1-4');
 });
 
 test('the monster overlay Optimize button shares the preset row\'s hover', async ({ page }, testInfo) => {
@@ -825,4 +825,108 @@ test('a rune on another monster in Default names that monster in a preset build'
     await expect(card.locator('.rune-build-card-where').first()).toContainText(otherName);
   }
   await detail.screenshot({ path: testInfo.outputPath('other-monster-engraved.png') });
+});
+
+/* Rune Optimization's monster and preset, then the profile they read. */
+async function openProfileIn(page: Page, unitId: string, presetId: string) {
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption(unitId);
+  await page.getByLabel('Preset', { exact: true }).selectOption(presetId);
+  await page.getByRole('button', { name: 'Open profile' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Build for', { exact: true })).toHaveValue(presetId);
+  return dialog;
+}
+const spdAtMost = (scope: Page | Locator) => scope.getByLabel('Spd: at most', { exact: true });
+const ceilings = async (page: Page) => {
+  const profiles = (await stored(page)).monsterPreferences as Record<string, Record<string, { statCeilings?: unknown }>>;
+  return Object.fromEntries(Object.entries(profiles).flatMap(([contextId, copies]) =>
+    copies['12'] ? [[contextId, copies['12'].statCeilings]] : []));
+};
+
+test('a profile is the copy\'s in one preset: an edit in Default reaches no preset, and one in a preset reaches no other', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+
+  /* Nothing filled in: 12 states nothing anywhere, in Default or a preset. */
+  let dialog = await openProfileIn(page, '12', 'deck-1-4');
+  await expect(spdAtMost(dialog)).toHaveValue('');
+  await expect(dialog.getByLabel('Copy the profile from another preset')).toBeDisabled();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+
+  /* The reported case: a max Spd stated in Default. */
+  dialog = await openProfileIn(page, '12', 'default');
+  await spdAtMost(dialog).fill('150');
+  /* An unsaved edit holds the panel to its preset, so it cannot be carried across. */
+  await expect(dialog.getByLabel('Build for', { exact: true })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toHaveCount(0);
+
+  /* Arena Attack 4 does not see it. */
+  dialog = await openProfileIn(page, '12', 'deck-1-4');
+  await expect(spdAtMost(dialog)).toHaveValue('');
+  await page.screenshot({ path: testInfo.outputPath('profile-preset-untouched.png') });
+  await spdAtMost(dialog).fill('180');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  expect(await ceilings(page)).toEqual({ default: { spd: 150 }, 'deck-1-4': { spd: 180 } });
+
+  /* The requirements Rune Optimization starts from are the chosen preset's own. */
+  await expect(spdAtMost(page)).toHaveValue('180');
+  await page.getByLabel('Preset', { exact: true }).selectOption('default');
+  await expect(spdAtMost(page)).toHaveValue('150');
+  /* A change made on the page for one preset is not carried into another. */
+  await spdAtMost(page).fill('170');
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-4');
+  await expect(spdAtMost(page)).toHaveValue('180');
+  await page.getByLabel('Preset', { exact: true }).selectOption('default');
+  await expect(spdAtMost(page)).toHaveValue('150');
+
+  /* In the overlay, the box switches the profile read, and moves nothing beside it. */
+  await page.getByRole('button', { name: 'Open profile' }).click();
+  dialog = page.getByRole('dialog');
+  const group = dialog.getByRole('group', { name: 'Build for preset' });
+  const before = await box(group);
+  await page.screenshot({ path: testInfo.outputPath('profile-switch-before.png') });
+  await dialog.getByLabel('Build for', { exact: true }).selectOption('deck-1-4');
+  await expect(spdAtMost(dialog)).toHaveValue('180');
+  await dialog.getByLabel('Build for', { exact: true }).selectOption('deck-99-1');
+  await expect(spdAtMost(dialog)).toHaveValue('');
+  expect(await box(group)).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('profile-switch-after.png') });
+
+  /* Everything filled in: a profile copied from Default is a copy, not a link. */
+  await expect(dialog.getByLabel('Copy the profile from another preset')).toBeEnabled();
+  await dialog.getByLabel('Copy the profile from another preset').selectOption('default');
+  await expect(spdAtMost(dialog)).toHaveValue('150');
+  await expect(dialog.getByLabel('Copy the profile from another preset')).toHaveValue('');
+  expect(await box(group)).toEqual(before);
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  dialog = await openProfileIn(page, '12', 'default');
+  await spdAtMost(dialog).fill('140');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  expect(await ceilings(page)).toEqual({ default: { spd: 140 }, 'deck-1-4': { spd: 180 }, 'deck-99-1': { spd: 150 } });
+});
+
+test('a copy is named by the preset it is read in', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openPresets(page);
+  const names = await copyNames(page);
+
+  const dialog = await openProfileIn(page, '12', 'deck-1-4');
+  await dialog.getByRole('button', { name: 'Add a nickname' }).click();
+  await dialog.getByRole('textbox', { name: 'Nickname' }).fill('Arena opener');
+  await dialog.getByRole('textbox', { name: 'Nickname' }).press('Enter');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+
+  await openPresets(page);
+  await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  await expect(page.locator('.monster-priority-entry .monster-name').first()).toHaveText(`${names[12]} (Arena opener)`);
+  await page.screenshot({ path: testInfo.outputPath('nickname-in-preset.png') });
+  /* Default, and the other preset 12 stands in, keep the game's name. */
+  expect(await copyNames(page)).toEqual(names);
+  await choosePreset(page, 'Not yet named', 'Deck 99 · 1');
+  await expect(page.locator('.monster-priority-entry .monster-name').first()).toHaveText(names[12]);
 });

@@ -299,13 +299,6 @@ label[for] {
 .type-title, .block-title, .bar-head b, .dialog h2, .role-name, .route-name,
 .route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
 .rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder,
-.monster-overlay-preset-name {
-  font-family: var(--font-heading);
-  font-size: var(--type-title);
-  font-weight: 600;
-  letter-spacing: var(--track-title);
-}
-
 /* Heading — a named block inside a panel, one step below a title. */
 .type-heading, .field-legend, .slider-label, .editor-block-title,
 .artifact-conversion-title, .artifact-scope-box h3, .artifact-scope-subheading,
@@ -315,7 +308,8 @@ label[for] {
 .field-lead > span, .overlay-block-title, .speed-basis-title,
 .overlay-facts dd, .rune-overlay-location .monster-name, .rune-build-centre-name,
 .rune-optimization-monster-select .jaswa-select, .jaswa-select.monster-priority-select,
-.jaswa-select.rune-optimization-preset-select, .jaswa-select.preset-team-button {
+.jaswa-select.rune-optimization-preset-select, .jaswa-select.preset-team-button,
+.jaswa-select.monster-overlay-preset-select {
   font-family: var(--font-heading);
   font-size: var(--type-heading);
   font-weight: 600;
@@ -5192,7 +5186,10 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   background: var(--gold-deep);
 }
 .monster-overlay-preset-label { color: var(--text-muted); }
-.monster-overlay-preset-name { color: var(--text-accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Both menus fill the box, so a long preset name ellipsises inside its own
+   field; the first carries the accent the name did, the second is an action. */
+.monster-overlay-preset .jaswa-select { width: 100%; min-width: 0; }
+.jaswa-select.monster-overlay-preset-select { color: var(--text-accent); }
 @media (max-width: 640px) {
   .monster-overlay-head { grid-template-columns: auto minmax(0, 1fr); }
   .monster-overlay-optimize { grid-column: 2; justify-self: start; }

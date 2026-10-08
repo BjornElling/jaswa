@@ -192,6 +192,40 @@ carry no owner field. Every reading of a monster's slots, its stat sheet,
 its sets or its speed takes a context argument, and no page, filter or worker
 picks a context of its own.
 
+### 4.1 A profile belongs to a copy in one context
+
+What the user says a monster is for — its profile: nickname, wanted builds and
+slot mains, stat ranges, the figure to rank by, crit and element switches,
+leads, and the artifact and relic wishes — is stated for a copy **in one
+context**, never for the copy. The same Lushen in Default, in Arena Attack 3
+and in Arena Attack 4 is three profiles, and an edit to one reaches neither of
+the others. A monster has no one identity across presets; it has one per team
+it stands in.
+
+- Profiles are stored by context and then by `unit_id`
+  (`monster-preferences.ts`). A copy appears at most once in a preset, so the
+  pair names one team member exactly; two arena teams holding the same copy are
+  two presets and two profiles.
+- **No fallback between contexts.** A copy with no profile in a preset reads the
+  defaults there, not its Default profile: a fallback is a channel an edit in
+  Default flows through. Moving a profile across is the user's act — *Copy
+  profile from…* in the overlay — and copies it; afterwards each is its own.
+- Speed Tuning's order and what-ifs and a preset's priority list are already
+  per preset. A rune lock binds Default only (§5).
+- A preset deleted in JASWA takes its profiles, speed tuning and priority list
+  with it; a copy taken out of a preset built in JASWA takes its profile there.
+- A copy is named by the profile of the context it is read in: the Presets page
+  and Speed Tuning by each preset's, Rune Optimization by the chosen preset's,
+  and every page about Default — Monsters, the artifact and relic pages, Rune
+  Clean-up — by Default's.
+- Artifact Optimization, its value columns and the relic plan judge Default
+  (§5) and read Default's profiles. A relic is Default's in every preset (§1),
+  so a preset profile's relic wishes are read only by that preset's overlay,
+  against the relic it carries there.
+- A profile stored before profiles had a context is read as Default's — the
+  context every profile was written in before presets — and is not spread into
+  any preset.
+
 Presets the player builds in JASWA are the player's own choices
 (AGENTS.md §0). They are stored with the preferences, are never overwritten by
 an import, and are checked one preset at a time on load.
@@ -226,9 +260,15 @@ an import, and are checked one preset at a time on load.
   Default.
 - A monster opened from a place about one preset — a preset's list, a Speed
   Tuning team, a rune engraved in one preset, a build — opens its overlay on
-  that preset, and *Optimize* there opens Rune Optimization on it. Opening the
-  overlay leaves the preset chosen across the program alone; only *Optimize*
-  changes it.
+  that preset, and *Optimize* there opens Rune Optimization on it. A monster
+  opened from a place about no preset — the Monsters page, an artifact, a
+  relic — opens on Default, which is what those pages show. Opening the overlay
+  leaves the preset chosen across the program alone; only *Optimize* changes it.
+- The overlay's *Build for* box is a menu of Default and the presets the copy
+  stands in, and switches the profile, gear and figures the panel reads. It
+  waits while an edit is unsaved, so an edit is never carried across. *Copy
+  profile from…* beneath it offers the other contexts where the copy has a
+  profile (§4.1).
 - The candidate runes are every owned rune, minus those engraved on other
   monsters of the same preset where the settings say so, minus the Siege Battle
   defense pool when the preset is a Siege Battle defense preset. Runes in other

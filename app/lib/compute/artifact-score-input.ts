@@ -8,7 +8,7 @@ import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-propert
 import type { GameRecord } from '../game-data';
 import { copyArtifactMainBands, honouredMainStat } from '../main-stat-model';
 import { canEngraveArtifacts } from '../monster-engrave-eligibility';
-import type { MonsterCopyPreferences, MonsterPreferences } from '../monster-preferences';
+import type { MonsterCopyPreferences, MonsterProfiles } from '../monster-preferences';
 import { statedBand } from '../monster-preferences';
 import { monsterSpeciesPresentation } from '../monster-catalog';
 import { monsterSpeciesId } from '../monster-identity';
@@ -269,11 +269,13 @@ export function canonicalArtifactScoreMonsterIds(monsterIds: readonly string[]):
 function copyRows(
   data: GameRecord | undefined,
   speciesIds: ReadonlySet<string>,
-  monsterPreferences: MonsterPreferences,
+  monsterPreferences: MonsterProfiles,
   category: ArtifactCategory,
 ): PackedMonsterScoreInput[] {
   const roster = (Array.isArray(data?.unit_list) ? data.unit_list : [])
     .filter((record): record is GameRecord => Boolean(record) && typeof record === 'object');
+  /* The roster is the export's, which is Default, so the profiles are Default's:
+     every artifact page plans Default (`DECK-PRESETS.md` §5). */
   const names = monsterCopyNames(roster, monsterPreferences);
   const rows: PackedMonsterScoreInput[] = [];
   for (const monster of roster) {
@@ -295,7 +297,7 @@ export function buildArtifactScoreRequestsForMonsterIds(
   monsterIds: readonly string[],
   settings: ArtifactSettings,
   artifactIds?: ReadonlySet<string>,
-  monsterPreferences: MonsterPreferences = {},
+  monsterPreferences: MonsterProfiles = {},
 ): ArtifactScoreRequest[] {
   /* This is the public score-input boundary: a caller may hold an owned
      collaboration id, while every score matrix is a species matrix. Resolving
@@ -341,7 +343,7 @@ export function buildArtifactScoreRequests(
   monsters: readonly GameRecord[],
   settings: ArtifactSettings,
   artifactIds?: ReadonlySet<string>,
-  monsterPreferences: MonsterPreferences = {},
+  monsterPreferences: MonsterProfiles = {},
 ): ArtifactScoreRequest[] {
   return buildArtifactScoreRequestsForMonsterIds(
     data, sourceMonsterIds(monsters, settings), settings, artifactIds, monsterPreferences,
@@ -357,7 +359,7 @@ export function buildArtifactScoreRequestsForCopy(
   unitId: string,
   masterId: string,
   settings: ArtifactSettings,
-  monsterPreferences: MonsterPreferences = {},
+  monsterPreferences: MonsterProfiles = {},
 ): ArtifactScoreRequest[] {
   const speciesId = monsterSpeciesId(masterId);
   return buildArtifactScoreRequestsForMonsterIds(data, [speciesId], settings, undefined, monsterPreferences)

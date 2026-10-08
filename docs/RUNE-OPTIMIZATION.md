@@ -49,8 +49,8 @@ that stage is visible on screen.
 
 ## 2. Requirements: the profile, then this calculation
 
-The monster's profile states the
-answer's shape: the builds it will accept, the mains of slots 2, 4 and 6, whether
+The monster's profile **in the chosen preset** (`DECK-PRESETS.md` §4.1) states
+the answer's shape: the builds it will accept, the mains of slots 2, 4 and 6, whether
 a rune may complete no set (no unless the owner said yes), whether an Intangible
 rune may be spent (yes unless the owner said no), whether the monster always crits
 or always has element advantage, its leads (none unless stated), the range each
@@ -63,6 +63,8 @@ the community's answer — and says so under the field.
 
 The page's own controls may be changed for this calculation only and never write
 back to the profile; *Reset to profile* discards those changes after confirmation.
+A change is for the copy in the chosen preset: choosing another preset reads that
+preset's profile afresh and carries nothing across.
 Combat crit conditions are edited on the monster overlay and read here.
 
 ### 2.1 Empty means any

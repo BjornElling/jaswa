@@ -2475,6 +2475,11 @@ account.
 permanent name: an artifact records the monster it is engraved on by it, so a record survives
 re-importing the same account and ends only when the copy is sold.
 
+Since Deck Presets, a copy's preferences are its **profile in one context**
+(`DECK-PRESETS.md` §4.1): stored by context, then by `unit_id`. Every artifact
+page judges Default and reads the Default profiles; a preset's profile is read
+by that preset's overlay and by Rune Optimization in that preset.
+
 **This reverses an earlier decision**, which held preferences per species on the
 grounds that a preference says what a *kind* of monster is for. That is true of
 the defaults and false of the statement: what the player base engraves is a fact

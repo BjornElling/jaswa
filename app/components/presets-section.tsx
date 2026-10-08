@@ -18,12 +18,13 @@ import { monsterPresentation } from '../lib/monster-catalog';
 import { artifactSlotCount, engravedCounts, monsterNameCollator } from '../lib/monster-grid';
 import { runeSlotCount } from '../lib/rune-set-pairs';
 import { monsterCopyNames } from '../lib/monster-names';
+import { profilesIn } from '../lib/monster-preferences';
 import { presetPriorityOf } from '../lib/monster-priority';
 import { presetSpeedTeam } from '../lib/speed-tuning-preferences';
 import type { MonsterPriority } from '../lib/monster-priority';
 import { presetContent, presetTabs, tabContents } from '../lib/preset-contents';
 import type { PresetContentId } from '../lib/preset-contents';
-import { accountItems, monsterInPreset, newOwnPresetId, presetMenu } from '../lib/presets';
+import { accountItems, defaultPresetId, monsterInPreset, newOwnPresetId, presetMenu } from '../lib/presets';
 import type { OwnPreset, Preset, PresetMenuArea, PresetMenuTab } from '../lib/presets';
 import type { ImportedGame, Preferences } from '../lib/types';
 
@@ -86,7 +87,11 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const priority = useMemo(() => (preset ? presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority) : []),
     [preset, preferences.monsterPriority, preferences.presetPriority]);
   const items = useMemo(() => accountItems(game?.data), [game]);
-  const names = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
+  /* A copy is named as the preset it is read in names it: its label is part of
+     that preset's profile, and another preset's is not this one's. */
+  const contextId = preset?.id ?? defaultPresetId;
+  const names = useMemo(() => monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, contextId)),
+    [monsters, preferences.monsterPreferences, contextId]);
   const owned = useMemo(() => new Map<string, MonsterChoice>(monsters
     .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
     .map((monster) => {
@@ -113,11 +118,15 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const tunable = preset !== null && speed !== null && preset.members.length > 0
     && presetSpeedTeam(preset, speed, preferences.speedTuning.presets[preset.id]) !== null;
   const teams = useMemo<TeamChoice[]>(() => (onDefault ? []
-    : area.presets.map((entry) => ({ id: entry.id, name: entry.name, faces: entry.members.map((unitId) => {
-      const choice = owned.get(unitId);
-      const display = choice ? monsterPresentation(choice.masterId) : undefined;
-      return { key: unitId, name: choice?.name ?? 'Not in this import', imageFilename: display?.imageFilename, initial: display?.shortName ?? '?' };
-    }) }))), [onDefault, area, owned]);
+    : area.presets.map((entry) => {
+      const teamNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, entry.id));
+      return { id: entry.id, name: entry.name, faces: entry.members.map((unitId) => {
+        const choice = owned.get(unitId);
+        const display = choice ? monsterPresentation(choice.masterId) : undefined;
+        return { key: unitId, name: choice ? teamNames[unitId]?.name ?? choice.name : 'Not in this import',
+          imageFilename: display?.imageFilename, initial: display?.shortName ?? '?' };
+      }) };
+    })), [onDefault, area, owned, monsters, preferences.monsterPreferences]);
 
   /* A preset added here joins the chosen content as the game's own do, and is
      offered the name the game would give the next one: the content and the

@@ -32,7 +32,10 @@ try {
     importRoute: 'direct',
     directImportMode: 'on-load',
     general: { ...blank.general, numberFormat: 'european', hourCycle: 'h23' },
-    monsterPreferences: { 17: { unitId: '17', label: 'Arena defence', allowIntangibleRunes: true } },
+    monsterPreferences: {
+      default: { 17: { unitId: '17', label: 'Arena defence', allowIntangibleRunes: true } },
+      'deck-1-4': { 17: { unitId: '17', statCeilings: { spd: 180 } }, 18: { unitId: '18', alwaysCrits: true } },
+    },
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true, locked: true } },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
     runePotentialPresets: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
@@ -95,9 +98,20 @@ try {
   assert.deepEqual(readPreferences({ ...chosen, runePotentialPresets: [] }, null).runePotentialPresets, [], 'a list the user emptied stays empty');
   assert.equal(readPreferences({ ...chosen, runePotentialPresets: undefined }, null).runePotentialPresets.length, blank.runePotentialPresets.length, 'no list at all gets the shipped roles');
 
-  /* A monster copy loses the field it cannot read, not the copy. */
-  const monster = readPreferences({ ...chosen, monsterPreferences: { 17: { ...chosen.monsterPreferences[17], runeSets: ['NotASet'], retired: 1 } } }, null);
+  /* A monster copy loses the field it cannot read, not the copy, nor the same
+     copy's profile in another context. */
+  const withDefault = (copy) => ({ ...chosen.monsterPreferences, default: { 17: copy } });
+  const defaultCopy = chosen.monsterPreferences.default[17];
+  const monster = readPreferences({ ...chosen, monsterPreferences: withDefault({ ...defaultCopy, runeSets: ['NotASet'], retired: 1 }) }, null);
   assert.deepEqual(monster.monsterPreferences, chosen.monsterPreferences, 'an unreadable monster field costs only that field');
+  const unreadableContext = readPreferences({ ...chosen, monsterPreferences: { ...chosen.monsterPreferences, 'deck-9-9': 'x', '': { 17: defaultCopy } } }, null);
+  assert.deepEqual(unreadableContext.monsterPreferences, chosen.monsterPreferences, 'an unreadable context costs only itself');
+
+  /* A profile stored before profiles had a context is the user's choice, and
+     survives as Default's — Default's only, never spread into a preset. */
+  const contextless = readPreferences({ ...chosen, monsterPreferences: { 17: defaultCopy, 18: { unitId: '18', label: 'Opener' } } }, null);
+  assert.deepEqual(contextless.monsterPreferences, { default: { 17: defaultCopy, 18: { unitId: '18', label: 'Opener' } } },
+    'a contextless profile is read as the Default profile');
   /* Gear is four questions, and one the contract no longer honours — here a
      relic unique in both bands, and an artifact sub no Type artifact rolls —
      costs that question and not the ones beside it. */
@@ -106,11 +120,11 @@ try {
     artifacts: { sub: { attribute: { preferred: [206], acceptable: [] }, type: { preferred: [301], acceptable: [] } } },
     relics: { unique: { preferred: [1], acceptable: [1] } },
   };
-  const geared = readPreferences({ ...chosen, monsterPreferences: { 17: { ...chosen.monsterPreferences[17], ...gear } } }, null);
-  assert.deepEqual(geared.monsterPreferences[17].mainStat, gear.mainStat, 'a readable main survives its unreadable neighbours');
-  assert.deepEqual(geared.monsterPreferences[17].artifacts, { sub: { attribute: gear.artifacts.sub.attribute } },
+  const geared = readPreferences({ ...chosen, monsterPreferences: withDefault({ ...defaultCopy, ...gear }) }, null).monsterPreferences.default;
+  assert.deepEqual(geared[17].mainStat, gear.mainStat, 'a readable main survives its unreadable neighbours');
+  assert.deepEqual(geared[17].artifacts, { sub: { attribute: gear.artifacts.sub.attribute } },
     'an unreadable artifact question costs only that question');
-  assert.equal(geared.monsterPreferences[17].relics, undefined, 'an unreadable relic question costs only that question');
+  assert.equal(geared[17].relics, undefined, 'an unreadable relic question costs only that question');
 
   /* A rune hold loses the choice it cannot read, not the rune's other choice or any other rune. */
   const holds = readPreferences({ ...chosen, runeHolds: { ...chosen.runeHolds, 902: { unsellable: true, locked: 'yes' }, 903: { locked: false } } }, null);

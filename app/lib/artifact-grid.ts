@@ -31,7 +31,8 @@ export type ArtifactRow = {
   /* The one monster this row names, where it is engraved in a single place and
      the roster has that monster. Carried so the Location cell can open that
      monster's overlay rather than naming a monster it could not point at. */
-  engravedOn?: { unitId: string; masterId: string };
+  /** The one place it is engraved, where it has one: its monster, in that place's preset. */
+  engravedOn?: { unitId: string; masterId: string; presetId: string };
   /**
    * How well the artifact scores on the monster it is engraved on, in whole percentage
    * points, or `undefined` when nothing judged it — an artifact in the

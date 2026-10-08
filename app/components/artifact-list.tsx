@@ -28,8 +28,9 @@ import {
   artifactIntangibleLabel, artifactMainPropertyOrder,
 } from '../lib/artifact-properties';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
-import { monsterCopyNames } from '../lib/monster-names';
-import { engravingLines } from '../lib/presets';
+import { monsterCopyNamesIn } from '../lib/monster-names';
+import { defaultPresetId, engravingLines } from '../lib/presets';
+import { profilesIn } from '../lib/monster-preferences';
 import { usePresets } from '../lib/presets-context';
 import { formatNumber } from '../lib/formatting';
 import { useSessionStorageState } from '../lib/session-storage-state';
@@ -197,10 +198,12 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
   const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
 
   const placements = usePresets();
-  const copyNames = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
-  const monsterName = useCallback((unitId: string) => copyNames[unitId]?.name ?? 'A monster not in this import', [copyNames]);
+  /* An artifact's value is read in Default, so the profile it is judged by is
+     Default's; each place it is engraved names its monster in that place's preset. */
+  const defaultProfiles = useMemo(() => profilesIn(preferences.monsterPreferences, defaultPresetId), [preferences.monsterPreferences]);
+  const namesIn = useMemo(() => monsterCopyNamesIn(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
+  const monsterName = useCallback((unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import', [namesIn]);
   const rows = useMemo<ArtifactRow[]>(() => {
-    const names = copyNames;
     const monstersByUnitId = new Map<string, GameRecord>();
     for (const monster of monsters) {
       if (monster.unit_id !== undefined && monster.unit_id !== null) monstersByUnitId.set(String(monster.unit_id), monster);
@@ -210,8 +213,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
       const unitId = engravedOn?.unit_id === undefined ? null : String(engravedOn.unit_id);
       const places = placements.artifacts.get(String(artifact.id)) ?? [];
       const only = places.length === 1 ? monstersByUnitId.get(places[0].unitId) : undefined;
-      const nameOf = (id: string) => names[id]?.name ?? 'A monster not in this import';
-      const preference = unitId === null ? undefined : preferences.monsterPreferences[unitId];
+      const preference = unitId === null ? undefined : defaultProfiles[unitId];
       const propertyPreferences = engravedOn
         ? defaultPropertyPreferences(engravedOn.unit_master_id, artifact.category)
         : undefined;
@@ -223,11 +225,11 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
       return {
         artifact,
         index,
-        location: places.length === 0 ? 'Inventory' : engravingLines(places, placements.presets, nameOf).join(' · '),
+        location: places.length === 0 ? 'Inventory' : engravingLines(places, placements.presets, monsterName).join(' · '),
         places,
         engravedOn: only === undefined || only.unit_master_id === undefined
           ? undefined
-          : { unitId: places[0].unitId, masterId: String(only.unit_master_id) },
+          : { unitId: places[0].unitId, masterId: String(only.unit_master_id), presetId: places[0].presetId },
         /* Rounded once, here, so the column, its colour band and the sort all
            read the same whole-point score the user sees. */
         valuePercent: value === undefined ? undefined : Math.round(value * 100),
@@ -236,7 +238,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
         subPropertyPreferences: propertyPreferences?.sub ?? null,
       };
     });
-  }, [artifacts, monsters, preferences, placements, copyNames]);
+  }, [artifacts, monsters, defaultProfiles, preferences.artifacts, placements, monsterName]);
 
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();
@@ -491,8 +493,8 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
                 ? <EngravedPlace places={row.places} presets={placements.presets} monsterName={monsterName} />
                 : <MonsterLink
                   target={{ kind: 'copy', unitId: row.engravedOn.unitId, masterId: row.engravedOn.masterId }}
-                  name={monsterName(row.engravedOn.unitId)}
-                  onOpen={onOpenMonster}
+                  name={monsterName(row.engravedOn.unitId, row.engravedOn.presetId)}
+                  presetId={row.engravedOn.presetId} onOpen={onOpenMonster}
                 />}
             </td>
             {/* The score bands itself: gold once the artifact is worth acting

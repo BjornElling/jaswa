@@ -60,10 +60,11 @@ async function openOverlay(page: Page, index = 0) {
   return link;
 }
 
+/* The Monsters page is about Default, so a profile saved from it is Default's. */
 function storedPreferences(page: Page) {
   return page.evaluate(() => {
     const raw = window.localStorage.getItem('jaswa-preferences');
-    return (raw ? JSON.parse(raw).monsterPreferences : undefined) as StoredPreferences;
+    return (raw ? JSON.parse(raw).monsterPreferences?.default : undefined) as StoredPreferences;
   });
 }
 

@@ -10,6 +10,7 @@ import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { moveItem } from '../lib/list-order';
 import { monsterCopyNames } from '../lib/monster-names';
+import { profilesIn } from '../lib/monster-preferences';
 import type { MonsterCopyName } from '../lib/monster-names';
 import type { PresetColumn } from '../lib/preset-contents';
 import { accountItems, monsterInPreset, presetGroupLabel } from '../lib/presets';
@@ -152,7 +153,6 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
   const [editing, setEditing] = useState<{ presetId: string; opener: HTMLElement | null } | null>(
     () => (openPresetId === null ? null : { presetId: openPresetId, opener: null }));
 
-  const names = useMemo(() => monsterCopyNames(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
   const monsterById = useMemo(() => new Map(monsters
     .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
     .map((monster) => [String(monster.unit_id), monster])), [monsters]);
@@ -178,6 +178,12 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
   }), [presets, tuning, monsterById, items, totemShare]);
 
   const editingLine = editing ? lines.find((line) => line.preset.id === editing.presetId) : undefined;
+  /* Each team names its copies as its own preset's profiles do: a label is part
+     of a copy's profile in one preset, and the next line is another preset. */
+  const namesByPreset = useMemo(() => new Map(lines.map((line) =>
+    [line.preset.id, monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, line.preset.id))])),
+  [lines, monsters, preferences.monsterPreferences]);
+  const namesIn = (presetId: string) => namesByPreset.get(presetId) ?? {};
 
   function close() {
     const opener = editing?.opener;
@@ -221,7 +227,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
     </div>
 
     {editing && editingLine?.kind === 'team' && <SpeedTeamOverlay key={editingLine.preset.id} initial={editingLine.team} title={editingLine.preset.name}
-      monsters={editingLine.monsters} totemShare={totemShare} names={names} general={general}
+      monsters={editingLine.monsters} totemShare={totemShare} names={namesIn(editingLine.preset.id)} general={general}
       onSave={(team) => {
         onWrite((current) => ({ ...current, presets: { ...current.presets, [team.id]: speedTuningOf(team) } }));
         close();
@@ -231,7 +237,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
 
   /* A preset's line: its number, its monsters in the order asked for, its leader marked. */
   function renderLine(line: Line) {
-    return <PresetLine line={line} names={names} known={(unitId) => monsterById.has(unitId)}
+    return <PresetLine line={line} names={namesIn(line.preset.id)} known={(unitId) => monsterById.has(unitId)}
       onOpen={line.kind === 'team' ? (opener) => setEditing({ presetId: line.preset.id, opener }) : undefined}
       onReorder={(from, to) => {
         if (line.kind !== 'team') return;

@@ -310,12 +310,14 @@ export function presetGroupLabel(preset: Preset): string {
 
 /**
  * Where an item is engraved, in words a hover can carry: one line per place,
- * "monster — preset", Default first as the presets list it.
+ * "monster — preset", Default first as the presets list it. Each monster is
+ * named in its own place's preset, where its nickname is that preset's.
  */
-export function engravingLines(places: readonly Engraving[], presets: readonly Preset[], monsterName: (unitId: string) => string): string[] {
+export function engravingLines(places: readonly Engraving[], presets: readonly Preset[],
+  monsterName: (unitId: string, presetId: string) => string): string[] {
   const rank = new Map(presets.map((preset, at) => [preset.id, at]));
   const name = new Map(presets.map((preset) => [preset.id, preset.name]));
   return [...places]
     .sort((left, right) => (rank.get(left.presetId) ?? 0) - (rank.get(right.presetId) ?? 0))
-    .map((place) => `${monsterName(place.unitId)} — ${name.get(place.presetId) ?? place.presetId}`);
+    .map((place) => `${monsterName(place.unitId, place.presetId)} — ${name.get(place.presetId) ?? place.presetId}`);
 }

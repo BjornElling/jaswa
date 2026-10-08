@@ -12,7 +12,7 @@ export function EngravedPlace({ places, sold = false, presets, monsterName }: {
   places: readonly Engraving[];
   sold?: boolean;
   presets: readonly Preset[];
-  monsterName: (unitId: string) => string;
+  monsterName: (unitId: string, presetId: string) => string;
 }) {
   if (sold) return <span className="engraved-place muted">Sold</span>;
   if (places.length === 0) return <span className="engraved-place">Inventory</span>;

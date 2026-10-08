@@ -371,7 +371,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
         items={items}
         runes={runes}
         monsters={monsters}
-        monsterPreferences={preferences.monsterPreferences}
+        profiles={preferences.monsterPreferences}
         roles={roles}
         general={preferences.general}
         onOpenRune={onOpenRune}

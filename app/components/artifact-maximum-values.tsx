@@ -30,7 +30,7 @@ import { monsterPresentation, monsterSpeciesPresentation } from '../lib/monster-
 import { monsterSpeciesId } from '../lib/monster-identity';
 import { monsterCopyNames } from '../lib/monster-names';
 import type { MonsterCopyName } from '../lib/monster-names';
-import type { MonsterPreferences } from '../lib/monster-preferences';
+import type { MonsterProfiles } from '../lib/monster-preferences';
 import { monsterNameCollator } from '../lib/monster-grid';
 import type { Artifact } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
@@ -240,10 +240,10 @@ function Score({ value, general }: { value: number | undefined; general: General
   return value === undefined ? '—' : <span {...artifactValueTint(value)}>{formatNumber(value, general)} %</span>;
 }
 
-export function ArtifactMaximumValues({ data, monsters, monsterPreferences, settings, general, hardwareAcceleration }: {
+export function ArtifactMaximumValues({ data, monsters, defaultProfiles, settings, general, hardwareAcceleration }: {
   data: GameRecord | undefined;
   monsters: readonly GameRecord[];
-  monsterPreferences: MonsterPreferences;
+  defaultProfiles: MonsterProfiles;
   settings: ArtifactSettings;
   general: GeneralSettings;
   hardwareAcceleration: boolean;
@@ -257,7 +257,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
      an artifact's position in the export means nothing to the user. */
   const artifactOrder = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
   const stones = useMemo(() => engravedStonesFor(data), [data]);
-  const copyNames = useMemo(() => monsterCopyNames(monsters, monsterPreferences), [monsters, monsterPreferences]);
+  const copyNames = useMemo(() => monsterCopyNames(monsters, defaultProfiles), [monsters, defaultProfiles]);
   const ownedMonsters = useMemo(() => readOwnedMonsters(monsters, copyNames), [monsters, copyNames]);
   const scopedMonsters = useMemo(() => recommendationMonsters(monsters, settings, copyNames), [monsters, settings, copyNames]);
   const monsterByUnitId = useMemo(() => new Map(ownedMonsters.map((monster) => [monster.unitId, monster])), [ownedMonsters]);
@@ -270,7 +270,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId) ? filters.subPropertyId : '';
   const inputKey = JSON.stringify({
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.category, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex, ...artifact.subProperties.map((property) => [property.definition.id, property.valueHundredths, property.maximumHundredths])]),
-    monsters: scopedMonsters.map((monster) => [monster.unitId, monster.masterId]), monsterPreferences, settings: scoringSettings(settings),
+    monsters: scopedMonsters.map((monster) => [monster.unitId, monster.masterId]), defaultProfiles, settings: scoringSettings(settings),
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const visibleArtifacts = useMemo(() => artifacts.filter((artifact) => {
@@ -298,7 +298,7 @@ export function ArtifactMaximumValues({ data, monsters, monsterPreferences, sett
   }
 
   async function calculate() {
-    const requests = buildArtifactScoreRequestsForMonsterIds(data, scopedMonsters.map((monster) => monster.masterId), settings, undefined, monsterPreferences)
+    const requests = buildArtifactScoreRequestsForMonsterIds(data, scopedMonsters.map((monster) => monster.masterId), settings, undefined, defaultProfiles)
       .map((request) => ({ ...request, includeScoreMatrix: true }));
     if (!requests.length || !scopedMonsters.length) {
       setCalculation(undefined);

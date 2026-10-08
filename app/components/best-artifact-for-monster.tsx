@@ -25,7 +25,7 @@ import { monsterPresentation } from '../lib/monster-catalog';
 import { monsterSpeciesId } from '../lib/monster-identity';
 import { monsterCopyNames } from '../lib/monster-names';
 import type { MonsterCopyName } from '../lib/monster-names';
-import type { MonsterPreferences } from '../lib/monster-preferences';
+import type { MonsterProfiles } from '../lib/monster-preferences';
 import type { Artifact } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
 import type { ArtifactConversion, ArtifactMaximumScore, ArtifactScoreRequest } from '../lib/compute/artifact-score-protocol';
@@ -308,10 +308,10 @@ function Recommendation({ row, context }: { row: ResultRow; context: ScoreContex
   </li>;
 }
 
-export function BestArtifactForMonster({ data, monsters, monsterPreferences, settings, general, hardwareAcceleration }: {
+export function BestArtifactForMonster({ data, monsters, defaultProfiles, settings, general, hardwareAcceleration }: {
   data: GameRecord;
   monsters: readonly GameRecord[];
-  monsterPreferences: MonsterPreferences;
+  defaultProfiles: MonsterProfiles;
   settings: ArtifactSettings;
   general: GeneralSettings;
   hardwareAcceleration: boolean;
@@ -320,7 +320,7 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
 
-  const copyNames = useMemo(() => monsterCopyNames(monsters, monsterPreferences), [monsters, monsterPreferences]);
+  const copyNames = useMemo(() => monsterCopyNames(monsters, defaultProfiles), [monsters, defaultProfiles]);
   const allMonsters = useMemo(() => monsterOptions(monsters, copyNames), [monsters, copyNames]);
   const eligibleMonsters = useMemo(
     () => monsterOptions(artifactOptimizationMonsters(monsters, settings), copyNames),
@@ -348,8 +348,8 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
      something. Both are the same input the compute backends are given, so a
      figure shown beside a ranking was produced by the scorer that built it. */
   const monsterRequests = useMemo(() => selectedMonster
-    ? buildArtifactScoreRequestsForCopy(data, selectedMonster.unitId, selectedMonster.masterId, settings, monsterPreferences)
-    : [], [data, selectedMonster, settings, monsterPreferences]);
+    ? buildArtifactScoreRequestsForCopy(data, selectedMonster.unitId, selectedMonster.masterId, settings, defaultProfiles)
+    : [], [data, selectedMonster, settings, defaultProfiles]);
   const engravedRequests = useMemo(() => {
     const speciesIds = new Set<string>();
     for (const artifact of artifacts) {
@@ -357,14 +357,14 @@ export function BestArtifactForMonster({ data, monsters, monsterPreferences, set
       const engravedOn = monstersByUnitId.get(artifact.occupiedId);
       if (engravedOn) speciesIds.add(monsterSpeciesId(engravedOn.masterId));
     }
-    return buildArtifactScoreRequestsForMonsterIds(data, [...speciesIds], settings, undefined, monsterPreferences);
-  }, [artifacts, data, settings, monstersByUnitId, monsterPreferences]);
+    return buildArtifactScoreRequestsForMonsterIds(data, [...speciesIds], settings, undefined, defaultProfiles);
+  }, [artifacts, data, settings, monstersByUnitId, defaultProfiles]);
 
   const inputKey = JSON.stringify({
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
       ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]),
     selectedUnitId: filters.selectedUnitId,
-    monsterPreferences,
+    defaultProfiles,
     settings: scoringSettings(settings),
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;

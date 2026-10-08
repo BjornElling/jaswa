@@ -27,6 +27,8 @@ import {
 } from '../lib/monster-grid';
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
+import { profilesIn } from '../lib/monster-preferences';
+import { defaultPresetId } from '../lib/presets';
 import { formatNumber } from '../lib/formatting';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { alignmentClass, monsterTableColumns } from '../lib/table-layouts';
@@ -178,7 +180,7 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
     search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel, showRainbowmons,
   } = filters;
   const rows = useMemo<MonsterRow[]>(() => {
-    const copyNames = monsterCopyNames(monsters, preferences.monsterPreferences);
+    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, defaultPresetId));
     return monsters.map((monster, index) => {
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
       const display = monsterPresentation(monster.unit_master_id);

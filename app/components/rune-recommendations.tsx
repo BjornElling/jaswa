@@ -20,7 +20,7 @@ import { TokenChoiceField } from './token-choice-field';
 import { alignmentClass, runeCleanupTableColumns } from '../lib/table-layouts';
 import { formatNumber } from '../lib/formatting';
 import { readRunes, runeMaximumLevel, runeStatName } from '../lib/runes';
-import { monsterCopyNames } from '../lib/monster-names';
+import { monsterCopyNamesIn } from '../lib/monster-names';
 import { engravingLines } from '../lib/presets';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
@@ -177,9 +177,9 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * nobody could read. What the player does in the game is different: a sync judges
  * only the runes it changed, and the rows keep their places (`rune-cleanup-refresh.ts`).
  */
-export function RuneRecommendations({ game, monsterPreferences, runeHolds, settings, roles, general, hardwareAcceleration, onOpenRune }: {
+export function RuneRecommendations({ game, profiles, runeHolds, settings, roles, general, hardwareAcceleration, onOpenRune }: {
   game: ImportedGame | null;
-  monsterPreferences: MonsterPreferences;
+  profiles: MonsterPreferences;
   /** The runes the user has said are not to be sold, which print their own word over the advice. */
   runeHolds: RuneHolds;
   settings: RunePotentialSettings;
@@ -239,15 +239,15 @@ export function RuneRecommendations({ game, monsterPreferences, runeHolds, setti
   /* The same names the rest of the workspace uses, numbered where the roster holds
      more than one of a species, so a Location cell identifies the copy the rune is
      actually on rather than a species the account owns four of. */
-  const monsterNames = useMemo(() => {
+  const namesIn = useMemo(() => {
     const units = game?.data?.unit_list;
-    return monsterCopyNames(Array.isArray(units) ? units as GameRecord[] : [], monsterPreferences);
-  }, [game, monsterPreferences]);
+    return monsterCopyNamesIn(Array.isArray(units) ? units as GameRecord[] : [], profiles);
+  }, [game, profiles]);
 
   /* Every place a rune is engraved, in Default and in each preset, read from
      the one resolution the page made (`presets-context.ts`). */
   const reading = usePresets();
-  const monsterName = useCallback((unitId: string) => monsterNames[unitId]?.name ?? 'A monster not in this import', [monsterNames]);
+  const monsterName = useCallback((unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import', [namesIn]);
   const placeOf = useCallback((runeId: string, gone: boolean) => {
     const places = gone ? [] : reading.runes.get(runeId) ?? [];
     return {
