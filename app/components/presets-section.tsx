@@ -479,5 +479,5 @@ function AddPresetDialog({ content: chosenContent, name: suggestedName, onCancel
 
 function PresetsHeader() {
   return <PageHeader title="Presets"
-    tagline="One rune can serve every preset. Just not two monsters in the same one." />;
+    tagline="Same runes, different teams. Like a band that only owns one guitar." />;
 }
