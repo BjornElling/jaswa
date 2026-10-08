@@ -417,19 +417,33 @@ function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[
   };
 }
 
+/*
+ * Accepted, not documented: the dungeon structures Swarfarm carries only
+ * under a Korean placeholder, named by inference. Neither Swarfarm nor any
+ * source found gives their in-game names, so the user accepted these on
+ * October 8, 2026 (`SPEED-TICK-CANONICAL.md` §6). Each shares its icon family
+ * and its id pattern with the English-named structure it is given the name of
+ * elsewhere — a guard "(중)", medium, with Medium Crystal's 21xx16, a "타워"
+ * with Tower's. A name seen in the game replaces its entry here.
+ */
+export const acceptedEnemyNames: Readonly<Record<number, string>> = {
+  211016: 'Medium Crystal', // 가드_보라(중)_심연층, Necropolis Abyss
+  211506: 'Medium Crystal', // 가드_정령(중)_심연층, Spiritual Realm Abyss
+  102266: 'Tower', // 타워(정령) - 1_심연층, Spiritual Realm Abyss
+  102366: 'Tower', // 타워(정령) - 2_심연층, Spiritual Realm Abyss
+};
+
 /* A stage's enemies by the game's names, a name met twice numbered as owned
-   copies are. A few dungeon structures carry only Swarfarm's Korean
-   placeholder, which no player would recognise; they read `Enemy 2` by their
-   place on the stage until their in-game name is known, rather than under a
-   name guessed for them. Named once per stage: the range search reads each
-   stage thousands of times. */
+   copies are. A placeholder with no accepted name reads `Enemy 2` by its place
+   on the stage, and `verify:speed-tick` fails on it, so a new one is seen.
+   Named once per stage: the range search reads each stage thousands of times. */
 const stageEnemyNames = new WeakMap<DungeonStage, readonly string[]>();
-function enemyNamesOf(stage: DungeonStage): readonly string[] {
+export function enemyNamesOf(stage: DungeonStage): readonly string[] {
   const known = stageEnemyNames.get(stage);
   if (known) return known;
   const plain = stage.monsters.map((masterId, at) => {
     const { name } = monsterPresentation(masterId);
-    return isReadableName(name) ? name : `Enemy ${at + 1}`;
+    return isReadableName(name) ? name : acceptedEnemyNames[masterId] ?? `Enemy ${at + 1}`;
   });
   const seen = new Map<string, number>();
   const named = plain.map((name) => {

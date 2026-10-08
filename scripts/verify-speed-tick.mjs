@@ -24,7 +24,7 @@ import {
 } from '../app/lib/speed-tick.ts';
 import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/lib/speed-skills.ts';
 import { dungeonIds, fastestEnemySpeed, speedContent, speedContents, usefulAccuracy } from '../app/lib/speed-contents.ts';
-import { readSpeedTeam } from '../app/lib/speed-tuning-analysis.ts';
+import { enemyNamesOf, readSpeedTeam } from '../app/lib/speed-tuning-analysis.ts';
 import {
   isSpeedTuningPreferences, presetSpeedTeam, readSpeedTuningPreferences, speedTuningOf,
 } from '../app/lib/speed-tuning-preferences.ts';
@@ -192,6 +192,8 @@ for (const id of dungeonIds) {
     `${content.name} has a resistance for every enemy`);
   check(content.stages.every((stage) => stage.monsters.length === stage.speeds.length && stage.monsters.every(hasMonsterCatalogEntry)),
     `${content.name} names every enemy by a monster the catalogue knows`);
+  check(content.stages.every((stage) => enemyNamesOf(stage).every((name) => !/^Enemy \d/.test(name))),
+    `${content.name} has a readable or accepted name for every enemy`);
   const highest = Math.max(...content.stages.flatMap((stage) => stage.resists));
   check(fastestEnemySpeed(id) === Math.max(...content.stages.map((stage) => stage.fastest)) && usefulAccuracy(id) === Math.max(0, highest - 15),
     `${content.name}'s fastest enemy and useful accuracy follow its stages`);

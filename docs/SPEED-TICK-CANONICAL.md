@@ -287,10 +287,25 @@ the B12 speeds exactly on Swarfarm, which may be a gap in its data.
 Each enemy is also kept as the game's monster id (Swarfarm's `monster`,
 translated to its `com2us_id`), and the Ticks view names it as the catalogue
 does — `Golem (Water) #1`, `Kuhn`, `Golem (Water) #2` on Giant's Keep's
-stage 2. A handful of dungeon structures carry only a Korean placeholder on
-Swarfarm (Necropolis's `가드_보라(중)_심연층`, Spiritual Realm's
-`가드_정령(중)_심연층` and `타워(정령)`); until their in-game names are
-confirmed they read `Enemy n`, by their place on the stage.
+stage 2.
+
+**Accepted, not documented.** A handful of dungeon structures carry only a
+Korean placeholder on Swarfarm, and no source found names them. Their names
+are inferred and were accepted by the user on October 8, 2026
+(`acceptedEnemyNames` in `speed-tuning-analysis.ts`):
+
+| Swarfarm placeholder | id | Where | Accepted name |
+| --- | --- | --- | --- |
+| `가드_보라(중)_심연층` | 211016 | Necropolis Abyss, stages 1 and 3 | Medium Crystal |
+| `가드_정령(중)_심연층` | 211506 | Spiritual Realm Abyss, stages 1 and 3 | Medium Crystal |
+| `타워(정령) - 1_심연층` | 102266 | Spiritual Realm Abyss, stage 4 | Tower |
+| `타워(정령) - 2_심연층` | 102366 | Spiritual Realm Abyss, stage 4 | Tower |
+
+Each shares its icon family and id pattern with the English-named structure
+whose name it is given elsewhere: "(중)", medium, with Medium Crystal's
+21xx16, "타워" with Tower's. They name a lane and nothing else; no figure
+depends on them. A name seen in the game replaces its row. A placeholder with
+no accepted name reads `Enemy n`, and `verify:speed-tick` fails on it.
 
 The snapshot also keeps each enemy's `resist`. It is not part of the turn
 order: the team overlay quotes the floor's fastest enemy and the accuracy a
