@@ -319,17 +319,30 @@ export function monsterEffects(monster: RecordLike, accountModifiers: AccountSta
   return effects;
 }
 
+/* The artifact sub property that strengthens a speed buff its holder receives. */
+const spdUpEffectProperty = 206;
+
 /**
- * What a copy's display speed is made of, for Speed Tuning: the base speed, and
- * whether a four-piece Swift set is engraved. The display speed itself is the stat
- * sheet's own figure, so it can never disagree with the Monsters page.
+ * What a copy's display speed is made of, for Speed Tuning: the base speed,
+ * whether a four-piece Swift set is engraved, and the SPD UP Effect its engraved
+ * artifacts add to any speed buff it receives, in percent. The display speed
+ * itself is the stat sheet's own figure, so it can never disagree with the
+ * Monsters page.
  */
-export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swift: boolean; displaySpeed: number } {
+export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swift: boolean; displaySpeed: number; speedUpEffect: number } {
   const swiftPieces = records(monster.runes).filter((rune) => numberValue(rune.set_id) === 3).length;
+  let speedUpEffect = 0;
+  for (const artifact of records(monster.artifacts)) {
+    if (!Array.isArray(artifact.sec_effects)) continue;
+    for (const line of artifact.sec_effects) {
+      if (Array.isArray(line) && numberValue(line[0]) === spdUpEffectProperty) speedUpEffect += numberValue(line[1]);
+    }
+  }
   return {
     baseSpeed: numberValue(monster.spd),
     swift: swiftPieces >= setStatBonuses[3].pieces,
     displaySpeed: calculateMonsterTotals(monster).spd,
+    speedUpEffect,
   };
 }
 

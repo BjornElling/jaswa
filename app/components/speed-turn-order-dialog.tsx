@@ -3,6 +3,7 @@ import { FilterButton } from './button';
 import { Overlay } from './overlay';
 import { formatNumber } from '../lib/formatting';
 import type { MonsterCopyName } from '../lib/monster-names';
+import { attackBarPercent } from '../lib/speed-skills';
 import { fullAttackBar } from '../lib/speed-tick';
 import type { BattleTrace } from '../lib/speed-tick';
 import { combatSpeedName } from '../lib/speed-tuning-analysis';
@@ -38,6 +39,14 @@ const laneCeiling = fullAttackBar * 1.5;
 const barY = (bar: number) => lanePad + plotHeight - Math.min(bar, laneCeiling) / laneCeiling * plotHeight;
 const barPercent = (bar: number) => Math.floor(bar / 100);
 
+/* What a turn added to one bar: the jump from where the bar stood — empty for
+   the mover itself — to where the turn left it. */
+function boostAt(snapshot: BattleTrace['snapshots'][number], key: string): number {
+  if (!snapshot.after) return 0;
+  const before = snapshot.mover === key ? 0 : snapshot.bars[key] ?? 0;
+  return (snapshot.after[key] ?? 0) - before;
+}
+
 /**
  * One view's ticks: a lane per monster in which its attack bar climbs tick by
  * tick and drops to nothing on its turn, against a dashed 100 % line. The
@@ -72,13 +81,16 @@ function TurnTimeline({ view, rows, speedName, general, active }: {
       </span>
     </div>
     {rows.map((row) => {
+      /* A turn's boosts land between two ticks, so they are drawn as the
+         vertical jump they are rather than folded into the next climb. */
       let path = `M0,${barY(0)}`;
       snapshots.forEach((snapshot, at) => {
         path += `L${centre(at)},${barY(snapshot.bars[row.key] ?? 0)}`;
         if (snapshot.mover === row.key) path += `L${centre(at)},${barY(0)}`;
+        if (boostAt(snapshot, row.key) > 0) path += `L${centre(at)},${barY(snapshot.after?.[row.key] ?? 0)}`;
       });
       const lastBar = snapshots.at(-1);
-      path += `L${width},${lastBar && lastBar.mover !== row.key ? barY(lastBar.bars[row.key] ?? 0) : barY(0)}`;
+      path += `L${width},${barY(lastBar ? lastBar.after?.[row.key] ?? lastBar.bars[row.key] ?? 0 : 0)}`;
       return <div key={row.key} role="row" className="speed-lane-row" data-enemy={row.enemy ? 'true' : undefined}>
         <span role="rowheader" className="speed-lane-label">
           <span className="speed-lane-name">{row.name}</span>
@@ -90,6 +102,16 @@ function TurnTimeline({ view, rows, speedName, general, active }: {
             <line className="speed-lane-full" x1={0} x2={width} y1={barY(fullAttackBar)} y2={barY(fullAttackBar)} />
             <path className="speed-lane-area" d={`${path}L${width},${barY(0)}Z`} />
             <path className="speed-lane-line" d={path} />
+            {snapshots.map((snapshot, at) => {
+              const gain = boostAt(snapshot, row.key);
+              if (gain <= 0) return null;
+              const x = centre(at);
+              const y = barY(snapshot.after?.[row.key] ?? 0);
+              return <g key={`boost-${snapshot.tick}`} className="speed-lane-boost">
+                <title>{`+${attackBarPercent(gain)} % attack bar from ${nameOf(snapshot.mover ?? '')}`}</title>
+                <path d={`M${x - 4},${y + 4}L${x},${y}L${x + 4},${y + 4}`} />
+              </g>;
+            })}
             {snapshots.map((snapshot, at) => {
               const turn = snapshot.mover === row.key ? turns.get(`${row.key}@${snapshot.tick}`) : undefined;
               if (!turn) return null;
@@ -105,9 +127,12 @@ function TurnTimeline({ view, rows, speedName, general, active }: {
               const bar = snapshot.bars[row.key] ?? 0;
               const turn = snapshot.mover === row.key ? turns.get(`${row.key}@${snapshot.tick}`) : undefined;
               const tie = turn?.event.tiedWith.length ? `, tied with ${turn.event.tiedWith.map(nameOf).join(', ')} — position decides` : '';
+              const gain = boostAt(snapshot, row.key);
+              const extras = `${snapshot.buffed.includes(row.key) ? ', under speed buff' : ''}${gain > 0
+                ? `, +${attackBarPercent(gain)} % attack bar from ${nameOf(snapshot.mover ?? '')}` : ''}`;
               const label = turn
-                ? `Tick ${snapshot.tick}: turn ${turn.number} at ${barPercent(bar)} %${tie}`
-                : `Tick ${snapshot.tick}: ${barPercent(bar)} %`;
+                ? `Tick ${snapshot.tick}: turn ${turn.number} at ${barPercent(bar)} %${tie}${extras}`
+                : `Tick ${snapshot.tick}: ${barPercent(bar)} %${extras}`;
               return <span key={snapshot.tick} role="cell" className="speed-lane-figure"
                 data-state={turn ? 'turn' : bar >= fullAttackBar ? 'waiting' : undefined} aria-label={label} title={label}>
                 {barPercent(bar)}

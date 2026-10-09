@@ -258,7 +258,8 @@ export function speedSkillProfile(monster: GameRecord): SpeedSkillProfile {
   };
 }
 
-function percent(amount: number): string {
+/** An attack-bar amount, in hundredths of a percent, as a percent with at most one decimal: `34.5`. */
+export function attackBarPercent(amount: number): string {
   const value = amount / 100;
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
 }
@@ -270,9 +271,9 @@ const targetWords: Record<AllyTarget, string> = {
 
 export function describeTurnEffect(effect: TurnEffect): string {
   switch (effect.kind) {
-    case 'allies-attack-bar': return `+${percent(effect.amount)} % attack bar to allies`;
-    case 'ally-attack-bar': return `+${percent(effect.amount)} % attack bar to the ally with the ${targetWords[effect.target]}`;
-    case 'self-attack-bar': return `+${percent(effect.amount)} % own attack bar`;
+    case 'allies-attack-bar': return `+${attackBarPercent(effect.amount)} % attack bar to allies`;
+    case 'ally-attack-bar': return `+${attackBarPercent(effect.amount)} % attack bar to the ally with the ${targetWords[effect.target]}`;
+    case 'self-attack-bar': return `+${attackBarPercent(effect.amount)} % own attack bar`;
     case 'allies-speed-buff': return `speed buff to allies for ${effect.turns} turns`;
     case 'ally-speed-buff': return `speed buff to the ally with the ${targetWords[effect.target]} for ${effect.turns} turns`;
     case 'self-speed-buff': return `own speed buff for ${effect.turns} turns`;
@@ -281,15 +282,15 @@ export function describeTurnEffect(effect: TurnEffect): string {
 
 /** A one-ally boost as the tag between two slots names it: `+100 % ATB → Teshar`. */
 export function shortAllyBoost(amount: number, recipient: string): string {
-  return `+${percent(amount)} % ATB → ${recipient}`;
+  return `+${attackBarPercent(amount)} % ATB → ${recipient}`;
 }
 
 /** The same effect in a few characters, for the tag a team table hangs between two slots. */
 export function shortTurnEffect(effect: TurnEffect): string {
   switch (effect.kind) {
-    case 'allies-attack-bar': return `+${percent(effect.amount)} % ATB`;
-    case 'ally-attack-bar': return `+${percent(effect.amount)} % ATB · 1 ally`;
-    case 'self-attack-bar': return `+${percent(effect.amount)} % own ATB`;
+    case 'allies-attack-bar': return `+${attackBarPercent(effect.amount)} % ATB`;
+    case 'ally-attack-bar': return `+${attackBarPercent(effect.amount)} % ATB · 1 ally`;
+    case 'self-attack-bar': return `+${attackBarPercent(effect.amount)} % own ATB`;
     case 'allies-speed-buff': return `+${speedBuffPercent} % SPD · ${effect.turns} turns`;
     case 'ally-speed-buff': return `+${speedBuffPercent} % SPD · 1 ally`;
     case 'self-speed-buff': return `+${speedBuffPercent} % own SPD`;

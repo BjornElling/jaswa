@@ -31,7 +31,7 @@ page lists.
 | Term 4, DefenseFactor = 1000 / (1142 + 3.572 · DEF) | `E.HP = HP × (1142 + 3.572 × DEF) / 1000` | `RUNE-ROLE-METRICS.md` §3 |
 | Term 4, Dbreak = 0.3 | `E.HP D` uses `0.3 × DEF` | `RUNE-ROLE-METRICS.md` §4 |
 | Ch. 2, CombatSpeed = ⌈B(1 + ΣSpd%) + ΣFlat⌉ · SpdBuff | one rounding up, then the buff unrounded | `SPEED-TICK-CANONICAL.md` §2 |
-| Ch. 2, SpdBuff% = ⌊30 · (1 + effect)⌋ | 30 % (no speed-up effect is read) | `SPEED-TICK-CANONICAL.md` §2 |
+| Ch. 2, SpdBuff% = ⌊30 · (1 + effect)⌋ | the recipient's artifact SPD UP Effect, truncated | `SPEED-TICK-CANONICAL.md` §2 |
 | Ch. 2, ΔATB = CombatSpeed · TickSize | 7 % per tick | `SPEED-TICK-CANONICAL.md` §3 |
 | Ch. 2, Leo rule | others held to the slowest Leo | `SPEED-TICK-CANONICAL.md` §3.1 |
 | Ch. 2, highest attack bar first; ties in setup order | ties within the team by listed order; SWCalc names no side, so a tie with the enemy goes to the attacker per SWGT and Ellia | `SPEED-TICK-CANONICAL.md` §3.2 |

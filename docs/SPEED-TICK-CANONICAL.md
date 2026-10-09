@@ -1,7 +1,7 @@
 # Speed and turn order — canonical rules
 
 **Status:** Binding rule basis for JASWA Speed Tuning
-**Reviewed:** October 8, 2026
+**Reviewed:** October 9, 2026
 **Game:** *Summoners War: Sky Arena*
 
 This document states the game rules Speed Tuning is built on. `app/lib/speed-tick.ts`
@@ -44,8 +44,18 @@ With a speed buff:
   Swift pieces, otherwise 0). All three are fractions of **base** speed and add.
 - **One rounding up, over the whole sum.** No term is rounded on its own.
 - **The buff multiplies the rounded figure and is not rounded again**, so a
-  buffed speed may carry a tenth. Its potency is ⌊30 · (1 + speed-up effect)⌋ %;
-  nothing JASWA reads carries a speed-up effect, so it is 30 %.
+  buffed speed may carry a tenth. Its potency is ⌊30 · (1 + SPD UP Effect)⌋ %,
+  truncated: +24 % makes 37 %, not 37.2 %.
+- **SPD UP Effect is the recipient's.** It is the sum of the artifact sub
+  property *SPD UP Effect* (id 206) on the monster that receives the buff,
+  whoever cast it (SWCalc). It is read off the copy's engraved artifacts
+  (`monsterSpeedParts`).
+
+The SPD UP Effect was once left out and every buff read as 30 %. On a Dragon's
+Lair team (October 9, 2026, at dungeon speeds 292, 183, 175 and 169) Agrius's
+own buff after each turn then put Julie before his second turn, where the game
+moved Agrius first; from +17 % his buff is 35 %, and the clock agrees with the
+game.
 
 Sources: SWCalc, *Speed Calculation* (swcalc.cz/game-mechanics), which is
 authoritative (`CALCULATION-AUTHORITY.md`) — its worked Agrius example is
@@ -201,6 +211,10 @@ A monster's turn applies its speed effects (`TurnEffect`):
 - **Speed buff** — the recipient's combat speed is the buffed form of §2 for a
   number of its own turns. It counts down at the end of the holder's turn,
   except the turn that granted it.
+
+**Drawn.** The Ticks view shows a boost where it acts: as the jump it makes in
+the recipient's bar, between two ticks, with a chevron on top. A speed buff is
+not drawn: shading the ticks filled under it was tried and read as clutter.
 
 **Modelled, unverified:** an "all allies" boost does not reach the monster
 casting it, because its bar empties as its turn is taken; a boost a skill names

@@ -20,7 +20,7 @@ import { speedLeaderSkill, speedSkillProfile } from './speed-skills';
 import type { SpeedSkillProfile } from './speed-skills';
 import {
   combatSpeed, displaySpeed, everyoneMoved, leaderSpeedPercent,
-  runeSpeedForDisplay, simulateBattle,
+  runeSpeedForDisplay, simulateBattle, speedBuffPotency,
 } from './speed-tick';
 import type { BattleTrace, SpeedLeaderSkill, SpeedSheet, TickUnit, TurnEvent } from './speed-tick';
 import type { SpeedTeam } from './speed-tuning-preferences';
@@ -125,6 +125,7 @@ export type TeamReading = {
 type Candidate = {
   unitId: string;
   profile: SpeedSkillProfile;
+  speedBuffPercent: number;
   base: Omit<SpeedSheet, 'runeSpeed'>;
   runeSpeed: number;
 };
@@ -139,6 +140,7 @@ function tickUnit(candidate: Candidate, runeSpeed?: number): TickUnit {
     key: candidate.unitId,
     side: 'ally',
     speed: combatSpeed(sheet),
+    speedBuffPercent: candidate.speedBuffPercent,
     effects: candidate.profile.effects,
     similarBoostPassive: candidate.profile.similarBoostPassive,
     capsOthersSpeed: candidate.profile.capsOthersSpeed,
@@ -514,6 +516,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     return {
       unitId: member.unitId,
       profile: speedSkillProfile(monster),
+      speedBuffPercent: speedBuffPotency(parts.speedUpEffect),
       base: {
         baseSpeed: parts.baseSpeed,
         swift: parts.swift,

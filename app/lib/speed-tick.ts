@@ -18,7 +18,7 @@
  * Attack bars are reported in hundredths of a percent — a turn is 10,000 — and
  * every amount a skill names is in the same unit. The clock itself counts a
  * hundred times finer, because a speed buff multiplies a whole combat speed by
- * 1.3 and leaves a tenth over (§2): a tick is `7 × speed × (100 + buff)` there,
+ * a whole percent and leaves a fraction over (§2): a tick is `7 × speed × (100 + buff)` there,
  * and no comparison ever meets a floating-point remainder.
  */
 
@@ -26,11 +26,19 @@
 export const attackBarPerSpeedPerTick = 7;
 /** A full attack bar: 100 %, in hundredths of a percent. */
 export const fullAttackBar = 10_000;
-/**
- * The speed buff's bonus, in percent of the rounded combat speed. A speed-up
- * effect would make it ⌊30 · (1 + effect)⌋; nothing JASWA reads carries one.
- */
+/** The speed buff's bonus, in percent of the rounded combat speed, before any SPD UP Effect. */
 export const speedBuffPercent = 30;
+
+/**
+ * The speed buff's bonus on one recipient: ⌊30 · (1 + SPD UP Effect)⌋ %, the
+ * effect being the sum of that monster's own artifact lines — the recipient's,
+ * never the caster's (`SPEED-TICK-CANONICAL.md` §2). Truncated, so +24 % makes
+ * 37 % and not 37.2 %. Counted in hundredths of a percent, so no fraction of
+ * an artifact line meets a floating-point remainder.
+ */
+export function speedBuffPotency(speedUpEffectPercent: number): number {
+  return Math.floor(speedBuffPercent * (10_000 + Math.round(speedUpEffectPercent * 100)) / 10_000);
+}
 /* The clock's own unit: a hundredth of the reported one, so the buff's percent
    fits inside a whole number. */
 const clockScale = 100;
@@ -160,6 +168,8 @@ export type TickUnit = {
   side: 'ally' | 'enemy';
   /** Combat speed, rounded (§2). A speed buff multiplies it inside the clock. */
   speed: number;
+  /** What a speed buff adds on this unit, in percent (`speedBuffPotency`); 30 where omitted. */
+  speedBuffPercent?: number;
   /** Applied on every turn the unit takes. */
   effects: readonly TurnEffect[];
   /** Carries a team attack-bar passive, so a `skipsSimilar` boost passes it over. */
@@ -191,8 +201,16 @@ export type TickSnapshot = {
   tick: number;
   /** Every unit's bar after the tick's fill and before anyone moves, by key. */
   bars: Record<string, number>;
+  /** The units whose fill this tick ran under a speed buff. */
+  buffed: string[];
   /** The unit whose turn this tick produced, if any. */
   mover: string | null;
+  /**
+   * Every bar once that turn is over — the mover's emptied, then every boost
+   * landed — or `null` on a tick without a turn. A boost is the difference
+   * from `bars`, so a view can draw it as the jump it is.
+   */
+  after: Record<string, number> | null;
 };
 
 export type BattleTrace = { events: TurnEvent[]; snapshots: TickSnapshot[] };
@@ -236,11 +254,13 @@ export function simulateBattle(units: readonly TickUnit[], options: {
   const leos = units.filter((unit) => unit.capsOthersSpeed);
   /* Combat speed in hundredths, buff included: a whole number however the
      buff falls. Under Leo's cap every other unit is held to the slowest Leo. */
-  const ownSpeed = (unit: TickUnit) => unit.speed * (100 + ((buffTurns.get(unit.key) ?? 0) > 0 ? speedBuffPercent : 0));
+  const buffedNow = (unit: TickUnit) => (buffTurns.get(unit.key) ?? 0) > 0;
+  const ownSpeed = (unit: TickUnit) => unit.speed * (100 + (buffedNow(unit) ? unit.speedBuffPercent ?? speedBuffPercent : 0));
   const currentSpeed = (unit: TickUnit) => unit.capsOthersSpeed || unit.exemptFromCap || leos.length === 0
     ? ownSpeed(unit)
     : Math.min(ownSpeed(unit), ...leos.map(ownSpeed));
   const fullBar = fullAttackBar * clockScale;
+  const barsNow = () => Object.fromEntries([...bars].map(([key, bar]) => [key, bar / clockScale]));
 
   for (let tick = 1; tick <= tickLimit && !options.done(events); tick += 1) {
     const fills = units.map((unit) => attackBarPerSpeedPerTick * currentSpeed(unit));
@@ -248,8 +268,10 @@ export function simulateBattle(units: readonly TickUnit[], options: {
     const ready = units.filter((unit) => (bars.get(unit.key) ?? 0) >= fullBar);
     const snapshot: TickSnapshot | null = recording ? {
       tick,
-      bars: Object.fromEntries([...bars].map(([key, bar]) => [key, bar / clockScale])),
+      bars: barsNow(),
+      buffed: units.filter(buffedNow).map((unit) => unit.key),
       mover: null,
+      after: null,
     } : null;
     if (snapshot) snapshots.push(snapshot);
     if (ready.length === 0) continue;
@@ -319,6 +341,7 @@ export function simulateBattle(units: readonly TickUnit[], options: {
     /* A buff counts down at the end of its holder's own turn — but not the
        turn that granted it, which is the one it was cast in. */
     if (hadBuff && !refreshedOwnBuff) buffTurns.set(mover.key, (buffTurns.get(mover.key) ?? 0) - 1);
+    if (snapshot) snapshot.after = barsNow();
   }
   return { events, snapshots };
 }

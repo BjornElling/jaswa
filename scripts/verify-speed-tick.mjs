@@ -20,7 +20,7 @@
 import assert from 'node:assert/strict';
 import {
   combatSpeed, displaySpeed, displayedSwiftBonus, everyoneMoved, leaderAreaReaches, leaderSpeedPercent,
-  runeSpeedForDisplay, simulateBattle, ticksToFirstTurn, totemPercentByLevel,
+  runeSpeedForDisplay, simulateBattle, speedBuffPotency, ticksToFirstTurn, totemPercentByLevel,
 } from '../app/lib/speed-tick.ts';
 import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/lib/speed-skills.ts';
 import { dungeonIds, fastestEnemySpeed, speedContent, speedContents, usefulAccuracy } from '../app/lib/speed-contents.ts';
@@ -148,6 +148,36 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
   });
   const fill = Math.round((trace.snapshots[9].bars.ally - trace.snapshots[8].bars.ally) * 100);
   check(fill === 91_910, `a buffed tick is 7 × 101 × 1.3 exactly (${fill / 100})`);
+}
+{
+  /* SPD UP Effect on the recipient's artifacts raises the buff to
+     ⌊30 · (1 + effect)⌋ % (SWCalc: Agrius at +24 % is 37 %, +22 % is 36 %). */
+  check(speedBuffPotency(0) === 30 && speedBuffPotency(24) === 37 && speedBuffPotency(22) === 36 && speedBuffPotency(16) === 34,
+    'the speed buff is ⌊30 · (1 + SPD UP Effect)⌋ %');
+  /* The Dragon's Lair team that showed it, at its dungeon speeds: Agrius's own
+     buff after every turn takes his second turn before Julie's only once his
+     artifacts lift it to 35 %, as the game played it on October 9, 2026. */
+  const lair = (effect) => simulateBattle([
+    unit('Agrius', 292, [{ kind: 'self-speed-buff', turns: 1 }], 'ally', { speedBuffPercent: speedBuffPotency(effect) }),
+    unit('SilverTail', 183), unit('Julie', 175), unit('Liam', 169),
+  ], { done: (events) => events.length >= 5 }).events.map((event) => event.key).join();
+  check(lair(0) === 'Agrius,SilverTail,Julie,Agrius,Liam', `a plain 30 % buff leaves Agrius behind Julie (${lair(0)})`);
+  check(lair(24) === 'Agrius,SilverTail,Agrius,Julie,Liam', `a 37 % buff puts Agrius before Julie (${lair(24)})`);
+  /* The drawn trace says which fills ran buffed and where a turn left every bar. */
+  const drawn = simulateBattle([unit('Agrius', 292, [{ kind: 'self-speed-buff', turns: 1 }, { kind: 'allies-attack-bar', amount: 2_000, skipsSimilar: false }]),
+    unit('ally', 100)], { done: (events) => events.length >= 1 });
+  const turnTick = drawn.snapshots[drawn.events[0].tick - 1];
+  check(!turnTick.buffed.includes('Agrius') && turnTick.after.Agrius === 0 && turnTick.after.ally === turnTick.bars.ally + 2_000,
+    'a turn records the bars it leaves: the mover emptied, the boost landed');
+}
+{
+  /* The SPD UP Effect is read off the copy's own engraved artifacts. */
+  const line = (id, value) => [id, value, 0, 0, 0];
+  const parts = monsterSpeedParts({ spd: 104, runes: [], artifacts: [
+    { pri_effect: [101, 100], sec_effects: [line(206, 12), line(210, 3), line(206, 6), line(219, 2)] },
+    { pri_effect: [100, 1500], sec_effects: [line(206, 6), line(214, 3), line(215, 5), line(218, 0.2)] },
+  ] });
+  check(parts.speedUpEffect === 24, `SPD UP Effect sums over every engraved artifact (${parts.speedUpEffect})`);
 }
 {
   /* Leo's Eye of the Storm (SWCalc: "non-Leo monsters are capped to the lowest

@@ -593,6 +593,27 @@ test('a boost to one ally names who gets it: the lowest bar, as auto battle send
   await placesMatchTicks('speed-one-ally-ticks-twice.png');
 });
 
+test('the Ticks view draws every boost as the jump it makes, named for whoever gave it', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await freshWorkspace(page);
+  /* Bernard's Tailwind fills every other bar by 34.5 % and buffs the team. */
+  await importAccount(page, { ...base, deck_list: [deck(24, 101, [1, 4, 5, 6, 0])] });
+  await openSpeedTuning(page);
+  await presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), "Giant's Keep 1").click();
+  const draft = page.getByRole('dialog', { name: "Giant's Keep 1" });
+  await draft.getByRole('button', { name: 'Ticks' }).click();
+  const lanes = page.locator('.speed-lanes[data-active="true"]');
+  await expect(lanes).toHaveCount(1);
+  const lane = (name: string) => lanes.getByRole('row').filter({ has: page.getByRole('rowheader', { name: new RegExp(`^${name}`) }) });
+  await page.screenshot({ path: testInfo.outputPath('speed-ticks-boosts.png') });
+
+  await expect(lane('Veromos').locator('.speed-lane-boost title').first()).toHaveText(/^\+34\.5 % attack bar from Bernard/);
+  await expect(lane('Bernard').locator('.speed-lane-boost title', { hasText: 'from Bernard' })).toHaveCount(0);
+  /* The buff is not drawn, but a cell under it says so to a screen reader. */
+  await expect(lane('Veromos').getByRole('cell', { name: /under speed buff/ }).first()).toBeAttached();
+  await expect(lanes.locator('.speed-lane-row[data-enemy] .speed-lane-boost')).toHaveCount(0);
+});
+
 test('each slot states the display speeds that hold it, and a what-if is selected rather than dragged', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   await freshWorkspace(page);
