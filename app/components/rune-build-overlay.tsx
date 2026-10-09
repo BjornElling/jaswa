@@ -152,6 +152,22 @@ function gamePlaceName(runeId: string, place: string | null, places: Places): Re
     ? 'Inventory' : monsterName(inDefault, defaultPresetId, places);
 }
 
+/* The place a card names for a rune, as an id: the preset's monster, else —
+   outside Default — the Default monster the game's rune list shows, else none. */
+function shownPlace(runeId: string, place: string | null, places: Places): string | null {
+  if (place !== null || places.presetId === defaultPresetId) return place;
+  const inDefault = places.defaultPlaces?.get(runeId) ?? null;
+  return inDefault === places.thisMonster ? null : inDefault;
+}
+
+/* Where the rune was, named as Location named it then. In a preset that left
+   it free, that is its Default monster, which an engrave in the preset never
+   moves; in Default itself, free was the inventory, and Default's owner now is
+   only where the build has put it. */
+function previousPlaceName(runeId: string, place: string | null, places: Places): ReactNode {
+  return places.presetId === defaultPresetId ? presetPlaceName(place, places) : gamePlaceName(runeId, place, places);
+}
+
 /**
  * The card's Lock and Exclude, for this rune and this monster in the build's
  * preset (`rune-locks.ts`). One choice in two boxes: pressing the one that is on
@@ -203,9 +219,12 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
     const link = gamePlaceName(rune.id, rune.occupiedId, places);
     location = picked.issue?.kind === 'locked-away' ? <>Locked to {link}</> : link;
   }
-  /* Only where the rune has really moved since the import: one moved and moved
-     back is where the game has it, and has nothing to report. */
-  const moved = loadedPlace !== undefined && loadedPlace !== rune.occupiedId;
+  /* Only where the place shown has really changed since the import: one moved
+     and moved back is where the game has it, and a rune freed in this preset
+     from a monster that still carries it in Default is shown on that monster
+     before and after, so Previously would only repeat Location. */
+  const moved = loadedPlace !== undefined
+    && shownPlace(rune.id, loadedPlace, places) !== shownPlace(rune.id, rune.occupiedId, places);
   return <li className="rune-build-card" data-slot={picked.slot} aria-label={`Slot ${picked.slot}`}>
     <div className="rune-build-card-head">
       <RuneEmblem setName={rune.setName} slot={rune.slot} />
@@ -248,7 +267,7 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
         <div className="rune-build-card-where" data-visible={moved} aria-hidden={!moved}>
           <span className="rune-build-card-where-label">Previously</span>
           <span className="rune-build-card-where-value">
-            {moved ? presetPlaceName(loadedPlace, places) : ''}
+            {moved ? previousPlaceName(rune.id, loadedPlace, places) : ''}
           </span>
         </div>
       </div>

@@ -602,6 +602,14 @@ export default function Home() {
     },
   };
 
+  /* A leader chosen outside the Presets page, through the same routes as its crown. */
+  async function leadPreset(presetId: string, unitId: string | null) {
+    const preset = presets.find((entry) => entry.id === presetId);
+    if (preset?.kind === 'own') {
+      presetWrites.ownPresets((current) => current.map((entry) => (entry.id === presetId ? { ...entry, leaderUnitId: unitId } : entry)));
+    } else if (preset?.kind === 'game') await presetWrites.leadGamePreset(presetId, unitId);
+  }
+
   /* A game preset lives in the import, so a change to one is saved there, as an
      engrave is; live sync would put the game's own back at once, so it refuses. */
   async function changeGamePreset(change: (current: ImportedGame) => ImportedGame): Promise<boolean> {
@@ -802,7 +810,9 @@ export default function Home() {
         preferences={preferences}
         presets={presets}
         openPresetId={speedRequest}
+        canChangePresets={canEngrave}
         onWrite={writeSpeedTuning}
+        onLead={(presetId, unitId) => void leadPreset(presetId, unitId)}
         onTeamClosed={() => setSpeedRequest(null)}
         onOpenMonster={openMonsterOverlay}
       /></Suspense>}

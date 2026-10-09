@@ -552,6 +552,33 @@ test('a preset cannot be added, deleted or led here while live sync owns the pre
   await expect(page.getByRole('button', { name: /leads this preset$/ })).toHaveCount(0);
 });
 
+test('on Read on game start a game preset is the user\'s: led, added to, taken from and deleted', async ({ page }, testInfo) => {
+  await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
+  await freshWorkspace(page);
+  await page.evaluate(() => {
+    const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');
+    localStorage.setItem('jaswa-preferences', JSON.stringify({ ...preferences, importRoute: 'direct', directImportMode: 'on-load',
+      updatedAt: new Date(Date.now() + 1000).toISOString() }));
+  });
+  await page.reload();
+  await importAccount(page);
+  await openPresets(page);
+  const names = await copyNames(page);
+  await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  await page.screenshot({ path: testInfo.outputPath('on-load-game-preset.png') });
+  await expect(page.getByRole('button', { name: 'Add preset' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Delete preset' })).toBeEnabled();
+  const crown11 = page.getByRole('button', { name: `${names[11]} leads this preset` });
+  await crown11.click();
+  await expect(crown11).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: `Remove ${names[12]} from this preset` }).click();
+  await expect.poll(async () => order(page)).toEqual([names[11]]);
+  /* Back in, it takes the first empty position, which is the one it left. */
+  await addMenu(page).selectOption('12');
+  await expect.poll(async () => order(page)).toEqual([names[12], names[11]]);
+  await expect(page.getByRole('button', { name: 'Delete preset' })).toBeEnabled();
+});
+
 test('Optimize opens Rune Optimization on that monster in that preset', async ({ page }) => {
   await freshWorkspace(page);
   await importAccount(page);
@@ -868,6 +895,23 @@ test('a rune on another monster in Default names that monster in a preset build'
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'other-monster-location.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(locationAccount)),
   });
+  /* As after the other monster was rebuilt in this preset by JASWA: it carried these runes here
+     at import and has given them up, while Default still has them on it — the game shows them
+     on that monster before and after, so a Previously would only repeat Location. */
+  await page.evaluate(async (runeIds) => new Promise<void>((resolve) => {
+    const request = indexedDB.open('jaswa-local', 1);
+    request.onsuccess = () => {
+      const store = request.result.transaction('workspace', 'readwrite').objectStore('workspace');
+      const read = store.get('imported-game');
+      read.onsuccess = () => {
+        const game = read.result;
+        game.loadedPlacements = { 'deck-1-1': Object.fromEntries(runeIds.map((id: number) => [String(id), '12'])) };
+        store.put(game, 'imported-game').onsuccess = () => { request.result.close(); resolve(); };
+      };
+    };
+  }), locationRunes.map((rune: { rune_id: number }) => rune.rune_id));
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await openOptimization(page);
   const otherName = (await page.getByLabel('Monster', { exact: true }).locator('option[value="12"]').innerText()).trim();
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
@@ -876,10 +920,21 @@ test('a rune on another monster in Default names that monster in a preset build'
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const detail = page.getByRole('dialog', { name: 'Build 1' });
   await expect(detail.locator('.rune-build-card')).toHaveCount(6);
+  /* Free in the preset, each names the monster carrying it in Default, by name alone as the game does. */
   for (const card of await detail.locator('.rune-build-card').all()) {
-    await expect(card.locator('.rune-build-card-where').first()).toContainText(otherName);
+    await expect(card.locator('.rune-build-card-where').first()).toHaveText(`Location${otherName}`);
+    await expect(card.locator('.rune-build-card-where').nth(1)).toHaveAttribute('data-visible', 'false');
   }
   await detail.screenshot({ path: testInfo.outputPath('other-monster-engraved.png') });
+
+  /* Engraved in the preset, each card says where its rune was as Location said it then: on the other monster, not in the inventory. */
+  await detail.getByRole('button', { name: 'Engrave on monster' }).click();
+  await expect(detail.getByRole('button', { name: 'Engraved' })).toBeVisible();
+  for (const card of await detail.locator('.rune-build-card').all()) {
+    await expect(card.locator('.rune-build-card-where').first()).toContainText('This monster');
+    await expect(card.locator('.rune-build-card-where').nth(1)).toHaveText(`Previously${otherName}`);
+  }
+  await detail.screenshot({ path: testInfo.outputPath('other-monster-previously.png') });
 });
 
 /* Rune Optimization's monster and preset, then the profile they read. */

@@ -134,14 +134,18 @@ const columns: readonly { id: PresetColumn; title: string; empty: string }[] = [
   { id: 'other', title: 'Other presets', empty: 'No other presets.' },
 ];
 
-export function SpeedTuningSection({ game, monsters, preferences, presets, openPresetId = null, onWrite, onTeamClosed, onOpenMonster }: {
+export function SpeedTuningSection({ game, monsters, preferences, presets, openPresetId = null, canChangePresets, onWrite, onLead, onTeamClosed, onOpenMonster }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
   presets: readonly Preset[];
   /** A team to open on arrival, asked for from another page. */
   openPresetId?: string | null;
+  /** Whether the game's presets are the user's to change: false while live sync would put them back. */
+  canChangePresets: boolean;
   onWrite: (change: (current: SpeedTuningPreferences) => SpeedTuningPreferences) => void;
+  /** A preset's leader, `null` for none. */
+  onLead: (presetId: string, unitId: string | null) => void;
   /** Told when a team's overlay closes, so a request to open one is spent. */
   onTeamClosed?: () => void;
   onOpenMonster: OpenMonsterOverlay;
@@ -228,12 +232,22 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
 
     {editing && editingLine?.kind === 'team' && <SpeedTeamOverlay key={editingLine.preset.id} initial={editingLine.team} title={editingLine.preset.name}
       monsters={editingLine.monsters} totemShare={totemShare} names={namesIn(editingLine.preset.id)} general={general}
+      leading={leadingIn(editingLine.preset)}
       onSave={(team) => {
         onWrite((current) => ({ ...current, presets: { ...current.presets, [team.id]: speedTuningOf(team) } }));
+        if (team.leaderUnitId !== editingLine.team.leaderUnitId) onLead(team.id, team.leaderUnitId);
         close();
       }}
       onClose={close} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
+
+  /* A preset built here is always the user's; the game's only while live sync
+     is off, and a defense is always led by someone, so its lead only passes on. */
+  function leadingIn(preset: Preset): 'free' | 'kept' | undefined {
+    if (preset.kind === 'own') return 'free';
+    if (preset.kind !== 'game' || !canChangePresets) return undefined;
+    return preset.deck !== null && preset.deck.source.kind !== 'deck' ? 'kept' : 'free';
+  }
 
   /* A preset's line: its number, its monsters in the order asked for, its leader marked. */
   function renderLine(line: Line) {

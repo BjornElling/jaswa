@@ -332,9 +332,9 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(3);
   await whatIf.fill('120');
 
-  /* The preset names no leader, so none is chosen and none can be: the leader is the game's. */
+  /* The preset names no leader, so none is chosen; with live sync off one can be. */
   const verdehileLeads = saved.getByRole('checkbox', { name: "Verdehile leads Giant's Keep 1" });
-  await expect(verdehileLeads).toBeDisabled();
+  await expect(verdehileLeads).toBeEnabled();
   await expect(verdehileLeads).not.toBeChecked();
   const verdehileLead = saved.locator('.speed-slot').filter({ has: page.getByRole('checkbox', { name: "Verdehile leads Giant's Keep 1" }) })
     .locator('.speed-leader-skill');
@@ -452,7 +452,7 @@ test('the preset\'s leader is read, marked and judged where it reaches', async (
   const card = page.getByRole('dialog', { name: 'Necropolis 1' });
   const verdehileLeads = card.getByRole('checkbox', { name: 'Verdehile leads Necropolis 1' });
   await expect(verdehileLeads).toBeChecked();
-  await expect(verdehileLeads).toBeDisabled();
+  await expect(verdehileLeads).toBeEnabled();
   await expect(card.getByRole('checkbox', { name: 'Veromos leads Necropolis 1' })).not.toBeChecked();
   const verdehileLead = card.locator('.speed-slot').filter({ has: page.getByRole('checkbox', { name: 'Verdehile leads Necropolis 1' }) })
     .locator('.speed-leader-skill');
@@ -473,6 +473,55 @@ test('the preset\'s leader is read, marked and judged where it reaches', async (
     .locator('.speed-leader-skill');
   await expect(bernardLead).toHaveText('ATK 30 % · Wind');
   await expect(bernardLead).toHaveAttribute('data-state', 'idle');
+});
+
+test('with live sync off the leader is chosen here, saved into the preset, and kept', async ({ page }, testInfo) => {
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openSpeedTuning(page);
+  const dungeons = page.getByRole('region', { name: 'Dungeons', exact: true });
+  await presetLine(dungeons, 'Necropolis 1').click();
+  const card = page.getByRole('dialog', { name: 'Necropolis 1' });
+  const verdehile = card.getByRole('checkbox', { name: 'Verdehile leads Necropolis 1' });
+  const veromos = card.getByRole('checkbox', { name: 'Veromos leads Necropolis 1' });
+  const before = await card.locator('.speed-team-editor').boundingBox();
+  await veromos.check();
+  await expect(veromos).toBeChecked();
+  await expect(verdehile).not.toBeChecked();
+  expect(await card.locator('.speed-team-editor').boundingBox()).toEqual(before);
+  await card.screenshot({ path: testInfo.outputPath('speed-leader-chosen.png') });
+  await card.getByRole('button', { name: 'Save changes' }).click();
+  await expect(card).toHaveCount(0);
+
+  /* Written into the import, so a reload reads the new leader. */
+  await page.reload();
+  await openSpeedTuning(page);
+  await presetLine(dungeons, 'Necropolis 1').click();
+  await expect(veromos).toBeChecked();
+  await expect(verdehile).not.toBeChecked();
+  /* Taking the lead away leaves the preset with none. */
+  await veromos.uncheck();
+  await card.getByRole('button', { name: 'Save changes' }).click();
+  await presetLine(dungeons, 'Necropolis 1').click();
+  await expect(card.getByRole('checkbox', { checked: true })).toHaveCount(0);
+});
+
+test('under live sync the leader is only reported: the game owns it', async ({ page }) => {
+  await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
+  await freshWorkspace(page);
+  await page.evaluate(() => {
+    const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');
+    localStorage.setItem('jaswa-preferences', JSON.stringify({ ...preferences, importRoute: 'direct', directImportMode: 'live',
+      updatedAt: new Date(Date.now() + 1000).toISOString() }));
+  });
+  await page.reload();
+  await importAccount(page);
+  await openSpeedTuning(page);
+  await presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), 'Necropolis 1').click();
+  const card = page.getByRole('dialog', { name: 'Necropolis 1' });
+  await expect(card.getByRole('checkbox', { name: 'Verdehile leads Necropolis 1' })).toBeChecked();
+  await expect(card.getByRole('checkbox', { name: 'Verdehile leads Necropolis 1' })).toBeDisabled();
+  await expect(card.getByRole('checkbox', { name: 'Veromos leads Necropolis 1' })).toBeDisabled();
 });
 
 test('arena presets face a worst-case enemy', async ({ page }, testInfo) => {

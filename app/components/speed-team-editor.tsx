@@ -105,6 +105,12 @@ type EditorProps = {
   turnOrderAction?: ReactNode;
   /** False while a new dungeon team has no dungeon chosen: its enemies are nobody's yet. */
   enemiesKnown?: boolean;
+  /**
+   * How the leader is chosen here: `'free'` passes and takes the lead, `'kept'`
+   * only passes it, for a defense, which the game always leads with someone.
+   * Absent while live sync owns the preset, and the box only reports the lead.
+   */
+  leading?: 'free' | 'kept';
 };
 
 /**
@@ -120,11 +126,11 @@ function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings)
 
 /**
  * Everything a preset's team states and everything read from it: the leader,
- * each slot and its verdict, and what the team faces. The monsters and the
- * leader are the preset's, so only the turn order wanted and the what-ifs are
- * the user's to change here.
+ * each slot and its verdict, and what the team faces. The monsters are the
+ * preset's, so the turn order wanted, the what-ifs and — where the preset is
+ * the user's to change — the leader are what is changed here.
  */
-export function SpeedTeamEditor({ reading, title, names, general, onChange, onWhatIf, onOpenMonster, turnOrderAction, enemiesKnown = true }: EditorProps) {
+export function SpeedTeamEditor({ reading, title, names, general, onChange, onWhatIf, onOpenMonster, turnOrderAction, enemiesKnown = true, leading }: EditorProps) {
   const { team, content } = reading;
   const reorder = useDragReorder<HTMLTableElement>({ count: team.members.length, onMove: move });
   const speedName = combatSpeedName(reading);
@@ -232,12 +238,13 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
                 </span>
               </span>
             </td>
-            {/* The preset names its leader, so the box only reports it. A
-                chosen lead that does not count here says so in red; one not
-                chosen stays quiet whatever it reaches. */}
+            {/* The box reports the lead, and passes it where the preset is the
+                user's. A chosen lead that does not count here says so in red;
+                one not chosen stays quiet whatever it reaches. */}
             <td className="speed-leader-cell" rowSpan={2}>
               <label className="speed-leader" title={lead ? describeLeaderSkill(lead) : undefined}>
-                <input type="checkbox" checked={leads} disabled readOnly
+                <input type="checkbox" checked={leads} disabled={leading === undefined || (leads && leading === 'kept')}
+                  onChange={() => onChange((current) => ({ ...current, leaderUnitId: leads ? null : member.unitId }))}
                   aria-label={`${name} leads ${title}`} />
                 <span className="speed-leader-skill" data-state={lead === null ? 'none' : !leads ? 'idle' : reaches ? 'chosen' : 'bad'}>
                   {lead ? shortLeaderSkill(lead) : '—'}

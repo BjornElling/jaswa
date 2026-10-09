@@ -26,7 +26,7 @@ function TicksIcon() {
  * every keystroke behind the overlay would be the page moving while the reader
  * looks at something else.
  */
-export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, general, onSave, onClose, onOpenMonster }: {
+export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, general, leading, onSave, onClose, onOpenMonster }: {
   initial: SpeedTeam;
   /** The preset's name. */
   title: string;
@@ -35,6 +35,8 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
   totemShare: number;
   names: Record<string, MonsterCopyName>;
   general: GeneralSettings;
+  /** How the leader may be changed here, absent where it may not. */
+  leading?: 'free' | 'kept';
   onSave: (team: SpeedTeam) => void;
   onClose: () => void;
   onOpenMonster: OpenMonsterOverlay;
@@ -97,6 +99,7 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
             disabled={reading.members.length === 0} onClick={() => setShowTurnOrder(true)}>
             <TicksIcon />Ticks
           </Button>}
+          leading={leading}
           onChange={change}
           onWhatIf={setWhatIf}
           onOpenMonster={onOpenMonster} />

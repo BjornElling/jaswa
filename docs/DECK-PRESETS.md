@@ -307,8 +307,11 @@ an import, and are checked one preset at a time on load.
 - Rules are removed.
 - The three columns hold presets by content: dungeons left (Cairos, Dimension
   Hole, Rift of Worlds), Arena Attack and Defense centre, all others right.
-- A preset's monsters and leader are the game's; the user states the turn order
-  wanted and the what-if display speeds, stored per preset. Until an order is
+- A preset's monsters are the game's; the user states the turn order wanted
+  and the what-if display speeds, stored per preset. The leader is the user's
+  to choose wherever the preset is (§5, Presets): saved with the team, it is
+  written as the Presets page's crown writes it, and under live sync it is only
+  reported. Until an order is
   stated, the preset is read in the game's own order.
 - Every speed is computed from the preset's own runes, with the relic from
   Default.
@@ -318,10 +321,13 @@ an import, and are checked one preset at a time on load.
   judged, rather than being judged by a guessed rule.
 
 **Rune Optimization.** A build's Location names the Default monster for a rune
-free in the selected preset, as the game's rune list does. If that Default
+free in the selected preset, by name alone, as the game's rune list does. A
+rune freed in the preset from a monster that still carries it in Default is
+shown on that monster before and after, so it has no Previously. If that Default
 monster is the one being optimized, the card says *Inventory* instead: the
 rune still has to be engraved in this preset, which the Changes figure counts.
-Previously names the rune's earlier place in that preset after JASWA moves it.
+Previously names the rune's earlier place in that preset after JASWA moves it,
+in Location's words: a rune the preset left free names its Default monster.
 
 **Rune Clean-up, Gems & Grinds and every rune or artifact list.**
 - One *Engraved* label replaces the monster name in the location column. A
