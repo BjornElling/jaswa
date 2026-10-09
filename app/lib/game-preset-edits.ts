@@ -4,11 +4,11 @@ import type { Preset } from './presets';
 import type { ImportedGame } from './types';
 
 /*
- * The two changes the Presets page makes to one of the game's presets: taking
- * it away and naming its leader. Both are written into the import, where the
- * game's presets live, as an engrave is — so the next
+ * The changes the Presets page makes to one of the game's presets: taking it
+ * away, naming its leader, and taking a monster in or out. All are written into
+ * the import, where the game's presets live, as an engrave is — so the next
  * import from the game states the game's own presets again, and live sync,
- * which would put them back at once, refuses both.
+ * which would put them back at once, refuses them all.
  */
 
 function sourceOf(preset: Preset) {
@@ -21,6 +21,90 @@ function sameDeck(entry: unknown, type: number, sequence: number): boolean {
 }
 
 const defenseField = { 'arena-defense': 'defense_deck_info', 'interserver-defense': 'server_arena_defense_deck_info' } as const;
+
+/* Positions are written as a bare id or, for the Interserver defense, as `{pos_id, unit_id}`. */
+const idOf = (entry: unknown) => String(isRecord(entry) ? entry.unit_id : entry);
+const put = (entry: unknown, id: unknown) => (isRecord(entry) ? { ...entry, unit_id: id } : id);
+
+/* The export's record of the deck behind a game preset. */
+function deckOf(game: ImportedGame, preset: Preset): GameRecord {
+  const source = sourceOf(preset);
+  const deck = source.kind === 'deck'
+    ? (Array.isArray(game.data.deck_list) ? game.data.deck_list : []).find((entry) => sameDeck(entry, source.deckType, source.deckSequence))
+    : game.data[defenseField[source.kind]];
+  if (!isRecord(deck)) throw new Error('This preset is not in the import.');
+  return deck;
+}
+
+/* The import with the deck behind a game preset rewritten by `change`. */
+function withDeck(game: ImportedGame, preset: Preset, change: (deck: GameRecord) => GameRecord): ImportedGame {
+  const source = sourceOf(preset);
+  if (source.kind === 'deck') {
+    const decks = Array.isArray(game.data.deck_list) ? game.data.deck_list : [];
+    return { ...game, data: { ...game.data, deck_list: decks.map((entry) => sameDeck(entry, source.deckType, source.deckSequence)
+      ? change(entry as GameRecord) : entry) } };
+  }
+  return { ...game, data: { ...game.data, [defenseField[source.kind]]: change(deckOf(game, preset)) } };
+}
+
+function positionsOf(deck: GameRecord): unknown[] {
+  if (!Array.isArray(deck.unit_id_list)) throw new Error('This preset has no monster list.');
+  return deck.unit_id_list;
+}
+
+/**
+ * Whether a game preset has a place for one more monster: an empty position in
+ * its list, or a list shorter than its content's team. A deck whose content is
+ * not yet named is as large as the list the game saved.
+ */
+export function gamePresetHasRoom(game: ImportedGame, preset: Preset): boolean {
+  if (preset.kind !== 'game' || !preset.deck) return false;
+  const positions = positionsOf(deckOf(game, preset));
+  return positions.some((entry) => idOf(entry) === '0')
+    || (preset.content !== null && positions.length < preset.content.teamSize);
+}
+
+/**
+ * The game's preset with `unitId` in its first empty position. A preset that
+ * saved its monsters' gear gives the newcomer its Default gear, less whatever
+ * this preset already engraves elsewhere — one rune, one monster, inside a
+ * preset — because the game saves a deck's gear for all of its monsters or none.
+ */
+export function addToGamePreset(game: ImportedGame, preset: Preset, fallback: Preset, unitId: string): ImportedGame {
+  if (preset.members.includes(unitId)) return game;
+  if (!gamePresetHasRoom(game, preset)) throw new Error('This preset is full.');
+  const unit = Number(unitId);
+  return withDeck(game, preset, (deck) => {
+    const positions = positionsOf(deck);
+    const empty = positions.findIndex((entry) => idOf(entry) === '0');
+    const nextPosition = Math.max(0, ...positions.map((entry) => (isRecord(entry) && typeof entry.pos_id === 'number' ? entry.pos_id : 0))) + 1;
+    const unit_id_list = empty >= 0 ? positions.map((entry, at) => (at === empty ? put(entry, unit) : entry))
+      : [...positions, positions.some(isRecord) ? { pos_id: nextPosition, unit_id: unit } : unit];
+    if (!preset.savesGear) return { ...deck, unit_id_list };
+    const taken = new Set([...preset.runeOwner.keys(), ...preset.artifactOwner.keys()]);
+    const runeIds = (fallback.runesOf.get(unitId) ?? []).filter((id) => !taken.has(id));
+    const artifactIds = (fallback.artifactsOf.get(unitId) ?? []).filter((id) => !taken.has(id));
+    const equip = [...(Array.isArray(deck.equip) ? deck.equip : []),
+      { unit_id: unit, rune_id_list: runeIds.map(Number), artifact_id_list: artifactIds.map(Number) }];
+    return { ...deck, unit_id_list, equip };
+  });
+}
+
+/**
+ * The game's preset with `unitId` taken out: its position emptied, as the game
+ * writes an empty one, and its gear in this preset gone with it. A leader taken
+ * out leaves an attack deck without one; a defense is led by whoever now stands
+ * first.
+ */
+export function removeFromGamePreset(game: ImportedGame, preset: Preset, unitId: string): ImportedGame {
+  if (!preset.members.includes(unitId)) return game;
+  return withDeck(game, preset, (deck) => {
+    const unit_id_list = positionsOf(deck).map((entry) => (idOf(entry) === unitId ? put(entry, 0) : entry));
+    const equip = Array.isArray(deck.equip) ? deck.equip.filter((entry) => !isRecord(entry) || String(entry.unit_id) !== unitId) : deck.equip;
+    const leader = 'leader_unit_id' in deck && String(deck.leader_unit_id) === unitId ? { leader_unit_id: 0 } : {};
+    return { ...deck, unit_id_list, equip, ...leader };
+  });
+}
 
 /** The game's preset gone from this import, with what JASWA remembered of it. */
 export function deleteGamePreset(game: ImportedGame, preset: Preset): ImportedGame {
@@ -55,10 +139,7 @@ export function leadGamePreset(game: ImportedGame, preset: Preset, unitId: strin
   const field = defenseField[source.kind];
   const deck = game.data[field];
   if (!isRecord(deck) || !Array.isArray(deck.unit_id_list)) throw new Error('This defense has no monster list.');
-  /* Positions are kept and only the monsters in them traded, whether a position
-     is written as a bare id or, for the Interserver defense, as `{pos_id, unit_id}`. */
-  const idOf = (entry: unknown) => String(isRecord(entry) ? entry.unit_id : entry);
-  const put = (entry: unknown, id: unknown) => (isRecord(entry) ? { ...entry, unit_id: id } : id);
+  /* Positions are kept and only the monsters in them traded. */
   const list = deck.unit_id_list;
   const first = list.findIndex((entry) => idOf(entry) !== '0');
   const chosen = list.findIndex((entry) => idOf(entry) === unitId);

@@ -19,7 +19,7 @@ import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
 import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements, runesWithLocked, runesWithout } from './lib/engrave-rune-build';
-import { deleteGamePreset, leadGamePreset } from './lib/game-preset-edits';
+import { addToGamePreset, deleteGamePreset, leadGamePreset, removeFromGamePreset } from './lib/game-preset-edits';
 import { usePageHistory } from './lib/page-history';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import type { MonsterPriority } from './lib/monster-priority';
@@ -582,6 +582,23 @@ export default function Home() {
     async leadGamePreset(presetId: string, unitId: string | null) {
       const preset = presets.find((entry) => entry.id === presetId);
       if (preset) await changeGamePreset((current) => leadGamePreset(current, preset, unitId));
+    },
+    async addToGamePreset(presetId: string, unitId: string) {
+      const preset = presets.find((entry) => entry.id === presetId);
+      const fallback = presets.find((entry) => entry.kind === 'default');
+      if (preset && fallback) await changeGamePreset((current) => addToGamePreset(current, preset, fallback, unitId));
+    },
+    /* As from a preset built here, the copy takes its profile in this preset with it. */
+    async removeFromGamePreset(presetId: string, unitId: string) {
+      const preset = presets.find((entry) => entry.id === presetId);
+      if (!preset || !await changeGamePreset((current) => removeFromGamePreset(current, preset, unitId))) return;
+      changePreferences((current) => ({
+        ...current,
+        monsterPreferences: profileIn(current.monsterPreferences, presetId, unitId) === undefined ? current.monsterPreferences
+          : withProfile(current.monsterPreferences, presetId, unitId, undefined),
+        presetPriority: current.presetPriority[presetId] === undefined ? current.presetPriority
+          : { ...current.presetPriority, [presetId]: current.presetPriority[presetId].filter((entry) => entry !== unitId) },
+      }));
     },
   };
 

@@ -24,6 +24,7 @@ import { presetSpeedTeam } from '../lib/speed-tuning-preferences';
 import type { MonsterPriority } from '../lib/monster-priority';
 import { presetContent, presetTabs, tabContents } from '../lib/preset-contents';
 import type { PresetContentId } from '../lib/preset-contents';
+import { gamePresetHasRoom } from '../lib/game-preset-edits';
 import { accountItems, defaultPresetId, monsterInPreset, newOwnPresetId, presetMenu } from '../lib/presets';
 import type { OwnPreset, Preset, PresetMenuArea, PresetMenuTab } from '../lib/presets';
 import type { ImportedGame, Preferences } from '../lib/types';
@@ -40,6 +41,9 @@ export type PresetWrites = {
   deleteGamePreset: (presetId: string) => Promise<void>;
   /** A game preset's leader, `null` for none. */
   leadGamePreset: (presetId: string, unitId: string | null) => Promise<void>;
+  /** A monster into, or out of, one of the game's presets. */
+  addToGamePreset: (presetId: string, unitId: string) => Promise<void>;
+  removeFromGamePreset: (presetId: string, unitId: string) => Promise<void>;
 };
 
 /**
@@ -49,9 +53,10 @@ export type PresetWrites = {
  * it. Runes compete only inside a preset (`DECK-PRESETS.md` §1), so the list is
  * the preset's own.
  *
- * The game's presets come from the import and keep the game's monsters; only
- * their order is the user's. A preset built here is the user's whole: a draft to
- * build in the game once its runes are right.
+ * The game's presets come from the import. While live sync is off they are the
+ * user's to change as well — who stands in them, who leads, whether they are
+ * kept — until the next import states the game's own again. A preset built here
+ * is the user's whole: a draft to build in the game once its runes are right.
  */
 export function PresetsSection({ game, monsters, preferences, presets, selectedId, canCreate, onSelect, onWrite, onOpenMonster, onOptimize, onTuneSpeed }: {
   game: ImportedGame | null;
@@ -98,19 +103,20 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
       const unitId = String(monster.unit_id);
       return [unitId, { unitId, masterId: String(monster.unit_master_id ?? ''), name: names[unitId]?.name ?? unitId, record: monster }];
     })), [monsters, names]);
-  /* A game preset's monsters are the game's, so it takes none from here; a
-     preset of a content takes no more than the content's team. */
-  const full = own !== null && own.content !== null && own.members.length >= presetContent(own.content).teamSize;
-  const canAdd = preset !== null && (preset.kind === 'default' || own !== null) && !full;
+  /* The game's presets live in the import, which live sync would put back at once. */
+  const gameEditable = preset?.kind === 'game' && canCreate;
+  /* A preset of a content takes no more than the content's team, and a game
+     preset no more than its deck has positions for. */
+  const full = own !== null ? own.content !== null && own.members.length >= presetContent(own.content).teamSize
+    : gameEditable && game !== null && preset !== null && !gamePresetHasRoom(game, preset);
+  const canAdd = preset !== null && (preset.kind === 'default' || own !== null || gameEditable) && !full;
   const choices = useMemo(() => {
     const placed = new Set(priority);
     return [...owned.values()].filter((choice) => !placed.has(choice.unitId))
       .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId));
   }, [owned, priority]);
   const reorder = useDragReorder<HTMLOListElement>({ count: priority.length, onMove: move });
-  const editable = preset !== null && preset.kind !== 'game';
-  /* The game's presets live in the import, which live sync would put back at once. */
-  const gameEditable = preset?.kind === 'game' && canCreate;
+  const editable = preset !== null && (preset.kind !== 'game' || gameEditable);
   const deletable = own !== null || gameEditable;
   /* Speed Tuning opens a team only where it has a speed model for the content
      and the preset fields no more monsters than the content does. */
@@ -174,6 +180,10 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
       onWrite.monsterPriority((current) => (current.includes(unitId) ? current : [...current, unitId]));
       return;
     }
+    if (preset.kind === 'game') {
+      void onWrite.addToGamePreset(preset.id, unitId);
+      return;
+    }
     /* A preset that holds its monsters' gear gives a newcomer its Default gear,
        less whatever this preset already engraves elsewhere: one rune, one
        monster, inside a preset. */
@@ -194,6 +204,10 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
     if (!preset) return;
     if (preset.kind === 'default') {
       onWrite.monsterPriority((current) => current.filter((entry) => entry !== unitId));
+      return;
+    }
+    if (preset.kind === 'game') {
+      if (gameEditable) void onWrite.removeFromGamePreset(preset.id, unitId);
       return;
     }
     writeOwn((current) => {
@@ -304,7 +318,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
         {preset === null
           ? <p className="monster-priority-empty">No presets here yet.</p>
           : priority.length === 0
-            ? <p className="monster-priority-empty">{preset.kind === 'game' ? 'This preset holds no monsters.' : 'Nobody here yet. Add a monster above, and the first one in takes #1.'}</p>
+            ? <p className="monster-priority-empty">{preset.kind === 'game' && !gameEditable ? 'This preset holds no monsters.' : 'Nobody here yet. Add a monster above, and the first one in takes #1.'}</p>
             /* Each entry is dragged by any part of it; the arrows beside it, and
                Alt with an arrow key, are the same move without a pointer. */
             : <div className="monster-priority-table">

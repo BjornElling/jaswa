@@ -313,11 +313,11 @@ test('a game preset shows the game\'s monsters and gear; its order, leader and p
 
   await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
   await expect(page.locator('.monster-priority-about')).toHaveText('');
-  /* The game's own order, nobody to add, nobody to remove. */
+  /* The game's own order; every monster of the account already stands in it, so nobody to add. */
   expect(await order(page)).toEqual([names[12], names[11]]);
   await expect(addMenu(page)).toBeDisabled();
-  await expect(page.getByRole('button', { name: `Remove ${names[12]} from this preset` })).toBeDisabled();
-  await expect(page.getByRole('button', { name: `Remove ${names[11]} from this preset` })).toBeDisabled();
+  await expect(page.getByRole('button', { name: `Remove ${names[12]} from this preset` })).toBeEnabled();
+  await expect(page.getByRole('button', { name: `Remove ${names[11]} from this preset` })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Delete preset' })).toBeEnabled();
   /* The game's leader is marked on its crown, and every crown is a control. */
   const entries = page.locator('.monster-priority-entry');
@@ -380,6 +380,51 @@ test('a game preset shows the game\'s monsters and gear; its order, leader and p
   await page.reload();
   await openPresets(page);
   await expect(contentChoice(page).locator('option')).toHaveText(tabs);
+});
+
+type SavedTeam = { deck_type: number; deck_seq: number; unit_id_list: number[]; leader_unit_id?: number;
+  equip: Array<{ unit_id: number; rune_id_list: number[] }> | null };
+
+test('a game preset takes monsters in and out while live sync is off, written into the import', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openPresets(page);
+  const names = await copyNames(page);
+  const deck = async (type: number, sequence: number) => (await savedDecks(page) as unknown as SavedTeam[])
+    .find((entry) => entry.deck_type === type && entry.deck_seq === sequence);
+
+  /* A preset that saved monsters only: the newcomer fills the first empty position. */
+  await choosePreset(page, "Giant's Keep", "Giant's Keep 1");
+  await page.screenshot({ path: testInfo.outputPath('game-preset-before-add.png') });
+  await addMenu(page).selectOption('12');
+  await expect.poll(async () => order(page)).toEqual([names[11], names[12]]);
+  await expect.poll(async () => (await deck(24, 101))?.unit_id_list).toEqual([11, 12, 0, 0, 0]);
+  expect((await deck(24, 101))?.equip).toBeNull();
+  await page.screenshot({ path: testInfo.outputPath('game-preset-after-add.png') });
+
+  /* Taken out, its position is emptied as the game writes one; taking every monster out leaves a preset that says what to do. */
+  await page.getByRole('button', { name: `Remove ${names[11]} from this preset` }).click();
+  await page.getByRole('button', { name: `Remove ${names[12]} from this preset` }).click();
+  await expect.poll(async () => (await deck(24, 101))?.unit_id_list).toEqual([0, 0, 0, 0, 0]);
+  await expect(page.getByText('Nobody here yet.', { exact: false })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('game-preset-empty.png') });
+
+  /* A preset that saves its gear: the leader taken out takes its runes and the crown; back in, it brings its Default runes. */
+  await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  await page.getByRole('button', { name: `Remove ${names[12]} from this preset` }).click();
+  await expect.poll(async () => deck(1, 4)).toMatchObject({ unit_id_list: [0, 11, 0, 0], leader_unit_id: 0,
+    equip: [{ unit_id: 11, rune_id_list: arenaEleven }] });
+  await addMenu(page).selectOption('12');
+  await expect.poll(async () => (await deck(1, 4))?.unit_id_list).toEqual([12, 11, 0, 0]);
+  expect((await deck(1, 4))?.equip?.find((entry) => entry.unit_id === 12)?.rune_id_list).toEqual([5007, 5008, 5009, 5010, 5011, 5012]);
+  await expect(page.locator('.monster-priority-entry').filter({ hasText: names[12] }).getByRole('img', { name: '6 of 6 runes engraved' })).toBeVisible();
+
+  /* Kept across a reload. */
+  await page.reload();
+  await openPresets(page);
+  await choosePreset(page, "Giant's Keep", "Giant's Keep 1");
+  await expect(page.getByText('Nobody here yet.', { exact: false })).toBeVisible();
 });
 
 test('a preset built here is created, filled, led and deleted without moving the page', async ({ page }, testInfo) => {
@@ -501,6 +546,7 @@ test('a preset cannot be added, deleted or led here while live sync owns the pre
   await expect(create).toBeDisabled();
   await expect(create).toHaveAttribute('title', 'Automatic synchronization is on: presets come from the game.');
   await expect(page.getByRole('button', { name: 'Delete preset' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /from this preset$/ }).first()).toBeDisabled();
   /* The game's leader is shown, not offered. */
   await expect(page.locator('.monster-priority-entry').first().getByRole('img', { name: 'Leader' })).toBeVisible();
   await expect(page.getByRole('button', { name: /leads this preset$/ })).toHaveCount(0);

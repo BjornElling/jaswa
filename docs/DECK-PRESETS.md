@@ -213,7 +213,7 @@ it stands in.
 - Speed Tuning's order and what-ifs and a preset's priority list are already
   per preset, and so are a rune's Lock and Exclude (§5).
 - A preset deleted in JASWA takes its profiles, speed tuning and priority list
-  with it; a copy taken out of a preset built in JASWA takes its profile there.
+  with it; a copy taken out of a preset takes its profile there.
 - A copy is named by the profile of the context it is read in: the Presets page
   and Speed Tuning by each preset's, Rune Optimization by the chosen preset's,
   and every page about Default — Monsters, the artifact and relic pages, Rune
@@ -246,6 +246,13 @@ an import, and are checked one preset at a time on load.
 - *Add preset* sits at the right, starts the new preset in the chosen content
   under the name the game would give its next one, and is available as soon as
   a content other than Default is chosen, and only while live sync is off.
+- While live sync is off, the game's presets are the user's to change too:
+  a monster is added to the first empty position or taken out of its own,
+  the crown names the leader, and *Delete preset* removes it. Each change is
+  written into the import, as an engrave is, and the next import states the
+  game's own presets again. A monster added to a preset that saves its gear
+  brings its Default gear, less what the preset already engraves; one taken out
+  takes its gear and its profile there with it.
 - The order of monsters within a preset is their priority for runes. Rune
   competition exists only inside a preset, so that is the only place a
   priority means anything.
