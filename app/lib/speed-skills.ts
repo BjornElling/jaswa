@@ -57,10 +57,13 @@ function isLeaderAttribute(value: string): value is LeaderAttribute {
   return Object.hasOwn(leaderAttributes, value);
 }
 
-/* An attribute the table does not name fails here, at load, rather than
-   leaving a monster whose lead the editor cannot word. */
+const leaderAreas: readonly string[] = ['General', 'Arena', 'Dungeon', 'Guild'] satisfies LeaderArea[];
+
+/* An attribute or area the table does not name fails here, at load, rather
+   than leaving a monster whose lead the editor cannot word or place. */
 const leaderByMasterId = new Map((speedSkillData.leaders as SnapshotLeader[]).map(([id, attribute, percent, area, element]) => {
   if (!isLeaderAttribute(attribute)) throw new Error(`The speed snapshot gives monster ${id} a leader skill on an unknown attribute, ${attribute}.`);
+  if (!leaderAreas.includes(area)) throw new Error(`The speed snapshot gives monster ${id} a leader skill in an unknown area, ${area}.`);
   return [String(id), { attribute, percent, area, element } satisfies LeaderSkill];
 }));
 
@@ -80,8 +83,8 @@ export function speedLeaderSkill(masterId: unknown): SpeedLeaderSkill | null {
 
 /** The lead as a table cell names it: `SPD 24 %`, `ATK 33 % · Dungeon`, `HP 50 % · Water`. */
 export function shortLeaderSkill(lead: LeaderSkill): string {
-  const where = lead.area === 'General' ? '' : ` · ${lead.area === 'Element' ? lead.element ?? 'Element' : lead.area}`;
-  return `${leaderAttributes[lead.attribute].short} ${lead.percent} %${where}`;
+  const where = [lead.area === 'General' ? null : lead.area, lead.element].filter((part) => part !== null);
+  return `${leaderAttributes[lead.attribute].short} ${lead.percent} %${where.map((part) => ` · ${part}`).join('')}`;
 }
 
 const leaderAreaWords: Record<LeaderArea, string> = {
@@ -89,14 +92,13 @@ const leaderAreaWords: Record<LeaderArea, string> = {
   Arena: 'in arena',
   Dungeon: 'in dungeons',
   Guild: 'in guild content',
-  Element: 'on',
 };
 
 export function describeLeaderSkill(lead: LeaderSkill): string {
   const words = leaderAttributes[lead.attribute].words;
-  return lead.area === 'Element'
-    ? `+${lead.percent} % ${words} on ${lead.element ?? 'one element'} monsters`
-    : `+${lead.percent} % ${words} ${leaderAreaWords[lead.area]}`;
+  const who = lead.element === null ? '' : ` on ${lead.element} monsters`;
+  const where = lead.element !== null && lead.area === 'General' ? '' : ` ${leaderAreaWords[lead.area]}`;
+  return `+${lead.percent} % ${words}${who}${where}`;
 }
 
 type Recipient = 'allies' | 'ally' | 'self';

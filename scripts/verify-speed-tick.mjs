@@ -57,11 +57,17 @@ check(leaderSpeedPercent({ percent: 24, area: 'Arena', element: null }, 'dungeon
 check(leaderSpeedPercent({ percent: 24, area: 'Arena', element: null }, 'arena', 'Fire') === 24, 'an arena lead counts in arena');
 check(leaderSpeedPercent({ percent: 28, area: 'Dungeon', element: null }, 'dungeon', 'Fire') === 28, 'a dungeon lead counts in dungeons');
 check(leaderSpeedPercent({ percent: 33, area: 'Guild', element: null }, 'arena', 'Fire') === 0, 'a guild lead counts in neither');
-check(leaderSpeedPercent({ percent: 30, area: 'Element', element: 'Wind' }, 'arena', 'Fire') === 0, 'an element lead skips other elements');
-check(leaderSpeedPercent({ percent: 30, area: 'Element', element: 'Wind' }, 'dungeon', 'Wind') === 30, 'an element lead reaches its element everywhere');
+check(leaderSpeedPercent({ percent: 30, area: 'General', element: 'Wind' }, 'arena', 'Fire') === 0, 'an element lead skips other elements');
+check(leaderSpeedPercent({ percent: 30, area: 'General', element: 'Wind' }, 'dungeon', 'Wind') === 30, 'an element lead reaches its element everywhere');
+check(leaderSpeedPercent({ percent: 30, area: 'Arena', element: 'Wind' }, 'dungeon', 'Wind') === 0, 'an element lead keeps its area');
+/* Swarfarm writes an element lead two ways; the snapshot must keep the element
+   whichever it was. Agrius leads fire monsters only. */
+const agrius = leaderSkill(34112);
+check(agrius?.attribute === 'Critical Rate' && agrius.element === 'Fire', 'Agrius leads fire monsters only');
+check(shortLeaderSkill(agrius) === 'CRI Rate 30 % · Fire', `Agrius's lead names its element (${shortLeaderSkill(agrius)})`);
 /* Where a lead counts is one rule for every attribute: the speed figure above
    and the editor's red mark must agree. */
-for (const leaderArea of ['General', 'Arena', 'Dungeon', 'Guild', 'Element']) {
+for (const leaderArea of ['General', 'Arena', 'Dungeon', 'Guild']) {
   for (const area of ['arena', 'dungeon']) {
     const counts = leaderSpeedPercent({ percent: 10, area: leaderArea, element: 'Fire' }, area, 'Fire') > 0;
     check(leaderAreaReaches(leaderArea, area) === counts, `${leaderArea} lead in ${area}: reach and speed agree`);

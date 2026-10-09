@@ -102,7 +102,13 @@ one counts:
 | Arena | yes | no |
 | Dungeon | no | yes |
 | Guild | no | no |
-| Element | on monsters of that element | on monsters of that element |
+
+A lead that names an element counts, wherever its area lets it, only on
+monsters of that element. Swarfarm writes such a lead two ways — `area:
+"Element"`, or `area: "General"` with `element` set (Agrius, Dokkaebi Lord,
+the Doctors) — so the snapshot stores one: the area, and the element beside it.
+Reading only `"Element"` as a restriction once gave Agrius's fire-only +30 %
+CRI Rate to the whole team.
 
 Source: fandom *Leader Skill*. "Dungeon" covers the Cairos dungeons, which is
 where Swarfarm files all seven tuned dungeons. The leader is chosen per team and

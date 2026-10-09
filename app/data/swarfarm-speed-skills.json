@@ -49,42 +49,42 @@
    10405,
    "HP",
    25,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    10415,
    "HP",
    25,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    10502,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    10505,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    10512,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    10515,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -140,119 +140,119 @@
    11001,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11003,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11011,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11013,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11031,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11033,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11201,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11202,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    11203,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11204,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11205,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    11211,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11212,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    11213,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11214,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11215,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    11223,
    "Attack Power",
    40,
-   "Element",
+   "General",
    "Wind"
   ],
   [
@@ -287,238 +287,238 @@
    11403,
    "HP",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11404,
    "HP",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11413,
    "HP",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11414,
    "HP",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11501,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11511,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11513,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11514,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11531,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11533,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11534,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11601,
    "Defense",
    40,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11602,
    "Defense",
    40,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    11603,
    "Defense",
    40,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11604,
    "Defense",
    40,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11605,
    "Defense",
    40,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    11611,
    "Defense",
    40,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11612,
    "Defense",
    40,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    11613,
    "Defense",
    40,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11614,
    "Defense",
    40,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11615,
    "Defense",
    40,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    11621,
    "Defense",
    40,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11702,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    11705,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    11711,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11712,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    11713,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11714,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11715,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    11731,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11732,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    11733,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11734,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11735,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -602,210 +602,210 @@
    11901,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11902,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    11903,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11904,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11905,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    11911,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    11912,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    11913,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    11914,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    11915,
    "Resistance",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    12001,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Water"
   ],
   [
    12002,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    12003,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    12004,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Light"
   ],
   [
    12005,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    12011,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Water"
   ],
   [
    12012,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    12013,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    12014,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Light"
   ],
   [
    12015,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    12031,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Water"
   ],
   [
    12032,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    12033,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    12034,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Light"
   ],
   [
    12035,
    "Critical Rate",
    23,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    12104,
    "Defense",
    25,
-   "Element",
+   "General",
    "Light"
   ],
   [
    12114,
    "Defense",
    25,
-   "Element",
+   "General",
    "Light"
   ],
   [
    12115,
    "Defense",
    25,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    12134,
    "Defense",
    25,
-   "Element",
+   "General",
    "Light"
   ],
   [
    12135,
    "Defense",
    25,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -959,112 +959,112 @@
    13505,
    "Attack Speed",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    13511,
    "Attack Speed",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    13512,
    "Attack Speed",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    13513,
    "Attack Speed",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    13514,
    "Attack Speed",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    13515,
    "Attack Speed",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    13701,
    "Defense",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    13702,
    "Defense",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    13703,
    "Defense",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    13704,
    "Defense",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    13705,
    "Defense",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    13711,
    "Defense",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    13712,
    "Defense",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    13713,
    "Defense",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    13714,
    "Defense",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    13715,
    "Defense",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -1456,70 +1456,70 @@
    14601,
    "HP",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    14602,
    "HP",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    14603,
    "HP",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    14604,
    "HP",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    14605,
    "HP",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    14611,
    "HP",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    14612,
    "HP",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    14613,
    "HP",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    14614,
    "HP",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    14615,
    "HP",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -1820,49 +1820,49 @@
    15404,
    "Attack Power",
    35,
-   "Element",
+   "General",
    "Light"
   ],
   [
    15405,
    "Attack Power",
    35,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    15411,
    "Attack Power",
    35,
-   "Element",
+   "General",
    "Water"
   ],
   [
    15412,
    "Attack Power",
    35,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    15413,
    "Attack Power",
    35,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    15414,
    "Attack Power",
    35,
-   "Element",
+   "General",
    "Light"
   ],
   [
    15415,
    "Attack Power",
    35,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -1939,7 +1939,7 @@
    15601,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
@@ -1960,7 +1960,7 @@
    15604,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Light"
   ],
   [
@@ -1974,7 +1974,7 @@
    15611,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
@@ -1995,7 +1995,7 @@
    15614,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Light"
   ],
   [
@@ -2170,140 +2170,140 @@
    16011,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    16012,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    16013,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    16014,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    16015,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    16031,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    16032,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    16033,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    16034,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    16035,
    "Attack Power",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    16101,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Water"
   ],
   [
    16102,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    16103,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    16104,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Light"
   ],
   [
    16105,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    16111,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Water"
   ],
   [
    16112,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    16113,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    16114,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Light"
   ],
   [
    16115,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -2415,70 +2415,70 @@
    16601,
    "Defense",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    16602,
    "Defense",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    16603,
    "Defense",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    16604,
    "Defense",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    16605,
    "Defense",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    16611,
    "Defense",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    16612,
    "Defense",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    16613,
    "Defense",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    16614,
    "Defense",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    16615,
    "Defense",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -2562,70 +2562,70 @@
    17001,
    "HP",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    17002,
    "HP",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    17003,
    "HP",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    17004,
    "HP",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    17005,
    "HP",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    17011,
    "HP",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    17012,
    "HP",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    17013,
    "HP",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    17014,
    "HP",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    17015,
    "HP",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -2919,35 +2919,35 @@
    17711,
    "HP",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    17712,
    "HP",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    17713,
    "HP",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    17714,
    "HP",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    17715,
    "HP",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -3059,70 +3059,70 @@
    18101,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    18102,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    18103,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    18104,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    18105,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    18111,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    18112,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    18113,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    18114,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    18115,
    "Accuracy",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -3346,70 +3346,70 @@
    18701,
    "HP",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    18702,
    "HP",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    18703,
    "HP",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    18704,
    "HP",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    18705,
    "HP",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    18711,
    "HP",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    18712,
    "HP",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    18713,
    "HP",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    18714,
    "HP",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    18715,
    "HP",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -3556,35 +3556,35 @@
    19011,
    "Defense",
    30,
-   "Element",
+   "General",
    "Water"
   ],
   [
    19012,
    "Defense",
    30,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    19013,
    "Defense",
    30,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    19014,
    "Defense",
    30,
-   "Element",
+   "General",
    "Light"
   ],
   [
    19015,
    "Defense",
    30,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -3815,35 +3815,35 @@
    19511,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Water"
   ],
   [
    19512,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    19513,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    19514,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Light"
   ],
   [
    19515,
    "Attack Speed",
    23,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -4207,56 +4207,56 @@
    20302,
    "Resistance",
    38,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    20303,
    "Resistance",
    38,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    20304,
    "Resistance",
    38,
-   "Element",
+   "General",
    "Light"
   ],
   [
    20311,
    "Resistance",
    38,
-   "Element",
+   "General",
    "Water"
   ],
   [
    20312,
    "Resistance",
    38,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    20313,
    "Resistance",
    38,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    20314,
    "Resistance",
    38,
-   "Element",
+   "General",
    "Light"
   ],
   [
    20315,
    "Resistance",
    38,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -5474,140 +5474,140 @@
    23311,
    "HP",
    40,
-   "Element",
+   "General",
    "Water"
   ],
   [
    23312,
    "HP",
    40,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    23313,
    "HP",
    40,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    23314,
    "HP",
    40,
-   "Element",
+   "General",
    "Light"
   ],
   [
    23315,
    "HP",
    40,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    23411,
    "HP",
    40,
-   "Element",
+   "General",
    "Water"
   ],
   [
    23412,
    "HP",
    40,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    23413,
    "HP",
    40,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    23414,
    "HP",
    40,
-   "Element",
+   "General",
    "Light"
   ],
   [
    23415,
    "HP",
    40,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    23701,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    23702,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    23703,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    23704,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    23705,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    23711,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    23712,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    23713,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    23714,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    23715,
    "Attack Power",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -6461,105 +6461,105 @@
    25811,
    "Defense",
    40,
-   "Element",
+   "General",
    "Water"
   ],
   [
    25812,
    "Defense",
    40,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    25813,
    "Defense",
    40,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    25814,
    "Defense",
    40,
-   "Element",
+   "General",
    "Light"
   ],
   [
    25815,
    "Defense",
    40,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    25901,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Water"
   ],
   [
    25902,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    25903,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    25904,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Light"
   ],
   [
    25905,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    25911,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Water"
   ],
   [
    25912,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    25913,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    25914,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Light"
   ],
   [
    25915,
    "Critical Rate",
    38,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -6734,70 +6734,70 @@
    26401,
    "Defense",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    26402,
    "Defense",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    26403,
    "Defense",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    26404,
    "Defense",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    26405,
    "Defense",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    26411,
    "Defense",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    26412,
    "Defense",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    26413,
    "Defense",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    26414,
    "Defense",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    26415,
    "Defense",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
@@ -6923,70 +6923,70 @@
    26901,
    "Defense",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    26902,
    "Defense",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    26903,
    "Defense",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    26904,
    "Defense",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    26905,
    "Defense",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [
    26911,
    "Defense",
    50,
-   "Element",
+   "General",
    "Water"
   ],
   [
    26912,
    "Defense",
    50,
-   "Element",
+   "General",
    "Fire"
   ],
   [
    26913,
    "Defense",
    50,
-   "Element",
+   "General",
    "Wind"
   ],
   [
    26914,
    "Defense",
    50,
-   "Element",
+   "General",
    "Light"
   ],
   [
    26915,
    "Defense",
    50,
-   "Element",
+   "General",
    "Dark"
   ],
   [

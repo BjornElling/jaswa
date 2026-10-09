@@ -32,7 +32,8 @@ const force = process.argv.includes('--force');
 const increaseAttackBar = 17;
 const increaseAttackSpeed = 5;
 
-/* Where Swarfarm says a leader skill counts; `speed-tick.ts` names the same five. */
+/* Where Swarfarm says a leader skill counts. "Element" is stored as "General"
+   with its element, so `speed-tick.ts` names the other four. */
 const leaderAreas = new Set(['General', 'Arena', 'Dungeon', 'Guild', 'Element']);
 
 /* The page's dungeons, as Swarfarm names them. Swarfarm files each Abyss as a
@@ -190,7 +191,12 @@ async function main() {
     if (!lead) return;
     if (!leaderAreas.has(lead.area)) throw new Error(`Swarfarm gives ${monster.name} (${monster.com2us_id}) a leader skill in an unknown area, ${JSON.stringify(lead.area)}. The existing snapshot was kept.`);
     if (typeof lead.attribute !== 'string' || !Number.isFinite(lead.amount)) throw new Error(`Swarfarm's leader skill for ${monster.name} (${monster.com2us_id}) has no attribute or amount. The existing snapshot was kept.`);
-    leaders.push([monster.com2us_id, lead.attribute, lead.amount, lead.area, lead.element ?? null]);
+    const element = lead.element ?? null;
+    if (lead.area === 'Element' && element === null) throw new Error(`Swarfarm gives ${monster.name} (${monster.com2us_id}) an element leader skill without an element. The existing snapshot was kept.`);
+    /* Swarfarm writes an element lead either as area "Element" or as area
+       "General" with an element; Agrius is the second. The snapshot stores one
+       form — the area, and the element as a limit of its own. */
+    leaders.push([monster.com2us_id, lead.attribute, lead.amount, lead.area === 'Element' ? 'General' : lead.area, element]);
   });
 
   const skills = [];

@@ -49,28 +49,27 @@ export const totemPercentByLevel: readonly number[] = [
 
 export type SpeedArea = 'arena' | 'dungeon';
 
-/** Where a leader skill counts, as the game and Swarfarm name it. */
-export type LeaderArea = 'General' | 'Arena' | 'Dungeon' | 'Guild' | 'Element';
+/** Where a leader skill counts. An element is a second, separate limit. */
+export type LeaderArea = 'General' | 'Arena' | 'Dungeon' | 'Guild';
 export type SpeedLeaderSkill = { percent: number; area: LeaderArea; element: string | null };
 
 /**
  * The leader's speed percentage for one member, or 0 where it does not reach.
  *
  * A General lead counts everywhere; an Arena or Dungeon lead only in its own
- * content; a Guild lead in neither of the areas this page tunes; an Element
- * lead everywhere, but only on monsters of that element.
+ * content; a Guild lead in neither of the areas this page tunes. A lead that
+ * names an element counts only on monsters of that element.
  */
 export function leaderSpeedPercent(leader: SpeedLeaderSkill | null, area: SpeedArea, memberElement: string | null): number {
   if (leader === null || !leaderAreaReaches(leader.area, area)) return 0;
-  if (leader.area === 'Element') return leader.element !== null && leader.element === memberElement ? leader.percent : 0;
-  return leader.percent;
+  return leader.element === null || leader.element === memberElement ? leader.percent : 0;
 }
 
-/** Whether a lead of any attribute counts in this content at all. An Element
-    lead does, on the members of its element. */
+/** Whether a lead of any attribute counts in this content at all. A lead
+    limited to an element does, on the members of its element. */
 export function leaderAreaReaches(leaderArea: LeaderArea, area: SpeedArea): boolean {
   switch (leaderArea) {
-    case 'General': case 'Element': return true;
+    case 'General': return true;
     case 'Arena': return area === 'arena';
     case 'Dungeon': return area === 'dungeon';
     case 'Guild': return false;
