@@ -16,7 +16,7 @@ import { engravingLines } from '../lib/presets';
 import { usePresets } from '../lib/presets-context';
 import { runeAdviceChannel } from '../lib/compute/rune-advice-client';
 import { rememberedRuneAdvice, rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
-import { runeCraftSteps } from '../lib/rune-cleanup-advice';
+import { qualityThresholds, runeCraftSteps } from '../lib/rune-cleanup-advice';
 import type { RoleReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
 import type { MatchRank } from '../lib/rune-cleanup-model';
 import { canLockRune } from '../lib/rune-holds';
@@ -191,8 +191,8 @@ function ranked(roles: readonly RuneRole[], readings: ReadonlyMap<string, RoleRe
  * first paint to the last. The best row is set apart by ink and a star, never by
  * weight, so marking it moves nothing (`AGENTS.md` §2).
  */
-function Evaluation({ rune, roles, explained }: {
-  rune: Rune; roles: readonly RuneRole[]; explained: Explained;
+function Evaluation({ rune, roles, explained, quality }: {
+  rune: Rune; roles: readonly RuneRole[]; explained: Explained; quality: number;
 }) {
   const advice = explained.state === 'ready' ? explained.advice : undefined;
   const readings = new Map((advice?.readings ?? []).map((reading) => [reading.roleId, reading]));
@@ -204,12 +204,12 @@ function Evaluation({ rune, roles, explained }: {
   const facts = [
     { label: 'Best role for this rune', value: chosen?.name ?? placeholder },
     { label: 'Rune set and main stat desirability for this role', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
-    /* The floor and its cutoff are one statement, set a step apart from which role
-       it is and how well the rune suits it. */
-    { label: 'Based on the Rune quality floor, the rune must be among the best', value: chosen && advice ? tenths(advice.floorShare) : '—', opensGroup: true },
+    /* The ordinary box approximates its tails; its diagnostic share cannot state
+       a population percentile. Explain the actual gate and its selected minimum. */
+    { label: 'Selected Rune quality floor', value: tenths(qualityThresholds[quality - 1]), opensGroup: true },
     /* A floor that lets the whole box through has no cutoff to state, and says so
        rather than printing the unbounded figure behind it. */
-    { label: 'This equals a Max value cutoff of', value: !chosen || !advice ? '—'
+    { label: 'Required Max value for this rune', value: !chosen || !advice ? '—'
       : Number.isFinite(advice.floorMaxValue) ? tenths(advice.floorMaxValue) : 'None' },
   ];
   return <section className="rune-overlay-evaluation" aria-labelledby="rune-overlay-evaluation-title">
@@ -448,7 +448,7 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
       {onHold && <Instructions rune={rune} hold={hold} onHold={(next) => onHold(rune.id, next)}
         locked={locked} canLock={canLock} onLock={(on) => rune.occupiedId === null ? Promise.resolve() : onLock(rune.id, rune.occupiedId, on)} />}
 
-      <Evaluation rune={rune} roles={roles} explained={explained} />
+      <Evaluation rune={rune} roles={roles} explained={explained} quality={settings.runeQuality} />
     </div>
   </Overlay>;
 }

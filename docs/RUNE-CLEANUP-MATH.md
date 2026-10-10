@@ -699,6 +699,15 @@ discounts apply before this comparison. Set preferences cannot undercut the mini
 
 ## 9.1 A quality minimum and a complete selling funnel
 
+The rune overlay states the selected quality minimum and the actual required Max
+value, including any slot correction. It does not translate that requirement into
+an exact top percentile. `ordinaryBox` is a diagnostic Gaussian mixture on a grid,
+with each kernel truncated at three standard deviations; its rare tail can be
+underestimated or disappear. A positive share below 0.05 % also rounds to `0.0 %`
+at one decimal. Neither result establishes an impossible requirement or a zero
+population. The rune's Chance estimates a separate conditional probability: whether its
+remaining upgrades, with active craft credit, reach the actual value floor.
+
 The perfect rune still defines Max value (§5). Slot balance may raise the
 selected minimum, never lower it. It is measured on the **original generated
 population**, with equal numbers per slot and every legal main cycled evenly.
