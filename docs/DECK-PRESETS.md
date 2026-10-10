@@ -1,7 +1,7 @@
 # Deck Presets and engraving
 
 **Status:** Binding contract, October 7, 2026; shared pools revised October
-10, 2026. JASWA leaves the model in
+11, 2026. JASWA leaves the model in
 which a rune or artifact is engraved on exactly one monster. Every rule of
 placement, and every page that reads one, follows this document.
 
