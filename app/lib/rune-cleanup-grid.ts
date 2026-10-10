@@ -120,8 +120,20 @@ function gameSortKey(row: RuneCleanupRow, key: RuneGameSortKey): readonly number
       -rune.level,
       -rune.obtainedOrder,
     ];
-    /* Power-up level descending. */
-    case 'gameLevel': return [-rune.level];
+    /* Manage-panel captures put slot 1 +0 before slot 2 +15, and five-star
+       +15 before Ancient six-star +12. Within a level, Ancient Rare precedes
+       ordinary Legend; ordinary six-star Rare precedes five-star Legend.
+       Equal groups follow Obtained, even when their main properties alternate.
+       RUNE-CANONICAL.md §11.1 records the comparisons behind this order. */
+    case 'gameLevel': return [
+      rune.slot,
+      -rune.level,
+      -rune.stars,
+      rune.ancient ? 0 : 1,
+      -runeDefaultGradeOrder(rune.defaultGrade),
+      rune.setId,
+      -rune.obtainedOrder,
+    ];
     /* Newest first, and unique per rune, so it needs no tiebreak of its own. */
     case 'gameObtained': return [-rune.obtainedOrder];
     default: return [];

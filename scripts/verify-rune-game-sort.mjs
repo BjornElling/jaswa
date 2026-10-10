@@ -6,7 +6,8 @@
  *                 ordinary; then the set by its export `set_id`; then
  *                 power-up level descending; then the rune's own id, newest
  *                 first
- *   Power-up Lv.  power-up level descending, +15 down to +0
+ *   Power-up Lv.  slot ascending; level descending; stars descending; Ancient
+ *                 first; rarity descending; set id ascending; rune id descending
  *   Obtained      acquisition sequence, newest first
  *
  * "Grade" in the panel names the rarity, not the star class: `RUNE-CANONICAL.md`
@@ -174,7 +175,7 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
     'the id closes the ordering with the newest rune first');
 }
 
-/* Power-up Lv.: level descending, and nothing else enters it. */
+/* Power-up Lv.: level leads within one slot, ahead of quality. */
 {
   const rows = [
     row(0, { level: 0, defaultGrade: 'Legend' }),
@@ -183,7 +184,61 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
     row(3, { level: 12, defaultGrade: 'Rare' }),
   ];
   assert.deepEqual(order(rows, 'gameLevel', (rune) => rune.level), [15, 12, 9, 0],
-    'Power-up Lv. orders by level descending, ignoring rarity, stars and Ancient');
+    'Power-up Lv. puts level before rarity, stars and Ancient within one slot');
+}
+
+/* Each observed transition puts later keys in opposition. Anonymous examples
+   preserve the October 10 evidence without committing personal account data. */
+{
+  const comparisons = [
+    ['slot before level',
+      { slot: 1, level: 0, defaultGrade: 'Rare', setId: 23 },
+      { slot: 2, level: 15, ancient: true }],
+    ['level before stars and Ancient',
+      { level: 15, stars: 5, defaultGrade: 'Hero' },
+      { level: 12, stars: 6, ancient: true }],
+    ['stars before rarity',
+      { level: 15, stars: 6, defaultGrade: 'Rare', setId: 23 },
+      { level: 15, stars: 5, defaultGrade: 'Legend', setId: 3 }],
+    ['Ancient before rarity',
+      { ancient: true, defaultGrade: 'Rare', setId: 5 },
+      { ancient: false, defaultGrade: 'Legend', setId: 1 }],
+    ['rarity before set within Ancient',
+      { ancient: true, defaultGrade: 'Legend', setId: 22 },
+      { ancient: true, defaultGrade: 'Hero', setId: 7 }],
+    ['rarity before set within ordinary',
+      { defaultGrade: 'Legend', setId: 23 },
+      { defaultGrade: 'Hero', setId: 1 }],
+    ['set before acquisition',
+      { setId: 1, obtainedOrder: 100 },
+      { setId: 2, obtainedOrder: 200 }],
+    ['newest first within a group',
+      { obtainedOrder: 200 },
+      { obtainedOrder: 100 }],
+  ];
+  for (const [name, first, second] of comparisons) {
+    assert.deepEqual(order([row(0, second), row(1, first)], 'gameLevel', (rune) => rune.id),
+      ['2', '1'], `Power-up Lv.: ${name}`);
+  }
+}
+
+/* Equal-quality Rage runes alternate main properties in game order. A main
+   property grouping would split the observed sequence. */
+{
+  const mainStats = [4, 8, 8, 8, 4];
+  const rows = mainStats.map((mainStatId, index) => {
+    const entry = row(index, {
+      slot: 2, level: 15, defaultGrade: 'Hero', setId: 5,
+      obtainedOrder: 500 - index * 100,
+    });
+    entry.rune.mainStatId = mainStatId;
+    return entry;
+  });
+  assert.deepEqual(order([...rows].reverse(), 'gameLevel', (rune) => rune.obtainedOrder),
+    [500, 400, 300, 200, 100], 'main properties do not outrank acquisition');
+  assert.deepEqual(order([...rows].reverse(), 'gameLevel', (rune) => rune.mainStatId),
+    mainStats, 'Power-up Lv. preserves the observed ATK/SPD alternation');
+  assert.deepEqual(order([], 'gameLevel', (rune) => rune.id), [], 'empty lists remain empty');
 }
 
 /* Obtained: newest first, and unique per rune so it needs no tiebreak. */
@@ -210,4 +265,5 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
 }
 
 console.log('PASS: Grade orders by slot, star class, rarity, Ancient, set, level and rune');
-console.log('      id; Power-up Lv. by level; Obtained by acquisition.');
+console.log('      id; Power-up Lv. by slot, level, stars, Ancient, rarity, set and id;');
+console.log('      main properties do not group; Obtained by acquisition.');

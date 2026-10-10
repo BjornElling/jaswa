@@ -508,7 +508,7 @@ regel:
 | Sort by | Rækkefølge |
 | --- | --- |
 | Grade | Foreløbig observeret rækkefølge: **slot stigende**, så **stjerneklasse faldende** (6★ før 5★), så **rarity faldende** (Legend → Hero → Rare → Magic → Normal), så **Ancient først** inden for hver rarity, så **set-id stigende**, så **power-up-level faldende**, så **runens eget id faldende** (nyeste først) |
-| Power-up Lv. | Power-up-level faldende, +15 → +0 |
+| Power-up Lv. | Slot ascending → power-up level descending → star class descending → Ancient first → rarity descending → set-id ascending → rune-id descending |
 | Obtained | Anskaffelsesrækkefølge, nyeste først |
 
 **Panelets “Grade” betyder rarity, ikke stjerneklasse.** Det er stik imod
@@ -566,6 +566,27 @@ Ancient Rage-rune på Lyn med `extra: 3` er Rare, selv om dens `rank` kan være
 `5`. Selve rækkefølgerne er læst af panelet; den eksport,
 der er ved hånden, er en ældre optagelse af samme konto og indeholder ingen
 runer under 6★, så den kan ikke i sig selv efterprøve rarity-rækkefølgen.
+
+### Power-up Lv. evidence — October 10, 2026
+
+Manage-panel screenshots matched against the developer's current export establish
+the Power-up Lv. tuple in the table above. Slot 1 ends with an ordinary Rare +0
+before slot 2 starts with an Ancient Legend +15: slot precedes level. Within
+slot 1, six-star Rare +15 precedes five-star Legend +15, and five-star Hero +15
+precedes Ancient six-star Legend +12: level precedes star class, and star class
+precedes rarity. Ancient Rare +15 precedes ordinary Legend +15, so Ancient
+precedes rarity here, unlike Grade. Ancient Legend Accuracy precedes Ancient Hero
+Endure, and ordinary Legend Tolerance precedes Hero Energy: rarity precedes set
+in both groups. Sets follow ascending export ids; equal groups follow descending
+rune ids, as Obtained does.
+
+Five ordinary six-star Hero Rage +15 runes in slot 2 have main properties
+ATK, SPD, SPD, SPD, ATK while their ids strictly descend. Main property therefore
+does not group the runes before acquisition. Observed transitions are held as
+anonymous examples in `scripts/verify-rune-game-sort.mjs`; the personal account
+export is not committed. These observations support the current model, not an
+exhaustive measurement of every slot, level and star class. Ancient versus star
+class cannot be isolated on this account: its Ancient runes are all six-star.
 
 ## 12. Hvad reglerne ikke afgør
 
