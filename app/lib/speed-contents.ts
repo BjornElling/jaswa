@@ -31,6 +31,12 @@ export type SpeedContent = {
   area: SpeedArea;
   /** The team the enemy data was read for, `null` where there is none: the preset's content then decides. */
   teamSize: number | null;
+  /**
+   * Whether anything is set against the team: arena's worst case, or a Cairos
+   * floor's stages. A team the user says is not speed tuned is read as facing
+   * nothing, wherever it fights.
+   */
+  facesEnemies: boolean;
   /** The floor the stages come from, as Swarfarm names it; `null` for arena. */
   floor: string | null;
   stages: readonly DungeonStage[];
@@ -74,17 +80,18 @@ function dungeonContent(id: DungeonId): SpeedContent {
     name: dungeonNames[id],
     area: 'dungeon',
     teamSize: snapshot.teamSize,
+    facesEnemies: true,
     floor: `${snapshot.swarfarmDungeon} · floor ${snapshot.floor}`,
     stages: snapshot.stages,
   };
 }
 
 export const speedContents: readonly SpeedContent[] = [
-  { id: 'arena', name: 'Arena', area: 'arena', teamSize: arenaTeamSize, floor: null, stages: [] },
+  { id: 'arena', name: 'Arena', area: 'arena', teamSize: arenaTeamSize, facesEnemies: true, floor: null, stages: [] },
   ...dungeonIds.map(dungeonContent),
-  { id: 'other-dungeon', name: 'Dungeon', area: 'dungeon', teamSize: null, floor: null, stages: [] },
-  { id: 'guild', name: 'Guild', area: 'guild', teamSize: null, floor: null, stages: [] },
-  { id: 'unnamed', name: 'Not yet named', area: 'unnamed', teamSize: null, floor: null, stages: [] },
+  { id: 'other-dungeon', name: 'Dungeon', area: 'dungeon', teamSize: null, facesEnemies: false, floor: null, stages: [] },
+  { id: 'guild', name: 'Guild', area: 'guild', teamSize: null, facesEnemies: false, floor: null, stages: [] },
+  { id: 'unnamed', name: 'Not yet named', area: 'unnamed', teamSize: null, facesEnemies: false, floor: null, stages: [] },
 ];
 
 export function speedContent(id: SpeedContentId): SpeedContent {

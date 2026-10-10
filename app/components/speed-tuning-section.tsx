@@ -57,7 +57,7 @@ function PresetLine({ line, names, known, onOpen, onReorder }: {
   onReorder: (from: number, to: number) => void;
 }) {
   const order = line.team.members.map((member) => member.unitId);
-  const status = teamStatus(line.reading);
+  const status = teamStatus(line.reading, line.team.noSpeedTuning);
   const reorder = useInlineReorder<HTMLSpanElement>({ count: order.length, onMove: onReorder });
   return <div className="speed-summary" role="button" tabIndex={0}
     onClick={(event) => onOpen(event.currentTarget)}
@@ -92,11 +92,14 @@ function PresetLine({ line, names, known, onOpen, onReorder }: {
  * preset engraves — a what-if lives and dies inside the open editor — so the
  * sentence need not say which reading it is.
  */
-function teamStatus(reading: TeamReading): { text: string; state: Verdict } {
+function teamStatus(reading: TeamReading, noSpeedTuning: boolean): { text: string; state: Verdict } {
   if (reading.missingUnitIds.length) {
     const missing = reading.missingUnitIds.length;
     return { text: `${missing} monster${missing === 1 ? ' is' : 's are'} not in this import`, state: 'bad' };
   }
+  /* A team the user says is not speed tuned is fine by its own terms: neither
+     its order nor an enemy cutting in is held against it. */
+  if (noSpeedTuning) return { text: 'No speed tuning for this team', state: 'good' };
   const cut = cutInText(reading);
   /* In arena the worst-case enemy is the one the team must open against, so
      its cutting in fails the team; a dungeon stage's enemies may simply be

@@ -139,6 +139,68 @@ test('every preset with a monster is a line under its content, and every line op
   await expect(unnamedTeam.getByRole('columnheader', { name: 'Combat speed' })).toBeVisible();
 });
 
+test('a team marked as not speed tuned drops its enemy cut-in and reads green on the page', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openSpeedTuning(page);
+  const line = presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), "Giant's Keep 1");
+  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
+  await line.click();
+  const card = page.getByRole('dialog', { name: "Giant's Keep 1" });
+  const toggle = card.getByRole('checkbox', { name: 'No speed tuning' });
+  /* Off until the user says otherwise, at the right edge under the last slot. */
+  await expect(toggle).not.toBeChecked();
+  const [label, lastSlot, enemySection] = [card.locator('.speed-no-tuning .checkbox-row'), card.locator('.speed-slot').last(),
+    card.getByRole('region', { name: 'Enemy cut in' })];
+  const [cardBefore, labelBox, slotBox] = [await box(card), await box(label), await box(lastSlot)];
+  expect(labelBox.y).toBeGreaterThanOrEqual(slotBox.y + slotBox.height - 1);
+  expect(Math.abs(labelBox.x + labelBox.width - (slotBox.x + slotBox.width))).toBeLessThanOrEqual(1);
+  await expect(enemySection).toBeVisible();
+  await card.screenshot({ path: testInfo.outputPath('speed-tuned.png') });
+
+  await toggle.check();
+  /* The whole enemy section goes — heading, table and Ticks — and the overlay
+     closes up on what is left. It is held at the top, so only its bottom edge
+     comes up: the top, the slots and the switch stay exactly where they were. */
+  await expect(enemySection).toHaveCount(0);
+  await expect(card.getByRole('button', { name: 'Ticks' })).toHaveCount(0);
+  const cardAfter = await box(card);
+  expect(cardAfter.height).toBeLessThan(cardBefore.height);
+  expect(cardAfter.y).toBe(cardBefore.y);
+  expect(await box(label)).toEqual(labelBox);
+  expect(await box(lastSlot)).toEqual(slotBox);
+  /* Each monster still says whether it is in place and which turns it takes, and nothing about enemies. */
+  const verdicts = card.locator('.speed-verdict');
+  await expect(verdicts.first()).toContainText(/In place|Too fast|Tied/);
+  for (const text of await verdicts.allTextContents()) {
+    expect(text).not.toContain('cuts in');
+    /* A place in the team's own order, with no enemy turn counted in it: five monsters, five places. */
+    for (const [, place] of text.matchAll(/moves (\d+)/g)) expect(Number(place)).toBeLessThanOrEqual(5);
+  }
+  /* Megan moved 8th behind the enemies' turns and needed 154+ to beat them; now
+     her place and her range are the team's own. */
+  await expect(verdicts.first()).toHaveText('In place · moves 5th · needs 114+ display speed');
+  await card.screenshot({ path: testInfo.outputPath('speed-not-tuned.png') });
+
+  await card.getByRole('button', { name: 'Save changes' }).click();
+  await expect(card).toHaveCount(0);
+  await expect(line.locator('.speed-summary-state')).toHaveText('No speed tuning for this team');
+  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.presets?.['deck-24-101']?.noSpeedTuning))
+    .toBe(true);
+
+  /* Kept across a reload, and undone the same way. */
+  await page.reload();
+  await openSpeedTuning(page);
+  await expect(line.locator('.speed-summary-state')).toHaveText('No speed tuning for this team');
+  await line.click();
+  await expect(toggle).toBeChecked();
+  await toggle.uncheck();
+  await card.getByRole('button', { name: 'Save changes' }).click();
+  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
+});
+
 test('a tied dungeon preset gets a green check on the overview', async ({ page }, testInfo) => {
   await freshWorkspace(page);
   await importAccount(page);
@@ -316,7 +378,7 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   expectSameHeight((await box(dungeons.getByRole('heading', { name: 'Dungeons' }))).y, headBefore.y);
   /* Stored for this preset alone: the order wanted, and no what-if yet. */
   expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning))
-    .toEqual({ presets: { 'deck-24-101': { order: ['1', '4', '6', '3', '2'], whatIfs: {} } } });
+    .toEqual({ presets: { 'deck-24-101': { order: ['1', '4', '6', '3', '2'], whatIfs: {}, noSpeedTuning: false } } });
   await page.screenshot({ path: testInfo.outputPath('speed-page-one-team.png') });
 
   await line.click();

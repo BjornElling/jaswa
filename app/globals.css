@@ -6751,7 +6751,9 @@ th.align-center .rank-heading { justify-content: center; }
    under a monster's name has room to be read whole. */
 /* Wide enough for the Interval column beside display speed without taking
    room from the verdict lines under the names. */
-.dialog.speed-team-overlay { width: min(1200px, 100%); }
+/* Held at the top rather than centred: when *No speed tuning* takes the enemy
+   section away, only the bottom edge comes up, and the slots stay put. */
+.dialog.speed-team-overlay { width: min(1200px, 100%); align-self: start; }
 .speed-overlay-head {
   display: flex; justify-content: space-between; align-items: end; gap: var(--s4);
   padding: var(--s5) var(--s5) var(--s4);
@@ -6954,6 +6956,10 @@ th.align-center .rank-heading { justify-content: center; }
 .speed-ticks-button { min-width: 20ch; }
 .speed-ticks-button .speed-icon { width: 16px; height: 16px; }
 .speed-enemy-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+/* The team's own switch, under its last slot at the right edge, and quieter
+   than the slots above it: it is a setting, not a reading. */
+.speed-no-tuning { display: flex; justify-content: flex-end; }
+.speed-no-tuning .checkbox-row { color: var(--text-muted); }
 .speed-col-stage { width: 12ch; }
 .speed-col-cut { width: 32px; }
 .speed-enemy-table td.speed-cut-cell { text-align: right; }

@@ -42,8 +42,8 @@ try {
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
     speedTuning: {
       presets: {
-        'deck-24-101': { order: ['18', '17'], whatIfs: { 17: 140 } },
-        'own-arena': { order: ['17'], whatIfs: {} },
+        'deck-24-101': { order: ['18', '17'], whatIfs: { 17: 140 }, noSpeedTuning: false },
+        'own-arena': { order: ['17'], whatIfs: {}, noSpeedTuning: true },
       },
     },
     monsterPriority: ['18', '17'],
@@ -158,7 +158,7 @@ try {
   const speed = readPreferences({ ...chosen, speedTuning: { presets: {
     ...chosen.speedTuning.presets,
     'deck-1-9': 'not a tuning',
-    'deck-24-101': { order: ['18', 18, '17', '18'], whatIfs: { 17: 140, 18: 0 }, marginEnabled: true },
+    'deck-24-101': { order: ['18', 18, '17', '18'], whatIfs: { 17: 140, 18: 0 }, noSpeedTuning: 'no', marginEnabled: true },
   } } }, null);
   assert.deepEqual(speed.speedTuning, chosen.speedTuning, 'an unreadable preset tuning, order entry or what-if costs only itself');
 

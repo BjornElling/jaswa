@@ -478,7 +478,7 @@ function firstEnemyAt(stage: EnemyStageReading): number {
 
 /** What the team faces: the worst-case enemy in arena, each stage in a dungeon. */
 function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: BattleTrace, drawn = true): EnemyStageReading[] {
-  if (units.length === 0) return [];
+  if (units.length === 0 || !content.facesEnemies) return [];
   return content.area === 'arena'
     ? [worstArenaStage(units, trace, drawn)]
     : content.stages.map((stage) => stageReading(units, stage.speeds, enemyNamesOf(stage), content.area, drawn));
@@ -503,6 +503,9 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   ranges?: boolean;
 }): TeamReading {
   const content = speedContent(team.content);
+  /* What the team is measured against: nothing at all where the user says it
+     is not speed tuned, so its places, ranges and verdicts are its own order's. */
+  const faced: SpeedContent = team.noSpeedTuning ? { ...content, facesEnemies: false } : content;
   const present = team.members.filter((member) => monsters.has(member.unitId));
   const missingUnitIds = team.members.filter((member) => !monsters.has(member.unitId)).map((member) => member.unitId);
   const leaderMonster = team.leaderUnitId === null ? undefined : monsters.get(team.leaderUnitId);
@@ -528,7 +531,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const units = candidates.map((candidate) => tickUnit(candidate));
   const trace = teamTrace(units);
   const first = firstTurns(trace.events);
-  const enemies = enemyStages(units, content, trace);
+  const enemies = enemyStages(units, faced, trace);
   /* A member's place is its absolute one, enemy turns counted, on the stage
      whose first enemy turn comes earliest — the one the Ticks view opens on.
      Without enemies it is the team's own order. */
@@ -560,7 +563,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     const parts = monsterSpeedParts(monster);
     const shown = shownSpeeds[index];
     const verdict = verdicts[index];
-    const range = ranges ? tuningRange(candidates, content, shownSpeeds, index, settled) : null;
+    const range = ranges ? tuningRange(candidates, faced, shownSpeeds, index, settled) : null;
     return {
       unitId: member.unitId,
       wantedPosition: index + 1,

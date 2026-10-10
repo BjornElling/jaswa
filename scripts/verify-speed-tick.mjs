@@ -258,21 +258,23 @@ check(skyTribeTotemProblem({ deco_list: [{ master_id: 6, level: 12 }] }) === und
     'display speed is the stat sheet\'s own figure');
 }
 
-/* The saved contract: per preset, the turn order asked for and the what-ifs
-   tried. The monsters and the leader are the preset's, so none is stored. */
+/* The saved contract: per preset, the turn order asked for, the what-ifs
+   tried and whether the team is speed tuned at all. The monsters and the leader are the preset's, so none is stored. */
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 check(isSpeedTuningPreferences({ presets: {} }), 'an empty workspace is valid');
 check(same(readSpeedTuningPreferences({ presets: {} }), { presets: {} }), 'an empty workspace reads back empty');
 check(same(readSpeedTuningPreferences(undefined), { presets: {} }), 'nothing stored reads as nothing tuned');
-check(isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1', '2'], whatIfs: { 1: 120 } } } }), 'an order and a what-if are kept with their preset');
-check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1', '1'], whatIfs: {} } } }), 'a monster twice in an order is not written');
-check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: { 1: 0 } } } }), 'a what-if of zero is not written');
-check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: {}, margin: 1 } } }), 'a field the contract does not name is not written');
+check(isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1', '2'], whatIfs: { 1: 120 }, noSpeedTuning: false } } }), 'an order and a what-if are kept with their preset');
+check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: {} } } }), 'a preset without its speed tuning switch is not written');
+check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: {}, noSpeedTuning: 'yes' } } }), 'a switch that is not true or false is not written');
+check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1', '1'], whatIfs: {}, noSpeedTuning: false } } }), 'a monster twice in an order is not written');
+check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: { 1: 0 }, noSpeedTuning: false } } }), 'a what-if of zero is not written');
+check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: {}, noSpeedTuning: false, margin: 1 } } }), 'a field the contract does not name is not written');
 check(!isSpeedTuningPreferences({ presets: {}, teams: [] }), 'a section the contract does not name is not written');
 check(!isSpeedTuningPreferences({ teams: [], rules: [] }), 'the teams-and-rules shape is no longer the contract');
 {
   const stored = readSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1', '2'], whatIfs: { 1: 'fast', 2: 140, 3: 1000 } } } });
-  check(same(stored.presets['deck-24-101'], { order: ['1', '2'], whatIfs: { 2: 140 } }),
+  check(same(stored.presets['deck-24-101'], { order: ['1', '2'], whatIfs: { 2: 140 }, noSpeedTuning: false }),
     'a malformed what-if is dropped on its own; its neighbour and the order it sat beside are kept');
 }
 {
@@ -285,9 +287,14 @@ check(!isSpeedTuningPreferences({ teams: [], rules: [] }), 'the teams-and-rules 
     'deck-1-2': 'not a preset',
     '': { order: ['1'], whatIfs: {} },
     'deck-1-3': { order: ['4'], whatIfs: { 4: 150 }, marginEnabled: true },
+    'deck-1-4': { order: ['5'], whatIfs: {}, noSpeedTuning: 'yes' },
+    'deck-1-5': { order: ['6'], whatIfs: {}, noSpeedTuning: true },
   } });
-  check(same(Object.keys(stored.presets), ['deck-1-1', 'deck-1-3']), 'an unreadable preset entry costs only itself');
-  check(same(stored.presets['deck-1-3'], { order: ['4'], whatIfs: { 4: 150 } }), 'a field the page no longer offers is left out on reading, and the preset kept');
+  check(same(Object.keys(stored.presets), ['deck-1-1', 'deck-1-3', 'deck-1-4', 'deck-1-5']), 'an unreadable preset entry costs only itself');
+  check(stored.presets['deck-1-4'].noSpeedTuning === false && same(stored.presets['deck-1-4'].order, ['5']) && stored.presets['deck-1-5'].noSpeedTuning === true,
+    'an unreadable speed tuning switch starts from its default and costs its preset nothing else');
+  check(stored.presets['deck-1-1'].noSpeedTuning === false, 'a preset stored before the switch reads as speed tuned');
+  check(same(stored.presets['deck-1-3'], { order: ['4'], whatIfs: { 4: 150 }, noSpeedTuning: false }), 'a field the page no longer offers is left out on reading, and the preset kept');
 }
 check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants', members: [{ unitId: '1' }], leaderUnitId: null }], rules: [] }), { presets: {} }),
   'the teams-and-rules shape reads as nothing tuned');
@@ -302,7 +309,10 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
     'the stored order leads, a new member follows it, a departed one is gone');
   check(same(presetSpeedTeam(preset, undefined).members, [{ unitId: '1' }, { unitId: '2' }, { unitId: '3' }]),
     'a preset never tuned reads in the game\'s own order');
-  check(same(speedTuningOf(team), { order: ['3', '1', '2'], whatIfs: { 1: 130 } }), 'a team written back stores only the order and the what-ifs');
+  check(same(speedTuningOf(team), { order: ['3', '1', '2'], whatIfs: { 1: 130 }, noSpeedTuning: false }),
+    'a team written back stores only the order, the what-ifs and whether it is speed tuned');
+  check(team.noSpeedTuning === false && presetSpeedTeam(preset, { order: [], whatIfs: {}, noSpeedTuning: true }).noSpeedTuning,
+    'a team is speed tuned until the user says otherwise');
   const oversized = presetSpeedTeam({ ...preset, members: ['1', '2', '3', '4', '5'], content: presetContent('arena-attack') }, undefined);
   check(oversized.members.length === 5 && oversized.size === 5, 'a preset holding more monsters than its content fields is shown whole');
   /* Every content is a team to tune, read against its area where it has no enemy data. */
@@ -328,6 +338,11 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
   const stored = readSpeedTeam({ team: presetSpeedTeam(preset, { order: [unitId], whatIfs: { [unitId]: 999 } }), monsters, totemPercent: 15 });
   check(stored.members[0].displaySpeed === monsterSpeedParts(monster).displaySpeed && !stored.members[0].whatIf
     && stored.members[0].combatSpeed === plain.members[0].combatSpeed, 'a stored what-if is read by nothing but the overlay');
+  /* A team the user says is not speed tuned faces nothing: its places are its own order's. */
+  const untuned = readSpeedTeam({ team: presetSpeedTeam(preset, { order: [], whatIfs: {}, noSpeedTuning: true }), monsters, totemPercent: 15, ranges: true });
+  check(plain.enemies.length > 0 && untuned.enemies.length === 0 && untuned.members[0].cutInAt.length === 0
+    && same(untuned.members[0].turnPositions, [1]) && untuned.members[0].combatSpeed === plain.members[0].combatSpeed,
+    'a team not speed tuned is read against no enemy, at the same combat speeds');
 }
 
 /* 4. Every display speed the page offers can be tuned to. */

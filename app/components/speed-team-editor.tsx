@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { CheckboxRow } from './form-controls';
 import { ArrowIcon } from './list-icons';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -278,6 +279,13 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
       })}
     </table>
 
+    {/* Ticking it takes the enemy section below away, and the overlay closes
+        up on what is left: that is the change asked for, so it may move. */}
+    <div className="speed-no-tuning">
+      <CheckboxRow label="No speed tuning" checked={team.noSpeedTuning}
+        onChange={(checked) => onChange((current) => ({ ...current, noSpeedTuning: checked }))} />
+    </div>
+
     {/* Where the first enemy turn lands in the opening: a row per stage, or
         the one worst case in arena. The rows are the content's, never the
         team's, so adding the first monster fills cells rather than adding
@@ -286,7 +294,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
     {/* "(1st turn)" is said only beside a "(2nd turn)" or later: alone it
         repeats what the name already tells, while a later turn is always worth
         naming, and naming every row then lets the rows be compared. */}
-    <section className="speed-enemy-turns" aria-labelledby={`${team.id}-enemy-cut-in`}>
+    {!team.noSpeedTuning && <section className="speed-enemy-turns" aria-labelledby={`${team.id}-enemy-cut-in`}>
       <h3 id={`${team.id}-enemy-cut-in`} className="type-label">Enemy cut in</h3>
       <div className="speed-enemy-turns-body">
         <table className="speed-enemy-table">
@@ -335,6 +343,6 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         </table>
       <div className="speed-enemy-turns-action">{turnOrderAction}</div>
       </div>
-    </section>
+    </section>}
   </div>;
 }

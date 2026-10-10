@@ -323,6 +323,12 @@ an import, and are checked one preset at a time on load.
   turn order, its leader skills counted by its area
   (`SPEED-TICK-CANONICAL.md` §2.2); a preset whose content is not yet named
   counts only the leads that count everywhere, and has the places it fills.
+- *No speed tuning*, under a team's last slot and off by default, is the
+  user's word that the team is not speed tuned. Saved with the team's tuning,
+  it reads the team against no enemy: each monster still says whether it is in
+  place and which of the team's turns it takes, the *Enemy cut in* section and
+  Ticks leave the overlay, and the page shows *No speed tuning for this team*
+  with a green check.
 
 **Rune Optimization.** A build's Location names the Default monster for a rune
 free in the selected preset, by name alone, as the game's rune list does. A

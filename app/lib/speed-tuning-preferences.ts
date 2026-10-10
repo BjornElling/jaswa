@@ -35,10 +35,15 @@ export type SpeedTeam = {
   leaderUnitId: string | null;
   /** How many places the team has: its preset content's, or its own count where that is unknown. */
   size: number;
+  /**
+   * The user's word that this team is not speed tuned — a team that simply
+   * hits hard enough — so its order and enemies are no verdict on it.
+   */
+  noSpeedTuning: boolean;
 };
 
-/** The user's word on one preset: the turn order wanted, and the what-ifs tried. */
-export type PresetSpeedTuning = { order: string[]; whatIfs: Record<string, number> };
+/** The user's word on one preset: the turn order wanted, the what-ifs tried, and whether it is speed tuned at all. */
+export type PresetSpeedTuning = { order: string[]; whatIfs: Record<string, number>; noSpeedTuning: boolean };
 
 export type SpeedTuningPreferences = { presets: Record<string, PresetSpeedTuning> };
 
@@ -72,16 +77,17 @@ function readPresetSpeedTuning(value: unknown): PresetSpeedTuning | null {
       if (isIdentifier(unitId) && isWhatIfDisplaySpeed(speed)) whatIfs[unitId] = speed;
     }
   }
-  return { order, whatIfs };
+  /* Anything but an explicit yes is the default: tuned. */
+  return { order, whatIfs, noSpeedTuning: value.noSpeedTuning === true };
 }
 
 /** Whether a whole document meets the current contract, as a `.sw` writer must produce it. */
 export function isSpeedTuningPreferences(value: unknown): value is SpeedTuningPreferences {
   if (!isRecord(value) || Object.keys(value).join() !== 'presets' || !isRecord(value.presets)) return false;
   return Object.entries(value.presets).every(([presetId, entry]) => {
-    if (!isIdentifier(presetId) || !isRecord(entry) || Object.keys(entry).sort().join() !== 'order,whatIfs') return false;
+    if (!isIdentifier(presetId) || !isRecord(entry) || Object.keys(entry).sort().join() !== 'noSpeedTuning,order,whatIfs') return false;
     const read = readPresetSpeedTuning(entry);
-    return read !== null && Array.isArray(entry.order) && read.order.length === entry.order.length
+    return read !== null && typeof entry.noSpeedTuning === 'boolean' && Array.isArray(entry.order) && read.order.length === entry.order.length
       && isRecord(entry.whatIfs) && Object.keys(read.whatIfs).length === Object.keys(entry.whatIfs).length;
   });
 }
@@ -123,6 +129,7 @@ export function presetSpeedTeam(
     }),
     leaderUnitId: preset.leaderUnitId,
     size,
+    noSpeedTuning: tuning?.noSpeedTuning ?? false,
   };
 }
 
@@ -132,5 +139,6 @@ export function speedTuningOf(team: SpeedTeam): PresetSpeedTuning {
     order: team.members.map((member) => member.unitId),
     whatIfs: Object.fromEntries(team.members.flatMap((member) =>
       member.whatIfDisplaySpeed === undefined ? [] : [[member.unitId, member.whatIfDisplaySpeed] as const])),
+    noSpeedTuning: team.noSpeedTuning,
   };
 }
