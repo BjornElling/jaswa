@@ -99,7 +99,7 @@ function teamStatus(reading: TeamReading, noSpeedTuning: boolean): { text: strin
   }
   /* A team the user says is not speed tuned is fine by its own terms: neither
      its order nor an enemy cutting in is held against it. */
-  if (noSpeedTuning) return { text: 'No speed tuning for this team', state: 'good' };
+  if (noSpeedTuning) return { text: 'No speed tuning', state: 'good' };
   const cut = cutInText(reading);
   /* In arena the worst-case enemy is the one the team must open against, so
      its cutting in fails the team; a dungeon stage's enemies may simply be

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from './button';
 import { Overlay, OverlayAction } from './overlay';
@@ -45,6 +45,32 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
   const [dirty, setDirty] = useState(false);
   const [showTurnOrder, setShowTurnOrder] = useState(false);
   const turnOrderOpener = useRef<HTMLButtonElement>(null);
+  const head = useRef<HTMLElement>(null);
+
+  /* Opened centred, as every overlay is, and held where it stands from the
+     first edit on: a change that shortens the team — the enemy section going
+     with *No speed tuning* — pulls up the bottom edge instead of re-centring
+     the whole panel under the click. Read at the edit rather than on opening,
+     because the panel is still settling its height as it mounts. A resize
+     moves the centre itself, so it lets go and the panel centres again. */
+  function holdTop() {
+    const panel = head.current?.closest<HTMLElement>('.speed-team-overlay');
+    const backdrop = panel?.parentElement;
+    if (!panel || !backdrop || panel.hasAttribute('data-pinned')) return;
+    /* In layout pixels, as the margin is: the interface scale zooms the page,
+       so a bounding rectangle is divided by that zoom, read off the full-height
+       backdrop. `offsetTop` would round away the fraction and nudge the panel. */
+    const outer = backdrop.getBoundingClientRect();
+    const zoom = outer.height / backdrop.offsetHeight || 1;
+    const pinnedTop = (panel.getBoundingClientRect().top - outer.top) / zoom - parseFloat(getComputedStyle(backdrop).paddingTop);
+    panel.style.setProperty('--pinned-top', `${Math.max(0, pinnedTop)}px`);
+    panel.setAttribute('data-pinned', '');
+  }
+  useEffect(() => {
+    const release = () => head.current?.closest('.speed-team-overlay')?.removeAttribute('data-pinned');
+    window.addEventListener('resize', release);
+    return () => window.removeEventListener('resize', release);
+  }, []);
 
   /* What-ifs are saved with the preset's tuning, so an experiment is there the
      next time it is opened, and typing one is an edit like any other. But only
@@ -56,6 +82,7 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
   const dungeon = isDungeonId(draft.content) ? draft.content : null;
 
   function change(update: (team: SpeedTeam) => SpeedTeam) {
+    holdTop();
     setDraft(update);
     setDirty(true);
   }
@@ -79,7 +106,7 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
     <Overlay labelledBy="speed-team-overlay-title" className="speed-team-overlay" dismissible={!dirty}
       onClose={onClose} onSubmit={submit}
       actions={<OverlayAction kind="save" type="submit" label="Save changes" disabled={!dirty} />}>
-      <header className="speed-overlay-head">
+      <header ref={head} className="speed-overlay-head">
         <div className="speed-overlay-identity">
           <h2 id="speed-team-overlay-title" className="speed-overlay-title" title={title}>{title}</h2>
         </div>

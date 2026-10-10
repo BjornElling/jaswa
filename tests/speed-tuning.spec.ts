@@ -154,6 +154,15 @@ test('a team marked as not speed tuned drops its enemy cut-in and reads green on
   const [label, lastSlot, enemySection] = [card.locator('.speed-no-tuning .checkbox-row'), card.locator('.speed-slot').last(),
     card.getByRole('region', { name: 'Enemy cut in' })];
   const [cardBefore, labelBox, slotBox] = [await box(card), await box(label), await box(lastSlot)];
+  /* It opens centred in the backdrop's room, as every overlay does — within a
+     few pixels, and far from the top it would hug if it were pinned there. */
+  const room = await card.evaluate((panel) => {
+    const backdrop = panel.parentElement as HTMLElement;
+    const style = getComputedStyle(backdrop);
+    const outer = backdrop.getBoundingClientRect();
+    return { top: outer.top + parseFloat(style.paddingTop), bottom: outer.bottom - parseFloat(style.paddingBottom) };
+  });
+  expect(Math.abs((cardBefore.y - room.top) - (room.bottom - cardBefore.y - cardBefore.height))).toBeLessThanOrEqual(8);
   expect(labelBox.y).toBeGreaterThanOrEqual(slotBox.y + slotBox.height - 1);
   expect(Math.abs(labelBox.x + labelBox.width - (slotBox.x + slotBox.width))).toBeLessThanOrEqual(1);
   await expect(enemySection).toBeVisible();
@@ -185,7 +194,7 @@ test('a team marked as not speed tuned drops its enemy cut-in and reads green on
 
   await card.getByRole('button', { name: 'Save changes' }).click();
   await expect(card).toHaveCount(0);
-  await expect(line.locator('.speed-summary-state')).toHaveText('No speed tuning for this team');
+  await expect(line.locator('.speed-summary-state')).toHaveText('No speed tuning');
   await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.presets?.['deck-24-101']?.noSpeedTuning))
     .toBe(true);
@@ -193,7 +202,7 @@ test('a team marked as not speed tuned drops its enemy cut-in and reads green on
   /* Kept across a reload, and undone the same way. */
   await page.reload();
   await openSpeedTuning(page);
-  await expect(line.locator('.speed-summary-state')).toHaveText('No speed tuning for this team');
+  await expect(line.locator('.speed-summary-state')).toHaveText('No speed tuning');
   await line.click();
   await expect(toggle).toBeChecked();
   await toggle.uncheck();

@@ -327,7 +327,7 @@ an import, and are checked one preset at a time on load.
   user's word that the team is not speed tuned. Saved with the team's tuning,
   it reads the team against no enemy: each monster still says whether it is in
   place and which of the team's turns it takes, the *Enemy cut in* section and
-  Ticks leave the overlay, and the page shows *No speed tuning for this team*
+  Ticks leave the overlay, and the page shows *No speed tuning*
   with a green check.
 
 **Rune Optimization.** A build's Location names the Default monster for a rune

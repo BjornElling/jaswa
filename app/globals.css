@@ -6751,9 +6751,12 @@ th.align-center .rank-heading { justify-content: center; }
    under a monster's name has room to be read whole. */
 /* Wide enough for the Interval column beside display speed without taking
    room from the verdict lines under the names. */
-/* Held at the top rather than centred: when *No speed tuning* takes the enemy
-   section away, only the bottom edge comes up, and the slots stay put. */
-.dialog.speed-team-overlay { width: min(1200px, 100%); align-self: start; }
+.dialog.speed-team-overlay { width: min(1200px, 100%); }
+/* Opened centred like every overlay, then held where it opened
+   (`speed-team-overlay.tsx`): when *No speed tuning* takes the enemy section
+   away, only the bottom edge comes up, and the slots stay put. */
+.overlay-backdrop:has(> .speed-team-overlay[data-pinned]) { align-content: start; }
+.dialog.speed-team-overlay[data-pinned] { align-self: start; margin-top: var(--pinned-top); }
 .speed-overlay-head {
   display: flex; justify-content: space-between; align-items: end; gap: var(--s4);
   padding: var(--s5) var(--s5) var(--s4);
