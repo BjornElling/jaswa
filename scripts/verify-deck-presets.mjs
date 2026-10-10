@@ -16,6 +16,7 @@ import {
 } from '../app/lib/presets.ts';
 import { engraveImportedGame } from '../app/lib/engrave-rune-build.ts';
 import { addToGamePreset } from '../app/lib/game-preset-edits.ts';
+import { noRuneLocks, runeLocksInPreset } from '../app/lib/rune-locks.ts';
 import { readRunes } from '../app/lib/runes.ts';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -218,7 +219,7 @@ const runeIdsByMember = (equip) => Object.fromEntries(equip.map((entry) => [Stri
 
 /* Into a gear-saving preset: the six runes move onto 12, 5013 leaves 11 in this preset only. */
 const build = ['5013', '5002', '5003', '5004', '5005', '5006'];
-const engraved = engraveImportedGame(game, find(before, 'deck-1-1'), '12', build, before);
+const engraved = engraveImportedGame(game, find(before, 'deck-1-1'), '12', build);
 assert.deepEqual(runeIdsByMember(equipOf(engraved.data, 1, 1)), { 11: arenaEleven.slice(1), 12: build },
   'the build lands on its monster and leaves the other member of the same preset');
 assert.deepEqual(equipOf(engraved.data, 1, 2), equipOf(game.data, 1, 2), 'another preset holding one of the runes is untouched');
@@ -236,7 +237,7 @@ assert.deepEqual(find(after, 'default').runesOf, find(before, 'default').runesOf
 
 /* Into a monsters-only preset: every member's Default gear is written down first, and only the target changes. */
 const keepBuild = ['5014', '5022', '5030', '5038', '5046', '5054'];
-const keep = engraveImportedGame(game, find(before, 'deck-24-101'), '11', keepBuild, before);
+const keep = engraveImportedGame(game, find(before, 'deck-24-101'), '11', keepBuild);
 assert.deepEqual(runeIdsByMember(equipOf(keep.data, 24, 101)), { 11: keepBuild, 12: twelveDefault },
   'a monsters-only preset gets every member\'s Default gear materialised');
 assert.equal(find(readPresets(keep.data, []), 'deck-24-101').savesGear, true, 'and from then on saves gear');
@@ -244,21 +245,21 @@ assert.deepEqual(keep.data.runes, game.data.runes, 'Default is untouched');
 assert.deepEqual(equipOf(keep.data, 1, 1), equipOf(game.data, 1, 1));
 
 /* Into a defense preset: its own field, nothing else. */
-const defense = engraveImportedGame(game, find(before, 'arena-defense'), '11', keepBuild, before);
+const defense = engraveImportedGame(game, find(before, 'arena-defense'), '11', keepBuild);
 assert.deepEqual(runeIdsByMember(defense.data.defense_deck_info.equip), { 12: twelveDefault, 11: keepBuild });
 assert.deepEqual(defense.data.deck_list, game.data.deck_list);
 
 /* Into Default: the old single-placement engrave, recorded under Default. */
-const inDefault = engraveImportedGame(game, find(before, 'default'), '12', ['5001', '5002', '5003', '5004', '5005', '5006'], before);
+const inDefault = engraveImportedGame(game, find(before, 'default'), '12', ['5001', '5002', '5003', '5004', '5005', '5006']);
 assert.deepEqual(runeIdsOf(inDefault.data.unit_list.find((unit) => unit.unit_id === 12)).sort(), ['5001', '5002', '5003', '5004', '5005', '5006']);
 assert.deepEqual(runeIdsOf(inDefault.data.unit_list.find((unit) => unit.unit_id === 11)), [], 'Default still holds a rune once');
 assert.deepEqual(inDefault.data.deck_list, game.data.deck_list, 'a Default engrave changes no preset');
 assert.equal(inDefault.loadedPlacements.default['5001'], '11');
 
-assert.throws(() => engraveImportedGame(game, find(before, 'deck-1-2'), '11', keepBuild, before), /not in the selected preset/,
+assert.throws(() => engraveImportedGame(game, find(before, 'deck-1-2'), '11', keepBuild), /not in the selected preset/,
   'a monster outside the preset cannot be engraved in it');
 const ownPreset = readPresets(game.data, readOwnPresets([{ id: 'own-x', name: 'Mine', content: null, members: ['11'], leaderUnitId: null, gear: null }]));
-assert.throws(() => engraveImportedGame(game, find(ownPreset, 'own-x'), '11', keepBuild, ownPreset), /preferences/,
+assert.throws(() => engraveImportedGame(game, find(ownPreset, 'own-x'), '11', keepBuild), /preferences/,
   'an own preset is engraved in the preferences, never in the import');
 
 /* 4. A pool: Temple of Chaos's teams (deck_type 23) share their monsters, runes and artifacts (§1 rule 5). */
@@ -295,17 +296,40 @@ assert.equal(find(pooled, 'own-t').pool, null, 'a Temple of Chaos preset built i
 assert.deepEqual([...find(pooled, 'deck-23-2').poolTakenUnitIds], ['11'], 'a team knows the monsters its pool\'s other teams hold');
 const poolRunes = readRunes(poolGame.data);
 const occupiedIn = (presetId) => Object.fromEntries(runesInPreset(poolRunes, find(pooled, presetId)).map((rune) => [rune.id, rune.occupiedId]));
-assert.equal(occupiedIn('deck-23-2')['5013'], '11', 'a rune on another team of the pool is engraved, not free');
+assert.equal(occupiedIn('deck-23-2')['5013'], null, 'each team is read alone: a rune on another team is not engraved in this one');
 assert.equal(occupiedIn('deck-23-2')['5007'], '12', 'and the team\'s own Default gear is its own');
+assert.deepEqual([...find(pooled, 'deck-23-2').poolRuneIds].sort(), [...arenaEleven].sort(), 'a team knows the runes the pool\'s other teams hold');
 
-/* Engraving 5013 on 12 in team 2 takes it from 11 in team 1, and nowhere else. */
+/* Rune Optimization is never offered a rune another team holds; the user's own lock on one stands. */
+assert.equal(runeLocksInPreset(noRuneLocks, find(pooled, 'deck-23-2'), '12')['5013'], 'excluded');
+assert.equal(runeLocksInPreset(noRuneLocks, find(pooled, 'deck-23-2'), '12')['5007'], undefined, 'the team\'s own runes stay open to it');
+assert.equal(runeLocksInPreset(noRuneLocks, find(pooled, 'deck-1-1'), '11')['5013'], undefined, 'outside a pool nothing is held back');
+const lockedHere = { 'pool:temple-of-chaos': { 12: { 5013: 'locked' } } };
+assert.equal(runeLocksInPreset(lockedHere, find(pooled, 'deck-23-2'), '12')['5013'], 'locked', 'a lock the user set stands over the pool');
+
+/* An engrave never brings in a rune another team holds, and never edits another team. */
 const poolBuild = ['5013', '5008', '5009', '5010', '5011', '5012'];
-const poolEngraved = engraveImportedGame(poolGame, find(pooled, 'deck-23-2'), '12', poolBuild, pooled);
-assert.deepEqual(runeIdsByMember(equipOf(poolEngraved.data, 23, 2)), { 12: poolBuild }, 'the build lands in its team');
-assert.deepEqual(runeIdsByMember(equipOf(poolEngraved.data, 23, 1)), { 11: arenaEleven.slice(1) }, 'and leaves the pool\'s other team');
-assert.deepEqual(equipOf(poolEngraved.data, 1, 1), equipOf(poolGame.data, 1, 1), 'a preset outside the pool is untouched');
-assert.equal(poolEngraved.loadedPlacements['deck-23-1']['5013'], '11', 'the other team remembers where the rune sat');
-assert.equal(validateGameFile(poolEngraved.data).valid, true, 'the pool is still whole after the engrave');
+assert.throws(() => engraveImportedGame(poolGame, find(pooled, 'deck-23-2'), '12', poolBuild), /another team/,
+  'a build taking a rune from another team of the pool is refused');
+
+/* The game let team 2's 12 keep 5013, which team 1's 11 carries too. Both are read as
+   the game has them, and engraving team 1 leaves team 2's runes where they are. */
+const sharedAccount = { ...optimization, deck_list: [
+  deck(23, 1, [11], [gear(11, arenaEleven.map(Number))]),
+  deck(23, 2, [12], [gear(12, poolBuild.map(Number))]),
+] };
+const sharedGame = createImportedGame('shared.json', clone(sharedAccount), validateGameFile(sharedAccount));
+const shared = readPresets(sharedGame.data, []);
+assert.deepEqual(find(shared, 'deck-23-2').runesOf.get('12'), poolBuild, 'a team keeps the rune it shares with another');
+assert.deepEqual(find(shared, 'deck-23-2').poolConflicts.runeIds, ['5013'], 'and names it as its fault');
+const unitInShared = createImportedGame('shared.json', clone(sharedAccount), validateGameFile(sharedAccount)).data.unit_list.find((unit) => unit.unit_id === 12);
+assert.deepEqual(monsterInPreset(unitInShared, find(shared, 'deck-23-2'), accountItems(sharedGame.data)).runes.map((rune) => String(rune.rune_id)), poolBuild,
+  'the team\'s monster carries all six runes, as the game shows it');
+const teamOne = engraveImportedGame(sharedGame, find(shared, 'deck-23-1'), '11', keepBuild);
+assert.deepEqual(runeIdsByMember(equipOf(teamOne.data, 23, 1)), { 11: keepBuild }, 'the build lands in its team');
+assert.deepEqual(equipOf(teamOne.data, 23, 2), equipOf(sharedGame.data, 23, 2), 'and the other team is untouched');
+const kept = engraveImportedGame(sharedGame, find(shared, 'deck-23-2'), '12', poolBuild);
+assert.deepEqual(runeIdsByMember(equipOf(kept.data, 23, 2)), { 12: poolBuild }, 'a shared rune the monster already carries may stay');
 
 /* A monster in another team cannot join; a newcomer brings only Default gear no team holds. */
 const editable = { ...poolGame, data: { ...poolGame.data, deck_list: [

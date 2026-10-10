@@ -177,7 +177,10 @@ Every search is for one monster **in one preset** — Default or a saved preset
 starts from out of that preset, and every rune's place is read through
 `runesInPreset`: `occupiedId` names the monster carrying it *in this preset*, or
 `null` where none of the preset's monsters does. A rune engraved only in other
-presets is therefore free here, because a preset holds its own gear.
+presets is therefore free here, because a preset holds its own gear. The one
+exception is a deck of a pool, such as a Temple of Chaos team: every rune another
+deck of its pool holds reaches the search as excluded (`runeLocksInPreset`), one
+this monster shares with that deck included, so no build forms an overlap.
 
 A **candidate** is one rune in one end state: as it stands, or with the Gem and
 Grindstones the settings allow. A rune enters its own slot's list when:

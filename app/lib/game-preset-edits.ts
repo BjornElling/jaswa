@@ -84,7 +84,7 @@ export function addToGamePreset(game: ImportedGame, preset: Preset, fallback: Pr
     const unit_id_list = empty >= 0 ? positions.map((entry, at) => (at === empty ? put(entry, unit) : entry))
       : [...positions, positions.some(isRecord) ? { pos_id: nextPosition, unit_id: unit } : unit];
     if (!preset.savesGear) return { ...deck, unit_id_list };
-    const taken = new Set([...preset.poolRuneOwner.keys(), ...preset.poolArtifactOwner.keys()]);
+    const taken = new Set([...preset.runeOwner.keys(), ...preset.artifactOwner.keys(), ...preset.poolRuneIds, ...preset.poolArtifactIds]);
     const runeIds = (fallback.runesOf.get(unitId) ?? []).filter((id) => !taken.has(id));
     const artifactIds = (fallback.artifactsOf.get(unitId) ?? []).filter((id) => !taken.has(id));
     const equip = [...(Array.isArray(deck.equip) ? deck.equip : []),

@@ -37,7 +37,7 @@ import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monst
 import { monsterTargetFigures } from '../lib/monster-stats';
 import { accountItems, defaultPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
 import type { Preset } from '../lib/presets';
-import { runeLockOf, runeLockScope, runeLocksFor } from '../lib/rune-locks';
+import { runeLockOf, runeLockScope, runeLocksInPreset } from '../lib/rune-locks';
 import type { RuneLock, RuneLocks } from '../lib/rune-locks';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
@@ -223,9 +223,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
   const defaultPlaces = useMemo(() => (preset && preset.kind !== 'default'
     ? new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId])) : undefined), [accountRunes, preset]);
-  /* The preset's locks as this monster reads them: its own locks and exclusions, and
-     the runes locked to the rest of the team, which it may not take. */
-  const locks = useMemo(() => (preset && unitId !== '' ? runeLocksFor(runeLocks, runeLockScope(preset), unitId) : {}),
+  /* The preset's locks as this monster reads them: its own locks and exclusions, the
+     runes locked to the rest of the team, and the runes another team of its pool
+     holds, none of which it may take. */
+  const locks = useMemo(() => (preset && unitId !== '' ? runeLocksInPreset(runeLocks, preset, unitId) : {}),
     [preset, unitId, runeLocks]);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
   const craftItems = useMemo(() => (game ? readCraftItems(game.data) : []), [game]);

@@ -210,30 +210,33 @@ The account owns physical runes and artifacts. A placement is the relation
 - Within a context, an item has at most one monster and a monster at most one
   rune per slot and one artifact per slot.
 - Across contexts, the same item may have different monsters.
-- **A pool is one context spread over several decks.** The game's decks of a
-  content with a shared pool (`sharedPool` in `preset-contents.ts`) — the
-  Siege Battle defense presets and Temple of Chaos's teams — hold each item on
-  at most one monster between them, and Temple of Chaos each monster in at most
-  one team. Each deck is still its own preset, with its own team, profiles,
-  priority and speed tuning; only the placement is shared. A preset built in
-  JASWA is a draft of one team and never joins the game's pool.
-  - **An overlap is a fault of the preset, never of the import.** The game
-    does not always stop two teams holding the same rune, so decks of one pool
-    that hold the same item — or, for Temple of Chaos, the same monster — are
-    read as the account stands. Each team involved names what it shares
+- **A pool is a limit on what JASWA does, never on what it reads.** The
+  game's decks of a content with a shared pool (`sharedPool` in
+  `preset-contents.ts`) — the Siege Battle defense presets and Temple of
+  Chaos's teams — should hold each item on at most one monster between them,
+  and Temple of Chaos each monster in at most one team. The game does not
+  always stop it, and what the game shows on a team is what JASWA shows. So
+  each deck is its own context, read exactly as the game saved it, with its
+  own team, gear, profiles, priority and speed tuning. A preset built in JASWA
+  is a draft of one team and never joins the game's pool.
+  - **An overlap is a fault of the preset, never of the import.** Decks of one
+    pool that hold the same item — or, for Temple of Chaos, the same monster —
+    keep it on every one of them. Each team involved names what it shares
     (`poolConflicts`), and the Presets page says so on the preset's warning
     line beside its sold items and missing monsters: *Shares 2 runes and
     1 monster with another team*. A deck that saved monsters only is measured
     on the Default gear it runs on.
-  - Every reading of who carries a rune in a preset of a pool reads the pool
-    (`poolRuneOwner`): a rune on a monster of another team is engraved, not
-    free. A rune the team's own monster carries is read on that monster
-    whoever else holds it, so an overlap never takes gear away from a team.
-  - An engrave in one deck takes its runes from the pool's other decks, and a
-    deck that saved monsters only writes down its Default gear first, less what
-    another deck of the pool saved. Nothing outside the pool changes.
-  - A monster joining a game deck brings its Default gear less what the pool
+  - Each deck knows what the pool's other decks hold (`poolRuneIds`,
+    `poolArtifactIds`, `poolTakenUnitIds`) and uses it only to refuse: JASWA
+    never forms an overlap. Rune Optimization reads every rune another team
+    holds as excluded (`runeLocksInPreset`), a rune the team shares with one
+    included; an engrave refuses a build bringing such a rune in; a monster
+    joining a game deck brings its Default gear less what the deck or the pool
     holds, and a monster another Temple of Chaos team holds is not offered.
+  - Nothing done in one deck writes into another. The previous model made an
+    engrave take its runes out of the pool's other decks, and with them every
+    rune the game had let two teams share; a team then showed a monster with
+    no runes that the game showed fully geared.
 - A relic belongs to Default only and is read into every context.
 - Item stats, grade, slot and craft state belong to the physical item and are
   never copied into a placement.
@@ -307,9 +310,9 @@ an import, and are checked one preset at a time on load.
   brings its Default gear, less what the preset already engraves; one taken out
   takes its gear and its profile there with it.
 - The order of monsters within a preset is their priority for runes. Rune
-  competition exists only inside a preset or a pool, so that is the only place
-  a priority means anything; between the teams of a pool there is no order,
-  and a rune on another team is taken only as a rune on another monster is.
+  competition exists only inside a preset, so that is the only place a
+  priority means anything; between the teams of a pool there is no order,
+  because a rune on another team is never taken at all.
 - Each monster has a shortcut to Rune Optimization in that preset, and beside
   it one to Speed Tuning with the preset's team open, disabled only on Default
   and on a preset with no monsters.
@@ -332,20 +335,20 @@ an import, and are checked one preset at a time on load.
   profile from…* beneath it offers the other contexts where the copy has a
   profile (§4.1).
 - The candidate runes are every owned rune, minus those engraved on other
-  monsters of the same preset — or of the same pool — where the settings say
-  so. Runes in other presets cost nothing and are always candidates.
-  `runesInPreset` gives each rune the monster carrying it in the chosen preset,
-  or anywhere in its pool, so the search reads one placement and no other.
+  monsters of the same preset where the settings say so, and minus every rune
+  another deck of the preset's pool holds, whatever the settings say. Runes in
+  other presets cost nothing and are always candidates. `runesInPreset` gives
+  each rune the monster carrying it in the chosen preset, so the search reads
+  one placement and no other.
 - *Only use runes from inventory* became *Only runes not engraved in preset*:
-  ticked, no monster of the preset or its pool gives up a rune, while a rune
-  engraved only in other presets stays a candidate.
+  ticked, no monster of the preset gives up a rune, while a rune engraved only
+  in other presets stays a candidate.
 - *Include runes from higher-priority monsters* refers to monsters of the same
   preset.
 - *Just fill in empty slots* and *Max changes* are measured against the
   monster's build in the chosen preset.
 - *Engrave* writes the build into the chosen preset and moves nothing out of
-  any other context; in a pool it takes the build's runes from the pool's
-  other decks too (§4).
+  any other context, a deck of the same pool included (§4).
 - **Lock and Exclude** (`rune-locks.ts`) bind one rune to one monster in one
   scope: Default, one preset, or — where the game's decks of a content share
   one pool, as the Siege Battle defense presets and Temple of Chaos's teams do

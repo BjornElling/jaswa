@@ -70,6 +70,20 @@ export function runeLocksFor(locks: RuneLocks, scope: string, unitId: string): R
   return read;
 }
 
+/**
+ * What one monster's search reads in a preset: `runeLocksFor` in the preset's
+ * scope, and every rune another deck of its pool holds as `excluded`
+ * (`DECK-PRESETS.md` §4). That is the pool's whole hold on the search: a
+ * Temple of Chaos team is never offered a rune another team carries, a rune it
+ * shares with one included, so a build found here forms no overlap and undoes
+ * any it can. The user's own word on a rune stands over it.
+ */
+export function runeLocksInPreset(locks: RuneLocks, preset: Pick<Preset, 'id' | 'pool' | 'poolRuneIds'>, unitId: string): Record<string, RuneLock> {
+  const read = runeLocksFor(locks, runeLockScope(preset), unitId);
+  for (const runeId of preset.poolRuneIds) read[runeId] ??= 'excluded';
+  return read;
+}
+
 /** Every rune locked to a monster anywhere, which Rune Clean-up keeps whatever it reads the rune as. */
 export function lockedRuneIds(locks: RuneLocks): ReadonlySet<string> {
   const ids = new Set<string>();
