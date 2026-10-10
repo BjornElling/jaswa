@@ -142,6 +142,7 @@ on screen and is still used fully; a preset is never hidden for want of a name
 | 8 | Monster Subjugation Water | `deck_seq` | assumed (§7) |
 | 9 | Monster Subjugation Fire | `deck_seq` | assumed (§7) |
 | 19, 20, 21 | Dimension Raid phases 1, 2, 3 | `deck_seq` | screen |
+| 23 | Temple of Chaos | `deck_seq` | player, October 10, 2026: the account's three Temple of Chaos teams |
 | 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 | screen |
 
 4 and 6 under type 24 were confirmed through the recent decks, whose Cairos
@@ -383,8 +384,8 @@ and says so where it matters.
   Siege Battle's is 25, so they are read as World Guild Battle until the screen
   says otherwise.
 - **`deck_type` 4, 8, 9.** Five-monster decks, three or fewer of each, holding
-  the same teams as one another. None is Temple of Chaos, whose presets the
-  screen showed empty, nor a Dimension Hole dungeon or Rift of Worlds beast,
+  the same teams as one another. None is Temple of Chaos, whose presets are
+  type 23, nor a Dimension Hole dungeon or Rift of Worlds beast,
   whose teams are four and six. Two of type 9's teams were last fought in a
   content whose recent-deck numbers fall in four groups — Monster
   Subjugation's shape, with Labyrinth the other guild content of five. Read as

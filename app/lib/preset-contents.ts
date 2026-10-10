@@ -144,6 +144,8 @@ export function isPresetContentId(value: unknown): value is PresetContentId {
  * - `deck_type` 3 holds the Rift Raid decks, numbered by `deck_seq`.
  * - `deck_type` 6 holds the Trial of Ascension decks, numbered by `deck_seq`.
  * - `deck_type` 19, 20 and 21 hold Dimension Raid phases 1, 2 and 3.
+ * - `deck_type` 23 holds the Temple of Chaos decks, numbered by `deck_seq`
+ *   (confirmed by the player on October 10, 2026, for three saved teams).
  * - `deck_type` 24 holds the Cairos Dungeon decks; the hundreds of `deck_seq`
  *   name the dungeon and the rest is the preset's number within it: 1 Giant's
  *   Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress,
@@ -156,6 +158,7 @@ const cairosByHundreds: Readonly<Record<number, PresetContentId>> = { 1: 'giants
 const confirmed: Readonly<Record<number, PresetContentId>> = {
   1: 'arena-attack', 3: 'rift-raid', 6: 'trial-of-ascension',
   19: 'dimension-raid-1', 20: 'dimension-raid-2', 21: 'dimension-raid-3',
+  23: 'temple-of-chaos',
 };
 
 /*
