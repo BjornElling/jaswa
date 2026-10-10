@@ -20,6 +20,7 @@ import {
   defaultRuneSimulationConfig, simulationRuneToCleanupRune, simulationStages,
   simulationNoRuneType, simulationStatLabel,
 } from '../lib/rune-simulator';
+import { simulationKeeperCounts } from '../lib/rune-simulator-keeper-counts';
 import { runeVerdictLabels } from '../lib/rune-cleanup-advice';
 import { calculateRuneSimulation } from '../lib/compute/rune-simulator-client';
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
@@ -241,27 +242,12 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
 
 /**
  * How many runes Rune Clean-up keeps at +15, each counted once under the role it
- * answers best. That is the engine's own choice of role, so a rune two roles
+ * answers best, or under No matching role when speed protection kept it.
+ * That is the engine's own choice of role, so a rune two roles
  * would both keep lands in exactly one cell and the columns add up to the total.
  */
 function KeeperStatistics({ run }: { run: SimulationRun | null }) {
-  const counts = useMemo(() => {
-    if (!run || run.result.summary.kept === null) return null;
-    const rows = new Map<string, { name: string; slots: number[] }>(
-      run.roles.map((role) => [role.id, { name: role.name, slots: slots.map(() => 0) }]));
-    for (const entry of run.result.stages[15].entries) {
-      const verdict = entry.verdict;
-      if (verdict?.verdict !== 'keep' || verdict.roleId === null) continue;
-      /* A keeper is always judged against a role from the frozen list; one that
-         is not would be a defect in the engine, and it still gets its own row rather
-         than vanishing from a total the footer claims is complete. */
-      const row = rows.get(verdict.roleId) ?? { name: verdict.roleName ?? verdict.roleId, slots: slots.map(() => 0) };
-      row.slots[entry.rune.slot - 1] += 1;
-      rows.set(verdict.roleId, row);
-    }
-    const totals = slots.map((_, at) => [...rows.values()].reduce((sum, row) => sum + row.slots[at], 0));
-    return { rows: [...rows.entries()], totals };
-  }, [run]);
+  const counts = useMemo(() => run ? simulationKeeperCounts(run.result, run.roles) : null, [run]);
   /* No headline total: the table's own footer already sums every column, and the
      line under the results heading counts the kept runes too. */
   return <section className="rune-simulator-stats" aria-label="Runes kept at +15">
@@ -272,7 +258,7 @@ function KeeperStatistics({ run }: { run: SimulationRun | null }) {
           {slots.map((slot) => <th key={slot} scope="col">Slot {slot}</th>)}
         </tr></thead>
         <tbody>
-          {counts.rows.map(([id, row]) => <tr key={id}>
+          {counts.rows.map(([id, row]) => <tr key={id === null ? 'unmatched' : `role:${id}`}>
             <th scope="row" title={row.name}>{row.name}</th>
             {row.slots.map((value, at) => <td key={at} className={value === 0 ? 'muted' : undefined}>{value}</td>)}
           </tr>)}

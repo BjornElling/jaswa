@@ -46,12 +46,12 @@ async function openAccount(page: Page) {
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await expect(page.getByText('awakening-search-account.json')).toBeVisible();
-  await page.getByRole('button', { name: 'Monsters', exact: true }).click();
+  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
 }
 
 /** Opens one section and returns a search reporting the names it leaves. */
 async function searching(page: Page, entry: typeof pages[number]) {
-  await page.locator('summary').filter({ hasText: entry.section }).click();
+  await page.getByRole('navigation').getByRole('button', { name: `Monster ${entry.section}`, exact: true }).click();
   await entry.prepare(page);
   const table = page.getByRole('table', { name: entry.table });
   const field = page.getByRole('textbox', { name: entry.search });

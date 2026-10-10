@@ -38,15 +38,8 @@ async function importAccount(page: Page, variant?: (account: Record<string, unkn
 }
 
 async function monsterLinks(page: Page): Promise<Locator> {
-  await page.getByRole('button', { name: 'Monsters', exact: true }).first().click();
-  await expect(page.getByRole('heading', { name: 'Monsters' }).first()).toBeVisible();
-  /* The disclosure bars are session state, so a fresh tab opens with them
-     closed and a reload keeps whatever was open. Toggling would therefore close
-     them half the time: set the state instead of flipping it. */
-  for (const bar of await page.locator('details').all()) {
-    if (await bar.evaluate((element: HTMLDetailsElement) => element.open)) continue;
-    await bar.locator('summary').click().catch(() => {});
-  }
+  await page.getByRole('button', { name: 'Monster Stats', exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: 'Monster Stats' }).first()).toBeVisible();
   const links = page.locator('.monster-link');
   await expect(links.first()).toBeVisible();
   return links;

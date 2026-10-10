@@ -837,7 +837,7 @@ for monotonicity. Its denominator is every original generated drop.
 
 ## 9.5 The live Statistics box is an estimate, not a second model
 
-Rune Set-up's Statistics box asks two deliberately narrow questions of one fixed
+Rune Settings's Statistics box asks two deliberately narrow questions of one fixed
 synthetic population:
 
 - **Percent to roll** is the share of the population at `+0` whose Rune Clean-up
@@ -1142,5 +1142,5 @@ that first calculation; its recommendation and layout assertions are unchanged.
 
 Typecheck, lint and build passed, as did all 220 Playwright tests. Visual checks
 reused the existing server at `http://localhost:3000/`: empty and imported
-Rune Set-up, the quality choices, all 2,632 Rune Clean-up rows and The Math.
+Rune Settings, the quality choices, all 2,632 Rune Clean-up rows and The Math.
 The measured settings boxes did not move when the quality choice changed.

@@ -168,7 +168,7 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
 /**
  * The verdict table — the answer the whole workspace exists to give.
  *
- * It is the answer the user came for; the Rune Set-up workspace holds the
+ * It is the answer the user came for; the Rune Settings workspace holds the
  * controls that shape it. The calculation waits for the button rather than
  * running as sliders move: it reads every rune against every role and every
  * build, and a table that re-ran itself under a dragging thumb would be a table
@@ -453,7 +453,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   if (!roles.length) {
     return <section className="empty-state">
       <h2>There are no roles to judge runes against.</h2>
-      <p className="next-step">Add one under Rune Set-up to say what a rune should be worth.</p>
+      <p className="next-step">Add one under Rune Settings to say what a rune should be worth.</p>
     </section>;
   }
 
@@ -482,7 +482,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
         <h2>Nothing calculated yet.</h2>
         <p className="next-step">
           Press Calculate to put every rune on trial.<br />
-          The standards they are judged by live in Rune Set-up.
+          The standards they are judged by live in Rune Settings.
         </p>
       </section>
       : <DataTablePage

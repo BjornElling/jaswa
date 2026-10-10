@@ -34,7 +34,7 @@ test('every rune is judged, and the filters only decide what is shown', async ({
   /* Settings states what a rune is worth, never which runes are looked at, and
      now has its own workspace rather than living below the verdicts. */
   await expect(cleanup.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
-  await expect(page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true })).toBeVisible();
 
   /* Location is chosen like every other value: none chosen shows every rune, one
      chosen narrows to it, and both chosen is every rune again. Narrowing takes

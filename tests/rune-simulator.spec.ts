@@ -6,13 +6,13 @@ const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.me
 test('simulates random runes through +0, +9, +12 and +15, spending no craft without a role',async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
   await page.locator('details').filter({ hasText: 'Settings' }).locator('summary').click();
   await page.locator('#enchanted-gems').fill('6');
   await page.locator('#grindstones').fill('5');
 
-  /* The simulator is a Runes tool, judged by the Clean-up engine beside it. */
-  const runes = page.locator('.rail-group').filter({ has: page.locator('.rail-heading', { hasText: 'Runes' }) });
+  /* The simulator is a Rune Clean-up tool, judged by the Clean-up engine beside it. */
+  const runes = page.locator('.rail-group').filter({ has: page.locator('.rail-heading', { hasText: 'Rune Clean-up' }) });
   await runes.getByRole('button', { name: 'Rune Simulator', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Rune Simulator', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Nothing generated yet.', exact: true })).toBeVisible();

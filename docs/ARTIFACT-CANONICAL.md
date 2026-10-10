@@ -2312,6 +2312,10 @@ table holds rather than what it shows, which is the stat sheet. They are **Stats
 and **Numbers**. Location keeps `Storage` as a value, because that is the place
 the game means.
 
+*October 10, 2026.* Stats and Numbers are separate pages under Monsters,
+with their tables visible immediately. Each keeps its own filters in the tab
+when navigation leaves the page and returns.
+
 Two consequences for the Stats table, both about reading order:
 
 - **Gear reads as one block.** Artifacts and Relic sat at the far right, past

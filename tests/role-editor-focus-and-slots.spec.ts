@@ -31,7 +31,7 @@ async function openRoleEditor(page: Page, { pollForHelper = false } = {}) {
      only runs on the direct route. Choosing it is therefore part of
      reproducing the focus bug, not incidental setup — no helper need answer. */
   if (pollForHelper) await page.getByRole('radio', { name: 'Direct import' }).check();
-  await page.getByRole('button', { name: 'Rune Set-up' }).click();
+  await page.getByRole('button', { name: 'Rune Settings' }).click();
   await page.locator('summary').filter({ hasText: 'Roles' }).click();
   await page.getByRole('button', { name: 'Edit Slow DD' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -69,7 +69,7 @@ test('the caret stays where the user put it while the editor is open', async ({ 
 test('a zero desired stat is saved as unstated', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.getByRole('button', { name: 'Rune Set-up' }).click();
+  await page.getByRole('button', { name: 'Rune Settings' }).click();
   await page.locator('summary').filter({ hasText: 'Roles' }).click();
   await page.getByRole('button', { name: 'Add role' }).click();
 

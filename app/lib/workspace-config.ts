@@ -1,7 +1,7 @@
 import type { AccelerationState } from './hardware-acceleration';
 import type { HelperConnection } from './helper-client';
 
-export type Page = 'home' | 'monsters' | 'artifact-list' | 'optimizer' | 'speed' | 'presets' | 'rune-setup' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math' | 'rune-simulator';
+export type Page = 'home' | 'monster-stats' | 'monster-numbers' | 'artifact-list' | 'optimizer' | 'speed' | 'presets' | 'rune-setup' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math' | 'rune-simulator';
 export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 
 /* `label` is what the rail shows, under a heading that supplies the subject.
@@ -28,26 +28,27 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   {
     heading: 'Monsters',
     items: [
-      { id: 'monsters', label: 'Overview', name: 'Monsters', glyph: '♜' },
-      /* Rune Optimization answers for a monster — a build per monster, from the
-         requirements saved for it — so it sits with the monster tools. The
-         Runes group keeps the work done on the runes themselves. */
-      { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
-      { id: 'speed', label: 'Speed tuning', name: 'Speed Tuning', glyph: '↝' },
-      /* Teams of monsters, and the order they have first pick of runes in,
-         so it sits with them; the arrows are the up and down it is edited with. */
-      { id: 'presets', label: 'Presets', name: 'Presets', glyph: '⇅' },
+      { id: 'monster-stats', label: 'Stats', name: 'Monster Stats', glyph: '♜' },
+      { id: 'monster-numbers', label: 'Numbers', name: 'Monster Numbers', glyph: '♜' },
     ],
   },
   {
-    heading: 'Runes',
+    heading: 'Rune Optimization',
     items: [
-      { id: 'rune-setup', label: 'Set up', name: 'Rune Set-up', glyph: '⚙' },
+      { id: 'presets', label: 'Presets', name: 'Presets', glyph: '⇅' },
+      { id: 'speed', label: 'Speed tuning', name: 'Speed Tuning', glyph: '↝' },
+      { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
+    ],
+  },
+  {
+    heading: 'Rune Clean-up',
+    items: [
+      { id: 'rune-setup', label: 'Settings', name: 'Rune Settings', glyph: '⚙' },
       { id: 'potential', label: 'Clean-up', name: 'Rune Clean-up', glyph: '◌' },
       { id: 'gems', label: 'Gems & grinds', name: 'Gems & Grinds', glyph: '✦' },
       /* An experiment on runes nobody owns yet, judged by the same Clean-up
          engine as the ones above — it belongs with them, not with the settings. */
-      { id: 'rune-simulator', label: 'Simulator', name: 'Rune Simulator', glyph: '↻' },
+      ...(import.meta.env.DEV ? [{ id: 'rune-simulator' as const, label: 'Simulator', name: 'Rune Simulator', glyph: '↻' }] : []),
     ],
   },
   {
@@ -94,3 +95,6 @@ export const helperLabels: Record<HelperConnection['state'], string> = {
   ready: 'Connected',
   unavailable: 'Unavailable',
 };
+
+/* Navigation and restored tab state share availability, including dev tools. */
+export const pageChoices: readonly Page[] = navigationGroups.flatMap((group) => group.items.map((item) => item.id));

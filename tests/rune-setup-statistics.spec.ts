@@ -16,7 +16,7 @@ function percentage(value: string): number {
 test('keeps the statistics box honest without an account reference', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
   await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
 
   const statistics = page.locator('.statistics');
@@ -31,7 +31,7 @@ test('shows the synthetic statistics and recalculates them after a setting chang
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
   await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
 
   const statistics = page.locator('.statistics');
@@ -63,7 +63,7 @@ test('keeps the statistics box the same height while it calculates', async ({ pa
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
   await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
 
   const statistics = page.locator('.statistics').first();
@@ -93,7 +93,7 @@ test('gets stricter when broken runes are excluded', async ({ page }, testInfo) 
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
   await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
 
   const statistics = page.locator('.statistics');

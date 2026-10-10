@@ -162,6 +162,25 @@ try {
       `${atTwelve.id}: +15 does not roll another substat`);
   }
 
+  const { simulationKeeperCounts } = await server.ssrLoadModule('/app/lib/rune-simulator-keeper-counts.ts');
+  assert.equal(simulationKeeperCounts(result, []), null, 'no keeper table is claimed without verdicts');
+  const protectedBatch = await simulateRunes({
+    ...defaultRuneSimulationConfig, count: 80, slot: 2, stars: 1,
+    gates: { 0: { policy: 'keep-all' }, 9: { policy: 'keep-all' }, 12: { policy: 'keep-all' } },
+  }, {
+    roles: support, settings: { ...craftedSettings, neverSellPreGrindSpeed: true, preGrindSpeedMinimum: 0 },
+    base: supportBase,
+  }, makeRandom(0x5eed));
+  const unmatched = protectedBatch.stages[15].entries.filter(({ verdict }) => verdict?.verdict === 'keep' && verdict.roleId === null);
+  assert.ok(unmatched.length > 0, 'the fixed batch includes speed-protected keepers no role can use');
+  const counts = simulationKeeperCounts(protectedBatch, support);
+  assert.equal(counts.totals.reduce((sum, count) => sum + count, 0), protectedBatch.summary.kept,
+    'role counts include every keeper, even when speed protection overrides No role can use it');
+  const unmatchedRow = counts.rows.find(([id]) => id === null)?.[1];
+  assert.equal(unmatchedRow.name, 'No matching role');
+  assert.equal(unmatchedRow.slots.reduce((sum, count) => sum + count, 0), unmatched.length);
+  assert.equal(simulationKeeperCounts(supported, support).totals.reduce((sum, count) => sum + count, 0), supported.summary.kept);
+
   console.log('Verified the locked rune-grade distribution, roll counters, the +12 craft and the deterministic +15 finish.');
 } finally {
   await server.close();

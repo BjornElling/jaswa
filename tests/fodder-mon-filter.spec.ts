@@ -10,8 +10,8 @@ test('Fodder mon finds safe family fodder and keeps 2A fodder at 2A', async ({ p
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await page.getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
+  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
 
   const table = page.getByRole('table', { name: 'Monster numbers' });
   const filterGroup = page.getByRole('group', { name: 'Only show Numbers monsters if' });

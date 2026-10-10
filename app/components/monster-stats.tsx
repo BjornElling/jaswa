@@ -1,13 +1,12 @@
 import { type ReactNode, useMemo } from 'react';
 import { FilterButton } from './button';
-import { Disclosure, PageHeader } from './page-chrome';
+import { PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
 import { SortableHeader } from './sortable-table';
 import { useRowOpener } from './use-row-opener';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
-import { MonsterStorage } from './monster-storage';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { WorkspacePage } from './workspace-page';
@@ -166,7 +165,7 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
     && typeof candidate.showRainbowmons === 'boolean';
 }
 
-export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster }: {
+export function MonsterStats({ monsters, gameData, preferences, onOpenMonster }: {
   monsters: GameRecord[];
   gameData: GameRecord;
   preferences: Preferences;
@@ -313,10 +312,9 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
 
   return <WorkspacePage
     header={<PageHeader
-      title="Monsters"
-      tagline="A menagerie of statistics, storage, and questionable life choices." />}
+      title="Monster Stats"
+      tagline="The figures behind your monsters and their engraved gear." />}
   >
-    <Disclosure title="Stats" sessionKey="monsters.stats">
       {!monsters.length ? <section className="empty-state">
         <h2>Nothing to show until a game file is imported.</h2>
         <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
@@ -424,10 +422,5 @@ export function MonsterOverview({ monsters, gameData, preferences, onOpenMonster
           </tr>)}
         </tbody>
       </DataTablePage>}
-    </Disclosure>
-
-    <Disclosure title="Numbers" sessionKey="monsters.numbers">
-      <MonsterStorage monsters={monsters} gameData={gameData} preferences={preferences} onOpenMonster={onOpenMonster} />
-    </Disclosure>
   </WorkspacePage>;
 }

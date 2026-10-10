@@ -136,7 +136,7 @@ test('the strictest quality floor explains the value gate instead of a rounded z
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'floor-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(game)),
   });
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Set-up', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
   await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
   await page.getByLabel('Rune quality floor', { exact: true }).fill('5');
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();

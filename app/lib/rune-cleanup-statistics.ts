@@ -1,5 +1,5 @@
 /**
- * The small population behind Rune Set-up's Statistics box.
+ * The small population behind Rune Settings's Statistics box.
  *
  * This is not a second model and it is not a claim about the player's drop
  * history. It reuses the fixed ordinary-sample generator the Clean-up floor uses

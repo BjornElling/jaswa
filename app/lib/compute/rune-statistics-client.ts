@@ -1,5 +1,5 @@
 /**
- * The one way from Rune Set-up to its fixed synthetic statistics.
+ * The one way from Rune Settings to its fixed synthetic statistics.
  *
  * A changed slider cancels the previous worker before starting the next one.
  * The page therefore never commits an older population answer after a newer

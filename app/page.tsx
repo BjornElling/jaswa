@@ -35,21 +35,21 @@ import type { RuneLock, RuneLocks } from './lib/rune-locks';
 import type { MonsterReference, OpenMonsterOverlay } from './components/monster-link';
 import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
 import { useSessionStorageState, writeSessionValue } from './lib/session-storage-state';
-import { type Page, type ReportCategory } from './lib/workspace-config';
+import { pageChoices, type Page, type ReportCategory } from './lib/workspace-config';
 
-const pageChoices: readonly Page[] = ['home', 'monsters', 'artifact-list', 'optimizer', 'speed', 'presets', 'rune-setup', 'potential', 'artifacts', 'gems', 'rune-simulator', 'relics', 'settings', 'the-math'];
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
 const isString = (value: unknown): value is string => typeof value === 'string';
 const ArtifactList = lazy(() => import('./components/artifact-list').then(({ ArtifactList: component }) => ({ default: component })));
 const ArtifactsSection = lazy(() => import('./components/artifacts-section').then(({ ArtifactsSection: component }) => ({ default: component })));
 const GemsSection = lazy(() => import('./components/gems-section').then(({ GemsSection: component }) => ({ default: component })));
-const MonsterOverview = lazy(() => import('./components/monster-overview').then(({ MonsterOverview: component }) => ({ default: component })));
+const MonsterStats = lazy(() => import('./components/monster-stats').then(({ MonsterStats: component }) => ({ default: component })));
+const MonsterNumbers = lazy(() => import('./components/monster-numbers').then(({ MonsterNumbers: component }) => ({ default: component })));
 const RelicList = lazy(() => import('./components/relic-list').then(({ RelicList: component }) => ({ default: component })));
 const RunePotentialSection = lazy(() => import('./components/rune-potential-section').then(({ RunePotentialSection: component }) => ({ default: component })));
 const RuneSetupSection = lazy(() => import('./components/rune-potential-section').then(({ RuneSetupSection: component }) => ({ default: component })));
 const SettingsSection = lazy(() => import('./components/settings-section').then(({ SettingsSection: component }) => ({ default: component })));
 const TheMathSection = lazy(() => import('./components/the-math-section').then(({ TheMathSection: component }) => ({ default: component })));
-const RuneSimulatorSection = lazy(() => import('./components/rune-simulator-section').then(({ RuneSimulatorSection: component }) => ({ default: component })));
+const RuneSimulatorSection = import.meta.env.DEV ? lazy(() => import('./components/rune-simulator-section').then(({ RuneSimulatorSection: component }) => ({ default: component }))) : null;
 const SpeedTuningSection = lazy(() => import('./components/speed-tuning-section').then(({ SpeedTuningSection: component }) => ({ default: component })));
 const PresetsSection = lazy(() => import('./components/presets-section').then(({ PresetsSection: component }) => ({ default: component })));
 const RuneOptimizationSection = lazy(() => import('./components/rune-optimization-section').then(({ RuneOptimizationSection: component }) => ({ default: component })));
@@ -737,7 +737,8 @@ export default function Home() {
         general={preferences.general}
       />}
 
-      {page === 'monsters' && <Suspense fallback={<WorkspaceLoading />}><MonsterOverview monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+      {page === 'monster-stats' && <Suspense fallback={<WorkspaceLoading />}><MonsterStats monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+      {page === 'monster-numbers' && <Suspense fallback={<WorkspaceLoading />}><MonsterNumbers monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
@@ -787,7 +788,7 @@ export default function Home() {
 
       {page === 'the-math' && <Suspense fallback={<WorkspaceLoading />}><TheMathSection /></Suspense>}
 
-      {page === 'rune-simulator' && <Suspense fallback={<WorkspaceLoading />}><RuneSimulatorSection
+      {RuneSimulatorSection && page === 'rune-simulator' && <Suspense fallback={<WorkspaceLoading />}><RuneSimulatorSection
         game={game}
         settings={preferences.runePotential}
         roles={preferences.runePotentialPresets}

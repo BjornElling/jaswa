@@ -10,12 +10,12 @@ async function openMonsters(page: Page) {
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await page.getByRole('button', { name: 'Monsters', exact: true }).click();
+  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
 }
 
 test('Stats hides Rainbowmons and Devilmons until asked, without moving its filters', async ({ page }) => {
   await openMonsters(page);
-  await page.locator('summary').filter({ hasText: 'Stats' }).click();
+
   const include = page.getByRole('group', { name: 'Choose which monsters to include' });
   const rainbowmon = include.getByRole('button', { name: 'Rainbowmons and Devilmons' });
   const body = page.getByRole('table', { name: 'Monster stats' }).locator('tbody');
@@ -39,7 +39,7 @@ test('Stats hides Rainbowmons and Devilmons until asked, without moving its filt
 
 test('Not needed finds the copies an account has already levelled and finished', async ({ page }) => {
   await openMonsters(page);
-  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
   const conditions = page.getByRole('group', { name: 'Only show Numbers monsters if' });
   const body = page.getByRole('table', { name: 'Monster numbers' }).locator('tbody');
 

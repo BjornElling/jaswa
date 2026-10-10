@@ -72,8 +72,8 @@ test('it is measured against the window, not against the canvas', async ({ page 
 
 test('it is chrome: hovering it moves nothing on the page', async ({ page }) => {
   await openWorkspace(page);
-  await page.getByRole('navigation').getByRole('button', { name: 'Monsters', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Monsters', exact: true })).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 600));
 
   const control = page.getByRole('button', { name: 'Back to top' });

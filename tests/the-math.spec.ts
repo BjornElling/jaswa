@@ -8,7 +8,7 @@ test('The Math sits under Technical and explains the gear recommendations', asyn
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
 
   await expect(page.locator('.rail-heading')).toHaveText([
-    'General', 'Monsters', 'Runes', 'Artifacts', 'Relics', 'Technical',
+    'General', 'Monsters', 'Rune Optimization', 'Rune Clean-up', 'Artifacts', 'Relics', 'Technical',
   ]);
   const technical = page.locator('.rail-group').last();
   await expect(technical.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();

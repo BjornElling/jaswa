@@ -164,7 +164,7 @@ export function RuneSetupSection({ game, settings, roles, general, hardwareAccel
 
   return <WorkspacePage
     header={<PageHeader
-      title="Rune Set-up"
+      title="Rune Settings"
       tagline="Which runes deserve your mana. Set your tolerance for disappointment below." />}
   >
     <Disclosure title="Settings" sessionKey="rune-setup.settings">

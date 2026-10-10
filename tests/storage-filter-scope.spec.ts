@@ -21,8 +21,8 @@ async function openStorage(page: Page) {
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await expect(page.getByText('storage-location-account.json')).toBeVisible();
-  await page.getByRole('button', { name: 'Monsters', exact: true }).click();
-  await page.locator('summary').filter({ hasText: 'Numbers' }).click();
+  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
 }
 
 function storage(page: Page) {
