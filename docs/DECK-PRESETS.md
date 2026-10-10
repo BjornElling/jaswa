@@ -262,10 +262,11 @@ an import, and are checked one preset at a time on load.
   and on a preset with no monsters.
 
 **Rune Optimization.**
-- The preset being optimized for is shown prominently, under the monster, and
-  can be changed there: one plain list of Default and the presets the monster
-  stands in. Choosing a monster its preset has no place for goes back to
-  Default.
+- The preset being optimized for is shown prominently above the monster:
+  one plain list of Default and every preset. The monster list contains only
+  members of the chosen preset. Changing preset keeps the chosen monster if
+  it belongs there, otherwise clears the monster choice. An empty preset says
+  it has no monsters and cannot start a search.
 - A monster opened from a place about one preset — a preset's list, a Speed
   Tuning team, a rune engraved in one preset, a build — opens its overlay on
   that preset, and *Optimize* there opens Rune Optimization on it. A monster

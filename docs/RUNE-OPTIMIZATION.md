@@ -49,6 +49,12 @@ that stage is visible on screen.
 
 ## 2. Requirements: the profile, then this calculation
 
+Choose a preset first, then a monster in it. Default and every preset remain
+reachable regardless of the monster choice. Switching preset retains a member
+shared by both contexts; otherwise the monster choice is cleared. *Rank by*
+sits beside *Builds listed* in a compact dropdown, with its space reserved
+before a monster is chosen. Slots 2, 4 and 6 share their own row equally.
+
 The monster's profile **in the chosen preset** (`DECK-PRESETS.md` §4.1) states
 the answer's shape: the builds it will accept, the mains of slots 2, 4 and 6, whether
 a rune may complete no set (no unless the owner said yes), whether an Intangible

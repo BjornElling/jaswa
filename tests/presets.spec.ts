@@ -588,14 +588,65 @@ test('Optimize opens Rune Optimization on that monster in that preset', async ({
   await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
   await expect(page.getByLabel('Preset', { exact: true })).toHaveValue('deck-24-101');
   await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('11');
-  /* One plain list of the presets the monster stands in, Default first, with no headings. */
+  /* Every preset remains reachable; only the chosen preset's members are offered. */
   const preset = page.getByLabel('Preset', { exact: true });
+  const monster = page.getByLabel('Monster', { exact: true });
   await expect(preset.locator('optgroup')).toHaveCount(0);
-  await expect(preset.locator('option')).toHaveText(['Default', 'Arena Attack 4', "Giant's Keep 1"]);
-  /* A monster the preset has no place for takes the build back to Default, and lists its own presets. */
-  await page.getByLabel('Monster', { exact: true }).selectOption('12');
-  await expect(preset).toHaveValue('default');
-  await expect(preset.locator('option')).toHaveText(['Default', 'Arena Attack 4', 'Deck 99 · 1']);
+  await expect(preset.locator('option')).toHaveText(['Default', 'Arena Attack 4', "Giant's Keep 1", 'Deck 99 · 1']);
+  expect(await monster.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))).toEqual(['', '11']);
+  await preset.selectOption('deck-99-1');
+  await expect(preset).toHaveValue('deck-99-1');
+  await expect(monster).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Find builds' })).toBeDisabled();
+  await monster.selectOption('12');
+  await preset.selectOption('deck-1-4');
+  await expect(monster).toHaveValue('12');
+  await preset.selectOption('default');
+  await expect(monster).toHaveValue('12');
+});
+
+test('preset comes first, and empty presets keep the search controls in place', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await page.evaluate(() => {
+    const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');
+    preferences.updatedAt = new Date().toISOString();
+    preferences.presets = [{ id: 'own-empty', name: 'Empty team', content: null, members: [], leaderUnitId: null, gear: null }];
+    localStorage.setItem('jaswa-preferences', JSON.stringify(preferences));
+  });
+  await page.reload();
+  await openOptimization(page);
+  const preset = page.getByLabel('Preset', { exact: true });
+  const monster = page.getByLabel('Monster', { exact: true });
+  const rank = page.getByLabel('Rank by', { exact: true });
+  const find = page.getByRole('button', { name: 'Find builds' });
+  const controls = [preset, monster, rank, find];
+  const before = await Promise.all(controls.map(box));
+  await page.screenshot({ path: testInfo.outputPath('preset-first-unselected.png'), fullPage: true });
+  await preset.selectOption('deck-24-101');
+  await expect(monster).toHaveValue('');
+  expect(await monster.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))).toEqual(['', '11']);
+  await monster.selectOption('11');
+  await expect(find).toBeEnabled();
+  await expect(rank).toBeEnabled();
+  expect(await Promise.all(controls.map(box))).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('preset-first-selected.png'), fullPage: true });
+  await preset.selectOption('own-empty');
+  await expect(preset).toHaveValue('own-empty');
+  await expect(monster).toBeDisabled();
+  await expect(monster.locator('option')).toHaveText(['No monsters in this preset']);
+  await expect(find).toBeDisabled();
+  await expect(rank).toBeDisabled();
+  expect(await Promise.all(controls.map(box))).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('preset-first-empty-team.png'), fullPage: true });
+  await page.reload();
+  await openOptimization(page);
+  await expect(preset).toHaveValue('own-empty');
+  await expect(monster).toHaveValue('');
+  await preset.selectOption('deck-1-4');
+  await monster.selectOption('12');
+  await expect(find).toBeEnabled();
 });
 
 test('Speed tuning opens the preset\'s team in Speed Tuning, from any of its rows', async ({ page }, testInfo) => {
@@ -937,11 +988,11 @@ test('a rune on another monster in Default names that monster in a preset build'
   await detail.screenshot({ path: testInfo.outputPath('other-monster-previously.png') });
 });
 
-/* Rune Optimization's monster and preset, then the profile they read. */
+/* Rune Optimization's preset and monster, then the profile they read. */
 async function openProfileIn(page: Page, unitId: string, presetId: string) {
   await openOptimization(page);
-  await page.getByLabel('Monster', { exact: true }).selectOption(unitId);
   await page.getByLabel('Preset', { exact: true }).selectOption(presetId);
+  await page.getByLabel('Monster', { exact: true }).selectOption(unitId);
   await page.getByRole('button', { name: 'Open profile' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel('Build for', { exact: true })).toHaveValue(presetId);

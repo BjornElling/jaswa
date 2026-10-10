@@ -176,12 +176,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   /* Every build is for one preset: its runes are the preset's, and runes the
      preset leaves free are free whatever other presets hold (`DECK-PRESETS.md` §4). */
-  /* The monster is chosen first, and a preset only among those it stands in:
-     Default always, and a preset that does not hold the monster is read as
-     Default rather than as a build for a monster the preset has no place for. */
-  const presetChoices = useMemo(() => presets.filter((entry) => entry.kind === 'default' || (unitId !== '' && entry.members.includes(unitId))),
-    [presets, unitId]);
-  const preset = presetChoices.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === defaultPresetId);
+  /* Choose the context before the copy: every preset is reachable, and only
+     its members can become the question this page answers. */
+  const preset = presets.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === defaultPresetId);
   const activePresetId = preset?.id ?? defaultPresetId;
   const items = useMemo(() => accountItems(game?.data), [game]);
   /* The profile is the copy's in this preset and no other: names, requirements
@@ -189,12 +186,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const profiles = useMemo(() => profilesIn(preferences.monsterPreferences, activePresetId), [preferences.monsterPreferences, activePresetId]);
   const names = useMemo(() => monsterCopyNames(monsters, profiles), [monsters, profiles]);
   const options = useMemo<MonsterOption[]>(() => (preset ? monsters : [])
-    .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
+    .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null
+      && preset?.members.includes(String(monster.unit_id)))
     .map((monster) => {
       const id = String(monster.unit_id);
-      const inPreset = preset && (preset.kind === 'default' || preset.members.includes(id));
       return { unitId: id, masterId: String(monster.unit_master_id ?? ''), name: names[id]?.name ?? id,
-        record: preset && inPreset ? monsterInPreset(monster, preset, items) : monster };
+        record: preset ? monsterInPreset(monster, preset, items) : monster };
     })
     .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId)),
   [monsters, names, preset, items]);
@@ -204,7 +201,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     const display = monsterPresentation(selected.masterId);
     return { unitId: selected.unitId, masterId: selected.masterId, name: selected.name, imageFilename: display.imageFilename, initial: display.shortName };
   }, [selected, unitId]);
-  const monstersByUnitId = useMemo(() => new Map(options.map((option) => [option.unitId, { name: option.name, masterId: option.masterId }])), [options]);
+  /* A rune's Default location may name a copy outside the chosen preset. */
+  const monstersByUnitId = useMemo(() => new Map(monsters
+    .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
+    .map((monster) => {
+      const id = String(monster.unit_id);
+      return [id, { name: names[id]?.name ?? id, masterId: String(monster.unit_master_id ?? '') }] as const;
+    })), [monsters, names]);
   const describeBuild = useCallback((build: CurrentBuild) => buildIssueReading(build, (id) => monstersByUnitId.get(id)?.name), [monstersByUnitId]);
 
   const profile = useMemo(() => (selected
@@ -303,7 +306,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   function chooseMonster(next: string) {
     setUnitId(next);
-    if (preset && preset.kind !== 'default' && !preset.members.includes(next)) onSelectPreset(defaultPresetId);
     setEdits(null);
     setChosenBuild(null);
   }
@@ -381,6 +383,17 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     <div className="rune-optimization">
       <div className="panel rune-optimization-monster-panel">
         <div className="filter-group rune-optimization-monster">
+          <label className="filter-label" htmlFor="rune-optimization-preset">Preset</label>
+          <Dropdown id="rune-optimization-preset" className="rune-optimization-preset-select" value={activePresetId}
+            onChange={(event) => {
+              const next = event.target.value;
+              onSelectPreset(next);
+              if (!presets.find((entry) => entry.id === next)?.members.includes(unitId)) setUnitId('');
+              setEdits(null);
+              setChosenBuild(null);
+            }}>
+            {presets.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          </Dropdown>
           <label className="filter-label" htmlFor="rune-optimization-monster">Monster</label>
           {/* The portrait sits inside the field, at the start of the name it
               belongs to. Its box is there with no monster chosen too, so choosing
@@ -388,7 +401,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
           <div className="rune-optimization-monster-select">
             <MonsterPortrait imageFilename={display?.imageFilename} initial={display?.shortName ?? ''}
               name={selected?.name ?? ''} decorative />
-            <Dropdown id="rune-optimization-monster" value={selected ? unitId : ''} placeholder="Choose a monster"
+            <Dropdown id="rune-optimization-monster" value={selected ? unitId : ''} placeholder={options.length ? 'Choose a monster' : 'No monsters in this preset'} disabled={!options.length}
               onChange={(event) => chooseMonster(event.target.value)}>
               {options.map((option) => <option key={option.unitId} value={option.unitId}>{option.name}</option>)}
             </Dropdown>
@@ -406,14 +419,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             </Button>
             <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to profile</Button>
           </div>
-          {/* Under the monster, with the monster's own button between them: every
-              build below is for this preset, and the same monster can carry a
-              different build in each. */}
-          <label className="filter-label" htmlFor="rune-optimization-preset">Preset</label>
-          <Dropdown id="rune-optimization-preset" className="rune-optimization-preset-select" value={activePresetId}
-            onChange={(event) => { onSelectPreset(event.target.value); setEdits(null); setChosenBuild(null); }}>
-            {presetChoices.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-          </Dropdown>
         </div>
 
         {/* How hard to look, beside the button that starts looking: these two are
@@ -444,10 +449,23 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               {workWarning.text || '\u00a0'}
             </p>
           </div>
-          <div className="filter-group rune-optimization-count">
-            <RadioLine name="rune-optimization-count" legend="Builds listed" current={String(settings.resultCount)}
-              options={runeOptimizationResultCounts.map((count) => ({ value: String(count), label: String(count) }))}
-              onChange={(count) => onUpdate({ resultCount: Number(count) as RuneOptimizationSettings['resultCount'] })} />          </div>
+          <div className="rune-optimization-count-rank">
+            <div className="filter-group rune-optimization-count">
+              <RadioLine name="rune-optimization-count" legend="Builds listed" current={String(settings.resultCount)}
+                options={runeOptimizationResultCounts.map((count) => ({ value: String(count), label: String(count) }))}
+                onChange={(count) => onUpdate({ resultCount: Number(count) as RuneOptimizationSettings['resultCount'] })} />
+            </div>
+            <div className="filter-group rune-optimization-rank">
+              <label className="filter-label" htmlFor="rune-optimization-rank">Rank by</label>
+              <Dropdown id="rune-optimization-rank" value={requirements?.rankBy ?? ''}
+                placeholder={requirements ? undefined : 'Choose a monster'} disabled={!requirements}
+                onChange={(event) => rankBy(event.target.value as RankFigure)}>
+                {monsterStatTargetKeys.map((key) => <option key={key} value={key}>{figureLabels[key]}</option>)}
+              </Dropdown>
+              <Provenance>{requirements && profile ? changed(requirements.rankBy === profile.requirements.rankBy)
+                ?? (profile.sources.rankBy === 'profile' ? '' : 'Chosen from the monster’s type') : ''}</Provenance>
+            </div>
+          </div>
         </div>
 
         <div className="rune-optimization-actions">
@@ -504,15 +522,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               <Provenance>{changed(sameList(requirements.slotMains[key], profile.requirements.slotMains[key]))
                 ?? (profile.sources.slots[key] === 'user' ? '' : 'What most players engrave')}</Provenance>
             </div>)}
-            <div className="filter-group rune-optimization-rank">
-              <label className="filter-label" htmlFor="rune-optimization-rank">Rank by</label>
-              <Dropdown id="rune-optimization-rank" value={requirements.rankBy}
-                onChange={(event) => rankBy(event.target.value as RankFigure)}>
-                {monsterStatTargetKeys.map((key) => <option key={key} value={key}>{figureLabels[key]}</option>)}
-              </Dropdown>
-              <Provenance>{changed(requirements.rankBy === profile.requirements.rankBy)
-                ?? (profile.sources.rankBy === 'profile' ? '' : 'Chosen from the monster’s type')}</Provenance>
-            </div>
           </div>
           <div className="filter-group rune-optimization-targets" role="group" aria-label="Stats">
             <span className="filter-label">Stats</span>

@@ -763,11 +763,25 @@ test('the page wears the house panels, and its controls say what they do', async
   await expect(openProfile).toBeDisabled();
   await expect(find).toBeDisabled();
   await expect(stop).toBeDisabled();
+  const rank = page.getByLabel('Rank by', { exact: true });
+  await expect(rank).toBeDisabled();
+  await expect(page.locator('.rune-optimization-monster-select .monster-portrait-silhouette')).toBeVisible();
+  const rankBefore = await box(rank);
   const before = { profile: await box(openProfile), find: await box(find), stop: await box(stop) };
   await page.screenshot({ path: testInfo.outputPath('optimization-layout-empty.png'), fullPage: true });
 
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
   await expect(openProfile).toBeEnabled();
+  await expect(page.locator('.rune-optimization-monster-select .monster-portrait-silhouette')).toHaveCount(0);
+  await expect(rank).toBeEnabled();
+  expect(await box(rank)).toEqual(rankBefore);
+  const counts = await box(page.getByRole('group', { name: 'Builds listed', exact: true }));
+  expect(rankBefore.x).toBeGreaterThan(counts.x + counts.width);
+  expect((await box(page.locator('label[for="rune-optimization-rank"]'))).y).toBe(counts.y);
+  const slots = await page.locator('.rune-optimization-slot').all();
+  const slotBoxes = await Promise.all(slots.map(box));
+  expect(slotBoxes).toHaveLength(3);
+  expect(Math.max(...slotBoxes.map((slot) => slot.width)) - Math.min(...slotBoxes.map((slot) => slot.width))).toBeLessThan(1);
   /* Choosing a monster moves none of them (`AGENTS.md` §2). */
   expect({ profile: await box(openProfile), find: await box(find), stop: await box(stop) }).toEqual(before);
 
@@ -793,9 +807,9 @@ test('the page wears the house panels, and its controls say what they do', async
   /* Open profile sits under the monster, not beside it. */
   const select = await box(page.getByLabel('Monster', { exact: true }));
   expect(before.profile.y).toBeGreaterThan(select.y + select.height - 1);
-  /* And the preset under both: the monster comes first, its button with it. */
+  /* The preset comes first; the monster and its profile actions follow. */
   const preset = await box(page.getByLabel('Preset', { exact: true }));
-  expect(preset.y).toBeGreaterThan(before.profile.y + before.profile.height - 1);
+  expect(preset.y + preset.height).toBeLessThan(select.y);
   await expect(page.locator('.rune-optimization-monster-select .monster-portrait')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('optimization-layout-chosen.png'), fullPage: true });
 });

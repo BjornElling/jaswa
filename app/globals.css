@@ -1553,6 +1553,10 @@ label[for] {
   font-size: var(--type-label); font-weight: 700;
 }
 
+/* The game's monster emblem keeps an unchosen portrait recognizable and quiet. */
+.monster-portrait-silhouette { width: 100%; height: 100%; padding: var(--s1); color: var(--line-strong); }
+.monster-portrait-eyes { fill: var(--text); stroke: none; }
+
 /* rune sets: plain body text, second set dimmed */
 .set-mark {
   color: var(--text-strong);
@@ -2341,11 +2345,11 @@ label[for] {
   pointer-events: none;
 }
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
-/* Held off the preset's label below it, so the buttons read as the monster's. */
+/* Profile actions stay with the monster selected above them. */
 .rune-optimization-profile-row { display: flex; gap: var(--s2); margin-bottom: var(--s2); }
 .rune-optimization-open-profile { gap: var(--s2); }
-/* The preset sits under the monster in the same voice and size as the monster
-   field: the two together are the question every build answers. */
+/* The preset leads the monster in the same voice and size: the context is
+   chosen before the copy whose build it holds. */
 .jaswa-select.rune-optimization-preset-select { width: 100%; height: 52px; }
 
 /* ------------------------------------------------------- priority list */
@@ -2471,6 +2475,11 @@ label[for] {
 /* The depth carries a line of its own, so the build count stands clear of it
    rather than reading as a third line of the same group. */
 .rune-optimization-search { display: grid; gap: var(--s5); min-width: 0; padding-top: var(--s5); }
+/* Both describe the answer list, so their compact controls share one row. */
+.rune-optimization-count-rank { display: flex; align-items: start; gap: var(--s6); }
+.rune-optimization-count-rank > .filter-group { min-width: 0; }
+.rune-optimization-rank .jaswa-select { width: 24ch; }
+.rune-optimization-rank .rune-optimization-provenance { width: 24ch; }
 
 .rune-optimization-depth-control { display: grid; grid-template-columns: auto minmax(0, 1fr) 7ch; align-items: center; gap: var(--s3); }
 .rune-optimization-depth-control output { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -2526,7 +2535,7 @@ label[for] {
   gap: var(--s6);
 }
 .rune-optimization-question { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
-.rune-optimization-slot-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s4); }
+.rune-optimization-slot-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
 .rune-optimization-targets { white-space: normal; }
 .rune-optimization-settings {
   display: grid;
