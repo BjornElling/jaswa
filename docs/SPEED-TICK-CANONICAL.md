@@ -1,7 +1,7 @@
 # Speed and turn order — canonical rules
 
 **Status:** Binding rule basis for JASWA Speed Tuning
-**Reviewed:** October 9, 2026
+**Reviewed:** October 11, 2026
 **Game:** *Summoners War: Sky Arena*
 
 This document states the game rules Speed Tuning is built on. `app/lib/speed-tick.ts`
@@ -178,8 +178,8 @@ leaves it (§3.2, §6).
 goes to the user's team.** The user's team is the attacker everywhere Speed
 Tuning reads it — arena offence and every dungeon — and the attacker moves first
 on a tie. Every figure follows from this one rule: the clock (`speed-tick.ts`),
-the Enemy cut in table, the Ticks view, the enemy warning and the tuning
-range (§7.1) all count a level speed with the enemy as the team's.
+the Enemy cut in table, the Ticks view and the enemy cut-in verdict (§7.2)
+all count a level speed with the enemy as the team's.
 
 Sources, read October 2, 2026:
 
@@ -342,22 +342,38 @@ never lets a resistance fall below 15 per cent.
 
 ## 7. Judging a tune
 
-The user's order is strict: monster A before monster B means A's first turn
-comes before B's. Each member looks **up the order only**: it is judged against
-every monster placed above it, never against one below. A monster below that
-moves first is out of place itself and says so; the slower one above it stays
-in place. So if the fourth outpaces the third, while the third still follows
-the first two, only the fourth is wrong.
+**Binding rule: the order the user places the team in is the authority.** The
+monster placed n-th must have the n-th first turn of the team, and no enemy
+turn may come before it. Any other outcome is a fault, whichever monster caused
+it: a first monster that moves fourth is out of place as surely as the three
+that passed it. (The user's instruction, October 11, 2026. Before it, each
+member looked up the order only, so a slow first monster read as in place and
+only the monsters that passed it were faulted.)
 
-- **In place** — follows everyone above it, with no tie.
-- **Too fast** — moves before a monster placed above it.
-- **Tie** — follows one above it only by an exact tie on the bar.
+Only first turns are ranked. A teammate boosted into a second turn before the
+whole team has had a first moves nobody out of place: the turns that count are
+the first ones, in the order placed. An enemy turn is different — an enemy that
+can cut in before a member is a fault, in arena and on every dungeon stage
+alike.
 
-A member too fast is red on its line and a tie yellow. Both members of a tie
-say which teammate they are tied with and that position decides, without a
-tuning suggestion on the verdict line. A tie is not counted as out of place on
-the team summary; when it is the only order concern, the summary names the tie
-and shows a green check. A saved team always has a green check or a red cross.
+- **In place** — its first turn is the one its place asks for, with no tie
+  and no enemy turn before it.
+- **Too fast** — its first turn comes earlier among the team's first turns
+  than its place.
+- **Too slow** — its first turn comes later than its place.
+- **Tie** — in its place only by an exact tie on the bar with a teammate.
+- **Enemy cuts in** — an enemy turn comes before its first, on any stage (in
+  arena the worst-case enemy, §6).
+
+Too fast, too slow and an enemy cutting in are red. A member in its place that
+an enemy cuts into leads its line with the enemy — `Enemy cuts in (stage 2) ·
+moves 6th` — rather than an "In place" the red would contradict; a member out
+of place names the enemy last. A tie is yellow: both members of a tie say which
+teammate they are tied with and that position decides, without a tuning
+suggestion on the verdict line. A tie is not counted as out of place on the
+team summary; when it is the only concern, the summary names the tie and shows
+a green check. A team with any member out of place, or any enemy that can cut
+in, has a red cross. A saved team always has a green check or a red cross.
 
 **Where it moves.** The verdict names a member's absolute place on the field,
 `moves 5th`, with every turn before it counted — enemy turns and a teammate's
@@ -365,101 +381,74 @@ second turn alike. A member boosted into a second turn before the whole team
 has had a first names both: `moves 2nd and 4th`. The places are read on the
 worst stage, the one whose first enemy turn comes earliest (in arena the one
 worst-case enemy; with no enemies, the team alone), and the Ticks view opens on
-that stage, so every number on a verdict is a numbered disc there.
+that stage, so every number on a verdict is a numbered disc there. The place
+judged is the rank among first turns, read on the team alone; the absolute
+place only says where on the field that turn falls.
 
-### 7.1 The tuning range — the one recommendation
+### 7.1 The interval — between the neighbours
 
-**Binding rule: every display speed the page offers a member can be tuned to.
-Typed in, it keeps the member behind every monster above it and leaves every
-monster below it a place, with no enemy getting in before any of them; and
-typing each member's offered value in turn, from the top, ends in a perfect
-team.** There is one such answer per member, and both places that offer
-display speeds quote it: the overlay's *Interval* column, beside display
-speed, and the `needs … display speed` on the verdict line. They cannot
-disagree, because they are the same figure.
+**Binding rule: a member's interval is the display speeds at which its first
+turn comes strictly after that of the member placed just above it and
+strictly before that of the member placed just below it, every other member at
+the display speed it has now — its what-if where one is typed.** Both places
+that offer display speeds quote it: the overlay's *Interval* column, beside
+display speed, and the `needs … display speed` on the verdict line, which
+quotes it only where the current value lies outside it. They cannot disagree,
+because they are the same figure.
 
-A display speed is in a member's range when, with every member above it where
-it is:
+The interval answers one question: where this monster fits between the two
+beside it, as they stand now. It is not the speed the monster would need for
+the whole team to come right, and it does not look past its two neighbours; a
+neighbour out of its own place says so on its own line, with its own interval.
+Enemies play no part in it — an enemy that gets in is a fault of its own
+(§7) — and neither does any member but the two neighbours, except through the
+clock: their boosts and buffs still move the bars.
 
-1. **It trails every member above it strictly.** A tie with a teammate counts
-   against it: no order may hang on field position the page cannot see. A tie
-   with the enemy goes to the team (§3.2).
-2. **The members below it can all be placed.** They are placed from the top
-   down, each as fast as it can be and still trail the members above it, and
-   then every member from this one down must trail every member above it with
-   no enemy on any stage — in arena the worst-case enemy (§6), in a dungeon
-   each stage — having a turn before it. A faster member is cut into no
-   sooner, hands its boost on no later and leaves the one under it a higher
-   ceiling, so that placing is the most room the members below can have: if
-   even it fails, nothing does.
-3. **No settled member below it is pushed slower.** A member is settled when
-   it and every member above it are in their places. A settled member may be
-   made faster — a monster in its place can always gain speed up to the one
-   above it — but a value that needs one of them under the display speed it
-   has now is not offered. A member below the first one out of its place is not
-   settled, however it reads: the one out of place will move, and it with it.
+A tie with either neighbour counts against a value: no order may hang on field
+position the page cannot see. The first member has nobody above it, so its
+interval is open — `xx+`, faster always fits; the last has nobody below it.
 
-Without the third condition the room below was anybody's to take. In arena the
-worst-case enemy follows the first mover, so a first mover at bare runes, with
-every monster under it pressed down behind it and the enemy slowed to match,
-read as a perfect team, and a first mover at 258 display speed was offered
-`121+`. Counting a member as settled whenever it trailed the ones above it was
-tried too: tuning one member then made another settled further down, and a
-way through that had been offered closed.
+Every display speed from bare runes up to the highest a what-if takes is run
+on the team's clock, so boosts, buffs, Leo's cap and rounding are answered by
+the one implementation, with nothing restated. A boost aimed at the lowest bar
+can make a faster monster move later, so the values that fit may lie in more
+than one stretch; the stretch holding the member's current value is shown, or
+failing that the stretch nearest it. The interval is shown as `xx – yy`, `xx+`
+where the stretch reaches the highest display speed, or a dash where no display
+speed puts the member between its neighbours — for instance where the one
+above is slower than the one below.
 
-So the floor of a range is not only the member's own need but the room the
-ones below it need. A range asked of each member alone, the others held where
-they stood, once gave three monsters a range each and left the fourth nowhere
-to go: the third was offered a display speed too slow for anything to fit
-under it while the enemy was kept out. Placing the members below from the
-bottom up, with the ones between still at their old speeds, was tried too and
-read room that was not there: a fast member in the middle, its boost early,
-made the floors under it look lower than they are once it is tuned down to
-its place.
+**Superseded.** Until October 11, 2026 the interval was a top-down tuning
+range: the display speeds that kept a member behind every monster above it
+*and* left every monster below a place with no enemy getting in, so that typing
+each member's value in turn from the top ended in a perfect team. It read
+enemies and the whole team, and with them was hard to read: a slot could show a
+dash because of a monster three places down. The user replaced it with the
+neighbour interval above.
 
-A team is therefore tuned from the top down. Each member outside its range is
-told where to go; once it is there, the one below it is shown its own range,
-read against the new speed above it. A member whose range is a dash has no
-place until a member above it moves — the first one above it outside its own
-range says where.
+The verifier (`verify:speed-tick`) re-reads every sampled team off its own
+trace, apart from the module: each member is too fast or too slow exactly when
+its first turn ranks elsewhere than its place; and for a third of the sweep
+each interval is typed in across its width, both edges included, and one
+display speed past either edge must not fit, while a dash must not fit at a
+spread of values.
 
-The ceiling is the fastest display speed that still trails the members above,
-read with the members below at bare runes, so a fast one still to be tuned
-cannot push the bars above it; the floor is found under it by halving, as
-faster is never worse for the room below. The first mover in arena is the
-exception: the worst-case enemy follows it, so faster can be worse, and its
-range is walked out from its current value in doubling steps. Every candidate
-runs the team's clock and every stage's, so boosts, buffs, Leo's cap and the
-attacker's tie are answered by the one implementation, with nothing restated.
-The range is shown as `xx – yy`, `xx+` for a first mover with no ceiling, or a
-dash where no display speed will do (and, for a new dungeon team, until its
-dungeon is chosen). The verdict line quotes it only where the current value
-lies outside it.
+The interval is searched only in the overlay, which shows it; the page reads
+every team at once without it.
 
-The verifier (`verify:speed-tick`) re-reads the team off its drawn traces,
-apart from the search: every sampled team is tuned from the top down through
-its ranges and must end perfect; and for a third of the sweep each range's
-floor and ceiling are typed in and walked on down, one display speed past
-each edge must fail, and a dash must fail at a spread of values.
+### 7.2 Enemy cut in
 
-The search runs only in the overlay, which shows ranges; the page reads every
-team at once without it. It takes some tens of milliseconds per team.
+**Enemy cuts in** — a member an enemy has a turn before is red (§7). It reads
+the same traces as the Enemy cut in table: `Enemy cuts in (stage 2)` in a
+dungeon, `Worst-case enemy cuts in` in arena. It replaced *slower than the
+fastest enemy*, a speed comparison that a boost could contradict.
 
-### 7.2 Warnings
-
-**Enemy cuts in** — a member an enemy has a turn before is warned at the end
-of its line, after every fault in the team's own order: `· enemy cuts in
-(stage 2)` in a dungeon, `· worst-case enemy cuts in` in arena. It reads the
-same traces as the Enemy cut in table. It is yellow where the verdict is
-otherwise green and left red where it is red. It replaced *slower than the
-fastest enemy*, a speed comparison that a boost could contradict, so a member
-inside its tuning range was still warned.
-
-**Enemy can cut in** — an enemy turn comes before the team's last first turn,
-read off the very traces the Ticks view draws, boosts, buffs and Leo's cap
-included. In arena, where the enemy is the worst case the team must open
-against, it fails the team; on a dungeon stage it is reported, because a
-stage's enemies may be faster than any build.
+**Enemy can cut in** — on the team summary, an enemy turn comes before the
+team's last first turn, read off the very traces the Ticks view draws, boosts,
+buffs and Leo's cap included. It fails the team in arena and on any dungeon
+stage. A dungeon stage's enemies may be faster than any build; the page still
+says so in red, because the order placed is then not the order the battle
+plays.
 
 ## 8. Data sources
 

@@ -1,8 +1,8 @@
 /**
  * Reads one saved team against the current import: each member's arena or
  * dungeon speed, the order the team really moves in, what is wrong with it,
- * when an enemy first moves, and the display speeds each member can be tuned
- * to (`tuningRange`).
+ * when an enemy first moves, and the display speeds that put each member
+ * between its neighbours in the order (`tuningRange`).
  *
  * Every rule comes from `speed-tick.ts`. This module decides what to simulate
  * and how to report it, and states no rule of the game of its own — an
@@ -30,12 +30,20 @@ import type { GeneralSettings } from './types';
 /** A range of display speeds; `maximum` is `null` where every faster value works too. */
 export type DisplaySpeedInterval = { minimum: number; maximum: number | null };
 
+/**
+ * Where a member's first turn falls among the team's first turns, against the
+ * place the user gave it. The user's order is the authority: any other place is
+ * a fault, whichever monster caused it. A teammate's second turn is not counted,
+ * so a booster moving twice moves nobody out of place.
+ */
 export type MemberVerdict =
-  /** Moves where it was asked to. */
+  /** Its first turn is the one its place asks for. */
   | { kind: 'in-place' }
-  /** Too fast: moves before a monster placed above it. A member only ever answers for the order above it. */
-  | { kind: 'order' }
-  /** In order only by an exact tie on the attack bar, which field position settles. */
+  /** Too fast: its first turn comes earlier than its place. */
+  | { kind: 'early' }
+  /** Too slow: its first turn comes later than its place. */
+  | { kind: 'late' }
+  /** In its place only by an exact tie on the attack bar, which field position settles. */
   | { kind: 'tie'; with: string };
 
 export type MemberReading = {
@@ -73,14 +81,16 @@ export type MemberReading = {
   verdict: MemberVerdict;
   /**
    * The stages, from 1, whose first enemy turn comes before this member's
-   * first — in arena `[1]` for the worst case. A warning beside the verdict,
-   * never a verdict of its own, read off the same traces as the Enemy cut in
-   * table.
+   * first — in arena `[1]` for the worst case. A fault beside the verdict,
+   * read off the same traces as the Enemy cut in table: an enemy that gets in
+   * puts the member out of the place the user gave it as surely as a teammate
+   * does.
    */
   cutInAt: readonly number[];
   /**
-   * The display speeds it can be tuned to (`tuningRange`), or `null` where
-   * none will do or none was asked for.
+   * The display speeds that put its first turn between the members placed
+   * just above and just below it (`tuningRange`), or `null` where none will
+   * or none was asked for.
    */
   range: DisplaySpeedInterval | null;
   /** Whether the display speed it is read at is one of them. */
@@ -114,7 +124,7 @@ export type TeamReading = {
   leader: { unitId: string; skill: SpeedLeaderSkill | null } | null;
   /** The team alone, until each member has moved twice or 20 turns are taken, and never before each has moved once. */
   trace: BattleTrace;
-  /** Every member in place, with no tie. */
+  /** Every member in place, with no tie and no enemy getting in before it. */
   perfect: boolean;
   /** Arena: one reading against the worst-case enemy. Dungeon: one per stage. */
   enemies: EnemyStageReading[];
@@ -189,221 +199,71 @@ function relation(first: Map<string, TurnEvent>, events: readonly TurnEvent[], e
   return a.tiedWith.includes(later) ? 'tie' : 'before';
 }
 
-/* Every pair the table orders `upper>lower` that does not strictly move so —
-   a tie counts, as no order should hang on field position the page cannot
-   see — and `stage:unit` for each member an enemy has a turn before. Unit ids
-   are digits, so neither separator can occur inside one. */
-function pairFaults(units: readonly TickUnit[], trace: BattleTrace): Set<string> {
-  const first = firstTurns(trace.events);
-  const pairs = new Set<string>();
-  units.forEach((upper, at) => {
-    for (const lower of units.slice(at + 1)) {
-      if (relation(first, trace.events, upper.key, lower.key) !== 'before') pairs.add(`${upper.key}>${lower.key}`);
-    }
-  });
-  return pairs;
-}
-
-function cutFaults(stages: readonly EnemyStageReading[]): Set<string> {
-  return new Set(stages.flatMap((stage, at) => stage.cutsBefore.map((key) => `${at + 1}:${key}`)));
-}
-
 function unitsAt(candidates: readonly Candidate[], shown: readonly number[]): TickUnit[] {
   return candidates.map((candidate, at) => tickUnit(candidate,
     runeSpeedForDisplay(candidate.base.baseSpeed, candidate.base.swift, shown[at])));
 }
 
 /*
- * Whether the member at `index` moves strictly after every member above it.
- * The members below are read at bare runes: they are still to be tuned, and a
- * fast one moving early, its boost pushing the bars above, would otherwise
- * decide a ceiling it has no part in.
+ * The display speeds at which the member at `index` has its first turn
+ * strictly after the member placed just above it and strictly before the
+ * member placed just below it, every other member at the display speed it is
+ * read at — its what-if where one is typed. A tie with either neighbour counts
+ * against it: no order may hang on field position the page cannot see.
+ *
+ * The range answers one question, where this monster fits between the two
+ * beside it as they stand now, and not where it would need to be for the whole
+ * team to come right: a neighbour out of its own place says so on its own line.
+ * Enemies play no part in it; an enemy that gets in is a fault of its own.
+ *
+ * Every display speed from bare runes up is run on the clock, because a boost
+ * aimed at the lowest bar can make a faster monster move later and leave the
+ * values that fit in more than one stretch. The stretch holding the value the
+ * member is read at is the answer, or failing that the stretch nearest it.
+ * A stretch that reaches the highest display speed a what-if takes is open.
  */
-function behindAbove(candidates: readonly Candidate[], shown: readonly number[], index: number, lowest: readonly number[]): boolean {
-  const trace = teamTrace(unitsAt(candidates, shown.map((value, at) => at > index ? lowest[at] : value)), false);
-  const first = firstTurns(trace.events);
+function tuningRange(candidates: readonly Candidate[], shown: readonly number[], index: number): DisplaySpeedInterval | null {
   const self = candidates[index].unitId;
-  return candidates.slice(0, index).every((candidate) => relation(first, trace.events, candidate.unitId, self) === 'before');
-}
-
-/*
- * Whether every member from `index` down, with each at the display speed
- * `shown` gives it, trails every member placed above it — those above `index`
- * included — and has no enemy turn before it.
- */
-function holdsBelow(candidates: readonly Candidate[], content: SpeedContent, shown: readonly number[], index: number): boolean {
-  const units = unitsAt(candidates, shown);
-  const trace = teamTrace(units, false);
-  for (const pair of pairFaults(units, trace)) {
-    if (units.findIndex((unit) => unit.key === pair.slice(pair.indexOf('>') + 1)) >= index) return false;
-  }
-  const lower = new Set(units.slice(index).map((unit) => unit.key));
-  for (const fault of cutFaults(enemyStages(units, content, trace, false))) {
-    if (lower.has(fault.slice(fault.indexOf(':') + 1))) return false;
-  }
-  return true;
-}
-
-/*
- * The lowest value in `low`…`high` at which `holds` is true, by halving, or
- * `null` where it is not true even at `high`. Halving reads `holds` as false
- * below some value and true from it on; where a boost's timing breaks that,
- * the answer is still one at which `holds` is true, and always the same one,
- * as no earlier question steers it.
- */
-function lowestHolding(low: number, high: number, holds: (value: number) => boolean): number | null {
-  if (high < low || !holds(high)) return null;
-  if (holds(low)) return low;
-  let failing = low;
-  let passing = high;
-  while (passing - failing > 1) {
-    const middle = Math.floor((failing + passing) / 2);
-    if (holds(middle)) passing = middle; else failing = middle;
-  }
-  return passing;
-}
-
-/* The highest value in `low`…`high` at which `holds` is true, by halving, read as true up to some value and false above it. */
-function highestHolding(low: number, high: number, holds: (value: number) => boolean): number | null {
-  if (high < low || !holds(low)) return null;
-  if (holds(high)) return high;
-  let passing = low;
-  let failing = high;
-  while (failing - passing > 1) {
-    const middle = Math.floor((failing + passing) / 2);
-    if (holds(middle)) passing = middle; else failing = middle;
-  }
-  return passing;
-}
-
-/*
- * The fastest display speed at which the member at `index` still trails
- * every member above it, those above where `shown` puts them, or `null` where
- * even bare runes do not.
- */
-function trailingCeiling(candidates: readonly Candidate[], shown: readonly number[], index: number,
-  lowest: readonly number[]): number | null {
+  const above = candidates[index - 1]?.unitId;
+  const below = candidates[index + 1]?.unitId;
   const config = [...shown];
-  return highestHolding(lowest[index], whatIfDisplaySpeedMaximum, (value) => {
+  const fits = (value: number) => {
     config[index] = value;
-    return behindAbove(candidates, config, index, lowest);
-  });
-}
+    const trace = teamTrace(unitsAt(candidates, config), false);
+    const first = firstTurns(trace.events);
+    return (above === undefined || relation(first, trace.events, above, self) === 'before')
+      && (below === undefined || relation(first, trace.events, self, below) === 'before');
+  };
 
-/*
- * Whether the members below `index` can all be placed, with `index` and every
- * member above it where `shown` puts them. They are placed from the top down,
- * each as fast as it can be and still trail the members above it: a faster
- * member is cut into no sooner, hands its boost on no later, and leaves the
- * one under it a higher ceiling of its own, so that placing gives the members
- * below the most room there is. If even it lets an enemy in or breaks the
- * order, no placing does.
- *
- * A member that is settled — in its place, with every member above it in
- * theirs — may be made faster but never pushed slower: a placing that needs
- * one of them under the display speed it has now fails. Without that, the room below was anybody's
- * to take — a first mover at bare runes, every monster under it pressed down
- * behind it and the arena's worst-case enemy, which follows the first mover,
- * slowed to match, read as a perfect team. A member below the first one out of
- * its place may go anywhere behind the ones above it. Placing them from the bottom up
- * instead, with the members between still at their old speeds, read room that
- * was not there: a fast member in the middle, its boost early, made the floors
- * under it look lower than they are once it is tuned down to its place.
- */
-function leavesRoomBelow(candidates: readonly Candidate[], content: SpeedContent, shown: readonly number[],
-  index: number, lowest: readonly number[], settled: readonly boolean[]): boolean {
-  const config = [...shown];
-  for (let k = index + 1; k < candidates.length; k += 1) {
-    const value = trailingCeiling(candidates, config, k, lowest);
-    if (value === null || (settled[k] && value < shown[k])) return false;
-    config[k] = value;
-  }
-  return holdsBelow(candidates, content, config, index);
-}
-
-/*
- * The display speeds a member can be tuned to, the team tuned from the top
- * down: with every member above it where it is, the member moves strictly
- * after each of them, and the members below it can still all be placed under
- * it, none that is in its place now pushed slower, with no enemy on any stage
- * getting a turn before any member (`leavesRoomBelow`). The lower end is therefore not only this member's own
- * need but the room the ones below it need: three intervals each fine on its
- * own could otherwise leave the fourth monster nowhere to go.
- *
- * So a value from the range, typed in, never leaves the members below without
- * a way through, and typing each member's value in turn from the top ends in
- * a perfect team. The last member has nobody below it, so its range is simply
- * every value that is perfect for it.
- *
- * The ceiling is the fastest display speed that still trails the members
- * above, and the floor is found under it by halving: faster is never worse
- * for the room below. The first mover in arena is the exception, as the
- * worst-case enemy follows it (§6); its range is walked out from the current
- * value one display speed at a time. Every candidate runs the team's clock and
- * every stage's, so boosts, buffs, Leo and the attacker's tie
- * (`SPEED-TICK-CANONICAL.md` §3.2) are the clock's answer.
- */
-function tuningRange(candidates: readonly Candidate[], content: SpeedContent, current: readonly number[],
-  index: number, settled: readonly boolean[]): DisplaySpeedInterval | null {
-  const lowest = candidates.map((candidate) => displaySpeed(candidate.base.baseSpeed, candidate.base.swift, 0));
-  const config = [...current];
-  const room = (value: number) => { config[index] = value; return leavesRoomBelow(candidates, content, config, index, lowest, settled); };
-  const top = whatIfDisplaySpeedMaximum;
-
-  if (index === 0 && content.area === 'arena') {
-    let start: number | null = null;
-    for (let step = 0; step <= top && start === null; step += 1) {
-      const up = current[index] + step;
-      const down = current[index] - step;
-      if (up > top && down < lowest[index]) break;
-      if (up <= top && room(up)) start = up;
-      else if (step > 0 && down >= lowest[index] && room(down)) start = down;
+  const lowest = displaySpeed(candidates[index].base.baseSpeed, candidates[index].base.swift, 0);
+  const stretches: DisplaySpeedInterval[] = [];
+  let start: number | null = null;
+  for (let value = lowest; value <= whatIfDisplaySpeedMaximum + 1; value += 1) {
+    const holds = value <= whatIfDisplaySpeedMaximum && fits(value);
+    if (holds && start === null) start = value;
+    if (!holds && start !== null) {
+      stretches.push({ minimum: start, maximum: value - 1 === whatIfDisplaySpeedMaximum ? null : value - 1 });
+      start = null;
     }
-    if (start === null) return null;
-    /* Out from the run's first value in doubling steps, then halved: the run
-       is read as one unbroken stretch, as it is on either side of it. */
-    const reach = (direction: 1 | -1) => {
-      const limit = direction === 1 ? top : lowest[index];
-      let held = start as number;
-      let step = 1;
-      while (held !== limit) {
-        const next = direction === 1 ? Math.min(held + step, limit) : Math.max(held - step, limit);
-        if (!room(next)) {
-          return direction === 1
-            ? highestHolding(held, next - 1, room) ?? held
-            : lowestHolding(next + 1, held, room) ?? held;
-        }
-        held = next;
-        step *= 2;
-      }
-      return held;
-    };
-    const minimum = reach(-1);
-    const maximum = reach(1);
-    return { minimum, maximum: maximum === top ? null : maximum };
   }
-
-  const ceiling = index === 0 ? top : trailingCeiling(candidates, current, index, lowest);
-  if (ceiling === null) return null;
-  const minimum = lowestHolding(lowest[index], ceiling, room);
-  if (minimum === null) return null;
-  return { minimum, maximum: index === 0 ? null : ceiling };
+  const current = shown[index];
+  const distance = (stretch: DisplaySpeedInterval) => current < stretch.minimum ? stretch.minimum - current
+    : stretch.maximum !== null && current > stretch.maximum ? current - stretch.maximum : 0;
+  return stretches.reduce<DisplaySpeedInterval | null>((nearest, stretch) =>
+    nearest === null || distance(stretch) < distance(nearest) ? stretch : nearest, null);
 }
 
 /* Leo's cap spares a boss, and a dungeon stage does not say which of its
    enemies is one, so in a dungeon every enemy is read as uncapped: the
    pessimistic reading. Arena has no bosses. */
 function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[], enemyNames: readonly string[],
-  area: SpeedContent['area'], drawn = true): EnemyStageReading {
+  area: SpeedContent['area']): EnemyStageReading {
   const enemies: TickUnit[] = enemySpeeds.map((speed, at) => ({
     key: `enemy-${at + 1}`, side: 'enemy', speed, effects: [], exemptFromCap: area === 'dungeon',
   }));
   const allyKeys = allies.map((unit) => unit.key);
   const settled = (events: readonly TurnEvent[]) => everyoneMoved(allyKeys)(events) && events.some((event) => event.side === 'enemy');
-  const trace = simulateBattle([...allies, ...enemies], {
-    done: drawn ? drawnUntil(allyKeys, settled) : settled,
-    snapshots: drawn,
-  });
+  const trace = simulateBattle([...allies, ...enemies], { done: drawnUntil(allyKeys, settled) });
   const firstEnemy = trace.events.find((event) => event.side === 'enemy');
   const before = firstEnemy ? trace.events.slice(0, trace.events.indexOf(firstEnemy)) : trace.events;
   const last = before.at(-1);
@@ -438,7 +298,7 @@ export const acceptedEnemyNames: Readonly<Record<number, string>> = {
 /* A stage's enemies by the game's names, a name met twice numbered as owned
    copies are. A placeholder with no accepted name reads `Enemy 2` by its place
    on the stage, and `verify:speed-tick` fails on it, so a new one is seen.
-   Named once per stage: the range search reads each stage thousands of times. */
+   Named once per stage, as every reading of a team names each stage again. */
 const stageEnemyNames = new WeakMap<DungeonStage, readonly string[]>();
 export function enemyNamesOf(stage: DungeonStage): readonly string[] {
   const known = stageEnemyNames.get(stage);
@@ -463,11 +323,11 @@ export function enemyNamesOf(stage: DungeonStage): readonly string[] {
    (`SPEED-TICK-CANONICAL.md` §3.2). Anything faster could win the opening
    outright; anything slower cuts in no earlier. Under Leo's
    cap the first mover goes at no more than Leo's own arena speed. */
-function worstArenaStage(units: readonly TickUnit[], trace: BattleTrace, drawn = true): EnemyStageReading {
+function worstArenaStage(units: readonly TickUnit[], trace: BattleTrace): EnemyStageReading {
   const opener = trace.events[0]?.key;
   const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
   const openingSpeed = Math.min(units.find((unit) => unit.key === opener)?.speed ?? 1, ...leoSpeeds);
-  return stageReading(units, [openingSpeed], ['Enemy'], 'arena', drawn);
+  return stageReading(units, [openingSpeed], ['Enemy'], 'arena');
 }
 
 /* How many turns come before a stage's first enemy turn: the fewer, the worse. */
@@ -477,11 +337,11 @@ function firstEnemyAt(stage: EnemyStageReading): number {
 }
 
 /** What the team faces: the worst-case enemy in arena, each stage in a dungeon. */
-function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: BattleTrace, drawn = true): EnemyStageReading[] {
+function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: BattleTrace): EnemyStageReading[] {
   if (units.length === 0 || !content.facesEnemies) return [];
   return content.area === 'arena'
-    ? [worstArenaStage(units, trace, drawn)]
-    : content.stages.map((stage) => stageReading(units, stage.speeds, enemyNamesOf(stage), content.area, drawn));
+    ? [worstArenaStage(units, trace)]
+    : content.stages.map((stage) => stageReading(units, stage.speeds, enemyNamesOf(stage), content.area));
 }
 
 export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = false }: {
@@ -496,7 +356,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   whatIfs?: ReadonlyMap<string, number>;
   /**
    * Whether to search each member's tuning range. Only the overlay states a
-   * range, and the search runs the clock a few thousand times, so the page,
+   * range, and the search runs the clock once per display speed, so the page,
    * which reads every team at once and shows none, leaves it out: there every
    * `range` is `null` and every `inRange` false.
    */
@@ -542,20 +402,26 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const opening = orderEvents.slice(0, lastFirstTurn + 1);
   const shownSpeeds = present.map((member) => whatIfs?.get(member.unitId) ?? monsterSpeedParts(monsters.get(member.unitId) as GameRecord).displaySpeed);
 
-  /* A member's own verdict looks only up the order: a monster below that
-     moves first is that monster's fault, so a slow member never turns red for
-     a fast one under it — the one out of place is the one that says so. */
+  /* The user's order is the authority: a member whose first turn is not the
+     one its place asks for is out of place, whichever monster put it there,
+     so a first monster moving fourth says so as surely as the three that
+     passed it. Only first turns are ranked, as a teammate boosted into a
+     second turn moves nobody out of place. A member that never moves within
+     the clock's limit ranks after every one that does. */
+  const firstAt = (unitId: string) => {
+    const event = first.get(unitId);
+    return event === undefined ? Number.POSITIVE_INFINITY : trace.events.indexOf(event);
+  };
+  const moveOrder = candidates.map((candidate) => candidate.unitId)
+    .sort((left, right) => firstAt(left) - firstAt(right));
   const verdicts: MemberVerdict[] = candidates.map((candidate, index) => {
-    const above = candidates.slice(0, index).map((entry) => ({ unitId: entry.unitId, state: relation(first, trace.events, entry.unitId, candidate.unitId) }));
-    const tie = above.find((entry) => entry.state === 'tie')?.unitId ?? null;
-    return above.some((entry) => entry.state === 'after') ? { kind: 'order' }
-      : tie !== null ? { kind: 'tie', with: tie } : { kind: 'in-place' };
+    const rank = moveOrder.indexOf(candidate.unitId);
+    if (rank < index) return { kind: 'early' };
+    if (rank > index) return { kind: 'late' };
+    const tie = moveOrder.slice(0, rank)
+      .find((unitId) => relation(first, trace.events, unitId, candidate.unitId) === 'tie') ?? null;
+    return tie !== null ? { kind: 'tie', with: tie } : { kind: 'in-place' };
   });
-  /* Settled: in its place with every member above it in theirs. A member that
-     trails the ones above it only because one of them is out of place is not
-     settled — that one will move, and it with it. */
-  const firstUnsettled = verdicts.findIndex((verdict) => verdict.kind !== 'in-place');
-  const settled = verdicts.map((_, index) => firstUnsettled === -1 || index < firstUnsettled);
 
   const members: MemberReading[] = candidates.map((candidate, index) => {
     const member = present[index];
@@ -563,7 +429,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     const parts = monsterSpeedParts(monster);
     const shown = shownSpeeds[index];
     const verdict = verdicts[index];
-    const range = ranges ? tuningRange(candidates, faced, shownSpeeds, index, settled) : null;
+    const range = ranges ? tuningRange(candidates, shownSpeeds, index) : null;
     return {
       unitId: member.unitId,
       wantedPosition: index + 1,
@@ -594,15 +460,15 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     missingUnitIds,
     leader: team.leaderUnitId === null ? null : { unitId: team.leaderUnitId, skill: leaderSkill },
     trace,
-    perfect: members.length > 0 && members.every((member) => member.verdict.kind === 'in-place'),
+    perfect: members.length > 0 && members.every((member) => member.verdict.kind === 'in-place' && member.cutInAt.length === 0),
     enemies,
     worstStage,
   };
 }
 
-/** A field-position tie is unresolved, but only a strict order fault is out of place. */
+/** A field-position tie is unresolved, but only a first turn out of its place is out of place. An enemy that gets in is counted on its own. */
 export function outOfPlaceCount(reading: TeamReading): number {
-  return reading.members.filter((member) => member.verdict.kind === 'order').length;
+  return reading.members.filter((member) => member.verdict.kind === 'early' || member.verdict.kind === 'late').length;
 }
 
 /* Each area's combat speed by name. A content not yet named has no area to

@@ -13,9 +13,11 @@
  *    enemy exactly as Ellia's inequality says it should.
  * 3. The data: every speed leader, the Swarfarm skill reading (numbered,
  *    described and unreadable effects), and every tuned dungeon present.
- * 4. The page's promise: an interval it prints is the truth. At both ends the
- *    monster is in place, one display speed outside it is not — for every
- *    member of every out-of-order team in a sweep of generated teams.
+ * 4. The page's promise: a member is out of place exactly when its first turn
+ *    ranks elsewhere among the team's first turns than the user put it, and
+ *    an interval it prints is the truth — inside it the member moves strictly
+ *    between its neighbours in the order, one display speed outside it does
+ *    not — across a sweep of generated teams.
  */
 import assert from 'node:assert/strict';
 import {
@@ -345,7 +347,7 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
     'a team not speed tuned is read against no enemy, at the same combat speeds');
 }
 
-/* 4. Every display speed the page offers can be tuned to. */
+/* 4. Every verdict and every interval the page prints is the truth. */
 let seed = 0x5eed;
 const random = () => {
   seed = (seed * 1_103_515_245 + 12_345) % 2 ** 31;
@@ -354,26 +356,18 @@ const random = () => {
 const skillSets = [[[2563, 3]], [[7361, 2]], [[6512, 1]], [[10015, 1]], []];
 let rangesChecked = 0;
 let emptyRanges = 0;
-let walksCompleted = 0;
-/* Read off a reading's own drawn traces, apart from the module's search:
-   whether every member from `from` down moves strictly before every member
-   below it, trails every member above it, and has no enemy turn before it. */
-const holdsFrom = (reading, members, from) => {
-  const events = reading.trace.events;
+let outOfPlaceSeen = 0;
+/* Read off a reading's own drawn team trace, apart from the module: the index
+   of each member's first turn, and whether `earlier` strictly moves first. */
+const firstTurnsOf = (reading) => {
   const first = new Map();
-  events.forEach((event, at) => { if (!first.has(event.key)) first.set(event.key, { at, event }); });
-  const strict = (upper, lower) => {
-    const a = first.get(upper);
-    const b = first.get(lower);
-    return Boolean(a) && (!b || (a.at < b.at && !a.event.tiedWith.includes(lower)));
-  };
-  for (let upper = 0; upper < members.length; upper += 1) {
-    for (let lower = Math.max(upper + 1, from); lower < members.length; lower += 1) {
-      if (!strict(members[upper].unitId, members[lower].unitId)) return false;
-    }
-  }
-  const below = new Set(members.slice(from).map((member) => member.unitId));
-  return reading.enemies.every((stage) => stage.cutsBefore.every((unitId) => !below.has(unitId)));
+  reading.trace.events.forEach((event, at) => { if (!first.has(event.key)) first.set(event.key, { at, event }); });
+  return first;
+};
+const strictlyBefore = (first, earlier, later) => {
+  const a = first.get(earlier);
+  const b = first.get(later);
+  return Boolean(a) && (!b || (a.at < b.at && !a.event.tiedWith.includes(later)));
 };
 for (let sample = 0; sample < 60; sample += 1) {
   const area = sample % 2 === 0 ? 'giants' : 'arena';
@@ -399,84 +393,60 @@ for (let sample = 0; sample < 60; sample += 1) {
     const expected = firstEnemy === -1 ? [] : members.filter((_, at) => allyFirsts[at] === -1 || allyFirsts[at] > firstEnemy).map(({ unitId }) => unitId);
     check(enemy.cutsBefore.join() === expected.join(), `sample ${sample}: the cut-in verdict agrees with the ticks drawn`);
   }
-  /* Each member looks up the order only: it is too fast exactly when its first
-     turn comes before that of a monster placed above it, and never for one below. */
-  const firstAt = (unitId) => {
-    const at = reading.trace.events.findIndex((event) => event.key === unitId);
-    return at === -1 ? Number.POSITIVE_INFINITY : at;
-  };
+  /* The user's order is the authority: a member is too fast or too slow
+     exactly when its first turn ranks earlier or later among the team's first
+     turns than its place, a second turn of a teammate not counted. */
+  const first = firstTurnsOf(reading);
+  const firstAt = (unitId) => first.get(unitId)?.at ?? Number.POSITIVE_INFINITY;
+  const ranked = members.map(({ unitId }) => unitId).sort((left, right) => firstAt(left) - firstAt(right));
   reading.members.forEach((member, index) => {
-    const passesSomeoneAbove = reading.members.slice(0, index).some((above) => firstAt(member.unitId) < firstAt(above.unitId));
-    check((member.verdict.kind === 'order') === passesSomeoneAbove, `sample ${sample}: member ${index + 1} is too fast exactly when it moves before one above it`);
+    const rank = ranked.indexOf(member.unitId);
+    const expected = rank < index ? 'early' : rank > index ? 'late' : null;
+    check((member.verdict.kind === 'early' || member.verdict.kind === 'late' ? member.verdict.kind : null) === expected,
+      `sample ${sample}: member ${index + 1} is out of place exactly when its first turn ranks ${rank + 1}${rank === index ? '' : `, not ${index + 1}`}`);
+    if (expected !== null) outOfPlaceSeen += 1;
     const cutAt = reading.enemies.flatMap((stage, at) => stage.cutsBefore.includes(member.unitId) ? [at + 1] : []);
-    check(member.cutInAt.join() === cutAt.join(), `sample ${sample}: member ${index + 1} is warned of exactly the stages that cut in before it`);
+    check(member.cutInAt.join() === cutAt.join(), `sample ${sample}: member ${index + 1} is told of exactly the stages that cut in before it`);
     const range = member.range;
     if (range) check(member.inRange === (member.displaySpeed >= range.minimum && (range.maximum === null || member.displaySpeed <= range.maximum)),
       `sample ${sample}: member ${index + 1} knows whether it is in its range`);
   });
-  /* Tuned from the top down, as the page invites: each member outside its
-     range is given the first value of it, in order. Whenever every member on
-     the way has a range when its turn comes, the team ends perfect with no
-     enemy cutting in. */
-  /* A member settled in the team as read — in its place with every member
-     above it in theirs — is never tuned slower on the way down: the ranges
-     being checked were read with it there. It is given the first value of its
-     range at or above its own, and one whose range lies wholly under it stops
-     the walk. */
-  const firstUnsettled = reading.members.findIndex((member) => member.verdict.kind !== 'in-place');
-  const settled = reading.members.map((_, at) => firstUnsettled === -1 || at < firstUnsettled);
-  const walk = (typed, from) => {
-    let walked = read(new Map(typed));
-    for (let at = from; at < members.length; at += 1) {
-      const member = walked.members[at];
-      if (member.range === null) return { walked, through: false };
-      if (!member.inRange) {
-        const own = reading.members[at].displaySpeed;
-        const value = settled[at] ? Math.max(member.range.minimum, own) : member.range.minimum;
-        if (member.range.maximum !== null && value > member.range.maximum) return { walked, through: false };
-        typed.set(member.unitId, value);
-        walked = read(new Map(typed));
-      }
-    }
-    return { walked, through: true };
-  };
-  {
-    const { walked, through } = walk(new Map(), 0);
-    if (through) {
-      check(holdsFrom(walked, members, 0), `sample ${sample}: tuned top-down through its ranges, the team ends perfect`);
-      walksCompleted += 1;
-    }
-  }
-  /* Each range's edges, for a third of the sweep: the search runs the clock
-     thousands of times, and every edge costs a walk. At its floor a member
-     trails the ones above and leaves the ones below a way through; one
-     display speed under it, it does not; one over its ceiling, it no longer
-     trails the member above it — or, for the arena's first mover, whom the
-     worst-case enemy follows, leaves no way through. */
+  check(reading.perfect === reading.members.every((member) => member.verdict.kind === 'in-place' && member.cutInAt.length === 0),
+    `sample ${sample}: a team is perfect only with every member in place and no enemy getting in`);
+  /* Each interval's edges, for a third of the sweep: typed in, the member's
+     first turn falls strictly between those of the members placed just above
+     and just below it, the others where they are; one display speed past
+     either edge, it does not. */
   if (sample % 3 !== 0) continue;
-  const tunesAt = (index, value) => {
-    const typed = new Map([[members[index].unitId, value]]);
-    const { walked, through } = walk(typed, index + 1);
-    return through && holdsFrom(walked, members, index);
+  const fitsAt = (index, value) => {
+    const typed = read(new Map([[members[index].unitId, value]]), false);
+    const at = firstTurnsOf(typed);
+    const self = members[index].unitId;
+    return (index === 0 || strictlyBefore(at, members[index - 1].unitId, self))
+      && (index === members.length - 1 || strictlyBefore(at, self, members[index + 1].unitId));
   };
   for (const [index, member] of reading.members.entries()) {
     const lowest = displaySpeed(member.baseSpeed, member.swift, 0);
     const range = member.range;
     if (range === null) {
-      for (let value = lowest; value <= 999; value += 113) check(!tunesAt(index, value), `sample ${sample}: member ${index + 1} has no range, and ${value} cannot be tuned to`);
+      for (let value = lowest; value <= 999; value += 37) check(!fitsAt(index, value), `sample ${sample}: member ${index + 1} has no range, and ${value} does not fit`);
       emptyRanges += 1;
       continue;
     }
-    check(tunesAt(index, range.minimum), `sample ${sample}: member ${index + 1} can be tuned to ${range.minimum}, its range's floor`);
-    if (range.maximum !== null) check(tunesAt(index, range.maximum), `sample ${sample}: member ${index + 1} can be tuned to ${range.maximum}, its range's ceiling`);
-    if (range.minimum - 1 >= lowest) check(!tunesAt(index, range.minimum - 1), `sample ${sample}: member ${index + 1} cannot be tuned to ${range.minimum - 1}, under its range`);
-    if (range.maximum !== null && range.maximum < 999) check(!tunesAt(index, range.maximum + 1), `sample ${sample}: member ${index + 1} cannot be tuned to ${range.maximum + 1}, over its range`);
+    const top = range.maximum ?? 999;
+    for (let value = range.minimum; value <= top; value += Math.max(1, Math.floor((top - range.minimum) / 7))) {
+      check(fitsAt(index, value), `sample ${sample}: member ${index + 1} fits at ${value}, inside its range`);
+    }
+    check(fitsAt(index, top), `sample ${sample}: member ${index + 1} fits at ${top}, its range's ceiling`);
+    if (range.minimum - 1 >= lowest) check(!fitsAt(index, range.minimum - 1), `sample ${sample}: member ${index + 1} does not fit at ${range.minimum - 1}, under its range`);
+    if (range.maximum !== null) check(!fitsAt(index, range.maximum + 1), `sample ${sample}: member ${index + 1} does not fit at ${range.maximum + 1}, over its range`);
+    if (index === 0) check(range.maximum === null, `sample ${sample}: the first member has nobody above it, so its range is open`);
     rangesChecked += 1;
   }
   /* The page asks for no ranges and gets none. */
   check(read(undefined, false).members.every((member) => member.range === null && !member.inRange), `sample ${sample}: a reading without ranges carries none`);
 }
 check(rangesChecked > 20, `the sweep exercised ranges (${rangesChecked})`);
-check(walksCompleted > 20, `the sweep tuned teams top-down to the end (${walksCompleted})`);
+check(outOfPlaceSeen > 20, `the sweep met members out of place (${outOfPlaceSeen})`);
 
-console.log(`Speed tick rules hold: ${checks} checks, ${rangesChecked} ranges confirmed at both edges, ${walksCompleted} teams tuned top-down to perfect.`);
+console.log(`Speed tick rules hold: ${checks} checks, ${rangesChecked} intervals confirmed at both edges, ${emptyRanges} empty, ${outOfPlaceSeen} members out of place read.`);

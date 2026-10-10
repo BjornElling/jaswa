@@ -101,22 +101,25 @@ function teamStatus(reading: TeamReading, noSpeedTuning: boolean): { text: strin
      its order nor an enemy cutting in is held against it. */
   if (noSpeedTuning) return { text: 'No speed tuning', state: 'good' };
   const cut = cutInText(reading);
-  /* In arena the worst-case enemy is the one the team must open against, so
-     its cutting in fails the team; a dungeon stage's enemies may simply be
-     faster than any build, and there it is reported without a verdict. */
-  const cutFails = reading.content.area === 'arena' && cut !== '';
-  if (reading.perfect) return { text: `Turn order holds${cut}`, state: cutFails ? 'bad' : 'good' };
-  if (outOfPlaceCount(reading) === 0) return { text: `Tied · position decides${cut}`, state: cutFails ? 'bad' : 'good' };
-  return { text: `${outOfPlaceCount(reading)} of ${reading.members.length} out of place${cut}`, state: 'bad' };
+  /* An enemy that gets in before a member puts it out of the place the user
+     gave it, in arena and on every dungeon stage alike, so it fails the team. */
+  const outOfPlace = outOfPlaceCount(reading);
+  const tied = reading.members.some((member) => member.verdict.kind === 'tie');
+  const order = outOfPlace > 0 ? `${outOfPlace} of ${reading.members.length} out of place`
+    : tied ? 'Tied · position decides' : cut === null ? 'Turn order holds' : null;
+  return {
+    text: [order, cut].filter((part) => part !== null).join(' · '),
+    state: outOfPlace > 0 || cut !== null ? 'bad' : 'good',
+  };
 }
 
 /* Whether an enemy moves before the team's last monster has had its first
    turn, read off the same traces the Ticks view draws — boosts, buffs and
    Leo's cap included. A dungeon names its stages; arena has the one worst case. */
-function cutInText(reading: TeamReading): string {
+function cutInText(reading: TeamReading): string | null {
   const stages = reading.enemies.flatMap((enemy, at) => enemy.cutsBefore.length > 0 ? [at + 1] : []);
-  if (stages.length === 0) return '';
-  return reading.content.area === 'arena' ? ' · Enemy can cut in' : ` · Enemy can cut in (stage ${stages.join(', ')})`;
+  if (stages.length === 0) return null;
+  return reading.content.area === 'arena' ? 'Enemy can cut in' : `Enemy can cut in (stage ${stages.join(', ')})`;
 }
 
 /* The page's three columns: dungeons, arena, and everything else. A preset

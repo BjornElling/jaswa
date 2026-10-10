@@ -32,33 +32,39 @@ function movesText(positions: readonly number[]): string {
 }
 
 /**
- * The one line under a member that says whether it is where it was put, where
- * to tune it, and last, which enemy gets in before it. The fix quotes the
- * Interval column's range and nothing else, so every display speed the line
- * offers is one the team can be tuned through from the top down.
+ * The one line under a member that says whether its first turn is the one its
+ * place asks for, where to tune it, and last, which enemy gets in before it.
+ * The fix quotes the Interval column's range and nothing else: the display
+ * speeds that put it between the members placed just above and below it.
  */
 function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, area: SpeedArea,
   enemiesKnown: boolean, general: GeneralSettings, tiedWith: string | null): string {
   const { verdict } = member;
-  if (tiedWith !== null) return `Tied with ${names[tiedWith]?.name ?? 'a teammate'}. Position decides.`;
-  const fix = enemiesKnown && !member.inRange ? displaySpeedIntervalText(member.range, general) : null;
-  const stages = member.cutInAt;
-  const enemyWarning = !enemiesKnown || stages.length === 0 ? ''
-    : area === 'arena' ? ' · worst-case enemy cuts in'
-      : ` · enemy cuts in (stage${stages.length === 1 ? '' : 's'} ${stages.join(', ')})`;
-  const fault = verdict.kind === 'in-place' ? `In place${movesText(member.turnPositions)}`
-    : verdict.kind === 'order' ? `Too fast${movesText(member.turnPositions)}`
-      : `Tied with ${names[verdict.with]?.name ?? 'a teammate'}. Position decides.`;
-  return `${fault}${fix === null ? '' : ` · ${fix}`}${enemyWarning}`;
+  const stages = enemiesKnown ? member.cutInAt : [];
+  const enemy = stages.length === 0 ? null
+    : area === 'arena' ? 'worst-case enemy cuts in'
+      : `enemy cuts in (stage${stages.length === 1 ? '' : 's'} ${stages.join(', ')})`;
+  if (tiedWith !== null) return `Tied with ${names[tiedWith]?.name ?? 'a teammate'}. Position decides.${enemy === null ? '' : ` · ${enemy}`}`;
+  const fix = member.inRange ? null : displaySpeedIntervalText(member.range, general);
+  const moves = movesText(member.turnPositions);
+  /* In its place but cut into, the enemy is the fault and leads the line,
+     rather than an "In place" the red would contradict. */
+  const fault = verdict.kind === 'early' ? `Too fast${moves}`
+    : verdict.kind === 'late' ? `Too slow${moves}`
+      : verdict.kind === 'tie' ? `Tied with ${names[verdict.with]?.name ?? 'a teammate'}. Position decides.`
+        : enemy !== null ? `${enemy.charAt(0).toUpperCase()}${enemy.slice(1)}${moves}` : `In place${moves}`;
+  const tail = verdict.kind === 'in-place' || enemy === null ? '' : ` · ${enemy}`;
+  return `${fault}${fix === null ? '' : ` · ${fix}`}${tail}`;
 }
 
-/* Red for a fault in the order; yellow for a tie, an enemy that gets in, or a
-   member in place that a display speed of its own would still improve; green
-   only with none of them. */
+/* Red for a first turn out of its place or an enemy getting in before it;
+   yellow for a tie, or a member in place that is not between its neighbours'
+   display speeds; green only with none of them. */
 function verdictState(member: MemberReading, enemiesKnown: boolean): 'good' | 'warn' | 'bad' {
+  if (enemiesKnown && member.cutInAt.length > 0) return 'bad';
   switch (member.verdict.kind) {
-    case 'order': return 'bad';
-    case 'in-place': return enemiesKnown && (member.cutInAt.length > 0 || (member.range !== null && !member.inRange)) ? 'warn' : 'good';
+    case 'early': case 'late': return 'bad';
+    case 'in-place': return member.range !== null && !member.inRange ? 'warn' : 'good';
     default: return 'warn';
   }
 }
@@ -116,9 +122,9 @@ type EditorProps = {
 };
 
 /**
- * The display speeds a member can be tuned to, as the Interval column states
- * them: a closed range, an open one, or a dash where none will do or the
- * enemies are not known yet.
+ * The display speeds that put a member between its neighbours, as the
+ * Interval column states them: a closed range, an open one, or a dash where
+ * none will do.
  */
 function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings): string {
   if (range === null) return '—';
@@ -216,9 +222,9 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         const tiedWith = monster.verdict.kind === 'tie' ? monster.verdict.with
           : reading.members.find((other) => other.verdict.kind === 'tie' && other.verdict.with === monster.unitId)?.unitId ?? null;
         const verdict = verdictText(monster, names, content.area, enemiesKnown, general, tiedWith);
-        /* Until the dungeon is chosen its enemies are nobody's, so neither is a range. */
-        const range = rangeText(enemiesKnown ? monster.range : null, general);
-        const noRange = enemiesKnown && monster.range === null;
+        const range = rangeText(monster.range, general);
+        const noRange = monster.range === null;
+        const verdictTone = verdictState(monster, enemiesKnown);
         /* What this monster's turn does to the other bars, hung on the line
            below its slot. A boost to the whole team is named by its size; a
            boost to one ally also names who its first turn gave it to, as that
@@ -258,8 +264,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
             </td>
             <td className="speed-figure" rowSpan={2}>{formatNumber(monster.importedDisplaySpeed, general)}</td>
             <td className="speed-figure speed-slot-range" rowSpan={2}
-              title={!noRange ? undefined : at === 0 ? `No display speed of ${name} gives the team a perfect order with no enemy cutting in`
-                : `No display speed gives ${name} a place with no enemy cutting in until a monster above it is tuned`}>{range}</td>
+              title={noRange ? `No display speed of ${name} moves it between the monsters placed beside it` : undefined}>{range}</td>
             <td className="speed-figure speed-what-if-cell" rowSpan={2}>
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
                 onChange={(value) => onWhatIf(member.unitId, value)} />
@@ -271,7 +276,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
           </tr>
           <tr className="speed-verdict-row">
             <td className="speed-verdict-cell">
-              <span className="speed-verdict type-caption" data-state={tiedWith !== null ? 'warn' : verdictState(monster, enemiesKnown)} title={verdict}>{verdict}</span>
+              <span className="speed-verdict type-caption" data-state={tiedWith !== null && verdictTone === 'good' ? 'warn' : verdictTone} title={verdict}>{verdict}</span>
               {boostTag !== '' && <span className="speed-boost-tag type-caption" aria-hidden="true">{boostTag}</span>}
             </td>
           </tr>
