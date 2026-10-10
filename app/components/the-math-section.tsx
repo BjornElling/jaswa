@@ -10,10 +10,10 @@ export function TheMathSection() {
     <Disclosure title="Rune Clean-up" sessionKey="the-math.runes" defaultOpen>
       <div className="math-copy">
         <p className="lead">
-          For every rune you own, JASWA answers one question: <b className="type-body-emphasis">Power up</b>, <b className="type-body-emphasis">Keep</b>, or <b className="type-body-emphasis">Sell</b>. The answer rests on two numbers, and a rune has to satisfy both. <b className="type-body-emphasis">Max value</b> is the best this rune could ever become. <b className="type-body-emphasis">Chance</b> is how likely it is to actually get there.
+          For every rune you own, JASWA answers one question: <b className="type-body-emphasis">Power up</b>, <b className="type-body-emphasis">Keep</b>, or <b className="type-body-emphasis">Sell</b>. The answer rests on two numbers, and a rune has to satisfy both. <b className="type-body-emphasis">Max value</b> is the best this rune could ever become. <b className="type-body-emphasis">Chance</b> is how likely its remaining upgrades are to reach the required quality.
         </p>
         <p>
-          Every rune you own is judged — the ones on your monsters and the ones already at +15 along with the rest. Nothing in Settings narrows that, because a role&rsquo;s share is finite: a rune held back from the calculation would hand its place to the runes that remain and change their answers. What the table <i>shows</i> is a separate matter, and the filters above it move no figure at all.
+          Every rune you own is judged — the ones on your monsters and the ones already at +15 along with the rest. Each verdict depends on that rune, your roles and your settings. What the table <i>shows</i> is a separate matter, and the filters above it move no figure at all.
         </p>
         <p>
           A rune that could be wonderful but almost certainly will not be is not worth your mana. Neither is a rune that is certain to reach a ceiling that is too low. Both have to clear their bar.
@@ -416,7 +416,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Quality first, then slot balance</h3>
         <p>
-          Rune quality floor requires at least <b className="type-body-emphasis">10 %, 35 %, 55 %, 75 % or 90 % Max value</b>, after Accepted and Broken discounts. G1 baby asks for 75 %; You’ve seen my replays asks for 90 %. Slot balance can raise that minimum, and a set preference can soften the extra correction, but neither can undercut the quality you chose.
+          Rune quality floor requires at least <b className="type-body-emphasis">45 %, 55 %, 65 %, 75 % or 85 % Max value</b>, after Accepted and Broken discounts. G1 baby asks for 75 %; You’ve seen my replays asks for 85 %. Slot balance can raise that minimum, and a set preference can soften the extra correction, but neither can undercut the quality you chose.
         </p>
         <p>
           The slots offer different legal substats and mains, so the same minimum can leave different numbers of survivors. JASWA checks a fixed sample with equal initial counts per slot and every legal main counted, including mains your roles cannot use. It uses 75 % Hero and 25 % Legend on odd slots; 25 % Rare, 50 % Hero and 25 % Legend on even slots. These are the simulator’s modelling assumptions.
@@ -507,7 +507,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">The sliders, and how many runes survive</h3>
         <p>
-          <b className="type-body-emphasis">Rune quality floor</b> sets the minimum discounted Max value: 10 %, 35 %, <b className="type-body-emphasis">55 %</b> where the slider opens, 75 % and 90 %. Slot balance can tighten that minimum, as explained above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar, and each stop means what it says: Full YOLO rolls a <b className="type-body-emphasis">1 %</b> shot, Adventurous 5 %, Balanced 20 %, Picky 50 % and Take no chances only a rune <b className="type-body-emphasis">80 %</b> sure to get there. The verdict is that one comparison, and the Chance column prints whole points rounded down, so the number you read clears the bar exactly when the rune does. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the role only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
+          <b className="type-body-emphasis">Rune quality floor</b> sets the minimum discounted Max value: 45 %, 55 %, <b className="type-body-emphasis">65 %</b> where the slider opens, 75 % and 85 %. Slot balance can tighten that minimum, as explained above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar, and each stop means what it says: Full YOLO rolls a <b className="type-body-emphasis">1 %</b> shot, Adventurous 5 %, Balanced 20 %, Picky 50 % and Take no chances only a rune <b className="type-body-emphasis">80 %</b> sure to get there. The verdict is that one comparison, and the Chance column prints whole points rounded down, so the number you read clears the bar exactly when the rune does. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the role only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
         </p>
         <p>
           A rune that passes the quality and Chance gates is kept under its strongest matching role. Another rune cannot make it fail by reaching that role first; the verdict rests on the rune itself and the standards you set.

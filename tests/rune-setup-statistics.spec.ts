@@ -37,6 +37,9 @@ test('shows the synthetic statistics and recalculates them after a setting chang
   const statistics = page.locator('.statistics');
   const status = statistics.locator('.statistics-meta');
   const values = statistics.locator('dd');
+  /* Recalculation needs a populated tail: the stricter middle quality stop can
+     legitimately leave this small sample at zero before and after a discount. */
+  await page.locator('#rune-quality').fill('1');
   await expect(status).toContainText(/synthetic runes/, calculation);
   const before = await values.allTextContents();
   expect(before.every((value) => /\d/.test(value))).toBe(true);

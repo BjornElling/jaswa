@@ -113,7 +113,7 @@ test('Evaluation explains Best role with every role\'s reading, at one height', 
   /* The build's slot 2/4/6 mains are not repeated here: the line cost the overlay its fit. */
   await expect(facts).toHaveCount(4);
   await expect(evaluation.getByText('Selected Rune quality floor', { exact: true })).toBeVisible();
-  await expect(facts.nth(2)).toHaveText('55.0 %');
+  await expect(facts.nth(2)).toHaveText('65.0 %');
   await expect(evaluation.getByText('Required Max value for this rune', { exact: true })).toBeVisible();
   await expect(facts.nth(3)).toHaveText(/^(\d+\.\d %|None)$/);
 });
@@ -128,7 +128,7 @@ test('the strictest quality floor explains the value gate instead of a rounded z
     con: 700, atk: 700, def: 700, spd: 105,
     critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0,
   });
-  /* This line-up's diagnostic tail rounds to zero although its value gate is reachable. */
+  /* The former top-percentile label obscured this line-up's reachable value gate. */
   game.runes.push({ rune_id: 999, set_id: 18, slot_no: 1, class: 6, rank: 5, extra: 5,
     upgrade_curr: 0, occupied_type: 2, occupied_id: 0, pri_eff: [3, 22], prefix_eff: [0, 0],
     sec_eff: [[8, 4, 0, 0], [11, 7, 0, 0], [12, 7, 0, 0], [4, 5, 0, 0]],
@@ -147,8 +147,10 @@ test('the strictest quality floor explains the value gate instead of a rounded z
   const evaluation = dialog.getByRole('region', { name: 'Evaluation' });
   const facts = evaluation.locator('.rune-overlay-evaluation-facts dd');
   await expect(facts.nth(0)).toHaveText('Def-tank');
-  await expect(facts.nth(2)).toHaveText('90.0 %');
-  await expect(facts.nth(3)).toHaveText('90.0 %');
+  await expect(facts.nth(2)).toHaveText('85.0 %');
+  await expect(facts.nth(3)).toHaveText(/^\d+\.\d %$/);
+  /* Slot correction may tighten the anchor; the two facts must not be conflated. */
+  expect(Number.parseFloat((await facts.nth(3).textContent())!)).toBeGreaterThanOrEqual(85);
   await expect(evaluation.getByText(/among the best/)).toHaveCount(0);
   const box = await evaluation.boundingBox();
   await page.screenshot({ path: testInfo.outputPath('floor-ready.png') });

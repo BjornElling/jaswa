@@ -37,7 +37,7 @@ const potentialStepLabels = {
     'Take no chances — only roll guaranteed keepers',
   ],
   runeQuality: [
-    'I’m a newbie — around 10% Max is enough, slot-balanced',
+    'I’m a newbie — 45 % Max value minimum, slot-balanced',
     'Been playing for a while — still some way to go',
     'I’ve got good runes, and I want more good runes',
     'G1 baby',

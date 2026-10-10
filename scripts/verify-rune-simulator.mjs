@@ -115,6 +115,9 @@ try {
   assert.ok(crafted, 'a +12 rune a role can use reports the line-up its verdict assumed');
   const passingLevelFixture = {
     ...reported,
+    /* This checks checkpoint actions, so keep the fixture Preferred rather than
+       letting a stricter quality anchor invalidate its passing premise. */
+    setId: 13, setName: 'Violent',
     subProperties: [
       { statId: 8, value: 24, gemmed: false, grind: 0 },
       { statId: 2, value: 8, gemmed: false, grind: 0 },
@@ -125,6 +128,8 @@ try {
   for (const [level, expected] of [[12, 'keep'], [13, 'power-up'], [14, 'power-up'], [15, 'keep']]) {
     const answer = (await runeAdvice([{ ...passingLevelFixture, id: `reported-${level}`, level }], support, craftedSettings, supportBase))
       .get(`reported-${level}`);
+    assert.ok(answer.maxValue >= answer.floorMaxValue && answer.chance === 1,
+      'the checkpoint fixture must actually clear the current quality gate');
     assert.equal(answer?.verdict, expected,
       `a passing rune at +${level} should be ${expected}, not ${answer?.verdict}`);
   }

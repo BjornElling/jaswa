@@ -16,7 +16,7 @@ const base = new Map([
   ['Defence type', { hp: 10280, atk: 595, def: 749, spd: 103, criRate: 16, criDmg: 50, res: 17, acc: 5 }],
   ['HP type', { hp: 11836, atk: 653, def: 592, spd: 104, criRate: 16, criDmg: 50, res: 18, acc: 4 }],
 ]);
-assert.deepEqual(qualityThresholds, [0.10, 0.35, 0.55, 0.75, 0.90]);
+assert.deepEqual(qualityThresholds, [0.45, 0.55, 0.65, 0.75, 0.85]);
 const roles = defaultRuneRoles();
 const population = [];
 for (const slot of [1, 2, 3, 4, 5, 6]) {
@@ -67,4 +67,24 @@ const defOnly = withRefreshedMetrics({ ...roles[0], id: 'def-only', name: 'DEF o
 const barred = ordinarySample(1, 6, 24, 12, 'drop');
 assert.ok([...(await runeAdvice(barred, [defOnly], { ...defaultRunePotentialSettings,
   gemRoll: null, grindstoneRoll: null }, base)).values()].every((row) => row.verdict === 'sell'));
+/* A beginner's reference is evidence about the common scale, not a separate
+   scoring path. Finished Hero and Rare runes must remain usable at the first stop. */
+const beginnerBase = new Map([...base,
+  ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
+]);
+const beginnerRunes = [5, 6].flatMap((stars) => [1, 2, 3, 4, 5, 6]
+  .flatMap((slot) => ordinarySample(slot, stars, 672, 12, 'drop', 900_000)));
+const beginner = await runeAdvice(beginnerRunes, roles,
+  { ...defaultRunePotentialSettings, runeQuality: 1 }, beginnerBase);
+const nextStop = await runeAdvice(beginnerRunes, roles,
+  { ...defaultRunePotentialSettings, runeQuality: 2 }, beginnerBase);
+for (const stars of [5, 6]) for (const grade of ['Rare', 'Hero']) {
+  const group = beginnerRunes.filter((rune) => rune.stars === stars && rune.defaultGrade === grade);
+  const kept = group.filter((rune) => beginner.get(rune.id)?.verdict === 'keep').length;
+  assert.ok(kept > 0, `${stars}-star ${grade} runes must have viable beginner keepers.`);
+  console.log(`Beginner ${stars}-star ${grade}: ${kept} / ${group.length} finished runes kept.`);
+}
+for (const rune of beginnerRunes) if (nextStop.get(rune.id)?.verdict === 'keep') {
+  assert.equal(beginner.get(rune.id)?.verdict, 'keep', 'The second quality stop must not re-admit a beginner Sell.');
+}
 console.log('PASS: real quality anchors, uniform mains, mixed grades, checkpoint identity and empty inputs.');

@@ -692,10 +692,12 @@ per-role assignment. This keeps their intended relative preference while making
 the verdict independent of how many other runes happen to match the same role.
 
 **The quality floor is a minimum discounted Max value**, rather than a retained
-percentile disguised as a quality label. Its five stops are **10 %, 35 %, 55 %,
-75 % and 90 %**. G1 genuinely requires at least 75 %, and the replay-tested stop
-at least 90 %, in one complete compatible build reading. Accepted and Broken
+percentile disguised as a quality label. Its five stops are **45 %, 55 %, 65 %,
+75 % and 85 %**. G1 genuinely requires at least 75 %, and the replay-tested stop
+at least 85 %, in one complete compatible build reading. Accepted and Broken
 discounts apply before this comparison. Set preferences cannot undercut the minimum.
+`RUNE-QUALITY-FLOOR-DECISION.md` records the lower stops' beginner reference and
+the fixed-sample evidence behind the ten-point progression.
 
 ## 9.1 A quality minimum and a complete selling funnel
 

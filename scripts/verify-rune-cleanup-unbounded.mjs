@@ -34,7 +34,8 @@ forbid('section', /\b(?:runeShare|roleRuneShare|runeShareLabel|role-rune-share)\
 for (const required of [
   ['advice', /keepMoreForLargerSets/u, 'the 4-set retention preference must remain in the calculation.'],
   ['advice', /intangibleRunes/u, 'the Intangible retention preference must remain in the calculation.'],
-  ['advice', /retentionShare/u, 'set preferences must widen a retained share rather than allocate a finite pool.'],
+  ['advice', /qualityBar\s*\+\s*\(calibratedFloor\s*-\s*qualityBar\)\s*\/\s*retentionMultiplier/u,
+    'set preferences must soften slot correction without undercutting the quality minimum.'],
 ]) {
   if (!required[1].test(source[required[0]])) failures.push(required[2]);
 }

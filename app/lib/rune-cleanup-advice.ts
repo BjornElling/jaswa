@@ -310,7 +310,7 @@ export const runeVerdictLabels: Record<RuneVerdict, string> = {
 };
 
 /** Minimum discounted Max value at each Rune quality floor stop. */
-export const qualityThresholds: readonly number[] = [0.10, 0.35, 0.55, 0.75, 0.90];
+export const qualityThresholds: readonly number[] = [0.45, 0.55, 0.65, 0.75, 0.85];
 
 /**
  * How likely a rune must be to reach that floor before its mana is worth spending,
