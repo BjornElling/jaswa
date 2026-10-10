@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Button, InlineButton } from './button';
 import { Dropdown } from './dropdown';
+import { FigureMarks } from './figure-marks';
 import { ArrowIcon, RemoveIcon } from './list-icons';
 import { MonsterLink } from './monster-link';
 import { warmMonsterPortraits } from '../lib/monster-portrait-image';
@@ -13,6 +14,7 @@ import { SpeedVerdictMark } from './speed-verdict-mark';
 import { reorderKeyStep, useDragReorder } from './use-drag-reorder';
 import { WorkspacePage } from './workspace-page';
 import type { GameRecord } from '../lib/game-data';
+import { sharedInPoolMarks } from '../lib/figure-marks';
 import { moveItem } from '../lib/list-order';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { artifactSlotCount, engravedCounts, monsterNameCollator } from '../lib/monster-grid';
@@ -109,11 +111,13 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const full = own !== null ? own.content !== null && own.members.length >= presetContent(own.content).teamSize
     : gameEditable && game !== null && preset !== null && !gamePresetHasRoom(game, preset);
   const canAdd = preset !== null && (preset.kind === 'default' || own !== null || gameEditable) && !full;
+  /* A monster another team of a pool sharing its monsters holds is not offered:
+     the game would not let it stand in two of them. */
   const choices = useMemo(() => {
-    const placed = new Set(priority);
+    const placed = new Set([...priority, ...preset?.poolTakenUnitIds ?? []]);
     return [...owned.values()].filter((choice) => !placed.has(choice.unitId))
       .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId));
-  }, [owned, priority]);
+  }, [owned, priority, preset]);
   const reorder = useDragReorder<HTMLOListElement>({ count: priority.length, onMove: move });
   const editable = preset !== null && (preset.kind !== 'game' || gameEditable);
   const deletable = own !== null || gameEditable;
@@ -392,8 +396,9 @@ function locate(menu: readonly PresetMenuTab[], preset: Preset): { tab: PresetMe
   return null;
 }
 
-/* What the chosen preset names and the account no longer has, said here, where
-   the user meets the preset, rather than hidden in a total. Nothing otherwise:
+/* What the chosen preset names and the account no longer has, or holds against
+   the rest of its pool, said here, where the user meets the preset, rather
+   than hidden in a total. Nothing otherwise:
    the content and the faces in the field above already say what it is. */
 function presetWarnings(preset: Preset): string {
   const parts: string[] = [];
@@ -401,6 +406,15 @@ function presetWarnings(preset: Preset): string {
   const sold = preset.missingRuneIds.length + preset.missingArtifactIds.length;
   if (sold > 0) parts.push(`${parts.length > 0 ? 'names' : 'Names'} ${sold} sold item${sold === 1 ? '' : 's'}`);
   if (preset.missingUnitIds.length > 0) parts.push(`${parts.length > 0 ? 'names' : 'Names'} ${preset.missingUnitIds.length} monster${preset.missingUnitIds.length === 1 ? '' : 's'} not in this import`);
+  /* The teams of a pool share one set of gear (`DECK-PRESETS.md` §4); what the
+     game let two of them hold at once is said here, beside the other faults. */
+  const { runeIds, artifactIds, unitIds } = preset.poolConflicts;
+  const shared = ([[runeIds.length, 'rune'], [artifactIds.length, 'artifact'], [unitIds.length, 'monster']] as const)
+    .filter(([count]) => count > 0).map(([count, what]) => `${count} ${what}${count === 1 ? '' : 's'}`);
+  if (shared.length > 0) {
+    const listed = shared.length === 1 ? shared[0] : `${shared.slice(0, -1).join(', ')} and ${shared.at(-1)}`;
+    parts.push(`${parts.length > 0 ? 'shares' : 'Shares'} ${listed} with another team`);
+  }
   return parts.join(' · ');
 }
 
@@ -409,10 +423,14 @@ function presetWarnings(preset: Preset): string {
    every preset, as the game reads it. */
 function Gear({ monster, preset, unitId }: { monster: GameRecord; preset: Preset; unitId: string }) {
   const engraved = engravedCounts(monster);
-  const sold = (ids: readonly string[] | undefined, missing: readonly string[]) => (ids ?? []).filter((id) => missing.includes(id)).length;
+  const among = (ids: readonly string[] | undefined, listed: readonly string[]) => (ids ?? []).filter((id) => listed.includes(id)).length;
+  const runeIds = preset.runesOf.get(unitId);
+  const artifactIds = preset.artifactsOf.get(unitId);
   return <>
-    <Engraved count={engraved.runes} sold={sold(preset.runesOf.get(unitId), preset.missingRuneIds)} of={runeSlotCount} what="runes" />
-    <Engraved count={engraved.artifacts} sold={sold(preset.artifactsOf.get(unitId), preset.missingArtifactIds)} of={artifactSlotCount} what="artifacts" />
+    <Engraved count={engraved.runes} sold={among(runeIds, preset.missingRuneIds)} shared={among(runeIds, preset.poolConflicts.runeIds)}
+      of={runeSlotCount} what="runes" />
+    <Engraved count={engraved.artifacts} sold={among(artifactIds, preset.missingArtifactIds)} shared={among(artifactIds, preset.poolConflicts.artifactIds)}
+      of={artifactSlotCount} what="artifacts" />
     <span className="monster-priority-gear" role="img" title={engraved.relic ? 'Relic engraved' : 'No relic'}
       aria-label={engraved.relic ? 'Relic engraved' : 'No relic'}>
       <SpeedVerdictMark state={engraved.relic ? 'good' : 'bad'} small />
@@ -420,11 +438,14 @@ function Gear({ monster, preset, unitId }: { monster: GameRecord; preset: Preset
   </>;
 }
 
-function Engraved({ count, sold, of, what }: { count: number; sold: number; of: number; what: string }) {
+function Engraved({ count, sold, shared, of, what }: { count: number; sold: number; shared: number; of: number; what: 'runes' | 'artifacts' }) {
   const reading = `${count} of ${of} ${what} engraved${sold > 0 ? `, and ${sold} sold` : ''}`;
-  return <span className="monster-priority-gear" role="img" title={reading} aria-label={reading}>
-    <span className="monster-priority-count">{count}/{of}</span>
-    <SpeedVerdictMark state={count >= of ? 'good' : 'bad'} small />
+  /* Gear another team holds too is the fault to fix first, so its mark stands
+     where the verdict would, rather than a tick saying all is well beside it. */
+  const sharedMarks = sharedInPoolMarks(shared, what);
+  return <span className="monster-priority-gear">
+    <span className="monster-priority-count" role="img" title={reading} aria-label={reading}>{count}/{of}</span>
+    {sharedMarks.length > 0 ? <FigureMarks marks={sharedMarks} /> : <SpeedVerdictMark state={count >= of ? 'good' : 'bad'} small />}
   </span>;
 }
 

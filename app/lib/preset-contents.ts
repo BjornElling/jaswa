@@ -49,15 +49,19 @@ export type PresetContent = {
   /** What Speed Tuning reads a team against: its enemies where they are known, else its area alone. */
   speed: SpeedContentId;
   /**
-   * Whether every preset of the content draws from one pool, so a rune is
-   * engraved at most once across all of them. Only the Siege Battle defense
-   * presets do (`DECK-PRESETS.md` §1, rule 4).
+   * Whether the game's decks of the content draw from one pool, so a rune or
+   * artifact is engraved at most once across all of them, and whether a monster
+   * may stand in only one of them as well; `null` where each deck is a placement
+   * of its own (`DECK-PRESETS.md` §1, rules 4 and 5).
    */
-  sharedPool: boolean;
+  sharedPool: SharedPool | null;
 };
 
+/** What the decks of one pool share: always their runes and artifacts, and for some contents their monsters. */
+export type SharedPool = { monsters: boolean };
+
 function content(id: PresetContentId, name: string, tab: PresetTab, column: PresetColumn, teamSize: number,
-  speed: SpeedContentId, sharedPool = false): PresetContent {
+  speed: SpeedContentId, sharedPool: SharedPool | null = null): PresetContent {
   return { id, name, tab, column, teamSize, speed, sharedPool };
 }
 
@@ -70,7 +74,9 @@ const contents: readonly PresetContent[] = [
   /* The Guild tab's menu has not been read off the screen; these are the guild
      contents of the capacity table, in its order. */
   content('siege', 'Siege Battle', 'Guild', 'other', 3, 'guild'),
-  content('siege-defense', 'Siege Battle Defense', 'Guild', 'other', 3, 'guild', true),
+  /* v9.2.0 names the runes and artifacts of the Siege Battle defense decks as
+     one pool and says nothing of their monsters, so only the gear is shared. */
+  content('siege-defense', 'Siege Battle Defense', 'Guild', 'other', 3, 'guild', { monsters: false }),
   content('world-guild', 'World Guild Battle', 'Guild', 'other', 3, 'guild'),
   content('world-guild-defense', 'World Guild Battle Defense', 'Guild', 'other', 3, 'guild'),
   content('labyrinth-normal', 'Labyrinth Normal', 'Guild', 'other', 5, 'guild'),
@@ -97,7 +103,9 @@ const contents: readonly PresetContent[] = [
   content('tower-light', 'Tower of Light', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
   content('tower-dark', 'Tower of Dark', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
   content('spires', 'Spires of Ascension', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
-  content('temple-of-chaos', 'Temple of Chaos', 'Temple of Chaos', 'other', 5, 'other-dungeon'),
+  /* Temple of Chaos fights with three decks at once, and no monster, rune or
+     artifact may stand in more than one of them (v9.0.0). */
+  content('temple-of-chaos', 'Temple of Chaos', 'Temple of Chaos', 'other', 5, 'other-dungeon', { monsters: true }),
   content('ice-beast', 'Ice Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
   content('fire-beast', 'Fire Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
   content('wind-beast', 'Wind Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),

@@ -67,12 +67,15 @@ export function gamePresetHasRoom(game: ImportedGame, preset: Preset): boolean {
 /**
  * The game's preset with `unitId` in its first empty position. A preset that
  * saved its monsters' gear gives the newcomer its Default gear, less whatever
- * this preset already engraves elsewhere — one rune, one monster, inside a
- * preset — because the game saves a deck's gear for all of its monsters or none.
+ * this preset — or another deck of its pool — already engraves: one rune, one
+ * monster, inside a preset or a pool. The game saves a deck's gear for all of
+ * its monsters or none. A monster another deck of a pool sharing its monsters
+ * holds cannot come in at all.
  */
 export function addToGamePreset(game: ImportedGame, preset: Preset, fallback: Preset, unitId: string): ImportedGame {
   if (preset.members.includes(unitId)) return game;
   if (!gamePresetHasRoom(game, preset)) throw new Error('This preset is full.');
+  if (preset.poolTakenUnitIds.has(unitId)) throw new Error('This monster already stands in another team of this content.');
   const unit = Number(unitId);
   return withDeck(game, preset, (deck) => {
     const positions = positionsOf(deck);
@@ -81,7 +84,7 @@ export function addToGamePreset(game: ImportedGame, preset: Preset, fallback: Pr
     const unit_id_list = empty >= 0 ? positions.map((entry, at) => (at === empty ? put(entry, unit) : entry))
       : [...positions, positions.some(isRecord) ? { pos_id: nextPosition, unit_id: unit } : unit];
     if (!preset.savesGear) return { ...deck, unit_id_list };
-    const taken = new Set([...preset.runeOwner.keys(), ...preset.artifactOwner.keys()]);
+    const taken = new Set([...preset.poolRuneOwner.keys(), ...preset.poolArtifactOwner.keys()]);
     const runeIds = (fallback.runesOf.get(unitId) ?? []).filter((id) => !taken.has(id));
     const artifactIds = (fallback.artifactsOf.get(unitId) ?? []).filter((id) => !taken.has(id));
     const equip = [...(Array.isArray(deck.equip) ? deck.equip : []),

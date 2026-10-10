@@ -321,7 +321,7 @@ export default function Home() {
       throw new Error('This build cannot be engraved in the current import mode.');
     }
     try {
-      const engraved = engraveImportedGame(game, preset, unitId, runeIds);
+      const engraved = engraveImportedGame(game, preset, unitId, runeIds, presets);
       /* A lock whose rune the build moved away is over, and is not stored to come back if the rune ever does. */
       const locks = heldRuneLocks(engraved.runeLocks ?? noRuneLocks, readPresets(engraved.data, preferences.presets));
       const next = { ...engraved, runeLocks: Object.keys(locks).length > 0 ? locks : undefined };
@@ -361,7 +361,7 @@ export default function Home() {
           ownPresets = ownPresets.map((entry) => entry.id === presetId ? engraved : entry);
           changePreferences((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? engraved : entry) }));
         } else {
-          next = engraveImportedGame(next, preset, unitId, runeIds);
+          next = engraveImportedGame(next, preset, unitId, runeIds, presets);
         }
       }
       const locks: RuneLocks = heldRuneLocks(withRuneLock(runeLocks, runeLockScope(preset), unitId, runeId, lock, slotOf),

@@ -142,8 +142,20 @@ export function mainStatAdviceMarks(
 /**
  * A sell verdict on a rune that is engraved somewhere. Selling it empties its
  * slot in every place it is engraved — Default and each preset that saves it
- * (`DECK-PRESETS.md` §1, rule 7) — which the verdict alone does not say.
+ * (`DECK-PRESETS.md` §1, rule 8) — which the verdict alone does not say.
  */
+/**
+ * A monster's runes or artifacts that another team of its pool holds too
+ * (`DECK-PRESETS.md` §4). The game lets the overlap be saved and fields each
+ * item on one team only, so it is a fault of every team involved.
+ */
+export function sharedInPoolMarks(shared: number, what: 'runes' | 'artifacts'): FigureMark[] {
+  if (shared === 0) return [];
+  const reading = shared === 1 ? `1 of these ${what} is engraved on another team too.`
+    : `${shared} of these ${what} are engraved on another team too.`;
+  return [{ key: 'shared-in-pool', tone: 'red', reading, glyph: 'ring' }];
+}
+
 export function engravedSaleMarks(verdict: string, places: number): FigureMark[] {
   if (verdict !== 'sell' || places === 0) return [];
   const reading = places === 1 ? 'Engraved: selling it empties that slot.'

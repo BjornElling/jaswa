@@ -1,6 +1,7 @@
 import type { GameRecord } from './game-data';
 import { isRecord } from './preference-reading';
 import { readRune } from './runes';
+import { presetPool } from './presets';
 import type { OwnPreset, Preset } from './presets';
 import type { ImportedGame } from './types';
 
@@ -93,7 +94,7 @@ export function engraveRuneBuild(data: GameRecord, unitId: string, runeIds: read
 /**
  * A preset's gear with six runes engraved on one of its monsters: those runes
  * leave whichever other member carried them in this preset, and nothing
- * outside the preset changes (`DECK-PRESETS.md` §4). A preset that saved only
+ * outside the preset — or its pool — changes (`DECK-PRESETS.md` §4). A preset that saved only
  * its monsters takes every member's Default gear first, because a preset holds
  * all of its monsters' gear or none.
  */
@@ -120,8 +121,22 @@ function withDeckEquip(data: GameRecord, preset: Preset, equip: GameRecord[]): G
   return { ...data, [field]: { ...(data[field] as GameRecord), equip } };
 }
 
-/** Engrave a build in Default or in one of the game's presets, remembering where each rune it moves sat. */
-export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: string, runeIds: readonly string[]): ImportedGame {
+/* The export's `equip` for a preset's gear. */
+function equipOf(gear: ReadonlyMap<string, { runeIds: readonly string[]; artifactIds: readonly string[] }>): GameRecord[] {
+  return [...gear].map(([member, entry]) => ({
+    unit_id: Number(member), rune_id_list: entry.runeIds.map(Number), artifact_id_list: entry.artifactIds.map(Number),
+  }));
+}
+
+/**
+ * Engrave a build in Default or in one of the game's presets, remembering where
+ * each rune it moves sat. In a pool (`DECK-PRESETS.md` §1, rules 4 and 5) the
+ * build's runes also leave the pool's other decks, as they would in the game,
+ * and a deck that saved only its monsters writes down their Default gear first;
+ * `presets` is every preset, so the pool can be found.
+ */
+export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: string, runeIds: readonly string[],
+  presets: readonly Preset[]): ImportedGame {
   if (preset.kind === 'own') throw new Error('A preset built in JASWA is engraved in the preferences.');
   checkBuild(game.data, unitId, runeIds);
   if (preset.kind === 'default') {
@@ -132,13 +147,35 @@ export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: 
     }));
     return { ...game, data, loadedPlacements: remember(game, preset.id, owners(game.data.runes), owners(data.runes), runeIds) };
   }
-  const gear = engravedGear(preset, unitId, runeIds);
-  const equip = [...gear].map(([member, entry]) => ({
-    unit_id: Number(member), rune_id_list: entry.runeIds.map(Number), artifact_id_list: entry.artifactIds.map(Number),
-  }));
-  const after = new Map([...gear].flatMap(([member, entry]) => entry.runeIds.map((id) => [id, member] as const)));
-  return { ...game, data: withDeckEquip(game.data, preset, equip),
-    loadedPlacements: remember(game, preset.id, preset.runeOwner, after, runeIds) };
+  const picked = new Set(runeIds);
+  const others = presetPool(preset, presets).filter((entry) => entry.id !== preset.id);
+  /* What the pool's other decks saved stays theirs: a deck writing down its
+     Default gear for the first time leaves out what another deck already holds,
+     since Default may have moved since that deck was saved. */
+  const savedBy = (decks: readonly Preset[]) => new Set(decks.filter((deck) => deck.savesGear)
+    .flatMap((deck) => deck.members.flatMap((member) => [...deck.runesOf.get(member) ?? [], ...deck.artifactsOf.get(member) ?? []])));
+  const without = (gear: Map<string, { runeIds: string[]; artifactIds: string[] }>, taken: ReadonlySet<string>, keep: string) =>
+    new Map([...gear].map(([member, entry]) => [member, member === keep ? entry : {
+      runeIds: entry.runeIds.filter((id) => !taken.has(id)), artifactIds: entry.artifactIds.filter((id) => !taken.has(id)),
+    }]));
+  const ownGear = without(engravedGear(preset, unitId, runeIds), savedBy(others), unitId);
+  const held = new Set([...ownGear.values()].flatMap((entry) => [...entry.runeIds, ...entry.artifactIds]));
+  const writes: [Preset, Map<string, { runeIds: string[]; artifactIds: string[] }>][] = [[preset, ownGear]];
+  for (const deck of others) {
+    if (!deck.members.some((member) => (deck.runesOf.get(member) ?? []).some((id) => picked.has(id)))) continue;
+    const taken = new Set([...held, ...savedBy(others.filter((entry) => entry.id !== deck.id))]);
+    writes.push([deck, new Map(deck.members.map((member) => [member, {
+      runeIds: (deck.runesOf.get(member) ?? []).filter((id) => !taken.has(id)),
+      artifactIds: (deck.artifactsOf.get(member) ?? []).filter((id) => !taken.has(id)),
+    }]))]);
+  }
+  let next = game;
+  for (const [deck, gear] of writes) {
+    const after = new Map([...gear].flatMap(([member, entry]) => entry.runeIds.map((id) => [id, member] as const)));
+    next = { ...next, data: withDeckEquip(next.data, deck, equipOf(gear)),
+      loadedPlacements: remember(next, deck.id, deck.runeOwner, after, deck === preset ? runeIds : []) };
+  }
+  return next;
 }
 
 /** Engrave a build in a preset built in JASWA. */

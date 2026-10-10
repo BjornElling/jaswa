@@ -369,7 +369,8 @@ parts an agent must not quietly break:
 - **One placement model: Default and presets.** `docs/DECK-PRESETS.md` is
   binding. A rune or artifact is engraved at most once per context — Default
   or one preset — and may be engraved in many contexts at once; the Siege
-  Battle defense presets share one pool; a relic belongs to Default and is read
+  Battle defense presets share one pool, and Temple of Chaos's teams share one
+  with their monsters too; a relic belongs to Default and is read
   into every preset. Placement is resolved once at import, no item carries an
   owner field, and every reading of a monster's slots, stats or speed takes its
   context as an argument. Gear on a monster is **engraved**, never equipped or
