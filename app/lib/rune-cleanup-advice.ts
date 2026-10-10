@@ -352,6 +352,8 @@ export const brokenWorth: readonly number[] = [0.90, 0.85, 0.80, 0.65, 0];
 const intangibleFactors: readonly number[] = [1, 1.5, 2, 3.5, 5];
 
 export type RuneAdvice = {
+  /** Kept so a live protection choice can be undone without repeating the calculation. */
+  unprotectedAdvice?: { verdict: RuneVerdict; reason: string };
   verdict: RuneVerdict;
   /** The chance itself, as the row prints it — never the internal score. */
   reason: string;
@@ -700,7 +702,7 @@ export async function runeAdvice(
        merely because its standing happens to be higher. */
     const chosen = selected ?? best?.answer ?? allowed[0]?.answer ?? answered[0] ?? null;
 
-    advice.set(plan.rune.id, {
+    advice.set(plan.rune.id, withPreGrindSpeedProtection(plan.rune, {
       ...decide({
         rune: plan.rune, value: chosen?.maxValue ?? 0, standing: chosen?.value ?? 0,
         chance: chosen?.chance ?? 0,
@@ -713,7 +715,7 @@ export async function runeAdvice(
       craftedLines: chosen ? finishedLines(chosen.candidate) : null,
       buildMains: chosen ? chosen.candidate.build.mains : null,
       readings: explain ? roleReadings(roles, answersWithSteps, allowed, chanceBar, worthOf) : null,
-    });
+    }, settings));
   }
   return advice;
 }
@@ -870,5 +872,21 @@ function decide({ rune, value, standing, chance, role, rank, cleared, brokenReje
     reason: rune.level >= runeMaximumLevel
       ? 'Already there'
       : rune.level >= lastSubPropertyLevel ? 'Main stat only' : percent(chance),
+  };
+}
+
+/** A user's speed safeguard outranks selling policy without changing any score or odds. */
+export function withPreGrindSpeedProtection(rune: Rune, advice: RuneAdvice, settings: RunePotentialSettings): RuneAdvice {
+  const original = advice.unprotectedAdvice ?? { verdict: advice.verdict, reason: advice.reason };
+  const minimum = settings.preGrindSpeedMinimum;
+  const speed = rune.subProperties.find((line) => line.statId === 8)?.value;
+  const protectedSpeed = settings.neverSellPreGrindSpeed && minimum !== null
+    && Number.isInteger(minimum) && minimum >= 0 && minimum <= 99
+    && speed !== undefined && speed >= minimum;
+  if (!protectedSpeed) return advice.unprotectedAdvice ? { ...advice, ...original } : advice;
+  return {
+    ...advice, unprotectedAdvice: original,
+    verdict: rune.level === lastSubPropertyLevel || rune.level >= runeMaximumLevel ? 'keep' : 'power-up',
+    reason: 'Pre-grind speed protected',
   };
 }

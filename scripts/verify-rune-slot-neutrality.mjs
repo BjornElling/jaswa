@@ -10,6 +10,9 @@ import { ordinarySample } from '../app/lib/rune-cleanup-model.ts';
 import { runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/lib/rune-cleanup-advice.ts';
 import { slotMainProperties } from '../app/lib/rune-properties.ts';
 
+/* This holds the quality gates themselves; the user's speed exception is checked separately. */
+const qualitySettings = { ...defaultRunePotentialSettings, neverSellPreGrindSpeed: false };
+
 const base = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
   ['Support type', { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 }],
@@ -43,7 +46,7 @@ for (const slot of [1, 2, 3, 4, 5, 6]) {
   population.push(...bodies.flatMap((runes) => runes.slice(0, 24)));
 }
 for (let runeQuality = 1; runeQuality <= 5; runeQuality += 1) {
-  const settings = { ...defaultRunePotentialSettings, runeQuality };
+  const settings = { ...qualitySettings, runeQuality };
   const result = await runeAdvice(population, roles, settings, base);
   assert.equal(result.size, population.length);
   for (const row of result.values()) {
@@ -54,8 +57,8 @@ for (let runeQuality = 1; runeQuality <= 5; runeQuality += 1) {
   console.log(`Quality ${runeQuality}: ${(100 * qualityThresholds[runeQuality - 1]).toFixed(0)} % minimum; slot floors`,
     slotFloorMaxValues(roles, settings, base).map((value) => (100 * value).toFixed(1)).join(' / '));
 }
-assert.equal((await runeAdvice([], roles, defaultRunePotentialSettings, base)).size, 0);
-assert.ok([...(await runeAdvice(population, [], defaultRunePotentialSettings, base)).values()]
+assert.equal((await runeAdvice([], roles, qualitySettings, base)).size, 0);
+assert.ok([...(await runeAdvice(population, [], qualitySettings, base)).values()]
   .every((row) => row.verdict === 'sell' && row.role === null));
 /* A slot unable to carry the only requested stat must stay unusable. Balancing
    never invents a useful property or rescues a zero-value rune. */
@@ -65,7 +68,7 @@ const defOnly = withRefreshedMetrics({ ...roles[0], id: 'def-only', name: 'DEF o
     slot6: { preferred: ['Def%'], acceptable: [] },
   } });
 const barred = ordinarySample(1, 6, 24, 12, 'drop');
-assert.ok([...(await runeAdvice(barred, [defOnly], { ...defaultRunePotentialSettings,
+assert.ok([...(await runeAdvice(barred, [defOnly], { ...qualitySettings,
   gemRoll: null, grindstoneRoll: null }, base)).values()].every((row) => row.verdict === 'sell'));
 /* A beginner's reference is evidence about the common scale, not a separate
    scoring path. Finished Hero and Rare runes must remain usable at the first stop. */
@@ -75,9 +78,9 @@ const beginnerBase = new Map([...base,
 const beginnerRunes = [5, 6].flatMap((stars) => [1, 2, 3, 4, 5, 6]
   .flatMap((slot) => ordinarySample(slot, stars, 672, 12, 'drop', 900_000)));
 const beginner = await runeAdvice(beginnerRunes, roles,
-  { ...defaultRunePotentialSettings, runeQuality: 1 }, beginnerBase);
+  { ...qualitySettings, runeQuality: 1 }, beginnerBase);
 const nextStop = await runeAdvice(beginnerRunes, roles,
-  { ...defaultRunePotentialSettings, runeQuality: 2 }, beginnerBase);
+  { ...qualitySettings, runeQuality: 2 }, beginnerBase);
 for (const stars of [5, 6]) for (const grade of ['Rare', 'Hero']) {
   const group = beginnerRunes.filter((rune) => rune.stars === stars && rune.defaultGrade === grade);
   const kept = group.filter((rune) => beginner.get(rune.id)?.verdict === 'keep').length;

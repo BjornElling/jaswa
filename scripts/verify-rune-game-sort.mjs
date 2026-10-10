@@ -1,5 +1,5 @@
 /**
- * The Rune Clean-up "Sort by" dropdown must reproduce the game's own orderings.
+ * The Rune Clean-up "Use game-sorting" dropdown must reproduce the game's own orderings.
  *
  *   Grade         slot ascending; then six-star before five-star; then rarity —
  *                 Legend, Hero, Rare, Magic, Normal; then Ancient before

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
 /**
- * Adding the Sort by row must not move the filters above it, and choosing an
+ * Adding the Use game-sorting row must not move the filters above it, and choosing an
  * ordering must not move anything at all (`AGENTS.md` rule 2): the control
  * changes, the panel around it does not.
  */
@@ -19,7 +19,7 @@ test('choosing an ordering leaves the filter panel where it was', async ({ page 
   await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
 
   const panel = page.locator('.rune-filter-strip');
-  const sortBy = page.getByRole('combobox', { name: 'Sort by' });
+  const sortBy = page.getByRole('combobox', { name: 'Use game-sorting' });
   /* The groups that must not move, measured by their own boxes rather than by
      the panel's, so a change of panel height cannot hide a sideways shift. */
   const groups = ['.rune-filter-search', '.rune-filter-advice', '.rune-filter-level',

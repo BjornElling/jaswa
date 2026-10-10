@@ -24,7 +24,7 @@ import { monsterCopyNamesIn } from '../lib/monster-names';
 import { engravingLines } from '../lib/presets';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
-import { runeVerdictLabels, runeVerdictOrder } from '../lib/rune-cleanup-advice';
+import { runeVerdictLabels, runeVerdictOrder, withPreGrindSpeedProtection } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import {
   calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
@@ -55,7 +55,7 @@ import type { OpenRuneOverlay } from './rune-link';
 import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
 import { StarIcon } from './star-icon';
 
-/* Nine of the game's own set names, and the slots and levels a rune can have.
+/* The slots, star counts and levels a rune can have.
    Listed rather than derived from the import so the filter strip does not change
    shape when a different account is loaded. */
 const slotOptions = [1, 2, 3, 4, 5, 6];
@@ -69,7 +69,6 @@ type RuneFilterState = {
   selectedSets: string[];
   selectedSlots: number[];
   selectedVerdicts: RuneVerdict[];
-  selectedRoles: string[];
   selectedMains: number[];
   selectedStars: number[];
   selectedQualities: RuneDefaultGrade[];
@@ -90,7 +89,7 @@ const placeLabels: Readonly<Record<RunePlace, string>> = { engraved: 'Engraved',
 /* The table opens in the game's own Obtained order, newest first, so it reads
    like the box the player just left in Summoners War. */
 const defaultRuneFilters: RuneFilterState = {
-  search: '', selectedSets: [], selectedSlots: [], selectedVerdicts: [], selectedRoles: [],
+  search: '', selectedSets: [], selectedSlots: [], selectedVerdicts: [],
   selectedMains: [], selectedStars: [], selectedQualities: [], lowestLevel: 0,
   highestLevel: runeMaximumLevel, selectedPlaces: [],
   showOnlyAncient: false, gameSort: 'gameObtained',
@@ -106,7 +105,6 @@ function isRuneFilterState(value: unknown): value is RuneFilterState {
     && Array.isArray(candidate.selectedSlots) && candidate.selectedSlots.every((e) => slotOptions.includes(e as number))
     && Array.isArray(candidate.selectedVerdicts)
     && candidate.selectedVerdicts.every((e) => runeVerdictOrder.includes(e as RuneVerdict))
-    && Array.isArray(candidate.selectedRoles) && candidate.selectedRoles.every((e) => typeof e === 'string')
     && Array.isArray(candidate.selectedMains) && candidate.selectedMains.every((e) => typeof e === 'number')
     && Array.isArray(candidate.selectedStars) && candidate.selectedStars.every((e) => starOptions.includes(e as number))
     && Array.isArray(candidate.selectedQualities)
@@ -152,7 +150,7 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent. The quality floor you set is a share of the ordinary runes a slot produces, so the Max value it comes to differs from slot to slot">Max<br />value</span>),
     column('chance', <span className="table-heading-two-line" aria-label="Chance to reach the final +15 quality floor; random substat rolls end at +12">Chance</span>),
     column('advice', 'Advice'),
-    /* The game's own three orderings, driven by the Sort by dropdown. They carry
+    /* The game's own three orderings, driven by the Use game-sorting dropdown. They carry
        `header: false` for the reason `artifact-list.tsx` does: they stay in this
        one list so the table has a single sort state, no heading claims to be the
        sorted one while one of them is active, and a click on any heading hands
@@ -177,7 +175,7 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * nobody could read. What the player does in the game is different: a sync judges
  * only the runes it changed, and the rows keep their places (`rune-cleanup-refresh.ts`).
  */
-export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune }: {
+export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune, onUpdate }: {
   game: ImportedGame | null;
   profiles: MonsterPreferences;
   /** The runes the user has said are not to be sold, which print their own word over the advice. */
@@ -185,6 +183,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   /** The runes locked to a monster anywhere (`rune-locks.ts`), which do the same. */
   lockedRunes: ReadonlySet<string>;
   settings: RunePotentialSettings;
+  onUpdate: (update: Partial<RunePotentialSettings>) => void;
   roles: RuneRole[];
   general: GeneralSettings;
   /** Whether the graphics card may count the odds. The worker is told, not asked. */
@@ -194,7 +193,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.rune-cleanup', defaultRuneFilters, isRuneFilterState,
   );
-  const { search, selectedSets, selectedSlots, selectedVerdicts, selectedRoles, selectedMains,
+  const { search, selectedSets, selectedSlots, selectedVerdicts, selectedMains,
     selectedStars, selectedQualities, lowestLevel, highestLevel, selectedPlaces,
     showOnlyAncient, gameSort } = filters;
 
@@ -330,11 +329,11 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      read the same way: moving it changes nothing the advice reads. */
   const rows = useMemo<RuneCleanupRow[]>(
     () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index, gone }) => ({
-      rune, advice, index, gone,
+      rune, advice: withPreGrindSpeedProtection(rune, advice, settings), index, gone,
       ...placeOf(rune.id, gone),
       hold: gone ? null : runeHoldVerdict(runeHolds[rune.id], lockedRunes.has(rune.id)),
     })),
-    [held, runesById, placeOf, runeHolds, lockedRunes],
+    [held, runesById, placeOf, runeHolds, lockedRunes, settings],
   );
   const rowsById = useMemo(() => new Map(rows.map((row) => [row.rune.id, row])), [rows]);
   const owned = rows.filter((row) => !row.gone).length;
@@ -350,11 +349,6 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
       .map((statId) => ({ value: statId, label: runeStatName(statId) ?? '?' })),
     [runes],
   );
-  const roleOptions = useMemo(
-    () => roles.map((role) => ({ value: role.name, label: role.name })),
-    [roles],
-  );
-
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
@@ -366,14 +360,13 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
       if (selectedStars.length && !selectedStars.includes(row.rune.stars)) return false;
       if (selectedQualities.length && !selectedQualities.includes(row.rune.defaultGrade)) return false;
       if (selectedVerdicts.length && !selectedVerdicts.includes(filteredRuneVerdict(shownRuneVerdict(row)))) return false;
-      if (selectedRoles.length && !selectedRoles.includes(row.advice.role?.name ?? '')) return false;
       if (selectedMains.length && !selectedMains.includes(row.rune.mainStatId)) return false;
       if (row.rune.level < lowestLevel || row.rune.level > highestLevel) return false;
       if (!term) return true;
       return runeCleanupSearchText(row).includes(term);
     });
   }, [rows, search, selectedSets, selectedSlots, selectedStars, selectedQualities, selectedVerdicts,
-    selectedRoles, selectedMains, lowestLevel, highestLevel, selectedPlaces, showOnlyAncient]);
+    selectedMains, lowestLevel, highestLevel, selectedPlaces, showOnlyAncient]);
 
   const { sorted, sort, toggle: toggleColumn, setSort } = useSortedRows(
     visible, columns, gameSort === null
@@ -518,7 +511,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               box just arranged in Summoners War can be arranged the same way
               here and the two lists compared row for row. */}
           <div className="filter-group rune-filter-sort-by" role="group" aria-label="Sort runes the way the game does">
-            <label className="filter-label" htmlFor="rune-sort-by">Sort by</label>
+            <label className="filter-label" htmlFor="rune-sort-by">Use game-sorting</label>
             <div className="filter-group-controls">
               <Dropdown id="rune-sort-by"
                 value={gameSort ?? ''}
@@ -553,8 +546,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             'selectedQualities', (quality) => quality, 'rune-filter-quality')}
           {toggleGroup('Slot', 'Filter by slot', slotOptions, selectedSlots,
             'selectedSlots', (slot) => String(slot), 'rune-filter-slot')}
-          {/* Three long vocabularies — twenty-two sets, a dozen main properties, a
-              role list that grows with use — each answered on one line rather
+          {/* Two long vocabularies — rune sets and main properties — each answered on one line rather
               than spelled out in full across the strip. */}
           <TokenChoiceField label="Set" description="Filter by rune set" empty="Any set"
             className="rune-filter-set" options={setOptions} chosen={selectedSets}
@@ -562,9 +554,28 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
           <TokenChoiceField label="Main" description="Filter by main property" empty="Any main"
             className="rune-filter-main" options={mainOptions} chosen={selectedMains}
             onChange={(next) => setFilters((current) => ({ ...current, selectedMains: next }))} />
-          <TokenChoiceField label="Role" description="Filter by best-matching role" empty="Any role"
-            className="rune-filter-role" options={roleOptions} chosen={selectedRoles}
-            onChange={(next) => setFilters((current) => ({ ...current, selectedRoles: next }))} />
+          <div className="filter-group rune-speed-protection" role="group" aria-label="Pre-grind speed protection">
+            <span className="filter-label">Never sell</span>
+            <div className="filter-group-controls">
+              <div className="checkbox-row">
+                <input id="rune-speed-protection" type="checkbox" aria-label="Never sell if pre-grind spd ≥"
+                  checked={settings.neverSellPreGrindSpeed}
+                  onChange={(event) => onUpdate({ neverSellPreGrindSpeed: event.target.checked })} />
+                <label htmlFor={settings.neverSellPreGrindSpeed ? 'rune-speed-protection' : undefined}
+                  aria-disabled={!settings.neverSellPreGrindSpeed}>Never sell if pre-grind spd ≥</label>
+              </div>
+              <input className="rune-speed-minimum type-body" type="text" inputMode="numeric" maxLength={2}
+                disabled={!settings.neverSellPreGrindSpeed}
+                aria-label="Minimum pre-grind speed" value={settings.preGrindSpeedMinimum ?? ''}
+                onChange={(event) => {
+                  const text = event.target.value;
+                  if (text === '') { onUpdate({ preGrindSpeedMinimum: null }); return; }
+                  if (!/^\d{1,2}$/.test(text)) return;
+                  const value = Number(text);
+                  if (Number.isFinite(value)) onUpdate({ preGrindSpeedMinimum: value });
+                }} />
+            </div>
+          </div>
           <div className="filter-group rune-filter-level" role="group" aria-label="Filter by power-up level">
             <span className="filter-label">Level</span>
             <div className="filter-group-controls">

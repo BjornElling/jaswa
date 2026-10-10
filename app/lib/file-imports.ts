@@ -43,6 +43,8 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
   brokenRunes: 3,
   intangibleRunes: 2,
   keepMoreForLargerSets: true,
+  neverSellPreGrindSpeed: true,
+  preGrindSpeedMinimum: 20,
 };
 
 /* Half credit is the honest midpoint of §19.6's question, and it reads as
@@ -140,6 +142,8 @@ const runePotentialSettingChecks: FieldChecks<RunePotentialSettings> = {
   brokenRunes: isWholeNumberIn(1, 5),
   intangibleRunes: isWholeNumberIn(1, 5),
   keepMoreForLargerSets: isBoolean,
+  neverSellPreGrindSpeed: isBoolean,
+  preGrindSpeedMinimum: (value) => value === null || isWholeNumberIn(0, 99)(value),
 };
 
 const preferenceSections = [

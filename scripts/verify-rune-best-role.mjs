@@ -150,6 +150,7 @@ for (const [label, settings] of scenarios) {
   const scope = newRuneAdviceScope();
   for (const rune of runes) {
     const row = advice.get(rune.id);
+    const qualityVerdict = row.unprotectedAdvice?.verdict ?? row.verdict;
     const readings = readingsOf(rune, settings, floors, scope);
     if (readings.length === 0) { check(row.role === null, `${label} ${rune.id}: a role named with no reading`); continue; }
     for (const reading of readings) {
@@ -167,9 +168,9 @@ for (const [label, settings] of scenarios) {
       choseAmongPassing += 1;
       check(passing.some((reading) => reading.role.id === row.role?.id && reading.maxValue === row.maxValue),
         `${label} ${rune.id}: Best role ${row.role?.name} is not one of the readings that pass`);
-      check(row.verdict !== 'sell', `${label} ${rune.id}: sold although a reading passes`);
+      check(qualityVerdict !== 'sell', `${label} ${rune.id}: sold although a reading passes`);
     } else {
-      check(row.verdict === 'sell', `${label} ${rune.id}: kept although no reading passes`);
+      check(qualityVerdict === 'sell', `${label} ${rune.id}: kept although no reading passes`);
     }
     check(row.role?.id === top.role.id && row.maxValue === top.maxValue && row.chance === top.chance,
       `${label} ${rune.id}: chose ${row.role?.name} ${row.maxValue}, the highest expectation is `

@@ -752,6 +752,7 @@ export default function Home() {
       /></Suspense>}
 
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
+        onUpdate={updateRunePotentialSettings}
         game={game}
         profiles={preferences.monsterPreferences}
         runeHolds={preferences.runeHolds}

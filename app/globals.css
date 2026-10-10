@@ -6411,14 +6411,14 @@ th.align-center .rank-heading { justify-content: center; }
    the existing filters so the narrowing questions are answered before the
    ordering control.
 
-   Sort by ends the third row rather than joining the first two. Everything
-   above it narrows the rows; it alone reorders them, and keeping it on the last
-   row preserves that distinction without a second kind of divider. */
+   Use game-sorting ends the third row rather than joining the first two.
+   It alone reorders the rows; the speed safeguard changes their advice.
+   Keeping ordering on the last row preserves its place without another divider. */
 .rune-filter-strip {
   grid-template-areas:
     "search  advice ancient stars"
     "level   main   quality usage"
-    "slot    set    role  sort-by";
+    "slot    set    speed  sort-by";
 }
 .rune-filter-strip > .filter-group,
 .rune-filter-strip > .filter-group:nth-child(2n + 1),
@@ -6437,7 +6437,23 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-filter-slot { grid-area: slot; padding-left: 0 !important; border-left: 0 !important; }
 .rune-filter-set { grid-area: set; }
 .rune-filter-main { grid-area: main; }
-.rune-filter-role { grid-area: role; }
+.rune-speed-protection { grid-area: speed; }
+.rune-speed-protection .filter-group-controls { flex-wrap: nowrap; }
+.rune-speed-protection .checkbox-row { gap: var(--s2); white-space: nowrap; }
+.rune-speed-protection .checkbox-row label { align-self: center; }
+.rune-speed-minimum {
+  width: calc(4ch + var(--s4)); min-width: 0; flex: none;
+  height: var(--s6); padding: 0 var(--s2);
+  background: var(--sunk); color: var(--text-strong);
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums; text-align: center;
+}
+.rune-speed-minimum:focus { border-color: var(--text-accent); }
+.rune-speed-protection label[aria-disabled='true'],
+.rune-speed-minimum:disabled { color: var(--text-muted); cursor: default; }
+.rune-speed-minimum:disabled { opacity: .4; }
+.rune-speed-protection .checkbox-row { cursor: default; }
+.rune-speed-protection label[aria-disabled='false'] { cursor: pointer; }
 .rune-filter-usage { grid-area: usage; }
 .rune-filter-status { grid-area: status; }
 

@@ -309,13 +309,14 @@ export function RuneSetupSection({ game, settings, roles, general, hardwareAccel
 }
 
 export function RunePotentialSection({
-  game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune,
+  game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune, onUpdate,
 }: {
   game: ImportedGame | null;
   profiles: MonsterPreferences;
   runeHolds: RuneHolds;
   lockedRunes: ReadonlySet<string>;
   settings: RunePotentialSettings;
+  onUpdate: (update: Partial<RunePotentialSettings>) => void;
   roles: RuneRole[];
   general: GeneralSettings;
   /** The user's own setting, on its way to the worker that counts the odds. */
@@ -330,7 +331,7 @@ export function RunePotentialSection({
     {/* No bar: the verdicts are the page's only content, and a disclosure
         with nothing beside it to fold away only adds a click and a frame. */}
     <RuneRecommendations game={game} profiles={profiles} runeHolds={runeHolds} lockedRunes={lockedRunes} settings={settings} roles={roles} general={general}
-      hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} />
+      hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} onUpdate={onUpdate} />
   </WorkspacePage>;
 }
 
