@@ -87,9 +87,10 @@ function freshBody(random, id) {
 
 /** The game's own loop, so the bodies are ones the game could actually produce. */
 function powerUp(random, rune, targetLevel) {
-  for (const level of subPropertyLevels) {
+  const bornLines = startingSubPropertyCount(runeDefaultGrades.indexOf(rune.defaultGrade) + 1);
+  for (const [eventIndex, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
-    if (rune.subProperties.length < 4) {
+    if (eventIndex >= bornLines) {
       const heldIds = new Set(rune.subProperties.map((property) => property.statId));
       const options = runeStatIds.filter((stat) => stat !== rune.mainStatId && stat !== rune.prefixStatId
         && !heldIds.has(stat) && slotAllowsSubStat(rune.slot, stat));
@@ -122,7 +123,7 @@ const bodies = Array.from({ length: runeCount }, (_, id) =>
 const everySet = { preferred: roleRuneSetNameList, acceptable: [] };
 const openRoles = defaultRuneRoles().map((role) => ({ ...role, sets: everySet }));
 const settings = {
-  powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null, gemGrade: 'Hero',
+  powerUpPolicy: 3, runeQuality: 2, gemRoll: 'three-quarters', grindstoneRoll: 'three-quarters', gemGrade: 'Hero',
   grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3, intangibleRunes: 1,
   keepMoreForLargerSets: false,
 };

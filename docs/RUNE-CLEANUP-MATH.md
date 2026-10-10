@@ -2,7 +2,7 @@
 
 **Status:** Binding contract for Rune Clean-up verdicts
 **Depends on:** `docs/RUNE-CANONICAL.md` and `docs/RUNE-ROLE-METRICS.md`
-**Reviewed:** 5 October 2026
+**Reviewed:** 10 October 2026
 
 This document describes the calculation, not the game rules. Game facts and their
 sources belong in `RUNE-CANONICAL.md`; where the two differ on a game fact, the
@@ -12,8 +12,8 @@ Grindstone do, `app/lib/rune-power-up-outcomes.ts` decides what a rune may still
 become and how likely it is, `app/lib/rune-cleanup-model.ts` is the one arithmetic
 implementation of everything else, and `app/lib/rune-cleanup-advice.ts` applies policy.
 `npm run verify:rune-substat-weights` holds the weights deterministically,
-`npm run verify:rune-slot-neutrality` holds the quality floor to the same share of
-every slot, `npm run verify:rune-craft-single-source` keeps the craft rules in one
+`npm run verify:rune-slot-neutrality` holds the actual quality floors and mixed
+grade population, `npm run verify:rune-slot-policy-matrix` holds the complete funnel, `npm run verify:rune-craft-single-source` keeps the craft rules in one
 file, `npm run verify:rune-chance-stability` holds the odds still, and
 `npm run verify:rune-cleanup-calibration` independently checks both.
 
@@ -691,132 +691,24 @@ gates. They do not create a finite role inventory, a global quota, or a one-rune
 per-role assignment. This keeps their intended relative preference while making
 the verdict independent of how many other runes happen to match the same role.
 
-**The quality floor's five stops state a share of an ordinary box** — a third of it
-at stop 1, 15 % at the default stop 3, a few per cent at stop 5 — and §9.1 is how a
-share becomes a Max value. The box is the synthetic one this document has always
-named: ordinary Legend-born runes at `+15` of the candidate's star class, for the role
-in question, every usable main of the slot counted (§9.3). The substat event stream is still
-complete at `+12`; `+12`→`+15` raises only the deterministic main stat. What changed is
-that the ladder now says the share and the model works out the Max value, rather
-than the ladder being a Max value calibrated to produce the share.
+**The quality floor is a minimum discounted Max value**, rather than a retained
+percentile disguised as a quality label. Its five stops are **10 %, 35 %, 55 %,
+75 % and 90 %**. G1 genuinely requires at least 75 %, and the replay-tested stop
+at least 90 %, in one complete compatible build reading. Accepted and Broken
+discounts apply before this comparison. Set preferences cannot undercut the minimum.
 
-The Settings labels use familiar Max-value anchors — approximately 10 % for a new
-account, 50 % for the G1 stop and 90 % for the replay-tested stop — but the engine
-does not apply one raw Max cutoff to all six slots. A global cutoff would starve
-slots 2, 4 and 6 because their legal main and substat pools are different. The
-anchor is therefore converted to the calibrated share of each slot's own ordinary
-`+15` box, with the middle stop deliberately unchanged so existing good-rune
-counts remain stable. `verify:rune-slot-neutrality` is the statistical check: the
-same synthetic population is judged for every slot and every shipped role, and
-the retained shares must remain close rather than hiding a slot-specific drought.
+## 9.1 A quality minimum and a complete selling funnel
 
-Broken-rune credit is intentionally gentler at the three middle settings (`0.90`,
-`0.85`, `0.80`). A rune with an excellent line such as SPD can therefore survive a
-set/type mismatch when the user has selected `Occasionally`, while `No` remains an
-absolute rejection. This is a discount, not a free pass: the rune still has to
-clear the same quality and chance gates after the discount.
+The perfect rune still defines Max value (§5). Slot balance may raise the
+selected minimum, never lower it. It is measured on the **original generated
+population**, with equal numbers per slot and every legal main cycled evenly.
+A main no active role can use stays in the denominator and is sold.
 
-## 9.1 The floor is a share of each slot's own box
-
-**A quality floor stated as one Max value does not mean the same thing in two
-different slots, and the difference is not small.** Slot 1 may never carry DEF, slot
-3 may never carry ATK, slot 5 may never carry flat HP, and a chosen main property
-bars its own effect id wherever it sits (`RUNE-CANONICAL.md` §5). So a role built
-around DEF asks slot 3 for a stat it can draw and slot 1 for one it cannot, and the
-two slots' ordinary runes end up in entirely different places on their own scales.
-Dividing by the perfect rune of each slot (§5) lines the six scales up at the *top*
-and says nothing about the body — and the body is where the verdicts are made.
-
-What one Max-value floor kept, measured by `verify:rune-slot-neutrality` against the
-engine before this section existed — 2,000 ordinary six-star `+15` runes per slot,
-every one carrying a main the role asked for, at the default setting:
-
-| Role | 1 | 2 | 3 | 4 | 5 | 6 | Spread |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Def DD | 28.2 % | 22.1 % | 29.6 % | **8.8 %** | 16.8 % | 22.0 % | 3.4x |
-| Bruiser | **62.1 %** | 27.6 % | 52.1 % | 34.4 % | 43.5 % | 34.9 % | 2.3x |
-| PvP def | 26.8 % | 13.4 % | **41.9 %** | 19.1 % | 24.6 % | 18.8 % | 3.1x |
-| A role built mostly on DEF | **51.0 %** | 22.2 % | 11.8 % | 21.6 % | **9.3 %** | 22.3 % | 5.5x |
-| A role built mostly on ATK | 12.1 % | 57.0 % | **87.4 %** | 57.1 % | **11.1 %** | 55.6 % | 7.9x |
-
-A player following that kept four slot-3 runes for every slot-4 rune of a Def DD
-account, and needed one of each. **It runs both ways**, which is why no rule of
-thumb repairs it: a slot that cannot draw the wanted stat has a *lower* ceiling, so
-an ordinary rune reads higher against it and the slot over-fills; a slot that can
-draw it has a high ceiling that ordinary runes fall far short of, and the slot
-starves. Which of the two happens to which slot depends on the role, and the two
-DEF rows above show the same role family doing each.
-
-**So the floor is read from each slot's own box.** `ordinaryBox` in
-`rune-cleanup-model.ts` states a second concrete rune beside §5's perfect one:
-
-- four sub-property lines drawn uniformly without replacement from the effect ids the
-  slot allows, one initial roll each, four upgrades spread uniformly over the four;
-- an innate on the canonical **50 %** of runes (`RUNE-CANONICAL.md` §4), one roll from
-  the same interval, with neither Gem nor Grindstone on it;
-- every roll worth the midpoint of its ordinary interval at the candidate's star class,
-  which is exact rather than simulated because a valuation is linear in the roll count;
-- the same optional Gem and Grindstone end-state rule as a candidate rune — literally
-  the same function, so the reference cannot receive a craft penalty merely because
-  craft is being considered, and cannot drift from §6 either. The box used to write
-  §8's placement rule out again, with its own reading of which ids an innate bars;
-  it now hands its line-up to `craftedScore` like everything else;
-- ordinary throughout, and six-star for an Ancient candidate, for §5's reason — both
-  ends of the scale must stay still while the candidate moves.
-
-A rune's **standing** is then where its Max value falls in that box, `0`–`1`, and the
-floor is a share of it. Standing is what every gate and every comparison between
-roles is settled on; Max value is what the row prints, because "42 %
-of a perfect rune" is the honest description of the rune itself and a percentile is
-not. They are deliberately different numbers, and a slot-4 rune kept beside a
-slot-3 rune that reads higher is the system working.
-
-Three things about that box had to be right, and each one was measured still wrong
-after the one before it had been fixed:
-
-1. **The middle.** §4.2's yardstick drops the innate because every target's ratio
-   moves by the same factor when it goes and the normalisation removes it. Nothing
-   removes it here, so the box carries it.
-2. **The family of builds.** §5.1 lets a rune keep its best build. A slot-1 rune fits
-   *every* build of a role because its main is fixed; a slot-2 rune fits only those
-   naming its own main — 24 against 6 for Bruiser — and a maximum over more draws is
-   simply larger. The ordinary rune is therefore offered the same choice: each drawn
-   line-up is priced in every build of the family and keeps its best, and only then
-   is the average taken.
-3. **The shape.** Matching middles leaves 16 % against 6 %; matching middles and
-   widths leaves 20.0 % against 13.7 %, because a maximum Gem credited to a DEF role
-   hands *every* rune the wanted stat in the two slots that may draw it and crushes
-   the top of their distributions while the other four keep a long tail. So the box
-   is kept as a distribution over a `0`–`1` grid rather than as two moments. The one
-   Gaussian left is the smear *within* a single line-up, where a sum of eight uniform
-   rolls genuinely is one.
-
-`npm run verify:rune-slot-neutrality` is the gate. It puts a synthetic box of every
-slot against all eight shipped roles and seven adversarial ones — roles built
-almost entirely on DEF, on ATK, on HP, on SPD, on ACC, on crit, and one that wants
-everything — holding the main property fixed so that only the slot can move a
-verdict, and tests the six shares with Pearson's χ² on five degrees of freedom. It
-also checks that the ladder delivers the share it names, that a slot which can carry
-*nothing* the role wants is an honest zero rather than a scale, and that the standing
-still ranks runes within a slot. Against the engine before this, seventeen of its
-eighteen scenarios scored between 139 and 3,898 and the eighteenth scored 32; it now
-scores at most 31 against a limit of 45.
-
-**The stops have now been restated twice, and for the same reason both times.** They
-ran `0.41`–`0.69` as Max values before the substat weights of §4 and `0.36`–`0.63`
-after, and both ladders were this ladder: the shares were always what the numbers
-were chosen to produce. A calibrated number left alone through a change of scale
-silently stops meaning what it says, and that is how the default setting once became
-twice as strict as it read.
-
-**What it cost in retained runes.** The old ladder was looser than it read: measured
-against the same synthetic box, its five stops admitted 49.5 %, 34.6 % and 23.5 % of
-it where they said a third, 23 % and 15 %. The new ones deliver 32.8 %, 23.2 % and
-15.6 %. On a box of ordinary six-star `+15` runes drawn across all six slots at the
-default floor, the engine retained 20.4 % before and 13.4 % after; almost all of the
-difference is the over-admission above being removed, with slots 1, 3 and 5 falling
-from 41.5 %, 39.5 % and 27.3 % to a common 22–23 %. What is now delivered is the
-15 % this section has claimed all along.
+Each fixed sample body is evaluated at +0, +9 and +12. It must survive both
+power-up decisions and finally be kept at +12. The +12 survivor count is divided
+by the original generated count. The ordinary Legend-only distribution remains
+a diagnostic standing and tie-breaker; it no longer defines the quality gate
+or the slot calibration.
 
 ## 9.2 One standard for every rune
 
@@ -845,101 +737,81 @@ nothing. `verify:rune-cleanup-craft-monotonic` checks the candidate rule, and
 The row names one role and prints one build reading's figures — its Max value,
 standing and Chance together (§5.1).
 
-## 9.3 A slot's share is of mains the roles can use
+### Future craft is already part of the projection
 
-Odd slots have one legal main. Even slots have seven or eight, but the active
-roles may name only some of them. A quality floor stated over *all* drops
-would therefore force a role that wants only CRI Dmg in slot 4 to keep almost
-every CRI Dmg rune to match slot 1. That would erase the quality judgement.
-
-For each role and slot, `shareOf` counts only mains that at least one of its
-builds can use. Each usable main has the same assumed drop frequency. The
-calibration uses fixed Accepted and Broken weights of 0.85 and 0.80; changing
-those controls does not move the floor of another rune. If `U` mains are usable,
-the share `q'` of each main's own box solves
+For a rune observed at level `l`, let `R_l(ω)` be one legal completion through +12.
+Every completion is crafted before it is valued:
 
 ```
-(1/U) · Σ_usable mains P( w_m · X_m ≥ T_m(q') ) = q
+S_l(ω) = score(best legal craft(R_l(ω), active credit)) / fixed neutral ceiling
+Max value = max_ω S_l(ω)
+Chance = P(S_l(ω) >= the reading's floor)
 ```
 
-Here `X_m` is the main's ordinary Max value, `w_m` its fixed rank weight, and
-`T_m(q')` the boundary of the best `q'` of its own box. The bisection stops at
-`q' = 1` if the usable mains cannot reach the target. Every row still reports
-its own Max value, standing, and `floorShare`; `slotFloorShares` exposes the
-same floor by role and slot.
+This applies at +0 and +9 as well as +12. A Gem chooses the largest legal net gain
+on the completed line-up, not automatically the weakest visible stat. It is never
+forced when the existing rune is better. Every grindable final line receives the
+credited Grindstone, including revealed lines and the Gemmed replacement.
 
-This is a rate **per rune with a usable main**, the denominator the player chose
-for the slot comparison. It does not promise equal raw counts of drops. Slots
-2, 4 and 6 can produce mains that no active role uses, and those are not
-recommendations waiting to be equalised.
+A fourth line is certain to appear, but its Grindstone benefit is conditional on
+its id. If SPD is one of seven legal reveals on a Hero +9 fixture and it is the only
+valuable stat, its expected future Grindstone gain is `g_SPD * w_SPD / 7`, not
+zero and not the full SPD stone. Revealing an unwanted id legitimately removes that
+possible gain; it is new information, not a missing pre-+12 craft credit.
 
-## 9.4 Several roles and the power-up gate
+`verify:rune-future-craft` checks nine Rare/Hero/Legend checkpoints, a Gem whose
+finished value is guaranteed before the reveal, the exact expected gain from a
+hidden grindable stat, and a strong line where adding a Gem would be double counting.
+No separate level-based craft bonus is added to the model.
 
-A rune survives when any compatible role clears both its quality floor and
-its chance threshold. Roles overlap on odd slots and often name different
-mains on even slots, so balancing each role separately cannot balance their
-combined recommendations. `SlotShares` measures the union and finds one factor
-per slot by bisection. Its target is the average rate in slots 1, 3 and 5,
-measured per usable main. The same factor scales a rune's quality share for
-each compatible role; it never changes its score or chance.
+## 9.3 All original drops count
 
-There are two populations. Finished runes (`+12` and `+15`) use 2,000 fixed
-drop-grade runes per slot and star class. Fresh runes (`+0`, `+3`, `+6`, `+9`)
-use 600 fixed drops per slot with the simulator's grade mix, the active
-power-up threshold, and 64 possible futures per rune (128 for the two most
-lenient chance stops). Both samples cycle
-every legal main and draw ordinary sets evenly from the role vocabulary. The
-fresh balance is needed because the chance gate and the grade mix can move
-recommendations between slots before the last sub-property appears. It weighs
-the sample's sets as the shipped settings do — a 4-set rune's share doubled, an
-Intangible one's raised by half — whatever the user's own 4-set and Intangible
-choices are. Those choices still widen their own runes' share after calibration,
-as in §9.3. A calibration that read them let turning the 4-set preference on sell
-slot-1 runes of other sets; one with no set weight at all leaned towards odd slots
-at the strictest policy, where a doubled share fills some slots' boxes and not
-others.
-`verify:rune-cleanup-preference-monotonic` judges fresh drops as well as
-finished runes for that reason.
+Equal initial counts per slot and equal final survival shares produce roughly
+equal numbers of kept runes. Measuring only usable mains would hide the many
+even-slot drops the roles cannot use. Unusable mains are never made usable to
+fill a quota, and a slot that cannot serve any role stays unusable.
 
-The reference balance holds Accepted and Broken at their middle weights. At
-stricter choices, some slot rates can still diverge: at Broken = No,
-for example, a slot with fewer preferred set/main combinations has fewer
-eligible candidates. A second pass at choices stricter than the midpoint
-lowers only factors whose slot rate exceeds the least-kept slot by more than
-5 %. With a strict chance threshold, when the most lenient pair already shows
-a statistically clear imbalance and recommends at least 15 % of usable mains,
-the second pass starts there.
-Each stricter pair inherits the lowest factor from every less strict pair
-in the active range, so a stricter tolerance cannot re-admit a rune by moving its
-floor. This cap never raises a factor or relaxes a user's quality or chance rule.
-At the most restrictive settings, there may be too few passing runes to
-estimate a slot rate; no algorithm can promise six nonzero counts while
-honouring those settings.
+## 9.4 One calibration for every checkpoint and policy
 
-The deterministic sample is a model, not a measured game drop table. The game
-has not published main or grade rates. The simulator and the calibration use
-the same grade assumption; a real unsorted drop capture would test it.
-Previously the balance was measured only on completed Legend runes. That
-population missed the Hero/Rare mix and the chance gate seen in fresh drops,
-which explains why the old synthetic check passed while the user's `+0`
-inventory and the Rune Simulator exposed a large even-slot bias.
+The canonical generator supplies 600 ordinary drops per slot and star class:
+75 % Hero / 25 % Legend on slots 1, 3 and 5; 25 % Rare / 50 % Hero /
+25 % Legend on slots 2, 4 and 6. These are modelling assumptions shared with
+Rune Simulator, not published game drop rates. +0, +9 and +12 are checkpoints
+of the same seeded bodies. A +0 or +9 Sell cannot contribute to the final count.
 
-`verify:rune-slot-neutrality` checks the combined verdict and the sample's
-checkpoint consistency. An inventory already thinned by earlier selling is
-not an unsorted drop sample: its raw slot counts also reflect that history.
-The verdict for one rune does not depend on the other runes still held.
+The sample prices 128 possible futures per unfinished candidate at each
+checkpoint. A completed +12 candidate is priced directly. For each chance stop
+it records the best passing score for preferred, accepted and broken readings;
+the smallest checkpoint score is that body's complete-funnel limit.
 
-`verify:rune-slot-policy-matrix` judges a separate set of 400 drops per slot
-against the shipped roles. It crosses both ends of Power-up policy, Rune
-quality floor, Accepted and Broken, then repeats the demanding cases with
-another seed and checks the middle stops, and two settings with the 4-set
-preference off, since the balance is measured with it on. Among the non-sparse corners, the
-largest Pearson χ² is 11.2 on five degrees of freedom; every combined odd/even
-rate ratio is below 1.5. At Balanced, the highest quality floor and middle
-Accepted/Broken, one holdout keeps 5.5–7.0 % per usable main. The most restrictive
-policy and floor together keep only one to three runes among roughly 1,880
-usable mains in this population. Those counts cannot establish slot evenness;
-the settings themselves leave almost no qualifying runes.
+All 625 combinations of the four five-stop controls are fitted as one ordered
+grid. A setting inherits the floors of its immediate less demanding neighbours,
+then raises floors of overrepresented slots to the lowest survivor count.
+Thus stricter quality, policy, Accepted or Broken cannot re-admit a rune.
+Every checkpoint and every view uses the same resulting Max-value floor.
+
+A zero count in a small sample cannot establish a zero population. The fit
+retains a one-observation tail allowance instead of emptying all slots. This
+still tightens slots with a clearly larger tail. When the holdout has fewer
+than 30 survivors, it reports **sparse: balance unmeasured**; that is not
+evidence of evenness. The highest floors need a larger population to measure
+their rare survivors. A structurally unusable slot remains a genuine limit:
+balancing cannot invent a useful stat or weaken the minimum to fill it.
+
+The four-piece preference has its own fit against the same funnel. Its target
+is twice the ordinary survivor count, capped by each slot's available qualifying
+four-piece runes and inherited floors. Only four-piece floors can soften;
+two-piece candidates retain their own floor. Intangible preference softens
+only the extra correction on an Intangible rune. Neither can undercut the quality
+minimum. Calibration always uses neutral Hero / three-quarters craft credit,
+so craft choices change candidates without moving another rune's ruler.
+
+`verify:rune-slot-neutrality` holds quality anchors, grade mix, uniform mains,
+checkpoint identity and empty inputs. `verify:rune-slot-policy-matrix` follows
+independent sample bodies through the complete +0 → +9 → +12 funnel, exercises
+each slider stop and extreme combinations, and checks all 625 floor combinations
+for monotonicity. Its denominator is every original generated drop.
+
 ## 9.5 The live Statistics box is an estimate, not a second model
 
 Rune Set-up's Statistics box asks two deliberately narrow questions of one fixed
@@ -970,8 +842,8 @@ of 50 %, 300 observations have a binomial standard error of about 2.9 percentage
 points and a rough 95 % interval of about ±5.7 points. That is useful for seeing how
 the settings move the recommendation, but it is not evidence of the game's real rune
 drop rate and it is not the population from which the scoring rules are inferred.
-The one-role score remains the closed-form `ordinaryBox`; the larger 2,000-per-slot
-sample in §9.4 is reserved for the slower multi-role slot-balance calibration.
+The diagnostic standing remains the closed-form `ordinaryBox`; the larger
+600-per-slot sample in §9.4 supplies the complete-funnel calibration.
 
 There is no serialized ordinary population to become stale. `ordinarySample` calls
 the canonical generator in `rune-generation.ts`, which is also the generator used by
@@ -1072,20 +944,19 @@ checks the mirror image — that a role which *does* rank sets is still obeyed, 
 a gate that only demanded neutrality would pass just as happily on an engine that had
 stopped reading the set at all.
 
-`scripts/verify-rune-slot-neutrality.mjs` is the fairness gate on §§9.1 and 9.3, and
-it is built the same way: a synthetic box of six-star drops at `+15` is generated
-for every slot, its mains and sets cycled evenly, and the rates among usable mains
-that survive the gates are tested against each other with Pearson's χ². It checks
-that no slot keeps a rune whose main none of the roles can use. It also checks
-their combined +0 verdict on the simulator's
-drop-grade mix. It runs the eight shipped roles, seven adversarial
-single-stat roles, the craft sliders at maximum, both ends of the quality ladder, the
-strictest stop on the roles whose single mains need the most help, and one against
-five preferred slot-6 mains. It then checks the three things a bare equality
-test would miss: that the ladder admits the share it names, that a slot which can
-legally carry nothing the role wants reports "No role can use it" rather than being
-given a scale, and that a rune which out-scores another of its own slot still outranks
-it.
+`scripts/verify-rune-slot-neutrality.mjs` holds the real Max-value anchors,
+the ordinary mixed-grade population, checkpoint identity, empty inputs and honest
+rejection of unusable mains. `scripts/verify-rune-slot-policy-matrix.mjs` measures
+43 independent complete +0 → +9 → +12 funnels against all original drops. It uses
+Pearson's χ² only when at least 30 survive; sparse outcomes explicitly report
+balance unmeasured. All 625 slider combinations are checked structurally for
+minimum quality and monotone floors. This does not establish statistical equality
+for every combination, or for an arbitrary user's edited roles.
+
+`scripts/verify-rune-future-craft.mjs` checks nine Rare/Hero/Legend checkpoint
+fixtures against hand-calculable guarantees: a legal SPD Gem, its Grindstone,
+and a Grindstone on a hidden SPD line weighted by its reveal probability. A
+finished rune already better than the Gem receives no additional Gem bonus.
 
 `scripts/verify-rune-cleanup-calibration.mjs` independently generates legal runes and
 plays the game's own addition/upgrade loop with its own PRNG. It checks the chance
@@ -1214,3 +1085,39 @@ what a Gem or a Grindstone does goes in `rune-craft-end-state.ts` and nowhere el
 change to how the odds are counted goes in `rune-power-up-outcomes.ts`, and if it
 changes the draws it changes the shader in the same commit. A new uncertainty is named
 as an assumption, never smuggled in as a default.
+
+## 12. Quality-floor verification, 10 October 2026
+
+The fresh pre-change snapshot is `tests/fixtures/rune-cleanup-quality-before.json`;
+the intentional new quality contract is recorded in
+`tests/fixtures/rune-cleanup-quality-baseline.json`. Both use the equivalence
+script's quick deterministic population (150 runes, two scenarios). After the
+quality change, making the exact maximum lazy, using native numeric sorting, and looking up
+the same-id Gem directly reproduced every public field bit for bit against the
+new baseline. Recheck with:
+
+```sh
+npm run verify:rune-cleanup-equivalence -- --quick --baseline=tests/fixtures/rune-cleanup-quality-baseline.json
+```
+
+The required weight, set, slot, craft-source, calibration, probability,
+craft-monotonicity and chance-stability checks passed. The independent large
+calibration also passed (1,000 mixed drops and 1,000 rollouts per oracle fixture).
+The slot-policy matrix passed 43 holdout funnels and all 625 structural cases;
+its scarce tails remain explicitly unmeasured.
+
+A local account snapshot, completed through the normal import path, contained
+2,632 runes. With the developer's saved roles and other choices, G1 baby retained
+159, and You've seen my replays retained 21. These are observations of that
+snapshot, not quotas: no account-dependent rank cut is applied to reach them.
+Import parity passed across all entity kinds. No personal data is in either
+committed baseline.
+
+The cold full-funnel calibration is CPU work independent of the imported rune
+count. Playwright uses two workers and a 60-second assertion budget to cover
+that first calculation; its recommendation and layout assertions are unchanged.
+
+Typecheck, lint and build passed, as did all 220 Playwright tests. Visual checks
+reused the existing server at `http://localhost:3000/`: empty and imported
+Rune Set-up, the quality choices, all 2,632 Rune Clean-up rows and The Math.
+The measured settings boxes did not move when the quality choice changed.

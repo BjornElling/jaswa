@@ -940,7 +940,10 @@ export function prepareRuneCandidate(
   }
   const plan = craftPlan(lineage, credit);
   const scoring = endStateScoring(rune, valuation, plan);
-  const best = bestEndState(future, scoring);
+  /* Calibration prices completed futures directly; enumerating their best
+     possible outcome as well repeats work it never reads. Keep this exact bound
+     lazy so the ordinary advice and chance shortcuts still ask the same rule. */
+  let best: number | undefined;
 
   /* No main-property factor. A rune is judged on its sub properties against the
      best rune of its own star class, and its main property is the same at `+15`
@@ -952,7 +955,9 @@ export function prepareRuneCandidate(
     ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
   return {
-    rune, valuation, weights, ceiling, build, main, stars, best, future, scoring, credit, plan,
+    rune, valuation, weights, ceiling, build, main, stars,
+    get best() { return best ??= bestEndState(future, scoring); },
+    future, scoring, credit, plan,
     lineage, rank: worseRank(setRank, mainRank), scope,
   };
 }

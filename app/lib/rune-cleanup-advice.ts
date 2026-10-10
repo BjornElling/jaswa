@@ -16,7 +16,7 @@ import type { RuneRole } from './rune-roles';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
-  boxThreshold, candidateChanceAsk, candidateExpectedBound, candidateExpectedValue, candidateMaxValue, isFourPieceSet,
+  candidateChanceAsk, candidateExpectedBound, candidateExpectedValue, candidateMaxValue, isFourPieceSet,
   newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, referenceStars,
   runeRuns, slotMainFamily, standingIn,
 } from './rune-cleanup-model';
@@ -26,7 +26,7 @@ import type {
 import { countJobs, playForward, runScore } from './rune-power-up-outcomes';
 import type { RuneFuture, RuneRuns } from './rune-power-up-outcomes';
 import type { Valuation } from './rune-substat-weights';
-import { lastSubPropertyLevel, slotMainProperties } from './rune-properties';
+import { lastSubPropertyLevel } from './rune-properties';
 import { craftedLines, groundLines } from './rune-craft-end-state';
 import type { EndStateLine } from './rune-craft-end-state';
 
@@ -36,17 +36,6 @@ import type { EndStateLine } from './rune-craft-end-state';
 const floorCalibrationCredit: CraftCredit = {
   gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
 };
-/* The middle stops define the shared floor. User changes are then
-   monotone candidate filters instead of moving that floor. */
-const floorCalibrationTolerances = { accepted: 0.85, broken: 0.80 } as const;
-/* The fresh-rune balance is measured on the set mix the shipped settings keep: a
-   4-set rune's share doubled, an Intangible one's raised by half. Fixed rather than
-   read from the user's sliders, because a balance that followed them let turning
-   the 4-set preference on sell slot-1 runes of other sets. Without any set weight
-   the balance leaned towards odd slots wherever a doubled share reached the whole
-   box in some slots and not others. */
-const floorCalibrationSetWeights = { fourPiece: 2, intangible: 1.5 } as const;
-
 /**
  * Who answers the odds.
  *
@@ -121,42 +110,39 @@ function valuationNumber(valuation: Valuation): number {
 }
 
 /**
- * How many ordinary runes per slot the balance between slots is measured on. At a
- * quarter kept, two thousand runes put one standard error of a slot's share at about
- * one point, which is finer than any two slots can be told apart by in a real box.
+ * The floor is an actual Max value. Balance may raise it, never dilute it.
+ * Each sample body must survive +0, +9 and +12, with the drop-grade mix used
+ * by the simulator. The denominator includes every generated main.
  */
-const balanceSampleRunes = 2000;
-/* A fresh rune is played forward before it can be judged, so its sample is
-   smaller and its runs fewer than a counted chance uses (§9.4). */
-const freshBalanceSampleRunes = 600;
-const freshBalanceRuns = 64;
+const balanceSampleRunes = 600;
+const balanceRuns = 128;
+type CheckpointScores = readonly (readonly [number, number, number])[];
+type FunnelScores = readonly CheckpointScores[];
+const balancePopulations = new Map<string, FunnelScores[][]>();
+type BalancedFloors = { ordinary: readonly number[]; fourPiece: readonly number[] };
+const balancedFloors = new Map<string, Map<string, BalancedFloors>>();
 
-/**
- * A quality floor names a share of the mains at least one build can use, rather
- * than all mains a slot can produce (§9.3). The per-main floor reads fixed middle
- * rank weights, so a user's Accepted/Broken choice does not move it; the fresh-rune
- * balance above it may only lower a slot's factor at stricter choices (§9.4).
- */
-class SlotShares {
-  private readonly found = new Map<string, number>();
-  private readonly balance = new Map<number, readonly number[]>();
-  private readonly freshBalance = new Map<number, readonly number[]>();
+class RuneFloorCalibration {
+  private readonly floors = new Map<number, BalancedFloors>();
+
   private readonly scope: ReturnType<typeof newRuneAdviceScope>;
   private readonly roles: readonly RuneRole[];
   private readonly builds: ReadonlyMap<string, readonly Build[]>;
   private readonly base: ReadonlyMap<string, ReferenceStats>;
   private readonly qualityBar: number;
   private readonly chanceBar: number;
-  private readonly acceptedWorth: number;
-  private readonly brokenWorth: number;
-  private readonly eligible: readonly number[];
+  private readonly accepted: number;
+  private readonly broken: number;
 
   constructor(
     scope: ReturnType<typeof newRuneAdviceScope>,
-    roles: readonly RuneRole[], builds: ReadonlyMap<string, readonly Build[]>,
-    base: ReadonlyMap<string, ReferenceStats>, qualityBar: number, chanceBar = 0.20,
-    acceptedWorth: number = floorCalibrationTolerances.accepted,
-    brokenWorth: number = floorCalibrationTolerances.broken,
+    roles: readonly RuneRole[],
+    builds: ReadonlyMap<string, readonly Build[]>,
+    base: ReadonlyMap<string, ReferenceStats>,
+    qualityBar: number,
+    chanceBar: number,
+    accepted: number,
+    broken: number,
   ) {
     this.scope = scope;
     this.roles = roles;
@@ -164,252 +150,135 @@ class SlotShares {
     this.base = base;
     this.qualityBar = qualityBar;
     this.chanceBar = chanceBar;
-    this.acceptedWorth = acceptedWorth;
-    this.brokenWorth = brokenWorth;
-    this.eligible = [1, 2, 3, 4, 5, 6].map((slot) => {
-      const mains = slotMainProperties[slot] ?? [];
-      return mains.filter((main) => roles.some((role) => base.has(role.type)
-        && (builds.get(role.id) ?? []).some((build) => slot % 2 === 1
-          || build.mains[slot as 2 | 4 | 6] === 0 || build.mains[slot as 2 | 4 | 6] === main))).length
-        / Math.max(1, mains.length);
-    });
+    this.accepted = accepted;
+    this.broken = broken;
   }
 
-  /**
-   * The share of its own box a rune of this slot, star class and role must clear,
-   * for a rune whose retention share is `wanted`: the slot's balance (below) applied
-   * to it, then spread over the slot's mains.
-   */
-  shareFor(role: RuneRole, slot: number, stars: number, wanted: number, level = 15): number {
-    const balance = (level < lastSubPropertyLevel ? this.freshBalanceOf(stars) : this.balanceOf(stars))[slot - 1] ?? 1;
-    /* A remembered calibration is asked with a later call's copy of the role. Its
-       own copy keeps the scope's identity-keyed caches from growing with every call. */
-    const own = this.roles.find((known) => known.id === role.id) ?? role;
-    return this.shareOf(own, slot, stars, Math.min(1, wanted * balance));
+  floorFor(slot: number, stars: number, fourPiece = false): number {
+    return this.balanceOf(stars)[fourPiece ? 'fourPiece' : 'ordinary'][slot - 1] ?? this.qualityBar;
   }
 
-  /** The +12/+15 union of roles uses the same per-usable-main target as §9.4. */
-  private balanceOf(stars: number): readonly number[] {
-    const known = this.balance.get(stars);
+  private balanceOf(stars: number): BalancedFloors {
+    const known = this.floors.get(stars);
     if (known) return known;
-    const bar = this.qualityBar;
-    /* One reading per sample rune: for each role that can judge it, the best standing
-       any of its builds gives the neutral floor yardstick, independent of settings. */
-    const readings = [1, 2, 3, 4, 5, 6].map((slot) => ordinarySample(slot, stars, balanceSampleRunes, 15, 'drop').map((rune) => {
-      const candidatesByRole = this.roles.flatMap((role) => {
-        const line = this.base.get(role.type);
-        if (!line) return [];
-        const builds = this.builds.get(role.id) ?? [];
-        const candidates: { standing: number; max: number; rank: MatchRank }[] = [];
-        let box: OrdinaryBox | null = null;
-        for (const build of builds) {
-          const candidate = prepareRuneCandidate(rune, role, build, line, floorCalibrationCredit, this.scope);
-          if (!candidate) continue;
-          box ??= ordinaryBox(slotMainFamily(role, builds, slot, candidate.main, stars, line, floorCalibrationCredit, this.scope));
-          const worth = candidate.rank === 'preferred' ? 1
-            : candidate.rank === 'acceptable' ? floorCalibrationTolerances.accepted : floorCalibrationTolerances.broken;
-          const max = candidateMaxValue(candidate) * worth;
-          candidates.push({ standing: standingIn(box, max), max, rank: candidate.rank });
-        }
-        return candidates.length === 0 ? [] : [{ role, candidates }];
+    const policies = chanceThresholds;
+    const key = JSON.stringify([this.roles, [...this.base], stars]);
+    let scores = balancePopulations.get(key);
+    if (!scores) {
+      scores = [1, 2, 3, 4, 5, 6].map((slot) => {
+        const checkpoints = ([0, 9, 12] as const).map((level) =>
+          ordinarySample(slot, stars, balanceSampleRunes, level, 'drop', 10_000).map((rune) => {
+            const scores = policies.map(() => [0, 0, 0] as [number, number, number]);
+            let runs: ReturnType<typeof playForward> | null = null;
+            for (const role of this.roles) {
+              const base = this.base.get(role.type);
+              if (!base) continue;
+              for (const build of this.builds.get(role.id) ?? []) {
+                const candidate = prepareRuneCandidate(rune, role, build, base, floorCalibrationCredit, this.scope);
+                if (!candidate) continue;
+                const rank = candidate.rank === 'preferred' ? 0 : candidate.rank === 'acceptable' ? 1 : 2;
+                if (level === 12) {
+                  for (const scoresAtPolicy of scores) scoresAtPolicy[rank] = Math.max(scoresAtPolicy[rank], candidateMaxValue(candidate));
+                  continue;
+                }
+                runs ??= playForward(candidate.future, balanceRuns);
+                const outcomes = new Float64Array(balanceRuns);
+                for (let at = 0; at < balanceRuns; at += 1) outcomes[at] = runScore(runs, candidate.scoring, at);
+                outcomes.sort();
+                policies.forEach((bar, at) => {
+                  const value = (outcomes[balanceRuns - Math.max(1, Math.ceil(bar * balanceRuns))] ?? 0) / candidate.ceiling;
+                  scores[at][rank] = Math.max(scores[at][rank], value);
+                });
+              }
+            }
+            return scores;
+          }));
+        return Array.from({ length: balanceSampleRunes }, (_, at) => checkpoints.map((checkpoint) => checkpoint[at]));
       });
-      return candidatesByRole.flatMap(({ role, candidates }) => {
-        const best = candidates.reduce<{ standing: number; max: number; rank: MatchRank } | null>(
-          (current, candidate) => !current || candidate.standing > current.standing
-            || (candidate.standing === current.standing && candidate.max > current.max) ? candidate : current,
-          null,
-        );
-        return best ? [{ role, standing: best.standing, rank: best.rank }] : [];
-      });
-    }));
-    const keptAt = (slot: number, balance: number) => {
-      const target = Math.min(1, bar * balance);
-      const floors = new Map(this.roles.map((role) => [role.id, 1 - this.shareOf(role, slot, stars, target)]));
-      const runes = readings[slot - 1];
-      return runes.filter((reading) => reading.some(({ role, standing }) =>
-        standing >= (floors.get(role.id) ?? Infinity))).length
-        / Math.max(1, runes.length * (this.eligible[slot - 1] ?? 0));
-    };
-    const level = (keptAt(1, 1) + keptAt(3, 1) + keptAt(5, 1)) / 3;
-    const found = [1, 2, 3, 4, 5, 6].map((slot) => {
-      /* Nothing kept anywhere is not a balance to strike: every slot stays as it is. */
-      if (!(level > 0)) return 1;
-      let low = 0;
-      let high = bar > 0 ? 1 / bar : 1;
-      if (keptAt(slot, high) < level) return high;
-      for (let step = 0; step < 30; step += 1) {
-        const middle = (low + high) / 2;
-        if (keptAt(slot, middle) < level) low = middle; else high = middle;
-      }
-      return high;
-    });
-    this.balance.set(stars, found);
-    return found;
-  }
-
-  /**
-   * A fresh rune has to survive the chance gate as well as the quality floor.
-   * The finished-rune balance cannot see that difference in natural grades between
-   * slots. This fixed sample asks the same question at +0, at the active chance
-   * bar and the middle Accepted/Broken discounts. Stricter Accepted/Broken choices
-   * then only cap factors, never raise them, so they cannot re-admit a rune.
-   */
-  private freshBalanceOf(stars: number): readonly number[] {
-    const known = this.freshBalance.get(stars);
-    if (known) return known;
-    const acceptedIndex = Math.max(0, acceptedWorth.indexOf(this.acceptedWorth));
-    const brokenIndex = Math.max(0, brokenWorth.indexOf(this.brokenWorth));
-    const runsPerSample = this.chanceBar <= 0.05 ? 128 : freshBalanceRuns;
-    const readings = [1, 2, 3, 4, 5, 6].map((slot) => [0, 10_000, 20_000, 30_000].flatMap((offset) =>
-      ordinarySample(slot, stars, freshBalanceSampleRunes / 4, 0, 'drop', offset)).map((rune) => {
-      const multiplier = (isFourPieceSet(rune.setName) ? floorCalibrationSetWeights.fourPiece : 1)
-        * (rune.setName === 'Intangible' ? floorCalibrationSetWeights.intangible : 1);
-      let runs: ReturnType<typeof playForward> | null = null;
-      const standings = this.roles.flatMap((role) => {
-        const line = this.base.get(role.type);
-        if (!line) return [];
-        const builds = this.builds.get(role.id) ?? [];
-        let standing = 0;
-        let preferredStanding = 0;
-        const acceptedStandings = [0, 0, 0, 0, 0];
-        const brokenStandings = [0, 0, 0, 0, 0];
-        for (const build of builds) {
-          const candidate = prepareRuneCandidate(rune, role, build, line, floorCalibrationCredit, this.scope);
-          if (!candidate) continue;
-          const box = ordinaryBox(slotMainFamily(
-            role, builds, slot, candidate.main, stars, line, floorCalibrationCredit, this.scope,
-          ));
-          runs ??= playForward(candidate.future, runsPerSample);
-          const outcomes = Array.from({ length: runsPerSample }, (_, at) =>
-            runScore(runs!, candidate.scoring, at) / candidate.ceiling);
-          outcomes.sort((left, right) => right - left);
-          const quantile = outcomes[Math.max(0, Math.ceil(this.chanceBar * runsPerSample) - 1)] ?? 0;
-          const worth = candidate.rank === 'preferred' ? 1
-            : candidate.rank === 'acceptable' ? floorCalibrationTolerances.accepted : floorCalibrationTolerances.broken;
-          standing = Math.max(standing, standingIn(box, quantile * worth));
-          if (candidate.rank === 'preferred') {
-            preferredStanding = Math.max(preferredStanding, standingIn(box, quantile));
+      balancePopulations.set(key, scores);
+      while (balancePopulations.size > 4) balancePopulations.delete(balancePopulations.keys().next().value!);
+    }
+    const fourPiece = [1, 2, 3, 4, 5, 6].map((slot) =>
+      ordinarySample(slot, stars, balanceSampleRunes, 0, 'drop', 10_000).map((rune) =>
+        isFourPieceSet(rune.setName)));
+    let grid = balancedFloors.get(key);
+    if (!grid) {
+      grid = new Map();
+      const gridKey = (quality: number, policy: number, accepted: number, broken: number) =>
+        `${quality}|${policy}|${accepted}|${broken}`;
+      /* Each setting inherits its immediate less demanding neighbours, then
+         tightens the overrepresented slots. This preserves both slot balance
+         and the promise that a stricter choice never re-admits a rune. */
+      for (const [quality, anchor] of qualityThresholds.entries()) {
+        for (const [policy] of policies.entries()) {
+          for (const [acceptedAt, accepted] of acceptedWorth.entries()) {
+            for (const [brokenAt, broken] of brokenWorth.entries()) {
+              const neighbours = [
+                grid.get(gridKey(quality - 1, policy, acceptedAt, brokenAt)),
+                grid.get(gridKey(quality, policy - 1, acceptedAt, brokenAt)),
+                grid.get(gridKey(quality, policy, acceptedAt - 1, brokenAt)),
+                grid.get(gridKey(quality, policy, acceptedAt, brokenAt - 1)),
+              ];
+              const floors = [0, 1, 2, 3, 4, 5].map((at) =>
+                Math.max(anchor, ...neighbours.map((previous) => previous?.ordinary[at] ?? 0)));
+              const values = scores.map((slot) => slot.map((checkpoints) => {
+                const value = Math.min(...checkpoints.map((checkpoint) => {
+                  const [preferred, acceptable, unwanted] = checkpoint[policy];
+                  return Math.max(preferred, acceptable * accepted, unwanted * broken);
+                }));
+                return value;
+              }));
+              const observedTarget = Math.min(...values.map((slot, at) => slot.filter((value) => value >= floors[at]).length));
+              const target = Math.max(1, observedTarget);
+              /* A zero in a small sample does not establish a zero population.
+                 Keep a one-observation tail allowance, while still tightening
+                 slots with a clearly larger surviving tail. */
+              values.forEach((slot, at) => {
+                const ordered = [...slot].sort((a, b) => b - a);
+                const excluded = ordered[target];
+                if (excluded !== undefined) floors[at] = Math.max(floors[at], excluded + Number.EPSILON);
+              });
+              const preferredFloor = [...floors];
+              const lower = floors.map((_, at) =>
+                Math.max(anchor, ...neighbours.map((previous) => previous?.fourPiece[at] ?? 0)));
+              const regularCounts = values.map((slot, at) => slot.filter((value, index) =>
+                !fourPiece[at][index] && value >= floors[at]).length);
+              const baselineCounts = values.map((slot, at) => slot.filter((value) => value >= floors[at]).length);
+              const capacities = values.map((slot, at) => regularCounts[at] + slot.filter((value, index) =>
+                fourPiece[at][index] && value >= lower[at]).length);
+              const preferredTarget = Math.min(...capacities,
+                Math.floor(2 * baselineCounts.reduce((sum, count) => sum + count, 0) / 6));
+              /* Four-piece preference changes only four-piece candidates. Fit its
+                 larger retained population separately, so turning it on cannot
+                 move the floor of a two-piece rune or break the slot balance. */
+              if (preferredTarget >= 1 && preferredTarget >= Math.max(...baselineCounts)) {
+                values.forEach((slot, at) => {
+                  const wanted = preferredTarget - regularCounts[at];
+                  const ordered = slot.filter((_, index) => fourPiece[at][index]).sort((a, b) => b - a);
+                  if (wanted > 0) preferredFloor[at] = Math.min(floors[at],
+                    Math.max(lower[at], (ordered[wanted] ?? anchor) + Number.EPSILON));
+                });
+              }
+              grid.set(gridKey(quality, policy, acceptedAt, brokenAt), { ordinary: floors, fourPiece: preferredFloor });
+            }
           }
-          if (candidate.rank === 'acceptable') acceptedWorth.forEach((weight, at) => {
-            acceptedStandings[at] = Math.max(acceptedStandings[at], standingIn(box, quantile * weight));
-          });
-          if (candidate.rank === 'broken') brokenWorth.forEach((weight, at) => {
-            brokenStandings[at] = Math.max(brokenStandings[at], standingIn(box, quantile * weight));
-          });
         }
-        return standing > 0 || preferredStanding > 0 || acceptedStandings[0] > 0 || brokenStandings[0] > 0
-          ? [{ role, standing, preferredStanding, acceptedStandings, brokenStandings }] : [];
-      });
-      return { multiplier, standings };
-    }));
-    const keptAt = (slot: number, factor: number, pair?: readonly [number, number]) => {
-      const runes = readings[slot - 1];
-      return runes.filter(({ multiplier, standings }) => standings.some(({
-        role, standing, preferredStanding, acceptedStandings, brokenStandings,
-      }) => (pair ? Math.max(preferredStanding, acceptedStandings[pair[0]], brokenStandings[pair[1]]) : standing)
-        >= 1 - this.shareOf(role, slot, stars,
-          Math.min(1, this.qualityBar * factor * multiplier)))).length
-        / Math.max(1, runes.length * (this.eligible[slot - 1] ?? 0));
-    };
-    const target = [1, 3, 5].reduce((sum, slot) => sum + keptAt(slot, 1), 0) / 3;
-    const found = [1, 2, 3, 4, 5, 6].map((slot) => {
-      if (!(target > 0) || !(this.eligible[slot - 1] > 0)) return 1;
-      let low = 0.6;
-      let high = 3;
-      if (keptAt(slot, low) >= target) return low;
-      if (keptAt(slot, high) <= target) return high;
-      for (let step = 0; step < 24; step += 1) {
-        const middle = (low + high) / 2;
-        if (keptAt(slot, middle) < target) low = middle; else high = middle;
       }
-      return high;
-    });
-    /* Strict Accepted/Broken choices can leave far fewer usable combinations on
-       even slots. Lower only the slots above the least-kept rate. A small margin
-       avoids chasing the fixed sample's ordinary binomial noise. */
-    const lenientRates = found.map((factor, at) => keptAt(at + 1, factor, [0, 0]));
-    const lenientTotal = lenientRates.reduce((sum, rate, at) => sum + rate * (this.eligible[at] ?? 0), 0);
-    const eligibleTotal = this.eligible.reduce((sum, share) => sum + share, 0);
-    const overallLenient = eligibleTotal > 0 ? lenientTotal / eligibleTotal : 0;
-    const lenientChi = lenientRates.reduce((sum, rate, at) => {
-      const expected = overallLenient * (this.eligible[at] ?? 0) * freshBalanceSampleRunes;
-      const missed = (1 - overallLenient) * (this.eligible[at] ?? 0) * freshBalanceSampleRunes;
-      const gap = (rate - overallLenient) * (this.eligible[at] ?? 0) * freshBalanceSampleRunes;
-      return sum + (expected > 0 ? gap * gap / expected : 0)
-        + (missed > 0 ? gap * gap / missed : 0);
-    }, 0);
-    const calibrateLenient = this.chanceBar >= 0.5 && overallLenient >= 0.15 && lenientChi > 15.1;
-    if (!calibrateLenient && acceptedIndex < 3 && brokenIndex < 3) {
-      this.freshBalance.set(stars, found);
-      return found;
+      balancedFloors.set(key, grid);
+      while (balancedFloors.size > 4) balancedFloors.delete(balancedFloors.keys().next().value!);
     }
-    const capped = [...found];
-    for (let acceptedAt = 0; acceptedAt <= acceptedIndex; acceptedAt += 1) {
-      for (let brokenAt = 0; brokenAt <= brokenIndex; brokenAt += 1) {
-        if (!calibrateLenient && acceptedAt < 3 && brokenAt < 3) continue;
-        const pair = [acceptedAt, brokenAt] as const;
-        const selectedRates = found.map((factor, at) => keptAt(at + 1, factor, pair));
-        const eligibleRates = selectedRates.filter((_, at) => this.eligible[at] > 0);
-        const targetRate = eligibleRates.length > 0 ? Math.min(...eligibleRates) : 0;
-        found.forEach((factor, at) => {
-          const slot = at + 1;
-          if (selectedRates[at] <= targetRate * 1.05) return;
-          let low = 0;
-          let high = factor;
-          for (let step = 0; step < 24; step += 1) {
-            const middle = (low + high) / 2;
-            if (keptAt(slot, middle, pair) <= targetRate * 1.05) low = middle;
-            else high = middle;
-          }
-          capped[at] = Math.min(capped[at], low);
-        });
-      }
-    }
-    this.freshBalance.set(stars, capped);
-    return capped;
-  }
-
-  private shareOf(role: RuneRole, slot: number, stars: number, wanted: number): number {
-    const builds = this.builds.get(role.id) ?? [];
-    const base = this.base.get(role.type);
-    if (!base) return 0;
-    const key = `${role.id}|${slot}|${stars}|${wanted}`;
-    const known = this.found.get(key);
-    if (known !== undefined) return known;
-    const mains = slotMainProperties[slot] ?? [];
-    const readings = mains.map((main) => {
-      const family = slotMainFamily(role, builds, slot, main, stars, base, floorCalibrationCredit, this.scope);
-      const worth = family.valuations.length === 0 ? 0
-        : family.rank === 'preferred' ? 1
-          : family.rank === 'acceptable' ? floorCalibrationTolerances.accepted : floorCalibrationTolerances.broken;
-      return { box: ordinaryBox(family), worth };
-    });
-    const usableMains = readings.filter(({ box }) => box.below.length > 0).length;
-    const kept = (share: number) => readings.reduce((total, { box, worth }) => {
-      if (worth <= 0 || box.below.length === 0) return total;
-      if (share >= 1) return total + 1;
-      return total + 1 - standingIn(box, boxThreshold(box, share) / worth);
-    }, 0) / Math.max(1, usableMains);
-    let share = 1;
-    if (kept(1) > wanted) {
-      let low = 0;
-      let high = 1;
-      for (let step = 0; step < 50; step += 1) {
-        const middle = (low + high) / 2;
-        if (kept(middle) < wanted) low = middle; else high = middle;
-      }
-      share = high;
-    }
-    this.found.set(key, share);
-    return share;
+    const floors = grid.get(`${qualityThresholds.indexOf(this.qualityBar)}|${policies.indexOf(this.chanceBar)}|${acceptedWorth.indexOf(this.accepted)}|${brokenWorth.indexOf(this.broken)}`)
+      ?? { ordinary: [1, 2, 3, 4, 5, 6].map(() => this.qualityBar), fourPiece: [1, 2, 3, 4, 5, 6].map(() => this.qualityBar) };
+    this.floors.set(stars, floors);
+    return floors;
   }
 }
 
 /** One role's best reading of one rune, valued but not yet gated. */
 type Contender = {
   role: RuneRole; prepared: RuneCandidate; box: OrdinaryBox;
-  value: number; maxValue: number; rank: MatchRank;
-  /** The share of this rune's own box that passes: the slot's share, spread over its mains (§9.3). */
+  value: number; maxValue: number; rank: MatchRank; floor: number;
+  /** Diagnostic share above the actual Max-value floor in this reading's box. */
   share: number;
 };
 
@@ -440,30 +309,8 @@ export const runeVerdictLabels: Record<RuneVerdict, string> = {
   sell: 'Sell',
 };
 
-/**
- * **The share of an ordinary box of runes each stop of the Rune quality floor lets
- * through** — a third of it at `1`, about 15 % at `3`, a few per cent at `5`.
- *
- * The box is the synthetic one §9 has always named: ordinary six-star runes at `+15`
- * for this role. What changed is that the slider now *states* that share instead of
- * being calibrated to produce it, and the model works out what Max value it comes to
- * **in the slot the rune is actually in**.
- *
- * That is the whole of the slot fix, expressed in one line. A stop stated as one Max
- * value cannot mean the same thing in two slots that may not carry the same effect
- * ids: slot 1 may never carry DEF and slot 3 may never carry ATK, so for a Def DD
- * account the same `0.49` admitted 25 % of the ordinary slot-3 runes and 5 % of the
- * ordinary slot-4 ones. Stated as a share of each slot's own box, it admits the same
- * fraction of every slot by construction, whatever the role asks for.
- * `rune-cleanup-model.ts`'s `ordinaryBox` is the arithmetic and §9.1 is the reasoning.
- *
- * **This is the second time the stops have been restated**, and the reason is the
- * same both times: a calibrated number left alone through a change of scale silently
- * stops meaning what it says. Before the substat weights they ran `0.41`–`0.69` as
- * Max values, after them `0.36`–`0.63`, and both ladders were this ladder — the
- * shares were always what the ladder was chosen to produce.
- */
-export const qualityThresholds: readonly number[] = [0.33, 0.23, 0.15, 0.09, 0.04];
+/** Minimum discounted Max value at each Rune quality floor stop. */
+export const qualityThresholds: readonly number[] = [0.10, 0.35, 0.55, 0.75, 0.90];
 
 /**
  * How likely a rune must be to reach that floor before its mana is worth spending,
@@ -512,7 +359,7 @@ export type RuneAdvice = {
   maxValue: number;
   /**
    * `0`–`1` from an ordinary rune of this slot to a perfect one, after the same
-   * discount — the figure the gates actually settled on.
+   * discount — a diagnostic percentile, not the floor used by the gates.
    *
    * It is carried out of the engine rather than kept private so that the page can
    * explain why a slot-4 rune was kept beside a slot-3 rune that reads higher, and
@@ -520,17 +367,9 @@ export type RuneAdvice = {
    * consequences.
    */
   standing: number;
-  /**
-   * The share of its own box the floor let through for this rune: the quality stop's
-   * share among mains the role can use, spread over their own boxes (§9.3).
-   * `standing` passed where it reached `1 - floorShare`.
-   */
+  /** Diagnostic share above the actual floor in the reading's ordinary box. */
   floorShare: number;
-  /**
-   * The Max value at which the best `floorShare` of this reading's own box begins:
-   * the floor restated on the scale the row prints, so a reader can hold the rune's
-   * Max value against the one figure it had to reach.
-   */
+  /** The actual discounted Max value required by both gates. */
   floorMaxValue: number;
   /** `0`–`1`: the chance of reaching the final +15 bar; RNG ends at +12. */
   chance: number;
@@ -538,7 +377,8 @@ export type RuneAdvice = {
   role: RuneRole | null;
   rank: MatchRank;
   /**
-   * The line-up its Max value assumed for `role`. From `+12`: every grindable line
+   * The craft available now for `role`; future craft is already included in
+   * Max value and Chance. From `+12`: every grindable line
    * ground and the Gem spent where it gains most, as `craftedLines` decides it. Below
    * `+12`: the lines it shows so far, each grindable one ground and no Gem, because a
    * stone may go on at any level and a Gem only from `+12` (`groundLines`). `null` only
@@ -648,22 +488,13 @@ function policyOf(settings: RunePotentialSettings) {
   };
 }
 
-/**
- * **The share of its own box a rune must clear, by role and slot**, when these
- * roles judge together at these settings — what `floorShare` reports on a row, laid
- * out for a reader instead of for one rune. It is the same `SlotShares` a calculation
- * builds, for a rune of `stars` and `level` with no 4-set or Intangible preference.
- * The level matters: below the last sub-property a rune is held to the fresh-rune
- * balance of §9.4, not the finished one.
- */
-export function slotFloorShares(
+/** The same discounted Max-value floors used by every advice checkpoint. */
+export function slotFloorMaxValues(
   roles: readonly RuneRole[], settings: RunePotentialSettings,
-  base: ReadonlyMap<string, ReferenceStats>, stars = 6, level = runeMaximumLevel,
-): Map<string, number[]> {
-  const { qualityBar } = policyOf(settings);
-  const shares = calibrationFor(roles, settings, base);
-  return new Map(roles.map((role) => [role.id,
-    [1, 2, 3, 4, 5, 6].map((slot) => shares.shareFor(role, slot, stars, qualityBar, level))]));
+  base: ReadonlyMap<string, ReferenceStats>, stars = 6,
+): readonly number[] {
+  const balance = calibrationFor(roles, settings, base);
+  return [1, 2, 3, 4, 5, 6].map((slot) => balance.floorFor(slot, stars, settings.keepMoreForLargerSets));
 }
 
 /**
@@ -676,13 +507,13 @@ export function slotFloorShares(
  * receives a new copy of every object with each message. Craft credit is not in it:
  * the calibration always reads the fixed `floorCalibrationCredit`.
  */
-const calibrations = new Map<string, SlotShares>();
+const calibrations = new Map<string, RuneFloorCalibration>();
 const calibrationsKept = 4;
 
 function calibrationFor(
   roles: readonly RuneRole[], settings: RunePotentialSettings,
   base: ReadonlyMap<string, ReferenceStats>,
-): SlotShares {
+): RuneFloorCalibration {
   const { qualityBar, chanceBar, accepted, broken } = policyOf(settings);
   const key = JSON.stringify([roles, [...base], qualityBar, chanceBar, accepted, broken]);
   const known = calibrations.get(key);
@@ -692,7 +523,7 @@ function calibrationFor(
     return known;
   }
   const builds = new Map<string, Build[]>(roles.map((role) => [role.id, roleBuilds(role)]));
-  const shares = new SlotShares(newRuneAdviceScope(), roles, builds, base, qualityBar, chanceBar,
+  const shares = new RuneFloorCalibration(newRuneAdviceScope(), roles, builds, base, qualityBar, chanceBar,
     accepted, broken);
   calibrations.set(key, shares);
   while (calibrations.size > calibrationsKept) calibrations.delete(calibrations.keys().next().value!);
@@ -723,7 +554,7 @@ export async function runeAdvice(
      and the fixed craft credit, so those settings change their own candidates'
      verdicts and not the bar. The fresh-rune balance does read the policy (§9.4),
      and is built so that a stricter choice can only lower a slot's factor. */
-  const slotShares = calibrationFor(roles, settings, base);
+  const floorCalibration = calibrationFor(roles, settings, base);
   const prepared: RunePlan[] = [];
 
   /* ------------------------------------------------- 1. everything that is certain */
@@ -735,17 +566,13 @@ export async function runeAdvice(
        gates. So the gates are applied to each candidate and the verdict is taken
        across all of them. */
     const candidates: Contender[] = [];
-    const retentionMultiplier = (settings.keepMoreForLargerSets && isFourPieceSet(rune.setName) ? 2 : 1)
-      * (rune.setName === 'Intangible' ? intangible : 1);
-    const retentionShare = Math.min(1, qualityBar * retentionMultiplier);
+    const retentionMultiplier = rune.setName === 'Intangible' ? intangible : 1;
     const stars = referenceStars(rune);
     for (const role of roles) {
       const line = base.get(role.type);
       if (!line) continue;
-      /* The family first, then the scale it is measured on. A rune's standing is
-         read against an ordinary rune offered the same choice of builds, so the
-         whole family has to be prepared before any one of its members can be
-         scored — which is also why the anchor cannot live on a single candidate. */
+      /* Standing compares the whole build family; the actual quality floor
+         stays a Max value shared by every compatible reading in this slot. */
       const family: RuneCandidate[] = [];
       /* **Every compatible build, not one representative.** It used to keep the
          first build whose own slot matched, on the reasoning that another slot's
@@ -774,21 +601,19 @@ export async function runeAdvice(
       const box = ordinaryBox(slotMainFamily(
         role, roleBuildList, rune.slot, family[0].main, stars, line, floorCalibrationCredit, scope,
       ));
-      const share = slotShares.shareFor(role, rune.slot, stars, retentionShare, rune.level);
+      const calibratedFloor = floorCalibration.floorFor(rune.slot, stars, settings.keepMoreForLargerSets && isFourPieceSet(rune.setName));
       for (const candidate of family) {
         const worth = worthOf(candidate.rank);
         /* Two figures, and they are not interchangeable. `maxValue` is what the row
            prints: the plain fraction of a perfect rune, discounted for a set or main
            the role merely accepts, which is the honest description of the rune
-           itself. `value` is that same discounted figure read as a position in this
-           slot's own box of ordinary runes, and it is what every gate and every
-           comparison is settled on — because it is the only one of the two that
-           means the same thing in slot 1 as it does in slot 3. The discount is
-           applied before the box is consulted rather than after, so it goes on
-           discounting the rune rather than the population. */
+           itself. Standing is a diagnostic and tie-breaker. Both gates read
+           this candidate's actual discounted Max-value floor. */
         const maxValue = candidateMaxValue(candidate) * worth;
         const value = standingIn(box, maxValue);
-        candidates.push({ role, prepared: candidate, box, maxValue, value, rank: candidate.rank, share });
+        const floor = qualityBar + (calibratedFloor - qualityBar) / retentionMultiplier;
+        const share = 1 - standingIn(box, floor);
+        candidates.push({ role, prepared: candidate, box, maxValue, value, rank: candidate.rank, share, floor });
       }
     }
 
@@ -811,9 +636,8 @@ export async function runeAdvice(
        where the best runes live, a whole span of Max values can. Falling through to
        the rune id there would seat an excellent rune behind a merely good one for
        want of a comparison that was available all along. */
-    /* The row's Best role is not a standing reading. A standing decides whether
-       one reading clears its own quality floor, but cannot decide which role the
-       rune best serves: the boxes differ from role to role. Keep every build as a
+    /* Standing cannot decide which role a rune best serves: boxes differ
+       between roles. Keep every build as a
        complete pair of Max value and Chance, so a high Max value from one build
        cannot borrow a passing chance from another. */
     const contenders = [...candidates]
@@ -823,22 +647,18 @@ export async function runeAdvice(
        against. The value carries the accepted/broken discount, so the fill the rune
        actually has to reach is the bar divided by that discount — otherwise an
        accepted rune would be discounted once in its score and not at all in its odds,
-       and the two halves of the row would disagree. The floor is stated as a share of
-       each build's own box and the odds are asked of that build's own Max value, so
-       the bar and the chance describe one reading. */
+       and the two halves of the row would disagree. Both gates read the same
+       discounted Max-value floor, so the bar and chance describe one reading. */
     const askOf = (candidate: Contender) => {
       const worth = worthOf(candidate.rank);
       const threshold = worth > 0
-        ? boxThreshold(candidate.box, candidate.share) / worth : Number.POSITIVE_INFINITY;
+        ? candidate.floor / worth : Number.POSITIVE_INFINITY;
       return ledger.add(candidateChanceAsk(candidate.prepared, threshold));
     };
-    /* These preferences change how much of the ordinary box this rune is
-       allowed to represent. They widen the retained share; they never remove
-       another rune's place or introduce any global limit. Every candidate is
-       asked separately: the Max value and the Chance that selects Best role must
-       describe the same build. */
+    /* Set preferences soften only the extra slot correction. The chosen quality
+       anchor remains a minimum, even for Intangible and four-piece sets. */
     for (const candidate of contenders) {
-      const passesValue = candidate.value >= 1 - candidate.share;
+      const passesValue = candidate.maxValue >= candidate.floor;
       steps.push({ candidate, passesValue, asks: [askOf(candidate)] });
     }
 
@@ -853,7 +673,7 @@ export async function runeAdvice(
   for (const plan of prepared) {
     const answered: Answer[] = plan.steps.map((step) => ({
       value: step.candidate.value, maxValue: step.candidate.maxValue, share: step.candidate.share,
-      floorMaxValue: boxThreshold(step.candidate.box, step.candidate.share),
+      floorMaxValue: step.candidate.floor,
       chance: step.asks.reduce((best, at) => Math.max(best, answers[at]), 0),
       role: step.candidate.role, rank: step.candidate.rank, candidate: step.candidate.prepared,
     }));

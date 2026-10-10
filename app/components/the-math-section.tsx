@@ -344,7 +344,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Runes that are not finished yet</h3>
         <p>
-          Max value is what a rune <i>can become</i>, so an unfinished rune is projected forward to <span className="math-relic-level">+15</span> first. A rune gains a substat at <span className="math-relic-level">+3</span>, <span className="math-relic-level">+6</span>, <span className="math-relic-level">+9</span> and <span className="math-relic-level">+12</span>, filling its four lines before improving them — never at <span className="math-relic-level">+15</span>, which only grows the main stat.
+          Max value is what a rune <i>can become</i>, so an unfinished rune is projected forward to <span className="math-relic-level">+15</span> first. A Legend rune upgrades its existing lines at +3, +6, +9 and +12. Hero upgrades at the first three stops and reveals its fourth line at +12; Rare upgrades at +3 and +6, then reveals lines at +9 and +12. At +15 only the main stat grows.
         </p>
         <p>
           Take the same rune at <span className="math-relic-level">+6</span>, before it drew its HP line. Two events are left: one new line, and one upgrade.
@@ -402,7 +402,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Gems and Grindstones</h3>
         <p>
-          If you tell JASWA in Settings which Gems and Grindstones to assume, they are spent on the rune <i>and</i> on the perfect ordinary rune it is measured against. Turning a slider up raises the bar as well as the rune, and every rune is held to that one bar, whatever its level — so grinding a rune to what the settings already assumed changes nothing. Ordinary runes stay at or below 100 %; an Ancient rune may exceed it when its higher initial interval beats that ordinary reference.
+          Your Gem and Grindstone settings price the rune’s completed future, including at +0 and +9. The perfect ordinary reference stays fixed at Hero items credited at three quarters, so increasing the craft credit improves the rune without moving its ruler. Grinding a line to no more than its credited stone changes nothing. The reference reads 100 %; stronger craft credit or an Ancient rune’s higher initial interval can exceed it.
         </p>
         <p>
           A Grindstone is credited on every grindable line, including ones the rune has yet to gain, as <b className="type-body-emphasis">the better of what is already there and what the stone would give</b> — never added on top, which would pay the rune twice for one line.
@@ -414,69 +414,18 @@ export function TheMathSection() {
           The line it replaces is <b className="type-body-emphasis">whichever one gains the most</b> — not the weakest one, which is what JASWA used to look at. Those are different lines more often than they sound, because a Gem may not duplicate a stat one of the <i>other</i> lines is holding: removing the line that holds SPD is exactly what makes a SPD Gem legal at all. Reading the weakest line instead was worth up to nine per cent of a rune&rsquo;s whole score, and it went unnoticed because nothing in the test suite had ever spent a Gem.
         </p>
 
-        <h3 className="type-heading">Why the floor is not the same number in every slot</h3>
+        <h3 className="type-heading">Quality first, then slot balance</h3>
         <p>
-          <b className="type-body-emphasis">The six slots do not offer the same substats.</b> Slot 1 can never carry DEF. Slot 3 can never carry ATK. Slot 5 can never carry flat HP. And a slot&rsquo;s main stat is barred from appearing again as a substat, so a slot 4 rune with a CRI Dmg main cannot roll CRI Dmg.
+          Rune quality floor requires at least <b className="type-body-emphasis">10 %, 35 %, 55 %, 75 % or 90 % Max value</b>, after Accepted and Broken discounts. G1 baby asks for 75 %; You’ve seen my replays asks for 90 %. Slot balance can raise that minimum, and a set preference can soften the extra correction, but neither can undercut the quality you chose.
         </p>
         <p>
-          That creates a trap, and JASWA used to fall into it. Ask a role for a great deal of DEF and slot 3 can draw the stat you want while slot 1 cannot — so the two slots produce completely different runes, even though each is measured against the perfect rune <i>of its own slot</i>. Dividing by the perfect rune lines the six scales up at the <i>top</i>; it says nothing about the middle, and the middle is where the keeping and selling happens.
+          The slots offer different legal substats and mains, so the same minimum can leave different numbers of survivors. JASWA checks a fixed sample with equal initial counts per slot and every legal main counted, including mains your roles cannot use. It uses 75 % Hero and 25 % Legend on odd slots; 25 % Rare, 50 % Hero and 25 % Legend on even slots. These are the simulator’s modelling assumptions.
         </p>
         <p>
-          Measured on a synthetic box of two thousand ordinary six-star runes per slot, one absolute Max value floor kept <b className="type-body-emphasis">30 % of Def DD&rsquo;s slot 3 runes and 9 % of its slot 4</b>, and for a role built almost entirely on ATK, <b className="type-body-emphasis">87 % of slot 3 and 11 % of slot 5</b>. It ran both ways, which is why no rule of thumb fixes it: a slot that cannot draw the wanted stat has a <i>lower</i> ceiling, so ordinary runes read high against it and it over-fills; a slot that can draw the stat has a high ceiling ordinary runes fall well short of, and it starves. You kept a pile of one slot and nothing for another, while needing exactly one of each.
+          Each rune follows the same selling funnel: judge at +0, power survivors to +9, sell again, then power survivors to +12 and keep only passing runes. The final percentage divides +12 survivors by <b className="type-body-emphasis">all original drops</b>. Floors are fitted across every combination of quality, policy, Accepted and Broken; a stricter choice inherits its less demanding neighbours before overrepresented slots are tightened.
         </p>
         <p>
-          So the floor is not a Max value at all. <b className="type-body-emphasis">It is a share of the runes that slot ordinarily produces for that role</b> — the default setting keeps the best 15 % of them — and JASWA works out what Max value that comes to in each slot separately.
-        </p>
-        <p>
-          <b className="type-body-emphasis">And a slot means all of it.</b> Slots 1, 3 and 5 have one main stat each; slots 2, 4 and 6 have seven or eight, and a role names one or two. Keeping 15 % of the runes a role can use would keep 15 % of slot 1 but only a fraction of slot 4 &mdash; measured on the shipped roles, 1&ndash;7 % of slots 2, 4 and 6 against 15&ndash;20 % of the others. So the 15 % is of <i>everything</i> the slot produces, every main counted evenly, and the runes with a main the role wants are let further into their own box to make up the rest. One preferred main out of eight needs eight times the share; five out of eight need barely any help. Where a role can use fewer of a slot&rsquo;s runes than the floor asks for &mdash; CRI Dmg alone on slot 4 is one rune in eight &mdash; every one of them is kept, because that is the only way that slot keeps as many as the others.
-        </p>
-        <p>
-          <b className="type-body-emphasis">And the roles are counted together.</b> A rune is kept when <i>any</i> role keeps it. A good slot 1 rune tends to be good for several roles at once, so what they keep of slot 1 overlaps and is counted once; on slots 2, 4 and 6 each role keeps runes of its own main stats, so what they keep barely overlaps and adds up. With every slot balanced role by role, the eight shipped roles together still kept 34&ndash;49 % of slots 2, 4 and 6 and 23&ndash;25 % of the others. So JASWA also measures what all your roles keep <i>together</i>, on a fixed sample of ordinary runes with every main and every set, and scales each slot until every slot keeps the same share. The level is where slots 1, 3 and 5 already stood, so the total number of runes you keep stays where your quality floor puts it; only how it is spread over the slots changes.
-        </p>
-        <p>
-          Here is that one default floor, at the default Gem and Grindstone settings and with all eight shipped roles in use, written out for four of them as the Max value it actually demands:
-        </p>
-        <div className="math-table-scroll">
-          <table className="math-table">
-            <caption className="visually-hidden">
-              The Max value the default quality floor comes to in each of the six slots, for four of the shipped roles judging together
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col" className="align-left">Role</th>
-                <th scope="col">Slot 1</th>
-                <th scope="col">Slot 2</th>
-                <th scope="col">Slot 3</th>
-                <th scope="col">Slot 4</th>
-                <th scope="col">Slot 5</th>
-                <th scope="col">Slot 6</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row" className="align-left">Fast DD</th>
-                <td>71 %</td><td>52 %</td><td>66 %</td><td>34 %</td><td>66 %</td><td>34 %</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Def DD</th>
-                <td>62 %</td><td>39 %</td><td>63 %</td><td>45 %</td><td>60 %</td><td>35 %</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Support</th>
-                <td>64 %</td><td>41 %</td><td>64 %</td><td>41 %</td><td>60 %</td><td>42 %</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Bruiser</th>
-                <td>76 %</td><td>64 %</td><td>73 %</td><td>57 %</td><td>73 %</td><td>62 %</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p>
-          A Def DD slot 6 rune needs 35 % where a slot 1 rune needs 62 %, and both are the same demand: be among the runes that keep your slot 6 as well stocked as your slot 1. So <b className="type-body-emphasis">a rune can be kept while another with a higher Max value is sold</b>, and that is the system working, not a bug.
-        </p>
-        <p>
-          The ordinary rune the box describes is as concrete as the perfect one: four substat lines drawn without replacement from what the slot allows, one roll each, four upgrades spread across them, an innate on the canonical 50 % of runes, and the Gems and Grindstones you told JASWA to assume. It is worked out exactly rather than simulated, for every slot of every build, and <span className="math-table-rolled">npm run verify:rune-slot-neutrality</span> checks the result by generating boxes of synthetic runes of every main and failing unless every slot keeps the same share of them.
+          The same floor applies at every checkpoint. Four-piece preference changes only four-piece candidates; Intangible preference changes only Intangible candidates. At the highest quality levels, survivors can be too rare for this fixed sample to establish slot evenness. The quality minimum stays in place, with a one-observation tail allowance in the fit, rather than filling a slot with poor runes.
         </p>
 
         <h3 className="type-heading">The number the column prints</h3>
@@ -558,7 +507,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">The sliders, and how many runes survive</h3>
         <p>
-          <b className="type-body-emphasis">Rune quality floor</b> sets the bar, and its five stops say how much of an ordinary box of runes to keep: <b className="type-body-emphasis">a third</b>, then 23 %, then <b className="type-body-emphasis">15 %</b> where the slider opens, then 9 %, then 4 %. Each stop asks that of every slot separately, which is the section above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar, and each stop means what it says: Full YOLO rolls a <b className="type-body-emphasis">1 %</b> shot, Adventurous 5 %, Balanced 20 %, Picky 50 % and Take no chances only a rune <b className="type-body-emphasis">80 %</b> sure to get there. The verdict is that one comparison, and the Chance column prints whole points rounded down, so the number you read clears the bar exactly when the rune does. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the role only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
+          <b className="type-body-emphasis">Rune quality floor</b> sets the minimum discounted Max value: 10 %, 35 %, <b className="type-body-emphasis">55 %</b> where the slider opens, 75 % and 90 %. Slot balance can tighten that minimum, as explained above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar, and each stop means what it says: Full YOLO rolls a <b className="type-body-emphasis">1 %</b> shot, Adventurous 5 %, Balanced 20 %, Picky 50 % and Take no chances only a rune <b className="type-body-emphasis">80 %</b> sure to get there. The verdict is that one comparison, and the Chance column prints whole points rounded down, so the number you read clears the bar exactly when the rune does. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the role only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
         </p>
         <p>
           A rune that passes the quality and Chance gates is kept under its strongest matching role. Another rune cannot make it fail by reaching that role first; the verdict rests on the rune itself and the standards you set.
@@ -584,7 +533,7 @@ export function TheMathSection() {
               </tr>
               <tr>
                 <th scope="row" className="align-left">Can it ever be good enough?</th>
-                <td className="align-left"><b className="type-body-emphasis">Sell</b> — not in the share of its slot&rsquo;s box that the floor keeps</td>
+                <td className="align-left"><b className="type-body-emphasis">Sell</b> — below this reading’s Max-value floor</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">Is it likely enough to get there?</th>

@@ -134,12 +134,12 @@ function powerUp(random, rune, targetLevel) {
   rune.level = targetLevel;
   return rune;
 }
-async function policy(source, roles, random) {
+async function policy(source, roles, random, policySettings = settings) {
   let active = source.map(clone);
   const retained = [];
   for (const stop of [0, 9, 12]) {
     if (stop) active = active.map((rune) => powerUp(random, rune, stop));
-    const advice = await runeAdvice(active, roles, settings, referenceStats);
+    const advice = await runeAdvice(active, roles, policySettings, referenceStats);
     if (stop === 12) {
       for (const rune of active) {
         const answer = advice.get(rune.id);
@@ -349,7 +349,11 @@ async function verifyVariants() {
 async function verifyMixedBox() {
   const random = makeRandom(seed);
   const source = Array.from({ length: runeCount }, (_, id) => freshRune(random, 'mixed-' + id));
-  const retained = await policy(source, defaultRuneRoles(), random);
+  /* The real Max-value floor can legitimately reject an entire small bare-rune
+     sample. Use the shipped craft credit for this non-vacuous population check;
+     the separate probability oracle still covers both bare and crafted runes. */
+  const retained = await policy(source, defaultRuneRoles(), random, { ...settings,
+    gemRoll: fullCraft.gem, grindstoneRoll: fullCraft.grind });
   const rate = retained.length / source.length;
   console.log('Mixed box: ' + retained.length.toLocaleString('en') + ' / ' + source.length.toLocaleString('en')
     + ' retained (' + percent(retained.length, source.length) + ').');
@@ -366,8 +370,7 @@ async function verifyMixedBox() {
   const spread = Math.max(...rates) / Math.max(1e-9, Math.min(...rates));
   console.log('Slots: ' + slots.map(({ slot, kept, seen }) => slot + '=' + percent(kept, seen)).join(', ')
     + '; spread ' + spread.toFixed(3) + 'x.');
-  /* Slot distribution is reported, not forced. A role count is the user's
-     stated preference; forcing six equal slot buckets would silently overwrite it. */
+  /* The larger complete-funnel holdout owns the statistical slot-balance gate. */
   const attribution = new Map();
   for (const { answer } of retained) {
     const name = answer?.role?.name ?? 'unassigned';

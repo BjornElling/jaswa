@@ -23,10 +23,10 @@ import assert from 'node:assert/strict';
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import {
-  acceptedWorth, brokenWorth, chanceThresholds, runeAdvice, slotFloorShares,
+  acceptedWorth, brokenWorth, chanceThresholds, runeAdvice, slotFloorMaxValues,
 } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  boxThreshold, candidateChance, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
+  candidateChance, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
   newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, runeRuns,
   slotMainFamily, standingIn,
 } from '../app/lib/rune-cleanup-model.ts';
@@ -76,15 +76,15 @@ function readingsOf(rune, settings, shares, scope) {
       .filter(Boolean);
     if (family.length === 0) continue;
     const box = ordinaryBox(slotMainFamily(role, builds, rune.slot, family[0].main, 6, line, neutral, scope));
-    const share = shares.get(role.id)[rune.slot - 1];
+    const floor = shares[rune.slot - 1];
     for (const candidate of family) {
       const worth = worthOf(candidate.rank);
       const maxValue = candidateMaxValue(candidate) * worth;
-      const threshold = worth > 0 ? boxThreshold(box, share) / worth : Number.POSITIVE_INFINITY;
+      const threshold = worth > 0 ? floor / worth : Number.POSITIVE_INFINITY;
       const expected = candidateExpectedValue(candidate, () => (runs ??= runeRuns(candidate.future)));
       readings.push({
         role, candidate, rank: candidate.rank, maxValue, value: standingIn(box, maxValue),
-        passesValue: standingIn(box, maxValue) >= 1 - share,
+        passesValue: maxValue >= floor,
         chance: candidateChance(candidate, threshold),
         expected: expected * worth, bound: candidateExpectedBound(candidate) * worth,
         rawExpected: expected, rawMax: candidateMaxValue(candidate),
@@ -145,12 +145,12 @@ let movedFromBestCase = 0;
 for (const [label, settings] of scenarios) {
   const advice = await runeAdvice(runes, roles, settings, base);
   /* Below +12 a rune is held to the fresh-rune balance, so the floor is asked per level. */
-  const sharesByLevel = new Map([0, 6, 9, 12].map((level) => [level, slotFloorShares(roles, settings, base, 6, level)]));
+  const floors = slotFloorMaxValues(roles, settings, base);
   const bar = chanceThresholds[settings.powerUpPolicy - 1];
   const scope = newRuneAdviceScope();
   for (const rune of runes) {
     const row = advice.get(rune.id);
-    const readings = readingsOf(rune, settings, sharesByLevel.get(rune.level), scope);
+    const readings = readingsOf(rune, settings, floors, scope);
     if (readings.length === 0) { check(row.role === null, `${label} ${rune.id}: a role named with no reading`); continue; }
     for (const reading of readings) {
       check(reading.rawExpected <= reading.rawMax + 1e-12,

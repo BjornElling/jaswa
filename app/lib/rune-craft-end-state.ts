@@ -208,10 +208,13 @@ export type GemOptions = {
   readonly values: Float64Array;
   /** The raw roll of each, before its Grindstone, for the same-id case below. */
   readonly rolls: Float64Array;
+  /** The same-id option is independent of which other ids a future reveals. */
+  readonly indexByStat: Int32Array;
 };
 
 const emptyGemOptions: GemOptions = {
   statIds: new Int32Array(0), values: new Float64Array(0), rolls: new Float64Array(0),
+  indexByStat: new Int32Array(statIdBound).fill(-1),
 };
 
 /**
@@ -253,7 +256,10 @@ function legalGems(
     legal.push({ statId, roll, value: (roll + grindCredit(plan, statId)) * prices[statId] });
   }
   legal.sort((left, right) => right.value - left.value);
+  const indexByStat = new Int32Array(statIdBound).fill(-1);
+  legal.forEach((entry, at) => { indexByStat[entry.statId] = at; });
   return {
+    indexByStat,
     statIds: Int32Array.from(legal, (entry) => entry.statId),
     values: Float64Array.from(legal, (entry) => entry.value),
     rolls: Float64Array.from(legal, (entry) => entry.roll),
@@ -317,23 +323,27 @@ export function craftedScore(
        place in the order says. It is therefore priced separately. */
     let best = -Infinity;
     let bestOption = -1;
-    let foundOther = false;
+    /* The first legal other id already wins the sorted list. Looking up the
+       same-id exception directly avoids scanning the remainder in every future. */
     for (let index = 0; index < options.statIds.length; index += 1) {
       const statId = options.statIds[index];
-      if (statId === line.statId) {
-        const same = groundValue(plan, statId, options.rolls[index], line.grind) * prices[statId];
-        if (same > best) { best = same; bestOption = index; }
-        if (foundOther) break;
-        continue;
-      }
-      if (foundOther) continue;
+      if (statId === line.statId) continue;
       let blocked = false;
       for (let other = 0; other < lines.length && !blocked; other += 1) {
         if (other !== at && lines[other].statId === statId) blocked = true;
       }
       if (blocked) continue;
-      if (options.values[index] > best) { best = options.values[index]; bestOption = index; }
-      foundOther = true;
+      best = options.values[index];
+      bestOption = index;
+      break;
+    }
+    const sameIndex = options.indexByStat[line.statId];
+    if (sameIndex >= 0) {
+      const same = groundValue(plan, line.statId, options.rolls[sameIndex], line.grind) * prices[line.statId];
+      if (same > best || (same === best && sameIndex < bestOption)) {
+        best = same;
+        bestOption = sameIndex;
+      }
     }
     if (best === -Infinity) continue;
     const gain = best - lineValues[at];
