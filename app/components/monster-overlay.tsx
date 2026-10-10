@@ -85,11 +85,11 @@ const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 
 
 /* The four leads, in the order the user asked for them: the crit lead first, as
    it was alone before the others joined it. */
-const leadRows: ReadonlyArray<{ stat: LeadStat; label: string; name: string }> = [
-  { stat: 'criRate', label: 'Crit lead', name: 'Crit lead' },
-  { stat: 'atk', label: 'Attack', name: 'Attack lead' },
-  { stat: 'def', label: 'Defence', name: 'Defence lead' },
-  { stat: 'hp', label: 'HP', name: 'HP lead' },
+const leadRows: ReadonlyArray<{ stat: LeadStat; label: string }> = [
+  { stat: 'criRate', label: 'CRI Rate' },
+  { stat: 'atk', label: 'ATK' },
+  { stat: 'def', label: 'DEF' },
+  { stat: 'hp', label: 'HP' },
 ];
 /* The figures a lead or a crit condition can mark, which keep room for two marks:
    a stat names where its lead goes, a composite what it counted. */
@@ -615,7 +615,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
                   {leadRows.map((row) => <label className="overlay-lead" key={row.stat}>
                     <span>{row.label}</span>
                     <input type="number" min={0} max={leadMaximum} step={1} inputMode="numeric"
-                      aria-label={`${row.name}, in percent`} placeholder="—" value={draft[leadFieldOf[row.stat]] ?? ''}
+                      aria-label={`${row.label}, in percent`} placeholder="—" value={draft[leadFieldOf[row.stat]] ?? ''}
                       onChange={(event) => {
                         const value = readLeadField(event.target.value);
                         change((state) => ({ ...state, [leadFieldOf[row.stat]]: value }));

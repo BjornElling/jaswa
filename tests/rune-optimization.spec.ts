@@ -15,6 +15,45 @@ import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/rune-optimization-account.json', import.meta.url));
 
+test('equal Gem plans preserve the rune for its strongest role', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  const data = JSON.parse(readFileSync(account, 'utf8'));
+  data.unit_list = data.unit_list.map((unit: Record<string, unknown>) => ({ ...unit, runes: [] }));
+  data.runes = Array.from({ length: 6 }, (_, at) => ({
+    ...data.runes.find((rune: { slot_no: number }) => rune.slot_no === at + 1),
+    rune_id: 9000 + at, occupied_id: 0, upgrade_curr: 15, set_id: at < 4 ? 5 : 4,
+    pri_eff: [[3, 160], [4, 63], [5, 160], [10, 80], [1, 2448], [4, 63]][at],
+    prefix_eff: [0, 0],
+    sec_eff: at === 1 ? [[2, 6, 0, 0], [5, 34, 0, 0], [9, 17, 0, 0], [11, 6, 0, 0]]
+      : at === 2 ? [[2, 6, 0, 0], [9, 17, 0, 0], [10, 14, 0, 0], [8, 6, 0, 0]]
+        : [[2, 6, 0, 0], [9, 17, 0, 0], [8, 6, 0, 0], at === 0 ? [10, 14, 0, 0] : [5, 34, 0, 0]],
+  }));
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'gem-tie.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)),
+  });
+  await expect(page.getByText('gem-tie.json', { exact: false }).first()).toBeVisible();
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
+  await page.getByRole('button', { name: /^Slot 4 main stat:/ }).click();
+  await page.getByRole('menuitem', { name: 'CtD%', exact: true }).click();
+  for (const input of await requirements.locator('.stat-ranges input[type="number"]').all()) await input.fill('');
+  await page.getByLabel('Rank by', { exact: true }).selectOption('dmg');
+  const settings = page.getByRole('complementary', { name: 'Settings' });
+  await settings.getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
+  const before = await box(requirements);
+  await page.screenshot({ path: testInfo.outputPath('gem-tie-before.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const modifications = page.getByRole('region', { name: 'Slot 2 modifications' });
+  await page.screenshot({ path: testInfo.outputPath('gem-tie-result.png'), fullPage: true });
+  await expect(modifications).toContainText(/Resistance\s*\+6%/);
+  await expect(modifications).toContainText('CRI Dmg');
+  await page.keyboard.press('Escape');
+  expect(await box(requirements)).toEqual(before);
+});
+
 async function freshWorkspace(page: Page) {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -399,18 +438,20 @@ test('an open build follows the runes as the player works on them', async ({ pag
   const table = page.getByRole('table', { name: 'Rune builds' });
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const detail = page.getByRole('dialog', { name: 'Build 1' });
-  /* The build puts a Gem on rune 5037's ATK +19% line, turning it into SPD, and grinds it. */
+  /* The build preserves rune 5037's useful ATK, replacing RES with SPD and grinding it. */
   const slot4 = detail.getByRole('region', { name: 'Slot 4 modifications' });
   await expect(slot4.getByText('Enchanted Gem')).toBeVisible();
   await expect(slot4.getByText('Grindstone')).toBeVisible();
-  await expect(slot4.locator('[data-kind="gem"]')).toContainText('+19%');
+  await expect(slot4.locator('[data-kind="gem"]')).toContainText(/Resistance\s*\+4%/);
   const rowBefore = await table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 1', exact: true }) }).innerText();
 
   /* The player gems the line in the game, rolls SPD +5 rather than the +7 the search
      assumed, and the sync brings it back while the overlay is still open. */
   const rune = game.runes.find((entry) => entry.rune_id === 5037);
   if (!rune) throw new Error('the fixture no longer holds rune 5037');
-  rune.sec_eff[0] = [8, 5, 1, 0];
+  const replaced = rune.sec_eff.findIndex(([statId]) => statId === 11);
+  if (replaced < 0) throw new Error('the fixture no longer holds the RES line');
+  rune.sec_eff[replaced] = [8, 5, 1, 0];
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'rune-optimization-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(game)),
   });
@@ -709,8 +750,8 @@ test('a CRI Rate range names the copy\'s own CRI Rate, and DMG is dealt with the
   const shown = await rate.locator('.overlay-stat-current').innerText();
   await page.screenshot({ path: testInfo.outputPath('raw-crit-range-empty.png') });
   await page.getByRole('button', { name: 'Open profile' }).click();
-  const profile = page.getByRole('dialog').filter({ has: page.getByRole('spinbutton', { name: 'Crit lead, in percent' }) });
-  await profile.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
+  const profile = page.getByRole('dialog').filter({ has: page.getByRole('spinbutton', { name: 'CRI Rate, in percent' }) });
+  await profile.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
   await profile.getByRole('button', { name: 'Save changes' }).click();
   await rate.getByRole('spinbutton', { name: 'CtR%: at least' }).fill('34');
   await rate.getByRole('spinbutton', { name: 'CtR%: at most' }).fill('36');

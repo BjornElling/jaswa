@@ -52,6 +52,7 @@ import {
 } from '../lib/rune-optimization-settings';
 import type { CraftUse, RuneOptimizationSettings } from '../lib/rune-optimization-settings';
 import { roleTargetColumns } from '../lib/rune-roles';
+import { referenceLines } from '../lib/rune-reference-stats';
 import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
 import { activeRuneSets } from '../lib/rune-sets';
 import { runeBuildName } from '../lib/rune-set-pairs';
@@ -237,9 +238,16 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const spared = useMemo(() => (sparing && preset
     ? higherPriorityThan(presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority), unitId) : []),
   [sparing, preset, preferences.monsterPriority, preferences.presetPriority, unitId]);
+  const gemPreservationRoles = useMemo(() => {
+    const lines = referenceLines(game?.data);
+    return preferences.runePotentialPresets.flatMap((role) => {
+      const base = lines?.get(role.type)?.stats;
+      return base ? [{ role, base }] : [];
+    });
+  }, [game, preferences.runePotentialPresets]);
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements && (!settings.limitChanges || settings.maxChanges !== undefined) ? {
-    unitId: selected.unitId, monster: selected.record, runes, locks, spared, craftItems, requirements, settings,
-  } : undefined), [selected, requirements, runes, locks, spared, craftItems, settings]);
+    unitId: selected.unitId, monster: selected.record, runes, locks, spared, craftItems, requirements, settings, gemPreservationRoles,
+  } : undefined), [selected, requirements, runes, locks, spared, craftItems, settings, gemPreservationRoles]);
   const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
   const trial = useRuneOptimizationWork(input, preferences.hardwareAcceleration, state === 'calculating');
   /* The question on screen. The account is never part of it: the player follows the
@@ -248,7 +256,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      fewer builds is the same table cut shorter. */
   const { resultCount, ...searchSettings } = settings;
   const keyOf = (asked: RuneOptimizationRequirements | undefined) =>
-    JSON.stringify({ presetId: activePresetId, unitId, requirements: asked, settings: searchSettings, spared });
+    JSON.stringify({ presetId: activePresetId, unitId, requirements: asked, settings: searchSettings, spared,
+      gemRoles: preferences.runePotentialPresets });
   const inputKey = keyOf(requirements);
   /* A table stays on screen while its monster is chosen, whatever is changed above
      it: it is still the answer to the question it was asked, read with that

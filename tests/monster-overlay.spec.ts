@@ -133,12 +133,19 @@ test('leads and element advantage reach the composites, never a stat or its rang
   await openOverlay(page);
   const dialog = page.getByRole('dialog');
   const rate = dialog.locator('.stat-range[data-figure="criRate"]');
+  const leads = dialog.getByRole('group', { name: 'Leads and bonuses' });
+  await expect(leads.locator('.overlay-lead > span:first-child')).toHaveText(['CRI Rate', 'ATK', 'DEF', 'HP']);
+  const leadBoxes = () => leads.locator('input').evaluateAll((inputs) => inputs.map((input) => {
+    const rect = input.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  }));
+  const emptyLeadBoxes = await leadBoxes();
   const before = await rate.boundingBox();
   await expect(rate.locator('.overlay-stat-current')).toContainText('51');
   await page.screenshot({ path: testInfo.outputPath('crit-bonuses-empty.png') });
 
   await dialog.getByLabel('Always element advantage').check();
-  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
+  await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
   await expect(rate.locator('.overlay-stat-current')).toContainText('51');
   const mark = rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate to DMG.*Crit lead adds 33% CRI Rate to DMG/ });
   await expect(mark).toBeVisible();
@@ -159,31 +166,34 @@ test('leads and element advantage reach the composites, never a stat or its rang
   const effective = dialog.locator('.stat-range[data-figure="ehp"]');
   const shownHp = await hp.locator('.overlay-stat-current').innerText();
   const effectiveBefore = await effective.locator('.overlay-stat-current').innerText();
-  await dialog.getByRole('spinbutton', { name: 'HP lead, in percent' }).fill('24');
+  await dialog.getByRole('spinbutton', { name: 'HP, in percent' }).fill('24');
   await expect(hp.locator('.overlay-stat-current')).toHaveText(shownHp);
   await expect(hp.getByRole('img', { name: /HP lead adds 24% HP to E\.HP and E\.HP D, not to this figure or its range/ })).toBeVisible();
   await expect(effective.locator('.overlay-stat-current')).not.toHaveText(effectiveBefore);
   await expect(effective.getByRole('img', { name: 'Counted with HP lead 24%' })).toBeVisible();
-  await dialog.getByRole('spinbutton', { name: 'HP lead, in percent' }).fill('');
+  await dialog.getByRole('spinbutton', { name: 'HP, in percent' }).fill('');
   /* No composite reads SPD, so there is no Speed lead to state. */
   await expect(dialog.getByRole('spinbutton', { name: 'Speed lead, in percent' })).toHaveCount(0);
   expect(await rate.boundingBox()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('crit-bonuses-filled.png') });
   await dialog.getByRole('checkbox', { name: 'Always crits' }).check();
-  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('100');
+  await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('100');
+  for (const stat of ['ATK', 'DEF', 'HP']) await leads.getByRole('spinbutton', { name: `${stat}, in percent` }).fill('100');
+  expect(await leadBoxes()).toEqual(emptyLeadBoxes);
   expect(await rate.boundingBox()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('crit-bonuses-all.png') });
+  for (const stat of ['ATK', 'DEF', 'HP']) await leads.getByRole('spinbutton', { name: `${stat}, in percent` }).fill('');
   await dialog.getByRole('checkbox', { name: 'Always crits' }).uncheck();
-  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
+  await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
 
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   await page.reload();
   await openOverlay(page);
   await expect(dialog.getByLabel('Always element advantage')).toBeChecked();
-  await expect(dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' })).toHaveValue('33');
-  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('');
+  await expect(dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' })).toHaveValue('33');
+  await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('');
   await expect(rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate/ })).toBeVisible();
-  await dialog.getByRole('spinbutton', { name: 'Crit lead, in percent' }).fill('33');
+  await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
   await dialog.getByRole('button', { name: /^Optimize runes for / }).click();
   const optimizationStats = page.getByRole('group', { name: 'Stats', exact: true });
   await expect(optimizationStats.locator('.stat-range[data-figure="criRate"] .overlay-stat-current')).toContainText('51');

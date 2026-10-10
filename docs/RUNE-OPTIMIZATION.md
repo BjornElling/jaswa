@@ -147,7 +147,8 @@ makes every CRI Rate target moot.
 
 ### 2.2.3 Leads
 
-A copy states up to four leads — *Crit lead*, *Attack*, *Defence* and *HP* — each
+A copy states up to four leads — *CRI Rate*, *ATK*, *DEF* and *HP*, labelled by
+stat under *Leads and bonuses* on the monster overlay — each
 a whole percentage, CRI Rate in points. ATK, DEF and HP leads are a share of base
 summed with every other percentage and rounded once, exactly as the game counts a
 leader skill, so a lead is not a fixed number of points on the stat. Each reaches
@@ -307,6 +308,16 @@ families are reduced before the wider cross-rune comparison. A dominator that
 requires an extra move cannot remove an engraved rune, because surplus in a target
 stat need not improve the ranking figure. Identical candidates break the tie
 towards the rune already on the monster.
+
+Within one rune, equally useful Gem plans preserve its strongest matching role:
+when two or more replacement lines contribute to none of the monster's judged
+figures, the least valuable line for that role is offered first. The role comes
+from the user's saved roles and account reference stats, using the Clean-up
+engine's Max value ruler without assumed Gems or Grindstones; both set and main
+must match. Its existing valuation prices the removed line, including its grind.
+Monster figures, ranges, legal converted lines and held-item spend still decide
+dominance first. With no matching role or reference line, the ordinary stable
+order remains. Editing roles marks an existing optimization table as stale.
 
 A held stack of six cannot run out: one kind/stat stack is used at most once
 per rune. Dominance may ignore that stack's scarcity while still reporting its

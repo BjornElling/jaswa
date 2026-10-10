@@ -5615,9 +5615,11 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   --digits: 5;
   --field: calc(var(--digits) * 1ch + 2 * var(--s2) + 2px);
   width: calc(2 * var(--field) + var(--s2));
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr);
   grid-template-areas: 'head current' 'fields fields';
-  align-items: baseline;
+  /* Reserve the label's width and centre the line boxes: a larger composite
+     or a newly shown mark must not wrap its label or change its baseline. */
+  align-items: center;
   column-gap: var(--s2);
 }
 .overlay-stat-ranges .stat-range:is([data-figure='ehp'], [data-figure='ehpD']) { --digits: 6; }

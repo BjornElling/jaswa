@@ -51,6 +51,8 @@
  *     scripts/verify-rune-optimization.mjs
  */
 import assert from 'node:assert/strict';
+import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
+import { gemRemovalPrices } from '../app/lib/rune-optimization-gem-preference.ts';
 import {
   calculateMonsterTotals, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys,
 } from '../app/lib/monster-stats.ts';
@@ -839,3 +841,33 @@ console.log('PASS: 36 change-limited searches match exhaustive enumeration, spli
   assert.equal(currentBuilds([build], context)[0].runes[0].issue?.kind, 'slot-filled');
 }
 console.log('PASS: refreshed builds identify newly occupied slots and changes beyond their saved limit.');
+
+{
+  const input = scenario(0);
+  const base = { hp: 10000, atk: 800, def: 600, spd: 100, criRate: 15, criDmg: 50, res: 15, acc: 0 };
+  const role = defaultRuneRoles().find((role) => role.id === 'slow-dd');
+  const rune = { ...input.runes.find((rune) => rune.slot === 2), setId: 4, setName: 'Blade',
+    mainStatId: 4, mainValue: 63, prefixStatId: null, prefixValue: 0, level: 15, occupiedId: null,
+    subProperties: [[2, 6], [5, 34], [9, 17], [11, 6]].map(([statId, value]) => ({ statId, value, grind: 0, gemmed: false })) };
+  const prices = gemRemovalPrices([{ role, base }])(rune);
+  assert.ok(prices[0] > prices[3], 'HP must be worth keeping for Slow DD');
+  assert.ok(prices[1] > prices[3], 'DEF must be worth keeping for Slow DD');
+  assert.equal(gemRemovalPrices([])(rune), undefined, 'cleared roles must not acquire shipped replacements');
+  assert.equal(gemRemovalPrices([{ role: { ...role, targets: {} }, base }])(rune), undefined);
+  input.runes = [...input.runes.filter((entry) => entry.slot !== 2), rune]; input.locks = {}; input.spared = [];
+  input.requirements = { ...input.requirements, builds: [], allowBroken: true, allowIntangible: false,
+    slotMains: { slot2: [], slot4: [], slot6: [] }, rankBy: 'dmg', targets: {}, ceilings: {} };
+  input.settings = { ...input.settings, depth: 'complete', gems: 'theoretical', grinds: 'none', fillEmptySlotsOnly: false };
+  input.gemPreservationRoles = [{ role, base }];
+  const gemmed = (problem) => problem.slots[1].filter((candidate) => candidate.gemmedAt >= 0);
+  assert.ok(gemmed(prepareRuneOptimization(input)).some((candidate) => candidate.lines[3].statId === 10));
+  assert.ok(gemmed(prepareRuneOptimization(input)).every((candidate) => candidate.gemmedAt === 3), 'tied plans must replace RES');
+  input.requirements.targets = { res: 100 };
+  assert.ok(gemmed(prepareRuneOptimization(input, { reduce: false })).some((candidate) => candidate.gemmedAt !== 3),
+    'a monster target must retain alternatives that the rune role alone would discard');
+  rune.subProperties[0].gemmed = true;
+  input.requirements.targets = {};
+  assert.ok(gemmed(prepareRuneOptimization(input)).every((candidate) => candidate.gemmedAt === 0),
+    'the existing converted line must remain the only legal replacement');
+}
+console.log('PASS: tied Gem plans preserve HP and DEF for Slow DD, respect monster targets and converted lines, and tolerate empty roles.');

@@ -52,6 +52,8 @@ import { runeStatIds } from './runes';
 import type { RuneSlotMain } from './rune-slot-mains';
 import { gemMinimumLevel, runeMaximumLevel } from './runes';
 import type { Rune } from './runes';
+import { gemRemovalPrices } from './rune-optimization-gem-preference';
+import type { GemPreservationRole } from './rune-optimization-gem-preference';
 
 export type RankFigure = keyof MonsterStatTargets;
 
@@ -97,6 +99,8 @@ export type RuneOptimizationInput = {
   craftItems: readonly CraftItem[];
   requirements: RuneOptimizationRequirements;
   settings: RuneOptimizationSettings;
+  /** The user's roles with account reference lines; absent where no role context is available. */
+  gemPreservationRoles?: readonly GemPreservationRole[];
 };
 
 /** One rune in one end state, as the search sees it. */
@@ -654,6 +658,7 @@ export function prepareRuneOptimization(
     .flatMap((figure) => figureEffectSlots(figure, requirements.alwaysCrits)))];
   const relevantSlots = new Uint8Array(effectSlotCount);
   for (const slot of relevant) relevantSlots[slot] = 1;
+  const removalPrices = gemRemovalPrices(input.gemPreservationRoles ?? []);
   const wanted = (statId: number) => {
     const slot = effectSlotOf(statId);
     return slot >= 0 && relevantSlots[slot] === 1;
@@ -743,6 +748,16 @@ export function prepareRuneOptimization(
       ? [{ lines, gemmedAt: -1, stock: [] as number[] }]
       : craftVariants(supply, rune.slot, rune.mainStatId, rune.prefixStatId, lines, rune.level >= gemMinimumLevel, wanted,
         (statId) => pinned.has(effectSlotOf(statId)));
+
+    if (supply.gem && lines.filter((line) => !wanted(line.statId)).length > 1) {
+      const prices = removalPrices(rune);
+      if (prices) {
+        // The exact reduction keeps the earlier plan on equal judged stats and spend.
+        // Preserve the strongest role's useful lines only among otherwise unused lines.
+        const cost = (at: number) => at < 0 ? -1 : wanted(lines[at].statId) ? Infinity : prices[at];
+        variants.sort((a, b) => cost(a.gemmedAt) - cost(b.gemmedAt));
+      }
+    }
 
     runesSeen.add(rune.id);
     for (const variant of variants) {
