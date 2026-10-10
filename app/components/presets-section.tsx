@@ -20,7 +20,6 @@ import { runeSlotCount } from '../lib/rune-set-pairs';
 import { monsterCopyNames } from '../lib/monster-names';
 import { profilesIn } from '../lib/monster-preferences';
 import { presetPriorityOf } from '../lib/monster-priority';
-import { presetSpeedTeam } from '../lib/speed-tuning-preferences';
 import type { MonsterPriority } from '../lib/monster-priority';
 import { presetContent, presetTabs, tabContents } from '../lib/preset-contents';
 import type { PresetContentId } from '../lib/preset-contents';
@@ -118,11 +117,8 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const reorder = useDragReorder<HTMLOListElement>({ count: priority.length, onMove: move });
   const editable = preset !== null && (preset.kind !== 'game' || gameEditable);
   const deletable = own !== null || gameEditable;
-  /* Speed Tuning opens a team only where it has a speed model for the content
-     and the preset fields no more monsters than the content does. */
-  const speed = preset?.kind === 'default' ? null : preset?.content?.speed ?? null;
-  const tunable = preset !== null && speed !== null && preset.members.length > 0
-    && presetSpeedTeam(preset, speed, preferences.speedTuning.presets[preset.id]) !== null;
+  /* Speed Tuning lists every preset with monsters as a team, so any of them opens there. */
+  const tunable = preset !== null && preset.kind !== 'default' && preset.members.length > 0;
   const teams = useMemo<TeamChoice[]>(() => (onDefault ? []
     : area.presets.map((entry) => {
       const teamNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, entry.id));

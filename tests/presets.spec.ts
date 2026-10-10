@@ -606,11 +606,11 @@ test('Speed tuning opens the preset\'s team in Speed Tuning, from any of its row
   const names = await copyNames(page);
   const speed = (name: string, preset: string) => page.getByRole('button', { name: `Speed tuning for ${preset}, from ${name}` });
 
-  /* Default has no team, and a deck whose content is unnamed has no speed model. */
+  /* Default has no team; every preset with monsters is one, its content named or not. */
   await addMenu(page).selectOption('12');
   await expect(speed(names[12], 'Default')).toBeDisabled();
   await choosePreset(page, 'Not yet named', 'Deck 99 · 1');
-  await expect(speed(names[12], 'Deck 99 · 1')).toBeDisabled();
+  await expect(speed(names[12], 'Deck 99 · 1')).toBeEnabled();
 
   /* Left of Optimize, in the same dress. */
   await choosePreset(page, 'Arena Attack', 'Arena Attack 4');

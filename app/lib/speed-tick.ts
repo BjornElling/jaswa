@@ -55,7 +55,12 @@ export const totemPercentByLevel: readonly number[] = [
   0, 1, 2, 2.5, 3, 4, 5, 5.5, 6, 7, 8, 8.5, 9, 10, 11, 11.5, 12, 13, 14, 14.5, 15,
 ];
 
-export type SpeedArea = 'arena' | 'dungeon';
+/**
+ * Where a team fights, as far as a leader skill is concerned. `unnamed` is a
+ * preset whose content the export does not say: only a lead that counts
+ * everywhere is sure to count there.
+ */
+export type SpeedArea = 'arena' | 'dungeon' | 'guild' | 'unnamed';
 
 /** Where a leader skill counts. An element is a second, separate limit. */
 export type LeaderArea = 'General' | 'Arena' | 'Dungeon' | 'Guild';
@@ -64,8 +69,8 @@ export type SpeedLeaderSkill = { percent: number; area: LeaderArea; element: str
 /**
  * The leader's speed percentage for one member, or 0 where it does not reach.
  *
- * A General lead counts everywhere; an Arena or Dungeon lead only in its own
- * content; a Guild lead in neither of the areas this page tunes. A lead that
+ * A General lead counts everywhere; an Arena, Dungeon or Guild lead only in its
+ * own area, and none of them where the content is not yet named. A lead that
  * names an element counts only on monsters of that element.
  */
 export function leaderSpeedPercent(leader: SpeedLeaderSkill | null, area: SpeedArea, memberElement: string | null): number {
@@ -80,7 +85,7 @@ export function leaderAreaReaches(leaderArea: LeaderArea, area: SpeedArea): bool
     case 'General': return true;
     case 'Arena': return area === 'arena';
     case 'Dungeon': return area === 'dungeon';
-    case 'Guild': return false;
+    case 'Guild': return area === 'guild';
   }
 }
 

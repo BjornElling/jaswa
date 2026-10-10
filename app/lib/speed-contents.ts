@@ -2,14 +2,20 @@
  * The places a team can be tuned for, and what the game puts against it there.
  *
  * Arena is tuned against a hypothetical enemy the page derives from the team
- * itself; a dungeon against the enemies of its hardest floor, read from the
- * Swarfarm snapshot `scripts/refresh-swarfarm-speed-data.mjs` writes.
+ * itself; a Cairos dungeon against the enemies of its hardest floor, read from
+ * the Swarfarm snapshot `scripts/refresh-swarfarm-speed-data.mjs` writes.
+ *
+ * Every other content is tuned for its own turn order alone: the snapshot has
+ * no enemies for it, and inventing some would judge a team by a guess. Its area
+ * still decides which leader skills count, so its combat speeds are the game's.
  */
 import speedData from '../data/swarfarm-speed-dungeons.json';
 import type { SpeedArea } from './speed-tick';
 
 export type DungeonId = 'giants' | 'dragons' | 'necropolis' | 'spiritual' | 'steel' | 'punisher' | 'magic';
-export type SpeedContentId = 'arena' | DungeonId;
+/** A content without enemy data, by area: the other dungeons, guild content, and a preset not yet named. */
+export type OpenContentId = 'other-dungeon' | 'guild' | 'unnamed';
+export type SpeedContentId = 'arena' | DungeonId | OpenContentId;
 
 /** One stage of a dungeon floor: its enemies' dungeon speeds, resistance percents and game monster ids, in one order. */
 export type DungeonStage = { fastest: number; speeds: readonly number[]; resists: readonly number[]; monsters: readonly number[] };
@@ -23,7 +29,8 @@ export type SpeedContent = {
   id: SpeedContentId;
   name: string;
   area: SpeedArea;
-  teamSize: number;
+  /** The team the enemy data was read for, `null` where there is none: the preset's content then decides. */
+  teamSize: number | null;
   /** The floor the stages come from, as Swarfarm names it; `null` for arena. */
   floor: string | null;
   stages: readonly DungeonStage[];
@@ -75,6 +82,9 @@ function dungeonContent(id: DungeonId): SpeedContent {
 export const speedContents: readonly SpeedContent[] = [
   { id: 'arena', name: 'Arena', area: 'arena', teamSize: arenaTeamSize, floor: null, stages: [] },
   ...dungeonIds.map(dungeonContent),
+  { id: 'other-dungeon', name: 'Dungeon', area: 'dungeon', teamSize: null, floor: null, stages: [] },
+  { id: 'guild', name: 'Guild', area: 'guild', teamSize: null, floor: null, stages: [] },
+  { id: 'unnamed', name: 'Not yet named', area: 'unnamed', teamSize: null, floor: null, stages: [] },
 ];
 
 export function speedContent(id: SpeedContentId): SpeedContent {
@@ -83,8 +93,8 @@ export function speedContent(id: SpeedContentId): SpeedContent {
   return content;
 }
 
-export function speedContentTeamSize(id: SpeedContentId): number {
-  return speedContent(id).teamSize;
+export function isDungeonId(id: SpeedContentId): id is DungeonId {
+  return (dungeonIds as readonly string[]).includes(id);
 }
 
 /** The fastest enemy anywhere on a dungeon floor, in dungeon speed. */

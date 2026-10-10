@@ -46,8 +46,8 @@ export type PresetContent = {
   column: PresetColumn;
   /** How many monsters a deck of this content holds. */
   teamSize: number;
-  /** The content Speed Tuning judges a team against, `null` where it has no enemy data. */
-  speed: SpeedContentId | null;
+  /** What Speed Tuning reads a team against: its enemies where they are known, else its area alone. */
+  speed: SpeedContentId;
   /**
    * Whether every preset of the content draws from one pool, so a rune is
    * engraved at most once across all of them. Only the Siege Battle defense
@@ -57,7 +57,7 @@ export type PresetContent = {
 };
 
 function content(id: PresetContentId, name: string, tab: PresetTab, column: PresetColumn, teamSize: number,
-  speed: SpeedContentId | null = null, sharedPool = false): PresetContent {
+  speed: SpeedContentId, sharedPool = false): PresetContent {
   return { id, name, tab, column, teamSize, speed, sharedPool };
 }
 
@@ -69,50 +69,50 @@ const contents: readonly PresetContent[] = [
   content('interserver-defense', 'Arena Interserver Defense', 'Arena', 'arena', 4, 'arena'),
   /* The Guild tab's menu has not been read off the screen; these are the guild
      contents of the capacity table, in its order. */
-  content('siege', 'Siege Battle', 'Guild', 'other', 3),
-  content('siege-defense', 'Siege Battle Defense', 'Guild', 'other', 3, null, true),
-  content('world-guild', 'World Guild Battle', 'Guild', 'other', 3),
-  content('world-guild-defense', 'World Guild Battle Defense', 'Guild', 'other', 3),
-  content('labyrinth-normal', 'Labyrinth Normal', 'Guild', 'other', 5),
-  content('labyrinth-rescue', 'Labyrinth Rescue', 'Guild', 'other', 5),
-  content('labyrinth-explode', 'Labyrinth Explode', 'Guild', 'other', 5),
-  content('labyrinth-cooldown', 'Labyrinth Cooldown Time Up', 'Guild', 'other', 5),
-  content('labyrinth-speed-limit', 'Labyrinth Speed Limit', 'Guild', 'other', 5),
-  content('labyrinth-time-limit', 'Labyrinth Time Limit', 'Guild', 'other', 5),
-  content('labyrinth-boss', 'Labyrinth Boss', 'Guild', 'other', 5),
-  content('subjugation-water', 'Monster Subjugation Water', 'Guild', 'other', 5),
-  content('subjugation-fire', 'Monster Subjugation Fire', 'Guild', 'other', 5),
-  content('subjugation-wind', 'Monster Subjugation Wind', 'Guild', 'other', 5),
-  content('subjugation-boss', 'Monster Subjugation Boss', 'Guild', 'other', 5),
+  content('siege', 'Siege Battle', 'Guild', 'other', 3, 'guild'),
+  content('siege-defense', 'Siege Battle Defense', 'Guild', 'other', 3, 'guild', true),
+  content('world-guild', 'World Guild Battle', 'Guild', 'other', 3, 'guild'),
+  content('world-guild-defense', 'World Guild Battle Defense', 'Guild', 'other', 3, 'guild'),
+  content('labyrinth-normal', 'Labyrinth Normal', 'Guild', 'other', 5, 'guild'),
+  content('labyrinth-rescue', 'Labyrinth Rescue', 'Guild', 'other', 5, 'guild'),
+  content('labyrinth-explode', 'Labyrinth Explode', 'Guild', 'other', 5, 'guild'),
+  content('labyrinth-cooldown', 'Labyrinth Cooldown Time Up', 'Guild', 'other', 5, 'guild'),
+  content('labyrinth-speed-limit', 'Labyrinth Speed Limit', 'Guild', 'other', 5, 'guild'),
+  content('labyrinth-time-limit', 'Labyrinth Time Limit', 'Guild', 'other', 5, 'guild'),
+  content('labyrinth-boss', 'Labyrinth Boss', 'Guild', 'other', 5, 'guild'),
+  content('subjugation-water', 'Monster Subjugation Water', 'Guild', 'other', 5, 'guild'),
+  content('subjugation-fire', 'Monster Subjugation Fire', 'Guild', 'other', 5, 'guild'),
+  content('subjugation-wind', 'Monster Subjugation Wind', 'Guild', 'other', 5, 'guild'),
+  content('subjugation-boss', 'Monster Subjugation Boss', 'Guild', 'other', 5, 'guild'),
   content('giants', "Giant's Keep", 'Cairos', 'dungeons', 5, 'giants'),
   content('dragons', "Dragon's Lair", 'Cairos', 'dungeons', 5, 'dragons'),
   content('necropolis', 'Necropolis', 'Cairos', 'dungeons', 5, 'necropolis'),
   content('spiritual', 'Spiritual Realm', 'Cairos', 'dungeons', 5, 'spiritual'),
   content('steel', 'Steel Fortress', 'Cairos', 'dungeons', 5, 'steel'),
   content('punisher', "Punisher's Crypt", 'Cairos', 'dungeons', 5, 'punisher'),
-  content('trial-of-ascension', 'Trial of Ascension', 'Trial of Ascension', 'other', 5),
-  content('tower-fire', 'Tower of Fire', 'Trial of Ascension', 'other', 5),
-  content('tower-water', 'Tower of Water', 'Trial of Ascension', 'other', 5),
-  content('tower-wind', 'Tower of Wind', 'Trial of Ascension', 'other', 5),
-  content('tower-light', 'Tower of Light', 'Trial of Ascension', 'other', 5),
-  content('tower-dark', 'Tower of Dark', 'Trial of Ascension', 'other', 5),
-  content('spires', 'Spires of Ascension', 'Trial of Ascension', 'other', 5),
-  content('temple-of-chaos', 'Temple of Chaos', 'Temple of Chaos', 'other', 5),
-  content('ice-beast', 'Ice Beast', 'Rift of Worlds', 'dungeons', 6),
-  content('fire-beast', 'Fire Beast', 'Rift of Worlds', 'dungeons', 6),
-  content('wind-beast', 'Wind Beast', 'Rift of Worlds', 'dungeons', 6),
-  content('light-beast', 'Light Beast', 'Rift of Worlds', 'dungeons', 6),
-  content('dark-beast', 'Dark Beast', 'Rift of Worlds', 'dungeons', 6),
-  content('rift-raid', 'Rift Raid', 'Rift of Worlds', 'dungeons', 6),
-  content('roaring-beasts', 'Forest of Roaring Beasts', 'Dimension Hole', 'dungeons', 4),
-  content('dreaming-fairies', 'Sanctuary of Dreaming Fairies', 'Dimension Hole', 'dungeons', 4),
-  content('tough-beast-men', 'Cliff of Tough Beast Men', 'Dimension Hole', 'dungeons', 4),
-  content('silent-death', 'Ruin of Silent Death', 'Dimension Hole', 'dungeons', 4),
-  content('forgotten-heroes', 'Castle of Forgotten Heroes', 'Dimension Hole', 'dungeons', 4),
-  content('raging-fires', 'Hellground of Raging Fires', 'Dimension Hole', 'dungeons', 4),
-  content('dimension-raid-1', 'Dimension Raid Phase 1', 'Dimension Hole', 'dungeons', 5),
-  content('dimension-raid-2', 'Dimension Raid Phase 2', 'Dimension Hole', 'dungeons', 5),
-  content('dimension-raid-3', 'Dimension Raid Phase 3', 'Dimension Hole', 'dungeons', 5),
+  content('trial-of-ascension', 'Trial of Ascension', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
+  content('tower-fire', 'Tower of Fire', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
+  content('tower-water', 'Tower of Water', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
+  content('tower-wind', 'Tower of Wind', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
+  content('tower-light', 'Tower of Light', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
+  content('tower-dark', 'Tower of Dark', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
+  content('spires', 'Spires of Ascension', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
+  content('temple-of-chaos', 'Temple of Chaos', 'Temple of Chaos', 'other', 5, 'other-dungeon'),
+  content('ice-beast', 'Ice Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
+  content('fire-beast', 'Fire Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
+  content('wind-beast', 'Wind Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
+  content('light-beast', 'Light Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
+  content('dark-beast', 'Dark Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
+  content('rift-raid', 'Rift Raid', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
+  content('roaring-beasts', 'Forest of Roaring Beasts', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
+  content('dreaming-fairies', 'Sanctuary of Dreaming Fairies', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
+  content('tough-beast-men', 'Cliff of Tough Beast Men', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
+  content('silent-death', 'Ruin of Silent Death', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
+  content('forgotten-heroes', 'Castle of Forgotten Heroes', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
+  content('raging-fires', 'Hellground of Raging Fires', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
+  content('dimension-raid-1', 'Dimension Raid Phase 1', 'Dimension Hole', 'dungeons', 5, 'other-dungeon'),
+  content('dimension-raid-2', 'Dimension Raid Phase 2', 'Dimension Hole', 'dungeons', 5, 'other-dungeon'),
+  content('dimension-raid-3', 'Dimension Raid Phase 3', 'Dimension Hole', 'dungeons', 5, 'other-dungeon'),
 ];
 
 /** Every content JASWA can name, tab by tab in the game's order. */

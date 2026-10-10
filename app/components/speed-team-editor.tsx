@@ -9,6 +9,7 @@ import { moveItem } from '../lib/list-order';
 import type { MonsterCopyName } from '../lib/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortAllyBoost, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
 import { leaderAreaReaches } from '../lib/speed-tick';
+import type { SpeedArea } from '../lib/speed-tick';
 import { combatSpeedName, displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
 import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
 import { whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
@@ -35,7 +36,7 @@ function movesText(positions: readonly number[]): string {
  * Interval column's range and nothing else, so every display speed the line
  * offers is one the team can be tuned through from the top down.
  */
-function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, area: 'arena' | 'dungeon',
+function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, area: SpeedArea,
   enemiesKnown: boolean, general: GeneralSettings, tiedWith: string | null): string {
   const { verdict } = member;
   if (tiedWith !== null) return `Tied with ${names[tiedWith]?.name ?? 'a teammate'}. Position decides.`;
@@ -141,7 +142,10 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
     onChange((current) => ({ ...current, members: moveItem(current.members, from, to) }));
   }
 
-  const contentWord = content.area === 'arena' ? 'Arena' : 'Dungeon';
+  const speedHeading = speedName.charAt(0).toUpperCase() + speedName.slice(1);
+  /* The enemy rows are the content's: one worst case in arena, a row per stage
+     in a Cairos dungeon, and none where the content has no enemy data. */
+  const enemyRows = content.area === 'arena' ? [null] : content.stages;
 
   return <div className="speed-team-editor">
     {/* A filled slot is dragged by any part that is not a field; the arrows
@@ -159,14 +163,14 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         <th scope="col" className="align-right">Display speed</th>
         <th scope="col" className="align-right">Interval</th>
         <th scope="col" className="align-right">What if...</th>
-        <th scope="col" className="align-right">{contentWord} speed</th>
+        <th scope="col" className="align-right">{speedHeading}</th>
         <th scope="col"><span className="visually-hidden">Move</span></th>
       </tr></thead>
       {/* One body per slot, two rows each: the name, and under it the
           verdict. Every other cell spans both and sits in their middle, so a
           slot reads as one unit, and grouping the pair keeps a dragged monster
           and its verdict together. */}
-      {Array.from({ length: content.teamSize }, (_, at) => {
+      {Array.from({ length: team.size }, (_, at) => {
         const member = team.members[at];
         if (!member) {
           return <tbody key={`empty-${at}`} className="speed-slot speed-slot-empty">
@@ -293,7 +297,12 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
             <th scope="col"><span className="visually-hidden">Cuts in</span></th>
           </tr></thead>
           <tbody>
-            {(content.area === 'arena' ? [null] : content.stages).map((stage, at, rows) => {
+            {enemyRows.length === 0 && <tr>
+              <th scope="row">—</th>
+              <td className="speed-enemy-after"><span className="muted">No enemy data for this content</span></td>
+              <td className="speed-cut-cell" />
+            </tr>}
+            {enemyRows.map((stage, at, rows) => {
               const enemy = enemiesKnown ? reading.enemies[at] : undefined;
               const laterTurnShown = enemiesKnown && rows.some((_, row) => (reading.enemies[row]?.follows?.turn ?? 1) > 1);
               const cut = enemy === undefined ? undefined : enemy.cutsBefore.length > 0;

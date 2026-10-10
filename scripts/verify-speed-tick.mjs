@@ -25,6 +25,7 @@ import {
 import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/lib/speed-skills.ts';
 import { dungeonIds, fastestEnemySpeed, speedContent, speedContents, usefulAccuracy } from '../app/lib/speed-contents.ts';
 import { enemyNamesOf, readSpeedTeam } from '../app/lib/speed-tuning-analysis.ts';
+import { presetContent, presetContents } from '../app/lib/preset-contents.ts';
 import {
   isSpeedTuningPreferences, presetSpeedTeam, readSpeedTuningPreferences, speedTuningOf,
 } from '../app/lib/speed-tuning-preferences.ts';
@@ -56,7 +57,12 @@ check(totemPercentByLevel.length === 21 && totemPercentByLevel[20] === 15 && tot
 check(leaderSpeedPercent({ percent: 24, area: 'Arena', element: null }, 'dungeon', 'Fire') === 0, 'an arena lead does not count in dungeons');
 check(leaderSpeedPercent({ percent: 24, area: 'Arena', element: null }, 'arena', 'Fire') === 24, 'an arena lead counts in arena');
 check(leaderSpeedPercent({ percent: 28, area: 'Dungeon', element: null }, 'dungeon', 'Fire') === 28, 'a dungeon lead counts in dungeons');
-check(leaderSpeedPercent({ percent: 33, area: 'Guild', element: null }, 'arena', 'Fire') === 0, 'a guild lead counts in neither');
+check(leaderSpeedPercent({ percent: 33, area: 'Guild', element: null }, 'arena', 'Fire') === 0, 'a guild lead does not count in arena');
+check(leaderSpeedPercent({ percent: 33, area: 'Guild', element: null }, 'guild', 'Fire') === 33, 'a guild lead counts in guild content');
+check(leaderSpeedPercent({ percent: 28, area: 'Dungeon', element: null }, 'guild', 'Fire') === 0, 'a dungeon lead does not count in guild content');
+check(leaderSpeedPercent({ percent: 28, area: 'Dungeon', element: null }, 'unnamed', 'Fire') === 0
+  && leaderSpeedPercent({ percent: 30, area: 'General', element: null }, 'unnamed', 'Fire') === 30,
+  'where the content is not yet named, only a lead that counts everywhere counts');
 check(leaderSpeedPercent({ percent: 30, area: 'General', element: 'Wind' }, 'arena', 'Fire') === 0, 'an element lead skips other elements');
 check(leaderSpeedPercent({ percent: 30, area: 'General', element: 'Wind' }, 'dungeon', 'Wind') === 30, 'an element lead reaches its element everywhere');
 check(leaderSpeedPercent({ percent: 30, area: 'Arena', element: 'Wind' }, 'dungeon', 'Wind') === 0, 'an element lead keeps its area');
@@ -68,7 +74,7 @@ check(shortLeaderSkill(agrius) === 'CRI Rate 30 % · Fire', `Agrius's lead names
 /* Where a lead counts is one rule for every attribute: the speed figure above
    and the editor's red mark must agree. */
 for (const leaderArea of ['General', 'Arena', 'Dungeon', 'Guild']) {
-  for (const area of ['arena', 'dungeon']) {
+  for (const area of ['arena', 'dungeon', 'guild', 'unnamed']) {
     const counts = leaderSpeedPercent({ percent: 10, area: leaderArea, element: 'Fire' }, area, 'Fire') > 0;
     check(leaderAreaReaches(leaderArea, area) === counts, `${leaderArea} lead in ${area}: reach and speed agree`);
   }
@@ -288,26 +294,38 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
 {
   /* A preset's own members and leader, in the order asked for: one the preset
      gained since is placed last, one it lost is left out with its what-if. */
-  const preset = { id: 'deck-24-101', members: ['1', '2', '3'], leaderUnitId: '2' };
-  const team = presetSpeedTeam(preset, 'giants', { order: ['3', '9', '1'], whatIfs: { 1: 130, 9: 150 } });
-  check(team !== null && same(team.members, [{ unitId: '3' }, { unitId: '1', whatIfDisplaySpeed: 130 }, { unitId: '2' }])
-    && team.leaderUnitId === '2' && team.id === 'deck-24-101' && team.content === 'giants',
+  const giants = presetContent('giants');
+  const preset = { id: 'deck-24-101', members: ['1', '2', '3'], leaderUnitId: '2', content: giants };
+  const team = presetSpeedTeam(preset, { order: ['3', '9', '1'], whatIfs: { 1: 130, 9: 150 } });
+  check(same(team.members, [{ unitId: '3' }, { unitId: '1', whatIfDisplaySpeed: 130 }, { unitId: '2' }])
+    && team.leaderUnitId === '2' && team.id === 'deck-24-101' && team.content === 'giants' && team.size === 5,
     'the stored order leads, a new member follows it, a departed one is gone');
-  check(same(presetSpeedTeam(preset, 'giants', undefined)?.members, [{ unitId: '1' }, { unitId: '2' }, { unitId: '3' }]),
+  check(same(presetSpeedTeam(preset, undefined).members, [{ unitId: '1' }, { unitId: '2' }, { unitId: '3' }]),
     'a preset never tuned reads in the game\'s own order');
   check(same(speedTuningOf(team), { order: ['3', '1', '2'], whatIfs: { 1: 130 } }), 'a team written back stores only the order and the what-ifs');
-  check(presetSpeedTeam({ ...preset, members: ['1', '2', '3', '4', '5'] }, 'arena', undefined) === null,
-    'a preset holding more monsters than its content fields is no team to tune');
-  check(presetSpeedTeam({ ...preset, members: ['1', '2', '3', '4', '5'] }, 'giants', undefined)?.members.length === 5, 'a full dungeon team is one');
+  const oversized = presetSpeedTeam({ ...preset, members: ['1', '2', '3', '4', '5'], content: presetContent('arena-attack') }, undefined);
+  check(oversized.members.length === 5 && oversized.size === 5, 'a preset holding more monsters than its content fields is shown whole');
+  /* Every content is a team to tune, read against its area where it has no enemy data. */
+  for (const content of presetContents) {
+    const read = speedContent(presetSpeedTeam({ ...preset, content }, undefined).content);
+    check(read.teamSize === null || read.teamSize === content.teamSize, `${content.name}: its enemy data was read for its own team`);
+    check(read.stages.length > 0 || read.area === 'arena' || read.teamSize === null, `${content.name}: a content without enemies is read by area alone`);
+  }
+  check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('temple-of-chaos') }, undefined).content).area === 'dungeon',
+    'Temple of Chaos counts dungeon leads');
+  check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('siege') }, undefined).content).area === 'guild',
+    'Siege Battle counts guild leads');
+  const unnamed = presetSpeedTeam({ ...preset, content: null }, undefined);
+  check(unnamed.content === 'unnamed' && unnamed.size === 3, 'a preset not yet named has the places it fills and counts General leads alone');
 }
 {
   /* Stored, a what-if still never reaches a reading that is not handed it: the page judges the runes engraved. */
   const unitId = '1';
   const monster = { unit_id: 1, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 40], sec_eff: [] }] };
   const monsters = new Map([[unitId, monster]]);
-  const preset = { id: 'deck-24-101', members: [unitId], leaderUnitId: null };
-  const plain = readSpeedTeam({ team: presetSpeedTeam(preset, 'giants', undefined), monsters, totemPercent: 15 });
-  const stored = readSpeedTeam({ team: presetSpeedTeam(preset, 'giants', { order: [unitId], whatIfs: { [unitId]: 999 } }), monsters, totemPercent: 15 });
+  const preset = { id: 'deck-24-101', members: [unitId], leaderUnitId: null, content: presetContent('giants') };
+  const plain = readSpeedTeam({ team: presetSpeedTeam(preset, undefined), monsters, totemPercent: 15 });
+  const stored = readSpeedTeam({ team: presetSpeedTeam(preset, { order: [unitId], whatIfs: { [unitId]: 999 } }), monsters, totemPercent: 15 });
   check(stored.members[0].displaySpeed === monsterSpeedParts(monster).displaySpeed && !stored.members[0].whatIf
     && stored.members[0].combatSpeed === plain.members[0].combatSpeed, 'a stored what-if is read by nothing but the overlay');
 }

@@ -9,7 +9,6 @@
  * import by `speed-tick.ts` on every render, so a stored order can never carry
  * a stale reading of a monster whose runes have since changed.
  */
-import { speedContentTeamSize } from './speed-contents';
 import type { SpeedContentId } from './speed-contents';
 import { isRecord } from './preference-reading';
 
@@ -34,6 +33,8 @@ export type SpeedTeam = {
   members: SpeedTeamMember[];
   /** Whose leader skill the team runs, or `null` for no leader. Always a member. */
   leaderUnitId: string | null;
+  /** How many places the team has: its preset content's, or its own count where that is unknown. */
+  size: number;
 };
 
 /** The user's word on one preset: the turn order wanted, and the what-ifs tried. */
@@ -99,14 +100,18 @@ export function readSpeedTuningPreferences(value: unknown): SpeedTuningPreferenc
 /**
  * A preset as a team to tune: its own monsters and leader, in the turn order
  * the user asked for — with a monster the preset gained since placed last and
- * one it lost left out — and the what-ifs tried on them. `null` where the
- * preset holds more monsters than its content fields.
+ * one it lost left out — and the what-ifs tried on them. Every preset is one:
+ * a content without enemy data is still read for its own turn order, and one
+ * not yet named counts only the leads that count everywhere.
  */
 export function presetSpeedTeam(
-  preset: { id: string; members: readonly string[]; leaderUnitId: string | null },
-  content: SpeedContentId, tuning: PresetSpeedTuning | undefined,
-): SpeedTeam | null {
-  if (preset.members.length > speedContentTeamSize(content)) return null;
+  preset: { id: string; members: readonly string[]; leaderUnitId: string | null; content: { speed: SpeedContentId; teamSize: number } | null },
+  tuning: PresetSpeedTuning | undefined,
+): SpeedTeam {
+  const content = preset.content?.speed ?? 'unnamed';
+  /* A saved deck is never cut to fit: a team larger than its content's is
+     shown whole, so no monster the preset holds goes missing from the page. */
+  const size = Math.max(preset.content?.teamSize ?? 0, preset.members.length);
   const asked = (tuning?.order ?? []).filter((unitId) => preset.members.includes(unitId));
   const order = [...asked, ...preset.members.filter((unitId) => !asked.includes(unitId))];
   return {
@@ -117,6 +122,7 @@ export function presetSpeedTeam(
       return whatIf === undefined ? { unitId } : { unitId, whatIfDisplaySpeed: whatIf };
     }),
     leaderUnitId: preset.leaderUnitId,
+    size,
   };
 }
 

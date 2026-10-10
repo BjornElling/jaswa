@@ -258,8 +258,8 @@ an import, and are checked one preset at a time on load.
   competition exists only inside a preset, so that is the only place a
   priority means anything.
 - Each monster has a shortcut to Rune Optimization in that preset, and beside
-  it one to Speed Tuning with the preset's team open, disabled where Speed
-  Tuning has no team for the preset.
+  it one to Speed Tuning with the preset's team open, disabled only on Default
+  and on a preset with no monsters.
 
 **Rune Optimization.**
 - The preset being optimized for is shown prominently, under the monster, and
@@ -316,10 +316,13 @@ an import, and are checked one preset at a time on load.
   stated, the preset is read in the game's own order.
 - Every speed is computed from the preset's own runes, with the relic from
   Default.
-- A content Speed Tuning has no model for — no enemy data and no settled
-  leader-skill area, such as Trial of Ascension — and a preset whose content is
-  not yet named are listed in the right-hand column and say why they are not
-  judged, rather than being judged by a guessed rule.
+- The Arena column lists its defences first, then the attack teams.
+- Every preset with a monster is a team, and every team opens and is tuned
+  alike. A content without enemy data — Trial of Ascension, Temple of Chaos,
+  Rift of Worlds, Dimension Hole and the guild contents — is tuned for its own
+  turn order, its leader skills counted by its area
+  (`SPEED-TICK-CANONICAL.md` §2.2); a preset whose content is not yet named
+  counts only the leads that count everywhere, and has the places it fills.
 
 **Rune Optimization.** A build's Location names the Default monster for a rune
 free in the selected preset, by name alone, as the game's rune list does. A

@@ -26,13 +26,10 @@ import type { ImportedGame, Preferences } from '../lib/types';
 type Verdict = SpeedVerdict;
 
 /**
- * One preset on the page. A preset whose content Speed Tuning has a model for
- * is a team to tune; any other is listed so it is not missing, and says why it
- * is not judged.
+ * One preset on the page, always a team to tune. A content without enemy data
+ * is read for its own turn order, so every line opens and moves alike.
  */
-type Line =
-  | { kind: 'team'; preset: Preset; team: SpeedTeam; monsters: ReadonlyMap<string, GameRecord>; reading: TeamReading }
-  | { kind: 'unjudged'; preset: Preset; reason: string };
+type Line = { preset: Preset; team: SpeedTeam; monsters: ReadonlyMap<string, GameRecord>; reading: TeamReading };
 
 /** A crown: whose leader skill the team runs. */
 function LeaderMark() {
@@ -56,17 +53,16 @@ function PresetLine({ line, names, known, onOpen, onReorder }: {
   line: Line;
   names: Record<string, MonsterCopyName>;
   known: (unitId: string) => boolean;
-  /** `undefined` for a preset the page cannot judge: listed, not opened. */
-  onOpen?: (opener: HTMLElement) => void;
+  onOpen: (opener: HTMLElement) => void;
   onReorder: (from: number, to: number) => void;
 }) {
-  const order = line.kind === 'team' ? line.team.members.map((member) => member.unitId) : line.preset.members;
-  const status = line.kind === 'team' ? teamStatus(line.reading) : { text: line.reason, state: 'none' as const };
-  const reorder = useInlineReorder<HTMLSpanElement>({ count: line.kind === 'team' ? order.length : 0, onMove: onReorder });
-  return <div className="speed-summary" role="button" tabIndex={onOpen ? 0 : -1} aria-disabled={onOpen ? undefined : true}
-    onClick={(event) => onOpen?.(event.currentTarget)}
+  const order = line.team.members.map((member) => member.unitId);
+  const status = teamStatus(line.reading);
+  const reorder = useInlineReorder<HTMLSpanElement>({ count: order.length, onMove: onReorder });
+  return <div className="speed-summary" role="button" tabIndex={0}
+    onClick={(event) => onOpen(event.currentTarget)}
     onKeyDown={(event) => {
-      if (!onOpen || (event.key !== 'Enter' && event.key !== ' ')) return;
+      if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
       onOpen(event.currentTarget);
     }}>
@@ -77,8 +73,7 @@ function PresetLine({ line, names, known, onOpen, onReorder }: {
         /* Drawn in the drop's order while a drag is previewed, so the arrows
            between the names follow the places, not the entries. */
         const place = reorder.place(at);
-        const entry = line.kind === 'team' ? reorder.entryProps(at) : {};
-        return <span key={unitId} className="speed-summary-member" style={{ order: place }} {...entry}>
+        return <span key={unitId} className="speed-summary-member" style={{ order: place }} {...reorder.entryProps(at)}>
           {place > 0 && <span className="speed-summary-step" aria-hidden="true">›</span>}
           <span className="speed-summary-name">{known(unitId) ? names[unitId]?.name ?? unitId : 'Not in this import'}</span>
           {line.preset.leaderUnitId === unitId && <LeaderMark />}
@@ -128,6 +123,16 @@ function columnOf(preset: Preset): PresetColumn {
   return preset.content?.column ?? 'other';
 }
 
+/* The arena column opens on the defences: there are one or two of them against
+   a long list of attack teams, and they would otherwise sit below it. Every
+   other column keeps the game's order. */
+function columnLines(lines: readonly Line[], column: PresetColumn): Line[] {
+  const inColumn = lines.filter((line) => columnOf(line.preset) === column);
+  if (column !== 'arena') return inColumn;
+  const attack = (line: Line) => line.preset.content?.id === 'arena-attack';
+  return [...inColumn.filter((line) => !attack(line)), ...inColumn.filter(attack)];
+}
+
 const columns: readonly { id: PresetColumn; title: string; empty: string }[] = [
   { id: 'dungeons', title: 'Dungeons', empty: 'No dungeon presets.' },
   { id: 'arena', title: 'Arena', empty: 'No arena presets.' },
@@ -164,21 +169,16 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
   const totem = useMemo(() => readSkyTribeTotem(game?.data), [game]);
   const totemShare = totem.state === 'built' ? totem.percent : 0;
 
-  /* Every preset with monsters, as a team where its content has a speed model.
-     Each reading runs the clock for the whole team, so they are read together,
-     once for each change to the presets, the import, the totem or the tuning. */
+  /* Every preset with monsters, as a team. Each reading runs the clock for the
+     whole team, so they are read together, once for each change to the
+     presets, the import, the totem or the tuning. */
   const lines = useMemo<Line[]>(() => presets.filter((preset) => preset.kind !== 'default' && preset.members.length > 0).map((preset): Line => {
-    const content = preset.content?.speed ?? null;
-    if (content === null) {
-      return { kind: 'unjudged', preset, reason: preset.content ? 'No speed model for this content yet' : 'Content not yet named' };
-    }
-    const team = presetSpeedTeam(preset, content, tuning[preset.id]);
-    if (team === null) return { kind: 'unjudged', preset, reason: 'More monsters than this content fields' };
+    const team = presetSpeedTeam(preset, tuning[preset.id]);
     const inPreset = new Map(preset.members.flatMap((unitId) => {
       const monster = monsterById.get(unitId);
       return monster ? [[unitId, monsterInPreset(monster, preset, items)] as const] : [];
     }));
-    return { kind: 'team', preset, team, monsters: inPreset, reading: readSpeedTeam({ team, monsters: inPreset, totemPercent: totemShare }) };
+    return { preset, team, monsters: inPreset, reading: readSpeedTeam({ team, monsters: inPreset, totemPercent: totemShare }) };
   }), [presets, tuning, monsterById, items, totemShare]);
 
   const editingLine = editing ? lines.find((line) => line.preset.id === editing.presetId) : undefined;
@@ -211,7 +211,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
     <div className="speed-columns">
       {columns.map((column) => {
         const groups: { label: string; lines: Line[] }[] = [];
-        for (const line of lines.filter((entry) => columnOf(entry.preset) === column.id)) {
+        for (const line of columnLines(lines, column.id)) {
           const label = presetGroupLabel(line.preset);
           const group = groups.find((entry) => entry.label === label);
           if (group) group.lines.push(line); else groups.push({ label, lines: [line] });
@@ -230,7 +230,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
       })}
     </div>
 
-    {editing && editingLine?.kind === 'team' && <SpeedTeamOverlay key={editingLine.preset.id} initial={editingLine.team} title={editingLine.preset.name}
+    {editing && editingLine && <SpeedTeamOverlay key={editingLine.preset.id} initial={editingLine.team} title={editingLine.preset.name}
       monsters={editingLine.monsters} totemShare={totemShare} names={namesIn(editingLine.preset.id)} general={general}
       leading={leadingIn(editingLine.preset)}
       onSave={(team) => {
@@ -252,9 +252,8 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
   /* A preset's line: its number, its monsters in the order asked for, its leader marked. */
   function renderLine(line: Line) {
     return <PresetLine line={line} names={namesIn(line.preset.id)} known={(unitId) => monsterById.has(unitId)}
-      onOpen={line.kind === 'team' ? (opener) => setEditing({ presetId: line.preset.id, opener }) : undefined}
+      onOpen={(opener) => setEditing({ presetId: line.preset.id, opener })}
       onReorder={(from, to) => {
-        if (line.kind !== 'team') return;
         const team = { ...line.team, members: moveItem(line.team.members, from, to) };
         onWrite((current) => ({ ...current, presets: { ...current.presets, [team.id]: speedTuningOf(team) } }));
       }} />;

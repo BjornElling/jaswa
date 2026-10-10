@@ -106,12 +106,12 @@ whatever a monster leads with and marks a lead that does not count where the
 team is going. The table holds for every attribute (`leaderAreaReaches`). Where
 one counts:
 
-| Area | Arena | Dungeons |
-| --- | --- | --- |
-| General | yes | yes |
-| Arena | yes | no |
-| Dungeon | no | yes |
-| Guild | no | no |
+| Area | Arena | Dungeons | Guild content | Content not yet named |
+| --- | --- | --- | --- | --- |
+| General | yes | yes | yes | yes |
+| Arena | yes | no | no | no |
+| Dungeon | no | yes | no | no |
+| Guild | no | no | yes | no |
 
 A lead that names an element counts, wherever its area lets it, only on
 monsters of that element. Swarfarm writes such a lead two ways — `area:
@@ -121,7 +121,15 @@ Reading only `"Element"` as a restriction once gave Agrius's fire-only +30 %
 CRI Rate to the whole team.
 
 Source: fandom *Leader Skill*. "Dungeon" covers the Cairos dungeons, which is
-where Swarfarm files all seven tuned dungeons. The leader is chosen per team and
+where Swarfarm files all seven tuned dungeons, and — the player's word, October
+10, 2026 — Trial of Ascension, Temple of Chaos, Rift of Worlds and Dimension
+Hole too; "Guild" covers the Guild tab's contents (Siege Battle, World Guild
+Battle, Labyrinth, Monster Subjugation). A preset whose content the export does
+not name is read with General leads alone, the only ones sure to count there,
+and its figure is called its *combat speed*.
+
+Only the Cairos dungeons and arena have enemies to cut in (§6). Every other
+content is tuned for the team's own turn order, with no enemy guessed for it. The leader is chosen per team and
 is independent of the move order: the last monster to move may lead.
 
 ### 2.3 Guild

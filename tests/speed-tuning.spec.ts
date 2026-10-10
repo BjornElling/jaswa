@@ -93,7 +93,7 @@ test('an account without presets shows three empty columns and its totem', async
   await page.screenshot({ path: testInfo.outputPath('speed-empty.png') });
 });
 
-test('every preset with a monster is a line under its content, and an unjudged one says why', async ({ page }, testInfo) => {
+test('every preset with a monster is a line under its content, and every line opens its team', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await freshWorkspace(page);
   await importAccount(page);
@@ -105,22 +105,38 @@ test('every preset with a monster is a line under its content, and an unjudged o
   /* Grouped by content in the game's order, numbered within each. */
   await expect(dungeons.locator('.speed-group-title')).toHaveText(["Giant's Keep", "Dragon's Lair", 'Necropolis']);
   await expect(dungeons.getByRole('region', { name: "Giant's Keep" }).locator('.speed-summary-preset')).toHaveText(['1', '2']);
-  await expect(arena.locator('.speed-group-title')).toHaveText(['Arena Attack', 'Arena Defense']);
+  /* The arena column opens on its defences, above the attack teams. */
+  await expect(arena.locator('.speed-group-title')).toHaveText(['Arena Defense', 'Arena Attack']);
   /* Arena Attack 3 saved nobody, so it is no line. */
   await expect(arena.getByRole('region', { name: 'Arena Attack' }).locator('.speed-summary')).toHaveCount(2);
   await expect(other.locator('.speed-group-title')).toHaveText(['Trial of Ascension', 'Not yet named']);
 
-  /* A content without a speed model, and a deck whose content is not yet named, are listed and not opened. */
+  /* A content without enemy data, and a deck whose content is not yet named,
+     are teams like any other: judged on their own turn order and opened alike. */
   const trial = presetLine(other, 'Trial of Ascension 1');
-  await expect(trial).toBeDisabled();
-  await expect(trial.locator('.speed-summary-state')).toHaveText('No speed model for this content yet');
-  await expect(trial.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'none');
+  await expect(trial).toBeEnabled();
+  await expect(trial.locator('.speed-summary-state')).toHaveText('Turn order holds');
+  await expect(trial.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
   const unnamed = presetLine(other, 'Deck 99 · 1');
-  await expect(unnamed).toBeDisabled();
-  await expect(unnamed.locator('.speed-summary-state')).toHaveText('Content not yet named');
+  await expect(unnamed).toBeEnabled();
   await expect(unnamed.locator('.speed-summary-name')).toHaveText(['Bernard (2A)']);
-  await expect(unnamed.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'none');
   await page.screenshot({ path: testInfo.outputPath('speed-page-presets.png'), fullPage: true });
+
+  await trial.click();
+  const trialTeam = page.getByRole('dialog', { name: 'Trial of Ascension 1' });
+  /* Five places, as a Trial of Ascension deck has, and no enemies to cut in. */
+  await expect(trialTeam.locator('.speed-slot')).toHaveCount(5);
+  await expect(trialTeam.getByRole('columnheader', { name: 'Dungeon speed' })).toBeVisible();
+  await expect(trialTeam.getByText('No enemy data for this content')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('speed-trial-team.png') });
+  await trialTeam.getByRole('button', { name: 'Close' }).click();
+  await expect(trialTeam).toBeHidden();
+
+  await unnamed.click();
+  const unnamedTeam = page.getByRole('dialog', { name: 'Deck 99 · 1' });
+  /* Nothing says how many a deck of an unknown content holds, so it has the places it fills. */
+  await expect(unnamedTeam.locator('.speed-slot')).toHaveCount(1);
+  await expect(unnamedTeam.getByRole('columnheader', { name: 'Combat speed' })).toBeVisible();
 });
 
 test('a tied dungeon preset gets a green check on the overview', async ({ page }, testInfo) => {

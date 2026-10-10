@@ -8,7 +8,7 @@ import type { OpenMonsterOverlay } from './monster-link';
 import type { GameRecord } from '../lib/game-data';
 import type { MonsterCopyName } from '../lib/monster-names';
 import { formatNumber } from '../lib/formatting';
-import { fastestEnemySpeed, usefulAccuracy } from '../lib/speed-contents';
+import { fastestEnemySpeed, isDungeonId, usefulAccuracy } from '../lib/speed-contents';
 import { readSpeedTeam } from '../lib/speed-tuning-analysis';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
 import type { GeneralSettings } from '../lib/types';
@@ -53,7 +53,7 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
     member.whatIfDisplaySpeed === undefined ? [] : [[member.unitId, member.whatIfDisplaySpeed] as const])), [draft]);
   const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare, whatIfs, ranges: true }),
     [draft, whatIfs, monsters, totemShare]);
-  const dungeon = draft.content === 'arena' ? null : draft.content;
+  const dungeon = isDungeonId(draft.content) ? draft.content : null;
 
   function change(update: (team: SpeedTeam) => SpeedTeam) {
     setDraft(update);
