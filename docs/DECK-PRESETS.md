@@ -1,7 +1,8 @@
 # Deck Presets and engraving
 
 **Status:** Binding contract, October 7, 2026; shared pools revised October
-11, 2026. JASWA leaves the model in
+11, 2026, and widened to every content of several decks in one battle the same
+day. JASWA leaves the model in
 which a rune or artifact is engraved on exactly one monster. Every rule of
 placement, and every page that reads one, follows this document.
 
@@ -73,33 +74,54 @@ The rules JASWA relies on:
    runes can in fact be engraved on several of the teams at once. JASWA
    therefore reads such an account as it stands and shows the overlap as a
    fault of the preset (§4); it never refuses the import for it.
-6. **Relics are not saved per preset.** A preset uses whatever relic the
+6. **Exception: every other content that fights with several decks in one
+   battle shares one rune pool across them.** [924] names five contents that
+   *"use multiple decks"* in one battle and gives each the *Include Placed
+   Runes* option, which includes or leaves out runes already placed on monsters
+   in the battle's other decks — the game's own admission that those decks
+   draw on one set of runes:
+
+   | Content | Decks in one battle | Pool in JASWA |
+   | --- | --- | --- |
+   | Temple of Chaos | three teams | rule 5, monsters included |
+   | Dimension Raid | phases 1, 2 and 3 | one pool across the three phase contents |
+   | Rift Raid | three teams | one pool |
+   | World Guild Battle (attack) | five teams | one pool |
+   | Guild Rival Battle | its simultaneous teams | the World Guild Battle pool: the two share one row of the capacity table [920] and one set of presets |
+
+   The defense side follows the same line. Siege Battle defense keeps its pool
+   (rule 4, restated by [920]), and the World Guild Battle defense decks, which
+   stand at once, share one too. Siege Battle *attack* is the one guild content
+   with no pool: each attack is a battle of its own, so a rune may serve in any
+   number of them.
+
+   The notices speak of runes; JASWA shares the artifacts with them, as it does
+   for rules 4 and 5, because the reason is the same — the decks fight at the
+   same time. They say nothing of monsters, so in these pools a monster may
+   stand in more than one deck. As in rule 5, the game may let an overlap
+   through, and JASWA reads it and shows it as a fault (§4).
+7. **Relics are not saved per preset.** A preset uses whatever relic the
    monster carries in Default [920]. One relic may be engraved on up to 150
    monsters (v9.3.0; `RELIC-CANONICAL.md`).
-7. **Default still exists.** A monster's own runes and artifacts outside any
+8. **Default still exists.** A monster's own runes and artifacts outside any
    preset are its **Default** arrangement, independent of every preset
    [DN1, v9.2.2, v9.2.3]. In Default a rune is engraved on one monster at most,
    as before.
-8. **Engraved runes and artifacts can be sold** (v9.3.0). A preset then keeps
+9. **Engraved runes and artifacts can be sold** (v9.3.0). A preset then keeps
    a reference to a rune the account no longer owns.
 
 What the notices leave open, and JASWA must not invent:
 
-- Whether the decks of the other contents that place several decks at once —
-  Rift Raid, Dimension Raid, World Guild Battle, Guild Rival Battle — may share
-  a rune. [924] names them with Temple of Chaos as *"content that uses multiple
-  decks"* and gives their rune search an *Include Placed Runes* box, which only
-  filters the search; no notice says the game forbids the overlap, as [900]
-  does for Temple of Chaos. Until one does, each of those decks is a placement
-  of its own.
-- Whether the monsters of the Siege Battle defense decks may repeat. Rule 4
-  names runes and artifacts only.
-- How the export numbers the teams of more than one saved Temple of Chaos
-  entry. The account's three teams arrived as `deck_type` 23, and every
-  `deck_type` 23 deck is read into one pool until an export shows a second
-  entry. Should one, its teams' overlap with the first entry's shows as a
-  fault on every team involved (§4), and the pool must be narrowed to one
-  entry's three teams.
+- Whether the monsters of the pools of rules 4 and 6 may repeat. The notices
+  name runes and artifacts only, so only those are shared.
+- Which saved decks make up one battle. A content of several decks per battle
+  has more presets than one battle uses — Temple of Chaos 15 for three teams,
+  World Guild Battle 15 for five, Dimension Raid ten per phase — and the export
+  does not say which go together. Every saved deck of the pool's contents is
+  therefore read into one pool. Two alternative teams for the same place in a
+  battle that share a rune then show as a fault on both (§4) though they never
+  fight together; should an export show how decks are grouped into a battle,
+  the pool must be narrowed to one battle's decks.
 - What powering up, gemming or grinding does to a preset. The rune is one
   physical object, so its stats are read once and every preset sees the same
   rune; nothing is copied per preset.
@@ -211,10 +233,13 @@ The account owns physical runes and artifacts. A placement is the relation
   rune per slot and one artifact per slot.
 - Across contexts, the same item may have different monsters.
 - **A pool is a limit on what JASWA does, never on what it reads.** The
-  game's decks of a content with a shared pool (`sharedPool` in
-  `preset-contents.ts`) — the Siege Battle defense presets and Temple of
-  Chaos's teams — should hold each item on at most one monster between them,
-  and Temple of Chaos each monster in at most one team. The game does not
+  game's decks of one pool (`sharedPool` in `preset-contents.ts`) — the Siege
+  Battle and World Guild Battle defense presets, and the teams of Temple of
+  Chaos, Dimension Raid, Rift Raid and World Guild Battle (§1, rules 4–6) —
+  should hold each item on at most one monster between them, and Temple of
+  Chaos each monster in at most one team. A pool is named by its own id, not
+  by a content, because one battle may span several contents: Dimension Raid's
+  three phases are three contents and one pool. The game does not
   always stop it, and what the game shows on a team is what JASWA shows. So
   each deck is its own context, read exactly as the game saved it, with its
   own team, gear, profiles, priority and speed tuning. A preset built in JASWA
@@ -352,9 +377,8 @@ an import, and are checked one preset at a time on load.
 - *Engrave* writes the build into the chosen preset and moves nothing out of
   any other context, a deck of the same pool included (§4).
 - **Lock and Exclude** (`rune-locks.ts`) bind one rune to one monster in one
-  scope: Default, one preset, or — where the game's decks of a content share
-  one pool, as the Siege Battle defense presets and Temple of Chaos's teams do
-  — the whole pool. A lock engraves the rune
+  scope: Default, one preset, or — where the game's decks share one pool (§1,
+  rules 4–6) — the whole pool. A lock engraves the rune
   on the monster, makes it the slot's one answer and keeps it from every other
   monster of the scope; an exclusion keeps it out of that monster's builds only,
   taking it off the monster first where it is engraved there. Every control
@@ -466,7 +490,8 @@ and says so where it matters.
   they are not the shared pool. They are Siege Battle attack or World Guild
   Battle / Guild Rival Battle attack; fifteen is the latter's capacity where
   Siege Battle's is 25, so they are read as World Guild Battle until the screen
-  says otherwise.
+  says otherwise. The answer now matters beyond the name: as World Guild Battle
+  the fourteen decks are one pool (§1, rule 6), as Siege Battle attack none.
 - **`deck_type` 4, 8, 9.** Five-monster decks, three or fewer of each, holding
   the same teams as one another. None is Temple of Chaos, whose presets are
   type 23, nor a Dimension Hole dungeon or Rift of Worlds beast,
@@ -478,13 +503,10 @@ and says so where it matters.
 - **Saving the Arena Interserver defense.** Not yet captured. The helper takes
   any answer carrying `server_arena_defense_deck_info` whole, as it does for
   the Arena defense, whose save is confirmed.
-- **Contents placing several decks at once** (Rift Raid, Dimension Raid, World
-  Guild Battle, Guild Rival Battle) — whether their decks may share a rune
-  (§1). Read as independent presets. Temple of Chaos is answered: one pool.
-- **The Siege Battle defense pool** is modelled and enforced (`sharedPool`)
-  but no deck type is matched to it yet.
-- **More than one Temple of Chaos entry** — how the export numbers a second
-  entry's three teams (§1). Every `deck_type` 23 deck is read as one pool.
+- **The Siege Battle and World Guild Battle defense pools** are modelled and
+  enforced (`sharedPool`) but no deck type is matched to either yet.
+- **Which saved decks make up one battle** in a content of several decks per
+  battle (§1). Every saved deck of the pool's contents is read as one pool.
 - **Team sizes not seen on screen.** Siege Battle and World Guild Battle are
   read as three, Labyrinth, Monster Subjugation, the Towers and Spires as five,
   the Rift of Worlds beasts as six. Dimension Hole's four and Temple of Chaos's

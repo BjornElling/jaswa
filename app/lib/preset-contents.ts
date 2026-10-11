@@ -52,13 +52,24 @@ export type PresetContent = {
    * Whether the game's decks of the content draw from one pool, so a rune or
    * artifact is engraved at most once across all of them, and whether a monster
    * may stand in only one of them as well; `null` where each deck is a placement
-   * of its own (`DECK-PRESETS.md` §1, rules 4 and 5).
+   * of its own (`DECK-PRESETS.md` §1, rules 4–6).
    */
   sharedPool: SharedPool | null;
 };
 
-/** What the decks of one pool share: always their runes and artifacts, and for some contents their monsters. */
-export type SharedPool = { monsters: boolean };
+/**
+ * What the decks of one pool share: always their runes and artifacts, and for
+ * some contents their monsters. `id` names the pool rather than the content,
+ * because one battle can span several contents: Dimension Raid's three phases
+ * are three contents and one pool.
+ */
+export type SharedPool = { id: string; monsters: boolean };
+
+/* Rift Raid, Dimension Raid and World Guild Battle (and Guild Rival Battle,
+   which uses its presets) fight with several decks in one battle, and v9.2.4
+   names them with Temple of Chaos as the contents whose decks draw on one rune
+   set. No notice says their monsters may not repeat, so only the gear is shared. */
+const dimensionRaid: SharedPool = { id: 'dimension-raid', monsters: false };
 
 function content(id: PresetContentId, name: string, tab: PresetTab, column: PresetColumn, teamSize: number,
   speed: SpeedContentId, sharedPool: SharedPool | null = null): PresetContent {
@@ -76,9 +87,10 @@ const contents: readonly PresetContent[] = [
   content('siege', 'Siege Battle', 'Guild', 'other', 3, 'guild'),
   /* v9.2.0 names the runes and artifacts of the Siege Battle defense decks as
      one pool and says nothing of their monsters, so only the gear is shared. */
-  content('siege-defense', 'Siege Battle Defense', 'Guild', 'other', 3, 'guild', { monsters: false }),
-  content('world-guild', 'World Guild Battle', 'Guild', 'other', 3, 'guild'),
-  content('world-guild-defense', 'World Guild Battle Defense', 'Guild', 'other', 3, 'guild'),
+  content('siege-defense', 'Siege Battle Defense', 'Guild', 'other', 3, 'guild', { id: 'siege-defense', monsters: false }),
+  content('world-guild', 'World Guild Battle', 'Guild', 'other', 3, 'guild', { id: 'world-guild', monsters: false }),
+  /* The World Guild Battle defense decks stand at once, as Siege Battle's do. */
+  content('world-guild-defense', 'World Guild Battle Defense', 'Guild', 'other', 3, 'guild', { id: 'world-guild-defense', monsters: false }),
   content('labyrinth-normal', 'Labyrinth Normal', 'Guild', 'other', 5, 'guild'),
   content('labyrinth-rescue', 'Labyrinth Rescue', 'Guild', 'other', 5, 'guild'),
   content('labyrinth-explode', 'Labyrinth Explode', 'Guild', 'other', 5, 'guild'),
@@ -105,22 +117,22 @@ const contents: readonly PresetContent[] = [
   content('spires', 'Spires of Ascension', 'Trial of Ascension', 'other', 5, 'other-dungeon'),
   /* Temple of Chaos fights with three decks at once, and no monster, rune or
      artifact may stand in more than one of them (v9.0.0). */
-  content('temple-of-chaos', 'Temple of Chaos', 'Temple of Chaos', 'other', 5, 'other-dungeon', { monsters: true }),
+  content('temple-of-chaos', 'Temple of Chaos', 'Temple of Chaos', 'other', 5, 'other-dungeon', { id: 'temple-of-chaos', monsters: true }),
   content('ice-beast', 'Ice Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
   content('fire-beast', 'Fire Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
   content('wind-beast', 'Wind Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
   content('light-beast', 'Light Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
   content('dark-beast', 'Dark Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
-  content('rift-raid', 'Rift Raid', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
+  content('rift-raid', 'Rift Raid', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon', { id: 'rift-raid', monsters: false }),
   content('roaring-beasts', 'Forest of Roaring Beasts', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
   content('dreaming-fairies', 'Sanctuary of Dreaming Fairies', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
   content('tough-beast-men', 'Cliff of Tough Beast Men', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
   content('silent-death', 'Ruin of Silent Death', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
   content('forgotten-heroes', 'Castle of Forgotten Heroes', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
   content('raging-fires', 'Hellground of Raging Fires', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
-  content('dimension-raid-1', 'Dimension Raid Phase 1', 'Dimension Hole', 'dungeons', 5, 'other-dungeon'),
-  content('dimension-raid-2', 'Dimension Raid Phase 2', 'Dimension Hole', 'dungeons', 5, 'other-dungeon'),
-  content('dimension-raid-3', 'Dimension Raid Phase 3', 'Dimension Hole', 'dungeons', 5, 'other-dungeon'),
+  content('dimension-raid-1', 'Dimension Raid Phase 1', 'Dimension Hole', 'dungeons', 5, 'other-dungeon', dimensionRaid),
+  content('dimension-raid-2', 'Dimension Raid Phase 2', 'Dimension Hole', 'dungeons', 5, 'other-dungeon', dimensionRaid),
+  content('dimension-raid-3', 'Dimension Raid Phase 3', 'Dimension Hole', 'dungeons', 5, 'other-dungeon', dimensionRaid),
 ];
 
 /** Every content JASWA can name, tab by tab in the game's order. */

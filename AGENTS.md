@@ -384,9 +384,11 @@ parts an agent must not quietly break:
   takes a real export as an argument for a wider sweep.
 - **One placement model: Default and presets.** `docs/DECK-PRESETS.md` is
   binding. A rune or artifact is engraved at most once per context — Default
-  or one preset — and may be engraved in many contexts at once; the Siege
-  Battle defense presets share one pool, and Temple of Chaos's teams share one
-  with their monsters too — a pool limits what JASWA does, never what it reads,
+  or one preset — and may be engraved in many contexts at once; the decks the
+  game fights with in one battle share one pool — the Siege and World Guild
+  Battle defenses, and the teams of Temple of Chaos (monsters included),
+  Dimension Raid (all three phases), Rift Raid and World Guild Battle — while
+  Siege Battle attacks do not; a pool limits what JASWA does, never what it reads,
   so an overlap the game allowed is shown as it stands and flagged, and nothing
   here forms a new one; a relic belongs to Default and is read
   into every preset. Placement is resolved once at import, no item carries an

@@ -18,6 +18,7 @@ import { engraveImportedGame } from '../app/lib/engrave-rune-build.ts';
 import { addToGamePreset } from '../app/lib/game-preset-edits.ts';
 import { noRuneLocks, runeLocksInPreset } from '../app/lib/rune-locks.ts';
 import { readRunes } from '../app/lib/runes.ts';
+import { presetContent, presetContents } from '../app/lib/preset-contents.ts';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -341,6 +342,40 @@ assert.throws(() => addToGamePreset(editable, find(editablePresets, 'deck-23-2')
 const joined = addToGamePreset(editable, find(editablePresets, 'deck-23-1'), find(editablePresets, 'default'), '12');
 assert.deepEqual(runeIdsByMember(equipOf(joined.data, 23, 1))['12'], twelveDefault.filter((id) => id !== '5007'),
   'a newcomer brings its Default gear less what the pool holds');
+
+/* The other contents of several decks in one battle (§1 rule 6) share their runes and artifacts, not
+   their monsters, and Dimension Raid's three phases are one pool although they are three contents. */
+const raids = { ...only(
+  deck(19, 1, [1], [gear(1, [101])]),
+  deck(21, 1, [1], [gear(1, [101])]),
+  deck(20, 1, [2], [gear(2, [])]),
+  deck(3, 1, [2], [gear(2, [101])]),
+  deck(3, 2, [1], [gear(1, [101])]),
+  deck(2, 1, [1], [gear(1, [101])]),
+  deck(2, 2, [2], [gear(2, [101])]),
+  deck(6, 1, [1], [gear(1, [101])]),
+), artifacts: [] };
+assert.equal(validateGameFile(raids).valid, true, `an overlap in a raid's pool never fails the import: ${validateGameFile(raids).message}`);
+const raidPresets = readPresets(createImportedGame('raids.json', clone(raids), validateGameFile(raids)).data, []);
+assert.deepEqual(['deck-19-1', 'deck-20-1', 'deck-21-1'].map((id) => find(raidPresets, id).pool), Array(3).fill('pool:dimension-raid'),
+  'Dimension Raid\'s phases are one pool');
+assert.deepEqual(find(raidPresets, 'deck-21-1').poolConflicts, { runeIds: ['101'], artifactIds: [], unitIds: [] },
+  'a rune on phase 1 and phase 3 is a fault of both, and the monster on both is not');
+assert.deepEqual([...find(raidPresets, 'deck-20-1').poolRuneIds], ['101'], 'a phase knows the runes the other phases hold');
+assert.deepEqual(find(raidPresets, 'deck-20-1').poolTakenUnitIds.size, 0, 'and takes in any monster');
+assert.equal(find(raidPresets, 'deck-3-2').pool, 'pool:rift-raid');
+assert.deepEqual(find(raidPresets, 'deck-3-2').poolConflicts.runeIds, ['101'], 'Rift Raid\'s teams share one rune set');
+assert.equal(find(raidPresets, 'deck-2-2').pool, 'pool:world-guild');
+assert.deepEqual(find(raidPresets, 'deck-2-2').poolConflicts.runeIds, ['101'], 'World Guild Battle\'s teams share one rune set');
+assert.equal(find(raidPresets, 'deck-6-1').pool, null, 'a content of one deck per battle shares nothing');
+assert.equal(runeLocksInPreset(noRuneLocks, find(raidPresets, 'deck-6-1'), '1')['101'], undefined);
+assert.equal(runeLocksInPreset(noRuneLocks, find(raidPresets, 'deck-20-1'), '2')['101'], 'excluded',
+  'Rune Optimization in one phase is never offered a rune another phase holds');
+for (const entry of presetContents) {
+  const shared = ['siege-defense', 'world-guild', 'world-guild-defense', 'temple-of-chaos', 'rift-raid', 'dimension-raid-1', 'dimension-raid-2', 'dimension-raid-3'];
+  assert.equal(entry.sharedPool !== null, shared.includes(entry.id), `${entry.name} ${shared.includes(entry.id) ? 'shares' : 'does not share'} one rune set across its decks`);
+}
+assert.equal(presetContent('siege').sharedPool, null, 'Siege Battle attacks are fought apart, so their runes may repeat');
 
 console.log('Deck Presets: raw decks, defense decks, per-preset placements, presets by content, own presets one at a time, per-preset engraving and shared pools passed.');
 

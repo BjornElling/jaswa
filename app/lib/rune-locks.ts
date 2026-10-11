@@ -8,7 +8,7 @@ import type { Preset } from './presets';
  * overlay's, the rune overlay's — and the one the build search and the
  * re-reading of a found build read. Both words bind a rune to a monster in one
  * **scope**: a preset, or the pool several presets share
- * (`DECK-PRESETS.md` §1, rules 4 and 5), Default being a scope of its own. Nothing binds
+ * (`DECK-PRESETS.md` §1, rules 4–6), Default being a scope of its own. Nothing binds
  * outside it, because a rune in another preset is another placement.
  *
  * - **Locked** is the rune engraved on the monster and staying there: the
@@ -47,7 +47,7 @@ export type RuneLocks = Readonly<Record<string, Readonly<Record<string, Readonly
 
 export const noRuneLocks: RuneLocks = {};
 
-/** The scope a preset's locks live in: the pool it shares with the game's other decks of its content, else the preset itself. */
+/** The scope a preset's locks live in: the pool it shares with the game's other decks of its battle, else the preset itself. */
 export function runeLockScope(preset: Pick<Preset, 'id' | 'pool'>): string {
   return preset.pool ?? preset.id;
 }

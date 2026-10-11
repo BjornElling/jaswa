@@ -56,8 +56,9 @@ export type Preset = {
   runeOwner: ReadonlyMap<string, string>;
   artifactOwner: ReadonlyMap<string, string>;
   /**
-   * The pool the preset shares with the game's other decks of its content
-   * (`DECK-PRESETS.md` §1, rules 4 and 5), `pool:<content>`; `null` where the
+   * The pool the preset shares with the game's other decks of its content, or
+   * of every content one battle spans (`DECK-PRESETS.md` §1, rules 4–6),
+   * `pool:<pool id>`; `null` where the
    * preset is a placement of its own, as every preset built in JASWA is. The
    * pool never changes what the preset reads: each deck is read as the game
    * saved it. It says only what JASWA may not bring into this deck.
@@ -193,7 +194,8 @@ export function readPresets(data: GameRecord | undefined, own: readonly OwnPrese
 }
 
 /**
- * The game's decks of a content with one pool, each told what the others hold.
+ * The game's decks of one pool — one content's, or all of Dimension Raid's
+ * phases' — each told what the others hold.
  * Nothing is taken from any deck: the game does not always stop two teams
  * holding the same rune, so every team keeps the gear the game saved on it and
  * an overlap shows as a fault of each team involved. The pool is a limit on
@@ -202,7 +204,7 @@ export function readPresets(data: GameRecord | undefined, own: readonly OwnPrese
  * never joins the game's pool.
  */
 function joinPools(presets: Preset[]): Preset[] {
-  const poolKey = (preset: Preset) => (preset.kind === 'game' && preset.content?.sharedPool ? `pool:${preset.content.id}` : null);
+  const poolKey = (preset: Preset) => (preset.kind === 'game' && preset.content?.sharedPool ? `pool:${preset.content.sharedPool.id}` : null);
   const pools = new Map<string, Preset[]>();
   for (const preset of presets) {
     const key = poolKey(preset);
