@@ -555,7 +555,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             className="rune-filter-main" options={mainOptions} chosen={selectedMains}
             onChange={(next) => setFilters((current) => ({ ...current, selectedMains: next }))} />
           <div className="filter-group rune-speed-protection" role="group" aria-label="Pre-grind speed protection">
-            <span className="filter-label">Never sell</span>
+            <span className="filter-label">Speed rule</span>
             <div className="filter-group-controls">
               <div className="checkbox-row">
                 <input id="rune-speed-protection" type="checkbox" aria-label="Never sell if pre-grind spd ≥"
