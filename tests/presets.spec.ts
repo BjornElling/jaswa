@@ -542,14 +542,27 @@ test('a preset cannot be added, deleted or led here while live sync owns the pre
   await importAccount(page);
   await openPresets(page);
   await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  /* Every control live sync turns off gives the one same reason. */
+  const reason = 'Always synchronized is on, so this comes from the game.';
   const create = page.getByRole('button', { name: 'Add preset' });
   await expect(create).toBeDisabled();
-  await expect(create).toHaveAttribute('title', 'Automatic synchronization is on: presets come from the game.');
+  await expect(create).toHaveAttribute('title', reason);
   await expect(page.getByRole('button', { name: 'Delete preset' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Delete preset' })).toHaveAttribute('title', reason);
+  await expect(addMenu(page)).toBeDisabled();
+  await expect(addMenu(page)).toHaveAttribute('title', reason);
   await expect(page.getByRole('button', { name: /from this preset$/ }).first()).toBeDisabled();
+  await expect(page.getByRole('button', { name: /from this preset$/ }).first()).toHaveAttribute('title', reason);
+  await expect(page.locator('.monster-priority-note')).toHaveText(/^With Always synchronized on, the game decides the monsters and the leader\. /);
   /* The game's leader is shown, not offered. */
   await expect(page.locator('.monster-priority-entry').first().getByRole('img', { name: 'Leader' })).toBeVisible();
+  await expect(page.locator('.monster-priority-entry').first().locator('.preset-leader')).toHaveAttribute('title', reason);
   await expect(page.getByRole('button', { name: /leads this preset$/ })).toHaveCount(0);
+  /* And Speed Tuning reports the game's leader with the same reason. */
+  await page.getByRole('button', { name: 'Speed tuning for Arena Attack 4', exact: true }).click();
+  const leads = page.getByRole('dialog', { name: 'Arena Attack 4' }).getByRole('checkbox', { name: /leads Arena Attack 4$/ });
+  await expect(leads.first()).toBeDisabled();
+  await expect(leads.first()).toHaveAttribute('title', reason);
 });
 
 test('on Read on game start a game preset is the user\'s: led, added to, taken from and deleted', async ({ page }, testInfo) => {
@@ -568,6 +581,9 @@ test('on Read on game start a game preset is the user\'s: led, added to, taken f
   await page.screenshot({ path: testInfo.outputPath('on-load-game-preset.png') });
   await expect(page.getByRole('button', { name: 'Add preset' })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Delete preset' })).toBeEnabled();
+  /* Nothing is off, so nothing gives live sync as a reason. */
+  await expect(page.locator('[title^="Always synchronized"]')).toHaveCount(0);
+  await expect(page.locator('.monster-priority-note')).toHaveText(/^The order decides/);
   const crown11 = page.getByRole('button', { name: `${names[11]} leads this preset` });
   await crown11.click();
   await expect(crown11).toHaveAttribute('aria-pressed', 'true');

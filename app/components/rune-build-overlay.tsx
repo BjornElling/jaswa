@@ -8,6 +8,7 @@ import { RuneEmblem } from './rune-emblem';
 import { RuneLink } from './rune-link';
 import type { OpenRuneOverlay } from './rune-link';
 import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
+import { alwaysSynchronizedReason } from '../lib/always-synchronized';
 import type { PickedRune } from '../lib/compute/rune-optimization-protocol';
 import { formatNumber } from '../lib/formatting';
 import { defaultPresetId } from '../lib/presets';
@@ -186,9 +187,11 @@ function LockChoices({ slot, lock, onMonster, disabled, onLock }: {
 }) {
   const toggle = (choice: RuneLock) => onLock(lock === choice ? null : choice);
   const label = (choice: RuneLock) => <LabelSwap faces={runeLockLabels[choice]} showing={onMonster ? 'onMonster' : 'elsewhere'} />;
+  /* Only Always synchronized turns these off. */
+  const title = disabled ? alwaysSynchronizedReason : undefined;
   return <div className="rune-build-card-locks" role="group" aria-label={`Slot ${slot} rune for this monster`}>
-    <InlineButton pressed={lock === 'locked'} disabled={disabled} onClick={() => toggle('locked')}>{label('locked')}</InlineButton>
-    <InlineButton pressed={lock === 'excluded'} disabled={disabled} onClick={() => toggle('excluded')}>{label('excluded')}</InlineButton>
+    <InlineButton pressed={lock === 'locked'} disabled={disabled} title={title} onClick={() => toggle('locked')}>{label('locked')}</InlineButton>
+    <InlineButton pressed={lock === 'excluded'} disabled={disabled} title={title} onClick={() => toggle('excluded')}>{label('excluded')}</InlineButton>
   </div>;
 }
 
@@ -371,11 +374,12 @@ export function RuneBuildOverlay({
       <div className="rune-build-engrave">
         <Button type="button" tone="primary" disabled={!canEngrave || !complete} busy={saving}
           busyLabel="Engraving…" done={alreadyEngraved} doneLabel="Engraved"
+          title={canEngrave ? undefined : alwaysSynchronizedReason}
           onClick={() => void engrave()}>Engrave on monster</Button>
         <span className="rune-build-engrave-info" tabIndex={canEngrave ? -1 : 0}
           role="img" aria-hidden={canEngrave}
-          aria-label={canEngrave ? undefined : 'To engrave a build, choose Read on game start or Load a JSON file instead of Always synchronized.'}
-          title="Choose Read on game start or Load a JSON file to engrave a build."
+          aria-label={canEngrave ? undefined : alwaysSynchronizedReason}
+          title={alwaysSynchronizedReason}
           data-visible={!canEngrave}>
           <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><path d="M8 7.2v3.5M8 5.1h.01" /></svg>
         </span>

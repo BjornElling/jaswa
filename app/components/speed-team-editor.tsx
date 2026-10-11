@@ -5,6 +5,7 @@ import { ArrowIcon } from './list-icons';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { useDragReorder } from './use-drag-reorder';
+import { alwaysSynchronizedReason } from '../lib/always-synchronized';
 import { formatNumber } from '../lib/formatting';
 import { moveItem } from '../lib/list-order';
 import type { MonsterCopyName } from '../lib/monster-names';
@@ -116,9 +117,10 @@ type EditorProps = {
   /**
    * How the leader is chosen here: `'free'` passes and takes the lead, `'kept'`
    * only passes it, for a defense, which the game always leads with someone.
-   * Absent while live sync owns the preset, and the box only reports the lead.
+   * `'synced'` while live sync owns the preset, and absent where there is no
+   * preset to lead; either way the box only reports the lead.
    */
-  leading?: 'free' | 'kept';
+  leading?: 'free' | 'kept' | 'synced';
 };
 
 /**
@@ -254,7 +256,8 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
                 one not chosen stays quiet whatever it reaches. */}
             <td className="speed-leader-cell" rowSpan={2}>
               <label className="speed-leader" title={lead ? describeLeaderSkill(lead) : undefined}>
-                <input type="checkbox" checked={leads} disabled={leading === undefined || (leads && leading === 'kept')}
+                <input type="checkbox" checked={leads} disabled={leading === undefined || leading === 'synced' || (leads && leading === 'kept')}
+                  title={leading === 'synced' ? alwaysSynchronizedReason : undefined}
                   onChange={() => onChange((current) => ({ ...current, leaderUnitId: leads ? null : member.unitId }))}
                   aria-label={`${name} leads ${title}`} />
                 <span className="speed-leader-skill" data-state={lead === null ? 'none' : !leads ? 'idle' : reaches ? 'chosen' : 'bad'}>

@@ -67,8 +67,9 @@ export function PresetSpeedTeamOverlay({ presetId, game, monsters, preferences, 
 
 /* A preset built here is always the user's; the game's only while live sync
    is off, and a defense is always led by someone, so its lead only passes on. */
-function leadingIn(preset: Preset, canChangePresets: boolean): 'free' | 'kept' | undefined {
+function leadingIn(preset: Preset, canChangePresets: boolean): 'free' | 'kept' | 'synced' | undefined {
   if (preset.kind === 'own') return 'free';
-  if (preset.kind !== 'game' || !canChangePresets) return undefined;
+  if (preset.kind !== 'game') return undefined;
+  if (!canChangePresets) return 'synced';
   return preset.deck !== null && preset.deck.source.kind !== 'deck' ? 'kept' : 'free';
 }

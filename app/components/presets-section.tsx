@@ -14,6 +14,7 @@ import { PresetChooser } from './preset-chooser';
 import { SpeedVerdictMark } from './speed-verdict-mark';
 import { reorderKeyStep, useDragReorder } from './use-drag-reorder';
 import { WorkspacePage } from './workspace-page';
+import { alwaysSynchronizedReason } from '../lib/always-synchronized';
 import type { GameRecord } from '../lib/game-data';
 import { sharedInPoolMarks } from '../lib/figure-marks';
 import { moveItem } from '../lib/list-order';
@@ -109,6 +110,9 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
     })), [monsters, names]);
   /* The game's presets live in the import, which live sync would put back at once. */
   const gameEditable = preset?.kind === 'game' && canCreate;
+  /* Said on every control live sync turns off, and only on those: a control off
+     for another reason — Default has no content, a preset is full — says nothing. */
+  const syncedGame = preset?.kind === 'game' && !canCreate ? alwaysSynchronizedReason : undefined;
   /* A preset of a content takes no more than the content's team, and a game
      preset no more than its deck has positions for. */
   const full = own !== null ? own.content !== null && own.members.length >= presetContent(own.content).teamSize
@@ -248,7 +252,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
           {/* Back to its placeholder after every pick: the field adds to the list
               rather than holding a choice of its own. */}
           <Dropdown id="monster-priority-add" className="monster-priority-select" value="" placeholder="Choose a monster"
-            disabled={!canAdd || choices.length === 0}
+            disabled={!canAdd || choices.length === 0} title={syncedGame}
             onFocus={warmChoices} onPointerDown={warmChoices}
             onChange={(event) => { if (event.target.value) add(event.target.value); }}>
             {choices.map((choice) => <option key={choice.unitId} value={choice.unitId}>{choice.name}</option>)}
@@ -260,8 +264,8 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
               presets is: Default has no content to add to. */}
           <Button ref={createButton} tone="important" disabled={!canCreate || onDefault}
             onClick={() => setCreating(true)}
-            title={canCreate ? undefined : 'Automatic synchronization is on: presets come from the game.'}>Add preset</Button>
-          <Button tone="danger" disabled={!deletable} onClick={deletePreset}>Delete preset</Button>
+            title={canCreate ? undefined : alwaysSynchronizedReason}>Add preset</Button>
+          <Button tone="danger" disabled={!deletable} title={syncedGame} onClick={deletePreset}>Delete preset</Button>
           {/* One per preset, since it opens the whole team; always here and
               disabled where there is no team, so the panel keeps one shape. */}
           <Button className="monster-priority-speed" disabled={!tunable} aria-haspopup="dialog"
@@ -272,6 +276,10 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
 
       <section className="panel monster-priority-list-panel" aria-labelledby="monster-priority-list-title" aria-disabled={preset === null || undefined}>
         <h3 id="monster-priority-list-title" className="type-heading">Priority</h3>
+        <p className="monster-priority-note">
+          {canCreate ? '' : 'With Always synchronized on, the game decides the monsters and the leader. '}
+          The order decides who takes runes from whom in Rune Optimization: higher takes from lower.
+        </p>
         {preset === null
           ? <p className="monster-priority-empty">No presets here yet.</p>
           : priority.length === 0
@@ -306,7 +314,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
                   {own || gameEditable
                     ? <button type="button" className="speed-icon-button preset-leader" aria-pressed={leader}
                       aria-label={`${name} leads this preset`} onClick={() => lead(unitId)}><CrownIcon /></button>
-                    : <span className="preset-leader" data-on={leader || undefined} role="img"
+                    : <span className="preset-leader" data-on={leader || undefined} role="img" title={syncedGame}
                       aria-label={leader ? 'Leader' : undefined} aria-hidden={leader ? undefined : true}><CrownIcon /></span>}
                   <span className="monster-priority-name">
                     {choice && display
@@ -327,7 +335,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
                     <button type="button" className="speed-icon-button" aria-label={`Move ${name} down`}
                       disabled={at === priority.length - 1} onClick={() => move(at, at + 1)}><ArrowIcon direction="down" /></button>
                     <button type="button" className="speed-icon-button danger" aria-label={`Remove ${name} from this preset`}
-                      disabled={!editable} onClick={() => remove(unitId)}><RemoveIcon /></button>
+                      disabled={!editable} title={syncedGame} onClick={() => remove(unitId)}><RemoveIcon /></button>
                   </span>
                 </li>;
               })}

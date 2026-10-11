@@ -225,8 +225,15 @@ test('live synchronization explains why engraving is unavailable', async ({ page
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const detail = page.getByRole('dialog', { name: 'Build 1' });
-  await expect(detail.getByRole('button', { name: 'Engrave on monster' })).toBeDisabled();
-  await expect(detail.getByRole('img', { name: /Read on game start or Load a JSON file/ })).toBeVisible();
+  /* The one reason every control live sync turns off gives. */
+  const reason = 'Always synchronized is on, so this comes from the game.';
+  const engrave = detail.getByRole('button', { name: 'Engrave on monster' });
+  await expect(engrave).toBeDisabled();
+  await expect(engrave).toHaveAttribute('title', reason);
+  await expect(detail.getByRole('img', { name: reason, exact: true })).toBeVisible();
+  const locks = detail.locator('.rune-build-card-locks button');
+  await expect(locks.first()).toBeDisabled();
+  await expect(locks.first()).toHaveAttribute('title', reason);
   await page.screenshot({ path: testInfo.outputPath('engrave-live-disabled.png') });
 });
 

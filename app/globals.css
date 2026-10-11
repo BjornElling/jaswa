@@ -348,7 +348,7 @@ label[for] {
 .rune-build-missing, .rune-build-card-where-value, .rune-optimization-choose,
 .speed-summary, .speed-basis-level, .speed-basis-bonus, .speed-dungeon-facts dd,
 .monster-priority-place, .monster-priority-empty, .monster-priority-about, .monster-priority-count,
-.preset-team-option {
+.monster-priority-note, .preset-team-option {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 400;
@@ -2449,6 +2449,7 @@ label[for] {
 .monster-priority-list-panel { display: grid; gap: var(--s3); }
 .monster-priority-list-panel h3 { margin: 0; }
 .monster-priority-empty { margin: 0; color: var(--text-muted); }
+.monster-priority-note { margin: 0; color: var(--text-muted); }
 /* One set of columns for the names above and every entry below, shared through
    subgrid so a column sized by its content is sized once for all of them: the
    place, the name with its portrait, the way to Rune Optimization, what the copy

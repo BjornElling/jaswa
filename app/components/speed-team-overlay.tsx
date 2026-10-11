@@ -35,8 +35,8 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
   totemShare: number;
   names: Record<string, MonsterCopyName>;
   general: GeneralSettings;
-  /** How the leader may be changed here, absent where it may not. */
-  leading?: 'free' | 'kept';
+  /** How the leader may be changed here: `'synced'` where live sync keeps the game's, absent where it may not for another reason. */
+  leading?: 'free' | 'kept' | 'synced';
   onSave: (team: SpeedTeam) => void;
   onClose: () => void;
   onOpenMonster: OpenMonsterOverlay;
