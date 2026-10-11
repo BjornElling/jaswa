@@ -871,7 +871,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    copy name in a large field with its portrait, *Open profile* under it with
    *Reset to profile* to its right (disabled until a requirement differs from the
    profile) and, at the field's right edge, a quiet *Speed tuning* that opens
-   Speed Tuning on the chosen preset's team (disabled for Default and an empty
+   the chosen preset's team over this page (disabled for Default and an empty
    preset); the depth slider and table size beside it, because they
    are read at the moment of searching; then *Find builds* and a square stop mark.
    The line under the depth gives a rough size of the search before it runs —

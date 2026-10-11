@@ -104,6 +104,15 @@ export function readSpeedTuningPreferences(value: unknown): SpeedTuningPreferenc
 }
 
 /**
+ * Whether a preset is a team to tune: every preset with monsters but Default,
+ * which is no team. Speed Tuning lists exactly these, and every Speed tuning
+ * button opens exactly these, so the two cannot disagree.
+ */
+export function isSpeedTeam(preset: { kind: string; members: readonly string[] }): boolean {
+  return preset.kind !== 'default' && preset.members.length > 0;
+}
+
+/**
  * A preset as a team to tune: its own monsters and leader, in the turn order
  * the user asked for — with a monster the preset gained since placed last and
  * one it lost left out — and the what-ifs tried on them. Every preset is one:

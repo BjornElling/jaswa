@@ -7,6 +7,8 @@ import { ArrowIcon, RemoveIcon } from './list-icons';
 import { MonsterLink } from './monster-link';
 import { warmMonsterPortraits } from '../lib/monster-portrait-image';
 import type { OpenMonsterOverlay } from './monster-link';
+import type { OpenSpeedTeamOverlay } from './preset-speed-team-overlay';
+import { isSpeedTeam } from '../lib/speed-tuning-preferences';
 import { PageHeader } from './page-chrome';
 import { PresetChooser } from './preset-chooser';
 import { SpeedVerdictMark } from './speed-verdict-mark';
@@ -74,8 +76,8 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   onOpenMonster: OpenMonsterOverlay;
   /** Opens Rune Optimization on this copy in this preset. */
   onOptimize: (presetId: string, unitId: string) => void;
-  /** Opens Speed Tuning on this preset's team. */
-  onTuneSpeed: (presetId: string) => void;
+  /** Opens this preset's team over the page. */
+  onTuneSpeed: OpenSpeedTeamOverlay;
 }) {
   const [creating, setCreating] = useState(false);
   /* The tab and area chosen while no preset is: a chosen preset names its own. */
@@ -122,8 +124,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const reorder = useDragReorder<HTMLOListElement>({ count: priority.length, onMove: move });
   const editable = preset !== null && (preset.kind !== 'game' || gameEditable);
   const deletable = own !== null || gameEditable;
-  /* Speed Tuning lists every preset with monsters as a team, so any of them opens there. */
-  const tunable = preset !== null && preset.kind !== 'default' && preset.members.length > 0;
+  const tunable = preset !== null && isSpeedTeam(preset);
 
   /* A preset added here joins the chosen content as the game's own do, and is
      offered the name the game would give the next one: the content and the
@@ -314,8 +315,9 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
                       it is on every row, and disabled where there is no team to open, so the
                       rows keep one shape. */}
                   <span className="monster-priority-ways">
-                    <InlineButton disabled={!tunable}
-                      aria-label={`Speed tuning for ${preset.name}, from ${name}`} onClick={() => onTuneSpeed(preset.id)}>Speed tuning</InlineButton>
+                    <InlineButton disabled={!tunable} aria-haspopup="dialog"
+                      aria-label={`Speed tuning for ${preset.name}, from ${name}`}
+                      onClick={(event) => onTuneSpeed(preset.id, event.currentTarget)}>Speed tuning</InlineButton>
                     <InlineButton disabled={!choice}
                       aria-label={`Optimize runes for ${name}`} onClick={() => onOptimize(preset.id, unitId)}>Optimize</InlineButton>
                   </span>

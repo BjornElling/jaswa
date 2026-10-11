@@ -314,8 +314,9 @@ an import, and are checked one preset at a time on load.
   priority means anything; between the teams of a pool there is no order,
   because a rune on another team is never taken at all.
 - Each monster has a shortcut to Rune Optimization in that preset, and beside
-  it one to Speed Tuning with the preset's team open, disabled only on Default
-  and on a preset with no monsters.
+  it *Speed tuning*, which opens the preset's team over Presets — the overlay
+  Speed Tuning's own lines open — disabled only on Default and on a preset with
+  no monsters.
 
 **Rune Optimization.**
 - The preset being optimized for is shown prominently above the monster:

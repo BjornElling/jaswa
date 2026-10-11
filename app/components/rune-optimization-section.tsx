@@ -10,6 +10,8 @@ import { MonsterPortrait } from './monster-portrait';
 import { Overlay } from './overlay';
 import { PencilIcon } from './pencil-icon';
 import type { OpenMonsterOverlay } from './monster-link';
+import type { OpenSpeedTeamOverlay } from './preset-speed-team-overlay';
+import { isSpeedTeam } from '../lib/speed-tuning-preferences';
 import { PageHeader } from './page-chrome';
 import { RuneBuildField } from './rune-build-field';
 import { RuneBuildOverlay } from './rune-build-overlay';
@@ -153,8 +155,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   onLock: (presetId: string, unitId: string, runeId: string, lock: RuneLock | null) => Promise<void>;
   onOpenMonster: OpenMonsterOverlay;
   onOpenRune: OpenRuneOverlay;
-  /** Opens Speed Tuning on this preset's team. */
-  onTuneSpeed: (presetId: string) => void;
+  /** Opens this preset's team over the page. */
+  onTuneSpeed: OpenSpeedTeamOverlay;
 }) {
   const settings = preferences.runeOptimization;
   const general = preferences.general;
@@ -182,8 +184,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      its members can become the question this page answers. */
   const preset = presets.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === defaultPresetId);
   const activePresetId = preset?.id ?? defaultPresetId;
-  /* Speed Tuning lists every preset with monsters as a team, so any of them opens there. */
-  const tunable = preset !== undefined && preset.kind !== 'default' && preset.members.length > 0;
+  const tunable = preset !== undefined && isSpeedTeam(preset);
   const items = useMemo(() => accountItems(game?.data), [game]);
   /* The profile is the copy's in this preset and no other: names, requirements
      and the Reset to profile all read the one context the build is for. */
@@ -441,10 +442,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             {/* The preset's team, not the monster's profile, so it stands apart at
                 the far edge, in the quiet box rows elsewhere use for the same way out.
                 Default is no team, and Speed Tuning has nothing of it to open. */}
-            <InlineButton className="rune-optimization-speed" disabled={!tunable}
+            <InlineButton className="rune-optimization-speed" disabled={!tunable} aria-haspopup="dialog"
               aria-label={preset ? `Speed tuning for ${preset.name}` : 'Speed tuning'}
               title={tunable ? undefined : 'Only a preset with monsters has a team to tune.'}
-              onClick={() => { if (tunable) onTuneSpeed(activePresetId); }}>Speed tuning</InlineButton>
+              onClick={(event) => { if (tunable) onTuneSpeed(activePresetId, event.currentTarget); }}>Speed tuning</InlineButton>
           </div>
         </div>
 

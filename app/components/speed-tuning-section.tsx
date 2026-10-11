@@ -1,11 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { PageHeader } from './page-chrome';
 import { useInlineReorder } from './use-drag-reorder';
 import { WorkspacePage } from './workspace-page';
-import { SpeedTeamOverlay } from './speed-team-overlay';
+import type { OpenSpeedTeamOverlay } from './preset-speed-team-overlay';
 import { SpeedVerdictMark } from './speed-verdict-mark';
 import type { SpeedVerdict } from './speed-verdict-mark';
-import type { OpenMonsterOverlay } from './monster-link';
 import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { moveItem } from '../lib/list-order';
@@ -13,13 +12,14 @@ import { monsterCopyNames } from '../lib/monster-names';
 import { profilesIn } from '../lib/monster-preferences';
 import type { MonsterCopyName } from '../lib/monster-names';
 import type { PresetColumn } from '../lib/preset-contents';
-import { accountItems, monsterInPreset, presetGroupLabel } from '../lib/presets';
+import { accountItems, presetGroupLabel } from '../lib/presets';
 import type { Preset } from '../lib/presets';
 import { readSkyTribeTotem } from '../lib/sky-tribe-totem';
+import { monstersByUnitId, presetTeam } from '../lib/speed-team';
 import { totemMaximumLevel } from '../lib/speed-tick';
 import { outOfPlaceCount, readSpeedTeam } from '../lib/speed-tuning-analysis';
 import type { TeamReading } from '../lib/speed-tuning-analysis';
-import { presetSpeedTeam, speedTuningOf } from '../lib/speed-tuning-preferences';
+import { isSpeedTeam, speedTuningOf } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam, SpeedTuningPreferences } from '../lib/speed-tuning-preferences';
 import type { ImportedGame, Preferences } from '../lib/types';
 
@@ -59,7 +59,7 @@ function PresetLine({ line, names, known, onOpen, onReorder }: {
   const order = line.team.members.map((member) => member.unitId);
   const status = teamStatus(line.reading, line.team.noSpeedTuning);
   const reorder = useInlineReorder<HTMLSpanElement>({ count: order.length, onMove: onReorder });
-  return <div className="speed-summary" role="button" tabIndex={0}
+  return <div className="speed-summary" role="button" tabIndex={0} aria-haspopup="dialog"
     onClick={(event) => onOpen(event.currentTarget)}
     onKeyDown={(event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -145,32 +145,19 @@ const columns: readonly { id: PresetColumn; title: string; empty: string }[] = [
   { id: 'other', title: 'Other presets', empty: 'No other presets.' },
 ];
 
-export function SpeedTuningSection({ game, monsters, preferences, presets, openPresetId = null, canChangePresets, onWrite, onLead, onTeamClosed, onOpenMonster }: {
+export function SpeedTuningSection({ game, monsters, preferences, presets, onWrite, onOpenTeam }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
   presets: readonly Preset[];
-  /** A team to open on arrival, asked for from another page. */
-  openPresetId?: string | null;
-  /** Whether the game's presets are the user's to change: false while live sync would put them back. */
-  canChangePresets: boolean;
   onWrite: (change: (current: SpeedTuningPreferences) => SpeedTuningPreferences) => void;
-  /** A preset's leader, `null` for none. */
-  onLead: (presetId: string, unitId: string | null) => void;
-  /** Told when a team's overlay closes, so a request to open one is spent. */
-  onTeamClosed?: () => void;
-  onOpenMonster: OpenMonsterOverlay;
+  /** Opens a preset's team over this page, through the same door every page uses. */
+  onOpenTeam: OpenSpeedTeamOverlay;
 }) {
   const tuning = preferences.speedTuning.presets;
   const general = preferences.general;
-  /* A team asked for from elsewhere has no line here that opened it, so focus
-     goes nowhere in particular when it closes. */
-  const [editing, setEditing] = useState<{ presetId: string; opener: HTMLElement | null } | null>(
-    () => (openPresetId === null ? null : { presetId: openPresetId, opener: null }));
 
-  const monsterById = useMemo(() => new Map(monsters
-    .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
-    .map((monster) => [String(monster.unit_id), monster])), [monsters]);
+  const monsterById = useMemo(() => monstersByUnitId(monsters), [monsters]);
   const items = useMemo(() => accountItems(game?.data), [game]);
   const totem = useMemo(() => readSkyTribeTotem(game?.data), [game]);
   const totemShare = totem.state === 'built' ? totem.percent : 0;
@@ -178,29 +165,17 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
   /* Every preset with monsters, as a team. Each reading runs the clock for the
      whole team, so they are read together, once for each change to the
      presets, the import, the totem or the tuning. */
-  const lines = useMemo<Line[]>(() => presets.filter((preset) => preset.kind !== 'default' && preset.members.length > 0).map((preset): Line => {
-    const team = presetSpeedTeam(preset, tuning[preset.id]);
-    const inPreset = new Map(preset.members.flatMap((unitId) => {
-      const monster = monsterById.get(unitId);
-      return monster ? [[unitId, monsterInPreset(monster, preset, items)] as const] : [];
-    }));
+  const lines = useMemo<Line[]>(() => presets.filter(isSpeedTeam).map((preset): Line => {
+    const { team, monsters: inPreset } = presetTeam(preset, tuning, monsterById, items);
     return { preset, team, monsters: inPreset, reading: readSpeedTeam({ team, monsters: inPreset, totemPercent: totemShare }) };
   }), [presets, tuning, monsterById, items, totemShare]);
 
-  const editingLine = editing ? lines.find((line) => line.preset.id === editing.presetId) : undefined;
   /* Each team names its copies as its own preset's profiles do: a label is part
      of a copy's profile in one preset, and the next line is another preset. */
   const namesByPreset = useMemo(() => new Map(lines.map((line) =>
     [line.preset.id, monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, line.preset.id))])),
   [lines, monsters, preferences.monsterPreferences]);
   const namesIn = (presetId: string) => namesByPreset.get(presetId) ?? {};
-
-  function close() {
-    const opener = editing?.opener;
-    setEditing(null);
-    onTeamClosed?.();
-    requestAnimationFrame(() => { if (opener?.isConnected) opener.focus(); });
-  }
 
   if (!game) {
     return <WorkspacePage header={<SpeedHeader />}>
@@ -235,30 +210,12 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, openP
         </section>;
       })}
     </div>
-
-    {editing && editingLine && <SpeedTeamOverlay key={editingLine.preset.id} initial={editingLine.team} title={editingLine.preset.name}
-      monsters={editingLine.monsters} totemShare={totemShare} names={namesIn(editingLine.preset.id)} general={general}
-      leading={leadingIn(editingLine.preset)}
-      onSave={(team) => {
-        onWrite((current) => ({ ...current, presets: { ...current.presets, [team.id]: speedTuningOf(team) } }));
-        if (team.leaderUnitId !== editingLine.team.leaderUnitId) onLead(team.id, team.leaderUnitId);
-        close();
-      }}
-      onClose={close} onOpenMonster={onOpenMonster} />}
   </WorkspacePage>;
-
-  /* A preset built here is always the user's; the game's only while live sync
-     is off, and a defense is always led by someone, so its lead only passes on. */
-  function leadingIn(preset: Preset): 'free' | 'kept' | undefined {
-    if (preset.kind === 'own') return 'free';
-    if (preset.kind !== 'game' || !canChangePresets) return undefined;
-    return preset.deck !== null && preset.deck.source.kind !== 'deck' ? 'kept' : 'free';
-  }
 
   /* A preset's line: its number, its monsters in the order asked for, its leader marked. */
   function renderLine(line: Line) {
     return <PresetLine line={line} names={namesIn(line.preset.id)} known={(unitId) => monsterById.has(unitId)}
-      onOpen={(opener) => setEditing({ presetId: line.preset.id, opener })}
+      onOpen={(opener) => onOpenTeam(line.preset.id, opener)}
       onReorder={(from, to) => {
         const team = { ...line.team, members: moveItem(line.team.members, from, to) };
         onWrite((current) => ({ ...current, presets: { ...current.presets, [team.id]: speedTuningOf(team) } }));

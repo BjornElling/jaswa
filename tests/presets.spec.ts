@@ -655,14 +655,23 @@ test('preset comes first, and empty presets keep the search controls in place', 
   await monster.selectOption('12');
   await rank.selectOption('dmg');
   await expect(find).toBeEnabled();
-  /* And it opens Speed Tuning with that team. */
-  await page.getByRole('button', { name: /^Speed tuning for / }).click();
-  await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'Arena Attack 4' })).toBeVisible();
+  /* And it opens that team over this page, which keeps its choices behind it. */
+  const opener = page.getByRole('button', { name: /^Speed tuning for / });
+  await opener.click();
+  const team = page.getByRole('dialog', { name: 'Arena Attack 4' });
+  await expect(team).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeAttached();
+  await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('preset-speed-tuning-opened.png'), fullPage: true });
+  await page.keyboard.press('Escape');
+  await expect(team).toHaveCount(0);
+  await expect(opener).toBeFocused();
+  await expect(preset).toHaveValue('deck-1-4');
+  await expect(monster).toHaveValue('12');
+  await expect(rank).toHaveValue('dmg');
 });
 
-test('Speed tuning opens the preset\'s team in Speed Tuning, from any of its rows', async ({ page }, testInfo) => {
+test('Speed tuning opens the preset\'s team over Presets, from any of its rows', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await importAccount(page);
@@ -688,19 +697,27 @@ test('Speed tuning opens the preset\'s team in Speed Tuning, from any of its row
   await page.screenshot({ path: testInfo.outputPath('preset-speed-button.png') });
 
   await button.click();
-  await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toBeVisible();
   const team = page.getByRole('dialog', { name: 'Arena Attack 4' });
   await expect(team).toBeVisible();
+  /* Over Presets, where the user is; Speed Tuning is never visited. */
+  await expect(page.getByRole('heading', { name: 'Presets', exact: true })).toBeAttached();
+  await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('preset-speed-overlay.png') });
-  /* Closed, it stays closed on Speed Tuning; Back goes to Presets. */
+  /* Closed, Presets stands as it was left, and focus is back on the row. */
   await page.keyboard.press('Escape');
   await expect(team).toHaveCount(0);
-  await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Presets', exact: true })).toBeVisible();
-  /* The rail asks for the page alone. */
-  await page.getByRole('navigation').getByRole('button', { name: 'Speed tuning' }).click();
+  await expect(button).toBeFocused();
+  await expect(page.getByLabel('Preset', { exact: true }).locator('.preset-team-name')).toHaveText('Arena Attack 4');
+
+  /* A choice saved there is the same choice Speed Tuning shows. */
+  await button.click();
+  await team.getByRole('checkbox', { name: 'No speed tuning' }).check();
+  await team.getByRole('button', { name: 'Save changes' }).click();
+  await expect(team).toHaveCount(0);
+  await page.getByRole('navigation').getByRole('button', { name: 'Speed Tuning' }).click();
   await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Arena Attack 4: / }).locator('.speed-summary-state')).toHaveText('No speed tuning');
 });
 
 test('the monster overlay names the preset its build is for, and Optimize opens it there', async ({ page }, testInfo) => {

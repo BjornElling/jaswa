@@ -34,6 +34,7 @@ import { heldRuneLocks, lockedRuneIds, noRuneLocks, readRuneLocks, runeLockOf, r
 import type { RuneLock, RuneLocks } from './lib/rune-locks';
 import type { MonsterReference, OpenMonsterOverlay } from './components/monster-link';
 import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
+import type { OpenSpeedTeamOverlay } from './components/preset-speed-team-overlay';
 import { useSessionStorageState, writeSessionValue } from './lib/session-storage-state';
 import { pageChoices, type Page, type ReportCategory } from './lib/workspace-config';
 
@@ -55,6 +56,7 @@ const PresetsSection = lazy(() => import('./components/presets-section').then(({
 const RuneOptimizationSection = lazy(() => import('./components/rune-optimization-section').then(({ RuneOptimizationSection: component }) => ({ default: component })));
 const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
 const RuneOverlay = lazy(() => import('./components/rune-overlay').then(({ RuneOverlay: component }) => ({ default: component })));
+const PresetSpeedTeamOverlay = lazy(() => import('./components/preset-speed-team-overlay').then(({ PresetSpeedTeamOverlay: component }) => ({ default: component })));
 
 type OverlayTarget =
   | { kind: 'monster'; target: MonsterReference; presetId?: string }
@@ -97,17 +99,17 @@ export default function Home() {
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
   const [overlay, setOverlay] = useState<OverlayTarget | null>(null);
   const [optimizerVisit, setOptimizerVisit] = useState(0);
-  /* The preset whose team Speed Tuning was asked to open, from Presets. */
-  const [speedRequest, setSpeedRequest] = useState<string | null>(null);
+  /* The preset whose team is open over the page. It is its own state rather
+     than a kind of `overlay` because a monster opened from the team stacks on
+     top of it, and closing that monster must leave the team standing. */
+  const [speedTeam, setSpeedTeam] = useState<string | null>(null);
   /* The control that opened the overlay, so focus returns to the exact row the
      reader came from. It is held here rather than in the overlay because it has
      to outlive the overlay's own unmount. */
   const overlayOpener = useRef<HTMLElement | null>(null);
+  const speedTeamOpener = useRef<HTMLElement | null>(null);
   /* A step back closes an overlay too: it was opened over the page being left. */
-  const setPage = usePageHistory(page, setStoredPage, isPage, () => {
-    overlayOpener.current = null;
-    setOverlay(null);
-  });
+  const setPage = usePageHistory(page, setStoredPage, isPage, closeEveryOverlay);
   const preferencesRef = useRef(preferences);
   /* The import badge's own box, so the confirmation that opens in the same
      corner can measure what it has to clear rather than assume a height. */
@@ -407,6 +409,28 @@ export default function Home() {
     setOverlay({ kind: 'rune', target });
   };
 
+  /* A team opens over the page that asked for it, never by going to Speed
+     Tuning first: every button that opens an overlay opens it where the user
+     is. Only the rail and Optimize change the page, and both close it. */
+  const openSpeedTeam: OpenSpeedTeamOverlay = (presetId, opener) => {
+    speedTeamOpener.current = opener;
+    setSpeedTeam(presetId);  };
+
+  function closeSpeedTeam() {
+    setSpeedTeam(null);
+    const opener = speedTeamOpener.current;
+    speedTeamOpener.current = null;
+    if (opener?.isConnected) opener.focus();
+  }
+
+  /* Leaving the page leaves what was opened over it. */
+  function closeEveryOverlay() {
+    overlayOpener.current = null;
+    setOverlay(null);
+    speedTeamOpener.current = null;
+    setSpeedTeam(null);
+  }
+
   function closeOverlay() {
     setOverlay(null);
     /* The row may have been filtered away while the overlay was open, in which
@@ -632,20 +656,9 @@ export default function Home() {
   function optimizeMonster(unitId: string, presetId?: string) {
     if (presetId !== undefined) setSelectedPreset(presetId);
     writeSessionValue(runeOptimizationMonsterKey, unitId);
-    overlayOpener.current = null;
-    setOverlay(null);
+    closeEveryOverlay();
     setOptimizerVisit((visit) => visit + 1);
     setPage('optimizer');
-  }
-
-  /* Into Speed Tuning with the preset's team already open. The request lasts
-     until that overlay closes, so Forward back onto the page opens it again;
-     the rail asks for the page alone and clears it. */
-  function tuneSpeed(presetId: string) {
-    setSpeedRequest(presetId);
-    overlayOpener.current = null;
-    setOverlay(null);
-    setPage('speed');
   }
 
   function writeRoles(change: (current: RuneRole[]) => RuneRole[]) {
@@ -710,7 +723,7 @@ export default function Home() {
   if (!ready) return <main className="loading-screen">Preparing your local workspace…</main>;
 
   return <PresetsContext.Provider value={presetsReading}><main className="app-shell">
-    <AppRail page={page} onNavigate={(next) => { setSpeedRequest(null); setPage(next); }} onReport={() => openReport()} />
+    <AppRail page={page} onNavigate={(next) => { closeEveryOverlay(); setPage(next); }} onReport={() => openReport()} />
 
     <section className="workspace">
       {game && <ImportBadge ref={importBadge} game={game} general={preferences.general} />}
@@ -811,12 +824,8 @@ export default function Home() {
         monsters={monsters}
         preferences={preferences}
         presets={presets}
-        openPresetId={speedRequest}
-        canChangePresets={canEngrave}
         onWrite={writeSpeedTuning}
-        onLead={(presetId, unitId) => void leadPreset(presetId, unitId)}
-        onTeamClosed={() => setSpeedRequest(null)}
-        onOpenMonster={openMonsterOverlay}
+        onOpenTeam={openSpeedTeam}
       /></Suspense>}
 
       {page === 'presets' && <Suspense fallback={<WorkspaceLoading />}><PresetsSection
@@ -830,7 +839,7 @@ export default function Home() {
         onWrite={presetWrites}
         onOpenMonster={openMonsterOverlay}
         onOptimize={(presetId, unitId) => optimizeMonster(unitId, presetId)}
-        onTuneSpeed={tuneSpeed}
+        onTuneSpeed={openSpeedTeam}
       /></Suspense>}
 
       {page === 'optimizer' && <Suspense fallback={<WorkspaceLoading />}><RuneOptimizationSection
@@ -848,7 +857,7 @@ export default function Home() {
         onLock={lockRune}
         onOpenMonster={openMonsterOverlay}
         onOpenRune={openRuneOverlay}
-        onTuneSpeed={tuneSpeed}
+        onTuneSpeed={openSpeedTeam}
       /></Suspense>}
     </section>
 
@@ -884,6 +893,21 @@ export default function Home() {
       onCancel={() => setRemoveGameDataPrompt(false)}
       onConfirm={() => { setRemoveGameDataPrompt(false); void removeImport(); }}
     />}
+
+    {/* Before the monster overlay, which a member's name opens on top of it. */}
+    {speedTeam !== null && <Suspense fallback={null}><PresetSpeedTeamOverlay
+      key={speedTeam}
+      presetId={speedTeam}
+      game={game}
+      monsters={monsters}
+      preferences={preferences}
+      presets={presets}
+      canChangePresets={canEngrave}
+      onWrite={writeSpeedTuning}
+      onLead={(presetId, unitId) => void leadPreset(presetId, unitId)}
+      onClose={closeSpeedTeam}
+      onOpenMonster={openMonsterOverlay}
+    /></Suspense>}
 
     {overlay?.kind === 'monster' && <Suspense fallback={null}><MonsterOverlay
       target={overlay.target}
