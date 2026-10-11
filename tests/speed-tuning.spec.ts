@@ -139,13 +139,17 @@ test('every preset with a monster is a line under its content, and every line op
   await expect(unnamedTeam.getByRole('columnheader', { name: 'Combat speed' })).toBeVisible();
 });
 
-test('a team marked as not speed tuned drops its enemy cut-in and reads green on the page', async ({ page }, testInfo) => {
+test('a team marked as not speed tuned drops its enemy cut-in and keeps its own order verdict', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await freshWorkspace(page);
   await importAccount(page);
   await openSpeedTuning(page);
   const line = presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), "Giant's Keep 1");
   await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
+  const lineBefore = await box(line);
+  const nextLine = presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), "Giant's Keep 2");
+  const nextBefore = await box(nextLine);
+  await page.screenshot({ path: testInfo.outputPath('speed-summary-tuned.png') });
   await line.click();
   const card = page.getByRole('dialog', { name: "Giant's Keep 1" });
   const toggle = card.getByRole('checkbox', { name: 'No speed tuning' });
@@ -195,20 +199,32 @@ test('a team marked as not speed tuned drops its enemy cut-in and reads green on
 
   await card.getByRole('button', { name: 'Save changes' }).click();
   await expect(card).toHaveCount(0);
-  await expect(line.locator('.speed-summary-state')).toHaveText('No speed tuning');
-  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
+  await expect(line.locator('.speed-summary-state')).toHaveText('5 of 5 out of place · No speed tuning');
+  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
+  expect(await box(line)).toEqual(lineBefore);
+  expect(await box(nextLine)).toEqual(nextBefore);
+  await page.screenshot({ path: testInfo.outputPath('speed-summary-not-tuned.png') });
   await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.presets?.['deck-24-101']?.noSpeedTuning))
     .toBe(true);
 
   /* Kept across a reload, and undone the same way. */
   await page.reload();
   await openSpeedTuning(page);
-  await expect(line.locator('.speed-summary-state')).toHaveText('No speed tuning');
+  await expect(line.locator('.speed-summary-state')).toHaveText('5 of 5 out of place · No speed tuning');
   await line.click();
   await expect(toggle).toBeChecked();
   await toggle.uncheck();
   await card.getByRole('button', { name: 'Save changes' }).click();
   await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
+
+  /* A single member has no teammate to overtake; its order still holds. */
+  const solo = presetLine(page.getByRole('region', { name: 'Arena', exact: true }), 'Arena Attack 2');
+  await solo.click();
+  const soloCard = page.getByRole('dialog', { name: 'Arena Attack 2' });
+  await soloCard.getByRole('checkbox', { name: 'No speed tuning' }).check();
+  await soloCard.getByRole('button', { name: 'Save changes' }).click();
+  await expect(solo.locator('.speed-summary-state')).toHaveText('Turn order holds · No speed tuning');
+  await expect(solo.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
 });
 
 test('a tie is not out of place, but a dungeon enemy cutting in fails the preset', async ({ page }, testInfo) => {

@@ -734,7 +734,8 @@ test('Speed tuning opens the preset\'s team over Presets, from the one button be
   await page.getByRole('navigation').getByRole('button', { name: 'Speed Tuning' }).click();
   await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Arena Attack 4: / }).locator('.speed-summary-state')).toHaveText('No speed tuning');
+  await expect(page.getByRole('button', { name: /^Arena Attack 4: / }).locator('.speed-summary-state'))
+    .toHaveText(/^(Turn order holds|Tied · position decides|\d+ of \d+ out of place) · No speed tuning$/);
 });
 
 test('the monster overlay names the preset its build is for, and Optimize opens it there', async ({ page }, testInfo) => {
@@ -1063,9 +1064,30 @@ test('a profile is the copy\'s in one preset: an edit in Default reaches no pres
   /* Nothing filled in: 12 states nothing anywhere, in Default or a preset. */
   let dialog = await openProfileIn(page, '12', 'deck-1-4');
   await expect(spdAtMost(dialog)).toHaveValue('');
-  /* Another context is enough to copy from, whether its profile says anything or not. */
-  await expect(dialog.getByLabel('Copy the profile from another preset')).toBeEnabled();
-  await expect(dialog.getByLabel('Copy the profile from another preset').locator('option[value="default"]')).toHaveCount(1);
+  /* Empty profiles stay in the menu, but offer no user choices to copy. */
+  const copyMenu = () => dialog.getByLabel('Copy the profile from another preset');
+  await expect(copyMenu()).toBeEnabled();
+  await expect(copyMenu().locator('option[value="default"]')).toBeDisabled();
+  await expect(copyMenu().locator('option[value="deck-99-1"]')).toBeDisabled();
+  expect(await copyMenu().locator('option[value="default"]').evaluate((option) => {
+    const expected = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+    const probe = document.createElement('span');
+    probe.style.color = expected;
+    document.body.append(probe);
+    const matches = getComputedStyle(option).color === getComputedStyle(probe).color;
+    probe.remove();
+    return matches;
+  })).toBe(true);
+  const controls = () => dialog.locator('.monster-overlay-controls');
+  const emptyBox = await box(controls());
+  await page.screenshot({ path: testInfo.outputPath('profile-copy-empty-before.png') });
+  await copyMenu().focus();
+  await copyMenu().press('ArrowDown');
+  await copyMenu().press('Enter');
+  await expect(copyMenu()).toHaveValue('');
+  await expect(dialog.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+  expect(await box(controls())).toEqual(emptyBox);
+  await page.screenshot({ path: testInfo.outputPath('profile-copy-empty-after.png') });
   await page.getByRole('button', { name: 'Close', exact: true }).click();
 
   /* The reported case: a max Spd stated in Default. */
@@ -1110,10 +1132,16 @@ test('a profile is the copy\'s in one preset: an edit in Default reaches no pres
 
   /* Everything filled in: a profile copied from Default is a copy, not a link. */
   await expect(dialog.getByLabel('Copy the profile from another preset')).toBeEnabled();
+  await expect(copyMenu().locator('option[value="default"]')).toBeEnabled();
+  await expect(copyMenu().locator('option[value="deck-1-4"]')).toBeEnabled();
+  const fullBox = await box(controls());
+  await page.screenshot({ path: testInfo.outputPath('profile-copy-populated-before.png') });
   await dialog.getByLabel('Copy the profile from another preset').selectOption('default');
   await expect(spdAtMost(dialog)).toHaveValue('150');
   await expect(dialog.getByLabel('Copy the profile from another preset')).toHaveValue('');
   expect(await box(group)).toEqual(before);
+  expect(await box(controls())).toEqual(fullBox);
+  await page.screenshot({ path: testInfo.outputPath('profile-copy-populated-after.png') });
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   dialog = await openProfileIn(page, '12', 'default');
   await spdAtMost(dialog).fill('140');

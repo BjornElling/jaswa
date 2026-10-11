@@ -31,7 +31,7 @@ import type {
   BandedChoices, MonsterCopyPreferences, MonsterPreferences, MonsterStatTargets,
 } from '../lib/monster-preferences';
 import {
-  blankMonsterCopyPreferences, copyProfile, leadFieldOf, leadMaximum, monsterLabelMaximum, profileIn, readLeadField,
+  blankMonsterCopyPreferences, copyProfile, leadFieldOf, leadMaximum, monsterLabelMaximum, profileIn, readLeadField, statesSomething,
   readTargetField,
 } from '../lib/monster-preferences';
 import { resolveMonsterPreferences } from '../lib/monster-preference-resolution';
@@ -279,14 +279,11 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   const [editingNickname, setEditingNickname] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
 
-  /* Every other context, offered to be copied in, whether its profile says
-     anything or not: copying an empty one is how a preset starts over from
-     nothing, and a menu that hid it would look broken the moment one preset had
-     no profile yet. Copying is the one way a profile crosses from one preset to
-     another, and it is the user's act: afterwards each is its own again. */
+  /* Empty profiles stay visible so every context can be found, but only the
+     user's stated choices offer anything to copy. Defaults are not choices. */
   const copySources = contexts.filter((entry) => entry.id !== activeContextId)
     .map((entry) => ({ id: entry.id, name: entry.name,
-      stated: profileIn(profiles, entry.id, unitId) ?? blankMonsterCopyPreferences(unitId) }));
+      stated: profileIn(profiles, entry.id, unitId) }));
 
   /* Another context is another profile: the draft becomes that one's, unedited.
      An edit is never carried across, which is why the choice waits for a save. */
@@ -509,10 +506,11 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
           <Dropdown className="monster-overlay-copy-select" aria-label="Copy the profile from another preset"
             value="" placeholder="Copy from…" disabled={copySources.length === 0}
             onChange={(event) => {
-              const source = copySources.find((entry) => entry.id === event.target.value);
-              if (source) change(() => copyProfile(source.stated, unitId));
+              const stated = copySources.find((entry) => entry.id === event.target.value)?.stated;
+              if (stated && statesSomething(stated)) change(() => copyProfile(stated, unitId));
             }}>
-            {copySources.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            {copySources.map((entry) => <option key={entry.id} value={entry.id}
+              disabled={!entry.stated || !statesSomething(entry.stated)}>{entry.name}</option>)}
           </Dropdown>
         </div>}
       </header>

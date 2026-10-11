@@ -4345,6 +4345,7 @@ input[type='checkbox']:checked {
 .jaswa-select:hover { background-color: var(--hover); }
 .jaswa-select[data-placeholder] { color: var(--text-muted); }
 .jaswa-select option { background: var(--raise); color: var(--text-strong); }
+.jaswa-select option:disabled { color: var(--text-muted); }
 /* Native select rendering can use the selected option's color instead of the
    control's inherited color, so the empty placeholder needs its own rule. */
 .jaswa-select[data-placeholder] option[value=''] { color: var(--text-muted); }

@@ -361,7 +361,9 @@ an import, and are checked one preset at a time on load.
   stands in, and switches the profile, gear and figures the panel reads. It
   waits while an edit is unsaved, so an edit is never carried across. Beneath
   it sit *Save and optimize* and *Copy from…*, which offers every other one of
-  those contexts, whether the copy has a profile there or not (§4.1).
+  those contexts (§4.1). Profiles with no user-stated choices remain visible in
+  grey and cannot be copied; an explicit zero or deliberately cleared choice
+  still counts as a stated choice.
 - The candidate runes are every owned rune, minus those engraved on other
   monsters of the same preset where the settings say so, and minus every rune
   another deck of the preset's pool holds, whatever the settings say. Runes in
@@ -412,8 +414,10 @@ an import, and are checked one preset at a time on load.
   user's word that the team is not speed tuned. Saved with the team's tuning,
   it reads the team against no enemy: each monster still says whether it is in
   place and which of the team's turns it takes, the *Enemy cut in* section and
-  Ticks leave the overlay, and the page shows *No speed tuning*
-  with a green check.
+  Ticks leave the overlay. The page still states whether the turn order holds
+  or how many monsters are out of place, followed by ` · No speed tuning` in
+  place of the enemy cut-in verdict. The team's own order decides its check
+  or cross.
 
 **Rune Optimization.** A build's Location names the Default monster for a rune
 free in the selected preset, by name alone, as the game's rune list does. A

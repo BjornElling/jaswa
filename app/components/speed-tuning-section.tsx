@@ -97,10 +97,8 @@ function teamStatus(reading: TeamReading, noSpeedTuning: boolean): { text: strin
     const missing = reading.missingUnitIds.length;
     return { text: `${missing} monster${missing === 1 ? ' is' : 's are'} not in this import`, state: 'bad' };
   }
-  /* A team the user says is not speed tuned is fine by its own terms: neither
-     its order nor an enemy cutting in is held against it. */
-  if (noSpeedTuning) return { text: 'No speed tuning', state: 'good' };
-  const cut = cutInText(reading);
+  /* Turning off tuning removes the enemy question, not the team's own order. */
+  const cut = noSpeedTuning ? null : cutInText(reading);
   /* An enemy that gets in before a member puts it out of the place the user
      gave it, in arena and on every dungeon stage alike, so it fails the team. */
   const outOfPlace = outOfPlaceCount(reading);
@@ -108,7 +106,7 @@ function teamStatus(reading: TeamReading, noSpeedTuning: boolean): { text: strin
   const order = outOfPlace > 0 ? `${outOfPlace} of ${reading.members.length} out of place`
     : tied ? 'Tied · position decides' : cut === null ? 'Turn order holds' : null;
   return {
-    text: [order, cut].filter((part) => part !== null).join(' · '),
+    text: [order, noSpeedTuning ? 'No speed tuning' : cut].filter((part) => part !== null).join(' · '),
     state: outOfPlace > 0 || cut !== null ? 'bad' : 'good',
   };
 }

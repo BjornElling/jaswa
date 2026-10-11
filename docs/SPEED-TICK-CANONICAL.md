@@ -375,6 +375,11 @@ team summary; when it is the only concern, the summary names the tie and shows
 a green check. A team with any member out of place, or any enemy that can cut
 in, has a red cross. A saved team always has a green check or a red cross.
 
+With *No speed tuning* selected, the team's own first-turn order still decides
+the summary and its mark. The summary keeps the order verdict, followed by
+` · No speed tuning` instead of an enemy cut-in verdict; enemy turns are not
+counted in this reading.
+
 **Where it moves.** The verdict names a member's absolute place on the field,
 `moves 5th`, with every turn before it counted — enemy turns and a teammate's
 second turn alike. A member boosted into a second turn before the whole team
