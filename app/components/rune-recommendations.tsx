@@ -268,11 +268,13 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   useEffect(() => () => { cancelRuneAdvice(); cancelRuneAdviceRefresh(); }, []);
 
   const account = game?.data?.wizard_id === undefined ? '' : String(game.data.wizard_id);
-  const held = result !== null && result.account === account ? result : null;
+  const held = game !== null && result !== null && result.account === account ? result : null;
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
 
+  const canCalculate = Boolean(game && runes.length && base && roles.length);
+
   async function calculate() {
-    if (!base) return;
+    if (!canCalculate || !base) return;
     setBusy(true);
     setFailure(null);
     /* A whole calculation answers every rune, so a re-reading still in flight has
@@ -336,7 +338,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     [held, runesById, placeOf, runeHolds, lockedRunes, settings],
   );
   const rowsById = useMemo(() => new Map(rows.map((row) => [row.rune.id, row])), [rows]);
-  const owned = rows.filter((row) => !row.gone).length;
+  const owned = held ? rows.filter((row) => !row.gone).length : runes.length;
   /* Offered from the account's own runes, so a filter never names a set or a main
      stat that no row can carry. */
   const setOptions = useMemo(
@@ -432,60 +434,20 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     </div>
   </div>;
 
-  if (!game) {
-    return <section className="empty-state">
-      <h2>Nothing to judge until a game file is imported.</h2>
-      <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
-    </section>;
-  }
-  if (!runes.length) {
-    return <section className="empty-state">
-      <h2>This import holds no runes JASWA can read.</h2>
-      <p className="next-step">Report it from the rail if your account does have runes.</p>
-    </section>;
-  }
-  if (!base) {
-    return <section className="empty-state">
-      <h2>No monster has reached level {40}.</h2>
-      <p className="next-step">{noReferenceLineMessage}</p>
-    </section>;
-  }
-  if (!roles.length) {
-    return <section className="empty-state">
-      <h2>There are no roles to judge runes against.</h2>
-      <p className="next-step">Add one under Rune Settings to say what a rune should be worth.</p>
-    </section>;
-  }
+  const emptyState = !game
+    ? { title: 'Nothing to judge until a game file is imported.', detail: 'Go to Home and drop in the JSON file exported from Summoners War.' }
+    : !runes.length
+      ? { title: 'This import holds no runes JASWA can read.', detail: 'Report it from the rail if your account does have runes.' }
+      : !base
+        ? { title: 'No monster has reached level 40.', detail: noReferenceLineMessage }
+        : !roles.length
+          ? { title: 'There are no roles to judge runes against.', detail: 'Add one under Rune Settings to say what a rune should be worth.' }
+          : !held
+            ? { title: 'Nothing calculated yet.', detail: 'Press Calculate to put every rune on trial. The standards they are judged by live in Rune Settings.' }
+            : null;
 
-  /* A fragment, so each block is a block of the page itself and takes the
-     page's one vertical rhythm rather than a second stack of its own. */
   return <>
-    {/* Framed like the filter panel below it, so the count starts on the same
-        inset as the filters and the page's one action sits in a box, as it
-        does on every other page without a bar. */}
-    <div className="panel list-actions">
-      <p className="list-count">
-        {held
-          ? <><b>{shownOwned.toLocaleString('en')}</b> of {owned.toLocaleString('en')} runes</>
-          : <><b>{runes.length.toLocaleString('en')}</b> runes ready to judge</>}
-      </p>
-      {/* All three wordings in one LabelSwap, so the first result turning
-          Calculate into Recalculate does not resize the button either. */}
-      <Button tone="primary" onClick={calculate} busy={busy}>
-        <LabelSwap showing={busy ? 'busy' : held ? 'again' : 'first'}
-          faces={{ first: 'Calculate', again: 'Recalculate', busy: 'Calculating' }} />
-      </Button>
-    </div>
-
-    {!held
-      ? <section className="empty-state">
-        <h2>Nothing calculated yet.</h2>
-        <p className="next-step">
-          Press Calculate to put every rune on trial.<br />
-          The standards they are judged by live in Rune Settings.
-        </p>
-      </section>
-      : <DataTablePage
+    <DataTablePage
         filterClassName="rune-filter-strip"
         tableClassName="rune-cleanup-grid"
         headerLabel="Rune verdict columns"
@@ -525,8 +487,6 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               'selectedSlots', (slot) => String(slot), 'rune-filter-slot')}
           </div>
           <div className="rune-filter-column">
-            {toggleGroup('Advice', 'Filter by advice', runeVerdictOrder, selectedVerdicts,
-              'selectedVerdicts', (verdict) => runeVerdictLabels[verdict], 'rune-filter-advice')}
             <TokenChoiceField label="Main" description="Filter by main property" empty="Any main"
               className="rune-filter-main" options={mainOptions} chosen={selectedMains}
               onChange={(next) => setFilters((current) => ({ ...current, selectedMains: next }))} />
@@ -535,8 +495,6 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             <TokenChoiceField label="Set" description="Filter by rune set" empty="Any set"
               className="rune-filter-set" options={setOptions} chosen={selectedSets}
               onChange={(next) => setFilters((current) => ({ ...current, selectedSets: next }))} />
-          </div>
-          <div className="rune-filter-column">
             <div className="filter-group rune-filter-ancient" role="group" aria-label="Show only Ancient runes">
               <span className="filter-label">Show only</span>
               <div className="filter-group-controls">
@@ -545,8 +503,22 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 >Ancient</FilterButton>
               </div>
             </div>
+          </div>
+          <div className="rune-filter-column">
+              {toggleGroup('Stars', 'Filter by star count', starOptions, selectedStars,
+                'selectedStars', (stars) => <span className="rune-star-choice" aria-hidden="true">
+                  <span className="rune-star-count">{stars}</span><StarIcon />
+                </span>, 'rune-filter-stars', (stars) => `${stars} star${stars === 1 ? '' : 's'}`)}
             {toggleGroup('Quality', 'Filter by rune quality', qualityOptions, selectedQualities,
               'selectedQualities', (quality) => quality, 'rune-filter-quality')}
+            {/* Location narrows the answers on screen; every imported rune still
+                enters the calculation. */}
+            {toggleGroup('Location', 'Filter by location', placeOptions, selectedPlaces,
+              'selectedPlaces', (place) => placeLabels[place], 'rune-filter-usage')}
+            {toggleGroup('Advice', 'Filter by advice', runeVerdictOrder, selectedVerdicts,
+              'selectedVerdicts', (verdict) => runeVerdictLabels[verdict], 'rune-filter-advice')}
+          </div>
+          <div className="rune-filter-column">
             <div className="filter-group rune-speed-protection" role="group" aria-label="Never sell if...">
               <span className="filter-label">Never sell if...</span>
               <div className="filter-group-controls">
@@ -589,17 +561,6 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 <span>%</span>
               </div>
             </div>
-          </div>
-          <div className="rune-filter-column">
-              {toggleGroup('Stars', 'Filter by star count', starOptions, selectedStars,
-                'selectedStars', (stars) => <span className="rune-star-choice" aria-hidden="true">
-                  <span className="rune-star-count">{stars}</span><StarIcon />
-                </span>, 'rune-filter-stars', (stars) => `${stars} star${stars === 1 ? '' : 's'}`)}
-            {/* "Where the rune is", not "which runes count": every rune was judged
-                before this strip was reached, and these two buttons decide only
-                which of the answers are on screen. */}
-            {toggleGroup('Location', 'Filter by location', placeOptions, selectedPlaces,
-              'selectedPlaces', (place) => placeLabels[place], 'rune-filter-usage')}
             {/* Ordering, not filtering: it reproduces the game's own Sort by, so a
                 box just arranged in Summoners War can be arranged the same way
                 here and the two lists compared row for row. */}
@@ -622,8 +583,15 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               </div>
             </div>
           </div>
-          <FilterSummary visible={shownOwned} total={owned} noun="runes"
-            onReset={() => setFilters(defaultRuneFilters)} className="rune-filter-status" />
+          <div className="rune-filter-actions">
+            <FilterSummary visible={shownOwned} total={owned} noun="runes"
+              onReset={() => setFilters(defaultRuneFilters)} className="rune-filter-status" />
+            <Button tone="primary" onClick={calculate} busy={busy} disabled={!canCalculate}
+              title={canCalculate ? undefined : emptyState?.title}>
+              <LabelSwap showing={busy ? 'busy' : held ? 'again' : 'first'}
+                faces={{ first: 'Calculate', again: 'Recalculate', busy: 'Calculating' }} />
+            </Button>
+          </div>
         </>}
       >
         <tbody>
@@ -685,11 +653,14 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             </td>
           </tr>) : <tr>
             <td className="table-empty-state" colSpan={runeCleanupTableColumns.length}>
-              No runes match these filters. Clear a filter to see more.
+              {emptyState ? <>
+                <span>{emptyState.title}</span><br />
+                <span>{emptyState.detail}</span>
+              </> : 'No runes match these filters. Clear a filter to see more.'}
             </td>
           </tr>}
         </tbody>
-      </DataTablePage>}
+      </DataTablePage>
 
     {failure || (held && refreshFailedFor === runes)
       ? <p className="calculation-status" role="status" data-failed="">

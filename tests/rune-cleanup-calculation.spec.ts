@@ -13,6 +13,19 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   const cleanup = page.locator('.workspace-page-content');
   await expect(cleanup.getByText('Nothing calculated yet.')).toBeVisible();
+  await expect(cleanup.locator('.list-actions')).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Use game-sorting' })).toBeVisible();
+  const columnLabels = [['Search', 'Level', 'Slot'], ['Main', 'Set', 'Show only'],
+    ['Stars', 'Quality', 'Location', 'Advice'], ['Never sell if...', 'Use game-sorting']];
+  for (const [index, labels] of columnLabels.entries()) {
+    await expect(page.locator('.rune-filter-column').nth(index).locator('.filter-label')).toHaveText(labels);
+  }
+  const filterBoxes = () => page.locator('.rune-filter-strip').evaluate((strip) =>
+    Array.from(strip.querySelectorAll('.filter-group, .rune-filter-actions > .button')).map((control) => {
+      const { x, y, width, height } = control.getBoundingClientRect();
+      return { x, y, width, height };
+    }));
+  const beforeCalculation = await filterBoxes();
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-empty.png') });
 
   await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
@@ -23,6 +36,7 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
     .toHaveText(/4 runes judged against [\d,]+ roles · [\d,]+ ms · (Graphics card|Processor)/);
   const table = page.getByRole('table', { name: 'Rune verdicts' });
   await expect(table.locator('tbody tr')).toHaveCount(4);
+  expect(await filterBoxes()).toEqual(beforeCalculation);
   await expect(table.getByRole('img', { name: /quality$/ })).toHaveCount(4);
   await expect(page.getByRole('table', { name: 'Rune verdict columns' }).locator('thead th'))
     .toHaveText(['Set', 'Slot', 'Lv.', 'Main', 'Innate', 'Sub properties', 'Location', 'Best role', 'Maxvalue', 'Chance', 'Advice']);
@@ -150,6 +164,8 @@ test('protects current pre-grind speed immediately without moving the filter con
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await expect(page.getByText('Nothing to judge until a game file is imported.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
+  await expect(page.getByRole('combobox', { name: 'Use game-sorting' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('speed-no-import.png') });
   await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
@@ -230,6 +246,8 @@ test('potential protection saves both choices and keeps independent filter colum
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await expect(page.getByText('Nothing to judge until a game file is imported.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
+  await expect(page.getByRole('combobox', { name: 'Use game-sorting' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('potential-no-import.png') });
   await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   const protectedAccount = JSON.parse(readFileSync(account, 'utf8'));
@@ -278,25 +296,33 @@ test('potential protection saves both choices and keeps independent filter colum
   const main = await page.locator('.rune-filter-main').boundingBox();
   const set = await page.locator('.rune-filter-set').boundingBox();
   expect(set!.x).toBe(main!.x);
-  const scale = main!.width / 180;
+  const scale = main!.width / 260;
   expect(set!.y).toBeCloseTo(main!.y + main!.height + 16 * scale, 1);
-  const quality = await page.locator('.rune-filter-quality').boundingBox();
+  const adviceGroup = await page.locator('.rune-filter-advice').boundingBox();
+  const locationGroup = await page.locator('.rune-filter-usage').boundingBox();
   const protection = await page.locator('.rune-speed-protection').boundingBox();
-  expect(protection!.y).toBeCloseTo(quality!.y + quality!.height + 16 * scale, 1);
+  expect(adviceGroup!.y).toBeCloseTo(locationGroup!.y + locationGroup!.height + 16 * scale, 1);
   const widths = await Promise.all([
     page.locator('.rune-filter-main .token-choice-line'),
     page.locator('.rune-filter-set .token-choice-line'),
     page.getByRole('combobox', { name: 'Use game-sorting' }),
   ].map((control) => control.boundingBox()));
   expect(widths[0]!.width).toBe(widths[1]!.width);
-  expect(widths[0]!.width).toBeCloseTo(widths[2]!.width, 1);
+  expect(widths[2]!.width).toBeCloseTo(widths[0]!.width * 180 / 260, 1);
   await expect(page.getByRole('combobox', { name: 'Use game-sorting' })).toHaveCSS('width', '180px');
   const summary = await page.locator('.rune-filter-status').boundingBox();
   const strip = await page.locator('.rune-filter-strip').boundingBox();
   const stars = await page.locator('.rune-filter-stars').boundingBox();
   expect(summary!.y).toBe(strip!.y);
   expect(summary!.x + summary!.width).toBe(strip!.x + strip!.width);
-  expect(stars!.y).toBeGreaterThanOrEqual(summary!.y + summary!.height + 16 * scale - 0.1);
+  expect(stars!.y).toBe(strip!.y);
+  const ordering = await page.locator('.rune-filter-sort-by').boundingBox();
+  expect(ordering!.x).toBe(protection!.x);
+  const calculateBox = await page.getByRole('button', { name: 'Recalculate', exact: true }).boundingBox();
+  expect(calculateBox!.x + calculateBox!.width).toBeCloseTo(strip!.x + strip!.width, 1);
+  expect(calculateBox!.y + calculateBox!.height).toBeCloseTo(strip!.y + strip!.height, 1);
+  expect(ordering!.y + ordering!.height).toBeCloseTo(strip!.y + strip!.height, 1);
+  await expect(page.locator('.rune-filter-actions')).toHaveCSS('border-left-width', '0px');
   await minimum.fill('90');
   await potential.uncheck();
   await page.reload();
@@ -307,4 +333,36 @@ test('potential protection saves both choices and keeps independent filter colum
   await expect(minimum).toHaveValue('90');
   await expect(speed).toBeChecked();
   await expect(page.getByRole('textbox', { name: 'Minimum pre-grind speed' })).toHaveValue('99');
+});
+
+
+test('keeps the filter panel visible when calculation prerequisites are missing', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  const missingReference = JSON.parse(readFileSync(account, 'utf8'));
+  for (const unit of missingReference.unit_list) unit.unit_level = 1;
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'missing-reference.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(missingReference)),
+  });
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await expect(page.getByText('No monster has reached level 40.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
+  await expect(page.locator('.rune-filter-strip')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('no-reference.png'), fullPage: true });
+  await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await page.getByRole('dialog').getByRole('button', { name: 'Replace data', exact: true }).click();
+  await page.getByRole('button', { name: 'Rune Settings', exact: true }).click();
+  await page.locator('summary').filter({ hasText: 'Roles' }).click();
+  const roleNames = await page.locator('.role-card .role-name').allTextContents();
+  expect(roleNames.length).toBeGreaterThan(0);
+  for (const name of roleNames) {
+    await page.getByRole('button', { name: `Delete ${name}`, exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete role', exact: true }).click();
+  }
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await expect(page.getByText('There are no roles to judge runes against.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
+  await expect(page.locator('.rune-filter-strip')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('no-roles.png'), fullPage: true });
 });

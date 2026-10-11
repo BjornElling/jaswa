@@ -87,7 +87,7 @@ test('a sync updates Rune Clean-up rune by rune without moving the rows', async 
   expect(new Set(soldInk).size).toBe(1);
   await expect(page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr[data-stale]')).toHaveCount(1);
   await expect(rows.filter({ hasText: 'Inventory' })).toHaveCount(4);
-  await expect(cleanup.getByText('4 of 4 runes')).toBeVisible();
+  await expect(cleanup.getByRole('status', { name: '4 of 4 runes shown' })).toBeVisible();
   /* Answered rune by rune: the whole calculation's own status line stands. */
   await expect(status).toHaveText(statusBefore ?? '');
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-after-sync.png'), fullPage: true });

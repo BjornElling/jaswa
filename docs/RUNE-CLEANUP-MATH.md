@@ -669,6 +669,14 @@ this safeguard; zero remains a stated threshold. Its checkbox, immediate updates
 level-dependent advice and saved settings follow the speed safeguard above.
 Neither safeguard changes Max value, Chance or Best role.
 
+Rune Clean-up always shows one filter panel, including before a calculation or
+without an import. The table states what is missing and Calculate is disabled
+until an import, rune, level-40 reference and role are available. The panel has
+five independent columns: Search/Level/Slot; Main/Set/Show only;
+Stars/Quality/Location/Advice; Never sell if.../Use game-sorting; and the table
+count/Reset filters/Calculate. Sorting and Calculate sit at the bottom of their
+columns. The final column has no divider. There is no separate calculation bar.
+
 
 
 The population judged is every rune the import holds, and no setting narrows it.

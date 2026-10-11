@@ -6457,7 +6457,10 @@ th.align-center .rank-heading { justify-content: center; }
 
 /* Each column follows its own contents, so a tall neighbour cannot push the
    next filter down. Choices keep their boxes and the column stays still. */
-.rune-filter-strip { grid-template-areas: none; align-items: start; }
+.rune-filter-strip {
+  grid-template-areas: none; align-items: start;
+  grid-template-columns: repeat(4, var(--filter-column)) minmax(180px, 1fr);
+}
 .rune-filter-column {
   display: flex; flex-direction: column; gap: var(--s4); min-width: 0;
   padding-left: var(--s4); border-left: 1px solid var(--line);
@@ -6481,10 +6484,15 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-speed-minimum:disabled { opacity: .4; }
 .rune-speed-protection .checkbox-row { cursor: default; }
 .rune-speed-protection label[aria-disabled='false'] { cursor: pointer; }
-/* The summary belongs to the box's corner, with its space reserved above Stars. */
-.rune-filter-status { top: 0; right: 0; }
-.rune-filter-column:nth-child(4) { padding-top: calc(var(--filter-status-height) + var(--s4)); }
-.rune-filter-main, .rune-filter-set,
+/* Status and calculation share a corner column, apart from the filters. */
+.rune-filter-actions {
+  display: flex; flex-direction: column; align-items: flex-end;
+  justify-content: space-between; align-self: stretch; gap: var(--s4); min-width: 0;
+}
+.rune-filter-status { position: static; }
+.rune-filter-column:nth-child(4) { align-self: stretch; }
+.rune-filter-column .rune-filter-sort-by { margin-top: auto; }
+.rune-filter-main, .rune-filter-set { width: 260px; }
 .rune-filter-sort-by .jaswa-select { width: 180px; }
 
 /* Six star choices share one fixed group measure. Small stroked glyphs keep

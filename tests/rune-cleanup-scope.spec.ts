@@ -23,7 +23,7 @@ test('every rune is judged, and the filters only decide what is shown', async ({
   const status = page.locator('.calculation-status');
   const rows = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr');
 
-  await expect(cleanup.getByText('4 runes ready to judge')).toBeVisible();
+  await expect(cleanup.getByText('Nothing calculated yet.')).toBeVisible();
   await calculate.click();
   await expect(status).toContainText('4 runes judged against');
   await expect(rows).toHaveCount(4);
@@ -48,7 +48,7 @@ test('every rune is judged, and the filters only decide what is shown', async ({
   await inventory.click();
   await expect(rows).toHaveCount(3);
   await expect(status).toContainText('4 runes judged against');
-  await expect(cleanup.getByText('3 of 4 runes')).toBeVisible();
+  await expect(cleanup.getByRole('status', { name: '3 of 4 runes shown' })).toBeVisible();
 
   await engraved.click();
   await expect(rows).toHaveCount(4);

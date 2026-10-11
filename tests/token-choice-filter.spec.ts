@@ -22,6 +22,7 @@ async function calculatedCleanup(page: Page) {
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   const panel = page.locator('.workspace-page-content');
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(page.locator('.calculation-status')).toContainText('runes judged against');
   await expect(page.getByRole('table', { name: 'Rune verdicts' })).toBeVisible();
 }
 
