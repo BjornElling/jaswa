@@ -6,6 +6,12 @@ export function TableColumnGroup({ columns }: { columns: readonly TableColumn[] 
 }
 
 type DataTablePageProps = {
+  /**
+   * What the table is read in, above the filters and apart from them: a filter
+   * narrows the rows, this decides what every figure in them is, so it is
+   * neither laid out in the filter columns nor cleared with them.
+   */
+  lead?: ReactNode;
   filters: ReactNode;
   columnGroup: ReactNode;
   header: ReactNode;
@@ -22,10 +28,11 @@ type DataTablePageProps = {
  * the horizontal-scroll behaviour a dense table needs.
  */
 export function DataTablePage({
-  filters, columnGroup, header, children, filterClassName, tableClassName, headerLabel, tableLabel,
+  lead, filters, columnGroup, header, children, filterClassName, tableClassName, headerLabel, tableLabel,
 }: DataTablePageProps) {
   return <section className="data-table-page">
     <section className="panel data-table-filter-panel" aria-label="Table filters">
+      {lead && <div className="data-table-lead">{lead}</div>}
       <div className={filterClassName ? `filter-strip ${filterClassName}` : 'filter-strip'}>{filters}</div>
     </section>
 

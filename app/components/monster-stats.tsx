@@ -27,7 +27,10 @@ import {
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
 import { profilesIn } from '../lib/monster-preferences';
-import { defaultPresetId } from '../lib/presets';
+import { accountItems, monsterInPreset, presetMenu } from '../lib/presets';
+import type { Preset } from '../lib/presets';
+import { defaultPresetChoice, heldPresetMenu, isPresetChoice, resolvePresetChoice } from '../lib/preset-choice';
+import { PresetChooser } from './preset-chooser';
 import { formatNumber } from '../lib/formatting';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { alignmentClass, monsterTableColumns } from '../lib/table-layouts';
@@ -165,9 +168,11 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
     && typeof candidate.showRainbowmons === 'boolean';
 }
 
-export function MonsterStats({ monsters, gameData, preferences, onOpenMonster }: {
+export function MonsterStats({ monsters, gameData, presets, preferences, onOpenMonster }: {
   monsters: GameRecord[];
   gameData: GameRecord;
+  /** Default first, then every preset (`readPresets`). */
+  presets: readonly Preset[];
   preferences: Preferences;
   onOpenMonster: OpenMonsterOverlay;
 }) {
@@ -178,9 +183,27 @@ export function MonsterStats({ monsters, gameData, preferences, onOpenMonster }:
   const {
     search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel, showRainbowmons,
   } = filters;
+  /* Which preset the table is read in, kept apart from the filters: Reset
+     filters leaves it alone, because it is not a narrowing but what every
+     figure on the page is (`DECK-PRESETS.md` §4). Only contents holding a
+     preset are offered, since this page reads presets and makes none. */
+  const [storedChoice, setChoice] = useSessionStorageState('jaswa.monsters.preset', defaultPresetChoice, isPresetChoice);
+  const menu = useMemo(() => heldPresetMenu(presetMenu(presets)), [presets]);
+  const choice = useMemo(() => resolvePresetChoice(menu, storedChoice), [menu, storedChoice]);
+  const { preset } = choice;
+  const items = useMemo(() => accountItems(gameData), [gameData]);
+
+  /* The preset's own team, each copy with the runes and artifacts it carries
+     there and Default's relic, as the game reads it (`DECK-PRESETS.md` §1).
+     Default holds the whole roster in the import's order; a preset its members
+     in the order the preset keeps them, which is what the row number counts. */
   const rows = useMemo<MonsterRow[]>(() => {
-    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, defaultPresetId));
-    return monsters.map((monster, index) => {
+    if (!preset) return [];
+    const byUnit = new Map(monsters.map((monster) => [String(monster.unit_id), monster]));
+    const members = preset.members.map((unitId) => byUnit.get(unitId)).filter((monster): monster is GameRecord => monster !== undefined);
+    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, preset.id));
+    return members.map((member, index) => {
+      const monster = monsterInPreset(member, preset, items);
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
       const display = monsterPresentation(monster.unit_master_id);
       const totals = calculateMonsterTotals(monster);
@@ -221,7 +244,7 @@ export function MonsterStats({ monsters, gameData, preferences, onOpenMonster }:
         dmg: atk === null || criticalRate === null || criticalDamage === null ? null : displayRunePotentialMetric(metrics.dmg),
       };
     });
-  }, [monsters, preferences]);
+  }, [monsters, preferences.monsterPreferences, preset, items]);
 
   /* Every monster the account holds anywhere, as the name a search would match
      it by. This table lists units only — a shrine stack has no stats to show —
@@ -313,7 +336,7 @@ export function MonsterStats({ monsters, gameData, preferences, onOpenMonster }:
   return <WorkspacePage
     header={<PageHeader
       title="Monster Stats"
-      tagline="The figures behind your monsters and their engraved gear." />}
+      tagline="Everything wrong with your monsters, gathered in one place." />}
   >
       {!monsters.length ? <section className="empty-state">
         <h2>Nothing to show until a game file is imported.</h2>
@@ -324,6 +347,8 @@ export function MonsterStats({ monsters, gameData, preferences, onOpenMonster }:
         tableLabel="Monster stats"
         columnGroup={<TableColumnGroup columns={monsterTableColumns} />}
         header={<SortableHeader columns={monsterColumns} sort={sort} onToggle={toggle} />}
+        lead={<PresetChooser idPrefix="monster-stats" menu={menu} choice={choice} monsters={monsters}
+          monsterPreferences={preferences.monsterPreferences} onChoose={setChoice} />}
         filters={<>
       <div className="filter-group">
         <span className="filter-label">Search</span>
@@ -390,6 +415,7 @@ export function MonsterStats({ monsters, gameData, preferences, onOpenMonster }:
                 target={{ kind: 'copy', unitId: row.unitId, masterId: row.masterId }}
                 name={row.name}
                 portrait={{ imageFilename: row.imageFilename, initial: row.initial }}
+                presetId={preset?.id}
                 onOpen={onOpenMonster}
               />
             </td>
@@ -420,6 +446,10 @@ export function MonsterStats({ monsters, gameData, preferences, onOpenMonster }:
             <td className={cell('ehpD', row.ehpD === null ? 'dim muted' : 'dim')}>{formatNumber(row.ehpD, preferences.general)}</td>
             <td className={cell('dmg', row.dmg === null ? 'dim muted' : 'dim')}>{formatNumber(row.dmg, preferences.general)}</td>
           </tr>)}
+          {sorted.length === 0 && <tr><td className="table-empty-state" colSpan={monsterTableColumns.length}>
+            {rows.length === 0 ? 'This preset holds no monsters from this import. Choose another preset above.'
+                : 'No monsters match these filters. Clear a filter to see more.'}
+          </td></tr>}
         </tbody>
       </DataTablePage>}
   </WorkspacePage>;

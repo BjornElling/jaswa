@@ -13,7 +13,7 @@ export function MonsterNumbers(props: {
 }) {
   return <WorkspacePage header={<PageHeader
     title="Monster Numbers"
-    tagline="Every copy counted, from the island to the shrine." />}
+    tagline="A menagerie of statistics, storage, and questionable life choices." />}
   >
     <MonsterStorage {...props} />
   </WorkspacePage>;

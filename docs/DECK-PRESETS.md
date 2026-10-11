@@ -271,9 +271,9 @@ it stands in.
 - A preset deleted in JASWA takes its profiles, speed tuning and priority list
   with it; a copy taken out of a preset takes its profile there.
 - A copy is named by the profile of the context it is read in: the Presets page
-  and Speed Tuning by each preset's, Rune Optimization by the chosen preset's,
-  and every page about Default — Monsters, the artifact and relic pages, Rune
-  Clean-up — by Default's.
+  and Speed Tuning by each preset's, Rune Optimization and Monster Stats by the
+  chosen preset's, and every page about Default — Monster Numbers, the artifact
+  and relic pages, Rune Clean-up — by Default's.
 - Artifact Optimization, its value columns and the relic plan judge Default
   (§5) and read Default's profiles. A relic is Default's in every preset (§1),
   so a preset profile's relic wishes are read only by that preset's overlay,
@@ -324,9 +324,10 @@ an import, and are checked one preset at a time on load.
   it belongs there, otherwise clears the monster choice. An empty preset says
   it has no monsters and cannot start a search.
 - A monster opened from a place about one preset — a preset's list, a Speed
-  Tuning team, a rune engraved in one preset, a build — opens its overlay on
+  Tuning team, a row of Monster Stats, a rune engraved in one preset, a build —
+  opens its overlay on
   that preset, and *Optimize* there opens Rune Optimization on it. A monster
-  opened from a place about no preset — the Monsters page, an artifact, a
+  opened from a place about no preset — Monster Numbers, an artifact, a
   relic — opens on Default, which is what those pages show. Opening the overlay
   leaves the preset chosen across the program alone; only *Optimize* changes it.
 - The overlay's *Build for* box is a menu of Default and the presets the copy
@@ -410,7 +411,22 @@ in Location's words: a rune the preset left free names its Default monster.
 Artifact Optimization and its value columns plan Default: which artifact a
 monster carries in Default and what to engrave, keep or sell there.
 
-**Monster pages** show Default and the number of presets each monster
+**Choosing a preset.** *Content*, *Area* and *Preset*, as the Presets page
+lays them out, are the one way a preset is chosen: `PresetChooser` draws the
+three fields and `preset-choice.ts` resolves and falls back the choice, so
+every page that offers it looks and behaves alike and is mended in one place.
+A page that makes presets — Presets — offers every content, empty ones
+included, because a preset is added to the content chosen; a page that only
+reads them offers only the tabs and contents holding one.
+
+**Monster Stats** reads one context at a time. The chooser sits above the
+filters, ruled off from them, offering only contents with presets, and the page
+opens on Default. The table lists the chosen preset's team in its own order,
+each copy with the runes and artifacts it carries there and Default's relic, so
+sets, stats and composites are the preset's and never Default's. The choice is
+not a filter: *Reset filters* leaves it alone.
+
+**Monster Numbers** shows Default and the number of presets each monster
 belongs to.
 
 ## 6. Order of work
