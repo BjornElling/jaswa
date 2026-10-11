@@ -667,7 +667,20 @@ chosen percentage, both inclusive and compared before display rounding. If eithe
 condition fails, the ordinary recommendation applies. A blank threshold disables
 this safeguard; zero remains a stated threshold. Its checkbox, immediate updates,
 level-dependent advice and saved settings follow the speed safeguard above.
-Neither safeguard changes Max value, Chance or Best role.
+The **Engraved on ≥ … mons.** safeguard starts enabled at **2**. It counts
+all placements across Default and every preset: the same monster in
+several presets counts once per preset. At or above the chosen threshold, it follows the
+same level-dependent advice as the other safeguards. The threshold accepts
+**1–9** or blank; blank disables this safeguard. Changes to the setting or to
+placements take effect immediately without recalculating scores. None of the
+safeguards changes Max value, Chance or Best role.
+
+The Location cell names the monster in Default, with **(+ X)** for its other
+placements. Without a Default placement it says **Engraved × X**, including
+when X is one. These counts include every preset, even several placements on
+the same monster. The hover names all placements. Location filtering still
+classifies any placed rune as Engraved and an unplaced rune as Inventory.
+Inventory is shown in muted grey.
 
 Rune Clean-up always shows one filter panel, including before a calculation or
 without an import. The table states what is missing and Calculate is disabled

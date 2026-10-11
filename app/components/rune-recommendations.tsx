@@ -328,13 +328,16 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
 
   /* A hold is the user's, not the calculation's, so it is laid over the held result
      on every change rather than frozen into it at Calculate. Where the rune sits is
-     read the same way: moving it changes nothing the advice reads. */
+     read the same way: moving it updates the engraving safeguard immediately. */
   const rows = useMemo<RuneCleanupRow[]>(
-    () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index, gone }) => ({
-      rune, advice: withRuneSellProtection(rune, advice, settings), index, gone,
-      ...placeOf(rune.id, gone),
-      hold: gone ? null : runeHoldVerdict(runeHolds[rune.id], lockedRunes.has(rune.id)),
-    })),
+    () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index, gone }) => {
+      const place = placeOf(rune.id, gone);
+      return {
+        rune, advice: withRuneSellProtection(rune, advice, settings, place.places), index, gone,
+        ...place,
+        hold: gone ? null : runeHoldVerdict(runeHolds[rune.id], lockedRunes.has(rune.id)),
+      };
+    }),
     [held, runesById, placeOf, runeHolds, lockedRunes, settings],
   );
   const rowsById = useMemo(() => new Map(rows.map((row) => [row.rune.id, row])), [rows]);
@@ -560,6 +563,26 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                   }} />
                 <span>%</span>
               </div>
+              <div className="filter-group-controls">
+                <div className="checkbox-row">
+                  <input id="rune-engraving-protection" type="checkbox" aria-label="Engraved on ≥"
+                    checked={settings.neverSellEngravedPlacements}
+                    onChange={(event) => onUpdate({ neverSellEngravedPlacements: event.target.checked })} />
+                  <label htmlFor={settings.neverSellEngravedPlacements ? 'rune-engraving-protection' : undefined}
+                    aria-disabled={!settings.neverSellEngravedPlacements}>Engraved on ≥</label>
+                </div>
+                <input className="rune-speed-minimum rune-engraving-minimum type-body" type="text" inputMode="numeric" maxLength={1}
+                  disabled={!settings.neverSellEngravedPlacements}
+                  aria-label="Minimum engraving count" value={settings.engravedPlacementsMinimum ?? ''}
+                  onChange={(event) => {
+                    const text = event.target.value;
+                    if (text === '') { onUpdate({ engravedPlacementsMinimum: null }); return; }
+                    if (!/^[1-9]$/.test(text)) return;
+                    const value = Number(text);
+                    if (Number.isFinite(value)) onUpdate({ engravedPlacementsMinimum: value });
+                  }} />
+                <span>mons.</span>
+              </div>
             </div>
             {/* Ordering, not filtering: it reproduces the game's own Sort by, so a
                 box just arranged in Summoners War can be arranged the same way
@@ -624,7 +647,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 : row.rune.subProperties.map((property, at) => <RuneSubLine key={at} property={property} />)}
             </td>
             <td className={cell('location')}>
-              <EngravedPlace places={row.places} sold={row.gone} presets={reading.presets} monsterName={monsterName} />
+              <EngravedPlace places={row.places} sold={row.gone} presets={reading.presets} monsterName={monsterName} showDefaultMonster />
             </td>
             <td className={cell('role', !row.advice.role && 'muted')}>
               {row.advice.role?.name ?? '—'}

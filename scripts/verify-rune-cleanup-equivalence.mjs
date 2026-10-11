@@ -237,6 +237,7 @@ const baseSettings = {
   // This gate holds the calculation itself; safeguard boundaries have their own check.
   neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
   neverSellPotentialValue: false, potentialValueMinimum: null,
+  neverSellEngravedPlacements: false, engravedPlacementsMinimum: null,
 };
 
 const shipped = defaultRuneRoles();

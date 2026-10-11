@@ -11,6 +11,7 @@
  * it likely enough to get there.
  */
 import { runeMaximumLevel } from './runes';
+import type { Engraving } from './presets';
 import type { Rune } from './runes';
 import type { RuneRole } from './rune-roles';
 import type { RunePotentialSettings } from './types';
@@ -876,7 +877,9 @@ function decide({ rune, value, standing, chance, role, rank, cleared, brokenReje
 }
 
 /** User safeguards outrank selling policy without changing any score or odds. */
-export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings: RunePotentialSettings): RuneAdvice {
+export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings: RunePotentialSettings,
+  places: readonly Engraving[] = [],
+): RuneAdvice {
   const original = advice.unprotectedAdvice ?? { verdict: advice.verdict, reason: advice.reason };
   const minimum = settings.preGrindSpeedMinimum;
   const speed = rune.subProperties.find((line) => line.statId === 8)?.value;
@@ -887,10 +890,14 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
   const protectedPotential = settings.neverSellPotentialValue && potentialMinimum !== null
     && Number.isInteger(potentialMinimum) && potentialMinimum >= 0 && potentialMinimum <= 999
     && advice.chance >= 0.01 && advice.maxValue >= potentialMinimum / 100;
-  if (!protectedSpeed && !protectedPotential) return advice.unprotectedAdvice ? { ...advice, ...original } : advice;
+  const engravedMinimum = settings.engravedPlacementsMinimum;
+  const protectedEngravings = settings.neverSellEngravedPlacements && engravedMinimum !== null
+    && Number.isInteger(engravedMinimum) && engravedMinimum >= 1 && engravedMinimum <= 9
+    && places.length >= engravedMinimum;
+  if (!protectedSpeed && !protectedPotential && !protectedEngravings) return advice.unprotectedAdvice ? { ...advice, ...original } : advice;
   return {
     ...advice, unprotectedAdvice: original,
     verdict: rune.level === lastSubPropertyLevel || rune.level >= runeMaximumLevel ? 'keep' : 'power-up',
-    reason: protectedSpeed ? 'Pre-grind speed protected' : 'Potential value protected',
+    reason: protectedSpeed ? 'Pre-grind speed protected' : protectedPotential ? 'Potential value protected' : 'Engraving count protected',
   };
 }

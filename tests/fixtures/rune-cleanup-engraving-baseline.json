@@ -1,0 +1,3041 @@
+{
+ "results": {
+  "defaults": {
+   "rows": [
+    {
+     "id": "1",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.2723940435280641,
+     "standing": 0.00019581526090454014,
+     "chance": 0
+    },
+    {
+     "id": "2",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "def-dd",
+     "rank": "preferred",
+     "maxValue": 0.4250673739369168,
+     "standing": 0.22500188822724332,
+     "chance": 0
+    },
+    {
+     "id": "3",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "broken",
+     "maxValue": 0.2858496720436889,
+     "standing": 0.005226514705568326,
+     "chance": 0
+    },
+    {
+     "id": "4",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.27511106651210576,
+     "standing": 1.8894914198818462e-7,
+     "chance": 0
+    },
+    {
+     "id": "5",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.3096095250424158,
+     "standing": 0.0014120043251671071,
+     "chance": 0
+    },
+    {
+     "id": "6",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "7",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.3638396270859884,
+     "standing": 0.00021975983444880425,
+     "chance": 0
+    },
+    {
+     "id": "8",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "9",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.2569109041371251,
+     "standing": 0.0000027526611722001874,
+     "chance": 0
+    },
+    {
+     "id": "10",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.15365878104675168,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "11",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.30449023732072655,
+     "standing": 0.0010415249340069482,
+     "chance": 0
+    },
+    {
+     "id": "12",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.21471411283088393,
+     "standing": 2.8650008340123285e-7,
+     "chance": 0
+    },
+    {
+     "id": "13",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.22685126391266405,
+     "standing": 0.000003533786157676961,
+     "chance": 0
+    },
+    {
+     "id": "14",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "15",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "def-dd",
+     "rank": "preferred",
+     "maxValue": 0.3493540997143263,
+     "standing": 0.01565432428823221,
+     "chance": 0
+    },
+    {
+     "id": "16",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.18254244511807874,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "17",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "def-dd",
+     "rank": "broken",
+     "maxValue": 0.12516616074783923,
+     "standing": 4.513207451328166e-7,
+     "chance": 0
+    },
+    {
+     "id": "18",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.12203648048873528,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "19",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.5586476482008043,
+     "standing": 0.4059734592681507,
+     "chance": 0
+    },
+    {
+     "id": "20",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fast-dd",
+     "rank": "broken",
+     "maxValue": 0.4670900489120402,
+     "standing": 0.3125140756359138,
+     "chance": 0
+    },
+    {
+     "id": "21",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.5848170853268373,
+     "standing": 0.5747196678158205,
+     "chance": 0
+    },
+    {
+     "id": "22",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.4562424566979413,
+     "standing": 0.22291393541853638,
+     "chance": 0
+    },
+    {
+     "id": "23",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.47519614742269345,
+     "standing": 0.1945880295089828,
+     "chance": 0
+    },
+    {
+     "id": "24",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.538992571119537,
+     "standing": 0.32133132627404504,
+     "chance": 0
+    },
+    {
+     "id": "25",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.5213082137770805,
+     "standing": 0.1986083277601631,
+     "chance": 0
+    },
+    {
+     "id": "26",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "27",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.41305685566620404,
+     "standing": 0.17747281686997837,
+     "chance": 0
+    },
+    {
+     "id": "28",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.1654296345263192,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "29",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.37262895785307126,
+     "standing": 0.021503918264489056,
+     "chance": 0
+    },
+    {
+     "id": "30",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.24818855483879598,
+     "standing": 0.0000063124148257510554,
+     "chance": 0
+    },
+    {
+     "id": "31",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "no-spd-bruiser",
+     "rank": "preferred",
+     "maxValue": 0.4314802819494426,
+     "standing": 0.10285600603976587,
+     "chance": 0
+    },
+    {
+     "id": "32",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.23804597610921843,
+     "standing": 0.0000014990226095408266,
+     "chance": 0
+    },
+    {
+     "id": "33",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.29186115308226673,
+     "standing": 0.000029525257769643164,
+     "chance": 0
+    },
+    {
+     "id": "34",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.2795240780462082,
+     "standing": 0.000006820656928333118,
+     "chance": 0
+    },
+    {
+     "id": "35",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.23879540954090733,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "36",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "37",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fast-dd",
+     "rank": "preferred",
+     "maxValue": 0.42881109980524884,
+     "standing": 0.06447691642086578,
+     "chance": 0
+    },
+    {
+     "id": "38",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.3616316013189931,
+     "standing": 0.009699060375710045,
+     "chance": 0
+    },
+    {
+     "id": "39",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.46326221513266597,
+     "standing": 0.2358414579343568,
+     "chance": 0
+    },
+    {
+     "id": "40",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "acceptable",
+     "maxValue": 0.38463272016933525,
+     "standing": 0.09266434099604075,
+     "chance": 0
+    },
+    {
+     "id": "41",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.4416935675714536,
+     "standing": 0.1802995370187936,
+     "chance": 0
+    },
+    {
+     "id": "42",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "43",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "support",
+     "rank": "preferred",
+     "maxValue": 0.36715234797373875,
+     "standing": 0.1096672404030706,
+     "chance": 0
+    },
+    {
+     "id": "44",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.2377888487187601,
+     "standing": 0.00008511396450983108,
+     "chance": 0
+    },
+    {
+     "id": "45",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.24058715417821427,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "46",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "47",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.23969134423693572,
+     "standing": 0.00011420298016148564,
+     "chance": 0
+    },
+    {
+     "id": "48",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "49",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.2991768930137361,
+     "standing": 0.004807418849815735,
+     "chance": 0
+    },
+    {
+     "id": "50",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.19719794609426833,
+     "standing": 0.000014130900373185228,
+     "chance": 0
+    },
+    {
+     "id": "51",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "slow-dd",
+     "rank": "preferred",
+     "maxValue": 0.3327864072467178,
+     "standing": 0.1937666610775739,
+     "chance": 0
+    },
+    {
+     "id": "52",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "support",
+     "rank": "acceptable",
+     "maxValue": 0.18910075855894404,
+     "standing": 0.0014491409872077357,
+     "chance": 0
+    },
+    {
+     "id": "53",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.23679277534976523,
+     "standing": 1.719255014383292e-7,
+     "chance": 0
+    },
+    {
+     "id": "54",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "55",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.4767118132474589,
+     "standing": 0.03273955220304503,
+     "chance": 0
+    },
+    {
+     "id": "56",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.45300177454759516,
+     "standing": 0.15064479185671,
+     "chance": 0
+    },
+    {
+     "id": "57",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "acceptable",
+     "maxValue": 0.5350082683651673,
+     "standing": 0.24806871244088233,
+     "chance": 0
+    },
+    {
+     "id": "58",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.4730503596069606,
+     "standing": 0.164987584555061,
+     "chance": 0
+    },
+    {
+     "id": "59",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.4389902378830879,
+     "standing": 0.17397661218511906,
+     "chance": 0
+    },
+    {
+     "id": "60",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.5937050521172376,
+     "standing": 0.5170734290111285,
+     "chance": 0
+    },
+    {
+     "id": "61",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "def-dd",
+     "rank": "preferred",
+     "maxValue": 0.5527667645876571,
+     "standing": 0.6102191521726774,
+     "chance": 0
+    },
+    {
+     "id": "62",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "slow-dd",
+     "rank": "preferred",
+     "maxValue": 0.35954444384661094,
+     "standing": 0.39200650702985534,
+     "chance": 0
+    },
+    {
+     "id": "63",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.448093303981441,
+     "standing": 0.2006622429200635,
+     "chance": 0
+    },
+    {
+     "id": "64",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.284305399957416,
+     "standing": 0.00836153317035287,
+     "chance": 0
+    },
+    {
+     "id": "65",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "broken",
+     "maxValue": 0.32575556378515297,
+     "standing": 0.02301574709272157,
+     "chance": 0
+    },
+    {
+     "id": "66",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "67",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.38290063654175754,
+     "standing": 0.024141646291044483,
+     "chance": 0
+    },
+    {
+     "id": "68",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.21626833899442685,
+     "standing": 0.000002528484025004059,
+     "chance": 0
+    },
+    {
+     "id": "69",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "pvp-def",
+     "rank": "broken",
+     "maxValue": 0.4549528132904967,
+     "standing": 0.05543300018994784,
+     "chance": 0
+    },
+    {
+     "id": "70",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.3943460611812982,
+     "standing": 0.03825174822336383,
+     "chance": 0
+    },
+    {
+     "id": "71",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.23727374973022974,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "72",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.28628068610672835,
+     "standing": 0.0003346627428128446,
+     "chance": 0
+    },
+    {
+     "id": "73",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.37657410397158536,
+     "standing": 0.07235064321533387,
+     "chance": 0
+    },
+    {
+     "id": "74",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "def-dd",
+     "rank": "broken",
+     "maxValue": 0.36385745740406306,
+     "standing": 0.13048060309056553,
+     "chance": 0
+    },
+    {
+     "id": "75",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.479498260806434,
+     "standing": 0.30038218528403327,
+     "chance": 0
+    },
+    {
+     "id": "76",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "pvp-def",
+     "rank": "preferred",
+     "maxValue": 0.4443341610288434,
+     "standing": 0.2213676848073859,
+     "chance": 0
+    },
+    {
+     "id": "77",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.41086385743050263,
+     "standing": 0.04300609772877727,
+     "chance": 0
+    },
+    {
+     "id": "78",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "79",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.2664405658114505,
+     "standing": 0.0008665250105141878,
+     "chance": 0
+    },
+    {
+     "id": "80",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.3322141237162323,
+     "standing": 0.007636385738870263,
+     "chance": 0
+    },
+    {
+     "id": "81",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.386170548957955,
+     "standing": 0.0154077667729603,
+     "chance": 0
+    },
+    {
+     "id": "82",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "83",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.27712268416288116,
+     "standing": 0.007744484327916326,
+     "chance": 0
+    },
+    {
+     "id": "84",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "support",
+     "rank": "acceptable",
+     "maxValue": 0.1599980618728976,
+     "standing": 0.0002180914214702935,
+     "chance": 0
+    },
+    {
+     "id": "85",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "pvp-def",
+     "rank": "acceptable",
+     "maxValue": 0.2892827919823923,
+     "standing": 0.007026251631444668,
+     "chance": 0
+    },
+    {
+     "id": "86",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "87",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "slow-dd",
+     "rank": "broken",
+     "maxValue": 0.1965652342883114,
+     "standing": 0.0033549563299392245,
+     "chance": 0
+    },
+    {
+     "id": "88",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "89",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.357334184265189,
+     "standing": 0.06312066410833435,
+     "chance": 0
+    },
+    {
+     "id": "90",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "91",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "slow-dd",
+     "rank": "broken",
+     "maxValue": 0.566533291381511,
+     "standing": 0.7790240481196247,
+     "chance": 0
+    },
+    {
+     "id": "92",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.5787114043800727,
+     "standing": 0.7774317846237113,
+     "chance": 0
+    },
+    {
+     "id": "93",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.6110287097628527,
+     "standing": 0.6646645860456163,
+     "chance": 0
+    },
+    {
+     "id": "94",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "95",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.5982340572112379,
+     "standing": 0.43310559556746714,
+     "chance": 0
+    },
+    {
+     "id": "96",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "97",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.3043022271537856,
+     "standing": 0.004602203164355823,
+     "chance": 0
+    },
+    {
+     "id": "98",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "99",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.40385972072374837,
+     "standing": 0.0153547416410937,
+     "chance": 0
+    },
+    {
+     "id": "100",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "def-dd",
+     "rank": "broken",
+     "maxValue": 0.3630016334078289,
+     "standing": 0.15245357709605617,
+     "chance": 0
+    },
+    {
+     "id": "101",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.48664119989953486,
+     "standing": 0.14014473948703768,
+     "chance": 0
+    },
+    {
+     "id": "102",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "103",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.3724138901528757,
+     "standing": 0.05252208632636551,
+     "chance": 0
+    },
+    {
+     "id": "104",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.3687567872109578,
+     "standing": 0.03195282091906304,
+     "chance": 0
+    },
+    {
+     "id": "105",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.30589574381819823,
+     "standing": 0.0011371691035073712,
+     "chance": 0
+    },
+    {
+     "id": "106",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "107",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "pvp-def",
+     "rank": "preferred",
+     "maxValue": 0.4049534873650488,
+     "standing": 0.13253673527821902,
+     "chance": 0
+    },
+    {
+     "id": "108",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.5598949054746157,
+     "standing": 0.5758760054202453,
+     "chance": 0
+    },
+    {
+     "id": "109",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.5200388620438902,
+     "standing": 0.3569645234389273,
+     "chance": 0
+    },
+    {
+     "id": "110",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fast-dd",
+     "rank": "preferred",
+     "maxValue": 0.5166380632719985,
+     "standing": 0.5903036967244999,
+     "chance": 0
+    },
+    {
+     "id": "111",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.5278140024890775,
+     "standing": 0.43064794066610684,
+     "chance": 0
+    },
+    {
+     "id": "112",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "113",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.5114835481522789,
+     "standing": 0.23415992489780996,
+     "chance": 0
+    },
+    {
+     "id": "114",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "support",
+     "rank": "acceptable",
+     "maxValue": 0.2262132394802457,
+     "standing": 0.004707796011805593,
+     "chance": 0
+    },
+    {
+     "id": "115",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "pvp-def",
+     "rank": "preferred",
+     "maxValue": 0.4034559926475187,
+     "standing": 0.09549243838470899,
+     "chance": 0
+    },
+    {
+     "id": "116",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "117",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.4859751694501872,
+     "standing": 0.31687198987588705,
+     "chance": 0
+    },
+    {
+     "id": "118",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.24460499078525488,
+     "standing": 0.000002452795368330195,
+     "chance": 0
+    },
+    {
+     "id": "119",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.3569028118263372,
+     "standing": 0.012326729920930165,
+     "chance": 0
+    },
+    {
+     "id": "120",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "support",
+     "rank": "broken",
+     "maxValue": 0.17985993482915807,
+     "standing": 0.0005490167396534785,
+     "chance": 0
+    },
+    {
+     "id": "121",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.26522771009559615,
+     "standing": 0.0032689109403121366,
+     "chance": 0
+    },
+    {
+     "id": "122",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.2798169475270254,
+     "standing": 0.0006636586908312797,
+     "chance": 0
+    },
+    {
+     "id": "123",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.33318604985393524,
+     "standing": 0.0018413672936977063,
+     "chance": 0
+    },
+    {
+     "id": "124",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "125",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.4605527511500264,
+     "standing": 0.09726120394674316,
+     "chance": 0
+    },
+    {
+     "id": "126",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.24960952643695017,
+     "standing": 0.000006627501120876996,
+     "chance": 0
+    },
+    {
+     "id": "127",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.6650634869226739,
+     "standing": 0.7033667648823665,
+     "chance": 0
+    },
+    {
+     "id": "128",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "129",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "broken",
+     "maxValue": 0.642274043462708,
+     "standing": 0.7441425574437799,
+     "chance": 0
+    },
+    {
+     "id": "130",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "131",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "pvp-def",
+     "rank": "acceptable",
+     "maxValue": 0.5973090208904368,
+     "standing": 0.6094570026908293,
+     "chance": 0
+    },
+    {
+     "id": "132",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "133",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.47043510284285567,
+     "standing": 0.22565406797716722,
+     "chance": 0
+    },
+    {
+     "id": "134",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.48728833425611084,
+     "standing": 0.282916039104871,
+     "chance": 0
+    },
+    {
+     "id": "135",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.34137917064600076,
+     "standing": 0.0063169538609077255,
+     "chance": 0
+    },
+    {
+     "id": "136",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.40244789987885127,
+     "standing": 0.10470133960242989,
+     "chance": 0
+    },
+    {
+     "id": "137",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.41378196466193595,
+     "standing": 0.05978641701027295,
+     "chance": 0
+    },
+    {
+     "id": "138",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "139",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.4460987052567564,
+     "standing": 0.10945319452975738,
+     "chance": 0
+    },
+    {
+     "id": "140",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.30915931059003493,
+     "standing": 0.002197167337380216,
+     "chance": 0
+    },
+    {
+     "id": "141",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.46785204729658536,
+     "standing": 0.06282573566047667,
+     "chance": 0
+    },
+    {
+     "id": "142",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.26910315143802216,
+     "standing": 0.00013211831704137134,
+     "chance": 0
+    },
+    {
+     "id": "143",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.40823724641971904,
+     "standing": 0.040984308245998025,
+     "chance": 0
+    },
+    {
+     "id": "144",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "fixture:no-subs",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.33830085363562346,
+     "standing": 0.001341328579615565,
+     "chance": 0
+    },
+    {
+     "id": "fixture:flat-beside-percent",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.4421388906783871,
+     "standing": 0.3169088688193476,
+     "chance": 0
+    },
+    {
+     "id": "fixture:already-crafted",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "def-dd",
+     "rank": "broken",
+     "maxValue": 0.4317181812299345,
+     "standing": 0.631773838181111,
+     "chance": 0
+    },
+    {
+     "id": "fixture:incompatible-main",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "fixture:maxed-perfect",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.41982452934050607,
+     "standing": 0.00995335518132513,
+     "chance": 0
+    },
+    {
+     "id": "fixture:few-events",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.47393118221785974,
+     "standing": 0.11793459165082433,
+     "chance": 0
+    }
+   ],
+   "counts": {
+    "—/sell": 29,
+    "bomber/sell": 17,
+    "bruiser/sell": 33,
+    "def-dd/sell": 7,
+    "fast-dd/sell": 3,
+    "first-turn-debuff/sell": 19,
+    "no-spd-bruiser/sell": 7,
+    "pvp-def/sell": 6,
+    "role-mulz0dpa-pmulj0/sell": 20,
+    "slow-dd/sell": 4,
+    "support/sell": 5
+   }
+  },
+  "fixture-roles": {
+   "rows": [
+    {
+     "id": "1",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.2723940435280641,
+     "standing": 0.00019581526090454014,
+     "chance": 0
+    },
+    {
+     "id": "2",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "def-dd",
+     "rank": "preferred",
+     "maxValue": 0.4250673739369168,
+     "standing": 0.22500188822724332,
+     "chance": 0
+    },
+    {
+     "id": "3",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "broken",
+     "maxValue": 0.2858496720436889,
+     "standing": 0.005226514705568326,
+     "chance": 0
+    },
+    {
+     "id": "4",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.27511106651210576,
+     "standing": 1.8894914198818462e-7,
+     "chance": 0
+    },
+    {
+     "id": "5",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.3096095250424158,
+     "standing": 0.0014120043251671071,
+     "chance": 0
+    },
+    {
+     "id": "6",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "7",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.3638396270859884,
+     "standing": 0.00021975983444880425,
+     "chance": 0
+    },
+    {
+     "id": "8",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-unstated-slot",
+     "rank": "broken",
+     "maxValue": 0.18844258702966268,
+     "standing": 0.0000099360524686388,
+     "chance": 0
+    },
+    {
+     "id": "9",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.2569109041371251,
+     "standing": 0.0000027526611722001874,
+     "chance": 0
+    },
+    {
+     "id": "10",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.15365878104675168,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "11",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.30449023732072655,
+     "standing": 0.0010415249340069482,
+     "chance": 0
+    },
+    {
+     "id": "12",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.21471411283088393,
+     "standing": 2.8650008340123285e-7,
+     "chance": 0
+    },
+    {
+     "id": "13",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.22685126391266405,
+     "standing": 0.000003533786157676961,
+     "chance": 0
+    },
+    {
+     "id": "14",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "fixture-unstated-slot",
+     "rank": "broken",
+     "maxValue": 0.043385048190626024,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "15",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "def-dd",
+     "rank": "preferred",
+     "maxValue": 0.3493540997143263,
+     "standing": 0.01565432428823221,
+     "chance": 0
+    },
+    {
+     "id": "16",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.18254244511807874,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "17",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "def-dd",
+     "rank": "broken",
+     "maxValue": 0.12516616074783923,
+     "standing": 4.513207451328166e-7,
+     "chance": 0
+    },
+    {
+     "id": "18",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.12203648048873528,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "19",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.5586476482008043,
+     "standing": 0.4059734592681507,
+     "chance": 0
+    },
+    {
+     "id": "20",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fast-dd",
+     "rank": "broken",
+     "maxValue": 0.4670900489120402,
+     "standing": 0.3125140756359138,
+     "chance": 0
+    },
+    {
+     "id": "21",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.5848170853268373,
+     "standing": 0.5747196678158205,
+     "chance": 0
+    },
+    {
+     "id": "22",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.4562424566979413,
+     "standing": 0.22291393541853638,
+     "chance": 0
+    },
+    {
+     "id": "23",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.47519614742269345,
+     "standing": 0.1945880295089828,
+     "chance": 0
+    },
+    {
+     "id": "24",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.538992571119537,
+     "standing": 0.32133132627404504,
+     "chance": 0
+    },
+    {
+     "id": "25",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.5213082137770805,
+     "standing": 0.1986083277601631,
+     "chance": 0
+    },
+    {
+     "id": "26",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-unstated-slot",
+     "rank": "broken",
+     "maxValue": 0.34734300020069786,
+     "standing": 0.02211646582475672,
+     "chance": 0
+    },
+    {
+     "id": "27",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.41305685566620404,
+     "standing": 0.17747281686997837,
+     "chance": 0
+    },
+    {
+     "id": "28",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.1654296345263192,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "29",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.37262895785307126,
+     "standing": 0.021503918264489056,
+     "chance": 0
+    },
+    {
+     "id": "30",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.24818855483879598,
+     "standing": 0.0000063124148257510554,
+     "chance": 0
+    },
+    {
+     "id": "31",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "no-spd-bruiser",
+     "rank": "preferred",
+     "maxValue": 0.4314802819494426,
+     "standing": 0.10285600603976587,
+     "chance": 0
+    },
+    {
+     "id": "32",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.23804597610921843,
+     "standing": 0.0000014990226095408266,
+     "chance": 0
+    },
+    {
+     "id": "33",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.29186115308226673,
+     "standing": 0.000029525257769643164,
+     "chance": 0
+    },
+    {
+     "id": "34",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.2795240780462082,
+     "standing": 0.000006820656928333118,
+     "chance": 0
+    },
+    {
+     "id": "35",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.23879540954090733,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "36",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "37",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fast-dd",
+     "rank": "preferred",
+     "maxValue": 0.42881109980524884,
+     "standing": 0.06447691642086578,
+     "chance": 0
+    },
+    {
+     "id": "38",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.3616316013189931,
+     "standing": 0.009699060375710045,
+     "chance": 0
+    },
+    {
+     "id": "39",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.46326221513266597,
+     "standing": 0.2358414579343568,
+     "chance": 0
+    },
+    {
+     "id": "40",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "acceptable",
+     "maxValue": 0.38463272016933525,
+     "standing": 0.09266434099604075,
+     "chance": 0
+    },
+    {
+     "id": "41",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.4416935675714536,
+     "standing": 0.1802995370187936,
+     "chance": 0
+    },
+    {
+     "id": "42",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "43",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "support",
+     "rank": "preferred",
+     "maxValue": 0.36715234797373875,
+     "standing": 0.1096672404030706,
+     "chance": 0
+    },
+    {
+     "id": "44",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.2377888487187601,
+     "standing": 0.00008511396450983108,
+     "chance": 0
+    },
+    {
+     "id": "45",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.24058715417821427,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "46",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "47",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.23969134423693572,
+     "standing": 0.00011420298016148564,
+     "chance": 0
+    },
+    {
+     "id": "48",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "49",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.2991768930137361,
+     "standing": 0.004807418849815735,
+     "chance": 0
+    },
+    {
+     "id": "50",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.19719794609426833,
+     "standing": 0.000014130900373185228,
+     "chance": 0
+    },
+    {
+     "id": "51",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "fixture-twin-a",
+     "rank": "preferred",
+     "maxValue": 0.3327864072467178,
+     "standing": 0.1937666610775739,
+     "chance": 0
+    },
+    {
+     "id": "52",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "support",
+     "rank": "acceptable",
+     "maxValue": 0.18910075855894404,
+     "standing": 0.0014491409872077357,
+     "chance": 0
+    },
+    {
+     "id": "53",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.23679277534976523,
+     "standing": 1.719255014383292e-7,
+     "chance": 0
+    },
+    {
+     "id": "54",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "55",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.4767118132474589,
+     "standing": 0.03273955220304503,
+     "chance": 0
+    },
+    {
+     "id": "56",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.45300177454759516,
+     "standing": 0.15064479185671,
+     "chance": 0
+    },
+    {
+     "id": "57",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "acceptable",
+     "maxValue": 0.5350082683651673,
+     "standing": 0.24806871244088233,
+     "chance": 0
+    },
+    {
+     "id": "58",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.4730503596069606,
+     "standing": 0.164987584555061,
+     "chance": 0
+    },
+    {
+     "id": "59",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.4389902378830879,
+     "standing": 0.17397661218511906,
+     "chance": 0
+    },
+    {
+     "id": "60",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.5937050521172376,
+     "standing": 0.5170734290111285,
+     "chance": 0
+    },
+    {
+     "id": "61",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "def-dd",
+     "rank": "preferred",
+     "maxValue": 0.5527667645876571,
+     "standing": 0.6102191521726774,
+     "chance": 0
+    },
+    {
+     "id": "62",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-twin-a",
+     "rank": "preferred",
+     "maxValue": 0.35954444384661094,
+     "standing": 0.39200650702985534,
+     "chance": 0
+    },
+    {
+     "id": "63",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.448093303981441,
+     "standing": 0.2006622429200635,
+     "chance": 0
+    },
+    {
+     "id": "64",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.284305399957416,
+     "standing": 0.00836153317035287,
+     "chance": 0
+    },
+    {
+     "id": "65",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-disjoint",
+     "rank": "broken",
+     "maxValue": 0.2971428571428571,
+     "standing": 0.8115304753209145,
+     "chance": 0
+    },
+    {
+     "id": "66",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "67",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.38290063654175754,
+     "standing": 0.024141646291044483,
+     "chance": 0
+    },
+    {
+     "id": "68",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "fixture-disjoint",
+     "rank": "broken",
+     "maxValue": 0.25142857142857145,
+     "standing": 0.7572422093030272,
+     "chance": 0
+    },
+    {
+     "id": "69",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "pvp-def",
+     "rank": "broken",
+     "maxValue": 0.4549528132904967,
+     "standing": 0.05543300018994784,
+     "chance": 0
+    },
+    {
+     "id": "70",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.3943460611812982,
+     "standing": 0.03825174822336383,
+     "chance": 0
+    },
+    {
+     "id": "71",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.23727374973022974,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "72",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.28628068610672835,
+     "standing": 0.0003346627428128446,
+     "chance": 0
+    },
+    {
+     "id": "73",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.37657410397158536,
+     "standing": 0.07235064321533387,
+     "chance": 0
+    },
+    {
+     "id": "74",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "def-dd",
+     "rank": "broken",
+     "maxValue": 0.36385745740406306,
+     "standing": 0.13048060309056553,
+     "chance": 0
+    },
+    {
+     "id": "75",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.479498260806434,
+     "standing": 0.30038218528403327,
+     "chance": 0
+    },
+    {
+     "id": "76",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "pvp-def",
+     "rank": "preferred",
+     "maxValue": 0.4443341610288434,
+     "standing": 0.2213676848073859,
+     "chance": 0
+    },
+    {
+     "id": "77",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.41086385743050263,
+     "standing": 0.04300609772877727,
+     "chance": 0
+    },
+    {
+     "id": "78",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "79",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.2664405658114505,
+     "standing": 0.0008665250105141878,
+     "chance": 0
+    },
+    {
+     "id": "80",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.3322141237162323,
+     "standing": 0.007636385738870263,
+     "chance": 0
+    },
+    {
+     "id": "81",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.386170548957955,
+     "standing": 0.0154077667729603,
+     "chance": 0
+    },
+    {
+     "id": "82",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "83",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.27712268416288116,
+     "standing": 0.007744484327916326,
+     "chance": 0
+    },
+    {
+     "id": "84",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "support",
+     "rank": "acceptable",
+     "maxValue": 0.1599980618728976,
+     "standing": 0.0002180914214702935,
+     "chance": 0
+    },
+    {
+     "id": "85",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "pvp-def",
+     "rank": "acceptable",
+     "maxValue": 0.2892827919823923,
+     "standing": 0.007026251631444668,
+     "chance": 0
+    },
+    {
+     "id": "86",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "fixture-unstated-slot",
+     "rank": "broken",
+     "maxValue": 0.17186856887091057,
+     "standing": 0.00002132550475644402,
+     "chance": 0
+    },
+    {
+     "id": "87",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "fixture-twin-a",
+     "rank": "broken",
+     "maxValue": 0.1965652342883114,
+     "standing": 0.0033549563299392245,
+     "chance": 0
+    },
+    {
+     "id": "88",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "89",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.357334184265189,
+     "standing": 0.06312066410833435,
+     "chance": 0
+    },
+    {
+     "id": "90",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "91",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-twin-a",
+     "rank": "broken",
+     "maxValue": 0.566533291381511,
+     "standing": 0.7790240481196247,
+     "chance": 0
+    },
+    {
+     "id": "92",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.5787114043800727,
+     "standing": 0.7774317846237113,
+     "chance": 0
+    },
+    {
+     "id": "93",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.6110287097628527,
+     "standing": 0.6646645860456163,
+     "chance": 0
+    },
+    {
+     "id": "94",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "95",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.5982340572112379,
+     "standing": 0.43310559556746714,
+     "chance": 0
+    },
+    {
+     "id": "96",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "97",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.3043022271537856,
+     "standing": 0.004602203164355823,
+     "chance": 0
+    },
+    {
+     "id": "98",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-unstated-slot",
+     "rank": "broken",
+     "maxValue": 0.3058622136024206,
+     "standing": 0.007610816469853861,
+     "chance": 0
+    },
+    {
+     "id": "99",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.40385972072374837,
+     "standing": 0.0153547416410937,
+     "chance": 0
+    },
+    {
+     "id": "100",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "def-dd",
+     "rank": "broken",
+     "maxValue": 0.3630016334078289,
+     "standing": 0.15245357709605617,
+     "chance": 0
+    },
+    {
+     "id": "101",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.48664119989953486,
+     "standing": 0.14014473948703768,
+     "chance": 0
+    },
+    {
+     "id": "102",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "103",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "no-spd-bruiser",
+     "rank": "broken",
+     "maxValue": 0.3724138901528757,
+     "standing": 0.05252208632636551,
+     "chance": 0
+    },
+    {
+     "id": "104",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.3687567872109578,
+     "standing": 0.03195282091906304,
+     "chance": 0
+    },
+    {
+     "id": "105",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.30589574381819823,
+     "standing": 0.0011371691035073712,
+     "chance": 0
+    },
+    {
+     "id": "106",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "107",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "pvp-def",
+     "rank": "preferred",
+     "maxValue": 0.4049534873650488,
+     "standing": 0.13253673527821902,
+     "chance": 0
+    },
+    {
+     "id": "108",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.5598949054746157,
+     "standing": 0.5758760054202453,
+     "chance": 0
+    },
+    {
+     "id": "109",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.5200388620438902,
+     "standing": 0.3569645234389273,
+     "chance": 0
+    },
+    {
+     "id": "110",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fast-dd",
+     "rank": "preferred",
+     "maxValue": 0.5166380632719985,
+     "standing": 0.5903036967244999,
+     "chance": 0
+    },
+    {
+     "id": "111",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.5278140024890775,
+     "standing": 0.43064794066610684,
+     "chance": 0
+    },
+    {
+     "id": "112",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "113",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.5114835481522789,
+     "standing": 0.23415992489780996,
+     "chance": 0
+    },
+    {
+     "id": "114",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "support",
+     "rank": "acceptable",
+     "maxValue": 0.2262132394802457,
+     "standing": 0.004707796011805593,
+     "chance": 0
+    },
+    {
+     "id": "115",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "pvp-def",
+     "rank": "preferred",
+     "maxValue": 0.4034559926475187,
+     "standing": 0.09549243838470899,
+     "chance": 0
+    },
+    {
+     "id": "116",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-unstated-slot",
+     "rank": "broken",
+     "maxValue": 0.2535821725249584,
+     "standing": 0.0018066033942151544,
+     "chance": 0
+    },
+    {
+     "id": "117",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.4859751694501872,
+     "standing": 0.31687198987588705,
+     "chance": 0
+    },
+    {
+     "id": "118",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "broken",
+     "maxValue": 0.24460499078525488,
+     "standing": 0.000002452795368330195,
+     "chance": 0
+    },
+    {
+     "id": "119",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.3569028118263372,
+     "standing": 0.012326729920930165,
+     "chance": 0
+    },
+    {
+     "id": "120",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "support",
+     "rank": "broken",
+     "maxValue": 0.17985993482915807,
+     "standing": 0.0005490167396534785,
+     "chance": 0
+    },
+    {
+     "id": "121",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "preferred",
+     "maxValue": 0.26522771009559615,
+     "standing": 0.0032689109403121366,
+     "chance": 0
+    },
+    {
+     "id": "122",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.2798169475270254,
+     "standing": 0.0006636586908312797,
+     "chance": 0
+    },
+    {
+     "id": "123",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.33318604985393524,
+     "standing": 0.0018413672936977063,
+     "chance": 0
+    },
+    {
+     "id": "124",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "125",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.4605527511500264,
+     "standing": 0.09726120394674316,
+     "chance": 0
+    },
+    {
+     "id": "126",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "preferred",
+     "maxValue": 0.24960952643695017,
+     "standing": 0.000006627501120876996,
+     "chance": 0
+    },
+    {
+     "id": "127",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.6650634869226739,
+     "standing": 0.7033667648823665,
+     "chance": 0
+    },
+    {
+     "id": "128",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-unstated-slot",
+     "rank": "broken",
+     "maxValue": 0.4369934159841563,
+     "standing": 0.27883178410801635,
+     "chance": 0
+    },
+    {
+     "id": "129",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "first-turn-debuff",
+     "rank": "broken",
+     "maxValue": 0.642274043462708,
+     "standing": 0.7441425574437799,
+     "chance": 0
+    },
+    {
+     "id": "130",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "131",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "pvp-def",
+     "rank": "acceptable",
+     "maxValue": 0.5973090208904368,
+     "standing": 0.6094570026908293,
+     "chance": 0
+    },
+    {
+     "id": "132",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "133",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.47043510284285567,
+     "standing": 0.22565406797716722,
+     "chance": 0
+    },
+    {
+     "id": "134",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.48728833425611084,
+     "standing": 0.282916039104871,
+     "chance": 0
+    },
+    {
+     "id": "135",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "role-mulz0dpa-pmulj0",
+     "rank": "broken",
+     "maxValue": 0.34137917064600076,
+     "standing": 0.0063169538609077255,
+     "chance": 0
+    },
+    {
+     "id": "136",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.40244789987885127,
+     "standing": 0.10470133960242989,
+     "chance": 0
+    },
+    {
+     "id": "137",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.41378196466193595,
+     "standing": 0.05978641701027295,
+     "chance": 0
+    },
+    {
+     "id": "138",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "139",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "first-turn-debuff",
+     "rank": "preferred",
+     "maxValue": 0.4460987052567564,
+     "standing": 0.10945319452975738,
+     "chance": 0
+    },
+    {
+     "id": "140",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.30915931059003493,
+     "standing": 0.002197167337380216,
+     "chance": 0
+    },
+    {
+     "id": "141",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.46785204729658536,
+     "standing": 0.06282573566047667,
+     "chance": 0
+    },
+    {
+     "id": "142",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bomber",
+     "rank": "acceptable",
+     "maxValue": 0.26910315143802216,
+     "standing": 0.00013211831704137134,
+     "chance": 0
+    },
+    {
+     "id": "143",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.40823724641971904,
+     "standing": 0.040984308245998025,
+     "chance": 0
+    },
+    {
+     "id": "144",
+     "verdict": "sell",
+     "reason": "No role can use it",
+     "role": null,
+     "rank": "broken",
+     "maxValue": 0,
+     "standing": 0,
+     "chance": 0
+    },
+    {
+     "id": "fixture:no-subs",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "preferred",
+     "maxValue": 0.33830085363562346,
+     "standing": 0.001341328579615565,
+     "chance": 0
+    },
+    {
+     "id": "fixture:flat-beside-percent",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-unstated-slot",
+     "rank": "broken",
+     "maxValue": 0.4590687927390473,
+     "standing": 0.3779776227962097,
+     "chance": 0
+    },
+    {
+     "id": "fixture:already-crafted",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "def-dd",
+     "rank": "broken",
+     "maxValue": 0.4317181812299345,
+     "standing": 0.631773838181111,
+     "chance": 0
+    },
+    {
+     "id": "fixture:incompatible-main",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "fixture-unstated-slot",
+     "rank": "broken",
+     "maxValue": 0.2861314542294119,
+     "standing": 0.0005774379248829353,
+     "chance": 0
+    },
+    {
+     "id": "fixture:maxed-perfect",
+     "verdict": "sell",
+     "reason": "Below the floor",
+     "role": "bruiser",
+     "rank": "broken",
+     "maxValue": 0.41982452934050607,
+     "standing": 0.00995335518132513,
+     "chance": 0
+    },
+    {
+     "id": "fixture:few-events",
+     "verdict": "sell",
+     "reason": "0 %",
+     "role": "bruiser",
+     "rank": "acceptable",
+     "maxValue": 0.47393118221785974,
+     "standing": 0.11793459165082433,
+     "chance": 0
+    }
+   ],
+   "counts": {
+    "—/sell": 21,
+    "bomber/sell": 16,
+    "bruiser/sell": 33,
+    "def-dd/sell": 7,
+    "fast-dd/sell": 3,
+    "first-turn-debuff/sell": 18,
+    "fixture-disjoint/sell": 2,
+    "fixture-twin-a/sell": 4,
+    "fixture-unstated-slot/sell": 9,
+    "no-spd-bruiser/sell": 6,
+    "pvp-def/sell": 6,
+    "role-mulz0dpa-pmulj0/sell": 20,
+    "support/sell": 5
+   }
+  }
+ },
+ "boundaries": []
+}

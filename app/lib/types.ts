@@ -28,7 +28,7 @@ export type ImportedGame = {
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type ArtifactConversionStoneMode = 'none' | 'owned' | 'theoretical';
 /** `null` for a craft roll is the slider's first stop: no item credited at all. */
-export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; gemRoll: CraftRollAssumption | null; grindstoneRoll: CraftRollAssumption | null; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null };
+export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; gemRoll: CraftRollAssumption | null; grindstoneRoll: CraftRollAssumption | null; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null; neverSellEngravedPlacements: boolean; engravedPlacementsMinimum: number | null };
 /**
  * How the companion program is allowed to feed JASWA once it is connected.
  *

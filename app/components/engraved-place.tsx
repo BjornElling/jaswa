@@ -1,25 +1,28 @@
-import { engravingLines } from '../lib/presets';
+import { defaultPresetId, engravingLines } from '../lib/presets';
 import type { Engraving, Preset } from '../lib/presets';
 
 /**
- * An item's location in one fixed shape: *Engraved* with the number of places
- * beside it, or *Inventory*, or *Sold*. A rune can sit on a monster in many
- * presets at once, so naming them all would not fit a cell; the places are in
- * the hover instead. The count has a box of its own whether or not it shows,
- * so a row does not change width with it (AGENTS.md §2).
+ * All placements remain in the hover; Clean-up names the Default monster and
+ * reserves a separate count so a long name cannot hide its other placements.
  */
-export function EngravedPlace({ places, sold = false, presets, monsterName }: {
+export function EngravedPlace({ places, sold = false, presets, monsterName, showDefaultMonster = false }: {
   places: readonly Engraving[];
   sold?: boolean;
   presets: readonly Preset[];
   monsterName: (unitId: string, presetId: string) => string;
+  showDefaultMonster?: boolean;
 }) {
   if (sold) return <span className="engraved-place muted">Sold</span>;
-  if (places.length === 0) return <span className="engraved-place">Inventory</span>;
+  if (places.length === 0) return <span className={`engraved-place${showDefaultMonster ? ' muted' : ''}`}>Inventory</span>;
   const lines = engravingLines(places, presets, monsterName);
   const where = lines.join('\n');
-  return <span className="engraved-place" title={where} aria-label={`Engraved: ${lines.join('; ')}`}>
-    <span aria-hidden="true">Engraved</span>
-    <span className="engraved-place-count" aria-hidden="true">{places.length > 1 ? `×${places.length}` : ''}</span>
+  const defaultPlace = showDefaultMonster ? places.find((place) => place.presetId === defaultPresetId) : undefined;
+  const label = defaultPlace ? monsterName(defaultPlace.unitId, defaultPlace.presetId) : 'Engraved';
+  const count = showDefaultMonster
+    ? defaultPlace ? places.length > 1 ? `(+ ${places.length - 1})` : '' : `× ${places.length}`
+    : places.length > 1 ? `×${places.length}` : '';
+  return <span className={`engraved-place${showDefaultMonster ? ' engraved-place-named' : ''}`} title={where} aria-label={`Engraved: ${lines.join('; ')}`}>
+    <span className="engraved-place-name" aria-hidden="true">{label}</span>
+    <span className="engraved-place-count" aria-hidden="true">{count && (showDefaultMonster ? <> {count}</> : count)}</span>
   </span>;
 }

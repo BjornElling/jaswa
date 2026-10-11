@@ -25,7 +25,8 @@ export type RuneCleanupRow = {
    * Where the rune is: engraved on a monster in Default or a preset, in
    * inventory when on none, or sold since the calculation. A rune can be
    * engraved in many presets at once (`DECK-PRESETS.md` §1), so the places are
-   * listed in `places` and the cell says only which of the three it is.
+   * listed in `places`; the cell can name its Default monster without changing
+   * the location used by filters and sorting.
    */
   location: 'Engraved' | 'Inventory' | 'Sold';
   places: readonly Engraving[];

@@ -6479,6 +6479,7 @@ th.align-center .rank-heading { justify-content: center; }
   font-variant-numeric: tabular-nums; text-align: center;
 }
 .rune-speed-minimum:focus { border-color: var(--text-accent); }
+.rune-engraving-minimum { width: calc(2ch + var(--s4)); }
 .rune-speed-protection label[aria-disabled='true'],
 .rune-speed-minimum:disabled { color: var(--text-muted); cursor: default; }
 .rune-speed-minimum:disabled { opacity: .4; }
@@ -7102,4 +7103,8 @@ th.align-center .rank-heading { justify-content: center; }
 /* An item's location: the word, and the count of places beside it in a box
    of its own, so a row reading ×12 is as wide as one reading nothing. */
 .engraved-place { display: inline-flex; gap: var(--s1); white-space: nowrap; }
+.engraved-place.muted { color: var(--text-muted); }
 .engraved-place-count { min-width: 4ch; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.engraved-place-named { display: flex; min-width: 0; max-width: 100%; }
+.engraved-place-named .engraved-place-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.engraved-place-named .engraved-place-count { flex: none; min-width: 0; }
