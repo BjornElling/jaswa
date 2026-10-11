@@ -115,7 +115,7 @@ test('a time limit keeps guide builds and never calls the unfinished search impo
         else super.postMessage(message, transferOrOptions);
       }
       addEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions) {
-        if (type !== 'message' || !listener) return super.addEventListener(type, listener, options);
+        if (type !== 'message' || !listener) return super.addEventListener(type, listener as EventListenerOrEventListenerObject, options);
         super.addEventListener(type, (event: MessageEvent) => {
           if (event.data.type === 'prepared') event.data.problem.timeLimitMs = -1;
           if (typeof listener === 'function') listener.call(this, event);

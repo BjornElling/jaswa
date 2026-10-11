@@ -83,13 +83,16 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
 
   const outcomes = await page.evaluate(async () => {
-    const client = await import('/app/lib/compute/rune-advice-client.ts');
-    const request = {
-      runes: [], roles: [], base: new Map(),
+    // The page resolves the URL through the dev server; the type comes from the source file.
+    const url: string = '/app/lib/compute/rune-advice-client.ts';
+    const client = await import(url) as typeof import('../app/lib/compute/rune-advice-client');
+    const request: import('../app/lib/compute/rune-advice-protocol').RuneAdviceRequest = {
+      runes: [], roles: [], base: new Map(), preferWebGpu: false,
       settings: {
         powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null,
         gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
         intangibleRunes: 1, keepMoreForLargerSets: false,
+        neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
       },
     };
     /* Both started in one tick, so the second is created before any worker message

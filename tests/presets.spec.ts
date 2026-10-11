@@ -903,7 +903,7 @@ test('a rune engraved on a monster in another preset is free here, and an engrav
   const placed = (data: { runes: Data['runes'] }) => data.runes.map((rune) => `${rune.rune_id}:${rune.occupied_type}:${rune.occupied_id}`).sort();
   const imported = [...base.runes, ...base.unit_list.flatMap((unit: { runes: Data['runes'] }) => unit.runes)];
   expect(placed(saved)).toEqual(placed({ runes: imported }));
-  expect(saved.deck_list.filter((entry) => entry !== keep)).toEqual(account.deck_list.filter((entry) => !(entry.deck_type === 24)));
+  expect(saved.deck_list.filter((entry) => entry !== keep)).toEqual(account.deck_list.filter((entry: { deck_type: number }) => !(entry.deck_type === 24)));
 });
 
 test('a rune on the optimized monster in Default is inventory in another preset', async ({ page }, testInfo) => {
