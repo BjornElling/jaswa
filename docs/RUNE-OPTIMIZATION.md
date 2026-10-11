@@ -64,9 +64,10 @@ or always has element advantage, its leads (none unless stated), the range each
 figure must fall in, and the figure to rank by. Whether a held Immemorial Gem or
 Grindstone may be spent is not the profile's: it is one setting on this page,
 shared by every monster, because the stock it spends is the account's. The page
-opens on exactly that, read *resolved*
-(`monster-preference-resolution.ts`), so a slot the owner never answered carries
-the community's answer — and says so under the field.
+opens on the user's stated choices. A slot the owner never answered stays
+unrestricted (`Any`), just as it does in the monster profile. Community mains
+and their shares appear as small reference text below each slot; they never
+select an option or constrain a calculation.
 
 The page's own controls may be changed for this calculation only and never write
 back to the profile; *Reset to profile* discards those changes after confirmation.

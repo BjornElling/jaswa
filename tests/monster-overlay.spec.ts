@@ -494,11 +494,11 @@ test('a cleared preference stays cleared, and does not fall back to the default'
   await importAccount(page);
   await openOverlay(page);
 
-  /* Slot 4 has a statistics default, so it opens standing in from the
-     population. Opening the menu and choosing nothing is no statement at all;
+  /* Slot 4 has community statistics, but opens without a choice.
+     Opening the menu and choosing nothing is no statement at all;
      adding a main and taking it off again is the user saying they want none,
      which is stored as an empty list rather than as a silence. An absent key
-     would let the default quietly return the next time the overlay opened. */
+     would lose the distinction between never answered and deliberately cleared. */
   const slot4 = page.getByRole('button', { name: /^Slot 4 main stat:/ });
   await slot4.click();
   await page.getByRole('menu', { name: 'Slot 4 main stat' }).getByRole('menuitem', { name: /^HP%/ }).click();

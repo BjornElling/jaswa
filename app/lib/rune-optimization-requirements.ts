@@ -3,21 +3,7 @@ import { runeSlotKeys } from './monster-defaults';
 import type { MonsterCopyPreferences } from './monster-preferences';
 import { monsterStatTargetKeys } from './monster-preferences';
 import { resolveMonsterPreferences } from './monster-preference-resolution';
-import type { PreferenceSource } from './monster-preference-resolution';
 import type { RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
-
-/**
- * Where a calculation's requirements start: the monster's profile
- * (`RUNE-OPTIMIZATION.md` §2).
- *
- * The profile is read *resolved*, so a slot its owner never answered carries the
- * community's answer, exactly as every other page that reads a profile does — and
- * the page is told which, because "you asked for SPD" and "most players engrave SPD"
- * are different reasons for the same pill.
- */
-export type RequirementSources = {
-  slots: Record<RuneSlotKey, PreferenceSource>;
-};
 
 /**
  * The question as the page holds it, before it can be asked. The figure to rank by
@@ -33,9 +19,14 @@ export function askable(draft: RequirementsDraft): RuneOptimizationRequirements 
   return rankBy === undefined ? undefined : { ...draft, rankBy };
 }
 
+/**
+ * Only the owner's choices constrain a slot (`RUNE-OPTIMIZATION.md` §2).
+ * Community statistics belong beside the field as reference; turning them into
+ * requirements would silently exclude builds the owner never ruled out.
+ */
 export function profileRequirements(
   unitId: string, masterId: unknown, stated: MonsterCopyPreferences | undefined,
-): { requirements: RequirementsDraft; sources: RequirementSources } {
+): { requirements: RequirementsDraft } {
   const resolved = resolveMonsterPreferences(unitId, masterId, stated);
   const targets: Partial<Record<RankFigure, number>> = {};
   const ceilings: Partial<Record<RankFigure, number>> = {};
@@ -46,10 +37,9 @@ export function profileRequirements(
     if (ceiling !== undefined) ceilings[key] = ceiling.value;
   }
   const slotMains = {} as RuneOptimizationRequirements['slotMains'];
-  const slotSources = {} as Record<RuneSlotKey, PreferenceSource>;
   for (const key of runeSlotKeys) {
-    (slotMains as Record<RuneSlotKey, unknown>)[key] = [...resolved.runes.slots[key].chosen];
-    slotSources[key] = resolved.runes.slots[key].source;
+    (slotMains as Record<RuneSlotKey, unknown>)[key] = resolved.runes.slots[key].source === 'user'
+      ? [...resolved.runes.slots[key].chosen] : [];
   }
   return {
     requirements: {
@@ -64,7 +54,6 @@ export function profileRequirements(
       ceilings,
       rankBy: resolved.runeSuggestionStat,
     },
-    sources: { slots: slotSources },
   };
 }
 

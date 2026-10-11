@@ -520,7 +520,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
           <Section title="Runes">
             <div className="overlay-lines">
               {editable && <Line label="Desired builds">
-                <RuneBuildField chosen={resolved.runes.sets.chosen}
+                <RuneBuildField chosen={draft.runeSets ?? []}
                   onChange={(next) => change((state) => ({ ...state, runeSets: next }))} />
               </Line>}
               <Line label="Most common">
@@ -534,7 +534,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
                 <span className="overlay-slot-name">Slot {slotNumbers[key]}</span>
                 {editable && <RuneSlotMainField slot={slotNumbers[key]}
                   options={runeSlotMainsBySlot[key]}
-                  chosen={resolved.runes.slots[key].source === 'user' ? resolved.runes.slots[key].chosen : []}
+                  chosen={runeSlotMainsBySlot[key].filter((stat) => draft.runeSlots?.[key]?.includes(stat))}
                   onChange={(next) => change((state) => ({
                     ...state,
                     runeSlots: { ...state.runeSlots, [key]: next },

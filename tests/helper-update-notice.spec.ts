@@ -38,6 +38,9 @@ test('with nothing imported, the warning takes the corner and leaves with the ro
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await importRoute(page, 'direct').check();
   await expect(page.getByRole('status', { name: 'Helper program connection' })).toContainText('Helper is not running');
+  /* Measure the notice's effect after the web font settles, so a late font swap
+     cannot be mistaken for movement caused by the helper's next poll. */
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
   const before = await homeBoxes(page);
   await page.screenshot({ path: testInfo.outputPath('notice-empty-before.png') });
 

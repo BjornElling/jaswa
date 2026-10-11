@@ -7,6 +7,7 @@ import { buildIssueMarks, combatBonusMarks } from '../lib/figure-marks';
 import { CheckboxRow, RadioLine } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
+import { monsterUsage } from '../lib/monster-usage-statistics';
 import { Overlay } from './overlay';
 import { PencilIcon } from './pencil-icon';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -218,6 +219,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const profile = useMemo(() => (selected
     ? profileRequirements(selected.unitId, selected.masterId, profiles[selected.unitId])
     : undefined), [selected, profiles]);
+  const usage = useMemo(() => selected ? monsterUsage(selected.masterId) : undefined, [selected]);
   /* A change made here is for this copy in this preset: the same copy in another
      preset is another question, and does not inherit it. */
   const edited = edits !== null && edits.unitId === unitId && edits.presetId === activePresetId;
@@ -560,8 +562,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               <RuneSlotMainField slot={slotNumbers[key]} options={runeSlotMainsBySlot[key]}
                 chosen={requirements.slotMains[key]} className="rune-optimization-slot-field"
                 onChange={(next) => change((state) => ({ ...state, slotMains: { ...state.slotMains, [key]: next } }))} />
-              <Provenance>{changed(sameList(requirements.slotMains[key], profile.requirements.slotMains[key]))
-                ?? (profile.sources.slots[key] === 'user' ? '' : 'What most players engrave')}</Provenance>
+              <Provenance>{usage?.runes?.slots[key]
+                ?.slice(0, 3).map((entry) => `${entry.label} ${(entry.share * 100).toFixed(0)}%`).join(', ') || 'Not captured'}</Provenance>
             </div>)}
           </div>
           <div className="filter-group rune-optimization-targets" role="group" aria-label="Stats">

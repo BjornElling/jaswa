@@ -15,6 +15,57 @@ import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/rune-optimization-account.json', import.meta.url));
 
+test('community rune mains stay suggestions until the user chooses them', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
+  await requirements.screenshot({ path: testInfo.outputPath('unstated-rune-mains.png') });
+  for (const slot of [2, 4, 6]) {
+    await expect(requirements.getByRole('button', { name: new RegExp(`^Slot ${slot} main stat:`) }))
+      .toHaveAttribute('aria-label', `Slot ${slot} main stat: Any`);
+  }
+  await expect(requirements.locator('.rune-optimization-slot').first()).toContainText(/\d+%/);
+  await page.getByRole('button', { name: 'Open profile' }).click();
+  const dialog = page.getByRole('dialog');
+  const gear = dialog.locator('.overlay-gear');
+  await expect(gear.getByRole('button', { name: /: Any$/ })).toHaveCount(8);
+  await expect(dialog.locator('.token-choice-pill')).toHaveCount(0);
+  await dialog.screenshot({ path: testInfo.outputPath('empty-profile.png') });
+  await dialog.getByRole('spinbutton', { name: 'Spd: at least', exact: true }).fill('150');
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  expect((await storedPreferences(page))?.monsterPreferences).toEqual({
+    default: { 11: { unitId: '11', statTargets: { spd: 150 } } },
+  });
+  await page.getByRole('button', { name: 'Open profile' }).click();
+  const before = await box(gear);
+  for (const slot of [2, 4, 6]) {
+    const field = dialog.getByRole('button', { name: new RegExp(`^Slot ${slot} main stat:`) });
+    await field.click();
+    const menu = page.getByRole('menu', { name: `Slot ${slot} main stat` });
+    const options = await menu.getByRole('menuitem').allTextContents();
+    await page.keyboard.press('Escape');
+    for (const option of options) {
+      await field.click();
+      await menu.getByRole('menuitem', { name: option, exact: true }).click();
+    }
+    expect(await box(gear)).toEqual(before);
+  }
+  await dialog.screenshot({ path: testInfo.outputPath('all-rune-mains-profile.png') });
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  await requirements.screenshot({ path: testInfo.outputPath('user-rune-mains.png') });
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  for (const slot of [2, 4, 6]) {
+    await expect(requirements.getByRole('button', { name: new RegExp(`^Slot ${slot} main stat:`) }))
+      .not.toHaveAttribute('aria-label', `Slot ${slot} main stat: Any`);
+  }
+});
+
 test('equal Gem plans preserve the rune for its strongest role', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
