@@ -18,6 +18,7 @@ import type { RuneOptimizationSettings } from './lib/rune-optimization-settings'
 import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
+import { createRuneCleanupSession } from './lib/rune-cleanup-session';
 import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements, runesWithLocked, runesWithout } from './lib/engrave-rune-build';
 import { addToGamePreset, deleteGamePreset, leadGamePreset, removeFromGamePreset } from './lib/game-preset-edits';
 import { usePageHistory } from './lib/page-history';
@@ -84,6 +85,8 @@ function withoutPreset(preferences: Preferences, presetId: string): Preferences 
 export default function Home() {
   const [page, setStoredPage] = useSessionStorageState<Page>('jaswa.navigation.page', 'home', isPage);
   const [game, setGame] = useState<ImportedGame | null>(null);
+  const runeCleanupAccount = game === null ? null : String(game.data?.wizard_id ?? '');
+  const runeCleanupSession = useMemo(() => createRuneCleanupSession(runeCleanupAccount), [runeCleanupAccount]);
   const [preferences, setPreferences] = useState<Preferences>(blankPreferences());
   const [pendingGame, setPendingGame] = useState<ImportedGame | null>(null);
   const [importConfirmation, setImportConfirmation] = useState<ImportedGame | null>(null);
@@ -766,6 +769,8 @@ export default function Home() {
       /></Suspense>}
 
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
+        key={String(runeCleanupAccount)}
+        session={runeCleanupSession}
         onUpdate={updateRunePotentialSettings}
         game={game}
         profiles={preferences.monsterPreferences}

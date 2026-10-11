@@ -67,9 +67,13 @@ test('a sync updates Rune Clean-up rune by rune without moving the rows', async 
 
   const worked = testInfo.outputPath('worked-account.json');
   writeFileSync(worked, JSON.stringify(workedAccount()));
+  /* A sync while the reader is on another page has the same incremental answer,
+     and returning preserves the arrangement made before leaving. */
+  await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await fileInput.setInputFiles(worked);
   await page.getByRole('button', { name: 'Replace data' }).click();
   await expect(page.getByText('worked-account.json')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
 
   /* The new rune has been judged and stands first; the four held rows follow in
      the order they had, the powered-up one at its new level. */

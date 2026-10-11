@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
 import { EngravedPlace } from './engraved-place';
@@ -30,13 +30,12 @@ import {
   calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
 } from '../lib/compute/rune-advice-client';
 import { rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
-import type { CalculationBackend } from '../lib/compute/calculation-summary';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
-import type { ReferenceStats } from '../lib/rune-reference-stats';
+import { runeCleanupStandardsChanged } from '../lib/rune-cleanup-session';
+import type { RuneCleanupArrangement, RuneCleanupResult, RuneCleanupSession } from '../lib/rune-cleanup-session';
 import {
   heldRuneAdvice, inArrangedOrder, runesToJudgeAgain, shownRuneAdvice, withFreshAdvice,
 } from '../lib/rune-cleanup-refresh';
-import type { HeldRuneAdvice } from '../lib/rune-cleanup-refresh';
 import {
   compareRuneCleanupRows, compareRuneGameSort, defaultRuneCleanupSortDirections,
   runeChanceShown, runeChanceText, runeCleanupSearchText, runeGameSortKeys, runeGameSortLabels,
@@ -175,7 +174,8 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
  * nobody could read. What the player does in the game is different: a sync judges
  * only the runes it changed, and the rows keep their places (`rune-cleanup-refresh.ts`).
  */
-export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune, onUpdate }: {
+export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune, onUpdate, session }: {
+  session: RuneCleanupSession;
   game: ImportedGame | null;
   profiles: MonsterPreferences;
   /** The runes the user has said are not to be sold, which print their own word over the advice. */
@@ -203,17 +203,8 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      rather than silently changing under them. What the account does to its runes
      meanwhile is laid over it rune by rune, judged by those same standards
      (`rune-cleanup-refresh.ts`). */
-  const [result, setResult] = useState<{
-    id: number;
-    /** The account it was calculated for. Another account's import is not a sync of this one. */
-    account: string;
-    entries: ReadonlyMap<string, HeldRuneAdvice>;
-    roles: RuneRole[];
-    settings: RunePotentialSettings;
-    base: ReadonlyMap<string, ReferenceStats>;
-    durationMs: number;
-    backend: CalculationBackend;
-  } | null>(null);
+  const [snapshot] = useState(session.read);
+  const [result, setResult] = useState<RuneCleanupResult | null>(snapshot?.result ?? null);
   const [busy, setBusy] = useState(false);
   /* At most one re-reading in flight. A sync arriving meanwhile is picked up when
      it lands, by comparing again, so nothing is lost and nothing is superseded
@@ -225,7 +216,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   const [refreshFailedFor, setRefreshFailedFor] = useState<readonly Rune[] | null>(null);
   /* A failed calculation says so and leaves the previous table standing. Clearing
      it would read as "no runes qualify", which is a different and wrong answer. */
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(snapshot?.failure ?? null);
   const rowOpener = useRowOpener();
 
   /**
@@ -269,6 +260,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
 
   const account = game?.data?.wizard_id === undefined ? '' : String(game.data.wizard_id);
   const held = game !== null && result !== null && result.account === account ? result : null;
+  const standardsChanged = held !== null && runeCleanupStandardsChanged(held, roles, settings, base);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
 
   const canCalculate = Boolean(game && runes.length && base && roles.length);
@@ -319,12 +311,11 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      but only while the table answers the standards on screen, and only for a rune
      whose answer still fits it. */
   useEffect(() => {
-    if (held === null || !game?.data || held.roles !== roles || held.settings !== settings || base === null) return;
-    if (JSON.stringify([...held.base]) !== JSON.stringify([...base])) return;
+    if (held === null || !game?.data || standardsChanged) return;
     const fitting = shownRuneAdvice(held.entries, runesById).filter((entry) => !entry.gone && runesById.get(entry.rune.id) === entry.rune);
     rememberRuneAdvice({ data: game.data, settings, roles }, fitting.map((entry) => entry.rune),
       new Map(fitting.map((entry) => [entry.rune.id, entry.advice])));
-  }, [held, game, roles, settings, base, runesById]);
+  }, [held, game, roles, settings, standardsChanged, runesById]);
 
   /* A hold is the user's, not the calculation's, so it is laid over the held result
      on every change rather than frozen into it at Calculate. Where the rune sits is
@@ -374,9 +365,9 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     selectedMains, lowestLevel, highestLevel, selectedPlaces, showOnlyAncient]);
 
   const { sorted, sort, toggle: toggleColumn, setSort } = useSortedRows(
-    visible, columns, gameSort === null
+    visible, columns, snapshot?.sort ?? (gameSort === null
       ? { key: 'maxValue', direction: 'descending' }
-      : { key: gameSort, direction: 'ascending' },
+      : { key: gameSort, direction: 'ascending' }),
   );
 
   /* Choosing one of the game's orderings takes the table over; clicking any
@@ -391,7 +382,11 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      filter, a calculation — and held while syncs change the runes under it, so a
      rune just powered up or sold does not jump away from the row being read. */
   const arrangement = JSON.stringify({ filters, sort, result: held?.id ?? null });
-  const [arranged, setArranged] = useState<{ key: string; ids: string[]; known: Set<string> } | null>(null);
+  const [arranged, setArranged] = useState<RuneCleanupArrangement | null>(snapshot?.arranged ?? null);
+  /* Save only committed screen state. The owner outlives navigation, while the
+     page and its workers can still unmount normally. A cancelled request never
+     replaces the last completed table or leaves the next visit busy. */
+  useLayoutEffect(() => { session.remember({ result, sort, arranged, failure }); }, [session, result, sort, arranged, failure]);
   if (held !== null && arranged?.key !== arrangement) {
     setArranged({ key: arrangement, ids: sorted.map((row) => row.rune.id), known: new Set(rowsById.keys()) });
   }
@@ -695,5 +690,11 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
         backend={held.backend}
         general={general}
       />}
+    <div className="type-caption" role="status">
+      <LabelSwap showing={standardsChanged ? 'changed' : 'current'} faces={{
+        current: '\u00a0',
+        changed: 'Standards changed. Recalculate to use the current roles, settings and reference stats.',
+      }} />
+    </div>
   </>;
 }

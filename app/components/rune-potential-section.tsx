@@ -23,6 +23,7 @@ import { calculateRuneStatistics, cancelRuneStatistics } from '../lib/compute/ru
 import type { RuneCleanupStatistics } from '../lib/rune-cleanup-statistics';
 import { referenceLines } from '../lib/rune-reference-stats';
 import { RuneRecommendations } from './rune-recommendations';
+import type { RuneCleanupSession } from '../lib/rune-cleanup-session';
 import { useDragReorder } from './use-drag-reorder';
 import type { ReorderEntryProps } from './use-drag-reorder';
 import { moveItem } from '../lib/list-order';
@@ -309,8 +310,9 @@ export function RuneSetupSection({ game, settings, roles, general, hardwareAccel
 }
 
 export function RunePotentialSection({
-  game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune, onUpdate,
+  game, profiles, runeHolds, lockedRunes, settings, roles, general, hardwareAcceleration, onOpenRune, onUpdate, session,
 }: {
+  session: RuneCleanupSession;
   game: ImportedGame | null;
   profiles: MonsterPreferences;
   runeHolds: RuneHolds;
@@ -330,7 +332,7 @@ export function RunePotentialSection({
   >
     {/* No bar: the verdicts are the page's only content, and a disclosure
         with nothing beside it to fold away only adds a click and a frame. */}
-    <RuneRecommendations game={game} profiles={profiles} runeHolds={runeHolds} lockedRunes={lockedRunes} settings={settings} roles={roles} general={general}
+    <RuneRecommendations session={session} game={game} profiles={profiles} runeHolds={runeHolds} lockedRunes={lockedRunes} settings={settings} roles={roles} general={general}
       hardwareAcceleration={hardwareAcceleration} onOpenRune={onOpenRune} onUpdate={onUpdate} />
   </WorkspacePage>;
 }

@@ -650,6 +650,33 @@ floor's question, asked of the four-star box (§9.1).
 
 ## 9. Verdict and unbounded role matching
 
+### Keeping the list while navigating
+
+The application keeps the last completed Rune Clean-up result, column sort,
+filters and arranged row order while the reader visits other workspaces. Leaving
+the page cancels unfinished work, not its last completed answer. Returning resumes
+incremental refresh. A browser reload, removal of the imported account or a switch
+to another account clears the calculated session; preferences remain saved.
+
+| Change | What happens to the held list |
+| --- | --- |
+| Navigation, unchanged re-import, filters or sorting | Reuse the answers; filters and sorting only arrange what is shown. |
+| New rune | Judge that rune and add it above the held rows. No whole-list calculation is needed. |
+| Level, stars, grade, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Rejudge the affected rune under the held standards; keep its row in place. Until answered, show its previous rune and advice together. |
+| Rune sold or removed | Keep its previous row marked Sold until Recalculate removes it. |
+| Default or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
+| Holds, rune locks, or any Never sell safeguard or threshold | Apply the current protection immediately to the held advice. |
+| Power-up policy, quality floor, accepted/broken worth, Intangible factor, four-set retention, assumed Gem/Grindstone roll or active grade | Keep the list, but mark its standards changed. Recalculate applies the new standards to every rune. |
+| Role added, removed, reordered or edited, including targets, type, artifacts, sets and slot choices | Keep the list with the same changed-standards notice until Recalculate. |
+| Reference averages change | Keep the list with the changed-standards notice. The averages depend on the level-40 roster, family classification and base stats, so a new, removed, awakened or levelled monster may change them even if no rune changed. Equal averages remain valid. |
+| Display formatting, hardware acceleration, craft inventory, buildings, artifacts or relics | No score invalidation: formatting is read live, acceleration chooses an engine, and Clean-up uses assumed craft credit and roster base stats rather than owned items or the monster's engraved gear. |
+
+The notice reserves its space even while the standards match, so showing it cannot
+move the table or its controls. Standards are compared by content, not imported
+object identity. A changed standard restored to its calculated value removes the
+notice. Incremental refresh continues under the held standards until Recalculate;
+it never mixes scores from two different standards into one list.
+
 Under **Never sell if...**, the **Pre-grind spd ≥** safeguard starts enabled at **20** and overrides Sell for runes
 whose current SPD sub-property value meets the chosen inclusive threshold. Grindstone
 bonuses, projected rolls, innate SPD and main SPD do not count. A blank threshold
