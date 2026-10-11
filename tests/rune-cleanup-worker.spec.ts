@@ -93,6 +93,7 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
         gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
         intangibleRunes: 1, keepMoreForLargerSets: false,
         neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
+        neverSellPotentialValue: false, potentialValueMinimum: null,
       },
     };
     /* Both started in one tick, so the second is created before any worker message

@@ -6455,39 +6455,17 @@ th.align-center .rank-heading { justify-content: center; }
   white-space: nowrap;
 }
 
-/* Three rows: what the rune is, then what the program made of it, then the one
-   control that only rearranges. The Ancient, Stars and Quality groups sit beside
-   the existing filters so the narrowing questions are answered before the
-   ordering control.
-
-   Use game-sorting ends the third row rather than joining the first two.
-   It alone reorders the rows; the speed safeguard changes their advice.
-   Keeping ordering on the last row preserves its place without another divider. */
-.rune-filter-strip {
-  grid-template-areas:
-    "search  advice ancient stars"
-    "level   main   quality usage"
-    "slot    set    speed  sort-by";
+/* Each column follows its own contents, so a tall neighbour cannot push the
+   next filter down. Choices keep their boxes and the column stays still. */
+.rune-filter-strip { grid-template-areas: none; align-items: start; }
+.rune-filter-column {
+  display: flex; flex-direction: column; gap: var(--s4); min-width: 0;
+  padding-left: var(--s4); border-left: 1px solid var(--line);
 }
-.rune-filter-strip > .filter-group,
-.rune-filter-strip > .filter-group:nth-child(2n + 1),
-.rune-filter-strip > .filter-group:nth-child(3n + 1),
-.rune-filter-strip > .filter-group:nth-child(4n + 1) {
-  padding-left: var(--s4);
-  border-left: 1px solid var(--line);
-}
-.rune-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
-.rune-filter-level { grid-area: level; padding-left: 0 !important; border-left: 0 !important; }
-.rune-filter-sort-by { grid-area: sort-by; }
-.rune-filter-advice { grid-area: advice; }
-.rune-filter-ancient { grid-area: ancient; }
-.rune-filter-stars { grid-area: stars; }
-.rune-filter-quality { grid-area: quality; }
-.rune-filter-slot { grid-area: slot; padding-left: 0 !important; border-left: 0 !important; }
-.rune-filter-set { grid-area: set; }
-.rune-filter-main { grid-area: main; }
-.rune-speed-protection { grid-area: speed; }
+.rune-filter-column:first-child { padding-left: 0; border-left: 0; }
+.rune-filter-column > .filter-group { padding-left: 0; border-left: 0; }
 .rune-speed-protection .filter-group-controls { flex-wrap: nowrap; }
+.rune-speed-protection .filter-group-controls + .filter-group-controls { margin-top: var(--s1); }
 .rune-speed-protection .checkbox-row { gap: var(--s2); white-space: nowrap; }
 .rune-speed-protection .checkbox-row label { align-self: center; }
 .rune-speed-minimum {
@@ -6503,8 +6481,11 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-speed-minimum:disabled { opacity: .4; }
 .rune-speed-protection .checkbox-row { cursor: default; }
 .rune-speed-protection label[aria-disabled='false'] { cursor: pointer; }
-.rune-filter-usage { grid-area: usage; }
-.rune-filter-status { grid-area: status; }
+/* The summary belongs to the box's corner, with its space reserved above Stars. */
+.rune-filter-status { top: 0; right: 0; }
+.rune-filter-column:nth-child(4) { padding-top: calc(var(--filter-status-height) + var(--s4)); }
+.rune-filter-main, .rune-filter-set,
+.rune-filter-sort-by .jaswa-select { width: 180px; }
 
 /* Six star choices share one fixed group measure. Small stroked glyphs keep
    the full vocabulary on one row, and the aria-label on each button carries

@@ -24,7 +24,7 @@ import { monsterCopyNamesIn } from '../lib/monster-names';
 import { engravingLines } from '../lib/presets';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
-import { runeVerdictLabels, runeVerdictOrder, withPreGrindSpeedProtection } from '../lib/rune-cleanup-advice';
+import { runeVerdictLabels, runeVerdictOrder, withRuneSellProtection } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import {
   calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
@@ -329,7 +329,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      read the same way: moving it changes nothing the advice reads. */
   const rows = useMemo<RuneCleanupRow[]>(
     () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index, gone }) => ({
-      rune, advice: withPreGrindSpeedProtection(rune, advice, settings), index, gone,
+      rune, advice: withRuneSellProtection(rune, advice, settings), index, gone,
       ...placeOf(rune.id, gone),
       hold: gone ? null : runeHoldVerdict(runeHolds[rune.id], lockedRunes.has(rune.id)),
     })),
@@ -493,107 +493,135 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
         columnGroup={<TableColumnGroup columns={runeCleanupTableColumns} />}
         header={<SortableHeader columns={columns} sort={sort} onToggle={toggle} />}
         filters={<>
-          <div className="filter-group rune-filter-search">
-            <span className="filter-label">Search</span>
-            <div className="filter-group-controls">
-              <div className="search-field">
-                <span aria-hidden="true">⌕</span>
-                <input value={search}
-                  onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-                  placeholder="Filter runes" aria-label="Filter runes by set, stat, role or advice" />
-                <FilterButton
-                  onClick={() => setFilters((current) => ({ ...current, search: '' }))}
-                  hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
+          <div className="rune-filter-column">
+            <div className="filter-group rune-filter-search">
+              <span className="filter-label">Search</span>
+              <div className="filter-group-controls">
+                <div className="search-field">
+                  <span aria-hidden="true">⌕</span>
+                  <input value={search}
+                    onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+                    placeholder="Filter runes" aria-label="Filter runes by set, stat, role or advice" />
+                  <FilterButton
+                    onClick={() => setFilters((current) => ({ ...current, search: '' }))}
+                    hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
+                </div>
+              </div>
+            </div>
+            <div className="filter-group rune-filter-level" role="group" aria-label="Filter by power-up level">
+              <span className="filter-label">Level</span>
+              <div className="filter-group-controls">
+                <RangeSlider minimum={0} maximum={runeMaximumLevel}
+                  lowerValue={lowestLevel} upperValue={highestLevel}
+                  label="Power-up level range"
+                  lowerLabel="Lowest power-up level" upperLabel="Highest power-up level"
+                  valueText={(value, end) => `${end === 'lower' ? 'Lowest' : 'Highest'} level +${value}`}
+                  onChange={(lower, upper) => setFilters((current) => ({
+                    ...current, lowestLevel: lower, highestLevel: upper,
+                  }))} />
+              </div>
+            </div>
+            {toggleGroup('Slot', 'Filter by slot', slotOptions, selectedSlots,
+              'selectedSlots', (slot) => String(slot), 'rune-filter-slot')}
+          </div>
+          <div className="rune-filter-column">
+            {toggleGroup('Advice', 'Filter by advice', runeVerdictOrder, selectedVerdicts,
+              'selectedVerdicts', (verdict) => runeVerdictLabels[verdict], 'rune-filter-advice')}
+            <TokenChoiceField label="Main" description="Filter by main property" empty="Any main"
+              className="rune-filter-main" options={mainOptions} chosen={selectedMains}
+              onChange={(next) => setFilters((current) => ({ ...current, selectedMains: next }))} />
+            {/* Two long vocabularies — rune sets and main properties — each answered on one line rather
+                than spelled out in full across the strip. */}
+            <TokenChoiceField label="Set" description="Filter by rune set" empty="Any set"
+              className="rune-filter-set" options={setOptions} chosen={selectedSets}
+              onChange={(next) => setFilters((current) => ({ ...current, selectedSets: next }))} />
+          </div>
+          <div className="rune-filter-column">
+            <div className="filter-group rune-filter-ancient" role="group" aria-label="Show only Ancient runes">
+              <span className="filter-label">Show only</span>
+              <div className="filter-group-controls">
+                <FilterButton active={showOnlyAncient}
+                  onClick={() => setFilters((current) => ({ ...current, showOnlyAncient: !current.showOnlyAncient }))}
+                >Ancient</FilterButton>
+              </div>
+            </div>
+            {toggleGroup('Quality', 'Filter by rune quality', qualityOptions, selectedQualities,
+              'selectedQualities', (quality) => quality, 'rune-filter-quality')}
+            <div className="filter-group rune-speed-protection" role="group" aria-label="Never sell if...">
+              <span className="filter-label">Never sell if...</span>
+              <div className="filter-group-controls">
+                <div className="checkbox-row">
+                  <input id="rune-speed-protection" type="checkbox" aria-label="Pre-grind spd ≥"
+                    checked={settings.neverSellPreGrindSpeed}
+                    onChange={(event) => onUpdate({ neverSellPreGrindSpeed: event.target.checked })} />
+                  <label htmlFor={settings.neverSellPreGrindSpeed ? 'rune-speed-protection' : undefined}
+                    aria-disabled={!settings.neverSellPreGrindSpeed}>Pre-grind spd ≥</label>
+                </div>
+                <input className="rune-speed-minimum type-body" type="text" inputMode="numeric" maxLength={2}
+                  disabled={!settings.neverSellPreGrindSpeed}
+                  aria-label="Minimum pre-grind speed" value={settings.preGrindSpeedMinimum ?? ''}
+                  onChange={(event) => {
+                    const text = event.target.value;
+                    if (text === '') { onUpdate({ preGrindSpeedMinimum: null }); return; }
+                    if (!/^\d{1,2}$/.test(text)) return;
+                    const value = Number(text);
+                    if (Number.isFinite(value)) onUpdate({ preGrindSpeedMinimum: value });
+                  }} />
+              </div>
+              <div className="filter-group-controls">
+                <div className="checkbox-row">
+                  <input id="rune-potential-protection" type="checkbox" aria-label="Potential value ≥"
+                    checked={settings.neverSellPotentialValue}
+                    onChange={(event) => onUpdate({ neverSellPotentialValue: event.target.checked })} />
+                  <label htmlFor={settings.neverSellPotentialValue ? 'rune-potential-protection' : undefined}
+                    aria-disabled={!settings.neverSellPotentialValue}>Potential value ≥</label>
+                </div>
+                <input className="rune-speed-minimum type-body" type="text" inputMode="numeric" maxLength={3}
+                  disabled={!settings.neverSellPotentialValue}
+                  aria-label="Minimum potential value" value={settings.potentialValueMinimum ?? ''}
+                  onChange={(event) => {
+                    const text = event.target.value;
+                    if (text === '') { onUpdate({ potentialValueMinimum: null }); return; }
+                    if (!/^\d{1,3}$/.test(text)) return;
+                    const value = Number(text);
+                    if (Number.isFinite(value)) onUpdate({ potentialValueMinimum: value });
+                  }} />
+                <span>%</span>
               </div>
             </div>
           </div>
-          {/* Ordering, not filtering: it reproduces the game's own Sort by, so a
-              box just arranged in Summoners War can be arranged the same way
-              here and the two lists compared row for row. */}
-          <div className="filter-group rune-filter-sort-by" role="group" aria-label="Sort runes the way the game does">
-            <label className="filter-label" htmlFor="rune-sort-by">Use game-sorting</label>
-            <div className="filter-group-controls">
-              <Dropdown id="rune-sort-by"
-                value={gameSort ?? ''}
-                onChange={(event) => setFilters((current) => ({
-                  ...current,
-                  gameSort: runeGameSortKeys.includes(event.target.value as RuneGameSortKey)
-                    ? event.target.value as RuneGameSortKey
-                    : null,
-                }))}
-                placeholder="Not sorted">
-                {runeGameSortKeys.map((key) => <option key={key} value={key}>
-                  {runeGameSortLabels[key]}
-                </option>)}
-              </Dropdown>
-            </div>
-          </div>
-          {toggleGroup('Advice', 'Filter by advice', runeVerdictOrder, selectedVerdicts,
-            'selectedVerdicts', (verdict) => runeVerdictLabels[verdict], 'rune-filter-advice')}
-          <div className="filter-group rune-filter-ancient" role="group" aria-label="Show only Ancient runes">
-            <span className="filter-label">Show only</span>
-            <div className="filter-group-controls">
-              <FilterButton active={showOnlyAncient}
-                onClick={() => setFilters((current) => ({ ...current, showOnlyAncient: !current.showOnlyAncient }))}
-              >Ancient</FilterButton>
-            </div>
-          </div>
-            {toggleGroup('Stars', 'Filter by star count', starOptions, selectedStars,
-              'selectedStars', (stars) => <span className="rune-star-choice" aria-hidden="true">
-                <span className="rune-star-count">{stars}</span><StarIcon />
-              </span>, 'rune-filter-stars', (stars) => `${stars} star${stars === 1 ? '' : 's'}`)}
-          {toggleGroup('Quality', 'Filter by rune quality', qualityOptions, selectedQualities,
-            'selectedQualities', (quality) => quality, 'rune-filter-quality')}
-          {toggleGroup('Slot', 'Filter by slot', slotOptions, selectedSlots,
-            'selectedSlots', (slot) => String(slot), 'rune-filter-slot')}
-          {/* Two long vocabularies — rune sets and main properties — each answered on one line rather
-              than spelled out in full across the strip. */}
-          <TokenChoiceField label="Set" description="Filter by rune set" empty="Any set"
-            className="rune-filter-set" options={setOptions} chosen={selectedSets}
-            onChange={(next) => setFilters((current) => ({ ...current, selectedSets: next }))} />
-          <TokenChoiceField label="Main" description="Filter by main property" empty="Any main"
-            className="rune-filter-main" options={mainOptions} chosen={selectedMains}
-            onChange={(next) => setFilters((current) => ({ ...current, selectedMains: next }))} />
-          <div className="filter-group rune-speed-protection" role="group" aria-label="Pre-grind speed protection">
-            <span className="filter-label">Speed rule</span>
-            <div className="filter-group-controls">
-              <div className="checkbox-row">
-                <input id="rune-speed-protection" type="checkbox" aria-label="Never sell if pre-grind spd ≥"
-                  checked={settings.neverSellPreGrindSpeed}
-                  onChange={(event) => onUpdate({ neverSellPreGrindSpeed: event.target.checked })} />
-                <label htmlFor={settings.neverSellPreGrindSpeed ? 'rune-speed-protection' : undefined}
-                  aria-disabled={!settings.neverSellPreGrindSpeed}>Never sell if pre-grind spd ≥</label>
+          <div className="rune-filter-column">
+              {toggleGroup('Stars', 'Filter by star count', starOptions, selectedStars,
+                'selectedStars', (stars) => <span className="rune-star-choice" aria-hidden="true">
+                  <span className="rune-star-count">{stars}</span><StarIcon />
+                </span>, 'rune-filter-stars', (stars) => `${stars} star${stars === 1 ? '' : 's'}`)}
+            {/* "Where the rune is", not "which runes count": every rune was judged
+                before this strip was reached, and these two buttons decide only
+                which of the answers are on screen. */}
+            {toggleGroup('Location', 'Filter by location', placeOptions, selectedPlaces,
+              'selectedPlaces', (place) => placeLabels[place], 'rune-filter-usage')}
+            {/* Ordering, not filtering: it reproduces the game's own Sort by, so a
+                box just arranged in Summoners War can be arranged the same way
+                here and the two lists compared row for row. */}
+            <div className="filter-group rune-filter-sort-by" role="group" aria-label="Sort runes the way the game does">
+              <label className="filter-label" htmlFor="rune-sort-by">Use game-sorting</label>
+              <div className="filter-group-controls">
+                <Dropdown id="rune-sort-by"
+                  value={gameSort ?? ''}
+                  onChange={(event) => setFilters((current) => ({
+                    ...current,
+                    gameSort: runeGameSortKeys.includes(event.target.value as RuneGameSortKey)
+                      ? event.target.value as RuneGameSortKey
+                      : null,
+                  }))}
+                  placeholder="Not sorted">
+                  {runeGameSortKeys.map((key) => <option key={key} value={key}>
+                    {runeGameSortLabels[key]}
+                  </option>)}
+                </Dropdown>
               </div>
-              <input className="rune-speed-minimum type-body" type="text" inputMode="numeric" maxLength={2}
-                disabled={!settings.neverSellPreGrindSpeed}
-                aria-label="Minimum pre-grind speed" value={settings.preGrindSpeedMinimum ?? ''}
-                onChange={(event) => {
-                  const text = event.target.value;
-                  if (text === '') { onUpdate({ preGrindSpeedMinimum: null }); return; }
-                  if (!/^\d{1,2}$/.test(text)) return;
-                  const value = Number(text);
-                  if (Number.isFinite(value)) onUpdate({ preGrindSpeedMinimum: value });
-                }} />
             </div>
           </div>
-          <div className="filter-group rune-filter-level" role="group" aria-label="Filter by power-up level">
-            <span className="filter-label">Level</span>
-            <div className="filter-group-controls">
-              <RangeSlider minimum={0} maximum={runeMaximumLevel}
-                lowerValue={lowestLevel} upperValue={highestLevel}
-                label="Power-up level range"
-                lowerLabel="Lowest power-up level" upperLabel="Highest power-up level"
-                valueText={(value, end) => `${end === 'lower' ? 'Lowest' : 'Highest'} level +${value}`}
-                onChange={(lower, upper) => setFilters((current) => ({
-                  ...current, lowestLevel: lower, highestLevel: upper,
-                }))} />
-            </div>
-          </div>
-          {/* "Where the rune is", not "which runes count": every rune was judged
-              before this strip was reached, and these two buttons decide only
-              which of the answers are on screen. */}
-          {toggleGroup('Location', 'Filter by location', placeOptions, selectedPlaces,
-            'selectedPlaces', (place) => placeLabels[place], 'rune-filter-usage')}
           <FilterSummary visible={shownOwned} total={owned} noun="runes"
             onReset={() => setFilters(defaultRuneFilters)} className="rune-filter-status" />
         </>}

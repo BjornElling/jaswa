@@ -280,6 +280,9 @@ test('while an overlay is up the page behind it neither scrolls nor keeps it ope
   await opener.scrollIntoViewIfNeeded();
   await page.mouse.wheel(0, 200);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  /* Measure after the pointer target is in view: a taller filter box can put
+     it on the viewport edge, where the browser scrolls before a click. */
+  await opener.hover();
   const scrolled = await page.evaluate(() => window.scrollY);
   const resting = await opener.boundingBox();
 

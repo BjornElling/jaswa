@@ -234,6 +234,9 @@ const baseSettings = {
   powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null,
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
   intangibleRunes: 1, keepMoreForLargerSets: false,
+  // This gate holds the calculation itself; safeguard boundaries have their own check.
+  neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
+  neverSellPotentialValue: false, potentialValueMinimum: null,
 };
 
 const shipped = defaultRuneRoles();

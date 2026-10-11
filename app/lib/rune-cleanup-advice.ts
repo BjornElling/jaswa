@@ -702,7 +702,7 @@ export async function runeAdvice(
        merely because its standing happens to be higher. */
     const chosen = selected ?? best?.answer ?? allowed[0]?.answer ?? answered[0] ?? null;
 
-    advice.set(plan.rune.id, withPreGrindSpeedProtection(plan.rune, {
+    advice.set(plan.rune.id, withRuneSellProtection(plan.rune, {
       ...decide({
         rune: plan.rune, value: chosen?.maxValue ?? 0, standing: chosen?.value ?? 0,
         chance: chosen?.chance ?? 0,
@@ -875,18 +875,22 @@ function decide({ rune, value, standing, chance, role, rank, cleared, brokenReje
   };
 }
 
-/** A user's speed safeguard outranks selling policy without changing any score or odds. */
-export function withPreGrindSpeedProtection(rune: Rune, advice: RuneAdvice, settings: RunePotentialSettings): RuneAdvice {
+/** User safeguards outrank selling policy without changing any score or odds. */
+export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings: RunePotentialSettings): RuneAdvice {
   const original = advice.unprotectedAdvice ?? { verdict: advice.verdict, reason: advice.reason };
   const minimum = settings.preGrindSpeedMinimum;
   const speed = rune.subProperties.find((line) => line.statId === 8)?.value;
   const protectedSpeed = settings.neverSellPreGrindSpeed && minimum !== null
     && Number.isInteger(minimum) && minimum >= 0 && minimum <= 99
     && speed !== undefined && speed >= minimum;
-  if (!protectedSpeed) return advice.unprotectedAdvice ? { ...advice, ...original } : advice;
+  const potentialMinimum = settings.potentialValueMinimum;
+  const protectedPotential = settings.neverSellPotentialValue && potentialMinimum !== null
+    && Number.isInteger(potentialMinimum) && potentialMinimum >= 0 && potentialMinimum <= 999
+    && advice.chance >= 0.01 && advice.maxValue >= potentialMinimum / 100;
+  if (!protectedSpeed && !protectedPotential) return advice.unprotectedAdvice ? { ...advice, ...original } : advice;
   return {
     ...advice, unprotectedAdvice: original,
     verdict: rune.level === lastSubPropertyLevel || rune.level >= runeMaximumLevel ? 'keep' : 'power-up',
-    reason: 'Pre-grind speed protected',
+    reason: protectedSpeed ? 'Pre-grind speed protected' : 'Potential value protected',
   };
 }

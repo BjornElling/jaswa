@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
@@ -155,7 +156,7 @@ test('protects current pre-grind speed immediately without moving the filter con
   await expect(page.getByText('craft-account.json')).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
-  const safeguard = page.getByRole('checkbox', { name: 'Never sell if pre-grind spd ≥' });
+  const safeguard = page.getByRole('checkbox', { name: 'Pre-grind spd ≥' });
   const minimum = page.getByRole('textbox', { name: 'Minimum pre-grind speed' });
   const rows = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr');
   await expect(rows).toHaveCount(4);
@@ -165,7 +166,7 @@ test('protects current pre-grind speed immediately without moving the filter con
   await expect(minimum).toHaveCSS('text-align', 'center');
   await safeguard.uncheck();
   await expect(minimum).toBeDisabled();
-  const wording = page.locator('.rune-speed-protection label');
+  const wording = page.locator('label').filter({ hasText: 'Pre-grind spd ≥' });
   await expect(wording).toHaveAttribute('aria-disabled', 'true');
   await page.screenshot({ path: testInfo.outputPath('speed-disabled.png'), fullPage: true });
   await wording.click();
@@ -220,4 +221,90 @@ test('protects current pre-grind speed immediately without moving the filter con
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(safeguard).toBeChecked();
   await expect(minimum).toHaveValue('5');
+});
+
+
+test('potential protection saves both choices and keeps independent filter columns still', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await expect(page.getByText('Nothing to judge until a game file is imported.')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('potential-no-import.png') });
+  await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
+  const protectedAccount = JSON.parse(readFileSync(account, 'utf8'));
+  protectedAccount.unit_list[0].runes[0].sec_eff = [[2, 8, 0, 0], [4, 8, 0, 0], [8, 30, 0, 0], [9, 6, 0, 0]];
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'craft-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(protectedAccount)),
+  });
+  await expect(page.getByText('craft-account.json')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const potential = page.getByRole('checkbox', { name: 'Potential value ≥' });
+  const minimum = page.getByRole('textbox', { name: 'Minimum potential value' });
+  const speed = page.getByRole('checkbox', { name: 'Pre-grind spd ≥' });
+  await expect(potential).toBeChecked();
+  await expect(minimum).toHaveValue('90');
+  await speed.uncheck();
+  await potential.uncheck();
+  await expect(minimum).toBeDisabled();
+  const rows = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr');
+  await expect(rows).toHaveCount(4);
+  const original = await rows.locator('.rune-verdict').allTextContents();
+  const boxes = () => page.locator('.rune-filter-column .filter-group').evaluateAll((groups) => groups.map((group) => {
+    const { x, y, width, height } = group.getBoundingClientRect();
+    return { x, y, width, height };
+  }));
+  const before = await boxes();
+  await potential.check();
+  await minimum.fill('');
+  await expect(rows.locator('.rune-verdict')).toHaveText(original);
+  await page.screenshot({ path: testInfo.outputPath('potential-empty.png'), fullPage: true });
+  await minimum.fill('0');
+  for (const row of await rows.all()) {
+    const chance = await row.locator('td').nth(9).textContent();
+    if (chance && /^\d+ %$/.test(chance.trim()) && parseInt(chance) >= 1) {
+      await expect(row.locator('.rune-verdict')).toHaveText(/^(Keep|Power up)$/);
+    }
+  }
+  await expect(rows.filter({ has: page.getByText('+15', { exact: true }) }).locator('.rune-verdict')).toHaveText('Keep');
+  expect(await boxes()).toEqual(before);
+  await speed.check();
+  await page.getByRole('textbox', { name: 'Minimum pre-grind speed' }).fill('99');
+  await minimum.fill('999');
+  await expect(rows.locator('.rune-verdict')).toHaveText(original);
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('potential-full.png'), fullPage: true });
+  const main = await page.locator('.rune-filter-main').boundingBox();
+  const set = await page.locator('.rune-filter-set').boundingBox();
+  expect(set!.x).toBe(main!.x);
+  const scale = main!.width / 180;
+  expect(set!.y).toBeCloseTo(main!.y + main!.height + 16 * scale, 1);
+  const quality = await page.locator('.rune-filter-quality').boundingBox();
+  const protection = await page.locator('.rune-speed-protection').boundingBox();
+  expect(protection!.y).toBeCloseTo(quality!.y + quality!.height + 16 * scale, 1);
+  const widths = await Promise.all([
+    page.locator('.rune-filter-main .token-choice-line'),
+    page.locator('.rune-filter-set .token-choice-line'),
+    page.getByRole('combobox', { name: 'Use game-sorting' }),
+  ].map((control) => control.boundingBox()));
+  expect(widths[0]!.width).toBe(widths[1]!.width);
+  expect(widths[0]!.width).toBeCloseTo(widths[2]!.width, 1);
+  await expect(page.getByRole('combobox', { name: 'Use game-sorting' })).toHaveCSS('width', '180px');
+  const summary = await page.locator('.rune-filter-status').boundingBox();
+  const strip = await page.locator('.rune-filter-strip').boundingBox();
+  const stars = await page.locator('.rune-filter-stars').boundingBox();
+  expect(summary!.y).toBe(strip!.y);
+  expect(summary!.x + summary!.width).toBe(strip!.x + strip!.width);
+  expect(stars!.y).toBeGreaterThanOrEqual(summary!.y + summary!.height + 16 * scale - 0.1);
+  await minimum.fill('90');
+  await potential.uncheck();
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(potential).not.toBeChecked();
+  await expect(minimum).toHaveValue('90');
+  await expect(speed).toBeChecked();
+  await expect(page.getByRole('textbox', { name: 'Minimum pre-grind speed' })).toHaveValue('99');
 });

@@ -650,7 +650,7 @@ floor's question, asked of the four-star box (§9.1).
 
 ## 9. Verdict and unbounded role matching
 
-The **Never sell if pre-grind spd ≥** safeguard starts enabled at **20** and overrides Sell for runes
+Under **Never sell if...**, the **Pre-grind spd ≥** safeguard starts enabled at **20** and overrides Sell for runes
 whose current SPD sub-property value meets the chosen inclusive threshold. Grindstone
 bonuses, projected rolls, innate SPD and main SPD do not count. A blank threshold
 means no safeguard; an explicit zero protects every rune with a SPD sub-property.
@@ -660,6 +660,15 @@ Best role, and is saved with the user's settings. Clearing it restores the
 calculated recommendation. When unchecked, its wording is dimmed and inactive,
 and its number field is disabled with the chosen value retained. Locked and Unsellable
 still retain their own labels. The ordering dropdown is named **Use game-sorting**.
+
+The **Potential value ≥** safeguard starts enabled at **90 %**. It protects a rune
+when its calculated Chance is at least **1 %** and its Max value is at least the
+chosen percentage, both inclusive and compared before display rounding. If either
+condition fails, the ordinary recommendation applies. A blank threshold disables
+this safeguard; zero remains a stated threshold. Its checkbox, immediate updates,
+level-dependent advice and saved settings follow the speed safeguard above.
+Neither safeguard changes Max value, Chance or Best role.
+
 
 
 The population judged is every rune the import holds, and no setting narrows it.
