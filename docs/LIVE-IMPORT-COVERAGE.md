@@ -84,6 +84,12 @@ yet", and the second is the one a stale dashboard is made of.
 
 - A non-zero top-level `ret_code` is ignored, so a failed action cannot erase
   or overwrite account data.
+- `getServerArenaRewardInfoForNoti_v2` is a historical award notification,
+  never an account mutation. Its `user_reward_info.reward_result` repeats
+  `changed_item_list` records from when the rewards were awarded. Replaying
+  them revived two sold runes after a fresh login on October 11, 2026; it can
+  also roll back upgraded gear and spent inventory quantities. Ignore the
+  notification as a whole. Fresh acquisition responses still update inventory.
 - **A `before_*` record is history, never account state.** Several commands
   answer with both the record they just changed and the record as it stood
   before: `UpgradeArtifact_v2` returns `artifact` at the new level *and*

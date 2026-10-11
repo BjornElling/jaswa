@@ -296,10 +296,18 @@ impl ProfileStore {
     }
 
     pub fn apply_update(&mut self, response: &Value, request: &Value) -> bool {
+        let command = request
+            .get("command")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_ascii_lowercase();
         if self.profile.is_none()
             || !response.is_object()
             || rta_command(request)
             || !successful_response(response)
+            // Arena's notification replays past awards, including sold or upgraded gear.
+            // Its changed_item_list is history, not a new account mutation.
+            || command == "getserverarenarewardinfofornoti_v2"
         {
             return false;
         }
@@ -348,11 +356,6 @@ impl ProfileStore {
             .filter(|(entity, _, _)| entity.collection == "rune_craft_item_list")
             .filter_map(|(_, item, _)| identifier(item, "craft_item_id"))
             .collect::<Vec<_>>();
-        let command = request
-            .get("command")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_ascii_lowercase();
         /* Only a read of the shrine answers with the whole Summoned tab. A
         power-up answers with the stacks it fed from — none, when every fodder
         came from the roster — so reading that empty list as the tab emptied a
@@ -3369,6 +3372,75 @@ mod tests {
 mod phantom_rune_regression {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn arena_reward_notification_cannot_replay_old_inventory() {
+        let old_rune = |id| {
+            json!({
+                "rune_id": id, "wizard_id": 7, "set_id": 5,
+                "slot_no": 6, "upgrade_curr": 0, "occupied_id": 0
+            })
+        };
+        for populated in [false, true] {
+            let mut store = ProfileStore::default();
+            let mut snapshot = json!({
+                "wizard_id": 7, "unit_list": [], "runes": [],
+                "artifacts": [], "relics": [], "rune_craft_item_list": [],
+                "inventory_info": []
+            });
+            if populated {
+                snapshot["runes"] = json!([old_rune(51), old_rune(54)]);
+                snapshot["inventory_info"] = json!([{
+                    "rid": 9, "wizard_id": 7, "item_master_id": 2,
+                    "item_master_type": 9, "item_quantity": 3
+                }]);
+            }
+            assert!(store.accept_snapshot(snapshot));
+            if populated {
+                assert!(store.apply_update(
+                    &json!({"ret_code": 0}),
+                    &json!({"command": "SellRune", "rune_id_list": [54]})
+                ));
+                assert!(store.apply_update(
+                    &json!({"ret_code": 0, "rune": {"rune_id": 51, "upgrade_curr": 15}}),
+                    &json!({"command": "UpgradeRune_v2", "rune_id": 51})
+                ));
+            }
+            let before = store.read().unwrap();
+            // Captured on 2026-10-11: opening Arena repeats already awarded items.
+            let notification = json!({
+                "command": "getServerArenaRewardInfoForNoti_v2", "ret_code": 0,
+                "user_reward_info": {"season_id": 38, "wizard_id": 7,
+                    "reward_result": [{"reward_id": 3, "changed_item_list": [
+                        {"type": 8, "info": old_rune(51)},
+                        {"type": 8, "info": old_rune(54)},
+                        {"type": 9, "info": {"rid": 9, "wizard_id": 7,
+                            "item_master_id": 2, "item_master_type": 9, "item_quantity": 8}}
+                    ]}]
+                }
+            });
+            for _ in 0..2 {
+                assert!(!store.apply_update(
+                    &notification,
+                    &json!({"command": "getServerArenaRewardInfoForNoti_v2"})
+                ));
+                let after = store.read().unwrap();
+                assert_eq!(after.data, before.data);
+                assert_eq!(after.revision, before.revision);
+                assert_eq!(after.updated_at, before.updated_at);
+            }
+            // A fresh award still enters the same owned-item pipeline.
+            assert!(store.apply_update(
+                &json!({"ret_code": 0, "changed_item_list": [{"type": 8, "info": old_rune(55)}]}),
+                &json!({"command": "BattleDungeonResult_V2"})
+            ));
+            assert!(
+                collection(&store.read().unwrap().data, "runes")
+                    .iter()
+                    .any(|rune| identifier(rune, "rune_id").as_deref() == Some("55"))
+            );
+        }
+    }
 
     /* The real getPlayPassInfo payload shape: five Play Pass reward previews,
     every one carrying rune_id 0. They describe runes the account does not
