@@ -32,7 +32,7 @@ import type {
 } from '../lib/monster-preferences';
 import {
   blankMonsterCopyPreferences, copyProfile, leadFieldOf, leadMaximum, monsterLabelMaximum, profileIn, readLeadField,
-  readTargetField, statesSomething,
+  readTargetField,
 } from '../lib/monster-preferences';
 import { resolveMonsterPreferences } from '../lib/monster-preference-resolution';
 import type { ResolvedMonsterPreferences } from '../lib/monster-preference-resolution';
@@ -279,14 +279,14 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   const [editingNickname, setEditingNickname] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
 
-  /* The other contexts whose profile of this copy says something, offered to be
-     copied in. Copying is the one way a profile crosses from one preset to
+  /* Every other context, offered to be copied in, whether its profile says
+     anything or not: copying an empty one is how a preset starts over from
+     nothing, and a menu that hid it would look broken the moment one preset had
+     no profile yet. Copying is the one way a profile crosses from one preset to
      another, and it is the user's act: afterwards each is its own again. */
   const copySources = contexts.filter((entry) => entry.id !== activeContextId)
-    .flatMap((entry) => {
-      const stated = profileIn(profiles, entry.id, unitId);
-      return stated !== undefined && statesSomething(stated) ? [{ id: entry.id, name: entry.name, stated }] : [];
-    });
+    .map((entry) => ({ id: entry.id, name: entry.name,
+      stated: profileIn(profiles, entry.id, unitId) ?? blankMonsterCopyPreferences(unitId) }));
 
   /* Another context is another profile: the draft becomes that one's, unedited.
      An edit is never carried across, which is why the choice waits for a save. */
@@ -485,26 +485,29 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             </div>)}
           </dl>
         </div>
-        {editable && <Button size="prominent" className="monster-overlay-optimize"
-          aria-label={`Optimize runes for ${heroName}`}
-          onClick={() => {
-            if (dirty) onSave(activeContextId, target.unitId, { ...draft, unitId: target.unitId });
-            onOptimize(target.unitId, activeContextId);
-          }}>Optimize</Button>}
         {/* Which preset the profile and build are for, where it cannot be missed:
             the same copy has a profile and a build of its own in each preset it
-            stands in. Both menus are always there, and only disabled where they
-            have nothing to offer, so the box keeps its shape (`AGENTS.md` §2). */}
-        {editable && <div className="monster-overlay-preset" role="group" aria-label="Build for preset">
-          <label className="monster-overlay-preset-label" htmlFor="monster-overlay-preset">Build for</label>
-          <Dropdown id="monster-overlay-preset" className="monster-overlay-preset-select" value={activeContextId}
-            disabled={dirty || contexts.length < 2}
-            title={dirty ? 'Save or close to open another preset' : preset?.name}
-            onChange={(event) => openContext(event.target.value)}>
-            {contexts.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-          </Dropdown>
+            stands in. Beneath it, quieter, the two things done with that preset.
+            Every control is always there, and only disabled where it has nothing
+            to offer, so the block keeps its shape (`AGENTS.md` §2). */}
+        {editable && <div className="monster-overlay-controls">
+          <div className="monster-overlay-preset" role="group" aria-label="Build for preset">
+            <label className="monster-overlay-preset-label" htmlFor="monster-overlay-preset">Build for</label>
+            <Dropdown id="monster-overlay-preset" className="monster-overlay-preset-select" value={activeContextId}
+              disabled={dirty || contexts.length < 2}
+              title={dirty ? 'Save or close to open another preset' : preset?.name}
+              onChange={(event) => openContext(event.target.value)}>
+              {contexts.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </Dropdown>
+          </div>
+          <Button className="monster-overlay-optimize"
+            aria-label={`Save and optimize runes for ${heroName}`}
+            onClick={() => {
+              if (dirty) onSave(activeContextId, target.unitId, { ...draft, unitId: target.unitId });
+              onOptimize(target.unitId, activeContextId);
+            }}>Save and optimize</Button>
           <Dropdown className="monster-overlay-copy-select" aria-label="Copy the profile from another preset"
-            value="" placeholder="Copy profile from…" disabled={copySources.length === 0}
+            value="" placeholder="Copy from…" disabled={copySources.length === 0}
             onChange={(event) => {
               const source = copySources.find((entry) => entry.id === event.target.value);
               if (source) change(() => copyProfile(source.stated, unitId));

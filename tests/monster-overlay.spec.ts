@@ -194,7 +194,7 @@ test('leads and element advantage reach the composites, never a stat or its rang
   await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('');
   await expect(rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate/ })).toBeVisible();
   await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
-  await dialog.getByRole('button', { name: /^Optimize runes for / }).click();
+  await dialog.getByRole('button', { name: /^Save and optimize runes for / }).click();
   const optimizationStats = page.getByRole('group', { name: 'Stats', exact: true });
   await expect(optimizationStats.locator('.stat-range[data-figure="criRate"] .overlay-stat-current')).toContainText('51');
   await expect(optimizationStats.getByRole('img', { name: /Element advantage adds 15% CRI Rate to DMG.*Crit lead adds 33% CRI Rate to DMG/ })).toBeVisible();
@@ -207,7 +207,7 @@ test('Optimize opens this copy in Rune Optimization and keeps an unsaved choice'
   await importAccount(page);
   await openOverlay(page);
   const dialog = page.getByRole('dialog');
-  const action = dialog.getByRole('button', { name: /^Optimize runes for / });
+  const action = dialog.getByRole('button', { name: /^Save and optimize runes for / });
   const head = dialog.locator('.monster-overlay-head');
   const before = await head.boundingBox();
   await page.screenshot({ path: testInfo.outputPath('monster-optimize-before.png') });

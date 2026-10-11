@@ -402,7 +402,7 @@ test('Optimize from a build monster returns to a fresh search for that copy', as
   const build = page.getByRole('dialog', { name: 'Build 1' });
   await build.locator('.rune-build-centre').getByRole('button').click();
   const monster = page.getByRole('dialog').filter({ has: page.locator('#monster-overlay-title') });
-  await monster.getByRole('button', { name: /^Optimize runes for / }).click();
+  await monster.getByRole('button', { name: /^Save and optimize runes for / }).click();
   await expect(monster).toBeHidden();
   await expect(build).toBeHidden();
   await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('11');

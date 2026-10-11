@@ -5203,32 +5203,33 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   padding: var(--s5);
   border-bottom: 1px solid var(--line);
 }
-.monster-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto auto; }
-.monster-overlay-optimize { justify-self: end; }
-/* The preset the whole panel is read in, at the head's far edge in the accent:
-   the one fact here a reader must not take for Default when it is not. As tall
-   as the portrait's middle third and of a fixed width, so a long preset name
-   ellipsises rather than squeezing the monster's name. */
-.monster-overlay-preset {
+.monster-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto; }
+/* At the head's far edge, of a fixed width so a long preset name ellipsises
+   rather than squeezing the monster's name: the preset the whole panel is read
+   in on top, and the two things done with it beneath, at equal width. */
+.monster-overlay-controls {
   display: grid;
-  align-content: center;
-  gap: var(--s1);
-  width: 30ch;
-  min-height: 72px;
-  padding: var(--s3) var(--s5);
-  border: 2px solid var(--text-accent);
-  border-radius: var(--radius);
-  background: var(--gold-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s2);
+  width: 44ch;
 }
-.monster-overlay-preset-label { color: var(--text-muted); }
-/* Both menus fill the box, so a long preset name ellipsises inside its own
-   field; the first carries the accent the name did, the second is an action. */
-.monster-overlay-preset .jaswa-select { width: 100%; min-width: 0; }
-.jaswa-select.monster-overlay-preset-select { color: var(--text-accent); }
+/* The one fact here a reader must not take for Default when it is not, so its
+   menu alone is marked, by its name in the accent and a gold edge, rather than
+   by a box around the row that outshouts the monster. */
+.monster-overlay-preset {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s3);
+}
+/* Centred on the menu beside it; `label[for]` would otherwise pin it to the top. */
+.monster-overlay-preset .monster-overlay-preset-label { align-self: center; color: var(--text-muted); }
+.monster-overlay-controls .jaswa-select { width: 100%; min-width: 0; }
+.jaswa-select.monster-overlay-preset-select { color: var(--text-accent); border-color: var(--gold-edge); }
 @media (max-width: 640px) {
   .monster-overlay-head { grid-template-columns: auto minmax(0, 1fr); }
-  .monster-overlay-optimize { grid-column: 2; justify-self: start; }
-  .monster-overlay-preset { grid-column: 1 / -1; width: auto; }
+  .monster-overlay-controls { grid-column: 1 / -1; width: auto; }
 }
 /* A mark rather than type, so its size is stated here the way --glyph-* is:
    large enough that the monster is recognised before its name is read. */

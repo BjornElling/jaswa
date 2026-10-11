@@ -290,7 +290,7 @@ it stands in.
 - **No fallback between contexts.** A copy with no profile in a preset reads the
   defaults there, not its Default profile: a fallback is a channel an edit in
   Default flows through. Moving a profile across is the user's act — *Copy
-  profile from…* in the overlay — and copies it; afterwards each is its own.
+  from…* in the overlay — and copies it; afterwards each is its own.
 - Speed Tuning's order and what-ifs and a preset's priority list are already
   per preset, and so are a rune's Lock and Exclude (§5).
 - A preset deleted in JASWA takes its profiles, speed tuning and priority list
@@ -352,15 +352,16 @@ an import, and are checked one preset at a time on load.
 - A monster opened from a place about one preset — a preset's list, a Speed
   Tuning team, a row of Monster Stats, a rune engraved in one preset, a build —
   opens its overlay on
-  that preset, and *Optimize* there opens Rune Optimization on it. A monster
-  opened from a place about no preset — Monster Numbers, an artifact, a
+  that preset, and *Save and optimize* there opens Rune Optimization on it. A
+  monster opened from a place about no preset — Monster Numbers, an artifact, a
   relic — opens on Default, which is what those pages show. Opening the overlay
-  leaves the preset chosen across the program alone; only *Optimize* changes it.
+  leaves the preset chosen across the program alone; only *Save and optimize*
+  changes it.
 - The overlay's *Build for* box is a menu of Default and the presets the copy
   stands in, and switches the profile, gear and figures the panel reads. It
-  waits while an edit is unsaved, so an edit is never carried across. *Copy
-  profile from…* beneath it offers the other contexts where the copy has a
-  profile (§4.1).
+  waits while an edit is unsaved, so an edit is never carried across. Beneath
+  it sit *Save and optimize* and *Copy from…*, which offers every other one of
+  those contexts, whether the copy has a profile there or not (§4.1).
 - The candidate runes are every owned rune, minus those engraved on other
   monsters of the same preset where the settings say so, and minus every rune
   another deck of the preset's pool holds, whatever the settings say. Runes in

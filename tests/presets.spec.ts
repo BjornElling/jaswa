@@ -750,12 +750,12 @@ test('the monster overlay names the preset its build is for, and Optimize opens 
   const dialog = page.getByRole('dialog');
   const box = dialog.getByRole('group', { name: 'Build for preset' });
   await expect(box.getByLabel('Build for', { exact: true })).toHaveValue('deck-1-4');
-  await expect(box).toHaveCSS('border-top-color', 'rgb(217, 173, 82)');
+  await expect(box.getByLabel('Build for', { exact: true })).toHaveCSS('color', 'rgb(217, 173, 82)');
   const filled = (scope: Locator) => scope.getByRole('list', { name: 'Engraved runes' }).locator('.engraved-rune:not([data-empty])');
   await expect(filled(dialog)).toHaveCount(3);
-  const optimize = dialog.getByRole('button', { name: `Optimize runes for ${names[12]}` });
+  const optimize = dialog.getByRole('button', { name: `Save and optimize runes for ${names[12]}` });
   const [boxAt, optimizeAt] = [await box.boundingBox(), await optimize.boundingBox()];
-  expect(optimizeAt!.x + optimizeAt!.width).toBeLessThanOrEqual(boxAt!.x);
+  expect(optimizeAt!.y).toBeGreaterThanOrEqual(boxAt!.y + boxAt!.height);
   await page.screenshot({ path: testInfo.outputPath('overlay-preset-box.png') });
   await optimize.click();
   await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
@@ -787,7 +787,7 @@ test('a monster opened from a preset\'s Speed Tuning team is read and optimized 
   await expect(overlay.getByRole('list', { name: 'Engraved runes' }).locator('.engraved-rune:not([data-empty])')).toHaveCount(3);
   await page.screenshot({ path: testInfo.outputPath('speed-team-monster.png') });
 
-  await overlay.getByRole('button', { name: `Optimize runes for ${names[12]}` }).click();
+  await overlay.getByRole('button', { name: `Save and optimize runes for ${names[12]}` }).click();
   await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
   await expect(page.getByLabel('Preset', { exact: true })).toHaveValue('deck-1-4');
   await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('12');
@@ -815,7 +815,7 @@ test('the monster overlay Optimize button shares the preset row\'s hover', async
   const priorityColors = await hover(priorityAction);
   await row.locator('.monster-link').click();
   const dialog = page.getByRole('dialog');
-  const action = dialog.getByRole('button', { name: /^Optimize runes for / });
+  const action = dialog.getByRole('button', { name: /^Save and optimize runes for / });
   const before = await box(action);
   await page.screenshot({ path: testInfo.outputPath('monster-optimize-rest.png') });
   await action.hover();
@@ -1063,7 +1063,9 @@ test('a profile is the copy\'s in one preset: an edit in Default reaches no pres
   /* Nothing filled in: 12 states nothing anywhere, in Default or a preset. */
   let dialog = await openProfileIn(page, '12', 'deck-1-4');
   await expect(spdAtMost(dialog)).toHaveValue('');
-  await expect(dialog.getByLabel('Copy the profile from another preset')).toBeDisabled();
+  /* Another context is enough to copy from, whether its profile says anything or not. */
+  await expect(dialog.getByLabel('Copy the profile from another preset')).toBeEnabled();
+  await expect(dialog.getByLabel('Copy the profile from another preset').locator('option[value="default"]')).toHaveCount(1);
   await page.getByRole('button', { name: 'Close', exact: true }).click();
 
   /* The reported case: a max Spd stated in Default. */
