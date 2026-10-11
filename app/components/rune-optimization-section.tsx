@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Button } from './button';
+import { Button, InlineButton } from './button';
 import { CalculationStatus } from './calculation-status';
 import { FigureMarks } from './figure-marks';
 import { buildIssueMarks, combatBonusMarks } from '../lib/figure-marks';
@@ -45,7 +45,8 @@ import { estimateRuneOptimizationBuilds, figureIndex } from '../lib/rune-optimiz
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../lib/rune-optimization-problem';
 import { currentBuilds } from '../lib/rune-optimization-refresh';
 import type { CurrentBuild } from '../lib/rune-optimization-refresh';
-import { profileRequirements, sameList } from '../lib/rune-optimization-requirements';
+import { askable, profileRequirements, sameList } from '../lib/rune-optimization-requirements';
+import type { RequirementsDraft } from '../lib/rune-optimization-requirements';
 import {
   craftUseLabels, craftUses, runeOptimizationDepthPlans, runeOptimizationDepthReach, runeOptimizationDepths,
   runeOptimizationMonsterKey, runeOptimizationResultCounts,
@@ -92,8 +93,8 @@ const searchPhaseWords: Record<RuneOptimizationPhase, string> = {
 
 type MonsterOption = { unitId: string; masterId: string; name: string; record: GameRecord };
 
-/* The question the table answers — the monster, the requirements and the settings
-   as they stood when it was searched — and the account as the search read it:
+/* The question the table answers — the monster and the requirements as they stood
+   when it was searched, `inputKey` for the settings — and the account as the search read it:
    `runes` and `items`, which a build is re-read against when a sync brings
    back the work the player did from the table. */
 type Calculation = {
@@ -101,8 +102,6 @@ type Calculation = {
   presetId: string;
   unitId: string;
   requirements: RuneOptimizationRequirements;
-  settings: RuneOptimizationSettings;
-  spared: readonly string[];
   answer: RuneOptimizationAnswer;
   runes: ReadonlyMap<string, Rune>;
   items: ReadonlyMap<string, CraftItem>;
@@ -137,7 +136,7 @@ function Provenance({ children }: { children: ReactNode }) {
 }
 
 export function RuneOptimizationSection({ game, monsters, preferences, presets, presetId, onSelectPreset, onUpdate, canEngrave, onEngrave,
-  runeLocks, onLock, onOpenMonster, onOpenRune }: {
+  runeLocks, onLock, onOpenMonster, onOpenRune, onTuneSpeed }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
@@ -154,11 +153,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   onLock: (presetId: string, unitId: string, runeId: string, lock: RuneLock | null) => Promise<void>;
   onOpenMonster: OpenMonsterOverlay;
   onOpenRune: OpenRuneOverlay;
+  /** Opens Speed Tuning on this preset's team. */
+  onTuneSpeed: (presetId: string) => void;
 }) {
   const settings = preferences.runeOptimization;
   const general = preferences.general;
   const [unitId, setUnitId] = useSessionStorageState<string>(runeOptimizationMonsterKey, '', isString);
-  const [edits, setEdits] = useState<{ presetId: string; unitId: string; requirements: RuneOptimizationRequirements } | null>(null);
+  const [edits, setEdits] = useState<{ presetId: string; unitId: string; requirements: RequirementsDraft } | null>(null);
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
@@ -181,6 +182,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      its members can become the question this page answers. */
   const preset = presets.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === defaultPresetId);
   const activePresetId = preset?.id ?? defaultPresetId;
+  /* Speed Tuning lists every preset with monsters as a team, so any of them opens there. */
+  const tunable = preset !== undefined && preset.kind !== 'default' && preset.members.length > 0;
   const items = useMemo(() => accountItems(game?.data), [game]);
   /* The profile is the copy's in this preset and no other: names, requirements
      and the Reset to profile all read the one context the build is for. */
@@ -218,6 +221,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      preset is another question, and does not inherit it. */
   const edited = edits !== null && edits.unitId === unitId && edits.presetId === activePresetId;
   const requirements = edited ? edits.requirements : profile?.requirements;
+  /* The requirements as a question the search can take: only once a figure to
+     rank by is named, by the profile or here. Nothing names one for the user. */
+  const question = useMemo(() => (requirements ? askable(requirements) : undefined), [requirements]);
+  const unranked = requirements !== undefined && question === undefined;
 
   const accountRunes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
   const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
@@ -246,9 +253,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       return base ? [{ role, base }] : [];
     });
   }, [game, preferences.runePotentialPresets]);
-  const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && requirements && (!settings.limitChanges || settings.maxChanges !== undefined) ? {
-    unitId: selected.unitId, monster: selected.record, runes, locks, spared, craftItems, requirements, settings, gemPreservationRoles,
-  } : undefined), [selected, requirements, runes, locks, spared, craftItems, settings, gemPreservationRoles]);
+  const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && question && (!settings.limitChanges || settings.maxChanges !== undefined) ? {
+    unitId: selected.unitId, monster: selected.record, runes, locks, spared, craftItems, requirements: question, settings, gemPreservationRoles,
+  } : undefined), [selected, question, runes, locks, spared, craftItems, settings, gemPreservationRoles]);
   const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
   const trial = useRuneOptimizationWork(input, preferences.hardwareAcceleration, state === 'calculating');
   /* The question on screen. The account is never part of it: the player follows the
@@ -256,7 +263,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      brings that back updates the builds (`rune-optimization-refresh.ts`). Listing
      fewer builds is the same table cut shorter. */
   const { resultCount, ...searchSettings } = settings;
-  const keyOf = (asked: RuneOptimizationRequirements | undefined) =>
+  const keyOf = (asked: RequirementsDraft | undefined) =>
     JSON.stringify({ presetId: activePresetId, unitId, requirements: asked, settings: searchSettings, spared,
       gemRoles: preferences.runePotentialPresets });
   const inputKey = keyOf(requirements);
@@ -269,16 +276,17 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   /* Once the user has asked again, the warning has been acted on: a search running
      under it would read as the new search answering the old question. */
   const warnStale = stale && state !== 'calculating';
-  /* A build is held to the stat ranges on screen, not to those it was searched
-     under: moving a range after the search dims every row now outside it, so the
-     table answers the bounds the player is looking at. Its figures are still
-     counted the way the search counted them, the fight in the composites only; a
-     CRI Rate range the Always crits switch has since set aside stops counting. */
+  /* A build is held to the requirements and settings on screen, not to those it was
+     searched under: narrowing any of them after the search — a stat range, a slot
+     main, broken sets refused, a Gem the settings no longer offer — dims every row
+     it now rules out, so the table answers the question the player is looking at.
+     Widening one dims nothing and finds nothing new; the stale warning says so. Its
+     figures are still counted the way the search counted them, the fight in the
+     composites only; a CRI Rate range the Always crits switch has since set aside
+     stops counting. */
   const tableAlwaysCritsCount = current?.requirements.alwaysCrits;
-  const screenTargets = requirements?.targets;
-  const screenCeilings = requirements?.ceilings;
   const tableLimits = useMemo(() => {
-    if (tableAlwaysCritsCount === undefined || !screenTargets || !screenCeilings) return undefined;
+    if (tableAlwaysCritsCount === undefined || !requirements) return undefined;
     const withoutCriRate = (limits: Partial<Record<RankFigure, number>>) => {
       if (!alwaysCrits) return limits;
       const rest = { ...limits };
@@ -286,20 +294,22 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       return rest;
     };
     return {
-      targets: withoutCriRate(screenTargets), ceilings: withoutCriRate(screenCeilings),
+      targets: withoutCriRate(requirements.targets), ceilings: withoutCriRate(requirements.ceilings),
+      builds: requirements.builds, slotMains: requirements.slotMains,
+      allowBroken: requirements.allowBroken, allowIntangible: requirements.allowIntangible,
       alwaysCrits: tableAlwaysCritsCount,
       alwaysElementAdvantage: current?.requirements.alwaysElementAdvantage ?? false,
       leads: current?.requirements.leads,
     };
-  }, [tableAlwaysCritsCount, screenTargets, screenCeilings, alwaysCrits, current]);
+  }, [tableAlwaysCritsCount, requirements, alwaysCrits, current]);
   const builds = useMemo(() => (current && selected && tableLimits
     ? currentBuilds(current.answer.builds.slice(0, resultCount), {
-      unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings: current.settings, spared: current.spared,
+      unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings, spared,
       before: { runes: current.runes, items: current.items },
       now: { runes: runesById, items: itemsById, locks },
     })
-    : undefined), [current, selected, tableLimits, resultCount, runesById, itemsById, locks]);
-  const figuresNow = useCallback((bonuses: RuneOptimizationRequirements) => {
+    : undefined), [current, selected, tableLimits, resultCount, settings, spared, runesById, itemsById, locks]);
+  const figuresNow = useCallback((bonuses: RequirementsDraft) => {
     if (!selected) return undefined;
     const figures = monsterTargetFigures(selected.record, bonuses);
     return monsterStatTargetKeys.map((key) => figures[key]);
@@ -309,7 +319,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const tableNowFigures = useMemo(() => current ? figuresNow(current.requirements) : undefined, [figuresNow, current]);
   const currentBuild = selected ? runeBuildName(activeRuneSets(selected.record).map((set) => set.name)) : '';
 
-  function change(update: (current: RuneOptimizationRequirements) => RuneOptimizationRequirements) {
+  function change(update: (current: RequirementsDraft) => RequirementsDraft) {
     if (!requirements) return;
     setEdits({ presetId: activePresetId, unitId, requirements: update(requirements) });
   }
@@ -337,11 +347,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      same event that changes it, before a render has carried the new figure into
      `input`. The trial measured the question on screen, so only that one may reuse
      its prepared pool or record its time. */
-  async function calculate(asked: RuneOptimizationRequirements | undefined = requirements) {
+  async function calculate(asked: RuneOptimizationRequirements | undefined = question) {
     if (!input || !asked) return;
-    const onScreen = asked === requirements;
+    const onScreen = asked === question;
     const searched = {
-      presetId: activePresetId, unitId, requirements: asked, settings, spared, runes: runesById, items: itemsById, resultCount,
+      presetId: activePresetId, unitId, requirements: asked, runes: runesById, items: itemsById, resultCount,
     };
     const id = ++searchId.current;
     trial.cancel();
@@ -363,8 +373,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   /* The table holds only the best builds by one figure, so another figure is another
      search. With a table on screen, or a search under way, choosing it starts that search. */
-  function rankBy(figure: RankFigure) {
-    if (!requirements || figure === requirements.rankBy) return;
+  function rankBy(figure: RankFigure | '') {
+    if (!requirements || figure === '' || figure === requirements.rankBy) return;
     const next = { ...requirements, rankBy: figure };
     setEdits({ presetId: activePresetId, unitId, requirements: next });
     if (current || state === 'calculating') void calculate(next);
@@ -428,6 +438,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               <PencilIcon /><span>Open profile</span>
             </Button>
             <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to profile</Button>
+            {/* The preset's team, not the monster's profile, so it stands apart at
+                the far edge, in the quiet box rows elsewhere use for the same way out.
+                Default is no team, and Speed Tuning has nothing of it to open. */}
+            <InlineButton className="rune-optimization-speed" disabled={!tunable}
+              aria-label={preset ? `Speed tuning for ${preset.name}` : 'Speed tuning'}
+              title={tunable ? undefined : 'Only a preset with monsters has a team to tune.'}
+              onClick={() => { if (tunable) onTuneSpeed(activePresetId); }}>Speed tuning</InlineButton>
           </div>
         </div>
 
@@ -460,28 +477,41 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             </p>
           </div>
           <div className="rune-optimization-count-rank">
+            {/* Named above its options as Rank by is above its list, so the two
+                settings of one row read the same way. */}
             <div className="filter-group rune-optimization-count">
-              <RadioLine name="rune-optimization-count" legend="Builds listed" current={String(settings.resultCount)}
-                options={runeOptimizationResultCounts.map((count) => ({ value: String(count), label: String(count) }))}
-                onChange={(count) => onUpdate({ resultCount: Number(count) as RuneOptimizationSettings['resultCount'] })} />
+              <span className="filter-label" id="rune-optimization-count-label">Builds listed</span>
+              <div className="radio-line-options" role="radiogroup" aria-labelledby="rune-optimization-count-label">
+                {runeOptimizationResultCounts.map((count) => <label className="radio-chip" key={count}>
+                  <input type="radio" name="rune-optimization-count" value={count} checked={settings.resultCount === count}
+                    onChange={() => onUpdate({ resultCount: count })} />
+                  <span>{count}</span>
+                </label>)}
+              </div>
             </div>
             <div className="filter-group rune-optimization-rank">
               <label className="filter-label" htmlFor="rune-optimization-rank">Rank by</label>
               <Dropdown id="rune-optimization-rank" value={requirements?.rankBy ?? ''}
-                placeholder={requirements ? undefined : 'Choose a monster'} disabled={!requirements}
-                onChange={(event) => rankBy(event.target.value as RankFigure)}>
+                placeholder={!requirements ? 'Choose a monster' : unranked ? 'Choose a figure' : undefined} disabled={!requirements}
+                aria-invalid={unranked || undefined}
+                onChange={(event) => rankBy(event.target.value as RankFigure | '')}>
                 {monsterStatTargetKeys.map((key) => <option key={key} value={key}>{figureLabels[key]}</option>)}
               </Dropdown>
               <Provenance>{requirements && profile ? changed(requirements.rankBy === profile.requirements.rankBy)
-                ?? (profile.sources.rankBy === 'profile' ? '' : 'Chosen from the monster’s type') : ''}</Provenance>
+                ?? (unranked ? 'The profile names none' : '') : ''}</Provenance>
             </div>
           </div>
         </div>
 
         <div className="rune-optimization-actions">
           <div className="rune-optimization-action-row">
-            <Button tone="primary" size="prominent" className="rune-optimization-find" busy={state === 'calculating'} busyLabel="Searching…"
-              disabled={!input || (settings.limitChanges && settings.maxChanges === undefined)} onClick={() => void calculate()}>Find builds</Button>
+            {/* The reason sits on a wrapper because a disabled button takes no
+                pointer, and in some browsers shows no title of its own. */}
+            <span className="rune-optimization-find-hold"
+              title={unranked ? 'No sort order yet. Choose a figure in Rank by.' : undefined}>
+              <Button tone="primary" size="prominent" className="rune-optimization-find" busy={state === 'calculating'} busyLabel="Searching…"
+                disabled={!input || (settings.limitChanges && settings.maxChanges === undefined)} onClick={() => void calculate()}>Find builds</Button>
+            </span>
             {/* Stopping is a footnote to searching, so it is a mark beside the
                 button rather than a second button of the same weight. It is
                 there in every state, and can only be pressed while a search runs. */}

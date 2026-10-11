@@ -53,7 +53,8 @@ Choose a preset first, then a monster in it. Default and every preset remain
 reachable regardless of the monster choice. Switching preset retains a member
 shared by both contexts; otherwise the monster choice is cleared. *Rank by*
 sits beside *Builds listed* in a compact dropdown, with its space reserved
-before a monster is chosen. Slots 2, 4 and 6 share their own row equally.
+before a monster is chosen; both are named above their controls. Slots 2, 4
+and 6 share their own row equally.
 
 The monster's profile **in the chosen preset** (`DECK-PRESETS.md` §4.1) states
 the answer's shape: the builds it will accept, the mains of slots 2, 4 and 6, whether
@@ -165,10 +166,13 @@ is kept as the user's choice.
 
 ### 2.3 The figure to rank by
 
-The profile's *When met, sort by*, in the twelfth cell beside its ranges, names it. Where it names none, the monster's archetype decides: **DMG** for
-Attack, **SPD** for Support, **E.HP** for everything else — a build that keeps a
-monster alive is never a wrong answer where nothing better is known. The caption
-says the figure was chosen from the monster's type.
+The profile's *When met, sort by*, in the twelfth cell beside its ranges, names it,
+or the user chooses one in *Rank by* for this calculation. **Nothing else ever
+does.** The order of the table is the user's decision, and a figure guessed from
+the monster's type would rank a search by a question nobody asked. Where neither
+names one, *Rank by* reads *Choose a figure*, its caption says the profile names
+none, and *Find builds* stays disabled with a hover saying the sort order is
+missing.
 
 ## 3. Candidates
 
@@ -863,10 +867,12 @@ table pick for pick. It needs a running dev server and a card, and is not part o
 
 ## 8. The page
 
-1. **Monster** — every owned copy by its copy name in a large field with its
-   portrait, *Open profile* under it with *Reset to profile* to its right
-   (disabled until a requirement differs from the profile), and the *Preset* the
-   build is for under that; the depth slider and table size beside it, because they
+1. **Monster** — the *Preset* the build is for, then every copy in it by its
+   copy name in a large field with its portrait, *Open profile* under it with
+   *Reset to profile* to its right (disabled until a requirement differs from the
+   profile) and, at the field's right edge, a quiet *Speed tuning* that opens
+   Speed Tuning on the chosen preset's team (disabled for Default and an empty
+   preset); the depth slider and table size beside it, because they
    are read at the moment of searching; then *Find builds* and a square stop mark.
    The line under the depth gives a rough size of the search before it runs —
    the runes the filters admit, at most the depth's number per slot and set,
@@ -949,16 +955,33 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    figures fall below a target or above a ceiling, the overlay's *Targets* and the
    row's mark say which, and the row is dimmed.
 
-   The targets and ceilings a build is held to are the stat ranges **on screen**,
-   not those it was searched under: narrowing a range after the search dims every
-   row now outside it, and widening it again lifts the dimming. The figures
-   themselves stay counted as the search counted them, *Always crits* included.
+   A build is held to the requirements and settings **on screen**, not those it
+   was searched under, and the same rules the search applies decide it
+   (`slotMainAllowed`, `setRuleMissed`, `craftSupplies`,
+   `countedMainValue`, `mayTakeFrom`). Narrowing the question after the search dims
+   every row it now rules out, and widening it again lifts the dimming:
+   - a stat range the figures now fall outside;
+   - **broken sets** refused while a set is broken, or a **build** taken away that
+     the sets were — named on the row rather than on a slot;
+   - **Intangible runes** refused, or a **slot main** taken away, on the rune that
+     breaks it — never on a rune locked here or kept by *Just fill in empty slots*,
+     which no filter takes away;
+   - *Only runes not engraved in preset*, the priority list, *Just fill in empty
+     slots* or a lower *Max changes*, as listed above;
+   - a **Gem or Grindstone still to come** the settings no longer offer: none, owned
+     only where the plan assumed one, Immemorial items refused, a gemmed stat
+     held, or a grade or roll that no longer reaches the planned value.
 
-   Row marks report changed runes or locks; a better build the change made possible
-   is only found by searching again. Listing fewer builds cuts
-   the same table shorter. Changing any other requirement or search setting —
-   or listing more builds than were searched — marks the table as stale; a monster
-   that left the account says so.
+   *Count unfinished runes at their +15 main stat* and *Slot 1/3/5 only counts at
+   +12*, turned off, count a projected main as it stands and sum the figures again;
+   turned on, they raise nothing the search did not count. The figures otherwise
+   stay counted as the search counted them, *Always crits* included.
+
+   Widening the question never dims a row and never adds one: a better build the
+   change made possible is only found by searching again. Listing fewer builds cuts
+   the same table shorter. Changing any requirement or search setting — or listing
+   more builds than were searched — also marks the table as stale; a monster that
+   left the account says so.
 
 Nothing a choice changes moves anything else (`AGENTS.md` §2): captions are
 reserved lines, the craft selects disable rather than disappear, the status line

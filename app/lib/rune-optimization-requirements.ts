@@ -1,11 +1,9 @@
-import { monsterPresentation } from './monster-catalog';
 import type { RuneSlotKey } from './monster-defaults';
 import { runeSlotKeys } from './monster-defaults';
 import type { MonsterCopyPreferences } from './monster-preferences';
 import { monsterStatTargetKeys } from './monster-preferences';
 import { resolveMonsterPreferences } from './monster-preference-resolution';
 import type { PreferenceSource } from './monster-preference-resolution';
-import { defaultRankFigure } from './rune-optimization-problem';
 import type { RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
 
 /**
@@ -19,13 +17,25 @@ import type { RankFigure, RuneOptimizationRequirements } from './rune-optimizati
  */
 export type RequirementSources = {
   slots: Record<RuneSlotKey, PreferenceSource>;
-  /** `profile` where the owner named a figure to rank by; `archetype` where JASWA chose one. */
-  rankBy: 'profile' | 'archetype';
 };
+
+/**
+ * The question as the page holds it, before it can be asked. The figure to rank by
+ * is the one part with no answer to fall back on: the order of the table is the
+ * user's decision, so where neither the profile nor the page names a figure it
+ * stays unnamed and *Find builds* waits for one (§2.3).
+ */
+export type RequirementsDraft = Omit<RuneOptimizationRequirements, 'rankBy'> & { rankBy: RankFigure | undefined };
+
+/** The draft as a question the search can answer, once a figure is named. */
+export function askable(draft: RequirementsDraft): RuneOptimizationRequirements | undefined {
+  const { rankBy } = draft;
+  return rankBy === undefined ? undefined : { ...draft, rankBy };
+}
 
 export function profileRequirements(
   unitId: string, masterId: unknown, stated: MonsterCopyPreferences | undefined,
-): { requirements: RuneOptimizationRequirements; sources: RequirementSources } {
+): { requirements: RequirementsDraft; sources: RequirementSources } {
   const resolved = resolveMonsterPreferences(unitId, masterId, stated);
   const targets: Partial<Record<RankFigure, number>> = {};
   const ceilings: Partial<Record<RankFigure, number>> = {};
@@ -41,7 +51,6 @@ export function profileRequirements(
     (slotMains as Record<RuneSlotKey, unknown>)[key] = [...resolved.runes.slots[key].chosen];
     slotSources[key] = resolved.runes.slots[key].source;
   }
-  const named = resolved.runeSuggestionStat;
   return {
     requirements: {
       builds: [...resolved.runes.sets.chosen],
@@ -53,9 +62,9 @@ export function profileRequirements(
       leads: resolved.leads,
       targets,
       ceilings,
-      rankBy: named ?? defaultRankFigure(monsterPresentation(masterId).archetype),
+      rankBy: resolved.runeSuggestionStat,
     },
-    sources: { slots: slotSources, rankBy: named === undefined ? 'archetype' : 'profile' },
+    sources: { slots: slotSources },
   };
 }
 

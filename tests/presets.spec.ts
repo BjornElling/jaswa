@@ -628,11 +628,18 @@ test('preset comes first, and empty presets keep the search controls in place', 
   await expect(monster).toHaveValue('');
   expect(await monster.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))).toEqual(['', '11']);
   await monster.selectOption('11');
-  await expect(find).toBeEnabled();
   await expect(rank).toBeEnabled();
+  /* No figure named yet, so nothing to find until one is. */
+  await expect(find).toBeDisabled();
+  await rank.selectOption('spd');
+  await expect(find).toBeEnabled();
   expect(await Promise.all(controls.map(box))).toEqual(before);
+  /* A preset with monsters is a team, so the way to its Speed Tuning opens. */
+  const speed = page.getByRole('button', { name: /^Speed tuning for / });
+  await expect(speed).toBeEnabled();
   await page.screenshot({ path: testInfo.outputPath('preset-first-selected.png'), fullPage: true });
   await preset.selectOption('own-empty');
+  await expect(speed).toBeDisabled();
   await expect(preset).toHaveValue('own-empty');
   await expect(monster).toBeDisabled();
   await expect(monster.locator('option')).toHaveText(['No monsters in this preset']);
@@ -646,7 +653,13 @@ test('preset comes first, and empty presets keep the search controls in place', 
   await expect(monster).toHaveValue('');
   await preset.selectOption('deck-1-4');
   await monster.selectOption('12');
+  await rank.selectOption('dmg');
   await expect(find).toBeEnabled();
+  /* And it opens Speed Tuning with that team. */
+  await page.getByRole('button', { name: /^Speed tuning for / }).click();
+  await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Arena Attack 4' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('preset-speed-tuning-opened.png'), fullPage: true });
 });
 
 test('Speed tuning opens the preset\'s team in Speed Tuning, from any of its rows', async ({ page }, testInfo) => {
@@ -785,6 +798,9 @@ async function considered(page: Page) {
 }
 
 async function find(page: Page) {
+  /* The fixture's profiles name no figure to rank by, and the page never picks one. */
+  const rank = page.getByLabel('Rank by', { exact: true });
+  if (await rank.inputValue() === '') await rank.selectOption('spd');
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   return considered(page);

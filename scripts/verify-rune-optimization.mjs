@@ -224,6 +224,7 @@ let spentChecked = 0;
 let withWork = 0;
 /* How often the rarer re-readings and Always crits were actually exercised. */
 let lockedAwayChecked = 0;
+let brokenChecked = 0;
 let itemsChecked = 0;
 let allocatedCases = 0;
 let alwaysCritting = 0;
@@ -459,6 +460,39 @@ for (let index = 0; index < scenarios; index += 1) {
       const offPlan = reread(build, elsewhere);
       assert.equal(offPlan.runes.find((picked) => picked.runeId === rune.id).gemmedAt, -1, `${context}: a second Gem was still planned on one rune`);
     }
+
+    /* The question narrowed on screen after the search, the account unchanged: each
+       narrowing names exactly the runes or the sets it now rules out. */
+    const narrowed = (requirements, settings = {}) => currentBuilds([build], {
+      unitId: input.unitId, monster: input.monster, requirements: { ...input.requirements, ...requirements },
+      settings: { ...input.settings, ...settings }, spared: input.spared,
+      before: { runes: runesById, items: itemsById }, now: { runes: resent, items: itemsById, locks: input.locks },
+    })[0];
+    const setCounts = new Map();
+    for (const picked of build.runes) setCounts.set(picked.setId, (setCounts.get(picked.setId) ?? 0) + 1);
+    const unbroken = narrowed({ allowBroken: false });
+    assert.equal(unbroken.sets, noBroken(setCounts) ? null : 'broken', `${context}: refusing broken sets misjudged the build`);
+    if (unbroken.sets !== null) brokenChecked += 1;
+    /* A rune locked here, or kept by an empty-slots-only search, is its slot's answer whatever the filters say. */
+    const filtered = build.runes.filter((picked) => !picked.locked
+      && !(input.settings.fillEmptySlotsOnly && runesById.get(picked.runeId).occupiedId === input.unitId));
+    assert.deepEqual(issues(narrowed({ allowIntangible: false })),
+      filtered.filter((picked) => picked.setId === intangibleSetId).map((picked) => `${picked.slot}:intangible`),
+      `${context}: refusing Intangible runes misnamed a rune`);
+    assert.deepEqual(issues(narrowed({}, { gems: 'none' })),
+      build.runes.filter((picked) => picked.gemmedAt >= 0).map((picked) => `${picked.slot}:craft`),
+      `${context}: refusing Gems misnamed a rune`);
+    assert.deepEqual(issues(narrowed({}, { grinds: 'none' })),
+      build.runes.filter((picked) => picked.groundAt.length > 0).map((picked) => `${picked.slot}:craft`),
+      `${context}: refusing Grindstones misnamed a rune`);
+    const asEngraved = narrowed({}, { unfinishedAtMaximum: false });
+    assert.deepEqual(asEngraved.figures, buildFigures(input.monster, build.runes.map((picked) => {
+      const rune = runesById.get(picked.runeId);
+      return { rune, mainValue: rune.mainValue, lines: picked.lines };
+    }), input.requirements), `${context}: unfinished mains were still projected`);
+    const widened = narrowed({ builds: [], allowBroken: true, allowIntangible: true, slotMains: { slot2: [], slot4: [], slot6: [] } },
+      { runesOnOtherMonsters: true, fillEmptySlotsOnly: false, limitChanges: false, unfinishedAtMaximum: true });
+    assert.deepEqual([issues(widened), widened.sets], [[], null], `${context}: widening the question dimmed a build`);
   }
   checkedRows += expected.length;
   if (expected.length === 0) emptyTables += 1;
@@ -700,6 +734,7 @@ assert.ok(lockedAwayChecked > personalScenarios / 4, `only ${lockedAwayChecked} 
 assert.ok(itemsChecked >= personalScenarios / 10, `only ${itemsChecked} builds spent a held item`);
 assert.ok(sparedChecked > personalScenarios / 10, `only ${sparedChecked} searches had a higher-priority monster's runes to leave alone`);
 assert.ok(ownKeptChecked > scenarios / 20, `only ${ownKeptChecked} searches took nothing from the preset while the copy carried runes of its own`);
+assert.ok(brokenChecked > scenarios / 20, `only ${brokenChecked} builds broke a set to be refused afterwards`);
 assert.ok(alwaysCritting > scenarios / 10, `only ${alwaysCritting} builds were for a monster that always crits`);
 console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds â€” the search, whole and split three ways,`
   + ` and resource matching on ${allocatedCases} pools,`
@@ -707,7 +742,9 @@ console.log(`PASS: ${scenarios} random accounts, ${checkedRows} ranked builds â€
   + ` processor pick for pick, and ${refusedMidway} searches finished on the processor after the card refused;`
   + ` no build spent a held Gem or Grindstone more often than the account holds it (${spentChecked} stacks checked);`
   + ` every build read again against a re-sent account and a followed one (${withWork} with Gems or stones) kept its figures,`
-  + ` and a sold rune, a lock (${lockedAwayChecked}) and spent items (${itemsChecked}) were each named on the slot they block.`);
+  + ` and a sold rune, a lock (${lockedAwayChecked}) and spent items (${itemsChecked}) were each named on the slot they block;`
+  + ` refusing broken sets (${brokenChecked} builds broke one), Intangible runes, Gems, Grindstones or unfinished mains after the search`
+  + ` names exactly what each build now breaks, and widening the question dims nothing.`);
 
 /* With the gemmed stat held, a gemmed rune's Gem lands only on the property that line
    already carries, and every rune without one is offered exactly as with it allowed.

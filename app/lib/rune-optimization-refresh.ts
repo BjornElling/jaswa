@@ -27,18 +27,28 @@
  * need more of an item than the account holds. The row keeps its place, so the player
  * does not lose the one they were reading.
  *
+ * The question is read the same way: a build is held to the requirements and settings
+ * on screen, not those it was searched under. A choice that narrows the question —
+ * broken sets refused, Intangible runes refused, a slot main or build taken away,
+ * another monster's runes kept, a Gem or Grindstone the settings no longer offer —
+ * names what the build now breaks; an unfinished main no longer projected is counted
+ * as it stands.
+ *
  * What this cannot do is notice a *better* build that the change made possible.
  * The search did not see the new runes, so the page says the table can be searched
  * again; it does not pretend the old table is still the best one.
  */
 import type { OptimizedBuild, PickedRune } from './compute/rune-optimization-protocol';
 import type { GameRecord } from './game-data';
-import { targetFigureKeys } from './monster-stats';
-import type { EndStateLine } from './rune-craft-end-state';
+import { intangibleSetId, targetFigureKeys } from './monster-stats';
+import type { CraftSupply, EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
 import type { RuneLock } from './rune-locks';
-import { buildFigures, figureIndex, mayTakeFrom, targetCeilings, targetFloors } from './rune-optimization-problem';
-import type { RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
+import {
+  buildFigures, countedMainValue, craftSupplies, figureIndex, mayTakeFrom, setRuleMissed, slotMainAllowed,
+  targetCeilings, targetFloors,
+} from './rune-optimization-problem';
+import type { CraftSettings, RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
 import type { Rune } from './runes';
 
@@ -57,33 +67,47 @@ export type PickIssue =
   /** A Gem or Grindstone still to come needs more of a held item than the account has left. */
   | { kind: 'items' }
   | { kind: 'slot-filled' }
-  | { kind: 'changes-limit'; maximum: number };
+  | { kind: 'changes-limit'; maximum: number }
+  /** An Intangible rune, and the requirements no longer allow one. */
+  | { kind: 'intangible' }
+  /** Its main property is not among the slot mains the requirements allow. */
+  | { kind: 'slot-main' }
+  /** The Gem or Grindstone still to come is one the settings no longer offer. */
+  | { kind: 'craft'; item: 'gem' | 'grindstone' };
 
 export type CurrentPick = PickedRune & { issue: PickIssue | null };
 
 /**
  * A build as the page shows it: figures `null` where one of its runes has left the
- * account, the issue per rune, the targets its figures no longer reach and the
- * ceilings they have since passed.
+ * account, the issue per rune, the set rule its six runes break, the targets its
+ * figures no longer reach and the ceilings they have since passed.
  */
 export type CurrentBuild = Omit<OptimizedBuild, 'figures' | 'runes'> & {
   runes: CurrentPick[];
   figures: number[] | null;
+  sets: 'broken' | 'build' | null;
   short: RankFigure[];
   over: RankFigure[];
 };
 
 /** Whether a build can still be followed as it stands. */
-export const buildFollowable = (build: CurrentBuild): boolean => build.runes.every((picked) => picked.issue === null);
+export const buildFollowable = (build: CurrentBuild): boolean => build.sets === null && build.runes.every((picked) => picked.issue === null);
 
-/** What a calculation was and what the account is now, for one re-reading. */
+/**
+ * What a calculation was and what the account is now, for one re-reading. The
+ * requirements, settings and spared copies are the ones **on screen**: a choice that
+ * narrows the question after the search dims every build it now rules out, and one
+ * that widens it rules nothing back in that the search never saw.
+ */
 export type RefreshContext = {
   unitId: string;
   /** The copy's record as it is now: its artifacts and relic are counted with its runes. */
   monster: GameRecord;
-  requirements: Pick<RuneOptimizationRequirements, 'targets' | 'ceilings' | 'alwaysCrits' | 'alwaysElementAdvantage' | 'leads'>;
-  settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters' | 'fillEmptySlotsOnly' | 'limitChanges' | 'maxChanges'>;
-  /** The copies whose runes the search was not allowed to take, as `RuneOptimizationInput.spared`. */
+  requirements: Pick<RuneOptimizationRequirements, 'targets' | 'ceilings' | 'alwaysCrits' | 'alwaysElementAdvantage' | 'leads'
+    | 'builds' | 'slotMains' | 'allowBroken' | 'allowIntangible'>;
+  settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters' | 'fillEmptySlotsOnly' | 'limitChanges' | 'maxChanges'
+    | 'unfinishedAtMaximum' | 'oddSlotsAtTwelve'> & CraftSettings;
+  /** The copies whose runes may not be taken, as `RuneOptimizationInput.spared`. */
   spared: readonly string[];
   /** The runes and held items the search read. */
   before: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem> };
@@ -176,8 +200,36 @@ function stillSpends(found: PickedRune, current: PickedRune, items: ReadonlyMap<
   return needed;
 }
 
-function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: ReadonlyMap<number, string>): CurrentBuild {
-  const { unitId, now, before } = context;
+/**
+ * Which item still to come on one rune the settings no longer offer, if any. An item
+ * is still offered where the settings give one of the same property reaching the
+ * planned value — out of the same held stack, where the plan named one — so a
+ * setting that only widens the choice never dims a build.
+ */
+function refusedCraft(
+  picked: PickedRune, spends: readonly string[], supply: CraftSupply, offered: readonly CraftItem[],
+  items: ReadonlyMap<string, CraftItem>,
+): 'gem' | 'grindstone' | null {
+  const heldId = (choice: { stock: number }) => offered[choice.stock]?.id;
+  const gemLine = picked.gemmedAt >= 0 ? picked.lines[picked.gemmedAt] : undefined;
+  if (gemLine) {
+    const planned = spends.find((id) => items.get(id)?.kind === 'gem');
+    const choices = supply.gem?.choices[gemLine.statId] ?? [];
+    if (!choices.some((choice) => choice.value >= gemLine.value && (choice.stock < 0 || heldId(choice) === planned))) return 'gem';
+  }
+  for (const at of picked.groundAt) {
+    const line = picked.lines[at];
+    if (!line) continue;
+    const stones = spends.filter((id) => items.get(id)?.kind === 'grindstone' && items.get(id)?.statId === line.statId);
+    const choices = supply.grind?.choices[line.statId] ?? [];
+    if (!choices.some((choice) => choice.value >= line.grind && (choice.stock < 0 || stones.includes(heldId(choice) ?? '')))) return 'grindstone';
+  }
+  return null;
+}
+
+function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: ReadonlyMap<number, string>,
+  supplyOf: (rune: Rune) => CraftSupply, offered: readonly CraftItem[]): CurrentBuild {
+  const { unitId, now, before, requirements, settings } = context;
   const changedAccount = now.runes !== before.runes;
   let changed = changedAccount;
   const picks: CurrentPick[] = [];
@@ -196,25 +248,36 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
     }
     const locked = now.locks[found.runeId] === 'locked';
     const lockedHere = locked && is.occupiedId === unitId;
-    const picked = currentPick(found, was, is, unitId, lockedHere);
+    let picked = currentPick(found, was, is, unitId, lockedHere);
+    /* A projected main counts only while the settings still project it; one they
+       would now project higher is not raised, as the search never counted it. */
+    const mainValue = lockedHere ? picked.mainValue : Math.min(picked.mainValue, countedMainValue(settings, is));
+    if (mainValue !== picked.mainValue) picked = { ...picked, mainValue };
     if (picked !== found) changed = true;
+    const spends = stillSpends(found, picked, before.items);
 
     let issue: PickIssue | null = null;
     const taken = lockedSlots.get(picked.slot);
+    const engraved = settings.fillEmptySlotsOnly
+      ? [...now.runes.values()].find((rune) => rune.slot === picked.slot && rune.occupiedId === unitId) : undefined;
+    /* A rune locked here, or the one an empty-slots-only search must keep, is its
+       slot's answer whatever the filters say, as the search reads it (`admission`). */
+    const held = lockedHere || engraved?.id === picked.runeId;
     if (locked && !lockedHere) issue = { kind: 'locked-away', engravedOn: is.occupiedId };
     else if (now.locks[found.runeId] === 'excluded') issue = { kind: 'excluded' };
     else if (taken !== undefined && taken !== found.runeId) issue = { kind: 'slot-taken', runeId: taken };
     else if (is.occupiedId !== null && is.occupiedId !== unitId && !mayTakeFrom(context, is.occupiedId)) {
       issue = { kind: 'engraved-elsewhere', engravedOn: is.occupiedId };
-    }
-    if (issue === null && context.settings.fillEmptySlotsOnly) {
-      const engraved = [...now.runes.values()].find((rune) => rune.slot === picked.slot && rune.occupiedId === unitId);
-      if (engraved && engraved.id !== picked.runeId) issue = { kind: 'slot-filled' };
+    } else if (engraved && !held) issue = { kind: 'slot-filled' };
+    else if (!held && is.setId === intangibleSetId && !requirements.allowIntangible) issue = { kind: 'intangible' };
+    else if (!held && !slotMainAllowed(requirements, is)) issue = { kind: 'slot-main' };
+    else {
+      const item = refusedCraft(picked, spends, supplyOf(was), offered, before.items);
+      if (item !== null) issue = { kind: 'craft', item };
     }
     picks.push({ ...picked, issue });
     pieces.push({ rune: is, mainValue: picked.mainValue, lines: picked.lines });
 
-    const spends = stillSpends(found, picked, before.items);
     spendsBySlot.set(picked.slot, spends);
     for (const id of spends) spending.set(id, (spending.get(id) ?? 0) + 1);
   }
@@ -235,7 +298,8 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
       picked.issue = { kind: 'changes-limit', maximum: context.settings.maxChanges };
     }
   }
-  if (gone) return { ...build, runes: picks, moves, figures: null, short: [], over: [] };
+  const sets = setRuleMissed(requirements, picks.map((picked) => picked.setId));
+  if (gone) return { ...build, runes: picks, moves, figures: null, sets, short: [], over: [] };
   /* Untouched since the search: its own figures, exactly. After a sync every build is
      counted again, since gear can change as well as a rune. A range is judged on
      the figure the table shows beside it. */
@@ -245,7 +309,7 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
   const missed = targetFigureKeys.filter((key) => judged(key) < floors[figureIndex(key)]);
   const ceilings = targetCeilings(context.requirements);
   const past = targetFigureKeys.filter((key) => judged(key) > ceilings[figureIndex(key)]);
-  return { ...build, runes: picks, moves, figures, short: missed, over: past };
+  return { ...build, runes: picks, moves, figures, sets, short: missed, over: past };
 }
 
 /**
@@ -260,5 +324,9 @@ export function currentBuilds(builds: readonly OptimizedBuild[], context: Refres
     const rune = lock === 'locked' ? context.now.runes.get(runeId) : undefined;
     if (rune && rune.occupiedId === context.unitId) lockedSlots.set(rune.slot, runeId);
   }
-  return builds.map((build) => readBuild(build, context, lockedSlots));
+  /* The held items as the search read them: whether one is still in stock is the
+     item check's question, not the settings'. */
+  const offered = [...context.before.items.values()];
+  const supplyOf = craftSupplies(context.settings, offered);
+  return builds.map((build) => readBuild(build, context, lockedSlots, supplyOf, offered));
 }

@@ -15,12 +15,20 @@ export function pickIssueText(issue: PickIssue, engravedOnName: (unitId: string)
       : `The rune is locked to ${engravedOnName(issue.engravedOn) ?? 'another monster'}`;
     case 'slot-taken': return 'Another rune is locked into this slot';
     case 'excluded': return 'The rune is excluded from this monster';
-    case 'engraved-elsewhere': return `The rune is now on ${engravedOnName(issue.engravedOn) ?? 'another monster'}, and the settings keep other monsters’ runes`;
-    case 'slot-filled': return 'Another rune now fills this slot, and only empty slots may change';
-    case 'changes-limit': return `The build now needs more than ${issue.maximum} rune changes`;
+    case 'engraved-elsewhere': return `The rune is on ${engravedOnName(issue.engravedOn) ?? 'another monster'}, and the settings keep other monsters’ runes`;
+    case 'slot-filled': return 'Another rune fills this slot, and only empty slots may change';
+    case 'changes-limit': return `The build needs more than ${issue.maximum} rune changes`;
     case 'items': return 'Too few items are left for the Gem or Grindstone still to come';
+    case 'intangible': return 'The rune is Intangible, and Intangible runes are not allowed';
+    case 'slot-main': return 'The rune’s main stat is not one this slot allows';
+    case 'craft': return `The settings no longer allow the ${issue.item === 'gem' ? 'Gem' : 'Grindstone'} still to come`;
   }
 }
+
+const setWords: Readonly<Record<NonNullable<CurrentBuild['sets']>, string>> = {
+  broken: 'A set is broken, and broken sets are not allowed.',
+  build: 'The sets are not one of the chosen builds.',
+};
 
 export const shortText = (short: readonly RankFigure[]) => `Now short of ${short.map((key) => figureNames[key] ?? key).join(', ')}`;
 
@@ -28,6 +36,7 @@ export const shortText = (short: readonly RankFigure[]) => `Now short of ${short
 export function buildIssueReading(build: CurrentBuild, engravedOnName: (unitId: string) => string | undefined): string {
   const lines = [...build.runes].sort((left, right) => left.slot - right.slot)
     .flatMap((picked) => (picked.issue ? [`Slot ${picked.slot}: ${pickIssueText(picked.issue, engravedOnName)}.`] : []));
+  if (build.sets !== null) lines.push(setWords[build.sets]);
   if (build.short.length > 0) lines.push(`${shortText(build.short)}.`);
   if (build.over.length > 0) lines.push(`Now above the range for ${build.over.map((key) => figureNames[key] ?? key).join(', ')}.`);
   return lines.join(' ');

@@ -29,7 +29,6 @@ import {
   figuresInto, intangibleCompletion, intangibleSetId, setIdBound,
   statSetBonuses, targetFigureCount, targetFigureKeys, totalCount, totalsInto,
 } from './monster-stats';
-import type { MonsterArchetype } from './monster-catalog';
 import { assumedCraftHalf, craftVariants, heldCraftHalf } from './rune-craft-end-state';
 import type { CraftHalf, CraftSupply, EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
@@ -225,21 +224,6 @@ export function overCeiling(figures: ArrayLike<number>, ceilings: Float64Array):
   return false;
 }
 
-/**
- * The figure to rank by when the profile names none (§2.3).
- *
- * The archetype is the one thing JASWA knows about every monster without being told,
- * and each maps to the figure that family is conventionally built around: damage for
- * an attacker, survival for the two bulk families, turns for a support. A monster
- * with no archetype is ranked by E.HP, because a build that keeps it alive is never a
- * wrong answer where nothing better is known.
- */
-export function defaultRankFigure(archetype: MonsterArchetype | undefined): RankFigure {
-  if (archetype === 'Attack') return 'dmg';
-  if (archetype === 'Support') return 'spd';
-  return 'ehp';
-}
-
 const figureScratch = new Float64Array(targetFigureCount);
 const totalsScratch = new Float64Array(totalCount);
 
@@ -378,14 +362,83 @@ function admission(input: RuneOptimizationInput, usableSets: ReadonlySet<number>
   if (!onThisMonster && rune.occupiedId !== null && !mayTakeFrom(input, rune.occupiedId)) return 'refused';
   if (rune.setId === intangibleSetId && !requirements.allowIntangible) return 'refused';
   if (usableSets !== null && rune.setId !== intangibleSetId && !usableSets.has(rune.setId)) return 'refused';
+  return slotMainAllowed(requirements, rune) ? 'admitted' : 'refused';
+}
+
+/** Whether a rune's main property is one its slot may carry. Slots 1, 3 and 5 have one main, and nothing to ask. */
+export function slotMainAllowed(requirements: Pick<RuneOptimizationRequirements, 'slotMains'>, rune: Pick<Rune, 'slot' | 'mainStatId'>): boolean {
   const mains = rune.slot === 2 ? requirements.slotMains.slot2
     : rune.slot === 4 ? requirements.slotMains.slot4
       : rune.slot === 6 ? requirements.slotMains.slot6 : undefined;
-  if (mains !== undefined && mains.length > 0) {
-    const main = runeSlotMainByEffect(rune.mainStatId);
-    if (main === undefined || !mains.includes(main)) return 'refused';
+  if (mains === undefined || mains.length === 0) return true;
+  const main = runeSlotMainByEffect(rune.mainStatId);
+  return main !== undefined && mains.includes(main);
+}
+
+/** The main property as the settings count it: at its `+15` value for an unfinished rune where they say so. */
+export function countedMainValue(
+  settings: Pick<RuneOptimizationSettings, 'unfinishedAtMaximum' | 'oddSlotsAtTwelve'>,
+  rune: Pick<Rune, 'slot' | 'level' | 'stars' | 'mainStatId' | 'mainValue'>,
+): number {
+  if (!settings.unfinishedAtMaximum || rune.level >= runeMaximumLevel) return rune.mainValue;
+  if (settings.oddSlotsAtTwelve && rune.slot % 2 === 1) {
+    return rune.level > 12 ? rune.mainValue : Math.max(rune.mainValue, flatMainPropertyAtTwelve(rune.stars, rune.mainStatId));
   }
-  return 'admitted';
+  return Math.max(rune.mainValue, mainPropertyMaximum(rune.stars, rune.mainStatId));
+}
+
+/** Which set rule a finished build breaks, or `null`: a broken set where none is allowed, or none of the stated builds. */
+export function setRuleMissed(
+  requirements: Pick<RuneOptimizationRequirements, 'builds' | 'allowBroken'>, setIds: readonly number[],
+): 'broken' | 'build' | null {
+  const counts = new Int32Array(setIdBound);
+  for (const setId of setIds) if (setId > 0 && setId < setIdBound) counts[setId] += 1;
+  const completes = intangibleCompletion(counts);
+  if (!requirements.allowBroken && !noBrokenSets(counts, completes, setPiecesById)) return 'broken';
+  const builds = buildRequirements(requirements.builds);
+  return builds === null || builds.some((build) => satisfiesBuild(build, counts, completes)) ? null : 'build';
+}
+
+/** The settings that decide which Gems and Grindstones a build may count on. */
+export type CraftSettings = Pick<RuneOptimizationSettings,
+  'gems' | 'grinds' | 'gemGrade' | 'grindGrade' | 'gemRollAssumption' | 'grindRollAssumption' | 'allowImmemorial' | 'allowGemStatChange'>;
+
+/**
+ * The Gems and Grindstones the settings offer one rune, with each held choice's
+ * `stock` an index into `craftItems`. One reading for the search and for the
+ * re-reading of a found build, so a row is never dimmed for an item the search
+ * itself would have counted.
+ */
+export function craftSupplies(settings: CraftSettings, craftItems: readonly CraftItem[]): (rune: Rune) => CraftSupply {
+  const heldItems = craftItems.map((item, index) => ({ item, stock: index }))
+    .filter(({ item }) => settings.allowImmemorial || item.lineage !== 'immemorial');
+  const halves = new Map<string, CraftHalf | null>();
+  function half(plan: SupplyPlan, rune: Rune): CraftHalf | null {
+    if (plan.use === 'none') return null;
+    /* An assumed item depends on the lineage alone; a held one on the set as well,
+       because an Ancient item names a set like any other (`lineageFits`). Keyed by
+       lineage only, every Ancient rune was offered the first Ancient rune's stacks. */
+    const lineage = rune.ancient ? 'A' : 'S';
+    const key = plan.use === 'theoretical' ? `${plan.kind}|${plan.use}|${lineage}`
+      : `${plan.kind}|${plan.use}|${lineage}${rune.setId}`;
+    if (halves.has(key)) return halves.get(key) ?? null;
+    const found = plan.use === 'theoretical'
+      ? assumedCraftHalf(plan.kind, rune.ancient ? 'ancient' : 'standard', plan.grade, plan.roll)
+      : heldCraftHalf(plan.kind, heldItems.filter(({ item }) => lineageFits(item, rune)), plan.roll);
+    halves.set(key, found);
+    return found;
+  }
+  const gemPlan: SupplyPlan = { use: settings.gems, kind: 'gem', grade: settings.gemGrade, roll: settings.gemRollAssumption };
+  const grindPlan: SupplyPlan = { use: settings.grinds, kind: 'grindstone', grade: settings.grindGrade, roll: settings.grindRollAssumption };
+  /* With the gemmed property held, only Gems of that property are offered: which line
+     a Gem may replace stays `craftVariants`'s rule, and this narrows only what lands. */
+  function gemHalf(rune: Rune): CraftHalf | null {
+    const found = half(gemPlan, rune);
+    const kept = rune.subProperties.find((line) => line.gemmed)?.statId;
+    if (found === null || settings.allowGemStatChange || kept === undefined) return found;
+    return { choices: found.choices.map((options, statId) => (statId === kept ? options : [])) };
+  }
+  return (rune) => ({ gem: gemHalf(rune), grind: half(grindPlan, rune) });
 }
 
 /*
@@ -681,34 +734,7 @@ export function prepareRuneOptimization(
   /* Held stacks are numbered once, so every candidate names its spend by index and
      the search counts it in a flat array. */
   const stock = input.craftItems.map((item) => ({ itemId: item.id, amount: item.amount, kind: item.kind, statId: item.statId }));
-  const heldItems = input.craftItems.map((item, index) => ({ item, stock: index }))
-    .filter(({ item }) => settings.allowImmemorial || item.lineage !== 'immemorial');
-  const halves = new Map<string, CraftHalf | null>();
-  function half(plan: SupplyPlan, rune: Rune): CraftHalf | null {
-    if (plan.use === 'none') return null;
-    /* An assumed item depends on the lineage alone; a held one on the set as well,
-       because an Ancient item names a set like any other (`lineageFits`). Keyed by
-       lineage only, every Ancient rune was offered the first Ancient rune's stacks. */
-    const lineage = rune.ancient ? 'A' : 'S';
-    const key = plan.use === 'theoretical' ? `${plan.kind}|${plan.use}|${lineage}`
-      : `${plan.kind}|${plan.use}|${lineage}${rune.setId}`;
-    if (halves.has(key)) return halves.get(key) ?? null;
-    const found = plan.use === 'theoretical'
-      ? assumedCraftHalf(plan.kind, rune.ancient ? 'ancient' : 'standard', plan.grade, plan.roll)
-      : heldCraftHalf(plan.kind, heldItems.filter(({ item }) => lineageFits(item, rune)), plan.roll);
-    halves.set(key, found);
-    return found;
-  }
-  const gemPlan: SupplyPlan = { use: settings.gems, kind: 'gem', grade: settings.gemGrade, roll: settings.gemRollAssumption };
-  /* With the gemmed property held, only Gems of that property are offered: which line
-     a Gem may replace stays `craftVariants`'s rule, and this narrows only what lands. */
-  function gemHalf(rune: Rune): CraftHalf | null {
-    const found = half(gemPlan, rune);
-    const kept = rune.subProperties.find((line) => line.gemmed)?.statId;
-    if (found === null || settings.allowGemStatChange || kept === undefined) return found;
-    return { choices: found.choices.map((options, statId) => (statId === kept ? options : [])) };
-  }
-  const grindPlan: SupplyPlan = { use: settings.grinds, kind: 'grindstone', grade: settings.grindGrade, roll: settings.grindRollAssumption };
+  const supplyOf = craftSupplies(settings, input.craftItems);
 
   const bySlot: Candidate[][] = [[], [], [], [], [], []];
   const locked = [false, false, false, false, false, false];
@@ -734,16 +760,11 @@ export function prepareRuneOptimization(
     }
     if (locked[slotIndex] || verdict === 'refused') continue;
 
-    const atTwelve = settings.oddSlotsAtTwelve && rune.slot % 2 === 1;
-    const mainValue = settings.unfinishedAtMaximum && rune.level < runeMaximumLevel
-      ? atTwelve
-        ? rune.level > 12 ? rune.mainValue : Math.max(rune.mainValue, flatMainPropertyAtTwelve(rune.stars, rune.mainStatId))
-        : Math.max(rune.mainValue, mainPropertyMaximum(rune.stars, rune.mainStatId))
-      : rune.mainValue;
+    const mainValue = countedMainValue(settings, rune);
     const lines: EndStateLine[] = rune.subProperties.map((line) => ({
       statId: line.statId, value: line.value, grind: line.grind, gemmed: line.gemmed,
     }));
-    const supply: CraftSupply = { gem: gemHalf(rune), grind: half(grindPlan, rune) };
+    const supply = supplyOf(rune);
     const variants = supply.gem === null && supply.grind === null
       ? [{ lines, gemmedAt: -1, stock: [] as number[] }]
       : craftVariants(supply, rune.slot, rune.mainStatId, rune.prefixStatId, lines, rune.level >= gemMinimumLevel, wanted,

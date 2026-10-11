@@ -49,6 +49,7 @@ test('all ten depths keep their box, expose their value, and survive a reload', 
     await input.fill((await input.getAttribute('aria-label'))?.includes('at most') ? '999999999999' : '0');
   }
   await page.getByLabel('HP: at least', { exact: true }).fill('999999999998');
+  await page.getByLabel('Rank by', { exact: true }).selectOption('spd');
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('table', { name: 'Rune builds' })).toContainText('No build meets every requirement.');
   await page.screenshot({ path: testInfo.outputPath('depth-full-ranges.png'), fullPage: true });
@@ -71,6 +72,8 @@ test('a huge impossible pool gets measured without a false time warning or movin
   await expect(warning).toContainText('Choose a monster');
   await page.screenshot({ path: testInfo.outputPath('depth-before-trial.png'), fullPage: true });
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  /* No profile names a figure, and the trial measures only a question that can be asked. */
+  await page.getByLabel('Rank by', { exact: true }).selectOption('spd');
   const panel = page.locator('.rune-optimization-monster-panel');
   const panelBox = await box(panel);
   await page.getByLabel('Spd: at least', { exact: true }).fill('999999');
@@ -106,6 +109,7 @@ test('an unavailable trial leaves the real search usable and its boxes fixed', a
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await open(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByLabel('Rank by', { exact: true }).selectOption('spd');
   const warning = page.locator('#rune-optimization-work-warning');
   const panel = page.locator('.rune-optimization-monster-panel');
   const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });

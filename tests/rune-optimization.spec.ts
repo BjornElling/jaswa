@@ -44,6 +44,7 @@ test('equal Gem plans preserve the rune for its strongest role', async ({ page }
   await settings.getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
   const before = await box(requirements);
   await page.screenshot({ path: testInfo.outputPath('gem-tie-before.png'), fullPage: true });
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const modifications = page.getByRole('region', { name: 'Slot 2 modifications' });
@@ -53,6 +54,14 @@ test('equal Gem plans preserve the rune for its strongest role', async ({ page }
   await page.keyboard.press('Escape');
   expect(await box(requirements)).toEqual(before);
 });
+
+/* The fixture's profiles name no figure to rank by, and the page never picks one,
+   so a search first names one. SPD is the figure these searches were written
+   against. A figure already chosen is the test's own and stays. */
+async function rankUnranked(page: Page, figure = 'spd') {
+  const rank = page.getByLabel('Rank by', { exact: true });
+  if (await rank.inputValue() === '') await rank.selectOption(figure);
+}
 
 async function freshWorkspace(page: Page) {
   await page.goto('/');
@@ -105,6 +114,7 @@ test('engraving a build moves its runes into the saved account and survives relo
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   const count = await page.getByRole('button', { name: /^Show build \d+$/ }).count();
@@ -157,6 +167,7 @@ test('engraving a build moves its runes into the saved account and survives relo
   await page.reload();
   await openOptimization(page);
   await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('11');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await page.getByRole('button', { name: `Show build ${chosen}`, exact: true }).click();
   await expect(previously).toHaveCount(moved);
@@ -189,6 +200,7 @@ test('engraving a build moves its runes into the saved account and survives relo
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await page.getByRole('dialog').getByRole('button', { name: 'Replace data', exact: true }).click();
   await openOptimization(page);
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await page.getByRole('button', { name: `Show build ${chosen}`, exact: true }).click();
   await expect(detail.getByRole('button', { name: 'Engrave on monster' })).toBeEnabled();
@@ -208,6 +220,7 @@ test('live synchronization explains why engraving is unavailable', async ({ page
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
@@ -247,6 +260,7 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   await expect(requirements.getByText('Changed for this calculation')).toBeVisible();
   expect(await box(requirements)).toEqual(panelBefore);
 
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(table.getByRole('row')).not.toHaveCount(1);
@@ -309,7 +323,7 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   const ranked = (await table.getByRole('columnheader').allInnerTexts()).map((text) => text.trim());
   await expect(table.locator('thead th[aria-sort]')).toHaveCount(1);
   await expect(table.locator('thead button')).toHaveCount(0);
-  /* This copy ranks by SPD from its type; choosing it again starts nothing. */
+  /* The search was ranked by SPD; choosing it again starts nothing. */
   await expect(page.getByLabel('Rank by', { exact: true })).toHaveValue('spd');
   await page.getByLabel('Rank by', { exact: true }).selectOption('spd');
   await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
@@ -375,6 +389,7 @@ test('Optimize from a build monster returns to a fresh search for that copy', as
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const build = page.getByRole('dialog', { name: 'Build 1' });
@@ -384,6 +399,11 @@ test('Optimize from a build monster returns to a fresh search for that copy', as
   await expect(monster).toBeHidden();
   await expect(build).toBeHidden();
   await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('11');
+  /* Fresh means the profile again, and it names no figure: the one chosen for the
+     last search is gone, so there is nothing to find until one is chosen. */
+  await expect(page.getByLabel('Rank by', { exact: true })).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Find builds' })).toBeDisabled();
+  await rankUnranked(page);
   await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
 });
 
@@ -401,6 +421,7 @@ test('an Ancient rune carries its A at the right edge of a build card', async ({
   });
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const cards = page.getByRole('dialog', { name: 'Build 1' }).locator('.rune-build-card');
@@ -434,6 +455,7 @@ test('an open build follows the runes as the player works on them', async ({ pag
   const settings = page.getByRole('complementary', { name: 'Settings' });
   await settings.getByRole('radio', { name: 'Theoretical' }).nth(0).check();
   await settings.getByRole('radio', { name: 'Theoretical' }).nth(1).check();
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
@@ -479,6 +501,7 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
@@ -568,6 +591,7 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
 
@@ -652,6 +676,7 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
 
   /* Searched again, every build takes the locked rune as its slot's answer. */
   await page.keyboard.press('Escape');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   const total = await page.getByRole('table', { name: 'Rune builds' }).getByRole('button', { name: /^Show build \d+$/ }).count();
@@ -688,6 +713,7 @@ test('Lock and Exclude are off while JASWA is synchronized with the game', async
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const choices = page.getByRole('dialog', { name: 'Build 1' }).locator('.rune-build-card-locks button');
@@ -730,6 +756,7 @@ test('a monster that always crits is counted at a certain crit and shows its own
   expect(figure(after, 4)).toEqual(figure(before, 4));
   expect(Number(figure(after, 8).replace(/\D/g, ''))).toBeGreaterThan(Number(figure(before, 8).replace(/\D/g, '')));
 
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(table.getByRole('row')).not.toHaveCount(1);
@@ -759,6 +786,7 @@ test('a CRI Rate range names the copy\'s own CRI Rate, and DMG is dealt with the
   await expect(rate.locator('.overlay-stat-current')).toHaveText(shown);
   expect(await box(rate)).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('raw-crit-range-filled.png') });
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(table).toBeVisible();
@@ -782,6 +810,7 @@ test('a target nothing can reach is answered with an empty table that says why',
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
   await page.getByLabel('Spd: at least').fill('999');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByText('No build meets every requirement.', { exact: false })).toBeVisible();
   /* The current build is still there to read against. */
@@ -816,9 +845,29 @@ test('the page wears the house panels, and its controls say what they do', async
   await expect(page.locator('.rune-optimization-monster-select .monster-portrait-silhouette')).toHaveCount(0);
   await expect(rank).toBeEnabled();
   expect(await box(rank)).toEqual(rankBefore);
-  const counts = await box(page.getByRole('group', { name: 'Builds listed', exact: true }));
+  const counts = await box(page.getByRole('radiogroup', { name: 'Builds listed', exact: true }));
   expect(rankBefore.x).toBeGreaterThan(counts.x + counts.width);
-  expect((await box(page.locator('label[for="rune-optimization-rank"]'))).y).toBe(counts.y);
+  /* Both settings are named above their controls, on one line. */
+  const countLabel = await box(page.locator('#rune-optimization-count-label'));
+  const rankLabel = await box(page.locator('label[for="rune-optimization-rank"]'));
+  expect(rankLabel.y).toBe(countLabel.y);
+  expect(counts.y).toBeGreaterThan(countLabel.y + countLabel.height - 1);
+  /* Nothing names a figure for the user: until one is chosen there is no order,
+     so there is nothing to find, and the hover says why. */
+  await expect(rank).toHaveValue('');
+  await expect(find).toBeDisabled();
+  await expect(page.locator('.rune-optimization-find-hold')).toHaveAttribute('title', /Rank by/);
+  await page.screenshot({ path: testInfo.outputPath('optimization-layout-unranked.png'), fullPage: true });
+  await rank.selectOption('dmg');
+  await expect(find).toBeEnabled();
+  await expect(page.locator('.rune-optimization-find-hold')).not.toHaveAttribute('title');
+  expect(await box(rank)).toEqual(rankBefore);
+  /* Speed Tuning is the preset's, so Default offers none. */
+  const speed = page.getByRole('button', { name: /^Speed tuning/ });
+  await expect(speed).toBeDisabled();
+  const speedBox = await box(speed);
+  const field = await box(page.getByLabel('Monster', { exact: true }));
+  expect(Math.abs(speedBox.x + speedBox.width - (field.x + field.width))).toBeLessThan(1);
   const slots = await page.locator('.rune-optimization-slot').all();
   const slotBoxes = await Promise.all(slots.map(box));
   expect(slotBoxes).toHaveLength(3);
@@ -974,6 +1023,7 @@ test('a lone four-set, a ceiling and a reset to the profile', async ({ page }, t
     .getByRole('button', { name: 'Violent', exact: true }).click();
   await expect(page.getByLabel('Allow broken sets')).not.toBeChecked();
   await page.getByLabel('Spd: at most').fill('170');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
@@ -1029,6 +1079,47 @@ test('a lone four-set, a ceiling and a reset to the profile', async ({ page }, t
   await expect(reset).toBeDisabled();
 });
 
+test('refusing broken sets after the search dims exactly the builds that break one, in place', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByLabel('Rank by').selectOption('spd');
+  const broken = page.getByLabel('Allow broken sets');
+  await broken.check();
+  await rankUnranked(page);
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
+  const count = await rows.count();
+  for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
+  const tableBefore = await box(table);
+  await page.screenshot({ path: testInfo.outputPath('broken-allowed.png'), fullPage: true });
+
+  /* A dimmed row says why on its mark, and refusing broken sets is the only reason here. */
+  await broken.uncheck();
+  await expect(rows.and(page.locator('[data-stale="true"]')).first()).toBeVisible();
+  let dimmed = 0;
+  for (let at = 0; at < count; at += 1) {
+    const marks = rows.nth(at).getByRole('img');
+    const reading = await marks.count() ? await marks.first().getAttribute('aria-label') : '';
+    const stale = await rows.nth(at).getAttribute('data-stale');
+    expect(stale === 'true').toBe(reading === 'A set is broken, and broken sets are not allowed.');
+    if (stale === 'true') dimmed += 1;
+  }
+  expect(dimmed).toBeGreaterThan(0);
+  expect(await rows.count()).toBe(count);
+  expect(await box(table)).toEqual(tableBefore);
+  await page.screenshot({ path: testInfo.outputPath('broken-refused.png'), fullPage: true });
+
+  /* Allowing them again lifts every dimming: widening the question rules nothing out. */
+  await broken.check();
+  for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
+});
+
 test('owned craft work respects a tight ceiling and leaves full requirement panels in place', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
@@ -1048,6 +1139,7 @@ test('owned craft work respects a tight ceiling and leaves full requirement pane
   const panel = page.locator('.rune-optimization-monster-panel');
   const before = { panel: await box(panel), requirements: await box(requirements) };
   await page.screenshot({ path: testInfo.outputPath('craft-ranges-before.png'), fullPage: true });
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
@@ -1083,6 +1175,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await expect(preset).toHaveValue('default');
   await expect(preset.locator('option')).toHaveText(['Default']);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await rankUnranked(page);
   const settings = page.getByRole('complementary', { name: 'Settings' });
   const before = await box(settings);
   const fields = settings.locator('input, select');
@@ -1113,6 +1206,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   expect(await box(settings)).toEqual(before);
   expect(await Promise.all((await fields.all()).map(box))).toEqual(positions);
   await page.screenshot({ path: testInfo.outputPath('selection-after.png'), fullPage: true });
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(table.getByRole('columnheader', { name: 'Changes', exact: true })).toBeVisible();
@@ -1150,10 +1244,12 @@ test('an empty monster respects the maximum changes when filling its six slots',
   await page.getByLabel('Limit changes').check();
   await page.getByLabel('Maximum changes').fill('1');
   await page.screenshot({ path: testInfo.outputPath('empty-slots-before.png'), fullPage: true });
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toHaveCount(0);
   await page.getByLabel('Maximum changes').fill('6');
+  await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   const table = page.getByRole('table', { name: 'Rune builds' });

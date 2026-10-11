@@ -737,7 +737,7 @@ export default function Home() {
         general={preferences.general}
       />}
 
-      {page === 'monster-stats' && <Suspense fallback={<WorkspaceLoading />}><MonsterStats monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+      {page === 'monster-stats' && <Suspense fallback={<WorkspaceLoading />}><MonsterStats monsters={monsters} gameData={game?.data ?? {}} presets={presets} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
       {page === 'monster-numbers' && <Suspense fallback={<WorkspaceLoading />}><MonsterNumbers monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
@@ -848,6 +848,7 @@ export default function Home() {
         onLock={lockRune}
         onOpenMonster={openMonsterOverlay}
         onOpenRune={openRuneOverlay}
+        onTuneSpeed={tuneSpeed}
       /></Suspense>}
     </section>
 

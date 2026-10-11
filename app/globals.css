@@ -946,6 +946,20 @@ label[for] {
   padding: var(--s5);
 }
 .data-table-filter-panel .filter-strip { width: 100%; }
+/* The context the table is read in, on lines of their own above the filters and
+   ruled off from them, in the same columns Presets gives the same three fields,
+   so the chooser reads alike on every page that offers it. */
+.data-table-lead {
+  display: grid;
+  grid-template-columns: minmax(0, 56ch) minmax(0, 40ch);
+  grid-template-areas: "content area" "preset .";
+  justify-content: start;
+  align-items: end;
+  gap: var(--s4) var(--s7);
+  margin-bottom: var(--s4);
+  padding-bottom: var(--s4);
+  border-bottom: 1px solid var(--line);
+}
 .data-table-header-wrap {
   position: sticky;
   top: 0;
@@ -2346,7 +2360,10 @@ label[for] {
 }
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
 /* Profile actions stay with the monster selected above them. */
-.rune-optimization-profile-row { display: flex; gap: var(--s2); margin-bottom: var(--s2); }
+.rune-optimization-profile-row { display: flex; align-items: center; gap: var(--s2); width: 48ch; max-width: 100%; margin-bottom: var(--s2); }
+/* The team's way to Speed Tuning ends the row under the field's right edge,
+   apart from the two that act on the monster's profile. */
+.rune-optimization-speed { margin-left: auto; }
 .rune-optimization-open-profile { gap: var(--s2); }
 /* The preset leads the monster in the same voice and size: the context is
    chosen before the copy whose build it holds. */
@@ -2369,18 +2386,21 @@ label[for] {
   align-items: end;
   gap: var(--s4) var(--s7);
 }
-.monster-priority-content { grid-area: content; }
-.monster-priority-area { grid-area: area; }
-.monster-priority-preset { grid-area: preset; }
 .monster-priority-add-monster { grid-area: add; }
 .monster-priority-actions { grid-area: actions; display: grid; gap: var(--s2); align-self: end; }
-.monster-priority-add { display: grid; gap: var(--s2); justify-items: start; }
+/* `PresetChooser`'s three fields, the one way a preset is chosen anywhere:
+   each names its grid area, and the page that holds them lays the areas out.
+   Content beside Area, above Preset, wherever they stand. */
+.preset-choice-content { grid-area: content; }
+.preset-choice-area { grid-area: area; }
+.preset-choice-preset { grid-area: preset; }
+.monster-priority-add, .preset-choice-field { display: grid; gap: var(--s2); justify-items: start; }
 /* As tall and as wide as Rune Optimization's monster field, and fixed, so no
    name in the menu can widen it. The width is the column's, counted in the
    panel's characters: counted in the field's own larger ones it ran into the
    text beside it. */
-.monster-priority-add { width: 100%; }
-.jaswa-select.monster-priority-select { width: 100%; height: 52px; }
+.monster-priority-add, .preset-choice-field { width: 100%; }
+.jaswa-select.monster-priority-select, .jaswa-select.preset-choice-select { width: 100%; height: 52px; }
 /* The preset field and its list share one pair of columns — the name, then
    room for the largest team's faces — so every name starts and every row of
    faces starts on the same vertical, in the field and down the list. */
@@ -2476,10 +2496,12 @@ label[for] {
    rather than reading as a third line of the same group. */
 .rune-optimization-search { display: grid; gap: var(--s5); min-width: 0; padding-top: var(--s5); }
 /* Both describe the answer list, so their compact controls share one row. */
-.rune-optimization-count-rank { display: flex; align-items: start; gap: var(--s6); }
+.rune-optimization-count-rank { display: flex; align-items: start; gap: var(--s7); }
 .rune-optimization-count-rank > .filter-group { min-width: 0; }
-.rune-optimization-rank .jaswa-select { width: 24ch; }
-.rune-optimization-rank .rune-optimization-provenance { width: 24ch; }
+/* The options stand where Rank by's field stands, centred on its height. */
+.rune-optimization-count .radio-line-options { min-height: 36px; flex-wrap: nowrap; gap: var(--s6); }
+.rune-optimization-rank .jaswa-select { width: 32ch; }
+.rune-optimization-rank .rune-optimization-provenance { width: 32ch; }
 
 .rune-optimization-depth-control { display: grid; grid-template-columns: auto minmax(0, 1fr) 7ch; align-items: center; gap: var(--s3); }
 .rune-optimization-depth-control output { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -2505,6 +2527,7 @@ label[for] {
 /* The page's conclusion: the filled button the other workspaces end on, given
    the panel's full height of attention. */
 .rune-optimization-find { min-width: 20ch; }
+.rune-optimization-find-hold { display: flex; }
 /* A square the height of the button beside it, holding only its mark. Written
    against the size it shares, which is declared further down, so that size's own
    padding does not squeeze the mark to nothing. */
@@ -5636,8 +5659,18 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-stat-ranges .stat-range-input { padding-inline: var(--s2); }
 
 /* The tie-break, in the twelfth cell of the ranges it follows from: its name on
-   the line the figures' names sit on, its answer on the line of their fields. */
-.overlay-sort { display: grid; gap: var(--s1); align-content: start; min-width: 0; }
+   the line the figures' names sit on, its answer on the line of their fields. The
+   cell stretches to its row and gives the field its own height at the foot, so the
+   name centres in what is left — the same line a range's name centres in beside
+   its taller figure — rather than starting at the top a few pixels above it. */
+.overlay-sort {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  row-gap: var(--s1);
+  align-items: center;
+  min-width: 0;
+}
+.overlay-sort > .overlay-stat-head { align-self: center; }
 
 /* The switches that qualify the answers: four toggles two by two, each owning a
    fixed cell so checking one moves nothing, and the leads beside them under their
