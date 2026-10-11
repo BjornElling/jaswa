@@ -262,6 +262,11 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
             onClick={() => setCreating(true)}
             title={canCreate ? undefined : 'Automatic synchronization is on: presets come from the game.'}>Add preset</Button>
           <Button tone="danger" disabled={!deletable} onClick={deletePreset}>Delete preset</Button>
+          {/* One per preset, since it opens the whole team; always here and
+              disabled where there is no team, so the panel keeps one shape. */}
+          <Button className="monster-priority-speed" disabled={!tunable} aria-haspopup="dialog"
+            aria-label={preset ? `Speed tuning for ${preset.name}` : 'Speed tuning'}
+            onClick={(event) => { if (preset) onTuneSpeed(preset.id, event.currentTarget); }}>Speed tuning</Button>
         </div>
       </div>
 
@@ -309,15 +314,9 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
                         portrait={{ imageFilename: display.imageFilename, initial: display.shortName }} presetId={preset.id} onOpen={onOpenMonster} />
                       : <span className="monster-name muted">{name}</span>}
                   </span>
-                  {/* The row's own small controls rather than page buttons: they are ways out
-                      of the list, and should not outshout the names they sit beside. Speed
-                      Tuning opens the whole preset's team, from whichever row it is asked;
-                      it is on every row, and disabled where there is no team to open, so the
-                      rows keep one shape. */}
+                  {/* The row's own small control rather than a page button: a way out
+                      of the list, which should not outshout the name it sits beside. */}
                   <span className="monster-priority-ways">
-                    <InlineButton disabled={!tunable} aria-haspopup="dialog"
-                      aria-label={`Speed tuning for ${preset.name}, from ${name}`}
-                      onClick={(event) => onTuneSpeed(preset.id, event.currentTarget)}>Speed tuning</InlineButton>
                     <InlineButton disabled={!choice}
                       aria-label={`Optimize runes for ${name}`} onClick={() => onOptimize(preset.id, unitId)}>Optimize</InlineButton>
                   </span>

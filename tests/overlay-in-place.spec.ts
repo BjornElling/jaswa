@@ -28,7 +28,7 @@ const pages = ['Home', 'Monster Stats', 'Monster Numbers', 'Presets', 'Speed Tun
 
 /* The openers each of these pages is known to carry, so the sweep can never pass by finding none. */
 const expected: Record<string, readonly RegExp[]> = {
-  Presets: [/^Speed tuning for Arena Attack 4, from /],
+  Presets: [/^Speed tuning for Arena Attack 4$/],
   'Speed Tuning': [/^Arena Attack 4: /],
   'Rune Optimization': [/^Speed tuning for Arena Attack 4$/, /^Open profile$/],
 };
@@ -129,7 +129,7 @@ test('a team opened over Presets stacks a monster on top, returns focus, and goe
   await importAccount(page);
   await goTo(page, 'Speed Tuning');
   await goTo(page, 'Presets');
-  const opener = page.getByRole('button', { name: /^Speed tuning for Arena Attack 4, from / }).first();
+  const opener = page.getByRole('button', { name: 'Speed tuning for Arena Attack 4', exact: true });
   await page.screenshot({ path: testInfo.outputPath('presets-before.png') });
   await opener.click();
   const team = page.getByRole('dialog', { name: 'Arena Attack 4' });

@@ -2382,12 +2382,15 @@ label[for] {
 .monster-priority-add-panel {
   display: grid;
   grid-template-columns: minmax(0, 56ch) minmax(0, 40ch) minmax(0, 1fr) max-content;
-  grid-template-areas: "content area . actions" "preset add . actions" "about about about .";
+  grid-template-areas: "content area . actions" "preset add . actions" "about about about actions";
   align-items: end;
   gap: var(--s4) var(--s7);
 }
 .monster-priority-add-monster { grid-area: add; }
-.monster-priority-actions { grid-area: actions; display: grid; gap: var(--s2); align-self: end; }
+/* The preset's own buttons at the top, and the way out to its team at the
+   bottom, the full height of the panel apart. */
+.monster-priority-actions { grid-area: actions; display: flex; flex-direction: column; gap: var(--s2); align-self: stretch; }
+.monster-priority-speed { margin-top: auto; }
 /* `PresetChooser`'s three fields, the one way a preset is chosen anywhere:
    each names its grid area, and the page that holds them lays the areas out.
    Content beside Area, above Preset, wherever they stand. */

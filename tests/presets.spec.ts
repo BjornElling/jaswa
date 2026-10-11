@@ -671,29 +671,30 @@ test('preset comes first, and empty presets keep the search controls in place', 
   await expect(rank).toHaveValue('dmg');
 });
 
-test('Speed tuning opens the preset\'s team over Presets, from any of its rows', async ({ page }, testInfo) => {
+test('Speed tuning opens the preset\'s team over Presets, from the one button beneath the preset\'s own', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await importAccount(page);
   await openPresets(page);
-  const names = await copyNames(page);
-  const speed = (name: string, preset: string) => page.getByRole('button', { name: `Speed tuning for ${preset}, from ${name}` });
+  const speed = (preset: string) => page.getByRole('button', { name: `Speed tuning for ${preset}`, exact: true });
 
   /* Default has no team; every preset with monsters is one, its content named or not. */
   await addMenu(page).selectOption('12');
-  await expect(speed(names[12], 'Default')).toBeDisabled();
+  await expect(speed('Default')).toBeDisabled();
   await choosePreset(page, 'Not yet named', 'Deck 99 · 1');
-  await expect(speed(names[12], 'Deck 99 · 1')).toBeEnabled();
+  await expect(speed('Deck 99 · 1')).toBeEnabled();
 
-  /* Left of Optimize, in the same dress. */
+  /* One for the whole team, at the foot of the preset's buttons, and none on the rows. */
   await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
-  const button = speed(names[11], 'Arena Attack 4');
-  const optimize = page.getByRole('button', { name: `Optimize runes for ${names[11]}` });
+  const button = speed('Arena Attack 4');
   await expect(button).toBeEnabled();
-  const [at, next] = [await box(button), await box(optimize)];
-  expect(at.x + at.width).toBeLessThan(next.x);
-  expect(at.height).toBe(next.height);
-  expect(await button.evaluate((element) => element.className)).toBe(await optimize.evaluate((element) => element.className));
+  await expect(page.locator('.monster-priority-list').getByRole('button', { name: /^Speed tuning/ })).toHaveCount(0);
+  const [create, remove, at] = [await box(page.getByRole('button', { name: 'Add preset' })),
+    await box(page.getByRole('button', { name: 'Delete preset' })), await box(button)];
+  expect(create.y).toBeLessThan(remove.y);
+  expect(remove.y + remove.height).toBeLessThan(at.y);
+  expect(at.x).toBe(remove.x);
+  expect(at.width).toBe(remove.width);
   await page.screenshot({ path: testInfo.outputPath('preset-speed-button.png') });
 
   await button.click();
@@ -703,7 +704,7 @@ test('Speed tuning opens the preset\'s team over Presets, from any of its rows',
   await expect(page.getByRole('heading', { name: 'Presets', exact: true })).toBeAttached();
   await expect(page.getByRole('heading', { name: 'Speed Tuning', exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('preset-speed-overlay.png') });
-  /* Closed, Presets stands as it was left, and focus is back on the row. */
+  /* Closed, Presets stands as it was left, and focus is back on the button. */
   await page.keyboard.press('Escape');
   await expect(team).toHaveCount(0);
   await expect(button).toBeFocused();
