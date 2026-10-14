@@ -44,7 +44,7 @@ import {
   initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
-import { runeDefaultGradeOrder, runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { runeRarityOrder, runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));
@@ -116,7 +116,7 @@ function freshBody(random, index) {
   const prefix = prefixStatId === null ? null : initialSubPropertyRange(stars, prefixStatId, ancient);
   return {
     index, setId: 1, setName: choose(random, setNames), slot, stars, ancient,
-    defaultGrade: runeDefaultGrades[rank - 1], level: 0, mainStatId, mainValue: 0, prefixStatId,
+    rarity: runeRarities[rank - 1], level: 0, mainStatId, mainValue: 0, prefixStatId,
     prefixValue: prefix ? draw(random, prefix.minimum, prefix.maximum) : 0,
     subProperties, occupiedId: null,
   };
@@ -124,7 +124,7 @@ function freshBody(random, index) {
 
 /** The game's own loop, written from the schedule rather than from the engine. */
 function powerUp(random, rune, targetLevel) {
-  const born = runeDefaultGradeOrder(rune.defaultGrade);
+  const born = runeRarityOrder(rune.rarity);
   for (const [index, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
     if (index >= born) {

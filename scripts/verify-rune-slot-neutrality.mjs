@@ -27,11 +27,11 @@ for (const slot of [1, 2, 3, 4, 5, 6]) {
   const counts = { Rare: 0, Hero: 0, Legend: 0 };
   for (let at = 0; at < bodies[0].length; at += 1) {
     const initial = bodies[0][at];
-    counts[initial.defaultGrade] += 1;
+    counts[initial.rarity] += 1;
     for (const checkpoint of bodies.slice(1)) {
       const rune = checkpoint[at];
       assert.equal(rune.mainStatId, initial.mainStatId);
-      assert.equal(rune.defaultGrade, initial.defaultGrade);
+      assert.equal(rune.rarity, initial.rarity);
       assert.equal(rune.setName, initial.setName);
       assert.equal(rune.prefixStatId, initial.prefixStatId);
       assert.equal(rune.prefixValue, initial.prefixValue);
@@ -82,7 +82,7 @@ const beginner = await runeAdvice(beginnerRunes, roles,
 const nextStop = await runeAdvice(beginnerRunes, roles,
   { ...qualitySettings, runeQuality: 2 }, beginnerBase);
 for (const stars of [5, 6]) for (const grade of ['Rare', 'Hero']) {
-  const group = beginnerRunes.filter((rune) => rune.stars === stars && rune.defaultGrade === grade);
+  const group = beginnerRunes.filter((rune) => rune.stars === stars && rune.rarity === grade);
   const kept = group.filter((rune) => beginner.get(rune.id)?.verdict === 'keep').length;
   assert.ok(kept > 0, `${stars}-star ${grade} runes must have viable beginner keepers.`);
   console.log(`Beginner ${stars}-star ${grade}: ${kept} / ${group.length} finished runes kept.`);

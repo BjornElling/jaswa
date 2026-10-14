@@ -4,7 +4,7 @@ import { readRune } from './runes';
 import type { OwnPreset, Preset } from './presets';
 import type { ImportedGame } from './types';
 
-/* A rune record's place in Default as the export states it: the monster it is engraved on, or `null`. */
+/* A rune record's place in Scenario as the export states it: the monster it is engraved on, or `null`. */
 function placeOf(record: GameRecord): string | null {
   return record.occupied_type === 1 ? String(record.occupied_id) : null;
 }
@@ -65,7 +65,7 @@ export function runesWithout(preset: Preset, unitId: string, runeId: string, slo
   return (preset.runesOf.get(unitId) ?? []).filter((id) => id !== runeId && slotOf(id) !== undefined);
 }
 
-/** Move a monster's runes — a build's six, or its own with one locked in or taken off — in Default, then rebuild each monster's runes from
+/** Move a monster's runes — a build's six, or its own with one locked in or taken off — in Scenario, then rebuild each monster's runes from
  * the account list so every workspace reads the same placement. */
 export function engraveRuneBuild(data: GameRecord, unitId: string, runeIds: readonly string[]): GameRecord {
   checkBuild(data, unitId, runeIds);
@@ -94,7 +94,7 @@ export function engraveRuneBuild(data: GameRecord, unitId: string, runeIds: read
  * A preset's gear with six runes engraved on one of its monsters: those runes
  * leave whichever other member carried them in this preset, and nothing
  * outside the preset changes (`DECK-PRESETS.md` §4). A preset that saved only
- * its monsters takes every member's Default gear first, because a preset holds
+ * its monsters takes every member's Scenario gear first, because a preset holds
  * all of its monsters' gear or none.
  */
 function engravedGear(preset: Preset, unitId: string, runeIds: readonly string[]): Map<string, { runeIds: string[]; artifactIds: string[] }> {
@@ -121,7 +121,7 @@ function withDeckEquip(data: GameRecord, preset: Preset, equip: GameRecord[]): G
 }
 
 /**
- * Engrave a build in Default or in one of the game's presets, remembering where
+ * Engrave a build in Scenario or in one of the game's presets, remembering where
  * each rune it moves sat. Only the chosen preset changes, in a pool too: the
  * other teams are the account as the game has it, and an engrave here does not
  * edit them (`DECK-PRESETS.md` §4). What keeps the pool whole is that a build
@@ -131,7 +131,7 @@ function withDeckEquip(data: GameRecord, preset: Preset, equip: GameRecord[]): G
 export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: string, runeIds: readonly string[]): ImportedGame {
   if (preset.kind === 'own') throw new Error('A preset built in JASWA is engraved in the preferences.');
   checkBuild(game.data, unitId, runeIds);
-  if (preset.kind === 'default') {
+  if (preset.kind === 'scenario') {
     const data = engraveRuneBuild(game.data, unitId, runeIds);
     const owners = (records: unknown) => new Map((records as GameRecord[]).flatMap((record) => {
       const place = placeOf(record);

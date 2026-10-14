@@ -35,7 +35,7 @@ export function labelledMonsterName(gameName: string, label: string | undefined)
  *
  * A label is part of a copy's profile, so it is read in one context: a page
  * about a preset names its copies as that preset's profiles do, and a page
- * about Default as Default's do.
+ * about Scenario as Scenario's do.
  */
 export type MonsterCopyName = { name: string };
 

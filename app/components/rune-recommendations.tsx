@@ -44,7 +44,7 @@ import {
 import { filteredRuneVerdict, runeHoldVerdict } from '../lib/rune-holds';
 import type { RuneHolds } from '../lib/rune-holds';
 import type { RuneCleanupRow, RuneCleanupSortKey, RuneGameSortKey } from '../lib/rune-cleanup-grid';
-import type { Rune, RuneDefaultGrade } from '../lib/runes';
+import type { Rune, RuneRarity } from '../lib/runes';
 import type { RuneRole } from '../lib/rune-roles';
 import type { GameRecord } from '../lib/game-data';
 import type { GeneralSettings, ImportedGame, RunePotentialSettings } from '../lib/types';
@@ -61,7 +61,7 @@ const slotOptions = [1, 2, 3, 4, 5, 6];
 const starOptions = [1, 2, 3, 4, 5, 6];
 /* The requested quality filter deliberately leaves Magic out of its short row;
    when no quality is chosen, Magic runes remain included with every other rune. */
-const qualityOptions: readonly RuneDefaultGrade[] = ['Normal', 'Rare', 'Hero', 'Legend'];
+const qualityOptions: readonly RuneRarity[] = ['Normal', 'Rare', 'Hero', 'Legend'];
 
 type RuneFilterState = {
   search: string;
@@ -70,7 +70,7 @@ type RuneFilterState = {
   selectedVerdicts: RuneVerdict[];
   selectedMains: number[];
   selectedStars: number[];
-  selectedQualities: RuneDefaultGrade[];
+  selectedQualities: RuneRarity[];
   lowestLevel: number;
   highestLevel: number;
   selectedPlaces: RunePlace[];
@@ -107,7 +107,7 @@ function isRuneFilterState(value: unknown): value is RuneFilterState {
     && Array.isArray(candidate.selectedMains) && candidate.selectedMains.every((e) => typeof e === 'number')
     && Array.isArray(candidate.selectedStars) && candidate.selectedStars.every((e) => starOptions.includes(e as number))
     && Array.isArray(candidate.selectedQualities)
-    && candidate.selectedQualities.every((e) => qualityOptions.includes(e as RuneDefaultGrade))
+    && candidate.selectedQualities.every((e) => qualityOptions.includes(e as RuneRarity))
     && level(candidate.lowestLevel) && level(candidate.highestLevel)
     && (candidate.lowestLevel as number) <= (candidate.highestLevel as number)
     && Array.isArray(candidate.selectedPlaces)
@@ -237,7 +237,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     return monsterCopyNamesIn(Array.isArray(units) ? units as GameRecord[] : [], profiles, reading.presets);
   }, [game, profiles, reading.presets]);
 
-  /* Every place a rune is engraved, in Default and in each preset, read from
+  /* Every place a rune is engraved, in Scenario and in each preset, read from
      the one resolution the page made (`presets-context.ts`). */
   const monsterName = useCallback((unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import', [namesIn]);
   const placeOf = useCallback((runeId: string, gone: boolean) => {
@@ -354,7 +354,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
       if (selectedSets.length && !selectedSets.includes(row.rune.setName)) return false;
       if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
       if (selectedStars.length && !selectedStars.includes(row.rune.stars)) return false;
-      if (selectedQualities.length && !selectedQualities.includes(row.rune.defaultGrade)) return false;
+      if (selectedQualities.length && !selectedQualities.includes(row.rune.rarity)) return false;
       if (selectedVerdicts.length && !selectedVerdicts.includes(filteredRuneVerdict(shownRuneVerdict(row)))) return false;
       if (selectedMains.length && !selectedMains.includes(row.rune.mainStatId)) return false;
       if (row.rune.level < lowestLevel || row.rune.level > highestLevel) return false;
@@ -623,7 +623,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 onOpen={onOpenRune}
               >
                 <span className="rune-link-cell">
-                  <QualityRule tier={row.rune.defaultGrade} />
+                  <QualityRule tier={row.rune.rarity} />
                   <AncientName name={row.rune.setName} ancient={row.rune.ancient} />
                 </span>
               </RuneLink>
@@ -642,7 +642,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 : row.rune.subProperties.map((property, at) => <RuneSubLine key={at} property={property} />)}
             </td>
             <td className={cell('location')}>
-              <EngravedPlace places={row.places} sold={row.gone} presets={reading.presets} monsterName={monsterName} showDefaultMonster />
+              <EngravedPlace places={row.places} sold={row.gone} presets={reading.presets} monsterName={monsterName} showScenarioMonster />
             </td>
             <td className={cell('role', !row.advice.role && 'muted')}>
               {row.advice.role?.name ?? '—'}

@@ -102,7 +102,7 @@ try {
 
   /* ------------------------------------------------------------- placement */
 
-  /* `extra` is the default grade, which every real export carries and the reader
+  /* `extra` is the rarity, which every real export carries and the reader
      requires: a rune whose rarity the vocabulary does not cover is rejected
      rather than given a fallback (`AGENTS.md` §0.1). */
   const runeRecord = {

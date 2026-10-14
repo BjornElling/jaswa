@@ -274,8 +274,8 @@ function copyRows(
 ): PackedMonsterScoreInput[] {
   const roster = (Array.isArray(data?.unit_list) ? data.unit_list : [])
     .filter((record): record is GameRecord => Boolean(record) && typeof record === 'object');
-  /* The roster is the export's, which is Default, so the profiles are Default's:
-     every artifact page plans Default (`DECK-PRESETS.md` §5). */
+  /* The roster is the export's, which is Scenario, so the profiles are Scenario's:
+     every artifact page plans Scenario (`DECK-PRESETS.md` §5). */
   const names = monsterCopyNames(roster, monsterPreferences);
   const rows: PackedMonsterScoreInput[] = [];
   for (const monster of roster) {

@@ -7,7 +7,7 @@
  * ordered, which is why a change of sort can never change a number.
  */
 import { ancientSearchWord, withAncientMark } from './ancient-mark';
-import { runeDefaultGradeOrder, runeLineText, runeStatName, runeSubValue } from './runes';
+import { runeRarityOrder, runeLineText, runeStatName, runeSubValue } from './runes';
 import type { Rune } from './runes';
 import type { RuneAdvice } from './rune-cleanup-advice';
 import { runeVerdictLabels } from './rune-cleanup-advice';
@@ -22,10 +22,10 @@ export type RuneCleanupRow = {
   index: number;
   advice: RuneAdvice;
   /**
-   * Where the rune is: engraved on a monster in Default or a preset, in
+   * Where the rune is: engraved on a monster in Scenario or a preset, in
    * inventory when on none, or sold since the calculation. A rune can be
    * engraved in many presets at once (`DECK-PRESETS.md` §1), so the places are
-   * listed in `places`; the cell can name its Default monster without changing
+   * listed in `places`; the cell can name its Scenario monster without changing
    * the location used by filters and sorting.
    */
   location: 'Engraved' | 'Inventory' | 'Sold';
@@ -115,7 +115,7 @@ function gameSortKey(row: RuneCleanupRow, key: RuneGameSortKey): readonly number
     case 'gameGrade': return [
       rune.slot,
       -rune.stars,
-      -runeDefaultGradeOrder(rune.defaultGrade),
+      -runeRarityOrder(rune.rarity),
       rune.ancient ? 0 : 1,
       rune.setId,
       -rune.level,
@@ -131,7 +131,7 @@ function gameSortKey(row: RuneCleanupRow, key: RuneGameSortKey): readonly number
       -rune.level,
       -rune.stars,
       rune.ancient ? 0 : 1,
-      -runeDefaultGradeOrder(rune.defaultGrade),
+      -runeRarityOrder(rune.rarity),
       rune.setId,
       -rune.obtainedOrder,
     ];

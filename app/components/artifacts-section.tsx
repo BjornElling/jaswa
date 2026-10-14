@@ -48,11 +48,11 @@ const recalculateOptions: Array<{ value: ArtifactRecalculateMode; label: string 
    the account owns, while this page will answer what to change. Keeping those
    questions apart leaves the optimizer room for a clear, decision-first draft. */
 
-export function ArtifactsSection({ settings, data, monsters, defaultProfiles, general, hardwareAcceleration, onUpdate }: {
+export function ArtifactsSection({ settings, data, monsters, scenarioProfiles, general, hardwareAcceleration, onUpdate }: {
   settings: ArtifactSettings;
   data: GameRecord | undefined;
   monsters: readonly GameRecord[];
-  defaultProfiles: MonsterProfiles;
+  scenarioProfiles: MonsterProfiles;
   general: GeneralSettings;
   hardwareAcceleration: boolean;
   onUpdate: (update: Partial<ArtifactSettings>) => void;
@@ -76,17 +76,17 @@ export function ArtifactsSection({ settings, data, monsters, defaultProfiles, ge
     </section>}
 
     <Disclosure title="This is the way" sessionKey="artifacts.recommendations">
-      {data ? <ArtifactMaximumValues data={data} monsters={monsters} defaultProfiles={defaultProfiles} settings={settings} general={general}
+      {data ? <ArtifactMaximumValues data={data} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then ask every artifact where it can shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best monster for this artifact" sessionKey="artifacts.best-monster">
-      {data ? <BestMonsterForArtifact data={data} monsters={monsters} defaultProfiles={defaultProfiles} settings={settings} general={general}
+      {data ? <BestMonsterForArtifact data={data} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then find the monster that can make an artifact shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best artifact for this monster" sessionKey="artifacts.best-artifact">
-      {data ? <BestArtifactForMonster data={data} monsters={monsters} defaultProfiles={defaultProfiles} settings={settings} general={general}
+      {data ? <BestArtifactForMonster data={data} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then compare artifacts against one monster at a time.</p>}
     </Disclosure>
 

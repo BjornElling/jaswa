@@ -43,7 +43,7 @@ export function runeHoldVerdict(hold: RuneHold | undefined, locked = false): Run
 export const filteredRuneVerdict = (verdict: ShownRuneVerdict): RuneVerdict =>
   verdict === 'locked' || verdict === 'unsellable' ? 'keep' : verdict;
 
-/** Whether the rune overlay's lock can be put on: it locks a rune to its monster in Default, so only an engraved one. */
+/** Whether the rune overlay's lock can be put on: it locks a rune to its monster in Scenario, so only an engraved one. */
 export const canLockRune = (rune: Rune): boolean => rune.occupiedId !== null;
 
 /**

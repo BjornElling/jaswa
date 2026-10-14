@@ -28,7 +28,7 @@ file, `npm run verify:rune-chance-stability` holds the odds still, and
 | A value inside its legal integer interval | Modelled uniformly; the 6★ distribution has a measured check. |
 | Upgrade target and new-line type | Uniform over legal choices — a game rule, `RUNE-CANONICAL.md` §7. |
 | Main-property rate on slots 2, 4 and 6 | Assumed uniform over the slot's legal mains (§9.3); not measured. |
-| Generated drop's default grade | Simulator assumption: odd slots 75 % Hero / 25 % Legend; even slots 25 % Rare / 50 % Hero / 25 % Legend. Unsorted drops have not been measured. |
+| Generated drop's rarity | Simulator assumption: odd slots 75 % Hero / 25 % Legend; even slots 25 % Rare / 50 % Hero / 25 % Legend. Unsorted drops have not been measured. |
 | Artifact main properties | Verified table in `ARTIFACT-CANONICAL.md` §2; confirmed against 262 real artifacts. |
 | How a role's artifact choice fills two slots | Stated assumption: evenly over the stats it named (§4.1). |
 | The set a build completes | **Not modelled.** A role states no set combination, and guessing one from the candidate is what §4.3 forbids. |
@@ -664,7 +664,7 @@ to another account clears the calculated session; preferences remain saved.
 | New rune | Judge that rune and add it above the held rows. No whole-list calculation is needed. |
 | Level, stars, grade, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Rejudge the affected rune under the held standards; keep its row in place. Until answered, show its previous rune and advice together. |
 | Rune sold or removed | Keep its previous row marked Sold until Recalculate removes it. |
-| Default or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
+| Scenario or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
 | Holds, rune locks, or any Never sell safeguard or threshold | Apply the current protection immediately to the held advice. |
 | Power-up policy, quality floor, accepted/broken worth, Intangible factor, four-set retention, assumed Gem/Grindstone roll or active grade | Keep the list, but mark its standards changed. Recalculate applies the new standards to every rune. |
 | Role added, removed, reordered or edited, including targets, type, artifacts, sets and slot choices | Keep the list with the same changed-standards notice until Recalculate. |
@@ -695,15 +695,15 @@ condition fails, the ordinary recommendation applies. A blank threshold disables
 this safeguard; zero remains a stated threshold. Its checkbox, immediate updates,
 level-dependent advice and saved settings follow the speed safeguard above.
 The **Engraved on ≥ … mons.** safeguard starts enabled at **2**. It counts
-all placements across Default and every preset: the same monster in
+all placements across Scenario and every preset: the same monster in
 several presets counts once per preset. At or above the chosen threshold, it follows the
 same level-dependent advice as the other safeguards. The threshold accepts
 **1–9** or blank; blank disables this safeguard. Changes to the setting or to
 placements take effect immediately without recalculating scores. None of the
 safeguards changes Max value, Chance or Best role.
 
-The Location cell names the monster in Default, with **(+ X)** for its other
-placements. Without a Default placement it says **Engraved × X**, including
+The Location cell names the monster in Scenario, with **(+ X)** for its other
+placements. Without a Scenario placement it says **Engraved × X**, including
 when X is one. These counts include every preset, even several placements on
 the same monster. The hover names all placements. Location filtering still
 classifies any placed rune as Engraved and an unplaced rune as Inventory.
@@ -1201,3 +1201,15 @@ Typecheck, lint and build passed, as did all 220 Playwright tests. Visual checks
 reused the existing server at `http://localhost:3000/`: empty and imported
 Rune Settings, the quality choices, all 2,632 Rune Clean-up rows and The Math.
 The measured settings boxes did not move when the quality choice changed.
+
+## 13. Scenario and rarity naming verification, 14 October 2026
+
+`tests/fixtures/rune-cleanup-scenario-baseline.json` is a fresh snapshot from
+commit `67a3a53`, before the placement context and rune rarity identifiers were
+renamed. Its full deterministic population covers 582 runes in eight scenarios;
+every public advice field after the rename is identical, with zero tolerance.
+The fixture contains generated data only. Recheck with:
+
+```sh
+npm run verify:rune-cleanup-equivalence -- --baseline=tests/fixtures/rune-cleanup-scenario-baseline.json
+```

@@ -61,7 +61,7 @@
  * processor's stream rather than keeping one of its own. `runeSeedOf` below says why
  * it is the rune and not the id.
  */
-import { runeDefaultGradeOrder, slotAllowsSubStat } from './runes';
+import { runeRarityOrder, slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
 import { allStatIds, remainingEvents, subPropertyRange } from './rune-properties';
 import { craftedScore, gemOptions, grindCredit, groundValue, priceList } from './rune-craft-end-state';
@@ -153,7 +153,7 @@ export function runeSeedOf(rune: Rune): number {
   take(rune.slot);
   take(rune.stars);
   take(rune.ancient ? 1 : 0);
-  take(runeDefaultGradeOrder(rune.defaultGrade));
+  take(runeRarityOrder(rune.rarity));
   take(rune.level);
   take(rune.mainStatId);
   take(rune.prefixStatId ?? -1);
@@ -204,7 +204,7 @@ export type RuneFuture = {
 const emptyInterval: Interval = { minimum: 0, maximum: 0 };
 
 export function runeFuture(rune: Rune): RuneFuture {
-  const { events } = remainingEvents(rune.level, runeDefaultGradeOrder(rune.defaultGrade));
+  const { events } = remainingEvents(rune.level, runeRarityOrder(rune.rarity));
   const held: EndStateLine[] = rune.subProperties.map((line) => ({
     statId: line.statId, value: line.value, grind: line.grind, gemmed: line.gemmed,
   }));

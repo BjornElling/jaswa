@@ -13,7 +13,7 @@
  */
 import { mainPropertyMaximum } from './rune-properties';
 import { runeMaximumLevel, runeStatName } from './runes';
-import type { Rune, RuneDefaultGrade } from './runes';
+import type { Rune, RuneRarity } from './runes';
 import { runeSetId } from './rune-sets';
 import type { EndStateLine } from './rune-craft-end-state';
 import { runeAdvice } from './rune-cleanup-advice';
@@ -84,7 +84,7 @@ export type SimulatedRune = {
   setName: SimulationSet;
   slot: number;
   stars: number;
-  defaultGrade: RuneDefaultGrade;
+  rarity: RuneRarity;
   level: number;
   mainStatId: number;
   prefixStatId: number | null;
@@ -164,7 +164,7 @@ export const defaultRuneSimulationConfig: RuneSimulationConfig = {
 };
 
 /** The simulator's only legal rune-grade distribution, fixed by slot. */
-export function simulationGradeForSlot(slot: number, random: RandomSource = defaultRandom): RuneDefaultGrade {
+export function simulationGradeForSlot(slot: number, random: RandomSource = defaultRandom): RuneRarity {
   return generatedRuneGrade(slot, random);
 }
 
@@ -218,7 +218,7 @@ export function simulationRuneToCleanupRune(rune: SimulatedRune, obtainedOrder =
     slot: rune.slot,
     stars: rune.stars,
     ancient: false,
-    defaultGrade: rune.defaultGrade,
+    rarity: rune.rarity,
     level: rune.level,
     mainStatId: rune.mainStatId,
     /* The simulator does not model intermediate main-stat increments. Keep the
@@ -272,7 +272,7 @@ function generateRune(index: number, config: RuneSimulationConfig, random: Rando
   const stars = config.stars ?? randomInteger(1, 6, random);
   const grade = simulationGradeForSlot(slot, random);
   return {
-    ...generateRuneBody({ setName, slot, stars, defaultGrade: grade, random }),
+    ...generateRuneBody({ setName, slot, stars, rarity: grade, random }),
     id: `simulation-${index + 1}`,
   };
 }

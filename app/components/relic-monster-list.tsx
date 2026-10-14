@@ -16,7 +16,7 @@ import type { MonsterArchetype } from '../lib/monster-catalog';
 import { withHigherAwakenings } from '../lib/monster-identity';
 import { monsterCopyNames } from '../lib/monster-names';
 import { profileIn, profilesIn } from '../lib/monster-preferences';
-import { defaultPresetId } from '../lib/presets';
+import { scenarioPresetId } from '../lib/presets';
 import { elementName, elementNameList } from '../lib/rune-sets';
 import { isStoredMonster, monsterArchetypeLabels, monsterFilterArchetypes, numericOrNull } from '../lib/monster-grid';
 import { relicEngravingCounts } from '../lib/relics';
@@ -223,9 +223,9 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   const allocation = useMemo(() => {
     const subjects: RelicAllocationSubject[] = monsters.map((monster, index) => {
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
-      /* A relic is Default's in every preset (`DECK-PRESETS.md` §1), so it is
-         planned against the copy's Default profile. */
-      const stated = profileIn(preferences.monsterPreferences, defaultPresetId, unitId);
+      /* A relic is Scenario's in every preset (`DECK-PRESETS.md` §1), so it is
+         planned against the copy's Scenario profile. */
+      const stated = profileIn(preferences.monsterPreferences, scenarioPresetId, unitId);
       return {
         monsterId: unitId,
         model: models.get(unitId)!,
@@ -242,7 +242,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   }, [monsters, relics, engravedByMonster, preferences.monsterPreferences, models]);
 
   const rows = useMemo<RelicMonsterRow[]>(() => {
-    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, defaultPresetId));
+    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, scenarioPresetId));
     return monsters.map((monster, index) => {
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
       const display = monsterPresentation(monster.unit_master_id);

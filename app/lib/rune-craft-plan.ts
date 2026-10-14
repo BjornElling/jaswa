@@ -277,7 +277,7 @@ export type CraftReach = {
   /** Runes the item can legally be spent on. */
   fits: number;
   /**
-   * How many of those are engraved nowhere — on no monster in Default and in
+   * How many of those are engraved nowhere — on no monster in Scenario and in
    * no preset (`DECK-PRESETS.md` §1), since crafting one changes it in each.
    *
    * The split is the difference between an item that can be spent this evening

@@ -25,7 +25,7 @@ import { usePageHistory } from './lib/page-history';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
 import type { MonsterProfileScope } from './lib/monster-profile-scope';
 import type { MonsterPriority } from './lib/monster-priority';
-import { defaultPresetId, engravings, readPresets, selectedPresetKey } from './lib/presets';
+import { scenarioPresetId, engravings, readPresets, selectedPresetKey } from './lib/presets';
 import { PresetsContext } from './lib/presets-context';
 import type { OwnPreset } from './lib/presets';
 import type { PresetWrites } from './components/presets-section';
@@ -228,7 +228,7 @@ export default function Home() {
     () => (Array.isArray(game?.data?.unit_list) ? game.data.unit_list : []) as GameRecord[],
     [game],
   );
-  /* Default and every preset, resolved once for every page that reads one
+  /* Scenario and every preset, resolved once for every page that reads one
      (`DECK-PRESETS.md` §4). */
   const presets = useMemo(() => readPresets(game?.data, preferences.presets), [game, preferences.presets]);
   const presetsReading = useMemo(() => ({ presets, ...engravings(presets) }), [presets]);
@@ -311,7 +311,7 @@ export default function Home() {
   }
 
   /* A build is engraved in one preset and nowhere else. A preset built in JASWA
-     lives in the preferences, which no sync overwrites; Default and the game's
+     lives in the preferences, which no sync overwrites; Scenario and the game's
      presets live in the import, which live sync would put back. */
   async function engraveBuild(presetId: string, unitId: string, runeIds: readonly string[]): Promise<void> {
     const preset = presets.find((entry) => entry.id === presetId);
@@ -399,7 +399,7 @@ export default function Home() {
      chosen across the program alone: looking at a monster of Arena Attack 1
      from Speed Tuning is not a decision to read every page in Arena Attack 1.
      A place about no preset — the Monsters page, an artifact, a relic — shows
-     Default, so the overlay opens there too, never on whatever preset another
+     Scenario, so the overlay opens there too, never on whatever preset another
      page last chose: that would put an edit into a profile the opener never
      showed. */
   const openMonsterOverlay: OpenMonsterOverlay = (target, opener, presetId) => {
@@ -571,7 +571,7 @@ export default function Home() {
     changePreferences((current) => ({ ...current, speedTuning: change(current.speedTuning) }));
   }
 
-  /* The Presets page's routes to storage: Default's list, a game preset's
+  /* The Presets page's routes to storage: Scenario's list, a game preset's
      order, and the presets built in JASWA. */
   const presetWrites: PresetWrites = {
     monsterPriority(change: (current: MonsterPriority) => MonsterPriority) {
@@ -604,7 +604,7 @@ export default function Home() {
     },
     async addToGamePreset(presetId: string, unitId: string) {
       const preset = presets.find((entry) => entry.id === presetId);
-      const fallback = presets.find((entry) => entry.kind === 'default');
+      const fallback = presets.find((entry) => entry.kind === 'scenario');
       if (preset && fallback) await changeGamePreset((current) => addToGamePreset(current, preset, fallback, unitId));
     },
     /* Removing a team member leaves its area profile intact. */
@@ -777,7 +777,7 @@ export default function Home() {
         settings={preferences.artifacts}
         data={game?.data}
         monsters={monsters}
-        defaultProfiles={profilesIn(preferences.monsterPreferences, defaultPresetId)}
+        scenarioProfiles={profilesIn(preferences.monsterPreferences, scenarioPresetId)}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onUpdate={updateArtifactSettings}
@@ -911,7 +911,7 @@ export default function Home() {
       profiles={preferences.monsterPreferences}
       onSave={updateMonsterPreferences}
       onClose={closeOverlay}
-      presetId={overlay.presetId ?? defaultPresetId}
+      presetId={overlay.presetId ?? scenarioPresetId}
       onOptimize={optimizeMonster}
     /></Suspense>}
 
@@ -925,9 +925,9 @@ export default function Home() {
       hold={preferences.runeHolds[overlayRune.id]}
       onHold={overlay?.kind === 'rune' && overlay.target.kind === 'account' ? updateRuneHold : undefined}
       locked={overlayRune.occupiedId !== null
-        && runeLockOf(runeLocks, defaultPresetId, overlayRune.occupiedId, overlayRune.id) === 'locked'}
+        && runeLockOf(runeLocks, scenarioPresetId, overlayRune.occupiedId, overlayRune.id) === 'locked'}
       canLock={canEngrave}
-      onLock={(runeId, unitId, on) => lockRune(defaultPresetId, unitId, runeId, on ? 'locked' : null)}
+      onLock={(runeId, unitId, on) => lockRune(scenarioPresetId, unitId, runeId, on ? 'locked' : null)}
       onOpenMonster={openMonsterOverlay}
       onClose={closeOverlay}
     /></Suspense>}

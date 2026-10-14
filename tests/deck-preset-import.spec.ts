@@ -67,7 +67,7 @@ test('imports two saved decks that place one rune on different monsters, and bot
   /* Every deck is reachable: the rune is engraved once in each attack preset, on its own monster. */
   await openPresets(page);
   await expect(page.getByLabel('Content', { exact: true }).locator('option'))
-    .toHaveText(['Default', 'Arena', 'Guild', 'Cairos', 'Trial of Ascension', 'Temple of Chaos', 'Rift of Worlds', 'Dimension Hole']);
+    .toHaveText(['Scenario', 'Arena', 'Guild', 'Cairos', 'Trial of Ascension', 'Temple of Chaos', 'Rift of Worlds', 'Dimension Hole']);
   await page.getByLabel('Content', { exact: true }).selectOption('Arena');
   for (const name of ['Arena Attack 1', 'Arena Attack 2']) {
     await choosePreset(page, name);

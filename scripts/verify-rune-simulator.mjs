@@ -38,9 +38,9 @@ try {
     };
   };
 
-  const makeRune = (defaultGrade, count) => ({
-    id: `grade-${defaultGrade}`, setName: null, slot: 2, stars: 6,
-    ancient: false, defaultGrade, level: 0, mainStatId: 3, prefixStatId: null,
+  const makeRune = (rarity, count) => ({
+    id: `grade-${rarity}`, setName: null, slot: 2, stars: 6,
+    ancient: false, rarity, level: 0, mainStatId: 3, prefixStatId: null,
     prefixValue: 0,
     subProperties: Array.from({ length: count }, (_, index) => ({
       statId: [1, 2, 4][index], value: 5, gemmed: false, grind: 0, rolls: 0,
@@ -101,7 +101,7 @@ try {
     { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 }]]);
   const reported = {
     id: 'reported', setId: 0, setName: 'No rune type', slot: 5, stars: 6, ancient: false,
-    defaultGrade: 'Hero', level: 12, mainStatId: 1, mainValue: 2448, prefixStatId: null, prefixValue: 0,
+    rarity: 'Hero', level: 12, mainStatId: 1, mainValue: 2448, prefixStatId: null, prefixValue: 0,
     subProperties: [
       { statId: 8, value: 14, gemmed: false, grind: 0 },
       { statId: 2, value: 15, gemmed: false, grind: 0 },

@@ -19,7 +19,7 @@ import { PencilIcon } from './pencil-icon';
 import type { MonsterReference } from './monster-link';
 import type { Artifact } from '../lib/artifacts';
 import { usePresets } from '../lib/presets-context';
-import { accountItems, defaultPresetId, monsterInPreset } from '../lib/presets';
+import { accountItems, scenarioPresetId, monsterInPreset } from '../lib/presets';
 import { readArtifacts } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
 import { artifactMainPropertyOrder, artifactPropertiesFor } from '../lib/artifact-properties';
@@ -254,7 +254,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   general: GeneralSettings;
   /** Area profiles, independent of the team whose gear the panel reports. */
   profiles: MonsterPreferences;
-  /** The preset the overlay was opened for, else Default; read here only where the copy stands in it. */
+  /** The preset the overlay was opened for, else Scenario; read here only where the copy stands in it. */
   presetId: string;
   onSave: (scope: MonsterProfileScope, unitId: string, preferences: MonsterCopyPreferences) => void;
   onClose: () => void;
@@ -268,9 +268,9 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
 
   /* A shared profile and a team-specific stat sheet: changing area picks one
      team there; opening from a team keeps that team's gear and Optimize route. */
-  const preset = areas.find((entry) => entry.id === gearPresetId) ?? areas.find((entry) => entry.kind === 'default');
-  const activePresetId = preset?.id ?? defaultPresetId;
-  const activeScope = preset?.profileScope ?? 'default';
+  const preset = areas.find((entry) => entry.id === gearPresetId) ?? areas.find((entry) => entry.kind === 'scenario');
+  const activePresetId = preset?.id ?? scenarioPresetId;
+  const activeScope = preset?.profileScope ?? 'scenario';
   const [draft, setDraft] = useState<MonsterCopyPreferences>(
     () => profileIn(profiles, activeScope, unitId) ?? blankMonsterCopyPreferences(unitId),
   );
@@ -328,7 +328,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
     if (!monster || !game) return { artifacts: {} as Partial<Record<ArtifactCategory, Artifact>>, relics: [] as Relic[] };
     const unitId = String(monster.unit_id);
     const artifacts: Partial<Record<ArtifactCategory, Artifact>> = {};
-    /* The preset's artifacts, not the ones the export marks as engraved, which are Default's. */
+    /* The preset's artifacts, not the ones the export marks as engraved, which are Scenario's. */
     const inPreset = new Set(preset?.artifactsOf.get(unitId) ?? []);
     for (const artifact of readArtifacts(game)) {
       if (!canEngraveArtifacts(monster)) continue;
@@ -393,7 +393,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   /* The presets the copy stands in, each with gear of its own, are counted here
      and named on hover (`DECK-PRESETS.md` §5); the box beside names the one read. */
   const memberOf = target.kind === 'copy'
-    ? presetsReading.presets.filter((preset) => preset.kind !== 'default' && preset.members.includes(target.unitId))
+    ? presetsReading.presets.filter((preset) => preset.kind !== 'scenario' && preset.members.includes(target.unitId))
     : [];
   const facts: { label: string; value: string | undefined; title?: string }[] = [
     { label: 'Element', value: elementName(target.kind === 'copy' ? monster?.attribute : Number(masterId.at(-1))) },
@@ -489,12 +489,12 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             <label className="monster-overlay-preset-label" htmlFor="monster-overlay-preset">Build for</label>
             <Dropdown id="monster-overlay-preset" className="monster-overlay-preset-select" value={activeScope}
               disabled={dirty || areas.length < 2}
-              title={dirty ? 'Save or close to open another area' : monsterProfileAreaName(preset ?? { kind: 'default', content: null })}
+              title={dirty ? 'Save or close to open another area' : monsterProfileAreaName(preset ?? { kind: 'scenario', content: null })}
               onChange={(event) => openArea(event.target.value)}>
               {areas.map((entry) => <option key={entry.profileScope} value={entry.profileScope}>{monsterProfileAreaName(entry)}</option>)}
             </Dropdown>
           </div>
-          <p className="monster-overlay-gear-context" title={preset?.name}>Gear from {preset?.name ?? 'Default'}</p>
+          <p className="monster-overlay-gear-context" title={preset?.name}>Gear from {preset?.name ?? 'Scenario'}</p>
           <Button className="monster-overlay-optimize"
             aria-label={`Save and optimize runes for ${heroName}`}
             onClick={() => {
@@ -655,7 +655,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             : <>
               {/* What the copy has engraved, written the way a desired build is, so the
                   two read against each other without translation. */}
-              {/* The gear of the preset named in the head; the relics are Default's in every preset. */}
+              {/* The gear of the preset named in the head; the relics are Scenario's in every preset. */}
               <Section title="Engraved runes" note={currentBuild === '' ? 'No runes engraved' : currentBuild}>
                 <EngravedRunes runes={engravedRunes} format={format} />
               </Section>

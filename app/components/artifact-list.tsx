@@ -29,7 +29,7 @@ import {
 } from '../lib/artifact-properties';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../lib/artifact-properties';
 import { monsterCopyNamesIn } from '../lib/monster-names';
-import { defaultPresetId, engravingLines } from '../lib/presets';
+import { scenarioPresetId, engravingLines } from '../lib/presets';
 import { profilesIn } from '../lib/monster-preferences';
 import { usePresets } from '../lib/presets-context';
 import { formatNumber } from '../lib/formatting';
@@ -198,9 +198,9 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
   const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
 
   const placements = usePresets();
-  /* An artifact's value is read in Default, so the profile it is judged by is
-     Default's; each place it is engraved names its monster in that place's preset. */
-  const defaultProfiles = useMemo(() => profilesIn(preferences.monsterPreferences, defaultPresetId), [preferences.monsterPreferences]);
+  /* An artifact's value is read in Scenario, so the profile it is judged by is
+     Scenario's; each place it is engraved names its monster in that place's preset. */
+  const scenarioProfiles = useMemo(() => profilesIn(preferences.monsterPreferences, scenarioPresetId), [preferences.monsterPreferences]);
   const namesIn = useMemo(() => monsterCopyNamesIn(monsters, preferences.monsterPreferences, placements.presets), [monsters, preferences.monsterPreferences, placements.presets]);
   const monsterName = useCallback((unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import', [namesIn]);
   const rows = useMemo<ArtifactRow[]>(() => {
@@ -213,11 +213,11 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
       const unitId = engravedOn?.unit_id === undefined ? null : String(engravedOn.unit_id);
       const places = placements.artifacts.get(String(artifact.id)) ?? [];
       const only = places.length === 1 ? monstersByUnitId.get(places[0].unitId) : undefined;
-      const preference = unitId === null ? undefined : defaultProfiles[unitId];
+      const preference = unitId === null ? undefined : scenarioProfiles[unitId];
       const propertyPreferences = engravedOn
         ? defaultPropertyPreferences(engravedOn.unit_master_id, artifact.category)
         : undefined;
-      /* The statement of the monster it is engraved on in Default, where it has
+      /* The statement of the monster it is engraved on in Scenario, where it has
          one, so this column answers for that copy rather than for its species. */
       const value = engravedOn
         ? artifactValueOnMonster(artifact, engravedOn, preferences.artifacts, preference)
@@ -238,7 +238,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
         subPropertyPreferences: propertyPreferences?.sub ?? null,
       };
     });
-  }, [artifacts, monsters, defaultProfiles, preferences.artifacts, placements, monsterName]);
+  }, [artifacts, monsters, scenarioProfiles, preferences.artifacts, placements, monsterName]);
 
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();

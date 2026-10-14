@@ -24,7 +24,7 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 
 /* 1. The raw reader. */
 const sample = JSON.parse(readFileSync('tests/fixtures/craft-account.json', 'utf8'));
-/* Unit 1 carries rune 103 (slot 4) in Default; runes 101 and 102 (both slot 2)
+/* Unit 1 carries rune 103 (slot 4) in Scenario; runes 101 and 102 (both slot 2)
    and 104 (slot 6) are in the inventory. Unit 3 is a third copy. */
 const thirdUnit = { ...sample.unit_list[1], unit_id: 3, runes: [] };
 const artifactId = 501;
@@ -65,7 +65,7 @@ assert.deepEqual(byKey.get('arena-defense').members, ['2', '1']);
 assert.equal(byKey.get('arena-defense').leaderUnitId, '2', 'a defense deck is led by its first monster');
 assert.deepEqual(byKey.get('interserver-defense').members, ['3']);
 assert.equal(byKey.get('interserver-defense').leaderUnitId, '3');
-assert.equal(byKey.get('interserver-defense').runeOwnerById.get('103'), '3', 'a defense deck holds its own gear apart from Default');
+assert.equal(byKey.get('interserver-defense').runeOwnerById.get('103'), '3', 'a defense deck holds its own gear apart from Scenario');
 assert.deepEqual(byKey.get('deck-1-1').missingRuneIds, []);
 assert.deepEqual(byKey.get('deck-1-1').missingArtifactIds, []);
 assert.equal(validateGameFile({ ...account, artifacts: [] }).valid, true,
@@ -102,7 +102,7 @@ assert.equal(validateGameFile(only(deck(1, 1, [1, 2], [gear(1, [101]), gear(2, [
 assert.equal(validateGameFile(only(deck(1, 1, [1, 2], [gear(1, [101])]))).valid, false,
   'the import rejects a deck saving gear for some members only');
 
-/* 2. The presets every page reads: Default first, then the game's by content, then the user's own. */
+/* 2. The presets every page reads: Scenario first, then the game's by content, then the user's own. */
 const presetAccount = {
   ...sample, unit_list: [...sample.unit_list, thirdUnit], artifacts: [{ rid: artifactId }],
   deck_list: [
@@ -121,13 +121,13 @@ const ownStored = [
 ];
 const presets = readPresets(prepared, readOwnPresets(ownStored));
 assert.deepEqual(presets.map((preset) => preset.name),
-  ['Default', 'Arena Attack 4', 'Arena Attack 5', 'Arena Defense', "Giant's Keep 1", 'Draft', 'Deck 99 · 1', 'Geared'],
-  'Default first, every preset by content, the user\'s own after the game\'s in theirs, and anything without a content last');
-assert.deepEqual(presets.map((preset) => preset.kind), ['default', 'game', 'game', 'game', 'game', 'own', 'game', 'own']);
-assert.deepEqual(presets.map((preset) => preset.id), ['default', 'deck-1-4', 'deck-1-5', 'arena-defense', 'deck-24-101', 'own-a', 'deck-99-1', 'own-b']);
+  ['Scenario', 'Arena Attack 4', 'Arena Attack 5', 'Arena Defense', "Giant's Keep 1", 'Draft', 'Deck 99 · 1', 'Geared'],
+  'Scenario first, every preset by content, the user\'s own after the game\'s in theirs, and anything without a content last');
+assert.deepEqual(presets.map((preset) => preset.kind), ['scenario', 'game', 'game', 'game', 'game', 'own', 'game', 'own']);
+assert.deepEqual(presets.map((preset) => preset.id), ['scenario', 'deck-1-4', 'deck-1-5', 'arena-defense', 'deck-24-101', 'own-a', 'deck-99-1', 'own-b']);
 const menu = presetMenu(presets);
 assert.deepEqual(menu.map((tab) => tab.label),
-  ['Default', 'Arena', 'Guild', 'Cairos', 'Trial of Ascension', 'Temple of Chaos', 'Rift of Worlds', 'Dimension Hole', 'Not yet named'],
+  ['Scenario', 'Arena', 'Guild', 'Cairos', 'Trial of Ascension', 'Temple of Chaos', 'Rift of Worlds', 'Dimension Hole', 'Not yet named'],
   'the menu is the game\'s tabs, every one of them, then the presets not yet named');
 assert.deepEqual(menu.find((tab) => tab.label === 'Dimension Hole').areas.map((area) => area.label),
   ['Forest of Roaring Beasts', 'Sanctuary of Dreaming Fairies', 'Cliff of Tough Beast Men', 'Ruin of Silent Death',
@@ -151,29 +151,29 @@ assert.deepEqual(runeIdsOf(inArena), ['101'], 'a gear-saving preset hands the mo
 assert.deepEqual(inArena.artifacts.map((artifact) => artifact.rid), [artifactId], 'and its own artifacts');
 assert.deepEqual(runeIdsOf(monsterInPreset(unitRecord('1'), presetById.get('deck-1-4'), items)), [], 'a member saved bare is bare in that preset');
 assert.deepEqual(runeIdsOf(unitRecord('2')), [], 'the export record itself is untouched');
-/* A preset that saves monsters only leaves each on its Default gear. */
+/* A preset that saves monsters only leaves each on its Scenario gear. */
 assert.deepEqual(runeIdsOf(monsterInPreset(unitRecord('1'), presetById.get('deck-24-101'), items)), ['103'],
-  'a monsters-only preset reads Default gear');
-assert.equal(monsterInPreset(unitRecord('1'), presetById.get('default'), items), unitRecord('1'), 'Default is the record as imported');
-assert.deepEqual(runeIdsOf(monsterInPreset(unitRecord('1'), presetById.get('own-a'), items)), ['103'], 'an own preset without gear reads Default');
+  'a monsters-only preset reads Scenario gear');
+assert.equal(monsterInPreset(unitRecord('1'), presetById.get('scenario'), items), unitRecord('1'), 'Scenario is the record as imported');
+assert.deepEqual(runeIdsOf(monsterInPreset(unitRecord('1'), presetById.get('own-a'), items)), ['103'], 'an own preset without gear reads Scenario');
 assert.deepEqual(runeIdsOf(monsterInPreset(unitRecord('1'), presetById.get('own-b'), items)), ['101'], 'an own preset with gear reads its own');
 assert.deepEqual(presetById.get('own-b').missingRuneIds, [], 'an owned rune in an own preset is not reported sold');
 
 /* occupiedId answers "who carries it in this preset", never "who carries it somewhere". */
 const runes = readRunes(prepared);
 const occupied = (presetId) => Object.fromEntries(runesInPreset(runes, presetById.get(presetId)).map((rune) => [rune.id, rune.occupiedId]));
-assert.deepEqual(occupied('default'), { 101: null, 102: null, 103: '1', 104: null });
-assert.deepEqual(occupied('deck-1-4'), { 101: '2', 102: null, 103: null, 104: null }, 'a Default rune is free in a preset that does not engrave it');
+assert.deepEqual(occupied('scenario'), { 101: null, 102: null, 103: '1', 104: null });
+assert.deepEqual(occupied('deck-1-4'), { 101: '2', 102: null, 103: null, 104: null }, 'a Scenario rune is free in a preset that does not engrave it');
 assert.deepEqual(occupied('deck-1-5'), { 101: '1', 102: null, 103: null, 104: null });
-assert.deepEqual(occupied('deck-24-101'), { 101: null, 102: null, 103: '1', 104: null }, 'a monsters-only preset holds Default gear');
-assert.equal(runesInPreset(runes, presetById.get('default'))[0], runes[0], 'Default reads the runes as they are');
+assert.deepEqual(occupied('deck-24-101'), { 101: null, 102: null, 103: '1', 104: null }, 'a monsters-only preset holds Scenario gear');
+assert.equal(runesInPreset(runes, presetById.get('scenario'))[0], runes[0], 'Scenario reads the runes as they are');
 
-/* Every place an item is engraved, and a monsters-only preset counted once, as Default. */
+/* Every place an item is engraved, and a monsters-only preset counted once, as Scenario. */
 const where = engravings(presets);
 assert.deepEqual(where.runes.get('101'), [
   { presetId: 'deck-1-4', unitId: '2' }, { presetId: 'deck-1-5', unitId: '1' }, { presetId: 'own-b', unitId: '1' },
 ], 'a rune shared by several presets lists each placement');
-assert.deepEqual(where.runes.get('103'), [{ presetId: 'default', unitId: '1' }], 'a preset saving no gear adds no placement of its own');
+assert.deepEqual(where.runes.get('103'), [{ presetId: 'scenario', unitId: '1' }], 'a preset saving no gear adds no placement of its own');
 assert.deepEqual(where.artifacts.get(String(artifactId)), [{ presetId: 'deck-1-4', unitId: '2' }]);
 assert.equal(where.runes.has('102'), false, 'an item in inventory everywhere has no placement');
 
@@ -204,11 +204,11 @@ assert.deepEqual(readOwnPresets([]), [], 'an emptied list stays empty');
 
 /* 3. An engrave written into one preset, and nowhere else. */
 const optimization = JSON.parse(readFileSync('tests/fixtures/rune-optimization-account.json', 'utf8'));
-/* Default: 11 carries 5001–5006, 12 carries 5007–5012; 5013 onward is inventory. */
+/* Scenario: 11 carries 5001–5006, 12 carries 5007–5012; 5013 onward is inventory. */
 const arenaEleven = ['5013', '5021', '5029', '5037', '5045', '5053'];
-const twelveDefault = ['5007', '5008', '5009', '5010', '5011', '5012'];
+const twelveScenario = ['5007', '5008', '5009', '5010', '5011', '5012'];
 const engraveAccount = { ...optimization, deck_list: [
-  deck(1, 1, [11, 12], [gear(11, arenaEleven.map(Number)), gear(12, twelveDefault.map(Number))]),
+  deck(1, 1, [11, 12], [gear(11, arenaEleven.map(Number)), gear(12, twelveScenario.map(Number))]),
   deck(1, 2, [12], [gear(12, [5001])]),
   deck(24, 101, [11, 12], null),
 ], defense_deck_info: { unit_id_list: [12, 11], equip: null } };
@@ -225,8 +225,8 @@ assert.deepEqual(runeIdsByMember(equipOf(engraved.data, 1, 1)), { 11: arenaEleve
   'the build lands on its monster and leaves the other member of the same preset');
 assert.deepEqual(equipOf(engraved.data, 1, 2), equipOf(game.data, 1, 2), 'another preset holding one of the runes is untouched');
 assert.deepEqual(equipOf(engraved.data, 24, 101), null, 'a monsters-only preset is untouched');
-assert.deepEqual(engraved.data.runes, game.data.runes, 'no rune moves in Default');
-assert.deepEqual(engraved.data.unit_list, game.data.unit_list, 'no monster\'s Default runes change');
+assert.deepEqual(engraved.data.runes, game.data.runes, 'no rune moves in Scenario');
+assert.deepEqual(engraved.data.unit_list, game.data.unit_list, 'no monster\'s Scenario runes change');
 assert.deepEqual(engraved.data.defense_deck_info, game.data.defense_deck_info);
 assert.deepEqual(engraved.loadedPlacements, { 'deck-1-1': {
   5013: '11', 5002: null, 5003: null, 5004: null, 5005: null, 5006: null,
@@ -234,28 +234,28 @@ assert.deepEqual(engraved.loadedPlacements, { 'deck-1-1': {
 } }, 'where each moved rune sat in that preset is remembered under that preset');
 const after = readPresets(engraved.data, []);
 assert.deepEqual(find(after, 'deck-1-1').runesOf.get('12'), build);
-assert.deepEqual(find(after, 'default').runesOf, find(before, 'default').runesOf, 'Default reads exactly as before');
+assert.deepEqual(find(after, 'scenario').runesOf, find(before, 'scenario').runesOf, 'Scenario reads exactly as before');
 
-/* Into a monsters-only preset: every member's Default gear is written down first, and only the target changes. */
+/* Into a monsters-only preset: every member's Scenario gear is written down first, and only the target changes. */
 const keepBuild = ['5014', '5022', '5030', '5038', '5046', '5054'];
 const keep = engraveImportedGame(game, find(before, 'deck-24-101'), '11', keepBuild);
-assert.deepEqual(runeIdsByMember(equipOf(keep.data, 24, 101)), { 11: keepBuild, 12: twelveDefault },
-  'a monsters-only preset gets every member\'s Default gear materialised');
+assert.deepEqual(runeIdsByMember(equipOf(keep.data, 24, 101)), { 11: keepBuild, 12: twelveScenario },
+  'a monsters-only preset gets every member\'s Scenario gear materialised');
 assert.equal(find(readPresets(keep.data, []), 'deck-24-101').savesGear, true, 'and from then on saves gear');
-assert.deepEqual(keep.data.runes, game.data.runes, 'Default is untouched');
+assert.deepEqual(keep.data.runes, game.data.runes, 'Scenario is untouched');
 assert.deepEqual(equipOf(keep.data, 1, 1), equipOf(game.data, 1, 1));
 
 /* Into a defense preset: its own field, nothing else. */
 const defense = engraveImportedGame(game, find(before, 'arena-defense'), '11', keepBuild);
-assert.deepEqual(runeIdsByMember(defense.data.defense_deck_info.equip), { 12: twelveDefault, 11: keepBuild });
+assert.deepEqual(runeIdsByMember(defense.data.defense_deck_info.equip), { 12: twelveScenario, 11: keepBuild });
 assert.deepEqual(defense.data.deck_list, game.data.deck_list);
 
-/* Into Default: the old single-placement engrave, recorded under Default. */
-const inDefault = engraveImportedGame(game, find(before, 'default'), '12', ['5001', '5002', '5003', '5004', '5005', '5006']);
-assert.deepEqual(runeIdsOf(inDefault.data.unit_list.find((unit) => unit.unit_id === 12)).sort(), ['5001', '5002', '5003', '5004', '5005', '5006']);
-assert.deepEqual(runeIdsOf(inDefault.data.unit_list.find((unit) => unit.unit_id === 11)), [], 'Default still holds a rune once');
-assert.deepEqual(inDefault.data.deck_list, game.data.deck_list, 'a Default engrave changes no preset');
-assert.equal(inDefault.loadedPlacements.default['5001'], '11');
+/* Into Scenario: the old single-placement engrave, recorded under Scenario. */
+const inScenario = engraveImportedGame(game, find(before, 'scenario'), '12', ['5001', '5002', '5003', '5004', '5005', '5006']);
+assert.deepEqual(runeIdsOf(inScenario.data.unit_list.find((unit) => unit.unit_id === 12)).sort(), ['5001', '5002', '5003', '5004', '5005', '5006']);
+assert.deepEqual(runeIdsOf(inScenario.data.unit_list.find((unit) => unit.unit_id === 11)), [], 'Scenario still holds a rune once');
+assert.deepEqual(inScenario.data.deck_list, game.data.deck_list, 'a Scenario engrave changes no preset');
+assert.equal(inScenario.loadedPlacements.scenario['5001'], '11');
 
 assert.throws(() => engraveImportedGame(game, find(before, 'deck-1-2'), '11', keepBuild), /not in the selected preset/,
   'a monster outside the preset cannot be engraved in it');
@@ -298,7 +298,7 @@ assert.deepEqual([...find(pooled, 'deck-23-2').poolTakenUnitIds], ['11'], 'a tea
 const poolRunes = readRunes(poolGame.data);
 const occupiedIn = (presetId) => Object.fromEntries(runesInPreset(poolRunes, find(pooled, presetId)).map((rune) => [rune.id, rune.occupiedId]));
 assert.equal(occupiedIn('deck-23-2')['5013'], null, 'each team is read alone: a rune on another team is not engraved in this one');
-assert.equal(occupiedIn('deck-23-2')['5007'], '12', 'and the team\'s own Default gear is its own');
+assert.equal(occupiedIn('deck-23-2')['5007'], '12', 'and the team\'s own Scenario gear is its own');
 assert.deepEqual([...find(pooled, 'deck-23-2').poolRuneIds].sort(), [...arenaEleven].sort(), 'a team knows the runes the pool\'s other teams hold');
 
 /* Rune Optimization is never offered a rune another team holds; the user's own lock on one stands. */
@@ -332,16 +332,16 @@ assert.deepEqual(equipOf(teamOne.data, 23, 2), equipOf(sharedGame.data, 23, 2), 
 const kept = engraveImportedGame(sharedGame, find(shared, 'deck-23-2'), '12', poolBuild);
 assert.deepEqual(runeIdsByMember(equipOf(kept.data, 23, 2)), { 12: poolBuild }, 'a shared rune the monster already carries may stay');
 
-/* A monster in another team cannot join; a newcomer brings only Default gear no team holds. */
+/* A monster in another team cannot join; a newcomer brings only Scenario gear no team holds. */
 const editable = { ...poolGame, data: { ...poolGame.data, deck_list: [
   deck(23, 1, [11, 0], [gear(11, [5007])]), deck(23, 2, [0], []),
 ] } };
 const editablePresets = readPresets(editable.data, []);
-assert.throws(() => addToGamePreset(editable, find(editablePresets, 'deck-23-2'), find(editablePresets, 'default'), '11'), /another team/,
+assert.throws(() => addToGamePreset(editable, find(editablePresets, 'deck-23-2'), find(editablePresets, 'scenario'), '11'), /another team/,
   'a monster of one Temple of Chaos team cannot join another');
-const joined = addToGamePreset(editable, find(editablePresets, 'deck-23-1'), find(editablePresets, 'default'), '12');
-assert.deepEqual(runeIdsByMember(equipOf(joined.data, 23, 1))['12'], twelveDefault.filter((id) => id !== '5007'),
-  'a newcomer brings its Default gear less what the pool holds');
+const joined = addToGamePreset(editable, find(editablePresets, 'deck-23-1'), find(editablePresets, 'scenario'), '12');
+assert.deepEqual(runeIdsByMember(equipOf(joined.data, 23, 1))['12'], twelveScenario.filter((id) => id !== '5007'),
+  'a newcomer brings its Scenario gear less what the pool holds');
 
 /* The other contents of several decks in one battle (§1 rule 6) share their runes and artifacts, not
    their monsters, and Dimension Raid's three phases are one pool although they are three contents. */

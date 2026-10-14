@@ -484,7 +484,7 @@ export function TheMathSection() {
               </tr>
               <tr>
                 <th scope="row" className="align-left">How often is there an innate?</th>
-                <td className="align-left"><b className="type-body-emphasis">Modelled.</b> JASWA uses exactly 50 % for every rune type and default grade; Com2uS publishes no rate.</td>
+                <td className="align-left"><b className="type-body-emphasis">Modelled.</b> JASWA uses exactly 50 % for every rune type and rarity; Com2uS publishes no rate.</td>
               </tr>
               <tr>
                 <th scope="row" className="align-left">What are the ranges?</th>

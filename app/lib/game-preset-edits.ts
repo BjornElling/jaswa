@@ -66,7 +66,7 @@ export function gamePresetHasRoom(game: ImportedGame, preset: Preset): boolean {
 
 /**
  * The game's preset with `unitId` in its first empty position. A preset that
- * saved its monsters' gear gives the newcomer its Default gear, less whatever
+ * saved its monsters' gear gives the newcomer its Scenario gear, less whatever
  * this preset — or another deck of its pool — already engraves: one rune, one
  * monster, inside a preset or a pool. The game saves a deck's gear for all of
  * its monsters or none. A monster another deck of a pool sharing its monsters

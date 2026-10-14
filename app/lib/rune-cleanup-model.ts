@@ -783,13 +783,13 @@ export function ordinarySample(
     const mainStatId = mains[mainIndex];
     const body = upgradeRuneBody(generateRuneBody({
       setName: roleRuneSetNameList[setIndex] ?? null,
-      slot, stars, defaultGrade: population === 'drop'
+      slot, stars, rarity: population === 'drop'
         ? generatedRuneGrade(slot, () => (gradeIndex + 0.5) / 4) : 'Legend', mainStatId, random: next,
     }), level, next);
     const sampleId = `ordinary-sample:${population}:${slot}:${stars}:${level}:${at + sampleOffset}`;
     runes.push({
       id: sampleId, setId: 0, setName: body.setName ?? '', slot, stars,
-      ancient: false, defaultGrade: body.defaultGrade, level, mainStatId: body.mainStatId,
+      ancient: false, rarity: body.rarity, level, mainStatId: body.mainStatId,
       mainValue: level === 15 ? mainPropertyMaximum(stars, body.mainStatId) : 0,
       prefixStatId: body.prefixStatId, prefixValue: body.prefixValue,
       subProperties: body.subProperties.map(({ statId, value, gemmed, grind }) => ({ statId, value, gemmed, grind })),

@@ -2479,9 +2479,9 @@ account.
 permanent name: an artifact records the monster it is engraved on by it, so a record survives
 re-importing the same account and ends only when the copy is sold.
 
-A copy's preferences are its **profile in Default or one content-area**
+A copy's preferences are its **profile in Scenario or one content-area**
 (`DECK-PRESETS.md` §4.1): stored by area, then by `unit_id`. Every artifact
-page judges Default and reads Default's profiles; teams of one content-area
+page judges Scenario and reads Scenario's profiles; teams of one content-area
 share one profile per copy in their overlays and Rune Optimization.
 
 **This reverses an earlier decision**, which held preferences per species on the

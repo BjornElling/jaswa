@@ -420,12 +420,12 @@ function SimulationRow({ entry, onOpenRune }: { entry: SimulationEntry; onOpenRu
         label={`${rune.setName ?? simulationNoRuneType} rune, slot ${rune.slot}`}
         onOpen={onOpenRune}
       >
-        <span className="rune-link-cell"><QualityRule tier={rune.defaultGrade} />{rune.setName ?? simulationNoRuneType}</span>
+        <span className="rune-link-cell"><QualityRule tier={rune.rarity} />{rune.setName ?? simulationNoRuneType}</span>
       </RuneLink>
     </td>
     <td className={cell('slot')}>{rune.slot}</td>
     <td className={cell('stars')}>{rune.stars}</td>
-    <td className={cell('quality')}>{rune.defaultGrade}</td>
+    <td className={cell('quality')}>{rune.rarity}</td>
     <td className={cell('level')}>+{rune.level}</td>
     <td className={cell('main')}>{simulationStatLabel(rune.mainStatId)}</td>
     <td className={cell('innate', rune.prefixStatId === null && 'muted')}>

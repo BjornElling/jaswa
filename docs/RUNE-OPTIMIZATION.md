@@ -49,7 +49,7 @@ that stage is visible on screen.
 
 ## 2. Requirements: the profile, then this calculation
 
-Choose a preset first, then a monster in it. Default and every preset remain
+Choose a preset first, then a monster in it. Scenario and every preset remain
 reachable regardless of the monster choice. Switching preset retains a member
 shared by both contexts; otherwise the monster choice is cleared. *Rank by*
 sits beside *Builds listed* in a compact dropdown, with its space reserved
@@ -177,7 +177,7 @@ missing.
 
 ## 3. Candidates
 
-Every search is for one monster **in one preset** — Default or a saved preset
+Every search is for one monster **in one preset** — Scenario or a saved preset
 (`DECK-PRESETS.md` §4). The page reads the monster's artifacts and the runes it
 starts from out of that preset, and every rune's place is read through
 `runesInPreset`: `occupiedId` names the monster carrying it *in this preset*, or
@@ -194,7 +194,7 @@ Grindstones the settings allow. A rune enters its own slot's list when:
   from this one (`rune-locks.ts`). A rune locked to *this* monster is the slot's
   only candidate, exactly as engraved: no filter removes it, no craft item is
   counted on it, and the slot is not searched. Locks and exclusions bind one
-  scope — Default, one preset, or the pool a content's presets share — and no
+  scope — Scenario, one preset, or the pool a content's presets share — and no
   other; they live with the import, so a new import has none, and they are off
   under *Always synchronized*. Locking a rune engraves it on its monster first.
 - it is free in the preset, on this monster, or — unless *Only runes not
@@ -872,7 +872,7 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    copy name in a large field with its portrait, *Open profile* under it with
    *Reset to profile* to its right (disabled until a requirement differs from the
    profile) and, at the field's right edge, a quiet *Speed tuning* that opens
-   the chosen preset's team over this page (disabled for Default and an empty
+   the chosen preset's team over this page (disabled for Scenario and an empty
    preset); the depth slider and table size beside it, because they
    are read at the moment of searching; then *Find builds* and a square stop mark.
    The line under the depth gives a rough size of the search before it runs —
@@ -917,14 +917,14 @@ table pick for pick. It needs a running dev server and a card, and is not part o
    for a rune this monster carries and *Engrave and lock* for one it does not,
    which engraves it here; *Exclude* for a rune it does not carry and *Remove and
    exclude* for one it does, which takes it off to the inventory. *Engrave on monster* engraves the six runes on the selected monster **in the
-   chosen preset and nowhere else**. In Default it moves the physical runes in the
+   chosen preset and nowhere else**. In Scenario it moves the physical runes in the
    saved import, its former runes returning to inventory; in a game preset it
    rewrites that deck's saved gear, a preset that saved only its monsters first
-   taking every member's Default gear; in a preset built in JASWA it writes the
+   taking every member's Scenario gear; in a preset built in JASWA it writes the
    preference. A rune taken from another monster of the same preset leaves that
    monster; no other preset changes. There is no separate plan or undo state.
    Gems, Grindstones and future power-ups remain modifications to perform in the
-   game. Engraving in Default or a game preset is unavailable under *Always
+   game. Engraving in Scenario or a game preset is unavailable under *Always
    synchronized*, where the next helper update would replace the local placement;
    a preset built in JASWA may always be engraved.
 6. **Following the table** — a change to the runes does not throw the table away.

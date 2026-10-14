@@ -22,7 +22,7 @@ export type ArtifactRow = {
   artifact: Artifact;
   index: number;
   /**
-   * Every place the artifact is engraved — a monster in Default or in a preset
+   * Every place the artifact is engraved — a monster in Scenario or in a preset
    * (`DECK-PRESETS.md` §1) — in words, "monster — preset", or `Inventory` where
    * it is on none. What a sort and a search read; the cell shows the places.
    */

@@ -15,7 +15,7 @@ import {
   initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
-import { runeDefaultGradeOrder, runeDefaultGrades, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { runeRarityOrder, runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { craftRollValue, craftValueRange } from '../app/lib/rune-craft-items.ts';
 import { chanceRuns, judgeAgainstBuild, prepareRuneCandidate, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
 
@@ -94,7 +94,7 @@ function freshRune(random, id, stars = 6, ancient = false) {
   const prefix = prefixStatId === null ? null : initialSubPropertyRange(stars, prefixStatId, ancient);
   return {
     id: String(id), setId: 1, setName: choose(random, setNames), slot, stars, ancient,
-    defaultGrade: runeDefaultGrades[rank - 1],
+    rarity: runeRarities[rank - 1],
     level: 0, mainStatId, mainValue: 0, prefixStatId,
     prefixValue: prefix ? draw(random, prefix.minimum, prefix.maximum) : 0,
     subProperties, occupiedId: null, obtainedOrder: id,
@@ -108,7 +108,7 @@ function clone(rune) {
  * categories: HP% and HP+ may coexist, while a duplicate HP% may not.
  */
 function powerUp(random, rune, targetLevel) {
-  const bornLines = runeDefaultGradeOrder(rune.defaultGrade);
+  const bornLines = runeRarityOrder(rune.rarity);
   for (const [eventIndex, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
     if (eventIndex >= bornLines) {

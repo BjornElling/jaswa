@@ -132,10 +132,10 @@ function ResultCard({ title, description, children, empty }: {
   </section>;
 }
 
-export function BestMonsterForArtifact({ data, monsters, defaultProfiles, settings, general, hardwareAcceleration }: {
+export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
   data: GameRecord;
   monsters: readonly GameRecord[];
-  defaultProfiles: MonsterProfiles;
+  scenarioProfiles: MonsterProfiles;
   settings: ArtifactSettings;
   general: GeneralSettings;
   hardwareAcceleration: boolean;
@@ -156,8 +156,8 @@ export function BestMonsterForArtifact({ data, monsters, defaultProfiles, settin
       || monsterNameCollator.compare(String(left.id), String(right.id)));
   }, [artifacts]);
   const ownMonsters = useMemo(
-    () => ownMonsterOptions(artifactOptimizationMonsters(monsters, settings), monsterCopyNames(monsters, defaultProfiles)),
-    [monsters, defaultProfiles, settings],
+    () => ownMonsterOptions(artifactOptimizationMonsters(monsters, settings), monsterCopyNames(monsters, scenarioProfiles)),
+    [monsters, scenarioProfiles, settings],
   );
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId)
     ? filters.subPropertyId : '';
@@ -184,7 +184,7 @@ export function BestMonsterForArtifact({ data, monsters, defaultProfiles, settin
   }, [artifacts]);
   const artifactInput = artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
     ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]);
-  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), defaultProfiles, selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
+  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), scenarioProfiles, selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const owner = selectedArtifact?.occupiedId === null || selectedArtifact === undefined
     ? undefined : ownMonsters.find((monster) => monster.unitId === selectedArtifact.occupiedId);
@@ -262,9 +262,9 @@ export function BestMonsterForArtifact({ data, monsters, defaultProfiles, settin
   async function calculate() {
     if (!selectedArtifact) return;
     const selected = new Set([selectedArtifact.id]);
-    const scopeRequests = buildArtifactScoreRequests(data, monsters, settings, selected, defaultProfiles)
+    const scopeRequests = buildArtifactScoreRequests(data, monsters, settings, selected, scenarioProfiles)
       .map((request) => ({ ...request, includeAllScores: true }));
-    const ownedRequests = buildArtifactScoreRequestsForMonsterIds(data, ownMonsters.map((monster) => monster.speciesId), settings, selected, defaultProfiles)
+    const ownedRequests = buildArtifactScoreRequestsForMonsterIds(data, ownMonsters.map((monster) => monster.speciesId), settings, selected, scenarioProfiles)
       .map((request) => ({ ...request, includeAllScores: true }));
     if (!scopeRequests.length) {
       setCalculation(undefined);

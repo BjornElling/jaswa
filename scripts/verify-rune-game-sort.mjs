@@ -11,7 +11,7 @@
  *   Obtained      acquisition sequence, newest first
  *
  * "Grade" in the panel names the rarity, not the star class: `RUNE-CANONICAL.md`
- * §1 calls the star class the *grade* and the rarity the *default grade*, so the
+ * §1 calls the star class the *grade* and the rarity the *rarity*, so the
  * heading reads like the star class and is not. Reading a tile misleads for the
  * same kind of reason — its stars are the star class, but the *colour* of those
  * stars marks `+15` and nothing else, and Ancient is a white ring around the
@@ -28,13 +28,13 @@ import { readRune } from '../app/lib/runes.ts';
 
 /** A row as the table builds one, with only the facts the orderings read. */
 function row(index, {
-  slot = 1, stars = 6, ancient = false, level = 0, defaultGrade = 'Legend',
+  slot = 1, stars = 6, ancient = false, level = 0, rarity = 'Legend',
   setId = 1, setName = 'Energy', obtainedOrder = index + 1,
 } = {}) {
   return {
     rune: {
       id: String(index + 1), setId, setName, slot, stars, ancient,
-      defaultGrade, level, mainStatId: 3, mainValue: 0,
+      rarity, level, mainStatId: 3, mainValue: 0,
       prefixStatId: null, prefixValue: 0, subProperties: [], occupiedId: null,
       obtainedOrder,
     },
@@ -62,20 +62,20 @@ const ancientRare = readRune({
 assert.ok(ancientRare, 'the Ancient Rage rune is readable');
 assert.equal(ancientRare?.ancient, true, 'class 16 is the Ancient marker');
 assert.equal(ancientRare?.stars, 6, 'Ancient runes use the six-star calculation');
-assert.equal(ancientRare?.defaultGrade, 'Rare', 'extra 3 is Rare even when rank is 5');
+assert.equal(ancientRare?.rarity, 'Rare', 'extra 3 is Rare even when rank is 5');
 
 const ancientLegend = readRune({
   rune_id: 9002, set_id: 5, slot_no: 1, class: 16, rank: 5, extra: 5, upgrade_curr: 15,
   occupied_type: 2, occupied_id: 0, pri_eff: [3, 160], prefix_eff: [0, 0], sec_eff: [],
 });
-assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
+assert.equal(ancientLegend?.rarity, 'Legend', 'extra 5 is Legend');
 
 /* Key 1: slot leads the whole Grade ordering. */
 {
   const rows = [
-    row(0, { slot: 6, defaultGrade: 'Legend', stars: 6 }),
-    row(1, { slot: 1, defaultGrade: 'Normal', stars: 5 }),
-    row(2, { slot: 3, defaultGrade: 'Hero', stars: 6 }),
+    row(0, { slot: 6, rarity: 'Legend', stars: 6 }),
+    row(1, { slot: 1, rarity: 'Normal', stars: 5 }),
+    row(2, { slot: 3, rarity: 'Hero', stars: 6 }),
   ];
   assert.deepEqual(order(rows, 'gameGrade', (rune) => rune.slot), [1, 3, 6],
     'the slot orders first, ahead of every other Grade key');
@@ -84,11 +84,11 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
 /* Key 2: the star class leads within one slot. */
 {
   const rows = [
-    row(0, { defaultGrade: 'Legend', stars: 5 }),
-    row(1, { defaultGrade: 'Hero', stars: 6 }),
-    row(2, { defaultGrade: 'Rare', stars: 6 }),
+    row(0, { rarity: 'Legend', stars: 5 }),
+    row(1, { rarity: 'Hero', stars: 6 }),
+    row(2, { rarity: 'Rare', stars: 6 }),
   ];
-  assert.deepEqual(order(rows, 'gameGrade', (rune) => `${rune.stars}★ ${rune.defaultGrade}`),
+  assert.deepEqual(order(rows, 'gameGrade', (rune) => `${rune.stars}★ ${rune.rarity}`),
     ['6★ Hero', '6★ Rare', '5★ Legend'],
     'six-star runes lead five-star runes, even when the five-star rarity is higher');
 }
@@ -97,13 +97,13 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
    cannot produce the expected answer by leaving the rows alone. */
 {
   const rows = [
-    row(0, { defaultGrade: 'Normal' }),
-    row(1, { defaultGrade: 'Magic' }),
-    row(2, { defaultGrade: 'Rare' }),
-    row(3, { defaultGrade: 'Hero' }),
-    row(4, { defaultGrade: 'Legend' }),
+    row(0, { rarity: 'Normal' }),
+    row(1, { rarity: 'Magic' }),
+    row(2, { rarity: 'Rare' }),
+    row(3, { rarity: 'Hero' }),
+    row(4, { rarity: 'Legend' }),
   ];
-  assert.deepEqual(order(rows, 'gameGrade', (rune) => rune.defaultGrade),
+  assert.deepEqual(order(rows, 'gameGrade', (rune) => rune.rarity),
     ['Legend', 'Hero', 'Rare', 'Magic', 'Normal'],
     'the rarity orders Legend first, then Hero and so on');
 }
@@ -112,12 +112,12 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
    a higher-rarity ordinary rune merely because it carries the Ancient mark. */
 {
   const rows = [
-    row(0, { defaultGrade: 'Rare', ancient: true }),
-    row(1, { defaultGrade: 'Legend', ancient: false }),
-    row(2, { defaultGrade: 'Hero', ancient: false }),
+    row(0, { rarity: 'Rare', ancient: true }),
+    row(1, { rarity: 'Legend', ancient: false }),
+    row(2, { rarity: 'Hero', ancient: false }),
   ];
   assert.deepEqual(
-    order(rows, 'gameGrade', (rune) => `${rune.defaultGrade}${rune.ancient ? ' Ancient' : ''}`),
+    order(rows, 'gameGrade', (rune) => `${rune.rarity}${rune.ancient ? ' Ancient' : ''}`),
     ['Legend', 'Hero', 'Rare Ancient'],
     'rarity groups precede Ancient/ordinary within the Grade ordering');
 }
@@ -125,13 +125,13 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
 /* Key 4: Ancient before ordinary, below the rarity. */
 {
   const rows = [
-    row(0, { defaultGrade: 'Hero', ancient: false }),
-    row(1, { defaultGrade: 'Legend', ancient: false }),
-    row(2, { defaultGrade: 'Hero', ancient: true }),
-    row(3, { defaultGrade: 'Legend', ancient: true }),
+    row(0, { rarity: 'Hero', ancient: false }),
+    row(1, { rarity: 'Legend', ancient: false }),
+    row(2, { rarity: 'Hero', ancient: true }),
+    row(3, { rarity: 'Legend', ancient: true }),
   ];
   assert.deepEqual(
-    order(rows, 'gameGrade', (rune) => `${rune.defaultGrade}${rune.ancient ? ' Ancient' : ''}`),
+    order(rows, 'gameGrade', (rune) => `${rune.rarity}${rune.ancient ? ' Ancient' : ''}`),
     ['Legend Ancient', 'Legend', 'Hero Ancient', 'Hero'],
     'Ancient leads inside each rarity, and the rarity still leads');
 }
@@ -178,10 +178,10 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
 /* Power-up Lv.: level leads within one slot, ahead of quality. */
 {
   const rows = [
-    row(0, { level: 0, defaultGrade: 'Legend' }),
-    row(1, { level: 15, defaultGrade: 'Normal' }),
-    row(2, { level: 9, ancient: true, defaultGrade: 'Hero' }),
-    row(3, { level: 12, defaultGrade: 'Rare' }),
+    row(0, { level: 0, rarity: 'Legend' }),
+    row(1, { level: 15, rarity: 'Normal' }),
+    row(2, { level: 9, ancient: true, rarity: 'Hero' }),
+    row(3, { level: 12, rarity: 'Rare' }),
   ];
   assert.deepEqual(order(rows, 'gameLevel', (rune) => rune.level), [15, 12, 9, 0],
     'Power-up Lv. puts level before rarity, stars and Ancient within one slot');
@@ -192,23 +192,23 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
 {
   const comparisons = [
     ['slot before level',
-      { slot: 1, level: 0, defaultGrade: 'Rare', setId: 23 },
+      { slot: 1, level: 0, rarity: 'Rare', setId: 23 },
       { slot: 2, level: 15, ancient: true }],
     ['level before stars and Ancient',
-      { level: 15, stars: 5, defaultGrade: 'Hero' },
+      { level: 15, stars: 5, rarity: 'Hero' },
       { level: 12, stars: 6, ancient: true }],
     ['stars before rarity',
-      { level: 15, stars: 6, defaultGrade: 'Rare', setId: 23 },
-      { level: 15, stars: 5, defaultGrade: 'Legend', setId: 3 }],
+      { level: 15, stars: 6, rarity: 'Rare', setId: 23 },
+      { level: 15, stars: 5, rarity: 'Legend', setId: 3 }],
     ['Ancient before rarity',
-      { ancient: true, defaultGrade: 'Rare', setId: 5 },
-      { ancient: false, defaultGrade: 'Legend', setId: 1 }],
+      { ancient: true, rarity: 'Rare', setId: 5 },
+      { ancient: false, rarity: 'Legend', setId: 1 }],
     ['rarity before set within Ancient',
-      { ancient: true, defaultGrade: 'Legend', setId: 22 },
-      { ancient: true, defaultGrade: 'Hero', setId: 7 }],
+      { ancient: true, rarity: 'Legend', setId: 22 },
+      { ancient: true, rarity: 'Hero', setId: 7 }],
     ['rarity before set within ordinary',
-      { defaultGrade: 'Legend', setId: 23 },
-      { defaultGrade: 'Hero', setId: 1 }],
+      { rarity: 'Legend', setId: 23 },
+      { rarity: 'Hero', setId: 1 }],
     ['set before acquisition',
       { setId: 1, obtainedOrder: 100 },
       { setId: 2, obtainedOrder: 200 }],
@@ -228,7 +228,7 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
   const mainStats = [4, 8, 8, 8, 4];
   const rows = mainStats.map((mainStatId, index) => {
     const entry = row(index, {
-      slot: 2, level: 15, defaultGrade: 'Hero', setId: 5,
+      slot: 2, level: 15, rarity: 'Hero', setId: 5,
       obtainedOrder: 500 - index * 100,
     });
     entry.rune.mainStatId = mainStatId;
@@ -246,7 +246,7 @@ assert.equal(ancientLegend?.defaultGrade, 'Legend', 'extra 5 is Legend');
   const rows = [
     row(0, { obtainedOrder: 500, level: 9 }),
     row(1, { obtainedOrder: 1200, level: 15, ancient: true }),
-    row(2, { obtainedOrder: 900, stars: 4, defaultGrade: 'Normal' }),
+    row(2, { obtainedOrder: 900, stars: 4, rarity: 'Normal' }),
   ];
   assert.deepEqual(order(rows, 'gameObtained', (rune) => rune.obtainedOrder), [1200, 900, 500],
     'Obtained is the acquisition sequence, newest first, ignoring level and grade');

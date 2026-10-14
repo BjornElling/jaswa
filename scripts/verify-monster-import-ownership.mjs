@@ -12,7 +12,7 @@ try {
   const account = (unit_list) => ({
     wizard_id: 7,
     unit_list,
-    /* `extra` is the default grade, which the rune reader requires
+    /* `extra` is the rarity, which the rune reader requires
        (`AGENTS.md` §0.1): the account here has to be valid for the ownership
        assertions to mean anything. */
     runes: [{ rune_id: 20, set_id: 1, slot_no: 1, class: 6, rank: 5, extra: 5, upgrade_curr: 0, occupied_type: 2, occupied_id: 0, pri_eff: [3, 22], prefix_eff: [0, 0], sec_eff: [] }],

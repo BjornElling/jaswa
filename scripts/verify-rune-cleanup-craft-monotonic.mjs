@@ -30,7 +30,7 @@ import {
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import {
-  runeDefaultGrades, runeDefaultGradeOrder, runeStatIds, slotAllowsSubStat,
+  runeRarities, runeRarityOrder, runeStatIds, slotAllowsSubStat,
 } from '../app/lib/runes.ts';
 
 const baseByType = new Map([
@@ -77,7 +77,7 @@ function freshRune(random, id, { slot, stars, ancient, grade, level }) {
   const legal = runeStatIds.filter((statId) => statId !== mainStatId && slotAllowsSubStat(slot, statId));
   const prefixStatId = random() < runeInnateFrequency ? choose(random, legal) : null;
   const available = legal.filter((statId) => statId !== prefixStatId);
-  const count = Math.min(startingSubPropertyCount(runeDefaultGradeOrder(grade)), available.length);
+  const count = Math.min(startingSubPropertyCount(runeRarityOrder(grade)), available.length);
   const subProperties = [];
   for (let at = 0; at < count; at += 1) {
     const statId = choose(random, available.filter((candidate) =>
@@ -88,7 +88,7 @@ function freshRune(random, id, { slot, stars, ancient, grade, level }) {
   const prefixRange = prefixStatId === null ? null : initialSubPropertyRange(stars, prefixStatId, ancient);
   return {
     id: String(id), setId: 1, setName: 'Violent', slot, stars, ancient,
-    defaultGrade: grade, level, mainStatId, mainValue: 0, prefixStatId,
+    rarity: grade, level, mainStatId, mainValue: 0, prefixStatId,
     prefixValue: prefixRange ? draw(random, prefixRange.minimum, prefixRange.maximum) : 0,
     subProperties, occupiedId: null, obtainedOrder: id,
   };
@@ -97,7 +97,7 @@ function freshRune(random, id, { slot, stars, ancient, grade, level }) {
 function makeCraftedFixture() {
   return {
     id: 'already-crafted', setId: 1, setName: 'Violent', slot: 4, stars: 6, ancient: false,
-    defaultGrade: 'Legend', level: 12, mainStatId: 6, mainValue: 0, prefixStatId: null,
+    rarity: 'Legend', level: 12, mainStatId: 6, mainValue: 0, prefixStatId: null,
     prefixValue: 0,
     subProperties: [
       { statId: 8, value: 10, gemmed: true, grind: 0 },
@@ -115,7 +115,7 @@ function cloneRune(rune) {
   return { ...rune, subProperties: rune.subProperties.map((line) => ({ ...line })) };
 }
 function powerUp(random, rune, targetLevel) {
-  const bornLines = runeDefaultGradeOrder(rune.defaultGrade);
+  const bornLines = runeRarityOrder(rune.rarity);
   for (const [eventIndex, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
     if (eventIndex >= bornLines) {
@@ -195,7 +195,7 @@ for (const rune of runes) {
    invariant that protects future changes. */
 const tolerance = {
   id: 'tolerance-regression', setId: 21, setName: 'Tolerance', slot: 3, stars: 6,
-  ancient: false, defaultGrade: 'Hero', level: 0, mainStatId: 5, mainValue: 0,
+  ancient: false, rarity: 'Hero', level: 0, mainStatId: 5, mainValue: 0,
   prefixStatId: 12, prefixValue: 7,
   subProperties: [
     { statId: 6, value: 8, gemmed: false, grind: 0 },
@@ -295,7 +295,7 @@ const policySettings = {
 };
 const shield = {
   id: 'ground-shield', setId: 16, setName: 'Shield', slot: 3, stars: 6, ancient: false,
-  defaultGrade: 'Legend', level: 12, mainStatId: 5, mainValue: 0, prefixStatId: 9, prefixValue: 4,
+  rarity: 'Legend', level: 12, mainStatId: 5, mainValue: 0, prefixStatId: 9, prefixValue: 4,
   subProperties: [
     { statId: 6, value: 5, gemmed: false, grind: 0 },
     { statId: 8, value: 18, gemmed: false, grind: 0 },

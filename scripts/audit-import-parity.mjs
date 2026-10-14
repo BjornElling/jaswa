@@ -265,7 +265,7 @@ try {
       || [...deck.artifactOwnerById].some(([artifactId, unitId]) => preset.artifactOwner.get(artifactId) !== unitId);
   });
   report(misplaced.length === 0, `every saved placement is the preset's own (${misplaced.length} presets differ)`);
-  console.log(`  presets: ${presets.length} (Default and ${importedDecks.length} saved decks), ${presets.filter((preset) => preset.content === null && preset.kind === 'game').length} not yet named`);
+  console.log(`  presets: ${presets.length} (Scenario and ${importedDecks.length} saved decks), ${presets.filter((preset) => preset.content === null && preset.kind === 'game').length} not yet named`);
   console.log(`  saved decks with missing physical artifacts: ${importedDecks.filter((deck) => deck.missingArtifactIds.length).length}`);
 
   /* An engraved item lives below its owner in the export as well as in the

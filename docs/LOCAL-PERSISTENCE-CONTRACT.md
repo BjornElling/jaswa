@@ -30,14 +30,14 @@ The durable workspace contains:
   one main stat wanted on all its gear, the substats wanted in each artifact
   category and the relic uniques — each of those three gear answers as a
   preferred and an accepted band — and the stat ranges the copy is built toward,
-  keyed by context — Default or one preset — and then by the game's `unit_id`,
+  keyed by context — Scenario or one preset — and then by the game's `unit_id`,
   so two copies of one monster, and one copy in two presets, can be built for
   different jobs; `DECK-PRESETS.md` §4.1), Rune Clean-up settings, Rune Clean-up
   roles, and Artifact Optimization settings (whether to factor in only owned
   monsters or only Lv. 40 monsters, how conversion stones are sourced, the
   assumed stone value, and the acceptable-property factor), the presets built
   in JASWA (`DECK-PRESETS.md` §4: a name, a content, the monsters, the leader
-  and, once engraved, every member's runes and artifacts), Default's priority
+  and, once engraved, every member's runes and artifacts), Scenario's priority
   list and the order the user gave each game preset's monsters, Speed Tuning's
   word on each preset (the turn order wanted and any what-if display speed
   tried on a monster — keyed by `unit_id`; the what-if is read only by the
@@ -88,7 +88,7 @@ dropped alone, and the rest of the preset's tuning is read as it stands. A
 stored order names monsters by `unit_id`; one the preset no longer holds is
 left out and one it gained since is read last.
 
-The Presets page writes through `presetWrites` in `app/page.tsx` — Default's
+The Presets page writes through `presetWrites` in `app/page.tsx` — Scenario's
 list, a game preset's order and the presets built in JASWA — each a named
 wrapper over `changePreferences`. A preset built in JASWA is read back one
 preset at a time (`readOwnPresets`): one that fails its check is dropped and

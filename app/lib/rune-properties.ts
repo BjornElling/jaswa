@@ -130,7 +130,7 @@ export const prefixRanges = subPropertyRanges;
 
 /**
  * The canonical innate-generation rate used by every rune model. Rune type and
- * default grade do not create separate rates in JASWA's current game model.
+ * rarity do not create separate rates in JASWA's current game model.
  */
 export const runeInnateFrequency = 0.5;
 
@@ -245,7 +245,7 @@ export const subPropertyTargetStat: Readonly<Record<number, TargetStat>> = {
 export const scalesWithBase = (stat: TargetStat): boolean => stat === 'hp' || stat === 'atk' || stat === 'def';
 
 /**
- * How many sub properties a rune of each default grade starts with (§6), by the
+ * How many sub properties a rune of each rarity starts with (§6), by the
  * normalized grade value used by the export's `extra` field. Ancient values
  * (11–15) map to the same counts.
  */
@@ -265,7 +265,7 @@ export type SubPropertyEvent = 'add' | 'roll';
 /**
  * The sub-property events a rune has left, in the order the game applies them.
  *
- * A rune's default grade fixes the schedule at drop: its born lines are improved
+ * A rune's rarity fixes the schedule at drop: its born lines are improved
  * first, then the still-missing lines are added. A Magic rune therefore has one
  * upgrade followed by three additions, while a Legend rune has four upgrades.
  * Counting only the two totals loses the fact that a future line cannot receive an

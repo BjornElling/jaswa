@@ -18,10 +18,10 @@ const role = {
 };
 const build = roleBuilds(role)[0];
 
-function rune(ancient, firstValue, defaultGrade = 'Legend') {
+function rune(ancient, firstValue, rarity = 'Legend') {
   return {
     id: ancient ? 'ancient' : 'ordinary', setId: 13, setName: 'Violent', slot: 1, stars: 6,
-    ancient, defaultGrade, level: 0, mainStatId: 3, mainValue: 0,
+    ancient, rarity, level: 0, mainStatId: 3, mainValue: 0,
     prefixStatId: null, prefixValue: 0,
     subProperties: [
       { statId: 8, value: firstValue, gemmed: false, grind: 0 },

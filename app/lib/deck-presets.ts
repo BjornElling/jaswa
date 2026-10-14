@@ -24,7 +24,7 @@ export type DeckPreset = {
   leaderUnitId: string | null;
   /**
    * Whether the deck saved its monsters' runes and artifacts, or only the
-   * monsters. A deck that did not runs each monster on its Default gear.
+   * monsters. A deck that did not runs each monster on its Scenario gear.
    */
   savesGear: boolean;
   gear: ReadonlyMap<string, DeckGear>;

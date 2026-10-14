@@ -33,7 +33,7 @@ const line = (statId, value = 4) => ({ statId, value, gemmed: false, grind: 0 })
 function fixture(grade, level) {
   const count = level >= 12 || grade === 'Legend' ? 4 : grade === 'Hero' || level >= 9 ? 3 : 2;
   return { id: `${grade}:${level}`, setId: 13, setName: 'Violent', slot: 5, stars: 6,
-    ancient: false, defaultGrade: grade, level, mainStatId: 1, mainValue: 0,
+    ancient: false, rarity: grade, level, mainStatId: 1, mainValue: 0,
     prefixStatId: null, prefixValue: 0, subProperties: [9, 10, 11, 12].slice(0, count).map((id) => line(id)),
     occupiedId: null, obtainedOrder: 0 };
 }

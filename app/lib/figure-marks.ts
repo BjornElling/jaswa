@@ -153,7 +153,7 @@ export function sharedInPoolMarks(shared: number, what: 'runes' | 'artifacts'): 
 
 /**
  * A sell verdict on a rune that is engraved somewhere. Selling it empties its
- * slot in every place it is engraved — Default and each preset that saves it
+ * slot in every place it is engraved — Scenario and each preset that saves it
  * (`DECK-PRESETS.md` §1, rule 9) — which the verdict alone does not say.
  */
 export function engravedSaleMarks(verdict: string, places: number): FigureMark[] {

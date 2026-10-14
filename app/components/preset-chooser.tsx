@@ -15,7 +15,7 @@ import type { PresetMenuTab } from '../lib/presets';
 /**
  * **Content, Area, Preset** — the one way a preset is chosen in JASWA. The
  * game's tab, then the content of its menu, then which of its presets: twenty
- * Arena Attack decks in one flat menu buried the one being looked for. Default
+ * Arena Attack decks in one flat menu buried the one being looked for. Scenario
  * is a content of one and is chosen from Content outright.
  *
  * The three fields are drawn as a fragment, each with its own grid area
@@ -35,10 +35,10 @@ export function PresetChooser({ idPrefix, menu, choice, monsters, monsterPrefere
   onChoose: (next: PresetChoice) => void;
 }) {
   const { tab, area, preset } = choice;
-  const onDefault = tab === menu[0];
+  const onScenario = tab === menu[0];
   /* Team faces share the nickname stated for their area. */
   const teams = useMemo<TeamChoice[]>(() => {
-    if (onDefault) return [];
+    if (onScenario) return [];
     const byUnit = new Map(monsters.map((monster) => [String(monster.unit_id), monster]));
     return area.presets.map((entry) => {
       const names = monsterCopyNames(monsters, profilesIn(monsterPreferences, entry.profileScope));
@@ -49,7 +49,7 @@ export function PresetChooser({ idPrefix, menu, choice, monsters, monsterPrefere
           imageFilename: display?.imageFilename, initial: display?.shortName ?? '?' };
       }) };
     });
-  }, [onDefault, area, monsters, monsterPreferences]);
+  }, [onScenario, area, monsters, monsterPreferences]);
 
   function chooseTab(label: string) {
     const next = menu.find((entry) => entry.label === label);
@@ -82,7 +82,7 @@ export function PresetChooser({ idPrefix, menu, choice, monsters, monsterPrefere
     </div>
     <div className="filter-group preset-choice-field preset-choice-preset">
       <label className="filter-label" htmlFor={`${idPrefix}-preset`}>Preset</label>
-      <PresetTeamPicker id={`${idPrefix}-preset`} teams={teams} value={preset && preset.kind !== 'default' ? preset.id : ''}
+      <PresetTeamPicker id={`${idPrefix}-preset`} teams={teams} value={preset && preset.kind !== 'scenario' ? preset.id : ''}
         placeholder="Choose preset" disabled={teams.length === 0} onOpen={warmTeams}
         onChange={(presetId) => onChoose({ tab: tab.label, area: area.label, presetId })} />
     </div>

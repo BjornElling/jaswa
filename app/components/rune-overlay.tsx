@@ -254,7 +254,7 @@ function Evaluation({ rune, roles, explained, quality }: {
  * and files under Keep. Stored by `rune_id`, so no import and no live sync resets it.
  *
  * The lock is the one every Lock control sets (`rune-locks.ts`), here for the
- * rune's monster in Default, so a rune on no monster there cannot take one. Like
+ * rune's monster in Scenario, so a rune on no monster there cannot take one. Like
  * every lock it lasts until the next import and is off while synchronized.
  */
 function Instructions({ rune, hold, onHold, locked, canLock, onLock }: {
@@ -290,7 +290,7 @@ function Instructions({ rune, hold, onHold, locked, canLock, onLock }: {
       </label>
       <label className="checkbox-row" data-disabled={!lockable || undefined}
         title={!canLock ? 'Locks are off while JASWA is synchronized with the game'
-          : lockable ? 'Keeps it on its monster in Default until the next import' : 'Only a rune on a monster in Default can be locked to it'}>
+          : lockable ? 'Keeps it on its monster in Scenario until the next import' : 'Only a rune on a monster in Scenario can be locked to it'}>
         <input type="checkbox" checked={saving ?? locked} disabled={!lockable} aria-busy={saving !== null || undefined} onChange={(event) => lock(event.target.checked)} />
         {/* It locks a rune to the monster it is on, which moves nothing. */}
         <span>{runeLockLabels.locked.onMonster}</span>
@@ -333,7 +333,7 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
   hold: RuneHold | undefined;
   /** Absent for a rune the account does not own — a simulated one has nothing to hold. */
   onHold?: (runeId: string, next: RuneHold) => void;
-  /** Whether the rune is locked to its monster in Default (`rune-locks.ts`). */
+  /** Whether the rune is locked to its monster in Scenario (`rune-locks.ts`). */
   locked: boolean;
   /** Whether locks may change: not while JASWA is synchronized with the game. */
   canLock: boolean;
@@ -358,7 +358,7 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
   const facts = [
     { label: 'Slot', value: String(rune.slot) },
     { label: 'Grade', value: `${rune.stars}★` },
-    { label: 'Quality', value: rune.defaultGrade },
+    { label: 'Quality', value: rune.rarity },
     { label: 'Level', value: `+${rune.level}` },
   ];
 

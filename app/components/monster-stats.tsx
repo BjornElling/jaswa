@@ -171,7 +171,7 @@ function isMonsterFilterState(value: unknown): value is MonsterFilterState {
 export function MonsterStats({ monsters, gameData, presets, preferences, onOpenMonster }: {
   monsters: GameRecord[];
   gameData: GameRecord;
-  /** Default first, then every preset (`readPresets`). */
+  /** Scenario first, then every preset (`readPresets`). */
   presets: readonly Preset[];
   preferences: Preferences;
   onOpenMonster: OpenMonsterOverlay;
@@ -194,14 +194,14 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
   const items = useMemo(() => accountItems(gameData), [gameData]);
 
   /* The preset's own team, each copy with the runes and artifacts it carries
-     there and Default's relic, as the game reads it (`DECK-PRESETS.md` §1).
-     Default holds the whole roster in the import's order; a preset its members
+     there and Scenario's relic, as the game reads it (`DECK-PRESETS.md` §1).
+     Scenario holds the whole roster in the import's order; a preset its members
      in the order the preset keeps them, which is what the row number counts. */
   const rows = useMemo<MonsterRow[]>(() => {
     if (!preset) return [];
     const byUnit = new Map(monsters.map((monster) => [String(monster.unit_id), monster]));
     const members = preset.members.map((unitId) => byUnit.get(unitId)).filter((monster): monster is GameRecord => monster !== undefined);
-    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, preset?.profileScope ?? 'default'));
+    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, preset?.profileScope ?? 'scenario'));
     return members.map((member, index) => {
       const monster = monsterInPreset(member, preset, items);
       const unitId = String(monster.unit_id ?? `unknown-${index}`);

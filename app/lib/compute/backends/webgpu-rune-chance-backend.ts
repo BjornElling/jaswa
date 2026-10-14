@@ -230,14 +230,14 @@ const agreementValuation: Valuation = {
 };
 
 function agreementRune(
-  index: number, grade: Rune['defaultGrade'], level: number, lines: number, gemmed: boolean,
+  index: number, grade: Rune['rarity'], level: number, lines: number, gemmed: boolean,
 ): Rune {
   const subProperties: RuneSubProperty[] = [2, 4, 9, 10].slice(0, lines).map((statId, line) => ({
     statId, value: 5 + line * 2, gemmed: gemmed && line === 0, grind: line === 1 ? 3 : 0,
   }));
   return {
     id: `agreement-${index}`, setId: 1, setName: 'Violent', slot: 2, stars: 6,
-    ancient: index === 2, defaultGrade: grade, level, mainStatId: 8, mainValue: 0,
+    ancient: index === 2, rarity: grade, level, mainStatId: 8, mainValue: 0,
     prefixStatId: index % 2 === 0 ? 11 : null, prefixValue: 6,
     subProperties, occupiedId: null, obtainedOrder: index + 1,
   };
@@ -248,7 +248,7 @@ function agreementJobs(): CountingJob[] {
     gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
   });
   /* Improvements only, additions only, both, and a rune already carrying a Gem. */
-  const shapes: Array<[Rune['defaultGrade'], number, number, boolean]> = [
+  const shapes: Array<[Rune['rarity'], number, number, boolean]> = [
     ['Legend', 0, 4, false], ['Normal', 0, 0, false], ['Hero', 3, 3, false], ['Rare', 6, 2, true],
   ];
   const jobs: CountingJob[] = [];

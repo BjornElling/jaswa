@@ -9,13 +9,13 @@
 import {
   allStatIds, runeInnateFrequency, slotMainProperties, subPropertyRange,
 } from './rune-properties';
-import type { RuneDefaultGrade } from './runes';
+import type { RuneRarity } from './runes';
 import { slotAllowsSubStat } from './runes';
 
 export type RandomSource = () => number;
 
 /** The drop mix used by Rune Simulator and the slot-balance population. */
-export function generatedRuneGrade(slot: number, random: RandomSource): RuneDefaultGrade {
+export function generatedRuneGrade(slot: number, random: RandomSource): RuneRarity {
   const roll = Math.min(0.9999999999999999, Math.max(0, random()));
   if (slot % 2 === 1) return roll < 0.75 ? 'Hero' : 'Legend';
   if (roll < 0.25) return 'Rare';
@@ -34,7 +34,7 @@ export type GeneratedRuneBody = {
   setName: string | null;
   slot: number;
   stars: number;
-  defaultGrade: RuneDefaultGrade;
+  rarity: RuneRarity;
   level: number;
   mainStatId: number;
   prefixStatId: number | null;
@@ -42,7 +42,7 @@ export type GeneratedRuneBody = {
   subProperties: GeneratedRuneLine[];
 };
 
-const gradeSubPropertyCount: Readonly<Record<RuneDefaultGrade, number>> = {
+const gradeSubPropertyCount: Readonly<Record<RuneRarity, number>> = {
   Normal: 0, Magic: 1, Rare: 2, Hero: 3, Legend: 4,
 };
 
@@ -92,19 +92,19 @@ function newSubProperty(rune: GeneratedRuneBody, random: RandomSource): Generate
 }
 
 export function generateRuneBody({
-  setName, slot, stars, defaultGrade, mainStatId: requestedMainStatId, random,
+  setName, slot, stars, rarity, mainStatId: requestedMainStatId, random,
 }: {
   setName: string | null;
   slot: number;
   stars: number;
-  defaultGrade: RuneDefaultGrade;
+  rarity: RuneRarity;
   /** A deterministic caller may cycle the legal mains instead of sampling them. */
   mainStatId?: number;
   random: RandomSource;
 }): GeneratedRuneBody {
   const mainStatId = requestedMainStatId ?? chooseRandom(slotMainProperties[slot] ?? [], random);
   const rune: GeneratedRuneBody = {
-    setName, slot, stars, defaultGrade, level: 0, mainStatId,
+    setName, slot, stars, rarity, level: 0, mainStatId,
     prefixStatId: null, prefixValue: 0, subProperties: [],
   };
   if (random() < runeInnateFrequency) {
@@ -112,7 +112,7 @@ export function generateRuneBody({
     rune.prefixStatId = prefixStatId;
     rune.prefixValue = rollValue(stars, prefixStatId, 'initial', random);
   }
-  for (let at = 0; at < gradeSubPropertyCount[defaultGrade]; at += 1) {
+  for (let at = 0; at < gradeSubPropertyCount[rarity]; at += 1) {
     rune.subProperties.push(newSubProperty(rune, random));
   }
   return rune;
@@ -128,7 +128,7 @@ export function upgradeRuneBody(
 ): GeneratedRuneBody {
   if (targetLevel < rune.level) return cloneRuneBody(rune);
   const next = cloneRuneBody(rune);
-  const bornLines = gradeSubPropertyCount[next.defaultGrade];
+  const bornLines = gradeSubPropertyCount[next.rarity];
   for (const [eventIndex, level] of upgradeLevels.entries()) {
     if (level <= next.level || level > drawThroughLevel) continue;
     if (eventIndex >= bornLines) {

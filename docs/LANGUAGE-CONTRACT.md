@@ -28,7 +28,10 @@ informal alternatives when explicitly requested by the user.
 A rune, artifact or relic on a monster is **engraved**, never equipped or
 worn; one on no monster is **in inventory**. A **preset** is the game's saved
 deck and nothing else; a monster's own arrangement outside presets is
-**Default**. `DECK-PRESETS.md` §2 holds the full table.
+**Scenario**. Reserve “default” for a standard setting or starting value,
+never for this placement context. A rune’s drop rarity is **rarity**. Language
+keywords and external API spellings retain their required form.
+`DECK-PRESETS.md` §2 holds the full table.
 
 ## Exceptions
 

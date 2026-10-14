@@ -66,20 +66,20 @@ export const runeMaximumLevel = 15;
 export const runeProjectionLevel = runeMaximumLevel;
 
 /**
- * Default grade — the game's own word for a rune's rarity, which fixes how many
+ * Rarity — how rare a rune was when it dropped, which fixes how many
  * Sub Properties it dropped with and never changes afterwards
  * (`RUNE-CANONICAL.md` §6).
  *
  * It is a separate fact from the star class, and §1 keeps the two apart in its
- * vocabulary: *grade* is the star class (`class`), *default grade* is this
+ * vocabulary: *grade* is the star class (`class`), *rarity* is this
  * (`extra`). The names here follow the document.
  *
  * This is what the game's own "Grade" sort orders by, despite the vocabulary —
  * the panel's heading names the rarity, not the star class (§11.1).
  */
-export const runeDefaultGrades = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'] as const;
+export const runeRarities = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'] as const;
 
-export type RuneDefaultGrade = typeof runeDefaultGrades[number];
+export type RuneRarity = typeof runeRarities[number];
 
 /**
  * `extra` as the export writes it, for an ordinary rune and for an Ancient one
@@ -88,7 +88,7 @@ export type RuneDefaultGrade = typeof runeDefaultGrades[number];
  * by ten, so both encodings are accepted here. `rank` is deliberately absent:
  * it is commonly `5` on every six-star rune and is not the rune's rarity.
  */
-const defaultGradeByExportValue: Readonly<Record<number, RuneDefaultGrade>> = {
+const rarityByExportValue: Readonly<Record<number, RuneRarity>> = {
   0: 'Normal', 1: 'Normal', 2: 'Magic', 3: 'Rare', 4: 'Hero', 5: 'Legend',
   11: 'Normal', 12: 'Magic', 13: 'Rare', 14: 'Hero', 15: 'Legend',
 };
@@ -101,11 +101,11 @@ const defaultGradeByExportValue: Readonly<Record<number, RuneDefaultGrade>> = {
  * **It is also the number of sub properties a rune of that grade is born with**, and
  * several callers read it that way — `remainingEvents` most of all, which turns it
  * into the whole schedule of what a rune may still gain. That is not a coincidence
- * the game guarantees, it is a property of the order `runeDefaultGrades` is written
+ * the game guarantees, it is a property of the order `runeRarities` is written
  * in. Reordering that list therefore changes the event schedule, not just a sort.
  */
-export const runeDefaultGradeOrder = (grade: RuneDefaultGrade): number =>
-  runeDefaultGrades.indexOf(grade);
+export const runeRarityOrder = (grade: RuneRarity): number =>
+  runeRarities.indexOf(grade);
 
 /**
  * Sub-property types that can never appear in a slot, over and above the ban on
@@ -167,11 +167,11 @@ export type Rune = {
   /** From Dimension Hole; takes Ancient craft items and no others (§7). */
   ancient: boolean;
   /**
-   * Default grade — the rarity it dropped at, which fixed its starting Sub
+   * Rarity — how rare it was when it dropped, which fixed its starting Sub
    * Property count and never changes (§6). A separate fact from `stars`: a 6★
    * rune can be any of the five.
    */
-  defaultGrade: RuneDefaultGrade;
+  rarity: RuneRarity;
   /** Power-up level, `0`–`15`. */
   level: number;
   mainStatId: number;
@@ -263,8 +263,8 @@ export function readRune(record: unknown): Rune | null {
      invented grade would sort into a position the game never puts it in, and
      nothing on screen would say so. */
   const exportGrade = numberOrNull(source.extra);
-  const defaultGrade = exportGrade === null ? undefined : defaultGradeByExportValue[exportGrade];
-  if (!defaultGrade) return null;
+  const rarity = exportGrade === null ? undefined : rarityByExportValue[exportGrade];
+  if (!rarity) return null;
 
   const main = readProperty(source.pri_eff);
   if (!main) return null;
@@ -307,7 +307,7 @@ export function readRune(record: unknown): Rune | null {
     slot,
     stars: starClass === 16 ? 6 : starClass,
     ancient: starClass === 16,
-    defaultGrade,
+    rarity,
     level,
     mainStatId: main.statId,
     mainValue: main.value,

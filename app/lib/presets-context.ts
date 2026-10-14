@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import type { Engraving, Preset } from './presets';
 
 /**
- * Default and every preset, and where each rune and artifact is engraved in
+ * Scenario and every preset, and where each rune and artifact is engraved in
  * them, resolved once by the page (`DECK-PRESETS.md` §4) for every list and
  * overlay that says where an item is. A context rather than a prop through
  * every workspace, because a location is shown in a dozen places and each

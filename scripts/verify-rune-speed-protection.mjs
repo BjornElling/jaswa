@@ -91,7 +91,7 @@ console.log('PASS: potential protection boundaries, both conditions, independent
 
 const engravingSettings = { ...defaultRunePotentialSettings, neverSellPreGrindSpeed: false, neverSellPotentialValue: false };
 const places = [
-  { presetId: 'default', unitId: '1' },
+  { presetId: 'scenario', unitId: '1' },
   { presetId: 'arena-1', unitId: '1' },
   { presetId: 'arena-2', unitId: '1' },
 ];

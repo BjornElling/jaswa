@@ -382,15 +382,15 @@ parts an agent must not quietly break:
   any disagreement, including a disagreement about which pairs are judged at
   all. It runs inside `npm run test:domain` against the repository fixture, and
   takes a real export as an argument for a wider sweep.
-- **One placement model: Default and presets.** `docs/DECK-PRESETS.md` is
-  binding. A rune or artifact is engraved at most once per context — Default
+- **One placement model: Scenario and presets.** `docs/DECK-PRESETS.md` is
+  binding. A rune or artifact is engraved at most once per context — Scenario
   or one preset — and may be engraved in many contexts at once; the decks the
   game fights with in one battle share one pool — the Siege and World Guild
   Battle defenses, and the teams of Temple of Chaos (monsters included),
   Dimension Raid (all three phases), Rift Raid and World Guild Battle — while
   Siege Battle attacks do not; a pool limits what JASWA does, never what it reads,
   so an overlap the game allowed is shown as it stands and flagged, and nothing
-  here forms a new one; a relic belongs to Default and is read
+  here forms a new one; a relic belongs to Scenario and is read
   into every preset. Placement is resolved once at import, no item carries an
   owner field, and every reading of a monster's slots, stats or speed takes its
   context as an argument. Gear on a monster is **engraved**, never equipped or

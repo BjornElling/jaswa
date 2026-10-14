@@ -38,7 +38,7 @@ import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
 import { monsterTargetFigures } from '../lib/monster-stats';
-import { accountItems, defaultPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
+import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
 import type { Preset } from '../lib/presets';
 import { runeLockOf, runeLockScope, runeLocksInPreset } from '../lib/rune-locks';
 import type { RuneLock, RuneLocks } from '../lib/rune-locks';
@@ -144,11 +144,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   monsters: readonly GameRecord[];
   preferences: Preferences;
   presets: readonly Preset[];
-  /** The preset every build on the page is for; `''` reads as Default. */
+  /** The preset every build on the page is for; `''` reads as Scenario. */
   presetId: string;
   onSelectPreset: (presetId: string) => void;
   onUpdate: (update: Partial<RuneOptimizationSettings>) => void;
-  /** Whether builds may be engraved in the game's presets and Default; a preset built in JASWA always may. */
+  /** Whether builds may be engraved in the game's presets and Scenario; a preset built in JASWA always may. */
   canEngrave: boolean;
   onEngrave: (presetId: string, unitId: string, runeIds: readonly string[]) => Promise<void>;
   /** Every lock that holds, empty while synchronized (`rune-locks.ts`). */
@@ -183,12 +183,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      preset leaves free are free whatever other presets hold (`DECK-PRESETS.md` §4). */
   /* Choose the context before the copy: every preset is reachable, and only
      its members can become the question this page answers. */
-  const preset = presets.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === defaultPresetId);
-  const activePresetId = preset?.id ?? defaultPresetId;
+  const preset = presets.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === scenarioPresetId);
+  const activePresetId = preset?.id ?? scenarioPresetId;
   const tunable = preset !== undefined && isSpeedTeam(preset);
   const items = useMemo(() => accountItems(game?.data), [game]);
   /* Requirements and names follow the shared area profile; gear follows the team. */
-  const profileScope = useMemo(() => presets.find((entry) => entry.id === activePresetId)?.profileScope ?? defaultPresetId,
+  const profileScope = useMemo(() => presets.find((entry) => entry.id === activePresetId)?.profileScope ?? scenarioPresetId,
     [presets, activePresetId]);
   const profiles = useMemo(() => profilesIn(preferences.monsterPreferences, profileScope), [preferences.monsterPreferences, profileScope]);
   const names = useMemo(() => monsterCopyNames(monsters, profiles), [monsters, profiles]);
@@ -208,7 +208,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     const display = monsterPresentation(selected.masterId);
     return { unitId: selected.unitId, masterId: selected.masterId, name: selected.name, imageFilename: display.imageFilename, initial: display.shortName };
   }, [selected, unitId]);
-  /* A rune's Default location may name a copy outside the chosen preset. */
+  /* A rune's Scenario location may name a copy outside the chosen preset. */
   const monstersByUnitId = useMemo(() => new Map(monsters
     .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null)
     .map((monster) => {
@@ -232,7 +232,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   const accountRunes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
   const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
-  const defaultPlaces = useMemo(() => (preset && preset.kind !== 'default'
+  const scenarioPlaces = useMemo(() => (preset && preset.kind !== 'scenario'
     ? new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId])) : undefined), [accountRunes, preset]);
   /* The preset's locks as this monster reads them: its own locks and exclusions, the
      runes locked to the rest of the team, and the runes another team of its pool
@@ -444,7 +444,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to profile</Button>
             {/* The preset's team, not the monster's profile, so it stands apart at
                 the far edge, in the quiet box rows elsewhere use for the same way out.
-                Default is no team, and Speed Tuning has nothing of it to open. */}
+                Scenario is no team, and Speed Tuning has nothing of it to open. */}
             <InlineButton className="rune-optimization-speed" disabled={!tunable} aria-haspopup="dialog"
               aria-label={preset ? `Speed tuning for ${preset.name}` : 'Speed tuning'}
               title={tunable ? undefined : 'Only a preset with monsters has a team to tune.'}
@@ -693,7 +693,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
-      runesById={runesById} presetId={activePresetId} loadedPlacements={game?.loadedPlacements?.[activePresetId]} defaultPlaces={defaultPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
+      runesById={runesById} presetId={activePresetId} loadedPlacements={game?.loadedPlacements?.[activePresetId]} scenarioPlaces={scenarioPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
       canLock={canEngrave}
       lockOf={(runeId) => (preset ? runeLockOf(runeLocks, runeLockScope(preset), buildMonster.unitId, runeId) : undefined)}

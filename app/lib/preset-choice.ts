@@ -5,7 +5,7 @@
  * reads the choice through here and draws it with `PresetChooser`, so the
  * choice falls back, opens and narrows the same way wherever it is made.
  */
-import { defaultPresetId } from './presets';
+import { scenarioPresetId } from './presets';
 import type { Preset, PresetMenuArea, PresetMenuTab } from './presets';
 
 /** What a page stores: labels for the tab and the content, `''` for no preset. */
@@ -14,7 +14,7 @@ export type PresetChoice = { tab: string; area: string; presetId: string };
 /** A choice read against the menu it is made in. `preset` is `null` only in a content holding none. */
 export type ResolvedPresetChoice = { tab: PresetMenuTab; area: PresetMenuArea; preset: Preset | null };
 
-export const defaultPresetChoice: PresetChoice = { tab: 'Default', area: 'Default', presetId: defaultPresetId };
+export const defaultPresetChoice: PresetChoice = { tab: 'Scenario', area: 'Scenario', presetId: scenarioPresetId };
 
 export function isPresetChoice(value: unknown): value is PresetChoice {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -24,7 +24,7 @@ export function isPresetChoice(value: unknown): value is PresetChoice {
 
 /**
  * The menu narrowed to the contents that hold a preset, for a page that reads
- * presets and cannot make one. Default always stays: it is the account's own
+ * presets and cannot make one. Scenario always stays: it is the account's own
  * placement and never empty while there is an import.
  */
 export function heldPresetMenu(menu: readonly PresetMenuTab[]): PresetMenuTab[] {

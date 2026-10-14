@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const account = JSON.parse(readFileSync(new URL('./fixtures/craft-account.json', import.meta.url), 'utf8'));
 
-test('Location names the Default monster and counts each other preset without changing filter membership', async ({ page }, testInfo) => {
+test('Location names the Scenario monster and counts each other preset without changing filter membership', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -36,7 +36,7 @@ test('Location names the Default monster and counts each other preset without ch
   expect(await cells.filter({ hasText: 'Inventory' }).locator('.engraved-place').evaluate((element) => getComputedStyle(element).color))
     .toEqual(await cells.filter({ hasText: '(+ 2)' }).locator('.engraved-place-count').evaluate((element) => getComputedStyle(element).color));
   const shared = cells.filter({ hasText: '(+ 2)' }).locator('[title]');
-  await expect(shared).toHaveAttribute('title', /Default/);
+  await expect(shared).toHaveAttribute('title', /Scenario/);
   await expect(shared).toHaveAttribute('title', /Arena Attack 1/);
   await expect(shared).toHaveAttribute('title', /Arena Attack 2/);
 

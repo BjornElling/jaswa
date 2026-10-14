@@ -7,7 +7,7 @@
  * higher-priority monsters* is off: a monster may then take a rune from a monster
  * of the same preset below it on the list, or from one not on it at all, but
  * never from one above it. A monster not on the list ranks below every monster
- * that is. `MonsterPriority` is Default's list.
+ * that is. `MonsterPriority` is Scenario's list.
  *
  * The list holds copies by unit id, so a copy that leaves the account stays in it
  * until removed: it costs the search nothing, since no rune is engraved on it, and a
@@ -56,16 +56,16 @@ export function readPresetPriority(value: unknown): Record<string, string[]> {
 }
 
 /**
- * A preset's priority list. Default ranks the copies the user placed on its
+ * A preset's priority list. Scenario ranks the copies the user placed on its
  * list and no others; a preset built in JASWA is ranked in the order of its
  * members; a game preset in the order the user gave it, with a monster the
  * game added since placed last and one it removed left out.
  */
 export function presetPriorityOf(
-  preset: { id: string; kind: 'default' | 'game' | 'own'; members: readonly string[] },
+  preset: { id: string; kind: 'scenario' | 'game' | 'own'; members: readonly string[] },
   monsterPriority: MonsterPriority, presetPriority: PresetPriority,
 ): string[] {
-  if (preset.kind === 'default') return [...monsterPriority];
+  if (preset.kind === 'scenario') return [...monsterPriority];
   if (preset.kind === 'own') return [...preset.members];
   const stored = (presetPriority[preset.id] ?? []).filter((unitId) => preset.members.includes(unitId));
   return [...stored, ...preset.members.filter((unitId) => !stored.includes(unitId))];

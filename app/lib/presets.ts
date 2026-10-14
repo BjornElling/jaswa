@@ -1,5 +1,5 @@
 /**
- * Default and every preset as one list of placements (`docs/DECK-PRESETS.md` §4).
+ * Scenario and every preset as one list of placements (`docs/DECK-PRESETS.md` §4).
  *
  * A rune or artifact is engraved at most once per preset and may be engraved in
  * many presets at once, so who carries an item is a question about one preset,
@@ -16,16 +16,16 @@ import { deckContent, isPresetContentId, presetContent, presetContentRank, prese
 import type { PresetContent, PresetContentId, PresetTab } from './preset-contents';
 import { isRecord } from './preference-reading';
 
-export const defaultPresetId = 'default';
+export const scenarioPresetId = 'scenario';
 
-export type PresetKind = 'default' | 'game' | 'own';
+export type PresetKind = 'scenario' | 'game' | 'own';
 
 /** What one monster carries in a preset JASWA's user built. */
 export type OwnPresetGear = { runeIds: string[]; artifactIds: string[] };
 
 /**
  * A preset built in JASWA, kept with the preferences (AGENTS.md §0). `gear`
- * is `null` while the preset saves only its monsters, each then on its Default
+ * is `null` while the preset saves only its monsters, each then on its Scenario
  * gear, as a game deck saved without gear is; the first engraving fixes every
  * member's gear, because a preset holds all of its monsters' gear or none.
  */
@@ -43,18 +43,18 @@ export type Preset = {
   kind: PresetKind;
   /** The shared area profile, resolved independently of this team's placement. */
   profileScope: MonsterProfileScope;
-  /** `null` for Default and for a game deck whose numbers are not yet matched to a content. */
+  /** `null` for Scenario and for a game deck whose numbers are not yet matched to a content. */
   content: PresetContent | null;
   /** Whether the content is the likeliest reading of the deck's numbers rather than one the game's screen confirmed. */
   contentAssumed: boolean;
   /** The preset's number within its content, as the game counts it; `null` where there is none. */
   number: number | null;
   name: string;
-  /** In the preset's own order. Default holds every monster of the active roster. */
+  /** In the preset's own order. Scenario holds every monster of the active roster. */
   members: readonly string[];
   leaderUnitId: string | null;
   savesGear: boolean;
-  /** Each member's runes and artifacts in this preset, Default's where the preset saves none. */
+  /** Each member's runes and artifacts in this preset, Scenario's where the preset saves none. */
   runesOf: ReadonlyMap<string, readonly string[]>;
   artifactsOf: ReadonlyMap<string, readonly string[]>;
   runeOwner: ReadonlyMap<string, string>;
@@ -113,22 +113,22 @@ function placement(runesOf: ReadonlyMap<string, readonly string[]>, artifactsOf:
     poolTakenUnitIds: new Set<string>(), poolConflicts: noPoolConflicts };
 }
 
-function readDefault(data: GameRecord): Preset {
+function readScenario(data: GameRecord): Preset {
   const units = records(data.unit_list);
   const runesOf = new Map(units.map((unit) => [String(unit.unit_id), ids(unit.runes, 'rune_id')]));
   const artifactsOf = new Map(units.map((unit) => [String(unit.unit_id), ids(unit.artifacts, 'rid')]));
   return {
-    id: defaultPresetId, kind: 'default', profileScope: monsterProfileScope('default', undefined), content: null, contentAssumed: false, number: null, name: 'Default',
+    id: scenarioPresetId, kind: 'scenario', profileScope: monsterProfileScope('scenario', undefined), content: null, contentAssumed: false, number: null, name: 'Scenario',
     members: units.map((unit) => String(unit.unit_id)), leaderUnitId: null, savesGear: true,
     ...placement(runesOf, artifactsOf),
     missingRuneIds: [], missingArtifactIds: [], missingUnitIds: [], deck: null,
   };
 }
 
-/* A preset that saves no gear runs each member on its Default gear. */
+/* A preset that saves no gear runs each member on its Scenario gear. */
 function effectiveGear(members: readonly string[], savedOf: (unitId: string) => readonly string[] | undefined,
-  defaultOf: ReadonlyMap<string, readonly string[]>): Map<string, readonly string[]> {
-  return new Map(members.map((unitId) => [unitId, savedOf(unitId) ?? defaultOf.get(unitId) ?? []]));
+  scenarioOf: ReadonlyMap<string, readonly string[]>): Map<string, readonly string[]> {
+  return new Map(members.map((unitId) => [unitId, savedOf(unitId) ?? scenarioOf.get(unitId) ?? []]));
 }
 
 function gamePresetName(deck: DeckPreset, content: PresetContent | null, number: number | null): string {
@@ -179,13 +179,13 @@ function presetOrder(left: Preset, right: Preset): number {
 }
 
 /**
- * Default first, then every preset by content. A preset built in JASWA stands
+ * Scenario first, then every preset by content. A preset built in JASWA stands
  * in its content as the game's do, after them; one without a content stands
  * with the decks not yet matched to one.
  */
 export function readPresets(data: GameRecord | undefined, own: readonly OwnPreset[]): Preset[] {
   if (!data) return [];
-  const fallback = readDefault(data);
+  const fallback = readScenario(data);
   const ownedRunes = new Set(ids(data.runes, 'rune_id'));
   const ownedArtifacts = new Set(ids(data.artifacts, 'rid'));
   const rest = joinPools([
@@ -243,12 +243,12 @@ export function accountItems(data: GameRecord | undefined): AccountItems {
 
 /**
  * A monster's export record as it stands in a preset: its own base stats and
- * Default relics, with the preset's runes and artifacts. A sold item a preset
+ * Scenario relics, with the preset's runes and artifacts. A sold item a preset
  * still names adds nothing. The stat sheet, the sets and the speed all read the
  * record this returns, so none of them has to know which preset it is in.
  */
 export function monsterInPreset(monster: GameRecord, preset: Preset, items: AccountItems): GameRecord {
-  if (preset.kind === 'default') return monster;
+  if (preset.kind === 'scenario') return monster;
   const unitId = String(monster.unit_id);
   const pick = (itemIds: readonly string[] | undefined, from: ReadonlyMap<string, GameRecord>) =>
     (itemIds ?? []).map((id) => from.get(id)).filter((entry): entry is GameRecord => entry !== undefined);
@@ -260,7 +260,7 @@ export type Engraving = { presetId: string; unitId: string };
 
 /**
  * Every place each rune and artifact is engraved. A preset that saves no gear
- * engraves nothing of its own — its monsters run on Default, which already
+ * engraves nothing of its own — its monsters run on Scenario, which already
  * lists those items — so it is left out rather than counted twice.
  */
 export function engravings(presets: readonly Preset[]): { runes: ReadonlyMap<string, Engraving[]>; artifacts: ReadonlyMap<string, Engraving[]> } {
@@ -335,13 +335,13 @@ export const selectedPresetKey = 'jaswa.presets.selected';
 /**
  * The account's runes as one preset holds them: each rune's `occupiedId` is
  * the monster carrying it in this preset, or `null` where none of its monsters
- * does. A rune read from the export names its monster in Default; read through
+ * does. A rune read from the export names its monster in Scenario; read through
  * here it names its monster in the preset asked about, so a calculation for
  * one preset cannot mistake another preset's placement for its own. A deck of a
  * pool is read alone too; what the pool's other decks hold is `poolRuneIds`.
  */
 export function runesInPreset<T extends { id: string; occupiedId: string | null }>(runes: readonly T[], preset: Preset): T[] {
-  if (preset.kind === 'default') return [...runes];
+  if (preset.kind === 'scenario') return [...runes];
   return runes.map((rune) => {
     const owner = preset.runeOwner.get(rune.id) ?? null;
     return owner === rune.occupiedId ? rune : { ...rune, occupiedId: owner };
@@ -351,26 +351,26 @@ export function runesInPreset<T extends { id: string; occupiedId: string | null 
 /** One content under a tab of the preset menu, and the presets standing in it. */
 export type PresetMenuArea = { label: string; content: PresetContent | null; presets: Preset[] };
 
-/** One tab of the preset menu: Default, a tab of the game's, or the presets not yet named. */
+/** One tab of the preset menu: Scenario, a tab of the game's, or the presets not yet named. */
 export type PresetMenuTab = { label: string; tab: PresetTab | null; areas: PresetMenuArea[] };
 
 export const notYetNamedLabel = 'Not yet named';
 
 /**
- * The preset menu, in the game's own fixed structure: Default alone, then
+ * The preset menu, in the game's own fixed structure: Scenario alone, then
  * every tab of the Attack Deck screen with every content of its menu — empty
  * or not, so the menu is the same on every account — and last, only while
  * there are any, the presets matched to no content.
  */
 export function presetMenu(presets: readonly Preset[]): PresetMenuTab[] {
-  const fallback = presets.filter((preset) => preset.kind === 'default');
-  const menu: PresetMenuTab[] = [{ label: 'Default', tab: null, areas: [{ label: 'Default', content: null, presets: fallback }] }];
+  const fallback = presets.filter((preset) => preset.kind === 'scenario');
+  const menu: PresetMenuTab[] = [{ label: 'Scenario', tab: null, areas: [{ label: 'Scenario', content: null, presets: fallback }] }];
   for (const tab of presetTabs) {
     menu.push({ label: tab, tab, areas: tabContents(tab).map((entry) => ({
       label: entry.name, content: entry, presets: presets.filter((preset) => preset.content?.id === entry.id),
     })) });
   }
-  const unnamed = presets.filter((preset) => preset.kind !== 'default' && preset.content === null);
+  const unnamed = presets.filter((preset) => preset.kind !== 'scenario' && preset.content === null);
   if (unnamed.length > 0) menu.push({ label: notYetNamedLabel, tab: null, areas: [{ label: notYetNamedLabel, content: null, presets: unnamed }] });
   return menu;
 }
@@ -382,7 +382,7 @@ export function presetGroupLabel(preset: Preset): string {
 
 /**
  * Where an item is engraved, in words a hover can carry: one line per place,
- * "monster — preset", Default first as the presets list it. Each monster is
+ * "monster — preset", Scenario first as the presets list it. Each monster is
  * named in its own place's preset, where its nickname is that preset's.
  */
 export function engravingLines(places: readonly Engraving[], presets: readonly Preset[],

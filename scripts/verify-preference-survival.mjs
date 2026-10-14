@@ -35,7 +35,7 @@ try {
     directImportMode: 'on-load',
     general: { ...blank.general, numberFormat: 'european', hourCycle: 'h23' },
     monsterPreferences: {
-      default: { 17: { unitId: '17', label: 'Arena defence', allowIntangibleRunes: true } },
+      scenario: { 17: { unitId: '17', label: 'Arena defence', allowIntangibleRunes: true } },
       'content:arena-attack': { 17: { unitId: '17', statCeilings: { spd: 180 } }, 18: { unitId: '18', alwaysCrits: true } },
     },
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true } },
@@ -102,18 +102,31 @@ try {
 
   /* A monster copy loses the field it cannot read, not the copy, nor the same
      copy's profile in another context. */
-  const withDefault = (copy) => ({ ...chosen.monsterPreferences, default: { 17: copy } });
-  const defaultCopy = chosen.monsterPreferences.default[17];
-  const monster = readPreferences({ ...chosen, monsterPreferences: withDefault({ ...defaultCopy, runeSets: ['NotASet'], retired: 1 }) }, null);
+  const withScenario = (copy) => ({ ...chosen.monsterPreferences, scenario: { 17: copy } });
+  const scenarioCopy = chosen.monsterPreferences.scenario[17];
+  const renamed = readPreferences({ ...chosen, monsterPreferences: {
+    default: { 17: { ...scenarioCopy, runeSets: ['NotASet'] } },
+    'content:arena-attack': { 17: { unitId: '17', label: 'Area opener' } },
+  } }, null);
+  assert.deepEqual(renamed.monsterPreferences.scenario[17], scenarioCopy,
+    'renaming Scenario retains saved choices and rejects only an unreadable field');
+  assert.equal(renamed.monsterPreferences['content:arena-attack'][17].label, 'Area opener');
+  assert.equal('default' in renamed.monsterPreferences, false, 'new documents write only the Scenario key');
+  assert.deepEqual(readPreferences({ ...chosen, monsterPreferences: {
+    default: { 17: scenarioCopy }, scenario: {},
+  } }, null).monsterPreferences, {}, 'an explicitly cleared Scenario profile stays cleared');
+  assert.deepEqual({ ...renamed, monsterPreferences: chosen.monsterPreferences }, chosen,
+    'the context rename changes no other preference section');
+  const monster = readPreferences({ ...chosen, monsterPreferences: withScenario({ ...scenarioCopy, runeSets: ['NotASet'], retired: 1 }) }, null);
   assert.deepEqual(monster.monsterPreferences, chosen.monsterPreferences, 'an unreadable monster field costs only that field');
-  const unreadableContext = readPreferences({ ...chosen, monsterPreferences: { ...chosen.monsterPreferences, 'deck-9-9': 'x', '': { 17: defaultCopy } } }, null);
+  const unreadableContext = readPreferences({ ...chosen, monsterPreferences: { ...chosen.monsterPreferences, 'deck-9-9': 'x', '': { 17: scenarioCopy } } }, null);
   assert.deepEqual(unreadableContext.monsterPreferences, chosen.monsterPreferences, 'an unreadable context costs only itself');
 
   /* Team scopes and contextless documents are outside the current contract.
      Reject only those choices; keep every readable area and other section. */
   const obsolete = readPreferences({ ...chosen, monsterPreferences: {
-    ...chosen.monsterPreferences, 'deck-1-4': { 17: defaultCopy }, 18: { unitId: '18', label: 'Opener' },
-    'content:missing': { 17: defaultCopy },
+    ...chosen.monsterPreferences, 'deck-1-4': { 17: scenarioCopy }, 18: { unitId: '18', label: 'Opener' },
+    'content:missing': { 17: scenarioCopy },
   } }, null);
   assert.deepEqual(obsolete, chosen, 'obsolete scopes cost only their own choices');
 
@@ -123,18 +136,18 @@ try {
   assert.equal(monsterProfileScope('own', 'arena-attack'), arenaScope, 'game and own teams share an area profile');
   assert.notEqual(monsterProfileScope('game', 'arena-defense'), arenaScope, 'offence and defence are separate areas');
   const teams = [
-    { id: 'default', kind: 'default', profileScope: 'default', members: ['17'] },
+    { id: 'scenario', kind: 'scenario', profileScope: 'scenario', members: ['17'] },
     { id: 'deck-1-1', kind: 'game', profileScope: arenaScope, members: ['17'] },
     { id: 'deck-1-2', kind: 'game', profileScope: arenaScope, members: ['17'] },
     { id: 'own-arena', kind: 'own', profileScope: arenaScope, members: ['17'] },
   ];
-  assert.deepEqual(monsterProfileAreas(teams, '17', 'deck-1-2').map((team) => team.id), ['default', 'deck-1-2'],
+  assert.deepEqual(monsterProfileAreas(teams, '17', 'deck-1-2').map((team) => team.id), ['scenario', 'deck-1-2'],
     'an area appears once and keeps the opened team as its gear source');
   const names = monsterCopyNamesIn([{ unit_id: 17, unit_master_id: 10101 }], {
-    default: { 17: { unitId: '17', label: 'Default job' } },
+    scenario: { 17: { unitId: '17', label: 'Scenario job' } },
     [arenaScope]: { 17: { unitId: '17', label: 'Area opener' } },
   }, teams);
-  assert.match(names('17', 'default'), /Default job/);
+  assert.match(names('17', 'scenario'), /Scenario job/);
   assert.match(names('17', 'deck-1-1'), /Area opener/);
   assert.equal(names('17', 'deck-1-1'), names('17', 'deck-1-2'), 'engraving names share the area profile');
   assert.equal(names('17', 'own-arena'), names('17', 'deck-1-2'), 'an own team reads the same shared name');
@@ -147,7 +160,7 @@ try {
     artifacts: { sub: { attribute: { preferred: [206], acceptable: [] }, type: { preferred: [301], acceptable: [] } } },
     relics: { unique: { preferred: [1], acceptable: [1] } },
   };
-  const geared = readPreferences({ ...chosen, monsterPreferences: withDefault({ ...defaultCopy, ...gear }) }, null).monsterPreferences.default;
+  const geared = readPreferences({ ...chosen, monsterPreferences: withScenario({ ...scenarioCopy, ...gear }) }, null).monsterPreferences.scenario;
   assert.deepEqual(geared[17].mainStat, gear.mainStat, 'a readable main survives its unreadable neighbours');
   assert.deepEqual(geared[17].artifacts, { sub: { attribute: gear.artifacts.sub.attribute } },
     'an unreadable artifact question costs only that question');

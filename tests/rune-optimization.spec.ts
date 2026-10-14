@@ -37,7 +37,7 @@ test('community rune mains stay suggestions until the user chooses them', async 
   await dialog.getByRole('spinbutton', { name: 'Spd: at least', exact: true }).fill('150');
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   expect((await storedPreferences(page))?.monsterPreferences).toEqual({
-    default: { 11: { unitId: '11', statTargets: { spd: 150 } } },
+    scenario: { 11: { unitId: '11', statTargets: { spd: 150 } } },
   });
   await page.getByRole('button', { name: 'Open profile' }).click();
   const before = await box(gear);
@@ -612,7 +612,7 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
       const read = db.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
       read.onsuccess = () => {
         const locks = (read.result.runeLocks ?? {}) as Record<string, Record<string, Record<string, string>>>;
-        resolve(Object.keys(Object.values(locks.default ?? {})[0] ?? {})[0]);
+        resolve(Object.keys(Object.values(locks.scenario ?? {})[0] ?? {})[0]);
         db.close();
       };
     };
@@ -920,7 +920,7 @@ test('the page wears the house panels, and its controls say what they do', async
   await expect(find).toBeEnabled();
   await expect(page.locator('.rune-optimization-find-hold')).not.toHaveAttribute('title');
   expect(await box(rank)).toEqual(rankBefore);
-  /* Speed Tuning is the preset's, so Default offers none. */
+  /* Speed Tuning is the preset's, so Scenario offers none. */
   const speed = page.getByRole('button', { name: /^Speed tuning/ });
   await expect(speed).toBeDisabled();
   const speedBox = await box(speed);
@@ -1228,10 +1228,10 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await openOptimization(page);
-  /* The preset leads the panel; an account with no saved decks has Default alone, chosen. */
+  /* The preset leads the panel; an account with no saved decks has Scenario alone, chosen. */
   const preset = page.getByLabel('Preset', { exact: true });
-  await expect(preset).toHaveValue('default');
-  await expect(preset.locator('option')).toHaveText(['Default']);
+  await expect(preset).toHaveValue('scenario');
+  await expect(preset.locator('option')).toHaveText(['Scenario']);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
   await rankUnranked(page);
   const settings = page.getByRole('complementary', { name: 'Settings' });

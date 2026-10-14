@@ -67,7 +67,7 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
     }
     const level = pick([12, 15, 15, 9]);
     return {
-      id: String(id), setId, setName: '', slot, stars: 6, ancient: false, defaultGrade: 'Legend', level,
+      id: String(id), setId, setName: '', slot, stars: 6, ancient: false, rarity: 'Legend', level,
       mainStatId, mainValue: level === 15 ? mainValue[mainStatId] : Math.round(mainValue[mainStatId] * 0.6),
       prefixStatId, prefixValue: prefixStatId === null ? 0 : between(...statRange[prefixStatId].map((value, at) => (at ? Math.round(value / 4) : value))),
       subProperties, occupiedId, obtainedOrder: id,

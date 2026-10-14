@@ -11,7 +11,7 @@ import {
   candidateChance, chanceRuns, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 import { remainingEvents } from '../app/lib/rune-properties.ts';
-import { runeDefaultGradeOrder } from '../app/lib/runes.ts';
+import { runeRarityOrder } from '../app/lib/runes.ts';
 
 const credit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 const base = { hp: 0, atk: 0, def: 0, spd: 0, criRate: 0, criDmg: 0, res: 0, acc: 0 };
@@ -39,11 +39,11 @@ const expectedChance = { Normal: 0, Magic: 1, Rare: 3 / 4, Hero: 19 / 27, Legend
 const otherStats = [2, 4, 6];
 
 for (const grade of Object.keys(expectedEvents)) {
-  const initial = runeDefaultGradeOrder(grade);
+  const initial = runeRarityOrder(grade);
   assert.deepEqual(remainingEvents(0, initial).events, expectedEvents[grade], `${grade} event order`);
   const rune = {
     id: `probability-${grade}`, setId: 13, setName: 'Violent', slot: 1, stars: 6,
-    ancient: false, defaultGrade: grade, level: 0, mainStatId: 3, mainValue: 0,
+    ancient: false, rarity: grade, level: 0, mainStatId: 3, mainValue: 0,
     prefixStatId: null, prefixValue: 0,
     subProperties: Array.from({ length: bornCount[grade] }, (_, index) => ({
       statId: index === 0 ? 8 : otherStats[index - 1],

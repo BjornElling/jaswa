@@ -18,7 +18,7 @@ export type MonsterReference =
  * `presetId` is the preset the place naming the monster is about — a preset's
  * team, a rune's place in one preset, a build for one preset. The overlay reads
  * that preset, and Optimize takes it on, so a monster opened from Arena Attack 1
- * is not optimized for Default. A place about no preset leaves it out, and the
+ * is not optimized for Scenario. A place about no preset leaves it out, and the
  * overlay reads the preset chosen across the program.
  */
 export type OpenMonsterOverlay = (target: MonsterReference, opener: HTMLElement, presetId?: string) => void;

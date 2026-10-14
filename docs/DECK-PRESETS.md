@@ -101,11 +101,11 @@ The rules JASWA relies on:
    stand in more than one deck. As in rule 5, the game may let an overlap
    through, and JASWA reads it and shows it as a fault (§4).
 7. **Relics are not saved per preset.** A preset uses whatever relic the
-   monster carries in Default [920]. One relic may be engraved on up to 150
+   monster carries in Scenario [920]. One relic may be engraved on up to 150
    monsters (v9.3.0; `RELIC-CANONICAL.md`).
-8. **Default still exists.** A monster's own runes and artifacts outside any
-   preset are its **Default** arrangement, independent of every preset
-   [DN1, v9.2.2, v9.2.3]. In Default a rune is engraved on one monster at most,
+8. **Outside saved presets.** A monster's own runes and artifacts outside any
+   preset are its **Scenario** arrangement in JASWA, independent of every preset
+   [DN1, v9.2.2, v9.2.3]. In Scenario a rune is engraved on one monster at most,
    as before.
 9. **Engraved runes and artifacts can be sold** (v9.3.0). A preset then keeps
    a reference to a rune the account no longer owns.
@@ -139,13 +139,18 @@ panels. JASWA uses it alone:
 | A rune or artifact on no monster in a context | **in inventory** | free, unused, spare |
 | One saved deck | **preset** | team, deck (in UI), scenario |
 | The grouping of presets | **content**, by the game's name | preset type, mode |
-| A monster's own arrangement outside presets | **Default** | current build, worn build |
+| A monster's own arrangement outside presets | **Scenario** | current build, worn build |
 | Rune Clean-up's role targets (formerly "presets") | **roles** | presets |
 | Rune Optimization's monster settings (formerly "preset") | **profile** | preset |
 
 "Preset" means the game's preset and nothing else. Identifiers follow the
 interface words. Raw export field names (`occupied_id`, `deck_list`) keep
 their spelling only where the raw export is read.
+
+The preferences reader retains choices saved under the previous `default` area
+key as Scenario profiles; every new write uses `scenario`. An explicitly stated
+Scenario area, including an empty one, takes precedence. This exception preserves
+the developer's own choices (AGENTS.md §0), not earlier account formats.
 
 ## 3. What the export establishes
 
@@ -220,13 +225,14 @@ The defense contents sit under the tab of their attack; the game keeps them on
 its Defense Deck screen. The Guild tab's menu is the one not yet read off the
 screen: its contents are the capacity table's guild rows, in its order.
 
-Default is not a content. It is the runes' ordinary placement — what Scenario
-and every battle outside a preset uses — and stands alone before the tabs.
+Scenario is JASWA's name for a monster's arrangement outside saved presets.
+It is not a content: it holds the ordinary placement used in Scenario battles
+and every battle outside a preset, and stands alone before the tabs.
 
 ## 4. The model
 
 The account owns physical runes and artifacts. A placement is the relation
-(item, monster, **context**). A context is either **Default** or one preset
+(item, monster, **context**). A context is either **Scenario** or one preset
 `(deck_type, deck_seq)`.
 
 - Within a context, an item has at most one monster and a monster at most one
@@ -250,19 +256,19 @@ The account owns physical runes and artifacts. A placement is the relation
     (`poolConflicts`), and the Presets page says so on the preset's warning
     line beside its sold items and missing monsters: *Shares 2 runes and
     1 monster with another team*. A deck that saved monsters only is measured
-    on the Default gear it runs on.
+    on the Scenario gear it runs on.
   - Each deck knows what the pool's other decks hold (`poolRuneIds`,
     `poolArtifactIds`, `poolTakenUnitIds`) and uses it only to refuse: JASWA
     never forms an overlap. Rune Optimization reads every rune another team
     holds as excluded (`runeLocksInPreset`), a rune the team shares with one
     included; an engrave refuses a build bringing such a rune in; a monster
-    joining a game deck brings its Default gear less what the deck or the pool
+    joining a game deck brings its Scenario gear less what the deck or the pool
     holds, and a monster another Temple of Chaos team holds is not offered.
   - Nothing done in one deck writes into another. The previous model made an
     engrave take its runes out of the pool's other decks, and with them every
     rune the game had let two teams share; a team then showed a monster with
     no runes that the game showed fully geared.
-- A relic belongs to Default only and is read into every context.
+- A relic belongs to Scenario only and is read into every context.
 - Item stats, grade, slot and craft state belong to the physical item and are
   never copied into a placement.
 - A placement naming an item the account no longer owns is kept and shown as
@@ -275,27 +281,27 @@ picks a context of its own.
 
 ### 4.1 One monster profile per content-area
 
-A profile states one owned copy's job in **Default or one content-area**:
+A profile states one owned copy's job in **Scenario or one content-area**:
 nickname, desired rune builds and slot mains, stat ranges, ranking figure,
 combat conditions, leads, and artifact and relic wishes. Every team in Arena
 Attack reads that copy's one Arena Attack profile. Arena Defense, Giant's Keep
-and Default have separate profiles, even when they hold the same copy.
+and Scenario have separate profiles, even when they hold the same copy.
 
-- Storage is keyed by `default`, `content:<content id>` or `unassigned`, then
+- Storage is keyed by `scenario`, `content:<content id>` or `unassigned`, then
   by `unit_id`. `monster-profile-scope.ts` resolves the area once for every
   reader. Unnamed teams share the explicit unassigned area; no content is
   guessed beyond the import's existing classification.
 - Gear, team membership, leader, rune priority, locks and speed tuning remain
   team-specific. Sharing a profile never copies or merges game placements.
 - No fallback between areas. An unstated choice reads species defaults there,
-  never Default's profile. *Copy from…* copies another area's stated choices;
+  never Scenario's profile. *Copy from…* copies another area's stated choices;
   subsequent edits remain independent.
 - Removing a monster from a team or deleting a team leaves its area profile
   intact, including when it was the area's last team. Re-importing a team can
   therefore use the user's choices again.
 - Presets, Monster Stats, Rune Optimization and Speed Tuning resolve nicknames
-  and profile choices through the team's content-area. Default-only artifact,
-  relic and rune workspaces continue to read Default's profile.
+  and profile choices through the team's content-area. Scenario-only artifact,
+  relic and rune workspaces continue to read Scenario's profile.
 - The profile editor's *Build for* offers each area once, without a team
   dropdown. *Gear from* names the team whose gear and figures it reports.
   Opening from a team retains that team; switching area uses its first team.
@@ -312,10 +318,10 @@ an import, and are checked one preset at a time on load.
 
 **Presets** (formerly Rune priority).
 - *Content* heads the page with *Area* beside it and *Preset* below, and
-  opens on Default.
-- *Content* lists Default, the game's seven tabs (§3.1) and, only while there
+  opens on Scenario.
+- *Content* lists Scenario, the game's seven tabs (§3.1) and, only while there
   are any, the presets not yet named. *Area* lists the chosen tab's contents,
-  all of them, and is disabled where the tab holds one. Default is chosen in
+  all of them, and is disabled where the tab holds one. Scenario is chosen in
   *Content* outright; any other choice offers the area's presets in *Preset*,
   each shown with the faces of its team, and the list below is empty until one
   is chosen.
@@ -323,13 +329,13 @@ an import, and are checked one preset at a time on load.
   after them; one without a content stands with the presets not yet named.
 - *Add preset* sits at the right, starts the new preset in the chosen content
   under the name the game would give its next one, and is available as soon as
-  a content other than Default is chosen, and only while live sync is off.
+  a content other than Scenario is chosen, and only while live sync is off.
 - While live sync is off, the game's presets are the user's to change too:
   a monster is added to the first empty position or taken out of its own,
   the crown names the leader, and *Delete preset* removes it. Each change is
   written into the import, as an engrave is, and the next import states the
   game's own presets again. A monster added to a preset that saves its gear
-  brings its Default gear, less what the preset already engraves; one taken out
+  brings its Scenario gear, less what the preset already engraves; one taken out
   takes its gear there with it; its area profile stays.
 - The order of monsters within a preset is their priority for runes. Rune
   competition exists only inside a preset, so that is the only place a
@@ -338,11 +344,11 @@ an import, and are checked one preset at a time on load.
 - Each monster has a shortcut to Rune Optimization in that preset. The preset
   has one *Speed tuning*, under *Add preset* and *Delete preset*, which opens
   its team over Presets — the overlay Speed Tuning's own lines open — disabled
-  only on Default and on a preset with no monsters.
+  only on Scenario and on a preset with no monsters.
 
 **Rune Optimization.**
 - The preset being optimized for is shown prominently above the monster:
-  one plain list of Default and every preset. The monster list contains only
+  one plain list of Scenario and every preset. The monster list contains only
   members of the chosen preset. Changing preset keeps the chosen monster if
   it belongs there, otherwise clears the monster choice. An empty preset says
   it has no monsters and cannot start a search.
@@ -351,10 +357,10 @@ an import, and are checked one preset at a time on load.
   opens its overlay on
   that preset, and *Save and optimize* there opens Rune Optimization on it. A
   monster opened from a place about no preset — Monster Numbers, an artifact, a
-  relic — opens on Default, which is what those pages show. Opening the overlay
+  relic — opens on Scenario, which is what those pages show. Opening the overlay
   leaves the preset chosen across the program alone; only *Save and optimize*
   changes it.
-- The overlay's *Build for* names Default or a content-area, each once. It
+- The overlay's *Build for* names Scenario or a content-area, each once. It
   switches the shared profile and the representative team's gear together,
   waits while an edit is unsaved, and names the gear's team on *Gear from*.
   *Copy from…* offers other areas once each; profiles with no stated choices
@@ -376,7 +382,7 @@ an import, and are checked one preset at a time on load.
 - *Engrave* writes the build into the chosen preset and moves nothing out of
   any other context, a deck of the same pool included (§4).
 - **Lock and Exclude** (`rune-locks.ts`) bind one rune to one monster in one
-  scope: Default, one preset, or — where the game's decks share one pool (§1,
+  scope: Scenario, one preset, or — where the game's decks share one pool (§1,
   rules 4–6) — the whole pool. A lock engraves the rune
   on the monster, makes it the slot's one answer and keeps it from every other
   monster of the scope; an exclusion keeps it out of that monster's builds only,
@@ -398,7 +404,7 @@ an import, and are checked one preset at a time on load.
   reported. Until an order is
   stated, the preset is read in the game's own order.
 - Every speed is computed from the preset's own runes, with the relic from
-  Default.
+  Scenario.
 - The Arena column lists its defences first, then the attack teams.
 - Every preset with a monster is a team, and every team opens and is tuned
   alike. A content without enemy data — Trial of Ascension, Temple of Chaos,
@@ -415,14 +421,14 @@ an import, and are checked one preset at a time on load.
   place of the enemy cut-in verdict. The team's own order decides its check
   or cross.
 
-**Rune Optimization.** A build's Location names the Default monster for a rune
+**Rune Optimization.** A build's Location names the Scenario monster for a rune
 free in the selected preset, by name alone, as the game's rune list does. A
-rune freed in the preset from a monster that still carries it in Default is
-shown on that monster before and after, so it has no Previously. If that Default
+rune freed in the preset from a monster that still carries it in Scenario is
+shown on that monster before and after, so it has no Previously. If that Scenario
 monster is the one being optimized, the card says *Inventory* instead: the
 rune still has to be engraved in this preset, which the Changes figure counts.
 Previously names the rune's earlier place in that preset after JASWA moves it,
-in Location's words: a rune the preset left free names its Default monster.
+in Location's words: a rune the preset left free names its Scenario monster.
 
 **Rune Clean-up, Gems & Grinds and every rune or artifact list.**
 - One *Engraved* label replaces the monster name in the location column. A
@@ -434,12 +440,12 @@ in Location's words: a rune the preset left free names its Default monster.
   selling empties a slot in every context that uses it.
 
 **Artifact pages.** The artifact list's location follows the rune rule above.
-Artifact Optimization and its value columns plan Default: which artifact a
-monster carries in Default and what to engrave, keep or sell there.
+Artifact Optimization and its value columns plan Scenario: which artifact a
+monster carries in Scenario and what to engrave, keep or sell there.
 
 **Choosing a gear context.** Presets and Monster Stats share *Content*, *Area*
 and *Preset*: `PresetChooser` draws the fields and `preset-choice.ts` resolves
-the choice. Rune Optimization offers Default and every team in one list.
+the choice. Rune Optimization offers Scenario and every team in one list.
 These team choices still matter because gear and rune competition belong to
 a team; the profile editor offers content-areas instead (§4.1).
 A page that makes presets — Presets — offers every content, empty ones
@@ -448,12 +454,12 @@ reads them offers only the tabs and contents holding one.
 
 **Monster Stats** reads one context at a time. The chooser sits above the
 filters, ruled off from them, offering only contents with presets, and the page
-opens on Default. The table lists the chosen preset's team in its own order,
-each copy with the runes and artifacts it carries there and Default's relic, so
-sets, stats and composites are the preset's and never Default's. The choice is
+opens on Scenario. The table lists the chosen preset's team in its own order,
+each copy with the runes and artifacts it carries there and Scenario's relic, so
+sets, stats and composites are the preset's and never Scenario's. The choice is
 not a filter: *Reset filters* leaves it alone.
 
-**Monster Numbers** shows Default and the number of presets each monster
+**Monster Numbers** shows Scenario and the number of presets each monster
 belongs to.
 
 ## 6. Order of work

@@ -14,7 +14,7 @@ import { runeSlotMainsBySlot } from './rune-slot-mains';
 import { runeBuild, runeBuildKey } from './rune-set-pairs';
 
 /**
- * One owned copy's choices in Default or one content-area. All teams in an
+ * One owned copy's choices in Scenario or one content-area. All teams in an
  * area read the same profile; placements and speed tuning remain per team.
  * Species-level defaults apply only where that area has no stated choice.
  */
@@ -214,7 +214,7 @@ export type MonsterCopyPreferences = {
 /** Every copy's profile in one area, by the game's persistent unit id. */
 export type MonsterProfiles = Record<string, MonsterCopyPreferences>;
 
-/** Profiles keyed by Default, content:<content id>, or the unassigned area. */
+/** Profiles keyed by Scenario, content:<content id>, or the unassigned area. */
 export type MonsterPreferences = Partial<Record<MonsterProfileScope, MonsterProfiles>>;
 
 const noProfiles: MonsterProfiles = Object.freeze({}) as MonsterProfiles;
@@ -485,11 +485,16 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | '
   runeSuggestionStat: (value) => monsterStatTargetKeys.includes(value as keyof MonsterStatTargets),
 };
 
-/** Read only current area scopes, preserving each readable field independently. */
+/** Read area profiles, preserving each readable field independently. */
 export function readMonsterPreferences(value: unknown): MonsterPreferences {
   if (!isRecord(value)) return {};
   const read: MonsterPreferences = {};
-  for (const [scope, copies] of Object.entries(value)) {
+  /* The context's renamed key must not cost the developer's saved choices
+     (AGENTS.md §0). Only preferences retain this spelling at the read boundary;
+     every new write uses Scenario's key. */
+  const areas = { ...value };
+  if (!('scenario' in value) && isRecord(value.default)) areas.scenario = value.default;
+  for (const [scope, copies] of Object.entries(areas)) {
     if (!isMonsterProfileScope(scope) || !isRecord(copies)) continue;
     const profiles = readMonsterProfiles(copies);
     if (Object.keys(profiles).length > 0) read[scope] = profiles;

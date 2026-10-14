@@ -504,7 +504,7 @@ for (let index = 0; index < scenarios; index += 1) {
 {
   const base = scenario(0);
   const spdRune = (id, setId, ancient) => ({
-    id, setId, setName: '', slot: 1, stars: 6, ancient, defaultGrade: 'Legend', level: 15,
+    id, setId, setName: '', slot: 1, stars: 6, ancient, rarity: 'Legend', level: 15,
     mainStatId: 3, mainValue: 160, prefixStatId: null, prefixValue: 0,
     subProperties: [8, 4, 9, 10].map((statId) => ({ statId, value: 6, gemmed: false, grind: 0 })),
     occupiedId: null, obtainedOrder: Number(id),

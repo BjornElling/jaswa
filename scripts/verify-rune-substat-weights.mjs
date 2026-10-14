@@ -233,7 +233,7 @@ function verifyThePerfectRuneReadsFull() {
 
         const rune = {
           id: 'perfect', setId: 13, setName: 'Violent', slot, stars, ancient: false,
-          defaultGrade: 'Legend', level: 12, mainStatId: main, mainValue: 0,
+          rarity: 'Legend', level: 12, mainStatId: main, mainValue: 0,
           prefixStatId: ranked[4].statId, prefixValue: maximumRoll(ranked[4].statId, stars),
           subProperties: [
             { statId: ranked[0].statId, value: maximumRoll(ranked[0].statId, stars) * 5, gemmed: false, grind: 0 },
@@ -274,7 +274,7 @@ function verifySurplusKeepsPaying() {
   const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const make = (spdValue) => ({
     id: 'surplus', setId: 13, setName: 'Violent', slot: 2, stars: 6, ancient: false,
-    defaultGrade: 'Legend', level: 12, mainStatId: 4, mainValue: 0,
+    rarity: 'Legend', level: 12, mainStatId: 4, mainValue: 0,
     prefixStatId: null, prefixValue: 0,
     subProperties: [
       { statId: 8, value: spdValue, gemmed: false, grind: 0 },
@@ -309,7 +309,7 @@ function verifyEachStarClassIsItsOwnScale() {
   const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const make = (stars, level) => ({
     id: `stars-${stars}`, setId: 13, setName: 'Violent', slot: 2, stars, ancient: false,
-    defaultGrade: 'Legend', level, mainStatId: 4, mainValue: 0,
+    rarity: 'Legend', level, mainStatId: 4, mainValue: 0,
     prefixStatId: 9, prefixValue: maximumRoll(9, stars),
     subProperties: [
       { statId: 8, value: maximumRoll(8, stars) * 5, gemmed: false, grind: 0 },
@@ -357,7 +357,7 @@ function verifyCraftCreditMovesBothEnds() {
   const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const rune = {
     id: 'craft', setId: 13, setName: 'Violent', slot: 2, stars: 6, ancient: false,
-    defaultGrade: 'Legend', level: 12, mainStatId: 4, mainValue: 0,
+    rarity: 'Legend', level: 12, mainStatId: 4, mainValue: 0,
     prefixStatId: 9, prefixValue: 6,
     subProperties: [
       { statId: 8, value: 30, gemmed: false, grind: 0 },

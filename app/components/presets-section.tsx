@@ -37,7 +37,7 @@ import type { ImportedGame, Preferences } from '../lib/types';
 type MonsterChoice = { unitId: string; masterId: string; name: string; record: GameRecord };
 
 export type PresetWrites = {
-  /** Default's list. */
+  /** Scenario's list. */
   monsterPriority: (change: (current: MonsterPriority) => MonsterPriority) => void;
   /** A game preset's order. */
   presetOrder: (presetId: string, order: readonly string[]) => void;
@@ -52,7 +52,7 @@ export type PresetWrites = {
 };
 
 /**
- * **Presets — the page.** Default and every preset, one at a time, with its
+ * **Presets — the page.** Scenario and every preset, one at a time, with its
  * monsters in the order they have first claim on runes: the order Rune
  * Optimization reads when told to leave a monster's runes to the monsters above
  * it. Runes compete only inside a preset (`DECK-PRESETS.md` §1), so the list is
@@ -92,13 +92,13 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const choice = useMemo(() => resolvePresetChoice(menu, { tab: picked?.tab ?? '', area: picked?.area ?? '', presetId: selectedId }),
     [menu, picked, selectedId]);
   const { tab, area, preset } = choice;
-  const onDefault = tab === menu[0];
+  const onScenario = tab === menu[0];
   const own = preset?.kind === 'own' ? preferences.presets.find((entry) => entry.id === preset.id) ?? null : null;
   const priority = useMemo(() => (preset ? presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority) : []),
     [preset, preferences.monsterPriority, preferences.presetPriority]);
   const items = useMemo(() => accountItems(game?.data), [game]);
   /* Teams in one area share names as well as build wishes. */
-  const contextId = preset?.profileScope ?? 'default';
+  const contextId = preset?.profileScope ?? 'scenario';
   const names = useMemo(() => monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, contextId)),
     [monsters, preferences.monsterPreferences, contextId]);
   const owned = useMemo(() => new Map<string, MonsterChoice>(monsters
@@ -110,13 +110,13 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   /* The game's presets live in the import, which live sync would put back at once. */
   const gameEditable = preset?.kind === 'game' && canCreate;
   /* Said on every control live sync turns off, and only on those: a control off
-     for another reason — Default has no content, a preset is full — says nothing. */
+     for another reason — Scenario has no content, a preset is full — says nothing. */
   const syncedGame = preset?.kind === 'game' && !canCreate ? alwaysSynchronizedReason : undefined;
   /* A preset of a content takes no more than the content's team, and a game
      preset no more than its deck has positions for. */
   const full = own !== null ? own.content !== null && own.members.length >= presetContent(own.content).teamSize
     : gameEditable && game !== null && preset !== null && !gamePresetHasRoom(game, preset);
-  const canAdd = preset !== null && (preset.kind === 'default' || own !== null || gameEditable) && !full;
+  const canAdd = preset !== null && (preset.kind === 'scenario' || own !== null || gameEditable) && !full;
   /* A monster another team of a pool sharing its monsters holds is not offered:
      the game would not let it stand in two of them. */
   const choices = useMemo(() => {
@@ -149,14 +149,14 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
 
   function move(from: number, to: number) {
     if (!preset || to < 0 || to >= priority.length || from === to) return;
-    if (preset.kind === 'default') onWrite.monsterPriority((current) => moveItem(current, from, to));
+    if (preset.kind === 'scenario') onWrite.monsterPriority((current) => moveItem(current, from, to));
     else if (preset.kind === 'own') writeOwn((current) => ({ ...current, members: moveItem(current.members, from, to) }));
     else onWrite.presetOrder(preset.id, moveItem(priority, from, to));
   }
 
   function add(unitId: string) {
     if (!preset || !owned.has(unitId) || !canAdd) return;
-    if (preset.kind === 'default') {
+    if (preset.kind === 'scenario') {
       onWrite.monsterPriority((current) => (current.includes(unitId) ? current : [...current, unitId]));
       return;
     }
@@ -164,14 +164,14 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
       void onWrite.addToGamePreset(preset.id, unitId);
       return;
     }
-    /* A preset that holds its monsters' gear gives a newcomer its Default gear,
+    /* A preset that holds its monsters' gear gives a newcomer its Scenario gear,
        less whatever this preset already engraves elsewhere: one rune, one
        monster, inside a preset. */
     writeOwn((current) => {
       if (current.members.includes(unitId)) return current;
       const gear = current.gear === null ? null : (() => {
         const taken = new Set(Object.values(current.gear).flatMap((entry) => [...entry.runeIds, ...entry.artifactIds]));
-        const fallback = presets.find((entry) => entry.kind === 'default');
+        const fallback = presets.find((entry) => entry.kind === 'scenario');
         const runeIds = (fallback?.runesOf.get(unitId) ?? []).filter((id) => !taken.has(id));
         const artifactIds = (fallback?.artifactsOf.get(unitId) ?? []).filter((id) => !taken.has(id));
         return { ...current.gear, [unitId]: { runeIds: [...runeIds], artifactIds: [...artifactIds] } };
@@ -182,7 +182,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
 
   function remove(unitId: string) {
     if (!preset) return;
-    if (preset.kind === 'default') {
+    if (preset.kind === 'scenario') {
       onWrite.monsterPriority((current) => current.filter((entry) => entry !== unitId));
       return;
     }
@@ -260,8 +260,8 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
         <p className="monster-priority-about" title={warnings || undefined}>{warnings}</p>
         <div className="monster-priority-actions">
           {/* A preset is added to the content chosen, whether or not one of its
-              presets is: Default has no content to add to. */}
-          <Button ref={createButton} tone="important" disabled={!canCreate || onDefault}
+              presets is: Scenario has no content to add to. */}
+          <Button ref={createButton} tone="important" disabled={!canCreate || onScenario}
             onClick={() => setCreating(true)}
             title={canCreate ? undefined : alwaysSynchronizedReason}>Add preset</Button>
           <Button tone="danger" disabled={!deletable} title={syncedGame} onClick={deletePreset}>Delete preset</Button>
@@ -370,7 +370,7 @@ function presetWarnings(preset: Preset): string {
 }
 
 /* Three cells: what the copy has engraved in this preset against what it can
-   take, and a tick only when every slot is filled. The relic is Default's in
+   take, and a tick only when every slot is filled. The relic is Scenario's in
    every preset, as the game reads it. */
 function Gear({ monster, preset, unitId }: { monster: GameRecord; preset: Preset; unitId: string }) {
   const engraved = engravedCounts(monster);

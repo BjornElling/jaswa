@@ -5212,7 +5212,7 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   gap: var(--s2);
   width: 44ch;
 }
-/* The one fact here a reader must not take for Default when it is not, so its
+/* The one fact here a reader must not take for Scenario when it is not, so its
    menu alone is marked, by its name in the accent and a gold edge, rather than
    by a box around the row that outshouts the monster. */
 /* The team name varies, so every area reserves the same line. */

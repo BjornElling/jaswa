@@ -60,7 +60,8 @@ try {
         `${pageName} filters, heading and rows do not share one width at ${width}px.`);
       const [summary, firstLabel, strip] = await Promise.all([
         tablePage.locator('.filter-summary').boundingBox(),
-        tablePage.locator('.filter-label').first().boundingBox(),
+        /* The preset chooser has labels too; the count belongs to the filters. */
+        tablePage.locator('.filter-strip .filter-label').first().boundingBox(),
         tablePage.locator('.filter-strip').boundingBox(),
       ]);
       assert(summary && firstLabel && strip && nearlyEqual(summary.y, firstLabel.y)
