@@ -196,7 +196,13 @@ with a plain-language finding and next step, then includes the full status,
 traffic state, a structured diagnostic timeline plus its original text, the
 current profile, and the first failed exchange plus its preceding profile when
 available. Exact wire messages are base64 encoded, not anonymized. Evidence is
-held in memory until saving; quitting loses unsaved evidence. Later failures
+kept for incomplete replies too. Upstream failures name the command, destination,
+exchange stage and elapsed time. Read failures include the received byte count;
+socket failures retain their original kind and OS code. A response timeout is distinct from a server closing
+without a reply; only an idle game-side connection treats either as an ordinary
+end. These details help diagnose the next failure without enabling traffic
+logging. Evidence is held in memory until saving; quitting loses unsaved evidence.
+Later failures
 in the same gap are counted without retaining an unbounded traffic history. A
 new gap after a successful login gets new evidence. User-facing helper files —
 exports, diagnostic logs, traffic logs and reports — all live in Downloads;

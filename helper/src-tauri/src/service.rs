@@ -676,7 +676,8 @@ fn relay(
         let mut incoming = Connection::new(StreamOwned::new(
             ServerConnection::new(server).map_err(|error| error.to_string())?,
             socket,
-        ));
+        ))
+        .with_idle_disconnect();
         let roots = RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
         let name = ServerName::try_from(hostname.to_owned()).map_err(|error| error.to_string())?;
         // The game keeps its gateway connection open and sends its next command
@@ -686,7 +687,15 @@ fn relay(
         // connection per exchange: retrying a POST after an ambiguous failure
         // could execute a game mutation twice.
         loop {
-            let Some(request) = incoming.read_message()? else {
+            last_request.clear();
+            last_response.clear();
+            let Some(request) = incoming
+                .read_message()
+                .map_err(|error| {
+                    last_request = incoming.pending.clone();
+                    format!("Reading a request from Summoners War on {hostname} (120 s I/O deadline): {error}")
+                })?
+            else {
                 return Ok(());
             };
             // Every exchange on a live connection renews the contact time, so a
@@ -700,8 +709,30 @@ fn relay(
             last_request = request.clone();
             last_response.clear();
             let exchange_started = Instant::now();
-            let mut outgoing = connect_upstream(hostname, upstream, &roots, &name)?;
-            let response = exchange_once(&mut outgoing, &request)?;
+            let command = std::str::from_utf8(http_body(&request))
+                .ok()
+                .and_then(|body| decode_request(body).ok())
+                .and_then(|value| {
+                    value
+                        .get("command")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                })
+                .unwrap_or_else(|| "unidentified request".into());
+            let context = |error: String| {
+                format!(
+                    "{command} via {hostname} ({upstream}:443), {} ms since request received: {error}",
+                    exchange_started.elapsed().as_millis()
+                )
+            };
+            let mut outgoing =
+                connect_upstream(hostname, upstream, &roots, &name).map_err(&context)?;
+            let response = exchange_once(&mut outgoing, &request).map_err(|error| {
+                // Even an incomplete HTTP reply is evidence; the old report
+                // discarded it and could not distinguish silence from truncation.
+                last_response = outgoing.pending.clone();
+                context(error)
+            })?;
             let upstream_time = exchange_started.elapsed();
             last_response = response.clone();
             // A long scout result must reach the game before the helper spends
@@ -784,8 +815,13 @@ fn connect_upstream(
     let address = format!("{upstream}:443")
         .parse()
         .map_err(|error| format!("Invalid gateway address: {error}"))?;
-    let stream = TcpStream::connect_timeout(&address, Duration::from_secs(15))
-        .map_err(|error| format!("Could not connect to {hostname}: {error}"))?;
+    let stream =
+        TcpStream::connect_timeout(&address, Duration::from_secs(15)).map_err(|error| {
+            format!(
+                "Connecting to {hostname} (15 s deadline): {}",
+                io_failure(&error)
+            )
+        })?;
     stream
         .set_read_timeout(Some(Duration::from_secs(30)))
         .map_err(|error| error.to_string())?;
@@ -799,16 +835,36 @@ fn connect_upstream(
 }
 
 /// Sends one request and insists on an answer, for a connection just opened.
-fn exchange_once(
-    connection: &mut Connection<StreamOwned<ClientConnection, TcpStream>>,
+fn exchange_once<S: Read + Write>(
+    connection: &mut Connection<S>,
     request: &[u8],
 ) -> Result<Vec<u8>, String> {
+    let started = Instant::now();
+    connection.write_message(request).map_err(|error| {
+        format!(
+            "Sending request / TLS handshake after {} ms (30 s I/O deadline): {}",
+            started.elapsed().as_millis(),
+            io_failure(&error)
+        )
+    })?;
+    let started = Instant::now();
     connection
-        .write_message(request)
-        .map_err(|error| error.to_string())?;
-    connection
-        .read_message()?
-        .ok_or_else(|| "The gateway closed without answering.".into())
+        .read_message()
+        .map_err(|error| format!("Waiting for gateway response (30 s I/O deadline): {error}"))?
+        .ok_or_else(|| {
+            format!(
+                "The gateway closed without answering after {} ms waiting for a response.",
+                started.elapsed().as_millis()
+            )
+        })
+}
+
+fn io_failure(error: &io::Error) -> String {
+    format!(
+        "kind={:?}, osCode={:?}: {error}",
+        error.kind(),
+        error.raw_os_error()
+    )
 }
 
 /// One end of a kept-alive connection, holding whatever was read past the
@@ -820,6 +876,7 @@ fn exchange_once(
 struct Connection<S> {
     stream: S,
     pending: Vec<u8>,
+    allow_idle_disconnect: bool,
 }
 
 impl<S: Read + Write> Connection<S> {
@@ -827,13 +884,22 @@ impl<S: Read + Write> Connection<S> {
         Self {
             stream,
             pending: Vec::new(),
+            allow_idle_disconnect: false,
         }
+    }
+
+    // Only the game's idle socket may end without an error. A new upstream
+    // socket owes us a response, so a timeout or reset there must keep its cause.
+    fn with_idle_disconnect(mut self) -> Self {
+        self.allow_idle_disconnect = true;
+        self
     }
 
     /// Reads one HTTP message, or `None` when the peer closed cleanly between
     /// messages. On a keep-alive connection that close is how a session ends, so
     /// it must not be reported as a failure the dashboard shows.
     fn read_message(&mut self) -> Result<Option<Vec<u8>>, String> {
+        let started = Instant::now();
         let mut buffer = [0; 16 * 1024];
         let header_end = loop {
             if let Some(end) = self
@@ -846,9 +912,21 @@ impl<S: Read + Write> Connection<S> {
             if self.pending.len() > 64 * 1024 {
                 return Err("The game response was too large to import safely.".into());
             }
-            match self.fill(&mut buffer)? {
+            match self.fill(&mut buffer).map_err(|error| {
+                format!(
+                    "Reading HTTP header after {} ms, {} bytes received: {error}",
+                    started.elapsed().as_millis(),
+                    self.pending.len()
+                )
+            })? {
                 0 if self.pending.is_empty() => return Ok(None),
-                0 => return Err("The gateway closed before sending an HTTP header.".into()),
+                0 => {
+                    return Err(format!(
+                        "The peer closed before completing an HTTP header after {} ms, {} bytes received.",
+                        started.elapsed().as_millis(),
+                        self.pending.len()
+                    ));
+                }
                 _ => {}
             }
         };
@@ -892,8 +970,19 @@ impl<S: Read + Write> Connection<S> {
             return Err("The game response was too large to import safely.".into());
         }
         while self.pending.len() < header_end + length {
-            if self.fill(&mut buffer)? == 0 {
-                return Err("The gateway closed before sending its complete HTTP body.".into());
+            if self.fill(&mut buffer).map_err(|error| {
+                format!(
+                    "Reading HTTP body after {} ms, {} of {length} body bytes received: {error}",
+                    started.elapsed().as_millis(),
+                    self.pending.len() - header_end
+                )
+            })? == 0
+            {
+                return Err(format!(
+                    "The peer closed before completing an HTTP body after {} ms, {} of {length} body bytes received.",
+                    started.elapsed().as_millis(),
+                    self.pending.len() - header_end
+                ));
             }
         }
         // Anything past this message is the next one, so it stays buffered.
@@ -911,7 +1000,8 @@ impl<S: Read + Write> Connection<S> {
                 Ok(read)
             }
             Err(error)
-                if self.pending.is_empty()
+                if self.allow_idle_disconnect
+                    && self.pending.is_empty()
                     && matches!(
                         error.kind(),
                         io::ErrorKind::ConnectionReset
@@ -923,7 +1013,7 @@ impl<S: Read + Write> Connection<S> {
             {
                 Ok(0)
             }
-            Err(error) => Err(error.to_string()),
+            Err(error) => Err(io_failure(&error)),
         }
     }
 
@@ -1418,6 +1508,113 @@ mod tests {
 
     struct ResetWriter;
 
+    struct FailedReader {
+        prefix: io::Cursor<Vec<u8>>,
+        kind: io::ErrorKind,
+    }
+
+    impl Read for FailedReader {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            let read = self.prefix.read(buffer)?;
+            if read != 0 {
+                return Ok(read);
+            }
+            Err(io::Error::new(self.kind, "simulated socket failure"))
+        }
+    }
+
+    impl Write for FailedReader {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            Ok(buffer.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn upstream_failures_keep_their_cause_and_response_progress() {
+        for kind in [
+            io::ErrorKind::TimedOut,
+            io::ErrorKind::WouldBlock,
+            io::ErrorKind::ConnectionReset,
+            io::ErrorKind::ConnectionAborted,
+            io::ErrorKind::UnexpectedEof,
+        ] {
+            for prefix in [
+                Vec::new(),
+                b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\npart".to_vec(),
+            ] {
+                let mut connection = Connection::new(FailedReader {
+                    prefix: io::Cursor::new(prefix.clone()),
+                    kind,
+                });
+                let error = exchange_once(&mut connection, b"request").unwrap_err();
+                assert!(error.contains(&format!("kind={kind:?}")), "{error}");
+                assert!(error.contains("Waiting for gateway response"), "{error}");
+                assert!(error.contains("ms"), "{error}");
+                assert!(
+                    error.contains(if prefix.is_empty() {
+                        "0 bytes received"
+                    } else {
+                        "4 of 10 body bytes received"
+                    }),
+                    "{error}"
+                );
+                assert_eq!(connection.pending, prefix, "partial evidence must survive");
+            }
+        }
+        let error = io_failure(&io::Error::from_raw_os_error(10060));
+        assert!(error.contains("osCode=Some(10060)"), "{error}");
+    }
+
+    #[test]
+    fn only_an_idle_game_connection_may_end_on_timeout_or_reset() {
+        for kind in [io::ErrorKind::TimedOut, io::ErrorKind::ConnectionReset] {
+            let mut idle = Connection::new(FailedReader {
+                prefix: io::Cursor::new(Vec::new()),
+                kind,
+            })
+            .with_idle_disconnect();
+            assert!(idle.read_message().unwrap().is_none());
+            let mut partial = Connection::new(FailedReader {
+                prefix: io::Cursor::new(b"POST /".to_vec()),
+                kind,
+            })
+            .with_idle_disconnect();
+            assert!(partial.read_message().is_err());
+        }
+        let mut closed = Connection::new(Conversation {
+            incoming: io::Cursor::new(Vec::new()),
+        });
+        let error = exchange_once(&mut closed, b"request").unwrap_err();
+        assert!(error.contains("closed without answering"));
+        assert!(!error.contains("TimedOut"));
+        let mut reset = Connection::new(ResetWriter);
+        let error = exchange_once(&mut reset, b"request").unwrap_err();
+        assert!(error.contains("Sending request / TLS handshake"));
+        assert!(error.contains("ConnectionReset"));
+    }
+
+    #[test]
+    fn a_real_socket_timeout_is_not_reported_as_a_gateway_close() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (_server, _) = listener.accept().unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_millis(50)))
+            .unwrap();
+        let mut connection = Connection::new(client);
+        let error = exchange_once(&mut connection, b"request").unwrap_err();
+        assert!(error.contains("Waiting for gateway response"), "{error}");
+        assert!(
+            error.contains("TimedOut") || error.contains("WouldBlock"),
+            "{error}"
+        );
+        assert!(error.contains("osCode=Some("), "{error}");
+        assert!(!error.contains("closed without answering"), "{error}");
+    }
+
     impl Read for ResetWriter {
         fn read(&mut self, _buffer: &mut [u8]) -> io::Result<usize> {
             Ok(0)
@@ -1497,7 +1694,10 @@ mod tests {
     #[test]
     fn treats_a_game_reset_while_forwarding_as_a_closed_client() {
         let mut connection = Connection::new(ResetWriter);
-        assert_eq!(forward_response(&mut connection, b"response").unwrap(), false);
+        assert_eq!(
+            forward_response(&mut connection, b"response").unwrap(),
+            false
+        );
         assert!(peer_disconnected(io::ErrorKind::ConnectionReset));
         assert!(!peer_disconnected(io::ErrorKind::TimedOut));
     }
