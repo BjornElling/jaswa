@@ -23,12 +23,13 @@ import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements, runesWithL
 import { addToGamePreset, deleteGamePreset, leadGamePreset, removeFromGamePreset } from './lib/game-preset-edits';
 import { usePageHistory } from './lib/page-history';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
+import type { MonsterProfileScope } from './lib/monster-profile-scope';
 import type { MonsterPriority } from './lib/monster-priority';
 import { defaultPresetId, engravings, readPresets, selectedPresetKey } from './lib/presets';
 import { PresetsContext } from './lib/presets-context';
 import type { OwnPreset } from './lib/presets';
 import type { PresetWrites } from './components/presets-section';
-import { profileIn, profilesIn, withoutContext, withProfile } from './lib/monster-preferences';
+import { profilesIn, withProfile } from './lib/monster-preferences';
 import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
 import { heldRuneLocks, lockedRuneIds, noRuneLocks, readRuneLocks, runeLockOf, runeLockScope, withRuneLock } from './lib/rune-locks';
@@ -68,7 +69,7 @@ function WorkspaceLoading() {
 }
 
 /**
- * The preferences without what was stated for one preset: its profiles, its
+ * The preferences without what was stated for one preset: its
  * speed tuning and its priority list. A deleted preset is gone in the game too,
  * and what was said about its team is said about nothing.
  */
@@ -76,7 +77,6 @@ function withoutPreset(preferences: Preferences, presetId: string): Preferences 
   const rest = <T,>(map: Readonly<Record<string, T>>) => Object.fromEntries(Object.entries(map).filter(([id]) => id !== presetId));
   return {
     ...preferences,
-    monsterPreferences: withoutContext(preferences.monsterPreferences, presetId),
     presetPriority: rest(preferences.presetPriority),
     speedTuning: { ...preferences.speedTuning, presets: rest(preferences.speedTuning.presets) },
   };
@@ -454,8 +454,8 @@ export default function Home() {
    * count of records is a count of decisions. A record holding only cleared
    * preferences still says something and stays.
    */
-  function updateMonsterPreferences(contextId: string, unitId: string, next: MonsterCopyPreferences) {
-    changePreferences((current) => ({ ...current, monsterPreferences: withProfile(current.monsterPreferences, contextId, unitId, next) }));
+  function updateMonsterPreferences(scope: MonsterProfileScope, unitId: string, next: MonsterCopyPreferences) {
+    changePreferences((current) => ({ ...current, monsterPreferences: withProfile(current.monsterPreferences, scope, unitId, next) }));
   }
 
   /* The rune overlay's one route to storage. A rune left holding nothing is
@@ -586,15 +586,7 @@ export default function Home() {
         const kept = new Map(next.map((entry) => [entry.id, entry]));
         let read: Preferences = { ...current, presets: next };
         for (const entry of current.presets) {
-          const now = kept.get(entry.id);
-          if (now === undefined) { read = withoutPreset(read, entry.id); continue; }
-          /* A copy taken out of a preset takes its profile there with it: the
-             profile was what the copy was for in that team. */
-          for (const unitId of entry.members) {
-            if (!now.members.includes(unitId) && profileIn(read.monsterPreferences, entry.id, unitId) !== undefined) {
-              read = { ...read, monsterPreferences: withProfile(read.monsterPreferences, entry.id, unitId, undefined) };
-            }
-          }
+          if (!kept.has(entry.id)) read = withoutPreset(read, entry.id);
         }
         return read;
       });
@@ -615,14 +607,12 @@ export default function Home() {
       const fallback = presets.find((entry) => entry.kind === 'default');
       if (preset && fallback) await changeGamePreset((current) => addToGamePreset(current, preset, fallback, unitId));
     },
-    /* As from a preset built here, the copy takes its profile in this preset with it. */
+    /* Removing a team member leaves its area profile intact. */
     async removeFromGamePreset(presetId: string, unitId: string) {
       const preset = presets.find((entry) => entry.id === presetId);
       if (!preset || !await changeGamePreset((current) => removeFromGamePreset(current, preset, unitId))) return;
       changePreferences((current) => ({
         ...current,
-        monsterPreferences: profileIn(current.monsterPreferences, presetId, unitId) === undefined ? current.monsterPreferences
-          : withProfile(current.monsterPreferences, presetId, unitId, undefined),
         presetPriority: current.presetPriority[presetId] === undefined ? current.presetPriority
           : { ...current.presetPriority, [presetId]: current.presetPriority[presetId].filter((entry) => entry !== unitId) },
       }));

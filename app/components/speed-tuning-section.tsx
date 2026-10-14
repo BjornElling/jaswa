@@ -168,10 +168,9 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, onWri
     return { preset, team, monsters: inPreset, reading: readSpeedTeam({ team, monsters: inPreset, totemPercent: totemShare }) };
   }), [presets, tuning, monsterById, items, totemShare]);
 
-  /* Each team names its copies as its own preset's profiles do: a label is part
-     of a copy's profile in one preset, and the next line is another preset. */
+  /* Every team in an area reads that area's shared copy names. */
   const namesByPreset = useMemo(() => new Map(lines.map((line) =>
-    [line.preset.id, monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, line.preset.id))])),
+    [line.preset.id, monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, line.preset.profileScope))])),
   [lines, monsters, preferences.monsterPreferences]);
   const namesIn = (presetId: string) => namesByPreset.get(presetId) ?? {};
 

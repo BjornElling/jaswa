@@ -20,6 +20,8 @@ try {
   const { blankPreferences, readPreferences, defaultDirectImportMode } = await server.ssrLoadModule('/app/lib/file-imports.ts');
   const { withRefreshedMetrics } = await server.ssrLoadModule('/app/lib/rune-roles.ts');
   const { speedContents } = await server.ssrLoadModule('/app/lib/speed-contents.ts');
+  const { monsterCopyNamesIn } = await server.ssrLoadModule('/app/lib/monster-names.ts');
+  const { monsterProfileScope, monsterProfileAreas } = await server.ssrLoadModule('/app/lib/monster-profile-scope.ts');
 
   assert.equal(defaultDirectImportMode, 'live', 'a connected helper keeps the workspace synchronized by default');
 
@@ -34,7 +36,7 @@ try {
     general: { ...blank.general, numberFormat: 'european', hourCycle: 'h23' },
     monsterPreferences: {
       default: { 17: { unitId: '17', label: 'Arena defence', allowIntangibleRunes: true } },
-      'deck-1-4': { 17: { unitId: '17', statCeilings: { spd: 180 } }, 18: { unitId: '18', alwaysCrits: true } },
+      'content:arena-attack': { 17: { unitId: '17', statCeilings: { spd: 180 } }, 18: { unitId: '18', alwaysCrits: true } },
     },
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true } },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
@@ -107,11 +109,36 @@ try {
   const unreadableContext = readPreferences({ ...chosen, monsterPreferences: { ...chosen.monsterPreferences, 'deck-9-9': 'x', '': { 17: defaultCopy } } }, null);
   assert.deepEqual(unreadableContext.monsterPreferences, chosen.monsterPreferences, 'an unreadable context costs only itself');
 
-  /* A profile stored before profiles had a context is the user's choice, and
-     survives as Default's — Default's only, never spread into a preset. */
-  const contextless = readPreferences({ ...chosen, monsterPreferences: { 17: defaultCopy, 18: { unitId: '18', label: 'Opener' } } }, null);
-  assert.deepEqual(contextless.monsterPreferences, { default: { 17: defaultCopy, 18: { unitId: '18', label: 'Opener' } } },
-    'a contextless profile is read as the Default profile');
+  /* Team scopes and contextless documents are outside the current contract.
+     Reject only those choices; keep every readable area and other section. */
+  const obsolete = readPreferences({ ...chosen, monsterPreferences: {
+    ...chosen.monsterPreferences, 'deck-1-4': { 17: defaultCopy }, 18: { unitId: '18', label: 'Opener' },
+    'content:missing': { 17: defaultCopy },
+  } }, null);
+  assert.deepEqual(obsolete, chosen, 'obsolete scopes cost only their own choices');
+
+  /* A team's identity must never become a profile key, including in engraving
+     tooltips and in the deduplicated area menu. */
+  const arenaScope = monsterProfileScope('game', 'arena-attack');
+  assert.equal(monsterProfileScope('own', 'arena-attack'), arenaScope, 'game and own teams share an area profile');
+  assert.notEqual(monsterProfileScope('game', 'arena-defense'), arenaScope, 'offence and defence are separate areas');
+  const teams = [
+    { id: 'default', kind: 'default', profileScope: 'default', members: ['17'] },
+    { id: 'deck-1-1', kind: 'game', profileScope: arenaScope, members: ['17'] },
+    { id: 'deck-1-2', kind: 'game', profileScope: arenaScope, members: ['17'] },
+    { id: 'own-arena', kind: 'own', profileScope: arenaScope, members: ['17'] },
+  ];
+  assert.deepEqual(monsterProfileAreas(teams, '17', 'deck-1-2').map((team) => team.id), ['default', 'deck-1-2'],
+    'an area appears once and keeps the opened team as its gear source');
+  const names = monsterCopyNamesIn([{ unit_id: 17, unit_master_id: 10101 }], {
+    default: { 17: { unitId: '17', label: 'Default job' } },
+    [arenaScope]: { 17: { unitId: '17', label: 'Area opener' } },
+  }, teams);
+  assert.match(names('17', 'default'), /Default job/);
+  assert.match(names('17', 'deck-1-1'), /Area opener/);
+  assert.equal(names('17', 'deck-1-1'), names('17', 'deck-1-2'), 'engraving names share the area profile');
+  assert.equal(names('17', 'own-arena'), names('17', 'deck-1-2'), 'an own team reads the same shared name');
+  assert.equal(names('missing', 'deck-1-2'), undefined, 'a missing monster has no invented name');
   /* Gear is four questions, and one the contract no longer honours — here a
      relic unique in both bands, and an artifact sub no Type artifact rolls —
      costs that question and not the ones beside it. */

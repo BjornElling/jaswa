@@ -201,7 +201,7 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
     if (!preset) return [];
     const byUnit = new Map(monsters.map((monster) => [String(monster.unit_id), monster]));
     const members = preset.members.map((unitId) => byUnit.get(unitId)).filter((monster): monster is GameRecord => monster !== undefined);
-    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, preset.id));
+    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, preset?.profileScope ?? 'default'));
     return members.map((member, index) => {
       const monster = monsterInPreset(member, preset, items);
       const unitId = String(monster.unit_id ?? `unknown-${index}`);

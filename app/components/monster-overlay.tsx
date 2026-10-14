@@ -1,3 +1,5 @@
+import { monsterProfileAreas, monsterProfileAreaName } from '../lib/monster-profile-scope';
+import type { MonsterProfileScope } from '../lib/monster-profile-scope';
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { BandedChoiceLine } from './banded-choice-line';
 import type { ChoiceBand } from './banded-choice-line';
@@ -250,47 +252,46 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   target: MonsterReference;
   game: GameRecord | undefined;
   general: GeneralSettings;
-  /** Every context's profiles; the panel reads and writes the one it is open on. */
+  /** Area profiles, independent of the team whose gear the panel reports. */
   profiles: MonsterPreferences;
   /** The preset the overlay was opened for, else Default; read here only where the copy stands in it. */
   presetId: string;
-  onSave: (presetId: string, unitId: string, preferences: MonsterCopyPreferences) => void;
+  onSave: (scope: MonsterProfileScope, unitId: string, preferences: MonsterCopyPreferences) => void;
   onClose: () => void;
   onOptimize: (unitId: string, presetId: string) => void;
 }) {
   const unitId = target.kind === 'copy' ? target.unitId : '';
   const presetsReading = usePresets();
-  /* The contexts this copy has a profile in: Default, and every preset it stands
-     in. Each is its own profile, gear and figures (`DECK-PRESETS.md` §4). */
-  const contexts = useMemo(() => presetsReading.presets
-    .filter((entry) => entry.kind === 'default' || (unitId !== '' && entry.members.includes(unitId))), [presetsReading.presets, unitId]);
-  const [contextId, setContextId] = useState(presetId);
+  const areas = useMemo(() => monsterProfileAreas(presetsReading.presets, unitId, presetId),
+    [presetsReading.presets, unitId, presetId]);
+  const [gearPresetId, setGearPresetId] = useState(presetId);
 
-  /* One preset for the whole panel — the profile it edits, the gear it shows, the
-     figures it reads and the build Optimize opens — so the box in the head names
-     what everything below is about. It is the preset the overlay was opened for
-     where the copy stands in it, and Default where it does not. */
-  const preset = contexts.find((entry) => entry.id === contextId) ?? contexts.find((entry) => entry.kind === 'default');
-  const activeContextId = preset?.id ?? defaultPresetId;
+  /* A shared profile and a team-specific stat sheet: changing area picks one
+     team there; opening from a team keeps that team's gear and Optimize route. */
+  const preset = areas.find((entry) => entry.id === gearPresetId) ?? areas.find((entry) => entry.kind === 'default');
+  const activePresetId = preset?.id ?? defaultPresetId;
+  const activeScope = preset?.profileScope ?? 'default';
   const [draft, setDraft] = useState<MonsterCopyPreferences>(
-    () => profileIn(profiles, activeContextId, unitId) ?? blankMonsterCopyPreferences(unitId),
+    () => profileIn(profiles, activeScope, unitId) ?? blankMonsterCopyPreferences(unitId),
   );
   const [dirty, setDirty] = useState(false);
   const [editingNickname, setEditingNickname] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
 
-  /* Empty profiles stay visible so every context can be found, but only the
+  /* Empty profiles stay visible so every area can be found, but only the
      user's stated choices offer anything to copy. Defaults are not choices. */
-  const copySources = contexts.filter((entry) => entry.id !== activeContextId)
-    .map((entry) => ({ id: entry.id, name: entry.name,
-      stated: profileIn(profiles, entry.id, unitId) }));
+  const copySources = areas.filter((entry) => entry.profileScope !== activeScope)
+    .map((entry) => ({ id: entry.profileScope, name: monsterProfileAreaName(entry),
+      stated: profileIn(profiles, entry.profileScope, unitId) }));
 
-  /* Another context is another profile: the draft becomes that one's, unedited.
+  /* Another area is another profile: the draft becomes that one's, unedited.
      An edit is never carried across, which is why the choice waits for a save. */
-  function openContext(next: string) {
-    if (dirty || next === activeContextId) return;
-    setContextId(next);
-    setDraft(profileIn(profiles, next, unitId) ?? blankMonsterCopyPreferences(unitId));
+  function openArea(next: string) {
+    if (dirty || next === activeScope) return;
+    const area = areas.find((entry) => entry.profileScope === next);
+    if (!area) return;
+    setGearPresetId(area.id);
+    setDraft(profileIn(profiles, area.profileScope, unitId) ?? blankMonsterCopyPreferences(unitId));
     setEditingNickname(false);
   }
   const monster = useMemo(() => {
@@ -378,7 +379,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (target.kind !== 'copy') return;
-    onSave(activeContextId, target.unitId, { ...draft, unitId: target.unitId });
+    onSave(activeScope, target.unitId, { ...draft, unitId: target.unitId });
     setDirty(false);
     onClose();
   }
@@ -482,28 +483,25 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             </div>)}
           </dl>
         </div>
-        {/* Which preset the profile and build are for, where it cannot be missed:
-            the same copy has a profile and a build of its own in each preset it
-            stands in. Beneath it, quieter, the two things done with that preset.
-            Every control is always there, and only disabled where it has nothing
-            to offer, so the block keeps its shape (`AGENTS.md` §2). */}
+        {/* Team choices belong to the workspace; profile choices belong to areas. */}
         {editable && <div className="monster-overlay-controls">
-          <div className="monster-overlay-preset" role="group" aria-label="Build for preset">
+          <div className="monster-overlay-preset" role="group" aria-label="Build for area">
             <label className="monster-overlay-preset-label" htmlFor="monster-overlay-preset">Build for</label>
-            <Dropdown id="monster-overlay-preset" className="monster-overlay-preset-select" value={activeContextId}
-              disabled={dirty || contexts.length < 2}
-              title={dirty ? 'Save or close to open another preset' : preset?.name}
-              onChange={(event) => openContext(event.target.value)}>
-              {contexts.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            <Dropdown id="monster-overlay-preset" className="monster-overlay-preset-select" value={activeScope}
+              disabled={dirty || areas.length < 2}
+              title={dirty ? 'Save or close to open another area' : monsterProfileAreaName(preset ?? { kind: 'default', content: null })}
+              onChange={(event) => openArea(event.target.value)}>
+              {areas.map((entry) => <option key={entry.profileScope} value={entry.profileScope}>{monsterProfileAreaName(entry)}</option>)}
             </Dropdown>
           </div>
+          <p className="monster-overlay-gear-context" title={preset?.name}>Gear from {preset?.name ?? 'Default'}</p>
           <Button className="monster-overlay-optimize"
             aria-label={`Save and optimize runes for ${heroName}`}
             onClick={() => {
-              if (dirty) onSave(activeContextId, target.unitId, { ...draft, unitId: target.unitId });
-              onOptimize(target.unitId, activeContextId);
+              if (dirty) onSave(activeScope, target.unitId, { ...draft, unitId: target.unitId });
+              onOptimize(target.unitId, activePresetId);
             }}>Save and optimize</Button>
-          <Dropdown className="monster-overlay-copy-select" aria-label="Copy the profile from another preset"
+          <Dropdown className="monster-overlay-copy-select" aria-label="Copy the profile from another area"
             value="" placeholder="Copy from…" disabled={copySources.length === 0}
             onChange={(event) => {
               const stated = copySources.find((entry) => entry.id === event.target.value)?.stated;

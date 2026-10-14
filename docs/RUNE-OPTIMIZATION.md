@@ -56,7 +56,7 @@ sits beside *Builds listed* in a compact dropdown, with its space reserved
 before a monster is chosen; both are named above their controls. Slots 2, 4
 and 6 share their own row equally.
 
-The monster's profile **in the chosen preset** (`DECK-PRESETS.md` §4.1) states
+The monster's profile **in the chosen content-area** (`DECK-PRESETS.md` §4.1) states
 the answer's shape: the builds it will accept, the mains of slots 2, 4 and 6, whether
 a rune may complete no set (no unless the owner said yes), whether an Intangible
 rune may be spent (yes unless the owner said no), whether the monster always crits
@@ -72,7 +72,7 @@ select an option or constrain a calculation.
 The page's own controls may be changed for this calculation only and never write
 back to the profile; *Reset to profile* discards those changes after confirmation.
 A change is for the copy in the chosen preset: choosing another preset reads that
-preset's profile afresh and carries nothing across.
+area's shared profile afresh and carries nothing across.
 Combat crit conditions are edited on the monster overlay and read here.
 
 ### 2.1 Empty means any

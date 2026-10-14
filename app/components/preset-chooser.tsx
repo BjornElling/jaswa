@@ -36,13 +36,12 @@ export function PresetChooser({ idPrefix, menu, choice, monsters, monsterPrefere
 }) {
   const { tab, area, preset } = choice;
   const onDefault = tab === menu[0];
-  /* Each face is named as its own preset names it: a nickname is part of that
-     preset's profile, and another preset's is not this one's. */
+  /* Team faces share the nickname stated for their area. */
   const teams = useMemo<TeamChoice[]>(() => {
     if (onDefault) return [];
     const byUnit = new Map(monsters.map((monster) => [String(monster.unit_id), monster]));
     return area.presets.map((entry) => {
-      const names = monsterCopyNames(monsters, profilesIn(monsterPreferences, entry.id));
+      const names = monsterCopyNames(monsters, profilesIn(monsterPreferences, entry.profileScope));
       return { id: entry.id, name: entry.name, faces: entry.members.map((unitId) => {
         const monster = byUnit.get(unitId);
         const display = monster ? monsterPresentation(monster.unit_master_id) : undefined;

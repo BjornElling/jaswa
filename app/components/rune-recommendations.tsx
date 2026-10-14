@@ -231,14 +231,14 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   /* The same names the rest of the workspace uses, numbered where the roster holds
      more than one of a species, so a Location cell identifies the copy the rune is
      actually on rather than a species the account owns four of. */
+  const reading = usePresets();
   const namesIn = useMemo(() => {
     const units = game?.data?.unit_list;
-    return monsterCopyNamesIn(Array.isArray(units) ? units as GameRecord[] : [], profiles);
-  }, [game, profiles]);
+    return monsterCopyNamesIn(Array.isArray(units) ? units as GameRecord[] : [], profiles, reading.presets);
+  }, [game, profiles, reading.presets]);
 
   /* Every place a rune is engraved, in Default and in each preset, read from
      the one resolution the page made (`presets-context.ts`). */
-  const reading = usePresets();
   const monsterName = useCallback((unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import', [namesIn]);
   const placeOf = useCallback((runeId: string, gone: boolean) => {
     const places = gone ? [] : reading.runes.get(runeId) ?? [];

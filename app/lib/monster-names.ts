@@ -1,6 +1,8 @@
 import { monsterPresentation } from './monster-catalog';
 import type { GameRecord } from './game-data';
 import type { MonsterPreferences, MonsterProfiles } from './monster-preferences';
+import { profileIn } from './monster-preferences';
+import type { Preset } from './presets';
 
 export function numberedMonsterNames(monsters: readonly GameRecord[]): Record<string, string> {
   const entries = monsters.map((monster, index) => ({
@@ -47,19 +49,17 @@ export function monsterCopyNames(
   )));
 }
 
-/**
- * Every copy's name in every context, for a list that names one copy in several
- * presets at once — where an item is engraved, say. Each place is named by its
- * own context's profile, so a nickname given in one preset is not read into
- * another; `undefined` for a copy not in the roster.
- */
+/** Each engraving keeps its team location and reads its area's shared nickname. */
 export function monsterCopyNamesIn(
   monsters: readonly GameRecord[],
   preferences: MonsterPreferences,
+  presets: readonly Preset[],
 ): (unitId: string, contextId: string) => string | undefined {
   const numbered = numberedMonsterNames(monsters);
+  const scopes = new Map(presets.map((preset) => [preset.id, preset.profileScope]));
   return (unitId, contextId) => {
     const gameName = numbered[unitId];
-    return gameName === undefined ? undefined : labelledMonsterName(gameName, preferences[contextId]?.[unitId]?.label);
+    const scope = scopes.get(contextId);
+    return gameName === undefined ? undefined : labelledMonsterName(gameName, scope === undefined ? undefined : profileIn(preferences, scope, unitId)?.label);
   };
 }

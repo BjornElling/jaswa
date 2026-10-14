@@ -242,7 +242,7 @@ The account owns physical runes and artifacts. A placement is the relation
   three phases are three contents and one pool. The game does not
   always stop it, and what the game shows on a team is what JASWA shows. So
   each deck is its own context, read exactly as the game saved it, with its
-  own team, gear, profiles, priority and speed tuning. A preset built in JASWA
+  own team, gear, priority and speed tuning. A preset built in JASWA
   is a draft of one team and never joins the game's pool.
   - **An overlap is a fault of the preset, never of the import.** Decks of one
     pool that hold the same item — or, for Temple of Chaos, the same monster —
@@ -273,39 +273,36 @@ carry no owner field. Every reading of a monster's slots, its stat sheet,
 its sets or its speed takes a context argument, and no page, filter or worker
 picks a context of its own.
 
-### 4.1 A profile belongs to a copy in one context
+### 4.1 One monster profile per content-area
 
-What the user says a monster is for — its profile: nickname, wanted builds and
-slot mains, stat ranges, the figure to rank by, crit and element switches,
-leads, and the artifact and relic wishes — is stated for a copy **in one
-context**, never for the copy. The same Lushen in Default, in Arena Attack 3
-and in Arena Attack 4 is three profiles, and an edit to one reaches neither of
-the others. A monster has no one identity across presets; it has one per team
-it stands in.
+A profile states one owned copy's job in **Default or one content-area**:
+nickname, desired rune builds and slot mains, stat ranges, ranking figure,
+combat conditions, leads, and artifact and relic wishes. Every team in Arena
+Attack reads that copy's one Arena Attack profile. Arena Defense, Giant's Keep
+and Default have separate profiles, even when they hold the same copy.
 
-- Profiles are stored by context and then by `unit_id`
-  (`monster-preferences.ts`). A copy appears at most once in a preset, so the
-  pair names one team member exactly; two arena teams holding the same copy are
-  two presets and two profiles.
-- **No fallback between contexts.** A copy with no profile in a preset reads the
-  defaults there, not its Default profile: a fallback is a channel an edit in
-  Default flows through. Moving a profile across is the user's act — *Copy
-  from…* in the overlay — and copies it; afterwards each is its own.
-- Speed Tuning's order and what-ifs and a preset's priority list are already
-  per preset, and so are a rune's Lock and Exclude (§5).
-- A preset deleted in JASWA takes its profiles, speed tuning and priority list
-  with it; a copy taken out of a preset takes its profile there.
-- A copy is named by the profile of the context it is read in: the Presets page
-  and Speed Tuning by each preset's, Rune Optimization and Monster Stats by the
-  chosen preset's, and every page about Default — Monster Numbers, the artifact
-  and relic pages, Rune Clean-up — by Default's.
-- Artifact Optimization, its value columns and the relic plan judge Default
-  (§5) and read Default's profiles. A relic is Default's in every preset (§1),
-  so a preset profile's relic wishes are read only by that preset's overlay,
-  against the relic it carries there.
-- A profile stored before profiles had a context is read as Default's — the
-  context every profile was written in before presets — and is not spread into
-  any preset.
+- Storage is keyed by `default`, `content:<content id>` or `unassigned`, then
+  by `unit_id`. `monster-profile-scope.ts` resolves the area once for every
+  reader. Unnamed teams share the explicit unassigned area; no content is
+  guessed beyond the import's existing classification.
+- Gear, team membership, leader, rune priority, locks and speed tuning remain
+  team-specific. Sharing a profile never copies or merges game placements.
+- No fallback between areas. An unstated choice reads species defaults there,
+  never Default's profile. *Copy from…* copies another area's stated choices;
+  subsequent edits remain independent.
+- Removing a monster from a team or deleting a team leaves its area profile
+  intact, including when it was the area's last team. Re-importing a team can
+  therefore use the user's choices again.
+- Presets, Monster Stats, Rune Optimization and Speed Tuning resolve nicknames
+  and profile choices through the team's content-area. Default-only artifact,
+  relic and rune workspaces continue to read Default's profile.
+- The profile editor's *Build for* offers each area once, without a team
+  dropdown. *Gear from* names the team whose gear and figures it reports.
+  Opening from a team retains that team; switching area uses its first team.
+  *Save and optimize* opens that same team in Rune Optimization.
+- Stored team-keyed or contextless profiles are outside the current contract
+  and are rejected one scope at a time. No migration or compatibility reader
+  maps conflicting team profiles into an area. Other preferences survive.
 
 Presets the player builds in JASWA are the player's own choices
 (AGENTS.md §0). They are stored with the preferences, are never overwritten by
@@ -333,7 +330,7 @@ an import, and are checked one preset at a time on load.
   written into the import, as an engrave is, and the next import states the
   game's own presets again. A monster added to a preset that saves its gear
   brings its Default gear, less what the preset already engraves; one taken out
-  takes its gear and its profile there with it.
+  takes its gear there with it; its area profile stays.
 - The order of monsters within a preset is their priority for runes. Rune
   competition exists only inside a preset, so that is the only place a
   priority means anything; between the teams of a pool there is no order,
@@ -357,13 +354,12 @@ an import, and are checked one preset at a time on load.
   relic — opens on Default, which is what those pages show. Opening the overlay
   leaves the preset chosen across the program alone; only *Save and optimize*
   changes it.
-- The overlay's *Build for* box is a menu of Default and the presets the copy
-  stands in, and switches the profile, gear and figures the panel reads. It
-  waits while an edit is unsaved, so an edit is never carried across. Beneath
-  it sit *Save and optimize* and *Copy from…*, which offers every other one of
-  those contexts (§4.1). Profiles with no user-stated choices remain visible in
-  grey and cannot be copied; an explicit zero or deliberately cleared choice
-  still counts as a stated choice.
+- The overlay's *Build for* names Default or a content-area, each once. It
+  switches the shared profile and the representative team's gear together,
+  waits while an edit is unsaved, and names the gear's team on *Gear from*.
+  *Copy from…* offers other areas once each; profiles with no stated choices
+  remain visible but cannot be copied. An explicit zero or deliberately
+  cleared choice still counts as a stated choice.
 - The candidate runes are every owned rune, minus those engraved on other
   monsters of the same preset where the settings say so, and minus every rune
   another deck of the preset's pool holds, whatever the settings say. Runes in
@@ -441,10 +437,11 @@ in Location's words: a rune the preset left free names its Default monster.
 Artifact Optimization and its value columns plan Default: which artifact a
 monster carries in Default and what to engrave, keep or sell there.
 
-**Choosing a preset.** *Content*, *Area* and *Preset*, as the Presets page
-lays them out, are the one way a preset is chosen: `PresetChooser` draws the
-three fields and `preset-choice.ts` resolves and falls back the choice, so
-every page that offers it looks and behaves alike and is mended in one place.
+**Choosing a gear context.** Presets and Monster Stats share *Content*, *Area*
+and *Preset*: `PresetChooser` draws the fields and `preset-choice.ts` resolves
+the choice. Rune Optimization offers Default and every team in one list.
+These team choices still matter because gear and rune competition belong to
+a team; the profile editor offers content-areas instead (§4.1).
 A page that makes presets — Presets — offers every content, empty ones
 included, because a preset is added to the content chosen; a page that only
 reads them offers only the tabs and contents holding one.

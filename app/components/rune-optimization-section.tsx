@@ -187,9 +187,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const activePresetId = preset?.id ?? defaultPresetId;
   const tunable = preset !== undefined && isSpeedTeam(preset);
   const items = useMemo(() => accountItems(game?.data), [game]);
-  /* The profile is the copy's in this preset and no other: names, requirements
-     and the Reset to profile all read the one context the build is for. */
-  const profiles = useMemo(() => profilesIn(preferences.monsterPreferences, activePresetId), [preferences.monsterPreferences, activePresetId]);
+  /* Requirements and names follow the shared area profile; gear follows the team. */
+  const profileScope = useMemo(() => presets.find((entry) => entry.id === activePresetId)?.profileScope ?? defaultPresetId,
+    [presets, activePresetId]);
+  const profiles = useMemo(() => profilesIn(preferences.monsterPreferences, profileScope), [preferences.monsterPreferences, profileScope]);
   const names = useMemo(() => monsterCopyNames(monsters, profiles), [monsters, profiles]);
   const options = useMemo<MonsterOption[]>(() => (preset ? monsters : [])
     .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null

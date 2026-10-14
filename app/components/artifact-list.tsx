@@ -201,7 +201,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
   /* An artifact's value is read in Default, so the profile it is judged by is
      Default's; each place it is engraved names its monster in that place's preset. */
   const defaultProfiles = useMemo(() => profilesIn(preferences.monsterPreferences, defaultPresetId), [preferences.monsterPreferences]);
-  const namesIn = useMemo(() => monsterCopyNamesIn(monsters, preferences.monsterPreferences), [monsters, preferences.monsterPreferences]);
+  const namesIn = useMemo(() => monsterCopyNamesIn(monsters, preferences.monsterPreferences, placements.presets), [monsters, preferences.monsterPreferences, placements.presets]);
   const monsterName = useCallback((unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import', [namesIn]);
   const rows = useMemo<ArtifactRow[]>(() => {
     const monstersByUnitId = new Map<string, GameRecord>();

@@ -28,7 +28,7 @@ import type { MonsterPriority } from '../lib/monster-priority';
 import { presetContent, presetTabs, tabContents } from '../lib/preset-contents';
 import type { PresetContentId } from '../lib/preset-contents';
 import { gamePresetHasRoom } from '../lib/game-preset-edits';
-import { accountItems, defaultPresetId, monsterInPreset, newOwnPresetId, presetMenu } from '../lib/presets';
+import { accountItems, monsterInPreset, newOwnPresetId, presetMenu } from '../lib/presets';
 import type { OwnPreset, Preset } from '../lib/presets';
 import { resolvePresetChoice } from '../lib/preset-choice';
 import type { PresetChoice } from '../lib/preset-choice';
@@ -97,9 +97,8 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const priority = useMemo(() => (preset ? presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority) : []),
     [preset, preferences.monsterPriority, preferences.presetPriority]);
   const items = useMemo(() => accountItems(game?.data), [game]);
-  /* A copy is named as the preset it is read in names it: its label is part of
-     that preset's profile, and another preset's is not this one's. */
-  const contextId = preset?.id ?? defaultPresetId;
+  /* Teams in one area share names as well as build wishes. */
+  const contextId = preset?.profileScope ?? 'default';
   const names = useMemo(() => monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, contextId)),
     [monsters, preferences.monsterPreferences, contextId]);
   const owned = useMemo(() => new Map<string, MonsterChoice>(monsters

@@ -2,7 +2,8 @@ import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properti
 import { artifactMainPropertyOrder, artifactPropertiesFor } from './artifact-properties';
 import type { RuneSlotKey } from './monster-defaults';
 import { runeSlotKeys } from './monster-defaults';
-import { defaultPresetId } from './presets';
+import { isMonsterProfileScope } from './monster-profile-scope';
+import type { MonsterProfileScope } from './monster-profile-scope';
 import { relicProperty } from './relic-properties';
 import type { LeadStat, Leads } from './monster-stats';
 import { leadStats } from './monster-stats';
@@ -13,25 +14,9 @@ import { runeSlotMainsBySlot } from './rune-slot-mains';
 import { runeBuild, runeBuildKey } from './rune-set-pairs';
 
 /**
- * What one owned copy of a monster is for in one context, as its owner has
- * said so.
- *
- * **Keyed by context, then by `unit_id`.** A player runs two Lushens, one built
- * for speed in arena and one for damage in a dungeon — and one Lushen built
- * three ways in three presets — and a model that cannot say so is describing
- * the game rather than the account. A context is Default or one preset
- * (`presets.ts`); `unit_id` is the game's own persistent per-copy identifier,
- * so a record survives re-importing the same account. Only selling the copy,
- * or deleting the preset, ends it.
- *
- * The defaults these start from stay species-level, because the game's
- * Statistics panels are keyed on `unit_master_id` and cannot be otherwise.
- * `monster-preference-resolution.ts` is the one place the two keyings meet.
- *
- * Nothing here is scored, ranked or recommended against. The overlay states
- * what the user wants and reports where the account does not match it; the
- * artifact optimization pages keep their own species-level calculation
- * untouched.
+ * One owned copy's choices in Default or one content-area. All teams in an
+ * area read the same profile; placements and speed tuning remain per team.
+ * Species-level defaults apply only where that area has no stated choice.
  */
 
 /**
@@ -226,65 +211,45 @@ export type MonsterCopyPreferences = {
   runeSuggestionStat?: keyof MonsterStatTargets;
 };
 
-/** Every copy's profile in one context — Default or one preset — by `unit_id`. */
+/** Every copy's profile in one area, by the game's persistent unit id. */
 export type MonsterProfiles = Record<string, MonsterCopyPreferences>;
 
-/**
- * Every profile the user has stated, by context and then by copy, as it travels
- * in a `.sw` file.
- *
- * **A profile belongs to a copy in one context, never to the copy.** A Lushen
- * built for speed in Arena Attack 3 and for damage in Giant's Keep 1 is two
- * answers, and a change to one must not reach the other — nor Default, nor
- * Arena Attack 4 where the same Lushen runs a third build (`DECK-PRESETS.md` §4).
- * There is no fallback between contexts either: a preset whose copy has no
- * profile reads the defaults, not Default's profile, because a fallback is a
- * channel a change in Default flows through. Copying one context's profile into
- * another is an act of the user's (`copyProfile`), not of the model.
- */
-export type MonsterPreferences = Record<string, MonsterProfiles>;
+/** Profiles keyed by Default, content:<content id>, or the unassigned area. */
+export type MonsterPreferences = Partial<Record<MonsterProfileScope, MonsterProfiles>>;
 
 const noProfiles: MonsterProfiles = Object.freeze({}) as MonsterProfiles;
 
-/** One context's profiles; an empty map where none is stated there. */
-export function profilesIn(preferences: MonsterPreferences, contextId: string): MonsterProfiles {
-  return preferences[contextId] ?? noProfiles;
+/** One area's profiles; an empty map where none is stated there. */
+export function profilesIn(preferences: MonsterPreferences, scope: MonsterProfileScope): MonsterProfiles {
+  return preferences[scope] ?? noProfiles;
 }
 
-/** One copy's profile in one context, or `undefined` where it states nothing there. */
-export function profileIn(preferences: MonsterPreferences, contextId: string, unitId: string): MonsterCopyPreferences | undefined {
-  return preferences[contextId]?.[unitId];
+/** One copy's profile in one area, or `undefined` where it states nothing there. */
+export function profileIn(preferences: MonsterPreferences, scope: MonsterProfileScope, unitId: string): MonsterCopyPreferences | undefined {
+  return preferences[scope]?.[unitId];
 }
 
 /**
- * The map with one copy's profile in one context replaced. A profile that ends
- * up saying nothing is removed rather than kept as a husk, and so is a context
+ * The map with one copy's profile in one area replaced. A profile that ends
+ * up saying nothing is removed rather than kept as a husk, and so is an area
  * left holding none, so a count of records is a count of decisions.
  */
 export function withProfile(
-  preferences: MonsterPreferences, contextId: string, unitId: string, next: MonsterCopyPreferences | undefined,
+  preferences: MonsterPreferences, scope: MonsterProfileScope, unitId: string, next: MonsterCopyPreferences | undefined,
 ): MonsterPreferences {
-  const profiles = { ...preferences[contextId] };
+  const profiles = { ...preferences[scope] };
   if (next !== undefined && statesSomething(next)) profiles[unitId] = { ...next, unitId };
   else delete profiles[unitId];
   const read = { ...preferences };
-  if (Object.keys(profiles).length > 0) read[contextId] = profiles;
-  else delete read[contextId];
-  return read;
-}
-
-/** The map without a context's profiles: a preset deleted takes its profiles with it. */
-export function withoutContext(preferences: MonsterPreferences, contextId: string): MonsterPreferences {
-  if (!(contextId in preferences)) return preferences;
-  const read = { ...preferences };
-  delete read[contextId];
+  if (Object.keys(profiles).length > 0) read[scope] = profiles;
+  else delete read[scope];
   return read;
 }
 
 /**
- * Another context's profile, taken as this context's own: a copy, not a link,
- * so a later change to either is that context's alone. The nickname comes along
- * with everything else, because it is part of what the copy is in that team.
+ * Another area's profile, taken as this area's own: a copy, not a link,
+ * so a later change to either is that area's alone. The nickname comes along
+ * with everything else, because it is part of what the copy is in that area.
  */
 export function copyProfile(source: MonsterCopyPreferences, unitId: string): MonsterCopyPreferences {
   return { ...structuredClone(source), unitId };
@@ -520,40 +485,14 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | '
   runeSuggestionStat: (value) => monsterStatTargetKeys.includes(value as keyof MonsterStatTargets),
 };
 
-function isContextId(value: string): boolean {
-  return value.length > 0 && value.length <= 64;
-}
-
-/* A stored copy is told from a stored context by its own `unitId` field, which a
-   context's map of copies never carries. */
-function isStoredCopy(key: string, value: unknown): boolean {
-  return isRecord(value) && value.unitId === key;
-}
-
-/**
- * The stored map, context by context, copy by copy and field by field
- * (`preference-reading.ts`). A copy is kept under its own `unitId` only, and
- * only while what survives the checks still states something — the same rule
- * the write route keeps; a context is kept while it holds a copy.
- *
- * **A profile stored before profiles had a context is Default's.** It was
- * written when a copy had one profile for every context, and before presets
- * existed every context was Default. It is the user's own choice and survives
- * the change (`AGENTS.md` §0) in the one context it can honestly be read into;
- * it is not spread into the presets, which would be the flow between contexts
- * this shape exists to end.
- */
+/** Read only current area scopes, preserving each readable field independently. */
 export function readMonsterPreferences(value: unknown): MonsterPreferences {
   if (!isRecord(value)) return {};
   const read: MonsterPreferences = {};
-  const stored: Record<string, Record<string, unknown>> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (isStoredCopy(key, entry)) (stored[defaultPresetId] ??= {})[key] = entry;
-    else if (isContextId(key) && isRecord(entry)) stored[key] = { ...stored[key], ...entry };
-  }
-  for (const [contextId, copies] of Object.entries(stored)) {
+  for (const [scope, copies] of Object.entries(value)) {
+    if (!isMonsterProfileScope(scope) || !isRecord(copies)) continue;
     const profiles = readMonsterProfiles(copies);
-    if (Object.keys(profiles).length > 0) read[contextId] = profiles;
+    if (Object.keys(profiles).length > 0) read[scope] = profiles;
   }
   return read;
 }

@@ -390,7 +390,7 @@ label[for] {
   letter-spacing: var(--track-label);
   text-transform: uppercase;
 }
-.type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
+.type-caption, .monster-overlay-gear-context, .slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label, .craft-held-balance-label,
 .role-type, .overlay-provenance, .usage-share,
 .overlay-stat-current, .overlay-slot-name, .engraved-rune-level, .engraved-artifact-class,
@@ -5205,9 +5205,7 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   border-bottom: 1px solid var(--line);
 }
 .monster-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto; }
-/* At the head's far edge, of a fixed width so a long preset name ellipsises
-   rather than squeezing the monster's name: the preset the whole panel is read
-   in on top, and the two things done with it beneath, at equal width. */
+/* Reserve the same head space for every area and gear team name. */
 .monster-overlay-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5217,6 +5215,17 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 /* The one fact here a reader must not take for Default when it is not, so its
    menu alone is marked, by its name in the accent and a gold edge, rather than
    by a box around the row that outshouts the monster. */
+/* The team name varies, so every area reserves the same line. */
+.monster-overlay-gear-context {
+  grid-column: 1 / -1;
+  margin: 0;
+  height: var(--s5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--faint);
+}
+
 .monster-overlay-preset {
   grid-column: 1 / -1;
   display: grid;
@@ -5629,11 +5638,12 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 /* CRI Rate carries its crit-context mark after its own figure. */
 .stat-range .overlay-stat-current, .overlay-stat .overlay-stat-current { display: flex; align-items: center; gap: var(--s1); }
 
-/* The profile's eleven ranges in two rows of six, each field sized to the
-   figure it holds rather than stretched to its share of the row: five digits for
-   a stat, six for the two survival composites, which run an order of magnitude
-   higher. The cells stay equal, so typing never moves a neighbour. */
-.overlay-stat-ranges { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s3) var(--s4); }
+/* Reserve the current contract's six-digit stats and seven-digit composites
+   before any choice is stated. Narrow viewports wrap cells, never typed values. */
+.overlay-stat-ranges {
+  grid-template-columns: repeat(auto-fit, minmax(calc(14ch + 5 * var(--s2) + 4px), 1fr));
+  gap: var(--s3) var(--s4);
+}
 .overlay-stat-ranges > .stat-range, .overlay-stat-ranges > .overlay-stat,
 .overlay-stat-ranges > .stat-range:is([data-figure='ehp'], [data-figure='ehpD']) { grid-column: auto; }
 /* The name and the figure the copy has share the line above the two fields —
@@ -5641,7 +5651,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    ranges is two lines tall rather than three. The cell is exactly as wide as
    its pair, so the figure always lands over the end of the range it qualifies. */
 .overlay-stat-ranges .stat-range {
-  --digits: 5;
+  --digits: 6;
   --field: calc(var(--digits) * 1ch + 2 * var(--s2) + 2px);
   width: calc(2 * var(--field) + var(--s2));
   grid-template-columns: max-content minmax(0, 1fr);
@@ -5651,7 +5661,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   align-items: center;
   column-gap: var(--s2);
 }
-.overlay-stat-ranges .stat-range:is([data-figure='ehp'], [data-figure='ehpD']) { --digits: 6; }
+.overlay-stat-ranges .stat-range:is([data-figure='dmg'], [data-figure='ehp'], [data-figure='ehpD']) { --digits: 7; }
 .overlay-stat-ranges .stat-range .overlay-stat-head { grid-area: head; }
 .overlay-stat-ranges .stat-range .overlay-stat-current { grid-area: current; justify-content: end; }
 .overlay-stat-ranges .stat-range-fields {

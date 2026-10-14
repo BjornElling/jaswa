@@ -7,6 +7,8 @@
  * stats or speed reads them through a preset from here, and the account is
  * resolved into presets once, at the boundary.
  */
+import { monsterProfileScope } from './monster-profile-scope';
+import type { MonsterProfileScope } from './monster-profile-scope';
 import { readDeckPresets } from './deck-presets';
 import type { DeckPreset } from './deck-presets';
 import type { GameRecord } from './game-data';
@@ -39,6 +41,8 @@ export type OwnPreset = {
 export type Preset = {
   id: string;
   kind: PresetKind;
+  /** The shared area profile, resolved independently of this team's placement. */
+  profileScope: MonsterProfileScope;
   /** `null` for Default and for a game deck whose numbers are not yet matched to a content. */
   content: PresetContent | null;
   /** Whether the content is the likeliest reading of the deck's numbers rather than one the game's screen confirmed. */
@@ -114,7 +118,7 @@ function readDefault(data: GameRecord): Preset {
   const runesOf = new Map(units.map((unit) => [String(unit.unit_id), ids(unit.runes, 'rune_id')]));
   const artifactsOf = new Map(units.map((unit) => [String(unit.unit_id), ids(unit.artifacts, 'rid')]));
   return {
-    id: defaultPresetId, kind: 'default', content: null, contentAssumed: false, number: null, name: 'Default',
+    id: defaultPresetId, kind: 'default', profileScope: monsterProfileScope('default', undefined), content: null, contentAssumed: false, number: null, name: 'Default',
     members: units.map((unit) => String(unit.unit_id)), leaderUnitId: null, savesGear: true,
     ...placement(runesOf, artifactsOf),
     missingRuneIds: [], missingArtifactIds: [], missingUnitIds: [], deck: null,
@@ -142,7 +146,7 @@ function readGamePreset(deck: DeckPreset, fallback: Preset): Preset {
   const runesOf = effectiveGear(deck.members, (unitId) => deck.savesGear ? deck.gear.get(unitId)?.runeIds : undefined, fallback.runesOf);
   const artifactsOf = effectiveGear(deck.members, (unitId) => deck.savesGear ? deck.gear.get(unitId)?.artifactIds : undefined, fallback.artifactsOf);
   return {
-    id: deck.key, kind: 'game', content, contentAssumed, number, name: gamePresetName(deck, content, number),
+    id: deck.key, kind: 'game', profileScope: monsterProfileScope('game', content?.id), content, contentAssumed, number, name: gamePresetName(deck, content, number),
     members: deck.members, leaderUnitId: deck.leaderUnitId, savesGear: deck.savesGear,
     ...placement(runesOf, artifactsOf),
     missingRuneIds: deck.missingRuneIds, missingArtifactIds: deck.missingArtifactIds,
@@ -155,7 +159,7 @@ function readOwnPreset(own: OwnPreset, fallback: Preset, ownedRunes: ReadonlySet
   const artifactsOf = effectiveGear(own.members, (unitId) => own.gear?.[unitId]?.artifactIds, fallback.artifactsOf);
   const content = own.content ? presetContent(own.content) : null;
   return {
-    id: own.id, kind: 'own', content, contentAssumed: false, number: null, name: own.name,
+    id: own.id, kind: 'own', profileScope: monsterProfileScope('own', content?.id), content, contentAssumed: false, number: null, name: own.name,
     members: own.members, leaderUnitId: own.leaderUnitId, savesGear: own.gear !== null,
     ...placement(runesOf, artifactsOf),
     missingRuneIds: [...runesOf.values()].flat().filter((id) => !ownedRunes.has(id)),

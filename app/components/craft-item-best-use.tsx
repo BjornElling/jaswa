@@ -200,8 +200,8 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
   const selectedItemId = item?.id ?? '';
   const roleId = role?.id ?? '';
 
-  const namesIn = useMemo(() => monsterCopyNamesIn(monsters, profiles), [monsters, profiles]);
   const placements = usePresets();
+  const namesIn = useMemo(() => monsterCopyNamesIn(monsters, profiles, placements.presets), [monsters, profiles, placements.presets]);
 
   /* A follow-up grind is only a question for a gem, and only for one whose stat
      can be ground at all (§8). The control stays mounted in every state and

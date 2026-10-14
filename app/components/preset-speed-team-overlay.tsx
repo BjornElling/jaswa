@@ -47,9 +47,9 @@ export function PresetSpeedTeamOverlay({ presetId, game, monsters, preferences, 
   const totemShare = totem.state === 'built' ? totem.percent : 0;
   const line = useMemo(() => (preset && isSpeedTeam(preset) ? presetTeam(preset, tuning, monsterById, items) : null),
     [preset, tuning, monsterById, items]);
-  /* The team names its copies as its own preset's profiles do. */
-  const names = useMemo(() => monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, presetId)),
-    [monsters, preferences.monsterPreferences, presetId]);
+  /* All teams of this area read the same copy names. */
+  const names = useMemo(() => monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, preset?.profileScope ?? 'default')),
+    [monsters, preferences.monsterPreferences, preset]);
 
   if (!game || !preset || !line) return null;
   const { team } = line;
