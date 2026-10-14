@@ -303,7 +303,8 @@ and Scenario have separate profiles, even when they hold the same copy.
   and profile choices through the team's content-area. Scenario-only artifact,
   relic and rune workspaces continue to read Scenario's profile.
 - The profile editor's *Build for* offers each area once, without a team
-  dropdown. *Gear from* names the team whose gear and figures it reports.
+  dropdown. The *Engraved runes* heading names the team whose gear and figures
+  it reports in a muted parenthesis.
   Opening from a team retains that team; switching area uses its first team.
   *Save and optimize* opens that same team in Rune Optimization.
 - Stored team-keyed or contextless profiles are outside the current contract
@@ -362,7 +363,8 @@ an import, and are checked one preset at a time on load.
   changes it.
 - The overlay's *Build for* names Scenario or a content-area, each once. It
   switches the shared profile and the representative team's gear together,
-  waits while an edit is unsaved, and names the gear's team on *Gear from*.
+  waits while an edit is unsaved, and names the gear's team in the
+  *Engraved runes* heading.
   *Copy from…* offers other areas once each; profiles with no stated choices
   remain visible but cannot be copied. An explicit zero or deliberately
   cleared choice still counts as a stated choice.

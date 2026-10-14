@@ -390,7 +390,7 @@ label[for] {
   letter-spacing: var(--track-label);
   text-transform: uppercase;
 }
-.type-caption, .monster-overlay-gear-context, .slot-label, .editor-slot-label, .target dt, .choice-legend,
+.type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label, .craft-held-balance-label,
 .role-type, .overlay-provenance, .usage-share,
 .overlay-stat-current, .overlay-slot-name, .engraved-rune-level, .engraved-artifact-class,
@@ -5206,7 +5206,7 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   border-bottom: 1px solid var(--line);
 }
 .monster-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto; }
-/* Reserve the same head space for every area and gear team name. */
+/* Reserve the same head space for every area name. */
 .monster-overlay-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5216,17 +5216,6 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 /* The one fact here a reader must not take for Scenario when it is not, so its
    menu alone is marked, by its name in the accent and a gold edge, rather than
    by a box around the row that outshouts the monster. */
-/* The team name varies, so every area reserves the same line. */
-.monster-overlay-gear-context {
-  grid-column: 1 / -1;
-  margin: 0;
-  height: var(--s5);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--faint);
-}
-
 .monster-overlay-preset {
   grid-column: 1 / -1;
   display: grid;
@@ -5569,6 +5558,9 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   padding-bottom: var(--s2);
 }
 .overlay-block-title { margin: 0; }
+/* A long preset name must not wrap the heading or move the gear below it. */
+.overlay-block-title-contextual { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overlay-block-context { color: var(--text-muted); }
 /* Always rendered, whatever it says: the three wordings sit on one line of a
    height, so a block cannot resize when its provenance changes. */
 .overlay-provenance { margin: 0; color: var(--text-muted); min-height: 1lh; }

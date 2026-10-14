@@ -608,7 +608,7 @@ test('the Runes block opens the panel, above the stats', async ({ page }) => {
   await openOverlay(page);
   const titles = await page.locator('.overlay-block-title').allTextContents();
   expect(titles).toEqual([
-    'Runes', 'Stats', 'Settings', 'Artifacts and relics', 'Engraved runes', 'Engraved artifacts', 'Engraved relics', 'Most common artifacts',
+    'Runes', 'Stats', 'Settings', 'Artifacts and relics', 'Engraved runes (Scenario)', 'Engraved artifacts', 'Engraved relics', 'Most common artifacts',
   ]);
 });
 

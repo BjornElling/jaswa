@@ -101,10 +101,12 @@ const leadFigures: ReadonlySet<string> = new Set(['criRate', 'atk', 'def', 'hp',
 const targetRows: ReadonlyArray<{ key: keyof MonsterStatTargets; label: string }> =
   roleTargetColumns.map((column) => ({ key: column.key, label: `${column.label}${column.unit ?? ''}` }));
 
-function Section({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
+function Section({ title, context, note, children }: { title: string; context?: string; note?: string; children: ReactNode }) {
   return <section className="overlay-block">
     <header className="overlay-block-head">
-      <h3 className="overlay-block-title">{title}</h3>
+      <h3 className={`overlay-block-title${context === undefined ? '' : ' overlay-block-title-contextual'}`} title={context === undefined ? undefined : `${title} (${context})`}>
+        {title}{context !== undefined && <> <span className="overlay-block-context">({context})</span></>}
+      </h3>
       {/* One line, always present, so a block cannot change height as its
           wording changes (`AGENTS.md` §2). */}
       <p className="overlay-provenance">{note ?? ''}</p>
@@ -494,7 +496,6 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
               {areas.map((entry) => <option key={entry.profileScope} value={entry.profileScope}>{monsterProfileAreaName(entry)}</option>)}
             </Dropdown>
           </div>
-          <p className="monster-overlay-gear-context" title={preset?.name}>Gear from {preset?.name ?? 'Scenario'}</p>
           <Button className="monster-overlay-optimize"
             aria-label={`Save and optimize runes for ${heroName}`}
             onClick={() => {
@@ -655,8 +656,8 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             : <>
               {/* What the copy has engraved, written the way a desired build is, so the
                   two read against each other without translation. */}
-              {/* The gear of the preset named in the head; the relics are Scenario's in every preset. */}
-              <Section title="Engraved runes" note={currentBuild === '' ? 'No runes engraved' : currentBuild}>
+              {/* The heading names the gear's preset; relics are Scenario's in every preset. */}
+              <Section title="Engraved runes" context={preset?.name ?? 'Scenario'} note={currentBuild === '' ? 'No runes engraved' : currentBuild}>
                 <EngravedRunes runes={engravedRunes} format={format} />
               </Section>
               <Section title="Engraved artifacts">
