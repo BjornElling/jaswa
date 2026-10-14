@@ -12,7 +12,7 @@
  *   as it now is — moving it to another monster changes where it is, not what it is;
  * - a rune that changed — a level, a new sub property, a Gem, a Grindstone, a
  *   reappraisal — or that is new to the account is judged again, alone, against the
- *   calculation's own roles, settings and reference lines. A rune's advice depends
+ *   current roles, settings and reference lines. A rune's advice depends
  *   on nothing else (`rune-advice-memory.ts`), so the answer is the one a whole
  *   recalculation would give;
  * - until that answer arrives the row keeps its old rune *and* its old advice, so a
@@ -20,9 +20,9 @@
  * - a rune that has left the account keeps its row as it last was, flagged gone,
  *   so the rows around it stay where they were.
  *
- * What it cannot do is change the standards: a role, a setting or a reference
- * line changed since the calculation still takes Recalculate, because every row
- * would move at once.
+ * Changed standards use the same replacement path. The caller compares the
+ * mathematical dependencies of each set, and sends every affected rune together;
+ * committing the batch keeps both the standards and the held row order coherent.
  */
 import type { RuneAdvice } from './rune-cleanup-advice';
 import type { Rune } from './runes';

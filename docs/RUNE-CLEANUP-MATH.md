@@ -662,20 +662,38 @@ to another account clears the calculated session; preferences remain saved.
 | --- | --- |
 | Navigation, unchanged re-import, filters or sorting | Reuse the answers; filters and sorting only arrange what is shown. |
 | New rune | Judge that rune and add it above the held rows. No whole-list calculation is needed. |
-| Level, stars, grade, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Rejudge the affected rune under the held standards; keep its row in place. Until answered, show its previous rune and advice together. |
+| Level, stars, grade, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Rejudge the affected rune under the current standards; keep its row in place. Until answered, show its previous rune and advice together. |
 | Rune sold or removed | Keep its previous row marked Sold until Recalculate removes it. |
 | Scenario or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
 | Holds, rune locks, or any Never sell safeguard or threshold | Apply the current protection immediately to the held advice. |
-| Power-up policy, quality floor, accepted/broken worth, Intangible factor, four-set retention, assumed Gem/Grindstone roll or active grade | Keep the list, but mark its standards changed. Recalculate applies the new standards to every rune. |
-| Role added, removed, reordered or edited, including targets, type, artifacts, sets and slot choices | Keep the list with the same changed-standards notice until Recalculate. |
-| Reference averages change | Keep the list with the changed-standards notice. The averages depend on the level-40 roster, family classification and base stats, so a new, removed, awakened or levelled monster may change them even if no rune changed. Equal averages remain valid. |
+| Power-up policy, quality floor, accepted/broken worth, Intangible factor, four-set retention, assumed Gem/Grindstone roll or active grade | Keep the row order and automatically replace affected answers. Intangible and four-set preferences rejudge only their own sets; the other settings rejudge every row. |
+| Role added, removed, reordered or edited, including targets, type, artifacts, sets and slot choices | Keep the row order and automatically rejudge every row, because the shared slot calibration can change. |
+| Reference averages change | Automatically rejudge the list when a reference family used by a role changes. The averages depend on the level-40 roster, family classification and base stats, so a new, removed, awakened or levelled monster may change them even if no rune changed. Equal averages remain valid. |
 | Display formatting, hardware acceleration, craft inventory, buildings, artifacts or relics | No score invalidation: formatting is read live, acceleration chooses an engine, and Clean-up uses assumed craft credit and roster base stats rather than owned items or the monster's engraved gear. |
 
-The notice reserves its space even while the standards match, so showing it cannot
-move the table or its controls. Standards are compared by content, not imported
-object identity. A changed standard restored to its calculated value removes the
-notice. Incremental refresh continues under the held standards until Recalculate;
-it never mixes scores from two different standards into one list.
+The update notice reserves its space even while the standards match, so it cannot
+move the table or its controls. Standards are compared by mathematical content,
+not imported object identity. A batch commits only while its inputs are still
+current; superseded work is cancelled. Until it commits, previous rune bodies and
+answers remain together and the notice identifies changed standards. A failed
+update preserves that notice and offers Recalculate; missing roles or references
+explain what is needed. Sold rows are rejudged too when their standards change.
+No update silently mixes different standards in the completed list.
+
+Rune Settings retains the four most recently used completed synthetic statistics by
+those same inputs, in memory only. Navigation rejoins unfinished statistics work
+or reads a completed answer immediately. Returning to a cached setting also reuses
+it. Safeguards, formatting, placement, owned craft items and engine preference do
+not change those mathematical inputs. Checkpoint scores and odds are retained too,
+so safeguard changes update the funnel counts immediately through the shared
+protection rule, without rerunning probabilities. The displayed backend names the engine that
+actually produced the retained answer.
+
+The table, Statistics and overlay use `rune-calculation-inputs.ts` for their keys.
+Rune bodies are compared separately from placement. Role order remains significant
+because it breaks ties; every used role and reference remains significant because
+they shape the shared calibration. No approximation or probability sample changes
+are made to support incremental replacement.
 
 Under **Never sell if...**, the **Pre-grind spd ≥** safeguard starts enabled at **20** and overrides Sell for runes
 whose current SPD sub-property value meets the chosen inclusive threshold. Grindstone
@@ -1232,3 +1250,51 @@ identical, with zero tolerance. Recheck with:
 ```sh
 npm run verify:rune-cleanup-equivalence -- --baseline=tests/fixtures/rune-cleanup-progress-baseline.json
 ```
+
+
+## 15. Calculation reuse verification, 14 October 2026
+
+Completed answers are keyed by their inputs in `rune-calculation-inputs.ts`.
+Statistics also retains its checkpoint readings so safeguards can change the
+funnel counts without calculating new scores or odds. The overlay uses the same
+inputs and reapplies current safeguards when reading a remembered answer.
+
+An idle advice worker stays available across navigation, retaining the engine's
+bounded calibration cache. An incremental refresh borrows the table's worker
+when it is idle; concurrent work uses a separate channel. Cancelling a refresh
+cannot cancel a whole calculation, and a whole calculation superseding a borrowed
+refresh clears that refresh's cancellation owner. Unfinished advice work is still
+terminated when its page is left. Automatic standards updates report progress in
+the controls' existing reserved line and commit their affected answers together,
+without rearranging the rows.
+
+`tests/fixtures/rune-cleanup-reuse-baseline.json` is a fresh pre-change snapshot of
+150 generated runes in two scenarios. Every public advice field after this change
+is identical, with zero tolerance. Recheck with:
+
+```sh
+npm run verify:rune-cleanup-equivalence -- --quick --baseline=tests/fixtures/rune-cleanup-reuse-baseline.json
+npm run verify:rune-calculation-reuse
+```
+
+The dependency check covers active and inactive craft grades, every scoring
+setting, used and unused reference families, role ordering and set-specific
+invalidation. It also compares live safeguard projection with a fresh statistics
+calculation, including absent and zero thresholds. Browser tests cover navigation
+during statistics work, completed-answer reuse, restored settings, live safeguard
+counts, changed standards, row order and both directions of concurrent cancellation.
+
+Verification reused the already-running server at `http://localhost:3000/`.
+Empty and populated flows were driven and screenshotted; filter controls and the
+statistics box retained their bounds. A local captured account contained 1,252
+runes. Changing Intangible preference judged only its 16 Intangible runes, and both
+the displayed table and every raw partial advice field matched a full calculation.
+On the processor, that partial worker calculation took about 16.1 seconds with a
+cold separate worker and 0.25 seconds with the existing calibration retained.
+These are local observations, not a timing guarantee. No personal capture is
+committed; the baseline contains generated data only.
+
+Typecheck, lint, build and all 241 Playwright tests passed. The required substat
+weight, set and slot neutrality, craft-source, calibration, probability,
+craft-monotonicity and chance-stability checks passed, as did preference survival
+and import parity against the captured account.

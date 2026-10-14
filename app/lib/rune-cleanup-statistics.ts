@@ -10,7 +10,9 @@
  */
 import { ordinarySample } from './rune-cleanup-model';
 import type { ChanceCounter } from './rune-cleanup-advice';
-import { runeAdvice } from './rune-cleanup-advice';
+import { runeAdvice, withRuneSellProtection } from './rune-cleanup-advice';
+import type { RuneAdvice } from './rune-cleanup-advice';
+import type { Rune } from './runes';
 import type { RuneRole } from './rune-roles';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { RunePotentialSettings } from './types';
@@ -27,7 +29,27 @@ export type RuneCleanupStatistics = {
   percentToKeep: number;
   sampleSize: number;
   durationMs: number;
+  checkpoints: readonly (readonly { rune: Rune; advice: RuneAdvice }[])[];
 };
+
+/** Safeguards change the funnel's counts, but not its calculated scores or odds.
+ * Keeping checkpoint answers lets those counts follow a toggle without a worker. */
+export function withRuneStatisticsProtection(statistics: RuneCleanupStatistics, settings: RunePotentialSettings): RuneCleanupStatistics {
+  const [zero = [], nine = [], twelve = []] = statistics.checkpoints;
+  const verdict = (sample: { rune: Rune; advice: RuneAdvice } | undefined) => sample
+    ? withRuneSellProtection(sample.rune, sample.advice, settings).verdict : undefined;
+  let rolled = 0;
+  let kept = 0;
+  for (let index = 0; index < zero.length; index += 1) {
+    if (verdict(zero[index]) !== 'power-up') continue;
+    rolled += 1;
+    if (verdict(nine[index]) === 'power-up' && verdict(twelve[index]) === 'keep') kept += 1;
+  }
+  return { ...statistics,
+    percentToRoll: zero.length ? rolled / zero.length * 100 : 0,
+    percentToKeep: zero.length ? kept / zero.length * 100 : 0,
+  };
+}
 
 function syntheticCheckpoint(level: 0 | 9 | 12): ReturnType<typeof ordinarySample> {
   return runeStatisticsSlots.flatMap((slot) =>
@@ -45,21 +67,16 @@ export async function calculateRuneCleanupStatistics(
   const atNine = syntheticCheckpoint(9);
   const atTwelve = syntheticCheckpoint(12);
   const advice = await runeAdvice([...atZero, ...atNine, ...atTwelve], roles, settings, base, count);
-  const rolled = atZero.filter((rune) => advice.get(rune.id)?.verdict === 'power-up').length;
-  let kept = 0;
-  for (let index = 0; index < atZero.length; index += 1) {
-    /* The statistics box follows the simulator's three recommendation gates:
-       only a rune rolled at +0 can reach +9, only one rolled again at +9 can
-       reach +12, and only a +12 Keep enters the final count. */
-    if (advice.get(atZero[index]?.id ?? '')?.verdict !== 'power-up') continue;
-    if (advice.get(atNine[index]?.id ?? '')?.verdict !== 'power-up') continue;
-    if (advice.get(atTwelve[index]?.id ?? '')?.verdict === 'keep') kept += 1;
-  }
-
-  return {
-    percentToRoll: rolled / atZero.length * 100,
-    percentToKeep: kept / atZero.length * 100,
+  const checkpoints = [atZero, atNine, atTwelve].map((runes) => runes.map((rune) => {
+    const answer = advice.get(rune.id);
+    if (!answer) throw new Error(`Missing synthetic rune advice: ${rune.id}`);
+    return { rune, advice: answer };
+  }));
+  return withRuneStatisticsProtection({
+    percentToRoll: 0,
+    percentToKeep: 0,
     sampleSize: atZero.length,
     durationMs: performance.now() - startedAt,
-  };
+    checkpoints,
+  }, settings);
 }

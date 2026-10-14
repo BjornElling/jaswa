@@ -15,13 +15,16 @@
  * **A channel per asker.** Rune Clean-up's table and the rune overlay both ask, and
  * each wants only its own newest answer. Sharing one worker made them one queue, so
  * opening a rune would have cancelled the table's calculation in flight. Two
- * channels are two workers: neither can supersede the other.
+ * channels are independent workers: neither can supersede the other. A table
+ * refresh borrows the table's warm worker while it is idle, and has its own
+ * worker when the table is already calculating.
  */
 import type {
   RuneAdviceOutcome, RuneAdviceRequest, RuneAdviceWorkerResponse,
 } from './rune-advice-protocol';
 
 export type RuneAdviceChannel = {
+  isBusy: () => boolean;
   /**
    * Ask for a calculation. The newest request is the only one that may be committed.
    *
@@ -41,7 +44,8 @@ export type RuneAdviceChannel = {
    * The worker is terminated rather than merely ignored, so a calculation the user
    * has walked away from gives the processor back instead of finishing into a void.
    * Every waiting call is answered `superseded` — a cancelled calculation is not a
-   * completed one and must never reach the table.
+   * completed one and must never reach the table. An idle worker is kept: its
+   * bounded calibration cache is useful on the next page visit and costs no CPU.
    */
   cancel: () => void;
 };
@@ -60,6 +64,7 @@ export function runeAdviceChannel(): RuneAdviceChannel {
   }
 
   function cancel(): void {
+    if (waiting.size === 0) return;
     worker?.terminate();
     worker = undefined;
     const pending = [...waiting.values()];
@@ -105,16 +110,32 @@ export function runeAdviceChannel(): RuneAdviceChannel {
     });
   }
 
-  return { calculate, cancel };
+  return { calculate, cancel, isBusy: () => waiting.size > 0 };
 }
 
 /** Rune Clean-up's own channel, which its table has always used. */
 const cleanupChannel = runeAdviceChannel();
-export const calculateRuneAdvice = cleanupChannel.calculate;
+export function calculateRuneAdvice(request: RuneAdviceRequest, onProgress?: (fraction: number) => void): Promise<RuneAdviceOutcome> {
+  if (activeRefresh?.channel === cleanupChannel) cancelRuneAdviceRefresh();
+  return cleanupChannel.calculate(request, onProgress);
+}
 export const cancelRuneAdvice = cleanupChannel.cancel;
 
-/* The table's re-reading of the runes a sync changed. A channel of its own, so a
-   sync landing during Recalculate cannot cancel the whole calculation. */
+/* Borrowing an idle worker saves the shared calibration, which costs much more
+   than judging a changed rune. Concurrent work still has independent cancellation. */
 const refreshChannel = runeAdviceChannel();
-export const refreshRuneAdvice = refreshChannel.calculate;
-export const cancelRuneAdviceRefresh = refreshChannel.cancel;
+let activeRefresh: { channel: RuneAdviceChannel } | null = null;
+
+export function cancelRuneAdviceRefresh(): void {
+  activeRefresh?.channel.cancel();
+  activeRefresh = null;
+}
+
+export function refreshRuneAdvice(request: RuneAdviceRequest, onProgress?: (fraction: number) => void): Promise<RuneAdviceOutcome> {
+  cancelRuneAdviceRefresh();
+  const active = { channel: cleanupChannel.isBusy() ? refreshChannel : cleanupChannel };
+  activeRefresh = active;
+  return active.channel.calculate(request, onProgress).finally(() => {
+    if (activeRefresh === active) activeRefresh = null;
+  });
+}

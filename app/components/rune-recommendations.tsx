@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
 import { EngravedPlace } from './engraved-place';
@@ -30,7 +30,9 @@ import {
   calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
 } from '../lib/compute/rune-advice-client';
 import { rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
+import { combineCalculationBackends } from '../lib/compute/calculation-summary';
 import { noReferenceLineMessage, referenceLines } from '../lib/rune-reference-stats';
+import { runeCalculationKey, runeCalculationKeyForRune } from '../lib/rune-calculation-inputs';
 import { runeCleanupStandardsChanged } from '../lib/rune-cleanup-session';
 import type { RuneCleanupArrangement, RuneCleanupResult, RuneCleanupSession } from '../lib/rune-cleanup-session';
 import {
@@ -197,24 +199,15 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     selectedStars, selectedQualities, lowestLevel, highestLevel, selectedPlaces,
     showOnlyAncient, gameSort } = filters;
 
-  /* The held result, and the standards it answers: the roles, settings and
-     reference lines it was judged by. A result is kept until the user asks for
-     another one, so a slider moved after a calculation leaves the table standing
-     rather than silently changing under them. What the account does to its runes
-     meanwhile is laid over it rune by rune, judged by those same standards
-     (`rune-cleanup-refresh.ts`). */
+  /* Navigation keeps answers and arrangement. Changed inputs replace only the
+     affected answers, while the rows retain the reader's working order. */
   const [snapshot] = useState(session.read);
   const [result, setResult] = useState<RuneCleanupResult | null>(snapshot?.result ?? null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  /* At most one re-reading in flight. A sync arriving meanwhile is picked up when
-     it lands, by comparing again, so nothing is lost and nothing is superseded
-     half-way through a box of power-ups. */
-  const refreshing = useRef(false);
-  const [refreshRound, setRefreshRound] = useState(0);
-  /* The runes a re-reading failed on, so it is not retried in a loop; the next
-     sync tries again. */
-  const [refreshFailedFor, setRefreshFailedFor] = useState<readonly Rune[] | null>(null);
+  const [progressKey, setProgressKey] = useState<string | null>(null);
+  /* A failed input is retried only after another change or an explicit Recalculate. */
+  const [refreshFailedFor, setRefreshFailedFor] = useState<{ runes: readonly Rune[]; key: string } | null>(null);
   /* A failed calculation says so and leaves the previous table standing. Clearing
      it would read as "no runes qualify", which is a different and wrong answer. */
   const [failure, setFailure] = useState<string | null>(snapshot?.failure ?? null);
@@ -264,12 +257,20 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   const standardsChanged = held !== null && runeCleanupStandardsChanged(held, roles, settings, base);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
 
+  const standardsKey = runeCalculationKey({ roles, settings, base });
+  const currentStandardsKey = useRef(standardsKey);
+  useLayoutEffect(() => { currentStandardsKey.current = standardsKey; }, [standardsKey]);
+  const refreshFailed = refreshFailedFor?.runes === runes && refreshFailedFor.key === standardsKey;
+  const updatingStandards = standardsChanged && Boolean(base && roles.length) && !refreshFailed;
+  const reportingProgress = busy || updatingStandards;
   const canCalculate = Boolean(game && runes.length && base && roles.length);
+  const readCalculationInputs = useEffectEvent(() => ({ roles, settings, base, hardwareAcceleration }));
 
   async function calculate() {
     if (!canCalculate || !base) return;
     setBusy(true);
     setProgress(0);
+    setProgressKey(standardsKey);
     setFailure(null);
     /* A whole calculation answers every rune, so a re-reading still in flight has
        nothing left to add. */
@@ -279,6 +280,10 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
        returns without touching either. */
     if (outcome.status === 'superseded') return;
     setBusy(false);
+    if (currentStandardsKey.current !== standardsKey) {
+      setFailure('Standards changed during calculation. Calculate again to use the current inputs.');
+      return;
+    }
     if (outcome.status === 'failed') { setFailure(outcome.message); return; }
     setRefreshFailedFor(null);
     setResult((previous) => ({
@@ -287,27 +292,59 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     }));
   }
 
-  /* The account moved under the held result: judge again the runes that changed
-     or arrived, by the result's own standards, and lay the answers over it. */
+  /* Role and reference changes can alter the shared calibration. Set-specific
+     preferences leave other sets valid, so only their rows enter the worker. */
   useEffect(() => {
-    if (held === null || busy || refreshing.current || refreshFailedFor === runes) return;
-    const changed = runesToJudgeAgain(held.entries, runes);
-    if (changed.length === 0) return;
-    refreshing.current = true;
-    const { id } = held;
-    void refreshRuneAdvice({
-      runes: changed, roles: held.roles, settings: held.settings, base: held.base, preferWebGpu: hardwareAcceleration,
-    }).then((outcome) => {
-      if (outcome.status === 'failed') setRefreshFailedFor(runes);
-      if (outcome.status !== 'done') return;
-      setResult((previous) => (previous?.id === id
-        ? { ...previous, entries: withFreshAdvice(previous.entries, changed, outcome.advice) }
-        : previous));
-    }).finally(() => {
-      refreshing.current = false;
-      setRefreshRound((round) => round + 1);
+    const { roles, settings, base, hardwareAcceleration } = readCalculationInputs();
+    if (held === null || busy || refreshFailed || !base || roles.length === 0) return;
+    const inputs = { roles, settings, base };
+    const changedIds = new Set(runesToJudgeAgain(held.entries, runes).map((rune) => rune.id));
+    const candidates = [...runes, ...[...held.entries.values()]
+      .filter((entry) => !runesById.has(entry.rune.id)).map((entry) => entry.rune)];
+    const keys = new Map<string, [string, string]>();
+    const changed = candidates.filter((rune) => {
+      if (changedIds.has(rune.id)) return true;
+      // A set shares one dependency key, however many runes the box contains.
+      let pair = keys.get(rune.setName);
+      if (!pair) {
+        pair = [runeCalculationKeyForRune(held, rune), runeCalculationKeyForRune(inputs, rune)];
+        keys.set(rune.setName, pair);
+      }
+      return pair[0] !== pair[1];
     });
-  }, [held, busy, runes, refreshFailedFor, refreshRound, hardwareAcceleration]);
+    if (changed.length === 0) {
+      if (!standardsChanged) return;
+      const timer = window.setTimeout(() => {
+        setResult((previous) => previous === held ? { ...previous, roles, settings, base } : previous);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    const updatedIds = new Set(changed.map((rune) => rune.id));
+    const replacesEveryAnswer = [...held.entries.keys()].every((id) => updatedIds.has(id));
+    let disposed = false;
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      setProgress(0);
+      setProgressKey(standardsKey);
+      void refreshRuneAdvice({ runes: changed, roles, settings, base, preferWebGpu: hardwareAcceleration },
+        (fraction) => { if (!disposed) setProgress(fraction); }).then((outcome) => {
+        settled = true;
+        if (disposed || outcome.status === 'superseded') return;
+        if (outcome.status === 'failed') { setRefreshFailedFor({ runes, key: standardsKey }); return; }
+        setFailure(null);
+        setResult((previous) => previous === held
+          ? { ...previous, roles, settings, base, entries: withFreshAdvice(previous.entries, changed, outcome.advice),
+            backend: replacesEveryAnswer ? outcome.backend : combineCalculationBackends([previous.backend, outcome.backend]),
+            ...(standardsChanged ? { durationMs: outcome.durationMs } : {}) }
+          : previous);
+      });
+    }, 120);
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+      if (!settled) cancelRuneAdviceRefresh();
+    };
+  }, [held, busy, runes, runesById, refreshFailed, standardsKey, standardsChanged]);
 
   /* The overlay reads a rune's answer from here instead of asking for it again —
      but only while the table answers the standards on screen, and only for a rune
@@ -600,8 +637,8 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 faces={{ first: 'Calculate', again: 'Recalculate', busy: 'Calculating' }} />
             </Button>
             <p className="calculation-progress rune-cleanup-progress" role="status"
-              aria-hidden={busy ? undefined : true} data-shown={busy ? 'true' : undefined}>
-              Calculating… {formatNumber(Math.round(progress * 100), general)} %
+              aria-hidden={reportingProgress ? undefined : true} data-shown={reportingProgress ? 'true' : undefined}>
+              Calculating… {formatNumber(progressKey === standardsKey ? Math.round(progress * 100) : 0, general)} %
             </p>
           </div>
         </>}
@@ -674,9 +711,9 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
         </tbody>
       </DataTablePage>
 
-    {failure || (held && refreshFailedFor === runes)
+    {failure || (held && refreshFailed)
       ? <p className="calculation-status" role="status" data-failed="">
-        {failure ?? 'JASWA could not judge the runes changed in the game. Recalculate to try again.'}
+        {failure ?? 'JASWA could not update the rune verdicts. Recalculate to try again.'}
       </p>
       : held && <CalculationStatus
         detail={<>{formatNumber(owned, general)} runes judged against {formatNumber(held.roles.length, general)} roles</>}
@@ -685,9 +722,12 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
         general={general}
       />}
     <div className="type-caption" role="status">
-      <LabelSwap showing={standardsChanged ? 'changed' : 'current'} faces={{
+      <LabelSwap showing={!standardsChanged ? 'current' : refreshFailed ? 'failed'
+        : !base || roles.length === 0 ? 'blocked' : 'changed'} faces={{
         current: '\u00a0',
-        changed: 'Standards changed. Recalculate to use the current roles, settings and reference stats.',
+        failed: 'Standards changed. Recalculate to retry the update.',
+        blocked: 'Standards changed. Add a role and an account reference to update the verdicts.',
+        changed: 'Standards changed. Updating the affected rune verdicts…',
       }} />
     </div>
   </>;

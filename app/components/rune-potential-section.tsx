@@ -19,8 +19,10 @@ import type { RuneHolds } from '../lib/rune-holds';
 import { roleRuneSetNameList } from '../lib/rune-sets';
 import { formatDecimal } from '../lib/formatting';
 import { calculationBackendLabel, type CalculationBackend } from '../lib/compute/calculation-summary';
-import { calculateRuneStatistics, cancelRuneStatistics } from '../lib/compute/rune-statistics-client';
+import { calculateRuneStatistics, cancelRuneStatistics, rememberedRuneStatistics } from '../lib/compute/rune-statistics-client';
+import { runeCalculationKey } from '../lib/rune-calculation-inputs';
 import type { RuneCleanupStatistics } from '../lib/rune-cleanup-statistics';
+import { withRuneStatisticsProtection } from '../lib/rune-cleanup-statistics';
 import { referenceLines } from '../lib/rune-reference-stats';
 import { RuneRecommendations } from './rune-recommendations';
 import type { RuneCleanupSession } from '../lib/rune-cleanup-session';
@@ -96,34 +98,44 @@ export function RuneSetupSection({ game, settings, roles, general, hardwareAccel
 }) {
   const [editing, setEditing] = useState<{ draft: RuneRole; isNew: boolean } | null>(null);
   const [deleting, setDeleting] = useState<RuneRole | null>(null);
-  const [statistics, setStatistics] = useState<RuneStatisticsState>({ status: 'unavailable' });
   const base = useMemo(() => {
     const lines = referenceLines(game?.data);
     return lines ? new Map([...lines].map(([type, line]) => [type, line.stats])) : null;
   }, [game]);
 
-  useEffect(() => {
-    if (!base || roles.length === 0) {
-      cancelRuneStatistics();
-      return undefined;
-    }
+  const request = useMemo(() => base ? { roles, settings, base, preferWebGpu: hardwareAcceleration } : null,
+    [roles, settings, base, hardwareAcceleration]);
+  const key = request ? runeCalculationKey(request) : null;
+  const [answer, setAnswer] = useState<{ key: string | null; state: RuneStatisticsState }>(
+    () => ({ key, state: { status: request ? 'calculating' : 'unavailable' } }),
+  );
+  const known = request ? rememberedRuneStatistics(request) : undefined;
+  const statistics: RuneStatisticsState = known
+    ? { status: 'ready', statistics: withRuneStatisticsProtection(known.statistics, settings), backend: known.backend }
+    : answer.key === key ? answer.state : { status: 'calculating' };
 
+  useEffect(() => {
+    if (!request || roles.length === 0) {
+      cancelRuneStatistics();
+      return;
+    }
+    if (rememberedRuneStatistics(request)) return;
     let disposed = false;
     const timer = window.setTimeout(() => {
-      setStatistics({ status: 'calculating' });
-      void calculateRuneStatistics({ roles, settings, base, preferWebGpu: hardwareAcceleration }).then((outcome) => {
+      setAnswer({ key, state: { status: 'calculating' } });
+      void calculateRuneStatistics(request).then((outcome) => {
         if (disposed || outcome.status === 'superseded') return;
-        setStatistics(outcome.status === 'done'
+        setAnswer({ key, state: outcome.status === 'done'
           ? { status: 'ready', statistics: outcome.statistics, backend: outcome.backend }
-          : { status: 'failed', message: outcome.message });
+          : { status: 'failed', message: outcome.message } });
       });
     }, 120);
     return () => {
       disposed = true;
       window.clearTimeout(timer);
-      cancelRuneStatistics();
+      // Work belongs to its inputs: returning can rejoin it or read the finished answer.
     };
-  }, [base, hardwareAcceleration, roles, settings]);
+  }, [key, request, roles.length]);
 
   function saveRole(role: RuneRole, isNew: boolean) {
     const saved = withRefreshedMetrics(role);

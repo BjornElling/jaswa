@@ -16,6 +16,8 @@ import { engravingLines } from '../lib/presets';
 import { usePresets } from '../lib/presets-context';
 import { runeAdviceChannel } from '../lib/compute/rune-advice-client';
 import { rememberedRuneAdvice, rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
+import { runeCalculationKey } from '../lib/rune-calculation-inputs';
+import { runeAdviceKey } from '../lib/rune-cleanup-refresh';
 import { qualityThresholds, runeCraftSteps } from '../lib/rune-cleanup-advice';
 import type { RoleReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
 import type { MatchRank } from '../lib/rune-cleanup-model';
@@ -110,7 +112,8 @@ function useRuneAdvice(rune: Rune, game: GameRecord | undefined, settings: RuneP
     () => (game === undefined ? undefined : rememberedRuneAdvice({ data: game, settings, roles }, rune)),
     [game, settings, roles, rune],
   );
-  const [asked, setAsked] = useState<{ rune: Rune; explained: Explained } | null>(null);
+  const key = JSON.stringify([runeCalculationKey({ roles, settings, base }), runeAdviceKey(rune)]);
+  const [asked, setAsked] = useState<{ key: string; explained: Explained } | null>(null);
   const settled = known?.readings != null;
   useEffect(() => {
     if (blocked !== null || settled || game === undefined || base === null) return undefined;
@@ -119,20 +122,20 @@ function useRuneAdvice(rune: Rune, game: GameRecord | undefined, settings: RuneP
       .then((outcome) => {
         if (!current || outcome.status === 'superseded') return;
         if (outcome.status === 'failed') {
-          setAsked({ rune, explained: { state: 'unavailable', reason: outcome.message } });
+          setAsked({ key, explained: { state: 'unavailable', reason: outcome.message } });
           return;
         }
         rememberRuneAdvice({ data: game, settings, roles }, [rune], outcome.advice);
         const advice = outcome.advice.get(rune.id);
-        setAsked({ rune, explained: advice ? { state: 'ready', advice } : { state: 'unavailable', reason: 'No role can use this rune' } });
+        setAsked({ key, explained: advice ? { state: 'ready', advice } : { state: 'unavailable', reason: 'No role can use this rune' } });
       });
     return () => { current = false; };
-  }, [rune, game, roles, settings, base, blocked, settled, hardwareAcceleration]);
+  }, [key, rune, game, roles, settings, base, blocked, settled, hardwareAcceleration]);
   /* Closing the overlay gives the worker back rather than finishing into a void. */
   useEffect(() => overlayChannel.cancel, []);
   if (blocked !== null) return { known: undefined, explained: { state: 'unavailable', reason: blocked } };
   if (settled) return { known, explained: { state: 'ready', advice: known } };
-  return { known, explained: asked?.rune === rune ? asked.explained : { state: 'pending' } };
+  return { known, explained: asked?.key === key ? asked.explained : { state: 'pending' } };
 }
 
 function maxCraftOf(known: RuneAdvice | undefined, explained: Explained, rune: Rune): MaxCraft {

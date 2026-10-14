@@ -135,3 +135,37 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
   expect(outcomes.first).toBe('superseded');
   expect(outcomes.second).toBe('done');
 });
+
+test('a refresh reuses an idle worker and cannot cancel a concurrent whole calculation', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  const outcomes = await page.evaluate(async () => {
+    const OriginalWorker = window.Worker;
+    let constructed = 0;
+    window.Worker = class extends OriginalWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        if (String(url).includes('rune-advice-worker')) constructed += 1;
+      }
+    };
+    const clientUrl: string = '/app/lib/compute/rune-advice-client.ts';
+    const settingsUrl: string = '/app/lib/file-imports.ts';
+    const client = await import(clientUrl) as typeof import('../app/lib/compute/rune-advice-client');
+    const { defaultRunePotentialSettings } = await import(settingsUrl) as typeof import('../app/lib/file-imports');
+    const request = { runes: [], roles: [], base: new Map(), preferWebGpu: false, settings: defaultRunePotentialSettings };
+    const initial = await client.calculateRuneAdvice(request);
+    client.cancelRuneAdvice(); // There is no unfinished work to abandon.
+    const warm = await client.refreshRuneAdvice(request);
+    const whole = client.calculateRuneAdvice(request);
+    const refresh = client.refreshRuneAdvice(request);
+    client.cancelRuneAdviceRefresh();
+    const parallel = { whole: (await whole).status, refresh: (await refresh).status };
+    const borrowed = client.refreshRuneAdvice(request);
+    const replacement = client.calculateRuneAdvice(request);
+    client.cancelRuneAdviceRefresh();
+    return { initial: initial.status, warm: warm.status, ...parallel,
+      borrowed: (await borrowed).status, replacement: (await replacement).status, constructed };
+  });
+  expect(outcomes).toEqual({ initial: 'done', warm: 'done', whole: 'done', refresh: 'superseded',
+    borrowed: 'superseded', replacement: 'done', constructed: 3 });
+});

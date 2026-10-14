@@ -5,14 +5,15 @@
  * A rune's advice depends on nothing but the rune, the roles, the settings and
  * the import's reference monsters, so an answer the table already holds *is* the
  * overlay's answer — and asking again costs about a second of the worker per rune.
- * An answer is only handed out for the very same import, settings and roles
- * objects it was calculated with: those are replaced, never edited, whenever the
- * user changes one, so identity is exactly "nothing has changed since". The rune
- * itself is compared by content, because a simulated rune's id is reused by the
- * next simulation.
+ * Inputs are compared by the same mathematical content as the table and Statistics,
+ * so an unchanged import or a protection toggle cannot discard a useful answer.
  */
+import { runeCalculationKey } from '../rune-calculation-inputs';
+import { referenceLines } from '../rune-reference-stats';
+import { runeAdviceKey } from '../rune-cleanup-refresh';
 import type { GameRecord } from '../game-data';
 import type { RuneAdvice } from '../rune-cleanup-advice';
+import { withRuneSellProtection } from '../rune-cleanup-advice';
 import type { RuneRole } from '../rune-roles';
 import type { Rune } from '../runes';
 import type { RunePotentialSettings } from '../types';
@@ -23,18 +24,22 @@ export type RuneAdviceInputs = {
   roles: readonly RuneRole[];
 };
 
-let remembered: (RuneAdviceInputs & { entries: Map<string, { rune: Rune; advice: RuneAdvice }> }) | null = null;
+let remembered: { key: string; entries: Map<string, { rune: Rune; advice: RuneAdvice }> } | null = null;
 
-const sameInputs = (left: RuneAdviceInputs, right: RuneAdviceInputs) =>
-  left.data === right.data && left.settings === right.settings && left.roles === right.roles;
+function inputsKey(inputs: RuneAdviceInputs): string {
+  const lines = referenceLines(inputs.data);
+  const base = lines ? new Map([...lines].map(([type, line]) => [type, line.stats])) : null;
+  return runeCalculationKey({ ...inputs, base });
+}
 
-const sameRune = (left: Rune, right: Rune) => left === right || JSON.stringify(left) === JSON.stringify(right);
+const sameRune = (left: Rune, right: Rune) => left === right || runeAdviceKey(left) === runeAdviceKey(right);
 
 /** Keep these answers. Answers for other inputs are dropped: only the newest can be asked for. */
 export function rememberRuneAdvice(
   inputs: RuneAdviceInputs, runes: readonly Rune[], advice: ReadonlyMap<string, RuneAdvice>,
 ): void {
-  if (remembered === null || !sameInputs(remembered, inputs)) remembered = { ...inputs, entries: new Map() };
+  const key = inputsKey(inputs);
+  if (remembered === null || remembered.key !== key) remembered = { key, entries: new Map() };
   for (const rune of runes) {
     const found = advice.get(rune.id);
     if (found) remembered.entries.set(rune.id, { rune, advice: found });
@@ -42,7 +47,7 @@ export function rememberRuneAdvice(
 }
 
 export function rememberedRuneAdvice(inputs: RuneAdviceInputs, rune: Rune): RuneAdvice | undefined {
-  if (remembered === null || !sameInputs(remembered, inputs)) return undefined;
+  if (remembered === null || remembered.key !== inputsKey(inputs)) return undefined;
   const entry = remembered.entries.get(rune.id);
-  return entry && sameRune(entry.rune, rune) ? entry.advice : undefined;
+  return entry && sameRune(entry.rune, rune) ? withRuneSellProtection(rune, entry.advice, inputs.settings) : undefined;
 }

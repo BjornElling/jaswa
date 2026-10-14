@@ -1,13 +1,24 @@
 /**
  * The one way from Rune Settings to its fixed synthetic statistics.
  *
- * A changed slider cancels the previous worker before starting the next one.
+ * Completed answers and in-flight work outlive navigation. A changed calculation
+ * cancels the previous worker before starting the next one.
  * The page therefore never commits an older population answer after a newer
  * settings choice, and the processor remains available for the rest of JASWA.
  */
 import type {
   RuneStatisticsOutcome, RuneStatisticsRequest, RuneStatisticsWorkerRequest, RuneStatisticsWorkerResponse,
 } from './rune-statistics-protocol';
+
+import { calculationMemory } from '../calculation-memory';
+import { runeCalculationKey } from '../rune-calculation-inputs';
+
+type CompletedStatistics = Extract<RuneStatisticsOutcome, { status: 'done' }>;
+const answers = calculationMemory<CompletedStatistics>(4);
+let active: { key: string; promise: Promise<RuneStatisticsOutcome> } | undefined;
+
+export const rememberedRuneStatistics = (request: RuneStatisticsRequest): CompletedStatistics | undefined =>
+  answers.read(runeCalculationKey(request));
 
 let worker: Worker | undefined;
 let nextRequestId = 1;
@@ -20,6 +31,7 @@ function statisticsWorker(): Worker {
 }
 
 export function cancelRuneStatistics(): void {
+  active = undefined;
   worker?.terminate();
   worker = undefined;
   const pending = [...waiting.values()];
@@ -27,7 +39,22 @@ export function cancelRuneStatistics(): void {
   for (const settle of pending) settle({ status: 'superseded' });
 }
 
+/** Navigation can rejoin unfinished work; a genuinely different request supersedes it. */
 export function calculateRuneStatistics(request: RuneStatisticsRequest): Promise<RuneStatisticsOutcome> {
+  const key = runeCalculationKey(request);
+  const known = answers.read(key);
+  if (known) return Promise.resolve(known);
+  if (active?.key === key) return active.promise;
+  const promise = runStatistics(request).then((outcome) => {
+    if (outcome.status === 'done') answers.remember(key, outcome);
+    if (active?.promise === promise) active = undefined;
+    return outcome;
+  });
+  active = { key, promise };
+  return promise;
+}
+
+function runStatistics(request: RuneStatisticsRequest): Promise<RuneStatisticsOutcome> {
   if (waiting.size > 0) cancelRuneStatistics();
   const requestId = nextRequestId;
   nextRequestId += 1;

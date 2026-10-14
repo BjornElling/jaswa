@@ -1,3 +1,4 @@
+import { runeCalculationKey } from './rune-calculation-inputs';
 import type { SortState } from '../components/use-sorted-rows';
 import type { CalculationBackend } from './compute/calculation-summary';
 import type { HeldRuneAdvice } from './rune-cleanup-refresh';
@@ -39,30 +40,10 @@ export function createRuneCleanupSession(account: string | null): RuneCleanupSes
   return { account, read: () => snapshot, remember: (next) => { snapshot = next; } };
 }
 
-/** Safeguards act on the held answer immediately; only these settings change
- * the underlying score, odds or recommendation. */
-export function runeCleanupSettingsKey(settings: RunePotentialSettings): string {
-  return JSON.stringify([
-    settings.powerUpPolicy, settings.runeQuality, settings.gemRoll,
-    settings.gemRoll === null ? null : settings.gemGrade,
-    settings.grindstoneRoll, settings.grindstoneRoll === null ? null : settings.grindstoneGrade,
-    settings.acceptedRunes, settings.brokenRunes, settings.intangibleRunes,
-    settings.keepMoreForLargerSets,
-  ]);
-}
-
-export function runeCleanupReferenceKey(base: ReadonlyMap<string, ReferenceStats> | null): string {
-  return JSON.stringify(base === null ? null : [...base].sort(([left], [right]) => left.localeCompare(right)));
-}
-
-/** Content rather than object identity: importing the same account or restoring
- * unchanged preferences does not make a valid answer stale. Role order is kept
- * because it can decide which equally suitable role is named. */
+/** One definition of calculation inputs for the table, statistics and overlay. */
 export function runeCleanupStandardsChanged(
   result: RuneCleanupResult, roles: readonly RuneRole[], settings: RunePotentialSettings,
   base: ReadonlyMap<string, ReferenceStats> | null,
 ): boolean {
-  return JSON.stringify(result.roles) !== JSON.stringify(roles)
-    || runeCleanupSettingsKey(result.settings) !== runeCleanupSettingsKey(settings)
-    || runeCleanupReferenceKey(result.base) !== runeCleanupReferenceKey(base);
+  return runeCalculationKey(result) !== runeCalculationKey({ roles, settings, base });
 }

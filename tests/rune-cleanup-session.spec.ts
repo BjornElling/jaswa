@@ -50,7 +50,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   expect(await boxes()).toEqual(beforeBoxes);
   await page.screenshot({ path: testInfo.outputPath('calculated-after-navigation.png') });
 
-  const warning = page.getByText('Standards changed. Recalculate to use the current roles, settings and reference stats.');
+  const warning = page.getByText('Standards changed. Updating the affected rune verdicts…');
   await expect(warning).toBeHidden();
   await page.getByRole('checkbox', { name: 'Pre-grind spd ≥' }).uncheck();
   await expect(warning).toBeHidden();
@@ -60,7 +60,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   const quality = await page.locator('#rune-quality').inputValue();
   await page.locator('#rune-quality').fill(quality === '1' ? '2' : '1');
   await visit('Rune Clean-up');
-  await expect(warning).toBeVisible();
+  await expect(warning).toBeHidden();
   expect(await rows.allTextContents()).toHaveLength(4);
   expect(await boxes()).toEqual(beforeBoxes);
   await page.screenshot({ path: testInfo.outputPath('changed-standards.png') });
@@ -68,6 +68,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   await page.locator('#rune-quality').fill(quality);
   await visit('Rune Clean-up');
   await expect(warning).toBeHidden();
+  const restoredStatus = await page.locator('.calculation-status').textContent();
 
   // A repeated export is compared by its meaningful content, not its identity.
   const fileInput = page.locator('input[type="file"][accept="application/json,.json"]');
@@ -77,7 +78,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   await visit('Rune Clean-up');
   await expect(warning).toBeHidden();
   await expect(rows).toHaveCount(4);
-  await expect(page.locator('.calculation-status')).toHaveText(status ?? '');
+  await expect(page.locator('.calculation-status')).toHaveText(restoredStatus ?? '');
 
   // The reference averages, not the number of monsters alone, shape the answers.
   const raw = JSON.parse(readFileSync(account, 'utf8'));
@@ -86,7 +87,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   await fileInput.setInputFiles({ name: 'changed-reference.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(raw)) });
   await page.getByRole('button', { name: 'Replace data' }).click();
   await visit('Rune Clean-up');
-  await expect(warning).toBeVisible();
+  await expect(warning).toBeHidden();
   await expect(rows).toHaveCount(4);
   await page.getByRole('button', { name: 'Recalculate', exact: true }).click();
   await expect(warning).toBeHidden();
