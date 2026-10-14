@@ -1216,3 +1216,19 @@ The fixture contains generated data only. Recheck with:
 ```sh
 npm run verify:rune-cleanup-equivalence -- --baseline=tests/fixtures/rune-cleanup-scenario-baseline.json
 ```
+
+## 14. Calculation progress, 14 October 2026
+
+Rune Clean-up reports completed work under Calculate in the same visual voice
+as Rune Optimization. The percentage counts two units per rune: preparing its
+readings and settling its verdict. Calibration and the batch odds calculation
+can pause the percentage; it is not an estimate of elapsed or remaining time.
+The line reserves its space even when hidden.
+
+`tests/fixtures/rune-cleanup-progress-baseline.json` records the full generated
+population before progress reporting was added. All advice fields must remain
+identical, with zero tolerance. Recheck with:
+
+```sh
+npm run verify:rune-cleanup-equivalence -- --baseline=tests/fixtures/rune-cleanup-progress-baseline.json
+```

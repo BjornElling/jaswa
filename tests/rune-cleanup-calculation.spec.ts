@@ -320,7 +320,9 @@ test('potential protection saves both choices and keeps independent filter colum
   expect(ordering!.x).toBe(protection!.x);
   const calculateBox = await page.getByRole('button', { name: 'Recalculate', exact: true }).boundingBox();
   expect(calculateBox!.x + calculateBox!.width).toBeCloseTo(strip!.x + strip!.width, 1);
-  expect(calculateBox!.y + calculateBox!.height).toBeCloseTo(strip!.y + strip!.height, 1);
+  const progressBox = await page.locator('.rune-cleanup-progress').boundingBox();
+  expect(progressBox!.y).toBeGreaterThan(calculateBox!.y + calculateBox!.height);
+  expect(progressBox!.y + progressBox!.height).toBeCloseTo(strip!.y + strip!.height, 1);
   expect(ordering!.y + ordering!.height).toBeCloseTo(strip!.y + strip!.height, 1);
   await expect(page.locator('.rune-filter-actions')).toHaveCSS('border-left-width', '0px');
   await minimum.fill('90');

@@ -539,8 +539,8 @@ export async function runeAdvice(
   settings: RunePotentialSettings, base: ReadonlyMap<string, ReferenceStats>,
   /** Who answers the odds. The processor by default; the worker passes the card. */
   count: ChanceCounter = async (jobs) => countJobs(jobs),
-  /** Whether to carry every role's reading out (`RuneAdvice.readings`). */
-  { explain = false }: { explain?: boolean } = {},
+  /** Progress counts prepared and settled runes, rather than guessing elapsed time. */
+  { explain = false, onProgress }: { explain?: boolean; onProgress?: (fraction: number) => void } = {},
 ): Promise<Map<string, RuneAdvice>> {
   const { qualityBar, chanceBar, accepted, broken, intangible, credit } = policyOf(settings);
   const worthOf = (rank: MatchRank) => (rank === 'preferred' ? 1 : rank === 'acceptable' ? accepted : broken);
@@ -560,6 +560,7 @@ export async function runeAdvice(
      and is built so that a stricter choice can only lower a slot's factor. */
   const floorCalibration = calibrationFor(roles, settings, base);
   const prepared: RunePlan[] = [];
+  onProgress?.(0);
 
   /* ------------------------------------------------- 1. everything that is certain */
   for (const rune of runes) {
@@ -667,6 +668,7 @@ export async function runeAdvice(
     }
 
     prepared.push({ rune, steps });
+    onProgress?.(prepared.length / (2 * runes.length));
   }
 
   /* --------------------------------------------------------- 2. what is left */
@@ -718,7 +720,9 @@ export async function runeAdvice(
       buildMains: chosen ? chosen.candidate.build.mains : null,
       readings: explain ? roleReadings(roles, answersWithSteps, allowed, chanceBar, worthOf) : null,
     }, settings));
+    onProgress?.((runes.length + advice.size) / (2 * runes.length));
   }
+  onProgress?.(1);
   return advice;
 }
 

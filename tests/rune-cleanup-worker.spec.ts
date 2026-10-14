@@ -35,7 +35,7 @@ function largeAccount(count: number): string {
  * the failure this worker exists to remove, so it is measured directly: count
  * animation frames while the calculation runs. A blocked main thread paints none.
  */
-test('the page keeps painting while a large box is judged', async ({ page }) => {
+test('the page keeps painting while a large box is judged', async ({ page }, testInfo) => {
   /* The calibrated slot population is deliberately substantial, and so is the box:
      judging it measured 42 s with this test alone and about a minute with the whole
      suite's browsers sharing the processor. What is asserted is painting, not speed,
@@ -50,16 +50,44 @@ test('the page keeps painting while a large box is judged', async ({ page }) => 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   const cleanup = page.locator('.workspace-page-content');
   await expect(cleanup.getByText('Nothing calculated yet.')).toBeVisible();
+  const progress = cleanup.locator('.rune-cleanup-progress');
+  await expect(progress).toHaveAttribute('aria-hidden', 'true');
+  const boxes = () => cleanup.locator('.rune-filter-strip').evaluate((strip) =>
+    Array.from(strip.querySelectorAll('.filter-group, .rune-filter-actions > .button, .rune-cleanup-progress')).map((control) => {
+      const { x, y, width, height } = control.getBoundingClientRect();
+      return { x, y, width, height };
+    }));
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('progress-before.png') });
 
   await page.evaluate(() => {
     const counter = window as unknown as { jaswaFrames: number };
     counter.jaswaFrames = 0;
     const tick = () => { counter.jaswaFrames += 1; requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
+    const progress = document.querySelector('.rune-cleanup-progress')!;
+    const percentages: number[] = [];
+    (window as unknown as { jaswaProgress: number[] }).jaswaProgress = percentages;
+    new MutationObserver(() => {
+      if (progress.getAttribute('data-shown') === 'true') {
+        const value = Number(progress.textContent?.match(/(\d+)\s*%/)?.[1]);
+        if (Number.isFinite(value)) percentages.push(value);
+      }
+    }).observe(progress, { childList: true, subtree: true, characterData: true, attributes: true });
   });
   await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(progress).toHaveAttribute('data-shown', 'true');
+  await expect(progress).toContainText(/Calculating… \d+ %/);
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('progress-running.png') });
   await expect(page.locator('.calculation-status'))
     .toContainText('3,001 runes judged against', { timeout: 120_000 });
+  await expect(progress).toHaveAttribute('aria-hidden', 'true');
+  expect(await boxes()).toEqual(before);
+  const percentages = await page.evaluate(() => (window as unknown as { jaswaProgress: number[] }).jaswaProgress);
+  expect(percentages.some((value) => value > 0 && value < 100)).toBe(true);
+  expect(percentages.every((value, at) => value >= 0 && value <= 100 && (at === 0 || value >= percentages[at - 1]))).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('progress-finished.png') });
 
   /* Generous on purpose: a live page at 60 Hz paints hundreds over a calculation
      this size, and a blocked one paints none. The margin is what keeps a busy

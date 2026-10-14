@@ -206,6 +206,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   const [snapshot] = useState(session.read);
   const [result, setResult] = useState<RuneCleanupResult | null>(snapshot?.result ?? null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
   /* At most one re-reading in flight. A sync arriving meanwhile is picked up when
      it lands, by comparing again, so nothing is lost and nothing is superseded
      half-way through a box of power-ups. */
@@ -268,11 +269,12 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   async function calculate() {
     if (!canCalculate || !base) return;
     setBusy(true);
+    setProgress(0);
     setFailure(null);
     /* A whole calculation answers every rune, so a re-reading still in flight has
        nothing left to add. */
     cancelRuneAdviceRefresh();
-    const outcome = await calculateRuneAdvice({ runes, roles, settings, base, preferWebGpu: hardwareAcceleration });
+    const outcome = await calculateRuneAdvice({ runes, roles, settings, base, preferWebGpu: hardwareAcceleration }, setProgress);
     /* A newer request has taken over the busy state and the table, so this one
        returns without touching either. */
     if (outcome.status === 'superseded') return;
@@ -597,6 +599,10 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               <LabelSwap showing={busy ? 'busy' : held ? 'again' : 'first'}
                 faces={{ first: 'Calculate', again: 'Recalculate', busy: 'Calculating' }} />
             </Button>
+            <p className="calculation-progress rune-cleanup-progress" role="status"
+              aria-hidden={busy ? undefined : true} data-shown={busy ? 'true' : undefined}>
+              Calculating… {formatNumber(Math.round(progress * 100), general)} %
+            </p>
           </div>
         </>}
       >

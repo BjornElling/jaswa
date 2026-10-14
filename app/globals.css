@@ -332,7 +332,7 @@ label[for] {
 .token-choice-pill, .token-choice-more, .token-choice-option, .token-choice-empty,
 .token-choice-note,
 .artifact-subs li, .relic-effect, .best-monster-intangible,
-.calculation-status, .range-slider-values, .rune-optimization-depth-control output,
+.calculation-status, .calculation-progress, .range-slider-values, .rune-optimization-depth-control output,
 .helper-current-version, .import-badge-count, .best-artifact-result table,
 .best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table,
 .grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
@@ -2311,7 +2311,7 @@ label[for] {
 .best-artifact-monster-select .filter-group-controls { width: 50%; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
 .best-monster-actions { grid-area: calculate; justify-self: start; }
-.calculation-status {
+.calculation-status, .calculation-progress {
   margin: 0;
   color: var(--text);
   font-family: var(--font-body);
@@ -2610,7 +2610,8 @@ label[for] {
 /* Except while the search runs: then the line is the work the user just asked for,
    in the accent that marks what they are acting on. Colour only, so the line keeps
    its width (`AGENTS.md` §2). */
-.rune-optimization-status .calculation-status.rune-optimization-searching { color: var(--text-accent); }
+.rune-optimization-status .calculation-status.rune-optimization-searching,
+.calculation-progress { color: var(--text-accent); }
 .rune-optimization-results { display: grid; gap: var(--s2); }
 .rune-optimization-results > h3 { margin: 0; }
 .rune-optimization-table { table-layout: fixed; }
@@ -6499,7 +6500,13 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-filter-actions {
   display: flex; flex-direction: column; align-items: flex-end;
   justify-content: space-between; align-self: stretch; gap: var(--s4); min-width: 0;
+  position: relative; padding-bottom: calc(1lh + var(--s2));
 }
+.rune-cleanup-progress {
+  position: absolute; bottom: 0; right: 0; width: 100%; height: 1lh;
+  white-space: nowrap; opacity: 0;
+}
+.rune-cleanup-progress[data-shown='true'] { opacity: 1; }
 .rune-filter-status { position: static; }
 .rune-filter-column:nth-child(4) { align-self: stretch; }
 .rune-filter-column .rune-filter-sort-by { margin-top: auto; }

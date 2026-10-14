@@ -34,7 +34,7 @@ export type RuneAdviceChannel = {
    * and handles messages in order, so an abandoned calculation would otherwise have
    * to run to completion before the request that matters could start.
    */
-  calculate: (request: RuneAdviceRequest) => Promise<RuneAdviceOutcome>;
+  calculate: (request: RuneAdviceRequest, onProgress?: (fraction: number) => void) => Promise<RuneAdviceOutcome>;
   /**
    * Stop waiting for whatever is in flight.
    *
@@ -67,7 +67,7 @@ export function runeAdviceChannel(): RuneAdviceChannel {
     for (const settle of pending) settle({ status: 'superseded' });
   }
 
-  function calculate(request: RuneAdviceRequest): Promise<RuneAdviceOutcome> {
+  function calculate(request: RuneAdviceRequest, onProgress?: (fraction: number) => void): Promise<RuneAdviceOutcome> {
     if (waiting.size > 0) cancel();
     const requestId = nextRequestId;
     nextRequestId += 1;
@@ -81,6 +81,10 @@ export function runeAdviceChannel(): RuneAdviceChannel {
       };
       const onMessage = (event: MessageEvent<RuneAdviceWorkerResponse>) => {
         if (event.data.requestId !== requestId) return;
+        if (event.data.type === 'progress') {
+          onProgress?.(event.data.fraction);
+          return;
+        }
         settle(event.data.type === 'error'
           ? { status: 'failed', message: event.data.message }
           : { status: 'done', advice: event.data.advice, durationMs: event.data.durationMs, backend: event.data.backend });
