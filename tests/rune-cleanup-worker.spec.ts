@@ -94,7 +94,7 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
         intangibleRunes: 1, keepMoreForLargerSets: false,
         neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
         neverSellPotentialValue: false, potentialValueMinimum: null,
-        neverSellEngravedPlacements: false, engravedPlacementsMinimum: null,
+        neverSellEngravedPlacements: false,
       },
     };
     /* Both started in one tick, so the second is created before any worker message

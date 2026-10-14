@@ -560,23 +560,11 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               </div>
               <div className="filter-group-controls">
                 <div className="checkbox-row">
-                  <input id="rune-engraving-protection" type="checkbox" aria-label="Engraved on ≥"
+                  <input id="rune-engraving-protection" type="checkbox" aria-label="Engraved in non-Scenario preset"
                     checked={settings.neverSellEngravedPlacements}
                     onChange={(event) => onUpdate({ neverSellEngravedPlacements: event.target.checked })} />
-                  <label htmlFor={settings.neverSellEngravedPlacements ? 'rune-engraving-protection' : undefined}
-                    aria-disabled={!settings.neverSellEngravedPlacements}>Engraved on ≥</label>
+                  <label htmlFor="rune-engraving-protection">Engraved in non-Scenario preset</label>
                 </div>
-                <input className="rune-speed-minimum rune-engraving-minimum type-body" type="text" inputMode="numeric" maxLength={1}
-                  disabled={!settings.neverSellEngravedPlacements}
-                  aria-label="Minimum engraving count" value={settings.engravedPlacementsMinimum ?? ''}
-                  onChange={(event) => {
-                    const text = event.target.value;
-                    if (text === '') { onUpdate({ engravedPlacementsMinimum: null }); return; }
-                    if (!/^[1-9]$/.test(text)) return;
-                    const value = Number(text);
-                    if (Number.isFinite(value)) onUpdate({ engravedPlacementsMinimum: value });
-                  }} />
-                <span>mons.</span>
               </div>
             </div>
             {/* Ordering, not filtering: it reproduces the game's own Sort by, so a

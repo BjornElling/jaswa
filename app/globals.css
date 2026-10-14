@@ -6490,7 +6490,6 @@ th.align-center .rank-heading { justify-content: center; }
   font-variant-numeric: tabular-nums; text-align: center;
 }
 .rune-speed-minimum:focus { border-color: var(--text-accent); }
-.rune-engraving-minimum { width: calc(2ch + var(--s4)); }
 .rune-speed-protection label[aria-disabled='true'],
 .rune-speed-minimum:disabled { color: var(--text-muted); cursor: default; }
 .rune-speed-minimum:disabled { opacity: .4; }

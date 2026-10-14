@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const account = JSON.parse(readFileSync(new URL('./fixtures/craft-account.json', import.meta.url), 'utf8'));
 
-test('Location names the Scenario monster and counts each other preset without changing filter membership', async ({ page }, testInfo) => {
+test('Location names the Scenario monster and counts each other preset and protects any non-Scenario engraving', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -11,6 +11,12 @@ test('Location names the Scenario monster and counts each other preset without c
   await navigation.getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
   await page.screenshot({ path: testInfo.outputPath('empty.png') });
+  const emptyProtection = page.getByRole('checkbox', { name: 'Engraved in non-Scenario preset', exact: true });
+  const emptyBox = await page.locator('.rune-filter-strip').boundingBox();
+  await emptyProtection.uncheck();
+  expect(await page.locator('.rune-filter-strip').boundingBox()).toEqual(emptyBox);
+  await page.screenshot({ path: testInfo.outputPath('empty-unchecked.png') });
+  await emptyProtection.check();
 
   const data = structuredClone(account);
   data.unit_list[1].runes = [{ ...structuredClone(data.unit_list[0].runes[0]), rune_id: 106, occupied_id: 2 }];
@@ -62,11 +68,9 @@ test('Location names the Scenario monster and counts each other preset without c
 
   await location.getByRole('button', { name: 'Inventory', exact: true }).click();
   await expect(rows).toHaveCount(5);
-  const protection = page.getByRole('checkbox', { name: 'Engraved on ≥', exact: true });
-  const minimum = page.getByRole('textbox', { name: 'Minimum engraving count' });
+  const protection = page.getByRole('checkbox', { name: 'Engraved in non-Scenario preset', exact: true });
   await expect(protection).toBeChecked();
-  await expect(minimum).toHaveValue('2');
-  await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Keep', 'Sell', 'Keep']);
+  await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Keep', 'Power up', 'Keep']);
   const rowBoxes = () => rows.evaluateAll((entries) => entries.map((entry) => {
     const { x, y, width, height } = entry.getBoundingClientRect();
     return { x, y, width, height };
@@ -74,24 +78,21 @@ test('Location names the Scenario monster and counts each other preset without c
   const beforeRows = await rowBoxes();
   await page.screenshot({ path: testInfo.outputPath('protection-on.png') });
   await protection.uncheck();
-  await expect(minimum).toBeDisabled();
   await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Sell', 'Sell', 'Sell']);
   expect(await rowBoxes()).toEqual(beforeRows);
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('protection-off.png') });
-  await protection.check();
-  await minimum.fill('3');
-  await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Keep', 'Sell', 'Sell']);
-  await minimum.fill('9');
-  await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Sell', 'Sell', 'Sell']);
-  await minimum.fill('');
-  await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Sell', 'Sell', 'Sell']);
-  expect(await rowBoxes()).toEqual(beforeRows);
-  await page.screenshot({ path: testInfo.outputPath('blank-threshold.png') });
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await expect(protection).not.toBeChecked();
+  // The label remains an active checkbox target in both states.
+  await page.locator('label[for="rune-engraving-protection"]').click();
+  await expect(protection).toBeChecked();
+  await page.getByRole('button', { name: /^(Calculate|Recalculate)$/ }).click();
+  await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Keep', 'Power up', 'Keep']);
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await expect(protection).toBeChecked();
-  await expect(minimum).toHaveValue('');
 
   await navigation.getByRole('button', { name: 'Monster Stats', exact: true }).click();
   await page.locator('.monster-link').filter({ hasText: 'Elucia' }).first().click();

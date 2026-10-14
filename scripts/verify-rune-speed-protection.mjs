@@ -97,34 +97,36 @@ const places = [
 ];
 for (const level of [0, 9, 12, 13, 14, 15]) {
   const candidate = { ...rune, level };
-  for (const minimum of [null, 1, 2, 3, 4, 9]) {
-    const thresholds = { ...engravingSettings, engravedPlacementsMinimum: minimum };
-    const answer = withRuneSellProtection(candidate, original, thresholds, places);
-    assert.equal(answer.verdict, minimum !== null && minimum <= places.length
+  for (const locations of [[], places.slice(0, 1), places.slice(1, 2), places.slice(1), places,
+    [{ presetId: 'own:fixture', unitId: '2' }]]) {
+    const protectedRune = locations.some((place) => place.presetId !== 'scenario');
+    const answer = withRuneSellProtection(candidate, original, engravingSettings, locations);
+    assert.equal(answer.verdict, protectedRune
       ? level === 12 || level === 15 ? 'keep' : 'power-up' : 'sell');
     assert.equal(answer.maxValue, original.maxValue);
     assert.equal(answer.chance, original.chance);
-    assert.equal(withRuneSellProtection(candidate, answer, { ...thresholds, neverSellEngravedPlacements: false }, places).verdict, 'sell');
-    assert.equal(withRuneSellProtection(candidate, answer, thresholds, []).verdict, 'sell');
+    assert.equal(answer.role, original.role);
+    assert.equal(withRuneSellProtection(candidate, answer, { ...engravingSettings, neverSellEngravedPlacements: false }, locations).verdict, 'sell');
+    assert.equal(withRuneSellProtection(candidate, answer, engravingSettings, []).verdict, 'sell');
+    assert.equal(withRuneSellProtection(candidate, answer, engravingSettings, places.slice(0, 1)).verdict, 'sell');
   }
 }
-for (const minimum of [null, 1, 2, 9]) {
-  const saved = readPreferences({ ...blank, runePotential: { ...engravingSettings, engravedPlacementsMinimum: minimum } }, null);
-  assert.equal(saved.runePotential.engravedPlacementsMinimum, minimum);
+for (const enabled of [true, false]) {
+  const saved = readPreferences({ ...blank, runePotential: { ...engravingSettings, neverSellEngravedPlacements: enabled, powerUpPolicy: 2 } }, null);
+  assert.equal(saved.runePotential.neverSellEngravedPlacements, enabled);
+  assert.equal(saved.runePotential.powerUpPolicy, 2);
 }
-for (const minimum of [0, -1, 10, '2', '', 2.5, NaN, Infinity]) {
-  const saved = readPreferences({ ...blank, runePotential: { ...engravingSettings, engravedPlacementsMinimum: minimum, powerUpPolicy: 2 } }, null);
-  assert.equal(saved.runePotential.engravedPlacementsMinimum, 2);
+for (const invalid of [null, 0, 1, 'true', 'false', {}]) {
+  const saved = readPreferences({ ...blank, runePotential: { ...engravingSettings, neverSellEngravedPlacements: invalid, powerUpPolicy: 2 } }, null);
+  assert.equal(saved.runePotential.neverSellEngravedPlacements, true);
   assert.equal(saved.runePotential.powerUpPolicy, 2);
 }
 const missingEngraving = { ...engravingSettings, powerUpPolicy: 2, neverSellPreGrindSpeed: false };
 delete missingEngraving.neverSellEngravedPlacements;
-delete missingEngraving.engravedPlacementsMinimum;
 const retained = readPreferences({ ...blank, runePotential: missingEngraving }, null);
 assert.equal(retained.runePotential.neverSellEngravedPlacements, true);
-assert.equal(retained.runePotential.engravedPlacementsMinimum, 2);
 assert.equal(retained.runePotential.neverSellPreGrindSpeed, false);
 assert.equal(retained.runePotential.powerUpPolicy, 2);
 assert.equal(withRuneSellProtection(rune, original, engravingSettings, places.slice(0, 1)).verdict, 'sell');
-assert.equal(withRuneSellProtection(rune, original, engravingSettings, places.slice(0, 2)).reason, 'Engraving count protected');
-console.log('PASS: engraving protection counts every placement, including the same monster in several presets, updates reversibly, and preserves independent preferences.');
+assert.equal(withRuneSellProtection(rune, original, engravingSettings, places.slice(1, 2)).reason, 'Preset engraving protected');
+console.log('PASS: any non-Scenario engraving protects a rune, Scenario alone does not, placement changes reverse protection, and saved choices survive independently.');

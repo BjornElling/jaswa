@@ -11,6 +11,7 @@
  * it likely enough to get there.
  */
 import { runeMaximumLevel } from './runes';
+import { scenarioPresetId } from './presets';
 import type { Engraving } from './presets';
 import type { Rune } from './runes';
 import type { RuneRole } from './rune-roles';
@@ -890,14 +891,12 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
   const protectedPotential = settings.neverSellPotentialValue && potentialMinimum !== null
     && Number.isInteger(potentialMinimum) && potentialMinimum >= 0 && potentialMinimum <= 999
     && advice.chance >= 0.01 && advice.maxValue >= potentialMinimum / 100;
-  const engravedMinimum = settings.engravedPlacementsMinimum;
-  const protectedEngravings = settings.neverSellEngravedPlacements && engravedMinimum !== null
-    && Number.isInteger(engravedMinimum) && engravedMinimum >= 1 && engravedMinimum <= 9
-    && places.length >= engravedMinimum;
+  const protectedEngravings = settings.neverSellEngravedPlacements
+    && places.some((place) => place.presetId !== scenarioPresetId);
   if (!protectedSpeed && !protectedPotential && !protectedEngravings) return advice.unprotectedAdvice ? { ...advice, ...original } : advice;
   return {
     ...advice, unprotectedAdvice: original,
     verdict: rune.level === lastSubPropertyLevel || rune.level >= runeMaximumLevel ? 'keep' : 'power-up',
-    reason: protectedSpeed ? 'Pre-grind speed protected' : protectedPotential ? 'Potential value protected' : 'Engraving count protected',
+    reason: protectedSpeed ? 'Pre-grind speed protected' : protectedPotential ? 'Potential value protected' : 'Preset engraving protected',
   };
 }

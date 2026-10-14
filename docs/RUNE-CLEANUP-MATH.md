@@ -694,13 +694,16 @@ chosen percentage, both inclusive and compared before display rounding. If eithe
 condition fails, the ordinary recommendation applies. A blank threshold disables
 this safeguard; zero remains a stated threshold. Its checkbox, immediate updates,
 level-dependent advice and saved settings follow the speed safeguard above.
-The **Engraved on ≥ … mons.** safeguard starts enabled at **2**. It counts
-all placements across Scenario and every preset: the same monster in
-several presets counts once per preset. At or above the chosen threshold, it follows the
-same level-dependent advice as the other safeguards. The threshold accepts
-**1–9** or blank; blank disables this safeguard. Changes to the setting or to
-placements take effect immediately without recalculating scores. None of the
-safeguards changes Max value, Chance or Best role.
+The **Engraved in non-Scenario preset** safeguard starts enabled. A rune
+engraved on a monster in any preset outside Scenario cannot be recommended for
+sale while it is checked, even if that is its only placement. Scenario alone
+does not protect a rune. It follows the same level-dependent advice as the
+other safeguards. Changes to the checkbox or to placements take effect
+immediately without recalculating scores. Location and protection read the same
+account-wide engraving index in `presets.ts`; presets that save only monsters
+use Scenario gear and create no separate engraving. None of the safeguards
+changes Max value, Chance or Best role. The checkbox retains the user's saved
+engraving-protection choice; there is no numeric threshold.
 
 The Location cell names the monster in Scenario, with **(+ X)** for its other
 placements. Without a Scenario placement it says **Engraved × X**, including
