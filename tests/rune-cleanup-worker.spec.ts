@@ -6,6 +6,17 @@ import { join } from 'node:path';
 
 const fixture = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
+test('an empty workspace keeps the calculation status hidden', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  const cleanup = page.locator('.workspace-page-content');
+  await expect(cleanup.getByText('Nothing to judge until a game file is imported.')).toBeVisible();
+  await expect(cleanup.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
+  await expect(cleanup.locator('.rune-cleanup-progress')).toHaveAttribute('aria-hidden', 'true');
+  await page.screenshot({ path: testInfo.outputPath('progress-no-import.png') });
+});
+
 /**
  * A box the size of a real account, built by repeating the fixture's own legal
  * runes at every power-up stop that still has events left. Variety is not the
@@ -18,7 +29,8 @@ function largeAccount(count: number): string {
   const runes: unknown[] = [];
   for (let at = 0; at < count; at += 1) {
     runes.push({
-      ...seeds[at % seeds.length], rune_id: 100_000 + at, occupied_type: 2, occupied_id: 0,
+      ...seeds[at % seeds.length], class: at % 2 ? 5 : 6,
+      rune_id: 100_000 + at, occupied_type: 2, occupied_id: 0,
       upgrade_curr: levels[at % levels.length],
     });
   }
@@ -41,6 +53,21 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
      suite's browsers sharing the processor. What is asserted is painting, not speed,
      so the wait is sized to the calculation with room to spare. */
   test.setTimeout(150_000);
+  await page.addInitScript(() => {
+    const counter = window as unknown as { calculationPhases: string[] };
+    counter.calculationPhases = [];
+    const OriginalWorker = window.Worker;
+    window.Worker = class extends OriginalWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        if (!String(url).includes('rune-advice-worker')) return;
+        this.addEventListener('message', (event: MessageEvent<{ type: string; active?: boolean }>) => {
+          if (event.data.type === 'calibration') counter.calculationPhases.push(event.data.active ? 'calibrating' : 'calibrated');
+          if (event.data.type === 'progress') counter.calculationPhases.push('calculating');
+        });
+      }
+    };
+  });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]')
@@ -77,6 +104,9 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
   });
   await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(progress).toHaveAttribute('data-shown', 'true');
+  await expect(progress).toHaveText('Calibrating…\nOnly needed once.');
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('progress-calibrating.png') });
   await expect(progress).toContainText(/Calculating… \d+ %/);
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('progress-running.png') });
@@ -94,6 +124,18 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
      machine from failing a check about a different thing entirely. */
   const frames = await page.evaluate(() => (window as unknown as { jaswaFrames: number }).jaswaFrames);
   expect(frames).toBeGreaterThan(10);
+  const phases = await page.evaluate(() => (window as unknown as { calculationPhases: string[] }).calculationPhases);
+  expect(phases.slice(0, 2)).toEqual(['calibrating', 'calibrated']);
+  expect(phases.slice(2).every((phase) => phase === 'calculating')).toBe(true);
+  await page.evaluate(() => { (window as unknown as { calculationPhases: string[] }).calculationPhases = []; });
+  await cleanup.getByRole('button', { name: 'Recalculate', exact: true }).click();
+  await expect(progress).toContainText(/Calculating… \d+ %/);
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('progress-warm.png') });
+  await expect(progress).toHaveAttribute('aria-hidden', 'true');
+  const warmPhases = await page.evaluate(() => (window as unknown as { calculationPhases: string[] }).calculationPhases);
+  expect(warmPhases.length).toBeGreaterThan(0);
+  expect(warmPhases.every((phase) => phase === 'calculating')).toBe(true);
 });
 
 /**

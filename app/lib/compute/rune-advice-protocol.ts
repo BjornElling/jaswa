@@ -39,6 +39,7 @@ export type RuneAdviceWorkerRequest = {
 };
 
 export type RuneAdviceWorkerResponse =
+  | { type: 'calibration'; requestId: number; active: boolean }
   | { type: 'progress'; requestId: number; fraction: number }
   | { type: 'result'; requestId: number; advice: Map<string, RuneAdvice>; durationMs: number; backend: CalculationBackend }
   | { type: 'error'; requestId: number; message: string };

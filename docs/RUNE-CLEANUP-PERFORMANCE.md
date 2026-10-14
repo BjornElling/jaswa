@@ -2677,3 +2677,23 @@ and hiding the engraved rune changing the rows on screen while the judged count 
 A stored preference the current form no longer defines is left where it lies rather than
 migrated — `AGENTS.md` §0 — so the dead keys in an existing preferences document are simply
 never read again. Nothing else in that document is disturbed.
+
+### 14.11 Calibration gets its own status, 14 October 2026
+
+The worker reports calibration separately from rune progress. Every star class
+present in the calculation is calibrated before the percentage starts, so a
+later class cannot send the line back to calibration. The line reads
+“Calibrating… Only needed once.”; a warm calculation skips it. The cache still
+belongs to the worker and its calculation inputs, so changing those inputs or
+restarting the worker may require calibration again.
+
+Two lines are reserved beneath Calculate in every state. Playwright checks an
+empty workspace and 3,001 runes spanning five and six stars, compares filter and
+button boxes during calibration and counting, and verifies that a repeat
+calculation sends no calibration events.
+
+A fresh baseline was captured before changing the engine with
+`npm run verify:rune-cleanup-equivalence -- --write`. The subsequent comparison
+passed: every public field for 582 runes across eight scenarios stayed identical.
+The local capture is `work/rune-cleanup-equivalence-baseline.json`, SHA-256
+`452ea41efb4d998bc514d1d23cb9acda8004c10ff98259f26aedc7cf216537c9`.

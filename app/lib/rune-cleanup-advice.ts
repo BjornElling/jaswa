@@ -156,6 +156,17 @@ class RuneFloorCalibration {
     this.broken = broken;
   }
 
+  prepare(stars: readonly number[], onCalibration?: (active: boolean) => void): void {
+    const missing = stars.filter((grade) => !this.floors.has(grade));
+    if (!missing.length) return;
+    onCalibration?.(true);
+    try {
+      for (const grade of missing) this.balanceOf(grade);
+    } finally {
+      onCalibration?.(false);
+    }
+  }
+
   floorFor(slot: number, stars: number, fourPiece = false): number {
     return this.balanceOf(stars)[fourPiece ? 'fourPiece' : 'ordinary'][slot - 1] ?? this.qualityBar;
   }
@@ -540,7 +551,11 @@ export async function runeAdvice(
   /** Who answers the odds. The processor by default; the worker passes the card. */
   count: ChanceCounter = async (jobs) => countJobs(jobs),
   /** Progress counts prepared and settled runes, rather than guessing elapsed time. */
-  { explain = false, onProgress }: { explain?: boolean; onProgress?: (fraction: number) => void } = {},
+  { explain = false, onProgress, onCalibration }: {
+    explain?: boolean;
+    onProgress?: (fraction: number) => void;
+    onCalibration?: (active: boolean) => void;
+  } = {},
 ): Promise<Map<string, RuneAdvice>> {
   const { qualityBar, chanceBar, accepted, broken, intangible, credit } = policyOf(settings);
   const worthOf = (rank: MatchRank) => (rank === 'preferred' ? 1 : rank === 'acceptable' ? accepted : broken);
@@ -559,6 +574,9 @@ export async function runeAdvice(
      verdicts and not the bar. The fresh-rune balance does read the policy (§9.4),
      and is built so that a stricter choice can only lower a slot's factor. */
   const floorCalibration = calibrationFor(roles, settings, base);
+  /* All grades are ready before rune progress begins, so a later grade cannot
+     send the status line back into calibration halfway through the box. */
+  floorCalibration.prepare([...new Set(runes.map(referenceStars))], onCalibration);
   const prepared: RunePlan[] = [];
   onProgress?.(0);
 
