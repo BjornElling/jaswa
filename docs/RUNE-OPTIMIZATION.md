@@ -162,8 +162,10 @@ There is no Speed lead: no composite reads SPD, and a SPD range is display speed
 so a speed lead would be an answer no calculation could act on. Speed Tuning reads a
 team's leader skill itself.
 
-The green mark after a stat names the lead that reaches past it, and the green mark
-after a composite names what it counted. A blank lead means none; an explicit zero
+Green tooltips explicitly say “Added to the shown value in battle” beside a
+display stat and “Calculated with” beside a composite. Own and teammate sets are
+combined, for example “3 Fight sets (+24% base ATK)”. Leads and crit conditions
+use the same short list. A blank lead means none; an explicit zero
 is kept as the user's choice.
 
 ### 2.2.4 Automatic team-set bonuses

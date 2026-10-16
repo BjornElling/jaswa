@@ -37,8 +37,8 @@ test('team bonuses follow the chosen preset automatically and the profile has on
   expect(number(full[9])).toBeGreaterThan(number(scenario[9]));
   expect(number(full[10])).toBeGreaterThan(number(scenario[10]));
   await page.getByRole('button', { name: 'Open profile', exact: true }).click();
-  await expect(dialog.getByRole('img', { name: /2 teammate Fight sets: \+16% ATK/ }).first()).toBeVisible();
-  await expect(dialog.getByRole('img', { name: /Teammate sets add 10 percentage points ACC/ })).toBeVisible();
+  await expect(dialog.getByRole('img', { name: /3 Fight sets \(\+24% base ATK\)/ }).first()).toBeVisible();
+  await expect(dialog.getByRole('img', { name: /Added to the shown value in battle: 1 Accuracy set \(\+10% ACC\)/ })).toBeVisible();
   const boxes = () => dialog.locator('.overlay-block, .overlay-lead input, .stat-range').evaluateAll((elements) =>
     elements.map((element) => { const b = element.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; }));
   const before = await boxes();

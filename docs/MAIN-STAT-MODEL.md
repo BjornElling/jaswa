@@ -130,8 +130,8 @@ Worked examples (relic, so worth is the need's own order):
   the need's shares (`RELIC-CANONICAL.md` §11.1). It no longer computes a need of
   its own.
 - **The advice mark.** On the overlay, a stated main that **contradicts** the
-  model carries a yellow info mark after the row's name, whose reading says what
-  the copy needs and what the model would choose. A contradiction is a main
+  model carries a yellow info mark after the row's name. Its short tooltip names
+  the suggested mains and their source (runes or rune statistics). A contradiction is a main
   stated preferred that the model calls not wanted (or the reverse), or two mains
   ranked in opposite order. Moving one main a single band is the owner's call and
   is not marked. The owner's answer still stands — the mark informs, it never

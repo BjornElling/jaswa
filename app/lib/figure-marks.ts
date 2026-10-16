@@ -18,11 +18,11 @@ export type FigureMark = {
   glyph: 'ring' | 'info' | 'slashed';
 };
 
-const leadWords: Readonly<Record<LeadStat, { name: string; stat: string; reaches: string }>> = {
-  atk: { name: 'Attack lead', stat: 'ATK', reaches: 'DMG' },
-  def: { name: 'Defence lead', stat: 'DEF', reaches: 'E.HP and E.HP D' },
-  hp: { name: 'HP lead', stat: 'HP', reaches: 'E.HP and E.HP D' },
-  criRate: { name: 'Crit lead', stat: 'CRI Rate', reaches: 'DMG' },
+const leadWords: Readonly<Record<LeadStat, { name: string; stat: string }>> = {
+  atk: { name: 'ATK lead', stat: 'ATK' },
+  def: { name: 'DEF lead', stat: 'DEF' },
+  hp: { name: 'HP lead', stat: 'HP' },
+  criRate: { name: 'Crit lead', stat: 'CRI Rate' },
 };
 
 /* The leads each composite counts, in the order its formula reads them. */
@@ -38,29 +38,30 @@ const compositeLeads: Readonly<Record<string, readonly LeadStat[]>> = {
  * carries no mark.
  */
 export function combatBonusMarks(figure: string, bonuses: CombatBonuses, ownValue?: number, ownSets: TeammateSets = {}): FigureMark[] {
-  const leadOf = (stat: LeadStat) => bonuses.leads?.[stat];
+  const counted = figure in compositeLeads ? compositeLeads[figure] : [figure];
+  const additions = [
+    ...counted.flatMap((stat) => (leadStats as readonly string[]).includes(stat)
+      ? leadReading(stat as LeadStat, bonuses) : []),
+    ...counted.flatMap((stat) => teamSetReadings(stat, bonuses, ownSets)),
+    counted.includes('criRate') && bonuses.alwaysCrits ? 'Guaranteed crits' : undefined,
+    counted.includes('criRate') && bonuses.alwaysElementAdvantage ? 'Element advantage (+15% CRI Rate)' : undefined,
+  ].filter(Boolean).join('; ');
   const reading = figure === 'acc' || figure === 'res'
     ? pointBonusReading(figure, bonuses, ownValue, ownSets)
-    : figure in compositeLeads
-    ? compositeReading(figure, bonuses, ownSets)
-    : [
-      figure === 'criRate' && bonuses.alwaysCrits ? 'Always crits' : undefined,
-      figure === 'criRate' && bonuses.alwaysElementAdvantage ? 'Element advantage adds 15% CRI Rate to DMG' : undefined,
-      (leadStats as readonly string[]).includes(figure) && leadOf(figure as LeadStat)
-        ? `${leadWords[figure as LeadStat].name} adds ${leadOf(figure as LeadStat)}% ${leadWords[figure as LeadStat].stat} to ${leadWords[figure as LeadStat].reaches}, not to this figure or its range`
-        : undefined,
-      ...teamSetReadings(figure, bonuses, ownSets).map((reading) => `${reading}, counted in the composites, not in this figure or its range`),
-    ].filter(Boolean).join('. ');
+    : additions ? `${figure in compositeLeads ? 'Calculated with' : 'Added to the shown value in battle:'} ${additions}.` : '';
   return reading === '' ? [] : [{ key: 'combat-bonuses', tone: 'green', reading, glyph: 'info' }];
 }
 
 function teamSetReadings(figure: string, bonuses: CombatBonuses, ownSets: TeammateSets): string[] {
   return teamSetBonuses.flatMap((set) => {
-    return (['own', 'teammate'] as const).flatMap((source) => {
-      const count = (source === 'own' ? ownSets : bonuses.teammateSets)?.[set.name] ?? 0;
-      return count && set.stat === figure ? [`${count} ${source} ${set.name} set${count === 1 ? '' : 's'}: +${count * set.value}% ${figure.toUpperCase()}`] : [];
-    });
+    const count = (ownSets[set.name] ?? 0) + (bonuses.teammateSets?.[set.name] ?? 0);
+    return count && set.stat === figure ? [`${count} ${set.name} set${count === 1 ? '' : 's'} (+${count * set.value}% ${set.stat === 'acc' || set.stat === 'res' ? '' : 'base '}${figure.toUpperCase()})`] : [];
   });
+}
+
+function leadReading(stat: LeadStat, bonuses: CombatBonuses): string[] {
+  const lead = bonuses.leads?.[stat];
+  return lead ? [`${leadWords[stat].name} (+${lead}% ${stat === 'criRate' ? '' : 'base '}${leadWords[stat].stat})`] : [];
 }
 
 function pointBonusReading(figure: 'acc' | 'res', bonuses: CombatBonuses, ownValue: number | undefined, ownSets: TeammateSets): string {
@@ -68,36 +69,23 @@ function pointBonusReading(figure: 'acc' | 'res', bonuses: CombatBonuses, ownVal
   const ownBonus = combatStatBonus(figure, { ...bonuses, teammateSets: ownSets });
   const bonus = ownBonus + teammateBonus;
   if (bonus === 0) return '';
-  const value = ownValue === undefined ? '' : `; ${Math.min(100, ownValue + bonus)}% in battle`;
-  return `${ownBonus ? teammateBonus ? 'Own and teammate sets' : 'Own sets' : 'Teammate sets'} add ${bonus} percentage points ${figure.toUpperCase()}${value}, not to this figure or its range`;
-}
-
-function compositeReading(figure: string, bonuses: CombatBonuses, ownSets: TeammateSets): string {
-  const counted = [
-    ...compositeLeads[figure].flatMap((stat) => {
-      const lead = bonuses.leads?.[stat];
-      return lead ? [`${leadWords[stat].name} ${lead}%`] : [];
-    }),
-    ...compositeLeads[figure].flatMap((stat) => teamSetReadings(stat, bonuses, ownSets)),
-    figure === 'dmg' && bonuses.alwaysCrits ? 'a certain crit' : undefined,
-    figure === 'dmg' && bonuses.alwaysElementAdvantage ? 'element advantage' : undefined,
-  ].filter((part): part is string => Boolean(part));
-  return counted.length === 0 ? '' : `Counted with ${counted.join(', ')}`;
+  const value = ownValue === undefined ? '' : ` Battle total: ${Math.min(100, ownValue + bonus)}% ${figure.toUpperCase()}.`;
+  return `Added to the shown value in battle: ${teamSetReadings(figure, bonuses, ownSets).join('; ')}.${value}`;
 }
 
 /** Whose wish it was stays in the sentence, so a user choice and a population default make different claims. */
 function describeShortfall(shortfall: Shortfall, general: GeneralSettings): string {
-  const whose = shortfall.source === 'user' ? 'You want' : 'Most players want';
+  const whose = shortfall.source === 'user' ? 'Your target' : 'Common target';
   const where = shortfall.where === undefined ? '' : `${shortfall.where}: `;
 
   if (shortfall.kind === 'stat' && shortfall.target !== undefined && shortfall.current !== undefined) {
-    return `${where}${whose} ${shortfall.wanted} ${shortfall.over ? 'at most' : 'at least'} ${formatNumber(shortfall.target, general)},`
-      + ` and this copy has ${formatNumber(shortfall.current, general)}.`;
+    return `${where}${whose}: ${shortfall.wanted} ${shortfall.over ? '≤' : '≥'} ${formatNumber(shortfall.target, general)};`
+      + ` current: ${formatNumber(shortfall.current, general)}.`;
   }
   if (shortfall.present === undefined) {
-    return `${where}${whose} ${shortfall.wanted}, and this copy has none.`;
+    return `${where}${whose}: ${shortfall.wanted}; current: none.`;
   }
-  return `${where}${whose} ${shortfall.wanted}, and this copy has ${shortfall.present}.`;
+  return `${where}${whose}: ${shortfall.wanted}; current: ${shortfall.present}.`;
 }
 
 /** A wish this copy does not meet is something left to finish, not something broken. */
@@ -113,17 +101,17 @@ export function buildIssueMarks(reading: string): FigureMark[] {
 }
 
 const basisWords: Readonly<Record<MainStatBasis, string>> = {
-  runes: 'Its six runes lift',
-  statistics: 'The game’s rune statistics lift',
+  runes: 'runes',
+  statistics: 'rune statistics',
 };
 
-const pieceWords: Readonly<Record<GearKind, string>> = { artifact: 'artifacts', relic: 'the relic' };
+const pieceWords: Readonly<Record<GearKind, string>> = { artifact: 'artifacts', relic: 'relic' };
 
 function adviceWords(advice: GearMainAdvice): string {
   const byWorth = [...artifactMainPropertyOrder].sort((left, right) => advice.worth[right] - advice.worth[left]);
   const preferred = byWorth.filter((stat) => advice.bands[stat] === 'preferred');
   const acceptable = byWorth.filter((stat) => advice.bands[stat] === 'acceptable');
-  return `${preferred.join(' or ')}${acceptable.length === 0 ? '' : ` (accepting ${acceptable.join(' or ')})`}`;
+  return `${preferred.join(' or ')}${acceptable.length === 0 ? '' : ` (also ${acceptable.join(' or ')})`}`;
 }
 
 /**
@@ -143,7 +131,7 @@ export function mainStatAdviceMarks(
     return [{
       key: 'main-stat-no-preferred',
       tone: 'red',
-      reading: 'Accepted main stats count only beside a preferred one, so the maths decides for now: choose at least one preferred main stat.',
+      reading: 'Choose at least one preferred main stat. Using suggested mains for now.',
       glyph: 'ring',
     }];
   }
@@ -151,13 +139,11 @@ export function mainStatAdviceMarks(
   if (stated === undefined || advice === undefined) return [];
   const pieces = (['artifact', 'relic'] as const).filter((kind) => contradictsAdvice(stated, advice[kind]));
   if (pieces.length === 0) return [];
-  const lifts = [...artifactMainPropertyOrder].sort((left, right) => advice.need[right] - advice.need[left])
-    .map((stat) => `${stat} +${Math.round(advice.need[stat])}%`).join(', ');
   const same = pieces.length === 2 && adviceWords(advice.artifact) === adviceWords(advice.relic);
   const answers = same
-    ? `artifacts and the relic want ${adviceWords(advice.artifact)}`
-    : pieces.map((kind) => `${pieceWords[kind]} want${kind === 'relic' ? 's' : ''} ${adviceWords(advice[kind])}`).join('; ');
-  const reading = `${basisWords[advice.basis]} ${lifts} over base, so by the maths ${answers}.`;
+    ? `artifacts and relic ${adviceWords(advice.artifact)}`
+    : pieces.map((kind) => `${pieceWords[kind]} ${adviceWords(advice[kind])}`).join('; ');
+  const reading = `Suggested mains from ${basisWords[advice.basis]}: ${answers}.`;
   return [{ key: 'main-stat-advice', tone: 'yellow', reading, glyph: 'info' }];
 }
 
@@ -168,8 +154,7 @@ export function mainStatAdviceMarks(
  */
 export function sharedInPoolMarks(shared: number, what: 'runes' | 'artifacts'): FigureMark[] {
   if (shared === 0) return [];
-  const reading = shared === 1 ? `1 of these ${what} is engraved on another team too.`
-    : `${shared} of these ${what} are engraved on another team too.`;
+  const reading = `${shared} ${shared === 1 ? what.slice(0, -1) : what} shared with another team.`;
   return [{ key: 'shared-in-pool', tone: 'red', reading, glyph: 'ring' }];
 }
 

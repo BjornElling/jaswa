@@ -147,19 +147,19 @@ test('leads and element advantage reach the composites, never a stat or its rang
   await dialog.getByLabel('Always element advantage').check();
   await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
   await expect(rate.locator('.overlay-stat-current')).toContainText('51');
-  const mark = rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate to DMG.*Crit lead adds 33% CRI Rate to DMG/ });
+  const mark = rate.getByRole('img', { name: /Added to the shown value in battle: Crit lead.*33% CRI Rate.*Element advantage.*15% CRI Rate/ });
   await expect(mark).toBeVisible();
-  await expect(mark).toHaveAttribute('title', /15%.*33%/);
+  await expect(mark).toHaveAttribute('title', /33%.*15%/);
   /* A range names the copy's own CRI Rate, whatever the fight adds: 51 meets a
      floor of 51, and 84 — 51 with the lead — is not met by the lead. */
   const critFloor = rate.getByRole('spinbutton', { name: 'CtR%: at least' });
   await critFloor.fill('51');
-  await expect(rate.getByRole('img', { name: /You want CtR%/ })).toHaveCount(0);
+  await expect(rate.getByRole('img', { name: /Your target: CtR%/ })).toHaveCount(0);
   await critFloor.fill('84');
-  await expect(rate.getByRole('img', { name: /You want CtR% at least 84, and this copy has 51\./ })).toBeVisible();
+  await expect(rate.getByRole('img', { name: /Your target: CtR% ≥ 84; current: 51\./ })).toBeVisible();
   await critFloor.fill('');
   const damage = dialog.locator('.stat-range[data-figure="dmg"]');
-  await expect(damage.getByRole('img', { name: 'Counted with Crit lead 33%, element advantage' })).toBeVisible();
+  await expect(damage.getByRole('img', { name: 'Calculated with Crit lead (+33% CRI Rate); Element advantage (+15% CRI Rate).' })).toBeVisible();
 
   /* The other leads the same way: in the composites they reach, never in the stat. */
   const hp = dialog.locator('.stat-range[data-figure="hp"]');
@@ -168,9 +168,9 @@ test('leads and element advantage reach the composites, never a stat or its rang
   const effectiveBefore = await effective.locator('.overlay-stat-current').innerText();
   await dialog.getByRole('spinbutton', { name: 'HP, in percent' }).fill('24');
   await expect(hp.locator('.overlay-stat-current')).toHaveText(shownHp);
-  await expect(hp.getByRole('img', { name: /HP lead adds 24% HP to E\.HP and E\.HP D, not to this figure or its range/ })).toBeVisible();
+  await expect(hp.getByRole('img', { name: /Added to the shown value in battle: HP lead \(\+24% base HP\)\./ })).toBeVisible();
   await expect(effective.locator('.overlay-stat-current')).not.toHaveText(effectiveBefore);
-  await expect(effective.getByRole('img', { name: 'Counted with HP lead 24%' })).toBeVisible();
+  await expect(effective.getByRole('img', { name: 'Calculated with HP lead (+24% base HP).' })).toBeVisible();
   await dialog.getByRole('spinbutton', { name: 'HP, in percent' }).fill('');
   /* No composite reads SPD, so there is no Speed lead to state. */
   await expect(dialog.getByRole('spinbutton', { name: 'Speed lead, in percent' })).toHaveCount(0);
@@ -192,12 +192,12 @@ test('leads and element advantage reach the composites, never a stat or its rang
   await expect(dialog.getByLabel('Always element advantage')).toBeChecked();
   await expect(dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' })).toHaveValue('33');
   await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('');
-  await expect(rate.getByRole('img', { name: /Element advantage adds 15% CRI Rate/ })).toBeVisible();
+  await expect(rate.getByRole('img', { name: /Element advantage \(\+15% CRI Rate\)/ })).toBeVisible();
   await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
   await dialog.getByRole('button', { name: /^Save and optimize runes for / }).click();
   const optimizationStats = page.getByRole('group', { name: 'Stats', exact: true });
   await expect(optimizationStats.locator('.stat-range[data-figure="criRate"] .overlay-stat-current')).toContainText('51');
-  await expect(optimizationStats.getByRole('img', { name: /Element advantage adds 15% CRI Rate to DMG.*Crit lead adds 33% CRI Rate to DMG/ })).toBeVisible();
+  await expect(optimizationStats.getByRole('img', { name: /Added to the shown value in battle: Crit lead.*33% CRI Rate.*Element advantage.*15% CRI Rate/ })).toBeVisible();
   /* DMG is dealt at 51 + 15 + 33 = 99 % crit: the advantage and the lead both count. */
   await expect(optimizationStats.locator('.stat-range[data-figure="dmg"] .overlay-stat-current')).toContainText(/8[.,]183/);
 });
@@ -391,7 +391,7 @@ test('a stated main the maths would not choose carries a yellow mark, and moves 
   const dialog = page.getByRole('dialog');
   const preferred = dialog.getByRole('button', { name: /^Main stat, preferred:/ });
   const menu = page.getByRole('menu', { name: 'Main stat, preferred' });
-  const advice = dialog.getByRole('img', { name: /by the maths/ });
+  const advice = dialog.getByRole('img', { name: /Suggested mains from/ });
   const gear = dialog.locator('.overlay-gear');
   const boxes = () => gear.locator('.overlay-row-label, .overlay-band-field').evaluateAll((elements) =>
     elements.map((element) => { const box = element.getBoundingClientRect(); return [box.x, box.y, box.width, box.height].map(Math.round).join(','); }));
@@ -406,8 +406,7 @@ test('a stated main the maths would not choose carries a yellow mark, and moves 
   await menu.getByRole('menuitem', { name: 'DEF', exact: true }).click();
   await expect(advice).toHaveCount(1);
   await expect(advice).toHaveAttribute('data-tone', 'yellow');
-  await expect(advice).toHaveAttribute('aria-label', 'Its six runes lift ATK +63%, HP +48%, DEF +9% over base,'
-    + ' so by the maths artifacts want ATK; the relic wants ATK (accepting HP).');
+  await expect(advice).toHaveAttribute('aria-label', 'Suggested mains from runes: artifacts ATK; relic ATK (also HP).');
   await gear.screenshot({ path: testInfo.outputPath('main-stat-advice-after.png') });
   /* The mark sits after a name in a fixed column: nothing around it moves. */
   expect(await boxes()).toEqual(before);
@@ -440,9 +439,8 @@ test('an unfinished even-slot rune keeps its completed main in gear advice', asy
   await gear.screenshot({ path: testInfo.outputPath('unfinished-main-before.png') });
   await dialog.getByRole('button', { name: /^Main stat, preferred:/ }).click();
   await page.getByRole('menu', { name: 'Main stat, preferred' }).getByRole('menuitem', { name: 'DEF', exact: true }).click();
-  const advice = dialog.getByRole('img', { name: /by the maths/ });
-  await expect(advice).toHaveAttribute('aria-label', 'Its six runes lift ATK +63%, HP +48%, DEF +9% over base,'
-    + ' so by the maths artifacts want ATK; the relic wants ATK (accepting HP).');
+  const advice = dialog.getByRole('img', { name: /Suggested mains from/ });
+  await expect(advice).toHaveAttribute('aria-label', 'Suggested mains from runes: artifacts ATK; relic ATK (also HP).');
   await gear.screenshot({ path: testInfo.outputPath('unfinished-main-after.png') });
   expect(await boxes()).toEqual(before);
 });
@@ -452,7 +450,7 @@ test('accepted mains with none preferred carry a red mark until one is preferred
   await importAccount(page);
   await openOverlay(page);
   const dialog = page.getByRole('dialog');
-  const warning = dialog.getByRole('img', { name: /choose at least one preferred main stat/ });
+  const warning = dialog.getByRole('img', { name: /Choose at least one preferred main stat/ });
   const gear = dialog.locator('.overlay-gear');
   const boxes = () => gear.locator('.overlay-row-label, .overlay-band-field').evaluateAll((elements) =>
     elements.map((element) => { const box = element.getBoundingClientRect(); return [box.x, box.y, box.width, box.height].map(Math.round).join(','); }));

@@ -593,11 +593,11 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
      where it was, dimmed and marked. The status line stays a report of the search:
      the row already says what changed. */
   await expect(detail).toBeVisible();
-  await expect(detail.getByRole('region', { name: `${slot} modifications` })).toContainText('The rune is locked to');
+  await expect(detail.getByRole('region', { name: `${slot} modifications` })).toContainText('Locked to');
   await expect(card).toContainText('Locked to');
   await page.screenshot({ path: testInfo.outputPath('optimization-after-lock.png') });
   await page.keyboard.press('Escape');
-  await expect(row.getByRole('img', { name: new RegExp(`${slot}: The rune is locked to`) })).toBeVisible();
+  await expect(row.getByRole('img', { name: new RegExp(`${slot}: Locked to`) })).toBeVisible();
   await expect(row).toHaveAttribute('data-stale', 'true');
   expect(await box(row)).toEqual(rowBox);
   await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).not.toContainText('changed since');
@@ -626,7 +626,7 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
     name: 'rune-optimization-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(game)),
   });
   await page.getByRole('button', { name: 'Replace data' }).click();
-  await expect(row.getByRole('img', { name: new RegExp(`${slot}: The rune is no longer in the account`) })).toBeVisible();
+  await expect(row.getByRole('img', { name: new RegExp(`${slot}: Rune missing from account`) })).toBeVisible();
   await expect(row.getByRole('cell', { name: '—', exact: true })).toHaveCount(11);
   await page.screenshot({ path: testInfo.outputPath('optimization-after-sale.png') });
 });
@@ -717,7 +717,7 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
   await expect(excludeOf(other)).toHaveAccessibleName('Exclude');
   await expect(lockOf(other)).toHaveAccessibleName('Engrave and lock');
   await expect(other.locator('.rune-build-card-where-value').first()).toHaveText('Inventory');
-  await expect(detail.getByRole('region', { name: `${otherSlot} modifications` })).toContainText('The rune is excluded from this monster');
+  await expect(detail.getByRole('region', { name: `${otherSlot} modifications` })).toContainText('Rune excluded from this monster');
   expect(await boxes()).toEqual(before);
   expect(await spilling()).toBe(0);
   await page.screenshot({ path: testInfo.outputPath('build-locks-full.png') });
@@ -799,7 +799,7 @@ test('a monster that always crits is counted at a certain crit and shows its own
   await toggle.check();
   /* The choice moves nothing beside it: the mark's place was already kept. */
   expect(await box(stats)).toEqual(statsBefore);
-  await expect(profile.getByRole('img', { name: 'Always crits' })).toBeVisible();
+  await expect(profile.getByRole('img', { name: 'Added to the shown value in battle: Guaranteed crits.', exact: true })).toBeVisible();
   await expect(profile.getByLabel('CtR%: at least')).toBeDisabled();
   await expect(profile.getByLabel('CtR%: at most')).toBeDisabled();
   await page.screenshot({ path: testInfo.outputPath('always-crits-on.png') });
@@ -807,7 +807,7 @@ test('a monster that always crits is counted at a certain crit and shows its own
   await expect(profile).toBeHidden();
 
   /* CRI Rate reads the same; DMG is now counted with every hit a crit. */
-  await expect(targets.getByRole('img', { name: 'Always crits' })).toBeVisible();
+  await expect(targets.getByRole('img', { name: 'Added to the shown value in battle: Guaranteed crits.', exact: true })).toBeVisible();
   await expect(targets.getByLabel('CtR%: at least')).toBeDisabled();
   const after = await targets.innerText();
   const figure = (text: string, at: number) => text.split('\n').map((line) => line.trim()).filter((line) => /^[\d.,]+$/.test(line))[at];
@@ -819,7 +819,7 @@ test('a monster that always crits is counted at a certain crit and shows its own
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(table.getByRole('row')).not.toHaveCount(1);
   /* The mark stays above, by the field; the table reads figures only. */
-  await expect(table.getByRole('img', { name: 'Always crits' })).toHaveCount(0);
+  await expect(table.getByRole('img', { name: /Guaranteed crits/ })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('always-crits-table.png'), fullPage: true });
 });
 
@@ -840,7 +840,7 @@ test('a CRI Rate range names the copy\'s own CRI Rate, and DMG is dealt with the
   await profile.getByRole('button', { name: 'Save changes' }).click();
   await rate.getByRole('spinbutton', { name: 'CtR%: at least' }).fill('34');
   await rate.getByRole('spinbutton', { name: 'CtR%: at most' }).fill('36');
-  await expect(rate.getByRole('img', { name: /Crit lead adds 33% CRI Rate to DMG/ })).toBeVisible();
+  await expect(rate.getByRole('img', { name: /Added to the shown value in battle: Crit lead \(\+33% CRI Rate\)\./ })).toBeVisible();
   await expect(rate.locator('.overlay-stat-current')).toHaveText(shown);
   expect(await box(rate)).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('raw-crit-range-filled.png') });
@@ -1165,7 +1165,7 @@ test('refusing broken sets after the search dims exactly the builds that break o
     const marks = rows.nth(at).getByRole('img');
     const reading = await marks.count() ? await marks.first().getAttribute('aria-label') : '';
     const stale = await rows.nth(at).getAttribute('data-stale');
-    expect(stale === 'true').toBe(reading === 'A set is broken, and broken sets are not allowed.');
+    expect(stale === 'true').toBe(reading === 'Broken sets are not allowed.');
     if (stale === 'true') dimmed += 1;
   }
   expect(dimmed).toBeGreaterThan(0);
