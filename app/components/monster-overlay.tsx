@@ -19,7 +19,7 @@ import { PencilIcon } from './pencil-icon';
 import type { MonsterReference } from './monster-link';
 import type { Artifact } from '../lib/artifacts';
 import { usePresets } from '../lib/presets-context';
-import { accountItems, scenarioPresetId, monsterInPreset } from '../lib/presets';
+import { accountItems, scenarioPresetId, monsterInPreset, teammateSetsInPreset } from '../lib/presets';
 import { readArtifacts } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
 import { artifactMainPropertyOrder, artifactPropertiesFor } from '../lib/artifact-properties';
@@ -34,13 +34,13 @@ import type {
 } from '../lib/monster-preferences';
 import {
   blankMonsterCopyPreferences, copyProfile, leadFieldOf, leadMaximum, monsterLabelMaximum, profileIn, readLeadField, statesSomething,
-  readTargetField, readTeammateSetField, teammateSetMaximum,
+  readTargetField,
 } from '../lib/monster-preferences';
 import { resolveMonsterPreferences } from '../lib/monster-preference-resolution';
 import type { ResolvedMonsterPreferences } from '../lib/monster-preference-resolution';
 import type { Shortfall } from '../lib/monster-shortfall';
 import { monsterShortfalls } from '../lib/monster-shortfall';
-import { monsterTargetFigures, teamSetBonuses } from '../lib/monster-stats';
+import { completedTeamSets, monsterTargetFigures } from '../lib/monster-stats';
 import type { LeadStat } from '../lib/monster-stats';
 import { monsterUsage } from '../lib/monster-usage-statistics';
 import type { MonsterUsage } from '../lib/monster-usage-statistics';
@@ -85,13 +85,13 @@ import type { GeneralSettings } from '../lib/types';
 const categoryLabels: Record<ArtifactCategory, string> = { attribute: 'Attribute', type: 'Type' };
 const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
 
-/* One field per supported leader bonus. */
+/* The four leads, in the order the user asked for them: the crit lead first, as
+   it was alone before the others joined it. */
 const leadRows: ReadonlyArray<{ stat: LeadStat; label: string }> = [
   { stat: 'criRate', label: 'CRI Rate' },
   { stat: 'atk', label: 'ATK' },
   { stat: 'def', label: 'DEF' },
   { stat: 'hp', label: 'HP' },
-  { stat: 'acc', label: 'ACC' },
 ];
 /* The figures a lead or a crit condition can mark, which keep room for two marks:
    a stat names where its lead goes, a composite what it counted. */
@@ -303,6 +303,8 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
     return record && preset ? monsterInPreset(record, preset, accountItems(game)) : record;
   }, [game, target, preset]);
 
+  const teammateSets = useMemo(() => preset && game ? teammateSetsInPreset(preset, unitId, accountItems(game)) : {},
+    [preset, game, unitId]);
   const masterId = target.kind === 'copy' ? target.masterId : target.speciesId;
   const display = target.kind === 'copy' ? monsterPresentation(masterId) : monsterSpeciesPresentation(masterId);
   /* The heading names the copy the way every table does — `Lushen (2A) #2` —
@@ -314,8 +316,8 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   }, [game, target, display.name]);
   const usage: MonsterUsage = useMemo(() => monsterUsage(masterId), [masterId]);
   const resolved: ResolvedMonsterPreferences = useMemo(
-    () => resolveMonsterPreferences(unitId, masterId, draft, monster),
-    [unitId, masterId, draft, monster],
+    () => resolveMonsterPreferences(unitId, masterId, draft, monster, teammateSets),
+    [unitId, masterId, draft, monster, teammateSets],
   );
 
   /* The eleven figures this copy has: its stats as its own panel shows them, and
@@ -552,7 +554,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
                    follows it on its own line. */
                 const now = <>
                   {formatNumber(current[row.key], general)}
-                  <FigureMarks marks={[...shortfallMarks(marks, general), ...combatBonusMarks(row.key, resolved, current?.[row.key])]}
+                  <FigureMarks marks={[...shortfallMarks(marks, general), ...combatBonusMarks(row.key, resolved, current[row.key], completedTeamSets(monster?.runes as Record<string, unknown>[] ?? []))]}
                     reserve={leadFigures.has(row.key) ? 2 : 1} />
                 </>;
                 /* A monster that always crits is never asked for CRI Rate, so the
@@ -621,27 +623,6 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
                         change((state) => ({ ...state, [leadFieldOf[row.stat]]: value }));
                       }} />
                     <span>%</span>
-                  </label>)}
-                </div>
-              </div>
-              <div className="overlay-leads overlay-teammate-sets" role="group" aria-label="Sets on teammates">
-                <p className="overlay-row-label">Sets on teammates <span className="overlay-info" tabIndex={0}
-                  role="img" aria-label="About sets on teammates" aria-describedby="teammate-sets-help">
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" /><path d="M8 7v4M8 4.5v1" /></svg>
-                  <span role="tooltip" id="teammate-sets-help">Count completed sets on the other monsters on this team only.
-                    These sets also benefit their holder. This monster’s own sets are already counted from its engraved runes;
-                    do not enter them again. Each Fight, Determination or Enhance set adds 8% of this monster’s base stat;
-                    Accuracy and Tolerance add 10 percentage points per set. Bonuses stack.</span>
-                </span></p>
-                <div className="overlay-teammate-fields">
-                  {teamSetBonuses.map(({ name }) => <label className="overlay-lead" key={name}>
-                    <span>{name}</span>
-                    <input type="number" min={0} max={teammateSetMaximum} step={1} inputMode="numeric"
-                      aria-label={`${name} sets on other monsters`} placeholder="—" value={draft.teammateSets?.[name] ?? ''}
-                      onChange={(event) => {
-                        const value = readTeammateSetField(event.target.value);
-                        change((state) => ({ ...state, teammateSets: { ...state.teammateSets, [name]: value } }));
-                      }} />
                   </label>)}
                 </div>
               </div>

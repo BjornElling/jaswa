@@ -4,9 +4,8 @@ import { readFileSync } from 'node:fs';
 
 /**
  * The Presets page (`docs/DECK-PRESETS.md` §5) and the one place a preset's
- * priority list is read: Rune Optimization leaves the runes of a higher-ranked
- * monster *of the same preset* alone unless told otherwise, and treats a rune
- * engraved only in other presets as free.
+ * priority list is read: Rune Optimization preserves every other member of a
+ * preset, and treats a rune engraved only in other presets as free.
  */
 
 const base = JSON.parse(readFileSync(new URL('./fixtures/rune-optimization-account.json', import.meta.url), 'utf8'));
@@ -841,7 +840,7 @@ async function find(page: Page) {
   return considered(page);
 }
 
-test('Rune Optimization leaves a higher-priority monster\'s runes in the same preset alone until told otherwise', async ({ page }, testInfo) => {
+test('Rune Optimization preserves the other preset members regardless of priority', async ({ page }, testInfo) => {
   /* Several complete searches and the priority edits share this test's time budget. */
   test.slow();
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -865,17 +864,17 @@ test('Rune Optimization leaves a higher-priority monster\'s runes in the same pr
   const freeBox = await box(freeOnly);
   await include.check();
   const withEveryone = await find(page);
-  expect(spared).toBeLessThan(withEveryone);
+  expect(spared).toBe(withEveryone);
   await include.uncheck();
 
-  /* 11 above 12 in this preset: nothing is spared for 11. */
+  /* Reordering priority cannot release a teammate's runes. */
   await openPresets(page);
   await expect(chosenPreset(page)).toHaveText('Arena Attack 4');
   await page.getByRole('button', { name: `Move ${names[11]} up` }).click();
   await openOptimization(page);
   expect(await find(page)).toBe(withEveryone);
 
-  /* 12 back on top: spared again. Scenario's empty list has no say in a preset. */
+  /* The same team is preserved in either priority order. */
   await openPresets(page);
   await page.getByRole('button', { name: `Move ${names[12]} up` }).click();
   await openOptimization(page);

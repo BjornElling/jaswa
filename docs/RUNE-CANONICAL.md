@@ -405,6 +405,21 @@ base HP/DEF/ATK/SPD. Blade, Rage, Focus, Endure, Accuracy og Tolerance er
 vist som deres respektive CRI/Accuracy/Resistance-procentpoint og må ikke
 omfortolkes til multiplikative kampbuffs.
 
+### Display and battle values — verified October 16, 2026
+
+All five team sets apply in battle, including to their holder; they do not enter
+any of the eight display stats. Personal stat sets such as Blade and Fatal do.
+This distinction is confirmed by the same Fran build in the game's Trial of
+Ascension deck panel and a fresh account export: base ATK 670, rune ATK 198%,
+flat ATK 247 and artifact ATK 100 give `ceil(670 × 2.98) + 347 = 2,344`, exactly
+the game's `670 + 1,674`. Her Fight set, completed by Intangible, would incorrectly
+raise display ATK to 2,398. Two teammates also carry Fight: all three sets apply
+to her battle ATK (`ceil(670 × 3.22) + 347 = 2,505`), never her display ATK.
+JASWA keeps these effects separate in its shared stat sheet and build search.
+Accuracy and Tolerance add battle percentage points, including to their holder;
+their battle values are explained beside ACC and RES rather than changing the
+display figures or their ranges.
+
 ### Bekræftede kampdetaljer med relevans for setværdi
 
 Disse fakta skal vises som setegenskaber, men indgår ikke i den første

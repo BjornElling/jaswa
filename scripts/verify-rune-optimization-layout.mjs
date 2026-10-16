@@ -28,7 +28,7 @@ import {
 /* 1. The question fits its length, and the stat sheet's positions are the ones declared. */
 assert.ok(questionBarAt < questionLength, `the question ends at ${questionBarAt} but is ${questionLength} long`);
 assert.equal(questionFloorsAt + targetFigureCount, questionRankAt, 'the floors run into the rank field');
-assert.equal(runeOptimizationConstants.ACC_STRIDE, effectSlotCount, 'a candidate is not the stat sheet\'s twelve accumulators');
+assert.equal(runeOptimizationConstants.ACC_STRIDE, effectSlotCount, 'a candidate is not the stat sheet\'s display and battle accumulators');
 for (const [name, slot] of Object.entries(effectSlot)) {
   const declared = `ACC_${name.replace(/[A-Z]/g, (letter) => `_${letter}`).toUpperCase()}`;
   assert.equal(runeOptimizationConstants[declared], slot, `${declared} is not the stat sheet's ${name}`);

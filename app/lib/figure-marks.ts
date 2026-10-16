@@ -3,7 +3,7 @@ import type { GearKind, GearMainAdvice, MainStatAdvice, MainStatBasis } from './
 import { contradictsAdvice, honouredMainStat, mainStatStatement } from './main-stat-model';
 import type { MonsterCopyPreferences } from './monster-preferences';
 import type { Shortfall } from './monster-shortfall';
-import type { CombatBonuses, LeadStat } from './monster-stats';
+import type { CombatBonuses, LeadStat, TeammateSets } from './monster-stats';
 import { leadStats, combatStatBonus, teamSetBonuses } from './monster-stats';
 import { formatNumber } from './formatting';
 import type { GeneralSettings } from './types';
@@ -22,7 +22,6 @@ const leadWords: Readonly<Record<LeadStat, { name: string; stat: string; reaches
   atk: { name: 'Attack lead', stat: 'ATK', reaches: 'DMG' },
   def: { name: 'Defence lead', stat: 'DEF', reaches: 'E.HP and E.HP D' },
   hp: { name: 'HP lead', stat: 'HP', reaches: 'E.HP and E.HP D' },
-  acc: { name: 'Accuracy lead', stat: 'ACC', reaches: 'battle accuracy' },
   criRate: { name: 'Crit lead', stat: 'CRI Rate', reaches: 'DMG' },
 };
 
@@ -38,44 +37,48 @@ const compositeLeads: Readonly<Record<string, readonly LeadStat[]>> = {
  * names what it counted (`monster-stats.ts` `combatAt`). A figure with none
  * carries no mark.
  */
-export function combatBonusMarks(figure: string, bonuses: CombatBonuses, ownValue?: number): FigureMark[] {
+export function combatBonusMarks(figure: string, bonuses: CombatBonuses, ownValue?: number, ownSets: TeammateSets = {}): FigureMark[] {
   const leadOf = (stat: LeadStat) => bonuses.leads?.[stat];
   const reading = figure === 'acc' || figure === 'res'
-    ? pointBonusReading(figure, bonuses, ownValue)
+    ? pointBonusReading(figure, bonuses, ownValue, ownSets)
     : figure in compositeLeads
-    ? compositeReading(figure, bonuses)
+    ? compositeReading(figure, bonuses, ownSets)
     : [
       figure === 'criRate' && bonuses.alwaysCrits ? 'Always crits' : undefined,
       figure === 'criRate' && bonuses.alwaysElementAdvantage ? 'Element advantage adds 15% CRI Rate to DMG' : undefined,
       (leadStats as readonly string[]).includes(figure) && leadOf(figure as LeadStat)
         ? `${leadWords[figure as LeadStat].name} adds ${leadOf(figure as LeadStat)}% ${leadWords[figure as LeadStat].stat} to ${leadWords[figure as LeadStat].reaches}, not to this figure or its range`
         : undefined,
-      ...teamSetReadings(figure, bonuses).map((reading) => `${reading}, counted in the composites, not in this figure or its range`),
+      ...teamSetReadings(figure, bonuses, ownSets).map((reading) => `${reading}, counted in the composites, not in this figure or its range`),
     ].filter(Boolean).join('. ');
   return reading === '' ? [] : [{ key: 'combat-bonuses', tone: 'green', reading, glyph: 'info' }];
 }
 
-function teamSetReadings(figure: string, bonuses: CombatBonuses): string[] {
+function teamSetReadings(figure: string, bonuses: CombatBonuses, ownSets: TeammateSets): string[] {
   return teamSetBonuses.flatMap((set) => {
-    const count = bonuses.teammateSets?.[set.name] ?? 0;
-    return count && set.stat === figure ? [`${count} teammate ${set.name} set${count === 1 ? '' : 's'} add ${count * set.value}% ${figure.toUpperCase()}`] : [];
+    return (['own', 'teammate'] as const).flatMap((source) => {
+      const count = (source === 'own' ? ownSets : bonuses.teammateSets)?.[set.name] ?? 0;
+      return count && set.stat === figure ? [`${count} ${source} ${set.name} set${count === 1 ? '' : 's'}: +${count * set.value}% ${figure.toUpperCase()}`] : [];
+    });
   });
 }
 
-function pointBonusReading(figure: 'acc' | 'res', bonuses: CombatBonuses, ownValue?: number): string {
-  const bonus = combatStatBonus(figure, bonuses);
+function pointBonusReading(figure: 'acc' | 'res', bonuses: CombatBonuses, ownValue: number | undefined, ownSets: TeammateSets): string {
+  const teammateBonus = combatStatBonus(figure, bonuses);
+  const ownBonus = combatStatBonus(figure, { ...bonuses, teammateSets: ownSets });
+  const bonus = ownBonus + teammateBonus;
   if (bonus === 0) return '';
   const value = ownValue === undefined ? '' : `; ${Math.min(100, ownValue + bonus)}% in battle`;
-  return `Lead and teammate sets add ${bonus} percentage points ${figure.toUpperCase()}${value}, not to this figure or its range`;
+  return `${ownBonus ? teammateBonus ? 'Own and teammate sets' : 'Own sets' : 'Teammate sets'} add ${bonus} percentage points ${figure.toUpperCase()}${value}, not to this figure or its range`;
 }
 
-function compositeReading(figure: string, bonuses: CombatBonuses): string {
+function compositeReading(figure: string, bonuses: CombatBonuses, ownSets: TeammateSets): string {
   const counted = [
     ...compositeLeads[figure].flatMap((stat) => {
       const lead = bonuses.leads?.[stat];
       return lead ? [`${leadWords[stat].name} ${lead}%`] : [];
     }),
-    ...compositeLeads[figure].flatMap((stat) => teamSetReadings(stat, bonuses)),
+    ...compositeLeads[figure].flatMap((stat) => teamSetReadings(stat, bonuses, ownSets)),
     figure === 'dmg' && bonuses.alwaysCrits ? 'a certain crit' : undefined,
     figure === 'dmg' && bonuses.alwaysElementAdvantage ? 'element advantage' : undefined,
   ].filter((part): part is string => Boolean(part));

@@ -37,8 +37,8 @@ import { monsterNameCollator } from '../lib/monster-grid';
 import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
-import { monsterTargetFigures } from '../lib/monster-stats';
-import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
+import { completedTeamSets, monsterTargetFigures } from '../lib/monster-stats';
+import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset, teammateSetsInPreset } from '../lib/presets';
 import type { Preset } from '../lib/presets';
 import { runeLockOf, runeLockScope, runeLocksInPreset } from '../lib/rune-locks';
 import type { RuneLock, RuneLocks } from '../lib/rune-locks';
@@ -217,14 +217,19 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     })), [monsters, names]);
   const describeBuild = useCallback((build: CurrentBuild) => buildIssueReading(build, (id) => monstersByUnitId.get(id)?.name), [monstersByUnitId]);
 
+  const teammateSets = useMemo(() => preset && selected ? teammateSetsInPreset(preset, selected.unitId, items) : {},
+    [preset, selected, items]);
   const profile = useMemo(() => (selected
-    ? profileRequirements(selected.unitId, selected.masterId, profiles[selected.unitId])
-    : undefined), [selected, profiles]);
+    ? profileRequirements(selected.unitId, selected.masterId, profiles[selected.unitId], teammateSets)
+    : undefined), [selected, profiles, teammateSets]);
   const usage = useMemo(() => selected ? monsterUsage(selected.masterId) : undefined, [selected]);
   /* A change made here is for this copy in this preset: the same copy in another
      preset is another question, and does not inherit it. */
   const edited = edits !== null && edits.unitId === unitId && edits.presetId === activePresetId;
-  const requirements = edited ? edits.requirements : profile?.requirements;
+  const requirements = useMemo(() => {
+    const draft = edited ? edits.requirements : profile?.requirements;
+    return draft ? { ...draft, teammateSets } : undefined;
+  }, [edited, edits, profile, teammateSets]);
   /* The requirements as a question the search can take: only once a figure to
      rank by is named, by the profile or here. Nothing names one for the user. */
   const question = useMemo(() => (requirements ? askable(requirements) : undefined), [requirements]);
@@ -304,9 +309,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       alwaysCrits: tableAlwaysCritsCount,
       alwaysElementAdvantage: current?.requirements.alwaysElementAdvantage ?? false,
       leads: current?.requirements.leads,
-      teammateSets: current?.requirements.teammateSets,
+      teammateSets,
     };
-  }, [tableAlwaysCritsCount, requirements, alwaysCrits, current]);
+  }, [tableAlwaysCritsCount, requirements, alwaysCrits, current, teammateSets]);
   const builds = useMemo(() => (current && selected && tableLimits
     ? currentBuilds(current.answer.builds.slice(0, resultCount), {
       unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings, spared,
@@ -321,7 +326,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   }, [selected]);
   const currentFigures = useMemo(() => requirements ? figuresNow(requirements) : undefined, [figuresNow, requirements]);
   /* The table's `Now` row is counted the way its builds were. */
-  const tableNowFigures = useMemo(() => current ? figuresNow(current.requirements) : undefined, [figuresNow, current]);
+  const tableNowFigures = useMemo(() => current ? figuresNow({ ...current.requirements, teammateSets }) : undefined, [figuresNow, current, teammateSets]);
   const currentBuild = selected ? runeBuildName(activeRuneSets(selected.record).map((set) => set.name)) : '';
 
   function change(update: (current: RequirementsDraft) => RequirementsDraft) {
@@ -590,7 +595,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
                   disabled={crits} title={crits ? 'Always crits, so no CRI Rate is needed' : undefined}
                   current={<>
                     {currentFigures ? formatNumber(currentFigures[figureIndex(key)], general) : '—'}
-                    <FigureMarks marks={combatBonusMarks(key, requirements, currentFigures?.[figureIndex(key)])} reserve={1} />
+                    <FigureMarks marks={combatBonusMarks(key, requirements, currentFigures?.[figureIndex(key)], completedTeamSets(selected?.record.runes as Record<string, unknown>[] ?? []))} reserve={1} />
                   </>} />;
               })}
             </div>

@@ -14,6 +14,8 @@ import type { DeckPreset } from './deck-presets';
 import type { GameRecord } from './game-data';
 import { deckContent, isPresetContentId, presetContent, presetContentRank, presetTabs, tabContents } from './preset-contents';
 import type { PresetContent, PresetContentId, PresetTab } from './preset-contents';
+import { completedTeamSets, teamSetBonuses } from './monster-stats';
+import type { TeammateSets } from './monster-stats';
 import { isRecord } from './preference-reading';
 
 export const scenarioPresetId = 'scenario';
@@ -253,6 +255,24 @@ export function monsterInPreset(monster: GameRecord, preset: Preset, items: Acco
   const pick = (itemIds: readonly string[] | undefined, from: ReadonlyMap<string, GameRecord>) =>
     (itemIds ?? []).map((id) => from.get(id)).filter((entry): entry is GameRecord => entry !== undefined);
   return { ...monster, runes: pick(preset.runesOf.get(unitId), items.runes), artifacts: pick(preset.artifactsOf.get(unitId), items.artifacts) };
+}
+
+/** A preset is one team; Scenario is the entire roster and contributes no teammate aura. */
+export function teammateSetsInPreset(preset: Preset, unitId: string, items: AccountItems): TeammateSets {
+  const totals: TeammateSets = {};
+  if (preset.kind === 'scenario' || !preset.members.includes(unitId)) return totals;
+  for (const member of preset.members) {
+    if (member === unitId || preset.missingUnitIds.includes(member)) continue;
+    const runes = (preset.runesOf.get(member) ?? []).flatMap((id) => {
+      const rune = items.runes.get(id);
+      return rune ? [rune] : [];
+    });
+    for (const [name, count] of Object.entries(completedTeamSets(runes))) {
+      const set = name as keyof TeammateSets;
+      totals[set] = (totals[set] ?? 0) + count;
+    }
+  }
+  return Object.fromEntries(teamSetBonuses.flatMap(({ name }) => totals[name] ? [[name, totals[name]]] : []));
 }
 
 /** One place an item is engraved: a monster in a preset. */

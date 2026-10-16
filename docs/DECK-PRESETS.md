@@ -279,6 +279,23 @@ carry no owner field. Every reading of a monster's slots, its stat sheet,
 its sets or its speed takes a context argument, and no page, filter or worker
 picks a context of its own.
 
+### Automatic team-set bonuses
+
+The members of one non-Scenario preset supply their completed team-set bonuses
+to one another. The rune placements of that preset decide, including Scenario
+fallback for a preset saved without gear. A shared pool is not a team; Scenario
+is the whole roster and is not a team either. The holder's own sets are counted separately
+by the battle calculation, so the derived teammate counts exclude it. Team sets
+do not change the game's eight display stats, including for their holder.
+
+A single-monster Rune Optimization search preserves the other members' runes,
+including when runes on other monsters or higher-priority monsters are allowed.
+The exception is Scenario, where those existing sharing choices still apply.
+This keeps the other members and their contribution intact while finding a
+build. Counts are recalculated after an import, gear change or preset edit,
+not stored as user preferences. `RUNE-OPTIMIZATION.md` §2.2.4 states which
+figures count the combat contribution.
+
 ### 4.1 One monster profile per content-area
 
 A profile states one owned copy's job in **Scenario or one content-area**:

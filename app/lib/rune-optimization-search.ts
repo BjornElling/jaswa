@@ -93,7 +93,7 @@ export function mergeBuildResults<Build extends FoundBuild>(
 /**
  * **What a card is asked about one search**, fixed for its whole length.
  *
- * `candidates` holds the two tail slots' candidates, twelve accumulators each, the
+ * `candidates` holds the two tail slots' candidates, display and battle accumulators each, the
  * first tail slot's first; a block's ranges index into it. The targets are `NaN`
  * where no floor is set, exactly as the problem states them.
  */
@@ -105,7 +105,7 @@ export type TailQuestion = {
 };
 
 /**
- * **One pass of blocks for a card.** Per block, twelve accumulators — the prefix's
+ * **One pass of blocks for a card.** Per block, display and battle accumulators — the prefix's
  * sum with the block's set bonus already added — and four numbers: the first
  * candidate and the count of each tail group, as indexes into `TailQuestion.candidates`.
  */
@@ -628,7 +628,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     // A completion cannot exceed either the optimistic contribution or a
     // stated direct-stat ceiling. Composites read these tighter totals through
     // the shared sheet, so a forbidden ATK surplus cannot promise extra DMG.
-    for (const index of ceilingIndexes) if (index < baseStatCount) capTotal(problem.base, totals, index, ceilings[index]);
+    for (const index of ceilingIndexes) if (index < baseStatCount) capTotal(problem.base, totals, index, ceilings[index], effectsNow);
     for (let at = 0; at < targetIndexes.length; at += 1) {
       const index = targetIndexes[at];
       if (figureOf(totals, index) < targets[index]) return false;

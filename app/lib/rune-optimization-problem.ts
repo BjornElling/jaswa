@@ -237,7 +237,7 @@ function figuresOf(base: Float64Array, effects: Float64Array, out: Float64Array 
    the composites and the rounding of HP, ATK and DEF cannot read as a zero
    gradient. The gradient only orders and cuts candidates — it never decides a
    figure — so its precision is a matter of how well the cut aims, not of truth. */
-const gradientSteps = Float64Array.of(10, 1000, 10, 100, 10, 100, 10, 10, 10, 10, 10, 10);
+const gradientSteps = Float64Array.of(10, 1000, 10, 100, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10);
 
 function gradient(base: Float64Array, reference: Float64Array, figure: number): Float64Array {
   const at = figuresOf(base, reference)[figure];

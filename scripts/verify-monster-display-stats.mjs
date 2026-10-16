@@ -1,7 +1,7 @@
 /** The engraved main property belongs to the game's visible stat panel. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculateMonsterTotals, combatStatBonus, monsterEffects, monsterTargetFigures, teamSetBonuses } from '../app/lib/monster-stats.ts';
+import { calculateMonsterTotals, combatStatBonus, monsterEffects, monsterTargetFigures, completedTeamSets, teamSetBonuses } from '../app/lib/monster-stats.ts';
 import { readMonsterPreferences } from '../app/lib/monster-preferences.ts';
 import { relicMonsterModel } from '../app/lib/relic-monster-value.ts';
 
@@ -90,23 +90,49 @@ for (const set of teamSetBonuses) {
   const bare = { ...monster, runes: [] };
   const holder = { ...bare, runes: [{ set_id: set.setId }, { set_id: set.setId }] };
   const triple = { ...bare, runes: Array.from({ length: 6 }, () => ({ set_id: set.setId })) };
-  assert.equal(monsterEffects(holder)[set.slot], set.value);
-  assert.equal(monsterEffects(triple)[set.slot], 3 * set.value);
-  assert.equal(monsterEffects({ ...bare, runes: [{ set_id: set.setId }, { set_id: 25 }] })[set.slot], set.value);
-  const withTeam = { ...plain, leads: { acc: 40 }, teammateSets: { [set.name]: 2 } };
+  assert.deepEqual(calculateMonsterTotals(holder), calculateMonsterTotals(bare), 'own team sets are battle-only');
+  assert.deepEqual(calculateMonsterTotals(triple), calculateMonsterTotals(bare));
+  assert.equal(completedTeamSets(holder.runes)[set.name], 1);
+  assert.equal(completedTeamSets(triple.runes)[set.name], 3);
+  assert.equal(completedTeamSets([{ set_id: set.setId }, { set_id: 25 }])[set.name], 1);
+  const withTeam = { ...plain, teammateSets: { [set.name]: 2 } };
   const figures = monsterTargetFigures(holder, withTeam);
   const self = monsterTargetFigures(holder, plain);
   for (const key of statKeys) assert.equal(figures[key], self[key]);
-  assert.equal(combatStatBonus(set.stat, withTeam), set.value * 2 + (set.stat === 'acc' ? 40 : 0));
+  assert.equal(combatStatBonus(set.stat, withTeam), set.value * 2);
   if (set.stat === 'atk') assert.equal(figures.dmg, Math.floor(Math.ceil(monster.atk * 124 / 100) * 1.075));
   if (set.stat === 'hp' || set.stat === 'def') assert.ok(figures.ehp > self.ehp);
 }
 const saved = readMonsterPreferences({ scenario: { '1': {
-  unitId: '1', label: 'Keep me', accLead: 40,
+  unitId: '1', label: 'Keep me', hpLead: 24, accLead: 40,
   teammateSets: { Fight: 0, Enhance: 15, Accuracy: -1, Determination: 1.5, Tolerance: '2', Unknown: 2 },
 } } }).scenario['1'];
-assert.deepEqual(saved, { unitId: '1', label: 'Keep me', accLead: 40, teammateSets: { Fight: 0, Enhance: 15 } });
+assert.deepEqual(saved, { unitId: '1', label: 'Keep me', hpLead: 24 });
 console.log('Team sets: holder, stacking, Intangible completion, teammate-only counts, ACC and independent preference survival agree.');
 
-assert.deepEqual(readMonsterPreferences({ scenario: { '2': { unitId: '2', teammateSets: { Fight: 0 } } } }).scenario['2'],
-  { unitId: '2', teammateSets: { Fight: 0 } }, 'a teammate count alone is a saved choice, even when it is zero');
+assert.deepEqual(readMonsterPreferences({ scenario: { '2': { unitId: '2', teammateSets: { Fight: 0 } } } }), {},
+  'removed manual fields do not form a profile');
+
+// Numerical regression from the deck panel and matching export, without account identifiers.
+const fran = {
+  con: 681, atk: 670, def: 461, spd: 103,
+  critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0,
+  runes: [
+    { set_id: 13, pri_eff: [3,160], sec_eff: [[12,9,0,0],[2,8,1,6],[4,27,0,7],[8,5,0,3]] },
+    { set_id: 13, pri_eff: [8,42], sec_eff: [[4,13,1,7],[6,13,0,8],[12,21,0,0],[2,15,0,5]] },
+    { set_id: 19, pri_eff: [5,160], prefix_eff: [6,7], sec_eff: [[12,9,1,0],[9,6,0,0],[8,21,0,4],[1,320,0,447]] },
+    { set_id: 13, pri_eff: [4,63], sec_eff: [[3,29,0,21],[2,20,0,7],[6,10,1,7],[8,12,0,4]] },
+    { set_id: 13, pri_eff: [1,2448], prefix_eff: [2,6], sec_eff: [[4,11,1,7],[8,23,0,4],[9,6,0,0],[3,17,0,20]] },
+    { set_id: 25, pri_eff: [4,63], prefix_eff: [12,8], sec_eff: [[1,369,0,319],[8,17,0,3],[5,17,0,19],[2,5,0,0]] },
+  ], artifacts: [{ pri_effect: [100,1500] },{ pri_effect: [101,100] }], relics: [{ pri_effect: [100,14] }],
+};
+assert.deepEqual(calculateMonsterTotals(fran), {
+  hp: 24403, atk: 2344, def: 865, spd: 241,
+  criticalRate: 27, criticalDamage: 50, resistance: 15, accuracy: 47,
+});
+assert.equal(monsterTargetFigures(fran, { ...plain, teammateSets: { Fight: 2 } }).dmg, 2843);
+const bladeFight = { ...fran, runes: [{ set_id: 4 }, { set_id: 4 }, { set_id: 19 }, { set_id: 19 }] };
+assert.equal(calculateMonsterTotals(bladeFight).criticalRate, 27);
+assert.equal(calculateMonsterTotals(bladeFight).atk, 770);
+assert.ok(monsterTargetFigures(bladeFight, plain).dmg > Math.floor(770 * 1.135));
+console.log('Fran: all eight game display stats match; own Fight + two teammate Fight sets enter battle DMG once. Blade remains a display bonus.');

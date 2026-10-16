@@ -230,8 +230,6 @@ function refusedCraft(
 function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: ReadonlyMap<number, string>,
   supplyOf: (rune: Rune) => CraftSupply, offered: readonly CraftItem[]): CurrentBuild {
   const { unitId, now, before, requirements, settings } = context;
-  const changedAccount = now.runes !== before.runes;
-  let changed = changedAccount;
   const picks: CurrentPick[] = [];
   const pieces: Array<{ rune: Rune; mainValue: number; lines: readonly EndStateLine[] }> = [];
   const spending = new Map<string, number>();
@@ -253,7 +251,6 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
        would now project higher is not raised, as the search never counted it. */
     const mainValue = lockedHere ? picked.mainValue : Math.min(picked.mainValue, countedMainValue(settings, is));
     if (mainValue !== picked.mainValue) picked = { ...picked, mainValue };
-    if (picked !== found) changed = true;
     const spends = stillSpends(found, picked, before.items);
 
     let issue: PickIssue | null = null;
@@ -300,10 +297,9 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
   }
   const sets = setRuleMissed(requirements, picks.map((picked) => picked.setId));
   if (gone) return { ...build, runes: picks, moves, figures: null, sets, short: [], over: [] };
-  /* Untouched since the search: its own figures, exactly. After a sync every build is
-     counted again, since gear can change as well as a rune. A range is judged on
-     the figure the table shows beside it. */
-  const figures = changed ? buildFigures(context.monster, pieces, context.requirements) : build.figures;
+  /* A teammate's sets can change without any of this build's own runes changing,
+     so every reading counts the current team bonus as well as the build's pieces. */
+  const figures = buildFigures(context.monster, pieces, context.requirements);
   const floors = targetFloors(context.requirements);
   const judged = (key: RankFigure) => figures[figureIndex(key)];
   const missed = targetFigureKeys.filter((key) => judged(key) < floors[figureIndex(key)]);

@@ -76,10 +76,17 @@ export function runeLocksFor(locks: RuneLocks, scope: string, unitId: string): R
  * (`DECK-PRESETS.md` §4). That is the pool's whole hold on the search: a
  * Temple of Chaos team is never offered a rune another team carries, a rune it
  * shares with one included, so a build found here forms no overlap and undoes
- * any it can. The user's own word on a rune stands over it.
+ * any it can. User locks stand over the pool; another member's own runes
+ * always stay with that member during a single-monster search.
  */
-export function runeLocksInPreset(locks: RuneLocks, preset: Pick<Preset, 'id' | 'pool' | 'poolRuneIds'>, unitId: string): Record<string, RuneLock> {
+export function runeLocksInPreset(locks: RuneLocks, preset: Pick<Preset, 'id' | 'pool' | 'poolRuneIds' | 'kind' | 'runesOf'>, unitId: string): Record<string, RuneLock> {
   const read = runeLocksFor(locks, runeLockScope(preset), unitId);
+  // A single-monster search preserves the other members and the team bonuses they supply.
+  if (preset.kind !== 'scenario') {
+    for (const [member, runes] of preset.runesOf) {
+      if (member !== unitId) for (const runeId of runes) read[runeId] = 'excluded';
+    }
+  }
   for (const runeId of preset.poolRuneIds) read[runeId] ??= 'excluded';
   return read;
 }

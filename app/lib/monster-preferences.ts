@@ -5,8 +5,8 @@ import { runeSlotKeys } from './monster-defaults';
 import { isMonsterProfileScope } from './monster-profile-scope';
 import type { MonsterProfileScope } from './monster-profile-scope';
 import { relicProperty } from './relic-properties';
-import type { LeadStat, Leads, TeammateSets } from './monster-stats';
-import { leadStats, teamSetBonuses } from './monster-stats';
+import type { LeadStat, Leads } from './monster-stats';
+import { leadStats } from './monster-stats';
 import type { RoleTargets } from './rune-roles';
 import { roleStatTargetKeys, roleTargetMaximum } from './rune-roles';
 import type { RuneSlotMain } from './rune-slot-mains';
@@ -144,15 +144,12 @@ export type MonsterCopyPreferences = {
    * What its leader adds, one field a stat: ATK, DEF and HP in percent of base,
    * CRI Rate in points. Each is its own answer: absent is no lead, and zero is a
    * stated zero. Counted in the composites, never in a stat or its range
-   * (`monster-stats.ts` `combatBase`). ACC points are reported separately.
+   * (`monster-stats.ts` `combatBase`).
    */
   critLead?: number;
   atkLead?: number;
   defLead?: number;
   hpLead?: number;
-  accLead?: number;
-  /** Completed team sets on the other monsters, excluding this copy's own runes. */
-  teammateSets?: TeammateSets;
   /**
    * The main stats wanted in slots 2, 4 and 6 — several may be, so each slot
    * holds a list. Slots 1, 3 and 5 carry a fixed main and cannot be stated.
@@ -290,7 +287,6 @@ export function statesSomething(preferences: MonsterCopyPreferences): boolean {
   if (preferences.alwaysCrits !== undefined) return true;
   if (preferences.alwaysElementAdvantage !== undefined) return true;
   if (leadFields.some((field) => preferences[field] !== undefined)) return true;
-  if (teamSetBonuses.some(({ name }) => preferences.teammateSets?.[name] !== undefined)) return true;
   if (runeSlotKeys.some((key) => preferences.runeSlots?.[key] !== undefined)) return true;
   if (preferences.mainStat !== undefined) return true;
   if (preferences.artifacts?.sub?.attribute !== undefined || preferences.artifacts?.sub?.type !== undefined) return true;
@@ -395,19 +391,9 @@ export function readLeadField(raw: string): number | undefined {
   return Math.min(leadMaximum, Math.max(0, Math.round(parsed)));
 }
 
-/** Other members of a six-monster team can carry at most fifteen two-piece sets. */
-export const teammateSetMaximum = 15;
-
-export function readTeammateSetField(raw: string): number | undefined {
-  const trimmed = raw.trim();
-  const parsed = Number(trimmed);
-  if (trimmed === '' || !Number.isFinite(parsed)) return undefined;
-  return Math.min(teammateSetMaximum, Math.max(0, Math.round(parsed)));
-}
-
 /** The preference field each lead is kept in, by the stat it raises. */
-export const leadFieldOf: Readonly<Record<LeadStat, 'critLead' | 'atkLead' | 'defLead' | 'hpLead' | 'accLead'>> = {
-  atk: 'atkLead', def: 'defLead', hp: 'hpLead', criRate: 'critLead', acc: 'accLead',
+export const leadFieldOf: Readonly<Record<LeadStat, 'critLead' | 'atkLead' | 'defLead' | 'hpLead'>> = {
+  atk: 'atkLead', def: 'defLead', hp: 'hpLead', criRate: 'critLead',
 };
 const leadFields = leadStats.map((stat) => leadFieldOf[stat]);
 
@@ -480,7 +466,7 @@ function isRuneSlots(value: unknown): boolean {
  */
 const isLead = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= leadMaximum;
 
-const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | 'artifacts' | 'relics' | 'teammateSets'>,
+const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | 'artifacts' | 'relics'>,
   (value: unknown) => boolean> = {
   label: (value) => typeof value === 'string' && value.trim() === value && value.length <= monsterLabelMaximum,
   runeSets: isRuneBuildList,
@@ -492,7 +478,6 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | '
   atkLead: isLead,
   defLead: isLead,
   hpLead: isLead,
-  accLead: isLead,
   runeSlots: isRuneSlots,
   mainStat: (value) => isBanded(value, isArtifactMain),
   statTargets: isStatTargets,
@@ -524,14 +509,6 @@ function readMonsterProfiles(value: Record<string, unknown>): MonsterProfiles {
     const copy: Record<string, unknown> = { unitId };
     for (const [key, check] of Object.entries(copyFieldChecks)) {
       if (stored[key] !== undefined && check(stored[key])) copy[key] = stored[key];
-    }
-    const teammateSets = stored.teammateSets;
-    if (isRecord(teammateSets)) {
-      copy.teammateSets = Object.fromEntries(teamSetBonuses.flatMap(({ name }) => {
-        const count = teammateSets[name];
-        return typeof count === 'number' && Number.isSafeInteger(count) && count >= 0 && count <= teammateSetMaximum
-          ? [[name, count]] : [];
-      }));
     }
     const artifacts = readArtifactPreferences(stored.artifacts);
     if (artifacts !== undefined) copy.artifacts = artifacts;

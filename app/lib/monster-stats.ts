@@ -24,15 +24,16 @@ export type MonsterTotals = {
  * optimizer would print one E.HP for a build and the overlay another for the same
  * six runes once it was engraved.
  *
- * The sheet is summed into twelve accumulators, in the order `effectSlot` names,
+ * The sheet is summed into display and battle accumulators, in the order `effectSlot` names,
  * and read out in the order `MonsterTotals` names.
  */
 export const effectSlot = {
   hpPercent: 0, hpFlat: 1, atkPercent: 2, atkFlat: 3, defPercent: 4, defFlat: 5,
   spdPercent: 6, spdFlat: 7, criticalRate: 8, criticalDamage: 9, resistance: 10, accuracy: 11,
+  teamHpPercent: 12, teamAtkPercent: 13, teamDefPercent: 14,
 } as const;
 
-export const effectSlotCount = 12;
+export const effectSlotCount = 15;
 
 /** The eight base stats in `MonsterTotals` order: HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES, ACC. */
 export const baseStatCount = 8;
@@ -44,7 +45,7 @@ export const baseStatCount = 8;
  * and CRI Rate as the fight has them — and only the composites read those.
  *
  * **A stat is the copy's own; a composite is the fight's.** The eight stats are
- * entered, judged and shown with its own completed sets, so a CRI Rate range of
+ * entered, judged and shown with personal sets; team sets apply only in battle, so a CRI Rate range of
  * 67 with a 33-point crit lead asks the runes for 67. DMG, E.HP and E.HP D are what
  * the copy does in the fight, so they count every lead: that same copy deals its
  * damage at 100 %. One sum gives both, so no figure can carry a lead another
@@ -74,11 +75,11 @@ export function effectSlotOf(statId: number): number {
 
 /** Completed sets include the holder's own team bonuses (RUNE-CANONICAL.md §10). */
 export const teamSetBonuses = [
-  { name: 'Fight', setId: 19, stat: 'atk', slot: effectSlot.atkPercent, value: 8 },
-  { name: 'Determination', setId: 20, stat: 'def', slot: effectSlot.defPercent, value: 8 },
-  { name: 'Enhance', setId: 21, stat: 'hp', slot: effectSlot.hpPercent, value: 8 },
-  { name: 'Accuracy', setId: 22, stat: 'acc', slot: effectSlot.accuracy, value: 10 },
-  { name: 'Tolerance', setId: 23, stat: 'res', slot: effectSlot.resistance, value: 10 },
+  { name: 'Fight', setId: 19, stat: 'atk', value: 8 },
+  { name: 'Determination', setId: 20, stat: 'def', value: 8 },
+  { name: 'Enhance', setId: 21, stat: 'hp', value: 8 },
+  { name: 'Accuracy', setId: 22, stat: 'acc', value: 10 },
+  { name: 'Tolerance', setId: 23, stat: 'res', value: 10 },
 ] as const;
 export type TeamSet = typeof teamSetBonuses[number]['name'];
 /** Completed sets on other monsters only; the holder's own sets come from its runes. */
@@ -93,7 +94,12 @@ const setStatBonuses: Readonly<Record<number, { pieces: number; slot: number; va
   6: { pieces: 2, slot: effectSlot.accuracy, value: 20 }, // Focus
   7: { pieces: 2, slot: effectSlot.resistance, value: 20 }, // Endure
   8: { pieces: 4, slot: effectSlot.atkPercent, value: 35 }, // Fatal
-  ...Object.fromEntries(teamSetBonuses.map(({ setId, slot, value }) => [setId, { pieces: 2, slot, value }])),
+  ...Object.fromEntries(teamSetBonuses.flatMap(({ setId, stat, value }) => {
+    const slot = stat === 'hp' ? effectSlot.teamHpPercent : stat === 'atk' ? effectSlot.teamAtkPercent
+      : stat === 'def' ? effectSlot.teamDefPercent : undefined;
+    // ACC and RES team sets affect no display stat or composite; their battle points are read from completedTeamSets.
+    return slot === undefined ? [] : [[setId, { pieces: 2, slot, value }]];
+  })),
 };
 
 /** The sets whose completion moves a stat, as `[setId, pieces, accumulator, value]` rows. */
@@ -138,8 +144,22 @@ export function intangibleCompletion(counts: ArrayLike<number>): number {
   return found;
 }
 
+/** Completed team sets from one monster's own runes, including an unambiguous Intangible completion. */
+export function completedTeamSets(runes: readonly RecordLike[]): TeammateSets {
+  const counts = new Int32Array(setIdBound);
+  for (const rune of runes) {
+    const id = numberValue(rune.set_id);
+    if (Number.isInteger(id) && id > 0 && id < setIdBound) counts[id] += 1;
+  }
+  const completes = intangibleCompletion(counts);
+  return Object.fromEntries(teamSetBonuses.flatMap(({ name, setId }) => {
+    const count = Math.floor((counts[setId] + (completes === setId ? 1 : 0)) / setPieceCount(setId));
+    return count ? [[name, count]] : [];
+  }));
+}
+
 /**
- * Add the completed sets' personal-stat bonuses to `effects`, from a count of engraved
+ * Add the completed sets' display and battle bonuses to `effects`, from a count of engraved
  * runes by `set_id`. `completes` is the set an Intangible completes, as
  * `intangibleCompletion` answered it; anything below zero completes nothing.
  */
@@ -167,23 +187,23 @@ export function totalsInto(base: ArrayLike<number>, effects: ArrayLike<number>, 
   out[7] = base[7] + effects[effectSlot.accuracy];
   /* A lead is summed with every other percentage and rounded once, as the game
      counts a leader skill — so it is not a fixed number of points on the stat. */
-  out[8] = base[8] === 0 ? out[0] : Math.ceil(base[0] * (100 + effects[effectSlot.hpPercent] + base[8]) / 100) + effects[effectSlot.hpFlat];
-  out[9] = base[9] === 0 ? out[1] : Math.ceil(base[1] * (100 + effects[effectSlot.atkPercent] + base[9]) / 100) + effects[effectSlot.atkFlat];
-  out[10] = base[10] === 0 ? out[2] : Math.ceil(base[2] * (100 + effects[effectSlot.defPercent] + base[10]) / 100) + effects[effectSlot.defFlat];
+  out[8] = Math.ceil(base[0] * (100 + effects[effectSlot.hpPercent] + effects[effectSlot.teamHpPercent] + base[8]) / 100) + effects[effectSlot.hpFlat];
+  out[9] = Math.ceil(base[1] * (100 + effects[effectSlot.atkPercent] + effects[effectSlot.teamAtkPercent] + base[9]) / 100) + effects[effectSlot.atkFlat];
+  out[10] = Math.ceil(base[2] * (100 + effects[effectSlot.defPercent] + effects[effectSlot.teamDefPercent] + base[10]) / 100) + effects[effectSlot.defFlat];
   out[11] = out[4] + base[11];
 }
 
 /**
  * Hold a stat's total, and the fight's total beside it, to what a ceiling on the
  * stat allows — for a bound over builds not yet finished, which must stay an upper
- * bound. A lead of `L` % adds at most `⌈B·L/100⌉` to a stat that rounds up, since
+ * bound. Leads and team sets totalling `L` % add at most `⌈B·L/100⌉` to a stat that rounds up, since
  * `⌈x + y⌉ ≤ ⌈x⌉ + ⌈y⌉`; CRI Rate points add exactly.
  */
-export function capTotal(base: ArrayLike<number>, totals: Float64Array, index: number, ceiling: number): void {
+export function capTotal(base: ArrayLike<number>, totals: Float64Array, index: number, ceiling: number, effects: ArrayLike<number>): void {
   totals[index] = Math.min(totals[index], ceiling);
   const combat = index === 4 ? combatAt.criRate : index < 3 ? combatAt.hp + index : -1;
   if (combat < 0) return;
-  const reach = index === 4 ? base[combat] : Math.ceil(base[index] * base[combat] / 100);
+  const reach = index === 4 ? base[combat] : Math.ceil(base[index] * (base[combat] + effects[effectSlot.teamHpPercent + index]) / 100);
   totals[combat] = Math.min(totals[combat], ceiling + reach);
 }
 
@@ -298,7 +318,7 @@ export function calculateMonsterTotals(monster: RecordLike, accountModifiers: Ac
   };
 }
 
-/** The twelve accumulators a copy's engraved runes, gear and completed sets add up to. */
+/** The display and battle accumulators a copy's engraved runes, gear and completed sets add up to. */
 export function monsterEffects(monster: RecordLike, accountModifiers: AccountStatModifiers = {}): Float64Array {
   const effects = new Float64Array(effectSlotCount);
   effects[effectSlot.hpPercent] = numberValue(accountModifiers.hpPercent);
@@ -358,14 +378,13 @@ export const elementAdvantageLift = 15;
 
 /**
  * The stats a leader skill can raise for a composite: HP, ATK and DEF by a share
- * of the monster's base stat, CRI Rate by points. ACC adds battle accuracy
- * points, reported separately so own-stat ranges keep the same meaning.
+ * of the monster's base stat, CRI Rate by points.
  *
  * There is no SPD lead. No composite reads SPD, and a SPD range is the copy's own
  * display speed like every other stat range, so a speed lead would be an answer
  * no calculation could act on. Speed Tuning reads a team's leader skill itself.
  */
-export const leadStats = ['atk', 'def', 'hp', 'criRate', 'acc'] as const;
+export const leadStats = ['atk', 'def', 'hp', 'criRate'] as const;
 export type LeadStat = typeof leadStats[number];
 export type Leads = Partial<Record<LeadStat, number>>;
 
@@ -377,8 +396,8 @@ export type CombatBonuses = {
 };
 
 /** Excludes completed sets already counted from this copy's own runes. */
-export function combatStatBonus(stat: LeadStat | 'res', bonuses: CombatBonuses): number {
-  const lead = stat === 'res' ? 0 : bonuses.leads?.[stat] ?? 0;
+export function combatStatBonus(stat: LeadStat | 'acc' | 'res', bonuses: CombatBonuses): number {
+  const lead = stat === 'res' || stat === 'acc' ? 0 : bonuses.leads?.[stat] ?? 0;
   return teamSetBonuses.reduce((sum, set) => sum + (set.stat === stat ? (bonuses.teammateSets?.[set.name] ?? 0) * set.value : 0), lead);
 }
 

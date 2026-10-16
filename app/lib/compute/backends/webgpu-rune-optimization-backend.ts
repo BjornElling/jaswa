@@ -104,7 +104,7 @@ type Battery = { question: TailQuestion; pass: TailPass };
  */
 function battery(seed: number, firstCount: number, lastCount: number, blocks: number): Battery {
   const draw = stream(seed);
-  const ranges: Array<[number, number]> = [[0, 60], [0, 900], [0, 60], [0, 90], [0, 60], [0, 90], [0, 0], [0, 45], [0, 40], [0, 70], [0, 40], [0, 40]];
+  const ranges: Array<[number, number]> = [[0, 60], [0, 900], [0, 60], [0, 90], [0, 60], [0, 90], [0, 0], [0, 45], [0, 40], [0, 70], [0, 40], [0, 40], [0, 24], [0, 24], [0, 24]];
   const candidates = new Float64Array((firstCount + lastCount) * effectSlotCount);
   for (let at = 0; at < firstCount + lastCount; at += 1) {
     for (let slot = 0; slot < effectSlotCount; slot += 1) {
@@ -156,9 +156,9 @@ function generousFigures(base: Float64Array, effects: Float64Array, out: Float64
   out[5] = base[5] + effects[effectSlot.criticalDamage];
   out[6] = base[6] + effects[effectSlot.resistance];
   out[7] = base[7] + effects[effectSlot.accuracy];
-  const hp = raised(0, effectSlot.hpPercent, effectSlot.hpFlat, base[combatAt.hp]);
-  const atk = raised(1, effectSlot.atkPercent, effectSlot.atkFlat, base[combatAt.atk]);
-  const def = raised(2, effectSlot.defPercent, effectSlot.defFlat, base[combatAt.def]);
+  const hp = raised(0, effectSlot.hpPercent, effectSlot.hpFlat, base[combatAt.hp] + effects[effectSlot.teamHpPercent]);
+  const atk = raised(1, effectSlot.atkPercent, effectSlot.atkFlat, base[combatAt.atk] + effects[effectSlot.teamAtkPercent]);
+  const def = raised(2, effectSlot.defPercent, effectSlot.defFlat, base[combatAt.def] + effects[effectSlot.teamDefPercent]);
   out[8] = metricDmg(atk, out[4] + base[combatAt.criRate], out[5]);
   out[9] = metricEhp(hp, def);
   out[10] = metricEhpD(hp, def);

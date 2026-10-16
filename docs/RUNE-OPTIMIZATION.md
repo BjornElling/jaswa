@@ -112,7 +112,7 @@ One rule decides what every figure on this page means, and every range is judged
 on the figure as the table shows it:
 
 - **The eight stats** — HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES and ACC — are the
-  copy's own, including its own completed sets (§2.2.4). They are entered, judged and
+  copy's display stats, including personal sets but excluding team sets (§2.2.4). They are entered, judged and
   shown without anything a fight adds. A CRI Rate range of 67–69 on a copy with a
   33-point crit lead asks the runes for 67–69, and the table's CRI Rate column
   reads 67–69. A SPD range is display speed.
@@ -132,8 +132,9 @@ rule on a hand-built copy — including 67 % with a 33-point lead dealing DMG at
 
 A ceiling on a led stat needs one care in the search's bound: the stat is capped at
 the ceiling, but the composite reads the stat with its lead, which may stand above
-the ceiling by as much as the lead can add. `capTotal` caps that second figure at the
-ceiling plus `⌈B·L/100⌉` — the most one rounding of a lead can add — and CRI Rate at
+the ceiling by as much as the leads and team sets can add. `capTotal` caps that second figure at the
+ceiling plus `⌈B·L/100⌉`, where L includes leads and the upper bound on own and
+teammate team sets, and CRI Rate at
 the ceiling plus its points, so the bound stays an upper bound.
 
 ### 2.2.2 Crit conditions
@@ -149,7 +150,7 @@ makes every CRI Rate target moot.
 
 ### 2.2.3 Leads
 
-A copy states up to five leads — *CRI Rate*, *ATK*, *DEF*, *HP* and *ACC*, labelled by
+A copy states up to four leads — *CRI Rate*, *ATK*, *DEF* and *HP*, labelled by
 stat under *Leads and bonuses* on the monster overlay — each
 a whole percentage, CRI Rate in points. ATK, DEF and HP leads are a share of base
 summed with every other percentage and rounded once, exactly as the game counts a
@@ -165,45 +166,42 @@ The green mark after a stat names the lead that reaches past it, and the green m
 after a composite names what it counted. A blank lead means none; an explicit zero
 is kept as the user's choice.
 
-### 2.2.4 Sets on teammates
+### 2.2.4 Automatic team-set bonuses
 
-The column to the right of *Leads and bonuses* accepts completed **Fight**,
-**Determination**, **Enhance**, **Accuracy** and **Tolerance** sets on the
-**other monsters on this team only**. A blank is absent; an explicit zero is
-kept. Each count is a whole number from 0 to 15 (the five other members of a
-six-monster team can each carry three two-piece sets). Every count survives or
-fails preference validation independently.
+Fight, Determination, Enhance, Accuracy and Tolerance sets are counted from the
+other members of the **chosen preset**, using that preset's rune placements.
+There are no manual counts and no ACC lead field. Profiles remain shared per
+content-area, but a team bonus is derived per preset, never saved in a profile.
+A preset that saves monsters only uses their Scenario runes. Scenario itself is
+the entire roster, not one team, and supplies no bonus from other monsters.
+Other presets and a shared pool do not add their monsters to the team.
 
 Com2uS' [official Rune System guide](https://www.summonerswar.com/en/skyarena/game)
-says these five sets affect all monsters. **That includes their holder**, as
-`RUNE-CANONICAL.md` §10 already records. Fight adds 8% base ATK per set,
+says these five sets affect all monsters, including their holder
+(`RUNE-CANONICAL.md` §10): Fight adds 8% base ATK per completed set,
 Determination 8% base DEF, Enhance 8% base HP, Accuracy 10 ACC percentage points,
-and Tolerance 10 RES percentage points. Sets stack additively; they are not
-multiplicative buffs. SWCalc's mechanics page does not state a different team-set
-rule.
+and Tolerance 10 RES percentage points. Bonuses stack additively.
 
-The stat sheet automatically counts this monster's own completed sets, including
-one completed by an Intangible rune, exactly once. The search counts the sets of
-each candidate build, never the sets of the build being replaced. Its five own
-team-set contributions are included in its eight own stats; this is a calculated
-self-contribution, not a claim that the out-of-battle game panel displays a team
-aura. The previous omission in `monster-stats.ts` was a defect, not an alternate
-rule.
+Team sets apply only in battle, including the holder's own sets. They do not
+appear in the game's display stats. Personal sets such as Blade and Fatal do.
+Own and teammate HP/ATK/DEF contributions join the existing combat percentages
+before rounding and reach DMG, E.HP and E.HP D exactly once. Own-stat ranges keep
+their existing meaning. Accuracy and Tolerance are explained by the info mark,
+including the battle value beside a current ACC/RES figure; they do not change
+own-stat ranges. Intangible follows the single completion rule in
+`monster-stats.ts`; incomplete sets, sold runes and missing members add nothing.
 
-Other monsters' sets follow the existing lead convention: their HP, ATK and DEF
-contributions join the additive combat percentages before the single rounding and
-therefore reach DMG, E.HP and E.HP D, without changing those stats' ranges. ACC
-lead and external Accuracy/Tolerance sets leave ACC/RES ranges and rankings on the
-monster's own values, too; the green info mark gives their combined combat bonus
-and, beside a current value, the resulting battle value capped at 100%. They do
-not silently lower a stated own-stat floor. The settings tooltip explicitly warns
-against entering this monster's own sets a second time.
+The preset table, profile, shortfall check, search and graphics-card input all
+read this derivation. A search preserves every other team member's runes,
+regardless of the switches for higher-priority monsters or engraved runes, so
+it cannot borrow a rune and silently break the bonus its results rely on.
+Scenario searches retain their existing rune-sharing policy.
 
-The overlay, shortfall check, search, graphics-card input and rereading a found
-build all take the same combat bonuses. The profile keeps them per content area,
-like its other choices; these are manual counts, not inferred team totals or a
-second placement model. Shield grants a shield rather than one of these five
-stat bonuses and is outside this column.
+When the account or preset changes, the bonus is derived again. An open result
+is reread with the current team bonus and marked stale if the question changed;
+its Now row follows the same bonus. Each candidate's own sets are always counted
+from that candidate, never from the build being replaced. Shield grants a
+shield rather than one of these five stat bonuses and is outside this model.
 
 ### 2.3 The figure to rank by
 
@@ -239,7 +237,7 @@ Grindstones the settings allow. A rune enters its own slot's list when:
   under *Always synchronized*. Locking a rune engraves it on its monster first.
 - it is free in the preset, on this monster, or — unless *Only runes not
   engraved on others* is ticked — on another monster of the preset;
-- that other monster is not **above it on the preset's priority list**
+- outside a concrete team (Scenario), that other monster is not **above it on the preset's priority list**
   (`monster-priority.ts`, the *Presets* page), unless *Include runes from
   higher-priority monsters* is ticked. A monster not on the list ranks below every monster on it, so it takes no
   rune from any of them. The page resolves the list into the copies spared
@@ -309,7 +307,7 @@ a locked Intangible when the owner has disabled taking additional Intangibles.
 
 ### 4.1 Only what the question reads
 
-The ranking figure, the floors and the ceilings decide which of the twelve stat
+The ranking figure, the floors and the ceilings decide which of the display and battle
 accumulators matter. DMG reads ATK, CRI Rate and CRI Dmg; E.HP reads HP and DEF. Every other
 accumulator is ignored by every reduction below — a rune's Accuracy is noise to a
 DMG build with no Accuracy floor.
@@ -1037,10 +1035,6 @@ keeps the previous result table.
 
 ## 9. Open questions, recorded rather than guessed
 
-- **Team sets on the stat sheet.** `rune-properties.ts` lists Fight, Determination,
-  Enhance, Accuracy and Tolerance as including the monster they are engraved on; the stat sheet has never
-  counted them and was matched against SWOP Pro without them. An in-game capture
-  should settle whether the game's own stat panel shows them.
 - **Relic unique properties.** A relic's main HP, ATK or DEF percentage is counted
   on the visible sheet. The Icaru #2 game panel showed 3,203 DEF against 3,114
   without its +12 % DEF relic: 736 base DEF × 12 % adds 89 after the sheet's one

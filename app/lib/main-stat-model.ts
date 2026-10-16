@@ -120,9 +120,9 @@ function runeNeed(monster: GameRecord, base: BaseStats): Record<MainStat, number
     (fixedMainSlots.has(Number(rune.slot_no)) ? { ...rune, pri_eff: undefined } : mainAtMaximum(rune)));
   const effects = monsterEffects({ runes });
   const need = {
-    HP: effects[effectSlot.hpPercent] + effects[effectSlot.hpFlat] / base.HP * 100,
-    ATK: effects[effectSlot.atkPercent] + effects[effectSlot.atkFlat] / base.ATK * 100,
-    DEF: effects[effectSlot.defPercent] + effects[effectSlot.defFlat] / base.DEF * 100,
+    HP: effects[effectSlot.hpPercent] + effects[effectSlot.teamHpPercent] + effects[effectSlot.hpFlat] / base.HP * 100,
+    ATK: effects[effectSlot.atkPercent] + effects[effectSlot.teamAtkPercent] + effects[effectSlot.atkFlat] / base.ATK * 100,
+    DEF: effects[effectSlot.defPercent] + effects[effectSlot.teamDefPercent] + effects[effectSlot.defFlat] / base.DEF * 100,
   };
   for (const stat of artifactMainPropertyOrder) need[stat] = Math.max(0, need[stat]);
   return hasNeed(need) ? need : undefined;

@@ -15,8 +15,7 @@ import type { MonsterArchetype } from '../lib/monster-catalog';
 import { withHigherAwakenings } from '../lib/monster-identity';
 import { shrineMonsterRecords } from '../lib/sealed-shrine-storage';
 import type { GameRecord } from '../lib/game-data';
-import { calculateMonsterTotals } from '../lib/monster-stats';
-import { calculateRunePotentialMetrics, displayRunePotentialMetric } from '../lib/rune-potential-metrics';
+import { calculateMonsterTotals, monsterTargetFigures } from '../lib/monster-stats';
 import { activeRuneSets, elementName, elementNameList } from '../lib/rune-sets';
 import type { Preferences } from '../lib/types';
 import {
@@ -27,7 +26,7 @@ import {
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
 import { profilesIn } from '../lib/monster-preferences';
-import { accountItems, monsterInPreset, presetMenu } from '../lib/presets';
+import { accountItems, monsterInPreset, presetMenu, teammateSetsInPreset } from '../lib/presets';
 import type { Preset } from '../lib/presets';
 import { defaultPresetChoice, heldPresetMenu, isPresetChoice, resolvePresetChoice } from '../lib/preset-choice';
 import { PresetChooser } from './preset-chooser';
@@ -217,9 +216,8 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
       const spd = baseSpd === null ? null : totals.spd;
       const criticalRate = numericOrNull(monster.critical_rate) === null ? null : totals.criticalRate;
       const criticalDamage = numericOrNull(monster.critical_damage) === null ? null : totals.criticalDamage;
-      const metrics = calculateRunePotentialMetrics({
-        atk: totals.atk, hp: totals.hp, def: totals.def,
-        criticalRate: totals.criticalRate, criticalDamage: totals.criticalDamage,
+      const figures = monsterTargetFigures(monster, {
+        alwaysCrits: false, alwaysElementAdvantage: false, teammateSets: teammateSetsInPreset(preset, unitId, items),
       });
       return {
         unitId,
@@ -239,9 +237,9 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
         hp, atk, def, spd, criticalRate, criticalDamage,
         resistance: numericOrNull(monster.resist) === null ? null : totals.resistance,
         accuracy: numericOrNull(monster.accuracy) === null ? null : totals.accuracy,
-        ehp: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehp),
-        ehpD: hp === null || def === null ? null : displayRunePotentialMetric(metrics.ehpD),
-        dmg: atk === null || criticalRate === null || criticalDamage === null ? null : displayRunePotentialMetric(metrics.dmg),
+        ehp: hp === null || def === null ? null : figures.ehp,
+        ehpD: hp === null || def === null ? null : figures.ehpD,
+        dmg: atk === null || criticalRate === null || criticalDamage === null ? null : figures.dmg,
       };
     });
   }, [monsters, preferences.monsterPreferences, preset, items]);

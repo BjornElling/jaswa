@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { readDeckPresets } from '../app/lib/deck-presets.ts';
 import { createImportedGame, validateGameFile } from '../app/lib/file-imports.ts';
 import {
-  accountItems, engravings, monsterInPreset, presetMenu, readOwnPresets, readPresets, runesInPreset,
+  accountItems, engravings, monsterInPreset, presetMenu, readOwnPresets, readPresets, runesInPreset, teammateSetsInPreset,
 } from '../app/lib/presets.ts';
 import { engraveImportedGame } from '../app/lib/engrave-rune-build.ts';
 import { addToGamePreset } from '../app/lib/game-preset-edits.ts';
@@ -392,3 +392,26 @@ if (process.argv[2]) {
   const captured = readDeckPresets(snapshot);
   console.log(`Captured account: ${captured.length} saved decks, ${captured.filter((entry) => entry.savesGear).length} saving gear, ${captured.reduce((count, entry) => count + entry.missingRuneIds.length, 0)} stale rune references, ${captured.reduce((count, entry) => count + entry.missingArtifactIds.length, 0)} stale artifact references.`);
 }
+
+
+// Team bonuses belong to one preset, not to an area profile, the roster or a shared pool.
+const teamAccount = JSON.parse(readFileSync('tests/fixtures/automatic-team-bonuses.json', 'utf8'));
+assert.equal(validateGameFile(teamAccount).valid, true, validateGameFile(teamAccount).message);
+const teamData = createImportedGame('team-bonuses.json', teamAccount, validateGameFile(teamAccount)).data;
+const teamItems = accountItems(teamData);
+const teams = readPresets(teamData, []);
+const team = (id) => teams.find((entry) => entry.id === id);
+assert.deepEqual(teammateSetsInPreset(team('deck-1-1'), '11', teamItems),
+  { Fight: 2, Determination: 1, Accuracy: 1, Enhance: 1, Tolerance: 1 });
+assert.deepEqual(teammateSetsInPreset(team('scenario'), '11', teamItems), {});
+assert.deepEqual(teammateSetsInPreset(team('deck-1-2'), '11', teamItems), {});
+assert.deepEqual(teammateSetsInPreset(team('deck-1-3'), '11', teamItems), {});
+assert.deepEqual(teammateSetsInPreset(team('deck-24-101'), '11', teamItems), { Fight: 1, Determination: 1, Accuracy: 1 });
+assert.deepEqual(teammateSetsInPreset(team('deck-1-1'), 'not-a-member', teamItems), {});
+const teamLocks = runeLocksInPreset(noRuneLocks, team('deck-1-1'), '11');
+for (const id of team('deck-1-1').runesOf.get('12')) assert.equal(teamLocks[id], 'excluded');
+for (const id of team('deck-1-1').runesOf.get('11')) assert.equal(teamLocks[id], undefined);
+const withoutSoldRune = { ...teamItems, runes: new Map(teamItems.runes) };
+withoutSoldRune.runes.delete(team('deck-1-1').runesOf.get('12')[0]);
+assert.equal(teammateSetsInPreset(team('deck-1-1'), '11', withoutSoldRune).Fight, 1);
+console.log('Automatic team bonuses: all five sets, Intangible, own-set exclusion, per-preset gear, Scenario fallback, sold runes and teammate protection agree.');

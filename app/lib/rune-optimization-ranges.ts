@@ -12,9 +12,9 @@ const figureSlots: Readonly<Record<RankFigure, readonly number[]>> = {
   spd: [effectSlot.spdPercent, effectSlot.spdFlat],
   criRate: [effectSlot.criticalRate], criDmg: [effectSlot.criticalDamage],
   res: [effectSlot.resistance], acc: [effectSlot.accuracy],
-  dmg: [effectSlot.atkPercent, effectSlot.atkFlat, effectSlot.criticalRate, effectSlot.criticalDamage],
-  ehp: [effectSlot.hpPercent, effectSlot.hpFlat, effectSlot.defPercent, effectSlot.defFlat],
-  ehpD: [effectSlot.hpPercent, effectSlot.hpFlat, effectSlot.defPercent, effectSlot.defFlat],
+  dmg: [effectSlot.teamAtkPercent, effectSlot.atkPercent, effectSlot.atkFlat, effectSlot.criticalRate, effectSlot.criticalDamage],
+  ehp: [effectSlot.teamHpPercent, effectSlot.teamDefPercent, effectSlot.hpPercent, effectSlot.hpFlat, effectSlot.defPercent, effectSlot.defFlat],
+  ehpD: [effectSlot.teamHpPercent, effectSlot.teamDefPercent, effectSlot.hpPercent, effectSlot.hpFlat, effectSlot.defPercent, effectSlot.defFlat],
 };
 
 export function figureEffectSlots(figure: RankFigure, alwaysCrits = false): readonly number[] {

@@ -13,7 +13,7 @@
  *
  * - a **question**, fixed for the whole search: the monster's base stats, the
  *   floors, which figure ranks, and the bar the table currently holds;
- * - the **candidates** of the two tail slots, twelve accumulators each;
+ * - the **candidates** of the two tail slots, display and battle accumulators each;
  * - one **base** per block: the prefix's accumulators with the block's set bonus;
  * - one **range** per block: where its two groups sit among the candidates;
  * - the **survivors**: a count, then every `(block, pair)` that could clear the bar.
@@ -25,7 +25,7 @@ import { baseLength, combatAt, effectSlot, effectSlotCount, targetFigureCount, t
 
 const figure = (key: typeof targetFigureKeys[number]): number => targetFigureKeys.indexOf(key);
 
-/** Twelve accumulators per candidate and per block base, in `effectSlot` order. */
+/** Display and battle accumulators per candidate and per block base, in `effectSlot` order. */
 export const accumulatorStride = effectSlotCount;
 
 /* ------------------------------------------------------------ the question */
@@ -113,6 +113,9 @@ export const runeOptimizationConstants: Readonly<Record<string, number>> = {
   ACC_CRITICAL_DAMAGE: effectSlot.criticalDamage,
   ACC_RESISTANCE: effectSlot.resistance,
   ACC_ACCURACY: effectSlot.accuracy,
+  ACC_TEAM_HP_PERCENT: effectSlot.teamHpPercent,
+  ACC_TEAM_ATK_PERCENT: effectSlot.teamAtkPercent,
+  ACC_TEAM_DEF_PERCENT: effectSlot.teamDefPercent,
   FIGURE_COUNT: targetFigureCount,
   FIGURE_HP: figure('hp'),
   FIGURE_ATK: figure('atk'),

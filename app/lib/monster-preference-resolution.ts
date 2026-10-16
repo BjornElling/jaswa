@@ -133,6 +133,7 @@ export type ResolvedMonsterPreferences = {
   alwaysElementAdvantage: boolean;
   /** What its leader adds, stat by stat; a stat it does not name gets nothing. */
   leads: Leads;
+  /** Derived from the chosen preset, never a stored profile choice. */
   teammateSets: TeammateSets;
   /**
    * What the main-stat model makes of this copy (`main-stat-model.ts`) — the
@@ -296,6 +297,7 @@ export function resolveMonsterPreferences(
   masterId: unknown,
   stated: MonsterCopyPreferences | undefined,
   monster?: GameRecord,
+  teammateSets: TeammateSets = {},
 ): ResolvedMonsterPreferences {
   const defaults = monsterDefaults(masterId);
   const advice = monster === undefined ? speciesMainStatAdvice(masterId) : copyMainStatAdvice(monster);
@@ -314,7 +316,7 @@ export function resolveMonsterPreferences(
     alwaysCrits: stated?.alwaysCrits ?? false,
     alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
     leads: statedLeads(stated),
-    teammateSets: stated?.teammateSets ?? {},
+    teammateSets,
     ...(advice === undefined ? {} : { mainStatAdvice: advice }),
   };
 }

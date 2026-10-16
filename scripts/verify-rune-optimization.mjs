@@ -916,7 +916,7 @@ for (let index = 0; index < figures.length; index += 1) {
   input.runes = input.runes.map((rune, at) => ({ ...rune, setId: 19 + (at % 3 === 0 ? (index + 1) % 5 : index % 5) }));
   Object.assign(input.requirements, {
     builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
-    leads: { acc: 40, atk: 33, def: 20, hp: 30, criRate: 19 },
+    leads: { atk: 33, def: 20, hp: 30, criRate: 19 },
     teammateSets: { Fight: 3, Determination: 2, Enhance: 1, Accuracy: 4, Tolerance: 5 },
     targets: {}, ceilings: {}, rankBy: figures[index],
   });
@@ -928,5 +928,9 @@ for (let index = 0; index < figures.length; index += 1) {
   const byId = new Map(input.runes.map((rune) => [rune.id, rune]));
   for (const build of answer.builds) assert.deepEqual(buildFigures(input.monster,
     build.picks.map((at, slot) => { const piece = problem.slots[slot][at]; return { rune: byId.get(piece.runeId), mainValue: piece.mainValue, lines: piece.lines }; }), input.requirements), build.figures);
+  input.requirements.ceilings = Object.fromEntries(['hp', 'atk', 'def'].map((key, at) => [key, answer.builds[0].figures[at]]));
+  const capped = prepareRuneOptimization(input);
+  assert.deepEqual(searchRuneBuilds(capped).builds.map((build) => ({ value: build.figures[capped.rank], moves: build.moves })), bruteForce(input),
+    'display ceilings must leave room for battle-only own and teammate set contributions');
 }
-console.log('PASS: own and teammate sets, all five leads and every ranking figure match brute force.');
+console.log('PASS: own and teammate sets, all four leads and every ranking figure match brute force.');

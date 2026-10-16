@@ -56,7 +56,7 @@ inputs.push(...Array.from({ length: 11 }, (_, index) => {
   input.runes = input.runes.map((rune, at) => ({ ...rune, setId: 19 + (at % 3 === 0 ? (index + 1) % 5 : index % 5) }));
   Object.assign(input.requirements, {
     builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
-    leads: { acc: 40, atk: 33, def: 20, hp: 30, criRate: 19 },
+    leads: { atk: 33, def: 20, hp: 30, criRate: 19 },
     teammateSets: { Fight: 3, Determination: 2, Enhance: 1, Accuracy: 4, Tolerance: 5 },
     targets: {}, ceilings: {}, rankBy: ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc', 'dmg', 'ehp', 'ehpD'][index],
   });
