@@ -11,7 +11,7 @@ import type {
   BandedChoices, MonsterCopyPreferences, MonsterStatTargets,
 } from './monster-preferences';
 import { monsterStatTargetKeys, statedLeads } from './monster-preferences';
-import type { Leads } from './monster-stats';
+import type { Leads, TeammateSets } from './monster-stats';
 import type { RelicMainProperty } from './relic-properties';
 import type { RuneSlotMain } from './rune-slot-mains';
 
@@ -133,6 +133,7 @@ export type ResolvedMonsterPreferences = {
   alwaysElementAdvantage: boolean;
   /** What its leader adds, stat by stat; a stat it does not name gets nothing. */
   leads: Leads;
+  teammateSets: TeammateSets;
   /**
    * What the main-stat model makes of this copy (`main-stat-model.ts`) — the
    * default its gear mains fall back on, and what a stated main is checked
@@ -313,6 +314,7 @@ export function resolveMonsterPreferences(
     alwaysCrits: stated?.alwaysCrits ?? false,
     alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
     leads: statedLeads(stated),
+    teammateSets: stated?.teammateSets ?? {},
     ...(advice === undefined ? {} : { mainStatAdvice: advice }),
   };
 }

@@ -908,3 +908,25 @@ console.log('PASS: refreshed builds identify newly occupied slots and changes be
     'the existing converted line must remain the only legal replacement');
 }
 console.log('PASS: tied Gem plans preserve HP and DEF for Slow DD, respect monster targets and converted lines, and tolerate empty roles.');
+
+// Teammate bonuses must agree across exact reductions, bounds and reread builds.
+for (let index = 0; index < figures.length; index += 1) {
+  const input = scenarioGenerator(20261016 + index, [3, 3]).scenario(0);
+  input.locks = {}; input.spared = [];
+  input.runes = input.runes.map((rune, at) => ({ ...rune, setId: 19 + (at % 3 === 0 ? (index + 1) % 5 : index % 5) }));
+  Object.assign(input.requirements, {
+    builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
+    leads: { acc: 40, atk: 33, def: 20, hp: 30, criRate: 19 },
+    teammateSets: { Fight: 3, Determination: 2, Enhance: 1, Accuracy: 4, Tolerance: 5 },
+    targets: {}, ceilings: {}, rankBy: figures[index],
+  });
+  Object.assign(input.settings, { gems: 'none', grinds: 'none', runesOnOtherMonsters: true, resultCount: 3 });
+  const problem = prepareRuneOptimization(input);
+  const answer = searchRuneBuilds(problem);
+  assert.ok(answer.builds.length > 0);
+  assert.deepEqual(answer.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })), bruteForce(input));
+  const byId = new Map(input.runes.map((rune) => [rune.id, rune]));
+  for (const build of answer.builds) assert.deepEqual(buildFigures(input.monster,
+    build.picks.map((at, slot) => { const piece = problem.slots[slot][at]; return { rune: byId.get(piece.runeId), mainValue: piece.mainValue, lines: piece.lines }; }), input.requirements), build.figures);
+}
+console.log('PASS: own and teammate sets, all five leads and every ranking figure match brute force.');

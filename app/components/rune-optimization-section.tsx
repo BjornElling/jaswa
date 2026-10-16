@@ -304,6 +304,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       alwaysCrits: tableAlwaysCritsCount,
       alwaysElementAdvantage: current?.requirements.alwaysElementAdvantage ?? false,
       leads: current?.requirements.leads,
+      teammateSets: current?.requirements.teammateSets,
     };
   }, [tableAlwaysCritsCount, requirements, alwaysCrits, current]);
   const builds = useMemo(() => (current && selected && tableLimits
@@ -589,7 +590,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
                   disabled={crits} title={crits ? 'Always crits, so no CRI Rate is needed' : undefined}
                   current={<>
                     {currentFigures ? formatNumber(currentFigures[figureIndex(key)], general) : '—'}
-                    <FigureMarks marks={combatBonusMarks(key, requirements)} reserve={1} />
+                    <FigureMarks marks={combatBonusMarks(key, requirements, currentFigures?.[figureIndex(key)])} reserve={1} />
                   </>} />;
               })}
             </div>

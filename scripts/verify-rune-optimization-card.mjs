@@ -49,6 +49,21 @@ inputs.push(...inputs.slice(0, 18).map(({ input }, index) => ({
     maxChanges: index % 6 + 1, oddSlotsAtTwelve: index % 2 === 0 } },
 })));
 
+// Own team sets and external counts must travel through the card's same stat sheet.
+inputs.push(...Array.from({ length: 11 }, (_, index) => {
+  const input = scenarioGenerator(20261016 + index, [3, 3]).scenario(0);
+  input.locks = {}; input.spared = [];
+  input.runes = input.runes.map((rune, at) => ({ ...rune, setId: 19 + (at % 3 === 0 ? (index + 1) % 5 : index % 5) }));
+  Object.assign(input.requirements, {
+    builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
+    leads: { acc: 40, atk: 33, def: 20, hp: 30, criRate: 19 },
+    teammateSets: { Fight: 3, Determination: 2, Enhance: 1, Accuracy: 4, Tolerance: 5 },
+    targets: {}, ceilings: {}, rankBy: ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc', 'dmg', 'ehp', 'ehpD'][index],
+  });
+  Object.assign(input.settings, { gems: 'none', grinds: 'none', runesOnOtherMonsters: true, resultCount: 3 });
+  return { kind: 'team sets', input };
+}));
+
 const browser = await chromium.launch({ channel: 'chromium', headless: true, args: ['--enable-unsafe-webgpu'] });
 try {
   const page = await browser.newPage();

@@ -1,7 +1,7 @@
 /** The engraved main property belongs to the game's visible stat panel. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculateMonsterTotals, monsterEffects, monsterTargetFigures } from '../app/lib/monster-stats.ts';
+import { calculateMonsterTotals, combatStatBonus, monsterEffects, monsterTargetFigures, teamSetBonuses } from '../app/lib/monster-stats.ts';
 import { readMonsterPreferences } from '../app/lib/monster-preferences.ts';
 import { relicMonsterModel } from '../app/lib/relic-monster-value.ts';
 
@@ -84,3 +84,29 @@ assert.deepEqual(readMonsterPreferences({ 'content:arena-attack': { '1': {
 assert.equal(readMonsterPreferences({ scenario: { '1': { unitId: '1', critLead: 0 } } }).scenario['1'].critLead, 0);
 
 console.log('Monster display stats: Icaru DEF, empty gear, relic mains, crit bonuses and leads in the composites only, and saved choices agree.');
+
+// Own completed sets are counted once; teammate entries are additional sets, not team totals.
+for (const set of teamSetBonuses) {
+  const bare = { ...monster, runes: [] };
+  const holder = { ...bare, runes: [{ set_id: set.setId }, { set_id: set.setId }] };
+  const triple = { ...bare, runes: Array.from({ length: 6 }, () => ({ set_id: set.setId })) };
+  assert.equal(monsterEffects(holder)[set.slot], set.value);
+  assert.equal(monsterEffects(triple)[set.slot], 3 * set.value);
+  assert.equal(monsterEffects({ ...bare, runes: [{ set_id: set.setId }, { set_id: 25 }] })[set.slot], set.value);
+  const withTeam = { ...plain, leads: { acc: 40 }, teammateSets: { [set.name]: 2 } };
+  const figures = monsterTargetFigures(holder, withTeam);
+  const self = monsterTargetFigures(holder, plain);
+  for (const key of statKeys) assert.equal(figures[key], self[key]);
+  assert.equal(combatStatBonus(set.stat, withTeam), set.value * 2 + (set.stat === 'acc' ? 40 : 0));
+  if (set.stat === 'atk') assert.equal(figures.dmg, Math.floor(Math.ceil(monster.atk * 124 / 100) * 1.075));
+  if (set.stat === 'hp' || set.stat === 'def') assert.ok(figures.ehp > self.ehp);
+}
+const saved = readMonsterPreferences({ scenario: { '1': {
+  unitId: '1', label: 'Keep me', accLead: 40,
+  teammateSets: { Fight: 0, Enhance: 15, Accuracy: -1, Determination: 1.5, Tolerance: '2', Unknown: 2 },
+} } }).scenario['1'];
+assert.deepEqual(saved, { unitId: '1', label: 'Keep me', accLead: 40, teammateSets: { Fight: 0, Enhance: 15 } });
+console.log('Team sets: holder, stacking, Intangible completion, teammate-only counts, ACC and independent preference survival agree.');
+
+assert.deepEqual(readMonsterPreferences({ scenario: { '2': { unitId: '2', teammateSets: { Fight: 0 } } } }).scenario['2'],
+  { unitId: '2', teammateSets: { Fight: 0 } }, 'a teammate count alone is a saved choice, even when it is zero');

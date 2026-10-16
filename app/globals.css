@@ -317,7 +317,7 @@ label[for] {
 }
 
 /* Body — every sentence, label and value that is not a heading. */
-.type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
+.type-body, .overlay-info [role="tooltip"], .lead, .notice, .dialog p, .slider-note, .radio-note,
 .overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
 .rune-build-set, .overlay-toggle, .overlay-lead,
 .engraved-rune-main, .engraved-rune-innate, .engraved-rune-subs, .engraved-artifact-main, .engraved-artifact-subs,
@@ -5591,6 +5591,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   padding-top: var(--s4);
 }
 .monster-overlay-wants, .monster-overlay-engraved { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
+/* The extra settings stay within the profile at a desktop viewport. */
+.monster-overlay-wants { gap: var(--s1); }
 .monster-overlay-body .overlay-block { gap: var(--s2); }
 .monster-overlay-engraved .notice { margin: 0; }
 
@@ -5681,14 +5683,11 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .overlay-sort > .overlay-stat-head { align-self: center; }
 
-/* The switches that qualify the answers: four toggles two by two, each owning a
-   fixed cell so checking one moves nothing, and the leads beside them under their
-   own name, two to a column, every field one width so a typed lead moves nothing
-   either. */
+/* Toggles, leads and teammate counts each keep fixed cells so a choice moves nothing. */
 .overlay-settings {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--s7);
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  gap: var(--s5);
   align-items: start;
 }
 .overlay-settings-toggles {
@@ -5701,10 +5700,21 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-leads { display: grid; gap: var(--s1); justify-items: start; }
 .overlay-leads-fields {
   display: grid;
-  grid-template-rows: repeat(2, auto);
-  grid-auto-flow: column;
-  gap: var(--s1) var(--s6);
+  grid-template-columns: max-content;
+  gap: var(--s1);
 }
+/* A tooltip floats over the profile without changing its measure. */
+.overlay-teammate-fields { display: grid; gap: var(--s1); }
+.overlay-teammate-sets .overlay-lead { grid-template-columns: 13ch auto; }
+.overlay-info { position: relative; display: inline-flex; width: 16px; height: 16px; vertical-align: middle; }
+.overlay-info svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.overlay-info [role="tooltip"] {
+  position: absolute; right: 0; bottom: calc(100% + var(--s2)); z-index: 10;
+  width: 36ch; padding: var(--s3); background: var(--raise); color: var(--text);
+  border: 1px solid var(--line); text-transform: none; pointer-events: none;
+  visibility: hidden; opacity: 0;
+}
+.overlay-info:is(:hover, :focus) [role="tooltip"] { visibility: visible; opacity: 1; }
 .overlay-lead { display: grid; grid-template-columns: 9ch auto auto; align-items: center; gap: var(--s2); color: var(--text-muted); }
 
 /* Every gear question on one grid: its name and the Preferred and Accepted
@@ -5944,7 +5954,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    Each owns a fixed cell of its row, so checking one leaves its neighbours still. */
 .overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
 .overlay-toggle input { border-color: var(--gold-edge); }
-.overlay-lead input { width: calc(3ch + 2 * var(--s3) + 2px); font-variant-numeric: tabular-nums; }
+/* Compact bonus inputs keep both five-field columns visible beside the toggles. */
+.overlay-lead input { height: 24px; width: calc(3ch + 2 * var(--s3) + 2px); font-variant-numeric: tabular-nums; }
 
 /* Three slots on one row, under the build: each names itself, opens its own
    mains, and carries its population on one line beneath. */

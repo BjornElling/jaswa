@@ -134,7 +134,7 @@ test('leads and element advantage reach the composites, never a stat or its rang
   const dialog = page.getByRole('dialog');
   const rate = dialog.locator('.stat-range[data-figure="criRate"]');
   const leads = dialog.getByRole('group', { name: 'Leads and bonuses' });
-  await expect(leads.locator('.overlay-lead > span:first-child')).toHaveText(['CRI Rate', 'ATK', 'DEF', 'HP']);
+  await expect(leads.locator('.overlay-lead > span:first-child')).toHaveText(['CRI Rate', 'ATK', 'DEF', 'HP', 'ACC']);
   const leadBoxes = () => leads.locator('input').evaluateAll((inputs) => inputs.map((input) => {
     const rect = input.getBoundingClientRect();
     return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
@@ -648,4 +648,81 @@ test('the panel no longer offers to adopt the statistics, or explains itself as 
   /* And the separate shortfall list is gone: what falls short is marked beside
      the field that states it, rather than restated at the foot of the panel. */
   await expect(page.getByRole('heading', { name: 'Not yet met' })).toHaveCount(0);
+});
+
+
+test('teammate sets and ACC bonuses preserve the profile layout and survive saving', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importAccount(page);
+  await openOverlay(page);
+  const dialog = page.getByRole('dialog');
+  const settings = dialog.locator('.overlay-settings');
+  const boxes = () => dialog.locator('.overlay-block, .overlay-lead input, .stat-range').evaluateAll((elements) =>
+    elements.map((element) => { const b = element.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; }));
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('team-bonuses-empty.png') });
+  const current = (key: string) => dialog.locator(`.stat-range[data-figure="${key}"] .overlay-stat-current`);
+  const atk = await current('atk').innerText();
+  const acc = await current('acc').innerText();
+  const damage = await current('dmg').innerText();
+  const ehp = await current('ehp').innerText();
+  for (const name of ['CRI Rate', 'ATK', 'DEF', 'HP', 'ACC']) {
+    await dialog.getByRole('spinbutton', { name: `${name}, in percent`, exact: true }).fill('100');
+  }
+  for (const name of ['Fight', 'Determination', 'Enhance', 'Accuracy', 'Tolerance']) {
+    await dialog.getByRole('spinbutton', { name: `${name} sets on other monsters` }).fill('15');
+  }
+  await expect(current('atk')).toHaveText(atk);
+  await expect(current('acc')).toHaveText(acc);
+  await expect(current('dmg')).not.toHaveText(damage);
+  await expect(current('ehp')).not.toHaveText(ehp);
+  await expect(dialog.getByRole('img', { name: /Lead and teammate sets add 250 percentage points ACC; 100% in battle/ })).toBeVisible();
+  await expect(dialog.getByRole('img', { name: /Lead and teammate sets add 150 percentage points RES/ })).toBeVisible();
+  expect(await boxes()).toEqual(before);
+  const help = settings.getByRole('img', { name: 'About sets on teammates' });
+  await help.hover();
+  await expect(settings.getByRole('tooltip')).toBeVisible();
+  await expect(settings.getByRole('tooltip')).toContainText('other monsters on this team only');
+  await expect(settings.getByRole('tooltip')).toContainText('do not enter them again');
+  await page.screenshot({ path: testInfo.outputPath('team-bonuses-full.png') });
+  expect(await boxes()).toEqual(before);
+  await help.focus();
+  await expect(settings.getByRole('tooltip')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  expect((await storedPreferences(page))?.['1']?.accLead).toBe(100);
+  expect((await storedPreferences(page))?.['1']?.teammateSets).toEqual({ Fight: 15, Determination: 15, Enhance: 15, Accuracy: 15, Tolerance: 15 });
+  await page.reload();
+  await openOverlay(page);
+  await expect(page.getByRole('spinbutton', { name: 'ACC, in percent', exact: true })).toHaveValue('100');
+  const fight = page.getByRole('spinbutton', { name: 'Fight sets on other monsters' });
+  await expect(fight).toHaveValue('15');
+  await fight.fill('0');
+  await page.getByRole('spinbutton', { name: 'Accuracy sets on other monsters' }).fill('');
+  await page.getByRole('spinbutton', { name: 'ACC, in percent', exact: true }).fill('');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  const saved = (await storedPreferences(page))?.['1'];
+  expect(saved?.accLead).toBeUndefined();
+  expect(saved?.teammateSets).toMatchObject({ Fight: 0, Determination: 15, Enhance: 15, Tolerance: 15 });
+  expect((saved?.teammateSets as Record<string, unknown>).Accuracy).toBeUndefined();
+});
+
+
+test('a bare copy keeps a teammate count as its only stated choice', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importAccount(page);
+  await openOverlay(page, 1);
+  const dialog = page.getByRole('dialog');
+  const fight = dialog.getByRole('spinbutton', { name: 'Fight sets on other monsters' });
+  await expect(fight).toHaveValue('');
+  await expect(dialog.getByRole('spinbutton', { name: 'ACC, in percent', exact: true })).toHaveValue('');
+  await page.screenshot({ path: testInfo.outputPath('bare-team-empty.png') });
+  const before = await dialog.boundingBox();
+  await fight.fill('0');
+  expect(await dialog.boundingBox()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('bare-team-zero.png') });
+  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  expect((await storedPreferences(page))?.['2']).toEqual({ unitId: '2', teammateSets: { Fight: 0 } });
+  await page.reload();
+  await openOverlay(page, 1);
+  await expect(page.getByRole('spinbutton', { name: 'Fight sets on other monsters' })).toHaveValue('0');
 });

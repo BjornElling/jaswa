@@ -50,6 +50,7 @@ export function profileRequirements(
       alwaysCrits: resolved.alwaysCrits,
       alwaysElementAdvantage: resolved.alwaysElementAdvantage,
       leads: resolved.leads,
+      teammateSets: resolved.teammateSets,
       targets,
       ceilings,
       rankBy: resolved.runeSuggestionStat,

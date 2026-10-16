@@ -4,7 +4,7 @@ import { contradictsAdvice, honouredMainStat, mainStatStatement } from './main-s
 import type { MonsterCopyPreferences } from './monster-preferences';
 import type { Shortfall } from './monster-shortfall';
 import type { CombatBonuses, LeadStat } from './monster-stats';
-import { leadStats } from './monster-stats';
+import { leadStats, combatStatBonus, teamSetBonuses } from './monster-stats';
 import { formatNumber } from './formatting';
 import type { GeneralSettings } from './types';
 
@@ -22,6 +22,7 @@ const leadWords: Readonly<Record<LeadStat, { name: string; stat: string; reaches
   atk: { name: 'Attack lead', stat: 'ATK', reaches: 'DMG' },
   def: { name: 'Defence lead', stat: 'DEF', reaches: 'E.HP and E.HP D' },
   hp: { name: 'HP lead', stat: 'HP', reaches: 'E.HP and E.HP D' },
+  acc: { name: 'Accuracy lead', stat: 'ACC', reaches: 'battle accuracy' },
   criRate: { name: 'Crit lead', stat: 'CRI Rate', reaches: 'DMG' },
 };
 
@@ -37,9 +38,11 @@ const compositeLeads: Readonly<Record<string, readonly LeadStat[]>> = {
  * names what it counted (`monster-stats.ts` `combatAt`). A figure with none
  * carries no mark.
  */
-export function combatBonusMarks(figure: string, bonuses: CombatBonuses): FigureMark[] {
+export function combatBonusMarks(figure: string, bonuses: CombatBonuses, ownValue?: number): FigureMark[] {
   const leadOf = (stat: LeadStat) => bonuses.leads?.[stat];
-  const reading = figure in compositeLeads
+  const reading = figure === 'acc' || figure === 'res'
+    ? pointBonusReading(figure, bonuses, ownValue)
+    : figure in compositeLeads
     ? compositeReading(figure, bonuses)
     : [
       figure === 'criRate' && bonuses.alwaysCrits ? 'Always crits' : undefined,
@@ -47,8 +50,23 @@ export function combatBonusMarks(figure: string, bonuses: CombatBonuses): Figure
       (leadStats as readonly string[]).includes(figure) && leadOf(figure as LeadStat)
         ? `${leadWords[figure as LeadStat].name} adds ${leadOf(figure as LeadStat)}% ${leadWords[figure as LeadStat].stat} to ${leadWords[figure as LeadStat].reaches}, not to this figure or its range`
         : undefined,
+      ...teamSetReadings(figure, bonuses).map((reading) => `${reading}, counted in the composites, not in this figure or its range`),
     ].filter(Boolean).join('. ');
   return reading === '' ? [] : [{ key: 'combat-bonuses', tone: 'green', reading, glyph: 'info' }];
+}
+
+function teamSetReadings(figure: string, bonuses: CombatBonuses): string[] {
+  return teamSetBonuses.flatMap((set) => {
+    const count = bonuses.teammateSets?.[set.name] ?? 0;
+    return count && set.stat === figure ? [`${count} teammate ${set.name} set${count === 1 ? '' : 's'} add ${count * set.value}% ${figure.toUpperCase()}`] : [];
+  });
+}
+
+function pointBonusReading(figure: 'acc' | 'res', bonuses: CombatBonuses, ownValue?: number): string {
+  const bonus = combatStatBonus(figure, bonuses);
+  if (bonus === 0) return '';
+  const value = ownValue === undefined ? '' : `; ${Math.min(100, ownValue + bonus)}% in battle`;
+  return `Lead and teammate sets add ${bonus} percentage points ${figure.toUpperCase()}${value}, not to this figure or its range`;
 }
 
 function compositeReading(figure: string, bonuses: CombatBonuses): string {
@@ -57,6 +75,7 @@ function compositeReading(figure: string, bonuses: CombatBonuses): string {
       const lead = bonuses.leads?.[stat];
       return lead ? [`${leadWords[stat].name} ${lead}%`] : [];
     }),
+    ...compositeLeads[figure].flatMap((stat) => teamSetReadings(stat, bonuses)),
     figure === 'dmg' && bonuses.alwaysCrits ? 'a certain crit' : undefined,
     figure === 'dmg' && bonuses.alwaysElementAdvantage ? 'element advantage' : undefined,
   ].filter((part): part is string => Boolean(part));

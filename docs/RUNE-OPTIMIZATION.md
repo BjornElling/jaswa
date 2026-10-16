@@ -112,7 +112,7 @@ One rule decides what every figure on this page means, and every range is judged
 on the figure as the table shows it:
 
 - **The eight stats** — HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES and ACC — are the
-  copy's own, as its panel in the game shows them. They are entered, judged and
+  copy's own, including its own completed sets (§2.2.4). They are entered, judged and
   shown without anything a fight adds. A CRI Rate range of 67–69 on a copy with a
   33-point crit lead asks the runes for 67–69, and the table's CRI Rate column
   reads 67–69. A SPD range is display speed.
@@ -149,7 +149,7 @@ makes every CRI Rate target moot.
 
 ### 2.2.3 Leads
 
-A copy states up to four leads — *CRI Rate*, *ATK*, *DEF* and *HP*, labelled by
+A copy states up to five leads — *CRI Rate*, *ATK*, *DEF*, *HP* and *ACC*, labelled by
 stat under *Leads and bonuses* on the monster overlay — each
 a whole percentage, CRI Rate in points. ATK, DEF and HP leads are a share of base
 summed with every other percentage and rounded once, exactly as the game counts a
@@ -164,6 +164,46 @@ team's leader skill itself.
 The green mark after a stat names the lead that reaches past it, and the green mark
 after a composite names what it counted. A blank lead means none; an explicit zero
 is kept as the user's choice.
+
+### 2.2.4 Sets on teammates
+
+The column to the right of *Leads and bonuses* accepts completed **Fight**,
+**Determination**, **Enhance**, **Accuracy** and **Tolerance** sets on the
+**other monsters on this team only**. A blank is absent; an explicit zero is
+kept. Each count is a whole number from 0 to 15 (the five other members of a
+six-monster team can each carry three two-piece sets). Every count survives or
+fails preference validation independently.
+
+Com2uS' [official Rune System guide](https://www.summonerswar.com/en/skyarena/game)
+says these five sets affect all monsters. **That includes their holder**, as
+`RUNE-CANONICAL.md` §10 already records. Fight adds 8% base ATK per set,
+Determination 8% base DEF, Enhance 8% base HP, Accuracy 10 ACC percentage points,
+and Tolerance 10 RES percentage points. Sets stack additively; they are not
+multiplicative buffs. SWCalc's mechanics page does not state a different team-set
+rule.
+
+The stat sheet automatically counts this monster's own completed sets, including
+one completed by an Intangible rune, exactly once. The search counts the sets of
+each candidate build, never the sets of the build being replaced. Its five own
+team-set contributions are included in its eight own stats; this is a calculated
+self-contribution, not a claim that the out-of-battle game panel displays a team
+aura. The previous omission in `monster-stats.ts` was a defect, not an alternate
+rule.
+
+Other monsters' sets follow the existing lead convention: their HP, ATK and DEF
+contributions join the additive combat percentages before the single rounding and
+therefore reach DMG, E.HP and E.HP D, without changing those stats' ranges. ACC
+lead and external Accuracy/Tolerance sets leave ACC/RES ranges and rankings on the
+monster's own values, too; the green info mark gives their combined combat bonus
+and, beside a current value, the resulting battle value capped at 100%. They do
+not silently lower a stated own-stat floor. The settings tooltip explicitly warns
+against entering this monster's own sets a second time.
+
+The overlay, shortfall check, search, graphics-card input and rereading a found
+build all take the same combat bonuses. The profile keeps them per content area,
+like its other choices; these are manual counts, not inferred team totals or a
+second placement model. Shield grants a shield rather than one of these five
+stat bonuses and is outside this column.
 
 ### 2.3 The figure to rank by
 
