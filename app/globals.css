@@ -296,11 +296,11 @@ label[for] {
 }
 
 /* Title — what a panel, card, dialog or disclosure is called. */
-.type-title, .block-title, .bar-head b, .dialog h2, .role-name, .route-name,
+.type-title, .block-title, .bar-head b, .dialog h2, .role-name, .reapp-name, .route-name,
 .route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
 .rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder,
 /* Heading — a named block inside a panel, one step below a title. */
-.type-heading, .field-legend, .slider-label, .editor-block-title,
+.type-heading, .field-legend, .slider-label, .editor-block-title, .reapp-column-title,
 .artifact-conversion-title, .artifact-scope-box h3, .artifact-scope-subheading,
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
@@ -3504,13 +3504,15 @@ label[for] {
   margin-right: var(--s2);
 }
 
-.role-card {
+/* A re-app/refine slot wears the role card's frame under a name of its own, so
+   `.role-card` still means a role to every reader that counts or drags them. */
+.role-card, .reapp-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--sunk);
   padding: var(--s4) var(--s5) var(--s5);
 }
-.role-card:hover { border-color: var(--line-strong); }
+.role-card:hover, .reapp-card:hover { border-color: var(--line-strong); }
 
 /* The rule closes the name and its type together, so the two read as one
    heading rather than as a heading and a first row. */
@@ -3536,7 +3538,7 @@ label[for] {
   color: var(--text-muted);
   transition: color .12s, border-color .12s, background .12s;
 }
-.role-card:hover .icon-button { color: var(--text-muted); }
+.role-card:hover .icon-button, .reapp-card:hover .icon-button { color: var(--text-muted); }
 .icon-button:hover:not(:disabled) {
   color: var(--text-accent);
   border-color: var(--line-strong);
@@ -3547,7 +3549,7 @@ label[for] {
 .icon-button:focus-visible { color: var(--text-accent); }
 /* A long name wraps rather than pushing the actions off the line, and stops at
    three lines so one role cannot take a screen to itself. */
-.role-name {
+.role-name, .reapp-name {
   margin: 0;
   color: var(--text-accent);
   overflow-wrap: anywhere;
@@ -3697,13 +3699,40 @@ label[for] {
   .target-line { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 @media (min-width: 1921px) and (max-width: 720px) {
-  .role-card { padding: var(--s4); }
+  .role-card, .reapp-card { padding: var(--s4); }
   /* the label moves above its value so neither column is squeezed */
   .role-row { grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
   .target-line { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   /* three sets of main stats will not fit a phone; one slot per line does */
   .slot-group { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Re-app/refine targets borrow the role card, one slot per card with re-app
+   on the left and refine on the right. A switched-off target folds to its
+   heading and recedes; a slot with both off dims its name too. */
+.reapp-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s6); }
+.reapp-column { min-width: 0; }
+.reapp-column-head { display: flex; align-items: baseline; gap: var(--s3); }
+.reapp-column-title { margin: 0; color: var(--text-strong); }
+.reapp-column .role-type { margin: 0; }
+.reapp-column[data-enabled='false'] .reapp-column-title,
+.reapp-card[data-enabled='false'] .reapp-name { color: var(--text-muted); }
+.reapp-card .role-row { grid-template-columns: 160px minmax(0, 1fr); }
+/* The editor gives each side a column of its own, wide enough for the three
+   short dropdowns to share a line. */
+.dialog.editor.reapp-editor { width: min(1040px, 100%); }
+.reapp-editor-body { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; column-gap: var(--s6); }
+/* One shrinkable track: an auto track grows to its widest pill row, which pushed
+   a column holding eight sets past its half of the dialog. */
+.reapp-editor-column { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); align-content: start; min-width: 0; }
+.reapp-editor-column-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); }
+@media (max-width: 720px) {
+  .reapp-columns, .reapp-editor-body { grid-template-columns: minmax(0, 1fr); }
+}
+.reapp-editor-pair { display: flex; flex-wrap: wrap; gap: var(--s4); }
+.reapp-grade { width: 160px; }
+.reapp-innate { width: 144px; }
+.reapp-editor-pair .jaswa-select { width: 100%; }
 
 .checkbox-row {
   display: flex; align-items: center; gap: var(--s3);
@@ -5850,6 +5879,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   border-radius: var(--radius-sm);
   box-shadow: 0 18px 44px rgba(0, 0, 0, .55);
 }
+.token-choice-panel[data-above] { top: auto; bottom: calc(100% + var(--s1)); }
 .token-choice-list { list-style: none; margin: 0; padding: var(--s1); display: grid; }
 .token-choice-option {
   width: 100%;
@@ -6444,6 +6474,8 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-verdict[data-verdict='power-up'] { color: var(--state-good); }
 .rune-verdict:is([data-verdict='keep'], [data-verdict='unsellable'], [data-verdict='locked']) { color: var(--text-strong); }
 .rune-verdict[data-verdict='sell'] { color: var(--state-bad); }
+/* Something left to do with the rune, in the verdicts' own yellow. */
+.rune-verdict:is([data-verdict='reapp'], [data-verdict='refine']) { color: var(--state-warn); }
 /* Always present and one line high, so moving a slider can replace one reading
    with another without changing the row's height under the reader. */
 .rune-advice-reason {
@@ -6512,6 +6544,9 @@ th.align-center .rank-heading { justify-content: center; }
    the count for a reader that cannot see the repeated marks. */
 .rune-filter-stars .filter-group-controls { gap: var(--s1); }
 .rune-filter-stars .filter-button { padding-inline: var(--s2); }
+/* Five verdicts take the stars' tighter spacing, and wrap where even that is too wide. */
+.rune-filter-advice .filter-group-controls { gap: var(--s1); flex-wrap: wrap; }
+.rune-filter-advice .filter-button { padding-inline: var(--s2); }
 .rune-star-choice { display: inline-flex; align-items: center; gap: var(--s1); }
 .rune-star-count { font-variant-numeric: tabular-nums; }
 .rune-star-icon { width: 9px; height: 9px; flex: 0 0 9px; }

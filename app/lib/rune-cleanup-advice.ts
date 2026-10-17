@@ -30,6 +30,7 @@ import type { RuneFuture, RuneRuns } from './rune-power-up-outcomes';
 import type { Valuation } from './rune-substat-weights';
 import { lastSubPropertyLevel } from './rune-properties';
 import { craftedLines, groundLines } from './rune-craft-end-state';
+import { holdsBestLineTypes, isRerollTarget } from './rune-reapp-targets';
 import type { EndStateLine } from './rune-craft-end-state';
 
 /* Slot balance is a yardstick, not another user preference. Keeping it at the
@@ -301,7 +302,7 @@ type Contender = {
  */
 type Step = { candidate: Contender; passesValue: boolean; asks: number[] };
 
-type RunePlan = { rune: Rune; steps: Step[] };
+type RunePlan = { rune: Rune; steps: Step[]; bestLineTypes: boolean };
 
 type Answer = {
   value: number; maxValue: number; chance: number; share: number; floorMaxValue: number;
@@ -312,13 +313,16 @@ type Answer = {
 
 type AnswerWithStep = { answer: Answer; passesValue: boolean };
 
-export type RuneVerdict = 'power-up' | 'keep' | 'sell';
+/** `reapp` and `refine` are never the engine's own answer: only the user's re-app and
+    refine targets (`rune-reapp-targets.ts`) put them on a rune, through `withRuneSellProtection`. */
+export type RuneVerdict = 'power-up' | 'keep' | 'reapp' | 'refine' | 'sell';
 
-export const runeVerdictOrder: readonly RuneVerdict[] = ['power-up', 'keep', 'sell'];
 
 export const runeVerdictLabels: Record<RuneVerdict, string> = {
   'power-up': 'Power up',
   keep: 'Keep',
+  reapp: 'Re-app',
+  refine: 'Refine',
   sell: 'Sell',
 };
 
@@ -416,6 +420,14 @@ export type RuneAdvice = {
    * which asks about every rune at once, has no use for the other nine.
    */
   readings: RoleReading[] | null;
+  /**
+   * Whether some build of some role that takes this rune's main values its four sub
+   * property types above every other type it could carry (`holdsBestLineTypes`) —
+   * the half of a refine target only the engine can answer, because it needs each
+   * build's prices. Read from every build, not only the one the row names: a rune
+   * an attack build reads best may still be a support build's perfect refine.
+   */
+  bestLineTypes: boolean;
 };
 
 /**
@@ -685,7 +697,10 @@ export async function runeAdvice(
       steps.push({ candidate, passesValue, asks: [askOf(candidate)] });
     }
 
-    prepared.push({ rune, steps });
+    prepared.push({ rune, steps, bestLineTypes: candidates.some(({ role, prepared: candidate }) => {
+      const line = base.get(role.type);
+      return line !== undefined && holdsBestLineTypes(rune, candidate, line);
+    }) });
     onProgress?.(prepared.length / (2 * runes.length));
   }
 
@@ -737,6 +752,7 @@ export async function runeAdvice(
       craftedLines: chosen ? finishedLines(chosen.candidate) : null,
       buildMains: chosen ? chosen.candidate.build.mains : null,
       readings: explain ? roleReadings(roles, answersWithSteps, allowed, chanceBar, worthOf) : null,
+      bestLineTypes: plan.bestLineTypes,
     }, settings));
     onProgress?.((runes.length + advice.size) / (2 * runes.length));
   }
@@ -870,7 +886,7 @@ function decide({ rune, value, standing, chance, role, rank, cleared, brokenReje
   rune: Rune; value: number; standing: number; chance: number;
   role: RuneRole | null; rank: MatchRank;
   cleared: boolean; brokenRejected: boolean;
-}): Omit<RuneAdvice, 'craftedLines' | 'buildMains' | 'floorShare' | 'floorMaxValue' | 'readings'> {
+}): Omit<RuneAdvice, 'craftedLines' | 'buildMains' | 'floorShare' | 'floorMaxValue' | 'readings' | 'bestLineTypes'> {
   const base = { maxValue: value, standing, chance, role, rank };
   if (role === null) {
     return { ...base, verdict: 'sell', reason: 'No role can use it' };
@@ -915,6 +931,21 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
     && advice.chance >= 0.01 && advice.maxValue >= potentialMinimum / 100;
   const protectedEngravings = settings.neverSellEngravedPlacements
     && places.some((place) => place.presetId !== scenarioPresetId);
+  /* A re-app or refine target names what to do with the rune rather than only
+     forbidding its sale, so it outranks the other safeguards and whatever the
+     engine said. Refine is asked first: a rune that already holds the four best
+     types needs only better rolls, which is what refinement gives without
+     gambling the types. */
+  if (settings.neverSellReappTargets) {
+    for (const [kind, targets, reason] of [
+      ['refine', settings.refineTargets, 'Refine target'],
+      ['reapp', settings.reappTargets, 'Re-app target'],
+    ] as const) {
+      if (isRerollTarget(rune, targets, kind, advice.bestLineTypes)) {
+        return { ...advice, unprotectedAdvice: original, verdict: kind, reason };
+      }
+    }
+  }
   if (!protectedSpeed && !protectedPotential && !protectedEngravings) return advice.unprotectedAdvice ? { ...advice, ...original } : advice;
   return {
     ...advice, unprotectedAdvice: original,

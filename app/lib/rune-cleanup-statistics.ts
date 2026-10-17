@@ -43,7 +43,9 @@ export function withRuneStatisticsProtection(statistics: RuneCleanupStatistics, 
   for (let index = 0; index < zero.length; index += 1) {
     if (verdict(zero[index]) !== 'power-up') continue;
     rolled += 1;
-    if (verdict(nine[index]) === 'power-up' && verdict(twelve[index]) === 'keep') kept += 1;
+    /* A re-app or refine target at +12 stays in the box, so it is kept. */
+    const end = verdict(twelve[index]);
+    if (verdict(nine[index]) === 'power-up' && (end === 'keep' || end === 'reapp' || end === 'refine')) kept += 1;
   }
   return { ...statistics,
     percentToRoll: zero.length ? rolled / zero.length * 100 : 0,

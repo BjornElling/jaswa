@@ -185,11 +185,11 @@ export function runeChanceText(chance: number): string {
 
 /** The verdicts in the order they rank, so sorting by advice reads as a priority.
     A held rune ranks as the Keep it stands for, then after the engine's own Keeps. */
-const verdictRank: Readonly<Record<string, number>> = { 'power-up': 0, keep: 1, sell: 2 };
+const verdictRank: Readonly<Record<string, number>> = { 'power-up': 0, keep: 1, reapp: 2, refine: 3, sell: 4 };
 const holdRank: Readonly<Record<RuneHoldVerdict | 'none', number>> = { none: 0, unsellable: 1, locked: 2 };
 
 function adviceRank(row: RuneCleanupRow): number {
-  return (verdictRank[filteredRuneVerdict(shownRuneVerdict(row))] ?? 3) * 3 + holdRank[row.hold ?? 'none'];
+  return (verdictRank[filteredRuneVerdict(shownRuneVerdict(row))] ?? 5) * 3 + holdRank[row.hold ?? 'none'];
 }
 
 /**

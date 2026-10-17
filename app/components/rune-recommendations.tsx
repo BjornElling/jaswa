@@ -24,7 +24,7 @@ import { monsterCopyNamesIn } from '../lib/monster-names';
 import { engravingLines } from '../lib/presets';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
-import { runeVerdictLabels, runeVerdictOrder, withRuneSellProtection } from '../lib/rune-cleanup-advice';
+import { runeVerdictLabels, withRuneSellProtection } from '../lib/rune-cleanup-advice';
 import type { RuneVerdict } from '../lib/rune-cleanup-advice';
 import {
   calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
@@ -87,6 +87,12 @@ const placeOptions = ['engraved', 'inventory'] as const;
 type RunePlace = typeof placeOptions[number];
 const placeLabels: Readonly<Record<RunePlace, string>> = { engraved: 'Engraved', inventory: 'Inventory' };
 
+/* The Advice filter asks one question of the two rerolls: which runes go to a stone.
+   Its `reapp` option stands for both, and the rows still say which stone. */
+const adviceFilterOptions: readonly RuneVerdict[] = ['power-up', 'keep', 'reapp', 'sell'];
+const adviceFilterLabel = (verdict: RuneVerdict) => (verdict === 'reapp' ? 'Re-app/refine' : runeVerdictLabels[verdict]);
+const adviceFilterOf = (verdict: RuneVerdict): RuneVerdict => (verdict === 'refine' ? 'reapp' : verdict);
+
 /* The table opens in the game's own Obtained order, newest first, so it reads
    like the box the player just left in Summoners War. */
 const defaultRuneFilters: RuneFilterState = {
@@ -105,7 +111,7 @@ function isRuneFilterState(value: unknown): value is RuneFilterState {
     && Array.isArray(candidate.selectedSets) && candidate.selectedSets.every((e) => typeof e === 'string')
     && Array.isArray(candidate.selectedSlots) && candidate.selectedSlots.every((e) => slotOptions.includes(e as number))
     && Array.isArray(candidate.selectedVerdicts)
-    && candidate.selectedVerdicts.every((e) => runeVerdictOrder.includes(e as RuneVerdict))
+    && candidate.selectedVerdicts.every((e) => adviceFilterOptions.includes(e as RuneVerdict))
     && Array.isArray(candidate.selectedMains) && candidate.selectedMains.every((e) => typeof e === 'number')
     && Array.isArray(candidate.selectedStars) && candidate.selectedStars.every((e) => starOptions.includes(e as number))
     && Array.isArray(candidate.selectedQualities)
@@ -397,7 +403,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
       if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
       if (selectedStars.length && !selectedStars.includes(row.rune.stars)) return false;
       if (selectedQualities.length && !selectedQualities.includes(row.rune.rarity)) return false;
-      if (selectedVerdicts.length && !selectedVerdicts.includes(filteredRuneVerdict(shownRuneVerdict(row)))) return false;
+      if (selectedVerdicts.length && !selectedVerdicts.includes(adviceFilterOf(filteredRuneVerdict(shownRuneVerdict(row))))) return false;
       if (selectedMains.length && !selectedMains.includes(row.rune.mainStatId)) return false;
       if (row.rune.level < lowestLevel || row.rune.level > highestLevel) return false;
       if (!term) return true;
@@ -555,8 +561,8 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 enters the calculation. */}
             {toggleGroup('Location', 'Filter by location', placeOptions, selectedPlaces,
               'selectedPlaces', (place) => placeLabels[place], 'rune-filter-usage')}
-            {toggleGroup('Advice', 'Filter by advice', runeVerdictOrder, selectedVerdicts,
-              'selectedVerdicts', (verdict) => runeVerdictLabels[verdict], 'rune-filter-advice')}
+            {toggleGroup('Advice', 'Filter by advice', adviceFilterOptions, selectedVerdicts,
+              'selectedVerdicts', adviceFilterLabel, 'rune-filter-advice')}
           </div>
           <div className="rune-filter-column">
             <div className="filter-group rune-speed-protection" role="group" aria-label="Never sell if...">
@@ -606,6 +612,15 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                     checked={settings.neverSellEngravedPlacements}
                     onChange={(event) => onUpdate({ neverSellEngravedPlacements: event.target.checked })} />
                   <label htmlFor="rune-engraving-protection">Engraved in non-Scenario preset</label>
+                </div>
+              </div>
+              {/* The targets themselves are set in Rune Settings, under Re-app/refine target. */}
+              <div className="filter-group-controls">
+                <div className="checkbox-row">
+                  <input id="rune-reapp-protection" type="checkbox" aria-label="Re-app/refine target"
+                    checked={settings.neverSellReappTargets}
+                    onChange={(event) => onUpdate({ neverSellReappTargets: event.target.checked })} />
+                  <label htmlFor="rune-reapp-protection">Re-app/refine target</label>
                 </div>
               </div>
             </div>

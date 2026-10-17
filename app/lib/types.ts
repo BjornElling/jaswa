@@ -5,6 +5,7 @@ import type { CraftRollAssumption } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
 import type { RuneLocks } from './rune-locks';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
+import type { ReappTargets } from './rune-reapp-targets';
 import type { RuneRole } from './rune-roles';
 import type { SpeedTuningPreferences } from './speed-tuning-preferences';
 
@@ -28,7 +29,7 @@ export type ImportedGame = {
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type ArtifactConversionStoneMode = 'none' | 'owned' | 'theoretical';
 /** `null` for a craft roll is the slider's first stop: no item credited at all. */
-export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; gemRoll: CraftRollAssumption | null; grindstoneRoll: CraftRollAssumption | null; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null; neverSellEngravedPlacements: boolean };
+export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; gemRoll: CraftRollAssumption | null; grindstoneRoll: CraftRollAssumption | null; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null; neverSellEngravedPlacements: boolean; neverSellReappTargets: boolean; reappTargets: ReappTargets; refineTargets: ReappTargets };
 /**
  * How the companion program is allowed to feed JASWA once it is connected.
  *

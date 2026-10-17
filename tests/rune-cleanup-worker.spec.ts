@@ -165,6 +165,7 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
         neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
         neverSellPotentialValue: false, potentialValueMinimum: null,
         neverSellEngravedPlacements: false,
+        neverSellReappTargets: false, reappTargets: [], refineTargets: [],
       },
     };
     /* Both started in one tick, so the second is created before any worker message

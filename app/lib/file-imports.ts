@@ -4,6 +4,7 @@ import type {
 } from './types';
 import { readMonsterPreferences } from './monster-preferences';
 import { readRuneHolds } from './rune-holds';
+import { defaultReappTargets, readReappTargets } from './rune-reapp-targets';
 import { readMonsterPriority, readPresetPriority } from './monster-priority';
 import { readOwnPresets } from './presets';
 import { readArtifact } from './artifacts';
@@ -48,6 +49,9 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
   neverSellPotentialValue: true,
   potentialValueMinimum: 90,
   neverSellEngravedPlacements: true,
+  neverSellReappTargets: true,
+  reappTargets: defaultReappTargets('reapp'),
+  refineTargets: defaultReappTargets('refine'),
 };
 
 /* Half credit is the honest midpoint of §19.6's question, and it reads as
@@ -134,7 +138,11 @@ const artifactSettingChecks: FieldChecks<ArtifactSettings> = {
   recalculate: isOneOf(artifactRecalculateModes),
 };
 
-const runePotentialSettingChecks: FieldChecks<RunePotentialSettings> = {
+/* The re-app and refine targets are six records each with fields of their own,
+   so they are read one field at a time by their own reader rather than kept or
+   lost whole here. `neverSellReappTargets` keeps its stored name and covers both. */
+type RerollTargetKeys = 'reappTargets' | 'refineTargets';
+const runePotentialSettingChecks: FieldChecks<Omit<RunePotentialSettings, RerollTargetKeys>> = {
   powerUpPolicy: isWholeNumberIn(1, 5),
   runeQuality: isWholeNumberIn(1, 5),
   gemRoll: isOneOf(craftSettingAssumptions),
@@ -150,7 +158,16 @@ const runePotentialSettingChecks: FieldChecks<RunePotentialSettings> = {
   neverSellPotentialValue: isBoolean,
   potentialValueMinimum: (value) => value === null || isWholeNumberIn(0, 999)(value),
   neverSellEngravedPlacements: isBoolean,
+  neverSellReappTargets: isBoolean,
 };
+
+function readRunePotentialSettings(value: unknown, fallback: RunePotentialSettings): RunePotentialSettings {
+  return {
+    ...readSettings<Omit<RunePotentialSettings, RerollTargetKeys>>(value, fallback, runePotentialSettingChecks),
+    reappTargets: readReappTargets(isRecord(value) ? value.reappTargets : undefined, 'reapp'),
+    refineTargets: readReappTargets(isRecord(value) ? value.refineTargets : undefined, 'refine'),
+  };
+}
 
 const preferenceSections = [
   'updatedAt', 'hardwareAcceleration', 'importRoute', 'directImportMode', 'general',
@@ -178,7 +195,7 @@ export function readPreferences(value: unknown, game: ImportedGame | null): Pref
     general: readGeneralSettings(stored.general),
     monsterPreferences: readMonsterPreferences(stored.monsterPreferences),
     runeHolds: readRuneHolds(stored.runeHolds),
-    runePotential: readSettings(stored.runePotential, blank.runePotential, runePotentialSettingChecks),
+    runePotential: readRunePotentialSettings(stored.runePotential, blank.runePotential),
     runePotentialPresets: readRuneRoles(stored.runePotentialPresets),
     artifacts: readSettings(stored.artifacts, blank.artifacts, artifactSettingChecks),
     speedTuning: readSpeedTuningPreferences(stored.speedTuning),

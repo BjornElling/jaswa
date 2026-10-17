@@ -25,6 +25,7 @@ import type { RuneCleanupStatistics } from '../lib/rune-cleanup-statistics';
 import { withRuneStatisticsProtection } from '../lib/rune-cleanup-statistics';
 import { referenceLines } from '../lib/rune-reference-stats';
 import { RuneRecommendations } from './rune-recommendations';
+import { ReappTargetList } from './reapp-target-list';
 import type { RuneCleanupSession } from '../lib/rune-cleanup-session';
 import { useDragReorder } from './use-drag-reorder';
 import type { ReorderEntryProps } from './use-drag-reorder';
@@ -297,6 +298,11 @@ export function RuneSetupSection({ game, settings, roles, general, hardwareAccel
             />)}
           </div>}
       </div>
+    </Disclosure>
+
+    <Disclosure title="Re-app/refine target" sessionKey="rune-setup.reapp-targets">
+      <ReappTargetList reapp={settings.reappTargets} refine={settings.refineTargets}
+        onChange={(kind, targets) => void onUpdate(kind === 'reapp' ? { reappTargets: targets } : { refineTargets: targets })} />
     </Disclosure>
 
     {editing && <RoleEditor

@@ -238,6 +238,7 @@ const baseSettings = {
   neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
   neverSellPotentialValue: false, potentialValueMinimum: null,
   neverSellEngravedPlacements: false,
+  neverSellReappTargets: false, reappTargets: [], refineTargets: [],
 };
 
 const shipped = defaultRuneRoles();

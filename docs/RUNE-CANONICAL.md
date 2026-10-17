@@ -347,6 +347,24 @@ Property-værdier og Power-up-levels: typerne ændres ikke. Grindstone-tillæg
 bevares. En Rune med en Gem-konverteret Sub Property kan ikke Rune Refine;
 systemet må derfor afvise handlingen, ikke simulere en undtagelse.
 
+**Checked again on 17 October 2026** against the official v9.0.0 notice
+(12 November 2025, sources 3 and 13): "Refinement Stone allows you to redistribute
+sub property values and Power-up levels while keeping the sub property types
+unchanged", "Refinement can be performed only on Runes powered up to +12 or
+higher", "Refinement Stones cannot be used on Intangible Runes, Ancient Runes, or
+Runes converted with an Enchanted Gem", and "Sub property values amplified with
+Grindstones are retained". A Grindstone therefore does not bar refinement; only a
+Gem does. The notice does not say whether a refinement can be declined.
+
+Reappraisal, checked the same day: a Reappraisal Stone needs a rune at +12 or
+higher and rerolls all four sub properties, keeping main and innate; the result
+may be accepted or refused, and accepting it removes every Gem and Grindstone
+effect (source 4, Reappraisal Stone). An Ancient rune takes an **Ancient**
+Reappraisal Stone instead, under the same +12 rule (source 4, Ancient
+Reappraisal Stone). The RELOADED notice states that Intangible Runes are
+"restricted from using Reappraisal Stones" (source 2). Neither stone has a
+rarity or star requirement.
+
 ## 10. Rune Sets
 
 Et set aktiveres ved antallet i kolonnen **Set**. To-set-effekter kan normalt
@@ -613,7 +631,7 @@ produktbeslutninger, ikke spilfakta. De står kun i arbejdsdokumentet.
 
 1. Com2uS, [Rune System — aktuel spilguide](https://summonerswar.com/en/skyarena/game) — seteffekter, all-monsters-formuleringen, Shield-varighed og Intangible-loft.
 2. Com2uS, [RELOADED developer's note](https://summonerswar.com/en/skyarena/news/list/4225) — Seal, Intangible, power-up og Intangible-begrænsninger.
-3. Com2uS, [v9.0.0 update notice](https://summonerswar.com/en/skyarena/news/list/6113) — Rune Refinement og begrænsninger.
+3. Com2uS, v9.0.0 update notice, 12 November 2025 — Rune Refinement og begrænsninger. The link this entry used to carry, `summonerswar.com/en/skyarena/news/list/6113`, is a *list* page that shows the newest notice (v9.3.6 on 17 October 2026), not v9.0.0; source 13 is a fixed copy of the text.
 4. [Spokland — Rune Sets](https://summonerswar.spokland.com/rune/set), [Prefix Property](https://summonerswar.spokland.com/rune/prefix), [Sub Property](https://summonerswar.spokland.com/rune/sub-stat), [Enchanted Gem](https://summonerswar.spokland.com/rune/enchanted_gem), [Grindstone](https://summonerswar.spokland.com/rune/grindstone), [Reappraisal Stone](https://summonerswar.spokland.com/rune/reappraisal_stone) og [Ancient Rune](https://summonerswar.spokland.com/rune/ancient_rune) — detaljer om stacking og kampvirkning samt intervaltabeller og Ancient-itemadskillelse. Sekundær kilde; aktuel officiel spiltekst eller reproducerbar klientobservation vinder ved konflikt.
 5. [Summoners War: Sky Arena Wiki — Runes](https://summonerswar.fandom.com/wiki/Runes), [Enchanted Gem](https://summonerswar.fandom.com/wiki/Enchanted_Gem) og [Grindstone](https://summonerswar.fandom.com/wiki/Grindstone) — krydstjek af slots, Shield-grundlag, Gem/Grindstone-regler og almindelige set-effekter. Sekundær kilde.
 6. [SWEX mapping.js](https://github.com/Xzandro/sw-exporter/blob/master/app/mapping.js) — eksportens set-ID-mapping samt Gem- og Grindstone-tabeller.
@@ -623,6 +641,7 @@ produktbeslutninger, ikke spilfakta. De står kun i arbejdsdokumentet.
 10. Brugerleveret `full_log.txt`, 23. august 2026 — ingen Rune Statistics-forespørgsel forekommer i den konkrete log.
 11. [Xzandros Ancient roll tables](https://www.reddit.com/r/summonerswar/comments/c0dc2h/ancient_grindstone_ancient_enchanted_gems_min_max/) — Ancient-startintervaller samt Ancient Gem- og Grindstone-tabeller. Sekundær, men den komplette tabel er krydstjekket mod observerede eksportværdier; en reproducerbar klientmåling vinder ved konflikt.
 12. Udviklerens fastlæggelse, 29. september 2026 — en power-up forbedrer hver eksisterende Sub Property med lige stor sandsynlighed, og en ny Sub Property er ligefordelt over de lovlige stattyper (§7).
+13. [Spokland — v9.0.0 Update Notice, 2025-11-12](https://summonerswar.spokland.com/game/update/v9.0.0_update_notice-2025-11-12) — a copy of the official notice's Rune Refinement text, quoted in §9. Secondary as a host, primary in wording.
 
 Ved hver spilopdatering skal set-tabellen, `class`/`extra`-mapping og
 Sub Property-intervaller revalideres. Et ukendt felt eller Rune Set må aldrig
