@@ -146,19 +146,26 @@ function presetPlaceName(place: string | null, places: Places): ReactNode {
   return place === null ? 'Inventory' : monsterName(place, places.presetId, places);
 }
 
-function gamePlaceName(runeId: string, place: string | null, places: Places): ReactNode {
+/* The game's one exception to naming the Scenario monster: a rune taken off a
+   monster in this preset since the import, while that monster still carries it
+   in Scenario, is unengraved in this preset's rune list, so here too. */
+function freedFromScenarioMonster(runeId: string, place: string | null, loadedPlace: string | null | undefined, places: Places): boolean {
+  return place === null && loadedPlace != null && loadedPlace === (places.scenarioPlaces?.get(runeId) ?? null);
+}
+
+function gamePlaceName(runeId: string, place: string | null, places: Places, loadedPlace?: string | null): ReactNode {
   if (place !== null) return presetPlaceName(place, places);
   const inScenario = places.scenarioPlaces?.get(runeId) ?? null;
-  return inScenario === null || inScenario === places.thisMonster
+  return inScenario === null || inScenario === places.thisMonster || freedFromScenarioMonster(runeId, place, loadedPlace, places)
     ? 'Inventory' : monsterName(inScenario, scenarioPresetId, places);
 }
 
 /* The place a card names for a rune, as an id: the preset's monster, else —
    outside Scenario — the Scenario monster the game's rune list shows, else none. */
-function shownPlace(runeId: string, place: string | null, places: Places): string | null {
+function shownPlace(runeId: string, place: string | null, places: Places, loadedPlace?: string | null): string | null {
   if (place !== null || places.presetId === scenarioPresetId) return place;
   const inScenario = places.scenarioPlaces?.get(runeId) ?? null;
-  return inScenario === places.thisMonster ? null : inScenario;
+  return inScenario === places.thisMonster || freedFromScenarioMonster(runeId, place, loadedPlace, places) ? null : inScenario;
 }
 
 /* Where the rune was, named as Location named it then. In a preset that left
@@ -217,17 +224,17 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
   if (picked.locked) location = 'This monster';
   else if (picked.issue?.kind === 'locked-away' && rune.occupiedId === null) location = 'Locked in the inventory';
   else if (rune.occupiedId === null || rune.occupiedId === places.thisMonster) {
-    location = gamePlaceName(rune.id, rune.occupiedId, places);
+    location = gamePlaceName(rune.id, rune.occupiedId, places, loadedPlace);
   } else {
-    const link = gamePlaceName(rune.id, rune.occupiedId, places);
+    const link = gamePlaceName(rune.id, rune.occupiedId, places, loadedPlace);
     location = picked.issue?.kind === 'locked-away' ? <>Locked to {link}</> : link;
   }
   /* Only where the place shown has really changed since the import: one moved
-     and moved back is where the game has it, and a rune freed in this preset
-     from a monster that still carries it in Scenario is shown on that monster
-     before and after, so Previously would only repeat Location. */
+     and moved back is where the game has it, so Previously would only repeat
+     Location. A rune freed here from its Scenario monster has moved: it reads
+     Inventory now and that monster before. */
   const moved = loadedPlace !== undefined
-    && shownPlace(rune.id, loadedPlace, places) !== shownPlace(rune.id, rune.occupiedId, places);
+    && shownPlace(rune.id, loadedPlace, places) !== shownPlace(rune.id, rune.occupiedId, places, loadedPlace);
   return <li className="rune-build-card" data-slot={picked.slot} aria-label={`Slot ${picked.slot}`}>
     <div className="rune-build-card-head">
       <RuneEmblem setName={rune.setName} slot={rune.slot} />

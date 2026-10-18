@@ -996,9 +996,10 @@ test('a rune on another monster in Scenario names that monster in a preset build
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'other-monster-location.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(locationAccount)),
   });
-  /* As after the other monster was rebuilt in this preset by JASWA: it carried these runes here
-     at import and has given them up, while Scenario still has them on it — the game shows them
-     on that monster before and after, so a Previously would only repeat Location. */
+  /* As after the other monster was rebuilt in this preset by JASWA: it carried slots 1–3 here
+     at import and has given them up, while Scenario still has them on it. The game's preset
+     shows those three unengraved; slots 4–6, which the preset never held, still name it. */
+  const freedRunes = locationRunes.filter((rune: { slot_no: number }) => rune.slot_no <= 3);
   await page.evaluate(async (runeIds) => new Promise<void>((resolve) => {
     const request = indexedDB.open('jaswa-local', 1);
     request.onsuccess = () => {
@@ -1010,7 +1011,7 @@ test('a rune on another monster in Scenario names that monster in a preset build
         store.put(game, 'imported-game').onsuccess = () => { request.result.close(); resolve(); };
       };
     };
-  }), locationRunes.map((rune: { rune_id: number }) => rune.rune_id));
+  }), freedRunes.map((rune: { rune_id: number }) => rune.rune_id));
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await openOptimization(page);
@@ -1021,10 +1022,17 @@ test('a rune on another monster in Scenario names that monster in a preset build
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const detail = page.getByRole('dialog', { name: 'Build 1' });
   await expect(detail.locator('.rune-build-card')).toHaveCount(6);
-  /* Free in the preset, each names the monster carrying it in Scenario, by name alone as the game does. */
+  /* Free in the preset, each names the monster carrying it in Scenario, by name alone as the game
+     does — unless it was taken off that very monster here, which leaves it unengraved here. */
   for (const card of await detail.locator('.rune-build-card').all()) {
-    await expect(card.locator('.rune-build-card-where').first()).toHaveText(`Location${otherName}`);
-    await expect(card.locator('.rune-build-card-where').nth(1)).toHaveAttribute('data-visible', 'false');
+    const slot = Number(await card.getAttribute('data-slot'));
+    if (slot <= 3) {
+      await expect(card.locator('.rune-build-card-where').first()).toHaveText('LocationInventory');
+      await expect(card.locator('.rune-build-card-where').nth(1)).toHaveText(`Previously${otherName}`);
+    } else {
+      await expect(card.locator('.rune-build-card-where').first()).toHaveText(`Location${otherName}`);
+      await expect(card.locator('.rune-build-card-where').nth(1)).toHaveAttribute('data-visible', 'false');
+    }
   }
   await detail.screenshot({ path: testInfo.outputPath('other-monster-engraved.png') });
 

@@ -441,10 +441,12 @@ an import, and are checked one preset at a time on load.
   or cross.
 
 **Rune Optimization.** A build's Location names the Scenario monster for a rune
-free in the selected preset, by name alone, as the game's rune list does. A
-rune freed in the preset from a monster that still carries it in Scenario is
-shown on that monster before and after, so it has no Previously. If that Scenario
-monster is the one being optimized, the card says *Inventory* instead: the
+free in the selected preset, by name alone, as the game's rune list does. The
+game makes one narrow exception, and so does JASWA: a rune the preset carried on
+a monster when the import was loaded, taken off that monster in the preset
+since, while the monster still carries it in Scenario, says *Inventory*, with
+that monster as its Previously. If the Scenario monster is the one being
+optimized, the card says *Inventory* too: the
 rune still has to be engraved in this preset, which the Changes figure counts.
 Previously names the rune's earlier place in that preset after JASWA moves it,
 in Location's words: a rune the preset left free names its Scenario monster.
