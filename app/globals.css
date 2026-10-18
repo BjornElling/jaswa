@@ -319,7 +319,7 @@ label[for] {
 /* Body — every sentence, label and value that is not a heading. */
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
 .overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
-.rune-build-set, .overlay-toggle, .overlay-lead,
+.rune-build-set, .overlay-toggle, .overlay-lead, .overlay-accuracy-label, .overlay-accuracy-value,
 .engraved-rune-main, .engraved-rune-innate, .engraved-rune-subs, .engraved-artifact-main, .engraved-artifact-subs,
 .engraved-relic-main, .engraved-relic-unique,
 .checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
@@ -5714,14 +5714,14 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .overlay-sort > .overlay-stat-head { align-self: center; }
 
-/* The switches that qualify the answers: four toggles two by two, each owning a
-   fixed cell so checking one moves nothing, and the leads beside them under their
-   own name, two to a column, every field one width so a typed lead moves nothing
-   either. */
+/* The switches that qualify the answers, three headed blocks abreast: four
+   toggles two by two, each owning a fixed cell so checking one moves nothing; the
+   leads, two to a column, every field one width so a typed lead moves nothing
+   either; and the area's Accuracy ceiling, which takes what is left. */
 .overlay-settings {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--s7);
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  gap: var(--s6);
   align-items: start;
 }
 .overlay-settings-toggles {
@@ -5731,14 +5731,28 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   align-items: center;
   gap: var(--s1) var(--s5);
 }
-.overlay-leads { display: grid; gap: var(--s1); justify-items: start; }
 .overlay-leads-fields {
   display: grid;
   grid-template-rows: repeat(2, auto);
   grid-auto-flow: column;
+  justify-content: start;
   gap: var(--s1) var(--s6);
 }
 .overlay-lead { display: grid; grid-template-columns: 9ch auto auto; align-items: center; gap: var(--s2); color: var(--text-muted); }
+/* Lines of a toggle row's height and spacing: the area at the left, the figure in
+   a column wide enough for "Variable", so changing area moves neither. An area
+   name too long for the line ends in an ellipsis and is named whole on hover. */
+/* Two lines are kept in every area, since Trial of Ascension names two ceilings. */
+.overlay-accuracy { display: grid; grid-template-rows: repeat(2, 28px); gap: var(--s1); }
+.overlay-accuracy-goal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7ch;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+}
+.overlay-accuracy-label { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.overlay-accuracy-value { margin: 0; text-align: right; color: var(--text-strong); font-variant-numeric: tabular-nums; }
 
 /* Every gear question on one grid: its name and the Preferred and Accepted
    lines. The answer columns are equal, so a pill added in one never moves the

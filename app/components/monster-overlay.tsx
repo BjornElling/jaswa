@@ -1,3 +1,4 @@
+import { accuracyCeilings } from '../lib/accuracy-ceiling';
 import { monsterProfileAreas, monsterProfileAreaName } from '../lib/monster-profile-scope';
 import type { MonsterProfileScope } from '../lib/monster-profile-scope';
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
@@ -451,6 +452,12 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
 
   const format = (value: number) => formatNumber(value, general);
 
+  const areaName = monsterProfileAreaName(preset ?? { kind: 'scenario', content: null });
+  const stated = accuracyCeilings(preset?.content?.id);
+  const accuracyGoals = stated.length === 0
+    ? [{ label: areaName, value: 'Variable' }]
+    : stated.map((ceiling) => ({ label: ceiling.part === undefined ? areaName : `${areaName} (${ceiling.part})`, value: `${ceiling.percent}%` }));
+
   const toggle = (label: string, checked: boolean, onChange: (checked: boolean) => void) =>
     <label className="overlay-toggle">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
@@ -593,12 +600,13 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
           </Section>}
 
           {/* The switches that qualify the answers above rather than being
-              answers of their own: which runes a build may use and how its
-              damage is counted on the left, and what a leader adds on the right.
-              Which held Immemorial items may be spent is not here — that is the
-              account's question, asked once on Rune Optimization. */}
-          {editable && <Section title="Settings">
-            <div className="overlay-settings">
+              answers of their own, three blocks abreast: which runes a build may
+              use and how its damage is counted, what a leader adds, and the most
+              Accuracy the area can use. Which held Immemorial items may be spent
+              is not here — that is the account's question, asked once on Rune
+              Optimization. */}
+          {editable && <div className="overlay-settings">
+            <Section title="Settings">
               <div className="overlay-settings-toggles" role="group" aria-label="Rune allowances and crit bonuses">
                 {toggle('Allow broken sets', resolved.runes.allowBroken,
                   (checked) => change((state) => ({ ...state, allowBrokenSets: checked })))}
@@ -611,23 +619,35 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
                 {toggle('Always element advantage', resolved.alwaysElementAdvantage,
                   (checked) => change((state) => ({ ...state, alwaysElementAdvantage: checked })))}
               </div>
-              <div className="overlay-leads" role="group" aria-label="Leads and bonuses">
-                <p className="overlay-row-label">Leads and bonuses</p>
-                <div className="overlay-leads-fields">
-                  {leadRows.map((row) => <label className="overlay-lead" key={row.stat}>
-                    <span>{row.label}</span>
-                    <input type="number" min={0} max={leadMaximum} step={1} inputMode="numeric"
-                      aria-label={`${row.label}, in percent`} placeholder="—" value={draft[leadFieldOf[row.stat]] ?? ''}
-                      onChange={(event) => {
-                        const value = readLeadField(event.target.value);
-                        change((state) => ({ ...state, [leadFieldOf[row.stat]]: value }));
-                      }} />
-                    <span>%</span>
-                  </label>)}
-                </div>
+            </Section>
+            <Section title="Leads and bonuses">
+              <div className="overlay-leads-fields" role="group" aria-label="Leads and bonuses">
+                {leadRows.map((row) => <label className="overlay-lead" key={row.stat}>
+                  <span>{row.label}</span>
+                  <input type="number" min={0} max={leadMaximum} step={1} inputMode="numeric"
+                    aria-label={`${row.label}, in percent`} placeholder="—" value={draft[leadFieldOf[row.stat]] ?? ''}
+                    onChange={(event) => {
+                      const value = readLeadField(event.target.value);
+                      change((state) => ({ ...state, [leadFieldOf[row.stat]]: value }));
+                    }} />
+                  <span>%</span>
+                </label>)}
               </div>
-            </div>
-          </Section>}
+            </Section>
+            {/* Follows the Build for menu, since the area is what sets the
+                ceiling; a long area name ends in an ellipsis rather than
+                pushing the figure off its fixed column. An area of two
+                ceilings takes two lines, within the height the leads already
+                give the row. */}
+            <Section title="Accuracy goals">
+              <div className="overlay-accuracy">
+                {accuracyGoals.map((goal) => <div className="overlay-accuracy-goal" key={goal.label}>
+                  <p className="overlay-accuracy-label" title={goal.label}>{goal.label}</p>
+                  <p className="overlay-accuracy-value">{goal.value}</p>
+                </div>)}
+              </div>
+            </Section>
+          </div>}
 
           {/* One grid for every gear question, so Preferred and Accepted each
               start on one vertical line and a row reads across. */}

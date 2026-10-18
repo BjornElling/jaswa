@@ -64,6 +64,54 @@ test('team bonuses follow the chosen preset automatically and the profile has on
   await expect(table.getByRole('cell', { name: full[8].trim(), exact: true }).first()).toBeVisible();
 });
 
+test('the Accuracy block names the area and its ceiling on one line, and changing area moves nothing', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  /* A Trial of Ascension deck beside the fixture's own, so one copy stands in a
+     player area, a dungeon with no known ceiling and one with a known one. */
+  const source = JSON.parse(readFileSync(account, 'utf8'));
+  source.deck_list.push({ deck_type: 6, deck_seq: 1, unit_id_list: [11, 0, 0, 0, 0], leader_unit_id: 0, equip: null });
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'automatic-team-bonuses.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(source)),
+  });
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Optimization', exact: true }).click();
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-1');
+  await page.getByRole('button', { name: 'Open profile', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { level: 3 })).toContainText(['Settings', 'Leads and bonuses', 'Accuracy goals']);
+  const label = dialog.locator('.overlay-accuracy-label');
+  const value = dialog.locator('.overlay-accuracy-value');
+  /* What sits around the goals, and the first goal's own line: neither may move
+     as the area changes, whatever the lines after it say. */
+  const boxes = () => dialog.locator('.overlay-block, .overlay-lead input, .overlay-accuracy-goal:first-child > *').evaluateAll((elements) =>
+    elements.map((element) => { const b = element.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; }));
+  const whole = () => dialog.locator('.overlay-accuracy-goal > *').evaluateAll((elements) => elements.every((element) => element.scrollWidth <= element.clientWidth));
+  await expect(label).toHaveText(['Arena Attack']);
+  await expect(value).toHaveText(['85%']);
+  expect(await whole()).toBe(true);
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('accuracy-arena.png') });
+  const area = dialog.getByLabel('Build for', { exact: true });
+  const cases: [string, string[], string[], string][] = [
+    ['Trial of Ascension', ['Trial of Ascension (Normal/Hard)', 'Trial of Ascension (Hell)'], ['45%', '55%'], 'toa'],
+    ["Giant's Keep", ["Giant's Keep"], ['Variable'], 'variable'],
+  ];
+  for (const [name, labels, values, shot] of cases) {
+    await area.selectOption({ label: name });
+    await expect(label).toHaveText(labels);
+    await expect(value).toHaveText(values);
+    expect(await whole()).toBe(true);
+    expect(await boxes()).toEqual(before);
+    await page.screenshot({ path: testInfo.outputPath(`accuracy-${shot}.png`) });
+  }
+  /* The longest area name the game has ends in an ellipsis rather than a second line. */
+  await label.first().evaluate((element) => { element.textContent = 'Sanctuary of Dreaming Fairies (Normal/Hard)'; });
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('accuracy-long.png') });
+});
+
 test('Now, the profile and a zero-move result agree with automatic team bonuses', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await open(page);
