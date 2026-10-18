@@ -39,7 +39,8 @@ export type RuneAdviceWorkerRequest = {
 };
 
 export type RuneAdviceWorkerResponse =
-  | { type: 'calibration'; requestId: number; active: boolean }
+  /** `fraction` is how far through the calibration is; `null` says it is over. */
+  | { type: 'calibration'; requestId: number; fraction: number | null }
   | { type: 'progress'; requestId: number; fraction: number }
   | { type: 'result'; requestId: number; advice: Map<string, RuneAdvice>; durationMs: number; backend: CalculationBackend }
   | { type: 'error'; requestId: number; message: string };

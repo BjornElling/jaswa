@@ -157,14 +157,20 @@ class RuneFloorCalibration {
     this.broken = broken;
   }
 
-  prepare(stars: readonly number[], onCalibration?: (active: boolean) => void): void {
+  /** Reports how far through it is, 0 to 1, then `null` once done. */
+  prepare(stars: readonly number[], onCalibration?: (fraction: number | null) => void): void {
     const missing = stars.filter((grade) => !this.floors.has(grade));
     if (!missing.length) return;
-    onCalibration?.(true);
+    /* Counted in sample runes judged, which is nearly all of the work. It says how
+       far through the calibration is, not how long is left: a population already
+       in the cache is skipped in one jump. */
+    const steps = missing.length * 6 * 3 * balanceSampleRunes;
+    let done = 0;
+    onCalibration?.(0);
     try {
-      for (const grade of missing) this.balanceOf(grade);
+      for (const grade of missing) this.balanceOf(grade, () => { done += 1; onCalibration?.(Math.min(1, done / steps)); });
     } finally {
-      onCalibration?.(false);
+      onCalibration?.(null);
     }
   }
 
@@ -172,7 +178,7 @@ class RuneFloorCalibration {
     return this.balanceOf(stars)[fourPiece ? 'fourPiece' : 'ordinary'][slot - 1] ?? this.qualityBar;
   }
 
-  private balanceOf(stars: number): BalancedFloors {
+  private balanceOf(stars: number, onSampleRune?: () => void): BalancedFloors {
     const known = this.floors.get(stars);
     if (known) return known;
     const policies = chanceThresholds;
@@ -205,6 +211,7 @@ class RuneFloorCalibration {
                 });
               }
             }
+            onSampleRune?.();
             return scores;
           }));
         return Array.from({ length: balanceSampleRunes }, (_, at) => checkpoints.map((checkpoint) => checkpoint[at]));
@@ -566,7 +573,8 @@ export async function runeAdvice(
   { explain = false, onProgress, onCalibration }: {
     explain?: boolean;
     onProgress?: (fraction: number) => void;
-    onCalibration?: (active: boolean) => void;
+    /** How far through the shared calibration, 0 to 1, then `null` once it is done. */
+    onCalibration?: (fraction: number | null) => void;
   } = {},
 ): Promise<Map<string, RuneAdvice>> {
   const { qualityBar, chanceBar, accepted, broken, intangible, credit } = policyOf(settings);
@@ -931,12 +939,13 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
     && advice.chance >= 0.01 && advice.maxValue >= potentialMinimum / 100;
   const protectedEngravings = settings.neverSellEngravedPlacements
     && places.some((place) => place.presetId !== scenarioPresetId);
-  /* A re-app or refine target names what to do with the rune rather than only
-     forbidding its sale, so it outranks the other safeguards and whatever the
-     engine said. Refine is asked first: a rune that already holds the four best
-     types needs only better rolls, which is what refinement gives without
-     gambling the types. */
-  if (settings.neverSellReappTargets) {
+  /* A re-app or refine target is a way out of a sale and nothing else: it is
+     only ever asked of a rune the engine would sell, so a rune worth powering up
+     or keeping is never sent to a stone. Asked there, it names what to do rather
+     than only forbidding the sale, so it outranks the other safeguards. Refine is
+     asked first: a rune that already holds the four best types needs only better
+     rolls, which is what refinement gives without gambling the types. */
+  if (settings.neverSellReappTargets && original.verdict === 'sell') {
     for (const [kind, targets, reason] of [
       ['refine', settings.refineTargets, 'Refine target'],
       ['reapp', settings.reappTargets, 'Re-app target'],

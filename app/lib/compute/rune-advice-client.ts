@@ -38,7 +38,7 @@ export type RuneAdviceChannel = {
    * to run to completion before the request that matters could start.
    */
   calculate: (request: RuneAdviceRequest, onProgress?: (fraction: number) => void,
-    onCalibration?: (active: boolean) => void) => Promise<RuneAdviceOutcome>;
+    onCalibration?: (fraction: number | null) => void) => Promise<RuneAdviceOutcome>;
   /**
    * Stop waiting for whatever is in flight.
    *
@@ -74,7 +74,7 @@ export function runeAdviceChannel(): RuneAdviceChannel {
   }
 
   function calculate(request: RuneAdviceRequest, onProgress?: (fraction: number) => void,
-    onCalibration?: (active: boolean) => void): Promise<RuneAdviceOutcome> {
+    onCalibration?: (fraction: number | null) => void): Promise<RuneAdviceOutcome> {
     if (waiting.size > 0) cancel();
     const requestId = nextRequestId;
     nextRequestId += 1;
@@ -89,7 +89,7 @@ export function runeAdviceChannel(): RuneAdviceChannel {
       const onMessage = (event: MessageEvent<RuneAdviceWorkerResponse>) => {
         if (event.data.requestId !== requestId) return;
         if (event.data.type === 'calibration') {
-          onCalibration?.(event.data.active);
+          onCalibration?.(event.data.fraction);
           return;
         }
         if (event.data.type === 'progress') {
@@ -122,7 +122,7 @@ export function runeAdviceChannel(): RuneAdviceChannel {
 /** Rune Clean-up's own channel, which its table has always used. */
 const cleanupChannel = runeAdviceChannel();
 export function calculateRuneAdvice(request: RuneAdviceRequest, onProgress?: (fraction: number) => void,
-  onCalibration?: (active: boolean) => void): Promise<RuneAdviceOutcome> {
+  onCalibration?: (fraction: number | null) => void): Promise<RuneAdviceOutcome> {
   if (activeRefresh?.channel === cleanupChannel) cancelRuneAdviceRefresh();
   return cleanupChannel.calculate(request, onProgress, onCalibration);
 }

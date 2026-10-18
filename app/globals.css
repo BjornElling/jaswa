@@ -3726,6 +3726,10 @@ label[for] {
    a column holding eight sets past its half of the dialog. */
 .reapp-editor-column { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); align-content: start; min-width: 0; }
 .reapp-editor-column-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); }
+/* A way out, not a question: quieter than the fields below it, box and words alike. */
+.reapp-disable .checkbox-row { color: var(--text-muted); }
+.reapp-disable input[type='checkbox'] { border-color: var(--line-strong); }
+.reapp-disable input[type='checkbox']:not(:checked) { background: transparent; }
 @media (max-width: 720px) {
   .reapp-columns, .reapp-editor-body { grid-template-columns: minmax(0, 1fr); }
 }
@@ -6527,8 +6531,8 @@ th.align-center .rank-heading { justify-content: center; }
   position: relative; padding-bottom: calc(2lh + var(--s2));
 }
 .rune-cleanup-progress {
-  /* Both calibration lines fit before work starts, so switching to a percentage
-     cannot move the button or its neighbouring filters. */
+  /* Both calibration lines fit before work starts, so neither percentage nor the
+     switch from one to the other can move the button or its neighbouring filters. */
   position: absolute; bottom: 0; right: 0; width: 100%; height: 2lh;
   white-space: pre-line; opacity: 0;
 }

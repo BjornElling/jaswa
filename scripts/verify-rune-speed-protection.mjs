@@ -145,7 +145,7 @@ const openTarget = { enabled: true, sets: [], minimumRarity: 'Normal', mains: []
 const onlySlot = (target) => defaultReappTargets().map((entry, at) => (at === rune.slot - 1 ? target : { ...entry, enabled: false }));
 const reappWith = (target, candidate = rune) =>
   withRuneSellProtection(candidate, original, { ...reappSettings, reappTargets: onlySlot(target) });
-// Nothing filled in: an enabled target with no requirement takes every rune of its slot, whatever the engine said.
+// Nothing filled in: an enabled target with no requirement takes every rune of its slot the engine would sell.
 const open = reappWith(openTarget);
 assert.equal(open.verdict, 'reapp');
 assert.equal(open.reason, 'Re-app target');
@@ -231,11 +231,12 @@ console.log('PASS: re-app targets match slot by slot, outrank the other safeguar
 
 /* Refine targets: the game's own exclusions, the four best line types of some build, and Refine first. */
 const shippedRefine = defaultReappTargets('refine');
-assert.ok(shippedRefine.every((target) => !target.enabled));
 assert.deepEqual(defaultRunePotentialSettings.refineTargets, shippedRefine);
-// The same answers as re-app, over the four-piece sets and Fight, Will, Despair and Swift.
-assert.deepEqual(shippedRefine.map(({ enabled, sets, ...rest }) => rest), shipped.map(({ enabled, sets, ...rest }) => rest));
-assert.deepEqual(shippedRefine[0].sets, ['Despair', 'Fatal', 'Fight', 'Rage', 'Swift', 'Vampire', 'Violent', 'Will']);
+// Re-app's slots, grade and mains, with no innate asked, over seven sets.
+assert.deepEqual(shippedRefine.map(({ enabled, minimumRarity, mains }) => ({ enabled, minimumRarity, mains })),
+  shipped.map(({ enabled, minimumRarity, mains }) => ({ enabled, minimumRarity, mains })));
+assert.ok(shippedRefine.every((target) => !target.requiresInnate));
+assert.deepEqual(shippedRefine[0].sets, ['Despair', 'Fight', 'Rage', 'Swift', 'Vampire', 'Violent', 'Will']);
 const withRefine = (target, extra = {}) => ({ ...reappSettings, reappTargets: onlySlot({ ...openTarget, enabled: false }),
   refineTargets: onlySlot(target), ...extra });
 const best = { ...original, bestLineTypes: true };
@@ -257,6 +258,15 @@ assert.equal(withRuneSellProtection({ ...rune, subProperties: rune.subProperties
 assert.equal(withRuneSellProtection(rune, best, withRefine(openTarget, { reappTargets: onlySlot(openTarget) })).verdict, 'refine');
 assert.equal(withRuneSellProtection(rune, original, withRefine(openTarget, { reappTargets: onlySlot(openTarget) })).verdict, 'reapp');
 assert.equal(withRuneSellProtection(rune, best, withRefine(openTarget, { neverSellReappTargets: false })).verdict, 'sell');
+// A design rule, not a preference: a stone is only ever offered instead of a sale.
+// A rune the engine would power up or keep is left as the engine said, by both kinds.
+for (const verdict of ['power-up', 'keep']) {
+  const worthKeeping = { ...best, verdict, reason: 'engine' };
+  const both = withRefine(openTarget, { reappTargets: onlySlot(openTarget) });
+  assert.equal(withRuneSellProtection(rune, worthKeeping, both).verdict, verdict);
+  assert.equal(withRuneSellProtection(rune, { ...worthKeeping, bestLineTypes: false }, both).verdict, verdict);
+  assert.equal(withRuneSellProtection(rune, worthKeeping, both).unprotectedAdvice, undefined);
+}
 
 /* The four best types, read in the engine's own prices, for any build that takes the main. */
 /* A real level-40 line for every family: the fixture's own reference lines are all
@@ -270,7 +280,7 @@ const speedRune = (statIds) => ({ ...rune, id: 'refine-probe', slot: 2, mainStat
   ancient: false, stars: 6, rarity: 'Legend', level: 12, prefixStatId: null, prefixValue: 0,
   subProperties: statIds.map((statId) => ({ statId, value: 1, gemmed: false, grind: 0 })) });
 const legal = [1, 2, 3, 4, 5, 6, 9, 10, 11, 12];
-function topFour(role) {
+function ranked(role) {
   const build = roleBuilds(role).find((entry) => entry.mains[2] === 8);
   const candidate = prepareRuneCandidate(speedRune([4, 9, 10, 3]), role, build, fixtureBase.get(role.type), defaultCraftCredit);
   // First what the build still lacks, then the size of a max roll for a stat the role names.
@@ -278,13 +288,15 @@ function topFour(role) {
   const base = fixtureBase.get(role.type);
   const worth = (id) => [candidate.valuation.value(id, maximumRoll(id, 6)),
     named.has(subPropertyTargetStat[id]) ? maximumRoll(id, 6) * maxRollScale(id, base, 6) : 0];
-  return [...legal].sort((left, right) => worth(right)[0] - worth(left)[0] || worth(right)[1] - worth(left)[1]).slice(0, 4);
+  return [...legal].sort((left, right) => worth(right)[0] - worth(left)[0] || worth(right)[1] - worth(left)[1]);
 }
-const attackFour = topFour(fastDd);
-const supportFour = topFour(support);
+const attackRanked = ranked(fastDd);
+const attackFour = attackRanked.slice(0, 4);
+const supportFour = ranked(support).slice(0, 4);
 console.log(`Fast DD's four for a slot-2 SPD rune: ${attackFour.map(runeStatName).join(', ')}; Support's: ${supportFour.map(runeStatName).join(', ')}`);
-const engineSays = async (statIds, chosenRoles) =>
-  (await runeAdvice([speedRune(statIds)], chosenRoles, defaultRunePotentialSettings, fixtureBase)).get('refine-probe').bestLineTypes;
+const engineSays = async (statIds, chosenRoles, prefixStatId = null) =>
+  (await runeAdvice([{ ...speedRune(statIds), prefixStatId, prefixValue: prefixStatId === null ? 0 : 1 }],
+    chosenRoles, defaultRunePotentialSettings, fixtureBase)).get('refine-probe').bestLineTypes;
 assert.equal(await engineSays(attackFour, [fastDd]), true);
 assert.equal(await engineSays(supportFour, [support]), true);
 // Either build is enough: the support rune is still a candidate beside the attack role.
@@ -295,4 +307,8 @@ const swapped = [...attackFour.slice(0, 3), legal.find((id) => !attackFour.inclu
 assert.equal(await engineSays(swapped, [fastDd]), false);
 // Three lines have not shown their fourth type yet.
 assert.equal(await engineSays(attackFour.slice(0, 3), [fastDd]), false);
+// The best four are counted after the main alone: an innate holding one of them
+// leaves the rune's lines short of the best four, while one outside them costs nothing.
+assert.equal(await engineSays([...attackFour.slice(0, 3), attackRanked[4]], [fastDd], attackFour[3]), false);
+assert.equal(await engineSays(attackFour, [fastDd], attackRanked.at(-1)), true);
 console.log('PASS: refine targets need the four best line types of some build and pass only runes the game lets through the stone.');

@@ -61,8 +61,8 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
       constructor(url: string | URL, options?: WorkerOptions) {
         super(url, options);
         if (!String(url).includes('rune-advice-worker')) return;
-        this.addEventListener('message', (event: MessageEvent<{ type: string; active?: boolean }>) => {
-          if (event.data.type === 'calibration') counter.calculationPhases.push(event.data.active ? 'calibrating' : 'calibrated');
+        this.addEventListener('message', (event: MessageEvent<{ type: string; fraction?: number | null }>) => {
+          if (event.data.type === 'calibration') counter.calculationPhases.push(event.data.fraction === null ? 'calibrated' : 'calibrating');
           if (event.data.type === 'progress') counter.calculationPhases.push('calculating');
         });
       }
@@ -93,18 +93,21 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
     const tick = () => { counter.jaswaFrames += 1; requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
     const progress = document.querySelector('.rune-cleanup-progress')!;
+    /* Calibration counts its own way through before the calculation starts its own. */
     const percentages: number[] = [];
-    (window as unknown as { jaswaProgress: number[] }).jaswaProgress = percentages;
+    const calibration: number[] = [];
+    Object.assign(window, { jaswaProgress: percentages, jaswaCalibration: calibration });
     new MutationObserver(() => {
-      if (progress.getAttribute('data-shown') === 'true') {
-        const value = Number(progress.textContent?.match(/(\d+)\s*%/)?.[1]);
-        if (Number.isFinite(value)) percentages.push(value);
-      }
+      if (progress.getAttribute('data-shown') !== 'true') return;
+      const [, phase, digits] = progress.textContent?.match(/(Calibrating|Calculating)…\s*(\d+)\s*%/) ?? [];
+      const value = Number(digits);
+      if (!Number.isFinite(value)) return;
+      (phase === 'Calibrating' ? calibration : percentages).push(value);
     }).observe(progress, { childList: true, subtree: true, characterData: true, attributes: true });
   });
   await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(progress).toHaveAttribute('data-shown', 'true');
-  await expect(progress).toHaveText('Calibrating…\nOnly needed once.');
+  await expect(progress).toHaveText(/^Calibrating… \d+ %\nOnly needed once\.$/);
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('progress-calibrating.png') });
   await expect(progress).toContainText(/Calculating… \d+ %/);
@@ -114,9 +117,14 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
     .toContainText('3,001 runes judged against', { timeout: 120_000 });
   await expect(progress).toHaveAttribute('aria-hidden', 'true');
   expect(await boxes()).toEqual(before);
-  const percentages = await page.evaluate(() => (window as unknown as { jaswaProgress: number[] }).jaswaProgress);
-  expect(percentages.some((value) => value > 0 && value < 100)).toBe(true);
-  expect(percentages.every((value, at) => value >= 0 && value <= 100 && (at === 0 || value >= percentages[at - 1]))).toBe(true);
+  const { percentages, calibration } = await page.evaluate(() => {
+    const seen = window as unknown as { jaswaProgress: number[]; jaswaCalibration: number[] };
+    return { percentages: seen.jaswaProgress, calibration: seen.jaswaCalibration };
+  });
+  for (const run of [percentages, calibration]) {
+    expect(run.some((value) => value > 0 && value < 100)).toBe(true);
+    expect(run.every((value, at) => value >= 0 && value <= 100 && (at === 0 || value >= run[at - 1]))).toBe(true);
+  }
   await page.screenshot({ path: testInfo.outputPath('progress-finished.png') });
 
   /* Generous on purpose: a live page at 60 Hz paints hundreds over a calculation
@@ -125,8 +133,11 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
   const frames = await page.evaluate(() => (window as unknown as { jaswaFrames: number }).jaswaFrames);
   expect(frames).toBeGreaterThan(10);
   const phases = await page.evaluate(() => (window as unknown as { calculationPhases: string[] }).calculationPhases);
-  expect(phases.slice(0, 2)).toEqual(['calibrating', 'calibrated']);
-  expect(phases.slice(2).every((phase) => phase === 'calculating')).toBe(true);
+  /* Calibration reports its way through, ends once, and only then does the calculation count. */
+  const end = phases.indexOf('calibrated');
+  expect(end).toBeGreaterThan(1);
+  expect(phases.slice(0, end).every((phase) => phase === 'calibrating')).toBe(true);
+  expect(phases.slice(end + 1).every((phase) => phase === 'calculating')).toBe(true);
   await page.evaluate(() => { (window as unknown as { calculationPhases: string[] }).calculationPhases = []; });
   await cleanup.getByRole('button', { name: 'Recalculate', exact: true }).click();
   await expect(progress).toContainText(/Calculating… \d+ %/);

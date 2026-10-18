@@ -2683,7 +2683,10 @@ never read again. Nothing else in that document is disturbed.
 The worker reports calibration separately from rune progress. Every star class
 present in the calculation is calibrated before the percentage starts, so a
 later class cannot send the line back to calibration. The line reads
-“Calibrating… Only needed once.”; a warm calculation skips it. The cache still
+“Calibrating… X % Only needed once.”; a warm calculation skips it. The
+percentage (added 18 October 2026) counts the sample runes judged across every
+grade still to calibrate, which is nearly all of the work; it says how far
+through calibration is, not how long is left. The cache still
 belongs to the worker and its calculation inputs, so changing those inputs or
 restarting the worker may require calibration again.
 

@@ -211,7 +211,8 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   const [result, setResult] = useState<RuneCleanupResult | null>(snapshot?.result ?? null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [calibrating, setCalibrating] = useState(false);
+  /* How far through the calibration, or null when none is running. */
+  const [calibration, setCalibration] = useState<number | null>(null);
   const [progressKey, setProgressKey] = useState<string | null>(null);
   /* A failed input is retried only after another change or an explicit Recalculate. */
   const [refreshFailedFor, setRefreshFailedFor] = useState<{ runes: readonly Rune[]; key: string } | null>(null);
@@ -277,14 +278,14 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     if (!canCalculate || !base) return;
     setBusy(true);
     setProgress(0);
-    setCalibrating(false);
+    setCalibration(null);
     setProgressKey(standardsKey);
     setFailure(null);
     /* A whole calculation answers every rune, so a re-reading still in flight has
        nothing left to add. */
     cancelRuneAdviceRefresh();
     const outcome = await calculateRuneAdvice({ runes, roles, settings, base, preferWebGpu: hardwareAcceleration },
-      setProgress, setCalibrating);
+      setProgress, setCalibration);
     /* A newer request has taken over the busy state and the table, so this one
        returns without touching either. */
     if (outcome.status === 'superseded') return;
@@ -656,7 +657,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             </Button>
             <p className="calculation-progress rune-cleanup-progress" role="status"
               aria-hidden={reportingProgress ? undefined : true} data-shown={reportingProgress ? 'true' : undefined}>
-              {calibrating ? 'Calibrating…\nOnly needed once.'
+              {calibration !== null ? `Calibrating… ${formatNumber(Math.round(calibration * 100), general)} %\nOnly needed once.`
                 : `Calculating… ${formatNumber(progressKey === standardsKey ? Math.round(progress * 100) : 0, general)} %`}
             </p>
           </div>

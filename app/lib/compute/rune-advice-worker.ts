@@ -38,14 +38,20 @@ self.onmessage = async (event: MessageEvent<RuneAdviceWorkerRequest>) => {
       const response: RuneAdviceWorkerResponse = { type: 'progress', requestId: message.requestId, fraction };
       self.postMessage(response);
     };
+    /* Calibration reports per sample rune; only a new whole percent is worth a message. */
+    let calibrationPercent: number | null = null;
+    const onCalibration = (fraction: number | null) => {
+      const percent = fraction === null ? null : Math.floor(fraction * 100);
+      if (percent === calibrationPercent) return;
+      calibrationPercent = percent;
+      const response: RuneAdviceWorkerResponse = { type: 'calibration', requestId: message.requestId, fraction };
+      self.postMessage(response);
+    };
     const advice = await runeAdvice(runes, roles, settings, base, async (jobs, chanceBar) => {
       const answer = await countRuneChances(jobs, preferWebGpu, chanceBar);
       engines.push(answer.backend);
       return answer.shares;
-    }, { explain, onProgress, onCalibration: (active) => {
-      const response: RuneAdviceWorkerResponse = { type: 'calibration', requestId: message.requestId, active };
-      self.postMessage(response);
-    } });
+    }, { explain, onProgress, onCalibration });
     const response: RuneAdviceWorkerResponse = {
       type: 'result', requestId: message.requestId, advice, durationMs: performance.now() - startedAt,
       /* One batch today, so one engine. It is still read through

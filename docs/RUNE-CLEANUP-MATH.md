@@ -727,15 +727,16 @@ The **Re-app/refine target** safeguard starts enabled. Rune Settings holds, unde
 **Re-app/refine target**, one card per slot, always six: each carries a re-app
 target on the left and a refine target on the right (`RUNE-CANONICAL.md` §9
 states what the two stones do). They are edited, never added or deleted; the
-editor holds both halves side by side, and each half has its own switch there.
+editor holds both halves side by side, and each half has its own *Disable* switch
+there.
 A target asks for a rune type (sets, Intangible not offered), a minimum grade
 (rarity), whether an innate is required (Yes/No) and a main stat (slots 2, 4 and
 6 only, offering the mains the slot can roll). An empty list asks nothing; Yes is
 met by any innate and not by a rune without one, and No asks nothing. The
 shipped re-app targets enable slots 2, 4 and 6 and ask for Violent, Legend and an
 innate, with SPD/ATK % in slot 2, CRI Dmg/HP % in slot 4 and HP %/ATK % in
-slot 6. The shipped refine targets carry the same answers, switched off, over
-Violent, Swift, Despair, Fatal, Rage and Vampire (the four-piece sets) and Fight
+slot 6. The shipped refine targets enable the same slots with the same mains and
+grade, ask for no innate, and accept Despair, Fight, Rage, Swift, Vampire, Violent
 and Will.
 
 No level is asked. A target needs a rune that shows all four of its sub
@@ -749,19 +750,28 @@ line are never refine targets (a Grindstone does not bar refinement).
 **A refine target must also hold the four best line types of some build.**
 Refinement keeps the types, so it is only worth a stone on a rune whose four
 types are already the ones a build wants most. Every build of every role that
-takes the rune's main is asked. Each type the rune could legally carry beside its
-main and innate is ranked first by its price at one max roll in that build's own
+takes the rune's main is asked. Each type the slot allows beside the rune's main
+— the innate's type included — is ranked first by its price at one max roll in that build's own
 valuation (§4, what the build still lacks), then, among types priced alike, a
 stat the role names a target for by the size of a max roll on the reference line,
 and an unnamed stat last — the engine's own rule for a role whose targets are all
 met. The rune qualifies when no type it lacks ranks above its weakest line, so a
 tie for fourth admits either type, and a rune with fewer than four lines does not
-qualify. With a level-40 reference line, Fast DD's four for a slot-2 SPD rune are
+qualify. An innate whose type is among the best four has taken a place no
+refinement gives back, so such a rune is never a refine target. With a level-40
+reference line, Fast DD's four for a slot-2 SPD rune are
 ATK %, CRI Rate, ATK + and CRI Dmg. The engine carries the answer out as
 `bestLineTypes`, read from every build rather than only the one the row names.
 
-A rune its slot's target describes gets that target's own advice, **Re-app** or
-**Refine**, whatever the engine or another safeguard said; Refine is asked first,
+**A reroll is only ever offered instead of a sale.** This is a fixed design
+decision, not a setting: a target is asked only of a rune the engine itself
+would sell, and a rune the engine would power up or keep keeps that advice,
+whatever any target describes. A stone is a way out of selling a rune, never a
+second opinion on one worth keeping.
+
+A rune the engine would sell and its slot's target describes gets that target's
+own advice, **Re-app** or **Refine**, ahead of the other safeguards — they only
+forbid the sale, while a target says what to do instead; Refine is asked first,
 since a rune that already holds the four best types needs only better rolls,
 which refinement gives without gambling the types. Neither is ever Sell, and
 neither changes a figure. The table's Advice filter asks one question of both,

@@ -175,8 +175,12 @@ function TargetFields({ slot, title, target, onChange }: {
   return <section className="reapp-editor-column" aria-label={`${title} target`}>
     <header className="reapp-editor-column-head">
       <h3 className="editor-block-title">{title}</h3>
-      <CheckboxRow label={`${title} enabled`} checked={target.enabled}
-        onChange={(enabled) => onChange({ enabled })} />
+      {/* Worded as the exception: on is the expected state, so the switch is
+          the quiet way out of it rather than a box to tick every time. */}
+      <span className="reapp-disable">
+        <CheckboxRow label={`Disable ${title.toLowerCase()}`} checked={!target.enabled}
+          onChange={(disabled) => onChange({ enabled: !disabled })} />
+      </span>
     </header>
     {target.enabled && <>
       <ChoiceField label="Rune type" description={`${title} rune type`} empty="Any set"

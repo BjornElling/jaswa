@@ -16,6 +16,10 @@
  * while it climbs to +12. The game's other rules are applied whatever the target
  * says, because a rune the game will not let through the stone is no target for it.
  *
+ * A target is only ever asked of a rune the engine would sell
+ * (`withRuneSellProtection`): a reroll is a way out of a sale, never advice for a
+ * rune worth powering up or keeping. That is a fixed design decision.
+ *
  * There are always exactly six targets of each kind, one per slot, because the
  * question is asked of a slot. The user edits and switches them off, but never
  * adds or removes one. Every list reads "no restriction" when empty. Asking for no
@@ -26,7 +30,7 @@ import { maximumRoll, subPropertyTargetStat } from './rune-properties';
 import { maxRollScale } from './rune-substat-weights';
 import type { SubstatWeights } from './rune-substat-weights';
 import type { ReferenceStats } from './rune-reference-stats';
-import { isIntangibleRuneSet, roleRuneSetNameList, runeSetPieceCount } from './rune-sets';
+import { isIntangibleRuneSet, roleRuneSetNameList } from './rune-sets';
 import { runeRarities, runeRarityOrder, runeStatIds, slotAllowsSubStat, slotMainProperties } from './runes';
 import type { Rune, RuneRarity } from './runes';
 import type { Valuation } from './rune-substat-weights';
@@ -69,19 +73,20 @@ const defaultMains: Readonly<Record<number, readonly number[]>> = {
 };
 
 /* Refinement keeps the types, so it is offered more sets than reappraisal: the
-   four-piece sets a build is made around, and the two-piece sets worth finishing. */
+   sets a build is made around, and the two-piece sets worth finishing. */
 const refineSets: readonly string[] = reappSetOptions.filter((name) =>
-  ['Fight', 'Will', 'Despair', 'Swift'].includes(name) || runeSetPieceCount[name] === 4);
+  ['Despair', 'Fight', 'Rage', 'Swift', 'Vampire', 'Violent', 'Will'].includes(name));
 
 function defaultTarget(slot: number, kind: RerollKind): ReappTarget {
   return {
-    /* The odd slots carry a fixed flat main and are seldom worth a stone.
-       Refinement starts switched off everywhere, so it adds no advice until asked. */
-    enabled: kind === 'reapp' && reappSlotChoosesMain(slot),
+    /* The odd slots carry a fixed flat main and are seldom worth a stone. */
+    enabled: reappSlotChoosesMain(slot),
     sets: kind === 'reapp' ? ['Violent'] : refineSets,
     minimumRarity: 'Legend',
     mains: defaultMains[slot] ?? [],
-    requiresInnate: true,
+    /* Refinement only redistributes the four lines already there, so the innate
+       is no part of what makes a rune worth it. */
+    requiresInnate: kind === 'reapp',
   };
 }
 
@@ -116,7 +121,7 @@ export type LineTypePricing = {
 /**
  * **Whether the rune's four sub property types are the four this build wants most.**
  *
- * Every type the rune could legally carry beside its main and innate is ranked
+ * Every type the rune's slot allows beside its main is ranked
  * twice over. First by its price at one max roll in the build's own valuation —
  * the prices its verdict is read in, which is what the build still lacks once the
  * reference monster, the mains and the artifacts are counted. Then, among types
@@ -130,6 +135,11 @@ export type LineTypePricing = {
  * The four lines qualify when no type the rune lacks ranks above its weakest
  * line, so a tie for fourth place admits either type. A rune with fewer than four
  * lines has not shown its fourth type yet and does not qualify.
+ *
+ * The innate stays in the pool. The question is whether these four are the best
+ * four any rune of this slot and main could hold, and an innate that is one of
+ * those four has taken a place no refinement can give back — so such a rune is
+ * never a refine target, which is the intended consequence, not a gap.
  */
 export function holdsBestLineTypes(rune: Rune, pricing: LineTypePricing, base: ReferenceStats): boolean {
   const held = new Set(rune.subProperties.map((line) => line.statId));
@@ -144,7 +154,7 @@ export function holdsBestLineTypes(rune: Rune, pricing: LineTypePricing, base: R
     same(left[0], right[0]) ? !same(left[1], right[1]) && left[1] > right[1] : left[0] > right[0];
   const weakest = [...held].map(rank).reduce((low, next) => (above(low, next) ? next : low));
   return runeStatIds
-    .filter((id) => !held.has(id) && id !== pricing.main && id !== rune.prefixStatId && slotAllowsSubStat(rune.slot, id))
+    .filter((id) => !held.has(id) && id !== pricing.main && slotAllowsSubStat(rune.slot, id))
     .every((id) => !above(rank(id), weakest));
 }
 

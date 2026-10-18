@@ -25,7 +25,8 @@ const box = (locator: ReturnType<Page['locator']>) => locator.evaluate((node) =>
  * ATK % main and no innate, and show only three and two lines: answering No to the
  * innate leaves them out still, because a target needs all four lines shown. Its
  * slot-4 rune 103 is a Fatal Legend with four lines, which slot 4's target takes
- * once Fatal is added and the innate answered No. Refinement starts switched off.
+ * once Fatal is added and the innate answered No. Refinement starts on in slots
+ * 2, 4 and 6, without Fatal, so it takes none of them.
  */
 test('re-app/refine targets are six fixed cards that put Re-app on the runes they describe', async ({ page }, testInfo) => {
   await page.goto('/');
@@ -47,10 +48,12 @@ test('re-app/refine targets are six fixed cards that put Re-app on the runes the
   expect(left.x).toBeLessThan(right.x);
   expect(left.y).toBeCloseTo(right.y, 0);
   await expect(reapp2.locator('.role-type')).toHaveText('Enabled');
-  await expect(refine2.locator('.role-type')).toHaveText('Disabled');
+  await expect(refine2.locator('.role-type')).toHaveText('Enabled');
   await expect(reapp2.locator('.role-row-label')).toHaveText(['Rune type', 'Min grade', 'Must have innate', 'Must have main stat']);
   await expect(reapp2.locator('.role-row-value')).toHaveText(['Violent', 'Legend', 'Yes', 'ATK %SPD']);
-  await expect(refine2.locator('.role-row')).toHaveCount(0);
+  await expect(refine2.locator('.role-row-value'))
+    .toHaveText(['DespairFightRageSwiftVampireViolentWill', 'Legend', 'No', 'ATK %SPD']);
+  await expect(cards.nth(2).getByRole('region', { name: 'Slot 3 Refine target' }).locator('.role-type')).toHaveText('Disabled');
   await expect(cards.nth(2).getByRole('region', { name: 'Slot 3 Re-app target' }).locator('.role-type')).toHaveText('Disabled');
   /* The card itself has no switch: switching is the editor's. */
   await expect(slot2.getByRole('checkbox')).toHaveCount(0);
@@ -74,22 +77,22 @@ test('re-app/refine targets are six fixed cards that put Re-app on the runes the
   const [editorLeft, editorRight] = await Promise.all([box(reappSide), box(refineSide)]);
   expect(editorLeft.x).toBeLessThan(editorRight.x);
   expect(editorLeft.y).toBeCloseTo(editorRight.y, 0);
-  await expect(refineSide.getByRole('combobox')).toHaveCount(0);
-
-  /* Switching refine on shows its questions without moving the re-app side. */
-  const reappBefore = await box(reappSide);
-  await refineSide.getByRole('checkbox', { name: 'Refine enabled' }).check();
   await expect(refineSide.getByRole('combobox')).toHaveCount(2);
   await expect(editor.getByText('Min lvl')).toHaveCount(0);
-  /* Refine's shipped eight sets stay inside its half, its switch inside the dialog. */
+  /* Refine's shipped seven sets stay inside its half, its switch inside the dialog. */
   const dialogBox = await box(editor);
-  const refineSwitch = await box(refineSide.getByRole('checkbox', { name: 'Refine enabled' }));
+  const refineSwitch = await box(refineSide.getByRole('checkbox', { name: 'Disable refine' }));
   expect(refineSwitch.x + refineSwitch.width).toBeLessThanOrEqual(dialogBox.x + dialogBox.width);
-  expect(await box(refineSide)).toEqual(editorRight);
+  await expect(refineSide.getByRole('checkbox', { name: 'Disable refine' })).not.toBeChecked();
   await expect(refineSide.getByRole('button', { name: /^Refine rune type:/ }))
-    .toHaveAccessibleName('Refine rune type: Despair, Fatal, Fight, Rage, Swift, Vampire, Violent, Will');
-  expect(await box(reappSide)).toEqual(reappBefore);
+    .toHaveAccessibleName('Refine rune type: Despair, Fight, Rage, Swift, Vampire, Violent, Will');
   await page.screenshot({ path: testInfo.outputPath('reapp-editor-both.png') });
+
+  /* Disabling refine folds its questions without moving the re-app side. */
+  const reappBefore = await box(reappSide);
+  await refineSide.getByRole('checkbox', { name: 'Disable refine' }).check();
+  await expect(refineSide.getByRole('combobox')).toHaveCount(0);
+  expect(await box(reappSide)).toEqual(reappBefore);
 
   /* Everything filled in on the re-app side. */
   for (const set of ['Will', 'Swift', 'Despair', 'Fatal', 'Rage']) {
@@ -115,7 +118,6 @@ test('re-app/refine targets are six fixed cards that put Re-app on the runes the
   expect(innateBox.x).toBeGreaterThan(gradeBox.x + gradeBox.width);
   expect(innateBox.x + innateBox.width).toBeLessThanOrEqual(editorLeft.x + editorLeft.width + 1);
   await innate.selectOption('no');
-  await refineSide.getByRole('checkbox', { name: 'Refine enabled' }).uncheck();
   await page.screenshot({ path: testInfo.outputPath('reapp-editor.png') });
   await editor.getByRole('button', { name: 'Save changes' }).click();
   await expect(editor).toBeHidden();
@@ -134,7 +136,7 @@ test('re-app/refine targets are six fixed cards that put Re-app on the runes the
 
   /* Re-app switched off in the editor folds only its own half. */
   await page.getByRole('button', { name: 'Edit the Slot 6 targets' }).click();
-  await page.getByRole('dialog', { name: 'Slot 6' }).getByRole('checkbox', { name: 'Re-app enabled' }).uncheck();
+  await page.getByRole('dialog', { name: 'Slot 6' }).getByRole('checkbox', { name: 'Disable re-app' }).check();
   await page.getByRole('dialog', { name: 'Slot 6' }).getByRole('button', { name: 'Save changes' }).click();
   const slot6 = cards.nth(5);
   await expect(slot6.getByRole('region', { name: 'Slot 6 Re-app target' }).locator('.role-row')).toHaveCount(0);
