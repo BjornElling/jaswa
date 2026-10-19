@@ -293,6 +293,17 @@ En Gem-konverteret Sub Property kan efterfølgende få en Grindstone, når den
 nye type er grindbar. Det bekræftes også af den leverede eksport: samme
 `sec_eff`-post kan have både Gem-markør og Grindstone-tillæg.
 
+**A Gem that keeps the property keeps its Grindstone.** When a Gem replaces a
+ground sub property with the *same* property — an ATK % line with an ATK %
+Gem — the Grindstone bonus already on the line survives, and only the base
+value is replaced by the Gem's roll. This holds whether the line was rolled
+ground or is itself an earlier Gem that was then ground: re-gemming it to the
+same property keeps the stone and trades only the Gem's value. A Gem that
+changes the property starts the new line with no stone, because a bonus
+belongs to the property it was spent on. A later, larger stone still replaces
+the kept one as above; nothing stacks. `npm run verify:rune-regem-keeps-grind`
+holds every reader of this rule to it.
+
 | Grindstone-grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD |
 | --- | ---: | ---: | ---: | ---: |
 | Normal | 80–120 | 1–3 % | 4–8 | 1–2 |

@@ -63,7 +63,8 @@ export function lineageFits(item: CraftItem, rune: Pick<Rune, 'ancient' | 'setId
  * A gem replaces one existing sub property, so its target is any sub property
  * whose *other* three do not already carry the gem's stat — which means a rune
  * that already has the stat has exactly one legal target: that property itself,
- * re-rolled. A grindstone instead adds to a property of its own stat, and may
+ * re-rolled, keeping its grindstone. A rune already carrying a converted line
+ * offers that line alone. A grindstone instead adds to a property of its own stat, and may
  * only be spent where its ceiling can beat the bonus already sitting there.
  */
 export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
@@ -87,9 +88,12 @@ export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
   }
   if (!rune.subProperties.length) return { fits: false, block: 'target' };
 
+  /* §8: one converted line at a time, so a rune that already carries one offers
+     only that line to a further Gem. */
+  const converted = rune.subProperties.findIndex((property) => property.gemmed);
   const targets = rune.subProperties
     .map((property, index) => ({ index, property }))
-    .filter(({ index }) => rune.subProperties
+    .filter(({ index }) => (converted === -1 || index === converted) && rune.subProperties
       .every((other, otherIndex) => otherIndex === index || other.statId !== item.statId));
   return targets.length ? { fits: true, targets } : { fits: false, block: 'duplicate' };
 }
