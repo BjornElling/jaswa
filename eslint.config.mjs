@@ -5,7 +5,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 const eslintConfig = defineConfig([
-  globalIgnores(['.next/**', '.next-verify/**', 'out/**', 'build/**', 'client/**', 'dist/**', 'helper/**', 'public/**', 'scripts/**', 'work/**']),
+  globalIgnores(['dist/**', 'helper/**', 'public/**', 'scripts/**', 'work/**']),
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

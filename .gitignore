@@ -4,7 +4,6 @@
 /helper/.cache/
 /helper/.next/
 /helper/dist/
-/helper/out/
 /helper/src-tauri/target/
 /helper/src-tauri/gen/
 /helper/native/target/
@@ -27,14 +26,6 @@
 # testing
 /coverage
 /test-results/
-
-# Build output from the bundler, and the caches JASWA's own Next.js era left
-# behind. The app builds with Vite (`npm run build` → /dist/); these stay
-# ignored so a stale cache from that era, or a stray `out/`, cannot be committed.
-/.next/
-/.next-verify/
-/.vinext/
-/out/
 
 # misc
 .DS_Store
@@ -59,7 +50,6 @@ yarn-error.log*
 
 # deployment and generated files
 .vercel
-next-env.d.ts
 tsconfig.tsbuildinfo
 /dist/
 /.wrangler/
