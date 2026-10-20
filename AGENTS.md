@@ -249,6 +249,16 @@ In short: all product work — interface text, identifiers, comments, commit
 messages, documentation — is written in English, concise and lightly
 playful. Every document in `docs/` is English since October 20, 2026.
 
+## 4.1 Line endings
+
+- This repository uses LF line endings for every text file.
+- `.gitattributes` enforces LF in Git and in checked-out text files;
+  `.editorconfig` and `.vscode/settings.json` set the same style in editors.
+- Preserve LF when creating or editing files. Do not introduce CRLF conversion
+  workarounds or rewrite files with another line-ending style.
+- `npm run verify:line-endings` checks the working tree, including new
+  non-ignored files, and runs as part of `npm run lint`.
+
 ## 5. Visual style
 
 The house style is set in `app/globals.css` and stated at the top of it. The
