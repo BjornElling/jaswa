@@ -89,7 +89,7 @@ export type GeneralSettings = { numberFormat: NumberFormatChoice; dateOrder: Dat
  */
 /**
  * What a calculated table does when its inputs move underneath it
- * (`ARTIFACT-CANONICAL.md` §17.11). `manual` keeps the result the user asked
+ * (`ACCOUNT-TABLES.md` §7). `manual` keeps the result the user asked
  * for and says it is out of date; `on-change` re-runs the calculation so the
  * table on screen always answers the current settings and import.
  */
@@ -122,7 +122,7 @@ export type ArtifactSettings = {
   includeIntangibleArtifacts: boolean;
   /**
    * Whether a stale table re-runs on its own or waits to be asked
-   * (`ARTIFACT-CANONICAL.md` §17.11). It steers *when* a calculation happens
+   * (`ACCOUNT-TABLES.md` §7). It steers *when* a calculation happens
    * and never what it produces, so the recommendation views deliberately keep
    * it out of the key that decides whether a held result is still current —
    * changing this answer must not itself invalidate the table it governs.
@@ -134,7 +134,7 @@ export type ArtifactSettings = {
  * program: JASWA supplies a starting set, and after that they are the user's
  * to rename, retune and delete, and they travel with the .sw file.
  *
- * `runePotentialPresets` keeps the name roles had when they were called
- * presets: it is the stored key, and renaming it would drop the user's roles.
+ * `runeRoles` was stored as `runePotentialPresets` when roles were called
+ * presets; `readPreferences` still reads that key so the user's roles survive.
  */
-export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; runePotential: RunePotentialSettings; runePotentialPresets: RuneRole[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; presets: OwnPreset[]; presetPriority: PresetPriority; runeOptimization: RuneOptimizationSettings };
+export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; runePotential: RunePotentialSettings; runeRoles: RuneRole[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; presets: OwnPreset[]; presetPriority: PresetPriority; runeOptimization: RuneOptimizationSettings };

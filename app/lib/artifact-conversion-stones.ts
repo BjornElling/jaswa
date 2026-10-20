@@ -1,4 +1,4 @@
-import { artifactProperty, artifactGrades } from './artifact-properties';
+import { artifactGradeFromRank, artifactProperty } from './artifact-properties';
 import type { ArtifactCategory, ArtifactGrade } from './artifact-properties';
 import type { GameRecord } from './game-data';
 
@@ -16,6 +16,16 @@ export type EngravedConversionStone = {
   engraveClassCode: number;
   grade: ArtifactGrade;
   propertyId: number;
+  /**
+   * Whether a conversion to this property can be valued. A stone naming a
+   * property v8.0.0 retired is still a stone the account owns and the game
+   * still lets it be used ("remain usable", v8.0.0 notice), so it is read,
+   * counted and shown — but the property is legacy, wanted by no monster, and
+   * a conversion to it is worth nothing to any preference, so no
+   * recommendation spends one.
+   */
+  valued: boolean;
+  /** Zero is an empty stack: readable, and owning nothing. */
   quantity: number;
 };
 
@@ -35,10 +45,6 @@ const attributeStoneCategoryCode = 101;
 const typeStoneCategoryCode = 102;
 const elementCodeScale = 10;
 
-const gradesByNaturalRank = new Map<number, ArtifactGrade>(
-  (Object.keys(artifactGrades) as ArtifactGrade[]).map((grade) => [artifactGrades[grade].naturalRank, grade]),
-);
-
 function integerValue(value: unknown): number | undefined {
   if (typeof value === 'number') return Number.isSafeInteger(value) ? value : undefined;
   if (typeof value !== 'string' || value.trim() === '') return undefined;
@@ -49,18 +55,19 @@ function integerValue(value: unknown): number | undefined {
 /**
  * One stone record, or `undefined` when it does not satisfy the encoding.
  *
- * A stone naming a legacy property is refused rather than kept: §12 forbids
- * computing a roll for a property whose range is unknown, so a conversion to
- * one could not be valued. 174 of the account's 463 stones are in that state,
- * and they are genuinely unusable for a recommendation rather than merely
- * unread.
+ * A stone naming a legacy property is read like any other and marked
+ * `valued: false`. It used to be dropped here, which took 174 of the account's
+ * 463 stones out of every count without a word — a stone the game says remains
+ * usable, silently missing (`AGENTS.md` §0.1). An undecodable record is the
+ * other case: the importer refuses the file over it
+ * (`isReadableEngravedConversionStone`).
  */
 export function readEngravedConversionStone(record: unknown): EngravedConversionStone | undefined {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return undefined;
   const source = record as GameRecord;
   const masterId = integerValue(source.master_id);
   const quantity = integerValue(source.quantity);
-  if (masterId === undefined || quantity === undefined || quantity <= 0) return undefined;
+  if (masterId === undefined || quantity === undefined || quantity < 0) return undefined;
 
   const digits = String(masterId);
   if (digits.length !== stoneMasterIdDigits) return undefined;
@@ -69,12 +76,13 @@ export function readEngravedConversionStone(record: unknown): EngravedConversion
   const archetypeAndGrade = Number(digits.slice(6, 9));
   const propertyId = Number(digits.slice(9, 12));
 
-  const grade = gradesByNaturalRank.get(archetypeAndGrade % 100);
+  const grade = artifactGradeFromRank(archetypeAndGrade % 100);
   const archetypeCode = Math.floor(archetypeAndGrade / 100);
   if (!grade) return undefined;
 
   const definition = artifactProperty(propertyId);
-  if (!definition || definition.status !== 'current') return undefined;
+  if (!definition) return undefined;
+  const valued = definition.status === 'current';
 
   if (categoryCode === attributeStoneCategoryCode) {
     /* The two class fields are mutually exclusive in the data. A record filling
@@ -82,24 +90,56 @@ export function readEngravedConversionStone(record: unknown): EngravedConversion
        half governs is exactly the invention `AGENTS.md` §0.1 forbids. */
     if (archetypeCode !== 0 || elementCode === 0 || elementCode % elementCodeScale !== 0) return undefined;
     if (definition.availability === 'type') return undefined;
-    return { category: 'attribute', engraveClassCode: elementCode / elementCodeScale, grade, propertyId, quantity };
+    return { category: 'attribute', engraveClassCode: elementCode / elementCodeScale, grade, propertyId, valued, quantity };
   }
   if (categoryCode === typeStoneCategoryCode) {
     if (elementCode !== 0 || archetypeCode === 0) return undefined;
     if (definition.availability === 'attribute') return undefined;
-    return { category: 'type', engraveClassCode: archetypeCode, grade, propertyId, quantity };
+    return { category: 'type', engraveClassCode: archetypeCode, grade, propertyId, valued, quantity };
   }
   return undefined;
 }
 
-/** Every readable engraved conversion stone in this import. */
+/**
+ * Whether the importer can accept this `artifact_crafts` record. A stone the
+ * encoding does not describe is refused with the whole file, as an unreadable
+ * artifact is: skipping it would leave a stone the account owns out of every
+ * count and every conversion without anything saying so.
+ */
+export function isReadableEngravedConversionStone(record: unknown): boolean {
+  return readEngravedConversionStone(record) !== undefined;
+}
+
+/**
+ * Every engraved conversion stone this import holds, valued or not; empty
+ * stacks are left out. The importer has already refused any record this cannot
+ * read, so nothing is dropped here.
+ */
 export function readEngravedConversionStones(data: GameRecord | undefined): EngravedConversionStone[] {
   const records = data?.artifact_crafts;
   if (!Array.isArray(records)) return [];
   const stones: EngravedConversionStone[] = [];
   for (const record of records) {
     const stone = readEngravedConversionStone(record);
-    if (stone) stones.push(stone);
+    if (stone && stone.quantity > 0) stones.push(stone);
   }
   return stones;
+}
+
+/**
+ * How many engraved conversion stones the account owns, split by whether a
+ * conversion to their property can be valued. `undefined` when the import
+ * carried no stone collection at all, which is not the same as owning none.
+ */
+export function engravedConversionStoneCounts(
+  data: GameRecord | undefined,
+): { valued: number; notValued: number } | undefined {
+  if (!Array.isArray(data?.artifact_crafts)) return undefined;
+  let valued = 0;
+  let notValued = 0;
+  for (const stone of readEngravedConversionStones(data)) {
+    if (stone.valued) valued += stone.quantity;
+    else notValued += stone.quantity;
+  }
+  return { valued, notValued };
 }

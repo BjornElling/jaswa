@@ -1,5 +1,6 @@
 import { artifactArchetypes, artifactElements, artifactProperty } from './artifact-properties';
 import { readEngravedConversionStones } from './artifact-conversion-stones';
+import { qualityTiers } from './quality-tiers';
 import { scoreArtifactOnMonster, scorePercent } from './compute/artifact-score-core';
 import type { EngravedConversionStone } from './artifact-conversion-stones';
 import type { ArtifactCategory } from './artifact-properties';
@@ -10,8 +11,8 @@ import type { ArtifactSettings } from './types';
 
 /**
  * The settings that decide what a calculation *produces*, for the key each
- * recommendation view compares a held result against (`ARTIFACT-CANONICAL.md`
- * §17.11).
+ * recommendation view compares a held result against (`ACCOUNT-TABLES.md`
+ * §7).
  *
  * `recalculate` is dropped because it only decides *when* a table re-runs. Left
  * in, switching the mode would mark every held result stale — and in the
@@ -118,10 +119,9 @@ export function engravedStoneFor(
   return best;
 }
 
-const gradeOrder = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'] as const;
-
+/* The shared tier order, weakest first, rather than a copy of it. */
 function gradeRank(grade: EngravedConversionStone['grade']): number {
-  return gradeOrder.indexOf(grade);
+  return qualityTiers.indexOf(grade);
 }
 
 /** Reads the account's stones once, for a view that labels many rows. */

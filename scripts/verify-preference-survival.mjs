@@ -26,7 +26,7 @@ try {
   assert.equal(defaultDirectImportMode, 'live', 'a connected helper keeps the workspace synchronized by default');
 
   const blank = blankPreferences();
-  const [firstRole, ...otherRoles] = blank.runePotentialPresets;
+  const [firstRole, ...otherRoles] = blank.runeRoles;
   const chosen = {
     ...blank,
     updatedAt: '2026-09-01T12:00:00.000Z',
@@ -40,7 +40,7 @@ try {
     },
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true } },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
-    runePotentialPresets: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
+    runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
     speedTuning: {
       presets: {
@@ -81,24 +81,33 @@ try {
   assert.ok(!('retiredSetting' in retiredField.runePotential), 'a setting the contract no longer names is not carried');
 
   /* A role the contract has grown past still keeps what the user wrote in it. */
-  const { artifacts: _artifacts, ...roleWithoutArtifacts } = chosen.runePotentialPresets[0];
-  const grownPast = readPreferences({ ...chosen, runePotentialPresets: [{ ...roleWithoutArtifacts, retired: true }, otherRoles[0]] }, null);
-  assert.equal(grownPast.runePotentialPresets.length, 2, 'a role missing a field is kept');
-  assert.equal(grownPast.runePotentialPresets[0].name, 'My nuker', 'its name survives');
-  assert.equal(grownPast.runePotentialPresets[0].targets.atk, 3100, 'its targets survive');
-  assert.deepEqual(grownPast.runePotentialPresets[0].artifacts, { atk: false, def: false, hp: false }, 'the missing field starts empty');
+  const { artifacts: _artifacts, ...roleWithoutArtifacts } = chosen.runeRoles[0];
+  const grownPast = readPreferences({ ...chosen, runeRoles: [{ ...roleWithoutArtifacts, retired: true }, otherRoles[0]] }, null);
+  assert.equal(grownPast.runeRoles.length, 2, 'a role missing a field is kept');
+  assert.equal(grownPast.runeRoles[0].name, 'My nuker', 'its name survives');
+  assert.equal(grownPast.runeRoles[0].targets.atk, 3100, 'its targets survive');
+  assert.deepEqual(grownPast.runeRoles[0].artifacts, { atk: false, def: false, hp: false }, 'the missing field starts empty');
 
   /* Composites are derived: a stale stored copy is recomputed, not a reason to lose the role. */
-  const stale = readPreferences({ ...chosen, runePotentialPresets: [{ ...chosen.runePotentialPresets[0], targets: { ...chosen.runePotentialPresets[0].targets, dmg: 1 } }] }, null);
-  assert.deepEqual(stale.runePotentialPresets[0], chosen.runePotentialPresets[0], 'a stale composite is recomputed');
+  const stale = readPreferences({ ...chosen, runeRoles: [{ ...chosen.runeRoles[0], targets: { ...chosen.runeRoles[0].targets, dmg: 1 } }] }, null);
+  assert.deepEqual(stale.runeRoles[0], chosen.runeRoles[0], 'a stale composite is recomputed');
 
   /* Only a role that can no longer be told apart or named is dropped, and alone. */
-  const unnamed = readPreferences({ ...chosen, runePotentialPresets: [{ ...chosen.runePotentialPresets[0], name: '' }, otherRoles[0]] }, null);
-  assert.deepEqual(unnamed.runePotentialPresets, [otherRoles[0]], 'an unnamed role costs only itself');
+  const unnamed = readPreferences({ ...chosen, runeRoles: [{ ...chosen.runeRoles[0], name: '' }, otherRoles[0]] }, null);
+  assert.deepEqual(unnamed.runeRoles, [otherRoles[0]], 'an unnamed role costs only itself');
+
+  /* The roles' former stored key still carries them: a copy written while
+     roles were called presets keeps every role the user made. */
+  const { runeRoles: _roles, ...withoutRoles } = chosen;
+  const formerKey = readPreferences({ ...withoutRoles, runePotentialPresets: chosen.runeRoles }, null);
+  assert.deepEqual(formerKey.runeRoles, chosen.runeRoles, 'roles stored under their former key survive the rename');
+  assert.ok(!('runePotentialPresets' in formerKey), 'the former key is read, never written');
+  assert.deepEqual(readPreferences({ ...chosen, runePotentialPresets: [otherRoles[0]] }, null).runeRoles, chosen.runeRoles,
+    'where both keys exist, the current one wins');
 
   /* Undefined and empty stay different answers. */
-  assert.deepEqual(readPreferences({ ...chosen, runePotentialPresets: [] }, null).runePotentialPresets, [], 'a list the user emptied stays empty');
-  assert.equal(readPreferences({ ...chosen, runePotentialPresets: undefined }, null).runePotentialPresets.length, blank.runePotentialPresets.length, 'no list at all gets the shipped roles');
+  assert.deepEqual(readPreferences({ ...chosen, runeRoles: [] }, null).runeRoles, [], 'a list the user emptied stays empty');
+  assert.equal(readPreferences({ ...chosen, runeRoles: undefined }, null).runeRoles.length, blank.runeRoles.length, 'no list at all gets the shipped roles');
 
   /* A monster copy loses the field it cannot read, not the copy, nor the same
      copy's profile in another context. */

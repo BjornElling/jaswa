@@ -60,6 +60,53 @@ try {
   assert.equal(unverifiable.valid, false,
     'a snapshot containing a monster without an ownership identity is rejected');
 
+  /* A monster is counted the moment it is accepted, so a field every page
+     reads it by must be one JASWA can act on (AGENTS.md §0.1, part 3). */
+  for (const [field, value] of [['unit_master_id', 'x'], ['unit_master_id', undefined], ['class', 7], ['unit_level', 41],
+    ['unit_level', 0], ['skills', 'none'], ['skills', [[1]]], ['skills', [[1, 0]]]]) {
+    const unit = { ...owned, [field]: value };
+    if (value === undefined) delete unit[field];
+    const report = validateGameFile(account([unit]));
+    assert.equal(report.valid, false, `a monster with ${field} ${JSON.stringify(value)} is refused`);
+    assert.match(report.message, /monster JASWA cannot read/);
+  }
+  assert.equal(validateGameFile(account([{ ...owned, class: 6, skills: [[1, 1], [2, 5]] }])).valid, true,
+    'a monster with a grade and skills the game can produce is read');
+  assert.equal(validateGameFile({ ...account([]), unit_storage_normal_list: [{ unit_id: 30, unit_master_id: 14314, unit_level: 99 }] }).valid, false,
+    'a Normal Sealed Shrine unit is held to the same contract as a roster one');
+
+  /* In Scenario a rune or artifact is engraved on one monster at most. */
+  const engravedRune = { ...intangible(23, 1), set_id: 1 };
+  const twice = validateGameFile(account([
+    { ...owned, runes: [engravedRune] },
+    { ...owned, unit_id: 13, runes: [{ ...engravedRune, occupied_id: 13 }] },
+  ]));
+  assert.equal(twice.valid, false, 'one rune under two Scenario monsters is refused');
+  assert.match(twice.message, /one rune on two monsters/);
+
+  /* A nested Summoned list is validated, published, counted and listed exactly
+     as a root one, and a stack at zero is neither counted nor shown. */
+  const { createImportedGame } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { accountCounts } = await server.ssrLoadModule('/app/lib/account-counts.ts');
+  const { summonedShrineRecords } = await server.ssrLoadModule('/app/lib/sealed-shrine-storage.ts');
+  const nested = (stacks) => ({ ...account([owned]), GetWizardDataPart1: { GetUnitStorageList: { unit_storage_list: stacks } } });
+  assert.equal(validateGameFile(nested([{ unit_master_id: 10101, quantity: -1 }])).valid, false,
+    'a nested Summoned stack is validated like a root one');
+  assert.equal(validateGameFile(nested([{ unit_master_id: 'x', quantity: 1 }])).valid, false);
+  const stacks = nested([{ unit_master_id: 10101, quantity: 3, class: 3 }, { unit_master_id: 10102, quantity: 0, class: 3 }]);
+  const report = validateGameFile(stacks);
+  assert.equal(report.valid, true, report.message);
+  const prepared = createImportedGame('nested.json', stacks, report).data;
+  assert.deepEqual(prepared.unit_storage_list, [{ unit_master_id: 10101, quantity: 3, class: 3 }],
+    'the nested tab is published at the root without its emptied stack');
+  assert.equal(accountCounts(prepared).monsters, 1 + 3, 'the badge counts the roster and the three summoned copies');
+  assert.deepEqual(summonedShrineRecords(stacks).map((stack) => stack.quantity), [3], 'a zero stack is never listed, even unprepared');
+  assert.deepEqual(prepared.unit_storage_list, summonedShrineRecords(prepared), 'the table reads exactly what is counted');
+  assert.equal(validateGameFile({ ...account([owned]), sealedShrineNormal: [{ unit_master_id: 'x' }] }).valid, true,
+    'a key no capture shows is neither read nor validated');
+  assert.equal(accountCounts({ ...account([owned]), sealedShrineNormal: [{ unit_id: 40, unit_master_id: 10101 }] }).monsters, 1,
+    'nor counted');
+
   console.log('Monster imports keep the account ownership boundary intact.');
 } finally {
   await server.close();

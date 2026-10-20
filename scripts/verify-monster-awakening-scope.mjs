@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Awakening scope — "this monster, or a more awakened form of it" is directional
- * and stays inside one element's chain (`ARTIFACT-CANONICAL.md` §17.11).
+ * and stays inside one element's chain (`ACCOUNT-TABLES.md` §3).
  *
  * The catalogue ids used here: 24801 Poison Master (Water) → 24811 Kyle, its
  * Fire sibling 24802 Poison Master (Fire) → 24812 Todd, and the three-stage
@@ -15,7 +15,7 @@ const server = await createServer({ configFile: false, appType: 'custom', server
 try {
   const {
     isSameOrHigherAwakening, monsterAwakeningPosition, withHigherAwakenings,
-  } = await server.ssrLoadModule('/app/lib/monster-awakening-scope.ts');
+  } = await server.ssrLoadModule('/app/lib/monster-identity.ts');
 
   assert.deepEqual(monsterAwakeningPosition(24801), { lineageId: '248_1', tier: 0 },
     'an unawakened monster is tier 0 of its own element lineage');

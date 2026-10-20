@@ -20,9 +20,7 @@ import {
 } from '../lib/monster-grid';
 import { columnClasses, storageTableColumns } from '../lib/table-layouts';
 import { elementName, elementNameList } from '../lib/rune-sets';
-import {
-  shrineContainerKeys, shrineContainerListKeys, shrineListKeys, summonedShrineRecords,
-} from '../lib/sealed-shrine-storage';
+import { normalShrineRecords, summonedShrineRecords } from '../lib/sealed-shrine-storage';
 import type { Preferences } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
 
@@ -203,68 +201,23 @@ function mergeStorageRows(rows: readonly StorageMonsterRow[]): StorageMonsterRow
   return merged;
 }
 
-/* Where either shrine tab's list may be found, read from the same declaration
-   the search's view of the account uses. Ordinary Monster Storage stays on the
-   game's `building_id` marker rather than on a key. */
-const storageListKeys: Record<ShrineLocation, readonly string[]> = shrineListKeys;
-
-function storageLocationValue(value: unknown): StorageLocation | undefined {
-  if (typeof value !== 'string') return undefined;
-  const normalized = value.toLowerCase().replace(/[^a-z]/g, '');
-  if (normalized === 'storage' || normalized === 'monsterstorage' || normalized === 'ordinary') return 'storage';
-  if (normalized.includes('summoned')) return 'sealed-summoned';
-  if (normalized.includes('normal')) return 'sealed-normal';
-  return undefined;
-}
-
-function explicitStorageLocation(record: GameRecord): StorageLocation | undefined {
-  for (const key of ['storage_location', 'storageLocation', 'storage_type', 'storageType', 'location', 'source', 'type']) {
-    const location = storageLocationValue(record[key]);
-    if (location) return location;
-  }
-  return undefined;
-}
-
-function storageList(value: unknown): GameRecord[] {
-  return Array.isArray(value) ? value.filter((entry): entry is GameRecord => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry)) : [];
-}
-
+/* The tab a record belongs to is the list it came in, never a guess from a
+   field of the record: the import validated and counted exactly these two
+   lists, so the table lists what the badge counts and nothing else
+   (`AGENTS.md` §0.1). Ordinary Monster Storage stays on the game's
+   `building_id` marker. */
 function storageEntries(gameData: GameRecord): Array<{ record: GameRecord; location: ShrineLocation; index: number }> {
-  const entries: Array<{ record: GameRecord; location: ShrineLocation; index: number }> = [];
-  const add = (value: unknown, fallback: ShrineLocation) => storageList(value).forEach((record) => {
-    const location = explicitStorageLocation(record);
-    entries.push({ record, location: location === 'sealed-normal' || location === 'sealed-summoned' ? location : fallback, index: entries.length });
-  });
-
-  const mergedShrineList = summonedShrineRecords(gameData);
-  mergedShrineList.forEach((record) => {
-    const location = explicitStorageLocation(record);
-    entries.push({
-      record,
-      location: location === 'sealed-normal' || location === 'sealed-summoned' ? location : 'sealed-summoned',
-      index: entries.length,
-    });
-  });
-  for (const location of ['sealed-summoned', 'sealed-normal'] as const) {
-    for (const key of storageListKeys[location]) add(gameData[key], location);
-  }
-  for (const containerKey of shrineContainerKeys) {
-    const container = gameData[containerKey];
-    if (!container || typeof container !== 'object' || Array.isArray(container)) continue;
-    const source = container as GameRecord;
-    for (const location of ['sealed-summoned', 'sealed-normal'] as const) {
-      /* The first name the container actually uses wins, so a tab is added once
-         rather than once per accepted spelling. */
-      const key = shrineContainerListKeys[location].find((name) => source[name] !== undefined);
-      if (key !== undefined) add(source[key], location);
-    }
-  }
-  return entries;
+  return [
+    ...summonedShrineRecords(gameData).map((record) => ({ record, location: 'sealed-summoned' as const })),
+    ...normalShrineRecords(gameData).map((record) => ({ record, location: 'sealed-normal' as const })),
+  ].map((entry, index) => ({ ...entry, index }));
 }
 
-function storageEntryQuantity(record: GameRecord): number {
-  const quantity = numericOrNull(record.quantity);
-  return quantity !== null && Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 1;
+/* A summoned stack states its copies; `summonedShrineRecords` has already left
+   out every stack that holds none, so its quantity is used as it stands. Every
+   other record is one monster. */
+function storageEntryQuantity(record: GameRecord, location: StorageLocation): number {
+  return location === 'sealed-summoned' ? Number(record.quantity) : 1;
 }
 
 function storageEntryElement(record: GameRecord, masterId: string): string | undefined {
@@ -320,7 +273,7 @@ function displaySkillProgress(row: StorageMonsterRow): string {
 
 /**
  * Every column of the Storage table, each with the comparison that orders it
- * (§17.8). Blanks sort to the end in both directions via
+ * (`ACCOUNT-TABLES.md` §1). Blanks sort to the end in both directions via
  * `compareNumbersWithBlanks`/`compareTextWithBlanks`, so a missing level never
  * masquerades as a low one.
  */
@@ -418,7 +371,7 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
         location,
         locations: [location],
         ordinal: 0,
-        quantity: storageEntryQuantity(monster),
+        quantity: storageEntryQuantity(monster, location),
         name: presentation.name,
         searchAliases: presentation.searchAliases,
         element: storageEntryElement(monster, masterId),
@@ -464,7 +417,7 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
 
   /* A search names a monster, and awakening it does not change which monster it
      is: `poison master` is a request to see what became of it, so the awakened
-     Kyle belongs in the results (§17.15). The widening is drawn from every row
+     Kyle belongs in the results (`ACCOUNT-TABLES.md` §3). The widening is drawn from every row
      the table can list, for the same reason the two indexes above are — a
      hidden location must not decide what the account is understood to hold.
 

@@ -11,7 +11,7 @@
  */
 import speedSkillData from '../data/swarfarm-speed-skills.json';
 import type { GameRecord } from './game-data';
-import { speedBuffPercent } from './speed-tick';
+import { statLabels } from './stat-labels';
 import type { AllyTarget, LeaderArea, SpeedLeaderSkill, TurnEffect } from './speed-tick';
 
 type SnapshotEffect = {
@@ -36,17 +36,17 @@ type SnapshotSkill = {
 
 type SnapshotLeader = [com2usId: number, attribute: string, percent: number, area: LeaderArea, element: string | null];
 
-/* Swarfarm's name for each attribute a leader raises, and how the game's own
-   rune screen abbreviates it. */
+/* Swarfarm's name for each attribute a leader raises, and the stat's name as
+   every other page writes it in prose (`stat-labels.ts`). */
 const leaderAttributes = {
-  'Attack Speed': { short: 'SPD', words: 'attack speed' },
-  'Attack Power': { short: 'ATK', words: 'attack power' },
-  Defense: { short: 'DEF', words: 'defense' },
-  HP: { short: 'HP', words: 'HP' },
-  'Critical Rate': { short: 'CRI Rate', words: 'critical rate' },
-  'Critical DMG': { short: 'CRI Dmg', words: 'critical damage' },
-  Resistance: { short: 'RES', words: 'resistance' },
-  Accuracy: { short: 'ACC', words: 'accuracy' },
+  'Attack Speed': { short: statLabels.spd, words: 'attack speed' },
+  'Attack Power': { short: statLabels.atk, words: 'attack power' },
+  Defense: { short: statLabels.def, words: 'defense' },
+  HP: { short: statLabels.hp, words: 'HP' },
+  'Critical Rate': { short: statLabels.criRate, words: 'critical rate' },
+  'Critical DMG': { short: statLabels.criDmg, words: 'critical damage' },
+  Resistance: { short: statLabels.res, words: 'resistance' },
+  Accuracy: { short: statLabels.acc, words: 'accuracy' },
 } as const;
 export type LeaderAttribute = keyof typeof leaderAttributes;
 
@@ -285,15 +285,22 @@ export function shortAllyBoost(amount: number, recipient: string): string {
   return `+${attackBarPercent(amount)} % ATB → ${recipient}`;
 }
 
-/** The same effect in a few characters, for the tag a team table hangs between two slots. */
-export function shortTurnEffect(effect: TurnEffect): string {
+/**
+ * The same effect in a few characters, for the tag a team table hangs between
+ * two slots. A speed buff's potency is the recipient's own (`speedBuffPotency`),
+ * so a figure is printed only where the caller names the one recipient's —
+ * `recipientPotency` — and an "all allies" buff, worth something different on
+ * each, reads `SPD buff`.
+ */
+export function shortTurnEffect(effect: TurnEffect, recipientPotency?: number): string {
+  const spd = statLabels.spd;
   switch (effect.kind) {
     case 'allies-attack-bar': return `+${attackBarPercent(effect.amount)} % ATB`;
     case 'ally-attack-bar': return `+${attackBarPercent(effect.amount)} % ATB · 1 ally`;
     case 'self-attack-bar': return `+${attackBarPercent(effect.amount)} % own ATB`;
-    case 'allies-speed-buff': return `+${speedBuffPercent} % SPD · ${effect.turns} turns`;
-    case 'ally-speed-buff': return `+${speedBuffPercent} % SPD · 1 ally`;
-    case 'self-speed-buff': return `+${speedBuffPercent} % own SPD`;
+    case 'allies-speed-buff': return `${spd} buff · ${effect.turns} turns`;
+    case 'ally-speed-buff': return `${recipientPotency === undefined ? `${spd} buff` : `+${recipientPotency} % ${spd}`} · 1 ally`;
+    case 'self-speed-buff': return recipientPotency === undefined ? `own ${spd} buff` : `+${recipientPotency} % own ${spd}`;
   }
 }
 

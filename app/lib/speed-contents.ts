@@ -10,25 +10,23 @@
  * still decides which leader skills count, so its combat speeds are the game's.
  */
 import speedData from '../data/swarfarm-speed-dungeons.json';
-import type { SpeedArea } from './speed-tick';
+import { resistanceFloorPercent } from './accuracy-ceiling';
+import type { SpeedArea, TickRule } from './speed-tick';
 
 export type DungeonId = 'giants' | 'dragons' | 'necropolis' | 'spiritual' | 'steel' | 'punisher' | 'magic';
-/** A content without enemy data, by area: the other dungeons, guild content, and a preset not yet named. */
-export type OpenContentId = 'other-dungeon' | 'guild' | 'unnamed';
+/** A content without enemy data, by area: the other dungeons, guild content, the raids, and a preset not yet named. */
+export type OpenContentId = 'other-dungeon' | 'guild' | 'raid' | 'unnamed';
 export type SpeedContentId = 'arena' | DungeonId | OpenContentId;
 
 /** One stage of a dungeon floor: its enemies' dungeon speeds, resistance percents and game monster ids, in one order. */
 export type DungeonStage = { fastest: number; speeds: readonly number[]; resists: readonly number[]; monsters: readonly number[] };
 
-/* The game never lets a resistance fall below 15 per cent, however much
-   accuracy meets it, so accuracy past the highest resistance less 15 buys
-   nothing. */
-const resistanceFloor = 15;
-
 export type SpeedContent = {
   id: SpeedContentId;
   name: string;
   area: SpeedArea;
+  /** How big a tick is there (`tickPercentOf`). */
+  tick: TickRule;
   /** The team the enemy data was read for, `null` where there is none: the preset's content then decides. */
   teamSize: number | null;
   /**
@@ -79,6 +77,7 @@ function dungeonContent(id: DungeonId): SpeedContent {
     id,
     name: dungeonNames[id],
     area: 'dungeon',
+    tick: 'standard',
     teamSize: snapshot.teamSize,
     facesEnemies: true,
     floor: `${snapshot.swarfarmDungeon} · floor ${snapshot.floor}`,
@@ -87,11 +86,13 @@ function dungeonContent(id: DungeonId): SpeedContent {
 }
 
 export const speedContents: readonly SpeedContent[] = [
-  { id: 'arena', name: 'Arena', area: 'arena', teamSize: arenaTeamSize, facesEnemies: true, floor: null, stages: [] },
+  { id: 'arena', name: 'Arena', area: 'arena', tick: 'standard', teamSize: arenaTeamSize, facesEnemies: true, floor: null, stages: [] },
   ...dungeonIds.map(dungeonContent),
-  { id: 'other-dungeon', name: 'Dungeon', area: 'dungeon', teamSize: null, facesEnemies: false, floor: null, stages: [] },
-  { id: 'guild', name: 'Guild', area: 'guild', teamSize: null, facesEnemies: false, floor: null, stages: [] },
-  { id: 'unnamed', name: 'Not yet named', area: 'unnamed', teamSize: null, facesEnemies: false, floor: null, stages: [] },
+  { id: 'other-dungeon', name: 'Dungeon', area: 'dungeon', tick: 'standard', teamSize: null, facesEnemies: false, floor: null, stages: [] },
+  { id: 'guild', name: 'Guild', area: 'guild', tick: 'standard', teamSize: null, facesEnemies: false, floor: null, stages: [] },
+  /* Rift Raid and the Dimension Raid phases: a raid's tick and a raid's leads. */
+  { id: 'raid', name: 'Raid', area: 'raid', tick: 'raid', teamSize: null, facesEnemies: false, floor: null, stages: [] },
+  { id: 'unnamed', name: 'Not yet named', area: 'unnamed', tick: 'standard', teamSize: null, facesEnemies: false, floor: null, stages: [] },
 ];
 
 export function speedContent(id: SpeedContentId): SpeedContent {
@@ -109,8 +110,8 @@ export function fastestEnemySpeed(id: DungeonId): number {
   return Math.max(...speedContent(id).stages.map((stage) => stage.fastest));
 }
 
-/** The most accuracy, in per cent, any monster can put to use on a dungeon floor. */
+/** The most accuracy, in per cent, any monster can put to use on a dungeon floor: its highest resistance less the floor no resistance falls below. */
 export function usefulAccuracy(id: DungeonId): number {
   const highest = Math.max(...speedContent(id).stages.flatMap((stage) => stage.resists));
-  return Math.max(0, highest - resistanceFloor);
+  return Math.max(0, highest - resistanceFloorPercent);
 }

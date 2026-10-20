@@ -489,9 +489,14 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | '
 export function readMonsterPreferences(value: unknown): MonsterPreferences {
   if (!isRecord(value)) return {};
   const read: MonsterPreferences = {};
-  /* The context's renamed key must not cost the developer's saved choices
-     (AGENTS.md §0). Only preferences retain this spelling at the read boundary;
-     every new write uses Scenario's key. */
+  /* Scenario's area was once stored under `default`. A stored copy written
+     before the rename still holds every Scenario monster's profile under that
+     key — its leads, rune slots, main stats, stat targets and ceilings, wanted
+     builds, and artifact and relic choices — and reading only `scenario` would
+     reset them all at once, which AGENTS.md §0 forbids. So the old key is read
+     as Scenario's whenever no `scenario` key exists; a copy that has one is
+     read from it alone. Every write uses `scenario`, so the branch only ever
+     fires on a copy not yet re-saved. */
   const areas = { ...value };
   if (!('scenario' in value) && isRecord(value.default)) areas.scenario = value.default;
   for (const [scope, copies] of Object.entries(areas)) {

@@ -109,9 +109,9 @@ export type ArtifactScoreRequest = {
   /**
    * The stones usable on one engrave class, keyed by that class's code — a stone
    * is engraved for one class and converts nothing else
-   * (`ARTIFACT-CANONICAL.md` §15.12). `intangibleRestrictionCode` holds the
-   * union, because an Intangible artifact names no class and every stone of the
-   * category applies to it.
+   * (`ARTIFACT-CANONICAL.md` §15.12). `intangibleRestrictionCode` deliberately
+   * has no entry: an Intangible artifact cannot be converted at all (§10.1;
+   * v8.1.9), so no stone ever applies to one.
    */
   ownedConversionPropertyIndexesByClass: Readonly<Record<number, readonly number[]>>;
   /** When supplied, report the score on the monster this artifact is engraved on as well as the category maximum. */

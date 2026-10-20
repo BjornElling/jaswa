@@ -172,12 +172,14 @@ test('saved relic choices constrain engraving and survive a reload', async ({ pa
   await expect(page.getByRole('dialog').getByRole('button', { name: /^Relic uniques, preferred:/ }))
     .toHaveAttribute('aria-label', 'Relic uniques, preferred: Any');
 });
-test('the current relic cell shows every relic engraved on a monster', async ({ page }) => {
+/* A monster carries one relic at most (v9.1.8), and the import refuses a file
+   engraving two (`relicEngravingProblem`), so the cell names exactly one. */
+test('the current relic cell shows the relic engraved on a monster', async ({ page }) => {
   await importAccount(page);
   await openUseForMons(page);
   const kaimann = monsterRow(page, 'Kaimann');
   await expect(current(kaimann)).toContainText('Nimble Primal');
-  await expect(current(kaimann)).toContainText('Sharp Conquest');
+  await expect(current(kaimann)).not.toContainText('Sharp Conquest');
 });
 
 test('a display filter narrows the view and never the plan', async ({ page }) => {

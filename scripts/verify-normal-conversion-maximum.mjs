@@ -32,7 +32,8 @@ const observed = [
   [226, 3, 8],   // ATK/DEF UP Effect
   [300, 3, 8], [301, 3, 8], [302, 3, 8], [303, 3, 8], [304, 3, 8],
   [305, 4, 9], [306, 4, 9], [307, 4, 9], [308, 4, 9], [309, 4, 9],
-  [400, 4, 9],   // [Skill 1] CRIT DMG — 401 is asserted separately below
+  [400, 4, 9],   // [Skill 1] CRIT DMG
+  [401, 4, 9],   // [Skill 2] CRIT DMG
   [404, 4, 9], [405, 4, 9], [406, 4, 9],       // Recovery
   [407, 4, 9], [408, 4, 9], [409, 4, 9],       // Accuracy
   [410, 4, 9],   // [Skill 3/4] CRIT DMG
@@ -42,27 +43,18 @@ const observed = [
 const server = await createServer({ configFile: false, server: { middlewareMode: true } });
 
 try {
-  const { artifactProperty, artifactNormalConversionMaximum, artifactConversionMaximum } =
+  const { artifactProperty, artifactNormalConversionMaximum } =
     await server.ssrLoadModule('/app/lib/artifact-properties.ts');
 
-  /* Bomb Damage is the one property whose stored floor is deliberately below
-     the dialog's. The dialog names 2 — today's roll table — but 108 lines in
-     the captured account hold 1, on artifacts predating v6.2.0 and its raised
-     values (§15.11). `minRoll` doubles as the import floor, so lifting it to 2
-     would reject those artifacts and fail the account under §0.1. The legacy
-     rolls keep the definition; the dialog governs the conversion ceiling. */
-  const legacyFloorBelowDialog = new Set([210]);
-
+  /* Every property floors at the dialog's minimum, Bomb Damage included. Its
+     pre-v6.2.0 lines at 1 once held its floor down while `minRoll` doubled as
+     an import gate; no range gates an import any more, so the definition
+     carries today's table. */
   for (const [id, uiMinimum, uiMaximum] of observed) {
     const property = artifactProperty(id);
     assert.ok(property, `property ${id} must be defined`);
-    if (legacyFloorBelowDialog.has(id)) {
-      assert.ok(property.minRoll < uiMinimum,
-        `property ${id} keeps a pre-v6.2 floor below the dialog's ${uiMinimum}`);
-    } else {
-      assert.equal(property.minRoll, uiMinimum,
-        `property ${id} floors at one minimum roll, which the dialog puts at ${uiMinimum}`);
-    }
+    assert.equal(property.minRoll, uiMinimum,
+      `property ${id} floors at one minimum roll, which the dialog puts at ${uiMinimum}`);
     assert.equal(artifactNormalConversionMaximum(property), uiMaximum,
       `property ${id} converts up to ${uiMaximum}, the dialog's highest threshold`);
   }
@@ -75,26 +67,12 @@ try {
   assert.notEqual(lifeDrain.maxRoll * 2, 12, 'maxRoll × 2 (16) is not the normal-conversion ceiling');
   assert.notEqual(lifeDrain.minRoll + lifeDrain.maxRoll, 12, 'minRoll + maxRoll (13) is not it either');
 
-  /* Import validation stays deliberately looser than the scoring ceiling.
-     Engraved conversion stones are a separate system (§15.12) and the export
-     does not record which stone produced a line, so the validator must clear
-     both or a legal artifact fails the whole account under §0.1. */
-  assert.ok(artifactConversionMaximum(lifeDrain) > artifactNormalConversionMaximum(lifeDrain),
-    'the import bound must stay above the normal-conversion ceiling');
-
-  /* `[Skill 2] CRIT DMG` is the one property where the dialog and the account
-     disagree, and neither side may simply win. The dialog lists it at 4–9 like
-     every other skill line, which implies `maxRoll` 6; but one line of 6,881 in
-     the account holds 7, and §12 forbids a ceiling a real artifact exceeds. The
-     definition therefore keeps `maxRoll` 7 so the import cannot reject that
-     artifact, which leaves its conversion ceiling one step above the dialog's.
-     That is the safe direction: it over-admits rather than rejecting. Recorded
-     as a known conflict rather than silently rounded away. */
+  /* `[Skill 2] CRIT DMG` rolls 4–6 like every other skill line. Its lines above
+     6 in the account all carry no power-up and are converted lines, which a
+     conversion's 4–9 explains; widening the roll to 7 for them cost every
+     Skill 2 line a seventh of its score. */
   const skillTwoCritDamage = artifactProperty(401);
-  assert.equal(skillTwoCritDamage.minRoll, 4, 'the floor still matches the dialog');
-  assert.equal(skillTwoCritDamage.maxRoll, 7, 'the observed 7 keeps the range open for import');
-  assert.equal(artifactNormalConversionMaximum(skillTwoCritDamage), 11,
-    'its conversion ceiling follows its own range, above the dialog’s 9');
+  assert.equal(skillTwoCritDamage.maxRoll, 6, 'a Skill 2 CRIT DMG roll tops out at 6, as every skill line does');
 
   /* Engraved conversion stones share this ceiling rather than exceeding it: the
      stones' own tooltips, captured September 5, 2026, name a range whose maximum

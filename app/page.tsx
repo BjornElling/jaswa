@@ -655,7 +655,7 @@ export default function Home() {
   }
 
   function writeRoles(change: (current: RuneRole[]) => RuneRole[]) {
-    changePreferences((current) => ({ ...current, runePotentialPresets: change(current.runePotentialPresets) }));
+    changePreferences((current) => ({ ...current, runeRoles: change(current.runeRoles) }));
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -751,7 +751,7 @@ export default function Home() {
       {page === 'rune-setup' && <Suspense fallback={<WorkspaceLoading />}><RuneSetupSection
         game={game}
         settings={preferences.runePotential}
-        roles={preferences.runePotentialPresets}
+        roles={preferences.runeRoles}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onUpdate={updateRunePotentialSettings}
@@ -767,7 +767,7 @@ export default function Home() {
         runeHolds={preferences.runeHolds}
         lockedRunes={lockedRunes}
         settings={preferences.runePotential}
-        roles={preferences.runePotentialPresets}
+        roles={preferences.runeRoles}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onOpenRune={openRuneOverlay}
@@ -799,7 +799,7 @@ export default function Home() {
       {RuneSimulatorSection && page === 'rune-simulator' && <Suspense fallback={<WorkspaceLoading />}><RuneSimulatorSection
         game={game}
         settings={preferences.runePotential}
-        roles={preferences.runePotentialPresets}
+        roles={preferences.runeRoles}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
         onOpenRune={openRuneOverlay}
@@ -809,7 +809,7 @@ export default function Home() {
 
       {page === 'gems' && <Suspense fallback={<WorkspaceLoading />}><GemsSection
         game={game}
-        roles={preferences.runePotentialPresets}
+        roles={preferences.runeRoles}
         preferences={preferences}
         onOpenRune={openRuneOverlay}
       /></Suspense>}
@@ -920,7 +920,7 @@ export default function Home() {
       game={game?.data}
       general={preferences.general}
       settings={preferences.runePotential}
-      roles={preferences.runePotentialPresets}
+      roles={preferences.runeRoles}
       hardwareAcceleration={preferences.hardwareAcceleration}
       hold={preferences.runeHolds[overlayRune.id]}
       onHold={overlay?.kind === 'rune' && overlay.target.kind === 'account' ? updateRuneHold : undefined}

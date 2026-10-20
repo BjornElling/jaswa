@@ -4,7 +4,7 @@ import {
   allocateRelicEngravings, assertRelicAllocation, rankRelicsForMonster, relicEngravingLimit,
 } from '../app/lib/relic-monster-fit.ts';
 import { relicMonsterModel, relicMonsterValue } from '../app/lib/relic-monster-value.ts';
-import { readRelic } from '../app/lib/relics.ts';
+import { readRelic, relicEngravingCounts, relicEngravingProblem } from '../app/lib/relics.ts';
 
 const account = JSON.parse(readFileSync(new URL('../tests/fixtures/relic-account.json', import.meta.url), 'utf8'));
 const relics = account.relics.map(readRelic);
@@ -91,4 +91,27 @@ for (const model of [hp, atk]) {
   const max = Math.max(...relics.map((relic) => relicMonsterValue(relic, model).score));
   assert.equal(rankRelicsForMonster(relics, model)[0].value.score, max);
 }
-console.log('Relic engraving uses per-copy value; capacity, preference bands, ties, small upgrades and roster-independent recommendations pass.');
+
+/* The reader holds a relic to the vocabulary, and the importer holds the roster
+   to the game's two engraving rules, so the plan and the advice can never judge
+   one relic on two sets of numbers. Each break fails loudly. */
+const sample = account.relics[0];
+const broken = (change) => readRelic({ ...structuredClone(sample), ...change(structuredClone(sample)) });
+assert.ok(readRelic(sample), 'the fixture relic satisfies the vocabulary');
+assert.equal(broken((relic) => ({ pri_effect: [relic.pri_effect[0], relic.pri_effect[1] + 1] })), null,
+  'a main percent other than 3 + level is refused');
+assert.equal(broken((relic) => ({ sec_effect: [relic.sec_effect[0], relic.sec_effect[1] + 1, relic.sec_effect[2]] })), null,
+  'a threshold other than the tier the level sits in is refused');
+assert.equal(broken((relic) => ({ sec_effect: [relic.sec_effect[0], relic.sec_effect[1], relic.sec_effect[2] + 1] })), null,
+  'a unique percent other than the family’s fixed one is refused');
+assert.equal(relicEngravingProblem(account.unit_list), undefined, 'the fixture roster engraves legally');
+assert.match(relicEngravingProblem([{ unit_level: 40, relics: [account.relics[0], account.relics[1]] }]) ?? '',
+  /more than one relic/, 'two relics on one monster are refused');
+assert.match(relicEngravingProblem([{ unit_level: 39, relics: [account.relics[0]] }]) ?? '',
+  /below Lv\. 40/, 'a relic below Lv. 40 is refused');
+assert.match(relicEngravingProblem([{ relics: [account.relics[0]] }]) ?? '',
+  /below Lv\. 40/, 'a relic on a monster of unknown level is refused');
+/* Capacity counts every eligible monster, a Material one included: the
+   Material exclusion picks the plan's rows, never the game's count. */
+assert.equal(relicEngravingCounts([{ unit_level: 40, unit_master_id: 14314, relics: [{ rid: 9001 }] }]).get('9001'), 1);
+console.log('Relic engraving uses per-copy value; capacity, preference bands, ties, small upgrades and roster-independent recommendations pass, and the import refuses relics and rosters the vocabulary cannot describe.');

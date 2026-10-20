@@ -12,9 +12,8 @@
  * between sessions. It therefore lives in IndexedDB beside the workspace and is
  * re-checked on load, never in `Preferences`.
  */
+import { deleteWorkspaceValue, readWorkspaceValue, writeWorkspaceValue } from './browser-storage';
 
-const databaseName = 'jaswa-local';
-const storeName = 'workspace';
 const saveFolderKey = 'save-folder';
 
 /* The API is young enough that TypeScript's DOM library does not describe it in
@@ -37,47 +36,12 @@ export function canChooseSaveFolder(): boolean {
   return typeof window !== 'undefined' && typeof (window as DirectoryPickerWindow).showDirectoryPicker === 'function';
 }
 
-function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(databaseName, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(storeName);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
 function put(value: DirectoryHandle | null): Promise<void> {
-  return openDatabase().then((database) => new Promise((resolve, reject) => {
-    const store = database.transaction(storeName, 'readwrite').objectStore(storeName);
-    const transaction = store.transaction;
-    if (value === null) store.delete(saveFolderKey); else store.put(value, saveFolderKey);
-    transaction.oncomplete = () => {
-      database.close();
-      resolve();
-    };
-    transaction.onerror = () => {
-      database.close();
-      reject(transaction.error);
-    };
-    transaction.onabort = () => {
-      database.close();
-      reject(transaction.error);
-    };
-  }));
+  return value === null ? deleteWorkspaceValue(saveFolderKey) : writeWorkspaceValue(saveFolderKey, value);
 }
 
 function get(): Promise<DirectoryHandle | null> {
-  return openDatabase().then((database) => new Promise((resolve, reject) => {
-    const request = database.transaction(storeName, 'readonly').objectStore(storeName).get(saveFolderKey);
-    request.onsuccess = () => {
-      database.close();
-      resolve((request.result as DirectoryHandle | undefined) ?? null);
-    };
-    request.onerror = () => {
-      database.close();
-      reject(request.error);
-    };
-  }));
+  return readWorkspaceValue<DirectoryHandle>(saveFolderKey);
 }
 
 /**

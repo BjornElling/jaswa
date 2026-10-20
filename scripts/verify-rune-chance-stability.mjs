@@ -41,10 +41,10 @@ import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import { chanceRuns } from '../app/lib/rune-cleanup-model.ts';
 import { countJobs } from '../app/lib/rune-power-up-outcomes.ts';
 import {
-  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount,
+  addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
-import { runeRarityOrder, runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));
@@ -107,7 +107,7 @@ function freshBody(random, index) {
   const available = legal.filter((stat) => stat !== prefixStatId);
   const held = new Set();
   const subProperties = [];
-  for (let at = 0; at < startingSubPropertyCount(rank); at += 1) {
+  for (let at = 0; at < bornSubPropertyCount(runeRarities[rank - 1]); at += 1) {
     const statId = choose(random, available.filter((stat) => !held.has(stat)));
     held.add(statId);
     const range = initialSubPropertyRange(stars, statId, ancient);
@@ -124,7 +124,7 @@ function freshBody(random, index) {
 
 /** The game's own loop, written from the schedule rather than from the engine. */
 function powerUp(random, rune, targetLevel) {
-  const born = runeRarityOrder(rune.rarity);
+  const born = bornSubPropertyCount(rune.rarity);
   for (const [index, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
     if (index >= born) {
@@ -133,7 +133,8 @@ function powerUp(random, rune, targetLevel) {
         && !held.has(stat) && slotAllowsSubStat(rune.slot, stat));
       if (options.length === 0) continue;
       const statId = choose(random, options);
-      const range = initialSubPropertyRange(rune.stars, statId, rune.ancient);
+      /* A gained line rolls the ordinary table, Ancient rune or not. */
+      const range = addedSubPropertyRange(rune.stars, statId);
       rune.subProperties.push({ statId, value: draw(random, range.minimum, range.maximum), gemmed: false, grind: 0 });
     } else {
       const line = choose(random, rune.subProperties);

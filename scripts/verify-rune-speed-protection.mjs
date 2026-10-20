@@ -5,7 +5,7 @@ import { defaultRunePotentialSettings, blankPreferences, readPreferences } from 
 import { readFileSync } from 'node:fs';
 import { defaultReappTargets } from '../app/lib/rune-reapp-targets.ts';
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { prepareRuneCandidate, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
+import { neutralComparisonCredit, prepareRuneCandidate, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
 import { maximumRoll, subPropertyTargetStat } from '../app/lib/rune-properties.ts';
 import { maxRollScale } from '../app/lib/rune-substat-weights.ts';
 import { runeStatName } from '../app/lib/runes.ts';
@@ -23,7 +23,7 @@ for (const level of [0, 9, 12, 13, 14, 15]) {
   const candidate = { ...rune, level };
   const answer = (await runeAdvice([candidate], [], settings, new Map())).get(rune.id);
   assert.equal(answer.verdict, level === 12 || level === 15 ? 'keep' : 'power-up');
-  assert.equal(answer.reason, 'Pre-grind speed protected');
+  assert.equal(answer.reason, 'Pre-grind SPD protected');
   assert.deepEqual(withRuneSellProtection(candidate, answer, { ...settings, neverSellPreGrindSpeed: false }).verdict, original.verdict);
   assert.equal(answer.maxValue, original.maxValue);
   assert.equal(answer.chance, original.chance);
@@ -92,7 +92,7 @@ assert.equal(kept.runePotential.potentialValueMinimum, 90);
 assert.equal(kept.runePotential.neverSellPreGrindSpeed, false);
 assert.equal(kept.runePotential.powerUpPolicy, 2);
 const both = withRuneSellProtection(rune, { ...original, chance: 0.01, maxValue: 0.9 }, { ...settings, ...potentialSettings, neverSellPreGrindSpeed: true, preGrindSpeedMinimum: 6 });
-assert.equal(both.reason, 'Pre-grind speed protected');
+assert.equal(both.reason, 'Pre-grind SPD protected');
 assert.equal(withRuneSellProtection(rune, both, potentialSettings).reason, 'Potential value protected');
 assert.equal(withRuneSellProtection(rune, both, { ...potentialSettings, neverSellPotentialValue: false }).verdict, 'sell');
 console.log('PASS: potential protection boundaries, both conditions, independent safeguards and preference survival.');
@@ -191,7 +191,7 @@ assert.equal(withRuneSellProtection({ ...rune, slot: rune.slot === 1 ? 2 : 1 }, 
 // It outranks the other safeguards, and clears back to the engine's own answer.
 const speedToo = withRuneSellProtection(rune, original, { ...settings, reappTargets: onlySlot(openTarget) });
 assert.equal(speedToo.verdict, 'reapp');
-assert.equal(withRuneSellProtection(rune, speedToo, { ...settings, neverSellReappTargets: false }).reason, 'Pre-grind speed protected');
+assert.equal(withRuneSellProtection(rune, speedToo, { ...settings, neverSellReappTargets: false }).reason, 'Pre-grind SPD protected');
 
 // The shipped six: slots 2, 4 and 6 on, Violent Legend with an innate.
 const shipped = defaultReappTargets();
@@ -282,7 +282,7 @@ const speedRune = (statIds) => ({ ...rune, id: 'refine-probe', slot: 2, mainStat
 const legal = [1, 2, 3, 4, 5, 6, 9, 10, 11, 12];
 function ranked(role) {
   const build = roleBuilds(role).find((entry) => entry.mains[2] === 8);
-  const candidate = prepareRuneCandidate(speedRune([4, 9, 10, 3]), role, build, fixtureBase.get(role.type), defaultCraftCredit);
+  const candidate = prepareRuneCandidate(speedRune([4, 9, 10, 3]), role, build, fixtureBase.get(role.type), defaultCraftCredit, neutralComparisonCredit);
   // First what the build still lacks, then the size of a max roll for a stat the role names.
   const named = new Set(candidate.weights.rows.map((row) => row.stat));
   const base = fixtureBase.get(role.type);

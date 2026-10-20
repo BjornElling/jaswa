@@ -2,7 +2,17 @@ import type { ReferenceStats } from './rune-reference-stats';
 import type { RuneRole } from './rune-roles';
 import type { RunePotentialSettings } from './types';
 import type { Rune } from './runes';
-import { runeSetPieceCount } from './rune-sets';
+import { isIntangibleRuneSet, runeSetPieceCount } from './rune-sets';
+
+/**
+ * Whether *Keep more for larger sets* applies to a rune's set: a four-piece set,
+ * and Intangible is not one. Intangible stands in for one missing piece of another
+ * set and has its own slider; the user decided it does not also take this one.
+ * The guard is written out rather than left to the piece table, so the decision
+ * survives however that table chooses to describe Intangible.
+ */
+export const isFourPieceSet = (setName: string): boolean =>
+  !isIntangibleRuneSet(setName) && runeSetPieceCount[setName] === 4;
 
 export type RuneCalculationInputs = {
   roles: readonly RuneRole[];
@@ -30,11 +40,11 @@ export function runeCalculationKey({ roles, settings, base }: RuneCalculationInp
     base === null ? null : types.map((type) => [type, base.get(type) ?? null])]);
 }
 
-/** These two preferences affect only their own sets, including Intangible's four pieces. */
+/** These two preferences affect only their own sets. */
 export function runeCalculationKeyForRune(inputs: RuneCalculationInputs, rune: Rune): string {
   return runeCalculationKey({ ...inputs, settings: {
     ...inputs.settings,
-    intangibleRunes: rune.setName === 'Intangible' ? inputs.settings.intangibleRunes : 1,
-    keepMoreForLargerSets: runeSetPieceCount[rune.setName] === 4 && inputs.settings.keepMoreForLargerSets,
+    intangibleRunes: isIntangibleRuneSet(rune.setName) ? inputs.settings.intangibleRunes : 1,
+    keepMoreForLargerSets: isFourPieceSet(rune.setName) && inputs.settings.keepMoreForLargerSets,
   } });
 }

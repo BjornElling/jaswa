@@ -58,7 +58,8 @@ test('updates changed standards in place and recalculates only affected sets', a
   await visit('Rune Clean-up');
   await expect.poll(async () => (await requests()).length).toBe(3);
   await expect(updating).toBeHidden();
-  expect((await requests())[2].slice().sort()).toEqual(['101', '102', '103']);
+  // The two four-piece sets only: an Intangible is no four-piece set (RUNE-CLEANUP-MATH.md §9).
+  expect((await requests())[2].slice().sort()).toEqual(['102', '103']);
   expect(await rowNames()).toEqual(originalOrder);
 
   // A global quality change affects the shared calibration, including other sets.
@@ -74,7 +75,7 @@ test('updates changed standards in place and recalculates only affected sets', a
   expect((await rows.allTextContents()).sort()).toEqual(incremental);
 
   const count = (await requests()).length;
-  await page.getByRole('checkbox', { name: 'Pre-grind spd ≥' }).uncheck();
+  await page.getByRole('checkbox', { name: 'Pre-grind SPD ≥' }).uncheck();
   await visit('Home');
   await visit('Rune Clean-up');
   await expect(rows).toHaveCount(4);

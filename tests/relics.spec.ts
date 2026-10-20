@@ -289,7 +289,7 @@ test('the strictest stop keeps a Strong pair rather than selling it', async ({ p
   await expect(strong).not.toContainText('Sell');
 });
 
-test('a relic engraved on monsters counts them, and an unused one says so', async ({ page }) => {
+test('a relic engraved on monsters counts them, and one in the inventory says so', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const engraved = rowFor(page, 'per 125 SPD');

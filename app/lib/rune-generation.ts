@@ -7,7 +7,7 @@
  * caller owns a second copy of the rules or a stale pre-generated population.
  */
 import {
-  allStatIds, runeInnateFrequency, slotMainProperties, subPropertyRange,
+  allStatIds, bornSubPropertyCount, remainingEvents, runeInnateFrequency, slotMainProperties, subPropertyRange,
 } from './rune-properties';
 import type { RuneRarity } from './runes';
 import { slotAllowsSubStat } from './runes';
@@ -42,11 +42,6 @@ export type GeneratedRuneBody = {
   subProperties: GeneratedRuneLine[];
 };
 
-const gradeSubPropertyCount: Readonly<Record<RuneRarity, number>> = {
-  Normal: 0, Magic: 1, Rare: 2, Hero: 3, Legend: 4,
-};
-
-const upgradeLevels = [3, 6, 9, 12] as const;
 const asUnit = (value: number): number => Math.min(0.9999999999999999, Math.max(0, value));
 
 export function randomInteger(minimum: number, maximum: number, random: RandomSource): number {
@@ -112,7 +107,7 @@ export function generateRuneBody({
     rune.prefixStatId = prefixStatId;
     rune.prefixValue = rollValue(stars, prefixStatId, 'initial', random);
   }
-  for (let at = 0; at < gradeSubPropertyCount[rarity]; at += 1) {
+  for (let at = 0; at < bornSubPropertyCount(rarity); at += 1) {
     rune.subProperties.push(newSubProperty(rune, random));
   }
   return rune;
@@ -128,10 +123,13 @@ export function upgradeRuneBody(
 ): GeneratedRuneBody {
   if (targetLevel < rune.level) return cloneRuneBody(rune);
   const next = cloneRuneBody(rune);
-  const bornLines = gradeSubPropertyCount[next.rarity];
-  for (const [eventIndex, level] of upgradeLevels.entries()) {
-    if (level <= next.level || level > drawThroughLevel) continue;
-    if (eventIndex >= bornLines) {
+  /* The schedule is `remainingEvents`', not a second copy of it: the Simulator, the
+     calibration population and Statistics all play their runes forward through here. */
+  const { events, levels } = remainingEvents(next.level, next.rarity);
+  for (const [at, event] of events.entries()) {
+    const level = levels[at];
+    if (level > drawThroughLevel) continue;
+    if (event === 'add') {
       const added = newSubProperty(next, random);
       if (level <= targetLevel) next.subProperties.push(added);
     } else {

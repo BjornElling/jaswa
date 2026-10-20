@@ -24,17 +24,6 @@ import type { RelicSynergyBand } from './relic-synergy';
  */
 
 /**
- * Re-exported so that `relic-power-up-model.ts` stays the one place these are
- * defined while existing importers keep working. New code should import them
- * from the model directly — that is where their documentation lives.
- */
-export {
-  relicDuplicateMarginalStrength, relicExpectedLevel, relicExpectedStrength,
-  relicFinalLevelChances, relicLanding, relicNextAttemptChance, relicReachChance,
-} from './relic-power-up-model';
-export type { RelicLanding, RelicSuccessRates } from './relic-power-up-model';
-
-/**
  * What a band of fit is worth, as a multiplier.
  *
  * The multiplier makes the one synergy judgement matter without pretending
@@ -54,6 +43,12 @@ export const relicSynergyWeights: Record<RelicSynergyBand, number> = {
 export type RelicInvestmentSelectivity = 1 | 2 | 3 | 4 | 5;
 
 export const relicInvestmentSelectivityLevels: readonly RelicInvestmentSelectivity[] = [1, 2, 3, 4, 5];
+
+/**
+ * Where the slider opens: `3`, *Optimistic*. One constant, so the table's
+ * default and The Math's description of it cannot name two different stops.
+ */
+export const defaultRelicInvestmentSelectivity: RelicInvestmentSelectivity = 3;
 
 export const isRelicInvestmentSelectivity = (value: unknown): value is RelicInvestmentSelectivity =>
   typeof value === 'number' && relicInvestmentSelectivityLevels.includes(value as RelicInvestmentSelectivity);
@@ -96,10 +91,10 @@ export const relicInvestmentThresholds: Record<RelicInvestmentSelectivity, numbe
  * and the two tables are read together or not at all — a name one stop out of
  * step promises a fit the gate does not keep.
  *
- * **`2` is the ordinary setting, and the names are pitched around it.** It is
- * where the slider opens and what most accounts should stay on, so it is named
- * for the judgement it makes rather than for a temperament: only `1` is stricter
- * than ordinary, and the three above it climb from optimistic to indefensible.
+ * **The slider opens on `3`, *Optimistic*** (`defaultRelicInvestmentSelectivity`).
+ * The names are pitched around `2`, the ordinary judgement, which is
+ * named for what it decides rather than for a temperament: only `1` is stricter
+ * than it, and the three above it climb from optimistic to indefensible.
  * `5` keeps every relic in the game and spends stones on pairs nothing can
  * redeem; it earns its name and exists so the scale has an end, not because
  * anyone should sit on it.
@@ -147,7 +142,7 @@ export const relicMinimumSynergyBands: Record<RelicInvestmentSelectivity, RelicS
  * Synergy sets the price of admission because it is what the attempt buys. An
  * Exceptional pair is worth a long shot; a Poor one is worth stones only when
  * passing is close to certain. The figures are read against the real overtake
- * chances (`RELIC-CANONICAL.md` §8.4), where a full-durability challenger passes
+ * chances (`RELIC-CANONICAL.md` §8 rule 2), where a full-durability challenger passes
  * a `+5` incumbent 82 % of the time, a `+8` 22 %, a `+10` 4.3 % and a `+12`
  * 0.36 % — so these five thresholds sort duplicates by how high the incumbent
  * has climbed, which is the thing that actually decides the matter.
@@ -241,9 +236,9 @@ export function relicAdvice(
         || (candidate.level === best.level && candidate.obtainedOrder < best.obtainedOrder)) return candidate;
       return best;
     }, null);
-    /* Measured against the incumbent's present level. The duplicate score below
-       uses the complete landing distribution, but the displayed chance remains
-       the concrete chance to pass the copy the account already has. */
+    /* Measured against the incumbent's present level: the concrete chance to
+       pass the copy the account already has, which is both what the duplicate
+       gate compares and what the table shows. */
     const overtakeChance = incumbent === null
       ? null
       : relicReachChance(relic.level, relic.durability, incumbent.level + 1, rates);
@@ -251,7 +246,7 @@ export function relicAdvice(
     const chance = relicNextAttemptChance(relic.level, relic.durability, rates);
     const score = investmentScore(chance, weight, relicNextLevelStrengthGain(relic.level, relic.unique.definition.per));
     /* A copy that has run out of places is no longer an incumbent this relic can
-       be redundant against — §8.1's premise is that one copy already reaches more
+       be redundant against — §8 rule 2's premise is that one copy already reaches more
        monsters than the account fields, and a saturated copy has stopped doing
        so. See the note on `decide`. */
     const incumbentIsFull = incumbent !== null
@@ -288,7 +283,7 @@ export function relicAdvice(
  * relic through that the setting had already rejected. A relic below `+3` was
  * powered up on a pair the account had said it did not want, on the grounds that
  * those levels are free — they are not. They are certain, which is a different
- * thing: the rate is 100 %, so no durability is spent, but the stones and gold
+ * thing: the rate is 100 %, so no durability is spent, but the stones and Mana
  * are charged exactly as at any other level. At the strictest setting the page
  * was therefore recommending stones on hopeless relics, which is the one thing
  * the gate exists to prevent. A relic that could not be powered up at all was
@@ -309,7 +304,7 @@ export function relicAdvice(
  * score exists to answer, which is where scarce stones do the most good.
  *
  * **The duplicate gate has one exception, and the 150-monster limit is what
- * created it.** §8.2 sells a same-pair copy that cannot expect to pass the one
+ * created it.** §8 rule 2 sells a same-pair copy that cannot expect to pass the one
  * the account already holds, and the premise underneath that — §1's, that one
  * relic already covers more monsters than an account fields — stopped being true
  * the moment §11 made capacity a constraint the page computes with. A copy
@@ -359,7 +354,7 @@ function decide({
   }
 
   /* Certain, not free. `+0`, `+1` and `+2` each succeed at 100 % and so cost no
-     durability, but the stones and gold are charged at every level — the game's
+     durability, but the stones and Mana are charged at every level — the game's
      own power-up panel prices a roll the same whether the rate is 100 % or 10 %.
      A guaranteed level on a pair worth keeping is still the best stone an
      account can spend, which is why this outranks the score; it is not outside

@@ -16,8 +16,8 @@ import { alignmentClass, artifactTableColumns } from '../lib/table-layouts';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readArtifacts } from '../lib/artifacts';
-import { artifactValueOnMonster } from '../lib/artifact-value-on-monster';
-import { defaultPropertyPreferences } from '../lib/artifact-preferences';
+import { artifactJudgementOnMonster } from '../lib/artifact-value-on-monster';
+import { scorePercent } from '../lib/compute/artifact-score-core';
 import {
   artifactCategoryLabel, artifactEngraveClassLabel, artifactValueTint, compareArtifactRows,
   defaultArtifactSortDirections, displaySubProperty,
@@ -126,7 +126,7 @@ function artifactCell(key: string, ...extra: Array<string | false | undefined>):
 
 /**
  * Every column of the artifact table with the comparison that orders it
- * (§17.8), including the marks column — a flag is still something the user may
+ * (`ACCOUNT-TABLES.md` §1), including the marks column — a flag is still something the user may
  * want to gather together, and "every column" admits no quiet exceptions.
  *
  * `subProperty` carries the substat-specific ordering the dropdown drives. It
@@ -214,14 +214,14 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
       const places = placements.artifacts.get(String(artifact.id)) ?? [];
       const only = places.length === 1 ? monstersByUnitId.get(places[0].unitId) : undefined;
       const preference = unitId === null ? undefined : scenarioProfiles[unitId];
-      const propertyPreferences = engravedOn
-        ? defaultPropertyPreferences(engravedOn.unit_master_id, artifact.category)
-        : undefined;
       /* The statement of the monster it is engraved on in Scenario, where it has
-         one, so this column answers for that copy rather than for its species. */
-      const value = engravedOn
-        ? artifactValueOnMonster(artifact, engravedOn, preferences.artifacts, preference)
+         one, so this column answers for that copy rather than for its species —
+         and the marks on its lines come from the same reading as the score, so
+         a line marked preferred is one the score counted as preferred. */
+      const judgement = engravedOn
+        ? artifactJudgementOnMonster(artifact, engravedOn, preferences.artifacts, preference)
         : undefined;
+      const value = judgement?.value;
       return {
         artifact,
         index,
@@ -232,10 +232,10 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
           : { unitId: places[0].unitId, masterId: String(only.unit_master_id), presetId: places[0].presetId },
         /* Rounded once, here, so the column, its colour band and the sort all
            read the same whole-point score the user sees. */
-        valuePercent: value === undefined ? undefined : Math.round(value * 100),
-        mainPropertyPreference: propertyPreferences?.main[artifact.mainProperty] ?? 'unwanted',
+        valuePercent: value === undefined ? undefined : scorePercent(value),
+        mainPropertyPreference: judgement?.preferences?.main ?? 'unwanted',
         subProperties: artifact.subProperties,
-        subPropertyPreferences: propertyPreferences?.sub ?? null,
+        subPropertyPreferences: judgement?.preferences?.sub ?? null,
       };
     });
   }, [artifacts, monsters, scenarioProfiles, preferences.artifacts, placements, monsterName]);

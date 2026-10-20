@@ -252,7 +252,7 @@ try {
 
   /* Every saved deck must be a preset the interface can reach, carrying its
      own placements: a deck read and then not offered is the invisible gap
-     `AGENTS.md` §0.1 forbids (`DECK-PRESETS.md` §6, step 9). */
+     `AGENTS.md` §0.1 forbids (`DECK-PRESETS.md` §6). */
   const { readPresets, presetMenu } = await server.ssrLoadModule('/app/lib/presets.ts');
   const presets = readPresets(data, []);
   const offered = new Set(presetMenu(presets).flatMap((tab) => tab.areas.flatMap((area) => area.presets.map((preset) => preset.id))));

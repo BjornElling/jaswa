@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 /**
  * Searching names a monster, and awakening does not change which monster it is,
  * so a search reaches the forms above what it matched and never the forms below
- * (`ARTIFACT-CANONICAL.md` §17.15).
+ * (`ACCOUNT-TABLES.md` §3).
  *
  * Both monster tables are held to it, from the same fixture and the same
  * expectations: the two strips present the same search control, so they must

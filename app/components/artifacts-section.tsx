@@ -9,6 +9,8 @@ import type { ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSett
 import type { GameRecord } from '../lib/game-data';
 import type { MonsterProfiles } from '../lib/monster-preferences';
 import { craftRollAssumptions } from '../lib/rune-craft-items';
+import { engravedConversionStoneCounts } from '../lib/artifact-conversion-stones';
+import { formatNumber } from '../lib/formatting';
 import type { CraftRollAssumption } from '../lib/rune-craft-items';
 
 /* The slider's stops are the stored percentages themselves
@@ -24,11 +26,11 @@ const acceptableWorthLabels = [
 ] as const;
 
 /* The slider names what a *conversion roll* reaches, not what an artifact
-   holds: a conversion collects two contributions whatever the grade granted
+   holds: a conversion is worth one and a half rolls whatever the grade granted
    (`ARTIFACT-CANONICAL.md` §10), so "maximum" is the best a conversion can
    produce rather than the best the artifact could ever have carried. */
 const conversionRollLabels: Readonly<Record<CraftRollAssumption, string>> = {
-  minimum: 'Minimum — the conversion’s two-roll floor',
+  minimum: 'Minimum — the lowest a conversion can roll',
   'one-third': 'One third — 33 % of the conversion maximum',
   average: 'Average — the midpoint of its possible range',
   'two-thirds': 'Two thirds — 67 % of the conversion maximum',
@@ -64,6 +66,11 @@ export function ArtifactsSection({ settings, data, monsters, scenarioProfiles, g
   /* With no conversion assumed the roll value has nothing to describe, so the
      slider dims rather than inviting an answer that changes nothing. */
   const conversionsOff = settings.conversionStoneMode === 'none';
+  /* Every stone the account owns is counted here, the ones naming a property
+     v8.0.0 retired included: the game still lets them be used, so leaving them
+     out would understate what the user holds, while valuing them would credit
+     a conversion to a property no monster wants. */
+  const stoneCounts = engravedConversionStoneCounts(data);
 
   return <WorkspacePage
     header={<PageHeader
@@ -176,6 +183,11 @@ export function ArtifactsSection({ settings, data, monsters, scenarioProfiles, g
               <p className="lead">
                 Potential conversion gains are based on engraved conversion stones you own (unless a better value has already been rolled).
               </p>
+              {stoneCounts && <p className="lead">
+                {`You own ${formatNumber(stoneCounts.valued + stoneCounts.notValued, general)} engraved conversion stones.`}
+                {stoneCounts.notValued > 0
+                  && ` ${formatNumber(stoneCounts.notValued, general)} of them name a retired property, so they are counted but not valued.`}
+              </p>}
             </OptionCard>
           </div>
 
@@ -184,7 +196,7 @@ export function ArtifactsSection({ settings, data, monsters, scenarioProfiles, g
               <label className="slider-label" htmlFor="conversion-stone-value">Conversion roll value</label>
               <p className="slider-note">
                 How well should a conversion roll be assumed to land? Every choice is measured against
-                that property’s own two-roll maximum, whatever the artifact or stone grade.
+                that property’s own conversion maximum, whatever the artifact or stone grade.
               </p>
               <input id="conversion-stone-value" type="range" min={1} max={craftRollAssumptions.length} step={1}
                 value={conversionRollStep + 1} disabled={conversionsOff}

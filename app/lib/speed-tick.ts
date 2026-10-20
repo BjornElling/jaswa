@@ -17,13 +17,27 @@
  *
  * Attack bars are reported in hundredths of a percent — a turn is 10,000 — and
  * every amount a skill names is in the same unit. The clock itself counts a
- * hundred times finer, because a speed buff multiplies a whole combat speed by
- * a whole percent and leaves a fraction over (§2): a tick is `7 × speed × (100 + buff)` there,
- * and no comparison ever meets a floating-point remainder.
+ * thousand times finer, because a speed buff multiplies a whole combat speed by
+ * a whole percent and a raid tick is a half percent (§2, §3): a tick is
+ * `70 × speed × (100 + buff)` there, `45 ×` in a raid, and no comparison ever
+ * meets a floating-point remainder.
  */
 
-/** The share of combat speed a tick adds to the attack bar, in hundredths of a percent per speed point. */
-export const attackBarPerSpeedPerTick = 7;
+/**
+ * How big a tick is where a team fights. It is a property of the content, not
+ * of the game: a raid boss's fight ticks at 4.5 % of combat speed, everything
+ * else Speed Tuning reads at 7 % (Ellia's Wiki, *Attack Bar*,
+ * elliabot.neocities.org/game_mechanics/attack_bar/, which gives 7 %, raids
+ * 4.5 % and RTA 1.5 %). SWCalc gives no value. RTA is no preset, so it has no
+ * rule here.
+ */
+export type TickRule = 'standard' | 'raid';
+
+/** What one tick adds to the attack bar, in percent per point of combat speed. */
+export const tickPercentOf: Readonly<Record<TickRule, number>> = { standard: 7, raid: 4.5 };
+
+/* The tick in tenths of a percent per speed point, so 4.5 % is a whole 45. */
+const tickTenths = (rule: TickRule): number => Math.round(tickPercentOf[rule] * 10);
 /** A full attack bar: 100 %, in hundredths of a percent. */
 export const fullAttackBar = 10_000;
 /** The speed buff's bonus, in percent of the rounded combat speed, before any SPD UP Effect. */
@@ -39,9 +53,9 @@ export const speedBuffPercent = 30;
 export function speedBuffPotency(speedUpEffectPercent: number): number {
   return Math.floor(speedBuffPercent * (10_000 + Math.round(speedUpEffectPercent * 100)) / 10_000);
 }
-/* The clock's own unit: a hundredth of the reported one, so the buff's percent
-   fits inside a whole number. */
-const clockScale = 100;
+/* The clock's own unit: a thousandth of the reported one, so the buff's percent
+   and a raid tick's half percent both fit inside a whole number. */
+const clockScale = 1_000;
 /** Swift's four-piece bonus, as a percentage of base speed. */
 export const swiftPercent = 25;
 /** The last Sky Tribe Totem level. */
@@ -49,7 +63,7 @@ export const totemMaximumLevel = 20;
 
 /**
  * Sky Tribe Totem's bonus by level, in percent of base speed — the in-game
- * upgrade table (`SPEED-TICK-CANONICAL.md` §2). Index 0 is "not built".
+ * upgrade table (`SPEED-TICK-CANONICAL.md` §2.1). Index 0 is "not built".
  */
 export const totemPercentByLevel: readonly number[] = [
   0, 1, 2, 2.5, 3, 4, 5, 5.5, 6, 7, 8, 8.5, 9, 10, 11, 11.5, 12, 13, 14, 14.5, 15,
@@ -58,9 +72,13 @@ export const totemPercentByLevel: readonly number[] = [
 /**
  * Where a team fights, as far as a leader skill is concerned. `unnamed` is a
  * preset whose content the export does not say: only a lead that counts
- * everywhere is sure to count there.
+ * everywhere is sure to count there. `raid` is Rift Raid and the Dimension Raid
+ * phases, which count no Arena, Dungeon or Guild lead (the user's decision of
+ * October 19, 2026, after XelNecra's Rift of Worlds guide on
+ * summonerswarskyarena.info, January 4, 2016: "only leader-skills without area
+ * restriction will work … One-Element-Leaders however will work").
  */
-export type SpeedArea = 'arena' | 'dungeon' | 'guild' | 'unnamed';
+export type SpeedArea = 'arena' | 'dungeon' | 'guild' | 'raid' | 'unnamed';
 
 /** Where a leader skill counts. An element is a second, separate limit. */
 export type LeaderArea = 'General' | 'Arena' | 'Dungeon' | 'Guild';
@@ -70,7 +88,7 @@ export type SpeedLeaderSkill = { percent: number; area: LeaderArea; element: str
  * The leader's speed percentage for one member, or 0 where it does not reach.
  *
  * A General lead counts everywhere; an Arena, Dungeon or Guild lead only in its
- * own area, and none of them where the content is not yet named. A lead that
+ * own area, and none of them in a raid or where the content is not yet named. A lead that
  * names an element counts only on monsters of that element.
  */
 export function leaderSpeedPercent(leader: SpeedLeaderSkill | null, area: SpeedArea, memberElement: string | null): number {
@@ -136,8 +154,8 @@ export function combatSpeed(sheet: SpeedSheet): number {
 }
 
 /** How many ticks a unit starting from an empty bar needs for its first turn. */
-export function ticksToFirstTurn(speed: number): number {
-  return Math.ceil(fullAttackBar / (attackBarPerSpeedPerTick * speed));
+export function ticksToFirstTurn(speed: number, rule: TickRule = 'standard'): number {
+  return Math.ceil(fullAttackBar * 10 / (tickTenths(rule) * speed));
 }
 
 /**
@@ -171,7 +189,11 @@ export type AllyTarget = 'lowest-attack-bar' | 'highest-attack-bar';
 export type TickUnit = {
   key: string;
   side: 'ally' | 'enemy';
-  /** Combat speed, rounded (§2). A speed buff multiplies it inside the clock. */
+  /**
+   * Combat speed, rounded (§2): the start-of-battle figure, with runes, totem,
+   * leader and Swift and with no buff or Leo cap. A buff and the cap act on it
+   * inside the clock, and it is this unmoved figure that settles a tie.
+   */
   speed: number;
   /** What a speed buff adds on this unit, in percent (`speedBuffPotency`); 30 where omitted. */
   speedBuffPercent?: number;
@@ -194,8 +216,9 @@ export type TurnEvent = {
   /** The unit's bar when the turn began, in hundredths of a percent; a buffed fill may leave a fraction. */
   attackBar: number;
   /**
-   * The units that had exactly the same bar and waited. The game settles that
-   * by field position, which this page cannot see.
+   * The units that had exactly the same bar and the same start-of-battle
+   * combat speed, and waited. Only pick order settles that, which this page
+   * cannot see; a tie a faster unit wins is no tie here.
    */
   tiedWith: string[];
   /** Every one-ally attack-bar boost this turn gave, in hundredths of a percent. */
@@ -224,20 +247,25 @@ export type BattleTrace = { events: TurnEvent[]; snapshots: TickSnapshot[] };
  * Runs the attack-bar clock (`SPEED-TICK-CANONICAL.md` §3):
  *
  * 1. Every bar starts empty.
- * 2. A tick adds 7 % × current combat speed to every bar — under a speed buff
- *    the rounded speed × 1.3, and under Leo's cap no more than Leo's own.
+ * 2. A tick adds the content's tick (`tickPercentOf`) × current combat speed to
+ *    every bar — under a speed buff the rounded speed × (1 + potency), and under
+ *    Leo's cap no more than Leo's own.
  * 3. If any bar is at 100 % or more, exactly one unit moves — the fullest. Its
  *    bar empties (overflow is lost) and its turn's effects apply. Then the next
  *    tick runs, even if another bar is already past 100 %.
  *
- * An exact tie on the bar between the user's team and the enemy goes to the
- * team: it attacks, and the attacker moves first on a tie (`SPEED-TICK-CANONICAL.md`
- * §3.2). Between allies the game settles a tie by field position, which this
- * page cannot see, so it goes to the one listed first and the event says who
- * it was `tiedWith`, so the page can say the order hangs on where they stand.
+ * An exact tie on the bar goes to the higher combat speed at the start of
+ * battle — SWCalc, *Attack Bar ties*: "monsters with the same highest attack
+ * bar will move in order of their combat speed at the start of battle. If that
+ * also ties, monsters picked first move first." That is `speed` as given, with
+ * no buff and no Leo cap, so under Leo the faster ally still wins its tie (Ellia:
+ * "Under Leo, ties are broken by original SPD instead of placement"). At equal
+ * start speed the user's team goes before the enemy, as the attacker
+ * (`SPEED-TICK-CANONICAL.md` §3.2), and between allies the one listed first —
+ * the pick order the page cannot see, so the event says who it was `tiedWith`.
  *
- * `order` lists every unit key, allies in the user's intended order, and sets
- * that last resort. The loop stops when `done` says so or at `tickLimit`.
+ * `units` lists allies in the user's intended order, which is that last resort.
+ * The loop stops when `done` says so or at `tickLimit`.
  * `snapshots: false` leaves the per-tick bars out: a search that only reads
  * the order of turns runs the clock hundreds of times, and copying every bar
  * on every tick was most of its cost. The turns are the same either way.
@@ -246,8 +274,11 @@ export function simulateBattle(units: readonly TickUnit[], options: {
   done: (events: readonly TurnEvent[]) => boolean;
   tickLimit?: number;
   snapshots?: boolean;
+  /** The content's tick; `standard` where omitted. */
+  tick?: TickRule;
 }): BattleTrace {
   const recording = options.snapshots ?? true;
+  const tickRate = tickTenths(options.tick ?? 'standard');
   const tickLimit = options.tickLimit ?? 2_000;
   const bars = new Map(units.map((unit) => [unit.key, 0]));
   const buffTurns = new Map(units.map((unit) => [unit.key, 0]));
@@ -258,7 +289,8 @@ export function simulateBattle(units: readonly TickUnit[], options: {
 
   const leos = units.filter((unit) => unit.capsOthersSpeed);
   /* Combat speed in hundredths, buff included: a whole number however the
-     buff falls. Under Leo's cap every other unit is held to the slowest Leo. */
+     buff falls. Under Leo's cap every other unit is held to the slowest Leo.
+     Times the tick in tenths of a percent, a fill is in the clock's thousandths. */
   const buffedNow = (unit: TickUnit) => (buffTurns.get(unit.key) ?? 0) > 0;
   const ownSpeed = (unit: TickUnit) => unit.speed * (100 + (buffedNow(unit) ? unit.speedBuffPercent ?? speedBuffPercent : 0));
   const currentSpeed = (unit: TickUnit) => unit.capsOthersSpeed || unit.exemptFromCap || leos.length === 0
@@ -268,7 +300,7 @@ export function simulateBattle(units: readonly TickUnit[], options: {
   const barsNow = () => Object.fromEntries([...bars].map(([key, bar]) => [key, bar / clockScale]));
 
   for (let tick = 1; tick <= tickLimit && !options.done(events); tick += 1) {
-    const fills = units.map((unit) => attackBarPerSpeedPerTick * currentSpeed(unit));
+    const fills = units.map((unit) => tickRate * currentSpeed(unit));
     units.forEach((unit, at) => bars.set(unit.key, (bars.get(unit.key) ?? 0) + fills[at]));
     const ready = units.filter((unit) => (bars.get(unit.key) ?? 0) >= fullBar);
     const snapshot: TickSnapshot | null = recording ? {
@@ -283,12 +315,13 @@ export function simulateBattle(units: readonly TickUnit[], options: {
 
     const fullest = Math.max(...ready.map((unit) => bars.get(unit.key) ?? 0));
     const contenders = ready.filter((unit) => bars.get(unit.key) === fullest)
-      .sort((left, right) => (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0));
+      .sort((left, right) => right.speed - left.speed || (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0));
     const mover = contenders[0];
+    const tiedWith = contenders.slice(1).filter((unit) => unit.speed === mover.speed).map((unit) => unit.key);
     const turn = (turns.get(mover.key) ?? 0) + 1;
     turns.set(mover.key, turn);
     const allyBoosts: TurnEvent['allyBoosts'] = [];
-    events.push({ tick, key: mover.key, side: mover.side, turn, attackBar: fullest / clockScale, tiedWith: contenders.slice(1).map((unit) => unit.key), allyBoosts });
+    events.push({ tick, key: mover.key, side: mover.side, turn, attackBar: fullest / clockScale, tiedWith, allyBoosts });
     if (snapshot) snapshot.mover = mover.key;
 
     /* The bar empties as the turn is taken, so an effect that fills "all

@@ -21,7 +21,7 @@ import {
   simulationNoRuneType, simulationStatLabel,
 } from '../lib/rune-simulator';
 import { simulationKeeperCounts } from '../lib/rune-simulator-keeper-counts';
-import { runeVerdictLabels } from '../lib/rune-cleanup-advice';
+import { runeChanceText, runeVerdictLabels } from '../lib/rune-cleanup-advice';
 import { calculateRuneSimulation } from '../lib/compute/rune-simulator-client';
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
 import type { RuneRole } from '../lib/rune-roles';
@@ -383,7 +383,7 @@ function RuneSimulationResults({ result, stage, onStageChange, general, onOpenRu
           <th scope="col" className={cell('set')}>Set</th>
           <th scope="col" className={cell('slot')}>Slot</th>
           <th scope="col" className={cell('stars')}>Stars</th>
-          <th scope="col" className={cell('quality')}>Quality</th>
+          <th scope="col" className={cell('quality')}>Rarity</th>
           <th scope="col" className={cell('level')}>Lv.</th>
           <th scope="col" className={cell('main')}>Main</th>
           <th scope="col" className={cell('innate')}>Innate</th>
@@ -447,7 +447,7 @@ function SimulationRow({ entry, onOpenRune }: { entry: SimulationEntry; onOpenRu
       {judged ? `${Math.round(verdict.maxValue * 100)} %` : <span className="muted">—</span>}
     </td>
     <td className={cell('chance')}>
-      {judged && rune.level < lastSubPropertyLevel ? `${Math.round(verdict.chance * 100)} %` : <span className="muted">—</span>}
+      {judged && rune.level < lastSubPropertyLevel ? runeChanceText(verdict.chance) : <span className="muted">—</span>}
     </td>
     <td className={cell('action', verdict === null && 'muted')}>
       {verdict === null

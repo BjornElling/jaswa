@@ -3,10 +3,10 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * Sorting is a property of the shared table frame, not of each table
- * (`ARTIFACT-CANONICAL.md` §17.8): every rendered column of every table offers
+ * (`ACCOUNT-TABLES.md` §1): every rendered column of every table offers
  * an ascending and a descending order, through one component.
  *
- * The arrow's side follows the column's alignment (§17.14) — outside the label,
+ * The arrow's side follows the column's alignment (`ACCOUNT-TABLES.md` §2) — outside the label,
  * away from the figures the column is read against — which is checked here on
  * the rendered DOM order rather than on the CSS.
  */
@@ -87,7 +87,7 @@ test('every column of every account table sorts, in both directions', async ({ p
     const cells = await headings(headerTable);
     expect(cells.length, `${table.header} renders headings`).toBeGreaterThan(0);
 
-    /* Not one heading may be inert: that is the whole of §17.8. */
+    /* Not one heading may be inert: that is the whole of `ACCOUNT-TABLES.md` §1. */
     const inert = cells.filter((cell) => !cell.sortable);
     expect(inert, `every heading of "${table.header}" sorts`).toEqual([]);
 

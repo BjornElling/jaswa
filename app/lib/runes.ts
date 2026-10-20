@@ -11,6 +11,8 @@
  * module says so rather than picking a value.
  */
 import type { GameRecord } from './game-data';
+import { qualityTiers } from './quality-tiers';
+import type { QualityTier } from './quality-tiers';
 import { runeSetName } from './rune-sets';
 
 /**
@@ -30,8 +32,15 @@ export function runeStatName(id: number): string | undefined {
   return runeStatNames[id];
 }
 
-/** The stats written as a percentage — §2's percent and percentage-point forms. */
+/**
+ * The stats written as a percentage — §2's percent and percentage-point forms. The
+ * other four (HP +, ATK +, DEF +, SPD) are points. Every page that writes a rune
+ * figure asks this one set, which is how one Gem's roll stopped reading `8 %` on
+ * Gems & Grinds and `+8%` beside it on the rune.
+ */
 const percentStatIds: ReadonlySet<number> = new Set([2, 4, 6, 9, 10, 11, 12]);
+
+export const isPercentStat = (id: number): boolean => percentStatIds.has(id);
 
 /**
  * A rune line as the game writes it: `ATK +33%`, `SPD +10`. The stat is named
@@ -45,7 +54,7 @@ export function runeLineStat(id: number): string | undefined {
 
 /** The figure without its sign, for a value that is a result rather than an addition — what a Gem rolls. */
 export function runeLineValue(id: number, value: number, format: (value: number) => string = String): string {
-  return `${format(value)}${percentStatIds.has(id) ? '%' : ''}`;
+  return `${format(value)}${isPercentStat(id) ? '%' : ''}`;
 }
 
 export function runeLineFigure(id: number, value: number, format: (value: number) => string = String): string {
@@ -76,10 +85,13 @@ export const runeProjectionLevel = runeMaximumLevel;
  *
  * This is what the game's own "Grade" sort orders by, despite the vocabulary —
  * the panel's heading names the rarity, not the star class (§11.1).
+ *
+ * The five names are the game's one tier vocabulary (`quality-tiers.ts`), so this
+ * is that list rather than a copy of it.
  */
-export const runeRarities = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'] as const;
+export const runeRarities = qualityTiers;
 
-export type RuneRarity = typeof runeRarities[number];
+export type RuneRarity = QualityTier;
 
 /**
  * `extra` as the export writes it, for an ordinary rune and for an Ancient one
@@ -98,11 +110,9 @@ const rarityByExportValue: Readonly<Record<number, RuneRarity>> = {
  * table above is written in, which is the order the game's own Grade sort reads
  * (`RUNE-CANONICAL.md` §11.1).
  *
- * **It is also the number of sub properties a rune of that grade is born with**, and
- * several callers read it that way — `remainingEvents` most of all, which turns it
- * into the whole schedule of what a rune may still gain. That is not a coincidence
- * the game guarantees, it is a property of the order `runeRarities` is written
- * in. Reordering that list therefore changes the event schedule, not just a sort.
+ * A rank and nothing else. How many lines a rarity is born with is
+ * `bornSubPropertyCount`, a table of its own, so that no reader can take a sort
+ * position for a power-up schedule.
  */
 export const runeRarityOrder = (grade: RuneRarity): number =>
   runeRarities.indexOf(grade);

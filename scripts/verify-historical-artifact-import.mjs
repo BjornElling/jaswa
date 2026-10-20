@@ -40,6 +40,17 @@ try {
   assert.equal(historical.unrefined, true);
   assert.deepEqual(historical.subProperties.map((property) => property.maximumHundredths), [2500, 2500, 2500, 2500]);
 
+  /* A legacy line on a pre-v8 artifact has no ceiling, whatever it rolled, and
+     weighs nothing: a line above an old ceiling must not make the artifact
+     unjudgeable. 208 at 25 % passed the retired per-era table's 15. */
+  const legacyRecord = {
+    ...artifact(4, '2022-09-29T00:00:00Z', [0, 0, 0, 0], 15),
+    sec_effects: [[208, 25, 4, 0, 0], [301, 6, 0, 0, 0], [302, 3, 0, 0, 0], [303, 3, 0, 0, 0]],
+  };
+  const legacy = readArtifact(legacyRecord);
+  assert.ok(legacy);
+  assert.equal(legacy.subProperties[0].maximumHundredths, null, 'a legacy property has no ceiling in any era');
+
   assert.ok(readArtifact(artifact(3, '2026-08-30T00:00:00Z', [0, 0, 0, 0])),
     'a game-issued current artifact with an unfamiliar roll distribution remains importable');
   assert.equal(readArtifacts({ artifacts: [currentRecord, historicalRecord] }).length, 2);

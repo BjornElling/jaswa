@@ -44,7 +44,9 @@ for (const setName of ['Energy', 'Violent', 'Intangible']) {
   const four = runeCalculationKeyForRune({ ...inputs,
     settings: { ...inputs.settings, keepMoreForLargerSets: false } }, body);
   assert.equal(before === intangible, setName !== 'Intangible');
-  assert.equal(before === four, setName === 'Energy');
+  /* Keep more for larger sets reaches a four-set and nothing else: Intangible has its
+     own slider and is not a four-set, which the user decided in October 2026. */
+  assert.equal(before === four, setName !== 'Violent');
 }
 
 // Projection must equal asking the real engine again, including blank and zero safeguards.

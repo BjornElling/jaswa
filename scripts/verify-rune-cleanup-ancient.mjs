@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  candidateChance, candidateMaxValue, prepareRuneCandidate, roleBuilds,
+  candidateChance, candidateMaxValue, chanceRuns, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 
 const credit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
@@ -33,8 +33,10 @@ function rune(ancient, firstValue, rarity = 'Legend') {
   };
 }
 
-const ordinary = prepareRuneCandidate(rune(false, 6), role, build, base, credit);
-const ancient = prepareRuneCandidate(rune(true, 7), role, build, base, credit);
+/* Read on a bare ruler, where a perfect ordinary line is exactly 100 %. */
+const ruler = credit;
+const ordinary = prepareRuneCandidate(rune(false, 6), role, build, base, credit, ruler);
+const ancient = prepareRuneCandidate(rune(true, 7), role, build, base, credit, ruler);
 assert.ok(ordinary);
 assert.ok(ancient);
 assert.equal(candidateMaxValue(ordinary), 1, 'an ordinary max roll stays at 100 %');
@@ -64,14 +66,34 @@ assert.ok(ancientChance > ordinaryChance + 0.04,
 assert.ok(ancientChance > 0.05 && ancientChance < 0.95,
   `the Ancient fixture must sit where the odds can be read: ${ancientChance}`);
 
-/* An Ancient initial-roll event is also used for a line added later in the
-   candidate projection. This guards the max-value path separately from the
-   already-imported line above. */
-const ordinaryMagic = prepareRuneCandidate(rune(false, 6, 'Magic'), role, build, base, credit);
-const ancientMagic = prepareRuneCandidate(rune(true, 7, 'Magic'), role, build, base, credit);
+/* **A line an Ancient rune gains by power-up rolls from the ordinary table.** Only its
+   born lines are Ancient. The user's own Hero and Rare Ancient runes at +12 and +15
+   carry added lines below the Ancient minimum — SPD 4, ACC 4, HP % 5 — which no born
+   Ancient line can be, while Legend Ancient runes, which gain none, never do. This
+   asserted the opposite until October 2026.
+
+   So two Magic runes with the same born SPD line, one Ancient and one not, have the
+   same future: one ordinary improvement and three ordinary additions. With the role
+   paying for every type the slot allows, any Ancient interval on an addition would
+   lift the Ancient rune's Max value above the ordinary one's. */
+const everything = { ...role, id: 'ancient-added', targets: { hp: 1, atk: 1, spd: 1, criRate: 1, criDmg: 1, res: 1, acc: 1 } };
+const everyBuild = roleBuilds(everything)[0];
+const magic = (ancient) => ({ ...rune(ancient, 6, 'Magic'), subProperties: [rune(ancient, 6).subProperties[0]] });
+const ordinaryMagic = prepareRuneCandidate(magic(false), everything, everyBuild, base, credit, ruler);
+const ancientMagic = prepareRuneCandidate(magic(true), everything, everyBuild, base, credit, ruler);
 assert.ok(ordinaryMagic);
 assert.ok(ancientMagic);
-assert.ok(candidateMaxValue(ancientMagic) > candidateMaxValue(ordinaryMagic),
-  'Ancient added initial rolls must use the Ancient interval in Max value');
+assert.ok(Math.abs(candidateMaxValue(ancientMagic) - candidateMaxValue(ordinaryMagic)) < 1e-12,
+  `an Ancient rune's added lines must roll the ordinary table: ${candidateMaxValue(ordinaryMagic)} -> ${candidateMaxValue(ancientMagic)}`);
+/* The Chance is counted, and the Ancient flag is part of a rune's seed, so the two
+   draw different runs: they agree within the counting's own spread, not exactly. An
+   Ancient interval on three additions would put them a long way outside it. */
+const addedBar = 0.35;
+const ordinaryAdded = candidateChance(ordinaryMagic, addedBar);
+const ancientAdded = candidateChance(ancientMagic, addedBar);
+const addedBand = 4 * Math.sqrt(2 * Math.max(0.0001, ordinaryAdded * (1 - ordinaryAdded)) / chanceRuns);
+assert.ok(ordinaryAdded > 0.05 && ordinaryAdded < 0.95, `the added-line fixture must sit where the odds can be read: ${ordinaryAdded}`);
+assert.ok(Math.abs(ancientAdded - ordinaryAdded) <= addedBand,
+  `an Ancient rune's added lines must roll the ordinary table in Chance too: ${ordinaryAdded} -> ${ancientAdded}`);
 
-console.log('PASS: Ancient Max value and Chance use Ancient initial roll intervals against ordinary references.');
+console.log('PASS: Ancient born lines use the Ancient interval and added lines the ordinary one, against ordinary references.');

@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
 /**
- * Monster Stats reads one context at a time (`docs/DECK-PRESETS.md` §4): it
+ * Monster Stats reads one context at a time (`docs/DECK-PRESETS.md` §5): it
  * opens on Scenario, and a chosen preset lists its own team with the runes each
  * member carries there, never Scenario's.
  */

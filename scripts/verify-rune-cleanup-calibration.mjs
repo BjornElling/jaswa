@@ -12,12 +12,14 @@
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount,
+  addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
-import { runeRarityOrder, runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { craftRollValue, craftValueRange } from '../app/lib/rune-craft-items.ts';
-import { chanceRuns, judgeAgainstBuild, prepareRuneCandidate, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
+import {
+  chanceRuns, judgeAgainstBuild, neutralComparisonCredit, prepareRuneCandidate, roleBuilds,
+} from '../app/lib/rune-cleanup-model.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));
@@ -85,7 +87,7 @@ function freshRune(random, id, stars = 6, ancient = false) {
   const available = legal.filter((stat) => stat !== prefixStatId);
   const held = new Set();
   const subProperties = [];
-  for (let at = 0; at < startingSubPropertyCount(rank); at += 1) {
+  for (let at = 0; at < bornSubPropertyCount(runeRarities[rank - 1]); at += 1) {
     const statId = choose(random, available.filter((stat) => !held.has(stat)));
     held.add(statId);
     const range = initialSubPropertyRange(stars, statId, ancient);
@@ -108,7 +110,7 @@ function clone(rune) {
  * categories: HP% and HP+ may coexist, while a duplicate HP% may not.
  */
 function powerUp(random, rune, targetLevel) {
-  const bornLines = runeRarityOrder(rune.rarity);
+  const bornLines = bornSubPropertyCount(rune.rarity);
   for (const [eventIndex, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
     if (eventIndex >= bornLines) {
@@ -116,14 +118,12 @@ function powerUp(random, rune, targetLevel) {
       const options = runeStatIds.filter((stat) => stat !== rune.mainStatId && stat !== rune.prefixStatId
         && !held.has(stat) && slotAllowsSubStat(rune.slot, stat));
       const statId = choose(random, options);
-      /* A line the rune gains at +6 is having its *initial* roll then, so an Ancient
-         rune draws it from the Ancient table (`RUNE-CANONICAL.md` §7,
-         `RUNE-CLEANUP-MATH.md` §8). This read the ordinary table until 23 September
-         2026, which made the oracle disagree with the engine about every unfinished
-         Ancient rune — and with `verify:rune-cleanup-ancient`, which has asserted the
-         other reading on an *added* line all along. An ordinary rune is unaffected:
-         its two tables are the same one. */
-      const range = initialSubPropertyRange(rune.stars, statId, rune.ancient);
+      /* A line the rune gains by power-up rolls from the ordinary table of its star
+         class, Ancient or not: only born lines are Ancient. The user's own Hero and
+         Rare Ancient runes carry gained lines below the Ancient minimum, which no born
+         line can be. This oracle shared the opposite reading with the engine until
+         October 2026, which is exactly how an oracle stops catching anything. */
+      const range = addedSubPropertyRange(rune.stars, statId);
       rune.subProperties.push({ statId, value: draw(random, range.minimum, range.maximum), gemmed: false, grind: 0 });
     } else {
       const line = choose(random, rune.subProperties);
@@ -297,7 +297,7 @@ function verifyCraftEndState() {
     });
     if (!build || !base) continue;
     for (const credit of credits) {
-      const candidate = prepareRuneCandidate(rune, role, build, base, credit, undefined, false);
+      const candidate = prepareRuneCandidate(rune, role, build, base, credit, neutralComparisonCredit);
       if (!candidate) continue;
       const expected = independentEndState(rune, credit, candidate.valuation);
       const difference = Math.abs(candidate.best - expected);

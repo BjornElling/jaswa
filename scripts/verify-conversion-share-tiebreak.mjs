@@ -80,13 +80,13 @@ try {
   /* Slider words resolve against the target property’s normal-conversion
      maximum — `ceil(maxRoll × 1.5)`, the ceiling the game’s own Repeat
      Convert dialog names. The floor is a single minimum roll, not two, so it
-     is a smaller share of that ceiling than the old two-roll model claimed;
-     The two-roll floor and average are property-specific; "three quarters" is
-     exactly 75 % for every property. */
+     is a smaller share of that ceiling than the old two-roll model claimed.
+     The floor and average are property-specific; "three quarters" is exactly
+     75 % for every property. */
   const bombDamage = artifactProperty(210);
   const dealtOnFire = artifactProperty(300);
-  assert.equal(artifactConversionRollFraction(bombDamage, 'minimum'), 1 / 6,
-    'minimum uses Bomb Damage’s own single-roll floor against its 6 % ceiling');
+  assert.equal(artifactConversionRollFraction(bombDamage, 'minimum'), 1 / 3,
+    'minimum uses Bomb Damage’s own single 2 % roll against its 6 % ceiling');
   assert.equal(artifactConversionRollFraction(dealtOnFire, 'minimum'), 0.375,
     'minimum is one 3 % roll of an 8 % ceiling, not a shared estimate');
   assert.equal(artifactConversionRollFraction(bombDamage, 'one-third'), 1 / 3, 'one third is exactly one third of the maximum');
@@ -376,12 +376,14 @@ try {
     mainPreferences: [2, 0, 0], subPropertyPreferences: lowGainPreferences,
     subPropertyShares: new Array(scoredArtifactProperties.length).fill(0),
   };
-  /* One point: Bomb Damage's floor is one minimum roll of a 6 % ceiling (1/6),
-     an acceptable band halves it and a conversion is worth one and a half
-     max-roll points — 0.125 points against the `2 + 5 + a` benchmark, which
-     moves the artifact from 27 % to 28 %. Small enough for the band to swallow,
-     which is what this fixture is for. */
-  const floorFractions = scoredArtifactProperties.map((property) => artifactConversionRollFraction(property, 'minimum'));
+  /* One point: a conversion assumed to land a sixth of the way to its ceiling,
+     halved by the acceptable band, at one and a half max-roll points a full
+     conversion — 0.125 points against the `2 + 4 + 3a` benchmark, which moves
+     the artifact from 27 % to 28 %. Small enough for the band to swallow, which
+     is what this fixture is for. The fraction is stated rather than read off a
+     property's floor: every floor is now at least a third of its ceiling, and
+     the check is about the band, not about any one property's range. */
+  const floorFractions = scoredArtifactProperties.map(() => 1 / 6);
   const lowGainBanded = (insignificantDifference) => scoreArtifactOnMonster(lowGainArtifact, lowGainMonster, {
     ...request, conversionRollFractions: floorFractions, insignificantDifference,
   });

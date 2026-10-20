@@ -1,7 +1,7 @@
 import { artifactPreferenceStatus, defaultPropertyPreferences, recordedArtifactPreferenceMonsterIds } from '../artifact-preferences';
 import { readArtifacts } from '../artifacts';
 import { readEngravedConversionStones } from '../artifact-conversion-stones';
-import { artifactConversionRollFraction } from '../artifact-properties';
+import { artifactArchetypes, artifactConversionRollFraction, artifactElements } from '../artifact-properties';
 import { artifactLineMaxRolls } from '../artifact-optimal-value';
 import type { Artifact, ArtifactSubProperty } from '../artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../artifact-properties';
@@ -21,10 +21,14 @@ import type { ArtifactSettings } from '../types';
 import { artifactOptimizationMonsters } from '../artifact-optimization-monsters';
 
 const mainPropertyIndexes: Record<ArtifactMainProperty, 0 | 1 | 2> = { HP: 0, ATK: 1, DEF: 2 };
-const archetypeCodes: Record<string, number> = { Attack: 1, Defense: 2, HP: 3, Support: 4 };
-/* The same numbering `artifactElements` uses, so an artifact's element and a
-   monster's element are compared on one scale. */
-const elementCodes: Record<string, number> = { Water: 1, Fire: 2, Wind: 3, Light: 4, Dark: 5 };
+/* The export's own class codes, read back from the tables `readArtifact` names
+   them with, so an artifact's class, a monster's and a stone's are compared on
+   the one numbering the game uses and no second copy of it can drift. */
+function codesByName(names: Record<number, string>): Record<string, number> {
+  return Object.fromEntries(Object.entries(names).map(([code, name]) => [name, Number(code)]));
+}
+const archetypeCodes = codesByName(artifactArchetypes);
+const elementCodes = codesByName(artifactElements);
 
 function preferenceCode(preference: 'preferred' | 'acceptable' | 'unwanted' | undefined): number {
   if (preference === 'preferred') return 2;
@@ -49,10 +53,12 @@ export function artifactRestriction(artifact: Artifact): number {
   const code = artifact.category === 'attribute'
     ? elementCodes[artifact.element ?? '']
     : archetypeCodes[artifact.archetype ?? ''];
-  /* Unreachable for an artifact from `readArtifact`. Kept as the wildcard code
-     rather than a silent mismatch so a future reader change cannot make an
-     artifact vanish from the rankings without anyone noticing. */
-  return code ?? intangibleRestrictionCode;
+  /* Unreachable for an artifact from `readArtifact`. Failing is the only safe
+     answer if it is ever reached: the wildcard would let the artifact fit every
+     monster, a mismatch would hide it from every one, and either is a wrong
+     ranking nobody would see. */
+  if (code === undefined) throw new Error(`Artifact ${artifact.id} names no engrave class JASWA knows.`);
+  return code;
 }
 
 /**
@@ -182,13 +188,14 @@ function ownMonsterSpeciesIds(monsters: readonly GameRecord[]): string[] {
   return [...ids];
 }
 
-/* The engrave class as the score protocol codes it. Attribute stones name an
-   element and type stones an archetype, on the same numbering the artifacts
-   themselves use, so a stone and an artifact are compared on one scale. */
-const stoneClassCodes: Record<ArtifactCategory, Record<number, number>> = {
-  attribute: { 1: elementCodes.Water, 2: elementCodes.Fire, 3: elementCodes.Wind, 4: elementCodes.Light, 5: elementCodes.Dark },
-  type: { 1: archetypeCodes.Attack, 2: archetypeCodes.Defense, 3: archetypeCodes.HP, 4: archetypeCodes.Support },
-};
+/* Attribute stones name an element and type stones an archetype, on the same
+   numbering the artifacts themselves use, so a stone's class code is the score
+   protocol's restriction code as it stands; only a code naming no class is
+   left out. */
+function stoneClassCode(category: ArtifactCategory, code: number): number | undefined {
+  const names: Record<number, string> = category === 'attribute' ? artifactElements : artifactArchetypes;
+  return names[code] === undefined ? undefined : code;
+}
 
 /**
  * The engraved stones usable on each engrave class of one category, as compact
@@ -207,7 +214,7 @@ export function ownedConversionPropertyIndexesByClass(
   const byClass: Record<number, Set<number>> = {};
   for (const stone of readEngravedConversionStones(data)) {
     if (stone.category !== category) continue;
-    const classCode = stoneClassCodes[category][stone.engraveClassCode];
+    const classCode = stoneClassCode(category, stone.engraveClassCode);
     const propertyIndex = artifactPropertyIndex.get(stone.propertyId);
     if (classCode === undefined || propertyIndex === undefined) continue;
     (byClass[classCode] ??= new Set()).add(propertyIndex);

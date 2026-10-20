@@ -2,8 +2,8 @@ import type { GameRecord } from './game-data';
 import type { MonsterArchetype } from './monster-catalog';
 import {
   artifactArchetypes, artifactCategoryFromType, artifactElements, artifactGradeFromRank,
-  artifactIntangibleEngraveClass, artifactMainProperties, artifactProperty,
-  bestArtifactLineContributions,
+  artifactIntangibleEngraveClass, artifactMainProperties, artifactMaxLevel, artifactProperty,
+  artifactPropertyMaximum,
 } from './artifact-properties';
 import type {
   ArtifactCategory, ArtifactGrade, ArtifactMainProperty, ArtifactPropertyDefinition,
@@ -14,7 +14,10 @@ export type ArtifactSubProperty = {
   /** Hundredths of a percentage point, so `0.2 %` is 20 and comparisons are exact. */
   valueHundredths: number;
   powerUps: number;
-  /** The ceiling this line could have reached, or `null` for a legacy property. */
+  /**
+   * The ceiling this line could have reached, or `null` for a legacy property,
+   * which has no range and weighs zero in every score.
+   */
   maximumHundredths: number | null;
 };
 
@@ -84,10 +87,7 @@ function toHundredths(value: number): number {
   return Math.round(value * 100);
 }
 
-function readSubProperty(
-  entry: unknown,
-  historicalMaximumHundredths: number | null,
-): ArtifactSubProperty | null {
+function readSubProperty(entry: unknown): ArtifactSubProperty | null {
   if (!Array.isArray(entry)) return null;
   const definition = artifactProperty(entry[0]);
   const value = numberOrNull(entry[1]);
@@ -104,38 +104,36 @@ function readSubProperty(
      representation only; it does not claim the value passed a local roll cap. */
   const valueHundredths = toHundredths(value);
   if (Math.abs(value * 100 - valueHundredths) > 0.000001) return null;
+  /* The ceiling is the best line the game can produce — not what this line
+     happened to collect, and not what its grade allowed (§16). Dividing by the
+     line's own contributions measures how luckily it rolled and scores a
+     max-rolled one-roll line exactly like a max-rolled five-roll line; dividing
+     by the grade's ceiling makes every grade's four lines look equally full and
+     so rewards low grades. The optimizer asks how much the artifact
+     contributes, and one scale is what makes that answer comparable.
+
+     A legacy line gets no ceiling, on a pre-v8 artifact as on any other. A
+     per-era table of old ceilings used to stand in here, but a legacy property
+     is wanted by no monster and weighs zero whatever it rolled, so the only
+     thing such a ceiling could do was refuse to judge the whole artifact when
+     an old line exceeded it — which is how a wrong entry hid artifacts. */
+  const maximum = artifactPropertyMaximum(definition);
   return {
     definition,
     valueHundredths,
     powerUps,
-    /* The ceiling is the best line the game can produce — not what this line
-       happened to collect, and not what its grade allowed (§16). Dividing by
-       the line's own contributions measures how luckily it rolled and scores a
-       max-rolled one-roll line exactly like a max-rolled five-roll line;
-       dividing by the grade's ceiling makes every grade's four lines look
-       equally full and so rewards low grades. The optimizer asks how much the
-       artifact contributes, and one scale is what makes that answer
-       comparable. */
-    maximumHundredths: definition.maxRoll === null
-        ? historicalMaximumHundredths
-      : toHundredths(definition.maxRoll * bestArtifactLineContributions),
+    maximumHundredths: maximum === null ? null : toHundredths(maximum),
   };
 }
 
-/* v8's late-June 2023 artifact update retired manual power-ups. A date before
-   the following month uses the preserved historical ceiling when one exists. */
+/* v8's late-June 2023 artifact update retired manual power-ups, and an artifact
+   acquired before the following month that stopped below +15 still needs the
+   game's one-time Refine. */
 const artifactPowerUpRemoval = Date.UTC(2023, 6, 1);
-/* v6.2.0, which raised initial and power-up values. The account confirms the
-   date rather than merely inheriting it: every single-roll line that falls
-   below today's floor — 206 at 3, 406 at 3, 210 at 1 — sits on an artifact
-   acquired before it, and none after. Those 28 artifacts are exactly the set
-   carrying no power-ups at all, so the pre-v6.2 cohort and the unrefined
-   cohort are the same 28 records. */
-const artifactPropertyImprovement = Date.UTC(2021, 0, 28);
 
 /* The export writes `date_add` two ways — `2022-06-27 22:13:04` on old records
-   and an ISO instant on newer ones. Only the era cutoffs above read it, and
-   those are months apart, so the space-separated form is left to the engine's
+   and an ISO instant on newer ones. Only the era cutoff above reads it, and
+   it is months-scale, so the space-separated form is left to the engine's
    own parse rather than being pinned to the account's `tzone`: a few hours
    either way cannot move a record across a cutoff. An unreadable value is
    `null`, not `0`, so a missing date cannot pass the pre-v8 cutoff by posing
@@ -149,38 +147,6 @@ function artifactEraTimestamp(value: unknown): number | null {
 function hasHistoricalRollModel(value: unknown): boolean {
   const obtained = artifactEraTimestamp(value);
   return obtained !== null && obtained < artifactPowerUpRemoval;
-}
-
-/* The v6.0 launch table, the v6.2 improvement notice and the preserved values
-   in the export agree that pre-v8 records use a five-roll ceiling. Some old
-   property ids disappeared later, so their ceilings belong here instead of
-   being guessed from today's drop pool. Values are percentage points.
-
-   206 and 226 follow the corrected names: 206 is SPD UP Effect (4-6, so 30)
-   and 226 the merged ATK/DEF UP Effect (3-5, so 25). The account shows why the
-   two are not interchangeable — 204 and 205 stop dead at v8 (90 and 42 lines
-   before, none after) while 226 begins there (none before, 223 after), so 226
-   is the merger of those two halves, and 206 spans both eras untouched. */
-function historicalPropertyMaximum(definition: ArtifactPropertyDefinition, dateAdded: unknown): number | null {
-  const timestamp = artifactEraTimestamp(dateAdded);
-  const improved = timestamp !== null && timestamp >= artifactPropertyImprovement;
-  const maxima: Record<number, number> = {
-    200: improved ? 70 : 30, 201: improved ? 70 : 30, 202: improved ? 70 : 30,
-    203: 30, 204: improved ? 25 : 20, 205: improved ? 25 : 20,
-    207: 30, 208: 15, 209: 20, 211: 30, 213: 15,
-    216: improved ? 30 : 15, 217: improved ? 30 : 15,
-    402: 30, 403: 30,
-    206: 30, 210: improved ? 20 : 15, 214: improved ? 20 : 15,
-    215: improved ? 40 : 15, 218: 1.5, 219: 20, 220: 20, 221: 200,
-    222: 30, 223: 60, 224: 20, 225: 20, 226: 25,
-    300: improved ? 25 : 20, 301: improved ? 25 : 20, 302: improved ? 25 : 20,
-    303: improved ? 25 : 20, 304: improved ? 25 : 20,
-    305: 30, 306: 30, 307: 30, 308: 30, 309: 30,
-    400: 30, 401: 30, 404: 30, 405: 30, 406: 30, 407: 30, 408: 30, 409: 30,
-    410: 30, 411: 30,
-  };
-  const maximum = maxima[definition.id];
-  return maximum === undefined ? null : toHundredths(maximum);
 }
 
 /**
@@ -212,9 +178,6 @@ export function readArtifact(record: unknown): Artifact | null {
 
   const secondary = source.sec_effects;
   if (!Array.isArray(secondary) || secondary.length !== 4) return null;
-  const historicalMaximum = (definition: ArtifactPropertyDefinition) => hasHistoricalRollModel(source.date_add)
-    ? historicalPropertyMaximum(definition, source.date_add)
-    : null;
   const subProperties: ArtifactSubProperty[] = [];
   const currentConversionLocks: number[] = [];
   const legacyConversionLocks: number[] = [];
@@ -229,8 +192,7 @@ export function readArtifact(record: unknown): Artifact | null {
       || legacyConversionFlag === null || !Number.isInteger(legacyConversionFlag) || legacyConversionFlag < 0) return null;
     if (currentConversionFlag > 0) currentConversionLocks.push(index);
     if (legacyConversionFlag > 0) legacyConversionLocks.push(index);
-    const definition = artifactProperty(Array.isArray(entry) ? entry[0] : null);
-    const subProperty = readSubProperty(entry, definition ? historicalMaximum(definition) : null);
+    const subProperty = readSubProperty(entry);
     if (!subProperty) return null;
     subProperties.push(subProperty);
   }
@@ -270,7 +232,7 @@ export function readArtifact(record: unknown): Artifact | null {
     locked: Boolean(numberOrNull(source.locked)),
     unrefined: hasHistoricalRollModel(source.date_add)
       && Number.isSafeInteger(numberOrNull(source.level))
-      && (numberOrNull(source.level) as number) < 15,
+      && (numberOrNull(source.level) as number) < artifactMaxLevel,
   };
 }
 

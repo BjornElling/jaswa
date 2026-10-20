@@ -21,6 +21,9 @@ import assert from 'node:assert/strict';
 import { effectSlot, effectSlotCount, targetFigureCount, targetFigureKeys } from '../app/lib/monster-stats.ts';
 import { runeOptimizationShader } from '../app/lib/compute/webgpu/rune-optimization-shader.ts';
 import {
+  brokenDefenseShare, criticalRateCapPercent, defenseFactorBase, defenseFactorPerDef, defenseFactorScale,
+} from '../app/lib/rune-potential-metrics.ts';
+import {
   optimizationLanes, questionBarAt, questionFloorsAt, questionLength, questionRankAt, rangeStride,
   runeOptimizationConstants, runeOptimizationFloatConstants, survivorBytes, survivorCapacity, survivorStride, survivorsAt,
 } from '../app/lib/compute/webgpu/rune-optimization-layout.ts';
@@ -77,5 +80,24 @@ assert.deepEqual(bindings, [
 const bare = [...runeOptimizationShader.matchAll(/(question|candidates|bases|ranges|survivors)\[[^\]]*?[+-]\s*\d+u?\s*\]/g)];
 assert.deepEqual(bare.map(([text]) => text), [], 'the shader indexes a buffer by a literal offset instead of a named one');
 
+/* 6. The composites' constants are the processor's own, and the shader writes none of them out.
+   A literal here drifts silently: the agreement gate would catch it, but only on a machine
+   with a card, and the cost there is a silent fall back to the processor. */
+assert.deepEqual(
+  Object.fromEntries(Object.entries(runeOptimizationFloatConstants).filter(([name]) => !name.endsWith('_SLACK'))),
+  {
+    DEFENSE_FACTOR_BASE: defenseFactorBase,
+    DEFENSE_FACTOR_PER_DEF: defenseFactorPerDef,
+    DEFENSE_FACTOR_SCALE: defenseFactorScale,
+    BROKEN_DEFENSE_SHARE: brokenDefenseShare,
+    CRITICAL_RATE_CAP_PERCENT: criticalRateCapPercent,
+  },
+  'the shader\'s composite constants are not the ones rune-potential-metrics.ts computes with');
+const body = runeOptimizationShader.slice(runeOptimizationShader.indexOf('@compute'));
+for (const value of [defenseFactorBase, defenseFactorPerDef, defenseFactorScale, brokenDefenseShare]) {
+  assert.ok(!new RegExp(`(?<![\\w.])${String(value).replace('.', '\\.')}(\\.0)?(?![\\w.])`).test(body),
+    `the shader writes the composite constant ${value} out instead of naming it`);
+}
+
 console.log(`PASS: the optimization shader reads the ${Object.keys(runeOptimizationConstants).length} offsets the backend`
-  + ' writes, and its accumulators and figures are the stat sheet\'s own.');
+  + ' writes, its accumulators and figures are the stat sheet\'s own, and its composites the processor\'s.');

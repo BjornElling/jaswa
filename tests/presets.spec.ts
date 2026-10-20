@@ -368,7 +368,7 @@ test('a game preset shows the game\'s monsters and gear; its order, leader and p
   expect(await order(page)).toEqual([names[11]]);
   await expect(entries.first().getByRole('img', { name: '6 of 6 runes engraved' })).toBeVisible();
   /* A deck whose content is not yet named is still read in full. */
-  await choosePreset(page, 'Not yet named', 'Deck 99 · 1');
+  await choosePreset(page, 'Not yet named', 'Preset 99 · 1');
   expect(await order(page)).toEqual([names[12]]);
 
   /* Deleted, it is gone from the import; the last deck not yet named takes that entry with it, and the page is back on Scenario. */
@@ -607,7 +607,7 @@ test('Optimize opens Rune Optimization on that monster in that preset', async ({
   const preset = page.getByLabel('Preset', { exact: true });
   const monster = page.getByLabel('Monster', { exact: true });
   await expect(preset.locator('optgroup')).toHaveCount(0);
-  await expect(preset.locator('option')).toHaveText(['Scenario', 'Arena Attack 4', "Giant's Keep 1", 'Deck 99 · 1']);
+  await expect(preset.locator('option')).toHaveText(['Scenario', 'Arena Attack 4', "Giant's Keep 1", 'Preset 99 · 1']);
   expect(await monster.locator('option').evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))).toEqual(['', '11']);
   await preset.selectOption('deck-99-1');
   await expect(preset).toHaveValue('deck-99-1');
@@ -696,8 +696,8 @@ test('Speed tuning opens the preset\'s team over Presets, from the one button be
   /* Scenario has no team; every preset with monsters is one, its content named or not. */
   await addMenu(page).selectOption('12');
   await expect(speed('Scenario')).toBeDisabled();
-  await choosePreset(page, 'Not yet named', 'Deck 99 · 1');
-  await expect(speed('Deck 99 · 1')).toBeEnabled();
+  await choosePreset(page, 'Not yet named', 'Preset 99 · 1');
+  await expect(speed('Preset 99 · 1')).toBeEnabled();
 
   /* One for the whole team, at the foot of the preset's buttons, and none on the rows. */
   await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
@@ -1302,6 +1302,6 @@ test('a copy is named by the preset it is read in', async ({ page }, testInfo) =
   await page.screenshot({ path: testInfo.outputPath('nickname-in-preset.png') });
   /* Scenario, and the other preset 12 stands in, keep the game's name. */
   expect(await copyNames(page)).toEqual(names);
-  await choosePreset(page, 'Not yet named', 'Deck 99 · 1');
+  await choosePreset(page, 'Not yet named', 'Preset 99 · 1');
   await expect(page.locator('.monster-priority-entry .monster-name').first()).toHaveText(names[12]);
 });

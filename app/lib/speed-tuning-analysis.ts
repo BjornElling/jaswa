@@ -22,7 +22,7 @@ import {
   combatSpeed, displaySpeed, everyoneMoved, leaderSpeedPercent,
   runeSpeedForDisplay, simulateBattle, speedBuffPotency,
 } from './speed-tick';
-import type { BattleTrace, SpeedLeaderSkill, SpeedSheet, TickUnit, TurnEvent } from './speed-tick';
+import type { BattleTrace, SpeedLeaderSkill, SpeedSheet, TickRule, TickUnit, TurnEvent } from './speed-tick';
 import type { SpeedTeam } from './speed-tuning-preferences';
 import { whatIfDisplaySpeedMaximum } from './speed-tuning-preferences';
 import type { GeneralSettings } from './types';
@@ -43,7 +43,7 @@ export type MemberVerdict =
   | { kind: 'early' }
   /** Too slow: its first turn comes later than its place. */
   | { kind: 'late' }
-  /** In its place only by an exact tie on the attack bar, which field position settles. */
+  /** In its place only by an exact tie on the attack bar at equal start-of-battle combat speed, which pick order settles. */
   | { kind: 'tie'; with: string };
 
 export type MemberReading = {
@@ -179,14 +179,14 @@ function drawnUntil(allyKeys: readonly string[], settled: (events: readonly Turn
 /* `drawn` is the reading a view draws: it records every tick's bars and runs
    on. A search only reads first turns and leaves both out, as it runs the
    clock hundreds of times. */
-function teamTrace(units: readonly TickUnit[], drawn = true): BattleTrace {
+function teamTrace(units: readonly TickUnit[], tick: TickRule, drawn = true): BattleTrace {
   const keys = units.map((unit) => unit.key);
   const settled = everyoneMoved(keys);
-  return simulateBattle(units, { done: drawn ? drawnUntil(keys, settled) : settled, snapshots: drawn });
+  return simulateBattle(units, { done: drawn ? drawnUntil(keys, settled) : settled, snapshots: drawn, tick });
 }
 
-/* Whether `earlier` really moves before `later`, and whether only a tie on the
-   bar decided it. A unit that never moved inside the tick limit moves after
+/* Whether `earlier` really moves before `later`, and whether only pick order
+   decided it: a tie on the bar a faster start speed settled is no tie. A unit that never moved inside the tick limit moves after
    every unit that did. */
 function relation(first: Map<string, TurnEvent>, events: readonly TurnEvent[], earlier: string, later: string): 'before' | 'tie' | 'after' {
   const a = first.get(earlier);
@@ -209,7 +209,7 @@ function unitsAt(candidates: readonly Candidate[], shown: readonly number[]): Ti
  * strictly after the member placed just above it and strictly before the
  * member placed just below it, every other member at the display speed it is
  * read at — its what-if where one is typed. A tie with either neighbour counts
- * against it: no order may hang on field position the page cannot see.
+ * against it: no order may hang on pick order the page cannot see.
  *
  * The range answers one question, where this monster fits between the two
  * beside it as they stand now, and not where it would need to be for the whole
@@ -222,14 +222,14 @@ function unitsAt(candidates: readonly Candidate[], shown: readonly number[]): Ti
  * member is read at is the answer, or failing that the stretch nearest it.
  * A stretch that reaches the highest display speed a what-if takes is open.
  */
-function tuningRange(candidates: readonly Candidate[], shown: readonly number[], index: number): DisplaySpeedInterval | null {
+function tuningRange(candidates: readonly Candidate[], shown: readonly number[], index: number, tick: TickRule): DisplaySpeedInterval | null {
   const self = candidates[index].unitId;
   const above = candidates[index - 1]?.unitId;
   const below = candidates[index + 1]?.unitId;
   const config = [...shown];
   const fits = (value: number) => {
     config[index] = value;
-    const trace = teamTrace(unitsAt(candidates, config), false);
+    const trace = teamTrace(unitsAt(candidates, config), tick, false);
     const first = firstTurns(trace.events);
     return (above === undefined || relation(first, trace.events, above, self) === 'before')
       && (below === undefined || relation(first, trace.events, self, below) === 'before');
@@ -257,13 +257,13 @@ function tuningRange(candidates: readonly Candidate[], shown: readonly number[],
    enemies is one, so in a dungeon every enemy is read as uncapped: the
    pessimistic reading. Arena has no bosses. */
 function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[], enemyNames: readonly string[],
-  area: SpeedContent['area']): EnemyStageReading {
+  area: SpeedContent['area'], tick: TickRule): EnemyStageReading {
   const enemies: TickUnit[] = enemySpeeds.map((speed, at) => ({
     key: `enemy-${at + 1}`, side: 'enemy', speed, effects: [], exemptFromCap: area === 'dungeon',
   }));
   const allyKeys = allies.map((unit) => unit.key);
   const settled = (events: readonly TurnEvent[]) => everyoneMoved(allyKeys)(events) && events.some((event) => event.side === 'enemy');
-  const trace = simulateBattle([...allies, ...enemies], { done: drawnUntil(allyKeys, settled) });
+  const trace = simulateBattle([...allies, ...enemies], { done: drawnUntil(allyKeys, settled), tick });
   const firstEnemy = trace.events.find((event) => event.side === 'enemy');
   const before = firstEnemy ? trace.events.slice(0, trace.events.indexOf(firstEnemy)) : trace.events;
   const last = before.at(-1);
@@ -327,7 +327,7 @@ function worstArenaStage(units: readonly TickUnit[], trace: BattleTrace): EnemyS
   const opener = trace.events[0]?.key;
   const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
   const openingSpeed = Math.min(units.find((unit) => unit.key === opener)?.speed ?? 1, ...leoSpeeds);
-  return stageReading(units, [openingSpeed], ['Enemy'], 'arena');
+  return stageReading(units, [openingSpeed], ['Enemy'], 'arena', 'standard');
 }
 
 /* How many turns come before a stage's first enemy turn: the fewer, the worse. */
@@ -341,7 +341,7 @@ function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: B
   if (units.length === 0 || !content.facesEnemies) return [];
   return content.area === 'arena'
     ? [worstArenaStage(units, trace)]
-    : content.stages.map((stage) => stageReading(units, stage.speeds, enemyNamesOf(stage), content.area));
+    : content.stages.map((stage) => stageReading(units, stage.speeds, enemyNamesOf(stage), content.area, content.tick));
 }
 
 export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = false }: {
@@ -389,7 +389,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     };
   });
   const units = candidates.map((candidate) => tickUnit(candidate));
-  const trace = teamTrace(units);
+  const trace = teamTrace(units, content.tick);
   const first = firstTurns(trace.events);
   const enemies = enemyStages(units, faced, trace);
   /* A member's place is its absolute one, enemy turns counted, on the stage
@@ -429,7 +429,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     const parts = monsterSpeedParts(monster);
     const shown = shownSpeeds[index];
     const verdict = verdicts[index];
-    const range = ranges ? tuningRange(candidates, shownSpeeds, index) : null;
+    const range = ranges ? tuningRange(candidates, shownSpeeds, index, content.tick) : null;
     return {
       unitId: member.unitId,
       wantedPosition: index + 1,
@@ -474,7 +474,7 @@ export function outOfPlaceCount(reading: TeamReading): number {
 /* Each area's combat speed by name. A content not yet named has no area to
    name it by, so its figure is the combat speed with General leads alone. */
 const combatSpeedNames: Readonly<Record<SpeedContent['area'], string>> = {
-  arena: 'arena speed', dungeon: 'dungeon speed', guild: 'guild speed', unnamed: 'combat speed',
+  arena: 'arena speed', dungeon: 'dungeon speed', guild: 'guild speed', raid: 'raid speed', unnamed: 'combat speed',
 };
 
 /** "arena speed", "dungeon speed" and so on — the page always says which combat speed a figure is. */

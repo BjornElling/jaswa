@@ -17,10 +17,9 @@
  * The `q_i²` term is the one a hand-written version drops: two failures can
  * land on the same level, so the sum is over multisets and not over pairs.
  *
- * The rates are drawn deliberately uneven, never flat. Today the app fills the
- * table with one pooled estimate, but the recursion has to be right for the
- * per-level curve the game actually uses, and a flat test would pass on a
- * model that had quietly collapsed to a single rate.
+ * The rates are drawn deliberately uneven, never flat: the recursion has to be
+ * right for the per-level curve the game publishes, and a flat test would pass
+ * on a model that had quietly collapsed to a single rate.
  *
  * Usage: node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs
  */
@@ -30,7 +29,7 @@ import { relicAdvice, relicOvertakeThresholds } from '../app/lib/relic-advice.ts
 /* Imported from the model itself, not through the advice module's re-exports:
    this file's job is to check that implementation, so it names it directly. */
 import {
-  relicDuplicateMarginalStrength, relicExpectedLevel, relicExpectedStrength,
+  relicExpectedLevel, relicExpectedStrength,
   relicFinalLevelChances, relicLanding, relicNextAttemptChance, relicReachChance,
 } from '../app/lib/relic-power-up-model.ts';
 import {
@@ -134,13 +133,6 @@ const onTier = tierAdvice.get('8')?.investmentScore ?? 0;
 check(onTier > beforeTier,
   `an Exceptional +8 → +9 tier scores ${Math.round(onTier)} % above the ${Math.round(beforeTier)} % +7 → +8 step despite its lower chance`);
 
-/* A duplicate is valuable only for the final strength it exceeds beyond the
-   incumbent. This deliberately counts an overshoot and nothing below or equal. */
-const duplicateChances = [0, 0, 0.2, 0.3, 0.5];
-const duplicateGain = relicDuplicateMarginalStrength(duplicateChances, 3, 'ATK');
-const expectedDuplicateGain = 0.5 * (relicStrengthIndex(4, 'ATK') - relicStrengthIndex(3, 'ATK'));
-check(Math.abs(duplicateGain - expectedDuplicateGain) < 1e-12,
-  'a duplicate gains only the final strength above its incumbent, including overshoot');
 const equalOlder = relicAt(9, '9');
 const equalNewer = relicAt(9, '10');
 equalOlder.durability = 0;
@@ -149,7 +141,7 @@ const equalAdvice = relicAdvice([equalOlder, equalNewer], 5);
 check(equalAdvice.get('9')?.verdict === 'keep' && equalAdvice.get('10')?.verdict === 'sell',
   'equal spent duplicates keep only the lower-rid incumbent');
 
-/* §8.2's duplicate gate. It compares the plain overtake chance against a
+/* §8 rule 2's duplicate gate. It compares the plain overtake chance against a
    per-band threshold, so the verdict is decidable from the figure the row
    already prints — and it must not move with the slider, which is the whole
    reason it is a separate gate. */
@@ -179,13 +171,21 @@ check(verdicts.size === 1 && verdicts.has('sell'),
   'a hopeless duplicate sells at every slider stop, the boldest included');
 
 /* The one modelling choice in the strength index is how the two halves are
-   weighted. It is only a defensible choice if the answers do not turn on it, so
-   every pair is re-decided at every weighting from all-main to all-unique and
-   the power-up ordering has to survive. */
+   weighted. This holds the ordering the stones rest on — a full relic's
+   expected gain is larger the lower it stands — at every weighting from
+   all-main to all-unique. It does not re-decide the verdicts: the next-attempt
+   score is normalised by an ordinary level's gain, which is zero when the
+   unique half carries all the weight, so the advice is only defined at the
+   shipped equal weighting.
+
+   The synergy weight is read from the band itself; reading `.band` off the
+   string `relicSynergy` returns once made every product NaN and every
+   comparison false, so this check passed without measuring anything. */
 let orderingStable = true;
 for (const property of relicProperties) {
   for (const main of ['HP', 'ATK', 'DEF']) {
-    const weight = relicSynergyWeights[relicSynergy(main, property.id).band];
+    const weight = relicSynergyWeights[relicSynergy(main, property.id)];
+    if (!(weight > 0)) throw new Error(`No synergy weight for ${main} on relic property ${property.id}.`);
     const at = (share) => [0, 3, 6, 9, 12].map((level) =>
       weight * (relicExpectedStrength(level, 3, property.per, relicPowerUpRates, share)
         - relicStrengthIndex(level, property.per, share)));

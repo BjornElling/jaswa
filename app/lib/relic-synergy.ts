@@ -68,12 +68,15 @@ const synergyTable: Record<number, Record<RelicMainProperty, RelicSynergyBand>> 
 /**
  * The fit of one main property with one unique property.
  *
- * Always answers, because the table covers every pair the game can produce and
- * the verifier holds it to that. An id the vocabulary does not know is not a
- * relic JASWA can read at all, and `readRelic` has already rejected it.
+ * The table covers every pair the game can produce and the verifier holds it
+ * to that, and `readRelic` has already rejected an id the vocabulary does not
+ * know. A pair missing here is therefore a defect, and it throws rather than
+ * passing as `neutral`, which would judge a relic on a fit nobody wrote down.
  */
 export function relicSynergy(main: RelicMainProperty, propertyId: number): RelicSynergyBand {
-  return synergyTable[propertyId]?.[main] ?? 'neutral';
+  const band = synergyTable[propertyId]?.[main];
+  if (band === undefined) throw new Error(`No synergy is recorded for ${main} on relic property ${propertyId}.`);
+  return band;
 }
 
 export const relicSynergyBandOrder: readonly RelicSynergyBand[] = [

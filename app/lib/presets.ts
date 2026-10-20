@@ -64,8 +64,12 @@ export type Preset = {
   /**
    * The pool the preset shares with the game's other decks of its content, or
    * of every content one battle spans (`DECK-PRESETS.md` §1, rules 4–6),
-   * `pool:<pool id>`; `null` where the
-   * preset is a placement of its own, as every preset built in JASWA is. The
+   * `pool:<pool id>`; `null` where the preset is a placement of its own, as
+   * every preset built in JASWA and every deck whose content is only assumed
+   * is. The pool rests on what the game does on screen — a rune in one
+   * Dimension Raid phase's deck cannot also be used in another phase's — not
+   * on a notice: v9.2.4 only added a Rune Advanced Settings box to include or
+   * exclude runes placed in the battle's other decks from a search. The
    * pool never changes what the preset reads: each deck is read as the game
    * saved it. It says only what JASWA may not bring into this deck.
    */
@@ -136,7 +140,7 @@ function effectiveGear(members: readonly string[], savedOf: (unitId: string) => 
 function gamePresetName(deck: DeckPreset, content: PresetContent | null, number: number | null): string {
   if (deck.source.kind !== 'deck') return content?.name ?? deck.key;
   if (content) return `${content.name} ${number}`;
-  return `Deck ${deck.source.deckType} · ${deck.source.deckSequence}`;
+  return `Preset ${deck.source.deckType} · ${deck.source.deckSequence}`;
 }
 
 function readGamePreset(deck: DeckPreset, fallback: Preset): Preset {
@@ -190,9 +194,10 @@ export function readPresets(data: GameRecord | undefined, own: readonly OwnPrese
   const fallback = readScenario(data);
   const ownedRunes = new Set(ids(data.runes, 'rune_id'));
   const ownedArtifacts = new Set(ids(data.artifacts, 'rid'));
+  const slotOf = runeSlots(data);
   const rest = joinPools([
     ...readDeckPresets(data).map((deck) => readGamePreset(deck, fallback)),
-    ...own.map((entry) => readOwnPreset(entry, fallback, ownedRunes, ownedArtifacts)),
+    ...own.filter((entry) => hasOneRunePerSlot(entry, slotOf)).map((entry) => readOwnPreset(entry, fallback, ownedRunes, ownedArtifacts)),
   ]).map((preset, at) => ({ preset, at }))
     .sort((left, right) => presetOrder(left.preset, right.preset) || left.at - right.at)
     .map((entry) => entry.preset);
@@ -208,9 +213,16 @@ export function readPresets(data: GameRecord | undefined, own: readonly OwnPrese
  * what JASWA does — Rune Optimization, an engrave, a monster joining a deck —
  * never on what it reads. A preset built in JASWA is a draft of one team and
  * never joins the game's pool.
+ *
+ * Nor does a deck whose content is only assumed from its numbers: the pool
+ * withholds runes from what JASWA proposes, and a guess about which content a
+ * deck belongs to is no ground for that. Such a deck stays listed under its
+ * likeliest content, marked *Content assumed*, and is read as a placement of
+ * its own until the game's screen confirms the content.
  */
 function joinPools(presets: Preset[]): Preset[] {
-  const poolKey = (preset: Preset) => (preset.kind === 'game' && preset.content?.sharedPool ? `pool:${preset.content.sharedPool.id}` : null);
+  const poolKey = (preset: Preset) => (preset.kind === 'game' && !preset.contentAssumed && preset.content?.sharedPool
+    ? `pool:${preset.content.sharedPool.id}` : null);
   const pools = new Map<string, Preset[]>();
   for (const preset of presets) {
     const key = poolKey(preset);
@@ -219,7 +231,11 @@ function joinPools(presets: Preset[]): Preset[] {
   return presets.map((preset) => {
     const key = poolKey(preset);
     if (!key) return preset;
-    const others = (pools.get(key) ?? []).filter((entry) => entry !== preset);
+    /* Where the battle places one deck per content, the content's other decks
+       are alternatives to this one, not teammates, and hold nothing against it. */
+    const alternatives = preset.content?.sharedPool?.oneDeckPerContent ?? false;
+    const others = (pools.get(key) ?? []).filter((entry) => entry !== preset
+      && !(alternatives && entry.content?.id === preset.content?.id));
     const elsewhere = (pick: (entry: Preset) => Iterable<string>) => new Set(others.flatMap((entry) => [...pick(entry)]));
     const runesElsewhere = elsewhere((entry) => entry.runeOwner.keys());
     const artifactsElsewhere = elsewhere((entry) => entry.artifactOwner.keys());
@@ -338,11 +354,33 @@ function readOwnPresetEntry(value: unknown): OwnPreset | null {
   return { id, name, content, members, leaderUnitId, gear: read };
 }
 
-/** The stored presets, one at a time (`preference-reading.ts`). A repeated id keeps its first holder. */
-export function readOwnPresets(value: unknown): OwnPreset[] {
+/** Each owned rune's slot, by rune id, from an account the import has already checked. */
+export function runeSlots(data: GameRecord | undefined): ReadonlyMap<string, number> {
+  return new Map(records(data?.runes).flatMap((rune) => typeof rune.slot_no === 'number' ? [[String(rune.rune_id), rune.slot_no]] : []));
+}
+
+/* A monster takes one rune per slot in a preset as in the game. Which slot a
+   rune fills is the account's to say, not the stored preset's, so the check
+   needs the account; a rune it no longer holds has no slot and is one more
+   sold item, as in a saved deck. */
+function hasOneRunePerSlot(preset: OwnPreset, slotOf: ReadonlyMap<string, number>): boolean {
+  return Object.values(preset.gear ?? {}).every(({ runeIds }) => {
+    const slots = runeIds.map((id) => slotOf.get(id)).filter((slot): slot is number => slot !== undefined);
+    return new Set(slots).size === slots.length;
+  });
+}
+
+/**
+ * The stored presets, one at a time (`preference-reading.ts`). A repeated id
+ * keeps its first holder. With the account at hand, a preset putting two runes
+ * in one slot of one monster is dropped too, alone; without it that check
+ * waits for `readPresets`, which leaves such a preset out of every list.
+ */
+export function readOwnPresets(value: unknown, slotOf?: ReadonlyMap<string, number>): OwnPreset[] {
   const seen = new Set<string>();
   return (Array.isArray(value) ? value : []).map(readOwnPresetEntry)
-    .filter((entry): entry is OwnPreset => entry !== null && !seen.has(entry.id) && Boolean(seen.add(entry.id)));
+    .filter((entry): entry is OwnPreset => entry !== null && (slotOf === undefined || hasOneRunePerSlot(entry, slotOf))
+      && !seen.has(entry.id) && Boolean(seen.add(entry.id)));
 }
 
 export function newOwnPresetId(): string {

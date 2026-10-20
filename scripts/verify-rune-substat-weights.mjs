@@ -12,7 +12,9 @@
  * line, so a failure is a change in the model and never a change in the data.
  */
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { roleBuilds, prepareRuneCandidate, candidateMaxValue } from '../app/lib/rune-cleanup-model.ts';
+import {
+  roleBuilds, prepareRuneCandidate, candidateMaxValue, neutralComparisonCredit,
+} from '../app/lib/rune-cleanup-model.ts';
 import { newSubstatWeightScope, substatWeights } from '../app/lib/rune-substat-weights.ts';
 import { maximumRoll, slotMainProperties, subPropertyTargetStat } from '../app/lib/rune-properties.ts';
 import { runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
@@ -20,6 +22,10 @@ import { runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 const base = { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 };
 const supportBase = { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 };
 const noCraft = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
+/* The scale's own arithmetic — a perfect rune is exactly 100 %, one max roll is worth
+   the same share at every star class — is read on a bare ruler, where it is exact.
+   Craft is read on the product's fixed ruler, in section 6. */
+const bareRuler = noCraft;
 
 let failures = 0;
 function check(condition, message) {
@@ -243,7 +249,7 @@ function verifyThePerfectRuneReadsFull() {
           ],
           occupiedId: null, obtainedOrder: 1,
         };
-        const candidate = prepareRuneCandidate(rune, entry, build, line, noCraft);
+        const candidate = prepareRuneCandidate(rune, entry, build, line, noCraft, bareRuler);
         check(candidate !== null, `${entry.name} slot ${slot}: the perfect rune was not judged at all.`);
         if (!candidate) continue;
         check(close(candidateMaxValue(candidate), 1, 1e-9),
@@ -286,7 +292,7 @@ function verifySurplusKeepsPaying() {
   });
   let previous = -1;
   for (const spdValue of [4, 8, 12, 18, 24, 30]) {
-    const candidate = prepareRuneCandidate(make(spdValue), fastDd, build, base, noCraft);
+    const candidate = prepareRuneCandidate(make(spdValue), fastDd, build, base, noCraft, bareRuler);
     const value = candidateMaxValue(candidate);
     check(value >= previous, `a rune with SPD +${spdValue} scored below one with less; surplus was penalised.`);
     check(value <= 1 + 1e-9, `a rune with SPD +${spdValue} scored above the perfect rune.`);
@@ -320,7 +326,7 @@ function verifyEachStarClassIsItsOwnScale() {
     occupiedId: null, obtainedOrder: 1,
   });
   const values = [4, 5, 6].map((stars) =>
-    candidateMaxValue(prepareRuneCandidate(make(stars, 12), fastDd, build, base, noCraft)));
+    candidateMaxValue(prepareRuneCandidate(make(stars, 12), fastDd, build, base, noCraft, bareRuler)));
   check(values.every((value) => close(value, values[2], 0.005)),
     `the same arrangement at its own class's maxima should read alike at every star class, not ${values.map((v) => v.toFixed(3)).join(' / ')}.`);
   console.log(`The same maximal arrangement at 4★ / 5★ / 6★ reads ${values.map((value) => (value * 100).toFixed(1) + ' %').join(' / ')}.`);
@@ -333,7 +339,7 @@ function verifyEachStarClassIsItsOwnScale() {
       ...rune.subProperties.slice(1).map((line) => ({ ...line, value: 0 }))];
     rune.prefixStatId = null;
     rune.prefixValue = 0;
-    return candidateMaxValue(prepareRuneCandidate(rune, fastDd, build, base, noCraft));
+    return candidateMaxValue(prepareRuneCandidate(rune, fastDd, build, base, noCraft, bareRuler));
   };
   check(close(one(5, maximumRoll(8, 5)), one(6, maximumRoll(8, 6)), 1e-9),
     'one maximum SPD roll should be worth the same share of its own class\'s perfect rune at five and six stars.');
@@ -343,16 +349,18 @@ function verifyEachStarClassIsItsOwnScale() {
      still available to land where it is worth most. */
   const fresh = make(6, 0);
   fresh.subProperties = fresh.subProperties.slice(0, 4).map((line) => ({ ...line, value: maximumRoll(line.statId) }));
-  const potential = candidateMaxValue(prepareRuneCandidate(fresh, fastDd, build, base, noCraft));
+  const potential = candidateMaxValue(prepareRuneCandidate(fresh, fastDd, build, base, noCraft, bareRuler));
   check(potential > 0.9, `a +0 rune with four maximum lines should still project near the ceiling, not ${(potential * 100).toFixed(1)} %.`);
   console.log(`A +0 Legend rune with four maximum lines projects to ${(potential * 100).toFixed(1)} %.`);
 }
 
 /* ------------------------------------------------------------ 6. craft credit */
 
-/** Credited Grindstones lift a rune and the perfect rune together, so no rune can
-    read past 100 % merely because the settings promised it a stone. */
-function verifyCraftCreditMovesBothEnds() {
+/** Read on the product's fixed ruler, credited craft lifts the rune and never the
+    perfect rune: each richer credit reads at least as high, and an ordinary rune
+    still never reads past 100 %. The ruler used to move with the credit here, which
+    tested a reading the page never prints. */
+function verifyCraftCreditMovesOnlyTheRune() {
   const fastDd = role('fast-dd');
   const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const rune = {
@@ -367,14 +375,18 @@ function verifyCraftCreditMovesBothEnds() {
     ],
     occupiedId: null, obtainedOrder: 1,
   };
+  let previous = 0;
   for (const credit of [
     noCraft,
     { gem: null, gemGrade: 'Hero', grind: 'maximum', grindGrade: 'Legend' },
     { gem: 'maximum', gemGrade: 'Legend', grind: 'maximum', grindGrade: 'Legend' },
   ]) {
-    const value = candidateMaxValue(prepareRuneCandidate(rune, fastDd, build, base, credit));
+    const value = candidateMaxValue(prepareRuneCandidate(rune, fastDd, build, base, credit, neutralComparisonCredit));
     check(value > 0 && value <= 1 + 1e-9,
       `a credited ${credit.gem ? 'Gem and ' : ''}Grindstone put the rune at ${(value * 100).toFixed(2)} %.`);
+    check(value + 1e-12 >= previous,
+      `a richer credit (gem ${String(credit.gem)}, grind ${String(credit.grind)}) read the rune lower on the fixed ruler.`);
+    previous = value;
     console.log(`  gem ${String(credit.gem)}, grind ${String(credit.grind)} -> ${(value * 100).toFixed(2)} %`);
   }
 }
@@ -389,7 +401,7 @@ verifyMetTargetsAskForNothing();
 verifyThePerfectRuneReadsFull();
 verifySurplusKeepsPaying();
 verifyEachStarClassIsItsOwnScale();
-verifyCraftCreditMovesBothEnds();
+verifyCraftCreditMovesOnlyTheRune();
 newSubstatWeightScope();
 
 if (failures) {

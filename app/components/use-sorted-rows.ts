@@ -49,7 +49,7 @@ export type SortableColumn<Row> = {
 export type SortState = { key: string; direction: SortDirection };
 
 /**
- * Sorting for one table (`ARTIFACT-CANONICAL.md` §17.8: every table sorts on
+ * Sorting for one table (`ACCOUNT-TABLES.md` §1: every table sorts on
  * every column).
  *
  * A stable tiebreak is part of the contract rather than an implementation

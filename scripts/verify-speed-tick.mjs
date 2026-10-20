@@ -31,7 +31,7 @@ import { presetContent, presetContents } from '../app/lib/preset-contents.ts';
 import {
   isSpeedTuningPreferences, presetSpeedTeam, readSpeedTuningPreferences, speedTuningOf,
 } from '../app/lib/speed-tuning-preferences.ts';
-import { readSkyTribeTotem, skyTribeTotemProblem } from '../app/lib/sky-tribe-totem.ts';
+import { accountBuildingsProblem, readBuildingBonuses, readSkyTribeTotem } from '../app/lib/account-buildings.ts';
 import { calculateMonsterTotals, monsterSpeedParts } from '../app/lib/monster-stats.ts';
 import { hasMonsterCatalogEntry } from '../app/lib/monster-catalog.ts';
 
@@ -68,6 +68,10 @@ check(leaderSpeedPercent({ percent: 28, area: 'Dungeon', element: null }, 'unnam
 check(leaderSpeedPercent({ percent: 30, area: 'General', element: 'Wind' }, 'arena', 'Fire') === 0, 'an element lead skips other elements');
 check(leaderSpeedPercent({ percent: 30, area: 'General', element: 'Wind' }, 'dungeon', 'Wind') === 30, 'an element lead reaches its element everywhere');
 check(leaderSpeedPercent({ percent: 30, area: 'Arena', element: 'Wind' }, 'dungeon', 'Wind') === 0, 'an element lead keeps its area');
+/* A raid counts General leads and element leads, and no Dungeon lead (STAT-4). */
+check(leaderSpeedPercent({ percent: 28, area: 'Dungeon', element: null }, 'raid', 'Fire') === 0, 'a dungeon lead does not count in a raid');
+check(leaderSpeedPercent({ percent: 30, area: 'General', element: null }, 'raid', 'Fire') === 30
+  && leaderSpeedPercent({ percent: 30, area: 'General', element: 'Fire' }, 'raid', 'Fire') === 30, 'General and element leads count in a raid');
 /* Swarfarm writes an element lead two ways; the snapshot must keep the element
    whichever it was. Agrius leads fire monsters only. */
 const agrius = leaderSkill(34112);
@@ -76,7 +80,7 @@ check(shortLeaderSkill(agrius) === 'CRI Rate 30 % · Fire', `Agrius's lead names
 /* Where a lead counts is one rule for every attribute: the speed figure above
    and the editor's red mark must agree. */
 for (const leaderArea of ['General', 'Arena', 'Dungeon', 'Guild']) {
-  for (const area of ['arena', 'dungeon', 'guild', 'unnamed']) {
+  for (const area of ['arena', 'dungeon', 'guild', 'raid', 'unnamed']) {
     const counts = leaderSpeedPercent({ percent: 10, area: leaderArea, element: 'Fire' }, area, 'Fire') > 0;
     check(leaderAreaReaches(leaderArea, area) === counts, `${leaderArea} lead in ${area}: reach and speed agree`);
   }
@@ -85,6 +89,10 @@ for (const leaderArea of ['General', 'Arena', 'Dungeon', 'Guild']) {
 /* 2. The clock. */
 for (const [speed, ticks] of [[1429, 1], [715, 2], [477, 3], [358, 4], [286, 5], [285, 6], [239, 6], [143, 10]]) {
   check(ticksToFirstTurn(speed) === ticks, `${speed} combat speed needs ${ticks} ticks`);
+}
+/* A raid ticks at 4.5 %: ⌈10,000 / (4.5 · n)⌉ moves within n ticks. */
+for (const [speed, ticks] of [[2223, 1], [2222, 2], [1112, 2], [741, 3], [300, 8]]) {
+  check(ticksToFirstTurn(speed, 'raid') === ticks, `${speed} combat speed needs ${ticks} raid ticks`);
 }
 const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, side, speed, effects, ...extra });
 {
@@ -95,6 +103,11 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
 {
   const trace = simulateBattle([unit('a', 300), unit('b', 300)], { done: everyoneMoved(['a', 'b']) });
   check(trace.events[0].tiedWith.includes('b'), 'an exact tie is reported');
+}
+{
+  /* A raid's bar fills at 4.5 % a speed point: 300 moves on tick 8, not 5. */
+  const raid = simulateBattle([unit('a', 300)], { done: everyoneMoved(['a']), tick: 'raid' });
+  check(raid.events[0].tick === 8 && raid.snapshots[0].bars.a === 1_350, `a raid tick is 4.5 % of combat speed (${raid.snapshots[0].bars.a})`);
 }
 {
   /* §3.2: a tie between the team and the enemy goes to the team, the attacker,
@@ -192,9 +205,20 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
      Leo combat speed"), sparing a boss. */
   const leo = unit('leo', 150, [], 'ally', { capsOthersSpeed: true });
   const capped = simulateBattle([leo, unit('fast', 300)], { done: everyoneMoved(['leo', 'fast']) });
-  check(capped.events[0].tiedWith.length === 1 && capped.events[0].tick === 10, 'under the cap a 300 moves with a 150 Leo, on a tie');
+  /* Under the cap a 300 fills as a 150 Leo does, and the tie goes to the
+     uncapped start speed (SWCalc; Ellia: "Under Leo, ties are broken by original
+     SPD instead of placement"), whoever is listed first. */
+  check(capped.events[0].key === 'fast' && capped.events[0].tiedWith.length === 0 && capped.events[0].tick === 10
+    && capped.events[1].key === 'leo' && capped.events[1].tick === 11,
+    'under the cap a 300 ties a 150 Leo on the bar and wins the tie on its start speed');
+  const fasterEnemy = simulateBattle([leo, unit('enemy', 300, [], 'enemy')], { done: everyoneMoved(['leo', 'enemy']) });
+  check(fasterEnemy.events[0].key === 'enemy', 'a faster enemy wins a tie on the bar before the attacker rule is asked');
+  const levelEnemy = simulateBattle([unit('enemy', 150, [], 'enemy'), unit('ally', 150)], { done: everyoneMoved(['ally', 'enemy']) });
+  check(levelEnemy.events[0].key === 'ally' && levelEnemy.events[0].tiedWith.includes('enemy'), 'at equal start speed the attacker wins, and the tie is reported');
   const twoLeos = simulateBattle([leo, unit('leo-2', 140, [], 'ally', { capsOthersSpeed: true }), unit('fast', 300)], { done: everyoneMoved(['leo', 'leo-2', 'fast']) });
-  check(twoLeos.events[0].key === 'leo' && twoLeos.events.find((event) => event.key === 'fast').tick === 12, 'the slowest Leo sets the cap, and a Leo is not capped by another');
+  /* Held to the 140 Leo, the 300 ties it on tick 11 and wins on its start speed. */
+  check(twoLeos.events[0].key === 'leo' && twoLeos.events.find((event) => event.key === 'fast').tick === 11
+    && twoLeos.events.find((event) => event.key === 'leo-2').tick === 12, 'the slowest Leo sets the cap, and a Leo is not capped by another');
   const boss = simulateBattle([leo, unit('boss', 300, [], 'enemy', { exemptFromCap: true })], { done: everyoneMoved(['leo', 'boss']) });
   check(boss.events[0].key === 'boss' && boss.events[0].tick === 5, 'a boss is out of the cap\'s reach');
 }
@@ -248,11 +272,36 @@ check(speedContents.find((content) => content.id === 'arena')?.teamSize === 4, '
 check(readSkyTribeTotem({ deco_list: [{ master_id: 6, level: 20 }] }).state === 'built', 'the totem is decoration 6');
 check(readSkyTribeTotem({ deco_list: [{ master_id: 4, level: 20 }] }).state === 'not-built', 'no decoration 6 means no totem');
 check(readSkyTribeTotem({}).state === 'unknown', 'no decoration list means unknown');
-check(skyTribeTotemProblem({ deco_list: [{ master_id: 6, level: 21 }] }) !== undefined, 'a level past 20 is refused');
-check(skyTribeTotemProblem({ deco_list: [{ master_id: 6, level: 20 }, { master_id: 6, level: 1 }] }) !== undefined, 'two totems are refused');
-check(skyTribeTotemProblem({ deco_list: [{ master_id: 6, level: 12 }] }) === undefined, 'a readable totem passes');
+check(accountBuildingsProblem({ deco_list: [{ master_id: 6, level: 21 }] }) !== undefined, 'a level past 20 is refused');
+check(accountBuildingsProblem({ deco_list: [{ master_id: 6, level: 20 }, { master_id: 6, level: 1 }] }) !== undefined, 'two totems are refused');
+check(accountBuildingsProblem({ deco_list: [{ master_id: 6, level: 12 }] }) === undefined, 'a readable totem passes');
+check(accountBuildingsProblem({ deco_list: [{ master_id: 9, level: 0 }] }) !== undefined
+  && accountBuildingsProblem({ deco_list: [{ master_id: 31, level: 20 }, { master_id: 31, level: 20 }] }) !== undefined,
+  'a stat building at no level, or listed twice, is refused');
+check(accountBuildingsProblem({ deco_list: [{ master_id: 5, level: 99 }] }) === undefined, 'a decoration that moves no stat is not read');
+{
+  /* The Glory buildings at level 20 give what level 10 gave (Com2uS v6.2.7). */
+  const all = readBuildingBonuses({ deco_list: [4, 8, 9, 31, 15, 16, 17, 18, 19].map((master_id) => ({ master_id, level: 20 })) });
+  check(all.hp === 20 && all.atk === 20 && all.def === 20 && all.criDmg === 25 && all.elementAtk.Fire === 21 && all.elementAtk.Dark === 21,
+    'level 20: 20 % HP, ATK and DEF, 25 CRI Dmg, 21 % ATK on a Sanctuary\'s element');
+  const some = readBuildingBonuses({ deco_list: [{ master_id: 31, level: 14 }, { master_id: 15, level: 19 }] });
+  check(some.criDmg === 18 && some.elementAtk.Fire === 19 && some.atk === 0, 'the upgrade tables between levels');
+  check(readBuildingBonuses({}) === undefined, 'no decoration list means the buildings are unknown');
+}
 
-/* Display speed has one source. */
+/* Display speed has one source, and Swift is read as the sheet reads it. */
+{
+  /* Three Swift and an Intangible complete Swift on the sheet, so Speed Tuning
+     reads Swift too, not ⌈B/4⌉ as flat rune speed (STAT-2). */
+  const runes = [...[1, 2, 3].map((slot) => ({ set_id: 3, slot_no: slot, pri_eff: [8, 10], sec_eff: [] })),
+    { set_id: 25, slot_no: 4, pri_eff: [8, 10], sec_eff: [] }];
+  const monster = { spd: 111, runes };
+  const parts = monsterSpeedParts(monster);
+  check(parts.swift && parts.displaySpeed === calculateMonsterTotals(monster).spd && parts.displaySpeed === displaySpeed(111, true, 40),
+    'three Swift and an Intangible make Swift, as the stat sheet counts it');
+  check(combatSpeed(sheet(parts.baseSpeed, runeSpeedForDisplay(parts.baseSpeed, parts.swift, parts.displaySpeed), parts.swift, 0)) === 179,
+    'its combat speed carries the exact quarter: ⌈111 × 1.25 + 40⌉ = 179');
+}
 {
   const monster = { spd: 111, runes: [1, 2, 3, 4].map((slot) => ({ set_id: 3, slot_no: slot, pri_eff: [8, 10], sec_eff: [] })) };
   const parts = monsterSpeedParts(monster);
@@ -327,6 +376,11 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
     'Temple of Chaos counts dungeon leads');
   check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('siege') }, undefined).content).area === 'guild',
     'Siege Battle counts guild leads');
+  for (const id of ['rift-raid', 'dimension-raid-1', 'dimension-raid-2', 'dimension-raid-3']) {
+    const raid = speedContent(presetSpeedTeam({ ...preset, content: presetContent(id) }, undefined).content);
+    check(raid.area === 'raid' && raid.tick === 'raid', `${presetContent(id).name} ticks and leads as a raid`);
+  }
+  check(speedContents.every((content) => content.tick === (content.area === 'raid' ? 'raid' : 'standard')), 'only a raid ticks at 4.5 %');
   const unnamed = presetSpeedTeam({ ...preset, content: null }, undefined);
   check(unnamed.content === 'unnamed' && unnamed.size === 3, 'a preset not yet named has the places it fills and counts General leads alone');
 }

@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { readDeckPresets } from '../app/lib/deck-presets.ts';
 import { createImportedGame, validateGameFile } from '../app/lib/file-imports.ts';
 import {
-  accountItems, engravings, monsterInPreset, presetMenu, readOwnPresets, readPresets, runesInPreset, teammateSetsInPreset,
+  accountItems, engravings, monsterInPreset, presetMenu, readOwnPresets, readPresets, runeSlots, runesInPreset, teammateSetsInPreset,
 } from '../app/lib/presets.ts';
 import { engraveImportedGame } from '../app/lib/engrave-rune-build.ts';
 import { addToGamePreset } from '../app/lib/game-preset-edits.ts';
@@ -83,6 +83,25 @@ assert.equal(stale.runeOwnerById.get('999999999'), '1');
 const goneMonster = readDeckPresets(only(deck(1, 1, [1, 2, 77], [gear(1, [101]), gear(2, [])])))[0];
 assert.deepEqual(goneMonster.missingUnitIds, ['77']);
 assert.deepEqual(goneMonster.members, ['1', '2', '77']);
+/* A gone member whose engravings the deck still lists is one more missing
+   member, its gear kept readable — never a reason to refuse the account. */
+const goneWithGear = { ...only(deck(1, 1, [1, 77], [gear(1, [101]), gear(77, [104], [artifactId])])), artifacts: [] };
+assert.equal(validateGameFile(goneWithGear).valid, true, `a sold member's engravings never fail the import: ${validateGameFile(goneWithGear).message}`);
+const goneGeared = readDeckPresets(goneWithGear)[0];
+assert.deepEqual(goneGeared.missingUnitIds, ['77']);
+assert.deepEqual(goneGeared.gear.get('77'), { runeIds: ['104'], artifactIds: [String(artifactId)] }, 'its engravings stay readable');
+assert.equal(goneGeared.savesGear, true);
+/* A Normal Sealed Shrine monster can stand in a saved deck, but no page reads
+   it from there: it is missing, as it is from a preset built in JASWA. */
+const shrineMember = { ...only(deck(1, 1, [1, 88], [gear(1, [101]), gear(88, [])])), artifacts: [],
+  unit_storage_normal_list: [{ unit_id: 88, unit_master_id: 10111, unit_level: 40, class: 5 }] };
+assert.equal(validateGameFile(shrineMember).valid, true, validateGameFile(shrineMember).message);
+assert.deepEqual(readDeckPresets(shrineMember)[0].missingUnitIds, ['88'], 'a Normal-shrine member of a game preset is missing');
+const shrinePresets = readPresets(createImportedGame('shrine.json', clone(shrineMember), validateGameFile(shrineMember)).data,
+  readOwnPresets([{ id: 'own-s', name: 'Shrine draft', content: null, members: ['1', '88'], leaderUnitId: null, gear: null }]));
+assert.deepEqual(shrinePresets.find((preset) => preset.id === 'deck-1-1').missingUnitIds, ['88']);
+assert.deepEqual(shrinePresets.find((preset) => preset.id === 'own-s').missingUnitIds, ['88'],
+  'and the same monster is missing from a preset built in JASWA: one model for both');
 
 /* Rejected: every way a deck can contradict itself. */
 const rejects = (entries, pattern, message) => assert.throws(() => readDeckPresets(only(...entries)), pattern, message);
@@ -90,8 +109,8 @@ rejects([{ deck_type: 1, deck_seq: 1, equip: null }], /without a monster list/, 
 rejects([deck(1, 1, [1, 2], [gear(1, [101]), gear(2, [101])])], /assigns a rune more than once/, 'a rune twice in one deck');
 rejects([deck(1, 1, [1, 2], [gear(1, [], [artifactId]), gear(2, [], [artifactId])])], /assigns an artifact more than once/, 'an artifact twice in one deck');
 rejects([deck(1, 1, [1, 2], [gear(1, [101])])], /some of its monsters but not all/, 'gear saved for some members only');
-rejects([deck(1, 1, [1], [gear(1, []), gear(2, [101])])], /outside the deck/, 'gear for a monster outside the deck');
-rejects([deck(1, 1, [1, 2], [gear(1, []), gear(1, []), gear(2, [])])], /outside the deck, or twice/, 'gear twice for one member');
+rejects([deck(1, 1, [1], [gear(1, []), gear(2, [101])])], /outside the preset/, 'gear for a monster outside the preset');
+rejects([deck(1, 1, [1, 2], [gear(1, []), gear(1, []), gear(2, [])])], /outside the preset, or twice/, 'gear twice for one member');
 rejects([deck(1, 1, [1, 2], null, { leader_unit_id: 3 })], /leader is not one of its monsters/, 'a leader outside the deck');
 rejects([deck(1, 1, [1, 1], null)], /invalid or repeated monster/, 'a monster twice in one deck');
 rejects([deck(1, 1, [1], [gear(1, [101, 102])])], /two runes to one monster slot/, 'two runes in one slot');
@@ -121,10 +140,19 @@ const ownStored = [
 ];
 const presets = readPresets(prepared, readOwnPresets(ownStored));
 assert.deepEqual(presets.map((preset) => preset.name),
-  ['Scenario', 'Arena Attack 4', 'Arena Attack 5', 'Arena Defense', "Giant's Keep 1", 'Draft', 'Deck 99 · 1', 'Geared'],
+  ['Scenario', 'Arena Attack 4', 'Arena Attack 5', 'Arena Defense', "Giant's Keep 1", 'Draft', 'Preset 99 · 1', 'Geared'],
   'Scenario first, every preset by content, the user\'s own after the game\'s in theirs, and anything without a content last');
 assert.deepEqual(presets.map((preset) => preset.kind), ['scenario', 'game', 'game', 'game', 'game', 'own', 'game', 'own']);
 assert.deepEqual(presets.map((preset) => preset.id), ['scenario', 'deck-1-4', 'deck-1-5', 'arena-defense', 'deck-24-101', 'own-a', 'deck-99-1', 'own-b']);
+/* Runes 101 and 102 are both slot 2: a preset putting both on one monster is
+   dropped, alone, whether the account is at hand when the preferences are read
+   or only when the presets are. */
+const twoInOneSlot = [...ownStored, { id: 'own-c', name: 'Crowded', content: null, members: ['1'], leaderUnitId: null,
+  gear: { 1: { runeIds: ['101', '102'], artifactIds: [] } } }];
+assert.deepEqual(readOwnPresets(twoInOneSlot, runeSlots(prepared)).map((entry) => entry.id), ['own-a', 'own-b'],
+  'an own preset with two runes in one slot costs only itself');
+assert.deepEqual(readPresets(prepared, readOwnPresets(twoInOneSlot)).filter((preset) => preset.kind === 'own').map((preset) => preset.id),
+  ['own-a', 'own-b'], 'and is left out of the presets when read without the account');
 const menu = presetMenu(presets);
 assert.deepEqual(menu.map((tab) => tab.label),
   ['Scenario', 'Arena', 'Guild', 'Cairos', 'Trial of Ascension', 'Temple of Chaos', 'Rift of Worlds', 'Dimension Hole', 'Not yet named'],
@@ -215,16 +243,16 @@ const engraveAccount = { ...optimization, deck_list: [
 const game = createImportedGame('engrave.json', clone(engraveAccount), validateGameFile(engraveAccount));
 const before = readPresets(game.data, []);
 const find = (list, id) => list.find((preset) => preset.id === id);
-const equipOf = (data, type, seq) => data.deck_list.find((entry) => entry.deck_type === type && entry.deck_seq === seq).equip;
+const gearOf = (data, type, seq) => data.deck_list.find((entry) => entry.deck_type === type && entry.deck_seq === seq).equip;
 const runeIdsByMember = (equip) => Object.fromEntries(equip.map((entry) => [String(entry.unit_id), entry.rune_id_list.map(String)]));
 
 /* Into a gear-saving preset: the six runes move onto 12, 5013 leaves 11 in this preset only. */
 const build = ['5013', '5002', '5003', '5004', '5005', '5006'];
 const engraved = engraveImportedGame(game, find(before, 'deck-1-1'), '12', build);
-assert.deepEqual(runeIdsByMember(equipOf(engraved.data, 1, 1)), { 11: arenaEleven.slice(1), 12: build },
+assert.deepEqual(runeIdsByMember(gearOf(engraved.data, 1, 1)), { 11: arenaEleven.slice(1), 12: build },
   'the build lands on its monster and leaves the other member of the same preset');
-assert.deepEqual(equipOf(engraved.data, 1, 2), equipOf(game.data, 1, 2), 'another preset holding one of the runes is untouched');
-assert.deepEqual(equipOf(engraved.data, 24, 101), null, 'a monsters-only preset is untouched');
+assert.deepEqual(gearOf(engraved.data, 1, 2), gearOf(game.data, 1, 2), 'another preset holding one of the runes is untouched');
+assert.deepEqual(gearOf(engraved.data, 24, 101), null, 'a monsters-only preset is untouched');
 assert.deepEqual(engraved.data.runes, game.data.runes, 'no rune moves in Scenario');
 assert.deepEqual(engraved.data.unit_list, game.data.unit_list, 'no monster\'s Scenario runes change');
 assert.deepEqual(engraved.data.defense_deck_info, game.data.defense_deck_info);
@@ -239,11 +267,11 @@ assert.deepEqual(find(after, 'scenario').runesOf, find(before, 'scenario').runes
 /* Into a monsters-only preset: every member's Scenario gear is written down first, and only the target changes. */
 const keepBuild = ['5014', '5022', '5030', '5038', '5046', '5054'];
 const keep = engraveImportedGame(game, find(before, 'deck-24-101'), '11', keepBuild);
-assert.deepEqual(runeIdsByMember(equipOf(keep.data, 24, 101)), { 11: keepBuild, 12: twelveScenario },
+assert.deepEqual(runeIdsByMember(gearOf(keep.data, 24, 101)), { 11: keepBuild, 12: twelveScenario },
   'a monsters-only preset gets every member\'s Scenario gear materialised');
 assert.equal(find(readPresets(keep.data, []), 'deck-24-101').savesGear, true, 'and from then on saves gear');
 assert.deepEqual(keep.data.runes, game.data.runes, 'Scenario is untouched');
-assert.deepEqual(equipOf(keep.data, 1, 1), equipOf(game.data, 1, 1));
+assert.deepEqual(gearOf(keep.data, 1, 1), gearOf(game.data, 1, 1));
 
 /* Into a defense preset: its own field, nothing else. */
 const defense = engraveImportedGame(game, find(before, 'arena-defense'), '11', keepBuild);
@@ -327,10 +355,10 @@ const unitInShared = createImportedGame('shared.json', clone(sharedAccount), val
 assert.deepEqual(monsterInPreset(unitInShared, find(shared, 'deck-23-2'), accountItems(sharedGame.data)).runes.map((rune) => String(rune.rune_id)), poolBuild,
   'the team\'s monster carries all six runes, as the game shows it');
 const teamOne = engraveImportedGame(sharedGame, find(shared, 'deck-23-1'), '11', keepBuild);
-assert.deepEqual(runeIdsByMember(equipOf(teamOne.data, 23, 1)), { 11: keepBuild }, 'the build lands in its team');
-assert.deepEqual(equipOf(teamOne.data, 23, 2), equipOf(sharedGame.data, 23, 2), 'and the other team is untouched');
+assert.deepEqual(runeIdsByMember(gearOf(teamOne.data, 23, 1)), { 11: keepBuild }, 'the build lands in its team');
+assert.deepEqual(gearOf(teamOne.data, 23, 2), gearOf(sharedGame.data, 23, 2), 'and the other team is untouched');
 const kept = engraveImportedGame(sharedGame, find(shared, 'deck-23-2'), '12', poolBuild);
-assert.deepEqual(runeIdsByMember(equipOf(kept.data, 23, 2)), { 12: poolBuild }, 'a shared rune the monster already carries may stay');
+assert.deepEqual(runeIdsByMember(gearOf(kept.data, 23, 2)), { 12: poolBuild }, 'a shared rune the monster already carries may stay');
 
 /* A monster in another team cannot join; a newcomer brings only Scenario gear no team holds. */
 const editable = { ...poolGame, data: { ...poolGame.data, deck_list: [
@@ -340,13 +368,15 @@ const editablePresets = readPresets(editable.data, []);
 assert.throws(() => addToGamePreset(editable, find(editablePresets, 'deck-23-2'), find(editablePresets, 'scenario'), '11'), /another team/,
   'a monster of one Temple of Chaos team cannot join another');
 const joined = addToGamePreset(editable, find(editablePresets, 'deck-23-1'), find(editablePresets, 'scenario'), '12');
-assert.deepEqual(runeIdsByMember(equipOf(joined.data, 23, 1))['12'], twelveScenario.filter((id) => id !== '5007'),
+assert.deepEqual(runeIdsByMember(gearOf(joined.data, 23, 1))['12'], twelveScenario.filter((id) => id !== '5007'),
   'a newcomer brings its Scenario gear less what the pool holds');
 
 /* The other contents of several decks in one battle (§1 rule 6) share their runes and artifacts, not
    their monsters, and Dimension Raid's three phases are one pool although they are three contents. */
 const raids = { ...only(
   deck(19, 1, [1], [gear(1, [101])]),
+  deck(19, 2, [2], [gear(2, [102])]),
+  deck(19, 3, [1], [gear(1, [102])]),
   deck(21, 1, [1], [gear(1, [101])]),
   deck(20, 1, [2], [gear(2, [])]),
   deck(3, 1, [2], [gear(2, [101])]),
@@ -361,12 +391,22 @@ assert.deepEqual(['deck-19-1', 'deck-20-1', 'deck-21-1'].map((id) => find(raidPr
   'Dimension Raid\'s phases are one pool');
 assert.deepEqual(find(raidPresets, 'deck-21-1').poolConflicts, { runeIds: ['101'], artifactIds: [], unitIds: [] },
   'a rune on phase 1 and phase 3 is a fault of both, and the monster on both is not');
-assert.deepEqual([...find(raidPresets, 'deck-20-1').poolRuneIds], ['101'], 'a phase knows the runes the other phases hold');
+assert.deepEqual([...find(raidPresets, 'deck-20-1').poolRuneIds].sort(), ['101', '102'], 'a phase knows the runes the other phases hold');
 assert.deepEqual(find(raidPresets, 'deck-20-1').poolTakenUnitIds.size, 0, 'and takes in any monster');
+/* A battle places one deck per phase, so a phase's own presets are alternatives. */
+assert.deepEqual(find(raidPresets, 'deck-19-2').poolConflicts.runeIds, [],
+  'two presets of one phase may hold the same rune: only one of them is placed');
+assert.equal(find(raidPresets, 'deck-19-3').poolRuneIds.has('102'), false, 'and neither withholds it from the other');
+assert.equal(find(raidPresets, 'deck-21-1').poolRuneIds.has('102'), true, 'while another phase is still kept off it');
 assert.equal(find(raidPresets, 'deck-3-2').pool, 'pool:rift-raid');
 assert.deepEqual(find(raidPresets, 'deck-3-2').poolConflicts.runeIds, ['101'], 'Rift Raid\'s teams share one rune set');
-assert.equal(find(raidPresets, 'deck-2-2').pool, 'pool:world-guild');
-assert.deepEqual(find(raidPresets, 'deck-2-2').poolConflicts.runeIds, ['101'], 'World Guild Battle\'s teams share one rune set');
+/* deck_type 2 is World Guild Battle only by assumption: a guessed content is
+   listed and marked, but withholds no rune from anything JASWA proposes. */
+assert.equal(find(raidPresets, 'deck-2-2').contentAssumed, true);
+assert.equal(find(raidPresets, 'deck-2-2').pool, null, 'a deck whose content is only assumed joins no pool');
+assert.deepEqual(find(raidPresets, 'deck-2-2').poolConflicts.runeIds, [], 'and so has no overlap to report');
+assert.equal(runeLocksInPreset(noRuneLocks, find(raidPresets, 'deck-2-1'), '1')['101'], undefined,
+  'a rune another assumed deck holds stays on offer');
 assert.equal(find(raidPresets, 'deck-6-1').pool, null, 'a content of one deck per battle shares nothing');
 assert.equal(runeLocksInPreset(noRuneLocks, find(raidPresets, 'deck-6-1'), '1')['101'], undefined);
 assert.equal(runeLocksInPreset(noRuneLocks, find(raidPresets, 'deck-20-1'), '2')['101'], 'excluded',

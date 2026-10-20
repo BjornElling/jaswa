@@ -189,8 +189,8 @@ function isRollFraction(value: number, maximum: number): boolean {
  * decide which properties matter, and the calculation says how well this
  * artifact rolled on those choices.
  *
- * One is the benchmark: a preferred main property on the best artifact the game
- * can build with one preferred and one acceptable sub property — see
+ * One is the benchmark: a preferred main property, one preferred sub property
+ * holding four maximum rolls and three acceptable lines at maximum rolls — see
  * `artifactScorePointBenchmark`. More preferred lines can exceed it, which lets
  * the recommendation distinguish a broad match from a narrow one without
  * calling an exceptional artifact mediocre.

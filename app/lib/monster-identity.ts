@@ -46,7 +46,8 @@ export function knownMonsterIdentityId(masterId: unknown): string | undefined {
  * The canonical skill-up family for a master id.
  *
  * This groups the elements that the catalogue itself assigns to one skill-up
- * family. It deliberately does not infer a relationship from a collaboration
+ * family: a skill-up takes any member of the family whatever its element, so
+ * a Fire copy feeds a Water one. It deliberately does not infer a relationship from a collaboration
  * table: every collaboration family keeps its own raw catalogue family.
  */
 export function monsterSkillFamilyId(masterId: unknown): number | undefined {

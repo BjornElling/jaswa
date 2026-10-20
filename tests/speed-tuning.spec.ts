@@ -117,7 +117,7 @@ test('every preset with a monster is a line under its content, and every line op
   await expect(trial).toBeEnabled();
   await expect(trial.locator('.speed-summary-state')).toHaveText('Turn order holds');
   await expect(trial.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
-  const unnamed = presetLine(other, 'Deck 99 · 1');
+  const unnamed = presetLine(other, 'Preset 99 · 1');
   await expect(unnamed).toBeEnabled();
   await expect(unnamed.locator('.speed-summary-name')).toHaveText(['Bernard (2A)']);
   await page.screenshot({ path: testInfo.outputPath('speed-page-presets.png'), fullPage: true });
@@ -133,7 +133,7 @@ test('every preset with a monster is a line under its content, and every line op
   await expect(trialTeam).toBeHidden();
 
   await unnamed.click();
-  const unnamedTeam = page.getByRole('dialog', { name: 'Deck 99 · 1' });
+  const unnamedTeam = page.getByRole('dialog', { name: 'Preset 99 · 1' });
   /* Nothing says how many a deck of an unknown content holds, so it has the places it fills. */
   await expect(unnamedTeam.locator('.speed-slot')).toHaveCount(1);
   await expect(unnamedTeam.getByRole('columnheader', { name: 'Combat speed' })).toBeVisible();
@@ -291,7 +291,7 @@ test('a line\'s names are dragged within it to change the team\'s order, kept at
   await page.keyboard.press('Escape');
 
   /* A line Speed Tuning cannot judge has no team order to drag. */
-  await expect(presetLine(page.getByRole('region', { name: 'Other presets', exact: true }), 'Deck 99 · 1')
+  await expect(presetLine(page.getByRole('region', { name: 'Other presets', exact: true }), 'Preset 99 · 1')
     .locator('.speed-summary-member[draggable="true"]')).toHaveCount(0);
 });
 

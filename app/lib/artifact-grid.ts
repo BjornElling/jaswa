@@ -6,7 +6,7 @@ import { monsterNameCollator } from './monster-grid';
 
 /**
  * The orderings the artifact table offers. Every rendered column is here
- * (§17.8), plus `subProperty` for the substat-specific ranking the filter
+ * (`ACCOUNT-TABLES.md` §1), plus `subProperty` for the substat-specific ranking the filter
  * dropdown drives, which has no column of its own.
  *
  * `refinement` and `subProperty` are ordered by the table component itself

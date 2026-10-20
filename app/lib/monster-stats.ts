@@ -1,4 +1,14 @@
-import { metricDmg, metricEhp, metricEhpD } from './rune-potential-metrics';
+import type { BuildingBonuses } from './account-buildings';
+import { criticalRateCapPercent, metricDmg, metricEhp, metricEhpD } from './rune-potential-metrics';
+import {
+  elementName, intangibleCompletion, intangibleSetId, runeSetName, setIdBound, setPieceCount, swiftSetId,
+} from './rune-sets';
+import { swiftPercent } from './speed-tick';
+import { spdUpEffectPropertyId } from './artifact-properties';
+
+/* The set rules live with the set table in `rune-sets.ts`; the search workers
+   have always read them from here, so they are offered here too. */
+export { intangibleCompletion, intangibleSetId, setIdBound, setPieceCount };
 
 type RecordLike = Record<string, unknown>;
 
@@ -39,25 +49,30 @@ export const effectSlotCount = 15;
 export const baseStatCount = 8;
 
 /**
- * What a fight adds to a copy, kept in its base after the eight stats: the HP,
- * ATK and DEF leads as a percentage of base, and the CRI Rate points its crit lead
- * and crit conditions add. The totals carry the same four positions — HP, ATK, DEF
- * and CRI Rate as the fight has them — and only the composites read those.
+ * What a fight adds to a copy, kept in its base after the eight stats: HP, ATK
+ * and DEF as a percentage of base — leads and Glory buildings — the CRI Rate
+ * points a crit lead, a guaranteed crit and element advantage add, and the CRI
+ * Dmg points the Fallen Ancient Guardian adds. The totals carry the same five
+ * positions — HP, ATK, DEF, CRI Rate and CRI Dmg as the fight has them — and
+ * only the composites read those.
  *
  * **A stat is the copy's own; a composite is the fight's.** The eight stats are
- * entered, judged and shown with personal sets; team sets apply only in battle, so a CRI Rate range of
- * 67 with a 33-point crit lead asks the runes for 67. DMG, E.HP and E.HP D are what
- * the copy does in the fight, so they count every lead: that same copy deals its
- * damage at 100 %. One sum gives both, so no figure can carry a lead another
- * figure beside it lacks.
+ * what the game's monster panel shows: runes, gear and the copy's personal sets,
+ * and nothing else — no team set, no lead, no building, as the panel shows none.
+ * So a CRI Rate range of 67 with a 33-point crit lead asks the runes for 67.
+ * DMG, E.HP and E.HP D are what the copy does in the fight, so they count
+ * exactly what `CombatBonuses` names: the leads, the teammates' team sets, the
+ * crit conditions and the account's Glory buildings (`account-buildings.ts`).
+ * One sum gives both, so no figure can carry a bonus another figure beside it
+ * lacks.
  */
-export const combatAt = { hp: 8, atk: 9, def: 10, criRate: 11 } as const;
+export const combatAt = { hp: 8, atk: 9, def: 10, criRate: 11, criDmg: 12 } as const;
 
 /** A copy's base as every sheet reads it: the eight stats, then `combatAt`. */
-export const baseLength = 12;
+export const baseLength = 13;
 
-/** The totals `totalsInto` writes: the eight stats, then the four the composites read. */
-export const totalCount = 12;
+/** The totals `totalsInto` writes: the eight stats, then the five the composites read. */
+export const totalCount = 13;
 
 /* A rune property's effect id against the accumulator it feeds. The main, the
    innate and every sub property read through the same table, so a flat and a
@@ -73,7 +88,11 @@ export function effectSlotOf(statId: number): number {
   return effectSlotByStatId[statId] ?? -1;
 }
 
-/** Completed sets include the holder's own team bonuses (RUNE-CANONICAL.md §10). */
+/**
+ * Completed sets include the holder's own team bonuses (RUNE-CANONICAL.md §10).
+ * A set is identified by its id; the name is kept beside it because teammates'
+ * sets are counted by name, and is held to the set table's own below.
+ */
 export const teamSetBonuses = [
   { name: 'Fight', setId: 19, stat: 'atk', value: 8 },
   { name: 'Determination', setId: 20, stat: 'def', value: 8 },
@@ -85,63 +104,35 @@ export type TeamSet = typeof teamSetBonuses[number]['name'];
 /** Completed sets on other monsters only; the holder's own sets come from its runes. */
 export type TeammateSets = Partial<Record<TeamSet, number>>;
 
-const setStatBonuses: Readonly<Record<number, { pieces: number; slot: number; value: number }>> = {
-  1: { pieces: 2, slot: effectSlot.hpPercent, value: 15 }, // Energy
-  2: { pieces: 2, slot: effectSlot.defPercent, value: 15 }, // Guard
-  3: { pieces: 4, slot: effectSlot.spdPercent, value: 25 }, // Swift
-  4: { pieces: 2, slot: effectSlot.criticalRate, value: 12 }, // Blade
-  5: { pieces: 4, slot: effectSlot.criticalDamage, value: 40 }, // Rage
-  6: { pieces: 2, slot: effectSlot.accuracy, value: 20 }, // Focus
-  7: { pieces: 2, slot: effectSlot.resistance, value: 20 }, // Endure
-  8: { pieces: 4, slot: effectSlot.atkPercent, value: 35 }, // Fatal
+for (const { name, setId } of teamSetBonuses) {
+  if (runeSetName(setId) !== name) throw new Error(`Team set ${name} does not match set ${setId} in the set table.`);
+}
+
+/* What a completed set adds, by set id; the runes it takes are the set table's. */
+const setStatValues: Readonly<Record<number, { slot: number; value: number }>> = {
+  1: { slot: effectSlot.hpPercent, value: 15 }, // Energy
+  2: { slot: effectSlot.defPercent, value: 15 }, // Guard
+  [swiftSetId]: { slot: effectSlot.spdPercent, value: swiftPercent },
+  4: { slot: effectSlot.criticalRate, value: 12 }, // Blade
+  5: { slot: effectSlot.criticalDamage, value: 40 }, // Rage
+  6: { slot: effectSlot.accuracy, value: 20 }, // Focus
+  7: { slot: effectSlot.resistance, value: 20 }, // Endure
+  8: { slot: effectSlot.atkPercent, value: 35 }, // Fatal
   ...Object.fromEntries(teamSetBonuses.flatMap(({ setId, stat, value }) => {
     const slot = stat === 'hp' ? effectSlot.teamHpPercent : stat === 'atk' ? effectSlot.teamAtkPercent
       : stat === 'def' ? effectSlot.teamDefPercent : undefined;
     // ACC and RES team sets affect no display stat or composite; their battle points are read from completedTeamSets.
-    return slot === undefined ? [] : [[setId, { pieces: 2, slot, value }]];
+    return slot === undefined ? [] : [[setId, { slot, value }]];
   })),
 };
 
 /** The sets whose completion moves a stat, as `[setId, pieces, accumulator, value]` rows. */
 export const statSetBonuses: ReadonlyArray<readonly [setId: number, pieces: number, slot: number, value: number]> =
-  Object.entries(setStatBonuses).map(([setId, bonus]) => [Number(setId), bonus.pieces, bonus.slot, bonus.value] as const);
+  Object.entries(setStatValues).map(([setId, bonus]) => [Number(setId), setPieceCount(Number(setId)), bonus.slot, bonus.value] as const);
 
-/** The highest `set_id` the game uses, so a set count can be a flat array. */
-export const setIdBound = 26;
-
-/** Intangible's own `set_id` (`RUNE-CANONICAL.md` §10). */
-export const intangibleSetId = 25;
-
-/* Pieces per set, for the one question the Intangible rule asks: which sets are
-   exactly one rune short. Taken from the same numbering `rune-sets.ts` uses. */
-const setPieces: Readonly<Record<number, number>> = {
-  1: 2, 2: 2, 3: 4, 4: 2, 5: 4, 6: 2, 7: 2, 8: 4, 10: 4, 11: 4, 13: 4,
-  14: 2, 15: 2, 16: 2, 17: 2, 18: 2, 19: 2, 20: 2, 21: 2, 22: 2, 23: 2, 24: 2,
-};
-
-export const setPieceCount = (setId: number): number => setPieces[setId] ?? 0;
-
-/**
- * Which set an engraved Intangible rune completes, or `-1` for none.
- *
- * `RUNE-CANONICAL.md` §10: an Intangible completes one set that is exactly one rune
- * short. Where no set, more than one set, or more than one Intangible is present,
- * it completes none. There is no tie-breaker to guess and no unknown state for a
- * caller to interpret differently: with broken sets allowed the rune remains a
- * broken rune, and with broken sets refused the combination is rejected.
- */
-export function intangibleCompletion(counts: ArrayLike<number>): number {
-  if ((counts[intangibleSetId] ?? 0) !== 1) return -1;
-  let found = -1;
-  for (let setId = 1; setId < setIdBound; setId += 1) {
-    const pieces = setPieces[setId];
-    if (pieces === undefined || (counts[setId] ?? 0) === 0) continue;
-    if (counts[setId] % pieces !== pieces - 1) continue;
-    /* The game deliberately refuses to choose between two incomplete sets. */
-    if (found !== -1) return -1;
-    found = setId;
-  }
-  return found;
+/** How many complete Swift sets a count of engraved runes holds, an Intangible's completion included. */
+function swiftSets(counts: ArrayLike<number>, completes: number): number {
+  return Math.floor(((counts[swiftSetId] ?? 0) + (completes === swiftSetId ? 1 : 0)) / setPieceCount(swiftSetId));
 }
 
 /** Completed team sets from one monster's own runes, including an unambiguous Intangible completion. */
@@ -191,19 +182,20 @@ export function totalsInto(base: ArrayLike<number>, effects: ArrayLike<number>, 
   out[9] = Math.ceil(base[1] * (100 + effects[effectSlot.atkPercent] + effects[effectSlot.teamAtkPercent] + base[9]) / 100) + effects[effectSlot.atkFlat];
   out[10] = Math.ceil(base[2] * (100 + effects[effectSlot.defPercent] + effects[effectSlot.teamDefPercent] + base[10]) / 100) + effects[effectSlot.defFlat];
   out[11] = out[4] + base[11];
+  out[12] = out[5] + base[12];
 }
 
 /**
  * Hold a stat's total, and the fight's total beside it, to what a ceiling on the
  * stat allows — for a bound over builds not yet finished, which must stay an upper
- * bound. Leads and team sets totalling `L` % add at most `⌈B·L/100⌉` to a stat that rounds up, since
- * `⌈x + y⌉ ≤ ⌈x⌉ + ⌈y⌉`; CRI Rate points add exactly.
+ * bound. Leads, buildings and team sets totalling `L` % add at most `⌈B·L/100⌉` to a stat that rounds up, since
+ * `⌈x + y⌉ ≤ ⌈x⌉ + ⌈y⌉`; CRI Rate and CRI Dmg points add exactly.
  */
 export function capTotal(base: ArrayLike<number>, totals: Float64Array, index: number, ceiling: number, effects: ArrayLike<number>): void {
   totals[index] = Math.min(totals[index], ceiling);
-  const combat = index === 4 ? combatAt.criRate : index < 3 ? combatAt.hp + index : -1;
+  const combat = index === 4 ? combatAt.criRate : index === 5 ? combatAt.criDmg : index < 3 ? combatAt.hp + index : -1;
   if (combat < 0) return;
-  const reach = index === 4 ? base[combat] : Math.ceil(base[index] * (base[combat] + effects[effectSlot.teamHpPercent + index]) / 100);
+  const reach = index === 4 || index === 5 ? base[combat] : Math.ceil(base[index] * (base[combat] + effects[effectSlot.teamHpPercent + index]) / 100);
   totals[combat] = Math.min(totals[combat], ceiling + reach);
 }
 
@@ -235,7 +227,7 @@ export function figuresInto(totals: ArrayLike<number>, out: Float64Array): void 
  */
 export function figureOf(totals: ArrayLike<number>, index: number): number {
   switch (index) {
-    case 8: return Math.floor(Math.max(0, metricDmg(totals[combatAt.atk], totals[combatAt.criRate], totals[5])));
+    case 8: return Math.floor(Math.max(0, metricDmg(totals[combatAt.atk], totals[combatAt.criRate], totals[combatAt.criDmg])));
     case 9: return Math.floor(Math.max(0, metricEhp(totals[combatAt.hp], totals[combatAt.def])));
     case 10: return Math.floor(Math.max(0, metricEhpD(totals[combatAt.hp], totals[combatAt.def])));
     default: return totals[index];
@@ -252,7 +244,7 @@ export function monsterBaseStats(monster: RecordLike): Float64Array {
     numberValue(monster.con) * 15, numberValue(monster.atk), numberValue(monster.def), numberValue(monster.spd),
     numberValue(monster.critical_rate), numberValue(monster.critical_damage),
     numberValue(monster.resist), numberValue(monster.accuracy),
-    0, 0, 0, 0,
+    0, 0, 0, 0, 0,
   );
 }
 
@@ -301,79 +293,84 @@ export function addGearEffects(monster: RecordLike, effects: Float64Array): void
   }
 }
 
-type AccountStatModifiers = Partial<Record<'hpPercent' | 'atkPercent' | 'defPercent' | 'spdPercent', number>>;
-
 /**
- * Calculates the current personal stat sheet from the imported monster and its
- * engraved runes. The optional modifiers are reserved for account-wide bonuses
- * once their full import rules have been established; they default to zero so
- * imported game data is never silently guessed or invented.
+ * The copy's stat sheet as the game's monster panel shows it: base stats, the
+ * engraved runes, gear and completed personal sets. Account-wide bonuses —
+ * buildings, the totem — are not on the panel and so not here; the composites
+ * and the combat speeds count them (`combatBase`, `speed-tick.ts`).
  */
-export function calculateMonsterTotals(monster: RecordLike, accountModifiers: AccountStatModifiers = {}): MonsterTotals {
+export function calculateMonsterTotals(monster: RecordLike): MonsterTotals {
   const totals = new Float64Array(totalCount);
-  totalsInto(monsterBaseStats(monster), monsterEffects(monster, accountModifiers), totals);
+  totalsInto(monsterBaseStats(monster), monsterEffects(monster), totals);
   return {
     hp: totals[0], atk: totals[1], def: totals[2], spd: totals[3],
     criticalRate: totals[4], criticalDamage: totals[5], resistance: totals[6], accuracy: totals[7],
   };
 }
 
-/** The display and battle accumulators a copy's engraved runes, gear and completed sets add up to. */
-export function monsterEffects(monster: RecordLike, accountModifiers: AccountStatModifiers = {}): Float64Array {
-  const effects = new Float64Array(effectSlotCount);
-  effects[effectSlot.hpPercent] = numberValue(accountModifiers.hpPercent);
-  effects[effectSlot.atkPercent] = numberValue(accountModifiers.atkPercent);
-  effects[effectSlot.defPercent] = numberValue(accountModifiers.defPercent);
-  effects[effectSlot.spdPercent] = numberValue(accountModifiers.spdPercent);
+/* A count of a copy's engraved runes by `set_id`, which the set bonuses and
+   Swift both read, so the two cannot count an Intangible differently. */
+function engravedSetCounts(monster: RecordLike): Int32Array {
   const counts = new Int32Array(setIdBound);
-
   for (const rune of records(monster.runes)) {
     const setId = numberValue(rune.set_id);
     if (setId > 0 && setId < setIdBound) counts[setId] += 1;
+  }
+  return counts;
+}
+
+/** The display and battle accumulators a copy's engraved runes, gear and completed sets add up to. */
+export function monsterEffects(monster: RecordLike): Float64Array {
+  const effects = new Float64Array(effectSlotCount);
+  for (const rune of records(monster.runes)) {
     addEffect(rune.pri_eff, effects);
     addEffect(rune.prefix_eff, effects);
     if (Array.isArray(rune.sec_eff)) rune.sec_eff.forEach((effect) => addEffect(effect, effects));
   }
   addGearEffects(monster, effects);
+  const counts = engravedSetCounts(monster);
   addSetBonuses(counts, intangibleCompletion(counts), effects);
   return effects;
 }
 
-/* The artifact sub property that strengthens a speed buff its holder receives. */
-const spdUpEffectProperty = 206;
 
 /**
  * What a copy's display speed is made of, for Speed Tuning: the base speed,
- * whether a four-piece Swift set is engraved, and the SPD UP Effect its engraved
- * artifacts add to any speed buff it receives, in percent. The display speed
- * itself is the stat sheet's own figure, so it can never disagree with the
- * Monsters page.
+ * whether a Swift set is complete — an Intangible's completion counted, as the
+ * display sheet counts it — and the SPD UP Effect its engraved artifacts add to
+ * any speed buff it receives, in percent. The display speed itself is the stat
+ * sheet's own figure, so it can never disagree with the Monsters page.
  */
 export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swift: boolean; displaySpeed: number; speedUpEffect: number } {
-  const swiftPieces = records(monster.runes).filter((rune) => numberValue(rune.set_id) === 3).length;
+  const counts = engravedSetCounts(monster);
   let speedUpEffect = 0;
   for (const artifact of records(monster.artifacts)) {
     if (!Array.isArray(artifact.sec_effects)) continue;
     for (const line of artifact.sec_effects) {
-      if (Array.isArray(line) && numberValue(line[0]) === spdUpEffectProperty) speedUpEffect += numberValue(line[1]);
+      if (Array.isArray(line) && numberValue(line[0]) === spdUpEffectPropertyId) speedUpEffect += numberValue(line[1]);
     }
   }
   return {
     baseSpeed: numberValue(monster.spd),
-    swift: swiftPieces >= setStatBonuses[3].pieces,
+    swift: swiftSets(counts, intangibleCompletion(counts)) > 0,
     displaySpeed: calculateMonsterTotals(monster).spd,
     speedUpEffect,
   };
 }
 
 /**
- * A guaranteed crit adds enough CRI Rate points to reach the 100 % DMG cap. Like
+ * A guaranteed crit adds enough CRI Rate points to reach the DMG cap. Like
  * every crit point a fight adds, it reaches DMG and nothing else (`combatAt`), and
  * a CRI Rate target is met by definition, so that target is never asked.
  */
-export const alwaysCritsLift = 100;
+export const alwaysCritsLift = criticalRateCapPercent;
 
-/** What element advantage adds to the CRI Rate DMG is dealt at. */
+/**
+ * What element advantage adds to the CRI Rate DMG is dealt at. SWCalc states
+ * no figure; Fandom, *Attribute Advantage* (read through its API on October 19,
+ * 2026): "When attacking with attribute advantage, the attacker gets extra 15%
+ * critical hit chance."
+ */
 export const elementAdvantageLift = 15;
 
 /**
@@ -393,6 +390,12 @@ export type CombatBonuses = {
   alwaysElementAdvantage: boolean;
   leads?: Leads;
   teammateSets?: TeammateSets;
+  /**
+   * The account's Glory buildings (`readBuildingBonuses`). Every caller that
+   * holds the import passes them; absent counts none, as for an export with no
+   * building list.
+   */
+  buildings?: BuildingBonuses;
 };
 
 /** Excludes completed sets already counted from this copy's own runes. */
@@ -402,16 +405,27 @@ export function combatStatBonus(stat: LeadStat | 'acc' | 'res', bonuses: CombatB
 }
 
 /**
- * A copy's base with what its fight adds: the one place a lead or a crit condition
- * joins a calculation. Every sheet that reads it — the overlay, the search, the
- * shader beside it, a found build read again — counts both the same way, because
- * `totalsInto` is the only arithmetic that reads `combatAt`.
+ * A copy's base with what its fight adds: the one place a lead, a building or a
+ * crit condition joins a calculation. Every sheet that reads it — the overlay,
+ * the search, the shader beside it, a found build read again — counts them the
+ * same way, because `totalsInto` is the only arithmetic that reads `combatAt`.
+ * A building is a share of base summed with every other percentage, as a lead is
+ * (Fandom: "additive with bonuses from runes, leader skills, and glory
+ * buildings"); a Sanctuary reaches its own element only.
  */
 export function combatBase(monster: RecordLike, bonuses: CombatBonuses): Float64Array {
   const base = monsterBaseStats(monster);
   for (const stat of ['hp', 'atk', 'def', 'criRate'] as const) base[combatAt[stat]] += combatStatBonus(stat, bonuses);
   base[combatAt.criRate] += (bonuses.alwaysCrits ? alwaysCritsLift : 0)
     + (bonuses.alwaysElementAdvantage ? elementAdvantageLift : 0);
+  const buildings = bonuses.buildings;
+  if (buildings !== undefined) {
+    const element = elementName(monster.attribute);
+    base[combatAt.hp] += buildings.hp;
+    base[combatAt.atk] += buildings.atk + (element === undefined ? 0 : buildings.elementAtk[element] ?? 0);
+    base[combatAt.def] += buildings.def;
+    base[combatAt.criDmg] += buildings.criDmg;
+  }
   return base;
 }
 

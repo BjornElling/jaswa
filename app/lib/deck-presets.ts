@@ -67,11 +67,13 @@ function ownedItems(data: GameRecord): Owned {
       ...(Array.isArray(data.unit_list) ? data.unit_list : []).flatMap((unit) => record(unit) && Array.isArray(unit.artifacts) ? unit.artifacts : [])]
       .filter(record).map((artifact) => positiveId(artifact.rid)).filter((id): id is string => id !== null),
   );
-  const units = new Set(
-    [...(Array.isArray(data.unit_list) ? data.unit_list : []),
-      ...(Array.isArray(data.unit_storage_normal_list) ? data.unit_storage_normal_list : [])]
-      .filter(record).map((unit) => positiveId(unit.unit_id)).filter((id): id is string => id !== null),
-  );
+  /* Only the roster: a monster in the Normal Sealed Shrine can stand in a saved
+     deck (v9.2.0 replaced the shrine's own temporary engravings with presets),
+     but no page reads its stats or gear from there, so counting it as owned
+     made it a member every figure skipped in silence. It is missing here as it
+     is from a preset built in JASWA, and the Presets page names it. */
+  const units = new Set((Array.isArray(data.unit_list) ? data.unit_list : [])
+    .filter(record).map((unit) => positiveId(unit.unit_id)).filter((id): id is string => id !== null));
   return { runes, artifacts, units };
 }
 
@@ -117,12 +119,13 @@ function readDeck(source: GameRecord, deckSource: DeckSource, key: string, leade
       || entry.artifact_id_list !== undefined && !Array.isArray(entry.artifact_id_list)) {
       throw new Error('This account contains invalid Deck Preset engravings.');
     }
+    /* A member the account no longer holds keeps its engravings readable: it
+       is one more missing member, named on the Presets page, and never a
+       reason to refuse the whole account. */
     const unitId = positiveId(entry.unit_id);
-    if (unitId === null || !owned.units.has(unitId)) {
-      throw new Error('This Deck Preset names a monster JASWA cannot find.');
-    }
+    if (unitId === null) throw new Error('This Deck Preset engraves gear on an invalid monster ID.');
     if (!members.includes(unitId) || gear.has(unitId)) {
-      throw new Error('This Deck Preset engraves gear on a monster outside the deck, or twice on one.');
+      throw new Error('This Deck Preset engraves gear on a monster outside the preset, or twice on one.');
     }
     const slots = new Set<number>();
     const runeIds: string[] = [];
@@ -191,7 +194,7 @@ export function readDeckPresets(data: GameRecord): DeckPreset[] {
   for (const [field, kind] of [['defense_deck_info', 'arena-defense'], ['server_arena_defense_deck_info', 'interserver-defense']] as const) {
     const source = data[field];
     if (source === undefined || source === null) continue;
-    if (!record(source)) throw new Error('This account contains an invalid Arena defense deck.');
+    if (!record(source)) throw new Error('This account contains an invalid Arena defense preset.');
     const members = readMembers(source.unit_id_list);
     decks.push(readDeck(source, { kind }, kind, members.length > 0 ? Number(members[0]) : undefined, owned));
   }

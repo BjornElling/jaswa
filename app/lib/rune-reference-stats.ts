@@ -14,6 +14,7 @@
  * them both the same story.
  */
 import type { GameRecord } from './game-data';
+import { monsterBaseStats } from './monster-stats';
 import type { RoleType } from './rune-roles';
 import type { TargetStat } from './rune-properties';
 import monsterCatalogue from '../data/swarfarm-monsters.json';
@@ -57,24 +58,10 @@ function numberValue(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-/**
- * One monster's own stat sheet, before runes and artifacts.
- *
- * `con` is the export's constitution, and HP is fifteen times it — the same
- * conversion `monster-stats.ts` makes, and the reason HP is not read straight out
- * of a field.
- */
+/** One monster's own stat sheet, before runes and artifacts: the stat sheet's own base reading. */
 function baseStats(monster: GameRecord): ReferenceStats {
-  return {
-    hp: numberValue(monster.con) * 15,
-    atk: numberValue(monster.atk),
-    def: numberValue(monster.def),
-    spd: numberValue(monster.spd),
-    criRate: numberValue(monster.critical_rate),
-    criDmg: numberValue(monster.critical_damage),
-    res: numberValue(monster.resist),
-    acc: numberValue(monster.accuracy),
-  };
+  const [hp, atk, def, spd, criRate, criDmg, res, acc] = monsterBaseStats(monster);
+  return { hp, atk, def, spd, criRate, criDmg, res, acc };
 }
 
 const statKeys: readonly TargetStat[] = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];

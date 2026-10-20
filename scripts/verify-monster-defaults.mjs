@@ -8,7 +8,7 @@
  * measuring what it produces across the whole dataset — one preferred main per
  * rune slot, about two preferred rune sets because a monster carries two, and a
  * relic unique band that still distinguishes something
- * (`ARTIFACT-CANONICAL.md` §19.3).
+ * (`ENGRAVING-STATISTICS.md` §10).
  *
  * Those measurements are the justification, so they have to stay true. A
  * recapture changes every count in the dataset, and a threshold whose meaning

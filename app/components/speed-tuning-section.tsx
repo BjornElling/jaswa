@@ -14,7 +14,7 @@ import type { MonsterCopyName } from '../lib/monster-names';
 import type { PresetColumn } from '../lib/preset-contents';
 import { accountItems, presetGroupLabel } from '../lib/presets';
 import type { Preset } from '../lib/presets';
-import { readSkyTribeTotem } from '../lib/sky-tribe-totem';
+import { readSkyTribeTotem } from '../lib/account-buildings';
 import { monstersByUnitId, presetTeam } from '../lib/speed-team';
 import { totemMaximumLevel } from '../lib/speed-tick';
 import { outOfPlaceCount, readSpeedTeam } from '../lib/speed-tuning-analysis';

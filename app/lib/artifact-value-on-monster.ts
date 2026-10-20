@@ -19,8 +19,8 @@ import type { GameRecord } from './game-data';
  * this only supplies it with the preferences and the roll fractions.
  *
  * `undefined` means the question does not apply — the artifact is in inventory,
- * the monster it is engraved on is unknown, the monster type has no recorded preferences, or a
- * legacy line makes the artifact unjudgeable. Under §19.5 that is shown
+ * the monster it is engraved on is unknown, the monster type has no recorded preferences, or the
+ * engrave rule does not let the monster take it. Under §19.5 that is shown
  * as *not judged*, never as a zero: every artifact would score zero against an
  * unjudged type, and a zero sorts and reads as an answer.
  *
@@ -51,58 +51,82 @@ export function artifactValueOnMonster(
      owned copy can answer for that copy. */
   stated?: MonsterCopyPreferences,
 ): number | undefined {
-  if (!canEngraveArtifacts(monster)) return undefined;
+  return artifactJudgementOnMonster(artifact, monster, settings, stated).value;
+}
+
+/**
+ * The bands the monster puts this artifact's main and sub properties in — the
+ * one reading its score is computed from. A view that marks a line preferred or
+ * acceptable beside the score takes the marks from here, so the marks and the
+ * number cannot answer from two different sets of preferences: the library row
+ * once marked its lines from the species statistics while its score came from
+ * the copy's stated answers and its runes' main-stat model.
+ */
+export type ArtifactPreferenceReading = {
+  main: ArtifactPropertyPreference;
+  sub: ReadonlyMap<number, ArtifactPropertyPreference>;
+};
+
+/**
+ * `artifactValueOnMonster` together with the preference reading behind it.
+ * `preferences` is `undefined` only where the species has no recorded
+ * preferences at all; it is present whenever there is something to mark, even
+ * where the score itself is not judged.
+ */
+export function artifactJudgementOnMonster(
+  artifact: Artifact,
+  monster: GameRecord,
+  settings: ArtifactSettings,
+  stated?: MonsterCopyPreferences,
+): { value: number | undefined; preferences: ArtifactPreferenceReading | undefined } {
   const masterId = monster.unit_master_id;
-  const { acceptableWorth } = scoringSettings(settings);
-  const preferences = defaultPropertyPreferences(masterId, artifact.category);
-  if (!preferences) return undefined;
-  if (artifactPreferenceStatus(masterId, artifact.category) !== 'scorable') return undefined;
+  const recorded = defaultPropertyPreferences(masterId, artifact.category);
+  if (!recorded) return { value: undefined, preferences: undefined };
+
+  /* The user's own answers replace the statistics rather than blending with
+     them (§19.4), band for band — the same `statedBand` the packed scorer
+     reads, so the two cannot place one property differently. A property
+     outside the scored vocabulary — every legacy one — is unwanted on both
+     paths, exactly as the packed scorer, which has no index for it, weighs it. */
+  const statedSubs = stated?.artifacts?.sub?.[artifact.category];
+  const preferenceFor = (id: number): ArtifactPropertyPreference => {
+    if (!artifactPropertyIndex.has(id)) return 'unwanted';
+    return statedSubs === undefined ? recorded.sub.get(id) ?? 'unwanted' : statedBand(statedSubs, id);
+  };
+  /* The main as this copy wants it — stated, or the model's answer for its own
+     runes — through the reading the packed scorer's copy row takes. */
+  const copyMains = copyArtifactMainBands(monster, stated);
+  const preferences: ArtifactPreferenceReading = {
+    main: (copyMains ?? recorded.main)[artifact.mainProperty],
+    sub: new Map(artifact.subProperties.map((line) => [line.definition.id, preferenceFor(line.definition.id)])),
+  };
+
+  if (!canEngraveArtifacts(monster)) return { value: undefined, preferences };
+  if (artifactPreferenceStatus(masterId, artifact.category) !== 'scorable') return { value: undefined, preferences };
   /* The engrave rule (§1) decides whether the question can be asked at all. This
      reader used to score whatever pair it was handed, so an artifact the game
      would never let a monster take still got a number here while the
      optimization pages, which do apply the rule, called it not judged. */
-  if (!artifactFitsMonster(artifact, monsterSpeciesId(masterId))) return undefined;
+  if (!artifactFitsMonster(artifact, monsterSpeciesId(masterId))) return { value: undefined, preferences };
 
-  /* The user's own answers replace the statistics rather than blending with
-     them (§19.4), band for band — the same `statedBand` the packed scorer
-     reads, so the two cannot place one property differently. A legacy property
-     is outside every vocabulary the user answers from — even `Any` — exactly as
-     it is outside the packed scorer's. */
-  const statedSubs = stated?.artifacts?.sub?.[artifact.category];
-  /* The main as this copy wants it — stated, or the model's answer for its own
-     runes — through the reading the packed scorer's copy row takes. */
-  const copyMains = copyArtifactMainBands(monster, stated);
-  const preferenceFor = (id: number): ArtifactPropertyPreference => {
-    if (statedSubs === undefined) return preferences.sub.get(id) ?? 'unwanted';
-    return artifactPropertyIndex.has(id) ? statedBand(statedSubs, id) : 'unwanted';
-  };
-
-  const subProperties = [];
-  for (const subProperty of artifact.subProperties) {
-    const preference = preferenceFor(subProperty.definition.id);
+  const { acceptableWorth } = scoringSettings(settings);
+  const subProperties = artifact.subProperties.map((line) => ({
+    preference: preferences.sub.get(line.definition.id) ?? 'unwanted',
     /* A legacy line has no known range (§12), so how well it rolled cannot be
-       computed — but it also cannot matter. The statistics record only what the
-       drop pool still produces, so a property absent from them is `unwanted`,
-       and an unwanted line weighs zero whatever it rolled. Standing in a
-       full roll for it keeps the arithmetic honest rather than discarding an
-       otherwise judgeable artifact; a legacy line the user could somehow
-       prefer is refused instead of guessed at. */
-    if (subProperty.maximumHundredths === null) {
-      if (preference !== 'unwanted') return undefined;
-      subProperties.push({ preference, value: 1, maximum: 1 });
-      continue;
-    }
-    subProperties.push({
-      preference,
-      value: subProperty.valueHundredths,
-      maximum: subProperty.maximumHundredths,
-    });
-  }
+       computed — and it cannot matter, because it is unwanted and weighs zero
+       whatever it rolled. It enters as an empty line, which contributes
+       nothing and judges nothing. */
+    value: line.maximumHundredths === null ? 0 : line.valueHundredths,
+    maximum: line.maximumHundredths ?? 1,
+  }));
 
-  return calculateArtifactOptimalValue({
-    acceptableWorth,
-    hasPropertyPreferences: true,
-    mainPreference: (copyMains ?? preferences.main)[artifact.mainProperty],
-    subProperties,
-  });
+  return {
+    value: calculateArtifactOptimalValue({
+      acceptableWorth,
+      hasPropertyPreferences: true,
+      mainPreference: preferences.main,
+      subProperties,
+    }),
+    preferences,
+  };
 }

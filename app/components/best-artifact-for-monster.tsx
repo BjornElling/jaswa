@@ -553,7 +553,7 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
     {state === 'error' && <p className="notice warning" role="status">JASWA could not calculate this monster’s artifact fits from the imported data.</p>}
 
     {/* Without this the results simply vanished on a settings change and the
-        page looked as though nothing had ever been calculated. §17.11: a result
+        page looked as though nothing had ever been calculated. `ACCOUNT-TABLES.md` §7: a result
         that stops being current says so. */}
     {calculation && !currentCalculation && <p className="notice warning" role="status">{settings.recalculate === 'on-change'
       ? 'Settings or imported data changed. Refreshing these results…'

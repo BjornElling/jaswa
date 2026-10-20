@@ -3,8 +3,8 @@ import type { ArtifactSettings } from '../lib/types';
 
 /**
  * Re-runs a recommendation view's calculation when its inputs move underneath
- * an existing result and the user has asked for that (`ARTIFACT-CANONICAL.md`
- * §17.11).
+ * an existing result and the user has asked for that (`ACCOUNT-TABLES.md`
+ * §7).
  *
  * Shared by the three recommendation views so the rule cannot drift between
  * them: each already decides staleness the same way — the key a fresh

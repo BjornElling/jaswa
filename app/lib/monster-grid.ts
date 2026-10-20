@@ -1,5 +1,6 @@
 import type { MonsterArchetype } from './monster-catalog';
 import type { GameRecord } from './game-data';
+import { artifactMainProperties, artifactsPerMonster } from './artifact-properties';
 
 export type GearPrimaryType = 'HP' | 'ATK' | 'DEF';
 export type GearPrimaryTypeSlot = GearPrimaryType | null;
@@ -12,7 +13,7 @@ export type MonsterRow = {
   unitId: string;
   /* The monster this row *is*, as opposed to the copy it is. Awakening carries
      on this id and not on the name — every stage has a different name — so it
-     is what a search compares to reach a row's awakened forms (§17.15). */
+     is what a search compares to reach a row's awakened forms (`ACCOUNT-TABLES.md` §3). */
   masterId: string;
   name: string;
   /* Names the row answers to in search but never shows — the twin release's
@@ -70,7 +71,9 @@ export function isStoredMonster(monster: GameRecord): boolean {
   return buildingId !== null && buildingId !== 0;
 }
 
-const gearPrimaryTypes: Record<number, GearPrimaryType> = { 100: 'HP', 101: 'ATK', 102: 'DEF' };
+/* Artifacts and relics encode their main property with the same three codes,
+   so both columns read the one table the artifact reader names them from. */
+const gearPrimaryTypes: Readonly<Record<number, GearPrimaryType>> = artifactMainProperties;
 
 function primaryGearType(item: unknown): GearPrimaryTypeSlot {
   if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
@@ -84,7 +87,7 @@ export function engravedGearTypes(monster: GameRecord, key: 'artifacts' | 'relic
   return monster[key].map(primaryGearType);
 }
 
-export const artifactSlotCount = 2;
+export const artifactSlotCount = artifactsPerMonster;
 
 /**
  * What a copy has engraved: runes and artifacts as the slots they fill, the relic as

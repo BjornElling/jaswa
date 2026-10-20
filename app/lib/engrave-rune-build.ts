@@ -108,9 +108,9 @@ function engravedGear(preset: Preset, unitId: string, runeIds: readonly string[]
 
 /* The export's own record of a saved deck: `deck_list` for an attack deck, a
    field of its own for each Arena defense. */
-function withDeckEquip(data: GameRecord, preset: Preset, equip: GameRecord[]): GameRecord {
+function withDeckGear(data: GameRecord, preset: Preset, equip: GameRecord[]): GameRecord {
   const source = preset.deck?.source;
-  if (!source) throw new Error('This preset has no saved deck to engrave in.');
+  if (!source) throw new Error('This preset is not saved in the game, so there is nothing to engrave in.');
   if (source.kind === 'deck') {
     const decks = Array.isArray(data.deck_list) ? data.deck_list : [];
     return { ...data, deck_list: decks.map((deck) => isRecord(deck) && deck.deck_type === source.deckType && deck.deck_seq === source.deckSequence
@@ -148,7 +148,7 @@ export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: 
     unit_id: Number(member), rune_id_list: entry.runeIds.map(Number), artifact_id_list: entry.artifactIds.map(Number),
   }));
   const after = new Map([...gear].flatMap(([member, entry]) => entry.runeIds.map((id) => [id, member] as const)));
-  return { ...game, data: withDeckEquip(game.data, preset, equip),
+  return { ...game, data: withDeckGear(game.data, preset, equip),
     loadedPlacements: remember(game, preset.id, preset.runeOwner, after, runeIds) };
 }
 

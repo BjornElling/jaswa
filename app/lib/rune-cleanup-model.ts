@@ -38,9 +38,9 @@
  * model. A box a player has kept cannot confirm or refute either, because keeping is
  * a choice that skews every count in it.
  */
-import { slotAllowsSubStat } from './runes';
+import { runeMaximumLevel, slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
-import { isIntangibleRuneSet, roleRuneSetNameList, runeSetPieceCount } from './rune-sets';
+import { isIntangibleRuneSet, roleRuneSetNameList } from './rune-sets';
 import {
   allStatIds, mainPropertyMaximum, maximumRoll, runeInnateFrequency, slotMainProperties,
   subPropertyRange,
@@ -86,9 +86,6 @@ const rankOf = <T>(choice: RoleChoice<T>, value: T): MatchRank =>
 export function runeSetMatchRank(choice: RoleChoice<string>, setName: string): MatchRank {
   return isIntangibleRuneSet(setName) ? 'preferred' : rankOf(choice, setName);
 }
-
-/** Whether the set is a four-piece set for the relative retention preference. */
-export const isFourPieceSet = (setName: string): boolean => runeSetPieceCount[setName] === 4;
 
 /** The worse of two ranks — a rune is only as good as its weakest half. */
 export function worseRank(left: MatchRank, right: MatchRank): MatchRank {
@@ -408,9 +405,11 @@ function valuationNumber(valuation: Valuation): number {
  * worth two average rolls, and the value is linear in the roll count, which is what
  * makes this an exact mean rather than a simulation. Ancient is not in it for the
  * reason it is not in the ceiling: the reference box stays ordinary, so an Ancient
- * rune's higher initial interval moves the rune and never the bar. The credited craft
- * items *are* in it, because §6 requires that turning a
- * slider up raise the bar as well as the rune.
+ * rune's higher initial interval moves the rune and never the bar. Craft is in it
+ * at the credit the family carries, and the engine always hands it
+ * `neutralComparisonCredit`: the bar is one fixed ruler, so turning a craft slider
+ * up moves the rune against it and never the ruler itself (`RUNE-CLEANUP-MATH.md`
+ * §9.2).
  *
  * **§4.2 leaves the innate out and this must put it back.** There it cancels: every
  * target's ratio moves by about the same factor and the normalisation removes it.
@@ -544,8 +543,8 @@ export function ordinaryBox(family: OrdinaryFamily): OrdinaryBox {
      * The decision is `craftedScore`'s and not this file's — the same function that
      * settles a candidate's own end state and the §5 ceiling. It used to be written
      * out again here, with its own reading of which ids an innate bars and its own
-     * "a Gem is never forced", and `RUNE-CLEANUP-MATH.md` §6.1 is the account of what
-     * the last two copies of those rules cost.
+     * "a Gem is never forced"; `RUNE-CLEANUP-MATH.md` §6.1 states the one rule that
+     * replaced those copies.
      */
     const arrange = (prices: OrdinaryPrices, innateId: number | null) => {
       /* The innate takes neither craft item (`RUNE-CANONICAL.md` §4), so it is one
@@ -790,7 +789,7 @@ export function ordinarySample(
     runes.push({
       id: sampleId, setId: 0, setName: body.setName ?? '', slot, stars,
       ancient: false, rarity: body.rarity, level, mainStatId: body.mainStatId,
-      mainValue: level === 15 ? mainPropertyMaximum(stars, body.mainStatId) : 0,
+      mainValue: level === runeMaximumLevel ? mainPropertyMaximum(stars, body.mainStatId) : 0,
       prefixStatId: body.prefixStatId, prefixValue: body.prefixValue,
       subProperties: body.subProperties.map(({ statId, value, gemmed, grind }) => ({ statId, value, gemmed, grind })),
       occupiedId: null, obtainedOrder: 0,
@@ -895,11 +894,32 @@ function remembered<T>(tree: Remembered, path: readonly unknown[], make: () => T
   return value;
 }
 
-/** The deterministic half: everything that does not depend on the threshold. */
+/**
+ * **The one ruler every rune is read against: Hero items at three quarters.**
+ *
+ * The weights, the perfect rune and the ordinary box are all priced with this, never
+ * with the user's own craft settings. Those settings change what a *rune* may become
+ * and so move it against the ruler; were they also to move the ruler, every other
+ * rune's reading would move with it, and a slider turned up could leave a rune
+ * reading lower than before (`RUNE-CLEANUP-MATH.md` §9.2).
+ */
+export const neutralComparisonCredit: CraftCredit = {
+  gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
+};
+
+/**
+ * The deterministic half: everything that does not depend on the threshold.
+ *
+ * `credit` is the candidate's own craft: it changes the projected end state.
+ * `comparisonCredit` is the ruler's, and it is asked for rather than defaulted:
+ * a default of `credit` once let every direct caller — the checks among them — read
+ * runes against a ruler that moved with the slider, which the product never does.
+ * Clean-up passes `neutralComparisonCredit`.
+ */
 export function prepareRuneCandidate(
   rune: Rune, role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit,
+  comparisonCredit: CraftCredit,
   scope: RuneAdviceScope = newRuneAdviceScope(),
-  comparisonCredit: CraftCredit = credit,
 ): RuneCandidate | null {
   /* A rune whose main property is not the one this build asks for is not a rune
      this build can use at all — it is a different build's rune. */
@@ -917,11 +937,8 @@ export function prepareRuneCandidate(
      The rune's own main is a fact about the rune whatever the role left blank. */
   const main = mainOfSlot(build, rune.slot) || rune.mainStatId;
   const stars = referenceStars(rune);
-  /* `credit` belongs to the candidate: it changes the projected end state. The
-     comparison credit belongs to the common ruler: changing the user's craft
-     assumption must not move the perfect denominator or ordinary box underneath
-     every other rune. The clean-up engine passes its fixed neutral yardstick here;
-     direct callers retain the old single-credit behaviour by default. */
+  /* The ruler's credit prices the weights and the denominator; the candidate's own
+     credit only decides what it may be crafted into, below. */
   const priced = buildPricing(role, build, base, comparisonCredit, stars, scope);
   if (!priced) return null;
   const { weights, valuation } = priced;
@@ -1113,18 +1130,18 @@ export const runeRuns = (future: RuneFuture): RuneRuns => playForward(future, ex
 /**
  * **The share of an ordinary box of its own slot that a rune beats, `0`–`1`.**
  *
- * This is the currency every gate and every comparison is settled in, and Max
- * value is what the row prints. They answer different questions, and the answer to
- * the second one is not comparable between slots: a slot that may not legally carry
- * the stat the role is starved of has a lower ceiling *and* a box of ordinary runes
- * that sits at a different place on it and is a different width. Read as a position
- * in the slot's own box, `0.85` means the same thing everywhere — better than 85 %
- * of what that slot ordinarily produces for this role.
+ * A diagnostic and a tie-breaker, not a gate: both gates read the calibrated
+ * Max-value floor (`rune-cleanup-advice.ts`), and the row prints Max value. Standing
+ * answers a different question, and one that Max value alone cannot answer between
+ * slots: a slot that may not legally carry the stat the role is starved of has a
+ * lower ceiling *and* a box of ordinary runes that sits at a different place on it
+ * and is a different width. Read as a position in the slot's own box, `0.85` means
+ * the same thing everywhere — better than 85 % of what that slot ordinarily produces
+ * for this role. It is what lets the page explain why a slot-4 rune was kept beside
+ * a slot-3 rune that reads higher.
  *
- * The box is **not** scaled by the candidate's main-property factor, and that is
- * deliberate: a four-star rune is measured against the same six-star box everybody
- * else is, so its smaller main property costs it standing instead of buying it a
- * lower bar.
+ * The box is the rune's own star class (`referenceStars`), so a four-star rune's
+ * standing says how it compares with four-star runes.
  *
  * It is read straight off the box's recorded shape, so nothing here assumes the six
  * boxes are alike in anything but the question asked of them.
@@ -1217,7 +1234,8 @@ export type { CountingJob } from './rune-power-up-outcomes';
  * and asks the two questions separately — but `verify-rune-cleanup-calibration.mjs`
  * calls it directly, and that script is the independent gate on everything in this
  * file. An oracle rewritten in the same commit as the model it checks has stopped
- * being independent, so this signature stays.
+ * being independent, so this signature stays. It reads against the product's own
+ * ruler, `neutralComparisonCredit`, so the oracle checks the reading the page prints.
  */
 export function judgeAgainstBuild(
   rune: Rune, role: RuneRole, build: Build, base: ReferenceStats,
@@ -1227,7 +1245,7 @@ export function judgeAgainstBuild(
      says it will be used, which is what makes checking every build affordable. */
   withChance = true,
 ): RuneOutcome | null {
-  const candidate = prepareRuneCandidate(rune, role, build, base, credit);
+  const candidate = prepareRuneCandidate(rune, role, build, base, credit, neutralComparisonCredit);
   if (!candidate) return null;
   return {
     maxValue: candidateMaxValue(candidate),

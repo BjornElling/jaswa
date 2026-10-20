@@ -7,12 +7,13 @@
  * unique property drawn from a space of exactly sixteen, fixed at the moment
  * the relic is obtained and never added to by a power-up.
  */
+import { artifactMainProperties } from './artifact-properties';
 import type { GearPrimaryType } from './monster-grid';
 
 export type RelicMainProperty = GearPrimaryType;
 
-/** The export's primary-effect codes, shared with artifacts (`ENGRAVING-STATISTICS.md` §1). */
-export const relicMainProperties: Record<number, RelicMainProperty> = { 100: 'HP', 101: 'ATK', 102: 'DEF' };
+/** The export's primary-effect codes, which are the artifacts' own (`ENGRAVING-STATISTICS.md` §1). */
+export const relicMainProperties: Readonly<Record<number, RelicMainProperty>> = artifactMainProperties;
 
 export const relicMainPropertyOrder: readonly RelicMainProperty[] = ['HP', 'ATK', 'DEF'];
 
@@ -65,8 +66,8 @@ export type RelicPropertyDefinition = {
  * Select Unique Property** panel lists them, which is the order of the `type`
  * ids in the export.
  *
- * That ordering is not assumed; `RELIC-CANONICAL.md` §4 sets out the evidence.
- * The short version is four independent confirmations — this account's own `+6`
+ * That ordering is not assumed; `RELIC-CANONICAL.md` §4 sets out the evidence,
+ * and §4.1 lists the independent confirmations. Among them: this account's own `+6`
  * relic reads `DMG dealt +1 % per 1500 ATK` on screen and carries
  * `sec_effect [1, 1500, 1]` in the export, and three community-confirmed
  * mappings land on ids 6, 12 and 13 — plus the list's own shape: sixteen
@@ -131,10 +132,10 @@ export const relicMaximumLevel = 15;
  * `relicPowerUpRates[0]` is `+0 → +1`.
  *
  * The first three levels are certain — not free. They succeed at 100 %, so they
- * cost no durability, but the game charges the same stones and gold for a roll
- * at `+0` as for one at `+14`; the power-up panel prices every attempt alike.
- * From `+3` the rate halves twice over on the way up, ending at one attempt in
- * ten. That shape is the whole economics
+ * cost no durability, but the game charges the same Relic Power-up Stones and
+ * Mana for a roll at `+0` as for one at `+14`; the power-up panel prices every
+ * attempt alike. From `+3` the rate halves three times over on the way up, from
+ * eight attempts in ten to one in ten. That shape is the whole economics
  * of a relic: **stones are worth most on a low relic and least on a high one**,
  * and `+15` is a lottery rather than a target — a fresh relic with all three
  * durability reaches it about once in eleven thousand times
@@ -159,9 +160,10 @@ export const relicMaximumDurability = 3;
  * monster, so recommending one is a private matter between that monster and that
  * item. A relic is shared, and shared a finite number of times: once this many
  * monsters carry it, the game refuses the next engraving until it is unengraved
- * from one of them. `RELIC-CANONICAL.md` §11.5 sets out the consequence — a
- * recommendation per monster is a division of a scarce resource across the whole
- * roster, not a judgement about one monster.
+ * from one of them. Within that limit each monster's recommendation is still an
+ * independent answer (`RELIC-CANONICAL.md` §11.5), not a jointly feasible
+ * allocation of the relic across the roster; the limit is what the engraving
+ * count and the plan's capacity check hold it to.
  *
  * **It was 100 until August 27, 2026.** Com2uS raised it to 150 in v9.3.0, in
  * so many words, two weeks before this was written. The older figure is not a
@@ -183,6 +185,16 @@ export function relicMainPercent(level: number): number {
 }
 
 /**
+ * The unique property's percentage, which no power-up moves: 1 % for the two
+ * damage families, 2 % for every other (`RELIC-CANONICAL.md` §7.5). The
+ * importer holds every relic to it, so a relic whose percent disagrees fails
+ * loudly instead of being judged on a figure the model does not believe.
+ */
+export function relicUniquePercent(definition: RelicPropertyDefinition): number {
+  return definition.grants === 'DMG dealt' || definition.grants === 'DMG taken' ? 1 : 2;
+}
+
+/**
  * How much of the source stat one step of the unique property costs, at each of
  * the six power-up tiers.
  *
@@ -193,7 +205,7 @@ export function relicMainPercent(level: number): number {
  *
  * All six observed anchor readings carry exactly the threshold this table gives
  * for their source stat, which is both a confirmation of the table and the
- * sixth independent confirmation of the id mapping in §4.1: read the source
+ * a further independent confirmation of the id mapping in §4.1: read the source
  * stat wrongly and none of them would land. Intermediate levels remain
  * unobserved. Until one is read, JASWA explicitly assumes each anchor holds
  * through the next three-level tier.
@@ -241,8 +253,11 @@ export function relicThreshold(level: number, source: RelicSourceStat): number {
  * read a monster. Engraving uses `relic-monster-value.ts` instead. Two equal
  * halves is the same premise the whole page rests on: a relic is its main
  * property and its unique property, and neither is the relic on its own.
- * `verify:relic-maths` checks that the verdicts do not turn on the choice, by
- * re-deciding the table at every weighting from all-main to all-unique.
+ * `verify:relic-maths` checks that the ordering every power-up verdict rests on
+ * — stones buy more on a lower relic — holds at every weighting from all-main
+ * to all-unique. The verdicts themselves are decided at this equal weighting
+ * only: the investment score is measured in ordinary levels, and an ordinary
+ * level is worth nothing when the unique half carries all the weight.
  */
 export function relicStrengthIndex(level: number, source: RelicSourceStat, mainShare = 0.5): number {
   const main = relicMainPercent(level) / relicMainPercent(relicMaximumLevel);

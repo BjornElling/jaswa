@@ -72,7 +72,7 @@ function readingsOf(rune, settings, shares, scope) {
     const family = builds
       .filter((build) => ![2, 4, 6].includes(rune.slot)
         || build.mains[rune.slot] === rune.mainStatId || build.mains[rune.slot] === 0)
-      .map((build) => prepareRuneCandidate(rune, role, build, line, credit, scope, neutral))
+      .map((build) => prepareRuneCandidate(rune, role, build, line, credit, neutral, scope))
       .filter(Boolean);
     if (family.length === 0) continue;
     const box = ordinaryBox(slotMainFamily(role, builds, rune.slot, family[0].main, 6, line, neutral, scope));

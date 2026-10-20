@@ -114,8 +114,14 @@ export async function calculateArtifactScoresOnGpu(
  * The battery is built here rather than taken from an import, so it exists before
  * anything has been imported. It covers the four branches the shader could get wrong
  * on its own: an artifact its monster's engrave class refuses, one it accepts, a
- * preferred line against an acceptable one, and a conversion the import owns a
- * stone for.
+ * preferred line against an acceptable one, a conversion the import owns a
+ * stone for, and a line holding more max-roll points than any line can, which
+ * both engines must refuse to judge.
+ *
+ * Every other roll is a real number of max-roll points, 0 to 5. A battery
+ * written in the old percent scale put every line out of range, so the
+ * processor refused every pair, the card scored them all, and the card was
+ * refused on every machine without anything saying why.
  */
 export async function artifactScoreAgreement(context: GpuContext): Promise<boolean> {
   const request = agreementRequest();
@@ -154,11 +160,14 @@ function agreementRequest(): ArtifactScoreRequest {
   });
   return {
     artifacts: [
-      artifact(1, 1, 0, -1, [0, 5, 7, 9], [100, 60, 30, 10]),
-      artifact(1, 2, 1, 0, [0, 5, 7, 9], [100, 60, 30, 10]),
-      artifact(2, 1, 2, -1, [1, 2, 3, 4], [90, 80, 70, 60]),
+      artifact(1, 1, 0, -1, [0, 5, 7, 9], [5, 3, 1.5, 0.5]),
+      artifact(1, 2, 1, 0, [0, 5, 7, 9], [4, 2.5, 1, 0]),
+      artifact(2, 1, 2, -1, [1, 2, 3, 4], [4.5, 4, 3.5, 2.5]),
+      artifact(2, 3, 0, -1, [1, 2, 3, 4], [6, 1, 1, 1]),
     ],
-    monsters: [monster('fire-attack', 1, 1), monster('water-support', 2, 3)],
+    /* Element 1 is Water and 2 Fire; archetype 1 is Attack and 3 HP — the
+       export's codes, which the names say so a reader need not decode them. */
+    monsters: [monster('water-attack', 1, 1), monster('fire-hp', 2, 3)],
     acceptableWorth: 50,
     conversionMode: 1,
     conversionRollFractions: zeros.map(() => 0.75),

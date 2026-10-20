@@ -92,8 +92,8 @@ function countBelow(sorted: readonly number[], value: number): number {
 
 /**
  * Each monster gets its own best available relic. Today's 150 engravings gate
- * new monstersByUnitId; proposals for other monsters never reserve places. Filters cannot
- * reach this calculation. A full relic stays available to its current monstersByUnitId.
+ * new monsters; proposals for other monsters never reserve places. Filters cannot
+ * reach this calculation. A full relic stays available to its current monsters.
  */
 export function allocateRelicEngravings(
   subjects: readonly RelicAllocationSubject[], relics: readonly Relic[],

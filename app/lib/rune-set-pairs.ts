@@ -1,4 +1,4 @@
-import { roleRuneSetNameList, runeSetPieceCount } from './rune-sets';
+import { roleRuneSetNameList, runeSetPieceCount, runeSetPieces } from './rune-sets';
 
 /**
  * The exact rune builds a user may ask for, as whole six-slot combinations.
@@ -79,9 +79,9 @@ export function runeBuildName(names: readonly string[]): string {
   return names.join(runeBuildSeparator);
 }
 
-/** How many slots a list of sets takes. */
+/** How many slots a list of sets takes. A name with no piece count throws rather than reading as a two-set. */
 export function runeSetSlots(sets: readonly string[]): number {
-  return sets.reduce((total, name) => total + (runeSetPieceCount[name] ?? 2), 0);
+  return sets.reduce((total, name) => total + runeSetPieces(name), 0);
 }
 
 /** One build from its sets, or `undefined` where the six slots cannot hold them. */

@@ -58,8 +58,9 @@ export type RankFigure = keyof MonsterStatTargets;
 
 /**
  * What one calculation asks for. It starts as the monster's profile — resolved, so a
- * slot the owner never answered reads the community's answer — and the page may
- * narrow or widen any part of it for this calculation alone (§2).
+ * slot the owner never answered reads `Any`; the community's mains are a reference
+ * shown beside it, never an answer (`rune-optimization-requirements.ts`) — and the
+ * page may narrow or widen any part of it for this calculation alone (§2).
  *
  * An empty list means *any*: it is what the profile's token lines show as `Any`, and
  * an optimizer that read it as "none will do" would answer a question the screen
@@ -315,8 +316,14 @@ function buildRequirements(ids: readonly string[]): BuildRequirement[] | null {
     const needs = new Map<number, number>();
     for (const name of build.sets) {
       const setId = runeSetId(name);
-      if (setId === undefined) continue;
-      needs.set(setId, (needs.get(setId) ?? 0) + (runeSetPieceCount[name] ?? 2));
+      /* A build names only sets `runeBuild` read from the set vocabulary, so a name
+         with no id or no piece count is a vocabulary that has come apart. Guessing two
+         pieces would search for a build nobody asked for. */
+      const pieces = runeSetPieceCount[name];
+      if (setId === undefined || pieces === undefined) {
+        throw new Error(`Rune Optimization has no piece count for the set ${name} in build ${build.id}.`);
+      }
+      needs.set(setId, (needs.get(setId) ?? 0) + pieces);
     }
     builds.push({ id: build.id, needs: [...needs].map(([setId, pieces]) => ({ setId, pieces })), free: runeSlotCount - build.slots });
   }
@@ -1019,7 +1026,8 @@ export function prepareRuneOptimization(
   return problem;
 }
 
-/** Pieces per `set_id`, from the one table that names them. */
+/** Pieces per `set_id`, read from `runeSetPieceCount` rather than numbered again. Intangible
+    completes no set of its own, so it has none here whatever that table says of it. */
 const setPiecesById = (() => {
   const pieces = new Int32Array(setIdBound);
   for (const [name, count] of Object.entries(runeSetPieceCount)) {

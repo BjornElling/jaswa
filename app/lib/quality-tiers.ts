@@ -1,12 +1,12 @@
 /**
  * The game's five quality tiers.
  *
- * They are one vocabulary shared across the game: an artifact's grade and a
- * rune's quality use the same five names in the same order. The list lives here
- * rather than inside either system so a filter row, a sort order and a stored
- * preference cannot list them differently. `ArtifactGrade` in
- * `artifact-properties.ts` aliases these values; runes read the same list when
- * they gain a quality of their own.
+ * They are one vocabulary shared across the game: an artifact's grade, a rune's
+ * rarity and a craft item's grade use the same five names in the same order. The
+ * list lives here rather than inside any one system so a filter row, a sort order
+ * and a stored preference cannot list them differently. `ArtifactGrade` in
+ * `artifact-properties.ts`, `runeRarities` in `runes.ts` and `itemGrades` in
+ * `rune-craft-items.ts` all alias these values.
  *
  * There is deliberately **no colour here.** The game paints each tier in a hue
  * — white, green, blue, purple, orange — and JASWA tried reproducing them.

@@ -33,9 +33,9 @@
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, subPropertyLevels, upgradeSubPropertyRange,
+  bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties, subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
-import { runeRarityOrder, runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -107,7 +107,10 @@ function freshRune(random, id, { slot, stars, ancient, subCount }) {
   const prefix = prefixStatId === null ? null : initialSubPropertyRange(stars, prefixStatId, ancient);
   return {
     id: String(id), setId: 1, setName: choose(random, setNames), slot, stars, ancient,
-    rarity: runeRarities[Math.max(0, subCount - 1)] ?? runeRarities[0],
+    /* A rune born with `subCount` lines is the rarity that is born with that many; reading it
+       one rarity lower gave every swept rune one line more than its rarity allows, and a
+       fifth line at +12. */
+    rarity: runeRarities.find((rarity) => bornSubPropertyCount(rarity) === subCount) ?? runeRarities[0],
     level: 0, mainStatId, mainValue: 0, prefixStatId,
     prefixValue: prefix ? draw(random, prefix.minimum, prefix.maximum) : 0,
     subProperties, occupiedId: null, obtainedOrder: id,
@@ -116,7 +119,7 @@ function freshRune(random, id, { slot, stars, ancient, subCount }) {
 
 /** The game's own addition/upgrade loop, so every fixture is a state the game can reach. */
 function powerUp(random, rune, targetLevel) {
-  const bornLines = runeRarityOrder(rune.rarity);
+  const bornLines = bornSubPropertyCount(rune.rarity);
   for (const [eventIndex, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
     if (eventIndex >= bornLines) {
@@ -348,7 +351,7 @@ async function degenerateChecks(runes) {
 /**
  * Every chance sitting within a whisker of a display rounding boundary.
  *
- * `percent()` rounds at the half, so a value exactly on `k + 0.5` prints one
+ * `runeChanceText()` rounds down, so a value exactly on a whole point prints one
  * percentage point either way depending on the last ulp of a summation. §10.2
  * settled the one known instance by compensated summation and found the older
  * build was the one printing the wrong number, so these are listed rather than
@@ -358,10 +361,10 @@ function displayBoundaries(results) {
   const found = [];
   for (const [scenario, { rows }] of Object.entries(results)) {
     for (const row of rows) {
-      if (typeof row.chance !== 'number' || row.chance <= 0) continue;
+      if (typeof row.chance !== 'number' || row.chance <= 0 || row.chance >= 1) continue;
       const percent = row.chance * 100;
-      if (percent < 10) continue;
-      const distance = Math.abs(percent - Math.floor(percent) - 0.5);
+      if (percent < 1) continue;
+      const distance = Math.abs(percent - Math.round(percent));
       if (distance < 1e-9) found.push({ scenario, id: row.id, chance: row.chance, printed: row.reason });
     }
   }

@@ -24,11 +24,12 @@
 import type { GameRecord } from './game-data';
 import type { ItemGrade } from './types';
 import { withAncientMark } from './ancient-mark';
+import { qualityTiers } from './quality-tiers';
 import { runeStatName } from './runes';
 import { runeSetName } from './rune-sets';
 
-/** The five item grades of `docs/RUNE-CANONICAL.md` §8, weakest first. */
-export const itemGrades: readonly ItemGrade[] = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
+/** The five item grades of `docs/RUNE-CANONICAL.md` §8, weakest first: the game's one tier list. */
+export const itemGrades: readonly ItemGrade[] = qualityTiers;
 
 /** What the item does to a rune: replace one sub property, or add to one. */
 export type CraftKind = 'gem' | 'grindstone';
@@ -289,14 +290,21 @@ export function readCraftItem(record: unknown): CraftItem | null {
   };
 }
 
-/** Every gem and grindstone on the account, as the export lists them. */
+/**
+ * Every gem and grindstone on the account, as the export lists them.
+ *
+ * A record this cannot read throws, as `readRunes` does (`AGENTS.md` §0.1). The
+ * import has already refused such an account, so skipping one here could only
+ * ever hide a contract the two readers had come to disagree about.
+ */
 export function readCraftItems(data: GameRecord | undefined): CraftItem[] {
   const records = data?.rune_craft_item_list;
   if (!Array.isArray(records)) return [];
   const items: CraftItem[] = [];
   for (const record of records) {
     const item = readCraftItem(record);
-    if (item) items.push(item);
+    if (!item) throw new Error('This account contains a gem or grindstone JASWA cannot read.');
+    items.push(item);
   }
   return items;
 }

@@ -16,7 +16,7 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   await expect(cleanup.locator('.list-actions')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Use game-sorting' })).toBeVisible();
   const columnLabels = [['Search', 'Level', 'Slot'], ['Main', 'Set', 'Show only'],
-    ['Stars', 'Quality', 'Location', 'Advice'], ['Never sell if...', 'Use game-sorting']];
+    ['Stars', 'Rarity', 'Location', 'Advice'], ['Never sell if...', 'Use game-sorting']];
   for (const [index, labels] of columnLabels.entries()) {
     await expect(page.locator('.rune-filter-column').nth(index).locator('.filter-label')).toHaveText(labels);
   }
@@ -143,7 +143,7 @@ test('filters by Ancient, star count and rune quality', async ({ page }, testInf
   await stars.getByRole('button', { name: '5 stars', exact: true }).click();
   await expect(dataRows()).toHaveCount(4);
 
-  const quality = page.getByRole('group', { name: 'Filter by rune quality' });
+  const quality = page.getByRole('group', { name: 'Filter by rune rarity' });
   await expect(quality.getByRole('button', { name: 'Normal', exact: true })).toBeVisible();
   await expect(quality.getByRole('button', { name: 'Rare', exact: true })).toBeVisible();
   await expect(quality.getByRole('button', { name: 'Hero', exact: true })).toBeVisible();
@@ -172,8 +172,8 @@ test('protects current pre-grind speed immediately without moving the filter con
   await expect(page.getByText('craft-account.json')).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
-  const safeguard = page.getByRole('checkbox', { name: 'Pre-grind spd ≥' });
-  const minimum = page.getByRole('textbox', { name: 'Minimum pre-grind speed' });
+  const safeguard = page.getByRole('checkbox', { name: 'Pre-grind SPD ≥' });
+  const minimum = page.getByRole('textbox', { name: 'Minimum pre-grind SPD' });
   const rows = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr');
   await expect(rows).toHaveCount(4);
   await expect(page.getByText('Any role', { exact: true })).toHaveCount(0);
@@ -182,7 +182,7 @@ test('protects current pre-grind speed immediately without moving the filter con
   await expect(minimum).toHaveCSS('text-align', 'center');
   await safeguard.uncheck();
   await expect(minimum).toBeDisabled();
-  const wording = page.locator('label').filter({ hasText: 'Pre-grind spd ≥' });
+  const wording = page.locator('label').filter({ hasText: 'Pre-grind SPD ≥' });
   await expect(wording).toHaveAttribute('aria-disabled', 'true');
   await page.screenshot({ path: testInfo.outputPath('speed-disabled.png'), fullPage: true });
   await wording.click();
@@ -260,7 +260,7 @@ test('potential protection saves both choices and keeps independent filter colum
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   const potential = page.getByRole('checkbox', { name: 'Potential value ≥' });
   const minimum = page.getByRole('textbox', { name: 'Minimum potential value' });
-  const speed = page.getByRole('checkbox', { name: 'Pre-grind spd ≥' });
+  const speed = page.getByRole('checkbox', { name: 'Pre-grind SPD ≥' });
   await expect(potential).toBeChecked();
   await expect(minimum).toHaveValue('90');
   await speed.uncheck();
@@ -288,7 +288,7 @@ test('potential protection saves both choices and keeps independent filter colum
   await expect(rows.filter({ has: page.getByText('+15', { exact: true }) }).locator('.rune-verdict')).toHaveText('Keep');
   expect(await boxes()).toEqual(before);
   await speed.check();
-  await page.getByRole('textbox', { name: 'Minimum pre-grind speed' }).fill('99');
+  await page.getByRole('textbox', { name: 'Minimum pre-grind SPD' }).fill('99');
   await minimum.fill('999');
   await expect(rows.locator('.rune-verdict')).toHaveText(original);
   expect(await boxes()).toEqual(before);
@@ -334,7 +334,7 @@ test('potential protection saves both choices and keeps independent filter colum
   await expect(potential).not.toBeChecked();
   await expect(minimum).toHaveValue('90');
   await expect(speed).toBeChecked();
-  await expect(page.getByRole('textbox', { name: 'Minimum pre-grind speed' })).toHaveValue('99');
+  await expect(page.getByRole('textbox', { name: 'Minimum pre-grind SPD' })).toHaveValue('99');
 });
 
 

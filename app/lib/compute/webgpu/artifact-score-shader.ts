@@ -2,7 +2,7 @@ import { scoredArtifactProperties } from '../artifact-score-schema';
 import {
   artifactMainPropertyPoints, benchmarkAcceptableLines, benchmarkPreferredMaxRolls,
 } from '../../artifact-optimal-value';
-import { artifactNormalConversionContributions } from '../../artifact-properties';
+import { artifactNormalConversionContributions, bestArtifactLineContributions } from '../../artifact-properties';
 import { intangibleRestrictionCode } from '../artifact-score-protocol';
 import { gpuIndexPreamble } from '../gpu/gpu-context';
 import {
@@ -45,6 +45,9 @@ const INTANGIBLE_RESTRICTION: i32 = ${intangibleRestrictionCode};
 const ARTIFACT_MAIN_POINTS: f32 = ${artifactMainPropertyPoints}.0;
 const BENCHMARK_PREFERRED_MAX_ROLLS: f32 = ${benchmarkPreferredMaxRolls}.0;
 const BENCHMARK_ACCEPTABLE_LINES: f32 = ${benchmarkAcceptableLines}.0;
+// The most max-roll points one line can hold: the five contributions of the
+// game's best line. A line outside 0 to this is a pair the CPU refuses to judge.
+const LINE_MAX_ROLL_POINTS: f32 = ${bestArtifactLineContributions}.0;
 
 // Five scalars, and no padding member: a uniform struct is already rounded up
 // to a multiple of 16 bytes, so this occupies exactly the 32 bytes the backend
@@ -65,7 +68,8 @@ ${gpuIndexPreamble}
 @group(0) @binding(1) var<storage, read> monsters: array<f32>;
 @group(0) @binding(2) var<storage, read> propertyAvailability: array<i32>;
 // One row of PROPERTY_COUNT flags per engrave class, because a stone is engraved
-// for one class and converts nothing else. Row 0 is the Intangible union.
+// for one class and converts nothing else. Row 0, the Intangible code, is never
+// read: an Intangible cannot be converted, so no stone applies to one.
 @group(0) @binding(3) var<storage, read> ownedProperties: array<i32>;
 // Each setting choice resolves to a fraction of that property's own conversion
 // ceiling. This keeps "three quarters" at exactly 75 %, even when two effects
@@ -131,6 +135,13 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
   for (var line: u32 = 0u; line < ARTIFACT_SUB_PROPERTY_COUNT; line = line + 1u) {
     let propertyIndex = i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + line]);
     let fraction = artifacts[artifactOffset + ARTIFACT_ROLL_POINTS_AT + line];
+    // The CPU reference refuses a pair whose line holds a number of max-roll
+    // points no line can hold, and the card must answer that input the same
+    // way. Written so a NaN fails it too, since every comparison with NaN is false.
+    if (!(fraction >= 0.0 && fraction <= LINE_MAX_ROLL_POINTS)) {
+      output[pairIndex] = -1.0;
+      return;
+    }
     var contribution: f32 = 0.0;
     if (propertyIndex >= 0) {
       contribution = preferenceWeight(i32(monsters[monsterOffset + MONSTER_SUB_PREFERENCES_AT + u32(propertyIndex)])) * fraction;

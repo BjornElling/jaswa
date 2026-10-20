@@ -112,14 +112,14 @@ test('reuses completed and unfinished statistics across navigation and restored 
   expect(await requests()).toBe(2);
 
   await visit('Rune Clean-up');
-  await page.getByRole('textbox', { name: 'Minimum pre-grind speed' }).fill('0');
+  await page.getByRole('textbox', { name: 'Minimum pre-grind SPD' }).fill('0');
   await visit('Rune Settings');
   await expect(status).toContainText('synthetic runes');
   expect(await requests()).toBe(2);
   expect(await page.locator('.statistics dd').allTextContents()).not.toEqual(values);
   expect(await page.locator('.statistics').boundingBox()).toEqual(box);
   await visit('Rune Clean-up');
-  await page.getByRole('textbox', { name: 'Minimum pre-grind speed' }).fill('20');
+  await page.getByRole('textbox', { name: 'Minimum pre-grind SPD' }).fill('20');
   await visit('Rune Settings');
   await expect(status).toContainText('synthetic runes');
   expect(await page.locator('.statistics dd').allTextContents()).toEqual(values);

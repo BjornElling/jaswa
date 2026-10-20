@@ -1,5 +1,94 @@
 import { Disclosure, PageHeader } from './page-chrome';
 import { WorkspacePage } from './workspace-page';
+import { artifactProperty, bestArtifactLineContributions } from '../lib/artifact-properties';
+import {
+  artifactMainPropertyPoints, artifactPreferenceWeight, artifactScorePointBenchmark,
+  benchmarkAcceptableLines, benchmarkPreferredMaxRolls, calculateArtifactOptimalValue,
+} from '../lib/artifact-optimal-value';
+import type { ArtifactPropertyPreference } from '../lib/artifact-optimal-value';
+import { scorePercent } from '../lib/compute/artifact-score-core';
+import { defaultArtifactSettings, defaultRunePotentialSettings } from '../lib/file-imports';
+import { chanceThresholds, qualityThresholds } from '../lib/rune-cleanup-advice';
+import { statSetBonuses } from '../lib/monster-stats';
+import { swiftSetId } from '../lib/rune-sets';
+import {
+  defaultRelicInvestmentSelectivity, relicInvestmentSelectivityLabels, relicInvestmentSelectivityLevels,
+  relicInvestmentThresholds, relicMinimumSynergyBands, relicOvertakeThresholds,
+} from '../lib/relic-advice';
+import type { RelicInvestmentSelectivity } from '../lib/relic-advice';
+import { relicSynergyBandLabels, relicSynergyBandOrder } from '../lib/relic-synergy';
+import { relicFinalLevelChances, relicLanding, relicReachChance } from '../lib/relic-power-up-model';
+import { relicMaximumDurability, relicMaximumLevel, relicPowerUpRates } from '../lib/relic-properties';
+
+/* Every figure this page states about the engine or the game is read from the
+   module that owns it, so the explanation cannot go on describing a number the
+   code no longer uses. The worked examples are computed rather than typed:
+   their inputs are the example, and every result is the shipped calculation's. */
+
+/** Two decimals, the precision every worked example on this page shows. */
+const fixed = (value: number) => value.toFixed(2);
+/** A fraction as whole percentage points. */
+const percent = (fraction: number) => `${Math.round(fraction * 100)} %`;
+/** A small chance keeps one decimal; a larger one rounds to whole points. */
+const chance = (fraction: number) => {
+  const value = fraction * 100;
+  return `${value >= 10 ? Math.round(value) : Number(value.toFixed(1))} %`;
+};
+/** A figure without trailing zeros. */
+const points = (value: number) => String(Number(value.toFixed(2)));
+
+const setBonus = (setId: number) => statSetBonuses.find(([id]) => id === setId)?.[3];
+const fatalSetId = 8;
+
+const defaultAcceptableWeight = artifactPreferenceWeight('acceptable', defaultArtifactSettings.acceptableWorth);
+const defaultBenchmark = artifactScorePointBenchmark(defaultArtifactSettings.acceptableWorth);
+const benchmarkAcceptablePoints = benchmarkAcceptableLines * defaultAcceptableWeight;
+
+/* The worked artifact. Its lines are the example; everything after them is the
+   shipped calculation's answer. */
+const exampleArtifactLines: ReadonlyArray<{ id: number; value: number; preference: ArtifactPropertyPreference }> = [
+  { id: 219, value: 12, preference: 'preferred' },
+  { id: 302, value: 8, preference: 'acceptable' },
+  { id: 224, value: 5, preference: 'acceptable' },
+  { id: 222, value: 4, preference: 'acceptable' },
+];
+const exampleArtifactRows = exampleArtifactLines.map((line) => {
+  const property = artifactProperty(line.id);
+  if (!property || property.maxRoll === null) throw new Error(`The Math names artifact property ${line.id}, which has no roll.`);
+  const maxRolls = line.value / property.maxRoll;
+  const weight = artifactPreferenceWeight(line.preference, defaultArtifactSettings.acceptableWorth);
+  return { ...line, name: property.name, maxRoll: property.maxRoll, maxRolls, weight, points: maxRolls * weight };
+});
+const exampleArtifactTotal = artifactMainPropertyPoints
+  + exampleArtifactRows.reduce((sum, row) => sum + row.points, 0);
+const exampleArtifactScore = scorePercent(calculateArtifactOptimalValue({
+  acceptableWorth: defaultArtifactSettings.acceptableWorth,
+  hasPropertyPreferences: true,
+  mainPreference: 'preferred',
+  subProperties: exampleArtifactRows.map((row) => ({
+    preference: row.preference, value: row.value, maximum: row.maxRoll * bestArtifactLineContributions,
+  })),
+}) ?? 0);
+const additionalDamageByAtk = exampleArtifactRows[0].maxRoll;
+
+/* The relic gates, as `relic-advice.ts` decides them. */
+const keepsLabel = (stop: RelicInvestmentSelectivity) => {
+  const band = relicMinimumSynergyBands[stop];
+  return band === relicSynergyBandOrder[relicSynergyBandOrder.length - 1]
+    ? 'everything' : `${relicSynergyBandLabels[band]} and better`;
+};
+const freshPass = (incumbentLevel: number) => relicReachChance(0, relicMaximumDurability, incumbentLevel + 1);
+/** The highest copy a fresh relic still tries against at this overtake threshold. */
+const highestTried = (threshold: number) => {
+  let highest = -1;
+  for (let level = 0; level < relicMaximumLevel; level += 1) if (freshPass(level) >= threshold) highest = level;
+  return highest;
+};
+const freshLanding = relicLanding(relicFinalLevelChances(0, relicMaximumDurability));
+const freshFinishOdds = Math.round(1 / relicReachChance(0, relicMaximumDurability, relicMaximumLevel) / 1000) * 1000;
+const certainLevels = relicPowerUpRates.findIndex((rate) => rate < 1);
+const listed = (values: readonly string[], last: string) =>
+  values.length < 2 ? values.join('') : `${values.slice(0, -1).join(', ')} ${last} ${values[values.length - 1]}`;
 
 export function TheMathSection() {
   return <WorkspacePage
@@ -189,7 +278,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Why your rune&rsquo;s own set is left out of that</h3>
         <p>
-          A completed set carries stats of its own — Fatal is <span className="math-table-rolled">+35 % ATK</span>, Swift <span className="math-table-rolled">+25 % SPD</span> — and it is very tempting to subtract them too. A Fatal build really does need less ATK from its substats. <b className="type-body-emphasis">JASWA deliberately does not do it</b>, and it is worth saying why, because it is the one place a true fact about the game is left out on purpose.
+          A completed set carries stats of its own — Fatal is <span className="math-table-rolled">+{setBonus(fatalSetId)} % ATK</span>, Swift <span className="math-table-rolled">+{setBonus(swiftSetId)} % SPD</span> — and it is very tempting to subtract them too. A Fatal build really does need less ATK from its substats. <b className="type-body-emphasis">JASWA deliberately does not do it</b>, and it is worth saying why, because it is the one place a true fact about the game is left out on purpose.
         </p>
         <p>
           The weights <i>are</i> the yardstick. Subtract a set&rsquo;s bonus and that set gets a yardstick of its own — and a recommendation is exactly a comparison between sets. Measured on 1,500 identical runes relabelled set by set, against roles that wanted every set equally, the same runes were kept <b className="type-body-emphasis">431 to 520 times</b> on the strength of the label alone:
@@ -416,7 +505,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Quality first, then slot balance</h3>
         <p>
-          Rune quality floor requires at least <b className="type-body-emphasis">45 %, 55 %, 65 %, 75 % or 85 % Max value</b>, after Accepted and Broken discounts. G1 baby asks for 75 %; You’ve seen my replays asks for 85 %. Slot balance can raise that minimum, and a set preference can soften the extra correction, but neither can undercut the quality you chose.
+          Rune quality floor requires at least <b className="type-body-emphasis">{listed(qualityThresholds.map(percent), 'or')} Max value</b>, after Accepted and Broken discounts. G1 baby asks for {percent(qualityThresholds[3])}; You’ve seen my replays asks for {percent(qualityThresholds[4])}. Slot balance can raise that minimum, and a set preference can soften the extra correction, but neither can undercut the quality you chose.
         </p>
         <p>
           The slots offer different legal substats and mains, so the same minimum can leave different numbers of survivors. JASWA checks a fixed sample with equal initial counts per slot and every legal main counted, including mains your roles cannot use. It uses 75 % Hero and 25 % Legend on odd slots; 25 % Rare, 50 % Hero and 25 % Legend on even slots. These are the simulator’s modelling assumptions.
@@ -507,7 +596,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">The sliders, and how many runes survive</h3>
         <p>
-          <b className="type-body-emphasis">Rune quality floor</b> sets the minimum discounted Max value: 45 %, 55 %, <b className="type-body-emphasis">65 %</b> where the slider opens, 75 % and 85 %. Slot balance can tighten that minimum, as explained above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar, and each stop means what it says: Full YOLO rolls a <b className="type-body-emphasis">1 %</b> shot, Adventurous 5 %, Balanced 20 %, Picky 50 % and Take no chances only a rune <b className="type-body-emphasis">80 %</b> sure to get there. The verdict is that one comparison, and the Chance column prints whole points rounded down, so the number you read clears the bar exactly when the rune does. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the role only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
+          <b className="type-body-emphasis">Rune quality floor</b> sets the minimum discounted Max value: {listed(qualityThresholds.map(percent), 'and')}, opening on <b className="type-body-emphasis">{percent(qualityThresholds[defaultRunePotentialSettings.runeQuality - 1])}</b>. Slot balance can tighten that minimum, as explained above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar, and each stop means what it says: Full YOLO rolls a <b className="type-body-emphasis">{percent(chanceThresholds[0])}</b> shot, Adventurous {percent(chanceThresholds[1])}, Balanced {percent(chanceThresholds[2])}, Picky {percent(chanceThresholds[3])} and Take no chances only a rune <b className="type-body-emphasis">{percent(chanceThresholds[4])}</b> sure to get there. The verdict is that one comparison, and the Chance column prints whole points rounded down, so the number you read clears the bar exactly when the rune does. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the role only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
         </p>
         <p>
           A rune that passes the quality and Chance gates is kept under its strongest matching role. Another rune cannot make it fail by reaching that role first; the verdict rests on the rune itself and the standards you set.
@@ -566,29 +655,32 @@ export function TheMathSection() {
           A maximum roll into a preferred substat counts as 1 point. That treats every preferred substat as equally valuable, which in the game they are not — but it is an acceptable compromise. Working out an individual value for each substat on each monster would take forever and would still end up subjective and arguable.
         </p>
         <p>
-          Every substat has its own maximum roll, and a line simply counts the maximum rolls it amounts to. <i>Additional Damage by ATK</i> rolls at most 4 % at a time, so a line showing 12 % is three maximum rolls and earns 3 points. A line need not land on a whole number of rolls: where the maximum roll is 4 % and the line shows 2 %, that is half a roll, so 0.5 points.
+          Every substat has its own maximum roll, and a line simply counts the maximum rolls it amounts to. <i>Additional Damage by ATK</i> rolls at most {additionalDamageByAtk} % at a time, so a line showing {additionalDamageByAtk * 3} % is three maximum rolls and earns 3 points. A line need not land on a whole number of rolls: where the maximum roll is {additionalDamageByAtk} % and the line shows {additionalDamageByAtk / 2} %, that is half a roll, so 0.5 points.
         </p>
         <p>
-          Acceptable substats are scored exactly like preferred ones and then reduced proportionally, by the tolerance you set for acceptable substats in Artifact settings. The default is 50 %, so an acceptable substat that rolled half its maximum earns 0.25 points. An unwanted substat earns nothing at all.
+          Acceptable substats are scored exactly like preferred ones and then reduced proportionally, by the tolerance you set for acceptable substats in Artifact settings. The default is {defaultArtifactSettings.acceptableWorth} %, so an acceptable substat that rolled half its maximum earns {points(0.5 * defaultAcceptableWeight)} points. An unwanted substat earns nothing at all.
         </p>
 
         <h3 className="type-heading">Main stat</h3>
         <p>
-          A preferred main stat counts as 2 points, so the calculation treats it as being worth the same as two maximum rolls into a preferred substat. A more exact value would depend heavily on the monster’s own skills — for an attack-based main stat, on how many hits each individual monster lands. Two maximum rolls is a good, defensible compromise. The main stat is added to the score, so an artifact carrying the wrong main stat keeps everything its substats earned and forfeits only these 2 points.
+          A preferred main stat counts as {artifactMainPropertyPoints} points, so the calculation treats it as being worth the same as {artifactMainPropertyPoints} maximum rolls into a preferred substat. A more exact value would depend heavily on the monster’s own skills — for an attack-based main stat, on how many hits each individual monster lands. Two maximum rolls is a good, defensible compromise. The main stat is added to the score, so an artifact carrying the wrong main stat keeps everything its substats earned and forfeits only these {artifactMainPropertyPoints} points.
         </p>
 
         <h3 className="type-heading">Normalisation</h3>
         <p>
-          A score of 7.5 points is considered 100 %. That reference exists purely to put the scores on a sensible scale. Nothing more. Exceptional artifacts can and do score above 100 %.
+          At the default tolerance, a score of {points(defaultBenchmark)} points is considered 100 %. That reference exists purely to put the scores on a sensible scale. Nothing more. Exceptional artifacts can and do score above 100 %.
         </p>
         <p>
-          That figure comes from a theoretical artifact carrying the preferred main stat, four maximum rolls into a preferred substat, and three maximum rolls into acceptable substats. The preferred substat is worth 4 × 1 = 4 points, and with acceptable substats at the default 50 %, the three acceptable rolls are worth 3 × 0.5 = 1.5 points between them. Add the preferred main stat’s 2 points: <span className="math-equation-inline" aria-label="4 plus 1.5 plus 2 equals 7.5 points"><span>4</span><span aria-hidden="true">+</span><span>1.5</span><span aria-hidden="true">+</span><span>2</span><span aria-hidden="true">=</span><b className="type-body-emphasis">7.5 points</b></span>
+          That figure comes from a theoretical artifact carrying the preferred main stat, {benchmarkPreferredMaxRolls} maximum rolls into a preferred substat, and {benchmarkAcceptableLines} maximum rolls into acceptable substats. The preferred substat is worth {benchmarkPreferredMaxRolls} × 1 = {benchmarkPreferredMaxRolls} points, and with acceptable substats at the default {defaultArtifactSettings.acceptableWorth} %, the {benchmarkAcceptableLines} acceptable rolls are worth {benchmarkAcceptableLines} × {points(defaultAcceptableWeight)} = {points(benchmarkAcceptablePoints)} points between them. Add the preferred main stat’s {artifactMainPropertyPoints} points: <span className="math-equation-inline" aria-label={`${benchmarkPreferredMaxRolls} plus ${points(benchmarkAcceptablePoints)} plus ${artifactMainPropertyPoints} equals ${points(defaultBenchmark)} points`}><span>{benchmarkPreferredMaxRolls}</span><span aria-hidden="true">+</span><span>{points(benchmarkAcceptablePoints)}</span><span aria-hidden="true">+</span><span>{artifactMainPropertyPoints}</span><span aria-hidden="true">=</span><b className="type-body-emphasis">{points(defaultBenchmark)} points</b></span>
+        </p>
+        <p>
+          The reference moves with that tolerance, because the acceptable rolls in it do: it is {points(artifactScorePointBenchmark(0))} points at 0 % and {points(artifactScorePointBenchmark(100))} at 100 %.
         </p>
 
         <article className="math-example" aria-labelledby="artifact-math-example-title">
           <h3 id="artifact-math-example-title" className="type-heading">How it adds up</h3>
           <p>
-            An attribute artifact, scored against <b className="type-body-emphasis">Brandia</b>, with a preferred ATK main stat, one preferred substat and three acceptable substats. Acceptable substats are left at the default 50 %.
+            An attribute artifact, scored against <b className="type-body-emphasis">Brandia</b>, with a preferred ATK main stat, one preferred substat and three acceptable substats. Acceptable substats are left at the default {defaultArtifactSettings.acceptableWorth} %.
           </p>
           <div className="math-table-scroll">
             <table className="math-table">
@@ -606,35 +698,25 @@ export function TheMathSection() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <th scope="row" className="align-left">Additional Damage by ATK <span className="math-table-rolled">+ 12 %</span></th>
-                  <td>4 %</td><td>3.00</td><td>Preferred</td><td>3.00 × 1 =</td><td>3.00</td>
-                </tr>
-                <tr>
-                  <th scope="row" className="align-left">Damage Dealt on Wind <span className="math-table-rolled">+ 8 %</span></th>
-                  <td>5 %</td><td>1.60</td><td>Acceptable</td><td>1.60 × 0.5 =</td><td>0.80</td>
-                </tr>
-                <tr>
-                  <th scope="row" className="align-left">Own turn 1-target CRIT DMG <span className="math-table-rolled">+ 5 %</span></th>
-                  <td>4 %</td><td>1.25</td><td>Acceptable</td><td>1.25 × 0.5 =</td><td>0.63</td>
-                </tr>
-                <tr>
-                  <th scope="row" className="align-left">CRIT DMG as enemy HP is more <span className="math-table-rolled">+ 4 %</span></th>
-                  <td>6 %</td><td>0.67</td><td>Acceptable</td><td>0.67 × 0.5 =</td><td>0.33</td>
-                </tr>
+                {exampleArtifactRows.map((row) => <tr key={row.id}>
+                  <th scope="row" className="align-left">{row.name} <span className="math-table-rolled">+ {row.value} %</span></th>
+                  <td>{row.maxRoll} %</td><td>{fixed(row.maxRolls)}</td>
+                  <td>{row.preference === 'preferred' ? 'Preferred' : 'Acceptable'}</td>
+                  <td>{fixed(row.maxRolls)} × {points(row.weight)} =</td><td>{fixed(row.points)}</td>
+                </tr>)}
                 <tr>
                   <th scope="row" className="align-left">ATK main stat</th>
-                  <td /><td /><td>Preferred</td><td /><td>2.00</td>
+                  <td /><td /><td>Preferred</td><td /><td>{fixed(artifactMainPropertyPoints)}</td>
                 </tr>
                 <tr className="math-table-total">
                   <th scope="row" className="align-left">Total</th>
-                  <td /><td /><td /><td /><td><b className="type-body-emphasis">6.76</b></td>
+                  <td /><td /><td /><td /><td><b className="type-body-emphasis">{fixed(exampleArtifactTotal)}</b></td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p className="math-equation" aria-label="Calculated score: 6.76 points divided by 7.5 points equals 90 percent">
-            <span className="math-equation-label">Calculated score</span><span>6.76</span><span aria-hidden="true">/</span><span>7.5</span><span aria-hidden="true">=</span><b className="type-body-emphasis">90 %</b>
+          <p className="math-equation" aria-label={`Calculated score: ${fixed(exampleArtifactTotal)} points divided by ${points(defaultBenchmark)} points equals ${exampleArtifactScore} percent`}>
+            <span className="math-equation-label">Calculated score</span><span>{fixed(exampleArtifactTotal)}</span><span aria-hidden="true">/</span><span>{points(defaultBenchmark)}</span><span aria-hidden="true">=</span><b className="type-body-emphasis">{exampleArtifactScore} %</b>
           </p>
         </article>
       </div>
@@ -708,36 +790,18 @@ export function TheMathSection() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <th scope="row" className="align-left">Picky</th>
-                <td className="align-left">Strong and better</td>
-                <td className="align-left">the attempt is worth 1.2 ordinary levels</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Balanced</th>
-                <td className="align-left">Neutral and better</td>
-                <td className="align-left">it is worth 0.8</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Optimistic</th>
-                <td className="align-left">Weak and better</td>
-                <td className="align-left">it is worth 0.5</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Wishful thinking</th>
-                <td className="align-left">everything</td>
-                <td className="align-left">it is worth 0.35</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Burn it all</th>
-                <td className="align-left">everything</td>
-                <td className="align-left">it is worth 0.2</td>
-              </tr>
+              {relicInvestmentSelectivityLevels.map((stop, at) => <tr key={stop}>
+                <th scope="row" className="align-left">{relicInvestmentSelectivityLabels[stop]}</th>
+                <td className="align-left">{keepsLabel(stop)}</td>
+                <td className="align-left">{at === 0
+                  ? `the attempt is worth ${points(relicInvestmentThresholds[stop] / 100)} ordinary levels`
+                  : `it is worth ${points(relicInvestmentThresholds[stop] / 100)}`}</td>
+              </tr>)}
             </tbody>
           </table>
         </div>
         <p>
-          <b className="type-body-emphasis">Balanced is the ordinary setting</b>, and where the slider opens. Only one setting is stricter. The two boldest keep every pairing in the game and differ only in how freely they spend, and <b className="type-body-emphasis">Burn it all</b> is there to give the scale an end rather than because anyone should sit on it.
+          <b className="type-body-emphasis">Balanced is the ordinary judgement</b>, and only one setting is stricter; the slider opens one stop bolder, on <b className="type-body-emphasis">{relicInvestmentSelectivityLabels[defaultRelicInvestmentSelectivity]}</b>. The two boldest keep every pairing in the game and differ only in how freely they spend, and <b className="type-body-emphasis">Burn it all</b> is there to give the scale an end rather than because anyone should sit on it.
         </p>
         <p>
           This question is asked <i>first</i>, and that matters more than it sounds. A relic below <span className="math-relic-level">+3</span> is guaranteed to gain a level — but a guaranteed level on a pairing you have already rejected is a guaranteed waste of stones, so the pairing is settled before the guarantee is allowed to argue for itself.
@@ -763,36 +827,19 @@ export function TheMathSection() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <th scope="row" className="align-left">Exceptional</th>
-                <td>5 %</td>
-                <td className="align-left">a <span className="math-relic-level">+9</span>, at 11 %</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Strong</th>
-                <td>15 %</td>
-                <td className="align-left">a <span className="math-relic-level">+8</span>, at 22 %</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Neutral</th>
-                <td>30 %</td>
-                <td className="align-left">a <span className="math-relic-level">+7</span>, at 40 %</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Weak</th>
-                <td>50 %</td>
-                <td className="align-left">a <span className="math-relic-level">+6</span>, at 61 %</td>
-              </tr>
-              <tr>
-                <th scope="row" className="align-left">Poor</th>
-                <td>70 %</td>
-                <td className="align-left">a <span className="math-relic-level">+5</span>, at 82 %</td>
-              </tr>
+              {relicSynergyBandOrder.map((band) => {
+                const tried = highestTried(relicOvertakeThresholds[band]);
+                return <tr key={band}>
+                  <th scope="row" className="align-left">{relicSynergyBandLabels[band]}</th>
+                  <td>{percent(relicOvertakeThresholds[band])}</td>
+                  <td className="align-left">a <span className="math-relic-level">+{tried}</span>, at {chance(freshPass(tried))}</td>
+                </tr>;
+              })}
             </tbody>
           </table>
         </div>
         <p>
-          In practice this sorts duplicates by how far the copy you own has already climbed. A fresh relic passes a <span className="math-relic-level">+5</span> 82 % of the time, a <span className="math-relic-level">+8</span> 22 %, a <span className="math-relic-level">+10</span> 4.3 % — and a <span className="math-relic-level">+12</span> just 0.4 %, or once in 280 attempts. <b className="type-body-emphasis">Even Exceptional gives up there.</b> No pairing is good enough to make that a plan.
+          In practice this sorts duplicates by how far the copy you own has already climbed. A fresh relic passes a <span className="math-relic-level">+5</span> {chance(freshPass(5))} of the time, a <span className="math-relic-level">+8</span> {chance(freshPass(8))}, a <span className="math-relic-level">+10</span> {chance(freshPass(10))} — and a <span className="math-relic-level">+12</span> just {chance(freshPass(12))}, or once in {Math.round(1 / freshPass(12) / 10) * 10} attempts. <b className="type-body-emphasis">Even Exceptional gives up there.</b> No pairing is good enough to make that a plan.
         </p>
         <p>
           One exception: if the copy you own is already engraved on its full 150 monsters, it cannot take a 151st, so the duplicate is not redundant at all — it is the only way to put that pairing on another monster. It is then judged on its own merits, exactly as if you owned no copy.
@@ -806,10 +853,10 @@ export function TheMathSection() {
           The answer is <b className="type-body-emphasis">Power up</b> if it clears the bar and <b className="type-body-emphasis">Keep</b> if it does not. Keep is not a criticism: it means the relic is worth owning but your stones do better elsewhere right now.
         </p>
         <p>
-          <b className="type-body-emphasis">Stones are worth far more on a low relic than a high one.</b> The published success rates are 100 % at <span className="math-relic-level">+0</span>, <span className="math-relic-level">+1</span> and <span className="math-relic-level">+2</span>, 80 % at <span className="math-relic-level">+3</span>, and fall to 10 % at <span className="math-relic-level">+14</span>. A fresh relic with all three durability comes to rest at <span className="math-relic-level">+7</span> or better about 61 % of the time, and finishes at <span className="math-relic-level">+15</span> roughly once in eleven thousand tries.
+          <b className="type-body-emphasis">Stones are worth far more on a low relic than a high one.</b> The published success rates are {percent(relicPowerUpRates[0])} at <span className="math-relic-level">+0</span>, <span className="math-relic-level">+1</span> and <span className="math-relic-level">+2</span>, {percent(relicPowerUpRates[certainLevels])} at <span className="math-relic-level">+{certainLevels}</span>, and fall to {percent(relicPowerUpRates[relicMaximumLevel - 1])} at <span className="math-relic-level">+{relicMaximumLevel - 1}</span>. A fresh relic with all {relicMaximumDurability} durability comes to rest at <span className="math-relic-level">+{freshLanding.level}</span> or better about {percent(freshLanding.chance)} of the time, and finishes at <span className="math-relic-level">+{relicMaximumLevel}</span> roughly once in {freshFinishOdds.toLocaleString('en')} tries.
         </p>
         <p>
-          Those first three levels are <b className="type-body-emphasis">certain, not free</b>: they cannot fail, so they cost no durability, but the game charges its usual stones and gold for each one.
+          Those first three levels are <b className="type-body-emphasis">certain, not free</b>: they cannot fail, so they cost no durability, but the game charges its usual Relic Power-up Stones and Mana for each one.
         </p>
 
         <h3 className="type-heading">What the column actually shows</h3>

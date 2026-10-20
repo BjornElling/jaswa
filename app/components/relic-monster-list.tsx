@@ -27,7 +27,7 @@ import {
 import type { RelicAllocationSubject } from '../lib/relic-monster-fit';
 import { relicMonsterModel, relicMonsterValue } from '../lib/relic-monster-value';
 import {
-  compareRelicMonsterRows, defaultRelicMonsterSortDirections, isRelicEngravableMonster,
+  compareRelicMonsterRows, defaultRelicMonsterSortDirections, isRelicPlanMonster,
   relicMonsterReason, relicMonsterRelicDetail, relicMonsterRelicLabel, relicMonsterSearchText,
   relicMonsterVerdict, relicMonsterVerdictLabels,
 } from '../lib/relic-monster-grid';
@@ -171,11 +171,14 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   );
 
   /* The plan's scope, and the only place the roster is narrowed by anything but
-     a display filter. Material monsters take no engravings, so giving one a
-     place on a relic would take that place from a monster that could use it —
-     and the account holds fodder by the dozen. */
+     a display filter. Leaving Material monsters out is JASWA's policy, not a
+     game rule: the game asks only for Lv. 40, but a place on a relic given to
+     fodder is taken from a monster that could use it, and the account holds
+     fodder by the dozen. The policy decides which rows are proposed and never
+     the capacity — `relicEngravingCounts` below reads the whole roster, so a
+     relic already on a Material copy still fills its place. */
   const monsters = useMemo(
-    () => roster.filter((monster) => isRelicEngravableMonster(monster.unit_master_id) && canEngraveRelics(monster)),
+    () => roster.filter((monster) => isRelicPlanMonster(monster.unit_master_id) && canEngraveRelics(monster)),
     [roster],
   );
   const {
@@ -235,11 +238,11 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
       };
     });
     const result = allocateRelicEngravings(
-      subjects, relics, relicEngravingCounts(monsters),
+      subjects, relics, relicEngravingCounts(roster),
     );
     assertRelicAllocation(result, subjects);
     return result;
-  }, [monsters, relics, engravedByMonster, preferences.monsterPreferences, models]);
+  }, [monsters, roster, relics, engravedByMonster, preferences.monsterPreferences, models]);
 
   const rows = useMemo<RelicMonsterRow[]>(() => {
     const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, scenarioPresetId));
@@ -340,10 +343,10 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   if (!monsters.length) {
     return <section className="empty-state">
       <h2>{roster.length
-        ? 'None of these monsters can carry a relic.'
+        ? 'No monster here is up for a relic plan.'
         : 'This import holds no monsters to engrave.'}</h2>
       <p className="next-step">{roster.length
-        ? 'Material monsters take no engravings, so there is nothing here to plan.'
+        ? 'Relics need Lv. 40, and JASWA leaves Material monsters out of the plan.'
         : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
     </section>;
   }

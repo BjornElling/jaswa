@@ -10,7 +10,7 @@ import { itemGrades, craftKindLabels, craftItemSearchText, craftSetLabel } from 
 import type { CraftItem } from './rune-craft-items';
 import { craftBlockReason, craftScopeWord } from './rune-craft-plan';
 import type { CraftReach } from './rune-craft-plan';
-import { gemMinimumLevel, runeStatIds } from './runes';
+import { gemMinimumLevel, runeLineValue, runeStatIds } from './runes';
 import { monsterNameCollator } from './monster-grid';
 
 export type CraftRow = {
@@ -69,8 +69,7 @@ export function craftRequirementText(item: CraftItem): string {
 /** `7–10`, or the em dash where no verified range exists (Ancient items). */
 export function craftRangeText(item: CraftItem, format: (value: number) => string): string {
   if (!item.range) return '—';
-  const suffix = [1, 3, 5, 8].includes(item.statId) ? '' : ' %';
-  return `${format(item.range.minimum)}–${format(item.range.maximum)}${suffix}`;
+  return `${format(item.range.minimum)}–${runeLineValue(item.statId, item.range.maximum, format)}`;
 }
 
 export function craftRowSearchText(row: CraftRow): string {

@@ -1,4 +1,6 @@
-import { candidateMaxValue, newRuneAdviceScope, prepareRuneCandidate, roleBuilds } from './rune-cleanup-model';
+import {
+  candidateMaxValue, neutralComparisonCredit, newRuneAdviceScope, prepareRuneCandidate, roleBuilds,
+} from './rune-cleanup-model';
 import type { CraftCredit } from './rune-cleanup-model';
 import type { ReferenceStats } from './rune-reference-stats';
 import type { RuneRole } from './rune-roles';
@@ -6,7 +8,7 @@ import type { Rune } from './runes';
 
 export type GemPreservationRole = { role: RuneRole; base: ReferenceStats };
 
-/** Keep a tied Gem plan useful beyond this monster, using the existing role ruler. */
+/** Keep a tied Gem plan useful beyond this monster, using Clean-up's own role ruler. */
 export function gemRemovalPrices(roles: readonly GemPreservationRole[]) {
   const scope = newRuneAdviceScope();
   const families = roles.map(({ role, base }) => ({ role, base, builds: roleBuilds(role) }));
@@ -15,7 +17,7 @@ export function gemRemovalPrices(roles: readonly GemPreservationRole[]) {
     let best = 0;
     let prices: readonly number[] | undefined;
     for (const { role, base, builds } of families) for (const build of builds) {
-      const candidate = prepareRuneCandidate(rune, role, build, base, credit, scope);
+      const candidate = prepareRuneCandidate(rune, role, build, base, credit, neutralComparisonCredit, scope);
       if (!candidate || candidate.rank === 'broken') continue;
       const value = candidateMaxValue(candidate);
       if (value <= best) continue;

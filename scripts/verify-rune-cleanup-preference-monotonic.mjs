@@ -10,7 +10,7 @@ import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds,
+  neutralComparisonCredit, newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 
 const base = new Map([
@@ -39,7 +39,7 @@ function hasCandidateAtRank(rune, wantedRank) {
   return builds.some(([role, roleBuildsForRune]) => {
     const line = base.get(role.type);
     return line !== undefined && roleBuildsForRune.some((build) =>
-      prepareRuneCandidate(rune, role, build, line, noCraft, scope)?.rank === wantedRank);
+      prepareRuneCandidate(rune, role, build, line, noCraft, neutralComparisonCredit, scope)?.rank === wantedRank);
   });
 }
 

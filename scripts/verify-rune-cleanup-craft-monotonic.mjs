@@ -22,15 +22,15 @@ import assert from 'node:assert/strict';
 import { defaultRuneRoles, withRefreshedMetrics } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  candidateChance, candidateMaxValue, prepareRuneCandidate, roleBuilds,
+  candidateChance, candidateMaxValue, neutralComparisonCredit, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 import { craftPlan, grindCredit } from '../app/lib/rune-craft-end-state.ts';
 import {
-  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount,
+  addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import {
-  runeRarities, runeRarityOrder, runeStatIds, slotAllowsSubStat,
+  runeRarities, runeStatIds, slotAllowsSubStat,
 } from '../app/lib/runes.ts';
 
 const baseByType = new Map([
@@ -45,6 +45,9 @@ const grades = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
 const assumptions = ['minimum', 'one-third', 'average', 'two-thirds', 'three-quarters', 'maximum'];
 const hero = { gemGrade: 'Hero', grindstoneGrade: 'Hero' };
 const neutral = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
+/* Every candidate is read on the product's one ruler, so a credit can only move the
+   rune against it: the promises are about the rune, on the scale the page reads. */
+const ruler = neutralComparisonCredit;
 const credits = [
   neutral,
   { gem: 'minimum', ...hero, grind: null },
@@ -77,7 +80,7 @@ function freshRune(random, id, { slot, stars, ancient, grade, level }) {
   const legal = runeStatIds.filter((statId) => statId !== mainStatId && slotAllowsSubStat(slot, statId));
   const prefixStatId = random() < runeInnateFrequency ? choose(random, legal) : null;
   const available = legal.filter((statId) => statId !== prefixStatId);
-  const count = Math.min(startingSubPropertyCount(runeRarityOrder(grade)), available.length);
+  const count = Math.min(bornSubPropertyCount(grade), available.length);
   const subProperties = [];
   for (let at = 0; at < count; at += 1) {
     const statId = choose(random, available.filter((candidate) =>
@@ -115,7 +118,7 @@ function cloneRune(rune) {
   return { ...rune, subProperties: rune.subProperties.map((line) => ({ ...line })) };
 }
 function powerUp(random, rune, targetLevel) {
-  const bornLines = runeRarityOrder(rune.rarity);
+  const bornLines = bornSubPropertyCount(rune.rarity);
   for (const [eventIndex, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
     if (eventIndex >= bornLines) {
@@ -124,7 +127,7 @@ function powerUp(random, rune, targetLevel) {
         && statId !== rune.prefixStatId && !held.has(statId)
         && slotAllowsSubStat(rune.slot, statId));
       const statId = choose(random, options);
-      const range = upgradeSubPropertyRange(rune.stars, statId, rune.ancient);
+      const range = addedSubPropertyRange(rune.stars, statId);
       rune.subProperties.push({ statId, value: draw(random, range.minimum, range.maximum), gemmed: false, grind: 0 });
     } else {
       const line = choose(random, rune.subProperties);
@@ -154,8 +157,8 @@ runes.push(makeCraftedFixture());
 
 const eps = 1e-10;
 /* A score in the role's own units, as a threshold in one candidate's Max-value units.
-   Two credits have two perfect runes, so "0.7" means two different scores to them;
-   the promise that a Gem is never forced is about one score. */
+   Both credits share the one ruler, so this is the identity today; it is kept so the
+   promise stays stated about one score rather than about one reading of a scale. */
 const atScore = (candidate, score) => score / candidate.ceiling;
 let comparisons = 0;
 for (const rune of runes) {
@@ -168,11 +171,11 @@ for (const rune of runes) {
       return expectedMain === rune.mainStatId;
     });
     if (!build) continue;
-    const neutralCandidate = prepareRuneCandidate(rune, role, build, base, neutral);
+    const neutralCandidate = prepareRuneCandidate(rune, role, build, base, neutral, ruler);
     if (!neutralCandidate) continue;
     const neutralRaw = neutralCandidate.best;
     for (const credit of credits) {
-      const candidate = prepareRuneCandidate(rune, role, build, base, credit);
+      const candidate = prepareRuneCandidate(rune, role, build, base, credit, ruler);
       assert.ok(candidate, `${rune.id}/${role.id} must remain judgeable with craft credit`);
       assert.ok(candidate.best + eps >= neutralRaw,
         `${rune.id}/${role.id}: raw best score fell after craft credit`);
@@ -227,10 +230,10 @@ const pvp = withRefreshedMetrics({
 const pvpBuild = pvp && roleBuilds(pvp)[4];
 const pvpBase = pvp && baseByType.get(pvp.type);
 assert.ok(pvp && pvpBuild && pvpBase);
-const toleranceNeutralCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, pvpBase, neutral);
+const toleranceNeutralCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, pvpBase, neutral, ruler);
 const toleranceCraftCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, pvpBase, {
   gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
-});
+}, ruler);
 assert.ok(toleranceNeutralCandidate && toleranceCraftCandidate);
 const toleranceBar = 0.7 * toleranceNeutralCandidate.ceiling;
 assert.ok(candidateChance(toleranceCraftCandidate, atScore(toleranceCraftCandidate, toleranceBar)) + eps
@@ -385,7 +388,7 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
     { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' },
   ]) {
     const candidate = prepareRuneCandidate(fixture.rune, fixture.role, fixture.build,
-      fixture.base, credit);
+      fixture.base, credit, ruler);
     assert.ok(candidate);
     const expected = candidateChance(candidate, 0.7);
     const randomTrial = makeRandom(0xabc00000 + fixtureIndex * 97 + (credit.grind ? 1 : 0));
@@ -394,7 +397,7 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
     for (let trial = 0; trial < trials; trial += 1) {
       const finalRune = powerUp(randomTrial, cloneRune(fixture.rune), 12);
       const finalCandidate = prepareRuneCandidate(finalRune, fixture.role, fixture.build,
-        fixture.base, credit);
+        fixture.base, credit, ruler);
       if (finalCandidate && candidateMaxValue(finalCandidate) + eps >= 0.7) hits += 1;
     }
     const observed = hits / trials;

@@ -139,8 +139,8 @@ function monsterName(place: string, presetId: string, { thisMonster, engravedOn,
     : 'Monster not in this import';
 }
 
-/* The preset owns the build's moves. A rune free here but on another monster
-   in Scenario names that monster as the game's list does. Scenario's copy of the
+/* The preset owns the build's moves. A rune in inventory in this preset but on
+   another monster in Scenario names that monster as the game's list does. Scenario's copy of the
    monster being optimized is the one exception: its rune is inventory here. */
 function presetPlaceName(place: string | null, places: Places): ReactNode {
   return place === null ? 'Inventory' : monsterName(place, places.presetId, places);
@@ -149,14 +149,14 @@ function presetPlaceName(place: string | null, places: Places): ReactNode {
 /* The game's one exception to naming the Scenario monster: a rune taken off a
    monster in this preset since the import, while that monster still carries it
    in Scenario, is unengraved in this preset's rune list, so here too. */
-function freedFromScenarioMonster(runeId: string, place: string | null, loadedPlace: string | null | undefined, places: Places): boolean {
+function removedFromScenarioMonster(runeId: string, place: string | null, loadedPlace: string | null | undefined, places: Places): boolean {
   return place === null && loadedPlace != null && loadedPlace === (places.scenarioPlaces?.get(runeId) ?? null);
 }
 
 function gamePlaceName(runeId: string, place: string | null, places: Places, loadedPlace?: string | null): ReactNode {
   if (place !== null) return presetPlaceName(place, places);
   const inScenario = places.scenarioPlaces?.get(runeId) ?? null;
-  return inScenario === null || inScenario === places.thisMonster || freedFromScenarioMonster(runeId, place, loadedPlace, places)
+  return inScenario === null || inScenario === places.thisMonster || removedFromScenarioMonster(runeId, place, loadedPlace, places)
     ? 'Inventory' : monsterName(inScenario, scenarioPresetId, places);
 }
 
@@ -165,12 +165,12 @@ function gamePlaceName(runeId: string, place: string | null, places: Places, loa
 function shownPlace(runeId: string, place: string | null, places: Places, loadedPlace?: string | null): string | null {
   if (place !== null || places.presetId === scenarioPresetId) return place;
   const inScenario = places.scenarioPlaces?.get(runeId) ?? null;
-  return inScenario === places.thisMonster || freedFromScenarioMonster(runeId, place, loadedPlace, places) ? null : inScenario;
+  return inScenario === places.thisMonster || removedFromScenarioMonster(runeId, place, loadedPlace, places) ? null : inScenario;
 }
 
 /* Where the rune was, named as Location named it then. In a preset that left
-   it free, that is its Scenario monster, which an engrave in the preset never
-   moves; in Scenario itself, free was the inventory, and Scenario's owner now is
+   it in inventory, that is its Scenario monster, which an engrave in the preset
+   never moves; in Scenario itself, that was the inventory, and Scenario's owner now is
    only where the build has put it. */
 function previousPlaceName(runeId: string, place: string | null, places: Places): ReactNode {
   return places.presetId === scenarioPresetId ? presetPlaceName(place, places) : gamePlaceName(runeId, place, places);
@@ -222,7 +222,7 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
   let location: ReactNode;
   /* The pressed Lock beside it says the rest. */
   if (picked.locked) location = 'This monster';
-  else if (picked.issue?.kind === 'locked-away' && rune.occupiedId === null) location = 'Locked in the inventory';
+  else if (picked.issue?.kind === 'locked-away' && rune.occupiedId === null) location = 'Locked in inventory';
   else if (rune.occupiedId === null || rune.occupiedId === places.thisMonster) {
     location = gamePlaceName(rune.id, rune.occupiedId, places, loadedPlace);
   } else {
@@ -231,7 +231,7 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
   }
   /* Only where the place shown has really changed since the import: one moved
      and moved back is where the game has it, so Previously would only repeat
-     Location. A rune freed here from its Scenario monster has moved: it reads
+     Location. A rune taken here off its Scenario monster has moved: it reads
      Inventory now and that monster before. */
   const moved = loadedPlace !== undefined
     && shownPlace(rune.id, loadedPlace, places) !== shownPlace(rune.id, rune.occupiedId, places, loadedPlace);
@@ -299,7 +299,7 @@ export function RuneBuildOverlay({
   runesById: ReadonlyMap<string, Rune>;
   /** Where the runes JASWA has moved sat in this preset when the import was loaded (`ImportedGame`). */
   loadedPlacements: Readonly<Record<string, string | null>> | undefined;
-  /** Scenario's owner, which the game's rune list shows even when this preset leaves the rune free. */
+  /** Scenario's owner, which the game's rune list shows even when this preset leaves the rune in inventory. */
   scenarioPlaces: ReadonlyMap<string, string | null> | undefined;
   /** Drawn in the middle of the circle, and the monster its own runes read as staying on. */
   monster: BuildMonster;

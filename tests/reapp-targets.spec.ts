@@ -49,7 +49,7 @@ test('re-app/refine targets are six fixed cards that put Re-app on the runes the
   expect(left.y).toBeCloseTo(right.y, 0);
   await expect(reapp2.locator('.role-type')).toHaveText('Enabled');
   await expect(refine2.locator('.role-type')).toHaveText('Enabled');
-  await expect(reapp2.locator('.role-row-label')).toHaveText(['Rune type', 'Min grade', 'Must have innate', 'Must have main stat']);
+  await expect(reapp2.locator('.role-row-label')).toHaveText(['Rune type', 'Min rarity', 'Must have innate', 'Must have main stat']);
   await expect(reapp2.locator('.role-row-value')).toHaveText(['Violent', 'Legend', 'Yes', 'ATK %SPD']);
   await expect(refine2.locator('.role-row-value'))
     .toHaveText(['DespairFightRageSwiftVampireViolentWill', 'Legend', 'No', 'ATK %SPD']);
@@ -108,7 +108,7 @@ test('re-app/refine targets are six fixed cards that put Re-app on the runes the
   await page.keyboard.press('Escape');
   await expect(editor).toBeVisible();
 
-  const grade = reappSide.getByRole('combobox', { name: 'Re-app min grade' });
+  const grade = reappSide.getByRole('combobox', { name: 'Re-app min rarity' });
   const innate = reappSide.getByRole('combobox', { name: 'Re-app must have innate' });
   await expect(innate.locator('option')).toHaveText(['Yes', 'No']);
   await expect(innate).toHaveValue('yes');

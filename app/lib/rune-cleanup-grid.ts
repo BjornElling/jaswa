@@ -168,20 +168,8 @@ export const runeMaxValueShown = (row: RuneCleanupRow): boolean => row.advice.ro
 export const runeChanceShown = (row: RuneCleanupRow): boolean =>
   row.advice.role !== null && row.rune.level < lastSubPropertyLevel;
 
-/**
- * The chance as the column prints it: whole percentage points, **rounded down**.
- *
- * Every Power-up policy stop is a whole percentage, and the verdict is the chance
- * compared with it. Rounded to the nearest point, a 79.6 % rune printed `80 %` beside
- * a Sell under Take no chances; rounded down, the printed number clears the stop
- * exactly when the rune does. A real chance under one point says so rather than
- * reading `0 %`, which is kept for a rune that cannot get there at all.
- */
-export function runeChanceText(chance: number): string {
-  if (chance <= 0) return '0 %';
-  const points = Math.floor(chance * 100 + 1e-9);
-  return points >= 1 ? `${points} %` : '<1 %';
-}
+/** The chance as the column prints it — the advice's own formatter, so the two cannot differ. */
+export { runeChanceText } from './rune-cleanup-advice';
 
 /** The verdicts in the order they rank, so sorting by advice reads as a priority.
     A held rune ranks as the Keep it stands for, then after the engine's own Keeps. */

@@ -215,7 +215,7 @@ function mainContribution(mainStatId: number, stat: TargetStat, base: ReferenceS
  * choice; its slider only changes the retained share.
  *
  * **The way back**, if the requirement should count set bonuses again: a role would
- * have to state the set *combination* its builds use — `RUNE-CANONICAL.md` §10.1
+ * have to state the set *combination* its builds use — `RUNE-OPTIMIZATION.md` §2.1.1
  * already has that vocabulary, and `app/lib/rune-set-pairs.ts` already holds it for
  * monsters. A combination stated by the role is the same for every candidate, so it
  * can shape the requirement without tilting the comparison. A combination guessed

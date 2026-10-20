@@ -104,7 +104,7 @@ export type RefreshContext = {
   /** The copy's record as it is now: its artifacts and relic are counted with its runes. */
   monster: GameRecord;
   requirements: Pick<RuneOptimizationRequirements, 'targets' | 'ceilings' | 'alwaysCrits' | 'alwaysElementAdvantage' | 'leads' | 'teammateSets'
-    | 'builds' | 'slotMains' | 'allowBroken' | 'allowIntangible'>;
+    | 'buildings' | 'builds' | 'slotMains' | 'allowBroken' | 'allowIntangible'>;
   settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters' | 'fillEmptySlotsOnly' | 'limitChanges' | 'maxChanges'
     | 'unfinishedAtMaximum' | 'oddSlotsAtTwelve'> & CraftSettings;
   /** The copies whose runes may not be taken, as `RuneOptimizationInput.spared`. */

@@ -52,7 +52,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
 
   const warning = page.getByText('Standards changed. Updating the affected rune verdicts…');
   await expect(warning).toBeHidden();
-  await page.getByRole('checkbox', { name: 'Pre-grind spd ≥' }).uncheck();
+  await page.getByRole('checkbox', { name: 'Pre-grind SPD ≥' }).uncheck();
   await expect(warning).toBeHidden();
   expect(await boxes()).toEqual(beforeBoxes);
   await visit('Rune Settings');

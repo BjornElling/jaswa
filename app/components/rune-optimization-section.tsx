@@ -40,6 +40,7 @@ import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monst
 import { completedTeamSets, monsterTargetFigures } from '../lib/monster-stats';
 import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset, teammateSetsInPreset } from '../lib/presets';
 import type { Preset } from '../lib/presets';
+import { readBuildingBonuses } from '../lib/account-buildings';
 import { runeLockOf, runeLockScope, runeLocksInPreset } from '../lib/rune-locks';
 import type { RuneLock, RuneLocks } from '../lib/rune-locks';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
@@ -179,8 +180,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   /* A search the user walked away from gives the processor back. */
   useEffect(() => () => cancelRuneOptimization(), []);
 
-  /* Every build is for one preset: its runes are the preset's, and runes the
-     preset leaves free are free whatever other presets hold (`DECK-PRESETS.md` §4). */
+  /* Every build is for one preset: its runes are the preset's, and a rune
+     the preset leaves in inventory is in inventory whatever other presets hold (`DECK-PRESETS.md` §4). */
   /* Choose the context before the copy: every preset is reachable, and only
      its members can become the question this page answers. */
   const preset = presets.find((entry) => entry.id === presetId) ?? presets.find((entry) => entry.id === scenarioPresetId);
@@ -226,10 +227,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   /* A change made here is for this copy in this preset: the same copy in another
      preset is another question, and does not inherit it. */
   const edited = edits !== null && edits.unitId === unitId && edits.presetId === activePresetId;
+  /* The account's buildings enter the composites here as they do on the Monsters
+     page and in the overlay, so a build's DMG is the figure those pages show. */
+  const buildings = useMemo(() => readBuildingBonuses(game?.data), [game]);
   const requirements = useMemo(() => {
     const draft = edited ? edits.requirements : profile?.requirements;
-    return draft ? { ...draft, teammateSets } : undefined;
-  }, [edited, edits, profile, teammateSets]);
+    return draft ? { ...draft, teammateSets, buildings } : undefined;
+  }, [edited, edits, profile, teammateSets, buildings]);
   /* The requirements as a question the search can take: only once a figure to
      rank by is named, by the profile or here. Nothing names one for the user. */
   const question = useMemo(() => (requirements ? askable(requirements) : undefined), [requirements]);
@@ -257,11 +261,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   [sparing, preset, preferences.monsterPriority, preferences.presetPriority, unitId]);
   const gemPreservationRoles = useMemo(() => {
     const lines = referenceLines(game?.data);
-    return preferences.runePotentialPresets.flatMap((role) => {
+    return preferences.runeRoles.flatMap((role) => {
       const base = lines?.get(role.type)?.stats;
       return base ? [{ role, base }] : [];
     });
-  }, [game, preferences.runePotentialPresets]);
+  }, [game, preferences.runeRoles]);
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && question && (!settings.limitChanges || settings.maxChanges !== undefined) ? {
     unitId: selected.unitId, monster: selected.record, runes, locks, spared, craftItems, requirements: question, settings, gemPreservationRoles,
   } : undefined), [selected, question, runes, locks, spared, craftItems, settings, gemPreservationRoles]);
@@ -274,7 +278,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const { resultCount, ...searchSettings } = settings;
   const keyOf = (asked: RequirementsDraft | undefined) =>
     JSON.stringify({ presetId: activePresetId, unitId, requirements: asked, settings: searchSettings, spared,
-      gemRoles: preferences.runePotentialPresets });
+      gemRoles: preferences.runeRoles });
   const inputKey = keyOf(requirements);
   /* A table stays on screen while its monster is chosen, whatever is changed above
      it: it is still the answer to the question it was asked, read with that
@@ -310,8 +314,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       alwaysElementAdvantage: current?.requirements.alwaysElementAdvantage ?? false,
       leads: current?.requirements.leads,
       teammateSets,
+      buildings,
     };
-  }, [tableAlwaysCritsCount, requirements, alwaysCrits, current, teammateSets]);
+  }, [tableAlwaysCritsCount, requirements, alwaysCrits, current, teammateSets, buildings]);
   const builds = useMemo(() => (current && selected && tableLimits
     ? currentBuilds(current.answer.builds.slice(0, resultCount), {
       unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings, spared,
@@ -326,7 +331,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   }, [selected]);
   const currentFigures = useMemo(() => requirements ? figuresNow(requirements) : undefined, [figuresNow, requirements]);
   /* The table's `Now` row is counted the way its builds were. */
-  const tableNowFigures = useMemo(() => current ? figuresNow({ ...current.requirements, teammateSets }) : undefined, [figuresNow, current, teammateSets]);
+  const tableNowFigures = useMemo(() => current ? figuresNow({ ...current.requirements, teammateSets, buildings }) : undefined, [figuresNow, current, teammateSets, buildings]);
   const currentBuild = selected ? runeBuildName(activeRuneSets(selected.record).map((set) => set.name)) : '';
 
   function change(update: (current: RequirementsDraft) => RequirementsDraft) {

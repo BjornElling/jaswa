@@ -10,7 +10,8 @@
  * kind the account wants at all, is its best possible end state good enough, and is
  * it likely enough to get there.
  */
-import { runeMaximumLevel } from './runes';
+import { gemMinimumLevel, runeMaximumLevel } from './runes';
+import { isFourPieceSet } from './rune-calculation-inputs';
 import { scenarioPresetId } from './presets';
 import type { Engraving } from './presets';
 import type { Rune } from './runes';
@@ -18,8 +19,8 @@ import type { RuneRole } from './rune-roles';
 import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
-  candidateChanceAsk, candidateExpectedBound, candidateExpectedValue, candidateMaxValue, isFourPieceSet,
-  newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, referenceStars,
+  candidateChanceAsk, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
+  neutralComparisonCredit, newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, referenceStars,
   runeRuns, slotMainFamily, standingIn,
 } from './rune-cleanup-model';
 import type {
@@ -34,11 +35,9 @@ import { holdsBestLineTypes, isRerollTarget } from './rune-reapp-targets';
 import type { EndStateLine } from './rune-craft-end-state';
 
 /* Slot balance is a yardstick, not another user preference. Keeping it at the
-   shipped baseline means craft settings can only make a candidate stronger or
+   model's one ruler means craft settings can only make a candidate stronger or
    weaker; they cannot move the floor underneath every other rune. */
-const floorCalibrationCredit: CraftCredit = {
-  gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
-};
+const floorCalibrationCredit: CraftCredit = neutralComparisonCredit;
 /**
  * Who answers the odds.
  *
@@ -194,10 +193,11 @@ class RuneFloorCalibration {
               const base = this.base.get(role.type);
               if (!base) continue;
               for (const build of this.builds.get(role.id) ?? []) {
-                const candidate = prepareRuneCandidate(rune, role, build, base, floorCalibrationCredit, this.scope);
+                const candidate = prepareRuneCandidate(
+                  rune, role, build, base, floorCalibrationCredit, floorCalibrationCredit, this.scope);
                 if (!candidate) continue;
                 const rank = candidate.rank === 'preferred' ? 0 : candidate.rank === 'acceptable' ? 1 : 2;
-                if (level === 12) {
+                if (level === lastSubPropertyLevel) {
                   for (const scoresAtPolicy of scores) scoresAtPolicy[rank] = Math.max(scoresAtPolicy[rank], candidateMaxValue(candidate));
                   continue;
                 }
@@ -379,7 +379,11 @@ export type RuneAdvice = {
   /** Kept so a live protection choice can be undone without repeating the calculation. */
   unprotectedAdvice?: { verdict: RuneVerdict; reason: string };
   verdict: RuneVerdict;
-  /** The chance itself, as the row prints it — never the internal score. */
+  /**
+   * Why, in a few words: the chance as `runeChanceText` prints it wherever odds are
+   * the reason, else what settled the rune ("Below the floor", "Main stat only").
+   * Never the internal score.
+   */
   reason: string;
   /** Against a perfect ordinary rune, after the preferred/acceptable/broken discount; Ancient can exceed 1. */
   maxValue: number;
@@ -458,23 +462,23 @@ export type RoleReading = {
 };
 
 /**
- * The chance, as the row prints it.
+ * The chance as every page prints it: whole percentage points, **rounded down**.
  *
- * **A tenth of a percentage point is the floor, and it is not a presentation choice.**
- * The odds are counted over `chanceRuns` runs (`docs/RUNE-CLEANUP-MATH.md` §7.2), so
- * the finest answer the engine can give is one run in four thousand — about
- * 0.024 points. Printing `0.03 %` from a single run that happened to clear the bar
- * would claim two decimals the calculation does not have. Anything real but below
- * that floor says so instead, and `0 %` still means the engine settled it at zero
- * rather than failing to find one.
+ * Every Power-up policy stop is a whole percentage, and the verdict is the chance
+ * compared with it. Rounded to the nearest point, a 79.6 % rune printed `80 %` beside
+ * a Sell under Take no chances; rounded down, the printed number clears the stop
+ * exactly when the rune does. A real chance under one point says so rather than
+ * reading `0 %`, which is kept for a rune that cannot get there at all.
+ *
+ * It lives beside the policy rather than in the table's grid because the advice's
+ * own `reason` prints it too, in the Simulator. Two formatters once wrote the same
+ * chance as `80 %` there and `79 %` in the table.
  */
-const percent = (fraction: number) => {
-  const value = fraction * 100;
-  if (value >= 10 || Number.isInteger(value)) return `${Math.round(value)} %`;
-  if (value >= 1) return `${value.toFixed(1).replace(/\.0$/, '')} %`;
-  if (value >= 0.1) return `${value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')} %`;
-  return value > 0 ? 'under 0.1 %' : '0 %';
-};
+export function runeChanceText(chance: number): string {
+  if (chance <= 0) return '0 %';
+  const points = Math.floor(chance * 100 + 1e-9);
+  return points >= 1 ? `${points} %` : '<1 %';
+}
 
 /**
  * **Every rune's advice at once, in three passes.**
@@ -636,7 +640,7 @@ export async function runeAdvice(
           const wanted = build.mains[rune.slot];
           if (wanted !== rune.mainStatId && wanted !== 0) continue;
         }
-        const candidate = prepareRuneCandidate(rune, role, build, line, credit, scope, floorCalibrationCredit);
+        const candidate = prepareRuneCandidate(rune, role, build, line, credit, floorCalibrationCredit, scope);
         if (candidate) family.push(candidate);
       }
       if (family.length === 0) continue;
@@ -837,26 +841,12 @@ function mostExpected<T extends { answer: Answer }>(
   return best;
 }
 
-/**
- * The decision, in the order the rules outrank each other.
- *
- * **The broken gate is asked first**, and it is the one the sliders cannot argue
- * with: "No" on Broken runes means the account only wants runes a role asked for,
- * and a rune that reaches a wonderful end state in a set nothing wants is still a
- * rune nothing wants. Asking about its ceiling first would let quality overturn a
- * choice the user has already made.
- *
- * The ceiling and the chance — §9's gates 3 and 4, in that order, because a rune
- * that could never reach the bar should be sold for that rather than for the odds of
- * something it could not do anyway — are answered in `runeAdvice` where the
- * candidate is chosen, and arrive here as `cleared`.
- */
 /** The craft the row's Max value counted on the lines the rune shows: the whole of it
-    from `+12`, the stones alone below, where no Gem is legal yet. */
+    from the Gem's own level, the stones alone below, where no Gem is legal yet. */
 function finishedLines(candidate: RuneCandidate): EndStateLine[] {
   const { scoring } = candidate;
   const lines = candidate.rune.subProperties.map(({ statId, value, grind, gemmed }) => ({ statId, value, grind, gemmed }));
-  return candidate.rune.level >= lastSubPropertyLevel
+  return candidate.rune.level >= gemMinimumLevel
     ? craftedLines(scoring.plan, scoring.options, scoring.prices, lines, scoring.prefixScore)
     : groundLines(scoring.plan, lines);
 }
@@ -890,6 +880,20 @@ export function runeCraftSteps(rune: Rune, crafted: readonly EndStateLine[]): Ru
   });
 }
 
+/**
+ * The decision, in the order the rules outrank each other.
+ *
+ * **The broken gate is asked first**, and it is the one the sliders cannot argue
+ * with: "No" on Broken runes means the account only wants runes a role asked for,
+ * and a rune that reaches a wonderful end state in a set nothing wants is still a
+ * rune nothing wants. Asking about its ceiling first would let quality overturn a
+ * choice the user has already made.
+ *
+ * The quality floor and the chance bar — in that order, because a rune that could
+ * never reach the bar should be sold for that rather than for the odds of something
+ * it could not do anyway (`RUNE-CLEANUP-MATH.md` §9) — are answered in `runeAdvice`
+ * where the candidate is chosen, and arrive here as `cleared`.
+ */
 function decide({ rune, value, standing, chance, role, rank, cleared, brokenRejected }: {
   rune: Rune; value: number; standing: number; chance: number;
   role: RuneRole | null; rank: MatchRank;
@@ -907,7 +911,7 @@ function decide({ rune, value, standing, chance, role, rank, cleared, brokenReje
      Printing "0 %" there would dress a certainty as a gamble, so the row says what
      happened instead. */
   if (!cleared) {
-    return { ...base, verdict: 'sell', reason: rune.level >= lastSubPropertyLevel ? 'Below the floor' : percent(chance) };
+    return { ...base, verdict: 'sell', reason: rune.level >= lastSubPropertyLevel ? 'Below the floor' : runeChanceText(chance) };
   }
   return {
     ...base,
@@ -919,7 +923,7 @@ function decide({ rune, value, standing, chance, role, rank, cleared, brokenReje
       : rune.level < runeMaximumLevel ? 'power-up' : 'keep',
     reason: rune.level >= runeMaximumLevel
       ? 'Already there'
-      : rune.level >= lastSubPropertyLevel ? 'Main stat only' : percent(chance),
+      : rune.level >= lastSubPropertyLevel ? 'Main stat only' : runeChanceText(chance),
   };
 }
 
@@ -959,6 +963,6 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
   return {
     ...advice, unprotectedAdvice: original,
     verdict: rune.level === lastSubPropertyLevel || rune.level >= runeMaximumLevel ? 'keep' : 'power-up',
-    reason: protectedSpeed ? 'Pre-grind speed protected' : protectedPotential ? 'Potential value protected' : 'Preset engraving protected',
+    reason: protectedSpeed ? 'Pre-grind SPD protected' : protectedPotential ? 'Potential value protected' : 'Preset engraving protected',
   };
 }

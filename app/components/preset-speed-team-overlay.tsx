@@ -6,7 +6,7 @@ import { monsterCopyNames } from '../lib/monster-names';
 import { profilesIn } from '../lib/monster-preferences';
 import { accountItems } from '../lib/presets';
 import type { Preset } from '../lib/presets';
-import { readSkyTribeTotem } from '../lib/sky-tribe-totem';
+import { readSkyTribeTotem } from '../lib/account-buildings';
 import { monstersByUnitId, presetTeam } from '../lib/speed-team';
 import { isSpeedTeam, speedTuningOf } from '../lib/speed-tuning-preferences';
 import type { SpeedTuningPreferences } from '../lib/speed-tuning-preferences';

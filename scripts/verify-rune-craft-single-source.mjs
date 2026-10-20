@@ -17,6 +17,15 @@
  *
  * The tables themselves stay in `rune-craft-items.ts`, which is the import reader and
  * has to know them. What it must not do is decide anything with them.
+ *
+ * **One second implementation is sanctioned, and this check cannot see it.** The
+ * Clean-up chance shader, `compute/webgpu/rune-chance-shader.ts`, applies the same
+ * rules in WGSL — one converted line, a same-id re-Gem keeping its stone, no
+ * duplicate id, never a forced Gem — because the card cannot call TypeScript. It is
+ * the bargain `docs/HARDWARE-ACCELERATION.md` makes: `runeChanceAgreement` in its
+ * backend proves it against `rune-craft-end-state.ts` on this machine's card before
+ * its answers are used, and `verify:rune-chance-layout` holds what it reads. A symbol
+ * scan like this one reads TypeScript names, not shader source.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';

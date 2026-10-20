@@ -1,4 +1,5 @@
 import { accuracyCeilings } from '../lib/accuracy-ceiling';
+import { readBuildingBonuses } from '../lib/account-buildings';
 import { monsterProfileAreas, monsterProfileAreaName } from '../lib/monster-profile-scope';
 import type { MonsterProfileScope } from '../lib/monster-profile-scope';
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,7 +24,7 @@ import { usePresets } from '../lib/presets-context';
 import { accountItems, scenarioPresetId, monsterInPreset, teammateSetsInPreset } from '../lib/presets';
 import { readArtifacts } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
-import { artifactMainPropertyOrder, artifactPropertiesFor } from '../lib/artifact-properties';
+import { artifactCategoryLabels, artifactMainPropertyOrder, artifactPropertiesFor } from '../lib/artifact-properties';
 import { formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterPresentation, monsterSpeciesPresentation } from '../lib/monster-catalog';
@@ -52,6 +53,7 @@ import { relicProperties, relicPropertyLabel } from '../lib/relic-properties';
 import { roleTargetColumns } from '../lib/rune-roles';
 import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
 import { activeRuneSets, elementName } from '../lib/rune-sets';
+import { statLabels } from '../lib/stat-labels';
 import { runeBuildName } from '../lib/rune-set-pairs';
 import { readRune } from '../lib/runes';
 import type { Rune } from '../lib/runes';
@@ -83,16 +85,16 @@ import type { GeneralSettings } from '../lib/types';
  * whole panel fits a 1080-pixel screen without scrolling.
  */
 
-const categoryLabels: Record<ArtifactCategory, string> = { attribute: 'Attribute', type: 'Type' };
+const categoryLabels = artifactCategoryLabels;
 const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
 
 /* The four leads, in the order the user asked for them: the crit lead first, as
    it was alone before the others joined it. */
 const leadRows: ReadonlyArray<{ stat: LeadStat; label: string }> = [
-  { stat: 'criRate', label: 'CRI Rate' },
-  { stat: 'atk', label: 'ATK' },
-  { stat: 'def', label: 'DEF' },
-  { stat: 'hp', label: 'HP' },
+  { stat: 'criRate', label: statLabels.criRate },
+  { stat: 'atk', label: statLabels.atk },
+  { stat: 'def', label: statLabels.def },
+  { stat: 'hp', label: statLabels.hp },
 ];
 /* The figures a lead or a crit condition can mark, which keep room for two marks:
    a stat names where its lead goes, a composite what it counted. */
@@ -322,11 +324,13 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   );
 
   /* The eleven figures this copy has: its stats as its own panel shows them, and
-     the three composites with its fight. They are derived rather than stored, from
-     the same stat sheet the shortfall check reads. */
+     the three composites with its fight — the account's buildings among it. They
+     are derived rather than stored, from the same stat sheet the shortfall check
+     and the Monsters page read. */
+  const fight = useMemo(() => ({ ...resolved, buildings: readBuildingBonuses(game) }), [resolved, game]);
   const current = useMemo(
-    () => (monster ? monsterTargetFigures(monster, resolved) : undefined),
-    [monster, resolved],
+    () => (monster ? monsterTargetFigures(monster, fight) : undefined),
+    [monster, fight],
   );
 
   const engraved = useMemo(() => {
@@ -358,8 +362,8 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   );
 
   const shortfalls: Shortfall[] = useMemo(
-    () => (monster ? monsterShortfalls(monster, resolved, engraved) : []),
-    [monster, resolved, engraved],
+    () => (monster ? monsterShortfalls(monster, fight, engraved) : []),
+    [monster, fight, engraved],
   );
   const statShortfalls = useMemo(() => {
     const byStat = new Map<string, Shortfall[]>();
@@ -692,7 +696,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
           {/* The population's artifacts, as reference beside what this copy
               has engraved rather than inside the answers. Relics are left out: their
               statistics are one unique nearly every monster leads with, and say
-              almost nothing about this one (`ARTIFACT-CANONICAL.md` §19.3). */}
+              almost nothing about this one (`ENGRAVING-STATISTICS.md` §10). */}
           <Section title="Most common artifacts">
             <div className="overlay-lines overlay-common">
               <Line label="Main stat"><Usage entries={mainUsage} /></Line>

@@ -188,22 +188,6 @@
       125,
       2
      ]
-    },
-    {
-     "rid": 9003,
-     "type": 1,
-     "upgrade_curr": 15,
-     "durability": 1,
-     "locked": 0,
-     "pri_effect": [
-      101,
-      18
-     ],
-     "sec_effect": [
-      1,
-      500,
-      1
-     ]
     }
    ],
    "unit_level": 40,

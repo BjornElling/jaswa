@@ -31,6 +31,7 @@ import { gamePresetHasRoom } from '../lib/game-preset-edits';
 import { accountItems, monsterInPreset, newOwnPresetId, presetMenu } from '../lib/presets';
 import type { OwnPreset, Preset } from '../lib/presets';
 import { resolvePresetChoice } from '../lib/preset-choice';
+import { normalShrineRecords } from '../lib/sealed-shrine-storage';
 import type { PresetChoice } from '../lib/preset-choice';
 import type { ImportedGame, Preferences } from '../lib/types';
 
@@ -133,7 +134,11 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
      offered the name the game would give the next one: the content and the
      number after the highest it holds. */
   const areaContent = area.content;
-  const warnings = preset ? presetWarnings(preset) : '';
+  /* A member resting in the Normal Sealed Shrine is in the import but not on
+     the roster any page reads: it is named rather than called absent. */
+  const shrineNames = useMemo(() => new Map(normalShrineRecords(game?.data).map((unit) =>
+    [String(unit.unit_id), monsterPresentation(unit.unit_master_id).name])), [game]);
+  const warnings = preset ? presetWarnings(preset, shrineNames) : '';
   const suggestedName = areaContent === null ? ''
     : `${areaContent.name} ${Math.max(area.presets.length, ...area.presets.map((entry) => entry.number ?? 0)) + 1}`;
 
@@ -295,7 +300,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
               <ol className="monster-priority-list" {...reorder.containerProps}>
               {priority.map((unitId, at) => {
                 const choice = owned.get(unitId);
-                const name = choice?.name ?? 'Not in this import';
+                const name = choice?.name ?? shrineNames.get(unitId) ?? 'Not in this import';
                 const display = choice ? monsterPresentation(choice.masterId) : undefined;
                 const leader = preset.leaderUnitId === unitId;
                 /* Numbered by where the entry is drawn, so a drag's preview reads #1 to #n down the list. */
@@ -351,12 +356,15 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
    the rest of its pool, said here, where the user meets the preset, rather
    than hidden in a total. Nothing otherwise:
    the content and the faces in the field above already say what it is. */
-function presetWarnings(preset: Preset): string {
+function presetWarnings(preset: Preset, shrineNames: ReadonlyMap<string, string>): string {
   const parts: string[] = [];
   if (preset.contentAssumed) parts.push('Content assumed, not yet confirmed in the game');
   const sold = preset.missingRuneIds.length + preset.missingArtifactIds.length;
   if (sold > 0) parts.push(`${parts.length > 0 ? 'names' : 'Names'} ${sold} sold item${sold === 1 ? '' : 's'}`);
-  if (preset.missingUnitIds.length > 0) parts.push(`${parts.length > 0 ? 'names' : 'Names'} ${preset.missingUnitIds.length} monster${preset.missingUnitIds.length === 1 ? '' : 's'} not in this import`);
+  const sealed = preset.missingUnitIds.flatMap((unitId) => shrineNames.get(unitId) ?? []);
+  const gone = preset.missingUnitIds.length - sealed.length;
+  if (gone > 0) parts.push(`${parts.length > 0 ? 'names' : 'Names'} ${gone} monster${gone === 1 ? '' : 's'} not in this import`);
+  if (sealed.length > 0) parts.push(`${parts.length > 0 ? 'names' : 'Names'} ${sealed.join(', ')} in the Sealed Shrine`);
   /* The teams of a pool share one set of gear (`DECK-PRESETS.md` §4); what the
      game let two of them hold at once is said here, beside the other faults. */
   const { runeIds, artifactIds, unitIds } = preset.poolConflicts;

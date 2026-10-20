@@ -22,6 +22,9 @@
  * taken from there rather than numbered again here.
  */
 import { baseLength, combatAt, effectSlot, effectSlotCount, targetFigureCount, targetFigureKeys } from '../../monster-stats';
+import {
+  brokenDefenseShare, criticalRateCapPercent, defenseFactorBase, defenseFactorPerDef, defenseFactorScale,
+} from '../../rune-potential-metrics';
 
 const figure = (key: typeof targetFigureKeys[number]): number => targetFigureKeys.indexOf(key);
 
@@ -132,6 +135,7 @@ export const runeOptimizationConstants: Readonly<Record<string, number>> = {
   COMBAT_ATK: combatAt.atk,
   COMBAT_DEF: combatAt.def,
   COMBAT_CRI_RATE: combatAt.criRate,
+  COMBAT_CRI_DMG: combatAt.criDmg,
   QUESTION_BASE_AT: questionBaseAt,
   QUESTION_FLOORS_AT: questionFloorsAt,
   QUESTION_RANK_AT: questionRankAt,
@@ -149,10 +153,20 @@ export const runeOptimizationConstants: Readonly<Record<string, number>> = {
   SURVIVOR_CAPACITY: survivorCapacity,
 };
 
-/** The two slack constants, declared as floats. */
+/**
+ * The two slack constants and the composites' own, declared as floats. The
+ * composites' come from `rune-potential-metrics.ts`, so a change to a formula there
+ * reaches the card's copy too — and a drift between them fails this layout's check
+ * on a machine with no card, rather than only the agreement gate on one with a card.
+ */
 export const runeOptimizationFloatConstants: Readonly<Record<string, number>> = {
   RELATIVE_SLACK: relativeSlack,
   ABSOLUTE_SLACK: absoluteSlack,
+  DEFENSE_FACTOR_BASE: defenseFactorBase,
+  DEFENSE_FACTOR_PER_DEF: defenseFactorPerDef,
+  DEFENSE_FACTOR_SCALE: defenseFactorScale,
+  BROKEN_DEFENSE_SHARE: brokenDefenseShare,
+  CRITICAL_RATE_CAP_PERCENT: criticalRateCapPercent,
 };
 
 /** Bytes of one pass's answer. */

@@ -6,15 +6,17 @@ import { readMonsterPreferences } from './monster-preferences';
 import { readRuneHolds } from './rune-holds';
 import { defaultReappTargets, readReappTargets } from './rune-reapp-targets';
 import { readMonsterPriority, readPresetPriority } from './monster-priority';
-import { readOwnPresets } from './presets';
+import { readOwnPresets, runeSlots } from './presets';
 import { readArtifact } from './artifacts';
-import { readRelic } from './relics';
+import { readRelic, relicEngravingProblem } from './relics';
+import { isReadableEngravedConversionStone } from './artifact-conversion-stones';
 import { craftRollAssumptions, craftSettingAssumptions, defaultCraftRollAssumption, itemGrades, readCraftItem } from './rune-craft-items';
 import { readRune } from './runes';
 import { readDeckPresets } from './deck-presets';
 import { intangibleSetId } from './monster-stats';
 import { hasMonsterCatalogEntry } from './monster-catalog';
-import { skyTribeTotemProblem } from './sky-tribe-totem';
+import { normalShrineList, shrineMonsterRecords, summonedShrineList } from './sealed-shrine-storage';
+import { accountBuildingsProblem } from './account-buildings';
 import type { GameRecord } from './game-data';
 import { defaultRuneRoles, readRuneRoles } from './rune-roles';
 import { blankGeneralSettings, readGeneralSettings } from './regional-settings';
@@ -113,7 +115,7 @@ export function blankPreferences(): Preferences {
     monsterPreferences: {},
     runeHolds: {},
     runePotential: defaultRunePotentialSettings,
-    runePotentialPresets: defaultRuneRoles(),
+    runeRoles: defaultRuneRoles(),
     artifacts: defaultArtifactSettings,
     speedTuning: blankSpeedTuningPreferences(),
     monsterPriority: [],
@@ -171,9 +173,20 @@ function readRunePotentialSettings(value: unknown, fallback: RunePotentialSettin
 
 const preferenceSections = [
   'updatedAt', 'hardwareAcceleration', 'importRoute', 'directImportMode', 'general',
-  'monsterPreferences', 'runeHolds', 'runePotential', 'runePotentialPresets', 'artifacts', 'speedTuning',
+  'monsterPreferences', 'runeHolds', 'runePotential', 'runeRoles', 'artifacts', 'speedTuning',
   'monsterPriority', 'presets', 'presetPriority', 'runeOptimization',
 ] as const satisfies readonly (keyof Preferences)[];
+
+/* The roles were stored as `runePotentialPresets` while they were called
+   presets. A stored copy or `.sw` file written then holds every role the user
+   named and tuned under that key, so it is read as the roles whenever no
+   `runeRoles` key exists (AGENTS.md §0): renaming the field must not reset
+   them. Every write uses `runeRoles`. */
+const formerRuneRolesKey = 'runePotentialPresets';
+
+function storedRuneRoles(stored: Record<string, unknown>): unknown {
+  return 'runeRoles' in stored ? stored.runeRoles : stored[formerRuneRolesKey];
+}
 
 /**
  * The stored preferences, one choice at a time (`preference-reading.ts`).
@@ -196,11 +209,11 @@ export function readPreferences(value: unknown, game: ImportedGame | null): Pref
     monsterPreferences: readMonsterPreferences(stored.monsterPreferences),
     runeHolds: readRuneHolds(stored.runeHolds),
     runePotential: readRunePotentialSettings(stored.runePotential, blank.runePotential),
-    runePotentialPresets: readRuneRoles(stored.runePotentialPresets),
+    runeRoles: readRuneRoles(storedRuneRoles(stored)),
     artifacts: readSettings(stored.artifacts, blank.artifacts, artifactSettingChecks),
     speedTuning: readSpeedTuningPreferences(stored.speedTuning),
     monsterPriority: readMonsterPriority(stored.monsterPriority),
-    presets: readOwnPresets(stored.presets),
+    presets: readOwnPresets(stored.presets, game ? runeSlots(game.data) : undefined),
     presetPriority: readPresetPriority(stored.presetPriority),
     runeOptimization: readSettings(stored.runeOptimization, blank.runeOptimization, runeOptimizationSettingChecks),
   };
@@ -210,7 +223,7 @@ export function readPreferences(value: unknown, game: ImportedGame | null): Pref
    before a setting was added still loads. It must still be a JASWA preferences
    document at all: a record naming none of its sections is some other file. */
 function isPreferencesDocument(value: unknown): boolean {
-  return isRecord(value) && preferenceSections.some((section) => section in value);
+  return isRecord(value) && (preferenceSections.some((section) => section in value) || formerRuneRolesKey in value);
 }
 
 function recordCollection(value: unknown): GameRecord[] {
@@ -301,9 +314,47 @@ function isValidImportedStorageRecord(record: GameRecord): boolean {
   return isValidStorageRecord(record) || isEmptyStorageRecord(record);
 }
 
+function isWholeNumberBetween(value: unknown, minimum: number, maximum: number): boolean {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum && value <= maximum;
+}
+
+/* A skill is `[skill id, skill level]`, both positive. */
+function isSkillList(value: unknown): boolean {
+  return Array.isArray(value) && value.every((skill) => Array.isArray(skill) && skill.length >= 2
+    && isWholeNumberBetween(skill[0], 1, Number.MAX_SAFE_INTEGER) && isWholeNumberBetween(skill[1], 1, Number.MAX_SAFE_INTEGER));
+}
+
+/* A unit is counted the moment it is accepted, so every field a page reads it
+   by must be one JASWA can act on (`AGENTS.md` §0.1, part 3). The master id is
+   what every catalogue, stat and family lookup keys on, so it is required; a
+   grade, level or skill list the record carries must be one the game can
+   produce. A record that omits one of those three is still read, and the pages
+   show the gap as "—" rather than inventing a value. */
+function isValidUnitRecord(record: GameRecord): boolean {
+  return isWholeNumberBetween(record.unit_master_id, 1, Number.MAX_SAFE_INTEGER)
+    && (record.class === undefined || isWholeNumberBetween(record.class, 1, 6))
+    && (record.unit_level === undefined || isWholeNumberBetween(record.unit_level, 1, 40))
+    && (record.skills === undefined || isSkillList(record.skills));
+}
+
+/* In Scenario an item is engraved on one monster at most (`DECK-PRESETS.md`
+   §1); a list naming it under two would leave its owner to whichever unit was
+   read last, so it is refused as a saved deck repeating one is. */
+function engravesAnItemTwice(units: readonly GameRecord[], section: 'runes' | 'artifacts', identifier: string): boolean {
+  const seen = new Set<string>();
+  for (const unit of units) {
+    for (const item of recordCollection(unit[section])) {
+      const id = String(item[identifier]);
+      if (seen.has(id)) return true;
+      seen.add(id);
+    }
+  }
+  return false;
+}
+
 function validateAccountCollections(value: GameRecord): string | undefined {
-  if (!isValidIdentifiedCollection(value.unit_list, 'unit_id')) {
-    return 'This file contains an invalid monster collection.';
+  if (!isValidIdentifiedCollection(value.unit_list, 'unit_id', isValidUnitRecord)) {
+    return 'This file contains a monster JASWA cannot read.';
   }
   if (!isValidIdentifiedCollection(value.runes, 'rune_id', isValidRuneRecord)) {
     return 'This file contains a rune JASWA cannot read.';
@@ -316,15 +367,19 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   } catch (error) {
     return error instanceof Error ? error.message : 'This account contains a Deck Preset JASWA cannot read.';
   }
-  if (value.unit_storage_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_list, 'unit_master_id', isValidImportedStorageRecord)) {
+  /* Each tab is checked where the account carries it, nested or at the root,
+     because that same list is what the import publishes, counts and shows. */
+  const summonedShrine = summonedShrineList(value);
+  if (summonedShrine !== undefined && !isValidIdentifiedCollection(summonedShrine, 'unit_master_id', isValidImportedStorageRecord)) {
     return 'This file contains a sealed-shrine monster JASWA cannot read.';
   }
-  if (value.unit_storage_normal_list !== undefined && !isValidIdentifiedCollection(value.unit_storage_normal_list, 'unit_id')) {
+  const normalShrine = normalShrineList(value);
+  if (normalShrine !== undefined && !isValidIdentifiedCollection(normalShrine, 'unit_id', isValidUnitRecord)) {
     return 'This file contains a sealed-shrine monster JASWA cannot read.';
   }
 
   const units = recordCollection(value.unit_list);
-  const normalStorageUnits = recordCollection(value.unit_storage_normal_list);
+  const normalStorageUnits = recordCollection(normalShrine);
   /* Normal Shrine is a location for a unit, not another collection of units.
      A repeated id is contradictory source data: choosing a row to hide would
      make the account total look plausible while leaving its location false. */
@@ -363,6 +418,12 @@ function validateAccountCollections(value: GameRecord): string | undefined {
       return 'This file contains an engraved relic JASWA cannot read.';
     }
   }
+  if (engravesAnItemTwice(units, 'runes', 'rune_id')) {
+    return 'This file engraves one rune on two monsters.';
+  }
+  if (engravesAnItemTwice(units, 'artifacts', 'rid')) {
+    return 'This file engraves one artifact on two monsters.';
+  }
 
   if (value.artifacts !== undefined && !isValidIdentifiedCollection(value.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
     return 'This file contains an artifact JASWA cannot read.';
@@ -373,14 +434,20 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   if (value.relics !== undefined && !isValidIdentifiedCollection(value.relics, 'rid', (relic) => readRelic(relic) !== null)) {
     return 'This file contains a relic JASWA cannot read.';
   }
+  const relicProblem = relicEngravingProblem(units);
+  if (relicProblem) return relicProblem;
+  if (value.artifact_crafts !== undefined
+    && !isValidIdentifiedCollection(value.artifact_crafts, 'rid', isReadableEngravedConversionStone)) {
+    return 'This file contains an engraved conversion stone JASWA cannot read.';
+  }
   if (value.rune_craft_item_list !== undefined
     && !isValidIdentifiedCollection(value.rune_craft_item_list, 'craft_item_id', isValidCraftRecord)) {
     return 'This file contains an invalid craft-item collection.';
   }
-  /* The totem moves every arena and dungeon speed Speed Tuning shows, so a
-     building list that cannot say its level is refused rather than read as
-     "no totem". */
-  return skyTribeTotemProblem(value);
+  /* The buildings move every arena and dungeon speed and every stat they
+     touch, so a building list that cannot say a level is refused rather than
+     read as "no building". */
+  return accountBuildingsProblem(value);
 }
 
 /* Artifacts and relics both carry their own id as `rid`, not `artifact_id` or
@@ -426,9 +493,16 @@ function completeEngravedCollections(data: GameRecord): GameRecord {
   if (hasCollection(data.artifact_crafts)) {
     prepared.artifact_crafts = recordCollection(data.artifact_crafts);
   }
-  if (hasCollection(data.unit_storage_list)) {
-    prepared.unit_storage_list = recordCollection(data.unit_storage_list)
+  /* Both Sealed Shrine tabs are published at the root from wherever the
+     account carried them, so no later reader has to know the nesting. */
+  const summonedShrine = summonedShrineList(data);
+  if (hasCollection(summonedShrine)) {
+    prepared.unit_storage_list = recordCollection(summonedShrine)
       .filter((record) => !isEmptyStorageRecord(record));
+  }
+  const normalShrine = normalShrineList(data);
+  if (hasCollection(normalShrine)) {
+    prepared.unit_storage_normal_list = recordCollection(normalShrine);
   }
   if (hasCollection(data.inventory_info)) {
     prepared.inventory_info = recordCollection(data.inventory_info);
@@ -467,7 +541,8 @@ export function isValidImportedGame(value: unknown): value is ImportedGame {
 
 export function validateGameFile(value: unknown): ImportReport {
   if (!isRecord(value)) return { valid: false, message: 'This is not a valid Summoners War JSON file.', knownSections: [], unknownMonsterIds: [] };
-  const knownSections = expectedSections.filter((section) => hasCollection(value[section]));
+  const knownSections = expectedSections.filter((section) => hasCollection(section === 'unit_storage_list' ? summonedShrineList(value)
+    : section === 'unit_storage_normal_list' ? normalShrineList(value) : value[section]));
   if (!hasCollection(value.unit_list) || !hasCollection(value.runes)) {
     return { valid: false, message: 'This file does not contain the monster and rune lists needed by JASWA.', knownSections, unknownMonsterIds: [] };
   }
@@ -475,8 +550,7 @@ export function validateGameFile(value: unknown): ImportReport {
   if (collectionError) return { valid: false, message: collectionError, knownSections, unknownMonsterIds: [] };
   const unknownMonsterIds = [...new Set([
     ...recordCollection(value.unit_list),
-    ...recordCollection(value.unit_storage_list),
-    ...recordCollection(value.unit_storage_normal_list),
+    ...shrineMonsterRecords(value),
   ]
     .map((monster) => String(monster.unit_master_id))
     .filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))];

@@ -6,13 +6,13 @@
  * a rune is a different question, and the answer to it is provisional — see
  * `provisionalRuneScore` below, which is the one seam the real scorer replaces.
  */
-import { calculateRuneEfficiency } from './rune-potential-metrics';
+import { mainPropertyMaximum, maximumRoll, scalesWithBase, subPropertyTargetStat } from './rune-properties';
 import type { RuneRole } from './rune-roles';
 import { runeMainStatIds } from './rune-roles';
 import { craftItemRoll } from './rune-craft-end-state';
 import type { CraftItem, CraftRollAssumption } from './rune-craft-items';
 import type { ItemGrade } from './types';
-import { gemMinimumLevel, runeSubValue, slotAllowsSubStat } from './runes';
+import { gemMinimumLevel, isPercentStat, runeLineValue, runeSubValue, slotAllowsSubStat } from './runes';
 import type { Rune, RuneSubProperty } from './runes';
 
 /**
@@ -38,20 +38,25 @@ export type CraftFit =
   | { fits: false; block: CraftBlock };
 
 /**
- * Whether the item's lineage lets it touch this rune at all (§7, §10).
+ * Whether the item's lineage lets it touch this rune at all (§8, *Which runes an
+ * item may go on*).
  *
- * Ancient runes and ordinary runes each take their own items, and §7 is
+ * Ancient runes and ordinary runes each take their own items, and §8 is
  * explicit that an ordinary gem is not a permitted fallback on an Ancient rune.
  * Intangible needs no clause of its own: it is a set like any other here, so an
  * Intangible item matches it by set and an Immemorial one by belonging to none,
- * which is exactly the pair §10 allows it.
+ * which is exactly the pair §8 allows it.
  */
 export function lineageFits(item: CraftItem, rune: Pick<Rune, 'ancient' | 'setId'>): boolean {
   /* Immemorial is the only item that belongs to no set, and the only one whose
      match is the lineage alone. An Ancient item still names a set in its own
      id, so Ancient is a second condition on top of the set — not a replacement
      for it. Read as a replacement, an Ancient Violent gem offered itself to
-     every Ancient rune in the account. */
+     every Ancient rune in the account.
+
+     An Immemorial item is refused on an Ancient rune. No published source states
+     it, but the user confirmed it in play (October 2026): an Ancient rune takes
+     Ancient items and nothing else, Immemorial included. */
   if (item.lineage === 'immemorial') return !rune.ancient;
   if (rune.ancient !== (item.lineage === 'ancient')) return false;
   return item.setId === rune.setId;
@@ -102,8 +107,7 @@ export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
  * ————— PROVISIONAL —————
  *
  * What a rune is worth. Rune scoring against a role is not built yet, so this
- * stands in for it: SWOP's published rune efficiency, which
- * `rune-potential-metrics.ts` already implements and which reads the main
+ * stands in for it: SWOP's published rune efficiency, which reads the main
  * property, the innate and every sub property with its grindstone bonus
  * included. It is therefore a real reading and it does move when a gem or a
  * grindstone lands — but it is *role-blind*, and the role a user chooses
@@ -112,15 +116,32 @@ export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
  * Every view that reports a score goes through this one function, so the real
  * scorer replaces one body and no table has to be found and corrected. Anything
  * on screen that quotes it says it is provisional.
+ *
+ * SWOP's arithmetic, read off JASWA's own tables rather than a copy of them: the
+ * main property as a share of the six-star one at `+15`, each line as a share of
+ * five six-star maximum rolls — a line that took every upgrade — with a flat HP,
+ * ATK or DEF line counted at half, and the sum over 2.8.
  */
 export function provisionalRuneScore(rune: Rune): number | null {
-  return calculateRuneEfficiency({
-    class: rune.ancient ? 16 : rune.stars,
-    priEff: [rune.mainStatId, rune.mainValue],
-    prefixEff: rune.prefixStatId === null ? null : [rune.prefixStatId, rune.prefixValue],
-    secEff: rune.subProperties.map((property) =>
-      [property.statId, property.value, property.gemmed ? 1 : 0, property.grind] as const),
-  });
+  const main = mainPropertyMaximum(rune.stars, rune.mainStatId);
+  const sixStarMain = mainPropertyMaximum(6, rune.mainStatId);
+  if (!main || !sixStarMain) return null;
+  const lines: (readonly [statId: number, value: number])[] = rune.subProperties
+    .map((property) => [property.statId, runeSubValue(property)] as const);
+  if (rune.prefixStatId !== null) lines.push([rune.prefixStatId, rune.prefixValue]);
+  let ratio = main / sixStarMain;
+  for (const [statId, value] of lines) {
+    const fullLine = 5 * maximumRoll(statId, 6);
+    if (!fullLine) return null;
+    ratio += (countsAtHalf(statId) ? value * 0.5 : value) / fullLine;
+  }
+  return ratio / 2.8 * 100;
+}
+
+/** SWOP halves a flat line of a stat that scales with the monster's base: HP +, ATK +, DEF +. */
+function countsAtHalf(statId: number): boolean {
+  const stat = subPropertyTargetStat[statId];
+  return stat !== undefined && scalesWithBase(stat) && !isPercentStat(statId);
 }
 
 /** The rune as it would stand once the item — and any follow-up grind — landed. */
@@ -359,15 +380,7 @@ export function craftBlockReason(item: CraftItem, block: CraftBlock): string {
   }
 }
 
-/** Flat stats carry no unit; the other seven are written as percentages (§2). */
-const flatStatIds: readonly number[] = [1, 3, 5, 8];
-
-/** One stat value, written the way the game writes it. */
-export function statValueText(statId: number, value: number, format: (value: number) => string): string {
-  return `${format(value)}${flatStatIds.includes(statId) ? '' : ' %'}`;
-}
-
 /** What a sub property reads, grindstone bonus included, as the game shows it. */
 export function subPropertyText(property: RuneSubProperty, format: (value: number) => string): string {
-  return statValueText(property.statId, runeSubValue(property), format);
+  return runeLineValue(property.statId, runeSubValue(property), format);
 }

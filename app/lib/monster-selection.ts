@@ -33,8 +33,9 @@ export type MonsterCopyIndex = {
 
 /**
  * How many copies of one monster a set of records holds, under the same
- * identity rules as the conditions above: awakenings and a collaboration twin
- * are the same monster, an element sibling is not.
+ * identity rules as the conditions above: awakenings are the same monster; an
+ * element sibling is not, and neither is a collaboration twin, which keeps its
+ * own catalogue identity (`monster-identity.ts`, `MONSTER-SPECIES-DECISION.md`).
  *
  * Which records are counted is the caller's question, and Storage's answer is
  * the monsters Storage lists. "Have ≥ 2" is read against the table it stands

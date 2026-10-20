@@ -61,9 +61,9 @@ import { StarIcon } from './star-icon';
    shape when a different account is loaded. */
 const slotOptions = [1, 2, 3, 4, 5, 6];
 const starOptions = [1, 2, 3, 4, 5, 6];
-/* The requested quality filter deliberately leaves Magic out of its short row;
-   when no quality is chosen, Magic runes remain included with every other rune. */
-const qualityOptions: readonly RuneRarity[] = ['Normal', 'Rare', 'Hero', 'Legend'];
+/* The requested rarity filter deliberately leaves Magic out of its short row;
+   when no rarity is chosen, Magic runes remain included with every other rune. */
+const rarityOptions: readonly RuneRarity[] = ['Normal', 'Rare', 'Hero', 'Legend'];
 
 type RuneFilterState = {
   search: string;
@@ -72,7 +72,7 @@ type RuneFilterState = {
   selectedVerdicts: RuneVerdict[];
   selectedMains: number[];
   selectedStars: number[];
-  selectedQualities: RuneRarity[];
+  selectedRarities: RuneRarity[];
   lowestLevel: number;
   highestLevel: number;
   selectedPlaces: RunePlace[];
@@ -97,7 +97,7 @@ const adviceFilterOf = (verdict: RuneVerdict): RuneVerdict => (verdict === 'refi
    like the box the player just left in Summoners War. */
 const defaultRuneFilters: RuneFilterState = {
   search: '', selectedSets: [], selectedSlots: [], selectedVerdicts: [],
-  selectedMains: [], selectedStars: [], selectedQualities: [], lowestLevel: 0,
+  selectedMains: [], selectedStars: [], selectedRarities: [], lowestLevel: 0,
   highestLevel: runeMaximumLevel, selectedPlaces: [],
   showOnlyAncient: false, gameSort: 'gameObtained',
 };
@@ -114,8 +114,8 @@ function isRuneFilterState(value: unknown): value is RuneFilterState {
     && candidate.selectedVerdicts.every((e) => adviceFilterOptions.includes(e as RuneVerdict))
     && Array.isArray(candidate.selectedMains) && candidate.selectedMains.every((e) => typeof e === 'number')
     && Array.isArray(candidate.selectedStars) && candidate.selectedStars.every((e) => starOptions.includes(e as number))
-    && Array.isArray(candidate.selectedQualities)
-    && candidate.selectedQualities.every((e) => qualityOptions.includes(e as RuneRarity))
+    && Array.isArray(candidate.selectedRarities)
+    && candidate.selectedRarities.every((e) => rarityOptions.includes(e as RuneRarity))
     && level(candidate.lowestLevel) && level(candidate.highestLevel)
     && (candidate.lowestLevel as number) <= (candidate.highestLevel as number)
     && Array.isArray(candidate.selectedPlaces)
@@ -202,7 +202,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     'jaswa.filters.rune-cleanup', defaultRuneFilters, isRuneFilterState,
   );
   const { search, selectedSets, selectedSlots, selectedVerdicts, selectedMains,
-    selectedStars, selectedQualities, lowestLevel, highestLevel, selectedPlaces,
+    selectedStars, selectedRarities, lowestLevel, highestLevel, selectedPlaces,
     showOnlyAncient, gameSort } = filters;
 
   /* Navigation keeps answers and arrangement. Changed inputs replace only the
@@ -403,14 +403,14 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
       if (selectedSets.length && !selectedSets.includes(row.rune.setName)) return false;
       if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
       if (selectedStars.length && !selectedStars.includes(row.rune.stars)) return false;
-      if (selectedQualities.length && !selectedQualities.includes(row.rune.rarity)) return false;
+      if (selectedRarities.length && !selectedRarities.includes(row.rune.rarity)) return false;
       if (selectedVerdicts.length && !selectedVerdicts.includes(adviceFilterOf(filteredRuneVerdict(shownRuneVerdict(row))))) return false;
       if (selectedMains.length && !selectedMains.includes(row.rune.mainStatId)) return false;
       if (row.rune.level < lowestLevel || row.rune.level > highestLevel) return false;
       if (!term) return true;
       return runeCleanupSearchText(row).includes(term);
     });
-  }, [rows, search, selectedSets, selectedSlots, selectedStars, selectedQualities, selectedVerdicts,
+  }, [rows, search, selectedSets, selectedSlots, selectedStars, selectedRarities, selectedVerdicts,
     selectedMains, lowestLevel, highestLevel, selectedPlaces, showOnlyAncient]);
 
   const { sorted, sort, toggle: toggleColumn, setSort } = useSortedRows(
@@ -556,8 +556,8 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 'selectedStars', (stars) => <span className="rune-star-choice" aria-hidden="true">
                   <span className="rune-star-count">{stars}</span><StarIcon />
                 </span>, 'rune-filter-stars', (stars) => `${stars} star${stars === 1 ? '' : 's'}`)}
-            {toggleGroup('Quality', 'Filter by rune quality', qualityOptions, selectedQualities,
-              'selectedQualities', (quality) => quality, 'rune-filter-quality')}
+            {toggleGroup('Rarity', 'Filter by rune rarity', rarityOptions, selectedRarities,
+              'selectedRarities', (rarity) => rarity, 'rune-filter-rarity')}
             {/* Location narrows the answers on screen; every imported rune still
                 enters the calculation. */}
             {toggleGroup('Location', 'Filter by location', placeOptions, selectedPlaces,
@@ -570,15 +570,15 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               <span className="filter-label">Never sell if...</span>
               <div className="filter-group-controls">
                 <div className="checkbox-row">
-                  <input id="rune-speed-protection" type="checkbox" aria-label="Pre-grind spd ≥"
+                  <input id="rune-speed-protection" type="checkbox" aria-label="Pre-grind SPD ≥"
                     checked={settings.neverSellPreGrindSpeed}
                     onChange={(event) => onUpdate({ neverSellPreGrindSpeed: event.target.checked })} />
                   <label htmlFor={settings.neverSellPreGrindSpeed ? 'rune-speed-protection' : undefined}
-                    aria-disabled={!settings.neverSellPreGrindSpeed}>Pre-grind spd ≥</label>
+                    aria-disabled={!settings.neverSellPreGrindSpeed}>Pre-grind SPD ≥</label>
                 </div>
                 <input className="rune-speed-minimum type-body" type="text" inputMode="numeric" maxLength={2}
                   disabled={!settings.neverSellPreGrindSpeed}
-                  aria-label="Minimum pre-grind speed" value={settings.preGrindSpeedMinimum ?? ''}
+                  aria-label="Minimum pre-grind SPD" value={settings.preGrindSpeedMinimum ?? ''}
                   onChange={(event) => {
                     const text = event.target.value;
                     if (text === '') { onUpdate({ preGrindSpeedMinimum: null }); return; }

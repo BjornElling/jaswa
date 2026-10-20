@@ -16,6 +16,7 @@ import { withHigherAwakenings } from '../lib/monster-identity';
 import { shrineMonsterRecords } from '../lib/sealed-shrine-storage';
 import type { GameRecord } from '../lib/game-data';
 import { calculateMonsterTotals, monsterTargetFigures } from '../lib/monster-stats';
+import { statGridLabels } from '../lib/stat-labels';
 import { activeRuneSets, elementName, elementNameList } from '../lib/rune-sets';
 import type { Preferences } from '../lib/types';
 import {
@@ -25,7 +26,8 @@ import {
 } from '../lib/monster-grid';
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
-import { profilesIn } from '../lib/monster-preferences';
+import { profilesIn, statedLeads } from '../lib/monster-preferences';
+import { readBuildingBonuses } from '../lib/account-buildings';
 import { accountItems, monsterInPreset, presetMenu, teammateSetsInPreset } from '../lib/presets';
 import type { Preset } from '../lib/presets';
 import { defaultPresetChoice, heldPresetMenu, isPresetChoice, resolvePresetChoice } from '../lib/preset-choice';
@@ -64,9 +66,9 @@ const monsterElementOptions = elementNameList;
 
 /** The stat columns between the gear block and E.HP, in the order they are read. */
 const monsterStatColumns: readonly MonsterGridColumn[] = [
-  { key: 'level', label: 'LVL' }, { key: 'hp', label: 'HP' }, { key: 'atk', label: 'ATK' },
-  { key: 'def', label: 'DEF' }, { key: 'spd', label: 'SPD' }, { key: 'criticalRate', label: 'CR%' },
-  { key: 'criticalDamage', label: 'CD%' }, { key: 'resistance', label: 'RES%' }, { key: 'accuracy', label: 'ACC%' },
+  { key: 'level', label: 'LVL' }, { key: 'hp', label: statGridLabels.hp }, { key: 'atk', label: statGridLabels.atk },
+  { key: 'def', label: statGridLabels.def }, { key: 'spd', label: statGridLabels.spd }, { key: 'criticalRate', label: statGridLabels.criRate },
+  { key: 'criticalDamage', label: statGridLabels.criDmg }, { key: 'resistance', label: statGridLabels.res }, { key: 'accuracy', label: statGridLabels.acc },
 ];
 
 /* Two columns sort under a different name than they are laid out under, so the
@@ -103,7 +105,7 @@ const monsterSortText: Partial<Record<SortKey, (row: MonsterRow) => string | nul
 };
 
 /**
- * Every column of the roster table with the comparison that orders it (§17.8).
+ * Every column of the roster table with the comparison that orders it (`ACCOUNT-TABLES.md` §1).
  * Built from the same key list the layout and the cells use, so a column cannot
  * be added to the table without an ordering coming with it.
  *
@@ -191,6 +193,7 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
   const choice = useMemo(() => resolvePresetChoice(menu, storedChoice), [menu, storedChoice]);
   const { preset } = choice;
   const items = useMemo(() => accountItems(gameData), [gameData]);
+  const buildings = useMemo(() => readBuildingBonuses(gameData), [gameData]);
 
   /* The preset's own team, each copy with the runes and artifacts it carries
      there and Scenario's relic, as the game reads it (`DECK-PRESETS.md` §1).
@@ -200,7 +203,8 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
     if (!preset) return [];
     const byUnit = new Map(monsters.map((monster) => [String(monster.unit_id), monster]));
     const members = preset.members.map((unitId) => byUnit.get(unitId)).filter((monster): monster is GameRecord => monster !== undefined);
-    const copyNames = monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, preset?.profileScope ?? 'scenario'));
+    const profiles = profilesIn(preferences.monsterPreferences, preset?.profileScope ?? 'scenario');
+    const copyNames = monsterCopyNames(monsters, profiles);
     return members.map((member, index) => {
       const monster = monsterInPreset(member, preset, items);
       const unitId = String(monster.unit_id ?? `unknown-${index}`);
@@ -216,8 +220,16 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
       const spd = baseSpd === null ? null : totals.spd;
       const criticalRate = numericOrNull(monster.critical_rate) === null ? null : totals.criticalRate;
       const criticalDamage = numericOrNull(monster.critical_damage) === null ? null : totals.criticalDamage;
+      /* The composites count the same fight the overlay does — the profile's
+         crit conditions and leads in this preset's area, its teammates' sets and
+         the account's buildings — so one copy shows one DMG on both. */
+      const stated = profiles[unitId];
       const figures = monsterTargetFigures(monster, {
-        alwaysCrits: false, alwaysElementAdvantage: false, teammateSets: teammateSetsInPreset(preset, unitId, items),
+        alwaysCrits: stated?.alwaysCrits ?? false,
+        alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
+        leads: statedLeads(stated),
+        teammateSets: teammateSetsInPreset(preset, unitId, items),
+        buildings,
       });
       return {
         unitId,
@@ -242,7 +254,7 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
         dmg: atk === null || criticalRate === null || criticalDamage === null ? null : figures.dmg,
       };
     });
-  }, [monsters, preferences.monsterPreferences, preset, items]);
+  }, [monsters, preferences.monsterPreferences, preset, items, buildings]);
 
   /* Every monster the account holds anywhere, as the name a search would match
      it by. This table lists units only — a shrine stack has no stats to show —
@@ -265,7 +277,7 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
 
   /* A search names a monster, and awakening it does not change which monster it
      is, so the term reaches the forms above what it matched and never the forms
-     below (§17.15) — the same rule the Numbers page reads, from the same module.
+     below (`ACCOUNT-TABLES.md` §3) — the same rule the Numbers page reads, from the same module.
 
      Which rows are *shown* must not decide what the account is understood to
      hold: the seed is taken before any filter runs, so unchecking Inventory

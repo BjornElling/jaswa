@@ -63,7 +63,7 @@
  */
 import { runeRarityOrder, slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
-import { allStatIds, remainingEvents, subPropertyRange } from './rune-properties';
+import { addedSubPropertyRange, allStatIds, remainingEvents, subPropertyRange } from './rune-properties';
 import { craftedScore, gemOptions, grindCredit, groundValue, priceList } from './rune-craft-end-state';
 import type { CraftPlan, EndStateLine, GemOptions, PriceList } from './rune-craft-end-state';
 import type { Valuation } from './rune-substat-weights';
@@ -204,7 +204,7 @@ export type RuneFuture = {
 const emptyInterval: Interval = { minimum: 0, maximum: 0 };
 
 export function runeFuture(rune: Rune): RuneFuture {
-  const { events } = remainingEvents(rune.level, runeRarityOrder(rune.rarity));
+  const { events } = remainingEvents(rune.level, rune.rarity);
   const held: EndStateLine[] = rune.subProperties.map((line) => ({
     statId: line.statId, value: line.value, grind: line.grind, gemmed: line.gemmed,
   }));
@@ -214,10 +214,13 @@ export function runeFuture(rune: Rune): RuneFuture {
   for (const statId of allStatIds) {
     if (heldIds.has(statId) || statId === rune.mainStatId || statId === rune.prefixStatId
       || !slotAllowsSubStat(rune.slot, statId)) continue;
-    /* An Ancient rune's higher interval belongs to a line's *initial* roll, and a line
-       the rune gains at +6 is having its initial roll then (`RUNE-CLEANUP-MATH.md` §8).
-       Its later improvements stay on the ordinary six-star table. */
-    const initial = subPropertyRange(rune.stars, statId, 'initial', rune.ancient);
+    /* An Ancient rune's higher interval belongs to the lines it was born with. A line
+       it gains by power-up rolls from the ordinary six-star table, as the user's own
+       Hero and Rare Ancient runes show with added lines below the Ancient minimum
+       (`rune-properties.ts`). Reading the Ancient table here inflated the Max value
+       and Chance of every unfinished non-Legend Ancient rune by about a roll-step per
+       line still to come. */
+    const initial = addedSubPropertyRange(rune.stars, statId);
     /* An id with no interval at this star class is one the game cannot roll here, so
        it is not a line the rune may gain. Keeping it with a zero-wide interval would
        put a line worth nothing into the draw and take a real one's place. */

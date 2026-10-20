@@ -23,20 +23,22 @@ export const relicMonsterVerdictLabels: Record<RelicMonsterVerdict, string> = {
 };
 
 /**
- * Whether this monster can carry a relic at all.
+ * Whether the relic plan proposes a relic for this monster.
  *
- * **Material monsters take no engravings**, which `ENGRAVING-STATISTICS.md` §4
- * states as the reason the capture list leaves all twelve of them out. On this
- * page that is not a cosmetic matter: engraving capacity is finite, so a
- * Rainbowmon handed a place on the account's best relic takes it from a monster
- * that could have used it — and an account holds fodder by the dozen.
+ * **Material monsters are left out, and that is JASWA's policy rather than a
+ * game rule** — the game asks only for Lv. 40 (v9.1.8). On this page it is
+ * not a cosmetic matter: engraving capacity is finite, so a Rainbowmon handed
+ * a place on the account's best relic takes it from a monster that could
+ * have used it, and an account holds fodder by the dozen. The policy picks
+ * the rows the plan proposes for; it never changes the capacity count, which
+ * reads every eligible monster.
  *
  * It excludes only what the catalogue positively calls Material. An archetype of
  * `none` is an unmapped monster rather than a fodder one, and a monster JASWA
  * cannot classify stays in the plan: hiding a row on a guess is the failure
  * `AGENTS.md` §0.1 is about, and over-including one costs a place at worst.
  */
-export function isRelicEngravableMonster(masterId: unknown): boolean {
+export function isRelicPlanMonster(masterId: unknown): boolean {
   return monsterPresentation(masterId).archetype !== 'Material';
 }
 

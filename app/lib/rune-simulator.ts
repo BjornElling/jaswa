@@ -250,7 +250,7 @@ function stageResult(
 ): SimulationStageResult {
   /* +15 has no gate. It is the same settled recommendation as +12 after the
      deterministic main-stat increase, shown for comparison rather than judged again. */
-  const acts = level !== 15 && config.gates[level as SimulationGateStage].policy === 'recommendation';
+  const acts = level !== runeMaximumLevel && config.gates[level as SimulationGateStage].policy === 'recommendation';
   const entries = runes.map((rune): SimulationEntry => {
     const advice = recommendations?.get(rune.id);
     if (recommendations !== null && !advice) {

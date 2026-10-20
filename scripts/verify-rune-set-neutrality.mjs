@@ -22,7 +22,7 @@ import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import { runeSetMatchRank } from '../app/lib/rune-cleanup-model.ts';
 import {
-  initialSubPropertyRange, runeInnateFrequency, slotMainProperties, startingSubPropertyCount, subPropertyLevels,
+  bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties, subPropertyLevels,
   upgradeSubPropertyRange,
 } from '../app/lib/rune-properties.ts';
 import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
@@ -70,7 +70,7 @@ function freshBody(random, id) {
   const available = legal.filter((stat) => stat !== prefixStatId);
   const held = new Set();
   const subProperties = [];
-  for (let at = 0; at < startingSubPropertyCount(rarity); at += 1) {
+  for (let at = 0; at < bornSubPropertyCount(runeRarities[rarity - 1]); at += 1) {
     const statId = choose(random, available.filter((stat) => !held.has(stat)));
     held.add(statId);
     const range = initialSubPropertyRange(6, statId, false);
@@ -87,7 +87,7 @@ function freshBody(random, id) {
 
 /** The game's own loop, so the bodies are ones the game could actually produce. */
 function powerUp(random, rune, targetLevel) {
-  const bornLines = startingSubPropertyCount(runeRarities.indexOf(rune.rarity) + 1);
+  const bornLines = bornSubPropertyCount(rune.rarity);
   for (const [eventIndex, level] of subPropertyLevels.entries()) {
     if (level <= rune.level || level > targetLevel) continue;
     if (eventIndex >= bornLines) {

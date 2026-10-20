@@ -361,7 +361,7 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
   const facts = [
     { label: 'Slot', value: String(rune.slot) },
     { label: 'Grade', value: `${rune.stars}★` },
-    { label: 'Quality', value: rune.rarity },
+    { label: 'Rarity', value: rune.rarity },
     { label: 'Level', value: `+${rune.level}` },
   ];
 

@@ -7,7 +7,7 @@ import { relicMainProperties } from './relic-properties';
 import { mainPropertyMaximum, subPropertyRange } from './rune-properties';
 import type { RuneSlotMain } from './rune-slot-mains';
 import { runeSlotMainByEffect } from './rune-slot-mains';
-import { runeSetName, runeSetPieceCount } from './rune-sets';
+import { runeSetName, runeSetPieceCount, runeSetPieces } from './rune-sets';
 import { brokenRuneBuildPart, runeBuildName } from './rune-set-pairs';
 
 /**
@@ -175,12 +175,12 @@ export const defaultedMonsterSpeciesIds: readonly string[] = Object.keys(monster
  * The cuts, all six panels in one table so they can be read against each other
  * rather than drifting apart in six files.
  *
- * `ARTIFACT-CANONICAL.md` §19.3 sets the rule: a cut is chosen relative to the
+ * `ENGRAVING-STATISTICS.md` §10 sets the rule: a cut is chosen relative to the
  * size of the distribution it partitions, then checked against what it actually
  * produces. Each row below was measured across all 1,044 captured monsters, and
  * no panel leaves a captured monster with nothing at all.
  *
- * - **Artifact main** is §19.3's own, unchanged: three values against an even
+ * - **Artifact main** keeps the three-value cut: three values against an even
  *   33 %. It is reference now, read only by the overlay's Most common row: the
  *   main's default is the main-stat model's (`main-stat-model.ts`).
  * - **Artifact sub** is deliberately *not* §19.3's 10 %, and this is the one
@@ -314,7 +314,9 @@ function runeDefaults(panel: RunePanelStatistics | undefined): RuneDefaults | un
         ...(names as string[]).filter((name) => runeSetPieceCount[name] === 4),
         ...(names as string[]).filter((name) => runeSetPieceCount[name] !== 4),
       ];
-      const filled = ordered.reduce((total, name) => total + (runeSetPieceCount[name] ?? 2), 0);
+      /* A set the table gives no count throws: a guessed two would write a
+         build the statistics never showed. */
+      const filled = ordered.reduce((total, name) => total + runeSetPieces(name), 0);
       builds.push({
         build: runeBuildName(filled < 6 ? [...ordered, brokenRuneBuildPart] : ordered),
         share: row.count / setObservations,

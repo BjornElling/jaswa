@@ -1,8 +1,9 @@
 import type { Artifact } from './artifacts';
 import type { ArtifactCategory } from './artifact-properties';
-import { artifactProperty } from './artifact-properties';
+import { artifactCategoryLabels, artifactProperty } from './artifact-properties';
 import type { GameRecord } from './game-data';
 import { monsterTargetFigures } from './monster-stats';
+import type { CombatBonuses } from './monster-stats';
 import type { PreferenceSource, ResolvedMonsterPreferences } from './monster-preference-resolution';
 import { resolvedOptions } from './monster-preference-resolution';
 import type { MonsterStatTargets } from './monster-preferences';
@@ -77,7 +78,7 @@ const statLabels: Partial<Record<keyof MonsterStatTargets, string>> = Object.fro
 
 const runeSlotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
 
-const categoryLabels: Record<ArtifactCategory, string> = { attribute: 'Attribute', type: 'Type' };
+const categoryLabels = artifactCategoryLabels;
 
 /* Named from the vocabulary rather than from what happens to be engraved: a
    unique that is wanted and absent is exactly the case being reported, so
@@ -240,7 +241,11 @@ function relicShortfalls(resolved: ResolvedMonsterPreferences, engraved: readonl
   return shortfalls;
 }
 
-function statShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreferences): Shortfall[] {
+/* What a copy's figures are judged with: its resolved answers, and the account's
+   buildings, which a composite counts and no profile states. */
+type JudgedPreferences = ResolvedMonsterPreferences & Pick<CombatBonuses, 'buildings'>;
+
+function statShortfalls(monster: GameRecord, resolved: JudgedPreferences): Shortfall[] {
   const shortfalls: Shortfall[] = [];
   /* A range is judged on the figure shown beside it: a stat as the copy's own, a
      composite with its fight. */
@@ -294,7 +299,7 @@ function statShortfalls(monster: GameRecord, resolved: ResolvedMonsterPreference
  */
 export function monsterShortfalls(
   monster: GameRecord,
-  resolved: ResolvedMonsterPreferences,
+  resolved: JudgedPreferences,
   gear: { artifacts?: Partial<Record<ArtifactCategory, Artifact>>; relics?: readonly Relic[] } = {},
 ): Shortfall[] {
   return [

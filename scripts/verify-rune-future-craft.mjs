@@ -42,7 +42,7 @@ for (const grade of ['Rare', 'Hero', 'Legend']) {
   for (const level of [0, 9, 12]) {
     const rune = fixture(grade, level);
     const candidates = Object.fromEntries(Object.entries(credits).map(([key, credit]) => {
-      const candidate = prepareRuneCandidate(rune, role, build, base, credit, undefined, neutral);
+      const candidate = prepareRuneCandidate(rune, role, build, base, credit, neutral);
       assert.ok(candidate);
       return [key, candidate];
     }));
@@ -78,8 +78,8 @@ for (const grade of ['Rare', 'Hero', 'Legend']) {
 /* No extra Gem gain is guaranteed where the rune already exceeds that Gem.
    A blanket bonus would overvalue this finished rune and count craft twice. */
 const strong = { ...fixture('Legend', 12), subProperties: [line(8, 24), line(9), line(10), line(11)] };
-const bare = prepareRuneCandidate(strong, role, build, base, credits.neither, undefined, neutral);
-const gemmed = prepareRuneCandidate(strong, role, build, base, credits.gem, undefined, neutral);
+const bare = prepareRuneCandidate(strong, role, build, base, credits.neither, neutral);
+const gemmed = prepareRuneCandidate(strong, role, build, base, credits.gem, neutral);
 assert.equal(gemmed.best, bare.best);
 assert.equal(candidateMaxValue(gemmed), candidateMaxValue(bare));
 console.log(`PASS: ${checks} grade/checkpoint fixtures include future craft, with no unconditional or double Gem bonus.`);

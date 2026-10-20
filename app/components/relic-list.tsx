@@ -23,8 +23,8 @@ import type { RelicMainProperty } from '../lib/relic-properties';
 import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder } from '../lib/relic-synergy';
 import type { RelicSynergyBand } from '../lib/relic-synergy';
 import {
-  isRelicInvestmentSelectivity, relicAdvice, relicInvestmentSelectivityLabels, relicVerdictLabels, relicVerdictOrder,
-  relicMinimumSynergyBands,
+  defaultRelicInvestmentSelectivity, isRelicInvestmentSelectivity, relicAdvice, relicInvestmentSelectivityLabels,
+  relicVerdictLabels, relicVerdictOrder, relicMinimumSynergyBands,
 } from '../lib/relic-advice';
 import type { RelicInvestmentSelectivity, RelicVerdict } from '../lib/relic-advice';
 import {
@@ -55,7 +55,7 @@ type RelicFilterState = {
   lowestLevel: number;
   highestLevel: number;
   showEngraved: boolean;
-  showUnused: boolean;
+  showInventory: boolean;
   /**
    * How much the user is willing to gamble on a power-up. It sits with the
    * filters because it belongs to the same question the filters answer — what
@@ -74,8 +74,8 @@ const defaultRelicFilters: RelicFilterState = {
   lowestLevel: 0,
   highestLevel: relicMaximumLevel,
   showEngraved: true,
-  showUnused: true,
-  selectivity: 3,
+  showInventory: true,
+  selectivity: defaultRelicInvestmentSelectivity,
 };
 
 function isRelicFilterState(value: unknown): value is RelicFilterState {
@@ -95,7 +95,7 @@ function isRelicFilterState(value: unknown): value is RelicFilterState {
     && level(candidate.lowestLevel) && level(candidate.highestLevel)
     && (candidate.lowestLevel as number) <= (candidate.highestLevel as number)
     && typeof candidate.showEngraved === 'boolean'
-    && typeof candidate.showUnused === 'boolean'
+    && typeof candidate.showInventory === 'boolean'
     && isRelicInvestmentSelectivity(candidate.selectivity);
 }
 
@@ -135,13 +135,13 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
     'jaswa.filters.relics', defaultRelicFilters, isRelicFilterState,
   );
   const { search, selectedMains, selectedBands, selectedVerdicts, selectedDurability,
-    lowestLevel, highestLevel, showEngraved, showUnused, selectivity } = filters;
+    lowestLevel, highestLevel, showEngraved, showInventory, selectivity } = filters;
 
   const relics = useMemo(() => readRelics(game?.data), [game]);
   const engravings = useMemo(() => relicEngravingCounts(monsters), [monsters]);
   const powerUpStones = useMemo(() => relicPowerUpStoneCount(game?.data), [game]);
   /* The counts reach the advice because a same-pair copy that has run out of
-     places can no longer make a duplicate redundant (§8.1's exception). */
+     places can no longer make a duplicate redundant (§8 rule 0's exception). */
   const advice = useMemo(
     () => relicAdvice(relics, selectivity, undefined, engravings),
     [relics, selectivity, engravings],
@@ -169,7 +169,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
       if (!showEngraved && row.engraved > 0) return false;
-      if (!showUnused && row.engraved === 0) return false;
+      if (!showInventory && row.engraved === 0) return false;
       if (selectedMains.length && !selectedMains.includes(row.relic.mainProperty)) return false;
       if (selectedBands.length && !selectedBands.includes(row.synergy)) return false;
       if (selectedVerdicts.length && !selectedVerdicts.includes(row.advice.verdict)) return false;
@@ -179,7 +179,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
       return relicSearchText(row, format).includes(term);
     });
   }, [rows, search, selectedMains, selectedBands, selectedVerdicts, selectedDurability,
-    lowestLevel, highestLevel, showEngraved, showUnused, format]);
+    lowestLevel, highestLevel, showEngraved, showInventory, format]);
 
   /* The page exists to answer "which of these is worth anything", so it opens
      on that answer rather than on the order the export happens to list them in. */
@@ -298,9 +298,9 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
               <FilterButton active={showEngraved}
                 onClick={() => setFilters((current) => ({ ...current, showEngraved: !current.showEngraved }))}
               >Engraved</FilterButton>
-              <FilterButton active={showUnused}
-                onClick={() => setFilters((current) => ({ ...current, showUnused: !current.showUnused }))}
-              >Unused</FilterButton>
+              <FilterButton active={showInventory}
+                onClick={() => setFilters((current) => ({ ...current, showInventory: !current.showInventory }))}
+              >Inventory</FilterButton>
             </div>
           </div>
           <FilterSummary visible={visible.length} total={rows.length} noun="relics"

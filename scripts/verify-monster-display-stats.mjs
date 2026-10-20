@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { calculateMonsterTotals, combatStatBonus, monsterEffects, monsterTargetFigures, completedTeamSets, teamSetBonuses } from '../app/lib/monster-stats.ts';
 import { readMonsterPreferences } from '../app/lib/monster-preferences.ts';
 import { relicMonsterModel } from '../app/lib/relic-monster-value.ts';
+import { noBuildingBonuses, readBuildingBonuses } from '../app/lib/account-buildings.ts';
 
 const monster = {
   con: 659, atk: 637, def: 736, spd: 108,
@@ -136,3 +137,23 @@ assert.equal(calculateMonsterTotals(bladeFight).criticalRate, 27);
 assert.equal(calculateMonsterTotals(bladeFight).atk, 770);
 assert.ok(monsterTargetFigures(bladeFight, plain).dmg > Math.floor(770 * 1.135));
 console.log('Fran: all eight game display stats match; own Fight + two teammate Fight sets enter battle DMG once. Blade remains a display bonus.');
+
+/* The Glory buildings are the fight's, never the panel's: at level 20 they add
+   20 % of base HP, ATK and DEF, 21 % ATK on their Sanctuary's element and 25 CRI
+   Dmg, summed with every other percentage and rounded once — and no stat moves. */
+const buildings = readBuildingBonuses({ deco_list: [4, 8, 9, 31, 15, 16, 17, 18, 19].map((master_id) => ({ master_id, level: 20 })) });
+const water = { ...monster, attribute: 1 };
+const built = monsterTargetFigures(water, { ...plain, buildings });
+const bare = monsterTargetFigures(water, plain);
+for (const key of statKeys) assert.equal(built[key], bare[key], `a building reached ${key}, which the panel does not show`);
+const builtAtk = Math.ceil(monster.atk * (100 + effects[2] + 20 + 21) / 100) + effects[3];
+const builtDef = Math.ceil(monster.def * (100 + effects[4] + 20) / 100) + effects[5];
+const builtHp = Math.ceil(monster.con * 15 * (100 + effects[0] + 20) / 100) + effects[1];
+assert.equal(built.dmg, Math.floor(builtAtk * (1 + own.criRate / 100 * (own.criDmg + 25) / 100)));
+assert.equal(built.ehp, Math.floor(builtHp * (1142 + 3.572 * builtDef) / 1000));
+assert.equal(built.ehpD, Math.floor(builtHp * (1142 + 3.572 * builtDef * 0.3) / 1000));
+const fire = monsterTargetFigures({ ...monster, attribute: 2 }, { ...plain, buildings: { ...buildings, elementAtk: { Water: 21 } } });
+assert.equal(fire.dmg, Math.floor((Math.ceil(monster.atk * (100 + effects[2] + 20) / 100) + effects[3]) * (1 + own.criRate / 100 * (own.criDmg + 25) / 100)),
+  'a Sanctuary reaches its own element only');
+assert.deepEqual(monsterTargetFigures(water, { ...plain, buildings: noBuildingBonuses }), bare, 'no building counts nothing');
+console.log('Buildings: HP, ATK, DEF, a Sanctuary on its element and CRI Dmg reach the composites only.');

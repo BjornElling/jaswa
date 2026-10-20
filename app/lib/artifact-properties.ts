@@ -119,6 +119,8 @@ export const artifactsPerMonster = 2;
    match on the monster it is engraved on (§1). */
 export const artifactCategoryFromType: Record<number, ArtifactCategory> = { 1: 'attribute', 2: 'type' };
 export const artifactCategoryLabels: Record<ArtifactCategory, string> = { attribute: 'Attribute', type: 'Type' };
+/** SPD UP Effect: the one artifact line the stat sheet reads, for the speed buff its holder receives. */
+export const spdUpEffectPropertyId = 206;
 
 export const artifactElements: Record<number, string> = { 1: 'Water', 2: 'Fire', 3: 'Wind', 4: 'Light', 5: 'Dark' };
 export const artifactArchetypes: Record<number, MonsterArchetype> = { 1: 'Attack', 2: 'Defense', 3: 'HP', 4: 'Support' };
@@ -151,15 +153,18 @@ export const artifactIntangibleLabel = 'Intangible';
  * range, and the game's engraving statistics separate current from legacy —
  * an id the statistics never mention is one the drop pool no longer produces.
  *
- * The ranges are the observed ones. Three of them (210, 219, 220) roll below
- * the figure `ARTIFACT-CANONICAL.md` §5 records, on current artifacts acquired
- * this month, so the export governs and §5's table is the narrower secondary
- * source.
+ * The ranges are today's roll table, which the game's own Repeat Convert dialog
+ * confirms: its lowest threshold is `minRoll` and its highest `ceil(maxRoll ×
+ * 1.5)` on every property it names. Lines below a floor exist — Bomb Damage at
+ * 1, SPD UP Effect at 3 — but only on artifacts that predate v6.2.0's raised
+ * values, and a range here is a planning figure rather than an import gate
+ * (`readSubProperty` checks no range), so those old lines are read as they are
+ * without widening the table every current artifact is measured against.
  *
  * 206 and 226 were a fourth such case until the game's own artifact panel
  * showed the cause was a swapped pair of names rather than a wider range: §5.3
  * pairs "SPD UP Effect" with 4-6 and "ATK/DEF UP Effect" with 3-5, and the
- * export agrees once each name sits on the right id (§15.9).
+ * export agrees once each name sits on the right id (§5.3).
  *
  * Legacy names come from the lines the export actually carries; legacy ranges
  * stay `null` under §12 rather than being inferred from the few examples owned.
@@ -171,7 +176,7 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
      "ATK/DEF UP Effect". That also settles the ranges the export observes —
      4-6 here and 3-5 on 226 — against §5.3, which had the pairing reversed. */
   { id: 206, name: 'SPD UP Effect', availability: 'both', status: 'current', minRoll: 4, maxRoll: 6 },
-  { id: 210, name: 'Bomb Damage', availability: 'both', status: 'current', minRoll: 1, maxRoll: 4 },
+  { id: 210, name: 'Bomb Damage', availability: 'both', status: 'current', minRoll: 2, maxRoll: 4 },
   { id: 214, name: 'CRIT DMG Taken', valueSign: '−', availability: 'both', status: 'current', minRoll: 2, maxRoll: 4 },
   { id: 215, name: 'Life Drain', availability: 'both', status: 'current', minRoll: 5, maxRoll: 8 },
   { id: 218, name: 'Additional Damage by HP', availability: 'both', status: 'current', minRoll: 0.2, maxRoll: 0.3 },
@@ -200,11 +205,12 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
 
   /* Type artifacts only. */
   { id: 400, name: '[Skill 1] CRIT DMG', availability: 'type', status: 'current', minRoll: 4, maxRoll: 6 },
-  /* One line in the export rolled 7 where every other skill property tops out
-     at 6. A single observation is thin evidence for a wider range, but the
-     alternative is a ceiling a real artifact provably exceeds — and a roll
-     fraction above 1 would make the benchmark meaningless. */
-  { id: 401, name: '[Skill 2] CRIT DMG', availability: 'type', status: 'current', minRoll: 4, maxRoll: 7 },
+  /* 4–6 like every other skill line, which the Repeat Convert dialog's 4–9
+     implies. The lines above 6 that once argued for a wider range are all
+     converted lines with no power-up — a conversion reaches 9 — so a 7 is a
+     conversion, not a roll; widening the range cost every Skill 2 CRIT DMG line
+     a seventh of its score. */
+  { id: 401, name: '[Skill 2] CRIT DMG', availability: 'type', status: 'current', minRoll: 4, maxRoll: 6 },
   { id: 404, name: '[Skill 1] Recovery', availability: 'type', status: 'current', minRoll: 4, maxRoll: 6 },
   { id: 405, name: '[Skill 2] Recovery', availability: 'type', status: 'current', minRoll: 4, maxRoll: 6 },
   { id: 406, name: '[Skill 3] Recovery', availability: 'type', status: 'current', minRoll: 4, maxRoll: 6 },
@@ -230,20 +236,16 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
 
      `availability` stays 'both' even where the observed lines fall on one
      category only — 203 on three Type artifacts, 207 on a single Attribute
-     one. Those samples are far too thin to narrow a field whose only effect is
-     to reject a line on import, and §12's rule is that a legal artifact must
-     never be refused.
+     one. Those samples are far too thin to narrow the field, and §12's rule is
+     that a legal artifact must never be refused.
 
-     The ranges stay `null` even though the account now supplies them. Reading
+     The ranges stay `null` even though the account supplies some of them —
      single unpowered lines from artifacts acquired after the v6.2.0 increase
-     gives 200/201/202 = 9-14, 204 = 3-5, 205 = 2-4, 208/209 = 2-4, 216 = 4-6
-     and 402 = 4-6, each agreeing with the published v8 merge table. They are
-     recorded here rather than in the fields because `readSubProperty` treats a
-     range as a rejection test: filling these in refuses 55 artifacts this
-     account holds — the 28 that predate v6.2.0 and roll under the older, lower
-     table, plus pre-v8 lines whose value is not a whole multiple of any
-     per-roll figure because the old upgrade mechanic did not work that way.
-     A range that would reject a legal artifact is worse than no range (§12). */
+     give 200/201/202 = 9-14, 204 = 3-5, 205 = 2-4, 208/209 = 2-4, 216 = 4-6
+     and 402 = 4-6. No range is needed: the drop pool no longer produces these
+     properties, so no monster's statistics or stated answers can want one, and
+     a legacy line weighs zero in every score whatever it rolled. A ceiling here
+     could only ever have refused to judge an artifact, never improved a score. */
   { id: 200, name: 'ATK Increased Proportional to Lost HP', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 201, name: 'DEF Increased Proportional to Lost HP', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 202, name: 'SPD Increased Proportional to Lost HP', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
@@ -287,32 +289,17 @@ export function artifactPropertiesFor(category: ArtifactCategory): ArtifactPrope
  * answered.
  *
  * Deliberately independent of the artifact's grade, so that one scale measures
- * every line and a lower grade scores as the smaller contribution it is. The
- * pre-v8 ceilings in `artifacts.ts` are already absolute five-roll figures, so
- * this makes the two eras agree rather than measuring them differently.
+ * every line and a lower grade scores as the smaller contribution it is. Pre-v8
+ * artifacts are measured on the same scale: their current properties roll on
+ * today's table, and their legacy ones have no ceiling at all.
  */
 export function artifactPropertyMaximum(property: ArtifactPropertyDefinition): number | null {
   if (property.maxRoll === null) return null;
   return property.maxRoll * bestArtifactLineContributions;
 }
 
-/**
- * The contributions a converted line may reach, whatever the artifact's grade.
- *
- * This is the *import* bound, and it is deliberately looser than the real one
- * below. `readSubProperty` uses it as a rejection test, and under §0.1 a single
- * rejected line fails the whole account, so the cost of the two errors is not
- * symmetric: too high merely admits a value the game cannot produce, while too
- * low refuses an artifact the player legitimately holds.
- *
- * Engraved conversion stones share the normal ceiling rather than exceeding it
- * — their grade raises the floor they roll from, not the maximum (§15.12) — so
- * the margin here is no longer covering a second system. It is kept because the
- * stone evidence samples some grades and properties rather than all of them,
- * and because nothing is gained by tightening a bound whose only job is to
- * refuse corrupt records.
- */
-export const artifactConversionContributions = 2;
+/** The highest level an artifact reaches; a pre-v8 one below it is unrefined. */
+export const artifactMaxLevel = 15;
 
 /**
  * The contributions a normal conversion is actually worth, as a share of one
@@ -320,7 +307,7 @@ export const artifactConversionContributions = 2;
  * conversion buys one and a half rolls where a power-up buys one.
  *
  * Used to place a conversion on the same scale as a full line, which the
- * benchmark gives five contributions (§13). The rounding that makes the
+ * benchmark gives five contributions (§3). The rounding that makes the
  * per-property ceiling land on the game's display step is deliberately not
  * folded in here: this is the underlying rate, not one property's figure.
  */
@@ -345,9 +332,9 @@ export const artifactNormalConversionContributions = 1.5;
  * overstates every property by about a third, and `minRoll + maxRoll` happens
  * to agree only where `minRoll` is half of `maxRoll`. §10 records the table.
  *
- * This is the figure to score a *proposed* conversion against. Judging a
- * captured line's validity is the other question, and it uses the looser
- * `artifactConversionContributions` above.
+ * This is the figure to score a *proposed* conversion against. A captured line
+ * is never judged against it: the game is the authority on a value it issued,
+ * so no range is an import gate.
  */
 export function artifactNormalConversionMaximum(property: ArtifactPropertyDefinition): number | null {
   if (property.minRoll === null || property.maxRoll === null) return null;
@@ -360,24 +347,14 @@ export function artifactNormalConversionMaximum(property: ArtifactPropertyDefini
 }
 
 /**
- * The bound a captured converted line is judged against on import. See
- * `artifactConversionContributions` for why this stays wider than the value a
- * normal conversion can actually produce.
- */
-export function artifactConversionMaximum(property: ArtifactPropertyDefinition): number | null {
-  if (property.maxRoll === null) return null;
-  return property.maxRoll * artifactConversionContributions;
-}
-
-/**
  * The share of a conversion's own maximum which one roll-value choice assumes.
  *
  * The fractions are of the conversion's own ceiling, so 1 is the best a
  * conversion can produce rather than the best the line could ever hold. The
  * floor is `minRoll` — the Repeat Convert dialog's lowest selectable threshold
- * on all 25 properties — and *not* two minimum rolls: a conversion re-rolls the
- * line from nothing, so its two contributions are what it may reach, never a
- * floor it must clear (§10). "One third", "two thirds" and "three quarters" are
+ * on all 25 properties — and *not* a multiple of it: a conversion re-rolls the
+ * line from nothing, so the one and a half rolls it buys are what it may reach,
+ * never a floor it must clear (§10). "One third", "two thirds" and "three quarters" are
  * deliberately those shares of that ceiling: they are the values the control
  * names, rather than nearby hand-picked estimates. The stops are the ones a Gem
  * or a Grindstone offers (`craftRollAssumptions`).

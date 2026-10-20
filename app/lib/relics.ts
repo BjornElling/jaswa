@@ -1,7 +1,8 @@
 import type { GameRecord } from './game-data';
 import { canEngraveRelics } from './monster-engrave-eligibility';
 import {
-  relicMainProperties, relicMaximumDurability, relicMaximumLevel, relicProperty,
+  relicMainPercent, relicMainProperties, relicMaximumDurability, relicMaximumLevel, relicProperty,
+  relicThreshold, relicUniquePercent,
 } from './relic-properties';
 import type { RelicMainProperty, RelicPropertyDefinition } from './relic-properties';
 
@@ -11,9 +12,9 @@ import type { RelicMainProperty, RelicPropertyDefinition } from './relic-propert
  *
  * The export writes the triple `[type, threshold, percent]`, and the game reads
  * it as "*grant* +`percent` % per `threshold` *source stat* at the start of
- * battle". Both numbers move with the power-up level, so they are the unique
- * property's strength at the relic's current level and not a fixed property of
- * the family.
+ * battle". The threshold moves with the power-up level and the percent is fixed
+ * by the family, so together they are the unique property's strength at the
+ * relic's current level.
  */
 export type RelicUniqueProperty = {
   definition: RelicPropertyDefinition;
@@ -70,6 +71,16 @@ function wholeInRange(value: unknown, lowest: number, highest: number): number |
  * `sec_effect` — and every relic this account has ever held agrees with itself.
  * A record where the two disagree is not a relic JASWA knows how to read, so it
  * fails rather than picking a side.
+ *
+ * The numbers are held to the vocabulary too: the main percent must be `3 +
+ * level`, the threshold `relicThreshold(level, per)` and the percent the
+ * family's fixed one. The advice judges a relic from its level and family while
+ * the engraving plan reads the imported numbers, so a relic the vocabulary
+ * does not describe would be judged two ways on one page. Every relic this
+ * account holds satisfies all three — intermediate levels included, which is
+ * also the evidence that a threshold tier lasts three levels — so the first
+ * one that does not is news about the game, and it surfaces as a failed import
+ * rather than as a quiet disagreement.
  */
 export function readRelic(record: unknown): Relic | null {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
@@ -97,6 +108,9 @@ export function readRelic(record: unknown): Relic | null {
   const level = wholeInRange(source.upgrade_curr, 0, relicMaximumLevel);
   const durability = wholeInRange(source.durability, 0, relicMaximumDurability);
   if (level === null || durability === null) return null;
+  if (mainPercent !== relicMainPercent(level)
+    || threshold !== relicThreshold(level, definition.per)
+    || percent !== relicUniquePercent(definition)) return null;
 
   return {
     id: String(id),
@@ -153,6 +167,25 @@ export function relicPowerUpStoneCount(data: GameRecord | undefined): number | u
 }
 
 /**
+ * Why this roster's relic engravings cannot be read, or `undefined` when they
+ * can. A monster carries one relic at most and takes one only from Lv. 40
+ * (v9.1.8), and every relic reader trusts both: the plan compares a monster's
+ * one current relic, the engraving count skips a monster below Lv. 40, and the
+ * stat sheet adds every relic it is handed. A roster breaking either rule would
+ * be counted one way and summed another, so it fails the import instead
+ * (`AGENTS.md` §0.1). An unknown level counts as below Lv. 40, because it
+ * cannot show that the engraving is legal.
+ */
+export function relicEngravingProblem(units: readonly GameRecord[]): string | undefined {
+  for (const unit of units) {
+    if (!Array.isArray(unit.relics) || unit.relics.length === 0) continue;
+    if (unit.relics.length > 1) return 'This file engraves more than one relic on one monster.';
+    if (!canEngraveRelics(unit)) return 'This file engraves a relic on a monster below Lv. 40.';
+  }
+  return undefined;
+}
+
+/**
  * How many monsters each relic is engraved on, keyed by relic id.
  *
  * A relic is not gear the way a rune is. The game engraves one relic on
@@ -160,6 +193,10 @@ export function relicPowerUpStoneCount(data: GameRecord | undefined): number | u
  * monster and the relic record itself names no owner — there is no
  * `occupied_id` to read. The count therefore comes from walking the roster,
  * and a relic engraved on nobody is simply absent from the map.
+ *
+ * Every eligible monster counts, Material ones included: this is the game's
+ * own capacity, and a JASWA policy about which monsters it proposes a relic for
+ * must never change how many engravings the game says are taken.
  */
 export function relicEngravingCounts(monsters: readonly GameRecord[]): Map<string, number> {
   const counts = new Map<string, number>();

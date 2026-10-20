@@ -107,7 +107,7 @@ function TargetColumn({ slot, title, target }: { slot: number; title: string; ta
       <ReappRow label="Rune type">
         <ValueLine values={reappSetOptions.filter((name) => target.sets.includes(name))} empty="Any set" />
       </ReappRow>
-      <ReappRow label="Min grade"><ValueLine values={[target.minimumRarity]} empty="—" /></ReappRow>
+      <ReappRow label="Min rarity"><ValueLine values={[target.minimumRarity]} empty="—" /></ReappRow>
       <ReappRow label="Must have innate">
         <ValueLine values={[target.requiresInnate ? 'Yes' : 'No']} empty="—" />
       </ReappRow>
@@ -190,8 +190,8 @@ function TargetFields({ slot, title, target, onChange }: {
       {/* Each sized to its few short answers with some room to spare, rather
           than stretched across the column for words of six letters. */}
       <div className="reapp-editor-pair">
-        <label className="field reapp-grade"><span>Min grade</span>
-          <Dropdown value={target.minimumRarity} aria-label={`${title} min grade`}
+        <label className="field reapp-grade"><span>Min rarity</span>
+          <Dropdown value={target.minimumRarity} aria-label={`${title} min rarity`}
             onChange={(event) => onChange({ minimumRarity: event.target.value as RuneRarity })}>
             {runeRarities.map((rarity) => <option key={rarity}>{rarity}</option>)}
           </Dropdown>

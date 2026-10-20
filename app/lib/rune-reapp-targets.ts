@@ -97,6 +97,7 @@ export function defaultReappTargets(kind: RerollKind = 'reapp'): ReappTarget[] {
 /** Whether the game lets this rune through the stone, the +12 aside. */
 export function rerollAllowed(rune: Rune, kind: RerollKind): boolean {
   if (isIntangibleRuneSet(rune.setName)) return false;
+  /* An Ancient rune passes because Ancient Reappraisal Stones exist for it (RUNE-CANONICAL §9). */
   if (kind === 'reapp') return true;
   return !rune.ancient && !rune.subProperties.some((line) => line.gemmed);
 }

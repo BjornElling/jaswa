@@ -103,16 +103,17 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     figures[FIGURE_RES] = question[QUESTION_BASE_AT + FIGURE_RES] + effects[ACC_RESISTANCE];
     figures[FIGURE_ACC] = question[QUESTION_BASE_AT + FIGURE_ACC] + effects[ACC_ACCURACY];
 
-    // The composites read the fight's HP, ATK, DEF and CRI Rate (combatAt):
-    // each lead summed with the other percentages and rounded once.
+    // The composites read the fight's HP, ATK, DEF, CRI Rate and CRI Dmg (combatAt):
+    // each lead summed with the other percentages and rounded once; the Fallen
+    // Ancient Guardian's CRI Dmg reaches DMG only, never the shown CRI Dmg.
     let hp = max(0.0, roundedUp(baseHp * (100.0 + effects[ACC_HP_PERCENT] + effects[ACC_TEAM_HP_PERCENT] + question[QUESTION_BASE_AT + COMBAT_HP]) / 100.0) + effects[ACC_HP_FLAT]);
     let atk = max(0.0, roundedUp(baseAtk * (100.0 + effects[ACC_ATK_PERCENT] + effects[ACC_TEAM_ATK_PERCENT] + question[QUESTION_BASE_AT + COMBAT_ATK]) / 100.0) + effects[ACC_ATK_FLAT]);
     let def = max(0.0, roundedUp(baseDef * (100.0 + effects[ACC_DEF_PERCENT] + effects[ACC_TEAM_DEF_PERCENT] + question[QUESTION_BASE_AT + COMBAT_DEF]) / 100.0) + effects[ACC_DEF_FLAT]);
     // RUNE-ROLE-METRICS.md §2–4, as rune-potential-metrics.ts states them.
-    let criticalRate = min(1.0, max(0.0, figures[FIGURE_CRI_RATE] + question[QUESTION_BASE_AT + COMBAT_CRI_RATE]) / 100.0);
-    figures[FIGURE_DMG] = atk * (1.0 + criticalRate * max(0.0, figures[FIGURE_CRI_DMG]) / 100.0);
-    figures[FIGURE_EHP] = hp * (1142.0 + 3.572 * def) / 1000.0;
-    figures[FIGURE_EHP_D] = hp * (1142.0 + 3.572 * def * 0.3) / 1000.0;
+    let criticalRate = min(CRITICAL_RATE_CAP_PERCENT, max(0.0, figures[FIGURE_CRI_RATE] + question[QUESTION_BASE_AT + COMBAT_CRI_RATE])) / 100.0;
+    figures[FIGURE_DMG] = atk * (1.0 + criticalRate * max(0.0, figures[FIGURE_CRI_DMG] + question[QUESTION_BASE_AT + COMBAT_CRI_DMG]) / 100.0);
+    figures[FIGURE_EHP] = hp * (DEFENSE_FACTOR_BASE + DEFENSE_FACTOR_PER_DEF * def) / DEFENSE_FACTOR_SCALE;
+    figures[FIGURE_EHP_D] = hp * (DEFENSE_FACTOR_BASE + DEFENSE_FACTOR_PER_DEF * def * BROKEN_DEFENSE_SHARE) / DEFENSE_FACTOR_SCALE;
 
     var clears = true;
     for (var at: u32 = 0u; at < FIGURE_COUNT; at = at + 1u) {

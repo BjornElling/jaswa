@@ -12,6 +12,11 @@ const preferencesMirrorKey = 'jaswa-preferences';
    order. It is deliberately limited to preferences, never an imported game. */
 let preferenceWriteTail: Promise<void> = Promise.resolve();
 
+/* The one place the workspace database is opened: its name, its store and
+   the store's creation. The save folder (`save-location.ts`) lives in the same
+   store and reaches it through the three functions below, so the two can never
+   open the database in different shapes. The `1` is IndexedDB's own required
+   argument, not a format version of JASWA's. */
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(databaseName, 1);
@@ -21,7 +26,8 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-async function read<T>(key: string): Promise<T | null> {
+/** One stored value of the workspace, or `null` where none is stored. */
+export async function readWorkspaceValue<T>(key: string): Promise<T | null> {
   const database = await openDatabase();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(storeName, 'readonly');
@@ -37,11 +43,12 @@ async function read<T>(key: string): Promise<T | null> {
   });
 }
 
-async function write(key: string, value: unknown): Promise<void> {
+/* Settles when the transaction does, so a caller knows the change is stored. */
+async function change(apply: (store: IDBObjectStore) => void): Promise<void> {
   const database = await openDatabase();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(storeName, 'readwrite');
-    transaction.objectStore(storeName).put(value, key);
+    apply(transaction.objectStore(storeName));
     transaction.oncomplete = () => {
       database.close();
       resolve();
@@ -55,6 +62,14 @@ async function write(key: string, value: unknown): Promise<void> {
       reject(transaction.error);
     };
   });
+}
+
+export function writeWorkspaceValue(key: string, value: unknown): Promise<void> {
+  return change((store) => store.put(value, key));
+}
+
+export function deleteWorkspaceValue(key: string): Promise<void> {
+  return change((store) => store.delete(key));
 }
 
 function readPreferencesMirror(): unknown {
@@ -98,38 +113,22 @@ function writePreferencesMirror(preferences: Preferences) {
 }
 
 export function loadImportedGame() {
-  return read<ImportedGame>(gameKey);
+  return readWorkspaceValue<ImportedGame>(gameKey);
 }
 
 export function saveImportedGame(game: ImportedGame) {
-  return write(gameKey, game);
+  return writeWorkspaceValue(gameKey, game);
 }
 
-export async function clearImportedGame(): Promise<void> {
-  const database = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(storeName, 'readwrite');
-    transaction.objectStore(storeName).delete(gameKey);
-    transaction.oncomplete = () => {
-      database.close();
-      resolve();
-    };
-    transaction.onerror = () => {
-      database.close();
-      reject(transaction.error);
-    };
-    transaction.onabort = () => {
-      database.close();
-      reject(transaction.error);
-    };
-  });
+export function clearImportedGame(): Promise<void> {
+  return deleteWorkspaceValue(gameKey);
 }
 
 /** The newest stored copy, unjudged; pass it through `readPreferences`. */
 export async function loadPreferences(): Promise<unknown> {
   const mirror = readPreferencesMirror();
   try {
-    return latestPreferences(await read<unknown>(preferencesKey), mirror);
+    return latestPreferences(await readWorkspaceValue<unknown>(preferencesKey), mirror);
   } catch {
     return latestPreferences(null, mirror);
   }
@@ -138,7 +137,7 @@ export async function loadPreferences(): Promise<unknown> {
 export function savePreferences(preferences: Preferences) {
   writePreferencesMirror(preferences);
   const snapshot = structuredClone(preferences);
-  const writeNext = preferenceWriteTail.catch(() => undefined).then(() => write(preferencesKey, snapshot));
+  const writeNext = preferenceWriteTail.catch(() => undefined).then(() => writeWorkspaceValue(preferencesKey, snapshot));
   preferenceWriteTail = writeNext;
   return writeNext;
 }

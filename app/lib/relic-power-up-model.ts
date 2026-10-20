@@ -108,7 +108,7 @@ function checkedRates(rates: RelicSuccessRates): RelicSuccessRates {
  * `target` is a parameter rather than a fixed `+15` because the question the
  * duplicate gate asks is not about the ceiling: it needs the chance of reaching
  * one level above the copy the account already holds (`RELIC-CANONICAL.md`
- * §8.2). The same recursion answers both.
+ * §8 rule 2). The same recursion answers both.
  *
  * **A target above `+15` is unreachable, and this says so itself.** The gate
  * asks for `incumbent + 1`, which is `16` whenever the incumbent is a finished
@@ -321,24 +321,4 @@ export function relicLanding(chances: readonly number[]): RelicLanding {
     if (tail >= 0.5) break;
   }
   return { level, chance, likeliest: { level: likeliestLevel, chance: Math.max(likeliestChance, 0) } };
-}
-
-/**
- * The expected account-wide strength a duplicate can add beyond the copy the
- * account already owns. Landing below or level with that incumbent adds
- * nothing; every higher landing adds only its excess.
- *
- * **The duplicate gate no longer decides on this**, and `verify:relic-maths` is
- * what keeps it. It answers a real question — how much a second copy is worth in
- * expectation — but it answered it in units no player could check, and it mixed
- * the synergy weight into a number the page then printed a plain chance beside.
- * §8.2 now compares the overtake chance itself against a per-band threshold, so
- * what decides the verdict is the figure the row already shows.
- */
-export function relicDuplicateMarginalStrength(
-  chances: readonly number[], incumbentLevel: number, source: RelicSourceStat,
-): number {
-  const incumbent = relicStrengthIndex(incumbentLevel, source);
-  return chances.reduce((gain, chance, level) =>
-    gain + chance * Math.max(0, relicStrengthIndex(level, source) - incumbent), 0);
 }

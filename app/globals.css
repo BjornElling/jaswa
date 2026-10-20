@@ -6334,7 +6334,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 /* ------------------------------------------------- sortable table headers */
 
 /* Every table in the artifact workspace sorts on every column
-   (docs/ARTIFACT-CANONICAL.md §17.8). The header becomes a button, and the
+   (docs/ACCOUNT-TABLES.md §1). The header becomes a button, and the
    sort mark occupies its space in all three states — unsorted, ascending,
    descending — so clicking a header never changes the column's width and
    re-wraps the row (AGENTS.md rule 2). */

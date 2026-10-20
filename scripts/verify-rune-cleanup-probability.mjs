@@ -11,7 +11,6 @@ import {
   candidateChance, chanceRuns, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 import { remainingEvents } from '../app/lib/rune-properties.ts';
-import { runeRarityOrder } from '../app/lib/runes.ts';
 
 const credit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 const base = { hp: 0, atk: 0, def: 0, spd: 0, criRate: 0, criDmg: 0, res: 0, acc: 0 };
@@ -39,8 +38,7 @@ const expectedChance = { Normal: 0, Magic: 1, Rare: 3 / 4, Hero: 19 / 27, Legend
 const otherStats = [2, 4, 6];
 
 for (const grade of Object.keys(expectedEvents)) {
-  const initial = runeRarityOrder(grade);
-  assert.deepEqual(remainingEvents(0, initial).events, expectedEvents[grade], `${grade} event order`);
+  assert.deepEqual(remainingEvents(0, grade).events, expectedEvents[grade], `${grade} event order`);
   const rune = {
     id: `probability-${grade}`, setId: 13, setName: 'Violent', slot: 1, stars: 6,
     ancient: false, rarity: grade, level: 0, mainStatId: 3, mainValue: 0,
@@ -52,7 +50,9 @@ for (const grade of Object.keys(expectedEvents)) {
     })),
     occupiedId: null, obtainedOrder: 1,
   };
-  const candidate = prepareRuneCandidate(rune, role, build, base, credit);
+  /* The rationals are worked out against a bare ruler — the one-stat ceiling is five
+     SPD rolls and nothing else — so the ruler is stated bare rather than the product's. */
+  const candidate = prepareRuneCandidate(rune, role, build, base, credit, credit);
   assert.ok(candidate, `${grade} fixture should be judgeable`);
   /* The starting SPD line is 4/6 max-roll units. Reaching 25 % of this
      one-stat ceiling therefore requires at least one later SPD improvement.

@@ -97,7 +97,7 @@ try {
   assert.equal(fodder.matches(10101, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, notNeeded: false, candidateLevel: 1 }), true,
     'an unawakened copy can feed its awakened Lv. 40 monster');
   assert.equal(fodder.matches(10102, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, notNeeded: false, candidateLevel: 1 }), true,
-    'an unawakened copy can feed its awakened Lv. 40 monster of the same element');
+    'an unawakened copy of another element feeds a Lv. 40 monster of its family: skill-up fodder crosses elements');
   assert.equal(fodder.matches(10113, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, notNeeded: false, candidateLevel: 1 }), true,
     'a duplicated specific monster is fodder');
   assert.equal(fodder.matches(10105, { alreadyHaveLevel40: false, familyFullySkilled: false, fodderMon: true, notNeeded: false, candidateLevel: 1 }), false,

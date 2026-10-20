@@ -1,6 +1,6 @@
 /**
  * The recommendation view's filters and its slot summary, checked against a
- * real import (`ARTIFACT-CANONICAL.md` §17.9 and §17.10).
+ * real import (`ACCOUNT-TABLES.md` §5 and §6).
  *
  * Four properties, each of which the user can verify by eye and would
  * therefore notice breaking:
