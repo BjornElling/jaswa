@@ -139,6 +139,18 @@ Which contents fall in each area (`preset-contents.ts`, `speed-contents.ts`):
 The leader is chosen per team and is independent of the move order: the last
 monster to move may lead.
 
+**Several leaders, one battle.** Rift Raid 1, 2 and 3 take part in every Rift
+Raid battle, and each one's leader leads all three decks (the developer,
+October 20, 2026; `battleDecks` in `preset-contents.ts`). A team of one of them
+fights under its own leader and the other two's, which Speed Tuning reads off
+those decks and never chooses (`otherLeaders`); another Rift Raid preset, and
+one built in JASWA, fights under its own. Leads of one attribute do not stack —
+XelNecra's guide above: "if two players decide to bring a speed leader, only
+one of the leader abilities will come into effect". That the largest is the one
+that counts is **modelled**. `leadReaches` (`speed-tick.ts`) is the one rule —
+area, element, then no stacking — that the speed figures and every other lead
+reader (`team-leads.ts`, `RUNE-OPTIMIZATION.md` §2.2.3) apply.
+
 ### 2.3 Guild
 
 No guild bonus raises speed. Guild levels (patch 4.0.0) unlock guild skills —

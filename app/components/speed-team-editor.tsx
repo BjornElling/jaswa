@@ -272,7 +272,8 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
                 onChange={(value) => onWhatIf(member.unitId, value)} />
             </td>
-            <td className="speed-figure speed-combat" rowSpan={2} title={`${formatNumber(monster.combatSpeed, general)} ${speedName}`}>
+            <td className="speed-figure speed-combat" rowSpan={2} title={`${formatNumber(monster.combatSpeed, general)} ${speedName}${monster.leaderPercent > 0
+              ? `, with a +${monster.leaderPercent} % SPD lead${team.otherLeaders.length > 0 ? ` from the leaders of ${[title, ...team.otherLeaders.map((leader) => leader.presetName)].join(', ')}` : ''}` : ''}`}>
               {formatNumber(monster.combatSpeed, general)}
             </td>
             {controls}

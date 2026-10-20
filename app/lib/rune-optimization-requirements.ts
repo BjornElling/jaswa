@@ -3,7 +3,8 @@ import { runeSlotKeys } from './monster-defaults';
 import type { MonsterCopyPreferences } from './monster-preferences';
 import { monsterStatTargetKeys } from './monster-preferences';
 import { resolveMonsterPreferences } from './monster-preference-resolution';
-import type { TeammateSets } from './monster-stats';
+import { noTeamBonuses } from './team-leads';
+import type { TeamBonuses } from './team-leads';
 import type { RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
 
 /**
@@ -26,9 +27,9 @@ export function askable(draft: RequirementsDraft): RuneOptimizationRequirements 
  * requirements would silently exclude builds the owner never ruled out.
  */
 export function profileRequirements(
-  unitId: string, masterId: unknown, stated: MonsterCopyPreferences | undefined, teammateSets: TeammateSets = {},
+  unitId: string, masterId: unknown, stated: MonsterCopyPreferences | undefined, team: TeamBonuses = noTeamBonuses,
 ): { requirements: RequirementsDraft } {
-  const resolved = resolveMonsterPreferences(unitId, masterId, stated, undefined, teammateSets);
+  const resolved = resolveMonsterPreferences(unitId, masterId, stated, undefined, team);
   const targets: Partial<Record<RankFigure, number>> = {};
   const ceilings: Partial<Record<RankFigure, number>> = {};
   for (const key of monsterStatTargetKeys) {

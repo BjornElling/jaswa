@@ -164,7 +164,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, onWri
      whole team, so they are read together, once for each change to the
      presets, the import, the totem or the tuning. */
   const lines = useMemo<Line[]>(() => presets.filter(isSpeedTeam).map((preset): Line => {
-    const { team, monsters: inPreset } = presetTeam(preset, tuning, monsterById, items);
+    const { team, monsters: inPreset } = presetTeam(preset, presets, tuning, monsterById, items);
     return { preset, team, monsters: inPreset, reading: readSpeedTeam({ team, monsters: inPreset, totemPercent: totemShare }) };
   }), [presets, tuning, monsterById, items, totemShare]);
 

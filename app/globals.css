@@ -319,7 +319,7 @@ label[for] {
 /* Body — every sentence, label and value that is not a heading. */
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
 .overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
-.rune-build-set, .overlay-toggle, .overlay-lead, .overlay-accuracy-label, .overlay-accuracy-value,
+.rune-build-set, .overlay-toggle, .overlay-lead, .overlay-team-lead, .overlay-accuracy-label, .overlay-accuracy-value,
 .engraved-rune-main, .engraved-rune-innate, .engraved-rune-subs, .engraved-artifact-main, .engraved-artifact-subs,
 .engraved-relic-main, .engraved-relic-unique,
 .checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
@@ -5732,13 +5732,39 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   gap: var(--s1) var(--s5);
 }
 .overlay-leads-fields {
+  --lead-field: calc(3ch + 2 * var(--s3) + 2px);
+  --lead-columns: 8ch var(--lead-field) var(--glyph-small);
+  --lead-line: calc(8ch + var(--lead-field) + var(--glyph-small) + 2 * var(--s2));
   display: grid;
-  grid-template-rows: repeat(2, auto);
+  grid-template-columns: repeat(2, var(--lead-line));
+  grid-template-rows: repeat(2, 36px);
   grid-auto-flow: column;
   justify-content: start;
   gap: var(--s1) var(--s6);
 }
-.overlay-lead { display: grid; grid-template-columns: 9ch auto auto; align-items: center; gap: var(--s2); color: var(--text-muted); }
+.overlay-lead { display: grid; grid-template-columns: var(--lead-columns); align-items: center; gap: var(--s2); color: var(--text-muted); }
+/* A preset's leads are read off its leaders, one line each in the box the typed
+   leads take in Scenario, so changing area moves nothing beside the block: the
+   stat where a field's name stands, the figure where its field stands, and the
+   mark where its percent sign stands. A lead that does nothing for this copy is
+   muted and struck through, which changes no width (`AGENTS.md` §2). */
+.overlay-team-leads { margin: 0; padding: 0; list-style: none; }
+.overlay-team-lead { display: grid; grid-template-columns: var(--lead-columns); align-items: center; gap: var(--s2); color: var(--text-muted); }
+.overlay-team-lead-value { padding-inline: var(--s3); text-align: right; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.overlay-team-lead[data-state='unreached'] :is(.overlay-team-lead-stat, .overlay-team-lead-value) {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+/* A line with no lead to show keeps a lead line's width, ending in an ellipsis;
+   the block keeps both columns whatever it holds. */
+.overlay-team-lead-note {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  align-self: center;
+}
 /* Lines of a toggle row's height and spacing: the area at the left, the figure in
    a column wide enough for "Variable", so changing area moves neither. An area
    name too long for the line ends in an ellipsis and is named whole on hover. */
@@ -5992,7 +6018,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    Each owns a fixed cell of its row, so checking one leaves its neighbours still. */
 .overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
 .overlay-toggle input { border-color: var(--gold-edge); }
-.overlay-lead input { width: calc(3ch + 2 * var(--s3) + 2px); font-variant-numeric: tabular-nums; }
+.overlay-lead input { width: var(--lead-field); font-variant-numeric: tabular-nums; }
 
 /* Three slots on one row, under the build: each names itself, opens its own
    mains, and carries its population on one line beneath. */

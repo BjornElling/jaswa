@@ -94,6 +94,16 @@ const leaderAreaWords: Record<LeaderArea, string> = {
   Guild: 'in guild content',
 };
 
+/** The stat a lead raises, as a table names it: `CRI Rate`, `SPD`. */
+export function leaderSkillStat(lead: LeaderSkill): string {
+  return leaderAttributes[lead.attribute].short;
+}
+
+/** Where a lead counts, in the words of a sentence: `in arena`, `everywhere`. */
+export function leaderAreaPhrase(lead: LeaderSkill): string {
+  return leaderAreaWords[lead.area];
+}
+
 export function describeLeaderSkill(lead: LeaderSkill): string {
   const words = leaderAttributes[lead.attribute].words;
   const who = lead.element === null ? '' : ` on ${lead.element} monsters`;

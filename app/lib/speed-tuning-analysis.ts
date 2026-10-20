@@ -19,7 +19,7 @@ import type { DungeonStage, SpeedContent } from './speed-contents';
 import { speedLeaderSkill, speedSkillProfile } from './speed-skills';
 import type { SpeedSkillProfile } from './speed-skills';
 import {
-  combatSpeed, displaySpeed, everyoneMoved, leaderSpeedPercent,
+  battleSpeedPercent, combatSpeed, displaySpeed, everyoneMoved,
   runeSpeedForDisplay, simulateBattle, speedBuffPotency,
 } from './speed-tick';
 import type { BattleTrace, SpeedLeaderSkill, SpeedSheet, TickRule, TickUnit, TurnEvent } from './speed-tick';
@@ -370,6 +370,10 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const missingUnitIds = team.members.filter((member) => !monsters.has(member.unitId)).map((member) => member.unitId);
   const leaderMonster = team.leaderUnitId === null ? undefined : monsters.get(team.leaderUnitId);
   const leaderSkill = leaderMonster ? speedLeaderSkill(leaderMonster.unit_master_id) : null;
+  /* The team's own lead, then those of the battle's other decks, which reach it
+     too; one speed lead counts, as one of any attribute does (`leadReaches`). */
+  const speedLeads = [leaderSkill, ...team.otherLeaders.map((leader) => speedLeaderSkill(leader.masterId))]
+    .filter((lead): lead is SpeedLeaderSkill => lead !== null);
 
   const candidates: Candidate[] = present.map((member) => {
     const monster = monsters.get(member.unitId) as GameRecord;
@@ -383,7 +387,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
       base: {
         baseSpeed: parts.baseSpeed,
         swift: parts.swift,
-        percentOfBase: totemPercent + leaderSpeedPercent(leaderSkill, content.area, element),
+        percentOfBase: totemPercent + battleSpeedPercent(speedLeads, content.area, element),
       },
       runeSpeed: runeSpeedForDisplay(parts.baseSpeed, parts.swift, shown),
     };

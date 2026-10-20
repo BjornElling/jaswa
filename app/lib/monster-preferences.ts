@@ -238,7 +238,8 @@ export function withProfile(
   preferences: MonsterPreferences, scope: MonsterProfileScope, unitId: string, next: MonsterCopyPreferences | undefined,
 ): MonsterPreferences {
   const profiles = { ...preferences[scope] };
-  if (next !== undefined && statesSomething(next)) profiles[unitId] = { ...next, unitId };
+  const kept = next === undefined ? undefined : heldIn(scope, next);
+  if (kept !== undefined && statesSomething(kept)) profiles[unitId] = { ...kept, unitId };
   else delete profiles[unitId];
   const read = { ...preferences };
   if (Object.keys(profiles).length > 0) read[scope] = profiles;
@@ -251,8 +252,25 @@ export function withProfile(
  * so a later change to either is that area's alone. The nickname comes along
  * with everything else, because it is part of what the copy is in that area.
  */
-export function copyProfile(source: MonsterCopyPreferences, unitId: string): MonsterCopyPreferences {
-  return { ...structuredClone(source), unitId };
+export function copyProfile(source: MonsterCopyPreferences, unitId: string, scope: MonsterProfileScope): MonsterCopyPreferences {
+  return heldIn(scope, { ...structuredClone(source), unitId });
+}
+
+/**
+ * A profile as its area holds it. Only Scenario states leads: every other area
+ * is played in presets, whose leads are read off their leaders
+ * (`team-leads.ts`), so a lead stated there would be an answer nothing reads.
+ */
+export function heldIn(scope: MonsterProfileScope, profile: MonsterCopyPreferences): MonsterCopyPreferences {
+  if (statesLeads(scope) || !leadFields.some((field) => profile[field] !== undefined)) return profile;
+  const held = { ...profile };
+  for (const field of leadFields) delete held[field];
+  return held;
+}
+
+/** Whether an area's profiles state leads by hand: Scenario's alone. */
+export function statesLeads(scope: MonsterProfileScope): boolean {
+  return scope === 'scenario';
 }
 
 /** The most a user's own name for a copy may run to. */
@@ -501,13 +519,13 @@ export function readMonsterPreferences(value: unknown): MonsterPreferences {
   if (!('scenario' in value) && isRecord(value.default)) areas.scenario = value.default;
   for (const [scope, copies] of Object.entries(areas)) {
     if (!isMonsterProfileScope(scope) || !isRecord(copies)) continue;
-    const profiles = readMonsterProfiles(copies);
+    const profiles = readMonsterProfiles(copies, scope);
     if (Object.keys(profiles).length > 0) read[scope] = profiles;
   }
   return read;
 }
 
-function readMonsterProfiles(value: Record<string, unknown>): MonsterProfiles {
+function readMonsterProfiles(value: Record<string, unknown>, scope: MonsterProfileScope): MonsterProfiles {
   const read: MonsterProfiles = {};
   for (const [unitId, stored] of Object.entries(value)) {
     if (unitId.length === 0 || !isRecord(stored) || stored.unitId !== unitId) continue;
@@ -528,7 +546,9 @@ function readMonsterProfiles(value: Record<string, unknown>): MonsterProfiles {
       const kept = stored.runeSets.filter(isRuneBuildId);
       if (kept.length > 0 && isRuneBuildList(kept)) copy.runeSets = kept;
     }
-    const preferences = copy as MonsterCopyPreferences;
+    /* A lead stated in an area other than Scenario is a field the contract no
+       longer holds there: it alone is dropped, and the rest of the copy kept. */
+    const preferences = heldIn(scope, copy as MonsterCopyPreferences);
     if (statesSomething(preferences)) read[unitId] = preferences;
   }
   return read;

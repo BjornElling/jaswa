@@ -21,7 +21,11 @@ import { PencilIcon } from './pencil-icon';
 import type { MonsterReference } from './monster-link';
 import type { Artifact } from '../lib/artifacts';
 import { usePresets } from '../lib/presets-context';
-import { accountItems, scenarioPresetId, monsterInPreset, teammateSetsInPreset } from '../lib/presets';
+import { accountItems, scenarioPresetId, monsterInPreset } from '../lib/presets';
+import { describeLeaderSkill, leaderAreaPhrase, leaderSkillStat } from '../lib/speed-skills';
+import type { LeaderSkill } from '../lib/speed-skills';
+import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
+import type { TeamLead, TeamLeadReading } from '../lib/team-leads';
 import { readArtifacts } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
 import { artifactCategoryLabels, artifactMainPropertyOrder, artifactPropertiesFor } from '../lib/artifact-properties';
@@ -98,7 +102,51 @@ const leadRows: ReadonlyArray<{ stat: LeadStat; label: string }> = [
 ];
 /* The figures a lead or a crit condition can mark, which keep room for two marks:
    a stat names where its lead goes, a composite what it counted. */
-const leadFigures: ReadonlySet<string> = new Set(['criRate', 'atk', 'def', 'hp', 'acc', 'res', 'dmg', 'ehp', 'ehpD']);
+const leadFigures: ReadonlySet<string> = new Set(['criRate', 'criDmg', 'atk', 'def', 'hp', 'acc', 'res', 'dmg', 'ehp', 'ehpD']);
+
+/* Why a lead the team fights under does nothing for this copy, for the red mark
+   after it. The lead stays listed: it is the team's, and the copy is in it. */
+function unreachedReading(lead: TeamLead, counting: TeamLead | undefined, names: Record<string, string>): string {
+  const skill = lead.skill as LeaderSkill;
+  switch (lead.reach) {
+    case 'area': return `Only counts ${leaderAreaPhrase(skill)}.`;
+    case 'element': return `Only counts on ${skill.element} monsters.`;
+    case 'outranked': return `${leaderSkillStat(skill)} leads do not stack: ${counting?.skill
+      ? `${names[counting.unitId] ?? 'another leader'}'s +${counting.skill.percent}% counts instead` : 'another counts instead'}.`;
+    default: return '';
+  }
+}
+
+/**
+ * The leads a preset's team fights under, as its leaders have them: one line
+ * per leader — Rift Raid fights under three. A lead that does nothing for this
+ * copy stays on its line, muted and struck through, and its red mark says
+ * where it would count. Read only: the leader is chosen with the crown on
+ * Presets, or in the game.
+ */
+function TeamLeads({ reading, names }: { reading: TeamLeadReading; names: Record<string, string> }) {
+  return <ul className="overlay-leads-fields overlay-team-leads" aria-label="Leads and bonuses">
+    {reading.leads.length === 0 && <li className="overlay-team-lead overlay-team-lead-note">No leader in this preset</li>}
+    {reading.leads.map((lead, at) => {
+      const name = names[lead.unitId] ?? 'A leader';
+      const where = `${name}, leader of ${lead.presetName}`;
+      if (lead.skill === null) {
+        return <li key={`${lead.presetId}-${at}`} className="overlay-team-lead overlay-team-lead-note" title={where}>
+          {lead.missing ? 'Leader not in this import' : `${name}: no leader skill`}
+        </li>;
+      }
+      const counts = lead.reach === 'counts';
+      const counting = reading.leads.find((other) => other.reach === 'counts' && other.skill?.attribute === lead.skill?.attribute);
+      const marks: FigureMark[] = counts ? [] : [{ key: 'unreached', tone: 'red', glyph: 'info', reading: unreachedReading(lead, counting, names) }];
+      return <li key={`${lead.presetId}-${at}`} className="overlay-team-lead" data-state={counts ? 'counts' : 'unreached'}
+        title={`${where}: ${describeLeaderSkill(lead.skill)}`}>
+        <span className="overlay-team-lead-stat">{leaderSkillStat(lead.skill)}</span>
+        <span className="overlay-team-lead-value">{lead.skill.percent}%</span>
+        <FigureMarks marks={marks} reserve={1} />
+      </li>;
+    })}
+  </ul>;
+}
 
 /** The eleven figures a copy can be built toward, in the order they are offered. */
 const targetRows: ReadonlyArray<{ key: keyof MonsterStatTargets; label: string }> =
@@ -306,8 +354,12 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
     return record && preset ? monsterInPreset(record, preset, accountItems(game)) : record;
   }, [game, target, preset]);
 
-  const teammateSets = useMemo(() => preset && game ? teammateSetsInPreset(preset, unitId, accountItems(game)) : {},
-    [preset, game, unitId]);
+  const roster = useMemo(() => rosterOf(game), [game]);
+  /* What the team adds: its teammates' sets and, outside Scenario, the leads
+     of the preset's leaders — read, never stated here. */
+  const team = useMemo(() => preset && game ? teamBonusesFor(preset, presetsReading.presets, unitId, accountItems(game), roster) : noTeamBonuses,
+    [preset, presetsReading.presets, game, unitId, roster]);
+  const leaderNames = useMemo(() => numberedMonsterNames([...roster.values()]), [roster]);
   const masterId = target.kind === 'copy' ? target.masterId : target.speciesId;
   const display = target.kind === 'copy' ? monsterPresentation(masterId) : monsterSpeciesPresentation(masterId);
   /* The heading names the copy the way every table does — `Lushen (2A) #2` —
@@ -319,8 +371,8 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   }, [game, target, display.name]);
   const usage: MonsterUsage = useMemo(() => monsterUsage(masterId), [masterId]);
   const resolved: ResolvedMonsterPreferences = useMemo(
-    () => resolveMonsterPreferences(unitId, masterId, draft, monster, teammateSets),
-    [unitId, masterId, draft, monster, teammateSets],
+    () => resolveMonsterPreferences(unitId, masterId, draft, monster, team),
+    [unitId, masterId, draft, monster, team],
   );
 
   /* The eleven figures this copy has: its stats as its own panel shows them, and
@@ -519,7 +571,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             value="" placeholder="Copy from…" disabled={copySources.length === 0}
             onChange={(event) => {
               const stated = copySources.find((entry) => entry.id === event.target.value)?.stated;
-              if (stated && statesSomething(stated)) change(() => copyProfile(stated, unitId));
+              if (stated && statesSomething(stated)) change(() => copyProfile(stated, unitId, activeScope));
             }}>
             {copySources.map((entry) => <option key={entry.id} value={entry.id}
               disabled={!entry.stated || !statesSomething(entry.stated)}>{entry.name}</option>)}
@@ -625,7 +677,9 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
               </div>
             </Section>
             <Section title="Leads and bonuses">
-              <div className="overlay-leads-fields" role="group" aria-label="Leads and bonuses">
+              {team.leads !== null
+                ? <TeamLeads reading={team.leads} names={leaderNames} />
+                : <div className="overlay-leads-fields" role="group" aria-label="Leads and bonuses">
                 {leadRows.map((row) => <label className="overlay-lead" key={row.stat}>
                   <span>{row.label}</span>
                   <input type="number" min={0} max={leadMaximum} step={1} inputMode="numeric"
@@ -636,7 +690,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
                     }} />
                   <span>%</span>
                 </label>)}
-              </div>
+              </div>}
             </Section>
             {/* Follows the Build for menu, since the area is what sets the
                 ceiling; a long area name ends in an ellipsis rather than

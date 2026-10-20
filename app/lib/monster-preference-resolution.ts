@@ -12,6 +12,8 @@ import type {
 } from './monster-preferences';
 import { monsterStatTargetKeys, statedLeads } from './monster-preferences';
 import type { Leads, TeammateSets } from './monster-stats';
+import { noTeamBonuses } from './team-leads';
+import type { TeamBonuses } from './team-leads';
 import type { RelicMainProperty } from './relic-properties';
 import type { RuneSlotMain } from './rune-slot-mains';
 
@@ -131,7 +133,10 @@ export type ResolvedMonsterPreferences = {
   /** Whether every figure is counted at a certain crit (`monster-stats.ts` `alwaysCritsLift`). */
   alwaysCrits: boolean;
   alwaysElementAdvantage: boolean;
-  /** What its leader adds, stat by stat; a stat it does not name gets nothing. */
+  /**
+   * What its leaders add, stat by stat; a stat none names gets nothing. Read off
+   * the preset's leaders (`team-leads.ts`), and stated by hand only in Scenario.
+   */
   leads: Leads;
   /** Derived from the chosen preset, never a stored profile choice. */
   teammateSets: TeammateSets;
@@ -284,6 +289,11 @@ function resolveStatTargets(
   return targets;
 }
 
+/** The leads a copy fights under: its preset's leaders', or in Scenario the ones its profile states. */
+export function fightLeads(team: TeamBonuses, stated: MonsterCopyPreferences | undefined): Leads {
+  return team.leads === null ? statedLeads(stated) : team.leads.bonuses;
+}
+
 /**
  * What this owned copy wants, with every answer carrying where it came from.
  *
@@ -297,7 +307,7 @@ export function resolveMonsterPreferences(
   masterId: unknown,
   stated: MonsterCopyPreferences | undefined,
   monster?: GameRecord,
-  teammateSets: TeammateSets = {},
+  team: TeamBonuses = noTeamBonuses,
 ): ResolvedMonsterPreferences {
   const defaults = monsterDefaults(masterId);
   const advice = monster === undefined ? speciesMainStatAdvice(masterId) : copyMainStatAdvice(monster);
@@ -315,8 +325,8 @@ export function resolveMonsterPreferences(
     ...(stated?.runeSuggestionStat === undefined ? {} : { runeSuggestionStat: stated.runeSuggestionStat }),
     alwaysCrits: stated?.alwaysCrits ?? false,
     alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
-    leads: statedLeads(stated),
-    teammateSets,
+    leads: fightLeads(team, stated),
+    teammateSets: team.teammateSets,
     ...(advice === undefined ? {} : { mainStatAdvice: advice }),
   };
 }

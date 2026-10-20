@@ -26,9 +26,11 @@ import {
 } from '../lib/monster-grid';
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
-import { profilesIn, statedLeads } from '../lib/monster-preferences';
+import { profilesIn } from '../lib/monster-preferences';
+import { fightLeads } from '../lib/monster-preference-resolution';
 import { readBuildingBonuses } from '../lib/account-buildings';
-import { accountItems, monsterInPreset, presetMenu, teammateSetsInPreset } from '../lib/presets';
+import { accountItems, monsterInPreset, presetMenu } from '../lib/presets';
+import { rosterOf, teamBonusesFor } from '../lib/team-leads';
 import type { Preset } from '../lib/presets';
 import { defaultPresetChoice, heldPresetMenu, isPresetChoice, resolvePresetChoice } from '../lib/preset-choice';
 import { PresetChooser } from './preset-chooser';
@@ -194,6 +196,7 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
   const { preset } = choice;
   const items = useMemo(() => accountItems(gameData), [gameData]);
   const buildings = useMemo(() => readBuildingBonuses(gameData), [gameData]);
+  const roster = useMemo(() => rosterOf(gameData), [gameData]);
 
   /* The preset's own team, each copy with the runes and artifacts it carries
      there and Scenario's relic, as the game reads it (`DECK-PRESETS.md` §1).
@@ -221,14 +224,16 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
       const criticalRate = numericOrNull(monster.critical_rate) === null ? null : totals.criticalRate;
       const criticalDamage = numericOrNull(monster.critical_damage) === null ? null : totals.criticalDamage;
       /* The composites count the same fight the overlay does — the profile's
-         crit conditions and leads in this preset's area, its teammates' sets and
-         the account's buildings — so one copy shows one DMG on both. */
+         crit conditions in this preset's area, the leads the preset fights
+         under (Scenario's stated ones), its teammates' sets and the account's
+         buildings — so one copy shows one DMG on both. */
       const stated = profiles[unitId];
+      const team = teamBonusesFor(preset, presets, unitId, items, roster);
       const figures = monsterTargetFigures(monster, {
         alwaysCrits: stated?.alwaysCrits ?? false,
         alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
-        leads: statedLeads(stated),
-        teammateSets: teammateSetsInPreset(preset, unitId, items),
+        leads: fightLeads(team, stated),
+        teammateSets: team.teammateSets,
         buildings,
       });
       return {
@@ -254,7 +259,7 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
         dmg: atk === null || criticalRate === null || criticalDamage === null ? null : figures.dmg,
       };
     });
-  }, [monsters, preferences.monsterPreferences, preset, items, buildings]);
+  }, [monsters, preferences.monsterPreferences, preset, presets, items, roster, buildings]);
 
   /* Every monster the account holds anywhere, as the name a search would match
      it by. This table lists units only — a shrine stack has no stats to show —

@@ -374,16 +374,25 @@ export const alwaysCritsLift = criticalRateCapPercent;
 export const elementAdvantageLift = 15;
 
 /**
- * The stats a leader skill can raise for a composite: HP, ATK and DEF by a share
- * of the monster's base stat, CRI Rate by points.
- *
- * There is no SPD lead. No composite reads SPD, and a SPD range is the copy's own
- * display speed like every other stat range, so a speed lead would be an answer
- * no calculation could act on. Speed Tuning reads a team's leader skill itself.
+ * The leads a Scenario profile states by hand: HP, ATK and DEF by a share of the
+ * monster's base stat, CRI Rate by points. A preset reads its leads off its
+ * leader instead (`team-leads.ts`).
  */
 export const leadStats = ['atk', 'def', 'hp', 'criRate'] as const;
 export type LeadStat = typeof leadStats[number];
-export type Leads = Partial<Record<LeadStat, number>>;
+
+/**
+ * Every stat a leader skill raises in a fight: the four above, and CRI Dmg, ACC
+ * and RES by points. CRI Dmg reaches DMG; ACC and RES reach no composite and are
+ * named beside the stat as a battle value, as the Accuracy and Tolerance sets are.
+ *
+ * There is no SPD lead here. No composite reads SPD, and a SPD range is the
+ * copy's own display speed like every other stat range; Speed Tuning reads a
+ * team's speed leads itself.
+ */
+export const ledStats = ['atk', 'def', 'hp', 'criRate', 'criDmg', 'acc', 'res'] as const;
+export type LedStat = typeof ledStats[number];
+export type Leads = Partial<Record<LedStat, number>>;
 
 export type CombatBonuses = {
   alwaysCrits: boolean;
@@ -400,7 +409,7 @@ export type CombatBonuses = {
 
 /** Excludes completed sets already counted from this copy's own runes. */
 export function combatStatBonus(stat: LeadStat | 'acc' | 'res', bonuses: CombatBonuses): number {
-  const lead = stat === 'res' || stat === 'acc' ? 0 : bonuses.leads?.[stat] ?? 0;
+  const lead = bonuses.leads?.[stat] ?? 0;
   return teamSetBonuses.reduce((sum, set) => sum + (set.stat === stat ? (bonuses.teammateSets?.[set.name] ?? 0) * set.value : 0), lead);
 }
 
@@ -418,6 +427,7 @@ export function combatBase(monster: RecordLike, bonuses: CombatBonuses): Float64
   for (const stat of ['hp', 'atk', 'def', 'criRate'] as const) base[combatAt[stat]] += combatStatBonus(stat, bonuses);
   base[combatAt.criRate] += (bonuses.alwaysCrits ? alwaysCritsLift : 0)
     + (bonuses.alwaysElementAdvantage ? elementAdvantageLift : 0);
+  base[combatAt.criDmg] += bonuses.leads?.criDmg ?? 0;
   const buildings = bonuses.buildings;
   if (buildings !== undefined) {
     const element = elementName(monster.attribute);

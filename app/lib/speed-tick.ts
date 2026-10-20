@@ -92,8 +92,13 @@ export type SpeedLeaderSkill = { percent: number; area: LeaderArea; element: str
  * names an element counts only on monsters of that element.
  */
 export function leaderSpeedPercent(leader: SpeedLeaderSkill | null, area: SpeedArea, memberElement: string | null): number {
-  if (leader === null || !leaderAreaReaches(leader.area, area)) return 0;
-  return leader.element === null || leader.element === memberElement ? leader.percent : 0;
+  return battleSpeedPercent(leader === null ? [] : [leader], area, memberElement);
+}
+
+/** The speed percentage every speed lead of a battle gives one member: the one that counts (`leadReaches`), or 0. */
+export function battleSpeedPercent(leaders: readonly SpeedLeaderSkill[], area: SpeedArea, memberElement: string | null): number {
+  const reaches = leadReaches(leaders.map((leader) => ({ ...leader, attribute: 'Attack Speed' })), area, memberElement);
+  return leaders.reduce((sum, leader, at) => sum + (reaches[at] === 'counts' ? leader.percent : 0), 0);
 }
 
 /** Whether a lead of any attribute counts in this content at all. A lead
@@ -105,6 +110,34 @@ export function leaderAreaReaches(leaderArea: LeaderArea, area: SpeedArea): bool
     case 'Dungeon': return area === 'dungeon';
     case 'Guild': return area === 'guild';
   }
+}
+
+/**
+ * Why a lead does or does not reach one member: it counts, its area does not
+ * reach this content, it names another element, or another lead of the same
+ * attribute counts instead.
+ */
+export type LeadReach = 'counts' | 'area' | 'element' | 'outranked';
+
+/**
+ * Which of the leads a battle runs reach one member — one lead in most
+ * contents, one per deck where several decks fight together. Leads of one
+ * attribute do not stack (XelNecra's Rift of Worlds guide, as §2.2: "if two
+ * players decide to bring a speed leader, only one of the leader abilities will
+ * come into effect"); which one is **modelled**: the largest, the first of
+ * equals. Answers in the order the leads are given.
+ */
+export function leadReaches(leads: ReadonlyArray<{ attribute: string; percent: number; area: LeaderArea; element: string | null }>,
+  area: SpeedArea, memberElement: string | null): LeadReach[] {
+  const reaches: LeadReach[] = leads.map((lead) => !leaderAreaReaches(lead.area, area) ? 'area'
+    : lead.element !== null && lead.element !== memberElement ? 'element' : 'counts');
+  leads.forEach((lead, at) => {
+    if (reaches[at] !== 'counts') return;
+    const stronger = leads.findIndex((other, index) => index !== at && reaches[index] === 'counts' && other.attribute === lead.attribute
+      && (other.percent > lead.percent || (other.percent === lead.percent && index < at)));
+    if (stronger >= 0) reaches[at] = 'outranked';
+  });
+  return reaches;
 }
 
 /** What Swift adds to display speed: 25 % of base, rounded up as the monster screen rounds it. */

@@ -1065,7 +1065,8 @@ test('a fully stated area profile copies every choice and keeps large fields in 
   const full = {
     unitId: '12', label: 'A deliberately long arena nickname with every choice stated',
     runeSets: ['Violent/Blade', 'Swift/Will'], allowBrokenSets: true, allowIntangibleRunes: false,
-    alwaysCrits: true, alwaysElementAdvantage: true, critLead: 24, atkLead: 33, defLead: 33, hpLead: 33,
+    /* No leads: an area's are its presets' leaders', and only Scenario states them. */
+    alwaysCrits: true, alwaysElementAdvantage: true,
     runeSlots: { slot2: ['Spd', 'HP%', 'Atk%', 'Def%'], slot4: ['CtD%', 'CtR%', 'HP%', 'Atk%', 'Def%'], slot6: ['HP%', 'Atk%', 'Def%', 'Res%', 'Acc%'] },
     mainStat: { preferred: ['HP'], acceptable: ['DEF', 'ATK'] },
     artifacts: { sub: { attribute: { preferred: [206], acceptable: [] }, type: { preferred: [400], acceptable: [] } } },

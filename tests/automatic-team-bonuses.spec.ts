@@ -16,7 +16,7 @@ async function open(page: Page) {
 const figures = (page: Page) => page.locator('.stat-ranges .stat-range .overlay-stat-current').allTextContents();
 const number = (text: string) => Number(text.replace(/[^0-9]/g, ''));
 
-test('team bonuses follow the chosen preset automatically and the profile has only its original leads', async ({ page }, testInfo) => {
+test('team bonuses follow the chosen preset automatically, and only Scenario states its leads', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await open(page);
   const scenario = await figures(page);
@@ -39,19 +39,12 @@ test('team bonuses follow the chosen preset automatically and the profile has on
   await page.getByRole('button', { name: 'Open profile', exact: true }).click();
   await expect(dialog.getByRole('img', { name: /3 Fight sets \(\+24% base ATK\)/ }).first()).toBeVisible();
   await expect(dialog.getByRole('img', { name: /Added to the shown value in battle: 1 Accuracy set \(\+10% ACC\)/ })).toBeVisible();
-  const boxes = () => dialog.locator('.overlay-block, .overlay-lead input, .stat-range').evaluateAll((elements) =>
-    elements.map((element) => { const b = element.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; }));
-  const before = await boxes();
-  await page.screenshot({ path: testInfo.outputPath('team-profile-empty-leads.png') });
-  for (const name of ['CRI Rate', 'ATK', 'DEF', 'HP']) {
-    await dialog.getByRole('spinbutton', { name: `${name}, in percent`, exact: true }).fill('100');
-  }
-  expect(await boxes()).toEqual(before);
-  await page.screenshot({ path: testInfo.outputPath('team-profile-full-leads.png') });
-  for (const name of ['CRI Rate', 'ATK', 'DEF', 'HP']) {
-    await dialog.getByRole('spinbutton', { name: `${name}, in percent`, exact: true }).fill('');
-  }
-  await dialog.getByRole('button', { name: 'Save changes' }).click();
+  /* A preset's leads are its leader's, read rather than typed: this deck has none. */
+  const leads = dialog.getByRole('list', { name: 'Leads and bonuses' });
+  await expect(leads.getByRole('listitem')).toHaveText(['No leader in this preset']);
+  await expect(dialog.getByRole('spinbutton', { name: /, in percent$/ })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('team-profile-no-leader.png') });
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-3');
   expect(await figures(page)).toEqual(scenario);
   await page.getByLabel('Preset', { exact: true }).selectOption('deck-24-101');

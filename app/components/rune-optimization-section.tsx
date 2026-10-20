@@ -38,7 +38,8 @@ import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
 import { completedTeamSets, monsterTargetFigures } from '../lib/monster-stats';
-import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset, teammateSetsInPreset } from '../lib/presets';
+import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
+import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
 import type { Preset } from '../lib/presets';
 import { readBuildingBonuses } from '../lib/account-buildings';
 import { runeLockOf, runeLockScope, runeLocksInPreset } from '../lib/rune-locks';
@@ -218,11 +219,15 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     })), [monsters, names]);
   const describeBuild = useCallback((build: CurrentBuild) => buildIssueReading(build, (id) => monstersByUnitId.get(id)?.name), [monstersByUnitId]);
 
-  const teammateSets = useMemo(() => preset && selected ? teammateSetsInPreset(preset, selected.unitId, items) : {},
-    [preset, selected, items]);
+  const roster = useMemo(() => rosterOf(game?.data), [game]);
+  /* The team's sets and, outside Scenario, the leads it fights under: both the
+     preset's, never the profile's, so an edit here cannot carry a stale one. */
+  const team = useMemo(() => preset && selected ? teamBonusesFor(preset, presets, selected.unitId, items, roster) : noTeamBonuses,
+    [preset, presets, selected, items, roster]);
+  const { teammateSets } = team;
   const profile = useMemo(() => (selected
-    ? profileRequirements(selected.unitId, selected.masterId, profiles[selected.unitId], teammateSets)
-    : undefined), [selected, profiles, teammateSets]);
+    ? profileRequirements(selected.unitId, selected.masterId, profiles[selected.unitId], team)
+    : undefined), [selected, profiles, team]);
   const usage = useMemo(() => selected ? monsterUsage(selected.masterId) : undefined, [selected]);
   /* A change made here is for this copy in this preset: the same copy in another
      preset is another question, and does not inherit it. */
@@ -232,8 +237,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const buildings = useMemo(() => readBuildingBonuses(game?.data), [game]);
   const requirements = useMemo(() => {
     const draft = edited ? edits.requirements : profile?.requirements;
-    return draft ? { ...draft, teammateSets, buildings } : undefined;
-  }, [edited, edits, profile, teammateSets, buildings]);
+    return draft ? { ...draft, teammateSets, ...(team.leads === null ? {} : { leads: team.leads.bonuses }), buildings } : undefined;
+  }, [edited, edits, profile, teammateSets, team, buildings]);
   /* The requirements as a question the search can take: only once a figure to
      rank by is named, by the profile or here. Nothing names one for the user. */
   const question = useMemo(() => (requirements ? askable(requirements) : undefined), [requirements]);

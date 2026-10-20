@@ -21,7 +21,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-  combatSpeed, displaySpeed, displayedSwiftBonus, everyoneMoved, leaderAreaReaches, leaderSpeedPercent,
+  battleSpeedPercent, combatSpeed, displaySpeed, displayedSwiftBonus, everyoneMoved, leaderAreaReaches, leaderSpeedPercent,
   runeSpeedForDisplay, simulateBattle, speedBuffPotency, ticksToFirstTurn, totemPercentByLevel,
 } from '../app/lib/speed-tick.ts';
 import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/lib/speed-skills.ts';
@@ -85,6 +85,13 @@ for (const leaderArea of ['General', 'Arena', 'Dungeon', 'Guild']) {
     check(leaderAreaReaches(leaderArea, area) === counts, `${leaderArea} lead in ${area}: reach and speed agree`);
   }
 }
+/* Rift Raid 1–3 fight under all three leaders, and speed leads do not stack:
+   the largest that reaches a member counts. */
+check(battleSpeedPercent([{ percent: 19, area: 'General', element: null }, { percent: 24, area: 'General', element: null }], 'raid', 'Fire') === 24,
+  'two speed leads give the larger, not the sum');
+check(battleSpeedPercent([{ percent: 33, area: 'General', element: 'Wind' }, { percent: 24, area: 'General', element: null }], 'raid', 'Fire') === 24,
+  'a lead that does not reach a member leaves the next one to count');
+check(battleSpeedPercent([], 'raid', 'Fire') === 0, 'no leader, no lead');
 
 /* 2. The clock. */
 for (const [speed, ticks] of [[1429, 1], [715, 2], [477, 3], [358, 4], [286, 5], [285, 6], [239, 6], [143, 10]]) {
@@ -399,6 +406,13 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
   check(plain.enemies.length > 0 && untuned.enemies.length === 0 && untuned.members[0].cutInAt.length === 0
     && same(untuned.members[0].turnPositions, [1]) && untuned.members[0].combatSpeed === plain.members[0].combatSpeed,
     'a team not speed tuned is read against no enemy, at the same combat speeds');
+  /* A Rift Raid deck runs at the speed lead of another deck of its battle:
+     11801 leads +19 % SPD everywhere. */
+  const raid = { ...preset, id: 'deck-3-1', content: presetContent('rift-raid') };
+  const alone = readSpeedTeam({ team: presetSpeedTeam(raid, undefined), monsters, totemPercent: 15 });
+  const led = readSpeedTeam({ team: presetSpeedTeam(raid, undefined, [{ unitId: '9', masterId: '11801', presetName: 'Rift Raid 2' }]), monsters, totemPercent: 15 });
+  check(alone.members[0].leaderPercent === 0 && led.members[0].leaderPercent === 19 && led.members[0].combatSpeed > alone.members[0].combatSpeed,
+    'a Rift Raid deck counts the speed lead of another deck of its battle');
 }
 
 /* 4. Every verdict and every interval the page prints is the truth. */
@@ -437,7 +451,7 @@ for (let sample = 0; sample < 60; sample += 1) {
     });
     members.push({ unitId });
   }
-  const saved = { id: `sample-${sample}`, content: area, members, leaderUnitId: sample % 3 === 0 ? '1' : null };
+  const saved = { id: `sample-${sample}`, content: area, members, leaderUnitId: sample % 3 === 0 ? '1' : null, otherLeaders: [] };
   const read = (whatIfs, ranges = true) => readSpeedTeam({ team: saved, monsters, totemPercent: 15, whatIfs, ranges });
   const reading = read(undefined);
   /* A cut-in is read off the drawn trace: an enemy turn before some ally's first. */

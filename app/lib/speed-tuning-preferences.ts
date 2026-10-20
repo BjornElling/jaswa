@@ -33,6 +33,11 @@ export type SpeedTeam = {
   members: SpeedTeamMember[];
   /** Whose leader skill the team runs, or `null` for no leader. Always a member. */
   leaderUnitId: string | null;
+  /**
+   * The leaders of the battle's other decks, whose leads reach this team too —
+   * Rift Raid 1–3 (`team-leads.ts`) — by unit and species. Read, never chosen here.
+   */
+  otherLeaders: ReadonlyArray<{ unitId: string; masterId: string; presetName: string }>;
   /** How many places the team has: its preset content's, or its own count where that is unknown. */
   size: number;
   /**
@@ -122,6 +127,7 @@ export function isSpeedTeam(preset: { kind: string; members: readonly string[] }
 export function presetSpeedTeam(
   preset: { id: string; members: readonly string[]; leaderUnitId: string | null; content: { speed: SpeedContentId; teamSize: number } | null },
   tuning: PresetSpeedTuning | undefined,
+  otherLeaders: SpeedTeam['otherLeaders'] = [],
 ): SpeedTeam {
   const content = preset.content?.speed ?? 'unnamed';
   /* A saved deck is never cut to fit: a team larger than its content's is
@@ -137,6 +143,7 @@ export function presetSpeedTeam(
       return whatIf === undefined ? { unitId } : { unitId, whatIfDisplaySpeed: whatIf };
     }),
     leaderUnitId: preset.leaderUnitId,
+    otherLeaders,
     size,
     noSpeedTuning: tuning?.noSpeedTuning ?? false,
   };

@@ -55,6 +55,14 @@ export type PresetContent = {
    * of its own (`DECK-PRESETS.md` §1, rules 4–6).
    */
   sharedPool: SharedPool | null;
+  /**
+   * The game's decks, by number, that always fight one battle together, each
+   * leader leading all of them; `null` where a deck fights alone under its own
+   * leader. Only Rift Raid's: Rift Raid 1, 2 and 3 take part in every battle,
+   * and each one's leader skill reaches all three (the developer, October 20,
+   * 2026).
+   */
+  battleDecks: readonly number[] | null;
 };
 
 /**
@@ -86,8 +94,8 @@ export type SharedPool = {
 const dimensionRaid: SharedPool = { id: 'dimension-raid', monsters: false, oneDeckPerContent: true };
 
 function content(id: PresetContentId, name: string, tab: PresetTab, column: PresetColumn, teamSize: number,
-  speed: SpeedContentId, sharedPool: SharedPool | null = null): PresetContent {
-  return { id, name, tab, column, teamSize, speed, sharedPool };
+  speed: SpeedContentId, sharedPool: SharedPool | null = null, battleDecks: readonly number[] | null = null): PresetContent {
+  return { id, name, tab, column, teamSize, speed, sharedPool, battleDecks };
 }
 
 /* In the order of the game's tabs, and inside a tab in the order its menu
@@ -139,7 +147,7 @@ const contents: readonly PresetContent[] = [
   content('wind-beast', 'Wind Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
   content('light-beast', 'Light Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
   content('dark-beast', 'Dark Beast', 'Rift of Worlds', 'dungeons', 6, 'other-dungeon'),
-  content('rift-raid', 'Rift Raid', 'Rift of Worlds', 'dungeons', 6, 'raid', { id: 'rift-raid', monsters: false, oneDeckPerContent: false }),
+  content('rift-raid', 'Rift Raid', 'Rift of Worlds', 'dungeons', 6, 'raid', { id: 'rift-raid', monsters: false, oneDeckPerContent: false }, [1, 2, 3]),
   content('roaring-beasts', 'Forest of Roaring Beasts', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
   content('dreaming-fairies', 'Sanctuary of Dreaming Fairies', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),
   content('tough-beast-men', 'Cliff of Tough Beast Men', 'Dimension Hole', 'dungeons', 4, 'other-dungeon'),

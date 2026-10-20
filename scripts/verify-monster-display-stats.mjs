@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { calculateMonsterTotals, combatStatBonus, monsterEffects, monsterTargetFigures, completedTeamSets, teamSetBonuses } from '../app/lib/monster-stats.ts';
-import { readMonsterPreferences } from '../app/lib/monster-preferences.ts';
+import { copyProfile, readMonsterPreferences, withProfile } from '../app/lib/monster-preferences.ts';
 import { relicMonsterModel } from '../app/lib/relic-monster-value.ts';
 import { noBuildingBonuses, readBuildingBonuses } from '../app/lib/account-buildings.ts';
 
@@ -78,11 +78,31 @@ assert.equal(past.criRate, 90);
 assert.equal(past.dmg, keenFigures.dmg);
 const below = monsterTargetFigures({ ...monster, critical_rate: 40 }, { ...plain, leads: { criRate: 33 } });
 assert.equal(below.dmg, Math.floor(own.atk * (1 + 0.73 * own.criDmg / 100)));
-assert.deepEqual(readMonsterPreferences({ 'content:arena-attack': { '1': {
+assert.deepEqual(readMonsterPreferences({ scenario: { '1': {
   unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, critLead: 101, hpLead: 24, spdLead: 24,
-} } })['content:arena-attack']['1'], { unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, hpLead: 24 },
+} } }).scenario['1'], { unitId: '1', alwaysElementAdvantage: true, alwaysCrits: true, hpLead: 24 },
 'a lead out of range, or one no calculation reads, costs that lead alone');
 assert.equal(readMonsterPreferences({ scenario: { '1': { unitId: '1', critLead: 0 } } }).scenario['1'].critLead, 0);
+/* Outside Scenario a preset's leads are its leaders': a stated one is dropped
+   alone, and a profile that stated nothing else is no profile. */
+assert.deepEqual(readMonsterPreferences({ 'content:arena-attack': {
+  '1': { unitId: '1', alwaysCrits: true, critLead: 19, hpLead: 24 },
+  '2': { unitId: '2', atkLead: 33 },
+} }), { 'content:arena-attack': { '1': { unitId: '1', alwaysCrits: true } } });
+assert.deepEqual(withProfile({}, 'content:arena-attack', '1', { unitId: '1', label: 'Nuker', atkLead: 33 }),
+  { 'content:arena-attack': { '1': { unitId: '1', label: 'Nuker' } } }, 'an area other than Scenario saves no lead');
+assert.deepEqual(copyProfile({ unitId: '1', label: 'Nuker', critLead: 19 }, '1', 'content:rift-raid'), { unitId: '1', label: 'Nuker' },
+  'a lead copied from Scenario into an area is left behind');
+assert.deepEqual(copyProfile({ unitId: '1', critLead: 19 }, '1', 'scenario'), { unitId: '1', critLead: 19 });
+
+/* A leader's CRI Dmg reaches DMG; its ACC and RES reach no composite, and are
+   the battle value beside the stat, as the Accuracy and Tolerance sets are. */
+const crushing = monsterTargetFigures(monster, { ...plain, leads: { criDmg: 25 } });
+for (const key of statKeys) assert.equal(crushing[key], own[key], `a CRI Dmg lead reached ${key}`);
+assert.equal(crushing.dmg, Math.floor(totals.atk * (1 + Math.min(100, own.criRate) / 100 * (own.criDmg + 25) / 100)));
+assert.equal(combatStatBonus('acc', { ...plain, leads: { acc: 40 } }), 40);
+assert.equal(combatStatBonus('res', { ...plain, leads: { res: 41 }, teammateSets: { Tolerance: 1 } }), 51);
+assert.deepEqual(monsterTargetFigures(monster, { ...plain, leads: { acc: 40, res: 41 } }), own, 'ACC and RES leads move no figure');
 
 console.log('Monster display stats: Icaru DEF, empty gear, relic mains, crit bonuses and leads in the composites only, and saved choices agree.');
 

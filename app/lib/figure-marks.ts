@@ -3,8 +3,8 @@ import type { GearKind, GearMainAdvice, MainStatAdvice, MainStatBasis } from './
 import { contradictsAdvice, honouredMainStat, mainStatStatement } from './main-stat-model';
 import type { MonsterCopyPreferences } from './monster-preferences';
 import type { Shortfall } from './monster-shortfall';
-import type { CombatBonuses, LeadStat, TeammateSets } from './monster-stats';
-import { leadStats, combatStatBonus, elementAdvantageLift, teamSetBonuses } from './monster-stats';
+import type { CombatBonuses, LedStat, TeammateSets } from './monster-stats';
+import { ledStats, combatStatBonus, elementAdvantageLift, teamSetBonuses } from './monster-stats';
 import { percentStatCap } from './accuracy-ceiling';
 import { statLabels } from './stat-labels';
 import type { StatKey } from './stat-labels';
@@ -21,16 +21,22 @@ export type FigureMark = {
   glyph: 'ring' | 'info' | 'slashed';
 };
 
-const leadWords: Readonly<Record<LeadStat, { name: string; stat: string }>> = {
+const leadWords: Readonly<Record<LedStat, { name: string; stat: string }>> = {
   atk: { name: `${statLabels.atk} lead`, stat: statLabels.atk },
   def: { name: `${statLabels.def} lead`, stat: statLabels.def },
   hp: { name: `${statLabels.hp} lead`, stat: statLabels.hp },
   criRate: { name: 'Crit lead', stat: statLabels.criRate },
+  criDmg: { name: `${statLabels.criDmg} lead`, stat: statLabels.criDmg },
+  acc: { name: `${statLabels.acc} lead`, stat: statLabels.acc },
+  res: { name: `${statLabels.res} lead`, stat: statLabels.res },
 };
 
+/* The leads of a share of base; every other lead adds points. */
+const baseShareLeads: ReadonlySet<LedStat> = new Set(['atk', 'def', 'hp']);
+
 /* The leads each composite counts, in the order its formula reads them. */
-const compositeLeads: Readonly<Record<string, readonly LeadStat[]>> = {
-  dmg: ['atk', 'criRate'], ehp: ['hp', 'def'], ehpD: ['hp', 'def'],
+const compositeLeads: Readonly<Record<string, readonly LedStat[]>> = {
+  dmg: ['atk', 'criRate', 'criDmg'], ehp: ['hp', 'def'], ehpD: ['hp', 'def'],
 };
 
 /**
@@ -43,8 +49,8 @@ const compositeLeads: Readonly<Record<string, readonly LeadStat[]>> = {
 export function combatBonusMarks(figure: string, bonuses: CombatBonuses, ownValue?: number, ownSets: TeammateSets = {}): FigureMark[] {
   const counted = figure in compositeLeads ? compositeLeads[figure] : [figure];
   const additions = [
-    ...counted.flatMap((stat) => (leadStats as readonly string[]).includes(stat)
-      ? leadReading(stat as LeadStat, bonuses) : []),
+    ...counted.flatMap((stat) => (ledStats as readonly string[]).includes(stat)
+      ? leadReading(stat as LedStat, bonuses) : []),
     ...counted.flatMap((stat) => teamSetReadings(stat, bonuses, ownSets)),
     counted.includes('criRate') && bonuses.alwaysCrits ? 'Guaranteed crits' : undefined,
     counted.includes('criRate') && bonuses.alwaysElementAdvantage ? `Element advantage (+${elementAdvantageLift}% ${statLabels.criRate})` : undefined,
@@ -62,9 +68,9 @@ function teamSetReadings(figure: string, bonuses: CombatBonuses, ownSets: Teamma
   });
 }
 
-function leadReading(stat: LeadStat, bonuses: CombatBonuses): string[] {
+function leadReading(stat: LedStat, bonuses: CombatBonuses): string[] {
   const lead = bonuses.leads?.[stat];
-  return lead ? [`${leadWords[stat].name} (+${lead}% ${stat === 'criRate' ? '' : 'base '}${leadWords[stat].stat})`] : [];
+  return lead ? [`${leadWords[stat].name} (+${lead}% ${baseShareLeads.has(stat) ? 'base ' : ''}${leadWords[stat].stat})`] : [];
 }
 
 function pointBonusReading(figure: 'acc' | 'res', bonuses: CombatBonuses, ownValue: number | undefined, ownSets: TeammateSets): string {
@@ -73,7 +79,7 @@ function pointBonusReading(figure: 'acc' | 'res', bonuses: CombatBonuses, ownVal
   const bonus = ownBonus + teammateBonus;
   if (bonus === 0) return '';
   const value = ownValue === undefined ? '' : ` Battle total: ${Math.min(percentStatCap, ownValue + bonus)}% ${statLabels[figure]}.`;
-  return `Added to the shown value in battle: ${teamSetReadings(figure, bonuses, ownSets).join('; ')}.${value}`;
+  return `Added to the shown value in battle: ${[...leadReading(figure, bonuses), ...teamSetReadings(figure, bonuses, ownSets)].join('; ')}.${value}`;
 }
 
 /** Whose wish it was stays in the sentence, so a user choice and a population default make different claims. */

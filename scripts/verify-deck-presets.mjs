@@ -19,6 +19,7 @@ import { addToGamePreset } from '../app/lib/game-preset-edits.ts';
 import { noRuneLocks, runeLocksInPreset } from '../app/lib/rune-locks.ts';
 import { readRunes } from '../app/lib/runes.ts';
 import { presetContent, presetContents } from '../app/lib/preset-contents.ts';
+import { battleLeaders, leadArea, teamLeadsFor } from '../app/lib/team-leads.ts';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -455,3 +456,58 @@ const withoutSoldRune = { ...teamItems, runes: new Map(teamItems.runes) };
 withoutSoldRune.runes.delete(team('deck-1-1').runesOf.get('12')[0]);
 assert.equal(teammateSetsInPreset(team('deck-1-1'), '11', withoutSoldRune).Fight, 1);
 console.log('Automatic team bonuses: all five sets, Intangible, own-set exclusion, per-preset gear, Scenario fallback, sold runes and teammate protection agree.');
+
+/* Leads are the preset's leaders' (`team-leads.ts`): Rift Raid 1–3 fight one
+   battle under all three leaders, a lead counts only where its area and element
+   reach, and leads of one attribute do not stack. Master ids from the snapshot:
+   14404 CRI Rate 24 % everywhere, 12813 CRI Rate 10 %, 11801 SPD 19 %, 16714 CRI
+   Dmg 25 %, 10101 RES 20 %, 14115 ATK 33 % in arena, 10502 ATK 30 % on Fire. */
+{
+  const unit = (unitId, masterId, attribute) => [unitId, { unit_id: Number(unitId), unit_master_id: masterId, attribute }];
+  const roster = new Map([
+    unit('1', 14404, 4), unit('2', 11801, 1), unit('3', 16714, 4), unit('4', 10101, 1), unit('5', 14115, 5),
+    unit('6', 10502, 2), unit('7', 12813, 2), unit('8', 99999, 1), unit('9', 10502, 1),
+  ]);
+  const fake = (id, kind, contentId, number, members, leaderUnitId) => ({
+    id, kind, name: id, number, members, leaderUnitId, content: contentId === null ? null : presetContent(contentId),
+  });
+  const raid = (number, members, leader) => fake(`deck-3-${number}`, 'game', 'rift-raid', number, members, leader);
+  const battle = [raid(1, ['1', '9'], '1'), raid(2, ['2', '5'], '2'), raid(3, ['3', '6'], '3'), raid(4, ['4'], '4')];
+  const reading = (preset, unitId, presets = battle) => teamLeadsFor(preset, presets, unitId, roster);
+  const summary = (read) => read.leads.map((lead) => [lead.unitId, lead.reach]);
+
+  assert.deepEqual(battleLeaders(battle[1], battle).map((leader) => leader.unitId), ['2', '1', '3'],
+    'a Rift Raid deck fights under its own leader first, then the battle\'s others in deck order');
+  assert.deepEqual(battleLeaders(battle[3], battle).map((leader) => leader.unitId), ['4'], 'Rift Raid 4 is no deck of the battle');
+  const first = reading(battle[0], '9');
+  assert.deepEqual(summary(first), [['1', 'counts'], ['2', 'counts'], ['3', 'counts']]);
+  assert.deepEqual(first.bonuses, { criRate: 24, criDmg: 25 }, 'SPD reaches no figure here; CRI Rate and CRI Dmg do');
+  assert.deepEqual(reading(battle[3], '4').bonuses, { res: 20 });
+
+  /* An Arena lead counts in no raid; a Fire lead only on a Fire member. */
+  const arenaLed = [raid(1, ['5'], '5'), raid(2, ['6', '9'], '6')];
+  assert.deepEqual(summary(reading(arenaLed[1], '9', arenaLed)), [['6', 'element'], ['5', 'area']]);
+  assert.deepEqual(reading(arenaLed[1], '6', arenaLed).bonuses, { atk: 30 });
+
+  /* Two CRI Rate leads: the larger counts, wherever it stands. */
+  const twoCrits = [raid(1, ['7'], '7'), raid(2, ['1'], '1')];
+  assert.deepEqual(summary(reading(twoCrits[0], '7', twoCrits)), [['7', 'outranked'], ['1', 'counts']]);
+  assert.deepEqual(reading(twoCrits[0], '7', twoCrits).bonuses, { criRate: 24 });
+
+  /* A leader the import no longer holds, and one with no leader skill, add nothing and are still named. */
+  const odd = fake('deck-1-1', 'game', 'arena-attack', 1, ['8', 'gone'], 'gone');
+  assert.deepEqual(reading(odd, '8', [odd]).leads.map(({ unitId, missing, skill, reach }) => ({ unitId, missing, skill, reach })),
+    [{ unitId: 'gone', missing: true, skill: null, reach: null }]);
+  const leaderless = fake('deck-1-2', 'game', 'arena-attack', 2, ['8'], '8');
+  assert.deepEqual(reading(leaderless, '8', [leaderless]).leads.map(({ skill, missing }) => ({ skill, missing })), [{ skill: null, missing: false }]);
+  assert.deepEqual(reading(fake('deck-1-3', 'game', 'arena-attack', 3, ['8'], null), '8', []), { leads: [], bonuses: {} });
+
+  /* Scenario states its leads by hand; a Rift Raid preset built here is a battle of its own; a preset not yet named counts General leads alone. */
+  assert.equal(reading(fake('scenario', 'scenario', null, null, ['1'], null), '1'), null);
+  const own = fake('own-1', 'own', 'rift-raid', null, ['2'], '2');
+  assert.deepEqual(battleLeaders(own, [...battle, own]).map((leader) => leader.unitId), ['2']);
+  const unnamed = fake('deck-99-1', 'game', null, null, ['5', '1'], '5');
+  assert.deepEqual(summary(reading(unnamed, '1', [unnamed])), [['5', 'area']]);
+  assert.equal(leadArea(unnamed), 'unnamed');
+  console.log('Team leads: Rift Raid 1–3 as one battle, area, element, no stacking, a missing or skill-less leader, and Scenario agree.');
+}

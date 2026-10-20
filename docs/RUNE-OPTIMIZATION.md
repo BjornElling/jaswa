@@ -52,8 +52,9 @@ The monster's profile **in the chosen content-area** (`DECK-PRESETS.md` §4.1) s
 answer's shape: the builds it accepts, the mains of slots 2, 4 and 6, whether a rune may
 complete no set (no unless the owner said yes), whether an Intangible rune may be spent
 (yes unless the owner said no), whether the monster always crits or always has element
-advantage, its leads (none unless stated), the range each figure must fall in, and the
-figure to rank by. Whether a held Immemorial Gem or Grindstone may be spent is not the
+advantage, the range each figure must fall in, and the
+figure to rank by. Its leads are the chosen preset's leaders' and only Scenario's are
+stated (none unless stated; §2.2.3). Whether a held Immemorial Gem or Grindstone may be spent is not the
 profile's: it is a setting of this page, shared by every monster, because the stock it
 spends is the account's. A slot the owner never answered stays unrestricted (`Any`), as
 it does in the monster profile. Community mains and their shares are reference text
@@ -152,26 +153,49 @@ same CRI Rate. Both reach DMG and never the CRI Rate shown or its range.
 
 ### 2.2.3 Leads
 
-A copy states up to four leads — *CRI Rate*, *ATK*, *DEF* and *HP*, under *Leads and
-bonuses* on the monster overlay — each a whole percentage, CRI Rate in points. ATK, DEF and
-HP leads are a share of base summed with every other percentage and rounded once, as the
-game counts a leader skill. ATK and CRI Rate reach DMG; HP and DEF reach E.HP and E.HP D.
+**A preset's leads are its leaders', read and never typed** (`team-leads.ts`). The leader
+is the game's — `leader_unit_id`, or the first monster of an Arena defense — or the
+crown's on a preset built in JASWA, and its leader skill comes from the Swarfarm snapshot
+(`SPEED-TICK-CANONICAL.md` §2.2). A team fights under its own leader and, where its
+content fights several decks in one battle, under the leaders of the others too: Rift
+Raid 1, 2 and 3 take part in every Rift Raid battle, and each one's leader leads all three
+(`battleDecks` in `preset-contents.ts`; the developer, October 20, 2026). Another Rift Raid
+preset, and one built in JASWA, fights under its own leader alone.
 
-There is no Speed lead: no composite reads SPD, and a SPD range is display speed. Speed
-Tuning reads a team's leader skill itself.
+A lead counts for a member where its area reaches the content and its element, if it
+names one, is the member's; of the leads of one attribute only the largest counts
+(`leadReaches`, `SPEED-TICK-CANONICAL.md` §2.2). ATK, DEF and HP leads are a share of
+base summed with every other percentage and rounded once, as the game counts a leader
+skill; CRI Rate, CRI Dmg, ACC and RES leads add points. ATK, CRI Rate and CRI Dmg reach
+DMG; HP and DEF reach E.HP and E.HP D; ACC and RES reach no composite and are named
+beside the stat as its battle value, as the Accuracy and Tolerance sets are. No figure
+here reads a SPD lead: a SPD range is display speed, and Speed Tuning counts the battle's
+speed leads itself.
+
+*Leads and bonuses* on the monster overlay lists, in a preset's area, one line per leader
+the team fights under — the stat and its percentage. A lead that does nothing for this
+copy stays on its line, muted and struck through, with a red mark naming where it would
+count (*Only counts in arena.*, *Only counts on Wind monsters.*) or which lead of its kind
+counts instead. A preset with no leader says *No leader in this preset*; a leader the
+import no longer holds, or one with no leader skill, keeps a line saying so. The block
+keeps the box Scenario's fields take, so changing area moves nothing beside it.
+
+**Scenario is no team and has no leader**, so there the copy states up to four leads by
+hand — *CRI Rate*, *ATK*, *DEF* and *HP* — each a whole percentage, CRI Rate in points. A
+blank lead means none; an explicit zero is kept as the user's choice. Only Scenario's
+profile holds them: a lead stored in another area's profile is dropped alone on reading,
+on saving and on *Copy from…* (`heldIn` in `monster-preferences.ts`).
 
 Green tooltips say “Added to the shown value in battle” beside a display stat and
 “Calculated with” beside a composite. Own and teammate sets are combined, for example
-“3 Fight sets (+24% base ATK)”. A blank lead means none; an explicit zero is kept as the
-user's choice.
+“3 Fight sets (+24% base ATK)”.
 
 ### 2.2.4 Automatic team-set bonuses
 
 Fight, Determination, Enhance, Accuracy and Tolerance sets are counted from the other
 members of the **chosen preset**, using that preset's rune placements. Their values and
 the rule that they reach their holder too, in battle only, are `RUNE-CANONICAL.md` §10
-(`teamSetBonuses` in `monster-stats.ts`). There are no manual counts and no ACC lead
-field. Profiles stay shared per content-area, but a team bonus is derived per preset,
+(`teamSetBonuses` in `monster-stats.ts`). There are no manual counts. Profiles stay shared per content-area, but a team bonus is derived per preset,
 never saved in a profile. A preset that saves monsters only uses their Scenario runes.
 Scenario is the entire roster, not one team, and supplies no bonus from other monsters.
 Other presets and a shared pool do not add their monsters to the team.
