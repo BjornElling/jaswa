@@ -1,2759 +1,969 @@
 # Artifact rules — canonical specification
 
-**Status:** Binding rule basis for the JASWA Artifacts workspace
-**Reviewed:** August 30, 2026
-**Game:** *Summoners War: Sky Arena*, client generation v9.x (not *Chronicles*
-or *Lost Centuria*)
+**Status:** Binding rule basis for every artifact JASWA reads, scores or recommends
+**Reviewed:** October 20, 2026
+**Game:** *Summoners War: Sky Arena*, client v9.3.x
+**Code:** `app/lib/artifact-properties.ts` (vocabulary), `app/lib/artifacts.ts`
+(reader), `app/lib/artifact-conversion-stones.ts` (stones),
+`app/lib/artifact-optimal-value.ts` (the score),
+`app/lib/artifact-value-on-monster.ts` and `app/lib/compute/artifact-score-core.ts`
+(its two readers), `app/lib/artifact-preferences.ts` (defaults)
+**Checks:** `verify:artifact-score-agreement`, `verify:artifact-score-scale`,
+`verify:normal-conversion-maximum`, `verify:conversion-roll-range`,
+`verify:engraved-conversion-stones`, `verify:intangible-artifacts`,
+`verify:historical-artifact-import`, `verify:authoritative-artifact-import`,
+`verify:artifact-conversion-lock`, `verify:conversion-share-tiebreak`,
+`verify:artifact-obtained-order`, `verify:artifact-recommendation-allocation`,
+`verify:webgpu-parameter-layout`
 
-This document is the canonical description of the game rules the Artifacts
-workspace may build on. Where code, interface, or a secondary guide contradicts
-it, this document governs until it is corrected with documented evidence.
+Where code, interface or a secondary guide contradicts this document, this
+document governs until it is corrected with evidence. Every game rule names its
+evidence (§14); a premise JASWA adopts without one is marked **modelled**. The
+table and view contracts of the artifact pages live in `ACCOUNT-TABLES.md`.
 
-**Import boundary.** A game response is authoritative about an artifact the
-account owns. JASWA validates the wire shape it needs to render safely — ids,
-numeric values, four sub-property entries and known vocabulary — but never
-refuses an owned artifact because a local roll or conversion model says its
-value is implausible. Roll tables are planning references: they set score and
-projection ceilings, not an admission test for data the game already accepted.
-This keeps a newly changed conversion or reappraisal encoding from freezing the
-entire live import.
-
-It deliberately separates **verified rule** — supported by the sources in §14 or
-by an observed export — from **pending verification**, which is neither an
-assumption nor a permitted default in code. Pending items are marked inline.
-
-**The export encoding is settled** as of August 30, 2026, against 1,785 real
-artifact records. §15 records it, and two narrow fields remain pending there.
-
-> **The single most important caveat.** Most artifact guides and tables still
-> circulating describe the system **before v8.0.0**. Roll ranges, property
-> names, the drop state of a new artifact, and several removed properties all
-> changed. Everything below describes the system as it stands on
-> **August 30, 2026**; pre-v8 behaviour appears only under §12 Legacy.
+**Most published artifact guides describe the game before v8.0.0.** Ranges,
+names, the drop state and several properties changed then. Pre-v8 artifacts
+appear here only as legacy (§12, §15.10–§15.11).
 
 ---
 
-## 1. The model in one page
+## 1. The model
 
-A monster carries **exactly two artifacts**, one of each category:
+A monster carries **at most two artifacts, one of each category**:
 
-| Category | Must match the monster's | Permitted values |
+| Category | Must match the monster's | Classes |
 | --- | --- | --- |
-| **Attribute Artifact** | element | Fire, Water, Wind, Light, Dark |
-| **Type Artifact** | type | Attack, Defense, HP, Support |
+| **Attribute** (`type: 1`) | element | Water, Fire, Wind, Light, Dark |
+| **Type** (`type: 2`) | archetype | Attack, Defense, HP, Support |
 
-A Wind/Attack Teshar takes one Wind artifact and one Attack artifact. It cannot
-engrave a Water, HP, or Support artifact. This is the fundamental engrave rule, and
-it is the first thing validation checks.
+A Wind Attack monster takes one Wind artifact and one Attack artifact, never a
+Water, HP or Support one. This is the engrave rule; `artifactFitsClassCodes`
+states it once for both readers. *Evidence: v6.0.0; the account export.*
 
-**A monster must be evolved to six stars before it can engrave either artifact.**
-This is an eligibility rule before category or class matching: JASWA never
-scores, recommends, or displays an artifact as engraved on a lower-star copy.
-The artifact remains in the account's collection and may be recommended to a
-six-star monster.
+**Only a six-star monster engraves artifacts** (`canEngraveArtifacts`). JASWA
+never scores or proposes an artifact on a lower-star copy; the artifact stays
+in the collection for a six-star one. **Modelled:** no current text source
+states the rule.
 
-**Intangible is the one exception, and only to the inner class.** An *Intangible*
-artifact — the game's own name, shown in the artifact panel — still belongs to
-one category and still fills only that category's slot, but matches **any**
-element (attribute category) or **any** monster type (type category). So the
-Teshar above can also take an Intangible attribute artifact in its attribute
-slot, or an Intangible type artifact in its type slot; it can never take an
-attribute artifact in the type slot. §15.1 records the encoding and the
-evidence.
+**Intangible** artifacts — the game's name, shown in the artifact panel — keep
+their category and fill only that category's slot, but match **every** class in
+it: an Intangible attribute artifact fits any element, an Intangible type
+artifact any archetype. **A monster may carry at most one Intangible artifact**,
+in either slot, and **an Intangible cannot be converted** (§10.1). *Evidence:
+v8.1.9 ("Both Intangible Attribute/Type Artifacts cannot be equipped on the same
+Monster"); encoding §15.1.*
 
-**A monster may have at most one Intangible artifact engraved.** The wildcard may fill
-either its Attribute or its Type slot, never both at once. This is a
-cross-category engrave rule: it constrains a monster's two slots together, while
-the category rule above still decides which individual slot an artifact fills.
+Each artifact has one flat main property (§2), exactly four sub properties
+(§4), a natural grade (§3), and possibly one permanently converted line (§10).
+Artifacts have no sets, no slots, no percentage main and no Grindstones (§7).
 
-Each artifact has:
-
-- one **main property** — flat HP, ATK, or DEF;
-- exactly four **sub properties** when finished;
-- a **natural grade** — Normal, Magic, Rare, Hero, Legend;
-- an internal distribution of the power-up rolls that grade granted;
-- optionally, a conversion slot and a reappraisal history.
-
-Artifacts have **no rune sets, no slots, and no percentage main stats**. They
-are not small runes; they are a separate combat-modifier system, and §11 is
-where that difference is most expensive to get wrong.
-
-A workable shape for the model:
-
-```ts
-interface Artifact {
-  category: 'ATTRIBUTE' | 'TYPE';
-  engraveClass: Attribute | MonsterType;
-
-  mainStat: 'HP_FLAT' | 'ATK_FLAT' | 'DEF_FLAT';
-  naturalGrade: 'NORMAL' | 'MAGIC' | 'RARE' | 'HERO' | 'LEGEND';
-
-  subProperties: ArtifactSubProperty[];   // exactly four when finished
-  convertedPropertyIndex: number | null;  // §10
-}
-```
-
-### Terminology
-
-Call them **sub properties**, not skills. Several of them — `Life Drain`,
-`Damage Dealt on Water`, `ATK/DEF UP Effect` — are not skill-specific at all,
-and the word invites the wrong mental model.
+Call the lines **sub properties**, not skills: `Life Drain` or `ATK/DEF UP
+Effect` are not skill-specific.
 
 ---
 
 ## 2. Main property
 
-There are only three, and each ends at a fixed value:
+| Id | Main property | Final value |
+| ---: | --- | ---: |
+| 100 | HP | +1,500 |
+| 101 | ATK | +100 |
+| 102 | DEF | +100 |
 
-| Main property | Final value |
-| --- | ---: |
-| HP | +1,500 HP |
-| ATK | +100 ATK |
-| DEF | +100 DEF |
+Two artifacts may carry the same main. The main is a flat addition to the
+monster's stat (`monster-stats.ts` reads `pri_effect[1]`). Every view **names**
+the main and never quantifies it (`AGENTS.md` §5): `Artifact` carries no main
+value, and `artifactMainValue` exists only for calculations that need what two
+artifacts already bring (`rune-substat-weights.ts`, `main-stat-model.ts`).
+*Evidence: v6.0.0 +15 table; Ellia; every record of the account export
+(2026-08-30: 424 HP, 408 ATK, 419 DEF, no other value).*
 
-Because a monster takes two artifacts, artifacts alone can contribute +3,000
-HP, +200 ATK, +200 DEF, or any mixture such as +1,500 HP with +100 DEF. Both
-artifacts may carry the same main stat.
-
-The main property is a **flat** stat and enters the monster's HP/ATK/DEF exactly
-as any other flat addition does. It is the one part of the artifact that can be
-computed with no combat context at all (§8).
-
-**Ordering matters.** Main properties are applied *before* any property that
-reads a final stat — see §7.5.
-
-Since v8.0.0 artifacts drop already finished. The old `+0 → +15` power-up
-journey no longer exists for new drops, and no code should model one.
+Since v8.0.0 artifacts drop finished at +15. No code models a power-up path.
+*Evidence: v8.0.0.*
 
 ---
 
-## 3. Natural grade, rolls, and maximum values
+## 3. Natural grade and contributions
 
-Artifacts use the same natural-grade concept as runes. Historically the grade
-decided how many sub properties existed at +0:
+The grade decided how many lines an artifact had at +0; the four milestones
++3/+6/+9/+12 each added a missing line or upgraded one. A line's value is its
+initial roll plus every power-up roll it received — its **contributions**.
+*Evidence: v6.0.0 (milestones); v8.0.0 ("Sub-properties can be powered up a
+maximum of 4 times").*
 
-| Natural grade | Initial lines | Power-up rolls |
-| --- | ---: | ---: |
-| Normal | 0 | 0 |
-| Magic | 1 | 1 |
-| Rare | 2 | 2 |
-| Hero | 3 | 3 |
-| Legend | 4 | 4 |
-
-Missing lines were added at +3/+6/+9/+12; remaining milestones upgraded existing
-lines. The player now sees only the finished result, **but the structure still
-matters**: Com2uS stores and displays how many power-ups each sub property
-received, and Reappraisal preserves the total (§11).
-
-### The value contributions rule
-
-A line's value is the sum of its **initial roll plus every power-up roll that
-landed on it**. A natural Legend artifact has four initial values and four
-power-up events, so a single line can receive all four:
-
-```text
-initial + roll1 + roll2 + roll3 + roll4   =  five value contributions
-```
-
-With a 4–6 % property that is `6 × 5 = 30 %` — which is exactly why the Legend
-maximum for those properties is 30 and not 24.
-
-Maximum contributions on one line, by grade:
-
-| Grade | Max contributions | 4–6 property | 2–4 property | 25–40 property |
+| Grade | `natural_rank` | Initial lines | Total contributions | Most on one line |
 | --- | ---: | ---: | ---: | ---: |
-| Normal | 1 | 6 | 4 | 40 |
-| Magic | 2 | 12 | 8 | 80 |
-| Rare | 3 | 18 | 12 | 120 |
-| Hero | 4 | 24 | 16 | 160 |
-| Legend | 5 | 30 | 20 | 200 |
+| Normal | 1 | 0 | 4 | 1 |
+| Magic | 2 | 1 | 5 | 2 |
+| Rare | 3 | 2 | 6 | 3 |
+| Hero | 4 | 3 | 7 | 4 |
+| Legend | 5 | 4 | 8 | 5 |
 
-This is the correct way to compute "the most one line of this property could
-ever hold" — from the roll structure, never from a hard-coded ceiling. Note what
-it is *not*: §16 measures every line against the Legend column, because a
-lower-grade line genuinely holds less and the score is about contribution.
+- `artifactGrades` holds *most on one line* as `maxContributions`; total
+  contributions are `maxContributions + 3` (`artifactTotalContributions`).
+  Normal is the exception to `initial + rolls`: it starts with no line and
+  still holds one roll on each of its four.
+- **Four lines can never all be full.** A Legend holds 8 contributions; four
+  full lines would need 20. The best split is 5 + 1 + 1 + 1.
+- The game's best line collects five contributions
+  (`bestArtifactLineContributions`), so the most any line of a property can
+  hold is `maxRoll × 5` (`artifactPropertyMaximum`). This is the ceiling every
+  line is measured against, whatever its grade (§16).
 
-### The contribution budget — four lines share eight rolls
-
-The table above is the ceiling for **one** line. The ceiling for the artifact is
-a separate and more binding fact, and §16 depends on it:
-
-```text
-total contributions = initialProperties + 4 = maxContributions + 3
-```
-
-Every grade gets the same four power-up milestones (+3/+6/+9/+12); each one
-either creates a missing line or upgrades an existing one, so it is a
-contribution either way.
-
-| Grade | Initial lines | Milestones | Total contributions | Most on one line |
-| --- | ---: | ---: | ---: | ---: |
-| Normal | 0 | 4 | 4 | 1 |
-| Magic | 1 | 4 | 5 | 2 |
-| Rare | 2 | 4 | 6 | 3 |
-| Hero | 3 | 4 | 7 | 4 |
-| Legend | 4 | 4 | 8 | 5 |
-
-**Four lines can never all be full.** A Legend holds eight contributions, and
-four lines each holding the maximum five would need twenty. Every line also
-keeps at least its own contribution, so the best any Legend can do is one line
-at 5 and three at 1 — or any other split of the same eight.
-
-This is the fact that makes an "all four lines maxed" benchmark unreachable, and
-scoring against one understates every artifact by the same 2.5×. Any future
-change to the scoring denominator has to be checked against this table.
-
-**Carry the contribution count as data, not as a lookup.** The middle column is
-`initialProperties + powerUpRolls` for grades that start with a line, and the
-whole table follows from it, so store it once per grade:
-
-```ts
-interface ArtifactGradeDefinition {
-  initialProperties: number;   // lines present at +0, historically
-  powerUpRolls: number;        // power-up events the grade granted
-  maxContributions: number;    // most contributions one line can collect
-}
-```
-
-Then `maxValue = definition.maxRoll × grade.maxContributions`, and a balance
-patch that changes a roll range is a table edit rather than a code change. The
-per-grade ceilings above become a test fixture, never a second source.
-
-**This is a legality ceiling, not a scoring one.** It answers "could this line
-legally hold this value on this grade", which is what `readSubProperty` checks.
-§16 divides by the Legend column instead, for every grade, because it asks a
-different question — how much the line contributes — and a Normal line holding
-its single roll contributes a fifth of a full Legend line, not all of one. Using
-this ceiling there made the score fall as the grade rose.
-
-**The Normal case is not `0`.** A Normal artifact has no *initial* lines and no
-power-up rolls in the historical structure, yet a finished one still carries four
-sub properties (§4). Its `maxContributions` is 1 — each line holds exactly one
-roll. Do not compute it as `initialProperties + powerUpRolls`; that yields zero
-and silently makes every Normal maximum wrong.
-
-### If a property ever has non-contiguous rolls
-
-The reachability rule below assumes every integer between `minRoll` and `maxRoll`
-is a legal single roll. Should an export show otherwise, the fix is to replace
-the pair with the set:
-
-```ts
-allowedRolls: readonly number[]   // instead of minRoll / maxRoll
-```
-
-Reachability then becomes a subset-sum over `allowedRolls`, and every consumer
-of `minRoll`/`maxRoll` has to be revisited. Worth knowing before the model is
-written, not after.
-
-### Validating a displayed value
-
-For a property with integer rolls in `[min, max]` and `n` contributions:
-
-```text
-V = r₁ + r₂ + … + rₙ,   rᵢ ∈ [min, max]
-```
-
-So a Skill 3 CRIT DMG line with three contributions is legal at 12–18, and every
-integer in that range is reachable. Validation should check reachability, not
-merely the outer bounds.
+*Evidence: the account export (2026-08-30) — the four lines' power-up counts
+sum to `natural_rank − 1` on every finished record: 334 Rare, 747 Hero,
+170 Legend.*
 
 ---
 
 ## 4. Sub property rules
 
-- Every finished artifact has **exactly four** sub property lines.
-- The **same exact property never appears twice** on one artifact.
-- Skill-scoped properties are **distinct properties**: `[Skill 1] CRIT DMG`,
-  `[Skill 2] CRIT DMG`, and `[Skill 3/4] CRIT DMG` may coexist on one artifact.
-- Type-only properties may not appear on a newly generated Attribute artifact,
-  and vice versa (§5).
+- A finished artifact has **exactly four** lines, and never one property twice.
+- `[Skill 1] CRIT DMG`, `[Skill 2] CRIT DMG` and `[Skill 3/4] CRIT DMG` are
+  distinct properties and may coexist.
+- A category-only property appears only on its category (§5). The reader does
+  not reject a violation (§13); the vocabulary and the stones hold it.
 
-A legal example:
-
-```text
-[Skill 2] CRIT DMG +18%
-Additional DMG by ATK +12%
-Life Drain +17%
-ATK/DEF UP Effect +13%
-```
+*Evidence: the account export (2026-08-30): four tuples on all 1,785 records;
+no `3xx` on a Type artifact and no `4xx` on an Attribute one.*
 
 ---
 
 ## 5. The current property pool
 
-### 5.1 Type-artifact only
+`artifactProperties` is the vocabulary: id, name, category, status and per-roll
+range. **Legend max** is `maxRoll × 5`; **converts to** is the normal
+conversion range of §10. *Evidence: ids — SW Exporter `mapping.js` and the
+account export; ranges — the in-client Repeat Convert dialog (2026-09-05),
+Ellia, Fandom; current/legacy split — the engraving statistics (a current id is
+one the population still engraves).*
 
-| Property | Per roll | Legend max |
-| --- | --- | ---: |
-| [Skill 1] CRIT DMG | 4–6 % | 30 % |
-| [Skill 2] CRIT DMG | 4–6 % | 30 % |
-| [Skill 3/4] CRIT DMG | 4–6 % | 30 % |
-| [Skill 1] Recovery | 4–6 % | 30 % |
-| [Skill 2] Recovery | 4–6 % | 30 % |
-| [Skill 3] Recovery | 4–6 % | 30 % |
-| [Skill 1] Accuracy | 4–6 % | 30 % |
-| [Skill 2] Accuracy | 4–6 % | 30 % |
-| [Skill 3] Accuracy | 4–6 % | 30 % |
+### 5.1 Type artifacts only
 
-Skill 3 and Skill 4 CRIT DMG were **merged into one property in v8**. Older
-artifacts may still carry the separate legacy names (§12).
+| Id | Property | Per roll | Legend max | Converts to |
+| ---: | --- | --- | ---: | --- |
+| 400 | [Skill 1] CRIT DMG | 4–6 % | 30 % | 4–9 |
+| 401 | [Skill 2] CRIT DMG | 4–6 % | 30 % | 4–9 |
+| 410 | [Skill 3/4] CRIT DMG | 4–6 % | 30 % | 4–9 |
+| 404 | [Skill 1] Recovery | 4–6 % | 30 % | 4–9 |
+| 405 | [Skill 2] Recovery | 4–6 % | 30 % | 4–9 |
+| 406 | [Skill 3] Recovery | 4–6 % | 30 % | 4–9 |
+| 407 | [Skill 1] Accuracy | 4–6 % | 30 % | 4–9 |
+| 408 | [Skill 2] Accuracy | 4–6 % | 30 % | 4–9 |
+| 409 | [Skill 3] Accuracy | 4–6 % | 30 % | 4–9 |
+| 411 | First Attack CRIT DMG | 4–6 % | 30 % | 4–9 |
 
-### 5.2 Attribute-artifact only
+- 410 is v8.0.0's merge of the legacy `[Skill 3] CRIT DMG` (402) and
+  `[Skill 4] CRIT DMG` (403); 411 is the property v8.0.0 added. *Evidence:
+  v8.0.0 ("5 removed, 6 combined into 3, 1 added"); the account export, where
+  402/403 occur only on artifacts added 2020–2022.*
+- 411 is **Type-only**: 79 occurrences, all on Type artifacts (export,
+  2026-08-30).
+- 401 rolls **4–6** like every skill line. Every 401 line above 6 with zero
+  power-ups is a converted line, which reaches 9 (§15.8). *Evidence: the
+  Repeat Convert dialog (4–9); the account export, 2026-10-19.*
 
-| Property | Per roll | Legend max |
-| --- | --- | ---: |
-| Damage Dealt on *X* | 3–5 % | 25 % |
-| Damage Taken from *X* − | 4–6 % | 30 % |
+### 5.2 Attribute artifacts only
 
-*X* is one of Fire, Water, Wind, Light, Dark — ten properties in total.
+| Id | Property | Per roll | Legend max | Converts to |
+| ---: | --- | --- | ---: | --- |
+| 300–304 | Damage Dealt on Fire / Water / Wind / Light / Dark | 3–5 % | 25 % | 3–8 |
+| 305–309 | Damage Taken from Fire / Water / Wind / Light / Dark (−) | 4–6 % | 30 % | 4–9 |
 
-**It is the target's element that matters**, not that of the monster it is engraved on. A Wind unit with
-`Damage Dealt on Water +18%` gains that bonus against Water opponents.
+The **target's** element decides, not the element of the monster carrying it:
+`Damage Dealt on Water` acts against Water opponents.
 
-### 5.3 Available on both categories
+### 5.3 Both categories — thirteen properties
 
-| Property | Per roll | Legend max |
-| --- | --- | ---: |
-| First Attack CRIT DMG | 4–6 % | 30 % |
-| Own turn 1-target CRIT DMG | 2–4 % | 20 % |
-| ATK/DEF UP Effect | 3–5 % | 25 % |
-| SPD UP Effect | 4–6 % | 30 % |
-| Bomb Damage | 2–4 % | 20 % |
-| CRIT DMG Taken − | 2–4 % | 20 % |
-| Life Drain | 5–8 % | 40 % |
-| Additional Damage by HP | 0.20–0.30 % | 1.50 % |
-| Additional Damage by ATK | 2–4 % | 20 % |
-| Additional Damage by DEF | 2–4 % | 20 % |
-| Additional Damage by SPD | 25–40 % | 200 % |
-| CRIT DMG as enemy HP is more | 4–6 % | 30 % |
-| CRIT DMG as enemy HP is less | 8–12 % | 60 % |
-| Counterattack/Co-op Attack DMG | 2–4 % | 20 % |
+| Id | Property | Per roll | Legend max | Converts to |
+| ---: | --- | --- | ---: | --- |
+| 206 | SPD UP Effect | 4–6 % | 30 % | 4–9 |
+| 226 | ATK/DEF UP Effect | 3–5 % | 25 % | 3–8 |
+| 210 | Bomb Damage | 2–4 % | 20 % | 2–6 |
+| 214 | CRIT DMG Taken (−) | 2–4 % | 20 % | 2–6 |
+| 215 | Life Drain | 5–8 % | 40 % | 5–12 |
+| 218 | Additional Damage by HP | 0.2–0.3 % | 1.5 % | 0.2–0.5 |
+| 219 | Additional Damage by ATK | 2–4 % | 20 % | 2–6 |
+| 220 | Additional Damage by DEF | 2–4 % | 20 % | 2–6 |
+| 221 | Additional Damage by SPD | 25–40 % | 200 % | 25–60 |
+| 222 | CRIT DMG as enemy HP is more | 4–6 % | 30 % | 4–9 |
+| 223 | CRIT DMG as enemy HP is less | 8–12 % | 60 % | 8–18 |
+| 224 | Own turn 1-target CRIT DMG | 2–4 % | 20 % | 2–6 |
+| 225 | Counterattack/Co-op Attack DMG | 2–4 % | 20 % | 2–6 |
 
-Since v8 the game shows the roll range directly on the artifact, which makes
-this table checkable in-client rather than only against secondary sources.
-
-~~**Pending verification.**~~ **Confirmed August 30, 2026** against 1,785 real
-artifact records (§15.4). All fourteen appear on both categories, and the
-category split is absolute: ids `3xx` occur only on Attribute artifacts and
-`4xx` only on Type artifacts, with no crossover in the data. Validation may now
-reject a category violation rather than merely warn.
-
----
-
-## 6. How each property actually behaves
-
-The ranges above are the easy part. The behaviour is where an implementation
-goes wrong. Each entry below states the mechanic and the trap.
-
-### 6.1 Crit damage properties — additive into the crit bucket
-
-`[Skill n] CRIT DMG`, `First Attack CRIT DMG`, `Own turn 1-target CRIT DMG`,
-`CRIT DMG as enemy HP is more/less`, and the defender's `CRIT DMG Taken −` all
-resolve into **one additive crit-damage pool**. They are never multiplied
-together.
-
-```text
-Monster CD                 180
-[Skill 3] CD               +20
-First Attack CD            +15
-CD as enemy HP is more     +10
-Own-turn 1-target CD        +8
---------------------------------
-Effective CD               233
-```
-
-**First Attack CRIT DMG** is subtler than the name suggests: it applies to the
-first attack instance **against each individual opponent** on the monster's
-turn. An AoE skill can therefore qualify for some targets and not others within
-the same execution. Model it per target:
-
-```ts
-// not: if (isFirstSkillOfTurn)
-if (!targetAlreadyAttackedThisTurn) { … }
-```
-
-**Own turn 1-target CRIT DMG** requires both that the monster is acting on its
-own turn and that the skill is a *genuine* single-target skill. An AoE skill
-that happens to have one surviving enemy does not become single-target.
-
-**CRIT DMG as enemy HP is more/less** scales with the target's current HP ratio
-`H = currentHP / maxHP`:
-
-```text
-CD_more = N × H            // N = 20 %, H = 0.5  →  +10 CD
-CD_less = N × (1 − H)      // N = 40 %, H = 0.75 →  +10 CD
-```
-
-The far larger roll range on the *less* variant (8–12 vs 4–6) is why it is the
-stronger finisher and boss property.
-
-**CRIT DMG Taken −** is a defensive property and is **not** a flat damage
-reduction. It reduces the attacker's effective crit damage:
-
-```text
-Attacker 200 CD, target CRIT DMG Taken −15%  →  crit resolves at 185 CD
-```
-
-With 100 base damage that is 300 → 285, roughly a 5 % reduction — not 15 %.
-Implementing it as `damage × 0.85` overstates it threefold.
-
-### 6.2 Buff amplification — multiplies the buff, then truncates
-
-`ATK/DEF UP Effect` (merged from the former separate ATK UP and DEF UP
-properties in v8) and `SPD UP Effect` change **the strength of the buff**, not
-the monster's stat.
-
-```text
-ATK buff  = floor(50 × (1 + A))    // base +50 %
-DEF buff  = floor(70 × (1 + A))    // base +70 %
-SPD buff  = floor(30 × (1 + S))    // base +30 %
-```
-
-Worked: `A = 11 %` gives `50 × 1.11 = 55.5` → **55 %**, not 56. `S = 24 %` gives
-`30 × 1.24 = 37.2` → **37 %**.
-
-The trap: `ATK/DEF UP Effect +25%` does **not** mean +25 percentage points of
-ATK, and `SPD UP Effect` is never added to the monster's SPD.
-
-### 6.3 Recovery — multiplies the heal
-
-```text
-effectiveHeal = baseHeal × (1 + recoveryArtifact)
-```
-
-A skill healing 30 % of HP with `[Skill 2] Recovery +20%` heals `30 × 1.20 =
-36 %` — not `30 + 20 = 50 %`. It also applies to relevant passive heals and
-interacts with lifesteal healing.
-
-### 6.4 Life Drain — multiplies an existing drain
-
-```text
-drain = baseDrain × (1 + L)
-```
-
-A 35 % drain (Vampire runes, for instance) with `Life Drain +20%` becomes 42 %.
-
-The trap: a unit with **no** drain source gains nothing. The artifact amplifies
-an existing effect; it does not create one.
-
-### 6.5 Accuracy — affects the ACC check, not the activation chance
-
-```text
-Base ACC 45 % + [Skill 2] Accuracy 20 %  →  effective 65 % for that skill
-```
-
-The ordinary ACC-vs-RES check then proceeds unchanged. **The artifact does not
-raise a debuff's activation rate.** A debuff with a 70 % activation chance still
-has a 70 % activation chance with +30 Accuracy; only the subsequent resistance
-check is affected. This distinction matters in any simulator.
-
-### 6.6 Damage Dealt on element — an additive damage-bonus bucket
-
-```text
-DMG% = 1 + artifactElement + artifactCoop + otherDamageBonuses
-```
-
-Bonuses belonging to the same bucket are summed, then applied once. Multiplying
-them sequentially — `×1.10 ×1.15 ×1.20` — is wrong.
-
-### 6.7 Damage Taken from element — a late reduction
-
-Applied in the reduction bucket, **after** additional damage has been added
-(§7). It therefore also reduces damage that additional damage contributed to.
-
-### 6.8 Counterattack/Co-op Attack DMG
-
-Merged in v8 from the former separate `Counterattack Damage` and `Attacking
-Together Damage`. Applies when the unit participates in that attack type; for
-co-op it covers both the unit pulled into the team-up and the participating
-unit the artifact is engraved on.
-
-### 6.9 Bomb Damage — a multiplier on the bomb result
-
-```text
-bombFinal = bombNormal × (1 + B)
-```
-
-A 30,000 bomb with a 10 % artifact deals 33,000. It changes neither the ATK stat
-nor the bomb's underlying mechanics.
+- 206 is **SPD UP Effect** and 226 **ATK/DEF UP Effect**; the in-game panel
+  names both on rid 1215663871 (an unpowered 6 and an unpowered 5). 226 is
+  v8.0.0's merge of the legacy 204 and 205: those stop at v8 (90 and 42 lines
+  before, none after) and 226 starts there (223 after, none before).
+- 210 rolls **2–4**. Its lines at 1 all sit on artifacts acquired before
+  v6.2.0 (§15.8). *Evidence: the Repeat Convert dialog (2–6); Ellia; Fandom.*
+- 225 is v8.0.0's merge of the legacy 208 (Counterattack DMG) and 209 (Co-op
+  Attack DMG).
+- Additional Damage by SPD is 25–40 in the dialog where Ellia (pre-v8) gives
+  20–40; the dialog is newer and governs.
+- `206` is also the one line the stat sheet reads, for the speed buff its holder
+  receives (`spdUpEffectPropertyId`).
 
 ---
 
-## 7. Additional Damage — the mechanic most often implemented wrong
+## 6. Combat behaviour — reference only
 
-Four properties: `Additional Damage by HP`, `by ATK`, `by DEF`, `by SPD`.
+**JASWA computes no artifact combat value** (§19.1). What follows is
+non-binding orientation for reading a preference; it is neither implemented nor
+checked. Where a figure is ever computed, `CALCULATION-AUTHORITY.md` and its
+SWCalc source govern.
 
-### 7.1 The formula
-
-Per damage hit:
-
-```text
-AD = floor(HP × a) + floor(ATK × b) + floor(DEF × c) + floor(SPD × d)
-```
-
-**Truncation happens per component, not on the sum.** With components of 100.66
-and 50.80 the result is `100 + 50 = 150`, not `floor(151.46) = 151`.
-
-### 7.2 It uses final combat stats
-
-```text
-HP 40,000 × 1.2 %   =   480
-ATK 2,500 × 15 %    =   375
-DEF 1,000 × 10 %    =   100
-SPD 250   × 120 %   =   300
-                       -----
-                       1,255  additional damage per hit
-```
-
-On a six-hit skill that is 7,530 — which is why multi-hit monsters gain
-enormously from additional damage.
-
-### 7.3 It is a separate flat bucket
-
-Artifact additional damage:
-
-- **cannot crit**;
-- is **not** affected by target DEF;
-- is **not** affected by `Damage Dealt on X`;
-- is added **per hit**;
-- **is** affected by subsequent damage reductions.
-
-```text
-damage = (baseDamage + additionalDamage) × reductions
-```
-
-more completely:
-
-```text
-damage = (multipliers × crit × damageBonuses × defenseFactor × variance
-          + additional) × reductions
-```
-
-The rule this makes explicit — never write:
-
-```ts
-normalDamage *= 1 + additionalDamageByAtk   // wrong: it is flat damage
-```
-
-### 7.4 Buffs change it
-
-Because it reads the current stat, an ATK buff raises it. With
-`Additional DMG by ATK 20%`: 2,000 ATK gives 400; the same monster under a
-+50 % ATK buff has 3,000 ATK and gives 600. The same holds for DEF- and
-SPD-based additional damage.
-
-### 7.5 Artifact main stats are applied first
-
-Because additional damage reads the *total* stat, the artifact's own main
-property feeds it:
-
-```text
-38,500 HP + artifact main 1,500  =  40,000 HP
-40,000 × 1.5 %  =  600      (not 38,500 × 1.5 % = 577)
-```
-
-The same applies to ATK and DEF. Order the calculation accordingly (§13).
-
-### 7.6 Two artifacts stack
-
-Where both artifacts grant the same functional effect, the values add in the
-relevant bucket:
-
-```text
-Type artifact       Add'l DMG by ATK 13 %
-Attribute artifact  Add'l DMG by ATK 17 %
-                                    -----
-                                     30 %   →  AD_ATK = ATK × 0.30
-```
-
----
-
-## 8. What needs runtime context
-
-A program cannot compute one objective `artifactDamage = 1234` without knowing
-the combat situation. Only the main stats are static.
-
-| Class | Properties |
+| Property family | Effect in battle |
 | --- | --- |
-| **Static** | main HP / ATK / DEF |
-| **Target-dependent** | Damage Dealt on element; Damage Taken from element; CD as enemy HP is more; CD as enemy HP is less |
-| **Skill-dependent** | [Skill n] CRIT DMG; [Skill n] Accuracy; [Skill n] Recovery |
-| **Attack-event-dependent** | First Attack CD; Own-turn 1-target CD; Counter/Co-op DMG |
-| **Buff-state-dependent** | ATK/DEF UP Effect; SPD UP Effect; Additional damage by buffable stats |
+| Every CRIT DMG line, and the defender's CRIT DMG Taken | adds into one crit-damage bucket; Taken lowers the attacker's crit damage, not the hit |
+| First Attack CRIT DMG | the first hit on each target in the monster's turn |
+| Own turn 1-target CRIT DMG | own turn, genuinely single-target skills |
+| CRIT DMG as enemy HP is more / less | scales with the target's current HP ratio |
+| ATK/DEF UP and SPD UP Effect | strengthens the buff the holder receives — `⌊30 × (1 + e)⌋` for SPD (`SPEED-TICK-CANONICAL.md`) — never the stat |
+| Recovery, Life Drain, Bomb Damage | multiply an existing heal, drain or bomb; no drain source, no gain |
+| Accuracy | adds to the skill's ACC check, not to the activation chance |
+| Damage Dealt on / Taken from *X* | a damage-bonus bucket and a late reduction, against element *X* |
+| Additional Damage by HP / ATK / DEF / SPD | a flat amount per hit from the final stat, cannot crit, ignores DEF |
 
-This is why judgement must run against a context object rather than a single
-artifact score:
+*Evidence: Ellia; SWCalc, as summarised before October 2026; not re-checked.*
 
-```ts
-interface ArtifactBattleContext {
-  skill: 1 | 2 | 3 | 4;
-  attacker: {
-    hp: number; atk: number; def: number; spd: number; maxHp: number;
-    isOwnTurn: boolean;
-    hasAtkBuff: boolean; hasDefBuff: boolean; hasSpdBuff: boolean;
-  };
-  target: {
-    attribute: Attribute;
-    currentHp: number; maxHp: number; defense: number;
-  };
-  attack: {
-    isCrit: boolean;
-    isSingleTargetSkill: boolean;
-    isFirstAttackOnTargetThisTurn: boolean;
-    isCounterAttack: boolean;
-    isCoopAttack: boolean;
-    hitIndex: number; numberOfHits: number;
-  };
-}
+## 7. What artifacts can and cannot do
 
-interface ArtifactModifiers {
-  effectiveCritDamageBonus: number;
-  damageBonus: number;
-  incomingDamageReduction: number;
-  additionalDamage: number;
-  effectiveAccuracyBonus: number;
-  recoveryMultiplier: number;
-  atkBuffStrength?: number;
-  defBuffStrength?: number;
-  spdBuffStrength?: number;
-}
-```
+Artifacts **cannot** have rune sets, be ground, take Enchanted Gems, carry a
+percentage main, have more than four lines, or appear twice in one category on
+one monster. They **can** be converted (§10), be reappraised (§11), carry legacy
+properties (§12), and share a main across both categories.
+
+## 8. Why a score reads preferences
+
+No artifact line has a context-free combat worth: crit lines depend on the
+skill and the crit, element lines on the target, buff lines on who buffs,
+additional damage on the hit count. Only the main is static. So JASWA's score
+measures **how fully an artifact rolled on what the monster is declared to
+want** (§16, §19), never a summed percentage of unlike effects.
+
+## 9. Stored values
+
+A line's value is held in **hundredths of a percentage point**
+(`valueHundredths`): 25 % is 2500, 0.2 % is 20. The export writes decimals, and
+`218` arrives with float error in it (`0.6000000000000001`), so the reader
+rounds to hundredths and rejects a value that is not within `10⁻⁶` of one.
+Comparisons are on integers.
 
 ---
 
-## 9. Rounding
+## 10. Conversion
 
-Artifacts are a place where truncation is load-bearing. Do not reach for
-`Math.round` as a default; carry an explicit policy per mechanic:
-
-```ts
-type RoundingRule = 'NONE' | 'FLOOR' | 'CEIL' | 'ROUND';
-```
-
-Best-documented cases:
-
-| Mechanic | Rule |
-| --- | --- |
-| Buff amplification | `floor(baseBuff × (1 + artifact))` |
-| Additional damage | `floor` **per stat component**, then sum |
-
-**Keep the policy in one table, not at each call site.** A bare `Math.floor`
-inside a calculation says nothing about whether the game truncates there or
-whether the author simply wanted an integer. Name every rounding site:
-
-```ts
-const ARTIFACT_ROUNDING = {
-  additionalDamagePerComponent: 'FLOOR',
-  buffAmplification: 'FLOOR',
-
-  // Intermediate, not a game-observed truncation. Keep full precision and
-  // let the damage pipeline round where the game actually does.
-  enemyHpCritDamageScaling: 'NONE',
-} as const satisfies Record<string, RoundingRule>;
-```
-
-An entry marked `NONE` is a claim that the mechanic does **not** truncate there —
-as load-bearing as a `FLOOR`, and the reason the intermediate values in §6.1 must
-stay unrounded. A mechanic missing from the table is a mechanic nobody has
-checked; that is the state worth being able to see.
-
-### Store percentages as integers
-
-Never use floating point as canonical storage — `0.1 + 0.2 !== 0.3`. Store
-hundredths of a percentage point:
-
-```ts
-interface ArtifactRoll {
-  valueHundredthsPct: number;   // 25 % → 2500, 1.5 % → 150, 0.2 % → 20
-}
-```
-
-Convert with `value / 10000` only at the point of use as a multiplier. This is
-what makes `Additional Damage by HP` (0.20–0.30 %) representable exactly.
-
----
-
-## 10. Conversion — the artifact's answer to a Gem
-
-Artifacts cannot take rune Enchanted Gems. They have **Conversion** instead.
-
-| Mechanism | What it does | Requires |
+| Mechanism | Effect | Spends |
 | --- | --- | --- |
-| **Normal Conversion** | Replaces one chosen sub property with a random legal property, including a reroll of that property's value | Conversion Stones, Mana |
-| **Engraved Conversion** | Replaces one chosen sub property with the property named by the stone | Engraved Conversion Stone, Mana |
+| **Normal conversion** | replaces one line with a random legal property and value | Conversion Stone, Mana |
+| **Engraved conversion** | replaces one line with the property the stone names (§15.12) | Engraved Conversion Stone, Mana |
 
-**The permanent slot lock.** A Conversion Stone can change one sub property on
-an artifact. After the first conversion, the lock belongs to that sub property's
-position in the four-line list, not to the property's current name. Later
-Conversion Stones can change that same position again, so its property and value
-may change again, but no other position may be converted. The conversion cannot
-be undone, cleared, or moved to another position. Hence:
+**The permanent slot lock.** After an artifact's first conversion, only that
+**position** may be converted again; its property and value may change again,
+no other position may. The lock is never cleared or moved
+(`convertedPropertyIndex`, zero-based, `null` before a first conversion). The
+converted mark sits on line 1–4 in displayed order and means "the only line a
+further stone can touch". *Evidence: the in-game panel (rid 1221299508,
+§15.6).*
 
-```ts
-convertedPropertyIndex: number | null;  // zero-based; null before first conversion
+**A normal conversion reaches one and a half rolls:**
+
+```text
+conversion minimum = minRoll
+conversion maximum = ceil(maxRoll × 1.5)    rounded up to the display step
 ```
 
-In the interface, the converted mark is therefore attached to sub-property 1,
-2, 3, or 4 in the artifact's displayed order. It means that line is the only
-line eligible for future Conversion Stones; it does not mean that the current
-property name is permanently retained.
+The **Converts to** columns of §5 are this rule; the rounding shows on 3–5
+(7.5 → 8) and 0.2–0.3 (0.45 → 0.5). `artifactNormalConversionMaximum` computes
+it, `artifactNormalConversionContributions` (1.5) is the rate a perfect
+conversion is worth in the score, and `verify:normal-conversion-maximum`
+transcribes the dialog's 33 rows. *Evidence: the in-client Repeat Convert
+dialog, read 2026-09-05, which names the lowest and highest threshold of every
+property a normal conversion may roll.*
 
-**There are no artifact Grindstones.** `[Skill 3] CD 24%` cannot be pushed to
-28 %. There is no artifact equivalent of a permanent additive grind on an
-existing property. This is a fundamental difference from runes.
+The conversion roll the user assumes (`conversionRoll`: minimum, one third,
+average, two thirds, three quarters, maximum; default three quarters) is a
+share of that range (`artifactConversionRollFraction`): the floor is
+`minRoll / ceiling`, the average the midpoint, and a stop never assumes less
+than the one to its left.
+
+**There are no artifact Grindstones**; nothing raises a line in place.
 
 ### 10.1 An Intangible artifact cannot be converted
 
-**Observed in the client, September 5, 2026.** Conversion is unavailable on an
-Intangible artifact: neither a Conversion Stone nor an Engraved Conversion Stone
-can be applied to one. An Intangible therefore holds the four sub properties it
-dropped with for as long as it exists, and `convertedPropertyIndex` is `null` on
-every one of them.
-
-This follows the shape of the mechanic rather than contradicting it. §15.12
-records that a stone is engraved for **one engrave class** and converts nothing
-else, and §15.1 records that an Intangible names no class at all. There is no
-class for a stone to match, so there is no stone the artifact can accept — the
-wildcard that makes an Intangible fit every monster is the same fact that leaves
-it nothing to convert with.
-
-**The scoring consequence, and it is not cosmetic.** No projection, no
-recommendation, and no conversion gain may be computed for an Intangible. It is
-scored on the lines it holds and nothing more, in every conversion mode. Doing
-otherwise ranks these artifacts above ones that can genuinely be improved, on a
-gain the game will never let the user collect — and it does so precisely where
-the user is least able to check it, because the Intangible artifacts are the
-scarce ones worth the most attention.
-
-Both compute backends must apply this identically, as they must for `fits`
-(§15.1): `scoreArtifactOnMonster` in `artifact-score-core.ts` and the same test
-in the WebGPU shader. A disagreement there would give the two backends different
-candidate sets for one account.
-
-It also means no code should ask which engraved stones apply to an Intangible.
-`ownedConversionPropertyIndexesByClass` deliberately files no entry under
-`intangibleRestrictionCode`: a category-wide union there would be an answer to a
-question the rules do not permit.
-
-### A normal conversion reaches one and a half rolls
-
-**Settled September 5, 2026** against the game's own **Repeat Convert** dialog,
-which names the lowest and highest selectable threshold for every property a
-normal conversion may roll. That is a first-party statement of the range, so
-under §14 it outranks both the account's converted lines and any published
-table:
-
-```text
-conversionMinimum = minRoll                  // exactly, on all 25 properties
-conversionMaximum = ceil(maxRoll × 1.5)      // rounded up to the display step
-```
-
-| Property | Roll | Converts to |
-| --- | --- | --- |
-| DMG dealt on element, ATK/DEF UP Effect | 3–5 | 3–**8** |
-| DMG taken from element, SPD UP Effect, CD+ enemy HP more, every Skill line | 4–6 | 4–**9** |
-| Bomb DMG, CRIT DMG Taken, Add'l DMG by ATK/DEF, Own turn 1-target, Counter/Co-op | 2–4 | 2–**6** |
-| Life Drain | 5–8 | 5–**12** |
-| CD+ enemy HP less | 8–12 | 8–**18** |
-| Add'l DMG by SPD | 25–40 | 25–**60** |
-| Add'l DMG by HP | 0.20–0.30 | 0.20–**0.50** |
-
-`scripts/verify-normal-conversion-maximum.mjs` transcribes the dialog and locks
-every figure.
-
-**Two rules this replaces, and why each fails.** `maxRoll × 2` — the previous
-model here — overstates every property by about a third: it would put Life Drain
-at 16 where the game stops at 12. The community rule `minRoll + maxRoll` agrees
-only where `minRoll` happens to be half of `maxRoll` (2–4, and 3–5 once rounded);
-it fails 4–6, 5–8, 8–12 and 25–40. Both survived the account data only because
-**no observed line ever came close to either ceiling** — which is itself the
-clue, since a two-roll ceiling should have been reached occasionally in 265
-lines.
-
-**The rounding is real, not a fitting artefact.** The two properties whose 1.5×
-lands off the display step are the proof it rounds *up*: 5 → 7.5 → **8**, and
-0.3 → 0.45 → **0.5**.
-
-**One property conflicts, and the conflict is kept.** The dialog lists `[Skill 2]
-CRIT DMG` (401) at 4–9 like every other skill line, implying `maxRoll` 6 — but
-one line of 6,881 in the account holds **7**, and §12 forbids a ceiling a real
-artifact exceeds. The definition keeps 7, so its conversion ceiling sits one step
-above the dialog's. That errs toward admitting, never toward rejecting.
-
-**Received values and planning values are separate.** `maxRoll × 2` remains an
-observed conversion envelope and `artifactNormalConversionMaximum` is the figure
-a *proposed* normal conversion is scored against. Neither is an import bound:
-the game has already established the received value, and a new conversion or
-engraved-stone encoding must not make the account stale.
-
-### The account's own count: two contributions, never reached
-
-**Settled September 3, 2026** against the 137 converted lines in the captured
-account. This is an observed envelope; the dialog above governs what a normal
-conversion actually produces.
-
-Every converted line stores `powerUpCount: 0`, so the naive reading is that a
-conversion produces a single roll. The values refuse that reading: **66 of the
-101 converted lines whose range is known hold a value no single roll can
-produce** — effect 300 (3–5 per roll) reaches 8, effect 223 (8–12) reaches 17,
-effect 219 (2–4) reaches 6. The complementary check is what settles the count:
-**no converted line in the account requires a third contribution.** The
-observed fractions of a two-contribution ceiling run 0.300 to 0.833, and none
-exceeds 1.
-
-```text
-conversionEnvelope = maxRoll × 2      // an observed planning envelope, independent of grade
-```
-
-This is §15.9's position-4 rule seen from the other side: the newest-line flag
-is set on the converted line, and counting it as one extra contribution is what
-makes the arithmetic close.
-
-**The observed ceiling fraction corroborates the dialog.** Those fractions top
-out at **0.833 and never approach 1** — and `1.5 / 2 = 0.75`, with the rounding
-on odd maxima explaining the rest. A genuine two-roll ceiling should have been
-touched at least once across 265 lines. It never was, because it was never
-reachable: the account was measuring a 1.5× ceiling against a 2× yardstick all
-along.
-
-**It does not scale with the artifact's grade**, and that is the trap. A Legend
-line collects five contributions, so judging a conversion against *that*
-ceiling claims a value the game cannot produce, and overstates the case for
-converting exactly on the artifacts worth the most care. A conversion on a
-Legend artifact reaches at best `ceil(maxRoll × 1.5)` where the line it replaces
-could have held `maxRoll × 5`.
-
-**The stone's grade does not raise the ceiling.** Grade governs which stones
-the player owns and spends (§15.12), not how high the resulting line can roll.
-Nothing in the account links a stone to the line it produced, so no code may
-claim otherwise.
+Neither stone applies to an Intangible, so it keeps the four lines it dropped
+with, and `convertedPropertyIndex` is `null` on every one. **No projection,
+conversion gain or stone may be computed for an Intangible**, in any conversion
+mode: both readers score it on its lines alone (`scoreArtifactOnMonster` returns
+before the conversion search; the WebGPU shader matches), and
+`ownedConversionPropertyIndexesByClass` files no entry under
+`intangibleRestrictionCode`. *Evidence: v8.1.9 ("Normal and Special Conversion
+are not available on Intangible Artifacts"); the client, 2026-09-05.*
 
 ---
 
-## 11. Reappraisal — v9.0.0, November 2025
+## 11. Reappraisal
 
-Artifact Reappraisal, using **Core Fragments**, is far more powerful than
-Conversion. It can change property types, change their values, and redistribute
-power-up rolls.
+Artifact Reappraisal spends **Core Fragments** and redistributes an artifact's
+properties and power-up levels; the **total power-up count is preserved** (a
+Legend with four power-ups keeps four). Up to **three** lines may be locked;
+a locked line keeps its property and its power-up level. Repeat Reappraisal and
+Repeat Conversion run up to **10** attempts against chosen properties and
+stop at a match, at 10, or when materials run out. *Evidence: v9.0.0
+(2025-11-12) and its preview (2025-11-05); v9.1.4 (2026-02-25).*
 
-**The invariant: the artifact's total number of power-up rolls is preserved.**
-A Legend artifact with four power-up rolls still has four afterwards.
+**JASWA does not model reappraisal**: no score, projection or recommendation
+assumes one. Whether reappraisal applies to an Intangible is unknown.
 
-```text
-before            after
-A: 3 rolls        A: 0
-B: 1 roll    →    B: 2
-C: 0              C: 1
-D: 0              D: 1
-```
-
-### Locking
-
-Zero, one, two, or three properties may be locked before reappraisal. A locked
-property keeps **both its type and its power-up level**.
-
-This creates the mechanic's real purpose. Given:
-
-```text
-[Skill 3] CD    3 rolls
-Add'l ATK       0
-Life Drain      1
-Accuracy        0
-```
-
-locking the three lines other than `[Skill 3] CD` forces the three roll levels
-that sat on it onto the only unlocked property. A triple- or quad-rolled slot
-can therefore be aimed deliberately at a more useful property.
-
-### Repeat Reappraisal and Repeat Conversion
-
-From v9.1.4/v9.1.5 (February 2026) the game can run up to **10** reappraisals or
-conversions automatically against property and range criteria, stopping when a
-result matches, when 10 attempts are used, or when resources run out. This
-changes no mathematics, but it matters to any modelling of resource cost.
+**Refine** is three things: v8.0.0's one-time completion of a pre-v8 artifact
+below +15 (§15.10), v9.0.0's unrelated *Rune* Refinement, and none of
+Reappraisal. Name reappraisal code after reappraisal.
 
 ---
 
 ## 12. Legacy properties
 
-**Do not delete old property IDs.** Com2uS has repeatedly preserved existing
-artifacts carrying properties that were removed from the drop pool. An import
-that rejects them will reject perfectly legal artifacts on a real account.
+The game keeps retired properties on the artifacts that already carry them, and
+stones naming them "remain usable" (v8.0.0). **The reader accepts every
+legacy id**; refusing one would refuse a legal artifact.
 
-```ts
-status: 'CURRENT' | 'LEGACY';
-```
+| Id | Property | Retired |
+| ---: | --- | --- |
+| 203 | SPD Under Inability Effects | v6.2.0 |
+| 207 | CRIT Rate Increasing Effect | v6.2.0 |
+| 211 | Damage Dealt by Reflect DMG | v6.2.0 |
+| 212 | Crushing Hit DMG | v6.2.0 |
+| 213 | Damage Received Under Inability Effects (−) | v6.2.0 |
+| 200 | ATK Increased Proportional to Lost HP | v8.0.0, removed |
+| 201 | DEF Increased Proportional to Lost HP | v8.0.0, removed |
+| 202 | SPD Increased Proportional to Lost HP | v8.0.0, removed |
+| 216 | HP when Revived | v8.0.0, removed |
+| 217 | Attack Bar when Revived | v8.0.0, removed |
+| 204 / 205 | ATK / DEF Increasing Effect | v8.0.0, merged into 226 |
+| 208 / 209 | Counterattack DMG / Co-op Attack DMG | v8.0.0, merged into 225 |
+| 402 / 403 | [Skill 3] / [Skill 4] CRIT DMG (Type) | v8.0.0, merged into 410 |
 
-Known legacy properties include:
+*Evidence: v8.0.0's counts (five removed, six merged into three); Ellia's v6.2
+list; names from in-game panels on rids 319233427, 60850484, 60874386,
+52204289 and 147366072. 212 is the one name no owned artifact anchors.*
 
-- ATK increased proportional to lost HP
-- DEF increased proportional to lost HP
-- SPD increased proportional to lost HP
-- SPD under inability
-- Damage received under inability
-- Reflect damage
-- Crushing Hit Damage
-- HP when revived
-- Attack Bar when revived
-- Crit Rate Increasing Effect
+Every legacy id is `availability: 'both'` except 402/403, because the few
+observed lines are too thin to narrow a category.
 
-Some were retired earlier; others were removed or merged in v8.0.0.
+**A legacy line weighs zero and never gates.** No monster can want a property
+the drop pool no longer produces, so its range is `null`, it has no ceiling
+(`maximumHundredths: null`, in every era), and both readers score it as an empty
+unwanted line: the packed scorer has no index for it, and
+`artifactJudgementOnMonster` enters it at value 0. A legacy line never makes an
+artifact unjudgeable. The account does reveal some old ranges (§15.11); they are
+deliberately not stored, because a ceiling could only ever refuse a judgement.
 
-### The lost-HP family
-
-If backwards compatibility is wanted, these scale with the owner's missing HP
-and with the **base** stat — not the fully runed stat:
-
-```text
-bonusStat = baseStat × artifactValue × (1 − currentHP / maxHP)
-```
-
-Base DEF 800, artifact +50 %, at 40 % HP: `800 × 0.50 × 0.60 = 240 DEF`. Not
-`totalRunedDEF × 0.50 × 0.60`.
-
-**Pending verification.** The exact roll ranges and the current in-export
-encoding of each legacy property have not been checked against a real export.
-Treat legacy lines as displayable and valid, but do not compute a maximum value
-or a projection for them until their ranges are confirmed.
-
-**Unknown is not zero.** A legacy definition carrying `minRoll: 0, maxRoll: 0` as
-a placeholder makes `maxValue` return `0` — a number that renders, sorts, and
-looks answered. Model the absence instead:
-
-```ts
-minRoll: number | null;   // null = range unknown, not "no range"
-```
-
-Every maximum, projection, and roll-quality function must return `null` for such
-a property and the interface must show that it cannot be judged, rather than
-judging it harshly. This is the same distinction rule 3 in `AGENTS.md` draws
-between an empty field and an explicit zero.
-
-### A terminology trap: "Refine"
-
-The word has meant different things across the game's life:
-
-| Term | What it is |
-| --- | --- |
-| **Refine** (v8.0.0) | The migration mechanism that finished pre-v8 artifacts not yet at +15 |
-| **Rune Refinement** (v9.0.0) | A rune mechanic — unrelated to artifacts |
-| **Artifact Reappraisal** (v9.0.0) | The Core Fragment mechanic in §11 |
-
-Do not name the reappraisal function `refineArtifact()`. Use
-`convertArtifactProperty()` and `reappraiseArtifact()`.
+**A stone naming a legacy property** is read, counted and shown as *not
+valued*, and never spent (§15.12).
 
 ---
 
-## 13. The calculation contract
+## 13. The import contract
 
-The order the engine must follow. Reordering these steps changes results.
+A game response is authoritative about an artifact the account owns. The reader
+validates the shape it needs and **rejects** — never repairs — a record that
+fails it (`readArtifact`); the importer then refuses the whole file with
+*This file contains an (engraved) artifact JASWA cannot read.* (`AGENTS.md`
+§0.1).
 
-| Step | Stage | What happens |
-| ---: | --- | --- |
-| A | **Stats first** | Compute HP, ATK, DEF, SPD, CR, CD, ACC, RES **including artifact main stats** |
-| B | **Combat buffs** | Apply ATK/DEF/SPD buffs, amplified by §6.2 and truncated |
-| C | **Skill context** | Fix skill number, target, target HP %, target element, single/AoE, first attack, own turn, counter, co-op, hit count |
-| D | **Crit bucket** | Sum every applicable CD property additively, less the target's `CRIT DMG Taken −` |
-| E | **Normal damage** | Skill coefficient, crit, elemental and co-op damage modifiers, defense factor, variance |
-| F | **Additional damage** | Per hit: `floor(HP×a) + floor(ATK×b) + floor(DEF×c) + floor(SPD×d)` |
-| G | **Final reductions** | Target artifact and passive reductions, including `Damage Taken from X` |
+Checked:
 
-```text
-normalHit = skillScaling × critFactor × damageModifier × defenseFactor × variance
-additional = AD_HP + AD_ATK + AD_DEF + AD_SPD
-finalHit  = (normalHit + additional) × finalReductions
-```
+1. `type` is 1 or 2; `natural_rank` is 1–5; `rid` is a safe integer.
+2. `pri_effect[0]` is 100, 101 or 102 and `pri_effect[1]` is a number (read,
+   then dropped).
+3. `sec_effects` holds exactly four tuples, each a known property id (current
+   or legacy), a finite value representable in hundredths (§9), a whole
+   power-up count ≥ 0, and whole conversion flags ≥ 0 at positions 3 and 4.
+4. The engrave class (§15.1) is a named element or archetype, or 98
+   (Intangible). An unnamed class is rejected, never imported and hidden.
+5. No artifact is engraved on two Scenario monsters (*This file engraves one
+   artifact on two monsters.*).
+6. Every `artifact_crafts` record decodes (§15.12), or the file is refused
+   (*This file contains an engraved conversion stone JASWA cannot read.*).
 
-where
-
-```text
-critFactor = 1 + CD_monster + CD_skillArtifact + CD_hpCondition
-               + CD_firstAttack + CD_singleTarget − CD_targetReduction + …
-```
-
-`damageModifier` holds `Damage Dealt on X`, counter/co-op, and skill or passive
-multipliers. These are three **separate buckets** and must not be collapsed.
-
-### Structural import rules
-
-A complete validation layer checks at least:
-
-1. Monster attribute matches the Attribute artifact.
-2. Monster type matches the Type artifact.
-3. At most one artifact per category.
-4. Main stat ∈ {HP, ATK, DEF}.
-5. Exactly four finished sub properties.
-6. A known property id and main-property id resolve to JASWA's vocabulary.
-7. A legacy property is preserved on an existing artifact.
-
-Category membership, duplicate properties, power-up totals, roll reachability,
-conversion limits and reappraisal invariants remain useful **diagnostics and
-planning assumptions**. They are not import rejection criteria: they describe
-what the game normally creates, while the game remains the source of truth for
-what it did create.
-
-### Property definitions as metadata, not switch statements
-
-Keeping each property as data makes future balance patches a table edit:
-
-```ts
-interface ArtifactPropertyDefinition {
-  id: ArtifactPropertyId;
-  availability: 'TYPE' | 'ATTRIBUTE' | 'BOTH' | 'LEGACY';
-  minRoll: number;
-  maxRoll: number;
-  valueScale: 'PERCENT' | 'HUNDREDTH_PERCENT';
-  mechanic:
-    | 'CRIT_DAMAGE' | 'RECOVERY' | 'ACCURACY'
-    | 'DAMAGE_BONUS' | 'DAMAGE_REDUCTION' | 'BUFF_AMPLIFICATION'
-    | 'ADDITIONAL_DAMAGE' | 'LIFE_DRAIN' | 'BOMB_DAMAGE';
-  trigger?: {
-    skill?: 1 | 2 | 3 | 4;
-    targetAttribute?: Attribute;
-    firstAttack?: boolean;
-    ownTurn?: boolean;
-    singleTarget?: boolean;
-    counter?: boolean;
-    coop?: boolean;
-  };
-}
-```
-
-**Property IDs come from the export, not from the reader.** A readable union of
-`'skill_1_crit_damage' | …` is tempting and premature: §15 has not yet settled
-whether the export keys properties numerically, nor whether the merged v8
-properties reuse an old ID. Derive the internal identifiers from what the export
-actually contains, and keep display names in a table beside them — never as the
-identity itself.
-
-### What belongs outside this layer
-
-The artifact model describes artifacts. Three things it must borrow rather than
-own, because they are general game rules that would silently fork if copied here:
-
-| Value | Belongs to |
-| --- | --- |
-| Base buff strengths — ATK +50 %, DEF +70 %, SPD +30 % | The general stat/buff model |
-| Base crit damage, base accuracy, base resistance | The monster stat model |
-| The damage pipeline itself | The damage engine; artifacts supply modifiers to it |
-
-§6.2's amplification takes the base buff as an argument. It does not define it.
-
-### What artifacts cannot do
-
-Stated explicitly, because each has been assumed at some point:
-
-Artifacts **cannot** have rune sets, be ground with Grindstones, take rune
-Enchanted Gems, carry SPD/CR/HP % as ordinary rune-style subs, have a percentage
-main stat, have six sub properties, or appear twice in the same category on one
-monster.
-
-Artifacts **can** be converted, be reappraised with Core Fragments, have up to
-three properties locked during reappraisal, carry legacy properties, and share
-the same main stat across both the Type and Attribute artifact.
-
-### Scoring is not summing percentages
-
-`20 % Add'l ATK`, `20 % [Skill 3] CD`, and `20 % Damage on Water` are not
-equally valuable — they land in entirely different buckets.
-
-A 2,500-ATK monster with `Add'l DMG by ATK 20%` gains 500 flat damage per hit;
-on a six-hit skill that is 3,000 before final reductions. `[Skill 3] CD +20`
-applies only on Skill 3, only on a crit, only inside the crit bucket, and its
-worth depends on the existing CD.
-
-A correct optimizer computes **marginal combat value**, never a sum of property
-percentages. This is the point where a naive artifact score would mislead the
-user, and §13's staging is what makes the honest answer computable.
-
-### There is no single artifact score
-
-"How good is this artifact" is three questions wearing one coat, and they
-disagree constantly. A quad-rolled `[Skill 3] CRIT DMG 30%` is a perfect artifact
-and worthless on a monster whose Skill 3 is a heal.
-
-```ts
-interface ArtifactEvaluation {
-  rollQuality: number;          // how close to perfect rolls, monster-free
-  monsterCompatibility: number; // do these properties fit this monster at all
-  combatValue: number;          // what it actually changes, in context
-}
-```
-
-| Axis | Answers | Needs |
-| --- | --- | --- |
-| **Roll quality** | "Did this artifact roll well?" | The artifact and §3 alone |
-| **Monster compatibility** | "Do these properties apply to this monster?" | Skills, scaling, hit count, role |
-| **Combat value** | "How much damage, healing, EHP, or turn order does it move?" | A full §8 context and the §13 pipeline |
-
-Roll quality is computable today. The other two are not — they need the export
-encoding (§15) and, for combat value, the whole staged pipeline. Keeping them
-separate in the model means the workspace can ship the honest answer it has
-rather than a blended number that hides which parts were guessed.
-
-Roll quality itself has two defensible definitions, and they answer different
-questions:
-
-```text
-efficiency = (value − minPossible) / (maxPossible − minPossible)   // 0 = worst legal roll
-fraction   = value / maxPossible                                   // share of the ceiling
-```
-
-The first measures luck within what was possible; the second measures absolute
-strength. Pick one per surface, label it, and never average them.
+**Not checked, by design:** roll ranges, conversion limits, power-up totals,
+duplicate properties and category membership of a line. They describe what the
+game normally creates; the game is the authority on what it did create, and a
+changed conversion or reappraisal encoding must not freeze the import
+(`verify:conversion-roll-range`, `verify:authoritative-artifact-import`).
 
 ---
 
 ## 14. Sources and revision rule
 
-1. Com2uS — official v8.0.0 update notice: artifacts drop finished, the Refine
-   migration, Skill 3/4 CRIT DMG merge, ATK/DEF UP Effect merge,
-   Counterattack/Co-op merge, removed properties.
-2. Com2uS — official v9.0.0 update notice, November 2025: Artifact Reappraisal,
-   Core Fragments, the preserved power-up total, and locking up to three
-   properties.
-3. Com2uS — v9.1.4 / v9.1.5 update notices, February 2026: Repeat Reappraisal
-   and Repeat Conversion, up to 10 attempts against criteria.
-4. Com2uS — in-client artifact display, which since v8 shows each property's
-   roll range and per-property power-up count. Primary and checkable.
-5. SWCalc — empirical damage-pipeline model: bucket ordering, additive crit
-   bucket, additional damage as a flat post-multiplier term, buff-amplification
-   truncation, per-target First Attack behaviour. Secondary.
-6. Elliabot artifact documentation — Life Drain and Recovery multiplicative
-   behaviour, lost-HP legacy scaling on base stats, integer/truncation
-   behaviour. Secondary.
-7. Summoners War Wiki and SW Database — property pool, elemental property
-   ranges, legacy property names. Secondary; superseded by current official text
-   or reproducible client observation on conflict.
-8. **The user's own account**, read from a `HubUserLogin` response on
-   August 30, 2026: 1,251 account artifacts and 534 engraved, 1,785 records.
-   Primary and checkable, and the basis of §15. It settles the field layout, the
-   property vocabulary and its category split, the power-up encoding and its
-   grade invariant, the conversion slot, and how legacy properties are
-   recognised.
+| Tag | Source | Date |
+| --- | --- | --- |
+| v6.0.0 | Com2uS v6.0.0 notice, <https://summonerswar.spokland.com/game/update/v6.0.0_update_notice-2020-07-30> | 2020-07-30 |
+| v6.2.0 | The value increase; date confirmed by the account (§15.11); retired list per Ellia | 2021-01-28 |
+| v8.0.0 | Com2uS v8.0.0 notice, <https://summonerswar.spokland.com/game/update/v8.0.0_update_notice-2023-06-30> (property tables are images) | 2023-06-30 |
+| v8.1.9 | Com2uS v8.1.9 notice (Intangible), <https://summonerswar.spokland.com/game/update/v8.1.9_update_notice-2023-12-29> | 2023-12-29 |
+| v9.0.0 | Com2uS v9.0.0 notice, Steam gid 1816215235343275; preview gid 1815580768225554 | 2025-11-12, 2025-11-05 |
+| v9.1.4 | Com2uS v9.1.4 notice (Repeat Reappraisal/Conversion), Steam gid 1825727806703809 | 2026-02-25 |
+| Dimension Arena | Developer's Preview #6, Steam gid 1845383656385392 | 2026-10-02 |
+| Dialog | In-client Repeat Convert dialog, every normal-conversion range | read 2026-09-05 |
+| Tooltips | In-client engraved conversion stone tooltips | read 2026-09-05 |
+| Panel | In-client artifact panel, per rid as cited | 2026-08-30 – 2026-09-05 |
+| Export | The user's account, `HubUserLogin`: 1,785 records (2026-08-30), 1,862 (2026-09-01), 2,089 (2026-09-04), the 401 lines (2026-10-19), all 271 stone records (2026-10-20) | as stated |
+| Statistics | `app/data/engraving-statistics.json` (`ENGRAVING-STATISTICS.md`) | per row |
+| SW Exporter | `app/mapping.js`, artifact `effectTypes`, <https://github.com/Xzandro/sw-exporter> | 2025-09-29 |
+| Ellia | <https://elliabot.neocities.org/game_mechanics/artifacts/> (pre-v8 content) | undated |
+| Fandom | Summoners War wiki, *Artifacts* (search snippet only) | ~2026-07-30 |
 
-Revalidate on every game update: the property pool, roll ranges, merged or
-removed properties, and the reappraisal roll-preservation rule. An unknown
-property ID must never receive a silent fallback rule.
+Steam notices are read through
+`https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=2426960&count=300&maxlength=0`.
+A first-party source — a notice, the client, or the account's own export —
+outranks a secondary table.
+
+**Nothing is guessed.** An unknown property id, engrave class or field value
+never receives a fallback meaning: the record is rejected until the meaning is
+found (`AGENTS.md` §0.1). Revalidate the pool, the ranges and the merges on
+every game update.
+
+**Watch item.** Dimension Arena (announced for November 2026) brings monsters
+and artifacts that exist only inside it. If the export carries them, the import
+needs a decision under `AGENTS.md` §0.1 before they are counted.
 
 ---
 
-## 15. The export encoding — settled
-
-**Answered August 30, 2026** against a real `HubUserLogin` response: 1,251
-account artifacts and 534 engraved ones, 1,785 records in total. Every claim
-below is a count over that data, not an inference from a guide. The section
-that preceded this one listed six open questions; five are now closed and the
-sixth is narrowed to a single field.
+## 15. The export encoding
 
 ### 15.1 The record
 
 ```jsonc
 {
-  "rid": 319233427,          // the artifact's own id
-  "occupied_id": 0,          // 0 in inventory; otherwise the unit_id it is engraved on
-  "slot": 0,                 // 0 in inventory; else 1 = Attribute, 2 = Type
-  "type": 2,                 // 1 = Attribute artifact, 2 = Type artifact
-  "attribute": 0,            // element, on type 1 only
-  "unit_style": 2,           // monster type, on type 2 only
-  "natural_rank": 3,         // natural grade: 3 Rare, 4 Hero, 5 Legend
-  "rank": 5,                 // always 5
-  "level": 15,               // always 15
+  "rid": 319233427,          // identity and obtained order (§15.13)
+  "occupied_id": 0,          // 0 in inventory; else the Scenario unit_id
+  "slot": 0,                 // 0 in inventory; else 1 Attribute, 2 Type
+  "type": 2,                 // 1 Attribute, 2 Type
+  "attribute": 0,            // engrave class on type 1
+  "unit_style": 2,           // engrave class on type 2
+  "natural_rank": 3,         // grade, §3
+  "rank": 5, "level": 15,    // constants on every post-v8 record
   "pri_effect": [100, 1500, 15, 0, 0],
-  "sec_effects": [[220, 4, 0, 0, 0], /* … exactly four … */],
-  "locked": 0, "source": 50001, "extra": [],
-  "date_add": "…", "date_mod": "…"
+  "sec_effects": [[220, 4, 0, 0, 0], /* exactly four */],
+  "locked": 0, "source": 50001, "extra": [], "date_add": "…", "date_mod": "…"
 }
 ```
 
-**`type` decides which of `attribute` and `unit_style` carries meaning**, and
-the other is `0`. In 1,251 records a non-zero `attribute` appeared only on
-`type: 1` and a non-zero `unit_style` only on `type: 2`, with no exceptions.
-`slot` agrees with `type` on every engraved artifact (`1/1` and `2/2`), so it is
-a second statement of the same fact rather than an independent one.
+- **`type` decides which class field is read**: `attribute` on type 1,
+  `unit_style` on type 2; the other is 0. `slot` restates `type` on every
+  engraved artifact.
+- **Class codes**: elements Water 1, Fire 2, Wind 3, Light 4, Dark 5
+  (`artifactElements`); archetypes Attack 1, Defense 2, HP 3, Support 4
+  (`artifactArchetypes`).
+- **98 is the Intangible engrave class** (`artifactIntangibleEngraveClass`).
+  31 of 1,862 artifacts carry it, 25 in `attribute` and 6 in `unit_style`; the
+  game shows them as "Intangible … Artifact". Their `type` is unchanged and
+  their lines keep the category split (35 `3xx` lines on type 1, 11 `4xx` on
+  type 2), so the category binds and only the class is open. *Evidence: export
+  and panel, 2026-09-01.*
+- Both compute backends encode the wildcard as `intangibleRestrictionCode` (0,
+  outside both class numberings), and must match it identically
+  (`verify:intangible-artifacts`).
 
-**`rank` and `level` are constants.** All 1,785 records are `rank: 5`,
-`level: 15` — §2's "artifacts drop finished" as a property of the data. Do not
-build a level or upgrade path; there is nothing to model. `extra` was empty on
-every record, and `natural_rank` never fell below 3.
+### 15.2 `pri_effect`
 
-**The value 98 is the Intangible engrave class — settled September 1, 2026.**
-It appears in `attribute` (25 records) and `unit_style` (6) across the 1,862
-artifacts of the user's account. The game names it in the artifact panel:
-**"Intangible Type Artifact"**. It is the same wildcard concept
-`RUNE-CANONICAL.md` §10 records for the Intangible rune, applied to the engrave
-restriction rather than to the set.
+`[id, value, 15, 0, 0]`, with exactly the three pairs of §2.
 
-**An Intangible artifact fills its category slot but matches every class inside
-it.** The category still binds, and the export proves it rather than merely
-suggesting it:
-
-- `type` is unchanged on all 31 records — 25 are `type: 1`, 6 are `type: 2`.
-- A `type: 1` Intangible carries `3xx` **attribute-only** properties (35 lines
-  observed) and a `type: 2` one carries `4xx` **type-only** properties (11).
-  §5's category split holds, so the category is a real restriction on these.
-- Every other field is indistinguishable from an ordinary artifact: the same
-  `source` codes (50001 and 50009, both present on restricted artifacts too),
-  the same grades, the same `rank: 5` / `level: 15` constants.
-
-So an attribute Intangible fits any of the five elements and a type Intangible
-any of the four monster types — never the other category's slot.
-
-**Both compute backends encode the wildcard as one shared constant.**
-`intangibleRestrictionCode` in `app/lib/compute/artifact-score-protocol.ts` is
-`0`, chosen because it lies outside both class numberings (elements 1–5,
-archetypes 1–4) so no restricted artifact can collide with it. `fits` in
-`artifact-score-core.ts` and the matching test in the WebGPU shader must accept
-it identically; a disagreement there would make the two backends return
-different candidate sets for the same account.
-
-**An engrave class JASWA cannot name is rejected, not imported.** `readArtifact`
-refuses a record whose class is neither a named element/type nor Intangible.
-Under `AGENTS.md` §0.1 the loud failure is the point: accepting one would import
-an artifact the user owns and then hide it from every recommendation, because no
-comparison could ever match it. That invisibility is precisely the defect the
-Intangible investigation uncovered — 31 owned artifacts, imported and unusable,
-for want of one lookup.
-
-### 15.2 `pri_effect` — main property
-
-`[id, value, level, 0, 0]`, where `level` is always 15 and the last two are
-always zero. The id/value pairs observed are exactly three, and only three:
-
-| id | value | Meaning |
-| ---: | ---: | --- |
-| 100 | 1500 | HP +1,500 |
-| 101 | 100 | ATK +100 |
-| 102 | 100 | DEF +100 |
-
-This **confirms `gearPrimaryTypes` in `app/lib/monster-grid.ts`** and the
-`pri_effect[1]` addition in `app/lib/monster-stats.ts`. Both were right, and the
-distribution is near-even: 424 HP, 408 ATK, 419 DEF.
-
-### 15.3 `sec_effects` — the sub properties
-
-Four tuples, always, on all 1,785 records (§4 confirmed). Each is:
+### 15.3 `sec_effects`
 
 ```text
 [ effectId, value, powerUpCount, currentConversionFlag, legacyConversionMarker ]
 ```
 
-**Position 2 is the power-up count, and the original captured cohort followed
-the grade invariant.**
-Summed across an artifact's four lines it equals `natural_rank − 1`, in every
-single record:
+Position 2 is the line's power-up count (§3's invariant). Grouping values by it
+reproduces `initial + n rolls`, e.g. 206: 4–6, 8–12, 12–18, 17–24 at 0–3
+power-ups. Position 3 and 4 are §15.6.
 
-| `natural_rank` | Σ power-ups | Records |
-| ---: | ---: | ---: |
-| 3 (Rare) | 2 | 334 |
-| 4 (Hero) | 3 | 747 |
-| 5 (Legend) | 4 | 170 |
+### 15.4 Id ranges
 
-That is §3's table, observed rather than assumed. The natural grade and line
-counts are useful evidence for the roll model, but they are not a reason to
-discard a game-issued artifact: conversions and later mechanics may encode the
-same finished result differently.
-
-**Values confirm the §5 roll ranges and the contribution arithmetic.** Grouping
-each property's values by its power-up count reproduces `initial + n rolls`:
-
-```text
-effect 206   rolls 0: 4–6    rolls 1: 8–12   rolls 2: 12–18   rolls 3: 17–24
-effect 221   rolls 0: 25–40  rolls 1: 52–79  rolls 2: 81–115  rolls 3: 110–145
-effect 218   rolls 0: 0.2–0.3
-```
-
-**`218` is stored as a decimal**, and it arrives with float error already in it
-— `0.6000000000000001` appears in the data. This is §9's rule vindicated at the
-worst possible moment: convert to hundredths of a percent on read, and never
-compare these values as floats.
-
-### 15.4 The property vocabulary
-
-**Every id divides cleanly by category, and the split matches §5.**
-
-| Range | Category | Count | §5 section |
+| Range | Category | Current | Legacy |
 | --- | --- | ---: | --- |
-| `2xx` | Both | 14 current | §5.3 |
-| `3xx` | Attribute only (`type: 1`) | 10 | §5.2 |
-| `4xx` | Type only (`type: 2`) | 10 | §5.1 |
+| `2xx` | both | 13 | 200–205, 207–209, 211–213, 216, 217 |
+| `3xx` | Attribute only | 10 | — |
+| `4xx` | Type only | 10 | 402, 403 |
 
-The 14 `2xx` properties appeared on both categories, with 300 → 309 confined to
-`type: 1` and 400 → 411 to `type: 2` without a single crossover.
-**This discharges §5.3's pending verification**: "available on both categories"
-is now observed, not merely claimed, and the ten/ten/fourteen shape is exactly
-what §5 predicted.
+The statistics' `effect_id` for an artifact sub property is this same space
+(`ENGRAVING-STATISTICS.md` §1).
 
-`4xx` skips `402` and `403`, and `3xx` is contiguous. A gap is not evidence of a
-missing property; it may simply be an id the pool never used.
+### 15.5 Recognising legacy ids
 
-### 15.5 Legacy properties are distinguishable, and here is how
+A legacy id is listed explicitly (§12) and never derived. Absence from the
+engraving statistics is a strong signal — every id the statistics name also
+occurs on the account, and the inventory alone shows only 201, 205 and 217 on
+rid 319233427 (2022-09-29) — but a current property could be absent merely
+because no captured monster favours it. The full legacy set appears once the
+engraved artifacts are read as well.
 
-**Three ids — `201`, `205`, `217` — appear in the account but never in the
-engraving statistics**, across 383 captured monster types. All three sit on
-**one artifact**, `rid` 319233427, added 2022-09-29:
+### 15.6 The conversion markers
 
-```text
-[[220, 4, 0, 0, 0], [201, 37, 2, 0, 0], [205, 2, 0, 0, 0], [217, 5, 0, 0, 0]]
-```
+- **Position 3** marks the permanent lock in the current client: rid
+  1221299508 shows the Convert mark on its fourth line, `[409, 8, 0, 1, 0]`.
+- **Position 4** is an older encoding of the same lock (rid 284184132,
+  `[221, 31, 0, 0, 1]` on its marked third line). It is read only where no
+  position-3 flag exists, and its magnitude is not modelled.
 
-That is §12 in the data: properties removed from the drop pool but preserved on
-an artifact that already carried them. **The reverse check is what makes this
-usable** — every id present in the statistics also appears in the owned
-collection, so the two vocabularies agree completely except for these three.
+Both are metadata, never validation (§13). (§15.7 is not used.)
 
-An id absent from the statistics is therefore a strong legacy signal, but it is
-**not a definition**, and code must not derive `status: 'LEGACY'` from it: a
-current property could be absent simply because no captured monster favours it.
-Keep the legacy list explicit, and let the statistics inform it rather than
-determine it. §12's rule stands unchanged — accept these on import, refuse to
-generate them, and compute no maximum for them until their ranges are known.
+### 15.8 Lines outside a current single-roll range
 
-### 15.6 Position 3 — the current conversion lock
+Two kinds of line exceed or undercut today's per-roll range on a line with zero
+power-ups, and neither widens the table:
 
-The fourth tuple field marks the permanent Conversion lock in the current game
-client. The in-game panel for direct-import artifact `1221299508` shows the
-gold Convert mark on its fourth sub-property, `[Skill 3] Accuracy +8`; that
-line's tuple is `[409, 8, 0, 1, 0]`. The lock is therefore the line's position
-in `sec_effects`, not its current property name; a later conversion may replace
-that property and value without moving the lock.
+- **Above the maximum: converted lines.** Every 401 line above 6 with zero
+  power-ups carries a conversion mark; a conversion reaches 9 (§10). *Export,
+  2026-10-19.*
+- **Below the minimum: pre-v6.2.0 artifacts.** 206 at 3, 406 at 3 and 210 at 1
+  occur only on artifacts acquired before 2021-01-28, and never after
+  (§15.11).
 
-### 15.7 Position 4 — legacy conversion marker
+The 206/226 naming evidence is in §5.3.
 
-Older captures encode the same lock in the fifth tuple field: artifact
-`284184132` has `[221, 31, 0, 0, 1]` on its game-marked third line. The reader
-uses this position only when no current (fourth-field) lock exists. Its numeric
-magnitude is not modelled and it must never override the current marker.
+### 15.9 What converted lines show
 
-Both encodings are import metadata, not validation rules. A converted line may
-have any game-issued value or power-up count; those values remain authoritative
-input, while the roll model merely estimates future conversions.
-
-### 15.8 What this unblocks, and what it does not
-
-Modelling and reading artifacts is unblocked. Roll
-quality (§13's first evaluation axis) is computable today: the property, its
-power-up count, its value, and the grade invariant are all present and verified.
-
-The conversion position is now settled by the game panel (§15.6). The fifth
-field's broader numeric meaning remains unmodelled: it is retained solely as a
-legacy lock fallback, and its magnitude does not enter any calculation.
-`attribute`/`unit_style` value 98 was the other uncertainty and is now settled
-as the Intangible engrave class (§15.1).
-
-### 15.9 Corrections from building the reader — August 30, 2026
-
-Session 4 built `app/lib/artifact-properties.ts` from the export rather than
-from §5, against 1,864 artifacts — 79 more than §15 was written from. Four of
-its claims did not survive contact with the data. Under §14 the observation is
-primary and the secondary tables are corrected, not the reader.
-
-**The category split holds, and the counts move.** 33 property ids occur, and
-the engraving statistics name 30 of them as current: **13** on both categories,
-10 Attribute-only, 10 Type-only. §5.3 lists fourteen both-category properties,
-one more than the data has, and the fourteenth — `First Attack CRIT DMG`, id
-411 — appears **only on Type artifacts** in 79 occurrences. §5.3's table should
-move it to §5.1.
-
-**`4xx` does not skip `402` and `403`.** §15.4 records a gap; both ids exist
-and are **legacy**, absent from the engraving statistics and present only on
-artifacts added in 2020–2022. They are the pre-v8 `[Skill 3]` and `[Skill 4]`
-CRIT DMG that §5.1's merge note describes, preserved exactly as §12 predicts.
-
-**Two roll ranges in §5 are too narrow**, and the artifacts that break them
-were acquired *this month*, unconverted, on current-generation records:
-
-| id | Property | §5 says | Observed | Evidence |
-| ---: | --- | --- | --- | ---: |
-| 210 | Bomb Damage | 2–4 | **1–4** | 108 lines |
-| 401 | [Skill 2] CRIT DMG | 4–6 | **4–7** | 1 line of 6,881 |
-
-**206 was a third entry here and was wrong.** It read "ATK/DEF UP Effect,
-observed 3–6", but the game's own artifact panel (rid 1215663871) names 206
-**SPD UP Effect** and 226 **ATK/DEF UP Effect** — §5.3's two ranges were right
-and the ids were swapped against them. 206 rolls 4–6 as §5.3 says of SPD UP
-Effect; its lone 3 came from a pre-v6.2.0 artifact rolling under the older,
-lower table (§15.11), not from a wider current range. The occurrence counts
-settle it independently: 204 and 205 stop dead at v8 (90 and 42 lines before,
-none after) while 226 appears only after it (none before, 223 after), so 226 is
-the merger of those two halves and 206 was never merged at all.
-
-The 401 widening rests on a single observation, which is thin — but the
-alternative is a ceiling a real artifact provably exceeds, and a roll fraction
-above 1 empties the benchmark of meaning. The general rule it illustrates:
-**compute a maximum from the observed range, never from a guide's table.**
-
-**The legacy conversion marker is evidence about a contribution.** Counting a
-set historical fifth field as one extra contribution repairs the grade invariant
-on **43 of the 44 records that otherwise break it**, leaving one. That is a
-useful planning model, not a parser rule: a later conversion encoding may carry
-the same value differently, and the account must still import intact.
-
-**The extra contribution raises the ceiling only** — and the floor half of this
-finding was confirmed independently the same day by the Repeat Convert dialog,
-whose lowest selectable threshold is exactly `minRoll` on all 25 properties
-(§10). The ceiling half was superseded: `maxRoll × 2` survives here as an
-observed envelope, but a normal conversion actually reaches `ceil(maxRoll × 1.5)`.
-*Settled September 5, 2026*
-against the 265 converted lines with a known range in the captured account:
-**none exceeds `maxRoll × 2`** — which reads as confirmation but is merely
-consistency, since none reaches `ceil(maxRoll × 1.5)` either — while **142 hold
-less than `minRoll × 2`**, and **none falls below a single roll's minimum**. A
-conversion re-rolls the line from nothing, so two contributions are what it may
-*reach*, never a floor it must clear. The planning range for a converted line is
-therefore asymmetric:
-
-```text
-minimum = minRoll × (powerUpCount + 1)   // the lock adds nothing here
-maximum = maxRoll × (powerUpCount + 2)   // the lock adds one contribution
-```
-
-Doubling both ends is the trap for estimating a conversion. Effect 221
-converted to 37 against a 25–40 roll is an ordinary line; in every case the
-received value remains authoritative, even when a later observation revises
-this model.
+Across the account's converted lines with a known range (2026-09-05): **none
+falls below `minRoll`**, none exceeds `ceil(maxRoll × 1.5)`, and 142 of 265 hold
+less than `2 × minRoll`. A conversion re-rolls the line from nothing — its floor
+is one roll's minimum, not a multiple of it — and its ceiling is the dialog's
+(§10). Every converted line stores `powerUpCount: 0`.
 
 ### 15.10 Pre-v8 artifacts can remain unrefined
 
-The September 1 import audit found 202 readable artifacts added in 2020–2022
-whose values and category layout are valid, but whose old ranges or power-up
-totals do not match §15.3's current finished-artifact invariant. This is the
-state that v8's Refine action was designed to complete: an account may still
-retain an old artifact until its owner chooses to refine it.
+An artifact added before July 2023 whose `level` is below 15 still needs the
+game's one-time Refine. The reader accepts it, sets `unrefined` (shown as a
+marker), and keeps it in every recommendation and calculation. Its current
+properties are measured on today's table and its legacy ones have no ceiling
+(§12). `date_add` decides only this cutoff (`artifactPowerUpRemoval`, July 1,
+2023 UTC); an unreadable date is `null` and never passes it.
+*Evidence: v8.0.0; the September 1, 2026 import audit found 202 such artifacts
+from 2020–2022.*
 
-The reader must accept those records when their `date_add` predates July 2023.
-Their values are evaluated against the documented historical +15 ceilings: the
-launch table, the v6.2 property improvement, and the current export together
-cover both old range families. An artifact whose stored `level` is below 15 is
-unrefined and must carry a visible Refine marker, but it remains in every
-recommendation and calculation. A current-dated record with the same unfamiliar
-invariant remains authoritative input; historical date only decides whether
-JASWA has a historical ceiling for judging it.
+### 15.11 Three generations of roll tables
 
-### 15.11 Three generations, and the v6.2.0 boundary is visible in the data
-
-The roll tables have changed twice, so "the range" is a question about a date:
-
-| Generation | From | What changed |
+| Generation | From | Change |
 | --- | --- | --- |
-| Launch | v6.0 | the original, lower roll table |
-| **v6.2.0** | 2021-01-28 | initial and power-up values raised |
-| v8.0.0 | 2023-06-30 | drops arrive finished; five properties retired, six merged into three, one added |
+| Launch | v6.0.0, 2020-07-30 | the original, lower table |
+| v6.2.0 | 2021-01-28 | initial and power-up values raised; five properties retired (§12) |
+| v8.0.0 | 2023-06-30 | drops arrive finished; five removed, six merged into three, one added |
 
-**v8 did not generally change the roll ranges.** Comparing single-roll values
-either side of it across 29 properties, 24 are identical; the exceptions are
-sparse tails or the v6.2.0 effect below. What v8 changed is the *vocabulary*
-and the upgrade mechanic, not the per-roll figures.
-
-**The v6.2.0 date is confirmed by the account, not merely inherited from patch
-notes.** Every single-roll line that falls below today's floor — 206 at 3 %,
-406 at 3 %, 210 at 1 % — sits on an artifact acquired *before* 2021-01-28, and
-none after. Those 28 artifacts are exactly the set carrying no power-ups at
-all, so the pre-v6.2 cohort and §15.10's unrefined cohort are the same records.
-
-The legacy roll ranges are therefore knowable, by reading single unpowered
-lines from artifacts acquired after the increase:
-
-| id | Range | id | Range |
-| ---: | --- | ---: | --- |
-| 200 / 201 / 202 | 9–14 | 208 / 209 | 2–4 |
-| 204 | 3–5 | 216 | 4–6 |
-| 205 | 2–4 | 402 | 4–6 |
-
-Each agrees with the published v8 merge table. **They are still not stored as
-ranges**, because no local range can honestly judge every preserved artifact:
-55 artifacts in this account predate v6.2.0 or have values the old upgrade
-mechanic did not express as a whole multiple of a current roll. §12's rule
-governs: a range that cannot explain a legal artifact is worse than none.
+v8 changed the vocabulary and the upgrade mechanic, not the per-roll figures:
+24 of 29 properties have identical single-roll values either side of it. The
+v6.2.0 boundary is visible in the account: every sub-floor single-roll line
+sits on an artifact acquired before 2021-01-28. Single unpowered lines from
+after the increase give the legacy ranges 200–202 = 9–14, 204 = 3–5,
+205 = 2–4, 208/209 = 2–4, 216 = 4–6 and 402 = 4–6; they are not stored (§12).
 
 ### 15.12 Engraved conversion stones live in `artifact_crafts`
 
-**Settled September 3, 2026.** The account's engraved conversion stones are the
-`artifact_crafts` collection — 271 records holding 463 stones. They are *not*
-in `rune_craft_item_list`, and the distinction is not academic: craft types 5
-and 6 of that collection are rune enchanted gems and grindstones, whose ids
-read `<set><stat><grade>`. Decoding those as artifact properties resolves two
-of the account's forty owned property/class pairs and invents ids such as −487
-for the rest.
-
-The 12-digit `master_id` reads `CCC EEE AAG PPP`:
+The account's engraved conversion stones are the `artifact_crafts` collection,
+not `rune_craft_item_list` (whose types 5 and 6 are Gems and Grindstones,
+`RUNE-CRAFT-ITEMS.md`). The 12-digit `master_id` reads `CCC EEE AAG PPP`:
 
 | Segment | Meaning |
 | --- | --- |
 | `CCC` | `101` attribute stone, `102` type stone |
 | `EEE` | element × 10 on an attribute stone; `000` on a type stone |
-| `AAG` | archetype × 100 plus the natural grade — `3` Rare, `4` Hero, `5` Legend |
-| `PPP` | the artifact property the stone engraves |
+| `AAG` | archetype × 100 + natural grade (3 Rare, 4 Hero, 5 Legend) |
+| `PPP` | the property the stone engraves |
 
 ```text
 101 010 005 301   Legend Water attribute stone, Damage Dealt on Water
 102 000 103 407   Rare Attack type stone, [Skill 1] Accuracy
 ```
 
-**The two class fields are mutually exclusive**, on all 271 records: an
-attribute stone always carries an element and archetype `0`, a type stone
-always the reverse. That is what lets one code carry the class unambiguously,
-and a record filling both is malformed rather than merely unusual.
-
-**A stone is engraved for one engrave class, and the class binds.** A Water stone
-converts a Water attribute artifact and no other. Any model that treats an
-owned stone as usable on every artifact of its category overstates what the
-account can actually do — for this account, 21 properties available to a Water
-artifact against 40 across all elements. An Intangible artifact names no class,
-so every stone of its category applies to it.
-
-**The category split of §5 holds on stones too.** Attribute stones carry only
-`2xx`/`3xx` properties and type stones only `2xx`/`4xx`, with no crossover.
-
-#### The stone's grade raises the floor, never the ceiling
-
-**Settled September 5, 2026** against the stones' own tooltips, which state the
-range each stone will roll. This answers the question §10 had to leave open, and
-it answers it in the *opposite* direction to the usual assumption:
-
-| Stone | Property | Roll | Stone's range | Normal conversion |
-| --- | --- | --- | --- | --- |
-| Legend | Life Drain | 5–8 | **8~12** | 5–12 |
-| Legend | CD+ as less enemy HP | 8–12 | **12~18** | 8–18 |
-| Legend | Bomb DMG | 2–4 | **4~6** | 2–6 |
-| Legend | [S1] Accuracy, [S3] Recovery, [S4] CRIT DMG | 4–6 | **7~9** | 4–9 |
-| Rare | Add'l DMG by ATK | 2–4 | **2~6** | 2–6 |
-
-Every stone's **maximum is exactly the normal-conversion ceiling** of §10 —
-`ceil(maxRoll × 1.5)`, with no exception across grades. What grade buys is the
-**floor**: a Rare stone spans the whole normal range, while a Legend stone
-starts around two thirds of the way up it. An Engraved conversion is therefore a
-*safer* conversion, not a stronger one.
-
-**The practical consequence, and it is the one that matters here: no engraved
-conversion can produce a line a normal conversion could not.** An unexplained
-high value in the account cannot be blamed on an engraved stone. This removes
-the reservation §10 records for the import bound — the two systems share one
-ceiling — though the bound stays where it is, because widening never rejects a
-legal artifact and this evidence covers grades and properties sampled, not all
-of them.
-
-**The 4–6 skill properties are the one irregularity.** Their Legend floor is 7
-where the two-thirds pattern of the others predicts 6. Recorded as observed
-rather than smoothed: five stones is too thin a sample to derive the floor rule,
-and only the ceiling — which is uniform — is used by any calculation.
-
-**The evidence is post-v8 by construction, unlike the account's lines.** A
-converted artifact line is a historical record — it preserves whatever table was
-in force when it rolled, which is why §15.11's eras matter for reading them. A
-stone's tooltip is the opposite: the client renders it from the *current* table
-to state what the stone will roll if used now, whatever date the stone was
-obtained. Nine stones across two grades agree with the Repeat Convert dialog on
-every overlapping property, so two independent live sources give one ceiling.
-
-**A stone can name a property the artifact tables call legacy**, and both such
-properties resolve cleanly:
-
-| id | Property | Stone | Implied roll |
-| ---: | --- | --- | --- |
-| 216 | HP when Revived | Rare **4~9** | 4–6 |
-| 217 | Attack Bar when Revived | Legend **7~9** | 4–6 |
-
-For 216 that is exactly what §15.11 recovered from pre-v6.2 lines, now confirmed
-from a second, independent direction; 217 follows the same 4–6 shape, including
-the Legend floor of 7 that every other 4–6 property shows.
-
-**This does not make them current.** Neither appears anywhere in the Repeat
-Convert dialog's target list, so they are retired from the *random* pool while
-remaining reachable by a *targeted* engraved stone. `status: 'legacy'` therefore
-still describes them correctly for normal conversion, and their ranges stay
-`null` under §12 — but the account's 174 stones naming a legacy property are not
-all unusable, and a future session may want to value the 216/217 ones now that
-their ranges are known. Recorded, deliberately not acted on.
-
-**Stones naming a legacy property are refused, not offered.** 174 of the 463
-name one, and §12 forbids computing a roll for a property whose range is
-unknown — so a conversion to one could not be valued. They are genuinely
-unusable for a recommendation rather than merely unread, which is the
-distinction `AGENTS.md` §0.1 part 3 turns on.
+- **The two class fields are mutually exclusive**; a record filling both, a
+  zero class, an unknown grade or property, or a property of the other
+  category is unreadable, and the import is refused (§13 item 6). A stone needs
+  a `rid`. Quantity 0 is a readable empty stack; a negative quantity is
+  malformed.
+- **A stone binds one engrave class.** A Water stone converts a Water attribute
+  artifact and nothing else. **No stone applies to an Intangible** (§10.1).
+- **A stone naming a legacy property** (174 of the account's stones, all 216
+  or 217) is read with `valued: false`, counted and shown as *not valued*;
+  nothing spends it. `engravedConversionStoneCounts` returns `{valued,
+  notValued}`, or `undefined` when the import carried no `artifact_crafts`.
+  *Evidence: v8.0.0 ("Engraved Conversion Stones that include the
+  sub-properties that will no longer appear … remain usable"); export
+  2026-10-20: 301 valued, 174 not valued, all 271 records readable.*
+- **A stone's grade raises the floor, never the ceiling.** Every stone's
+  tooltip maximum is the normal-conversion ceiling of §10; a Rare stone spans
+  the whole normal range, a Legend stone starts about two thirds of the way up
+  (Life Drain 8~12, Bomb 4~6, the 4–6 skill lines 7~9). So no engraved
+  conversion produces a line a normal conversion could not. *Evidence:
+  Tooltips, 2026-09-05, nine stones over two grades.*
+- **Modelled:** the conversion roll assumption (§10) uses the normal range for
+  every stone; a stone's grade does not enter it, so the *minimum* to
+  *average* settings understate a Legend stone.
+- The stone a recommendation names is the best grade owned for that property
+  and class (`engravedStoneFor`, §17.6).
 
 ### 15.13 `rid` is the obtained order; `date_add` is not
 
-**Settled September 4, 2026.** The game's own "Obtained" sort is the account's
-acquisition sequence, and `rid` carries it. `date_add` is the field that looks
-right and is not.
-
-**`date_add` resolves only to the second, and the game grants artifacts in
-bulk.** In a 2,089-artifact snapshot, 548 artifacts — better than a quarter of
-the account — share a `date_add` with at least one other, in 13 groups; the
-largest three hold 139, 139 and 135 records, each one a single dungeon run or
-shop purchase landing in the same second. Inside such a batch the date
-distinguishes nothing, so any order built on it alone falls back to whatever
-order the records happen to arrive in, which is not the order the game shows.
-
-**`rid` is a strict refinement of the date, never a contradiction of it.**
-Sorting the same 2,089 artifacts by `rid` puts an earlier `date_add` after a
-later one exactly zero times in 2,088 adjacent pairs. It is also unique per
-artifact, so ordering by it needs no tiebreak, and it requires no reading of
-the account's `tzone` — the export's space-separated timestamps name no zone,
-and the account's is `America/Los_Angeles`, so a date parsed locally is hours
-adrift of the one the game displayed.
-
-**`rid` must therefore be a safe integer.** It is both the identity and the
-ordering key, so a fractional or out-of-range value can carry neither and the
-reader rejects the record under `AGENTS.md` §0.1 part 3 rather than sorting it
-somewhere arbitrary.
-
-`npm run verify:artifact-obtained-order` is the check. It asserts both
-properties against the live snapshot when the helper log is present, and
-against synthetic same-second batches when it is not.
-
-**`date_add` keeps one job**: the roll-model era cutoffs of §15.10 and §15.11.
-Those boundaries are months apart, so neither the ties nor the time zone can
-move a record across one.
+The game's "Obtained" sort is `rid` order (`obtainedOrder`). `date_add`
+resolves only to the second and the game grants artifacts in bulk: in a
+2,089-artifact snapshot (2026-09-04), 548 share a second with another, in
+batches up to 139. Sorting by `rid` never puts a later `date_add` first (0 of
+2,088 adjacent pairs), needs no tiebreak, and needs no time zone. `rid` must be
+a safe integer, or the record is rejected (§13). `date_add` keeps one job: the
+Refine cutoff (§15.10). `verify:artifact-obtained-order` holds both.
 
 ---
 
-## 16. JASWA optimal value
+## 16. JASWA's artifact score
 
-`calculateArtifactOptimalValue` in `app/lib/artifact-optimal-value.ts` is the
-single source of truth for JASWA's artifact-versus-monster value. It measures
-how fully an artifact rolled on what the user declared valuable for that monster
-type and category. It is not a combat simulation or a sum of unlike effects.
+`calculateArtifactOptimalValue` (`artifact-optimal-value.ts`) defines the score;
+both readers call its parts. It measures **how fully an artifact rolled on what
+the monster declares valuable** for that category — never combat output.
 
-Let `a` be `Acceptable ctr. preferred` as a fraction, and assign each property
-preference a weight:
+With `a` the *acceptable worth* (§19.6) as a fraction:
 
 ```text
-w(preferred)  = 1
-w(acceptable) = a
-w(unwanted)   = 0
+w(preferred) = 1     w(acceptable) = a     w(unwanted) = 0
+
+line points  pᵢ  = value / maxRoll                 (artifactLineMaxRolls)
+main points      = w(main) × 2                     (artifactMainPropertyPoints)
+benchmark        = 2 + 4 + 3a                      (artifactScorePointBenchmark)
+
+score = (main points + Σ w(lineᵢ) × pᵢ) / benchmark
 ```
 
-For each of the artifact's four sub properties, let `pᵢ = rolled valueᵢ /
-maxRollᵢ`. `pᵢ` is the property's **max-roll points**: one maximum natural roll
-is one point, so a line that took five maximum rolls is worth five points.
+- **A line's points are maximum natural rolls**: 12 % on a 4 % property is
+  3 points. The point is natural, not grade-relative, so a Normal line holding
+  its single roll scores a fifth of a full Legend line — the truth about both.
+  A line above five points (`value > maxRoll × 5`) is invalid input: the score
+  is `undefined`, never clamped.
+- **The main is a term, not a factor (§16.1).**
+- **The benchmark** is the best artifact the game can build on the profile
+  monsters actually offer: a preferred main, one preferred line of four maximum
+  rolls, and three acceptable lines of one each — 7 of a Legend's 8
+  contributions, so reachable. *100 % is the right main, one preferred property
+  that took most of the power-ups, and three more lines the monster accepts.*
+  It is fixed: derived neither from the artifact (which would let one max
+  preferred line and three irrelevant ones match four wanted lines) nor from
+  the monster (which would let a one-property monster be served perfectly by a
+  one-line artifact). Across 902 captured species, 830 have exactly one
+  preferred sub property under §19.3's scoring cut, with about four acceptable;
+  so one preferred line and acceptable neighbours is the profile that exists.
+  The denominator runs from 6 (`a` = 0) to 9 (`a` = 1); 7.5 at the default 50 %.
+- **A score above 100 % is intended**: the artifact beat the profile.
+- **Legacy lines weigh zero** and never make an artifact unjudgeable (§12).
+- **`undefined` versus 0.** A category with no usable preferences is *not
+  judged* (`undefined`, §19.5); a judged category the artifact matches in
+  nothing — main included — scores a real 0.
 
-```text
-max-roll pointsᵢ = rolled valueᵢ / maxRollᵢ
-```
+At the default `a = 0.5`, max rolls throughout:
 
-The main property is measured in the same points and **added**, never
-multiplied: `mainPoints = w(main preference) × 2`. §16.1 is why the figure is 2
-and why it is a term rather than a factor.
+| Profile (Legend unless stated) | Main | Points | Score |
+| --- | --- | ---: | ---: |
+| **The benchmark:** 1 preferred (4 rolls) + 3 acceptable (1 each) | preferred | 7.5 | 100 % |
+| 1 preferred (5) + 3 acceptable (1 each) | preferred | 8.5 | 113 % |
+| 1 preferred (5) + 3 unwanted | preferred | 7 | 93 % |
+| 4 preferred (5 + 1 + 1 + 1) | preferred | 10 | 133 % |
+| 1 preferred (2) + 3 unwanted | preferred | 4 | 53 % |
+| the benchmark's lines | unwanted | 5.5 | 73 % |
+| 4 preferred (5 + 1 + 1 + 1) | unwanted | 8 | 107 % |
+| nothing wanted but the main | preferred | 2 | 27 % |
 
-**The point is natural, not grade-relative.** One maximum natural roll is one
-point on every artifact, so a Legend line holding one roll scores low and a
-Normal line holding its only roll scores lower still — which is the truth about
-both. `Σ pᵢ` is then proportional to the stat the artifact actually delivers.
+Four preferred lines on a preferred main give the grade ceilings 80 % (Normal),
+93 %, 107 %, 120 % and 133 % (Legend), rising with what each grade delivers. A
+monster with exactly one wanted property tops out at 93 %. At `a = 0`
+acceptable means unwanted; at `a = 1` it means preferred, and four acceptable
+max lines reach the benchmark.
 
-This took two corrections, and both are worth keeping written down because each
-failure was invisible — every artifact still got a number, and the number was
-wrong. The current point presentation is algebraically the same final measure,
-but makes the contributions visible instead of burying a factor of five in every
-line.
-
-**September 3, 2026: not the line's own contributions.** The measure originally
-divided by the contributions each line actually collected, which made a
-max-rolled one-roll line score 1.0 exactly like a max-rolled five-roll line.
-That answers "did this line roll luckily?" and the optimizer asks "how much does
-this artifact contribute?" (§17). Across 1,085 Legend lines in the captured
-account the mean was 0.800 under the old measure and 0.325 under the next one.
-
-**September 3, 2026: not the grade's ceiling either.** Dividing by the
-artifact's *own* grade replaced one error with its mirror. A finished artifact
-holds `maxContributions + 3` contributions across its four lines (§3), so that
-denominator caps `Σ rᵢ` at `(M + 3) / M` — which **falls** as the grade rises:
-
-| Grade | Contributions held | Old cap on `Σ rᵢ` | Old score ceiling |
-| --- | ---: | ---: | ---: |
-| Normal | 4 | 4.00 | 160 % |
-| Magic | 5 | 2.50 | 100 % |
-| Rare | 6 | 2.00 | 80 % |
-| Hero | 7 | 1.75 | 70 % |
-| Legend | 8 | 1.60 | 64 % |
-
-A max-rolled Normal artifact scored 2.5× a perfect Legend while delivering half
-the stat, and `conversionCeilingFraction` reached 1.0 on Normal and Magic, so a
-conversion scored as a full line exactly where it helps least.
-
-The consequence worth stating plainly: a Rare artifact does not score like a
-Legend merely for having rolled well within its smaller allowance, and a
-conversion — reaching one and a half rolls by §10 — is worth `1.5/5` of a full
-line on every grade.
-
-**September 15, 2026: the code now says what this section always said.** The
-formula above is unchanged — `pᵢ = rolled valueᵢ / maxRollᵢ` — but the three
-readers each computed it as `value × 5 / lineMaximum`, where `lineMaximum` is
-itself `maxRoll × 5`. The two fives cancel, so every score was already correct;
-what they cost was legibility. A reader asking why a 12 % line on a 4 % roll is
-worth 3 points was told it earned "60 % of its 5 points" rather than the plain
-answer: 12 % is three maximum rolls.
-
-`artifactLineMaxRolls` is now the single definition, and both readers call it.
-Values are unchanged to the last decimal — `verify:artifact-score-scale` still
-prints the same five grade ceilings and the same 100 % benchmark, and
-`verify:artifact-score-agreement` still finds both readers in agreement. A
-change that moves no number is worth making only for what it lets the next
-person see, which is why the artifact page's own worked example can now show a
-substat's max roll beside the rolls it amounts to.
+`verify:artifact-score-scale` holds the benchmark at 100 % at every acceptable
+worth, each grade ceiling reachable and above the one below, a wrong main
+costing exactly its own points, and the WGSL backend computing the same
+numerator and denominator. Changing the benchmark, the main's points or the
+scoring cut of §19.3 is a deliberate recalibration: re-measure, and re-check the
+bands of §18.2.
 
 ### 16.1 The main property is a term, not a factor
 
-*Changed September 12, 2026.* The main property was previously a multiplier on
-the whole sub-property value — `optimalValue = m × subValue` — and that was wrong
-in a way no artifact could escape:
-
-```text
-perfect preferred sub properties × unwanted main   =   0
-```
-
-A quad-rolled preferred line and three more the monster wanted scored **zero**
-for carrying the wrong flat stat, and every artifact with a merely acceptable
-main was halved however it rolled. Nothing in the game works that way. The main
-property is **one flat addition** (§2) — +1,500 HP, +100 ATK or +100 DEF, applied
-to the monster's stat like any other flat term (§7.5) — so it is one contribution
-among five, not a gate on the other four. A wrong main costs what a wrong main
-costs; it does not delete four lines of real stat.
-
-**The main property is worth two maximum rolls of a preferred sub property.**
-
-```text
-mainPoints = w(main preference) × 2
-```
-
-So a preferred main adds 2 points, an acceptable main `2a`, and an unwanted main
-0 — and an artifact whose main the monster does not want still scores everything
-its sub properties earned. That is the whole change, and the one it repairs is
-`if (main === 0) return 0`, which also skipped the conversion search: an artifact
-on the wrong main was not merely scored at zero, it was never offered a
-conversion that would have made it worth engraving elsewhere.
-
-### The benchmark must be an artifact that can exist, on a monster that exists
-
-The benchmark is **the best artifact the game can build on the profile the
-monsters actually offer, carrying the main property that monster wants**: a
-preferred main, a Legend whose preferred line holds four maximum rolls, and
-three acceptable lines of one maximum roll each. Its lines hold 4, 1, 1 and 1
-contributions — seven of the eight a finished Legend has, so it is buildable
-with a power-up to spare.
-
-```text
-benchmark points = 2 + 4 + 3a
-optimalValue = (mainPoints + Σ(wᵢ × pᵢ)) / benchmark points
-```
-
-In one sentence, which is the form to give a player: **100 % is the right main
-stat, one preferred property that took most of the power-ups, and three more
-lines the monster accepts.**
-
-*Changed September 15, 2026, from `2 + 5 + a`.* The old profile described an
-artifact with two empty lines: one preferred line that had taken every power-up,
-one acceptable line, and nothing in the other two. An artifact has four lines
-and a monster typically ranks about four properties acceptable (below), so the
-lines beside the preferred one are acceptable in practice rather than empty, and
-the denominator now says so. **At the default 50 % tolerance the total is
-unchanged** — `2 + 5 + 0.5` and `2 + 4 + 3 × 0.5` are both 7.5 — so the scale
-most users see did not move, and every published figure below still holds: the
-grade ceilings run 80 % to 133 %, a perfect Legend on an unwanted main reads
-107 %, and a max-rolled Normal reads 80 %. Away from the default the denominator
-now ranges 6 to 9 across the tolerance settings where it ranged 7 to 8, which is
-the intended consequence of charging for three acceptable lines instead of one.
-
-**The main property joins both sides of the fraction, and that is what holds the
-scale still.** It is two points in the numerator and two in the denominator, so
-the change from factor to term moved the top of the scale by about four
-percentage points rather than rescaling it: the grade ceilings run 80 % to 133 %
-where the multiplier model gave 73 % to 145 %. A denominator that left the main
-out would have declared every artifact half again as good as it was.
-
-**One preferred line, and the rest acceptable, because that is what the monsters
-grant.** Across the 902 monster types the statistics cover, **830 have exactly
-one preferred sub property** out of 23, and the mean is 0.94 — with about four
-acceptable. So a benchmark asking for two preferred lines would measure every
-artifact against a monster that does not exist, while the three lines beside the
-preferred one are ones the monster accepts rather than ones it wants. Measured
-against the captured account, the best profile any monster offers a given
-artifact is `1 preferred + 1 acceptable` or `1 preferred + 2 acceptable` for
-1,161 of its 1,555 artifacts; four preferred lines occur for three.
-
-That last figure is why the benchmark sets the bar at `1 preferred + 3
-acceptable` rather than at what the median artifact achieves: the denominator is
-the *best* profile available, not the common one, so a merely typical artifact
-should read well below 100 %.
-
-This is a fixed denominator, and it is fixed twice over.
-
-**It is not derived from the artifact.** Using the weights of the properties
-this artifact happened to roll lets one max preferred line and three irrelevant
-lines score the same as four desired max lines.
-
-**It is not derived from the monster.** A monster wanting exactly one property
-would otherwise be perfectly served by an artifact carrying only that property,
-while a monster wanting the same property plus three acceptable ones scored
-lower for having said more. The score answers *how much of what this monster
-wants does this artifact deliver*, which is the question §17 needs, because
-allocating one pool of artifacts across many monsters requires numbers that are
-comparable between monsters. A monster with one preferred property and nothing
-else therefore tops out at 93 %, and that is the honest answer: the best artifact
-in the world can only give it one line of what it wants.
-
-**And it must be reachable.** The original `1 + 3a` assumed four lines that had
-each collected five contributions — twenty, against the eight that exist. It sat
-2.5× above anything the game could produce, so the profile the document called
-100 % actually scored 52 % and a perfect Legend capped at 64 %.
-
-At the default `a = 0.5`, with max rolls throughout:
-
-| Profile (Legend unless stated) | Main | Score |
-| --- | --- | ---: |
-| 1 preferred (5 contributions) + 1 acceptable — **the benchmark** | preferred | 100 % |
-| 1 preferred (5) + 2 acceptable | preferred | 107 % |
-| 1 preferred (4) + 1 preferred (2) | preferred | 107 % |
-| 1 preferred (5) + 3 unwanted | preferred | 93 % |
-| 4 preferred | preferred | 133 % |
-| 1 preferred (2) + 3 unwanted | preferred | 53 % |
-| the benchmark's own lines | **unwanted** | 73 % |
-| 4 preferred | **unwanted** | 107 % |
-
-The grade ceilings run 80 % (Normal), 93 %, 107 %, 120 % and 133 % (Legend) —
-rising with the grade, as the contribution each delivers does.
-
-The last two rows are the point of §16.1: both scored **0 %** before September
-12, 2026, and the second is a flawless artifact.
-
-**The captured account has not been re-measured since §16.1.** The figures that
-stood here — median 43 %, p90 63 %, p99 77 %, best 106 % — were measured on the
-multiplier model. The top of that distribution is undisturbed, since the
-benchmark gained the main property on both sides of the fraction: the same best
-artifact reads about 104 %. The middle rises, because a preferred main is now a
-floor of `2 / (7 + a)` — about 27 % — that every artifact carrying one keeps
-whatever its lines rolled. That lift is the repair working, not drift, but it is
-an arithmetic projection rather than a measurement: re-measure before quoting a
-distribution, and before cutting any threshold that reads one (§18.2).
-
-A score above 100 % is intentional: 100 % is the benchmark, not the ceiling. It
-means an artifact beat the profile — a second preferred line, or an acceptable
-line that took power-ups of its own.
-
-**Recalibrating this is a deliberate act, not a tuning knob.** The benchmark's
-shape follows from the contribution budget (§3), its acceptable-line count from
-the observed preference breadth, and the main's two points from §16.1. Should
-the defaults' thresholds change (§19.3), that breadth changes with them and
-these figures have to be re-measured rather than left standing.
-
-`npm run verify:artifact-score-scale` holds all of this: that the benchmark
-profile is exactly 100 % at every acceptable worth, that each grade's ceiling is
-reachable and higher than the grade below it, that a wrong main costs exactly
-the main property's own points and never zeroes an artifact, and that the WGSL
-backend computes the same numerator and divides by the same denominator as the
-TypeScript one.
-
-At `a = 0`, acceptable means unwanted; at `a = 1`, acceptable and preferred
-mean the same thing. Those endpoints deliberately change what can reach the
-benchmark: at 100 %, four acceptable max lines reach 100 %, because the user
-has removed the distinction. The function returns the score as a ratio, so
-`1.2` is displayed as 120 %.
-
-A monster category with no property preferences is **not judged** and returns
-`undefined`; a judged category whose artifact matches nothing it chose — main
-property included — returns the real value `0`. Since §16.1 that takes all five
-terms, so a zero now means the artifact is genuinely useless to this monster
-rather than merely carrying the wrong flat stat. Invalid roll data is rejected as
-`undefined`, never clamped or repaired.
+The main is **worth two maximum rolls of a preferred line**, added to the
+numerator and carried, preferred, in the benchmark. It is one flat stat among
+five contributions (§2), so it cannot veto the other four: an artifact on an
+unwanted main keeps every point its lines earned, forfeits exactly the main's
+two, and is still offered the conversions that would make it worth engraving.
+Because the main sits on both sides of the fraction, a preferred main alone is a
+floor of `2 / (6 + 3a)` — 27 % at the default.
 
 ---
 
-## 17. The optimizer's purpose, and the rules that follow from it
+## 17. The optimizer's purpose, and the rules that follow
 
 The workspace answers **one** question: *which artifact, carrying which
-conversion, belongs in each monster's Attribute and Type slots?*
+conversion, belongs in each monster's Attribute and Type slots?* It ranks every
+positive artifact/monster score together, locks the highest pair, and continues
+down. A lock consumes that artifact and one slot. This is deliberately **not** a
+maximum-sum matching: the user farms replacements continuously, so an
+outstanding individual fit must win even where a portfolio would trade it away.
 
-It ranks every positive artifact/monster score together, locks the highest pair
-first, and continues down the ranking. A lock consumes that physical artifact
-and exactly one slot: Attribute or Type on one monster. This is deliberately
-not a maximum-sum matching algorithm. The user farms replacements continuously,
-so an outstanding individual fit must win even where a portfolio optimiser
-would trade it away for a larger total.
-
-Five rules follow, and each is a place the interface has been wrong.
+Every view reads a pair through one of two entry points that
+`verify:artifact-score-agreement` holds to one answer: `artifactPairScore`
+(the packed scorer the rankings use) and `artifactJudgementOnMonster` (one
+artifact on one monster, for the library; `artifactValueOnMonster` is its
+value-only wrapper). The library row takes its score
+**and** its preferred/acceptable marks from that one judgement, so the marks
+cannot answer from other preferences than the number beside them.
 
 ### 17.1 A score shown is a score used
 
-Scores are computed and compared as **whole percentage points**, not merely
-rounded for display. Two artifacts both reading 88 % are equal everywhere: in
-sorting, in a threshold test, in a recommendation. Rounding only at the point
-of display makes the interface disagree with itself — two identical numbers on
-screen order themselves by a hidden decimal the user cannot see and cannot act
-on.
-
-Rounding is therefore applied once, where the score leaves the calculation, and
-every consumer reads the same integer. Ties are then broken by a **stated**
-rule — the artifact's own order — never by residual floating-point noise.
+Scores are computed, compared and stored as **whole percentage points**
+(`scorePercent`), not merely rounded for display. Two artifacts reading 88 %
+are equal in sorting, thresholds and recommendations; ties are broken by a
+stated rule — the artifact's own order — never by a hidden decimal.
 
 ### 17.2 A placement owns one artifact and one slot
 
-Each monster has exactly two distinct slots: one Attribute and one Type. A
-placement may fill only the matching category slot, and an artifact may occur
-in only one placement. An Intangible may fill either slot, but at most one
-Intangible placement may go to the same monster. The allocator checks all three
-claims after every pass; a duplicate artifact, a second Intangible, or a third
-artifact for a monster fails loudly rather than silently becoming advice.
+Each monster has one Attribute and one Type slot. A placement fills only the
+matching slot, an artifact occurs in one placement, and at most one Intangible
+placement goes to a monster. The allocator checks all three after every pass
+and fails loudly on a violation.
 
-The table shows the complete result, not only moves: **Keep** is a selected
-artifact already on its locked monster, **Engrave** is a selected artifact that
-belongs elsewhere, and every unselected artifact says **Sell**. This preserves
-the one-to-one plan and prevents an engraved artifact from disappearing merely
-because no move is required.
+The table shows the complete result: **Keep** (already on its locked monster),
+**Engrave** (belongs elsewhere), and **Sell** for every unselected artifact. A
+zero score is legal but contributes nothing and may not fill a slot, so a slot
+may stay empty; the report says so, says why — the artifacts went to monsters
+scoring at least as well — and counts in the singular when the count is one.
 
-A score of zero means that an artifact is legal but contributes nothing. It is
-not allowed to fill a slot. A slot may therefore remain empty when no positive
-artifact remains after stronger locks; the result reports every such shortfall
-explicitly rather than duplicating an artifact or pretending a zero is useful.
+### 17.3 Differences below the stated band are not differences
 
-**And the report says where they went.** An empty slot almost never means the
-account holds nothing that suits that monster — the artifacts exist, and the
-ranked pass gave each of them to a monster scoring at least as well. Wording
-that stopped at "no artifact scoring above 0 % remained" was read as the
-stronger, wrong claim, which turns the plan's own answer into an apparent fault
-in it. Name the reason, and count in the singular when the count is one.
-
-### 17.3 Differences below the stated threshold are not differences
-
-The user may declare a band — 1 % to 5 % — inside which two scores count as the
-same. A gain no larger than the band is not an improvement, and a recommendation
-resting on one is suppressed on every page. The band is expressed in percentage
-points of the score, which is the number the interface actually shows.
-
-The band is a *user's* judgement about what is worth acting on. Potential means
-an action JASWA would actually recommend, so a conversion inside the band is not
-part of an artifact's potential score, its allocation, or its recommendation.
-The current artifact score remains true; the band says the proposed action is
-not worth spending a stone on.
+The user may declare a band of 1–5 percentage points
+(`insignificantDifference`, off by default). A gain no larger than the band is
+not an improvement on any page, and a conversion inside it is not part of an
+artifact's potential score, its allocation or its recommendation.
 
 ### 17.4 A conversion is proposed only when it beats what is there
 
-The conversion must raise the artifact's **total score** on that monster by more
-than the selected significance band. A conversion that leaves the total score
-unchanged is not recommended.
+A conversion must raise the artifact's **total score** on that monster, in whole
+points, by more than the band. An existing conversion is not protected by its
+raw roll: if re-converting the locked line improves the artifact for its
+monster, JASWA recommends it, worded *Re-convert to*.
 
-An existing conversion is not protected merely because its raw roll is high.
-The permanent lock means that only that line can be changed again; it does not
-make an unwanted high roll more valuable than a lower preferred replacement.
-If re-converting the locked line makes the complete artifact better for its
-monster, JASWA recommends it.
-
-**Only the weakest source line is considered.** On an artifact with no prior
-conversion, JASWA proposes changes only to the sub property contributing the
-least to the particular monster's score. It does not offer a second-best source
-as an alternative just because that alternative would also improve the result.
-If two or more lines contribute the same score, the one with the lowest natural
-roll percentage is chosen. An exact remaining tie preserves the artifact's
-stored line order. Once a line has been converted, the game's permanent lock
-overrides this rule: only that specific line can be converted again.
-
-**The lock still holds.** It names which line a further stone can touch; it does
-not protect that line's present roll. Where a recommendation overwrites an
-existing conversion, the wording says *re-convert* rather than *convert*,
-because the line being spent is one the user already paid a stone for.
-
-**One line is converted; several may be offered.** The rule above chooses the
-line the score is computed from, and that choice is arithmetic — it has to
-settle on one line, so it separates equals by roll and then by stored order. But
-where the monster ranks several lines in the *same preference band* as the
-chosen one, those tiebreaks are describing a difference the monster does not
-feel: replacing any line it ranks unwanted costs it nothing it wanted, and the
-same holds within the accepted and preferred bands. A recommendation therefore
-**names every line in the chosen line's band**, in numeric order — `Sub 1/2/4`
-— while still being scored on the single line the rule picked.
-
-The distinction is between a decision JASWA is entitled to make and one it is
-not. Which property to convert *to* is a judgement about the monster, and JASWA
-makes it. Which of several equally worthless lines to spend is not: the user may
-be holding one back for a monster this plan has not reached, or reading a line
-the preferences do not capture, and naming only the arithmetic winner presented
-their choice as forced. The band is what decides the grouping, not the
-contribution — two unwanted lines with different rolls are still both unwanted.
-An empty slot ranks as unwanted, which it is, and groups with them.
-
-A permanently converted slot is the exception, and follows from the lock rather
-than from any rule here: a further stone can touch that line and no other, so
-there is no choice to offer and the recommendation names it alone.
-
-When the projected property is already on the source line, the recommendation is
-a same-property reroll rather than a new property. This can apply to a line the
-artifact dropped with as well as to a line previously changed by Conversion. It
-does not create a duplicate property; it replaces the source line's value, and
-the interface calls it **Improve roll in** so the action is clear.
+- **Only one source line is scored**: the line contributing least to this
+  monster; equal contributions go to the lower roll points, then to stored
+  order. A converted artifact's source is its locked line, whatever it holds.
+- **Every line in the chosen line's preference band is named**, in numeric
+  order (`Sub 1/2/4`), because a monster is indifferent between lines it ranks
+  alike and the user may be keeping one for a monster this plan has not
+  reached. An empty slot ranks as unwanted. A locked artifact names its locked
+  line alone.
+- **A same-property target on the source line** is a reroll, worded *Improve
+  roll in*; it never creates a duplicate.
+- **Among targets of equal score**, the property more players engrave wins,
+  then the lower id.
 
 ### 17.5 Every conversion worth taking is shown, in order
 
-Where a view names conversions it shows **all** of them, ranked by what each
-adds to that monster, descending. The same set defines the artifact's potential
-score — a hidden accepted conversion is not allowed to make an artifact look
-better when a preferred conversion is available:
+Where a view names conversions it shows **all** of them, best first, and the
+same set defines the artifact's potential score:
 
-- if any **preferred** conversion is available, every preferred one is listed
-  and no accepted one is;
-- otherwise every available **accepted** conversion is listed;
-- a conversion that is neither preferred nor accepted is never suggested.
+- if any **preferred** conversion clears the band, every preferred one is
+  listed and no acceptable one;
+- otherwise every acceptable one;
+- a property neither preferred nor acceptable is never suggested.
 
-Preferred outranking accepted is absolute rather than a tiebreak: a preferred
-property is what the monster actually wants, and an accepted one is a
-concession. Listing a strong accepted conversion above a weak preferred one
-would invite the user to spend a stone on the concession.
+Preferred outranks acceptable absolutely: listing a strong concession above a
+weak preference invites spending a stone on the concession.
 
 ### 17.6 A recommendation names the stone it would spend
 
-Where a recommendation depends on an engraved conversion stone, it says **which
-stone** — its grade and engrave class, as the game names them, in the shortest
-form that still identifies the item the user has to go and find:
-`Legend Water stone`, `Rare Attack stone`. The property is already named by the
-conversion itself, so the stone label does not repeat it.
-
-The stone named is the best-graded one the account owns for that property and
-class, because that is the one the user would sensibly spend. Where the mode is
-the theoretical one, no stone is named: nothing is being spent.
+A recommendation that depends on an engraved stone names it by grade and
+engrave class, the shortest form that identifies the item: `Legend Water
+stone`, `Rare Attack stone`. It names the best grade the account owns for that
+property and class. In the theoretical mode nothing is spent and no stone is
+named.
 
 ### 17.7 One Intangible choice, in Settings
 
-Whether Intangible artifacts take part is asked **once**, in Settings, and every
-view in the workspace respects the answer. It is a statement about how the user
-wants their account judged, not a per-table filter, and asking it separately on
-each page invites the three views to disagree about the same account.
+Whether Intangible artifacts are **scored** is asked once, in Settings
+(`includeIntangibleArtifacts`, on by default), and the score request is built
+from that one answer. A view's own toggle — the library's `Include`, the
+monster chooser's — only **lists** or hides rows already computed, as Location
+filters do; a filter that reached the request would be the violation. The
+library lists Intangibles by default, because parity (`AGENTS.md` §0.1) is that
+page's whole job.
 
-The library's own `Include` toggle is not an exception to this, because it is
-not the same question. Settings asks whether these artifacts should be *judged*;
-the library's toggle asks only whether they are *listed*, the way its Location
-buttons ask whether engraved ones are. The library is deliberately separate from
-the workspace — it answers what the account owns, not what to change — so a
-view filter there decides nothing about a recommendation. It defaults to on:
-these are artifacts the account holds, and a library that omitted them by
-default would break §0.1 parity on the one page whose whole job is to show
-everything.
+### 17.8 Views and tables
 
-*September 12, 2026.* The monster chooser carries the same **listing** toggle,
-on the same terms and for the same reason its Location and Quality buttons are
-there: it narrows a ranking that has already been calculated, so the scores in
-the rows that remain are the ones Settings produced, and hiding a row changes no
-judgement about it. The rule stands where it matters — no view in the workspace
-asks whether an Intangible should be *scored*; only Settings does, and the score
-request is still built from that one answer. A filter that reached the request
-instead of the rendered rows would be the violation.
-
-### 17.8 Every table sorts on every column
-
-Any table in the workspace sorts by any of its columns, ascending and
-descending. A ranking the user cannot re-ask is a ranking they have to trust;
-the point of showing the numbers is that they can interrogate them. Columns
-that are not numbers sort too — by name, by location, by monster — because
-"show me every artifact currently in inventory, best first" is the ordinary way
-this data gets read.
-
-*September 12, 2026.* A view that shows **entries rather than a table** has no
-columns to offer, and the monster chooser is now one: each recommendation is a
-small block of facts rather than a row. The obligation the rule above protects
-survives in the only form left to it — such a view **names the figure it ranks
-by**, in a line under its heading, so an order that is not the order of the
-figure set in ink is a stated fact rather than a puzzle. Turning a ranked list
-round is then a question for the filters beside it, not for a heading that is
-no longer there.
-
-### 17.9 The figures on the page add up
-
-*September 5, 2026.* Every count the recommendation view prints has to
-reconcile with the others **on the page**, without the user reconstructing how
-the code partitions its work.
-
-The slot summary did not. It read `558 of 558 scored slots filled` and was
-immediately followed by a warning naming 2 more slots awaiting preferences.
-Both statements were true — `slotCount` deliberately counts only the *scorable*
-slots, an unscored one being a data gap rather than an allocation failure — but
-between them they gave the user three numbers with no visible relationship, and
-the only reading available was that the app had contradicted itself.
-
-The total is now **every slot in the scope**, with the parts that are not
-filled named beside it:
-
-```
-552 of 560 slots filled (8 awaiting preferences)
-```
-
-so `filled + unfilled + awaiting = total`, always, and each part is named only
-when it is non-zero — a complete account still reads plainly as `560 of 560
-slots filled`. The three figures are derived from one total in
-`artifact-maximum-values.tsx` rather than reported independently, which is what
-makes the arithmetic a property of the code rather than of the wording. The
-warnings below the line no longer claim the slots are "not counted as
-unfilled", because they are now counted, in a part of their own.
-
-The general rule: an internal distinction that makes a total exclude something
-must not surface as a total the user cannot verify. Either the excluded rows
-are in the figure, or the figure is not the one to print.
-
-### 17.10 Before and after are two different questions
-
-The recommendation table answers both "where is this artifact now" and "where
-would the plan put it", and those are separate filters — **Location before**
-and **Location after**. Before reads the import; after reads the allocation:
-engraved if a monster was allocated the artifact, inventory if the advice is to
-sell it. The two partition the rows identically and independently, so
-`after: Engraved` always yields exactly as many rows as the summary reports
-filled slots — a cross-check the user can perform by eye, once **Already
-matching** is off. With it on, as the view opens, the difference between the
-two figures is precisely the rows it hides: 558 filled slots, 19 already
-matching, 539 shown.
-
-**Already matching / Hide** removes the rows where the two agree — where the
-artifact already sits on the monster the plan names, which is the `Keep`
-action.
-
-**The view opens on the work list.** Two of these filters start applied:
-`Location after: Engraved` and `Already matching: Hide`. What remains is the
-plan's *unfinished* part — the artifacts it would engrave, minus the ones already
-where it wants them — because that is the list the user acts from, and it is a
-fraction of the whole: 539 rows of the captured account's 1,862.
-
-The rows this hides are not lesser rows; they are answered ones. A `Sell` row
-asks nothing beyond the decision the column already states, and a `Keep` row
-asks nothing at all. Opening on all 1,862 made the user's first act a filtering
-task they would perform every time, and the two filters that perform it are the
-first two they would reach for.
-
-This is a default, not a restriction, and the distinction is what makes it
-acceptable: the buttons carry their pressed state on arrival, one click on
-either restores what it hides, and the underlying plan is unchanged — the
-allocation is still computed over the whole library (§17). The opening view is
-exactly these two filters applied to the complete plan, never a separate
-reading of it.
-
-These three filter on the *advice*, so they cannot run alongside the filters
-that ask about the artifact itself: the allocation is not known until the
-calculation is paired with the row. They narrow the rows shown and nothing
-else. The allocation is still computed over the whole library, so §17's
-guarantee holds — a filter never changes the advice in the rows that remain.
-
-### 17.11 A stale result says so, and the user chooses who refreshes it
-
-*September 5, 2026.* A calculated table answers the settings and the import it
-was calculated from. When either moves, that answer is no longer the answer to
-the question on screen — and the table must never quietly present it as though
-it were. What happens next is the user's choice, asked once in Settings as
-**Re-calculate**, with two options and always exactly one of them chosen:
-
-- **Manually** — the default. The result is kept and marked out of date, and
-  the Calculate button remains the way to a fresh one. A calculation over the
-  whole library is real work the user asked for; spending it again on every
-  slider nudge is not JASWA's call to make on their behalf.
-- **On change** — the calculation re-runs itself, so the table on screen always
-  answers the current settings and import.
-
-Manual is the default because the quieter behaviour is the one that cannot
-surprise: a user who wants the tables to keep up can say so, while a user who
-does not can never be charged for a calculation they did not request.
-
-Two consequences the code has to honour:
-
-**The mode is not scoring input.** It decides *when* a calculation happens and
-never what it produces, so it is excluded from the key each view compares its
-held result against — `scoringSettings()` in `artifact-recommendations.ts`, one
-function for all three views rather than three spreads that could drift. Were
-it left in, choosing a mode would itself mark every result stale, and in the
-on-change mode that reads as the setting recalculating the page merely by being
-selected. The function lists its fields rather than spreading and removing one,
-so a setting added later has to be classified deliberately.
-
-**Stale is visible in every view.** The recommendation table already said so;
-the two single-subject views simply dropped their tables, which left the page
-looking as though nothing had ever been calculated — indistinguishable from a
-fresh visit, and no explanation of where the results went. All three now carry
-the notice, and in the on-change mode it reports the refresh that is already
-under way instead of asking for a button the user has told JASWA not to make
-them press.
-
-Auto-refresh never starts a *first* calculation — an empty view filling itself
-on arrival is the same uninvited work manual mode exists to prevent — never
-runs while one is in flight, and never retries a failed one: an error clears the
-held result, so nothing is stale and there is nothing to chase.
-
-### 17.12 A backend that could not answer must never answer zero
-
-*September 8, 2026.* §17.2 says a zero score may not fill a slot, which is right
-— and it is exactly why a silent zero is the most dangerous value the compute
-layer can produce. A matrix of zeros is not read as a failure anywhere: it is
-read as an account whose 1,300 artifacts suit none of its monsters, reported in
-the interface's own calm words as *"no artifact scoring above 0 % remained for
-560 slots"* — a sentence since rewritten, because the ordinary one-slot case was
-being read the same way.
-
-WebGPU produces that value willingly. It does not throw when it rejects a
-binding or a pass; it drops the work and leaves the output buffer as it was
-created. A uniform block whose declared size outgrew the bytes the backend
-uploads — a `padding: vec3<f32>` member, which aligns to 16 and pushed a 32-byte
-block to 48 — was enough to switch the whole graphics-card path off while every
-CPU-side column on the same page stayed correct.
-
-Two rules follow, and the second is the one that generalises:
-
-- **The upload and the shader's own layout are checked, not assumed.**
-  `npm run verify:webgpu-parameter-layout` computes the block's WGSL uniform
-  layout from the shader source and holds the backend's buffer to it. Nothing
-  else can: the shader compiles either way, and the browsers Playwright drives
-  here expose no WebGPU at all, so every other check runs the CPU reference.
-- **A rejected pass becomes a rejected promise.** The backend wraps its work in
-  a validation error scope, so the worker falls back to the CPU reference — the
-  fallback it already has for a missing device — instead of publishing zeros
-  that look like an answer.
-
-### 17.13 Sorting belongs to the table frame, not to each table
-
-*September 10, 2026.* §17.8 says every table sorts on every column. It was true
-of the three workspace tables, which shared `sortable-table.tsx`, and only
-partly true of the account libraries: the monster roster and the artifact
-library had each grown a **second** sorting implementation of their own — their
-own header markup, their own `{ key, ascending }` state, their own arrow drawn
-through a CSS `::after` — and Monster Storage had none at all, so nine columns
-of real data could not be ordered.
-
-Three implementations of one behaviour is three chances to disagree, and they
-did: two arrow glyphs, two hover treatments, two ideas of what an unsorted
-column looks like. So sorting is now a property of the shared frame. Every
-account table declares `SortableColumn`s and renders `SortableHeader`; the
-duplicate CSS is gone.
-
-The consequence worth stating: **a column with no comparison is now a defect,
-not a decision.** The artifact library's marks column was deliberately left
-unsortable, on the reasoning that a flag "reads as an annotation rather than a
-column to order by". That reasoning is not wrong about the flag, but gathering
-the unrefined artifacts together is exactly the kind of question §17.8 exists to
-allow, and a heading that silently does nothing when clicked is worse than one
-whose ordering is merely seldom useful. It sorts.
-
-`tests/table-sorting.spec.ts` holds the rule for every account table at once: it
-asserts that no heading is inert and that each reverses on a second click, so a
-new column cannot arrive without an ordering.
-
-### 17.14 The sort arrow sits outside the heading text
-
-The arrow goes on the side of the label **away** from the column's own edge:
-after the text in a left-aligned column, before it in a right-aligned one, and
-after it in a centred one.
-
-The reason is the alignment itself. A right-aligned column exists so its digits
-line up on their units, and its heading hugs that same right edge; an arrow
-after the text would sit between the heading and the figures it names, pushing
-them apart. Put it on the outside and the heading stays against its column while
-the mark reads as a control on the column, not as part of the value.
-
-`sortMarkSide` in `table-layouts.ts` is the single statement of this, taken from
-the same `align` declaration that positions the heading and every cell under it,
-so the three cannot disagree. The mark keeps its footprint in every state,
-including unsorted, so clicking never re-lays out the row (`AGENTS.md` rule 2).
-
-### 17.15 A search reaches a monster's awakened forms, never its lesser ones
-
-*September 10, 2026.* Awakening is one-way: Poison Master becomes Kyle, and Kyle
-is the same monster further along. So searching `poison master` shows Kyle too —
-the user is asking after a monster, and the copy they own is the awakened one,
-which no name search could find, because every stage carries a different name.
-Searching `kyle` does **not** show Poison Master: that is a form this lineage has
-already left behind, and offering it back is offering a different monster.
-
-Scope is one element's chain, not the family. `Kyle` never answers a search for
-`Todd`: they are the Water and Fire awakenings of one release, separate monsters
-that merely awaken alike, and element decides which artifacts a monster may even
-take.
-
-**Both monster tables answer this way.** *September 10, 2026.* Stats and Numbers
-each present a search box, and two controls that look alike must behave alike:
-the widening was on Numbers only, so the same term found an awakened copy on one
-page and missed it on the other. Both now read `withHigherAwakenings`, and
-`tests/awakening-search.spec.ts` runs one set of expectations against each, so
-the pair cannot drift again.
-
-Stats also matches a monster's rune sets, which Numbers has no column for. That
-match seeds no widening: `fight` names the gear a particular copy has
-engraved, not a monster whose awakened form is also wanted.
-
-**The seed is the whole account; the result is the page's own rows.**
-*September 10, 2026.* Reading both from the rows a table lists left Stats still
-answering differently, and the account that showed it is the ordinary one: the
-unawakened Fairy sealed in the Shrine, only Iselia (2A) kept as a unit. Numbers
-carries the shrine tabs, so it matched `fairy` by name and widened from there;
-Stats lists units only, had no Fairy row to match, and so found nothing to widen
-from — `fairy` returned empty on a page showing what Fairy became.
-
-The two halves answer different questions and so read different sets. What the
-account **holds** seeds the lineage floor and is drawn from every location, the
-shrine included, before any filter runs. What the search **returns** is bounded
-by the rows that page can list — widening towards ids a table has no rows for
-would accept nothing. Sealing the last Fairy is not un-owning Elucia, and no
-filter may decide what the account is understood to contain: not the Location
-boxes, and not the `Lvl. < 40` default, which would otherwise hide the very
-unawakened form a term was typed against. `shrineMonsterRecords` in
-`sealed-shrine-storage.ts` is the shared view of the account, and the shrine key
-lists live beside it so the Numbers table and this seed cannot accept a
-different set of keys.
-
-`monster-awakening-scope.ts` is where this lives, deliberately apart from
-`monsterIdentityId` in `monster-selection.ts`. The two look similar and mean
-opposite things: identity **folds** a lineage into one key, which is right for
-counting copies — three awakening stages are three copies of one monster — while
-scope keeps the stages **ordered**, because the question is which of them is far
-enough along. Anything phrased "…or better" belongs here; anything phrased "how
-many" belongs there. `npm run verify:monster-awakening-scope` holds the
-direction, the element boundary, and the rule that a form the account does not
-hold is never conjured into a result.
-
-### 17.16 Stats and Numbers, and what each column is worth
-
-*September 10, 2026.* The two monster sections were called **Monster roster** and
-**Storage**, and both names were wrong about their contents. "Storage" named a
-tab that lists Inventory and both Sealed Shrine tabs alongside Monster Storage —
-and *Storage* is also one of the four values in its own Location filter, so the
-page and one of its rows shared a name. "Monster roster" said which records the
-table holds rather than what it shows, which is the stat sheet. They are **Stats**
-and **Numbers**. Location keeps `Storage` as a value, because that is the place
-the game means.
-
-*October 10, 2026.* Stats and Numbers are separate pages under Monsters,
-with their tables visible immediately. Each keeps its own filters in the tab
-when navigation leaves the page and returns.
-
-Two consequences for the Stats table, both about reading order:
-
-- **Gear reads as one block.** Artifacts and Relic sat at the far right, past
-  nine stat columns, though they answer the same question the rune sheet does:
-  what does this monster have *engraved*. They now follow Runes directly, and the run of
-  stats is unbroken by them. The `.gear-start` inset moves with them and
-  still does its old job — separating the compact pair from the sets without a
-  rule drawn through the table. Having left the numeric run, the pair is
-  **left-aligned**: `HP/ATK` and `DEF` are codes, not quantities, so there are no
-  units to line up on, and the block now begins where Runes does instead of
-  reaching for a right edge it no longer shares with anything.
-- **A derived figure sits a step back.** `E.HP`, `E.HP D` and `DMG` are computed
-  from the stats beside them rather than read off the export, so they take the
-  same `dim` the level column has always engraved. Full ink is for what the game
-  itself states. This is the two-tone device of `AGENTS.md` §5 and not a new
-  colour: nothing is tinted, and the figures keep their own column and width.
+The table, filter and staleness contracts of the artifact pages —
+sorting, the summary figures, Location before/after, Re-calculate — are in
+`ACCOUNT-TABLES.md`. A backend that cannot answer must never answer zero:
+`HARDWARE-ACCELERATION.md`.
 
 ---
 
 ## 18. Quality is text; a score is colour
 
-The game's five quality tiers — Normal, Magic, Rare, Hero, Legend — are one
-vocabulary shared across the game: an artifact's grade and a rune's quality use
-the same five names in the same order. `app/lib/quality-tiers.ts` owns the
-list, `ArtifactGrade` aliases it rather than restating it, and runes read the
-same list when they gain a quality of their own.
+The five tiers — Normal, Magic, Rare, Hero, Legend — are one vocabulary for
+an artifact's grade and a rune's rarity. `app/lib/quality-tiers.ts` owns the
+list; `ArtifactGrade` aliases it.
 
-**A grade is shown as text, never as colour.** *Tried and removed, September 4,
-2026.* The game paints each tier in a hue — white, green, blue, purple, orange
-— and JASWA reproduced them faithfully, from SWARFARM's rune stylesheet
-(`herders/static/herders/css/runes.css` in `github.com/swarfarm/swarfarm`), the
-community's standard rendering. Every value cleared 4.5:1 against `--bg` and
-each tier was named in text beside its colour.
+**A grade is shown as text, never as colour.** Painting the five game hues down
+a dense table was tried and removed: the eye goes to whichever row is orange,
+which says nothing about what to do, and the accent loses its meaning among four
+rivals. There is no flat game palette to be faithful to — each tier is a radial
+glow — and the game's Legend orange sits within 4° of hue of the accent at a
+contrast of 1.04.
 
-It still read wrong. Five hues competing down a dense table are decoration
-rather than information: the eye is pulled to whichever row is orange, which
-tells the user nothing about what to do, and the accent that means "you can act
-on this" loses its force by sitting among four rivals. Provenance was not the
-problem, and a better-sourced palette would not fix it — the density is the
-problem. Grade keeps its own column, in plain text.
+### 18.1 The one allowance: a rule in the margin
 
-Worth knowing if this is ever revisited: there is **no published datamined
-palette** to be more faithful to. The game draws each tier as a radial glow,
-white-hot at the centre fading to a coloured rim, so there is no flat colour to
-extract and sampling yields a different value at every radius. The art is not
-even self-consistent between systems — the Legend rune sprite reads red-orange
-where the Legend artifact sprite reads a warmer orange. And the game's Legend
-orange lands within 4° of hue of `--gold`, a contrast ratio of 1.04, so a
-Legend artifact and an active control were the same colour.
+A tier may show as a **2px rule on the leading edge of a row's first cell**
+(`app/components/quality-rule.tsx`), in the artifact recommendation table, the
+best-artifact list, and the rune Clean-up and simulator tables. It survives the
+objection above because:
 
-### 18.1 The one exception: a rule in the margin
+- it sits outside the reading line, so it never paints a word or competes with
+  the accent;
+- it has the same size and place in every row and occupies its box in every
+  state, so tiers compare down the column and nothing moves (`AGENTS.md` §2);
+- its hues are muted, Legend is pulled redder off the accent, and Normal takes
+  `--line-strong`, reading as an absence;
+- it names its tier in `aria-label` and `title`, and grade stays sortable and
+  filterable as text.
 
-*Added September 5, 2026.* Quality **is** shown as colour in exactly one place:
-a 2px rule down the left edge of the recommendation table's first cell
-(`app/components/quality-rule.tsx`), where it lands on the row's leading edge.
-Colouring the grade *word* stays removed — this is a different shape, and it
-survives the objection above rather than ignoring it:
-
-- **It is outside the reading line.** The rule sits on the row's leading edge,
-  so it never paints a word the user is reading and never competes with
-  `--gold` on a figure or a control. It was first tried against the substat
-  column, where it read as a stripe *inside* the row; on the row's edge it
-  reads as a margin mark, which is what makes it recede.
-- **It is identical in every row but its hue.** Same width, same position, same
-  vertical extent, whatever the tier. Nothing about a Legend row is *bigger*
-  than a Normal one, so the tiers compare down the column instead of one of
-  them shouting. It occupies the same box on every row, so no row shifts
-  (rule 2).
-- **It is desaturated well below the accent.** These are muted readings of the
-  game's hues, not reproductions. §18 already established there is no flat
-  palette to be faithful to, which frees the colours to be chosen for how they
-  read here.
-- **Legend is pulled deliberately off the accent.** The game's Legend orange is
-  within 4° of hue of `--gold` at a contrast ratio of 1.04. This Legend is
-  distinctly redder, so a Legend rule and an active filter button are not the
-  same colour.
-- **Normal reads as an absence.** The game's Normal is white, which drawn in
-  ink would make the weakest tier the loudest, inverting the ranking. It takes
-  `--line-strong`: present, so every row has a rule and the column has an edge,
-  but reading as no colour at all.
-
-The rule carries no text, so it names its tier in `aria-label` and `title`. A
-colour nobody can name is decoration; this one answers "which tier?" when the
-user asks it directly. Grade also remains sortable in the Substats column and
-filterable in the panel, so the rule is a scanning aid rather than the only way
-to reach the fact.
+`AGENTS.md` §5 records this allowance; it does not extend to another shape.
 
 ### 18.2 A score reads in three bands
 
-Colour on data survives in exactly one place, and it is the number rather than
-the grade. `artifactValueBands` in `app/lib/artifact-grid.ts` is the one set of
-boundaries, and every table that prints a percentage uses it:
+`artifactValueBands` in `app/lib/artifact-grid.ts` is the one set of boundaries,
+applied through `artifactValueTint`:
 
-| Band | Score | Colour |
+| Band | Score | Tone |
 | --- | --- | --- |
-| Strong | 75 % and above | `--gold` |
-| Fair | 50–74 % | `--ink` |
-| Weak | below 50 % | `--dim` |
+| Strong | 75 % and above | `--text-accent` |
+| Fair | 50–74 % | `--text-strong` |
+| Weak | below 50 % | `--text` |
 
-> **Unchanged by §16.1, but not re-measured either.** The main property becoming
-> a term rather than a factor left the top of the scale where it was — the
-> benchmark is still 100 % and a perfect Legend still reads 133 % — so these
-> boundaries still describe the same artifacts at the top. What moved is the
-> bottom: a preferred main is now a floor of about 27 %, and a wrong main no
-> longer collapses a score to zero, so fewer artifacts fall in the weak band and
-> more sit in the fair one. The bands still separate, and the accent still lands
-> on artifacts worth acting on. Whether 50 % remains the right weak boundary is a
-> question for the account measured on the current model, which has not been
-> done; the figures here are projections from §16.
-
-Gold at the top band is the one place in JASWA where a *fact* wears the accent,
-and it earns it: at that band the number is itself the invitation to act. The
-boundaries live in one module because two tables judging the same number must
-not disagree about what counts as a good score — which they did, the
-recommendation table having carried its own private threshold of 75.
-
-An absent score is **unjudged, not low**, and keeps its own separate muted
-reading. `—` never enters a band.
+Gold at the top band is the one place a *fact* wears the accent: there the
+number is the invitation to act. An absent score is **unjudged, not low**: `—`
+keeps its muted reading and never enters a band. No table carries its own
+boundary. **Modelled:** the boundaries were set before the main became a term
+(§16.1) and have not been re-measured on an account since.
 
 ---
 
 ## 19. Where a monster's property preferences come from
 
-Every score in §16 and every recommendation in §17 rests on one statement: which
-artifact properties this monster wants. This section owns that statement — who
-makes it, how it is stored, and what happens where nobody has made it.
+Every score in §16 and every recommendation in §17 rests on one statement:
+which properties this monster wants. This section owns that statement.
 
 ### 19.1 The user declares what matters; JASWA measures only the roll
 
-**Artifact value is never derived from what a property *does* in combat.** Per
-monster, the user marks each property **preferred** or **acceptable**, and the
-artifact's value is how well it rolled on exactly those.
+Per copy and category, the user marks properties **preferred** or
+**acceptable**, and the score is how well the artifact rolled on exactly those.
+JASWA holds no skill data and never checks whether a preference is sensible;
+the player knows what the monster is for.
 
-This removes the dependency on skill data entirely — JASWA has none, and judging
-`[Skill 2] Recovery` would otherwise require knowing whether Skill 2 heals — and
-it puts the judgement where the knowledge actually is: the player knows what
-their monster is for.
-
-It follows that **JASWA never checks whether a preference is sensible.**
-Validating one against the monster's kit would reintroduce the skill dependency
-and would put the program in the position of overruling the user about their own
-monster. A preference the user regrets is theirs to change.
-
-**The main stat is the one exception, and it advises rather than validates.**
-Which of HP, ATK and DEF a piece should carry needs no skill data: it follows
-from how far the copy's runes lift each stat above base
-(`docs/MAIN-STAT-MODEL.md`). Unfinished slot-2/4/6 mains count at their
-deterministic +15 values for that judgement. So the main's default is computed
-rather than polled, and a stated main that contradicts the computation carries
-a yellow info mark on the overlay saying what the maths would choose. The
-user's answer is still the one scored; the mark never overrules it.
+**The main is the one exception, and it advises rather than validates.** Which
+of HP, ATK and DEF a piece should carry follows from the copy's runes
+(`MAIN-STAT-MODEL.md`), so the main's default is computed, and a stated main
+that contradicts it carries a yellow mark on the overlay. The stated answer is
+still the one scored.
 
 ### 19.2 Preferences are held per owned copy, keyed by `(category, property)`
 
-Preferences are held **per owned copy**, keyed by the game's own `unit_id`. A
-player runs two Lushens — one built for speed in arena, one for damage in a
-dungeon — and a model that cannot say so is describing the game rather than the
-account.
-
-`unit_id` is the right key because the game already treats it as the copy's
-permanent name: an artifact records the monster it is engraved on by it, so a record survives
-re-importing the same account and ends only when the copy is sold.
-
+Preferences belong to an **owned copy**, keyed by `unit_id` — the game's
+permanent name for it, which survives re-imports and ends when the copy is sold.
 A copy's preferences are its **profile in Scenario or one content-area**
-(`DECK-PRESETS.md` §4.1): stored by area, then by `unit_id`. Every artifact
-page judges Scenario and reads Scenario's profiles; teams of one content-area
-share one profile per copy in their overlays and Rune Optimization.
+(`DECK-PRESETS.md` §4.1); every artifact page judges Scenario.
 
-**This reverses an earlier decision**, which held preferences per species on the
-grounds that a preference says what a *kind* of monster is for. That is true of
-the defaults and false of the statement: what the player base engraves is a fact
-about the species, and what this copy is being built for is a fact about the
-copy.
+**Defaults stay per species**, because the statistics are keyed on
+`unit_master_id` and a collaboration pair is one species
+(`MONSTER-SPECIES-DECISION.md`). `resolveMonsterPreferences`
+(`monster-preference-resolution.ts`) is the only place a copy's statement is
+laid over its species' default.
 
-So the two are keyed differently and meet in exactly one place. **The defaults
-stay per species** — the game's three Statistics panels are keyed on
-`unit_master_id` and cannot be otherwise, and a collaboration pair is one species
-(`docs/MONSTER-SPECIES-DECISION.md`). `resolveMonsterPreferences` in
-`app/lib/monster-preference-resolution.ts` is the only place a per-copy statement
-is laid over a per-species default, and nothing else needs to know that the two
-keyings differ.
+**The score matrix is species rows plus the copies that disagree.** A copy that
+has stated anything about artifacts, or whose runes give the main-stat model a
+different answer from its species' statistics, gets its own row, keyed by
+`unit_id` and carrying `ownerUnitId`; it inherits the species' element and
+archetype, which are facts, not preferences. A page asking about an owned copy
+reads its row where it has one and the species row otherwise
+(`artifactScoreRow`). `verify:artifact-score-agreement` holds both readers to
+one answer on both kinds of row.
 
-**The monster overlay feeds the score matrix, for the copies that speak.** This
-reverses an earlier decision that it fed none — that the overlay stated
-preferences and reported shortfalls while the optimization pages kept a purely
-species-level calculation. The reversal is forced by the keying above: holding
-preferences per copy is pointless if nothing reads them per copy, and a user who
-says this Lushen wants DEF artifacts is entitled to see that answer ranked.
+- **Keyed by `(category, property)`**, never by property alone: a Life Drain on
+  the Attribute artifact is a different opportunity from one on the Type
+  artifact. The thirteen both-category properties appear in both lists and are
+  set independently. Anything keyed on the property alone is wrong by
+  construction.
+- **One main answer for all the copy's gear.** `MonsterCopyPreferences.mainStat`
+  is stated once and read for both artifact categories and the relic. Where it
+  names no preferred main — never stated, cleared, or only accepted mains — the
+  main-stat model answers, and an artifact and a relic may still default
+  differently (`MAIN-STAT-MODEL.md` §6).
+- **A gear answer is two bands**, preferred and accepted (`BandedChoices`). An
+  option sits in at most one band; one in neither is unwanted. **Two empty
+  bands are `Any`**: every option counts as preferred. The main is the
+  exception: two empty bands leave it to the model.
+- A sub property has no minimum roll; the score already measures the roll.
 
-The matrix is therefore **species rows plus the copies that disagree**. A row is
-a species by default, so a collaboration pair still ranks once and every copy
-that wants what its species wants still answers to it; a copy that has stated
-anything about artifacts, or whose own runes give the main-stat model
-a different answer from its species' statistics, gets one row of its own, keyed
-by its `unit_id`, named as every table names that copy, and carrying
-`ownerUnitId`. A copy row exists only for a species the request asks about.
-Every page asking about an owned copy reads its own row where it has one and its
-species' row otherwise (`artifactScoreRow`), and passes the owner's statements
-into the request so that row can exist. It inherits the species' element and archetype, because
-those are facts about the monster rather than preferences about the copy and the
-engrave rule is checked against them.
+### 19.3 The statistics supply the sub-property defaults, by fixed shares
 
-`npm run verify:artifact-score-agreement` holds both readers to one answer on
-both kinds of row: it compares every engraved artifact against its species and
-then again against two stated copies — one answering in both bands, so the worth
-of an accepted line is compared, and one cleared to `Any`.
-
-A preference is keyed by **`(category, property)`**, not by property alone. A
-monster takes one artifact of each category, so "which property do I want here"
-is genuinely two questions: a `Life Drain` roll on the Attribute artifact is a
-different opportunity from one on the Type artifact and competes against a
-different set of alternatives. The fourteen properties available on both
-categories therefore appear in both lists and are set independently, and
-**anything keyed on the property alone — a lookup, a default, a validation, a
-saved preference — is wrong by construction.**
-
-Every property is its own independent choice. The ten elemental properties get
-no separate mechanic: `Damage Dealt on X` and `Damage Taken from X` point in
-opposite directions, so collapsing them into one "element" choice would lose the
-distinction that matters.
-
-Nothing is shared between copies, and preferences are not copyable from one to
-another. The defaults below are what spare the user a roster of empty forms.
-
-**A main stat is one answer for all the copy's gear.** HP, ATK and DEF are the
-mains of both artifact categories and of a relic alike, and someone building for
-bulk wants HP or DEF on whichever piece carries a main; asking per artifact
-category and again per relic only ever produced three copies of one answer, so
-`MonsterCopyPreferences.mainStat` is stated once and read by the artifact scorer
-for both categories and by the relic plan. Several mains may be named — someone
-building for bulk is equally glad of HP or DEF. Where it names no preferred
-main — never stated, cleared, or only accepted mains — the main-stat model's
-answer for the copy stands in (`docs/MAIN-STAT-MODEL.md`), and
-an artifact and the relic may still default differently: an artifact's main is a
-fixed amount, worth more on a stat with a small base.
-
-**A gear answer is two bands: preferred and accepted.** The main, each
-category's substats and the relic uniques are each a `BandedChoices` — what the
-copy prefers, and what it will accept when nothing preferred is to hand. They
-are the scorer's own two bands: a preferred line is worth a full roll and an
-accepted one the acceptable worth of §19.6, so a copy's answer is weighed exactly
-as the statistics are. An option sits in at most one band; one in neither is not
-wanted. **Two empty bands are `Any`** — the question narrows nothing, and every
-option counts as preferred — because "none of these" would score every artifact
-at zero for an answer the overlay reads as `Any`. **The main is the exception:**
-two empty bands there, like accepted mains with none preferred, leave the answer
-to the main-stat model, which always names a preferred main.
-
-A sub property has no minimum roll. One was offered — `Damage Taken from Wind at
-15 % or better` — and removed with the overlay that asked for it: the bands say
-what is wanted, and how well it rolled is what the score already measures.
-
-### 19.3 The statistics supply the defaults, by fixed shares
-
-The engraving statistics (`docs/ENGRAVING-STATISTICS.md`) supply the **default**
-sub-property preferences, classified from the raw counts of one
-`(species, category, view)` distribution — never from rounded display
-percentages. The **main property is not polled**: its default is the main-stat
-model's (`docs/MAIN-STAT-MODEL.md`), which for a species reads the rune panel's
-mains and subs rather than what the population puts on its artifacts. The main
-panel's shares remain on the overlay as reference only.
+The engraving statistics (`ENGRAVING-STATISTICS.md`) supply the **default**
+sub properties, classified from the raw counts of one `(species, category)`
+distribution:
 
 ```text
 share = property count / sum of all property counts in that distribution
 ```
 
-| View | Preferred | Acceptable | Neither |
+| Use | Preferred | Acceptable | Code |
 | --- | --- | --- | --- |
-| Sub Property, **for scoring** | share ≥ 10 % | ≥ 5 % and < 10 % | < 5 % |
-| Sub Property, **for the overlay** | share ≥ 6 % | — | < 6 % |
+| **Scoring** | ≥ 10 % | ≥ 5 % | `artifact-preferences.ts` |
+| **The overlay's defaults** | ≥ 6 % | — | `monster-defaults.ts` |
 
-**The two sub-property cuts answer different questions, and both are correct.**
-The scorer asks *how much is this roll worth*, where a narrow preferred band is
-what keeps the §16 benchmark meaningful — that 10 % is measured into the
-benchmark and does not move. The overlay asks *what should this monster's
-substats be*, and 10 % answers that with one property for 93 % of monsters and
-**none at all** for 7 %, which is a single guess rather than a set of choices. At
-6 % the same fixed share yields 3.6 properties on average, the largest group gets
-exactly four, and no captured monster gets none. It stays one fixed percentage
-rather than a fixed count, so a monster whose player base really does use only
-two substats still shows two.
+The two cuts answer different questions. The scorer asks *how much is this roll
+worth*, where a narrow preferred band keeps the §16 benchmark meaningful; that
+10 % is measured into the benchmark. The overlay asks *what should this
+monster's substats be*: at 10 % that is one property for 93 % of monsters and
+none for 7 %, where 6 % yields 3.6 on average and none for no captured monster.
+An even share of 23 properties is about 4.3 %.
 
-Only the overlay's cut has a single band: a second band here would hold fourteen
-of twenty-three properties and distinguish nothing. The user can draw that
-second band themselves (§19.2), where they know which properties are concessions.
-
-#### The other two panels
-
-`app/lib/monster-defaults.ts` folds all three captured panels, and its cuts were
-chosen the same way — relative to the size of the distribution, then measured
-across all 1,044 captured monsters. No panel leaves a captured monster with
-nothing.
-
-| Panel | Values | Preferred | Acceptable | Yields |
-| --- | ---: | --- | --- | --- |
-| Rune slot main (2, 4, 6) | 7–8 | ≥ 40 % | ≥ 10 % | ~1.0 preferred per slot |
-| Rune set | ~7 | ≥ 35 % | ≥ 12 % | ~2.0 preferred |
-| Relic main | 3 | ≥ 40 % | ≥ 10 % | ~1.2 preferred |
-| Relic unique | 16 | ≥ 15 % | ≥ 6.25 % | ~1.2 preferred |
-
-**Rune slot main** keeps the artifact main's cuts although its slots hold seven
-or eight values. The measurement is why: a slot holds one rune, and at 40 % each
-slot averages almost exactly one preferred main. These distributions are far from
-even — a slot's leader routinely takes half of it — so 40 % discriminates here
-despite the value count.
-
-**Rune set** could not inherit any of them, for two reasons. Its shares are
-*participation rates* rather than a partition: a build with two sets votes for
-both, so they sum to about 1.7, and a cut has to sit higher to mean "a clear
-leader". And a monster has two sets engraved at once, so the right answer is about two
-preferred sets: 35 % yields 1.96, where 40 % undershoots at 1.67 and 30 %
-overshoots at 2.30.
-
-**Rune-set shares are also measured against a truncated denominator.** The game's
-`runeset` response is a top-ten list — never more than ten rows across all 1,044
-monsters, summing to a median 74 % of that monster's builds — so a share here is
-of the builds that reached the top ten, which is what the game's own panel shows.
-Normalising against the main-stat total instead would divide one population's
-counts by another's. The 35 % cut absorbs the resulting inflation, and
-`RuneSetShareBasis` names the limitation in the type rather than in a footnote.
-
-**Relic main** is identical to artifact main by construction: two three-value
-distributions asking the same question cannot carry two sets of cuts.
-
-**Relic unique** has sixteen values, so chance is exactly 6.25 % — and that *is*
-the acceptable cut, since a property at or above chance is worth accepting.
-Preferred at 15 % is 2.4× chance, the same multiple the artifact sub cut uses.
-Artifact sub's 10 %/5 % was measured here and is too loose: it yields 3.24
-acceptable per monster, at which point the second band stops distinguishing
-anything.
-
-**Two honest caveats.** Relic uniques carry far less monster-specific information
-than the other panels — Nimble Primal leads on 974 of the 1,017 captured ones, so
-a user who accepts that default has, on almost every monster, accepted population
-habit rather than knowledge about their monster. And the rune panel reports flat
-`HP +`, `ATK +` and `DEF +` mains that `RuneMainStat` cannot express; they are
-excluded from the denominator and the excluded share is *reported* per slot,
-because a default no view can show is the invisible record `AGENTS.md` §0.1
-forbids. It averages 1.6 % of mains and peaks at 11.2 %. If it stops being
-negligible the fix is to grow `RuneMainStat`, not to widen the exclusion.
-
-`npm run verify:monster-defaults` holds every figure above, so a recapture
-cannot quietly move what a threshold means.
-
-The two thresholds differ deliberately. Main Property has three possible values,
-so 40 % is a meaningful choice over an even split while 10 % preserves a real
-minority option. Each sub-property distribution has 23 values, making an even
-share about 4.3 %; 10 % is a clear preference and 5 % is worth accepting. **No
-category is forced to have a preferred default** where its statistics make
-nothing stand out.
-
-These thresholds decide the preference breadth the §16 benchmark is measured
-against. Changing them means re-measuring that benchmark, not merely retuning a
-knob.
+**The main is not polled**: its default is the main-stat model's
+(`MAIN-STAT-MODEL.md`). The population's artifact main shares remain on the
+overlay as reference only. The other panels' cuts are in
+`ENGRAVING-STATISTICS.md` §10.
 
 ### 19.4 A user's statement always wins, and "cleared" is not "unset"
 
-**A user-entered preference always takes precedence. The statistics are
-consulted only where the user has stated nothing.** The two are never blended,
-averaged or reconciled: for a given `(copy, panel, key)` the answer comes from
-the user if they have stated one, and from the dataset otherwise. The rule is the
-same for all four panels — rune sets, rune slot mains, artifact properties and
-relic properties — and for a stat target, which has no statistics default at all
-because no panel reports what the player base *aims at*.
-
-This removes a whole class of problem rather than solving it — because a
-recapture cannot touch anything the user has stated, the dataset needs no merge
-policy against preferences, and there is no "your default changed" case to
-design. What it does require is three states, and they are three:
+The statistics are consulted only where the user has stated nothing; the two
+are never blended. The rule is the same for rune sets, rune slot mains,
+artifact properties and relic properties.
 
 | State | Stored | The answer comes from |
 | --- | --- | --- |
-| The user chose some options | The list of them | The user |
-| The user stated *nothing* | **No list at all** | The statistics, where the dataset covers the species |
-| The user deliberately cleared it | **An empty list** | The user — **not** the default |
+| The user chose some options | the list of them | the user |
+| The user stated nothing | **no key at all** | the statistics, where they cover the species |
+| The user cleared it | **an empty list** | the user — **not** the default |
 
-The third row is the one that gets got wrong. Seeding the stored preferences
-from the defaults at first view collapses rows one and two; treating a cleared
-preference as absent collapses rows two and three, and the default silently
-overrules the user. This is `AGENTS.md` rule 3's absent-versus-zero distinction
-in the place it costs most: **store only what the user actually stated.**
-
-How that is encoded matters, because JSON cannot hold the distinction by
-accident: a stated answer is an array of the options chosen, *never stated* is
-**an absent key**, and *cleared* is **an empty array**. `undefined` does not
-survive `JSON.stringify` where `[]` does, which is what lets the third row keep
-its answer across a reload; the validator in `app/lib/monster-preferences.ts`
-rejects any key holding anything else. A gear answer keeps the same three states
-as a pair of bands: absent, two lists, or two empty lists.
-
-The interface has to offer both endings, or the third state is unreachable:
-**Reset to defaults** returns a choice to absent, so the statistics stand in
-again, where clearing every option in a menu leaves the empty list.
-
-**A rune statement is yes or no; a gear statement is two bands.** A ranking is
-only meaningful where something weighs it. The rune optimizer asks one question
-of a build or a slot main — may this be suggested or not — so a rune answer is a
-list. The artifact scorer and the relic plan do weigh a ranking: an accepted
-artifact line is worth the acceptable worth of §19.6, and the relic plan offers a
-relic answering from the preferred bands ahead of a stronger one answering only
-from an accepted band, as a preferred conversion displaces an acceptable one
-(§17.5). So a gear answer is two bands (§19.2). Each is chosen on its own token
-line, never by cycling a chip through three states — that cycle across
-twenty-three set names and eight mains per slot was the wall of chips this
-replaced.
+Store only what the user stated. *Never stated* is an absent key and *cleared*
+an empty array, which survives `JSON.stringify` where `undefined` does not;
+`app/lib/monster-preferences.ts` rejects any other value. A gear answer keeps
+the three states as a pair of bands. **Reset to defaults** returns a choice to
+absent; clearing every option leaves the empty list. A rune answer is a yes/no
+list; a gear answer is two bands, each chosen on its own line rather than by
+cycling a chip.
 
 ### 19.5 A species with no preferences is not judged
 
-A monster species the dataset has not captured and the user has not filled in is
-**not yet judged**: it is kept out of score-sorted views and given no fallback
-score derived from archetype or anything else.
-
-Every artifact would score zero against such a species, and a zero renders and
-sorts as though it were an answer. The dataset will never cover every species —
-each capture costs the user a visit to three panels, and new monsters keep
-arriving — so this is the ordinary case, not an edge case. An honest gap beats a
-guess that looks like a judgement.
-
-The same rule now covers runes and relics, and it decides what the monster
-overlay may mark. A panel neither the user nor the dataset says anything about is
-unjudged, so it produces **no shortfall** rather than a shortfall of zero — and
-"this copy meets every wish" and "there is nothing to measure it against" are
-kept apart on screen, because they are different answers.
+A species the dataset has not captured and the user has not filled in is **not
+judged**: it is kept out of score-sorted views and given no fallback score.
+Statistics that exist but express no usable property are `empty`
+(`artifactPreferenceStatus`) and not judged either. A zero would sort as an
+answer. The same rule covers runes and relics: a panel nobody says anything
+about produces **no shortfall**, not a shortfall of zero.
 
 ### 19.6 One global factor says what "acceptable" is worth
 
-How much an *acceptable* property is worth against a *preferred* one is a single
-global factor, not one per monster: the user is stating a general tolerance,
-rather than tuning each row.
-
-**It is stored as the percentage itself** — one of 0, 25, 50, 75 or 100 — in
-`ArtifactSettings.acceptableWorth`, so the value the user reads and the value
-the calculation multiplies by are one thing. A step index would need translating
-into a factor somewhere, and that translation is a second source of truth. The
-five stops are a validated set rather than a range: a `.sw` file claiming 37 %
-did not come from this slider.
-
-The default is 50 %, the honest midpoint. Both endpoints read as the feature
-switched off — at 0 % an acceptable property may as well be unwanted, and at
-100 % the distinction stops meaning anything — and §16 records what each does to
-the benchmark.
+`ArtifactSettings.acceptableWorth` is one of 0, 25, 50, 75 or 100 — the
+percentage itself, so the value read and the value multiplied are one thing. It
+is a validated set: a `.sw` file claiming 37 % did not come from this slider.
+The default is 50 %; both ends switch the distinction off (§16).

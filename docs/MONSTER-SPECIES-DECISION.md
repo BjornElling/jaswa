@@ -1,8 +1,9 @@
 # Collaboration statistics and monster identity are separate rules
 
 **Status:** Binding project rule — the identity rule every general statement
-about a monster rests on
-**Settled:** September 1, 2026, against 112 pairs captured on both sides
+about a monster rests on (settled September 1, 2026, against 112 pairs captured
+on both sides)
+**Reviewed:** October 20, 2026
 **Enforced by:** `npm run verify:collaboration-species`
 **Implemented in:** `app/lib/monster-species.ts`, `app/data/collaboration-species.json`
 
@@ -16,8 +17,13 @@ serves one captured population: statistics, default preferences and score
 matrices. A player's owned copy keeps its own monster identity.**
 
 The species representative is the **generic** id, because it outlives the event.
-`app/data/collaboration-species.json` holds the 282 documented classes across 571 master
-ids. In a general context the pair is shown once, under both of its names:
+`app/data/collaboration-species.json` holds the documented classes, kept
+outside the synchronised catalogue so a refresh never overwrites them; the
+verifier prints how many. The relation cannot be derived from the id: the early
+collaborations sit in family blocks at a fixed offset, while Demon Slayer,
+TEKKEN 8 and The Lord of the Rings do not. `app/lib/monster-species.ts` and
+`scripts/collect-engraving-statistics.mjs` both read the file, so there is one
+source. In a general context the pair is shown once, under both of its names:
 
 ```
 RYU / Moore
@@ -59,7 +65,7 @@ Unawakened collaboration monsters carry Korean placeholder names in the
 catalogue, so a species falls back to the generic name alone rather than pairing
 a readable name with an unreadable one.
 
-Jujutsu Kaisen's five pairs are *pending*: the collaboration side is in the
+Jujutsu Kaisen's pairs are *pending*: the collaboration side is in the
 catalogue and the `Exorcist Association *` generics are not. The verifier fails
 once they appear, so the table is completed rather than forgotten.
 

@@ -1,11 +1,10 @@
 # The engraving statistics — what they are and what binds them
 
-**Status:** Binding project rules for `app/data/engraving-statistics.json`
-**Settled:** August 30 – September 1, 2026, against live captures
+**Status:** Binding project rules for `app/data/engraving-statistics.json` and the defaults read from it
+**Reviewed:** October 20, 2026
 **Collected by:** `scripts/collect-engraving-statistics.mjs`
-**Enforced by:** `npm run verify:statistics-tiers`
 **Read by:** `app/lib/monster-defaults.ts` (all three panels, as the preference
-defaults) and `app/lib/artifact-preferences.ts`
+defaults), `app/lib/artifact-preferences.ts` (the artifact scoring defaults)
 **Held by:** `npm run verify:statistics-tiers`, `npm run verify:monster-defaults`
 
 ---
@@ -13,118 +12,83 @@ defaults) and `app/lib/artifact-preferences.ts`
 ## 1. What the data is
 
 The game's **Monster Info → Statistics** panel reports what the wider player
-base engraves on a monster. Three panels sit behind one monster, and JASWA records
-all three:
+base engraves on a monster. Three panels sit behind one monster, and JASWA
+records all three:
 
 | Command | Panel | Response |
 | --- | --- | --- |
 | `getUnitStatsRuneInfo` | Rune Engraving Statistics | `runeset`, `primary_effect`, `secondary_effect` |
 | `getUnitStatsArtifactInfo` | Artifact Engraving Statistics | `primary_effect`, `secondary_effect` |
-| `getUnitStatsRelicInfo` | Relic Engraving Statistics | `primary_effect`, `secondary_effect` |
+| `getUnitStatsRelicInfo` | Relic Engraving Statistics (since v9.2.8, 2026-07-29) | `primary_effect`, `secondary_effect` |
 
-**One call covers a whole panel's dropdowns**, so a monster costs exactly three
-requests. A single artifact response carries the Main Property figures *and*
-both Sub Property views: `secondary_effect` splits on `slot_id`, where `1` is
-the game's "Sub Prop. (Attribute)" tab and `2` is "Sub Prop. (Type)".
+**One call covers a whole panel's dropdowns**, so a monster costs three
+requests. An artifact response carries the main figures and both sub views:
+`secondary_effect` splits on `slot_id`, `1` the game's "Sub Prop. (Attribute)"
+tab and `2` "Sub Prop. (Type)".
 
-**Counts, not percentages.** Every row is `{ slot_id?, effect_id, count }` with
-a raw occurrence count, and the displayed percentage is that count over its own
-group's total. The dataset stores the counts, because the percentage discards
-the sample size: a 30 % share drawn from 83,549 uses is not the same evidence as
-30 % drawn from 12. Every stored count reproduces the game's own displayed
-percentage exactly, which is how the shape was verified.
+**Counts, not percentages.** Every row is `{ slot_id?, effect_id, count }`; the
+displayed percentage is the count over its own group's total. The dataset stores
+counts, because a share without its sample size is not evidence. Every stored
+count reproduces the game's displayed percentage exactly.
 
-**Nothing is truncated — except `runeset`.** The panel's *Others* row and its
-scroll limit are presentation only for the effect distributions; the response
-carries the full distribution — 46 artifact secondary rows, 23 per slot.
+**Nothing is truncated except `runeset`.** The effect distributions arrive whole
+(46 artifact sub rows, 23 per slot); the panel's *Others* row is presentation.
+**The rune-set list is the game's top ten**: across 1,044 captured monsters it
+never exceeds ten rows (mean 9.8), summing to a median 74 % of the same
+monster's slot-2 main total. A set share is therefore a share *of the builds
+that reached the top ten* — what the game's panel shows, and the only honest
+denominator. `RuneSetShareBasis` names that basis in the type.
 
-**The rune-set list is the one exception, and the game truncates it.** Across all
-1,044 captured monsters `runeset` never exceeds **ten rows** (mean 9.795), and
-those rows sum to a median **74 %** of the same monster's slot-2 main total. The
-collector copies the response verbatim, so this is the game's limit rather than
-JASWA's. A share computed from it is therefore a share *of the builds that
-reached the top ten* — which is what the game's own panel shows the player, and
-the only honest denominator available: normalising against the main-stat total
-instead would divide one population's counts by another's.
-`RuneSetShareBasis` in `app/lib/monster-defaults.ts` names that basis in the type
-so it cannot be forgotten at a call site.
+**Every rune main is read**, flat `HP +`, `ATK +` and `DEF +` (ids 1, 3, 5)
+included, in `rune-slot-mains.ts`'s vocabulary. `RuneMainStat` stays the
+Clean-up roles' own.
 
-**Every rune main is read.** The rune primary distributions include flat
-`HP +`, `ATK +` and `DEF +` mains (effect ids 1, 3 and 5). They used to be
-excluded, because the role vocabulary `RuneMainStat` has no word for them.
-A monster's slots are now read in `app/lib/rune-slot-mains.ts`, which names all
-seven or eight mains the game allows per slot, so the flat mains are counted,
-shown under the slot and offered as a choice. `RuneMainStat` stays the Clean-up
-roles' own.
+**A rune build's share is the game's.** Each `runeset` row is one combination;
+the overlay's Most common line shows its count over the list's total
+(`Violent/Revenge 28 %`), a partition summing to one. The per-set participation
+rate behind the defaults (§10) is a separate reading and is not shown.
 
-**A rune build's share is the game's.** Each `runeset` row is one whole
-combination with its count, and the monster overlay's Most common line shows
-each combination's count over the list's total, as the game's panel does —
-`Violent/Revenge 28 %`, a partition that sums to one. The per-set participation
-rate behind the defaults is a separate reading and is not shown.
+**Keyed on `unit_master_id`, never `unit_id`.** One row per monster *type*, so
+two owned copies can never report different statistics.
 
-**All three panels are now read.** They supply the provisional preferences a
-monster starts from in the monster overlay (`app/lib/monster-defaults.ts`).
-
-Relic synergy remains a hand-written table (`RELIC-CANONICAL.md` §5), and §5.2
-there now says why both are true at once: the panel is the wrong basis for an
-account-wide *judgement*, because relics are new and an account engraves what it
-happened to craft — but it is a legitimate basis for a per-monster *starting
-value* the user overwrites, since drops are monster-independent and a
-distribution that varies between monsters is not describing the drop table.
-
-**Keyed on `unit_master_id`, never `unit_id`.** The dataset holds one row per
-monster *type*, so the defaults it produces seed a per-type preference with no
-mapping, and two owned copies can never report different statistics.
-
-**Three separate `effect_id` vocabularies, which must not share a lookup
-table.** Rune primary and secondary are `1`–`12` and match `RUNE-CANONICAL.md`
-§2 exactly; artifact and relic *primary* are `100`/`101`/`102` for HP/ATK/DEF;
-artifact *secondary* is the `2xx`/`3xx`/`4xx` space of
-`ARTIFACT-CANONICAL.md` §15.4; relic secondary is a small-integer space of its
-own that deliberately is **not** the rune one despite the overlap.
+**Three `effect_id` vocabularies, never one lookup.** Rune primary and secondary
+are `1`–`12` (`RUNE-CANONICAL.md` §2); artifact and relic primary are
+`100`/`101`/`102` for HP/ATK/DEF; artifact secondary is the `2xx`/`3xx`/`4xx`
+space of `ARTIFACT-CANONICAL.md` §15.4; relic secondary is the unique-property
+space `1`–`16` of `RELIC-CANONICAL.md` §4, deliberately **not** the rune one.
 
 ## 2. Capture is observation, never a request JASWA makes
 
 The helper is a passive decrypting proxy on traffic the game itself initiates.
-There is no route by which JASWA asks the server anything, and capture generates
-no additional traffic: the only requests are the ones the game makes because the
-user opened a panel. Recording is indistinguishable from ordinary play because
-it *is* ordinary play.
+JASWA has no route to ask the server anything, and capture adds no traffic: the
+only requests are the ones the game makes because the user opened a panel.
 
-The cost is therefore the user's time — three panel visits per monster type —
-and never server exposure. **Any design that synthesises requests to fill the
-dataset faster is out of bounds.**
+The cost is the user's time — three panel visits per type — never server
+exposure. **Any design that synthesises requests to fill the dataset faster is
+out of bounds.**
 
 The traffic log holds account data in the clear, including the session keys the
-import strips. It stays on the user's computer, and nothing from it but the
-statistics responses enters the repository.
+import strips. It stays on the user's computer; nothing but the statistics
+responses enters the repository.
 
 ## 3. PvE only, and `favorite_type` is not about favourites
 
-**There are two statistical models per monster type, and `favorite_type` selects
-between them: `0` is PvE, `1` is RTA. JASWA captures PvE**, for artifacts and
-relics alike, because that is the mode most of an account's gear is
-actually built for and it rests on far more observations — 41,861 against 4,961
-on Onmyouji, 65,983 against 3,598 on Beth.
+**`favorite_type` selects between two statistical models: `0` PvE, `1` RTA.
+JASWA captures PvE**, for artifacts and relics alike, because that is what most
+of an account's gear is built for and it rests on far more observations (41,861
+against 4,961 on Onmyouji). The field is a generic "which list" switch the same
+API reuses for emoji packs; a monster in neither favourite list still sent `0`
+outside RTA and `1` inside. **Do not name it after favourites in JASWA's code.**
 
-The field name is a lie, and this document says so because it will mislead the
-next reader. It has nothing to do with favourite monsters: a monster in neither
-favourite list still sent `0` outside RTA and `1` inside, on the same
-`request_type: 3`. It is a generic "which list" field — the same API reuses it
-for emoji packs. **Do not name it after favourites in JASWA's own code.**
-
-Relics have only one model: `getUnitStatsRelicInfo` never sends the field, and
-its response was byte-identical inside and outside RTA.
-
-`request_type: 3` is constant on every observed call and remains unexplained.
-Nothing may depend on it.
+Relics have one model: `getUnitStatsRelicInfo` never sends the field, and its
+response was byte-identical inside and outside RTA. `request_type: 3` is constant
+and unexplained; nothing may depend on it.
 
 ## 4. One row per monster type, at its highest awakening
 
-**A `unit_master_id` is `<family><tier><element>`.** The last digit is the
-element (1–5); the second-to-last is the awakening tier, and each tier is a
-separate id with its own statistics.
+**A `unit_master_id` ends `<tier><element>`.** The last digit is the element
+(1–5); the second-to-last the awakening tier, each tier a separate id with its
+own statistics.
 
 | Tier digit | Meaning | Example |
 | ---: | --- | --- |
@@ -132,70 +96,62 @@ separate id with its own statistics.
 | `1` | awakened (1A) | `17911` Beth, `20812` Bulldozer |
 | `3` | second awakened (2A) | `20832` Bulldozer 2A |
 
-Tier `2` is the *Imperfect* line and tiers `4`–`7` are Ancient Spirits, guild
-bosses and Towers. None is an awakening above 2A, and all are excluded along
-with every six-digit id: the player-monster space is exactly the five-digit
-ids. Less 12 Material monsters, which take no engravings, and 16 test rows, the
-capture list is **1,086 monster types**.
+**The capture list** (`captureList` in the collector) is every catalogue
+monster at tier 3, plus every tier-1 monster with no 2A, once per species
+(a collaboration pair counts once, §8). It leaves out:
 
-**2A is a separate monster, not a variant.** Bulldozer 2A returns a distribution
-the 1A form does not, and both are named "Bulldozer", so only the id separates
-them. Reading 1A's numbers for a 2A monster is wrong data, not merely imprecise.
+- tiers `0`, `2` (the Imperfect line) and `4`–`7` (Ancient Spirits, guild
+  bosses, Towers);
+- catalogue archetype `none` or missing — rows no player fields, such as the
+  Ancient Spirit line, whose ids reuse the tier digit;
+- catalogue archetype `Material` (Angelmon, Rainbowmon, Devilmon and kin);
+- Korean-named test rows.
 
-**Tier 0 is never collected.** What players hang on an un-awakened monster is
-mostly spare runes parked out of the way, which would describe the parking
-rather than the monster.
+The id's length is deliberately not a test: Homunculus carries seven-digit ids.
 
-**The game never serves a lower tier at all**, measured September 1, 2026 across
-685 monsters: zero requests at tier 0, zero at tier 1 where a 2A exists, and
-every mismatch between the recommend call and the statistics call runs *upward*
-(`24702 → 24712`). The panel is a property of the fully awakened monster, so
-clicking an un-awakened monster cannot put a lower tier in the log. Read the id
-from the `getUnitStats*Info` request itself, never from the neighbouring
-`GetUnitRecommendPage_V2`.
+**Leaving Material monsters out is the capture's scope, not a game rule.**
+Nobody engraves fodder, so their panels hold nothing to measure; whether the
+game forbids gear on them is not established. The relic plan's own Material
+policy is `RELIC-CANONICAL.md` §11.5.
 
-**It is guarded anyway.** The reader keys on the master id with no notion of
-tier, so two tiers of one monster would sit in the dataset as two unrelated
-monsters — each ranked separately, each claiming to be that monster: counted,
-usable and wrong, which is `AGENTS.md` §0.1's third failure. The collector
-detects the collision, keeps the higher tier, and reports it; tier outranks
-recency in that choice, since a stale higher tier still describes the right
-monster while a fresh lower one does not.
+**2A is a separate monster.** Bulldozer 2A returns a distribution 1A does not,
+and both are named "Bulldozer", so only the id separates them.
+
+**Tier 0 is never collected**: what players park on an un-awakened monster
+describes the parking. **The game never serves a lower tier at all** (measured
+2026-09-01 over 685 monsters: no request at tier 0, none at tier 1 where a 2A
+exists, every mismatch with the recommend call running upward, `24702 →
+24712`). Read the id from the `getUnitStats*Info` request itself, never from the
+neighbouring `GetUnitRecommendPage_V2`.
+
+**It is guarded anyway.** Two tiers of one monster stored side by side would be
+two unrelated monsters, each claiming to be it — counted, usable and wrong
+(`AGENTS.md` §0.1). The collector detects the collision, keeps the higher tier
+(tier outranks recency) and reports it.
 
 ## 5. An empty panel is not a capture
 
-**A panel the game answers with an empty distribution is rejected rather than
-stored, and 1★ monsters are deliberately left out.** There is too little data on
-a monster nobody builds to make a meaningful statistic, and the game says the
-same thing in its own way: the 46 monsters that can never awaken return
-`ret_code 0` with *both* effect lists empty — 23 of 23 such responses carried
-nothing at all, against 6 of 2,421 at tier 1 or 3.
-
-The rule is written against the empty response rather than against a star
-rating, because that is what the export actually carries, and it catches the
-same thing one level deeper: the few relic panels for monsters nobody puts
-relics on now show as honestly incomplete instead of falsely complete. A stored
-empty panel would be `AGENTS.md` §0.1's third failure again — counted as a
-capture while holding nothing any calculation can use.
+**A panel answered with an empty distribution is rejected, not stored.** The
+monsters that can never awaken return `ret_code 0` with both effect lists empty
+(23 of 23 such responses, against 6 of 2,421 at tier 1 or 3). The rule is written
+against the empty response rather than a star rating, because that is what the
+traffic carries, and it also leaves the few relic panels nobody fills honestly
+incomplete. A stored empty panel would be counted while holding nothing usable
+(`AGENTS.md` §0.1).
 
 ## 6. Every observation is dated, and coverage is staged
 
-The game recomputes these statistics monthly, so a dataset gathered over several
-sessions is not a snapshot of one day. **Every panel carries its own
+The game recomputes these statistics monthly. **Every panel carries its own
 `observedAt`**, and the file carries `observedFrom`, `observedTo` and
-`lastMergedAt` besides. A row's age is part of what it says, and a recapture can
-target the stale rows rather than rebuilding the file.
-
-**Collection runs in stages against the whole catalogue**, and partial coverage
-is a working state rather than a broken one: a monster type without a row is
-simply not judged (`ARTIFACT-CANONICAL.md` §19), so the workspace works at 4
-types and works better at 1,086.
+`lastMergedAt`; a recapture can target stale rows. Collection runs in stages
+against the capture list, and a type without a row is simply not judged
+(`ARTIFACT-CANONICAL.md` §19.5): the workspace works at four types and better at
+all of them.
 
 ## 7. The traffic log is a buffer; the dataset is the archive
 
-The helper clears the log at the start of each recording, which is deliberate: a
-log that silently continued an earlier one invites reading yesterday's traffic
-as today's evidence. **So run the merge before switching recording on again.**
+The helper clears the log at the start of each recording, so **run the merge
+before switching recording on again.**
 
 ```
 node scripts/collect-engraving-statistics.mjs --todo 40   what to capture next
@@ -204,30 +160,76 @@ node scripts/collect-engraving-statistics.mjs             merge the session
 node scripts/collect-engraving-statistics.mjs --progress  how far it has got
 ```
 
-The merge is additive and idempotent: re-running it changes nothing, and a
-session only ever adds to what is there. It makes no network request; everything
-it writes was already observed.
-
-**What it refuses:** an RTA row (`favorite_type: 1`), an un-awakened or
-unrecognised tier, a response whose `ret_code` is not `0`, an empty panel, and
-any counts list that is missing or malformed. Each refusal is counted and
-explained on stdout rather than passed silently, because a quietly dropped
-monster is a hole nobody notices until the defaults look wrong.
-
-The file is written one line per monster type. Indented JSON costs 2.6× the
-bytes — 13 MB against 4.7 MB at full coverage — and a line per monster keeps a
-session's diff readable anyway.
+The merge is additive and idempotent and makes no network request. **It
+refuses**, counting and explaining each on stdout: an RTA row (`favorite_type:
+1`), an un-awakened or unrecognised tier, a `ret_code` other than `0`, an empty
+panel, and a missing or malformed counts list. The file is one line per monster
+type (indented JSON costs 2.6× the bytes, and a line per type keeps a session's
+diff readable).
 
 ## 8. A collaboration pair is one monster
 
-The game serves byte-identical distributions for a collaboration monster and the
-generic unit it was re-released as, so the two rows are one observation seen
-twice. They are pooled at read time, taking the later row rather than summing —
-see `docs/MONSTER-SPECIES-DECISION.md`, which owns that rule.
+The game serves byte-identical distributions for a collaboration monster and its
+generic twin (all 112 pairs captured on both sides), so the two rows are one
+observation seen twice. They are pooled at read time by taking the later row,
+never summed — `MONSTER-SPECIES-DECISION.md` owns the rule.
 
-## 9. What the verifier checks
+## 9. What the verifiers check
 
-`npm run verify:statistics-tiers` re-checks the whole stored dataset: that no
-row sits at an excluded tier, that no two tiers of one monster are stored, and
-that no stored panel is an empty answer. Run it after any capture session and
-after any change to the collector.
+`npm run verify:statistics-tiers` re-checks the stored dataset: no row at an
+excluded tier, no two tiers of one monster, no empty panel. Run it after every
+capture session and every change to the collector. `npm run
+verify:monster-defaults` holds §10's figures, so a recapture cannot quietly move
+what a cut means.
+
+## 10. How the panels become defaults
+
+The panels supply the **provisional preferences** a monster starts from in the
+overlay (`monster-defaults.ts`). A default is a starting value the user
+overwrites; a stated answer always wins (`ARTIFACT-CANONICAL.md` §19.4).
+
+**The rule:** a share is a count over its own distribution's total, and each cut
+is chosen relative to the distribution's size, then measured across all captured
+monsters (1,044 with rune and artifact panels, 1,035 with relic panels). No
+panel leaves a captured monster with nothing. `defaultThresholds` holds every
+cut in one table and `classifyShare` is the one classifier.
+
+| Panel | Values | Preferred | Acceptable | Yields |
+| --- | ---: | --- | --- | --- |
+| Rune slot main (2, 4, 6) | 7–8 | ≥ 40 % | ≥ 10 % | ~1.0 preferred per slot |
+| Rune set | ~7 | ≥ 35 % | ≥ 12 % | ~2.0 preferred |
+| Artifact main | 3 | ≥ 40 % | ≥ 10 % | reference only |
+| Artifact sub (overlay) | 23 | ≥ 6 % | — | 3.6 on average |
+| Relic main | 3 | ≥ 40 % | ≥ 10 % | reference only |
+| Relic unique | 16 | ≥ 15 % | ≥ 6.25 % | ~1.2 preferred |
+
+- **Rune slot main** keeps the three-value cuts despite seven or eight values:
+  a slot holds one rune, and at 40 % each slot averages almost exactly one
+  preferred main, because a slot's leader routinely takes half of it.
+- **Rune set** shares are *participation rates* — a two-set build votes for
+  both, so they sum to about 1.7 — and a monster carries two sets, so the
+  answer is about two preferred: 35 % yields 1.96 where 40 % gives 1.67 and
+  30 % 2.30. It also absorbs the top-ten inflation of §1. A set the table gives
+  no piece count throws rather than being guessed.
+- **Artifact and relic mains are not defaults.** Every gear main defaults to
+  the main-stat model (`MAIN-STAT-MODEL.md`); these shares stay on the overlay
+  as reference.
+- **Artifact sub** has a separate, stricter scoring cut (10 % / 5 %,
+  `ARTIFACT-CANONICAL.md` §19.3); the overlay's single 6 % band is what this
+  table holds. A second overlay band would hold fourteen of twenty-three
+  properties and distinguish nothing.
+- **Relic unique** has sixteen values, so chance is exactly 6.25 % — the
+  acceptable cut; preferred at 15 % is 2.4× chance, the multiple the artifact
+  scoring cut uses. Artifact's 10 % / 5 % was measured here and is too loose
+  (3.24 acceptable per monster).
+
+**Why the relic panel is a fair default and an unfair judgement.** Relics are
+new and an account engraves what it happened to craft, so the panel's global
+level mostly records the drop table — which is why the synergy table is
+hand-written (`RELIC-CANONICAL.md` §5.2). But drops are monster-independent, so
+the *variation between monsters* is real signal, and a default exists to be
+overwritten. **The caveat stands**: the main half carries monster-specific
+signal (HP leads on 546 types, ATK on 422, DEF on 49), the unique half little —
+Nimble Primal leads on 974 of 1,017 captured relic panels. Accepting that
+default accepts population habit, not knowledge about the monster. A relic
+default never enters the relic plan's score (`RELIC-CANONICAL.md` §11.5).

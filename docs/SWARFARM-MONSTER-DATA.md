@@ -1,118 +1,104 @@
-# Swarfarm monsterkatalog — synkroniseringskontrakt
+# Swarfarm monster catalogue — synchronisation contract
 
-**Status:** Bindende driftsregel for monsterkataloget  
-**Kilde:** Swarfarm Bestiary API
-**Formål:** Dække aktuelle monster-ID'er, navne, billeder og verificerede
-grundstats uden at lægge almindelig brugertrafik på Swarfarm.
+**Status:** Binding maintenance rule for the monster catalogue
+**Reviewed:** October 20, 2026
+**Source:** Swarfarm Bestiary API
 
-## Princip
+The catalogue gives JASWA current monster ids, names, image file names and
+archetypes without putting ordinary user traffic on Swarfarm.
 
-JASWA må **aldrig** hente Swarfarm-data fra browseren, ved JSON-import eller
-som del af en almindelig sidevisning. Brugerens import slås altid op i den
-lokale fil `app/data/swarfarm-monsters.json`.
+## Principle
 
-Swarfarm beskriver selv API'et som offentligt, men rate-limited, og kræver
-proxy via egen server for webapplikationer. En lokal snapshot eliminerer både
-browser-CORS og gentagne opslag fra slutbrugere.
+JASWA **never** fetches Swarfarm data from the browser, during a JSON import,
+or as part of an ordinary page view. A user's import is always looked up in the
+local snapshot `app/data/swarfarm-monsters.json`. This is part of AGENTS.md
+§6's rule that user data stays on the user's computer: no lookup leaves it.
 
-## Kontrolleret refresh
+Swarfarm describes its API as public but rate-limited, and asks web
+applications to proxy it through their own server. A local snapshot removes
+both browser CORS and repeated lookups by end users.
 
-Kun en bevidst vedligeholdelseshandling må køre:
+## Controlled refresh
+
+Only a deliberate maintenance action may run:
 
 ```text
 npm run refresh:monsters
 ```
 
-Kommandoen læser den paginerede endpoint `GET /api/v2/monsters/` med 100
-monstre pr. side og en pause på mindst 3 sekunder mellem sider. Der er ca.
-31 sider ved den aktuelt observerede størrelse. Den:
+The command (`scripts/refresh-swarfarm-monsters.mjs`) reads the paginated
+endpoint `GET /api/v2/monsters/` at 100 monsters per page, with a pause of at
+least 3 seconds between pages. It:
 
-- foretager ingen forespørgsel, når den lokale snapshot er yngre end 7 dage;
-- gemmer kun de felter, JASWA behøver til ID, navn, billedfilnavn og archetype;
-- skriver atomisk, så eksisterende data bevares ved netværks- eller
-  svarfejl;
-- stopper ved HTTP 429/503 og respekterer et rapporteret `Retry-After` ved at
-  lade operatøren vente og starte en ny manuel refresh;
-- laver ingen automatisk retry, parallelisering eller periodisk polling.
+- makes no request while the local snapshot is younger than 7 days
+  (`retrievedAt` in the snapshot);
+- stores only the fields JASWA needs: `com2us_id`, `name`, `image_filename`
+  and `archetype`;
+- writes atomically, so the existing data survives a network or response
+  error;
+- stops on HTTP 429/503 and honours a reported `Retry-After` by leaving the
+  operator to wait and start a new manual refresh;
+- makes no automatic retry, no parallel requests and no periodic polling.
 
-`--force` er kun til en eksplicit opdatering før syvdagesfristen. Det ændrer
-ikke ratebegrænsningen.
+`--force` is only for an explicit refresh before the seven days are up. It does
+not change the rate limiting.
 
-Swarfarm-billedfilnavne lagres som metadata, men katalogsynkroniseringen
-henter aldrig monsterbilleder. Kun billeder, der allerede ligger lokalt i
-`public/monster-images`, vises. Det forhindrer, at en dataopdatering bliver
-flere tusinde ekstra forespørgsler.
+Swarfarm image file names are stored as metadata, but the catalogue sync never
+fetches monster images. Only images already present in `public/monster-images`
+are shown, so a data refresh never becomes thousands of extra requests.
 
-## Monsterbilleder
+## Monster images
 
-**Monsterbilleder må aldrig committes.** Dette repository er offentligt, og
-grafikken er ikke vores at videredistribuere. `public/monster-images/` er
-git-ignoreret, og hver arbejdskopi henter sine egne filer:
+**Monster images are never committed.** The repository is public, and the
+artwork is not ours to redistribute. `public/monster-images/` is git-ignored,
+and each working copy fetches its own files:
 
 ```text
 npm run fetch:monster-images
 ```
 
-Kommandoen læser billedfilnavnene fra den lokale snapshot og henter ét billede
-ad gangen med 250 ms pause. Den:
+The command reads the image file names from the local snapshot and fetches one
+image at a time with a 250 ms pause. It:
 
-- springer over, hvad der allerede ligger lokalt, så en afbrudt kørsel kan
-  genoptages ved blot at køre kommandoen igen;
-- skriver til et midlertidigt navn og omdøber, så en afbrydelse aldrig
-  efterlader en halvskrevet PNG;
-- verificerer PNG-signaturen før en fil accepteres;
-- stopper ved HTTP 429/5xx i stedet for at presse værten videre;
-- genskriver `app/data/local-monster-images.ts` ud fra det, der faktisk ligger
-  på disken, efter hver kørsel.
+- skips what is already present, so an interrupted run resumes by running the
+  command again;
+- writes to a temporary name and renames, so an interruption never leaves a
+  half-written PNG;
+- checks the PNG signature before accepting a file;
+- stops on HTTP 429/5xx rather than pressing the host further;
+- rewrites `app/data/local-monster-images.ts` from what is actually on disk
+  after every run.
 
-`--limit <n>` henter kun de første n manglende. `--all` gennemgår hele listen
-igen i stedet for kun det manglende.
+`--limit <n>` fetches only the first n missing images. `--all` walks the whole
+list again instead of only the missing ones.
 
-Et manglende billede er ikke en fejl: oversigten viser monsterets forbogstav i
-stedet, så appen fungerer fuldt ud uden en eneste hentet fil.
+A missing image is not an error: the roster shows the monster's initial
+instead, so the app works fully without a single fetched file.
 
-## Validering og brug
+## Validation and use
 
-En ny snapshot accepteres kun, når alle sider er hentet, det observerede antal
-monstre matcher API'ets `count`, og hver `com2us_id` er unik. Kataloget er den
-eneste navne- og grundstatskilde.
+A new snapshot is accepted only when every page was fetched, the number of
+monsters observed matches the API's `count`, and every `com2us_id` is unique.
+The catalogue is the only source of monster names.
 
-Efter en vellykket refresh skal projektets build køres. Hvis den fejler eller
-et nyt import-ID stadig ikke findes, beholdes den forrige fungerende snapshot
-og afvigelsen undersøges før en ny forespørgselsrunde.
+After a successful refresh, run the project's build and
+`npm run verify:collaboration-species` and `npm run verify:element-qualified-names`.
+If the build fails, or a newly imported id is still missing, keep the previous
+working snapshot and investigate the deviation before another round of
+requests.
 
-## Collab-monstre og deres generiske udgaver
+`app/data/swarfarm-monster-details.json` (each master id's family id and
+skill-ups to max, read by `monster-catalog.ts`) is a second Swarfarm snapshot;
+no refresh command writes it.
 
-Efter et collab-event genudgiver spillet de samme monstre under egne navne, med
-identiske stats og skills — kun navn og artwork skifter. Begge master-ID'er
-forbliver i omløb, og et eksemplar beholder det navn, det blev summonet under.
+## Collaboration monsters
 
-Kataloget kender ikke det slægtskab, og det kan ikke udledes af ID'et: de tidlige
-collabs ligger i familieblokke med fast forskydning, mens Demon Slayer, TEKKEN 8
-og Ringenes Herre ikke gør. Sammenhængen er derfor skrevet ned i
-`app/data/collaboration-species.json` — bevidst uden for den synkroniserede
-snapshot, så en refresh ikke overskriver den. Filen holder 282 dokumenterede
-statistikrelationer over 571 master-ID'er; `app/lib/monster-species.ts` og
-`scripts/collect-engraving-statistics.mjs` læser den begge, så der kun er én
-kilde.
+How a collaboration monster and its generic re-release relate — one statistics
+species, two owned identities — is `MONSTER-SPECIES-DECISION.md`, and the table
+lives in `app/data/collaboration-species.json`, outside this snapshot so a
+refresh never overwrites it.
 
-Relationerne er kun statistikrelationer. De ændrer ikke den kanoniske monster-
-identitet eller skill-up-familie i Numbers: samarbejdsudgaven og den generiske
-udgave holdes adskilt ved fodder, dublettælling og sammensmeltning af rækker.
-Choco Knight og Madeleine Cookie er ikke en relation i tabellen, fordi de er to
-forskellige monsterfamilier.
-
-`npm run verify:collaboration-species` kontrollerer efter hver refresh, at hver
-klasse hænger sammen: medlemmerne findes i kataloget, deler element og
-awakening-trin, og er enige om `archetype`. Archetype er den bærende kontrol,
-fordi den ikke følger af ID'et — enighed på tværs af et par er dermed reelt
-bevis for, at parringen er rigtig. Kommandoen melder også, når et *pending* par
-kan opløses, fordi kataloget nu bærer modparten.
-
-`docs/MONSTER-SPECIES-DECISION.md` er den bindende regel for, hvad der
-navngives efter master-ID og hvad efter art.
-
-## Kilder
+## Sources
 
 - [Swarfarm README — API](https://github.com/swarfarm/swarfarm/blob/master/README.md)
 - [Swarfarm Bestiary API](https://swarfarm.com/api/v2/monsters/?page_size=1)

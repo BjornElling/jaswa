@@ -1,30 +1,31 @@
 # Deck Presets and engraving
 
-**Status:** Binding contract, October 7, 2026; shared pools revised October
-11, 2026, and widened to every content of several decks in one battle the same
-day. JASWA leaves the model in
-which a rune or artifact is engraved on exactly one monster. Every rule of
-placement, and every page that reads one, follows this document.
+**Status:** Binding contract for placement: every rule of where a rune,
+artifact or relic is engraved, and every page that reads one
+**Reviewed:** October 20, 2026
 
 ## 1. What the game says
 
-Com2uS calls the feature **Deck Preset** (v9.2.0, April 29, 2026). Sources,
-all from the official announcement feed:
+Com2uS calls the feature **Deck Preset** (v9.2.0, April 29, 2026). Every notice
+below is on the game's official Steam announcement feed. The steamstore links
+render their body by script, so the reproducible reader is the Steam news API,
+which returns each notice in full by its `gid`:
+<https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=2426960&count=300&maxlength=0>
+(read October 19, 2026).
 
-- [DN1] 12th Anniversary Developer's Note, April 8, 2026:
-  <https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1829528821303434>
-- [DN2] "[Info] New Feature: Deck Preset", with a Q&A, April 20, 2026:
-  <https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1830163047265653>
-- [920] v9.2.0 update notice, April 29, 2026:
-  <https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1831432155564095>
-  and its capacity table: <https://hive-fn.qpyou.cn/hubweb/contents/2EN_1777364557.png>
-- Later notices v9.2.2 – v9.3.2 in the same feed.
-- [ToC] Temple of Chaos preview, November 5, 2025:
-  <https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1815580768225554>
-- [900] v9.0.0 update notice, November 12, 2025:
-  <https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1816215235343275>
-- [924] v9.2.4 update notice, June 12, 2026:
-  <https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1835236783562442>
+| Tag | Notice | Date | `gid` |
+| --- | --- | --- | --- |
+| [ToC] | [Tomorrow Update] Update Notice (Temple of Chaos preview) | November 5, 2025 | 1815580768225554 |
+| [900] | v9.0.0 Update Notice | November 12, 2025 | 1816215235343275 |
+| [DN1] | [Info] 12th Anniversary Update Developer's Note | April 8, 2026 | 1829528821303434 |
+| [918] | v9.1.8 Update Notice | April 13, 2026 | 1829528821314708 |
+| [DN2] | [Info] New Feature: Deck Preset, with a Q&A | April 20, 2026 | 1830163047265653 |
+| [920] | v9.2.0 Update Notice, and its capacity table <https://hive-fn.qpyou.cn/hubweb/contents/2EN_1777364557.png> | April 29, 2026 | 1831432155564095 |
+| [922] | v9.2.2 Update Notice (Modified) | May 13, 2026 | 1832700592785416 |
+| [923] | v9.2.3 Update Notice | June 1, 2026 | 1833968530897135 |
+| [924] | v9.2.4 Update Notice | June 12, 2026 | 1835236783562442 |
+| [927] | v9.2.7 Update Notice | July 15, 2026 | 1838407329253345 |
+| [930] | v9.3.0 Update Notice | August 28, 2026 | 1842212951302056 |
 
 The rules JASWA relies on:
 
@@ -34,7 +35,7 @@ The rules JASWA relies on:
    Giant's Keep, Siege Battle and so on.
 2. **Each content has a fixed number of presets.** Every content has Attack
    presets; only Arena, Arena Interserver Battle, Siege Battle and World Guild
-   Battle also have Defense presets [920]:
+   Battle also have Defense presets [920, capacity table]:
 
    | Content | Attack | Defense |
    | --- | --- | --- |
@@ -59,69 +60,70 @@ The rules JASWA relies on:
    presets of the same content. DN2, verbatim: *"you cannot engrave the same
    Runes or Artifacts on different Monsters within the same deck. It is best
    to think of it as Runes and Artifacts being available for use on a
-   per-Preset basis."* The game enforces this when a preset is saved (v9.2.2).
-4. **Exception: the ten Siege Battle defense presets share one pool.** A rune
-   or artifact may appear only once across all of them [920]: *"as before,
-   the same Runes/Artifacts cannot be shared among Siege Battle defense decks
-   (up to 10)."* The notice says nothing of their monsters, so JASWA shares
-   only the gear.
-5. **Exception: Temple of Chaos's teams share one pool, monsters included.**
-   Temple of Chaos fights with three decks of five monsters at once, set on the
-   tabs 1–3 of one entry, and *"Monsters, Runes, and Artifacts cannot be used
-   across multiple decks"* [900; ToC]. A rune, artifact or monster belongs in
-   at most one of the teams. The player confirmed the rule for this account on
+   per-Preset basis."* [922] fixed a crash when saving a preset that broke
+   this; what the save now does was not captured.
+4. **The ten Siege Battle defense presets share one pool.** A rune or artifact
+   may appear only once across all of them [920]: *"as before, the same
+   Runes/Artifacts cannot be shared among Siege Battle defense decks (up to
+   10)."* The notice says nothing of their monsters, so only the gear is
+   shared.
+5. **Temple of Chaos's teams share one pool, monsters included.** Temple of
+   Chaos fights with three decks of five monsters at once, set on the tabs 1–3
+   of one entry, and *"Monsters, Runes, and Artifacts cannot be used across
+   multiple decks"* [900; ToC]. The developer confirmed the rule in the game on
    October 10, 2026, and also that the game does not stop it being broken:
-   runes can in fact be engraved on several of the teams at once. JASWA
-   therefore reads such an account as it stands and shows the overlap as a
-   fault of the preset (§4); it never refuses the import for it.
-6. **Exception: every other content that fights with several decks in one
-   battle shares one rune pool across them.** [924] names five contents that
-   *"use multiple decks"* in one battle and gives each the *Include Placed
-   Runes* option, which includes or leaves out runes already placed on monsters
-   in the battle's other decks — the game's own admission that those decks
-   draw on one set of runes:
+   runes can in fact be engraved on several of the teams at once.
+6. **The other contents that fight with several decks in one battle share one
+   pool of gear.** [924] names the contents that *"use multiple decks"* —
+   Temple of Chaos, Rift Raid, Dimension Raid, World Guild Battle and Guild
+   Rival Battle — and adds to Rune Advanced Settings a box that includes or
+   leaves out, **in a rune search**, the runes placed in the battle's other
+   decks. That box is a search filter, and [923]'s overlap indicator on the
+   preset selection screen is a warning; neither notice states which overlaps
+   the game allows. The pools rest on other evidence:
 
-   | Content | Decks in one battle | Pool in JASWA |
-   | --- | --- | --- |
-   | Temple of Chaos | three teams | rule 5, monsters included |
-   | Dimension Raid | phases 1, 2 and 3 | one pool across the three phase contents |
-   | Rift Raid | three teams | one pool |
-   | World Guild Battle (attack) | five teams | one pool |
-   | Guild Rival Battle | its simultaneous teams | the World Guild Battle pool: the two share one row of the capacity table [920] and one set of presets |
+   | Content | Decks in one battle | Pool | Evidence |
+   | --- | --- | --- | --- |
+   | Temple of Chaos | three teams | rule 5, monsters included | [900]; the developer, October 10, 2026 |
+   | Dimension Raid | one deck per phase, phases 1–3 | one pool of gear across the three phase contents | The developer's in-game observation, recorded October 19, 2026: a rune cannot be used in both a phase-1 and a phase-2 deck; alternative decks within one phase may reuse runes |
+   | Rift Raid | several teams | one pool of gear | **modelled** on the same ground — the decks fight at once (the developer's decision, October 19, 2026) |
+   | World Guild Battle (attack) | several teams | one pool of gear | **modelled**, as Rift Raid |
+   | Guild Rival Battle | its simultaneous teams | the World Guild Battle pool: the two share one row of the capacity table and one set of presets [920] | **modelled**, as Rift Raid |
 
-   The defense side follows the same line. Siege Battle defense keeps its pool
-   (rule 4, restated by [920]), and the World Guild Battle defense decks, which
-   stand at once, share one too. Siege Battle *attack* is the one guild content
-   with no pool: each attack is a battle of its own, so a rune may serve in any
-   number of them.
-
-   The notices speak of runes; JASWA shares the artifacts with them, as it does
-   for rules 4 and 5, because the reason is the same — the decks fight at the
-   same time. They say nothing of monsters, so in these pools a monster may
-   stand in more than one deck. As in rule 5, the game may let an overlap
-   through, and JASWA reads it and shows it as a fault (§4).
+   The pools carry artifacts with the runes, because the reason is the same —
+   the decks fight at the same time. Nothing says their monsters may not
+   repeat, so outside Temple of Chaos a monster may stand in more than one deck
+   of a pool. Siege Battle *attack* has no pool: each attack is a battle of its
+   own. The World Guild Battle defense decks stand at once too, and JASWA gives
+   them a pool by analogy with Siege Battle's; that pool is **modelled and
+   unsourced**, and dormant while no `deck_type` is matched to the content
+   (§7).
 7. **Relics are not saved per preset.** A preset uses whatever relic the
-   monster carries in Scenario [920]. One relic may be engraved on up to 150
-   monsters (v9.3.0; `RELIC-CANONICAL.md`).
+   monster carries in Scenario [920]: *"the Relic information currently
+   engraved on the Monster will be reflected in the Preset."* A relic is
+   engraved on a monster of Lv. 40 [918], and one relic on up to 150 monsters
+   [930] (`RELIC-CANONICAL.md`).
 8. **Outside saved presets.** A monster's own runes and artifacts outside any
-   preset are its **Scenario** arrangement in JASWA, independent of every preset
-   [DN1, v9.2.2, v9.2.3]. In Scenario a rune is engraved on one monster at most,
-   as before.
-9. **Engraved runes and artifacts can be sold** (v9.3.0). A preset then keeps
-   a reference to a rune the account no longer owns.
+   preset are its **Scenario** arrangement in JASWA, independent of every
+   preset [DN1, 922, 923]. In Scenario a rune or artifact is engraved on one
+   monster at most.
+9. **Engraved runes and artifacts can be sold** [930: *"Engraved
+   Runes/Artifacts can now also be selected and sold when using Sell
+   Selected"*]. A preset then keeps a reference to a rune the account no
+   longer owns.
+10. **A Normal Sealed Shrine monster can stand in a preset.** [920] replaced
+    the shrine's own temporary engravings with presets: *"The feature used to
+    load Monsters from the Normal Monster Sealed Shrine and use them with
+    temporary engravings has been replaced by the Deck Preset feature."*
 
 What the notices leave open, and JASWA must not invent:
 
-- Whether the monsters of the pools of rules 4 and 6 may repeat. The notices
+- Whether the monsters of the pools of rules 4 and 6 may repeat. The sources
   name runes and artifacts only, so only those are shared.
 - Which saved decks make up one battle. A content of several decks per battle
   has more presets than one battle uses — Temple of Chaos 15 for three teams,
-  World Guild Battle 15 for five, Dimension Raid ten per phase — and the export
-  does not say which go together. Every saved deck of the pool's contents is
-  therefore read into one pool. Two alternative teams for the same place in a
-  battle that share a rune then show as a fault on both (§4) though they never
-  fight together; should an export show how decks are grouped into a battle,
-  the pool must be narrowed to one battle's decks.
+  World Guild Battle 15 for several — and the export does not say which go
+  together (§7).
 - What powering up, gemming or grinding does to a preset. The rune is one
   physical object, so its stats are read once and every preset sees the same
   rune; nothing is copied per preset.
@@ -129,28 +131,11 @@ What the notices leave open, and JASWA must not invent:
 
 ## 2. Terminology
 
-The game uses **engrave** for all three kinds of gear: "engraved Runes",
-"Relic Engrave List", the "Rune / Artifact / Relic Engraving Statistics"
-panels. JASWA uses it alone:
-
-| Concept | JASWA word | Never |
-| --- | --- | --- |
-| A rune, artifact or relic on a monster | **engraved** (verb **engrave**) | equipped, equip, worn, wearer, wears, socketed |
-| A rune or artifact on no monster in a context | **in inventory** | free, unused, spare |
-| One saved deck | **preset** | team, deck (in UI), scenario |
-| The grouping of presets | **content**, by the game's name | preset type, mode |
-| A monster's own arrangement outside presets | **Scenario** | current build, worn build |
-| Rune Clean-up's role targets (formerly "presets") | **roles** | presets |
-| Rune Optimization's monster settings (formerly "preset") | **profile** | preset |
-
-"Preset" means the game's preset and nothing else. Identifiers follow the
-interface words. Raw export field names (`occupied_id`, `deck_list`) keep
-their spelling only where the raw export is read.
-
-The preferences reader retains choices saved under the previous `default` area
-key as Scenario profiles; every new write uses `scenario`. An explicitly stated
-Scenario area, including an empty one, takes precedence. This exception preserves
-the developer's own choices (AGENTS.md §0), not earlier account formats.
+The words for placement — engraved, in inventory, preset, content, Scenario,
+roles, profile — are fixed in `LANGUAGE-CONTRACT.md` (*Game terminology*), and
+this document uses them. Identifiers follow the interface words; raw export
+field names (`occupied_id`, `deck_list`, `equip`) keep their spelling only
+where the raw export is read.
 
 ## 3. What the export establishes
 
@@ -175,18 +160,26 @@ nothing. Saving the Arena defense sends `arenav2_setDefenseUnitList`, whose
 answer carries `defense_deck_info` in the login's own shape; the helper keeps
 whichever defense field an answer carries whole (`apply_defense_decks`).
 
-A captured account held 57 saved decks, two of them the Arena defenses. Runes
-occurred in up to three decks at once, including different `deck_seq` under
-one `deck_type`; decks named one rune and several artifacts the account no
-longer owned.
+Export observation (the October 2026 capture): runes occur in up to three decks
+at once, including different `deck_seq` under one `deck_type`, and decks name
+runes and artifacts the account no longer owns (rules 3 and 9).
+
+`app/lib/deck-presets.ts` reads the decks and refuses the import for a
+duplicate preset identity, an item twice in one deck, two runes in one slot of
+one monster, an `equip` entry for a monster outside the deck, and a deck that
+saves gear for some of its monsters but not all. A member the roster
+(`unit_list`) does not hold is a **missing member**, not a refusal: a sold
+monster, or one resting in the Normal Sealed Shrine (rule 10), whose `equip`
+entry stays readable.
 
 **The numeric `deck_type` values are matched to contents from the game's own
 screen where it has shown them, and otherwise to the content they most likely
 are**, so every saved deck stands in the structure below. An assumed match is
 marked on the preset (*Content assumed, not yet confirmed in the game*) until
-the screen confirms or corrects it. A value no reading covers keeps its number
-on screen and is still used fully; a preset is never hidden for want of a name
-(AGENTS.md §0.1). Matched so far (`preset-contents.ts`):
+the screen confirms or corrects it, and an assumed deck joins no pool (§4). A
+value no reading covers keeps its number on screen and is still used fully; a
+preset is never hidden for want of a name (AGENTS.md §0.1). Matched so far
+(`preset-contents.ts`):
 
 | `deck_type` | Content | Number shown | Basis |
 | --- | --- | --- | --- |
@@ -198,8 +191,8 @@ on screen and is still used fully; a preset is never hidden for want of a name
 | 8 | Monster Subjugation Water | `deck_seq` | assumed (§7) |
 | 9 | Monster Subjugation Fire | `deck_seq` | assumed (§7) |
 | 19, 20, 21 | Dimension Raid phases 1, 2, 3 | `deck_seq` | screen |
-| 23 | Temple of Chaos | `deck_seq` | player, October 10, 2026: the account's three Temple of Chaos teams |
-| 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 | screen |
+| 23 | Temple of Chaos | `deck_seq` | the developer, October 10, 2026: the account's three Temple of Chaos teams |
+| 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 | screen (screens of October 7, 2026) |
 
 4 and 6 under type 24 were confirmed through the recent decks, whose Cairos
 sub-types 19–24 run in the same order and were matched on screen for all six.
@@ -232,69 +225,81 @@ and every battle outside a preset, and stands alone before the tabs.
 ## 4. The model
 
 The account owns physical runes and artifacts. A placement is the relation
-(item, monster, **context**). A context is either **Scenario** or one preset
-`(deck_type, deck_seq)`.
+(item, monster, **context**). A context is either **Scenario** or one preset:
+a game deck `(deck_type, deck_seq)`, an Arena defense, or a preset built in
+JASWA.
 
 - Within a context, an item has at most one monster and a monster at most one
   rune per slot and one artifact per slot.
 - Across contexts, the same item may have different monsters.
-- **A pool is a limit on what JASWA does, never on what it reads.** The
-  game's decks of one pool (`sharedPool` in `preset-contents.ts`) — the Siege
-  Battle and World Guild Battle defense presets, and the teams of Temple of
-  Chaos, Dimension Raid, Rift Raid and World Guild Battle (§1, rules 4–6) —
-  should hold each item on at most one monster between them, and Temple of
-  Chaos each monster in at most one team. A pool is named by its own id, not
-  by a content, because one battle may span several contents: Dimension Raid's
-  three phases are three contents and one pool. The game does not
-  always stop it, and what the game shows on a team is what JASWA shows. So
-  each deck is its own context, read exactly as the game saved it, with its
-  own team, gear, priority and speed tuning. A preset built in JASWA
-  is a draft of one team and never joins the game's pool.
-  - **An overlap is a fault of the preset, never of the import.** Decks of one
-    pool that hold the same item — or, for Temple of Chaos, the same monster —
-    keep it on every one of them. Each team involved names what it shares
-    (`poolConflicts`), and the Presets page says so on the preset's warning
-    line beside its sold items and missing monsters: *Shares 2 runes and
-    1 monster with another team*. A deck that saved monsters only is measured
-    on the Scenario gear it runs on.
-  - Each deck knows what the pool's other decks hold (`poolRuneIds`,
-    `poolArtifactIds`, `poolTakenUnitIds`) and uses it only to refuse: JASWA
-    never forms an overlap. Rune Optimization reads every rune another team
-    holds as excluded (`runeLocksInPreset`), a rune the team shares with one
-    included; an engrave refuses a build bringing such a rune in; a monster
-    joining a game deck brings its Scenario gear less what the deck or the pool
-    holds, and a monster another Temple of Chaos team holds is not offered.
-  - Nothing done in one deck writes into another. The previous model made an
-    engrave take its runes out of the pool's other decks, and with them every
-    rune the game had let two teams share; a team then showed a monster with
-    no runes that the game showed fully geared.
 - A relic belongs to Scenario only and is read into every context.
 - Item stats, grade, slot and craft state belong to the physical item and are
   never copied into a placement.
 - A placement naming an item the account no longer owns is kept and shown as
-  sold; it is never dropped and never repaired.
+  sold; it is never dropped and never repaired. A member the roster does not
+  hold is missing in a game deck and in a preset built in JASWA alike; the
+  Presets page names a Normal Sealed Shrine member by name and counts the rest
+  as *not in this import*.
+- A preset that saved monsters only runs each member on its Scenario gear.
 
-Placement is resolved once, at the account boundary. `Rune` and `Artifact`
-carry no owner field. Every reading of a monster's slots, its stat sheet,
-its sets or its speed takes a context argument, and no page, filter or worker
-picks a context of its own.
+Placement is resolved once, at the account boundary (`presets.ts`,
+`readPresets`). A rune's or artifact's own `occupiedId` is its **Scenario**
+monster (the export's `occupied_id`, `null` in inventory) and means nothing
+about any preset. Every reading of a monster's slots, its stat sheet, its sets
+or its speed takes a context argument (`monsterInPreset`), and no page, filter
+or worker picks a context of its own. A calculation about one preset reads its
+runes through `runesInPreset`, which returns copies whose `occupiedId` is the
+monster carrying the rune in that preset, or `null`; artifacts are never
+rewritten, so an artifact's `occupiedId` is always Scenario's.
 
-### Automatic team-set bonuses
+### Pools
 
-The members of one non-Scenario preset supply their completed team-set bonuses
-to one another. The rune placements of that preset decide, including Scenario
-fallback for a preset saved without gear. A shared pool is not a team; Scenario
-is the whole roster and is not a team either. The holder's own sets are counted separately
-by the battle calculation, so the derived teammate counts exclude it. Team sets
-do not change the game's eight display stats, including for their holder.
+A pool is the game decks of rules 4–6: `sharedPool` in `preset-contents.ts`,
+named by its own id rather than by a content, because one battle may span
+several contents — Dimension Raid's three phases are three contents and one
+pool. **Only a game deck whose content the screen confirmed joins a pool.** A
+deck whose content is assumed is read as a placement of its own and withholds
+nothing, because a guess about its content is no ground for refusing a rune.
+A preset built in JASWA is a draft of one team and never joins a pool.
 
-A single-monster Rune Optimization search preserves the other members' runes,
-including when runes on other monsters or higher-priority monsters are allowed.
-The exception is Scenario, where those existing sharing choices still apply.
-This keeps the other members and their contribution intact while finding a
-build. Counts are recalculated after an import, gear change or preset edit,
-not stored as user preferences. `RUNE-OPTIMIZATION.md` §2.2.4 states which
-figures count the combat contribution.
+Where the battle places one deck of each content — Dimension Raid, one deck
+per phase (`oneDeckPerContent`) — the decks of one content are alternatives:
+they never stand together, so they may hold the same rune or artifact, and only
+decks of *different* contents of the pool exclude each other (the developer's
+observation, rule 6).
+
+**A pool is a limit on what JASWA does, never on what it reads.** Every deck
+of a pool is its own context, read exactly as the game saved it, with its own
+team, gear, priority and speed tuning. Every saved deck of the pool's
+contents is one pool, since the export does not say which decks fight
+together.
+
+- **An overlap is a fault of the preset, never of the import.** Decks of one
+  pool that hold the same item — or, for Temple of Chaos, the same monster —
+  keep it on every one of them. Each team involved names what it shares
+  (`poolConflicts`), and the Presets page says so on the preset's warning
+  line beside its sold items and missing monsters: *Shares 2 runes and
+  1 monster with another team*.
+- Each deck knows what the pool's other decks hold (`poolRuneIds`,
+  `poolArtifactIds`, `poolTakenUnitIds`) and uses it only to refuse, so JASWA
+  never forms an overlap:
+  - Rune Optimization reads every rune another deck of the pool holds as
+    excluded (`runeLocksInPreset`), one the team shares with that deck
+    included;
+  - an engrave refuses a build that brings such a rune in;
+  - a monster joining a game deck brings its Scenario gear less what the deck
+    or the pool holds, and a monster another Temple of Chaos team holds is not
+    offered;
+  - a lock or exclusion in a pool binds the whole pool (`rune-locks.ts`).
+- Nothing done in one deck writes into another, a deck of the same pool
+  included.
+
+### Team sets
+
+The members of one preset supply their completed team-set bonuses to one
+another, from that preset's rune placements. A pool is not a team, and
+Scenario is the whole roster, not a team. `RUNE-OPTIMIZATION.md` §2.2.4 holds
+the rule and which figures count it.
 
 ### 4.1 One monster profile per content-area
 
@@ -312,37 +317,37 @@ and Scenario have separate profiles, even when they hold the same copy.
   team-specific. Sharing a profile never copies or merges game placements.
 - No fallback between areas. An unstated choice reads species defaults there,
   never Scenario's profile. *Copy from…* copies another area's stated choices;
-  subsequent edits remain independent.
+  later edits stay independent. A profile with no stated choices stays visible
+  but cannot be copied; an explicit zero or a deliberately cleared choice is a
+  stated choice.
 - Removing a monster from a team or deleting a team leaves its area profile
-  intact, including when it was the area's last team. Re-importing a team can
-  therefore use the user's choices again.
+  intact, including when it was the area's last team, so re-importing the team
+  uses the user's choices again.
 - Presets, Monster Stats, Rune Optimization and Speed Tuning resolve nicknames
   and profile choices through the team's content-area. Scenario-only artifact,
-  relic and rune workspaces continue to read Scenario's profile.
-- The profile editor's *Build for* offers each area once, without a team
-  dropdown. The *Engraved runes* heading names the team whose gear and figures
-  it reports in a muted parenthesis.
-  Opening from a team retains that team; switching area uses its first team.
-  *Save and optimize* opens that same team in Rune Optimization.
-- Stored team-keyed or contextless profiles are outside the current contract
-  and are rejected one scope at a time. No migration or compatibility reader
-  maps conflicting team profiles into an area. Other preferences survive.
+  relic and rune workspaces read Scenario's profile.
+- The overlay's *Build for* offers Scenario and each area once, without a team
+  dropdown. It switches the shared profile and a representative team's gear
+  together, waits while an edit is unsaved, and names that team in a muted
+  parenthesis in the *Engraved runes* heading. Opening from a team keeps that
+  team; switching area uses its first team.
+- A stored profile keyed by team or by no context is outside the contract and
+  is rejected one scope at a time; every other preference survives.
 
 Presets the player builds in JASWA are the player's own choices
 (AGENTS.md §0). They are stored with the preferences, are never overwritten by
 an import, and are checked one preset at a time on load.
 
-## 5. The workspace
+## 5. Rules every page obeys
 
-**Presets** (formerly Rune priority).
+**Presets.** The page where placements are made.
 - *Content* heads the page with *Area* beside it and *Preset* below, and
-  opens on Scenario.
-- *Content* lists Scenario, the game's seven tabs (§3.1) and, only while there
-  are any, the presets not yet named. *Area* lists the chosen tab's contents,
-  all of them, and is disabled where the tab holds one. Scenario is chosen in
-  *Content* outright; any other choice offers the area's presets in *Preset*,
-  each shown with the faces of its team, and the list below is empty until one
-  is chosen.
+  opens on Scenario. *Content* lists Scenario, the game's seven tabs (§3.1)
+  and, only while there are any, the presets not yet named. *Area* lists the
+  chosen tab's contents, all of them, and is disabled where the tab holds one.
+  Scenario is chosen in *Content* outright; any other choice offers the area's
+  presets in *Preset*, each shown with the faces of its team, and the list
+  below is empty until one is chosen.
 - A preset built in JASWA stands in its content exactly as the game's do,
   after them; one without a content stands with the presets not yet named.
 - *Add preset* sits at the right, starts the new preset in the chosen content
@@ -353,8 +358,8 @@ an import, and are checked one preset at a time on load.
   the crown names the leader, and *Delete preset* removes it. Each change is
   written into the import, as an engrave is, and the next import states the
   game's own presets again. A monster added to a preset that saves its gear
-  brings its Scenario gear, less what the preset already engraves; one taken out
-  takes its gear there with it; its area profile stays.
+  brings its Scenario gear, less what the preset or its pool already engraves;
+  one taken out takes its gear there with it; its area profile stays.
 - The order of monsters within a preset is their priority for runes. Rune
   competition exists only inside a preset, so that is the only place a
   priority means anything; between the teams of a pool there is no order,
@@ -364,92 +369,46 @@ an import, and are checked one preset at a time on load.
   its team over Presets — the overlay Speed Tuning's own lines open — disabled
   only on Scenario and on a preset with no monsters.
 
-**Rune Optimization.**
-- The preset being optimized for is shown prominently above the monster:
-  one plain list of Scenario and every preset. The monster list contains only
-  members of the chosen preset. Changing preset keeps the chosen monster if
-  it belongs there, otherwise clears the monster choice. An empty preset says
-  it has no monsters and cannot start a search.
-- A monster opened from a place about one preset — a preset's list, a Speed
-  Tuning team, a row of Monster Stats, a rune engraved in one preset, a build —
-  opens its overlay on
-  that preset, and *Save and optimize* there opens Rune Optimization on it. A
-  monster opened from a place about no preset — Monster Numbers, an artifact, a
-  relic — opens on Scenario, which is what those pages show. Opening the overlay
-  leaves the preset chosen across the program alone; only *Save and optimize*
-  changes it.
-- The overlay's *Build for* names Scenario or a content-area, each once. It
-  switches the shared profile and the representative team's gear together,
-  waits while an edit is unsaved, and names the gear's team in the
-  *Engraved runes* heading.
-  *Copy from…* offers other areas once each; profiles with no stated choices
-  remain visible but cannot be copied. An explicit zero or deliberately
-  cleared choice still counts as a stated choice.
-- The candidate runes are every owned rune, minus those engraved on other
-  monsters of the same preset where the settings say so, and minus every rune
-  another deck of the preset's pool holds, whatever the settings say. Runes in
-  other presets cost nothing and are always candidates. `runesInPreset` gives
-  each rune the monster carrying it in the chosen preset, so the search reads
-  one placement and no other.
-- *Only use runes from inventory* became *Only runes not engraved in preset*:
-  ticked, no monster of the preset gives up a rune, while a rune engraved only
-  in other presets stays a candidate.
-- *Include runes from higher-priority monsters* refers to monsters of the same
-  preset.
-- *Just fill in empty slots* and *Max changes* are measured against the
-  monster's build in the chosen preset.
-- *Engrave* writes the build into the chosen preset and moves nothing out of
-  any other context, a deck of the same pool included (§4).
-- **Lock and Exclude** (`rune-locks.ts`) bind one rune to one monster in one
-  scope: Scenario, one preset, or — where the game's decks share one pool (§1,
-  rules 4–6) — the whole pool. A lock engraves the rune
-  on the monster, makes it the slot's one answer and keeps it from every other
-  monster of the scope; an exclusion keeps it out of that monster's builds only,
-  taking it off the monster first where it is engraved there. Every control
-  names that move: *Engrave and lock* or *Lock*, *Remove and exclude* or
-  *Exclude*, by where the rune is now.
-  Both are stored with the import rather than the preferences: a new file, a new
-  game session or a sync replaces them with the game's data, which has none, and
-  under *Always synchronized* both are off.
+**Opening a monster.** A monster opened from a place about one preset — a
+preset's list, a Speed Tuning team, a row of Monster Stats, a rune engraved in
+one preset, a build — opens its overlay on that preset, and *Save and
+optimize* there opens Rune Optimization on it. A monster opened from a place
+about no preset — Monster Numbers, an artifact, a relic — opens on Scenario,
+which is what those pages show. Opening the overlay leaves the preset chosen
+across the program alone; only *Save and optimize* changes it.
 
-**Speed Tuning.**
-- Rules are removed.
-- The three columns hold presets by content: dungeons left (Cairos, Dimension
-  Hole, Rift of Worlds), Arena Attack and Defense centre, all others right.
-- A preset's monsters are the game's; the user states the turn order wanted
-  and the what-if display speeds, stored per preset. The leader is the user's
-  to choose wherever the preset is (§5, Presets): saved with the team, it is
-  written as the Presets page's crown writes it, and under live sync it is only
-  reported. Until an order is
-  stated, the preset is read in the game's own order.
-- Every speed is computed from the preset's own runes, with the relic from
-  Scenario.
-- The Arena column lists its defences first, then the attack teams.
-- Every preset with a monster is a team, and every team opens and is tuned
-  alike. A content without enemy data — Trial of Ascension, Temple of Chaos,
-  Rift of Worlds, Dimension Hole and the guild contents — is tuned for its own
-  turn order, its leader skills counted by its area
-  (`SPEED-TICK-CANONICAL.md` §2.2); a preset whose content is not yet named
-  counts only the leads that count everywhere, and has the places it fills.
-- *No speed tuning*, under a team's last slot and off by default, is the
-  user's word that the team is not speed tuned. Saved with the team's tuning,
-  it reads the team against no enemy: each monster still says whether it is in
-  place and which of the team's turns it takes, the *Enemy cut in* section and
-  Ticks leave the overlay. The page still states whether the turn order holds
-  or how many monsters are out of place, followed by ` · No speed tuning` in
-  place of the enemy cut-in verdict. The team's own order decides its check
-  or cross.
+**Choosing a gear context.** Presets and Monster Stats share *Content*, *Area*
+and *Preset*: `PresetChooser` draws the fields and `preset-choice.ts` resolves
+the choice. Rune Optimization offers Scenario and every preset in one list.
+A page that makes presets — Presets — offers every content, empty ones
+included, because a preset is added to the content chosen; a page that only
+reads them offers only the tabs and contents holding one. The profile editor
+offers content-areas instead (§4.1).
 
-**Rune Optimization.** A build's Location names the Scenario monster for a rune
-free in the selected preset, by name alone, as the game's rune list does. The
-game makes one narrow exception, and so does JASWA: a rune the preset carried on
-a monster when the import was loaded, taken off that monster in the preset
-since, while the monster still carries it in Scenario, says *Inventory*, with
-that monster as its Previously. If the Scenario monster is the one being
-optimized, the card says *Inventory* too: the
-rune still has to be engraved in this preset, which the Changes figure counts.
-Previously names the rune's earlier place in that preset after JASWA moves it,
-in Location's words: a rune the preset left free names its Scenario monster.
+**Rune Optimization** searches for one monster in one context and engraves
+into that context only, moving nothing out of any other, a deck of the same
+pool included. Its candidates, switches, locks and exclusions are
+`RUNE-OPTIMIZATION.md` §3. A build's *Location* names a rune's place in the
+chosen preset as the game's rune list does:
+- a rune in inventory in the preset that is engraved on a monster in Scenario
+  is named by that monster alone;
+- one exception, as in the game: a rune the preset carried on a monster when
+  the import was loaded, taken off that monster in the preset since, while the
+  monster still carries it in Scenario, says *Inventory*, with that monster as
+  its *Previously*;
+- if the Scenario monster is the one being optimized, the card says
+  *Inventory* too: the rune still has to be engraved in this preset, which the
+  Changes figure counts;
+- *Previously* names the rune's earlier place in that preset after JASWA moves
+  it, in *Location*'s words.
+
+**Speed Tuning.** Every preset with a monster is a team, and nothing else is:
+its monsters are the preset's, every speed is computed from the preset's own
+runes with the relic from Scenario, and the leader is the user's to choose on
+the team as on the Presets page — saved with the team, written as the crown
+writes it, and under live sync only reported. Until a turn order is stated,
+the team is read in the game's own order. How the page lays out and judges a
+team is `SPEED-TICK-CANONICAL.md` §9.
 
 **Rune Clean-up, Gems & Grinds and every rune or artifact list.**
 - One *Engraved* label replaces the monster name in the location column. A
@@ -464,15 +423,6 @@ in Location's words: a rune the preset left free names its Scenario monster.
 Artifact Optimization and its value columns plan Scenario: which artifact a
 monster carries in Scenario and what to engrave, keep or sell there.
 
-**Choosing a gear context.** Presets and Monster Stats share *Content*, *Area*
-and *Preset*: `PresetChooser` draws the fields and `preset-choice.ts` resolves
-the choice. Rune Optimization offers Scenario and every team in one list.
-These team choices still matter because gear and rune competition belong to
-a team; the profile editor offers content-areas instead (§4.1).
-A page that makes presets — Presets — offers every content, empty ones
-included, because a preset is added to the content chosen; a page that only
-reads them offers only the tabs and contents holding one.
-
 **Monster Stats** reads one context at a time. The chooser sits above the
 filters, ruled off from them, offering only contents with presets, and the page
 opens on Scenario. The table lists the chosen preset's team in its own order,
@@ -483,31 +433,18 @@ not a filter: *Reset filters* leaves it alone.
 **Monster Numbers** shows Scenario and the number of presets each monster
 belongs to.
 
-## 6. Order of work
+## 6. Verification
 
-Each step is committed on its own:
-
-1. Terminology: *engraved* everywhere; Clean-up presets become roles; the
-   Rune Optimization preset becomes a profile.
-2. Match `deck_type` to content names from a capture and the Deck Building
-   screen.
-3. The context model: placements resolved at import, `occupiedId` removed,
-   the stat sheet takes a context.
-4. The Presets page.
-5. Rune Optimization in a preset.
-6. Speed Tuning by preset.
-7. Clean-up, Gems, artifact pages and filters.
-8. Helper: merge `setDeckList`, then release.
-9. Parity: every preset and placement reachable in the interface; a selected
-   preset's figures come from its own placements. Exercise an empty preset, a
-   full preset, a rune shared by two presets with different monsters, and a
-   sold rune still named by a preset.
-
-`app/lib/deck-presets.ts` already reads saved placements and rejects a
-duplicate preset identity, an item twice in one preset, an unknown monster and
-a doubly filled slot; `verify:deck-presets` holds it and can measure a private
-traffic log without printing IDs:
+`npm run verify:deck-presets` holds the model at the import boundary, in
+`readPresets` and in the pages' readings: an empty preset, a full preset, a
+rune shared by two presets with different monsters, a sold rune still named by
+a preset, a sold member with gear, a Normal Sealed Shrine member, a pool
+overlap, and an assumed deck that joins no pool. It measures a private traffic
+log without printing IDs:
 `node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-deck-presets.mjs <log-path>`.
+`npm run audit:import-parity` checks that every saved deck of a real capture
+is a preset the interface offers, with its own placements
+(`IMPORT-PARITY-CONTRACT.md`).
 
 ## 7. Open questions
 
@@ -515,12 +452,11 @@ Each is a TODO: until it is answered, JASWA keeps the safe reading named here
 and says so where it matters.
 
 - **`deck_type` 2 — which guild content.** Fourteen three-monster decks,
-  numbered 1–15. More than ten rules out the Siege Battle defense presets, so
-  they are not the shared pool. They are Siege Battle attack or World Guild
-  Battle / Guild Rival Battle attack; fifteen is the latter's capacity where
-  Siege Battle's is 25, so they are read as World Guild Battle until the screen
-  says otherwise. The answer now matters beyond the name: as World Guild Battle
-  the fourteen decks are one pool (§1, rule 6), as Siege Battle attack none.
+  numbered 1–15. More than ten rules out the Siege Battle defense presets.
+  They are Siege Battle attack or World Guild Battle / Guild Rival Battle
+  attack; fifteen is the latter's capacity where Siege Battle's is 25, so they
+  are read as World Guild Battle until the screen says otherwise. While
+  assumed they join no pool.
 - **`deck_type` 4, 8, 9.** Five-monster decks, three or fewer of each, holding
   the same teams as one another. None is Temple of Chaos, whose presets are
   type 23, nor a Dimension Hole dungeon or Rift of Worlds beast,
@@ -532,14 +468,27 @@ and says so where it matters.
 - **Saving the Arena Interserver defense.** Not yet captured. The helper takes
   any answer carrying `server_arena_defense_deck_info` whole, as it does for
   the Arena defense, whose save is confirmed.
-- **The Siege Battle and World Guild Battle defense pools** are modelled and
-  enforced (`sharedPool`) but no deck type is matched to either yet.
+- **The Siege Battle and World Guild Battle defense decks** are not matched to
+  any `deck_type` yet, so their pools are dormant. The World Guild Battle
+  defense pool is modelled and unsourced (rule 6).
+- **Siege Battle defense: Normal and 4★ bases.** Since [930] *"you can now set
+  the placement order separately for Normal Bases and 4★ Bases"*, with 4★
+  defense decks saved under a category of their own. Whether that is one
+  content or two — its own `deck_type`, capacity and pool — needs a capture.
+- **Deck order.** Since [927] the player sets the order of the presets (*"The
+  deck list order is set based on the order you select the decks"*). JASWA
+  orders a content's decks by `deck_seq`; whether the export carries the
+  game's order needs a capture after July 15, 2026.
 - **Which saved decks make up one battle** in a content of several decks per
-  battle (§1). Every saved deck of the pool's contents is read as one pool.
+  battle (§1) whose decks the export does not tell apart — Temple of Chaos,
+  Rift Raid, World Guild Battle. Every saved deck of such a content is read as
+  one pool, so two alternative teams for the same place in a battle that share
+  a rune show as a fault on both though they never fight together. Dimension
+  Raid does not have this gap: its phases are separate contents, and a phase's
+  own presets are alternatives (§4, *Pools*).
 - **Team sizes not seen on screen.** Siege Battle and World Guild Battle are
   read as three, Labyrinth, Monster Subjugation, the Towers and Spires as five,
-  the Rift of Worlds beasts as six. Dimension Hole's four and Temple of Chaos's
-  five are from the screen.
-- **Speed Tuning outside arena and Cairos.** Trial of Ascension, raids and the
-  rest have no enemy data or settled leader-skill area, so they are listed and
-  not judged.
+  the Rift of Worlds beasts and Rift Raid as six, Dimension Raid as five.
+  Dimension Hole's four and Temple of Chaos's five are from the screen.
+- **An artifact's tier word.** The interface says *Grade* on some pages and
+  *Quality* on others (`LANGUAGE-CONTRACT.md`).

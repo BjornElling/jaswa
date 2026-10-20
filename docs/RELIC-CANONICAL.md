@@ -1,50 +1,41 @@
 # Relics — what they are, and how JASWA judges them
 
-**Status:** Binding project rules for the Relics page
-**Settled:** September 11, 2026
-**Engraving model revised:** October 3, 2026 — per-copy rune investment and actual effect contributions
-**The synergy table:** 48 hand-written cells in `app/lib/relic-synergy.ts`, set
-out in readable form in §5.1.1
-**Read by:** `app/lib/relics.ts`, `app/lib/relic-properties.ts`,
-`app/lib/relic-synergy.ts`, `app/lib/relic-advice.ts`,
-`app/lib/relic-monster-value.ts`, `app/lib/relic-monster-fit.ts`,
-`app/lib/relic-monster-grid.ts`, `app/components/relic-list.tsx`,
-`app/components/relic-monster-list.tsx`
-**Enforced by:** `npm run verify:relic-synergy`, `npm run verify:relic-maths`,
-`npm run verify:relic-monster-plan`, `npm run verify:relic-monster-value`
+**Status:** Binding project rules for the Relics page and the *Use for mons* plan
+**Reviewed:** October 20, 2026
+**Code:** `app/lib/relics.ts` (reader, counts), `app/lib/relic-properties.ts`
+(vocabulary and game constants), `app/lib/relic-power-up-model.ts` (every
+probability), `app/lib/relic-synergy.ts` (the 48 cells), `app/lib/relic-advice.ts`
+(the verdict), `app/lib/relic-grid.ts`, `app/lib/relic-monster-value.ts`,
+`app/lib/relic-monster-fit.ts`, `app/lib/relic-monster-grid.ts`; the stat sheet
+`app/lib/monster-stats.ts`, the main-stat model `app/lib/main-stat-model.ts`,
+eligibility `app/lib/monster-engrave-eligibility.ts`; the pages
+`app/components/relic-list.tsx` and `app/components/relic-monster-list.tsx`
+**Checks:** `verify:relic-synergy`, `verify:relic-maths`,
+`verify:relic-monster-value`, `verify:relic-monster-plan`
+
+A rune or an artifact belongs to one monster. **A relic is engraved on up to 150
+monsters at once**, so a good relic is a good *account*, a duplicate is worth
+little until the first copy runs out of places, and a power-up is neither cheap
+nor repeatable. The Relics page is therefore a verdict — power up, keep or sell —
+and *Use for mons* a separate question: which owned relic suits each monster's
+own build (§11).
+
+Every game rule names its evidence (§3); a premise JASWA adopts without one is
+marked **modelled**.
 
 ---
 
-## 1. Why relics need their own document
+## 1. Scope
 
-A rune belongs to one monster. An artifact belongs to one monster. **A relic is
-engraved on up to 150 monsters at once**, and that single fact rewrites
-every judgement around it.
-
-**Only a level-40 monster can receive a relic engraving.** This eligibility
-rule comes before fit, capacity, and every recommendation: JASWA neither counts
-an engraving on a lower-level monster nor proposes one there.
-
-- A good relic is not a good slot; it is a good *account*. Its value is the
-  number of monsters in the metagame that want exactly it.
-- A duplicate has little marginal value **until the first copy runs out of
-  places**. One copy already covers more monsters than most accounts field, so a
-  duplicate is normally kept only while its expected final strength beyond the
-  account's incumbent clears the selected stone threshold — but a copy engraved
-  on its full 150 cannot reach a 151st monster at any level, and §8's rule 0 is
-  the exception that follows.
-- A power-up is not cheap and not repeatable. Relics come with three
-  durability, a failed attempt spends one, and at zero the relic's level is
-  final for ever. There is no second chance and no re-roll.
-
-So the Relics page is not a library the way the Artifacts page is. It is a
-verdict: keep, power up, or sell.
+- Sections 2–4 are the game: the export, the rules, the vocabulary.
+- Sections 5–9 are the account-wide verdict.
+- Section 10 is import parity; section 11 the per-monster plan.
 
 ## 2. What the export carries
 
 One record per relic in `relics`, and the same records again beneath every
-monster it is engraved on. `completeEngravedCollections` merges and de-duplicates
-them on `rid`, exactly as it does for artifacts.
+monster carrying it. `completeEngravedCollections` merges and de-duplicates them
+on `rid`, as for artifacts.
 
 ```json
 { "rid": 2167432, "type": 14, "upgrade_curr": 9, "durability": 2, "locked": 0,
@@ -53,108 +44,70 @@ them on `rid`, exactly as it does for artifacts.
 
 | Field | Meaning |
 | --- | --- |
-| `rid` | Identity, and the acquisition order — the same role it plays on an artifact |
-| `type` | Which of the sixteen unique properties the relic carries |
-| `upgrade_curr` | Power-up level, `0`–`15` |
-| `durability` | Failed attempts still affordable, `0`–`3` |
-| `pri_effect` | `[100 \| 101 \| 102, percent]` — HP, ATK or DEF as a percentage |
+| `rid` | identity and acquisition order (`obtainedOrder`) |
+| `type` | the unique property, `1`–`16` (§4) |
+| `upgrade_curr` | power-up level, `0`–`15` |
+| `durability` | failed attempts still affordable, `0`–`3` |
+| `pri_effect` | `[100 \| 101 \| 102, percent]` — HP, ATK or DEF as a percentage (the artifact main codes) |
 | `sec_effect` | `[type, threshold, percent]` — the unique property at this level |
 
-**Relic Power-up Stones live in account inventory, not in rune craft items.**
-The current export records their stack as
-`inventory_info[item_master_type = 6, item_master_id = 19].item_quantity`.
-The Relics filter strip shows that exact quantity; when an import does not carry
-`inventory_info`, it says so rather than treating an unknown balance as zero.
+- **No `occupied_id`.** A relic names no monster; engraving counts come from
+  walking the roster (`relicEngravingCounts`). A relic on nobody is absent from
+  that map, never a `0` mistaken for "unknown".
+- **Relic Power-up Stones** are account inventory, not craft items:
+  `inventory_info[item_master_type = 6, item_master_id = 19].item_quantity`
+  (`relicPowerUpStoneCount`). A list without the record is an exact zero; an
+  import without `inventory_info`, or with a malformed or duplicated record,
+  is *unknown* and the page says so.
 
-**There is no `occupied_id`.** A relic record names no monster, because it has
-many. Engraving counts are derived by walking the roster
-(`relicEngravingCounts`), and a relic engraved on nobody is simply absent from that
-map — never `0` mistaken for "unknown".
+### 2.1 How a relic enters the stat sheet
 
-**`type` and `sec_effect[0]` state the family twice.** Every relic this account
-has held agrees with itself. A record where the two disagree is rejected rather
-than resolved, because picking a side would be a guess about which field JASWA
-had misread.
+The main percentage is added to the base-stat percentage bonus before the
+sheet's single rounding step (`monster-stats.ts`). *Evidence: in-game capture of
+Icaru #2 — 736 base DEF, sheet 3,114 without its DEF +12 % relic, 3,203 with it;
+12 points of base account for all 89 DEF.* The unique property is a
+start-of-battle effect and is never added to the sheet.
 
-**The main property is `3 + level` percentage points.** The account confirms it
-at `+0` (3), `+6` (9) and `+9` (12), so `+15` is 18. It is the one figure that
-indexes a relic's whole strength against its level, which is why
-`relicMainPercent` is one half of the strength index that `V(l, d)` in §7.2
-measures a relic against; its unique-property threshold is the other half.
+## 3. The game rules, and their evidence
 
-The main percentage is part of the visible personal stat sheet. An in-game
-capture of Icaru #2 shows 736 base DEF + 2,467 = 3,203 total, while the sheet
-without its DEF +12 % relic read 3,114. Adding 12 percentage points to the
-base-DEF bonus before the sheet's single rounding step accounts for all 89 DEF.
-The relic's unique property is still a battle effect and is not added here.
+| Rule | Value | Evidence |
+| --- | --- | --- |
+| A relic is one main (HP, ATK or DEF, a percentage) plus one unique property fixed at crafting; a power-up changes only the unique's value | — | Dev note 2026-04-08; v9.1.8 |
+| Sixteen unique properties in six functional groups | 16 | Dev note 2026-04-08; ids §4 |
+| One relic per monster | 1 | v9.1.8 ("One Relic can be engraved on a Monster"); the single slot on screen |
+| Only a Lv. 40 monster takes a relic (`relicMinimumMonsterLevel`) | 40 | v9.1.8 |
+| Monsters one relic may be engraved on at once (`relicEngravingLimit`) | **150** (100 until v9.3.0) | v9.1.8 (100); v9.3.0 ("increased from 100 to 150") |
+| Power-up ceiling (`relicMaximumLevel`) | +15 | v9.1.8 |
+| Durability: every relic starts at 3; a failure spends 1; at 0 no further attempt; the relic stays usable | 3 | v9.1.8; Dev note 2026-04-08 |
+| A power-up spends **Relic Power-up Stones and Mana Stones**, at every level alike | — | v9.1.8 |
+| Breakdown returns Relic Pieces and Power-up Stones, the stones scaling with level | — | Dev note 2026-04-08; v9.1.8 |
+| Main property is `3 + level` % (`relicMainPercent`): 3 at +0, 18 at +15 | — | the account: every one of 294 relic records, levels 0–11 (export, 2026-10-20) |
+| Unique percent is fixed: 1 % for Conquest and Resolute, 2 % for the rest (`relicUniquePercent`) | — | the account, all 294 records; the dev note's "+1 % per 2,500 ATK" |
+| Unique thresholds by tier (§7.5) | — | in-game panel readings at +0/+3/+6/+9/+12/+15; the account at levels 5, 7, 8 and 11 confirms each tier holds for three levels |
+| Power-up success rates (§7.4) | 100 % to +3, then 80 % … 10 % | Com2uS's launch table; **no text copy exists** — the dev note carries it as an image the news API strips; transcribed before 2026-09-11 and not re-checked since |
+| A preset reads the relic engraved on the monster, never its own | — | v9.2.0 ("the Relic information currently engraved on the Monster will be reflected in the Preset") |
+| Relics are engraved or removed from the battle preparation screen too | — | v9.3.0 |
+| Relic Engraving Statistics panel | — | v9.2.8 (2026-07-29) |
+| No relic in Dimension Arena (announced for November 2026) | — | Developer's Preview #6, 2026-10-02 |
 
-## 3. What is known about the mechanic, and from where
+Sources, all read through the Steam news API
+(`https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid=2426960&count=300&maxlength=0`,
+2026-10-19): **Dev note** — "[Info] 12th Anniversary Update Developer's Note",
+2026-04-08, gid 1829528821303434; **v9.1.8**, 2026-04-13, gid 1829528821314708;
+**v9.2.0**, 2026-04-29, gid 1831432155564095; **v9.2.8**, 2026-07-29, gid
+1839676055882296; **v9.3.0**, 2026-08-28 (Europe: August 27, 09:45 CEST), gid
+1842212951302056; **Developer's Preview #6**, 2026-10-02, gid 1845383656385392.
+SWCalc states no relic rule (checked 2026-10-19).
 
-| Fact | Source |
-| --- | --- |
-| Main property is HP, ATK or DEF | Com2uS relic announcement |
-| Sixteen unique properties, in six functional groups | Com2uS relic announcement |
-| A unique property is fixed at crafting; a power-up changes only its value | Com2uS relic announcement |
-| Power-up ceiling is `+15`; every relic starts at 3 durability; a failure spends one; at 0 no further attempt is possible | Com2uS relic announcement |
-| One relic engraves on up to **150** monsters | Com2uS patch notes, v9.3.0, August 27 2026 — raised from 100; §3.1 |
-| Effects read "*X* +N % per *T* *stat* at the start of battle" | Com2uS relic announcement, and the shape of `sec_effect` |
-| Power-up success rates per level, `100 %` to `+3` then `80 %` down to `10 %` | Com2uS's published table — §7.4 |
-| Primary effect ids `100`/`101`/`102` are HP/ATK/DEF | `ENGRAVING-STATISTICS.md` §1, on captured traffic |
-| The unique-property id space is exactly `1`–`16` | The game's own Select Unique Property panel — §4 |
+### 3.1 The engraving limit
 
-### 3.1 The engraving limit is 150, and it used to be 100
+`relicEngravingLimit` (150) is the only place the number is written; the
+tagline, the plan, the reasons and the verifier read it. It moved once, from
+100 at launch to 150 in v9.3.0, so a launch-announcement figure is a statement
+about a date — the power-up rates above all. Nothing in traffic can confirm it:
+the property list, names, rates and limit are client-side (§4.3).
 
-**Both figures were right, two weeks apart.** The limit is not a disputed
-reading; it is a value Com2uS changed, and the patch notes say so in one
-sentence:
-
-| Date | Version | Limit |
-| --- | --- | ---: |
-| April 13, 2026 | v9.1.8 | Relics arrive, engravable on **100** monsters |
-| August 27, 2026 | v9.3.0 | *"The maximum number of Monsters that can have the same Relic engraved at once has been increased from 100 to 150."* |
-
-v9.3.0 reached Europe at 09:45 CEST on August 27, 2026. **JASWA obeys 150**, the
-current figure, and keeps the history because a number that moved once can move
-again — and because it explains the older one rather than leaving it looking
-like a mistake somebody made.
-
-**This is why the earlier reasoning in this section was wrong, and the lesson is
-worth more than the number.** An earlier draft treated the two figures as a
-disagreement between the relic announcement and the game's own Manage Relic
-panel, and resolved it by ranking the sources: the client enforces the limit, so
-the client wins. That reached the right answer for the wrong reason. The
-announcement was not mistaken and the panel did not overrule it — the game
-changed underneath both, and **a launch announcement is a statement about a
-date, not a standing fact**. Every other figure in this document read from a
-pre-release announcement carries the same exposure, and §7.4's power-up rates
-most of all.
-
-**Nothing can confirm it in traffic.** §4.3 is why: a capture taken while the
-relic screens are open holds nothing about relics, because the property list,
-the names, the power-up rates and this limit are all client-side. The patch
-notes and the panel are the only routes there are.
-
-**`relicEngravingLimit` in `app/lib/relic-properties.ts` is the only place the
-number is written.** It sits with the power-up ceiling, the durability a relic
-starts with and the published success rates, because it is the same kind of
-fact: a constant of the game's own mechanic rather than a parameter of any
-judgement JASWA makes. The page's tagline, the plan, the reason lines and the
-verifier all read it from there, so a correction is one line and this section.
-
-**Until §11 there was nothing to correct.** The old note here said that nothing
-in JASWA depended on the exact number, and that was true: §1's argument is that
-one relic covers far more monsters than an account fields, and that holds at
-either figure. §11 changes it. The limit is now a **hard capacity constraint on
-a shared resource**, and the plan it produces is different at 100 than at 150 —
-fifty monsters' worth of different, per relic. The figure has stopped being
-context and become arithmetic, which is why it now has a section of its own.
-
-**The per-level power-up success rates are published**, and §7.4 carries them.
-They are the single most consequential thing on this page: the first three
-levels are free, and from `+3` onward the rates fall progressively, ultimately
-to 10 %.
-
-## 4. The sixteen unique properties, and how they were pinned down
+## 4. The sixteen unique properties
 
 | id | Name | Effect |
 | ---: | --- | --- |
@@ -175,108 +128,72 @@ to 10 %.
 | 15 | Solid Primal | MAX HP +N % per T DEF |
 | 16 | Hearty Restore | Recovery & Shield +N % per T MAX HP |
 
-**The names are two rules, not sixteen facts.** The family is what the property
-grants — Conquest gives damage dealt, Resolute takes damage away, Valiant gives
-ATK, Timeless DEF, Primal MAX HP, Restore recovery and shielding. The prefix is
-the stat it reads: Hearty from MAX HP, Sharp from ATK, Solid from DEF, Nimble
-from SPD. Every one of the sixteen is therefore a different pair, and no two can
-share a name.
+**The names are two rules.** The family is what the property grants — Conquest
+damage dealt, Resolute damage taken, Valiant ATK, Timeless DEF, Primal MAX HP,
+Restore recovery and shielding. The prefix is the stat it reads — Hearty MAX HP,
+Sharp ATK, Solid DEF, Nimble SPD. So no two of the sixteen share a name. The
+export states the family twice (`type` and `sec_effect[0]`); a record where they
+disagree is rejected rather than resolved.
 
-### 4.1 Why the order of that list is the order of the ids
+### 4.1 Why this order is the id order
 
-The effects come from the game's own **Manage Relic → Select Unique Property**
-panel, read off screen. Nothing on that panel states an id, so the claim that
-its order is the export's `type` order needs evidence. It has five kinds:
+The effects and their order come from the game's **Manage Relic → Select Unique
+Property** panel, read off screen. The claim that panel order is `type` order
+rests on:
 
-1. **This account's own relic, on screen and in the export at once.** The relic
-   on Beth reads `DMG dealt +1 % per 1500 ATK at the start of battle` and shows
-   `+6`. Its export record is
+1. **The account's own relic on screen and in the export.** Beth's relic reads
+   `DMG dealt +1 % per 1500 ATK at the start of battle` at `+6`; its record is
    `{ type: 1, upgrade_curr: 6, pri_effect: [101, 9], sec_effect: [1, 1500, 1] }`.
-   Position 1 of the panel is *DMG dealt per ATK*. The wording, the threshold
-   `1500`, the percentage `1` and the level all agree.
-2. **Three community-confirmed mappings land where this order puts them.** The
-   sw-forge project records only readings a player confirmed against the panel,
-   and has id 6 as *DMG taken per MAX HP*, id 12 as *DEF per MAX HP*, id 13 as
-   *MAX HP per ATK*. All three match positions 6, 12 and 13 exactly.
-3. **The list has the shape Com2uS announced**: sixteen properties in six
-   functional groups. It is three Conquest, three Resolute, three Valiant, three
-   Timeless, three Primal and one Restore — 16 in 6, with no self-referential
-   pair and no SPD variant in the two damage groups.
-4. **The thresholds agree once grouped by the stat this mapping says each
-   property reads.** Both of the account's DEF-reading properties carry `2500`
-   at `+0` (ids 5 and 8), and both of its SPD-reading ones carry `300` — id 11
-   at `+0`, and id 14 at `+9` carrying exactly half of it. A wrong mapping would
-   have to produce that coincidence by accident.
-5. **The panel's own ordering rule is consistent**: within a family, the sources
-   run ATK, SPD, DEF, MAX HP with the granted stat omitted. Valiant skips ATK
-   and reads SPD, DEF, MAX HP; Timeless skips DEF; Primal skips MAX HP; the two
-   damage families have no SPD variant at all.
+2. **Three community-confirmed mappings land where this order puts them**:
+   sw-forge's ids 6, 12 and 13.
+3. **The announced shape**: 3 Conquest, 3 Resolute, 3 Valiant, 3 Timeless,
+   3 Primal, 1 Restore — sixteen in six groups.
+4. **The thresholds agree by source stat**: every relic carries exactly the
+   threshold §7.5 gives for its level and the stat this mapping says it reads.
+5. **The panel's ordering rule**: within a family the sources run ATK, SPD, DEF,
+   MAX HP with the granted stat omitted.
 
 ### 4.2 The two mappings this table corrects
 
-sw-forge has id 14 and id 16 both as *Valiant*. Under the naming rule in §4
-that cannot happen — a family plus a source stat is unique — and the panel
-order puts 14 at *MAX HP per SPD* (**Nimble Primal**) and 16 at *Recovery &
-Shield per MAX HP* (**Hearty Restore**). The three mappings they confirmed
-against the panel are right; these two were not confirmed and are wrong.
-
-The correction matters. Under sw-forge's reading, id 14 grants ATK; under the
-panel's own order it grants MAX HP. Every judgement about the most-used property
-in the game turns on which of those is true, and §5's table would have graded
-all three of its cells backwards.
+sw-forge lists ids 14 and 16 both as *Valiant*, which the naming rule forbids.
+Panel order puts 14 at MAX HP per SPD (**Nimble Primal**) and 16 at Recovery &
+Shield per MAX HP (**Hearty Restore**). Those two sw-forge entries were not
+panel-confirmed.
 
 ### 4.3 The relic panel sends no traffic
 
-A capture taken while opening the relic screens holds nothing about relics: the
-property list, the names and the power-up rates are all client-side. So the
-vocabulary cannot be collected the way `ENGRAVING-STATISTICS.md` collects the
-statistics panels, and reading it off screen is not a shortcut — it is the only
-route there is.
+A capture taken while the relic screens are open holds nothing about relics, so
+the vocabulary cannot be collected the way `ENGRAVING-STATISTICS.md` collects the
+statistics; reading it off screen is the only route.
+
+---
 
 ## 5. Synergy is one table
 
-**The question.** A relic has a main property and a unique property, but the
-player needs one answer: how attractive is this pair as an account-wide
-investment? Synergy therefore combines the property's practical effect, the
-natural fit of its two stats, and the breadth of relevant monsters. It is not a
-separate "double-dip" score plus a hidden coverage score.
+How attractive is a main + unique pair as an **account-wide investment**? One
+band answers it, judged from three inputs: the property's effect strength, the
+natural fit of the main to the monsters that want that outcome (a main feeding
+the source stat is evidence, not an automatic upgrade), and how broadly relevant
+monsters want the finished profile. The table is an expert-informed judgement,
+revised against a current specialist guide's matrix where its practical coverage
+consistently contradicted a mechanical reading; §4, not the guide, owns the
+names.
 
-**The answer is forty-eight cells in `relic-synergy.ts`, written down.** Nothing
-derives them, nothing regenerates them, and every one can be edited on its own
-line when a better judgement is to hand. `npm run verify:relic-synergy` checks
-only that the table stays whole — every property has a row, every row has all
-three mains, every value is one of the five bands, and no band has fallen out
-of use. A row may deliberately grade all mains alike when practical coverage,
-rather than a mechanical source-stat interaction, is the judgement.
-
-### 5.1 What each cell was judged from
-
-Three inputs inform the one band:
-
-1. **Effect strength.** Does the property make a meaningfully useful outcome?
-2. **Natural stat fit.** Does the main suit the monsters that want that outcome?
-   A main feeding the property's source stat is evidence here, not an automatic
-   upgrade: `ATK → DEF` can be mechanically neat yet too narrow to merit stones.
-3. **Account coverage.** How broadly do relevant monsters want the finished
-   profile? `SPD → MAX HP` is strong precisely because fast supports, control
-   units and bruisers commonly want more HP even though no main property feeds
-   SPD.
-
-The table is an expert-informed judgement, not a claimed empirical measurement.
-It was revised against a current specialist guide's matrix where its practical
-coverage signal consistently contradicted a mechanical-only reading. That guide
-is useful evidence, not an authority: its property names contain an error, and
-the game vocabulary in §4 remains the source of technical names and effects.
+The **48 cells in `relic-synergy.ts`** are written down; nothing derives or
+regenerates them, and each can be edited on its own line. `relicSynergy` throws
+on a pair it does not hold. `verify:relic-synergy` checks only that the table is
+whole: every property has all three mains, every value is a band, and no band
+is unused.
 
 | Band | Meaning |
 | --- | --- |
-| Exceptional | A top pair: high effect and very broad relevant use. Primary stone target. |
-| Strong | Clearly valuable, with broad use or exceptional value for a substantial archetype. |
-| Neutral | Useful, but situational or plainly behind the best alternatives. |
-| Weak | Plausible only for a narrow need; not a general stone target. |
-| Poor | Very rarely a rational use of scarce stones. |
+| Exceptional | high effect, very broad use; primary stone target |
+| Strong | clearly valuable, broad or exceptional for a substantial archetype |
+| Neutral | useful, situational, or behind the best alternatives |
+| Weak | plausible only for a narrow need |
+| Poor | very rarely a rational use of stones |
 
-### 5.1.1 The whole table
+### 5.1 The whole table
 
 | id | Unique property | Grants | Reads | HP main | ATK main | DEF main |
 | ---: | --- | --- | --- | --- | --- | --- |
@@ -299,245 +216,109 @@ the game vocabulary in §4 remains the source of technical names and effects.
 
 3 Exceptional · 11 Strong · 12 Neutral · 13 Weak · 9 Poor.
 
-**The five bands**, and how they read on the page:
+**How a band reads.** Exceptional two gold stars, Strong one gold star, Neutral
+a hollow diamond, Weak one red cross, Poor two. Gold at the top two bands is the
+`ARTIFACT-CANONICAL.md` §18 reasoning — there the grade *is* the invitation to
+act; the red is the verdict vocabulary (`--state-bad`). Degree is the number of
+marks, never a second shade, and the band's name is written beside them, so the
+column reads the same without colour.
 
-| Band | Mark |
-| --- | --- |
-| Exceptional | Two gold stars |
-| Strong | One gold star |
-| Neutral | One hollow diamond |
-| Weak | One red cross |
-| Poor | Two red crosses |
+### 5.2 Why the table is not measured from the player base
 
-**The colours.** Gold at the top two bands is the `ARTIFACT-CANONICAL.md` §18
-exception applied for the same reason it was granted there: at those bands the
-grade *is* the invitation to act. The red is the verdict vocabulary
-(`--state-bad`), for a machine reporting that its own judgement came out against
-the relic. Degree is carried by the number of marks and never by a second shade,
-and the band's name is written beside the marks, so the column reads identically
-with the colour taken away — `AGENTS.md` rule 5.
+The game's **Relic Engraving Statistics** could supply all 48 cells as
+co-occurrence scores, and once did. It is the wrong measurement: relics are new,
+an account engraves what it happened to craft, and so the panel mostly records
+the drop table and crafting luck. A derived cell also cannot be argued with — a
+wrong one has only a pipeline to re-run. The same panel *is* a legitimate
+**per-monster starting value** in the overlay, because a distribution that
+varies between monsters cannot be describing the monster-independent drop table;
+that use, and its caveat, are in `ENGRAVING-STATISTICS.md` §10.
 
-### 5.2 Why this table is not measured from the player base — and where the same panel *is* a legitimate default
-
-This section says two things, and they are not in tension. **The synergy table
-above is hand-written and stays hand-written.** The same panel nevertheless
-supplies the **starting values** a monster's own relic preferences begin from,
-in the monster overlay. The difference is what the number is asked to do.
-
-#### The table: still hand-written
-
-An earlier version of this page derived all 48 cells from the game's **Relic
-Engraving Statistics** panel: 893 monster types and 5.5 million engravings,
-scored by how much more often each main and each unique turned up together than
-chance would put them. It was internally sound — two halves of the population
-agreed at `r ≈ 0.99` — and it was **the wrong measurement**, for a reason no
-amount of sample size fixes.
-
-**Relics are new, and almost nobody is choosing.** An account engraves the
-relics it happened to craft. What the panel records is therefore mostly the drop
-table and the crafting rate, with whatever deliberate pairing exists buried
-underneath. A statistic drawn from that measures luck, and a strong correlation
-in it is a strong correlation in luck.
-
-It also cannot be argued with. A cell that looks wrong has no line to change —
-only a pipeline to re-run, which will produce the same number again. **A table
-can be corrected in the place where the mistake is.** That is worth more here
-than any amount of agreement between halves of a population that was not
-deciding anything.
-
-What the measurement got right is kept in §5.1 as qualitative reasoning rather
-than as evidence: alignment among the main stat, the property's source and its
-granted outcome can matter. It is one input to the account-wide judgement, not
-a necessary condition.
-
-#### The defaults: the same panel, a different job
-
-The monster overlay asks a different question of the same numbers: *before this
-user says anything, what should this monster's relic preferences show?* Here the
-panel is a legitimate source, and `app/lib/monster-defaults.ts` reads it.
-
-Three things make that sound where the synergy table's use of it was not:
-
-- **The objection above is about the global level, not the per-monster
-  variation.** Drops are monster-independent, so a distribution that varies
-  *between* monsters cannot be describing the drop table — and it varies between monster species. The synergy table asked the panel an account-wide
-  question, which is exactly where the drop rate contaminates the answer.
-- **A default is not a judgement.** It is a provisional value the user sees
-  immediately and overwrites with one click, and §19.4 of
-  `ARTIFACT-CANONICAL.md` guarantees their statement always wins. The
-  "cannot be argued with" objection does not apply to a number whose whole
-  purpose is to be argued with.
-- **A user's statement constrains recommendations; a default does not.**
-  The engraving engine reads only the copy's saved main and unique selections.
-  A non-empty selection restricts that half; a cleared menu allows any, exactly
-  as the overlay names it. Statistics still seed the overlay, but never enter
-  the engraving score. Existing choices are retained without rewriting storage.
-**The caveat stands and is worth stating plainly: a relic share still partly
-reflects what fell out of the game.** The main half carries real monster-specific
-signal — HP leads on 546 types, ATK on 422, DEF on 49, with the leader's share
-running 43 % to 100 %. The unique half carries far less: Nimble Primal leads on
-974 of the 1,017 captured panels, so a user who accepts that default has accepted
-population habit rather than knowledge about their monster. That is an acceptable
-starting value and a poor conclusion, which is precisely why it is offered as the
-former only.
+---
 
 ## 6. Level, durability and the difference between them
 
-A relic at `+4` with attempts left is one nobody has got round to. A relic at
-`+4` with none will be `+4` for ever. **The number alone cannot tell them
-apart**, so the table separates the three states it can be in:
+A `+4` with attempts left is unfinished; a `+4` with none is final. The table
+separates the three states (`RelicLevelState` in `relic-grid.ts`):
 
-| State | Meaning | How it reads |
+| State | Meaning | Reads |
 | --- | --- | --- |
-| `open` | Attempts left, below `+15` | Full ink, no mark |
-| `spent` | Durability at 0 | Dimmed, barred-circle mark |
-| `maxed` | At `+15` | Dimmed, ceiling mark |
+| `open` | attempts left, below `+15` | full tone, no mark |
+| `spent` | durability 0 | muted, barred-circle mark |
+| `maxed` | at `+15` | muted, ceiling mark |
 
-Durability is three pips and always three: the spent ones are the reason a
-level will never move again, so they stay on the page as hollow rings rather
-than disappearing.
+Durability is always three pips; spent ones stay as hollow rings.
 
-## 7. Three recursions, and the arithmetic is exact
+## 7. Three recursions, exact
 
-Everything the page decides and everything it shows comes out of one one-line
-recursion, run three times with three sets of boundaries. **A power-up has two
-outcomes and only two**: it succeeds and the level goes up, or it fails and a
-durability goes down. Write `p(l)` for the chance of success at level `l`, and
-everything else follows.
+A power-up has two outcomes: success raises the level, failure spends a
+durability. With `p(l)` the success rate at level `l`, everything follows.
 
-### 7.0 One implementation, `app/lib/relic-power-up-model.ts`
+### 7.0 One implementation
 
-**Every probability this page states is computed in that file and nowhere
-else.** Not the chance of the next level, not the chance of reaching a target,
-not where a relic will come to rest, not what it will be worth when it stops.
-A caller that wants one of these numbers imports it; a caller that reaches for
-`relicPowerUpRates` to work one out itself is the failure this rule exists to
-prevent.
+**Every probability the page states is computed in `relic-power-up-model.ts`
+and nowhere else.** A verdict and the chance printed beside it must come from
+the same arithmetic. `verify:relic-maths` fails if any `app/lib` file other than
+the model and `relic-properties.ts` touches `relicPowerUpRates` outside an
+import (subscripts, loops, `reduce`, aliases and spreads are all caught). The
+verifier itself re-derives the results from independent closed forms and a
+Monte Carlo of the game's loop, which is why the functions take the rate curve
+as an argument. Two invalid inputs are refused outright: a target above `+15`,
+and a rate curve that is not fifteen chances in `[0, 1]`.
 
-The reason is not tidiness. A second implementation would not merely duplicate
-the work — it would drift, and the page would then print two different chances
-for the same relic with neither being obviously the wrong one. The verdict in
-the advice column and the percentage printed beneath it have to come from the
-same arithmetic, or the page is arguing with itself.
-
-The rule is enforced rather than stated: `verify:relic-maths` reads every module
-in `app/lib` and fails if any file other than the model and the properties table
-so much as touches `relicPowerUpRates` outside an import. It was tested against
-subscripting, a `for … of`, a `reduce`, an alias and a spread copy, and catches
-all five.
-
-`scripts/verify-relic-maths.mjs` is the one deliberate exception. It re-derives
-these results from closed forms written independently of the recursions, and
-from a Monte Carlo of the game's own loop, precisely so a disagreement is
-caught. That is a check on the model, not a second copy of it, and it is why the
-functions take the rate curve as an argument.
-
-**The model has been reviewed adversarially**, by two reviewers instructed to
-break it rather than bless it. Neither could produce a wrong number for any
-valid relic: the recursion, its boundaries, its iteration order and its handling
-of durability are correct, and a Monte Carlo of the mechanic agrees with the
-tables to within sampling noise. Both found the same two ways to produce a wrong
-number from an *invalid* input, and both are now closed:
-
-- **A target above `+15`.** §8.2's gate asks for `incumbent + 1`, which is `16`
-  whenever the incumbent is a finished copy — a real call on a real account. It
-  answered `0`, but only because the published table has fifteen entries and the
-  sixteenth read back as absent. A curve one entry longer had the relic climbing
-  to a `+16` the game has no room for. The ceiling is now a stated boundary.
-- **A malformed rate curve.** Driving the recursions with a truncated table used
-  to return a landing distribution that summed to `1`, looked entirely
-  well-formed, and put 99 % of its mass on the wrong level, with nothing raised.
-  A curve that is not fifteen chances in `[0, 1]` is now refused outright.
-
-### 7.1 `P(l, d)` — the chance of ever reaching `+15`
+### 7.1 `P(l, d)` — the chance of ever reaching a level
 
 ```
-P(15, d) = 1                                           already there
-P(l, 0)  = 0                    for l < 15             no attempts left, ever
+P(15, d) = 1
+P(l, 0)  = 0                    for l < 15
 P(l, d)  = p(l)·P(l + 1, d) + (1 − p(l))·P(l, d − 1)
 ```
 
-That is the whole calculation, and it is exact rather than an approximation.
-The closed form — a sum over every way to spread at most `d − 1` failures across
-the remaining levels — agrees with it term for term:
+`relicReachChance` runs it to any target (the same recursion with the target as
+its ceiling). The closed form — a sum over multisets of at most `d − 1` failures,
+including two on the same level — agrees with it to 3·10⁻¹⁶ over 200 uneven
+random curves (`verify:relic-maths`).
 
-```
-P(l, 1) = Π pᵢ
-P(l, 2) = (Π pᵢ)·[1 + Σ qⱼ]
-P(l, 3) = (Π pᵢ)·[1 + Σ qᵢ + Σ qᵢ² + Σᵢ<ⱼ qᵢqⱼ]          qᵢ = 1 − pᵢ
-```
-
-The `qᵢ²` term is the one a hand-written version drops: two failures can land on
-the *same* level, so the sum runs over multisets, not pairs. JASWA uses the
-recursion and not the expansion — it is shorter, it is far harder to get subtly
-wrong, and it keeps working unchanged if Com2uS ever moves the ceiling or the
-durability a relic starts with.
-
-`npm run verify:relic-maths` checks the recursion against those closed forms
-over 200 randomly drawn, deliberately **uneven** rate curves. The worst
-disagreement is 3·10⁻¹⁶ — machine precision.
-
-### 7.2 `V(l, d)` — what the relic is expected to be worth in the end
-
-The same recursion, with one boundary changed:
+### 7.2 `V(l, d)` — the strength it is expected to end with
 
 ```
 V(15, d) = 1
-V(l, 0)  = relicStrengthIndex(l, source)                 what it actually became
+V(l, 0)  = relicStrengthIndex(l, source)
 V(l, d)  = p(l)·V(l + 1, d) + (1 − p(l))·V(l, d − 1)
 ```
 
-**Why a second run is necessary.** `P` asks whether a relic will *finish*, and
-answers `0` for anything that runs out of durability on the way. An exceptional
-`+12` with no durability left has `P = 0` and is one of the best things an
-account can own. `V` measures its realised, normalised **strength proxy**: the
-main property and the unique-property threshold are equal halves of
-`relicStrengthIndex`. An ATK-, DEF- or HP-reading `+12` has a proxy of 75 % of a
-finished relic (main: 15/18; unique: 500/750); an SPD-reading one is about
-81.7 % (main: 15/18; unique: 100/125). The threshold half normalises threshold
-efficiency; it deliberately does not claim to model a particular monster's
-integer effect breakpoints. **A model that judged on `P` alone would sell
-either.** Once the published rates arrived (§7.4), `P` turned out to be unfit
-for the other question too — it is near zero for everything — and `V` now
-carries expected strength instead.
+`P` answers 0 for an excellent `+12` with no durability left; `V` measures its
+realised strength. `relicStrengthIndex` weighs two halves equally: the main
+(`(3 + l) / 18`) and the unique threshold efficiency (threshold at +15 / threshold
+now). An ATK-, DEF- or HP-reading `+12` is 75 % of a finished relic; an SPD-reading
+one about 81.7 %. The index normalises threshold efficiency; it does not model
+any monster's integer breakpoints. `V` never falls when a level or an attempt is
+added; the verifier holds it.
 
-`V` also never falls when a level or an attempt is added, which `P` alone does
-not guarantee across the two branches. The verifier holds it to both.
+### 7.3 `D(l, d)` — where the relic lands
 
-### 7.3 `D(l, d)` — where the relic actually lands
-
-The same recursion a third time, carrying a whole distribution instead of a
-single number. A relic stops in exactly one of two ways, and those are the two
-boundaries:
+The same recursion carrying a distribution (`relicFinalLevelChances`):
 
 ```
-D(15, d) = all of the mass on +15                       finished
-D(l, 0)  = all of the mass on +l                        stopped where it stands
+D(15, d) = all mass on +15
+D(l, 0)  = all mass on +l
 D(l, d)  = p(l)·D(l + 1, d) + (1 − p(l))·D(l, d − 1)
 ```
 
-`P` and `V` are both readings of this one distribution — `P` is its mass on
-`+15`, and `V` is its expected normalised strength — and the verifier holds all
-three to each other to machine precision. They are still written separately,
-because three recursions built from three different boundaries agreeing is a
-check worth having.
+`P` is its mass on `+15` and `V` its expected strength; the verifier holds all
+three to each other. **The table prints the median** (`relicLanding().level`):
+the level reached or beaten at least half the time, with that tail printed
+beneath it. The mode (`likeliest`) is where a relic most often stalls, near the
+start of the climb, and is a poor column; it and the mean are in the tooltip.
 
-**The table prints the median, not the mode.** The mode is the literal answer to
-"which single level is it most likely to land on", and it is a bad column: for
-*any* relic with an attempt left it is `+15`, because `+15` absorbs every path
-that gets there while the fourteen levels below split what is left between them.
-Its probability is then exactly `P(l, d)` — the column immediately to its left.
-Measured on this account, every open relic's mode was `+15`, at anywhere from
-13 % to 48 %.
+| Relic | Median | Mode | Expected levels gained |
+| --- | --- | --- | ---: |
+| `+0`, 3 durability | `+7` at 61 % | `+7` at 21 % | 7.2 |
+| `+0`, 1 durability | `+5` at 56 % | `+4` at 24 % | 5.0 |
+| `+9`, 2 durability | `+10` at 58 % | `+9` at 42 % | 0.9 |
+| `+12`, 3 durability | `+12` | `+12` at 51 % | 0.65 |
 
-The median answers the same question and does not collapse: the level the relic
-reaches or beats half the time. On the same relics it reads `+14`, `+11`, `+10`,
-`+8`, `+6` — a real spread — and it stays a whole level, which a mean does not.
-The size of its own tail is printed under it, because a median is a statement
-about a tail and the tail is never exactly a half. The mode and the mean are
-both in the cell's tooltip for anyone who wants them.
-
-### 7.4 `p(l)` is the game's own published table
+### 7.4 `p(l)`, the game's rate table
 
 | From | Rate | | From | Rate |
 | --- | ---: | --- | --- | ---: |
@@ -550,97 +331,44 @@ both in the cell's tooltip for anyone who wants them.
 | `+6 → +7` | 50 % | | `+13 → +14` | 15 % |
 | | | | `+14 → +15` | 10 % |
 
-`relicPowerUpRates` in `relic-properties.ts`, and
-`npm run verify:relic-maths` fails if the shipped table stops matching it.
+`relicPowerUpRates`; `verify:relic-maths` fails if it stops matching. Provenance
+is in §3. Three consequences run the page:
 
-**Three consequences, and they run the page.**
+1. **Every relic is certain to `+3`, which is not free.** Those attempts cost no
+   durability but cost the same Relic Power-up Stones and Mana as any other.
+   On a pair the synergy gate rejected, a certain level is a certain waste.
+2. **`+15` is a lottery.** A fresh relic with three durability reaches it about
+   once in 11,500 tries, so no verdict turns on `P`.
+3. **Stones buy far more on a low relic**: 7.2 expected levels from three
+   durability at `+0`, 0.65 at `+12`. The *Likely end* column shows it.
 
-1. **Every relic is certain to `+3` — which is not the same as free.** The first
-   three attempts succeed at 100 %, so they cost no durability, but the game
-   charges its usual stones and gold for each one: the power-up panel prices a
-   roll at `+0` exactly as it prices one at `+14`. Nothing is advised against
-   those levels on a pair worth keeping, and a `+0` relic is not a worse relic
-   than a `+3` one — it is the same relic three certain steps earlier. On a pair
-   the synergy gate has rejected, however, a certain level is a certain waste,
-   which is why §8's gate outranks this rule rather than following it.
-2. **`+15` is a lottery, not a target.** A fresh relic with all three durability
-   reaches it about **once in eleven thousand times**. That is why §8 does not
-   decide anything on `P(l, d)`: weighted or not, a number that is `0.009 %` for
-   one relic and `0.002 %` for another is not separating them.
-3. **Stones buy far more future strength on a `+0` relic than on a `+12` one.**
-   The expected gain from a full three durability is 7.2 levels at `+0` and 0.7
-   at `+12`. The *Likely end* column makes that opportunity cost visible; the
-   power-up verdict itself intentionally answers the narrower next-attempt
-   question defined in §8.
+### 7.5 The thresholds: what a power-up moves
 
-### 7.5 The thresholds: what a power-up actually moves
+The unique percent never changes (§3); **the threshold falls**, in six tiers of
+three levels each (`relicThreshold`):
 
-The unique property has two numbers and only one of them moves. **The percentage
-is fixed by what the property grants** — 1 % for the two damage families, 2 % for
-everything else — and never changes. **The threshold falls**, in six tiers, so a
-relic grows stronger by needing less of the source stat to buy the same step.
-
-| Reads | `+0` | `+3` | `+6` | `+9` | `+12` | `+15` |
+| Reads | `+0`–`+2` | `+3`–`+5` | `+6`–`+8` | `+9`–`+11` | `+12`–`+14` | `+15` |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | ATK or DEF | 2,500 | 2,000 | 1,500 | 1,000 | 750 | 500 |
 | MAX HP | 45,000 | 36,000 | 27,000 | 18,000 | 13,500 | 9,000 |
 | SPD | 300 | 250 | 200 | 150 | 125 | 100 |
 
-**All six of this account's relics carry exactly the threshold this table gives
-for their level and source stat.** That is a confirmation of the table, and the
-sixth independent confirmation of the id mapping in §4.1 — read the source stat
-wrongly for any of them and the number would not land.
+MAX HP is exactly 18 × ATK/DEF at every tier. The importer holds every relic to
+this table (§10), and the account's 294 records — intermediate levels 5, 7, 8
+and 11 among them — all pass.
 
-**The two halves do not grow together.** Over the fifteen levels the main
-property multiplies by 6, a unique property reading ATK, DEF or MAX HP by 5, and
-one reading SPD by only **3**. So a Nimble relic arrives closer to its own
-ceiling than any other and has correspondingly less to win from being levelled
-— which is precisely what an index built on the main property alone could not
-say. `relicStrengthIndex` weighs the two halves equally for both the *Likely
-end* context and the measured strength gain used in §8. `verify:relic-maths`
-checks that lower relics retain more expected future strength at every weighting
-from all-main to all-unique.
+**The two halves do not grow together.** Over fifteen levels the main multiplies
+by 6, an ATK-, DEF- or HP-reading unique by 5, an SPD-reading one by 3, so a
+Nimble relic starts nearer its ceiling. `verify:relic-maths` checks that the
+ordering every power-up verdict rests on — stones buy more on a lower relic —
+holds at every weighting of the two halves from all-main to all-unique; the
+verdicts themselves are decided at the equal weighting only.
 
-**Every figure in that table is read, not inferred.** The MAX HP value at `+15`
-was the one that needed reading twice — it was illegible in the first capture
-and stood for a while on the strength of the 18× ratio holding at the other five
-anchors. It came back `9,000`, which is what the ratio predicted, and the ratio
-is now confirmed at all six tiers rather than five.
+## 8. The verdict
 
-**One thing is still inference, and the investment score depends on it.** The
-anchors are observed at `+0`, `+3`, `+6`, `+9`, `+12` and `+15`, but no relic on
-this account has ever sat at an intermediate level. Until one is observed,
-JASWA assumes each published threshold remains constant through its three-level
-tier: `+0` through `+2`, then `+3` through `+5`, and so on. A relic at `+4` or
-`+7` would settle the assumption in one glance; `verify:relic-maths` makes the
-assumed steps explicit so they cannot become accidental.
+A relic's synergy band multiplies the strength its next attempt buys:
 
-### 7.6 What this replaced, and why the replacement matters
-
-Before the table was to hand, JASWA estimated **one** rate for all fifteen
-levels from the account's own relics: a level gained is a success, a durability
-spent is a failure. On this account that read **76 %**.
-
-That estimate was not wrong about what it measured. The account's nineteen
-attempts were all made at `+0` to `+9`, three of those levels are certain, and the
-true average across that range is close to it. **It was wrong about everywhere
-else.** Applied to `+10 → +15`, where the real rates are 30 % down to 10 %, it
-overstated the chance of finishing a relic by more than three orders of
-magnitude — `19 %` against `0.009 %`.
-
-The lesson is recorded here rather than quietly fixed, because the failure was
-not arithmetic. Every step was defensible: the estimator was unbiased for its
-own sample, the sample was real, and the model said out loud that it was
-pooling. What it did not say was that **the sample covered only the cheap half
-of the curve**, and a projection is only as good as the range its evidence
-spans.
-
-## 8. The verdict accounts for the strength an investment buys
-
-**A relic's one synergy band multiplies the exact expected strength of its next
-attempt:**
-
-| Fit | Weight |
+| Fit | Weight (`relicSynergyWeights`) |
 | --- | ---: |
 | Exceptional | × 4 |
 | Strong | × 2 |
@@ -648,86 +376,39 @@ attempt:**
 | Weak | × ½ |
 | Poor | × ¼ |
 
-For an open relic at level `l`, the chance of reaching the *next* level is
-exactly `p(l)`: one successful attempt reaches `l + 1`; durability only decides
-whether an attempt exists. A success is not always worth the same amount,
-though. Every level raises the main property, and reaching `+3`, `+6`, `+9`,
-`+12` or `+15` also lowers the unique-property threshold.
-
-Let `S(l)` be `relicStrengthIndex(l, source)`, and let one ordinary
-non-tier-level gain be the unit. JASWA calculates
-
 ```
-investment score = 100 × synergy multiplier × p(l)
-                 × [S(l + 1) − S(l)] / [S(1) − S(0)]
+investment score = 100 × weight × p(l) × [S(l + 1) − S(l)] / [S(1) − S(0)]
 ```
 
-An ordinary level therefore keeps the previous scale, while a success that
-crosses a unique-property tier earns its measured multiple. This makes `+8 → +9`,
-`+11 → +12` and `+14 → +15` materially more attractive than the equally
-probable main-stat-only steps beside them. The score is deliberately a
-**decision score, not a probability**. A score above 100 % is a priority signal,
-not a claimed game chance. The smaller, symmetric synergy ladder is a
-transparent prioritisation rule, not a claim that ordinal bands have measured
-cardinal utility.
+with `S = relicStrengthIndex` and the unit one ordinary (non-tier) level
+(`relicOrdinaryLevelStrengthGain`). A success crossing into `+3`, `+6`, `+9`,
+`+12` or `+15` also lowers the threshold and earns its measured multiple. It is
+a **decision score, not a probability**; above 100 is a priority signal.
 
-The final-level distribution remains on the page as context: it describes where
-a relic is likely to end. The strength index supplies the explicit one-step
-gain above; neither hides a different recommendation formula.
+**The incumbent** of a relic is the best other same-pair copy at an equal or
+higher level — highest level, then lower `rid`; equal copies leave the lower
+`rid` as incumbent. **Modelled:** only that single best copy is considered.
 
-The rules, in the order they outrank each other:
+The rules keep stable numbers, and are listed in the order `decide()` asks
+them; rule 3 is asked before rule 2, and their conditions are disjoint:
 
-0. **A copy that has run out of places is no longer an incumbent.** Rules 1 and 4
-   below both rest on §1's premise: one relic already covers more monsters than
-   an account fields, so a second copy of the same pair adds nothing unless it
-   can overtake the first. **§11 made capacity something the page computes with,
-   and that premise stopped holding at the ceiling.** A relic engraved on its
-   full 150 cannot take a 151st monster whatever its level, so a weaker duplicate
-   of it is not redundant — it is the only way the account can put that pair on
-   another monster at all. Where the incumbent is at `relicEngravingLimit`, this
-   relic is judged on its own next attempt exactly as a relic with no incumbent
-   is, and a spent one keeps with `Other copy is on 150.`
+- **Rule 1 — the synergy gate, first, of every relic.** The slider names the weakest fit
+   the account holds (§9). A relic below it sells with `<Band> fit: below
+   threshold.` (e.g. `Weak fit: below threshold.`), whatever its level,
+   durability, duplicates or next attempt. Nothing outranks it: the gate asks
+   whether the pair is worth owning, everything after asks whether it is worth
+   stones.
+- **Rule 3 — a relic that cannot be powered up** (at `+15` or durability 0):
+   - with a full incumbent (rule 0 below): keeps, `Other copy is on 150.`;
+   - with any other incumbent: sells, `No power-up; +<level> kept.`;
+   - with none: keeps, `Cannot power up.`
+- **Rule 2 — the duplicate gate**, beside an incumbent that is not full, and it does not
+   read the slider. An incumbent at `+15` cannot be passed: sell, `Cannot beat
+   +15.` Otherwise the chance to pass it, `P(l, d, h + 1)`, is compared with a
+   threshold set by this relic's band (`relicOvertakeThresholds`); at or above
+   it powers up, below it sells, both reading `Beat +<h>: <chance>`.
 
-   This is a **capacity** exception and not a strength one. It says nothing about
-   the duplicate being stronger; it says the comparison rule 4 performs has no
-   object left to compare against.
-1. **The hard synergy gate is asked first, of every relic.** The slider sets a
-   weakest fit the account is willing to hold: `Picky` keeps Strong and better,
-   `Balanced` also keeps Neutral, `Optimistic` also keeps Weak, and
-   `Wishful thinking` and `Burn it all` keep every band. A relic below that band
-   is sold with, for example, `Weak fit: below threshold.` — whatever its level,
-   its durability, its duplicates or its next attempt.
-
-   **The scale starts at Strong.** It used to start at Exceptional, which sold
-   all but a handful of a real library — Strong pairs included — and so made the
-   most cautious stop the most destructive one. The two boldest stops share the
-   Poor band as a result; §8.5's threshold is what still separates them.
-
-   **`Balanced` is the ordinary setting**, where the slider opens and where most
-   accounts should stay. Only one stop is stricter; the three above it climb from
-   optimistic to indefensible, and `Burn it all` exists to give the scale an end
-   rather than because anyone should sit on it.
-
-   This is a deliberate lexicographic rule, and the gate answers a different
-   question from everything after it. The gate asks whether the pair is worth
-   owning at all; the rules below ask, of a pair that survived, whether it is
-   worth spending stones on. **Nothing outranks the gate.** It sat third until
-   the two rules that outranked it were found to be readmitting relics the
-   setting had already rejected: a relic below `+3` was powered up on the
-   grounds that those levels are free — see §7's correction, they are certain,
-   not free, and the stones are charged — so at the strictest setting the page
-   recommended stones on hopeless relics, the one thing the gate exists to
-   prevent. A relic that could not be powered up at all was kept for the same
-   reason, filling the account with finished relics of a ruled-out pair. Neither
-   exception survives.
-2. **The duplicate gate is asked second, and it does not read the slider.** A
-   relic standing beside a same-pair copy at an equal or higher level is judged
-   on one question: can it ever pass that copy? The chance is `P(l, d, h + 1)`
-   with `h` the incumbent's level — the exact chance to reach one level above it
-   — and it is compared against a threshold set by the challenger's own synergy
-   band:
-
-   | Fit | Passes the gate at | A fresh challenger then tries against an incumbent up to |
+   | Fit | Passes at | A `+0`, 3-durability challenger tries against up to |
    | --- | ---: | --- |
    | Exceptional | 5 % | `+9` (10.7 %; a `+10` is 4.3 %) |
    | Strong | 15 % | `+8` (22.4 %; a `+9` is 10.7 %) |
@@ -735,251 +416,187 @@ The rules, in the order they outrank each other:
    | Weak | 50 % | `+6` (61.3 %; a `+7` is 39.9 %) |
    | Poor | 70 % | `+5` (82.3 %; a `+6` is 61.3 %) |
 
-   The right-hand column is for a `+0` challenger with all three durability; a
-   challenger that has already climbed reaches further, and one with durability
-   spent does not reach as far.
+   A climbed challenger reaches further; a spent one less far. Against a `+12`
+   even a fresh challenger passes 0.36 % of the time. The gate is asked before
+   the certain levels, so a `+0` beside a `+12` copy is not powered up on a
+   guaranteed level it has no use for.
+- **Rule 4 — certain levels power up**: below `+3` the attempt cannot fail, reading
+   `Sure +1: 100%`.
+- **Rule 5 — every other open relic** compares its investment score with the slider's
+   threshold: at or above it powers up, below it keeps, reading `Next +1:
+   <chance>`. This is the only rule the threshold decides.
 
-   **The slider is deliberately not consulted.** It says how wide a net the
-   account keeps, which is a matter of taste; this gate asks whether an attempt
-   is lost, which is not. A challenger with a 2 % chance of passing its incumbent
-   is a bad investment at every setting, and letting a bold stop override that
-   would recommend stones on attempts that cannot land.
+**Rule 0, the capacity exception.** The duplicate rules rest on one copy
+already covering more monsters than an account fields. A copy engraved on its
+full `relicEngravingLimit` cannot take another monster at any level, so a weaker
+duplicate is the only way to put that pair on more monsters: where the incumbent
+is full, this relic is judged as if it had none (rules 4–5; rule 3 keeps it).
+It is a capacity exception, not a strength one. Capacity is
+`relicEngravingCounts` over the whole eligible roster.
 
-   Synergy sets the price of admission because it is what the attempt buys. The
-   figures are calibrated against §8.4's real overtake chances: a
-   full-durability challenger passes a `+5` incumbent 82 % of the time, a `+8`
-   22 %, a `+10` 4.3 % and a `+12` 0.36 %. So in practice these five thresholds
-   sort duplicates by how high the incumbent has climbed.
+The cell prints the game chance or status, never the internal score. A sale
+ignores the stones a breakdown returns (§3) — **modelled** as a simplification.
 
-   **Exceptional is not exempt.** At 5 % it still tries against an incumbent up
-   to `+10` and gives up beyond it: against a `+12` it passes about once in 280
-   attempts, and no pairing is good enough to make that a plan. An incumbent at
-   `+15` cannot be passed at all, so the challenger sells with `Cannot beat +15.`
+## 9. The slider
 
-   This gate outranks rule 4, and for the same reason the synergy gate outranks
-   everything: a `+0` challenger beside a `+12` copy would otherwise be powered
-   up on the strength of a guaranteed level it has no use for.
+One choice, `RelicInvestmentSelectivity`, sets both the score threshold and the
+minimum synergy band; the two tables move together, or a stop would admit a band
+and then refuse to spend on any of it.
 
-   The gate replaced a score that weighed the challenger's whole landing
-   distribution against the slider's threshold. That number answered a real
-   question — expected marginal account strength — but in units no player could
-   check, and the page printed a plain chance beside it. `relicDuplicateMarginal`
-   `Strength` survives in `relic-advice.ts` for `verify:relic-maths`; it no
-   longer decides anything.
-3. **A relic that cannot be powered up keeps only when it is the account's best
-   same-pair copy.** It sells when another same-pair relic is at an equal or
-   higher level. Equal levels keep the lower `rid`, so one deterministic copy
-   remains. Its reason says exactly that.
-4. **Certain levels power up.** At `+0`, `+1` and `+2` the next attempt succeeds
-   at 100 %, so it cannot spend durability — it does spend the usual stones and
-   gold. A guaranteed level on a pair both gates have admitted is the best stone
-   the account can spend, which is why this outranks the score.
-5. **Every other open relic compares its next-attempt investment score with the
-   selected threshold.** At or above it powers up; otherwise it keeps. This is
-   the only rule the slider's threshold decides, and it is reached only by a
-   relic that is worth owning and is not a hopeless duplicate.
+| Stop | Name | Score threshold (`relicInvestmentThresholds`) | Weakest fit kept (`relicMinimumSynergyBands`) |
+| ---: | --- | ---: | --- |
+| 1 | Picky | 120 | Strong |
+| 2 | Balanced | 80 | Neutral |
+| 3 | Optimistic | 50 | Weak |
+| 4 | Wishful thinking | 35 | Poor |
+| 5 | Burn it all | 20 | Poor |
 
-Every advice cell prints the relevant game chance below its verdict — for
-example `Next +1: 35%`. The internal score and threshold decide the verdict but
-are deliberately not printed: the player needs the chance of the action, not
-the conversion used to rank it. A relic rejected by the hard synergy gate says
-`Synergy < threshold.` instead.
+- **The slider opens on stop 3, *Optimistic***
+  (`defaultRelicInvestmentSelectivity`); Reset returns it there. *Balanced* is
+  the ordinary judgement, with only one stop stricter.
+- The scale starts at Strong, not Exceptional, so the most cautious stop is not
+  the most destructive one. The two boldest stops share Poor and differ only in
+  threshold; *Burn it all* exists to give the scale an end.
+- The slider sits in the filter strip because it changes verdicts, not rows.
 
-## 9. The power-up threshold
+## 10. Parity: what the importer enforces
 
-One selectivity choice controls both the internal score threshold and the hard
-minimum synergy band:
+`file-imports.ts` validates relics **through `readRelic`**, the reader the page
+uses, and refuses the whole file on any failure (`AGENTS.md` §0.1): a relic rides
+up to 150 monsters, so a half-read one would carry a wrong judgement across the
+roster. A relic is rejected unless:
 
-| Setting | Score threshold | Minimum synergy |
-| ---: | ---: | --- |
-| 1 | 180 % | Exceptional |
-| 2 | 120 % | Strong |
-| 3 | 80 % | Neutral |
-| 4 | 50 % | Weak |
-| 5 | 20 % | Poor |
+1. `rid` is a safe integer; `pri_effect[0]` is 100/101/102; `sec_effect[0]` is
+   a known id equal to `type`; the threshold and percent are positive;
+2. `upgrade_curr` is a whole number 0–15 and `durability` 0–3;
+3. **main percent = `3 + level`**, **threshold = `relicThreshold(level, per)`**,
+   and **percent = `relicUniquePercent`** — the advice judges from level and
+   family while the plan reads the imported numbers, so a relic the vocabulary
+   does not describe would be judged two ways on one page.
 
-The former name “risk” was imprecise: the game chance already describes risk.
-The slider instead chooses how high the adjusted score must be before scarce
-stones are recommended. It lives in the filter strip because it changes verdicts
-rather than rows, is session state, and Reset returns it to 3.
-
-## 10. Parity
-
-`file-imports.ts` validates relics **through `readRelic`**, the same reader the
-page uses, for the reason `AGENTS.md` §0.1 gives: a relic that passes a
-structural check on `rid` and then cannot be judged is counted, invisible, and
-worse than rejected. Before this page existed, that was exactly the state the
-import was in.
-
-A rejection is therefore a loud one, and is meant to be. A relic rides 150
-monsters; a half-read one would carry a wrong judgement across the whole roster
-rather than spoiling a single slot.
+And the roster is rejected (`relicEngravingProblem`) when a unit carries **more
+than one relic** (*This file engraves more than one relic on one monster.*) or
+a relic sits on a monster **below Lv. 40 or of unknown level** (*This file
+engraves a relic on a monster below Lv. 40.*). Every relic on the account passes
+(294 records, 2026-10-20). The first that fails is news about the game.
 
 ---
 
-## 11. Use for mons — value on the monster's own build
+## 11. *Use for mons* — value on the monster's own build
 
-The engraving question uses `relic-monster-value.ts` and `relic-monster-fit.ts`.
-It does not use the population, synergy bands or the investment strength proxy.
-Sections 5–9 still decide Power up, Keep or Sell without any change.
+`relic-monster-value.ts` and `relic-monster-fit.ts` answer which owned relic
+suits each monster. They use neither the population, nor synergy bands, nor the
+investment proxy; sections 5–9 still decide Power up, Keep or Sell.
 
 ### 11.1 The main-stat model supplies the priorities
 
-The priorities are the main-stat model's need (`docs/MAIN-STAT-MODEL.md`), read
+The priorities are the main-stat model's need (`MAIN-STAT-MODEL.md`), read
 through `copyMainStatNeed` — the same need that decides an artifact's main, so a
-relic and an artifact are never told different stories about one monster. It
-comes from the copy's six runes, else the species' rune statistics. It counts
-unfinished slot-2/4/6 mains at +15 and excludes the fixed flat mains of slots
-1, 3 and 5.
-The copy's base B and its engraved sheet T (artifact mains included, no relic)
-are read through `monster-stats.ts`. No second stat-sheet implementation is
-allowed.
-
-For each of HP, ATK and DEF, with the need in percent of base:
+relic and an artifact are never told different stories. The copy's base `B` and
+its sheet `T` (artifact mains included, relic excluded) come from
+`monster-stats.ts`; no second stat sheet exists.
 
 ```
-weight[s] = need[s] / sum(need)
+weight[s] = need[s] / sum(need)        for s in HP, ATK, DEF
 ```
 
-A need of 100 % HP and 60 % DEF yields HP weight 0.625 and DEF weight 0.375.
-Artifacts affect what a unique property reads, not the priorities. SPD sizes a
-source-dependent effect, but cannot be a priority for a stat relics do not
-grant. CRI Rate, CRI Dmg, RES and ACC are not granted by relics either.
-
-All four source bases and totals must be finite and positive. Missing stats
-produce `No recommendation` with an import instruction. A copy for which no
-source yields a need produces the same verdict with an instruction to engrave six
-runes. Neither is silently excluded. A zero weight stays zero.
+A need of 100 % HP and 60 % DEF gives weights 0.625 and 0.375. SPD sizes a
+source but is never a priority; relics grant no CRI Rate, CRI Dmg, RES or ACC.
+Bases and totals must be finite and positive, or the row reads `No
+recommendation` with an import instruction; a copy no source can give a need
+reads the same with an instruction to engrave six runes. A zero weight stays
+zero.
 
 ### 11.2 The effect calculation
 
-Use the imported `mainPercent`, `unique.threshold` and `unique.percent`, not a
-value reconstructed from the relic's level. This respects every accepted record.
-
-The explicit battle model is:
+The imported `mainPercent`, `threshold` and `percent` are used, never values
+rebuilt from the level.
 
 ```
 mainGain = B[main] × mainPercent / 100
-A        = T, with mainGain added to its main stat
-u        = A[source] / threshold × uniquePercent / 100
+A        = T with mainGain added to its main stat
+u        = A[source] / threshold × percent / 100
 ```
 
-A is a single source snapshot. Unique bonuses never feed back into the source.
-For HP, ATK or DEF, the unique gain is B[target] × u.
+For an HP, ATK or DEF grant the unique gain is `B[target] × u`. **Modelled,
+awaiting an in-game check:** base-relative bonuses, continuous rather than
+whole-threshold scaling, and the unique reading after the main; no unique feeds
+back into its source. The source is the display sheet at the runes' current
+levels: leads, buildings, guild flags, team sets, buffs and passives are not
+counted.
 
-These are **model assumptions awaiting an in-game check**: stat bonuses are
-base-relative, unique scaling is continuous rather than whole-threshold steps,
-and the unique reads after the main bonus. The official announcement states
-that unique effects are proportional to stats, but does not settle rounding or
-execution order. The previous document's 2,700 ATK → 1.8 % damage example also
-used continuous scaling; it was not an in-game measurement. No claim of verified
-battle arithmetic is made. SWCalc remains the calculation authority and states
-no relic-specific rule at the time of this change.
-
-A source uses the imported personal sheet at the runes' current levels and this
-candidate's main bonus. The +15 main projection changes priorities, not the
-source value a unique effect would have now.
-Leaders, towers, guild flags, team set effects, buffs, passives and other battle
-conditions are not invented. The sheet's existing Intangible and team-set
-limitations therefore apply here too.
-
-### 11.3 Put each gain on the same scale
+### 11.3 One scale
 
 ```
 statPoints(s, gain) = 100 × weight[s] × gain / B[s]
-score              = mainPoints + uniquePoints
+score               = mainPoints + uniquePoints
 ```
 
-Points are weighted percentage points of base stats, not a percentage of a
-finished relic, a success probability or a predicted win rate. They need not
-lie between zero and 100. Normalising priorities makes them comparable without
-rewarding one monster simply for having more total rune investment.
+Points are weighted percentage points of base, not a probability.
 
-Example: 100 % extra HP, 60 % extra DEF, no extra ATK; 250 display speed.
-An HP +12 Nimble Timeless grants 15 % HP and 4 % DEF (2 % per 125 SPD):
-9.375 main points + 1.500 unique points = **10.875**. A DEF +12 Nimble Primal
-grants 15 % DEF and 4 % HP: 5.625 + 2.500 = **8.125**. The first wins on this
-build; changing the runes can change the answer.
+Example: need 100 % HP, 60 % DEF, no ATK; 250 display speed. An HP +12 Nimble
+Timeless grants 15 % HP and 4 % DEF (2 % per 125 SPD): 9.375 + 1.500 =
+**10.875**. A DEF +12 Nimble Primal grants 15 % DEF and 4 % HP: 5.625 + 2.500 =
+**8.125**. The first wins on this build.
 
-### 11.4 Indirect bonuses are declared value choices
+### 11.4 Indirect effects are declared value choices
 
-`relicIndirectValue` states these choices once, beside the effect calculation:
+`relicIndirectValue`:
 
 | Unique grants | Equivalent gain | Priority |
 | --- | --- | --- |
-| DMG dealt | A[ATK] × u | ATK |
-| DMG taken reduction | (2/3) × A[HP] × u / (1 − u) | HP |
-| Recovery & Shield | (2/3) × A[HP] × u | HP |
+| DMG dealt | `A[ATK] × u` | ATK |
+| DMG taken reduction | `(2/3) × A[HP] × u / (1 − u)` | HP |
+| Recovery & Shield | `(2/3) × A[HP] × u` | HP |
 
-The reduction equivalence follows survival arithmetic: taking 10 % less damage
-buys 1 / 0.9 − 1 = 11.11 % more effective HP. The developer's requested 2/3
-credit discounts that gain because HP may also contribute damage. This is not
-a defense formula and does not require a second E.HP implementation.
-
-Damage dealt uses ATK as its declared proxy. It does not know skill coefficients,
-so HP- and DEF-scaling attackers and damage-independent supports may be misvalued.
-Recovery & Shield uses a 2/3 HP proxy; it does not infer which monster heals,
-whose HP a skill reads, or whether it produces shields. These judgements are
-approximations, openly described in The Math, not game rules. Exact scoring
-within the model does not imply exact battle performance.
-
-Non-finite or negative contributions, and a reduction of 100 % or more, fail
-loudly rather than being capped or silently removed from the ranking. Every
-one of the sixteen property definitions has an effect path.
+Taking `u` less damage buys `u / (1 − u)` more effective HP; the 2/3 credit is
+the developer's discount. Damage dealt uses ATK as its proxy and knows no skill
+coefficients. These are approximations stated in The Math, not game rules. A
+non-finite or negative contribution, or a reduction of 100 % or more, throws.
 
 ### 11.5 Saved choices and engraving capacity
 
-A saved non-empty main or unique selection restricts candidates for that half.
-Clearing either menu allows any option for that half; absence also imposes no
-restriction. Neither consults the statistics default, and none is rewritten.
-If no owned relic matches the selections, show `No recommendation` and say why.
-
-Within those choices, highest score wins. A numerical tie keeps the relic already
-engraved; acquisition order settles the rest. The former 5 % replacement margin is
-removed: any meaningful increase in the computed value may be recommended.
-The only tolerance is 1e-10 score points to absorb floating-point arithmetic.
-
-The import's **150 engraving limit** still gates new engravings. A full relic
-remains available to a monster it is already engraved on. Recommendations do not reserve
-places or queue monsters: they are independent answers, not a jointly feasible
-account allocation. If every matching relic is full, show `No capacity`.
-If no relics were imported, show an import instruction instead.
-
-A blocked ideal counts the known monsters it is engraved on receiving fewer points, including
-monsters whose preferences no longer accept that relic. Missing or unruned monsters
-cannot be compared and are not counted as worse. This count alone depends on the
-rest of the roster; it never changes the recommendation.
-
-Only level-40, non-Material monsters enter the plan. Existing eligibility and
-engraving-count rules are unchanged. Every eligible monster remains reachable,
-even when its build cannot be scored.
+- A saved non-empty main or unique selection restricts that half; a cleared
+  menu or no selection allows any. The statistics default never enters the
+  score. No owned relic matching: `No recommendation`, saying why.
+- Highest score wins; a tie keeps the relic already engraved, then acquisition
+  order. Tolerance is 1e-10 points, for floating point only.
+- The **150 limit** gates new engravings; a full relic stays available to a
+  monster already carrying it. Every matching relic full: `No capacity`. No
+  relics imported: an import instruction. Each monster's recommendation is an
+  **independent answer**, not a jointly feasible allocation: nothing reserves
+  places.
+- A blocked ideal counts the known monsters it is engraved on that would score
+  lower with it; this count alone reads the rest of the roster and never changes
+  the recommendation.
+- **Only Lv. 40 monsters that are not Material enter the plan**
+  (`isRelicPlanMonster`). Leaving Material monsters out is **JASWA policy**, not
+  a game rule: capacity is finite and fodder abounds. It picks the rows
+  proposed for and never changes the capacity count, which reads every eligible
+  monster, Material ones included. A monster the catalogue cannot classify
+  stays in.
 
 ### 11.6 Display filters never enter the calculation
 
-Compute each row from the monster, every owned relic and the imported counts.
-Then apply search, element, type, storage and Hide if controls. Filtering changes
-which rows are shown and never what a surviving row says. The same monster
-computed alone receives the same recommendation and value as in the full roster.
+Each row is computed from the monster, every owned relic and the imported
+counts; search, element, type, storage and Hide filters then choose which rows
+show. A monster computed alone gets the same answer as in the full roster.
 
 ### 11.7 What the table shows
 
-Current relic shows every relic the export gives the monster. Recommended relic
-names one candidate, or Same when it is already engraved. Main value and Unique value
-show the recommended candidate's weighted contributions in score points, to two
-decimal places. Their sum is the score used by the ranking, before display
-rounding. Each title names the actual bonus, source value, total score and the
-first current relic's corresponding contribution. They do not display popularity.
-
-Advice is Engrave, Replace, Keep, No capacity or No recommendation. Missing
-information never masquerades as insufficient capacity. Reasons accompany only
-capacity constraints or an unscorable row. No controls change their own geometry
-or the table's fixed column measure when selected.
+*Current relic* is the monster's engraved relic. *Recommended relic* names one
+candidate, or *Same*. *Main value* and *Unique value* are the candidate's
+weighted contributions in points, two decimals, summing to the ranking score;
+their titles name the bonus, source value, total and the current relic's
+contribution. Advice is Engrave, Replace, Keep, No capacity or No
+recommendation; missing information never reads as lack of capacity. Empty
+plan: *No monster here is up for a relic plan.* / *Relics need Lv. 40, and JASWA
+leaves Material monsters out of the plan.*
 
 ### 11.8 Verification
 
-`verify:relic-monster-value` holds independent worked examples for priorities,
-flat lines, grinds, sets, source interactions, all sixteen effects and the indirect
+`verify:relic-monster-value` holds worked examples for priorities, flats,
+grinds, sets, source interactions, all sixteen effects and the indirect
 equivalences. `verify:relic-monster-plan` holds ties, small improvements,
-preferences, imported capacity and independence from the roster. The Playwright
-suite drives the interface with empty and populated imports. The Math contains
-the same worked example and explicitly labels the model assumptions.
+preferences, imported capacity, independence from the roster, and the import
+rules of §10. The Playwright suite drives empty and populated imports.

@@ -1,18 +1,13 @@
 # Rune craft items — what `rune_craft_item_list` holds
 
-**Status:** Binding for the Gems & Grinds workspace
-**Settled:** September 13, 2026
+**Status:** Binding for every reader of the export's rune craft items
+**Reviewed:** October 20, 2026
 
-`docs/RUNE-CANONICAL.md` §8 is the authority on what an Enchanted Gem and a
-Grindstone *do*, and its value tables are the ones this workspace reads. This
-document covers only the half that document does not: how the export writes
-them down, and what the app is therefore allowed to say about them.
-
-`ARTIFACT-CANONICAL.md` §15.12 named this collection once already, from the
-other side — engraved conversion stones live in `artifact_crafts`, and reading
-`rune_craft_item_list` as artifact properties resolved two of forty owned pairs
-while inventing ids such as −487. This is the positive statement of what those
-records actually are.
+`RUNE-CANONICAL.md` §8 is the authority on what an Enchanted Gem and a
+Grindstone *do*, which runes each may go on, and the value tables JASWA reads.
+This document covers the other half: how the export writes the items down, and
+what the app may therefore say about them. Engraved artifact conversion stones
+are a different collection, `artifact_crafts` (`ARTIFACT-CANONICAL.md` §15.12).
 
 ---
 
@@ -48,8 +43,8 @@ id of `RUNE-CANONICAL.md` §2. `GG` is `1` Normal through `5` Legend.
 
 ## 2. What the account shows
 
-Read from the delivered export (wizard 21822407, 826 stacks holding 2,734
-items), every field is exhaustive and nothing is left over:
+Read from the account export `Culpa-21822407.json` (August 23, 2026; 826 stacks
+holding 2,734 items), every field is exhaustive and nothing is left over:
 
 | `craft_type` | Stats seen | Sets seen | Grades seen |
 | ---: | --- | --- | ---: |
@@ -60,52 +55,50 @@ items), every field is exhaustive and nothing is left over:
 | 5 | all eleven | 1–24 | 13, 14, 15 |
 | 6 | 1, 2, 3, 4, 5, 6, 8 | 1–24 | 13, 14, 15 |
 
-Three readings follow from that table, and each is a check the code makes
-rather than an assumption it carries:
+Three readings follow, and each is a check the code makes rather than an
+assumption it carries:
 
-- **Odd types are gems, even types are grindstones.** §8 allows a grindstone on
-  HP +, HP %, ATK +, ATK %, DEF +, DEF % and SPD and on nothing else, and types
-  2, 4 and 6 are exactly the ones whose stats stay inside that list. Types 1, 5
-  and, by its pairing, 3 carry CRI Rate, CRI Dmg, Resistance and Accuracy as
-  well. `readCraftItem` rejects a grindstone record naming an ungrindable stat,
-  so a misread of this table fails loudly instead of offering a stone to the
-  wrong runes.
+- **Odd types are gems, even types are grindstones.** `RUNE-CANONICAL.md` §8
+  allows a grindstone on HP +, HP %, ATK +, ATK %, DEF +, DEF % and SPD and on
+  nothing else, and types 2, 4 and 6 are exactly the ones whose stats stay
+  inside that list; types 1, 5 and, by its pairing, 3 carry CRI Rate, CRI Dmg,
+  Resistance and Accuracy as well. `readCraftItem` rejects a grindstone record
+  naming an ungrindable stat.
 - **Set 99 is the Immemorial marker.** It is not a rune set, it appears on types
-  3 and 4 and nowhere else, and §8 describes the Immemorial gem and grindstone
-  as precisely the set-independent pair. Types 3 and 4 must carry it; no other
-  type may.
-- **Types 5 and 6 are the Ancient pair, and their grades run ten higher.** §7
-  says Ancient runes use their own gems and grindstones and that an ordinary one
-  is not a permitted fallback. These two types carry the same set and stat
-  vocabulary as their ordinary counterparts, no grade below 13, and a sell value
-  above the ordinary item of the matching rank at every grade (28 800 / 36 000 /
-  44 400 against 30 000 / 37 000 for a gem). Grade `13 + n` is read as ordinary
-  grade `3 + n`.
+  3 and 4 and nowhere else, and those are the set-independent pair of
+  `RUNE-CANONICAL.md` §8. Types 3 and 4 must carry it; no other type may.
+- **Types 5 and 6 are the Ancient pair, and their grades run ten higher.** They
+  carry the same set and stat vocabulary as their ordinary counterparts, no
+  grade below 13, and a sell value above the ordinary item of the matching rank
+  at every grade (28 800 / 36 000 / 44 400 against 30 000 / 37 000 for a gem).
+  Grade `13 + n` is read as ordinary grade `3 + n`.
 
-Intangible needs no clause: it is `set_id` 25 like any other set, so an
-Intangible rune is matched by an Intangible item or by an Immemorial one, which
-is exactly the pair §10 allows it.
+Placement follows `RUNE-CANONICAL.md` §8's table, which `lineageFits` applies:
+an ordinary item goes on an ordinary rune of its own set, an Ancient item on an
+Ancient rune of its own set, and an Immemorial item on any ordinary rune but
+never an Ancient one. An Intangible rune is `set_id` 25 like any other set, so
+it is matched by an Intangible item or an Immemorial one.
 
 ## 3. Ancient value ranges
 
-Ancient is not a grade multiplier. Types 5 and 6 use the separate Ancient
-Gem/Grindstone tables in `RUNE-CANONICAL.md` §8, and `CraftItem.range` always
-exposes that exact interval. This lets the box and Rune Clean-up calculate a
-numeric, reproducible projection rather than treating owned Ancient materials
-as visible-but-unusable. The source is named in the canonical document's
-revision rule; a client observation wins if the game changes it.
+Ancient is not a grade multiplier. Types 5 and 6 use the separate Ancient Gem
+and Grindstone tables of `RUNE-CANONICAL.md` §8, and `CraftItem.range` always
+exposes that exact interval, so Gems & Grinds and Rune Clean-up project owned
+Ancient items numerically. The tables' source is `RUNE-CANONICAL.md` §13 item
+11, a secondary source from 2019 that the export confirms only in part; a client
+observation wins where it disagrees.
 
 ## 4. Parity
 
 `validateGameFile` reads every positive craft stack through `readCraftItem` and
 every rune through `readRune`, so the collection the account badge counts and
-the collection the box list shows are the same collection. The game does leave
-an otherwise valid craft record with `amount: 0` after its last item is spent;
-that is an empty stack, not an owned item, and the import removes it before the
-record is stored. Any non-empty record that cannot be decoded into a kind, a
-set, a stat and a grade still fails loudly under `AGENTS.md` §0.1 part 3 rather
-than becoming an invisible row. On the delivered export both readers accept
-everything — 826 of 826 stacks, 3,242 of 3,242 runes.
+the collection the box list shows are the same. The game leaves an otherwise
+valid craft record with `amount: 0` after its last item is spent; that is an
+empty stack, not an owned item, and the import removes it before the record is
+stored. Any non-empty record that cannot be decoded into a kind, a set, a stat
+and a grade fails loudly under `AGENTS.md` §0.1 part 3, and `readCraftItems`
+throws on it as `readRunes` does. On the account export of August 23, 2026 both
+readers accept everything — 826 of 826 stacks, 3,242 of 3,242 runes.
 
 `npm run verify:rune-craft-items` pins section 1, section 2 and the placement
 rules built on them, against synthetic records rather than personal data.

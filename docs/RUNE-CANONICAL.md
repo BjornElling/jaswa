@@ -1,107 +1,128 @@
-# Rune-regler — kanonisk specifikation
+# Rune rules — the canon
 
-**Status:** Bindende regelgrundlag for JASWA Rune Clean-up  
-**Kontrolleret:** 4. oktober 2026
-**Spil:** *Summoners War: Sky Arena* (ikke *Chronicles* eller *Lost Centuria*)
+**Status:** Binding game-rule canon for every part of JASWA that reads a rune
+**Reviewed:** October 20, 2026
+**Game:** *Summoners War: Sky Arena* (not *Chronicles* or *Lost Centuria*)
 
-Dette dokument er den kanoniske beskrivelse af spilregler, som Rune Clean-up
-må bygge på. Hvis kode, UI eller en sekundær guide modsiger dokumentet, er
-dokumentet styrende, indtil det er rettet med dokumenteret belæg.
+This document states the game's rune rules that JASWA builds on — the stat
+sheet, Rune Clean-up, Gems & Grinds, the Simulator, Rune Optimization and the
+import alike. Where code, interface or a secondary guide contradicts it, this
+document governs until it is corrected with recorded evidence.
 
-Det skelner bevidst mellem **verificeret regel** (dokumenteret i kilderne
-nederst eller i den observerede eksport) og **afventende verificering**. Det
-sidste er hverken en antagelse eller en tilladt standardværdi i kode.
+Every rule carries its evidence: a numbered source from §13, the account export
+it was measured on, or the developer's in-game observation, each with its date.
+A **modelled** premise is JASWA's own working assumption where the game
+publishes nothing; it is marked as such and is never presented as a game rule.
+An unknown field, set or value never gets a silent fallback.
 
-## 1. Grundmodel og ordliste
+## 1. Model and vocabulary
 
-Et monster kan have seks runer, én i hver **slot** 1–6. En rune har et
-**Rune Set** (`set_id`), slot (`slot_no`), stjerneklasse (**grade**, 1–6★;
-`class` i eksporten), sjældenhed (**rarity**; `extra`),
-**Main Property** (`pri_eff`), eventuelt **Prefix Property** / innate
-(`prefix_eff`) og nul til fire **Sub Properties** (`sec_eff`).
+A monster holds six runes, one in each **slot** 1–6. A rune has a **Rune Set**
+(`set_id`), a slot (`slot_no`), a star class (**grade**, 1–6★; `class` in the
+export), a **rarity** (`extra`; §6), a **Main Property** (`pri_eff`), possibly a
+**Prefix Property** or innate (`prefix_eff`), and zero to four **Sub
+Properties** (`sec_eff`).
 
-En **roll** er enten den oprindelige værdi af en Sub Property eller en senere
-forbedring af den ved +3, +6, +9 eller +12. +15 giver ikke en Sub
-Property-roll; det forbedrer Main Property.
+A **roll** is either a sub property's first value or a later improvement of it
+at +3, +6, +9 or +12. +15 gives no sub-property roll; it improves the main
+property only.
 
-JASWA's fremskrivninger, Max-værdier og chanceberegninger beskriver den færdige
-rune ved +15. Sub Property-delen er identisk med +12, fordi der ikke sker nogen
-roll fra +12 til +15; kun Main Property vokser deterministisk i det interval.
+JASWA's projections, Max values and chances describe the finished rune at +15.
+Its sub properties are those at +12, since nothing rolls between +12 and +15;
+only the main property grows, deterministically, in that interval.
 
-Spilnavnene er **HP**, **ATK**, **DEF**, **SPD**, **CRI Rate**, **CRI Dmg**,
-**Resistance** og **Accuracy**. JASWA skal bruge disse navne i UI; danske
-forklaringer må stå ved siden af, men må ikke erstatte dem.
+The game's names are **HP**, **ATK**, **DEF**, **SPD**, **CRI Rate**, **CRI
+Dmg**, **Resistance** and **Accuracy**, and JASWA uses them in the interface.
 
-## 2. Stats og eksportkodning
+## 2. Stats and export encoding
 
-Mappingen er verificeret mod den brugerleverede eksport `Culpa-21822407.json`
-(klient 9.2.9) og svarer til SWEX-formatet.
+Measured on the account export `Culpa-21822407.json` (client 9.2.9, August 23,
+2026; source 12), which follows the SWEX format (source 8).
 
-| Effekt-ID | Spilnavn | Form |
+| Effect id | Game name | Form |
 | ---: | --- | --- |
-| 1 | HP + | flad |
-| 2 | HP % | procent |
-| 3 | ATK + | flad |
-| 4 | ATK % | procent |
-| 5 | DEF + | flad |
-| 6 | DEF % | procent |
-| 8 | SPD | flad |
-| 9 | CRI Rate | procentpoint |
-| 10 | CRI Dmg | procentpoint |
-| 11 | Resistance | procentpoint |
-| 12 | Accuracy | procentpoint |
+| 1 | HP + | flat |
+| 2 | HP % | percent |
+| 3 | ATK + | flat |
+| 4 | ATK % | percent |
+| 5 | DEF + | flat |
+| 6 | DEF % | percent |
+| 8 | SPD | flat |
+| 9 | CRI Rate | percentage points |
+| 10 | CRI Dmg | percentage points |
+| 11 | Resistance | percentage points |
+| 12 | Accuracy | percentage points |
 
-Effekt 7 er ikke en gyldig almindelig rune-property i den observerede eksport.
-Kode må ikke opfinde en betydning for den.
+Effect 7 is not a valid rune property in the export, and code must not invent a
+meaning for it. `class` is the star class 1–6, or `16` for an Ancient rune (§7);
+`extra` is the rarity (§6). `rank` is not a quality field: it reads `5` on runes
+of every rarity (sources 9, 10).
 
-## 3. Lovlige Main Properties pr. slot
+## 3. Main properties
 
-| Slot | Type | Lovlige Main Properties |
+| Slot | Kind | Legal main properties |
 | ---: | --- | --- |
-| 1 | fast | ATK + |
-| 2 | valgbar | HP +, HP %, ATK +, ATK %, DEF +, DEF %, SPD |
-| 3 | fast | DEF + |
-| 4 | valgbar | HP +, HP %, ATK +, ATK %, DEF +, DEF %, CRI Rate, CRI Dmg |
-| 5 | fast | HP + |
-| 6 | valgbar | HP +, HP %, ATK +, ATK %, DEF +, DEF %, Resistance, Accuracy |
+| 1 | fixed | ATK + |
+| 2 | chosen | HP +, HP %, ATK +, ATK %, DEF +, DEF %, SPD |
+| 3 | fixed | DEF + |
+| 4 | chosen | HP +, HP %, ATK +, ATK %, DEF +, DEF %, CRI Rate, CRI Dmg |
+| 5 | fixed | HP + |
+| 6 | chosen | HP +, HP %, ATK +, ATK %, DEF +, DEF %, Resistance, Accuracy |
 
-En Sub Property må ikke have samme stattype som Main Property, og samme
-Sub Property-type kan ikke forekomme to gange på samme rune.
+A sub property never repeats the main property's stat, and no sub-property stat
+appears twice on one rune.
 
-### Main Property ved +15
+### At +15
 
-Main Property vokser deterministisk ved power-up; den er ikke et roll. Tabellen
-viser den endelige +15-værdi for en almindelig rune pr. stjerneklasse. Hver
-stat kan kun bruges i de slots, der er tilladt i tabellen ovenfor.
+A main property grows deterministically with power-up; it does not roll. Final
+values by star class, each usable only in the slots above (source 6, *Main
+Stats*, read October 20, 2026; source 8):
 
-| Main Property | 1★ | 2★ | 3★ | 4★ | 5★ | 6★ |
+| Main property | 1★ | 2★ | 3★ | 4★ | 5★ | 6★ |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| HP + | 804 | 1.092 | 1.380 | 1.704 | 2.088 | 2.448 |
+| HP + | 804 | 1,092 | 1,380 | 1,704 | 2,088 | 2,448 |
 | HP %, ATK %, DEF % | 18 % | 20 % | 38 % | 43 % | 51 % | 63 % |
-| ATK +, DEF + | 54 | 74 | 93 | 112 | 135 | 160 |
+| ATK +, DEF + | 54 | 74 | 93 | 113 | 135 | 160 |
 | SPD | 18 | 19 | 25 | 30 | 39 | 42 |
 | CRI Rate | 18 % | 20 % | 37 % | 41 % | 47 % | 58 % |
 | CRI Dmg | 20 % | 37 % | 43 % | 58 % | 65 % | 80 % |
 | Resistance, Accuracy | 18 % | 20 % | 38 % | 44 % | 51 % | 64 % |
 
+The 4★ ATK + and DEF + value is 113 by SW Exporter's `mapping.js`, which reads
+the game's data (source 8, read October 19, 2026); Spokland's hand-kept table
+shows 112 (source 6), and the weaker source gives way.
+
+An Ancient rune's main property at +15 equals the ordinary 6★ value: every
+Ancient +15 main in the account export of October 19, 2026 reads 2,448, 63, 160,
+42 or 80 (source 13).
+
+### Flat mains at +12
+
+A flat main at +12 is its base plus twelve increments, before the final-level
+bonus (source 6, *Main Stats*, read October 20, 2026). Ancient runes have the
+same values as ordinary 6★ runes.
+
+| Main property at +12 | 1★ | 2★ | 3★ | 4★ | 5★ | 6★ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| HP + | 580 | 790 | 1,000 | 1,240 | 1,530 | 1,800 |
+| ATK +, DEF + | 39 | 53 | 67 | 82 | 99 | 118 |
+
 ## 4. Prefix Property (innate)
 
-En **Prefix Property** (ofte kaldet *innate*) er den separate, ekstra stat,
-der står under Main Property. Den er ikke en Sub Property og bruger ikke en af
-de fire Sub Property-pladser. Den eksisterer fra runens oprettelse, har én
-fast værdi, får aldrig power-up-rolls og kan ikke være målet for Gem eller
-Grindstone.
+A **Prefix Property**, usually called the *innate*, is the separate extra stat
+below the main property. It is not a sub property and takes none of the four
+sub-property places. It exists from the rune's creation, has one fixed value,
+never receives a power-up roll, and cannot be the target of a Gem or Grindstone
+(source 6, *Prefix Property*).
 
-Prefix kan være en af de samme 11 stattyper som Sub Properties. En rune kan
-ikke have samme stattype i Main Property, Prefix Property og Sub Properties.
-Prefix gør altså den pågældende type utilgængelig som almindelig Sub Property.
-Det indgår i den tilladte statmængde ved både naturlige rolls, Gem og
-Reappraisal.
+An innate is one of the eleven sub-property stats. No stat appears in more than
+one of the main property, the innate and the sub properties, so an innate makes
+its stat unavailable as a sub property — for natural rolls, Gems and
+Reappraisal alike.
 
-For almindelige 6★-runer er Prefix-intervallerne **de samme som Sub Property-
-intervallerne i afsnit 7**:
+On ordinary 6★ runes the innate ranges are **the sub-property ranges of §7**:
 
-| Prefix Property | Min | Maks |
+| Prefix property | Min | Max |
 | --- | ---: | ---: |
 | HP + | 135 | 375 |
 | HP %, ATK %, DEF % | 5 % | 8 % |
@@ -111,60 +132,67 @@ intervallerne i afsnit 7**:
 | CRI Dmg | 4 % | 7 % |
 | Resistance, Accuracy | 4 % | 8 % |
 
-**Rettet 17. september 2026.** Tabellen stod tidligere med 53–323 for HP +, 2–16 for
-ATK + og 1–8 % for procentstats. De tal er ikke 6★-rækken: de er
-[Spoklands](https://summonerswar.spokland.com/rune/prefix) stjerneuafhængige tabel,
-og [Fandom](https://summonerswar.fandom.com/wiki/Runes) angiver et tredje sæt (52–355
-for HP +, 2–17 for ATK +). Konflikten er afgjort ved måling: 1.530 prefixes på
-almindelige 6★-runer i `Culpa-21822407.json` ligger nøjagtigt inden for
-Sub Property-intervallerne ovenfor og rammer begge endepunkter — HP + 135–375,
-ATK + 10–20, DEF + 10–20, SPD 4–6, procenter 5–8. Ingen observation falder uden for.
+Evidence: 1,530 innates on ordinary 6★ runes in the account export of August 23,
+2026 (source 12) lie exactly inside these ranges and reach both ends of each.
+The published star-independent tables (source 6: HP + 53–323; source 7:
+52–355) are not 6★ ranges.
 
-JASWA's kanoniske spilmodel bruger en Prefix Property på **nøjagtigt 50 %** af alle
-runer, uanset rune-type og rarity. Com2uS oplyser ingen officiel rate, så
-50 %-tallet er en eksplicit modelpræmis — ikke en påstand om offentliggjort
-spildokumentation — og skal efterprøves mod en frisk kontomåling ved hver
-spilopdatering.
+**Modelled:** an innate below 6★ takes that star class's sub-property range; no
+lower-star innate has been measured.
 
-## 5. Lovlige Sub Properties pr. slot
+**Modelled:** a rune carries an innate with probability exactly **50 %**,
+whatever its set and rarity. Com2uS publishes no rate. The premise is re-checked
+against a fresh account measurement at each game update.
 
-Ud over forbuddet mod at duplikere Main Property eller Prefix Property gælder
-følgende slotregler for både naturlige rolls og Gems:
+## 5. Legal sub properties per slot
 
-| Slot | Sub Property-typer, der aldrig er lovlige |
+Besides the ban on repeating the main property or the innate, these slot rules
+hold for natural rolls and Gems alike:
+
+| Slot | Sub-property stats that are never legal |
 | ---: | --- |
-| 1 | ATK + (er Main Property), DEF + og DEF % |
-| 2 | kun den type, der er valgt som Main Property |
-| 3 | DEF + (er Main Property), ATK + og ATK % |
-| 4 | kun den type, der er valgt som Main Property |
-| 5 | HP + (er Main Property) |
-| 6 | kun den type, der er valgt som Main Property |
+| 1 | ATK + (the main property), DEF + and DEF % |
+| 2 | only the stat chosen as main property |
+| 3 | DEF + (the main property), ATK + and ATK % |
+| 4 | only the stat chosen as main property |
+| 5 | HP + (the main property) |
+| 6 | only the stat chosen as main property |
 
-Eksempel: slot 1 kan godt have ATK %, men aldrig DEF + eller DEF %; slot 3
-kan godt have DEF %, men aldrig ATK + eller ATK %. En Prefix Property lægger
-et yderligere forbud oven i denne tabel.
+Slot 1 may carry ATK % but never DEF + or DEF %; slot 3 may carry DEF % but
+never ATK + or ATK %. An innate adds one more ban on top.
 
-## 6. Rarity og power-up-forløb
+## 6. Rarity and the power-up schedule
 
-Rarity afgør antallet af Sub Properties ved +0. Den ændres ikke af
-power-up. I SWEX-eksporten er `extra` kvaliteten; `rank` er ikke dens
-quality-felt og kan stå som `5` på mange forskellige 6★-runer. Nogle
-eksportveje skriver Normal som både `0` og `1`, så JASWA læser begge som
-Normal:
+**The rarity JASWA reads is the rune's original drop rarity.** The export's
+`extra` is the rarity the rune dropped with and never changes. The game paints a
+rune in its *current* rarity, which rises as lines are added at +3/+6/+9/+12, so
+a Rare rune at +12 shows in the game as Legend (source 7, *Blade*). JASWA shows
+the original rarity deliberately: it fixes the rune's power-up schedule, which
+is what the user decides by (the developer's decision, October 19, 2026).
 
-| Rarity | Almindelig `extra` | Ancient `extra` | Sub Properties ved +0 | Nye Sub Properties | Forbedringer ved +3/+6/+9/+12 |
+| Rarity | Ordinary `extra` | Ancient `extra` | Sub properties at +0 | New sub properties | Improvements at +3/+6/+9/+12 |
 | --- | ---: | ---: | ---: | --- | ---: |
-| Normal | 0 eller 1 | 11 | 0 | +3, +6, +9, +12 | 0 |
+| Normal | 0 or 1 | 11 | 0 | +3, +6, +9, +12 | 0 |
 | Magic | 2 | 12 | 1 | +6, +9, +12 | 1 (+3) |
 | Rare | 3 | 13 | 2 | +9, +12 | 2 (+3, +6) |
 | Hero | 4 | 14 | 3 | +12 | 3 (+3, +6, +9) |
-| Legend | 5 | 15 | 4 | ingen | 4 (+3, +6, +9, +12) |
+| Legend | 5 | 15 | 4 | none | 4 (+3, +6, +9, +12) |
 
-Efter +12 har alle grades fire Sub Properties. Ved et forbedringstrin vælger
-spillet én eksisterende Sub Property. Største mulige antal af samme stat efter
-+12, med start-roll medregnet, er derfor:
+Some export paths write Normal as `0`, others as `1`, and JASWA reads both.
+Ancient runes carry `extra` 13–15 in the account export of October 19, 2026
+(source 13); SWEX names 11–15 as the Ancient encoding (source 8), and JASWA
+accepts the whole range.
 
-| Rarity | Maks. antal af samme stat |
+A rune improves its born lines first and adds the missing ones after. Evidence:
+every Hero rune at +9 in the account export of October 19, 2026 holds three
+lines — ordinary 6★ (17 of 17) and Ancient (8 of 8) alike — and the one Rare at
++9 holds three (source 13), so a Hero gains its fourth line at +12.
+
+From +12 every rune holds four sub properties. An improvement picks one existing
+sub property, so the most rolls one stat can hold after +12, its first included,
+is:
+
+| Rarity | Most rolls of one stat |
 | --- | ---: |
 | Normal | 1 |
 | Magic | 2 |
@@ -172,18 +200,16 @@ spillet én eksisterende Sub Property. Største mulige antal af samme stat efter
 | Hero | 4 |
 | Legend | 5 |
 
-Det er et teoretisk loft, ikke en garanti. +15 lægger aldrig en Sub
-Property-roll til.
+That is a ceiling, not a promise.
 
-## 7. Sub Property-intervaller
+## 7. Sub-property ranges
 
-Stjerneklassen bestemmer intervallet for hver almindelig Sub Property, både
-ved drop og ved en senere power-up. Rune Clean-up må derfor ikke prissætte en
-4★ eller 5★ som en 6★. Tallene er krydstjekket mod Spoklands tabeller og
-SWEX' dokumenterede maksværdier. Kilderne er uenige om 4★ flat Main Property
-(112/113); den synlige Spokland-tabel og dermed JASWA bruger 112 ved +15.
+The star class sets the range of each ordinary sub-property roll, at drop and at
+every later power-up, so a 4★ or 5★ roll is never priced as a 6★ one. The table
+agrees with Spokland's tables (source 6) and with SWEX's six-star maxima, each of
+which is five times the 6★ maximum below (source 8, read October 19, 2026).
 
-| Sub Property | 1★ | 2★ | 3★ | 4★ | 5★ | 6★ |
+| Sub property | 1★ | 2★ | 3★ | 4★ | 5★ | 6★ |
 | --- | --- | --- | --- | --- | --- | --- |
 | HP + | 15–60 | 30–105 | 45–165 | 60–225 | 90–300 | 135–375 |
 | HP %, ATK %, DEF % | 1–2 % | 1–3 % | 2–5 % | 3–6 % | 4–7 % | 5–8 % |
@@ -192,49 +218,37 @@ SWEX' dokumenterede maksværdier. Kilderne er uenige om 4★ flat Main Property
 | CRI Dmg | 1–2 % | 1–3 % | 2–4 % | 2–5 % | 3–6 % | 4–7 % |
 | Resistance, Accuracy | 1–2 % | 1–3 % | 2–4 % | 2–5 % | 3–7 % | 4–8 % |
 
-**Rettet 17. september 2026: HP %, ATK % og DEF % ruller 5–8 %, ikke 4–8 %.**
-Tabellen stod tidligere med 4 % som gulv. Målt på `Culpa-21822407.json` giver 489
-rene enkeltrul på +0-runer (212 HP %, 132 ATK %, 145 DEF %) **nul** forekomster af
-4 %; under et 4–8-uniformt rul ville sandsynligheden for det være under 10⁻¹⁵.
-[Spoklands 6★-tabel](https://summonerswar.spokland.com/rune/sub-stat) angiver
-ligeledes 5–8 %. De øvrige rækker blev bekræftet uændret ved samme måling.
+The 6★ HP %, ATK % and DEF % floor is 5 %: 489 single rolls on +0 runes in the
+account export of August 23, 2026 (212 HP %, 132 ATK %, 145 DEF %) hold no 4 %,
+which a 4–8 uniform roll makes a sub-10⁻¹⁵ event (source 12), and Spokland's 6★
+table says 5–8 % (source 6).
 
-### Fordelingen inden for et interval
+### Distribution
 
-**Et rul er ligefordelt over intervallets hele tal.** Det er verificeret lokalt, ikke
-antaget: Prefix Property er den eneste egenskab, spillerens eget udvalg ikke rører —
-ingen beholder en rune for dens innate — og på en 6★-rune trækker den fra samme
-interval som en Sub Property. På 1.530 målte prefixes giver et χ²-test mod en
-ligefordeling `χ² = 52,97`, `df = 44`, `p = 0,17`, og HP + er ligefordelt over
-135–375 målt på tiendedele (`p = 0,53`). Afgørende er, at den normaliserede
-middelværdi står stille på 0,481 / 0,488 / 0,492 / 0,523 ved +0 / +9 / +12 / +15:
-en stikprøve, udvalget havde forvrænget, ville flytte sig med udvalgspresset.
+**Modelled:** a roll is uniform over the whole numbers of its range. The
+measurement agrees: the innate is the one property a player's keep-or-sell
+choices do not touch, and on a 6★ rune it draws from the sub-property range. Over
+1,530 innates a χ² test against uniform gives `χ² = 52.97`, `df = 44`,
+`p = 0.17`, HP + is uniform over 135–375 measured in tenths (`p = 0.53`), and the
+normalised mean holds still at 0.481 / 0.488 / 0.492 / 0.523 at +0 / +9 / +12 /
++15, where a sample distorted by selection would move with the selection
+pressure (source 12).
 
-**Hvilken linje og hvilken stattype et rul rammer, er også ligefordelt.** En power-up
-forbedrer hver af runens eksisterende Sub Properties med lige stor sandsynlighed — `1/4`
-på en rune med fire linjer — og en ny Sub Property er med lige stor sandsynlighed hver
-af de stattyper, slot, Main Property, Prefix Property og de øvrige Sub Properties
-lader være lovlige. Det er fastlagt spilregel (kilde 12), ikke en regnekonvention.
-Belægget kommer ikke fra en spillers egen boks og kunne ikke komme derfra: boksen er
-dét, der overlevede spillerens egne beslutninger, så enhver optælling i den er
-forvrænget af udvalget.
+**Modelled:** an improvement picks each of the rune's existing sub properties
+with equal chance — `1/4` on a rune with four lines — and a new sub property is
+each stat the slot, main property, innate and other sub properties leave legal
+with equal chance. Com2uS publishes no rate, and a player's own box cannot test
+it: the box is what survived the player's decisions, so every count in it is
+distorted by that selection.
 
-### Ancient Runes
+### Ancient runes
 
-Ancient Runes kommer fra Dimension Hole. Den leverede eksport markerer dem
-med `class: 16`; almindelige 6★-runer er `class: 6`. De har forbedrede mulige
-**startværdier**, ikke forbedrede power-up-rolls. Eksporten bekræfter eksemplerne
-HP % 10, SPD 7 og Accuracy 10.
+Ancient runes come from the Dimension Hole and carry `class: 16`; an ordinary 6★
+rune is `class: 6`. Only an Ancient rune's **born** lines — and its innate —
+roll from the higher Ancient initial range (source 6, *Ancient Rune*: "higher
+minimum and maximum initial sub-stats"):
 
-Ancient Runes bruger deres egne **Ancient Enchanted Gems**, **Ancient
-Grindstones** og **Ancient Reappraisal Stones**. Ancient Gem og Grindstone kan
-kun anvendes på Ancient Runes; almindelige Gem/Grindstone må ikke bruges som
-en fallback. Ancient Grindstones og Gems har højere mulige værdier end de
-almindelige modstykker.
-
-Det målte Ancient-startinterval er:
-
-| Sub Property | Min | Maks |
+| Sub property | Min | Max |
 | --- | ---: | ---: |
 | HP + | 165 | 435 |
 | HP %, ATK %, DEF % | 6 % | 10 % |
@@ -243,28 +257,40 @@ Det målte Ancient-startinterval er:
 | CRI Dmg | 5 % | 9 % |
 | Resistance, Accuracy | 6 % | 10 % |
 
-Ved +3/+6/+9/+12 bruger Ancient-runen derimod den almindelige 6★-tabel. En
-Ancient-runes startlinje tælles altså efter Ancient-intervallet, mens dens
-ubrugte forbedringer distribueres efter 6★-intervallet. Det er en vigtig
-skelnen: at bruge Ancient-tabellen for alle fremtidige rolls gør både `Max
-value` og `Chance` kunstigt høje.
+The numbers are source 11's. The account export of August 23, 2026 confirms the
+cells HP % 10, SPD 7 and Accuracy 10 (source 12); the rest are secondary.
 
-## 8. Enchanted Gems og Grindstones
+**A line an Ancient rune gains at +3/+6/+9/+12, and every improvement roll, use
+the ordinary 6★ table.** Evidence, the account export of October 19, 2026
+(source 13), lines without a Gem:
 
-### Enchanted Gem: erstatter én Sub Property
+- Ancient Legend runes gain no line, so every line is born: none lies below the
+  Ancient minimum.
+- Ancient Hero and Rare runes at +12 and +15 have gained a line: 18
+  never-improved lines lie below the Ancient minimum (SPD 4, Accuracy 4, HP % 5
+  among them), which no born Ancient line can be.
+- Ancient runes at +9, before the Hero's fourth line arrives: none.
 
-En **Enchanted Gem** kan bruges på en Rune med `+12` eller højere. Den
-erstatter én eksisterende Sub Property med den stat, som Gem'en angiver.
-Den erstattede stats tidligere Power-up-rolls følger **ikke** med til den nye
-stat. En Rune må højst have én sådan Gem-konverteret Sub Property ad gangen;
-en senere Gem kan erstatte den konverterede stat igen.
+Pricing every future roll from the Ancient table would raise both Max value and
+Chance falsely.
 
-En almindelig Gem skal matche Runens Rune Set. En **Immemorial Gem** er
-set-uafhængig. Gem'en må ikke give den samme type som Runens Main Property,
-Prefix Property eller en af de øvrige Sub Properties. Dermed gælder alle
-forbudsregler i afsnit 4 og 5 også ved Gem-konvertering.
+Ancient runes take their own **Ancient Enchanted Gems**, **Ancient
+Grindstones** and **Ancient Reappraisal Stones**, and nothing else (§8, §9).
 
-| Gem-grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD | CRI Rate | CRI Dmg | Resistance, Accuracy |
+## 8. Enchanted Gems and Grindstones
+
+### Enchanted Gem: replaces one sub property
+
+An **Enchanted Gem** is used on a rune at **+12** or higher (source 7, *Enchanted
+Gem*). It replaces one existing sub property with the Gem's stat; the replaced
+stat's power-up rolls do **not** carry over. A rune holds at most one
+Gem-converted line at a time, and a later Gem may replace that converted line
+again.
+
+A Gem never gives the stat of the rune's main property, innate or another of its
+sub properties, so §4 and §5 hold for a conversion too.
+
+| Gem grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD | CRI Rate | CRI Dmg | Resistance, Accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Normal | 100–150 | 2–4 % | 8–12 | 1–3 | 1–3 % | 1–3 % | 2–4 % |
 | Magic | 130–220 | 3–7 % | 10–16 | 2–4 | 2–4 % | 3–5 % | 3–6 % |
@@ -272,9 +298,9 @@ forbudsregler i afsnit 4 og 5 også ved Gem-konvertering.
 | Hero | 290–420 | 7–11 % | 20–30 | 5–8 | 4–7 % | 5–8 % | 6–9 % |
 | Legend | 400–580 | 9–13 % | 28–40 | 7–10 | 6–9 % | 7–10 % | 8–11 % |
 
-Ancient Gems har deres egen tabel og må kun bruges på Ancient-runer:
+Ancient Gems have their own table (source 11):
 
-| Ancient Gem-grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD | CRI Rate | CRI Dmg | Resistance, Accuracy |
+| Ancient Gem grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD | CRI Rate | CRI Dmg | Resistance, Accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Normal | 100–210 | 2–6 % | 8–16 | 1–4 | 1–4 % | 2–6 % | 2–6 % |
 | Magic | 130–280 | 3–9 % | 10–20 | 2–5 | 2–5 % | 3–7 % | 3–8 % |
@@ -282,29 +308,23 @@ Ancient Gems har deres egen tabel og må kun bruges på Ancient-runer:
 | Hero | 290–480 | 7–13 % | 20–34 | 5–9 | 4–8 % | 5–10 % | 6–11 % |
 | Legend | 400–640 | 9–15 % | 28–44 | 7–11 | 6–10 % | 7–12 % | 8–13 % |
 
-### Grindstone: tillæg til en mulig Sub Property
+### Grindstone: a bonus on one sub property
 
-En **Grindstone** lægger et separat tillæg på én eksisterende Sub Property.
-Kun HP +, HP %, ATK +, ATK %, DEF +, DEF % og SPD kan grinde's; CRI Rate,
-CRI Dmg, Resistance og Accuracy kan ikke. En almindelig Grindstone skal
-matche Runens Rune Set; en **Immemorial Grindstone** er set-uafhængig.
+A **Grindstone** adds a separate bonus to one existing sub property. Only HP +,
+HP %, ATK +, ATK %, DEF +, DEF % and SPD can be ground; CRI Rate, CRI Dmg,
+Resistance and Accuracy cannot (sources 6, 8). A Grindstone has no level
+requirement (source 6, *Grindstone*).
 
-En Gem-konverteret Sub Property kan efterfølgende få en Grindstone, når den
-nye type er grindbar. Det bekræftes også af den leverede eksport: samme
-`sec_eff`-post kan have både Gem-markør og Grindstone-tillæg.
+A Gem-converted line can be ground afterwards when its new stat is grindable; in
+the export one `sec_eff` entry carries both the Gem marker and a Grindstone bonus
+(source 12).
 
-**A Gem that keeps the property keeps its Grindstone.** When a Gem replaces a
-ground sub property with the *same* property — an ATK % line with an ATK %
-Gem — the Grindstone bonus already on the line survives, and only the base
-value is replaced by the Gem's roll. This holds whether the line was rolled
-ground or is itself an earlier Gem that was then ground: re-gemming it to the
-same property keeps the stone and trades only the Gem's value. A Gem that
-changes the property starts the new line with no stone, because a bonus
-belongs to the property it was spent on. A later, larger stone still replaces
-the kept one as above; nothing stacks. `npm run verify:rune-regem-keeps-grind`
-holds every reader of this rule to it.
+A later Grindstone may go on the same stat for a better value, but only when its
+possible result can beat the bonus already there; it then replaces that bonus,
+and nothing stacks (sources 6, 7). The bonus observed on the rune, not the
+grade of the item that made it, is the rune's current stat.
 
-| Grindstone-grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD |
+| Grindstone grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD |
 | --- | ---: | ---: | ---: | ---: |
 | Normal | 80–120 | 1–3 % | 4–8 | 1–2 |
 | Magic | 100–200 | 2–5 % | 6–12 | 1–2 |
@@ -312,9 +332,9 @@ holds every reader of this rule to it.
 | Hero | 230–450 | 4–7 % | 12–22 | 3–4 |
 | Legend | 430–550 | 5–10 % | 18–30 | 4–5 |
 
-Ancient Grindstones er tilsvarende separate og kun lovlige på Ancient-runer:
+Ancient Grindstones (source 11):
 
-| Ancient Grindstone-grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD |
+| Ancient Grindstone grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD |
 | --- | ---: | ---: | ---: | ---: |
 | Normal | 80–180 | 1–5 % | 4–12 | 1–3 |
 | Magic | 100–260 | 2–7 % | 6–16 | 1–3 |
@@ -322,338 +342,284 @@ Ancient Grindstones er tilsvarende separate og kun lovlige på Ancient-runer:
 | Hero | 230–510 | 4–9 % | 12–26 | 3–5 |
 | Legend | 430–610 | 5–12 % | 18–34 | 4–6 |
 
-En senere Grindstone kan bruges på samme stat for at forsøge at opnå en bedre
-værdi, men kun når dens mulige slutværdi kan blive højere end det eksisterende
-tillæg. Det er det observerede tillæg, ikke Grindstone-itemets grade, som er
-den aktuelle Rune-stat.
+The ordinary Gem and Grindstone tables match SWEX cell for cell (source 8, read
+October 19, 2026), and the Grindstone table matches Spokland from Magic to
+Legend (source 6).
 
-### Eksportrepræsentation af modifikationer
+### A Gem that keeps the property keeps its Grindstone
 
-For en Sub Property i `sec_eff` er det relevante normaliserede format:
+When a Gem replaces a ground sub property with the **same** property — an ATK %
+line with an ATK % Gem — the Grindstone bonus on the line survives, and only the
+base value is replaced by the Gem's roll. This holds whether the line was rolled
+and then ground or is itself an earlier, ground Gem. A Gem that changes the
+property starts the new line with no stone, because a bonus belongs to the
+property it was spent on. A later, larger stone still replaces the kept one as
+above.
+
+Evidence: Com2uS announced it in Developer's Preview #3 of April 10, 2025, and it
+shipped in v8.7.1: "When using a Gem of the same sub property on an amplified sub
+property … the boosted value will no longer reset during conversion" (source 4,
+read October 20, 2026). A guide older than that update says otherwise.
+`npm run verify:rune-regem-keeps-grind` holds every reader of this rule to it.
+
+### Which runes an item may go on
+
+| Item | Goes on |
+| --- | --- |
+| Enchanted Gem, Grindstone | an ordinary rune of the item's own Rune Set |
+| Immemorial Gem, Immemorial Grindstone | an ordinary rune of any set, Intangible included — never an Ancient rune |
+| Ancient Gem, Ancient Grindstone | an Ancient rune of the item's own Rune Set — nothing else |
+
+An ordinary item is no fallback for an Ancient rune (source 6, *Ancient Rune*).
+An Intangible rune is Rune Set 25 like any other, so it takes Intangible and
+Immemorial items. That an Immemorial item cannot go on an Ancient rune is the
+developer's in-game observation (October 19, 2026); source 6's *Immemorial* page
+says only "any Rune Set".
+
+### How the export writes a modification
+
+A sub property in `sec_eff` normalises to:
 
 ```text
 [effectId, baseOrGemValue, gemMarker, grindValue]
 currentSubValue = baseOrGemValue + grindValue
 ```
 
-`gemMarker` angiver en Gem-konverteret Sub Property. `grindValue` er allerede
-opnået og må hverken behandles som en fremtidig roll eller tælles to gange.
+`gemMarker` marks a Gem-converted line. `grindValue` is already earned and is
+neither a future roll nor counted twice (source 12). `RUNE-CRAFT-ITEMS.md`
+covers how the export writes the items themselves.
 
-## 9. Omrulningseffekter: Reappraisal og Rune Refinement
+## 9. Rerolls: Reappraisal and Rune Refinement
 
-De to systemer har modsatte formål og må ikke blandes sammen:
+The two have opposite purposes and are never mixed up:
 
-| Effekt | Bevarer | Ændrer | Centrale begrænsninger |
+| Effect | Keeps | Changes | Not allowed on |
 | --- | --- | --- | --- |
-| **Reappraisal** | Rune Set, slot, grade, Main Property og Prefix Property | alle fire Sub Properties og deres Power-up-fordeling rulles om | Rune skal være mindst +12; Intangible kan ikke Reappraise |
-| **Rune Refinement** | Rune Set, slot, grade, Main Property, Prefix Property og Sub Property-typer | de numeriske Sub Property-værdier og Power-up-levels fordeles om | Rune skal være mindst +12; ikke Ancient, Intangible eller Gem-konverteret |
+| **Reappraisal** | Rune Set, slot, star class, main property, innate | all four sub properties and their power-up distribution | a rune below +12; an Intangible rune |
+| **Rune Refinement** | Rune Set, slot, star class, main property, innate, the sub-property stats, Grindstone bonuses | the sub-property values and power-up levels, redistributed | a rune below +12; an Ancient, Intangible or Gem-converted rune |
 
-En Reappraisal må accepteres eller afvises. Accepteres den, forsvinder
-eventuelle Gem- og Grindstone-modifikationer på runen; Prefix Property bliver
-stående. Reappraisal er således den effekt, der kan ændre *hvilke* Sub
-Properties runen har.
+**Reappraisal** rerolls all four sub properties and keeps the main property and
+the innate. The result may be accepted or refused, and accepting it removes
+every Gem and Grindstone effect (source 6, *Reappraisal Stone*). It is the one
+effect that changes *which* sub properties a rune has. An Ancient rune takes an
+**Ancient** Reappraisal Stone under the same +12 rule (source 6, *Ancient
+Reappraisal Stone*). Intangible runes are "restricted from using Reappraisal
+Stones" (source 2). Neither stone has a rarity or star requirement.
 
-Rune Refinement er i stedet en omfordeling af runens eksisterende Sub
-Property-værdier og Power-up-levels: typerne ændres ikke. Grindstone-tillæg
-bevares. En Rune med en Gem-konverteret Sub Property kan ikke Rune Refine;
-systemet må derfor afvise handlingen, ikke simulere en undtagelse.
-
-**Checked again on 17 October 2026** against the official v9.0.0 notice
-(12 November 2025, sources 3 and 13): "Refinement Stone allows you to redistribute
-sub property values and Power-up levels while keeping the sub property types
-unchanged", "Refinement can be performed only on Runes powered up to +12 or
-higher", "Refinement Stones cannot be used on Intangible Runes, Ancient Runes, or
-Runes converted with an Enchanted Gem", and "Sub property values amplified with
-Grindstones are retained". A Grindstone therefore does not bar refinement; only a
-Gem does. The notice does not say whether a refinement can be declined.
-
-Reappraisal, checked the same day: a Reappraisal Stone needs a rune at +12 or
-higher and rerolls all four sub properties, keeping main and innate; the result
-may be accepted or refused, and accepting it removes every Gem and Grindstone
-effect (source 4, Reappraisal Stone). An Ancient rune takes an **Ancient**
-Reappraisal Stone instead, under the same +12 rule (source 4, Ancient
-Reappraisal Stone). The RELOADED notice states that Intangible Runes are
-"restricted from using Reappraisal Stones" (source 2). Neither stone has a
-rarity or star requirement.
+**Rune Refinement**, in the words of the v9.0.0 notice of November 12, 2025
+(source 3): "Refinement Stone allows you to redistribute sub property values and
+Power-up levels while keeping the sub property types unchanged", "Refinement can
+be performed only on Runes powered up to +12 or higher", "Refinement Stones
+cannot be used on Intangible Runes, Ancient Runes, or Runes converted with an
+Enchanted Gem", and "Sub property values amplified with Grindstones are
+retained". A Grindstone does not bar refinement; only a Gem does, and JASWA
+refuses the action rather than simulating an exception. The notice does not say
+whether a refinement can be declined.
 
 ## 10. Rune Sets
 
-Et set aktiveres ved antallet i kolonnen **Set**. To-set-effekter kan normalt
-stakkes op til tre gange på samme monster; et fire-set kan kombineres med ét
-to-set. Intangible er undtagelsen og er beskrevet særskilt nedenfor.
+A set activates at the number of runes in the **Set** column. A two-set can
+stack up to three times on one monster, and a four-set combines with one
+two-set. Intangible is the exception, below.
 
-| `set_id` | Rune Set | Set | Effekt | Type for Rune Clean-up |
+| `set_id` | Rune Set | Set | Effect | Kind |
 | ---: | --- | ---: | --- | --- |
-| 1 | Energy | 2 | HP +15 % | konstant stat |
-| 2 | Guard | 2 | DEF +15 % | konstant stat |
-| 3 | Swift | 4 | SPD +25 % | konstant stat |
-| 4 | Blade | 2 | CRI Rate +12 % | konstant stat |
-| 5 | Rage | 4 | CRI Dmg +40 % | konstant stat |
-| 6 | Focus | 2 | Accuracy +20 % | konstant stat |
-| 7 | Endure | 2 | Resistance +20 % | konstant stat |
-| 8 | Fatal | 4 | ATK +35 % | konstant stat |
-| 10 | Despair | 4 | 25 % chance for Stun ved angreb | kamp-/chanceeffekt |
-| 11 | Vampire | 4 | Life Drain +35 % | kamp-/chanceeffekt |
-| 13 | Violent | 4 | 22 % chance for Additional Turn | kamp-/chanceeffekt |
-| 14 | Nemesis | 2 | ATK Gauge +4 % for hver 7 % HP tabt | kamp-/betinget effekt |
-| 15 | Will | 2 | Immunity i 1 turn ved kampstart | kamp-/betinget effekt |
-| 16 | Shield | 2 | 3-turn Shield til hele teamet, 15 % af bærerens base HP | kamp-/betinget effekt |
-| 17 | Revenge | 2 | 15 % counterattack med første skill ved 75 % af original skade | kamp-/chanceeffekt |
-| 18 | Destroy | 2 | modstanderens MAX HP −30 % af skade; loft 60 % | kamp-/betinget effekt |
-| 19 | Fight | 2 | Allies' ATK +8 % | konstant teamstat |
-| 20 | Determination | 2 | Allies' DEF +8 % | konstant teamstat |
-| 21 | Enhance | 2 | Allies' HP +8 % | konstant teamstat |
-| 22 | Accuracy | 2 | Allies' Accuracy +10 % | konstant teamstat |
-| 23 | Tolerance | 2 | Allies' Resistance +10 % | konstant teamstat |
-| 24 | Seal | 2 | 15 % chance for at deaktivere kvalificeret Rune Set-effekt i 1 turn | kamp-/chanceeffekt |
-| 25 | Intangible | 1 | fuldfører ét set, der mangler præcis én rune | særregel |
+| 1 | Energy | 2 | HP +15 % | constant stat |
+| 2 | Guard | 2 | DEF +15 % | constant stat |
+| 3 | Swift | 4 | SPD +25 % | constant stat |
+| 4 | Blade | 2 | CRI Rate +12 % | constant stat |
+| 5 | Rage | 4 | CRI Dmg +40 % | constant stat |
+| 6 | Focus | 2 | Accuracy +20 % | constant stat |
+| 7 | Endure | 2 | Resistance +20 % | constant stat |
+| 8 | Fatal | 4 | ATK +35 % | constant stat |
+| 10 | Despair | 4 | 25 % chance to Stun on attack | battle, chance |
+| 11 | Vampire | 4 | Life Drain +35 % | battle, chance |
+| 13 | Violent | 4 | 22 % chance of an Additional Turn | battle, chance |
+| 14 | Nemesis | 2 | ATK Gauge +4 % per 7 % HP lost | battle, conditional |
+| 15 | Will | 2 | Immunity for 1 turn at battle start | battle, conditional |
+| 16 | Shield | 2 | 3-turn Shield for the whole team, 15 % of the holder's base HP | battle, conditional |
+| 17 | Revenge | 2 | 15 % counterattack with the first skill at 75 % of the original damage | battle, chance |
+| 18 | Destroy | 2 | the enemy's MAX HP −30 % of the damage; cap 60 % | battle, conditional |
+| 19 | Fight | 2 | all monsters' ATK +8 % | constant team stat |
+| 20 | Determination | 2 | all monsters' DEF +8 % | constant team stat |
+| 21 | Enhance | 2 | all monsters' HP +8 % | constant team stat |
+| 22 | Accuracy | 2 | all monsters' Accuracy +10 % | constant team stat |
+| 23 | Tolerance | 2 | all monsters' Resistance +10 % | constant team stat |
+| 24 | Seal | 2 | 15 % chance to disable a qualifying set effect for 1 turn | battle, chance |
+| 25 | Intangible | — | stands in for one missing rune; no piece count of its own | special rule |
 
-### Modtager, grundlag og stacking
+Evidence: source 1 (read October 20, 2026) for the effects and the team sets'
+"all Monster's" wording; sources 6 and 7 for stacking and battle detail; SWEX
+holds the same `set_id`s (source 8). `rune-sets.ts` holds the one table.
 
-Der er to forskellige modtagerregler, som beregningen skal holde strengt
-adskilt:
+### Recipient, basis and stacking
 
-1. **Bærerens egne seteffekter** (Energy, Guard, Swift, Blade, Rage, Focus,
+Two recipient rules, kept strictly apart:
+
+1. **The holder's own set effects** — Energy, Guard, Swift, Blade, Rage, Focus,
    Endure, Fatal, Despair, Vampire, Violent, Nemesis, Will, Shield, Revenge,
-   Destroy og Seal) opstår kun på monsteret med det færdige set — med Shield
-   som den udtrykkelige teameffekt.
-2. **Alle-monster/teamsets** (Fight, Determination, Enhance, Accuracy og
-   Tolerance) gælder hvert monster på samme hold, **inklusive bæreren**.
-   Com2uS' aktuelle tekst siger “all Monsters”; den må derfor ikke fortolkes
-   som “alle andre allies”.
+   Destroy and Seal — arise only on the monster with the completed set, Shield
+   being the stated team effect.
+2. **Team sets** — Fight, Determination, Enhance, Accuracy and Tolerance — apply
+   to every monster of the same team, **the holder included**. Com2uS says "all
+   Monster's" (source 1), not "all other allies".
 
-Fight, Determination og Enhance beregnes for hver modtager ud fra dennes egen
-base ATK, base DEF eller base HP — ikke ud fra bærerens stat. Et færdigt Fight
-set hos et monster giver således også netop dét monster +8 % af dets egen base
-ATK, og hvert andet monster på holdet +8 % af sin egen base ATK. De komplette
-teamset-bidrag stables additivt. Eksempel: tre færdige Fight-sets hos samme
-monster giver +24 % ATK til alle på holdet, inkl. bæreren.
+Fight, Determination and Enhance are computed for each recipient from its own
+base ATK, DEF or HP, not the holder's. Completed team sets stack additively:
+three Fight sets on one monster give +24 % ATK to everyone on the team, the
+holder included.
 
-Energy, Guard, Fatal og Swift er ligeledes procentbonuser til bærerens egen
-base HP/DEF/ATK/SPD. Blade, Rage, Focus, Endure, Accuracy og Tolerance er
-vist som deres respektive CRI/Accuracy/Resistance-procentpoint og må ikke
-omfortolkes til multiplikative kampbuffs.
+Energy, Guard, Fatal and Swift are likewise percentages of the holder's own base
+HP, DEF, ATK and SPD. Blade, Rage, Focus, Endure, Accuracy and Tolerance add
+their CRI, Accuracy or Resistance percentage points and are never reinterpreted
+as multiplicative battle buffs.
 
-### Display and battle values — verified October 16, 2026
+### Display and battle values
 
-All five team sets apply in battle, including to their holder; they do not enter
-any of the eight display stats. Personal stat sets such as Blade and Fatal do.
-This distinction is confirmed by the same Fran build in the game's Trial of
-Ascension deck panel and a fresh account export: base ATK 670, rune ATK 198%,
-flat ATK 247 and artifact ATK 100 give `ceil(670 × 2.98) + 347 = 2,344`, exactly
-the game's `670 + 1,674`. Her Fight set, completed by Intangible, would incorrectly
-raise display ATK to 2,398. Two teammates also carry Fight: all three sets apply
-to her battle ATK (`ceil(670 × 3.22) + 347 = 2,505`), never her display ATK.
-JASWA keeps these effects separate in its shared stat sheet and build search.
-Accuracy and Tolerance add battle percentage points, including to their holder;
-their battle values are explained beside ACC and RES rather than changing the
-display figures or their ranges.
+The five team sets apply in battle, to their holder too, and enter none of the
+eight display stats; personal stat sets such as Blade and Fatal do. Evidence: the
+developer's in-game observation of October 16, 2026 — the same Fran build in the
+Trial of Ascension deck panel against a fresh account export. Base ATK 670, rune
+ATK 198 %, flat ATK 247 and artifact ATK 100 give `ceil(670 × 2.98) + 347 =
+2,344`, exactly the game's `670 + 1,674`; her Fight set, completed by an
+Intangible, would have raised display ATK to 2,398. Two teammates also carry
+Fight, and all three sets apply to her battle ATK (`ceil(670 × 3.22) + 347 =
+2,505`), never to her display ATK. Accuracy and Tolerance add battle percentage
+points the same way and leave the display figures alone.
 
-### Bekræftede kampdetaljer med relevans for setværdi
+### Battle detail
 
-Disse fakta skal vises som setegenskaber, men indgår ikke i den første
-numeriske Rune Clean-up-score eller -ceiling:
+These are set properties JASWA shows; none is a numeric stat (sources 6, 7):
 
-- **Shield:** Hvert færdigt set giver hele holdet et aftageligt Shield i 3
-  turns på 15 % af bærerens base HP. Flere Shield-sets på samme eller flere
-  holdmedlemmer stables. Det genaktiveres ved ny wave undtagen Secret Dungeon,
-  men ikke efter Revival.
-- **Will:** ét set giver Immunity i 1 turn ved kampstart. Flere færdige
-  Will-sets forlænger varigheden additivt, op til 3 turns med tre sets;
-  Immunity er et aftageligt buff.
-- **Despair:** 25 % Stun-kontrol er et selvstændigt forsøg ud over en skills
-  egen Stun. Det kan forsøges pr. hit på multi-hit attacks og kan ikke
-  resistes, men Immunity forhindrer det.
-- **Vampire:** heler bæreren med 35 % af skaden; effekten gælder ikke attacks,
-  der skalerer med målets HP.
-- **Nemesis:** +4 % Attack Bar pr. 7 % tabt HP per set. Effekten udløses ikke
-  af Continuous Damage eller skills, der ofrer bærerens HP.
-- **Revenge:** +15 % chance per set for counterattack til 75 % af basic damage;
-  flere sets øger chancen additivt.
-- **Destroy:** 30 % af påført skade reducerer fjendens MAX HP, dog højst 4 %
-  af fjendens MAX HP pr. set og højst 60 % samlet over kampen. Flere sets
-  løfter pr.-attack-loftet (8 % ved to, 12 % ved tre). Destroy kan ikke ramme
-  Bosses.
-- **Violent:** det første Additional Turn-forsøg er 22 %. Sandsynlighed for
-  efterfølgende sammenhængende Additional Turns falder; dette er kamp-RNG og
-  må ikke beregnes som statværdi.
-- **Seal:** 15 % chancen knytter Seal-effekten til bærerens attacks. Den kan
-  deaktivere Despair, Vampire, Violent, Nemesis, Revenge, Destroy eller Seal
-  i 1 turn, men ikke seteffekter der direkte ændrer stats.
-
-### Særregler
-
-- **Seal** kan deaktivere Despair, Vampire, Violent, Nemesis, Revenge,
-  Destroy og Seal, men ikke direkte statgivende set-effekter som Energy eller
+- **Shield:** each completed set gives the whole team a removable Shield for 3
+  turns at 15 % of the holder's base HP. Shields from several sets, on one or
+  several teammates, stack. It re-applies on a new wave except in a Secret
+  Dungeon, but not after Revival.
+- **Will:** one set gives Immunity for 1 turn at battle start. More completed
+  Will sets extend it additively, to 3 turns with three sets; the Immunity is a
+  removable buff.
+- **Despair:** the 25 % Stun is an attempt of its own beside a skill's own Stun.
+  It is tried per hit on multi-hit attacks and cannot be resisted, but Immunity
+  stops it.
+- **Vampire:** heals the holder by 35 % of the damage; it does not apply to
+  attacks that scale with the target's HP.
+- **Nemesis:** +4 % Attack Bar per 7 % HP lost, per set. Continuous Damage and
+  skills that spend the holder's own HP do not trigger it.
+- **Revenge:** +15 % counterattack chance per set at 75 % of basic damage; more
+  sets raise the chance additively.
+- **Destroy:** 30 % of the damage dealt lowers the enemy's MAX HP, at most 4 %
+  of it per attack per set and 60 % over the battle. More sets raise the
+  per-attack cap (8 % with two, 12 % with three). Destroy cannot hit Bosses.
+- **Violent:** the first Additional Turn attempt is 22 %, and the chance of
+  further consecutive turns falls. This is battle chance, not a stat value.
+- **Seal:** the 15 % chance attaches the Seal effect to the holder's attacks. It
+  can disable Despair, Vampire, Violent, Nemesis, Revenge, Destroy or Seal for
+  1 turn, never a set effect that changes stats directly, such as Energy or
   Fatal.
-- **Intangible** har ikke egen statbonus. 3 Violent + 2 Will + 1 Intangible
-  giver både Violent og Will. Den må ikke tælle som flere manglende runer eller
-  fuldføre flere ufuldstændige sets samtidig.
-- Et monster må højst have **én** Intangible Rune. Den er dermed ikke en
-  generel erstatning for flere manglende runer.
 
-- **Binding game rule (October 2026):** The one Intangible Rune replaces a
-  missing rune only when exactly one Rune Set is one piece short. If two or more
-  sets are one piece short, the Intangible completes **none** of them; the game
-  does not choose a winner. This is the rule JASWA must use in the stat sheet,
-  active-set display and Rune Optimization. With broken sets allowed, the rune
-  may still be engraved as a broken rune. With broken sets refused, that build is
-  invalid.
-- Intangible kan ikke Reappraise. Den må kun have Intangible- eller
-  Immemorial Gems/Grindstones og kan heller ikke Rune Refine.
-- **Rune Refinement** kræver +12 eller højere, bevarer Sub Property-typer og
-  Grindstone-forbedringer og kan ikke bruges på Ancient, Intangible eller
-  Gem-konverterede runer.
+### Intangible
 
-### 10.1 A user asks for a build, not for a set
+Intangible is a wildcard, not a set: it has no piece count and no stat bonus of
+its own.
 
-**What a monster's owner states is a whole six-slot combination — `Violent /
-Blade`, `Will / Nemesis / Energy` — never a set on its own.**
+- A monster may hold at most **one** Intangible rune (source 1).
+- It replaces one missing rune of a set that is exactly one rune short (sources
+  1, 5): 3 Violent + 2 Will + 1 Intangible gives both Violent and Will. It never
+  counts as more than one missing rune.
+- **With two or more sets each one rune short, it completes none of them**; the
+  game does not choose a winner. Source 5 says it "cannot replace two or more
+  Rune sets at once"; that it then completes neither is the developer's in-game
+  observation (October 19, 2026).
+- Its craft items are §8's and its rerolls §9's: Intangible and Immemorial items
+  only, no Reappraisal, no Refinement.
 
-Stating sets one at a time cannot express the answer. A user who marks Despair
-and Revenge as wanted has not said whether they mean `Despair / Revenge` or
-`Revenge / Revenge / Revenge`, and an optimizer handed that list has to guess:
-someone asking for Revenge could be handed a triple Revenge build they never
-wanted. A combination is the whole answer and leaves nothing to infer.
+What a build may do with an Intangible that completes nothing is a product rule,
+in `RUNE-OPTIMIZATION.md` §2.1.1.
 
-The arithmetic above fixes which combinations exist. Six slots; a four-set
-leaves room for exactly one two-set; two-sets stack up to three times. Six
-four-sets against sixteen two-sets give **96** four-plus-two combinations, which
-a menu can list under its leading set, and **560** two-set triples, which it
-cannot — so a triple is *composed* in the menu rather than chosen from a list.
-`app/lib/rune-set-pairs.ts` holds the vocabulary; a build's identifier is its set
-names joined by ` / `, leading set first, which is also what the user reads.
+## 11. Battle rules JASWA does not model
 
-Two concessions are asked separately, because each is a real choice and neither
-is one to make on a user's behalf. **Broken pairs** allows a build whose last two
-runes complete no set. **Intangible runes** allows the one Intangible a monster
-may have engraved complete a set that is one rune short. Both default to off.
+These get no implicit formula anywhere in JASWA. They are listed so that their
+absence from a numeric model is not mistaken for a game rule:
 
-## 11. Afgrænsede eller fortsat uafklarede kampregler
+- How Attack Bar, turn limits and removable buffs behave in each game mode —
+  Violent and Seal in real-time PvP in particular.
+- Whether team set effects cross between separate teams in multi-party modes;
+  the model covers only the monster's own team.
+- The battle outcome of Despair, Vampire, Destroy, Nemesis, Revenge, Violent,
+  Will, Shield and Seal. They are recorded set properties, but cannot
+  responsibly be turned into one universal rune score.
 
-Følgende må ikke få en stiltiende formel i Rune Clean-up. De er registreret
-for at undgå, at fravær i den numeriske model bliver forvekslet med en
-spilregel:
+## 11.1 The game's own sort order (the Manage panel)
 
-- Præcis hvordan Attack Bar, turn-limit og aftagelige buffs opfører sig i
-  hvert game mode — særligt Violent og Seal i realtids-PvP.
-- Om teamseteffekter krydser mellem adskilte hold i særlige multi-party modes.
-  Grundmodellen omfatter kun monsterets eget hold.
-- Kampresultatet af Despair, Vampire, Destroy, Nemesis, Revenge, Violent,
-  Will, Shield og Seal. De er dokumenterede setegenskaber, men kan ikke
-  konverteres ansvarligt til én universel rune-score.
+The game's Manage panel offers a **Sort by** dropdown. JASWA reproduces three of
+its options, so a player who has just sorted the box in the game can sort alike
+in JASWA and compare the two lists row by row. The orders are **observed**, not
+derived from a rule, and `scripts/verify-rune-game-sort.mjs` holds them.
 
-## 11.1 Spillets egen sorteringsrækkefølge (Manage-panelet)
-
-Spillets Manage-panel tilbyder en **Sort by**-dropdown. JASWA gengiver tre af
-dens valgmuligheder i Rune Clean-up, og de er **observeret**, ikke udledt af en
-regel:
-
-| Sort by | Rækkefølge |
+| Sort by | Order |
 | --- | --- |
-| Grade | Foreløbig observeret rækkefølge: **slot stigende**, så **stjerneklasse faldende** (6★ før 5★), så **rarity faldende** (Legend → Hero → Rare → Magic → Normal), så **Ancient først** inden for hver rarity, så **set-id stigende**, så **power-up-level faldende**, så **runens eget id faldende** (nyeste først) |
-| Power-up Lv. | Slot ascending → power-up level descending → star class descending → Ancient first → rarity descending → set-id ascending → rune-id descending |
-| Obtained | Anskaffelsesrækkefølge, nyeste først |
+| Grade | slot ascending → star class descending → rarity descending (Legend → Hero → Rare → Magic → Normal) → Ancient first → set id ascending → power-up level descending → rune id descending |
+| Power-up Lv. | slot ascending → power-up level descending → star class descending → Ancient first → rarity descending → set id ascending → rune id descending |
+| Obtained | acquisition order, newest first |
 
-**Panelets “Grade” betyder rarity, ikke stjerneklasse.** Det er stik imod
-ordlisten i §1, hvor *grade* netop er stjerneklassen (`class`) og rarity hedder
-*rarity* (`extra`). Overskriften inviterer altså til den forkerte læsning.
+**Reading the panel.**
 
-Sådan læses en rune-tile korrekt — tre uafhængige markører, som er lette at
-forveksle:
+- **"Grade" in the panel means rarity, not star class** — against §1, where
+  *grade* is the star class (`class`) and *rarity* is `extra`.
+- A tile's **stars** are the star class.
+- The **colour of the stars** marks `+15` and nothing else: purple stars are a
+  maxed rune, gold ones are not.
+- **Ancient** is a **white ring around the rune icon**, nothing on the stars.
+- The rune id (`rune_id`, which `Rune.obtainedOrder` carries) breaks the last
+  tie. `date_add` resolves only to the second and the game grants runes in bulk,
+  as for `Artifact.obtainedOrder`.
 
-- **Stjernerne** er stjerneklassen (1–6★).
-- **Stjernernes farve** markerer `+15` og intet andet: lilla stjerner betyder
-  maxet rune, gyldne betyder ikke-maxet. Et skærmprint fyldt med lilla stjerner
-  viser altså maxede runer — ikke Ancients og ikke Legends.
-- **Ancient** er en **hvid ring om rune-ikonet**, ikke noget på stjernerne.
+**Evidence.** Grade: the developer's Manage-panel screenshots compared with an
+account export — 6★ runes all before 5★; on slot 6, Ancient Legend runes
+together before ordinary Legend ones, and sets in ascending `set_id` (Blade,
+Rage, Despair, Nemesis, Will, Shield), highest level first within a set; three
+observed swaps (Vampire, Energy, Guard) equal on every earlier key confirm the
+descending rune id. Power-up Lv.: the developer's in-game observation of October
+10, 2026 against the current export — slot 1 ends with an ordinary Rare +0
+before slot 2 starts with an Ancient Legend +15 (slot before level); 6★ Rare +15
+before 5★ Legend +15, and 5★ Hero +15 before Ancient 6★ Legend +12 (level before
+star class, star class before rarity); Ancient Rare +15 before ordinary Legend
++15 (Ancient before rarity, unlike Grade); five ordinary 6★ Hero Rage +15 runes
+in slot 2 with mains ATK, SPD, SPD, SPD, ATK in strictly descending id (main
+property does not group). Anonymous transitions are held in the script; the
+personal export is not committed.
 
-De første skærmprints fra den nye sammenligning afgør Grade mellem de to
-kandidater:
+**Open.** The model fits every capture so far and is not exhaustive. Ancient
+against star class cannot be isolated on this account, whose Ancient runes are
+all 6★, and the rarity order is fully observed only among 6★ runes. Whether the
+panel's Grade sorts by original or current rarity (§6) is not isolated: a +12
+rune whose `extra` is below Legend decides it. A deviation leads to a new
+measurement and a correction of this section and the script.
 
-- De brugerleverede overgangsskærmprints viser den sidste 6★-rune før den
-  første 5★-rune. Den foreløbige model holder derfor alle 6★-runer foran alle
-  5★-runer.
-- Overgangen mellem Legend, Hero og Rare er også synlig i detaljepanelet, men
-  rækkefølgen mellem de to dimensioner er kun fuldt observeret for 6★-gruppen.
+## 12. What these rules do not decide
 
-**Ancient følger rarity** — og står foran den almindelige rune inden for den
-samme stjerneklasse og rarity. Den brugerleverede rækkefølge for slot 6 viser
-Ancient Legend-runerne samlet før de almindelige Legend-runer. Om Ancient også
-er en nøgle i de lavere stjerneklasser er ikke særskilt målt endnu.
+A rune's worth to a role, SPD against HP %, which Gems, Grindstones or rerolls to
+spend, and any efficiency or rune-score formula are product decisions, not game
+facts. They live in `RUNE-CLEANUP-MATH.md`, `RUNE-OPTIMIZATION.md` and
+`RUNE-ROLE-METRICS.md`.
 
-**Slot kommer først; set, power-up-level og derefter id er den foreløbige rest.**
-Inden for hvert slot kommer i den samme slot-6-rækkefølge Blade før Rage, Rage
-før Despair, Despair før Nemesis,
-Nemesis før Will og Will før Shield, hvilket følger `set_id` stigende. Inden
-for en set-gruppe kommer de højeste levels først. Runens eget id (`rune_id`,
-samme felt som `obtainedOrder`) lukker foreløbigt rækkefølgen faldende, altså
-med den nyeste rune først. De tre observerede ombytninger (Vampire, Energy og
-Guard) har samme værdier for alle tidligere nøgler og bekræfter netop denne
-sidste retning.
+## 13. Sources and revision rule
 
-**Dette er en arbejdsmodel, ikke en afsluttet spilregel.** Den er valgt, fordi
-den passer med de captures, der foreligger nu. Brugeren sammenholder den med
-spillet; en observeret afvigelse skal føre til en ny måling og en rettelse af
-denne sektion og `scripts/verify-rune-game-sort.mjs`.
+1. Com2uS, [Rune System — game guide](https://summonerswar.com/en/skyarena/game), read October 20, 2026 — set effects, the team sets' "all Monster's", Shield duration, one Intangible per monster replacing one missing rune.
+2. Com2uS, RELOADED developer's note, June 2023 — Intangible runes "restricted from using Reappraisal Stones". It was read at `summonerswar.com/en/skyarena/news/list/4225`, a list address that now serves another notice (checked October 19, 2026); no fixed copy has been found.
+3. Com2uS, v9.0.0 update notice, November 12, 2025, as copied by [Spokland](https://summonerswar.spokland.com/game/update/v9.0.0_update_notice-2025-11-12) — Rune Refinement, quoted in §9. Secondary as a host, primary in wording.
+4. Com2uS, Developer's Preview #3, 11th Anniversary Update II, April 10, 2025, shipped in the [v8.7.1 update notice, as copied by Spokland](https://summonerswar.spokland.com/game/update/v8.7.1_update_notice-2025-04-26), read October 20, 2026 — a same-property Gem keeps the Grindstone (§8).
+5. Com2uS press release, [“Summoners War: Sky Arena Unleashes RELOADED Update on June 30th”](https://www.cosmocover.com/newsroom/summoners-war-sky-arena-unleashes-reloaded-update-on-june-30th/), June 29, 2023, read October 20, 2026 — Intangible replaces one missing set and cannot replace two or more at once.
+6. Spokland — [Rune Sets](https://summonerswar.spokland.com/rune/set), [Main Stats](https://summonerswar.spokland.com/rune/stat) (read October 20, 2026), [Prefix Property](https://summonerswar.spokland.com/rune/prefix), [Sub Property](https://summonerswar.spokland.com/rune/sub-stat), [Enchanted Gem](https://summonerswar.spokland.com/rune/enchanted_gem), [Grindstone](https://summonerswar.spokland.com/rune/grindstone), [Immemorial](https://summonerswar.spokland.com/rune/immemorial), [Reappraisal Stone](https://summonerswar.spokland.com/rune/reappraisal_stone) and [Ancient Rune](https://summonerswar.spokland.com/rune/ancient_rune) (read October 19, 2026). Secondary; official text or a reproducible client observation wins.
+7. Summoners War: Sky Arena Wiki — [Runes](https://summonerswar.fandom.com/wiki/Runes), [Enchanted Gem](https://summonerswar.fandom.com/wiki/Enchanted_Gem), [Grindstone](https://summonerswar.fandom.com/wiki/Grindstone) and [Blade](https://summonerswar.fandom.com/wiki/Blade), read as search excerpts on October 19, 2026 (direct fetches refused). Secondary.
+8. SW Exporter, [`app/mapping.js`](https://raw.githubusercontent.com/Xzandro/sw-exporter/master/app/mapping.js), master branch, read October 19, 2026 — set ids, Gem and Grindstone tables, six-star sub maxima, main values, Ancient `extra` 11–15.
+9. [SWEX raw rune records](https://github.com/Xzandro/sw-exporter/issues/316) — `rank` stays `5` while `extra` follows the rarity.
+10. [SW Forge rune parser](https://github.com/antajl/sw-forge/blob/main/js/data/parser.js) — `extra` as rarity, `class` as star class and Ancient marker.
+11. [Xzandro's Ancient roll tables](https://www.reddit.com/r/summonerswar/comments/c0dc2h/ancient_grindstone_ancient_enchanted_gems_min_max/), 2019 — Ancient initial ranges and Ancient Gem and Grindstone tables. Secondary and not re-fetched; partly confirmed by source 12.
+12. The account export `Culpa-21822407.json`, client 9.2.9, August 23, 2026 — field format, `class` and `extra`, stat ids, innate, roll, Gem and Grindstone values.
+13. The developer's account export of October 19, 2026 — Ancient added lines and main values, line counts at +9, Ancient `extra`.
+14. The developer's in-game observations: October 10, 2026 (Manage-panel sort), October 16, 2026 (display against battle ATK) and October 19, 2026 (Immemorial items refused on Ancient runes; an Intangible with two sets one short completes neither).
 
-Formålet med at gengive rækkefølgerne præcist er, at en spiller, der netop har
-sorteret sin boks i spillet, kan sortere ens i JASWA og sammenligne de to lister
-række for række. `scripts/verify-rune-game-sort.mjs` fastholder reglerne, og
-`Rune.obtainedOrder` bærer anskaffelsesrækkefølgen (`rune_id`) af samme grund
-som `Artifact.obtainedOrder`: `date_add` opløser kun til sekundet, og spillet
-tildeler runer i bulk.
-
-**Målt kontra udledt.** `class` markerer Ancient (`class: 16`), mens
-`extra` bærer runens quality. Det er vigtigt at holde dem adskilt: den
-Ancient Rage-rune på Lyn med `extra: 3` er Rare, selv om dens `rank` kan være
-`5`. Selve rækkefølgerne er læst af panelet; den eksport,
-der er ved hånden, er en ældre optagelse af samme konto og indeholder ingen
-runer under 6★, så den kan ikke i sig selv efterprøve rarity-rækkefølgen.
-
-### Power-up Lv. evidence — October 10, 2026
-
-Manage-panel screenshots matched against the developer's current export establish
-the Power-up Lv. tuple in the table above. Slot 1 ends with an ordinary Rare +0
-before slot 2 starts with an Ancient Legend +15: slot precedes level. Within
-slot 1, six-star Rare +15 precedes five-star Legend +15, and five-star Hero +15
-precedes Ancient six-star Legend +12: level precedes star class, and star class
-precedes rarity. Ancient Rare +15 precedes ordinary Legend +15, so Ancient
-precedes rarity here, unlike Grade. Ancient Legend Accuracy precedes Ancient Hero
-Endure, and ordinary Legend Tolerance precedes Hero Energy: rarity precedes set
-in both groups. Sets follow ascending export ids; equal groups follow descending
-rune ids, as Obtained does.
-
-Five ordinary six-star Hero Rage +15 runes in slot 2 have main properties
-ATK, SPD, SPD, SPD, ATK while their ids strictly descend. Main property therefore
-does not group the runes before acquisition. Observed transitions are held as
-anonymous examples in `scripts/verify-rune-game-sort.mjs`; the personal account
-export is not committed. These observations support the current model, not an
-exhaustive measurement of every slot, level and star class. Ancient versus star
-class cannot be isolated on this account: its Ancient runes are all six-star.
-
-## 12. Hvad reglerne ikke afgør
-
-Runeværdi for en rolle, SPD kontra HP %, valg af hvilke Gems, Grindstones eller
-omrulninger der bør bruges, og enhver “efficiency”-/“rune score”-formel er
-produktbeslutninger, ikke spilfakta. De står kun i arbejdsdokumentet.
-
-## 13. Kilder og revisionsregel
-
-1. Com2uS, [Rune System — aktuel spilguide](https://summonerswar.com/en/skyarena/game) — seteffekter, all-monsters-formuleringen, Shield-varighed og Intangible-loft.
-2. Com2uS, [RELOADED developer's note](https://summonerswar.com/en/skyarena/news/list/4225) — Seal, Intangible, power-up og Intangible-begrænsninger.
-3. Com2uS, v9.0.0 update notice, 12 November 2025 — Rune Refinement og begrænsninger. The link this entry used to carry, `summonerswar.com/en/skyarena/news/list/6113`, is a *list* page that shows the newest notice (v9.3.6 on 17 October 2026), not v9.0.0; source 13 is a fixed copy of the text.
-4. [Spokland — Rune Sets](https://summonerswar.spokland.com/rune/set), [Prefix Property](https://summonerswar.spokland.com/rune/prefix), [Sub Property](https://summonerswar.spokland.com/rune/sub-stat), [Enchanted Gem](https://summonerswar.spokland.com/rune/enchanted_gem), [Grindstone](https://summonerswar.spokland.com/rune/grindstone), [Reappraisal Stone](https://summonerswar.spokland.com/rune/reappraisal_stone) og [Ancient Rune](https://summonerswar.spokland.com/rune/ancient_rune) — detaljer om stacking og kampvirkning samt intervaltabeller og Ancient-itemadskillelse. Sekundær kilde; aktuel officiel spiltekst eller reproducerbar klientobservation vinder ved konflikt.
-5. [Summoners War: Sky Arena Wiki — Runes](https://summonerswar.fandom.com/wiki/Runes), [Enchanted Gem](https://summonerswar.fandom.com/wiki/Enchanted_Gem) og [Grindstone](https://summonerswar.fandom.com/wiki/Grindstone) — krydstjek af slots, Shield-grundlag, Gem/Grindstone-regler og almindelige set-effekter. Sekundær kilde.
-6. [SWEX mapping.js](https://github.com/Xzandro/sw-exporter/blob/master/app/mapping.js) — eksportens set-ID-mapping samt Gem- og Grindstone-tabeller.
-7. Brugerleveret `Culpa-21822407.json`, 23. august 2026 — feltformat, `class`/`extra`, stat-ID'er og observerede Prefix-, Gem- og Grindstone-værdier.
-8. [SW Forge rune parser](https://github.com/antajl/sw-forge/blob/main/js/data/parser.js) — `extra` som rarity og `class` som Ancient/star-class input.
-9. [SWEX raw rune records](https://github.com/Xzandro/sw-exporter/issues/316) — real-world records where `rank` stays `5` while `extra` varies with rune quality.
-10. Brugerleveret `full_log.txt`, 23. august 2026 — ingen Rune Statistics-forespørgsel forekommer i den konkrete log.
-11. [Xzandros Ancient roll tables](https://www.reddit.com/r/summonerswar/comments/c0dc2h/ancient_grindstone_ancient_enchanted_gems_min_max/) — Ancient-startintervaller samt Ancient Gem- og Grindstone-tabeller. Sekundær, men den komplette tabel er krydstjekket mod observerede eksportværdier; en reproducerbar klientmåling vinder ved konflikt.
-12. Udviklerens fastlæggelse, 29. september 2026 — en power-up forbedrer hver eksisterende Sub Property med lige stor sandsynlighed, og en ny Sub Property er ligefordelt over de lovlige stattyper (§7).
-13. [Spokland — v9.0.0 Update Notice, 2025-11-12](https://summonerswar.spokland.com/game/update/v9.0.0_update_notice-2025-11-12) — a copy of the official notice's Rune Refinement text, quoted in §9. Secondary as a host, primary in wording.
-
-Ved hver spilopdatering skal set-tabellen, `class`/`extra`-mapping og
-Sub Property-intervaller revalideres. Et ukendt felt eller Rune Set må aldrig
-få en stiltiende fallback-regel.
+At every game update the set table, the `class` and `extra` mapping and the
+sub-property ranges are validated again, and the modelled premises re-checked
+against a fresh account measurement.

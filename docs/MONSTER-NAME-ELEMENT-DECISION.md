@@ -1,8 +1,8 @@
 # An ambiguous monster name is always qualified by its element
 
-**Status:** Binding project rule — a single, deliberate exception to how JASWA
-names things
-**Decided:** September 1, 2026
+**Status:** Binding project rule (decided September 1, 2026) — a single,
+deliberate exception to how JASWA names things
+**Reviewed:** October 20, 2026
 **Enforced by:** `npm run verify:element-qualified-names`
 **Implemented in:** `app/lib/monster-catalog.ts`
 
@@ -25,27 +25,19 @@ The element is written as `rune-sets.ts` writes it — `Water`, `Fire`, `Wind`,
 naming an element, and an interface that says `Water` in an artifact filter must
 not say `water` in a monster name.
 
-## Why this is worth a document of its own
+## Why the name may grow
 
-**Because it contradicts the house instinct, and the instinct is usually
-right.** JASWA's naming is otherwise ruthlessly plain: an artifact's main stat is
-named and never quantified (`AGENTS.md` §5), values are not decorated, and
-nothing is appended to a label that the label does not need. Every habit in this
-codebase says *shorten the name*.
+JASWA's naming is otherwise plain — nothing is appended to a label that the
+label does not need (`AGENTS.md` §5) — so `DHALSIM (Water)` can look like
+clutter. It is not: without it a roster shows five rows reading `DHALSIM`.
 
-Applied here, that instinct produces a roster with five rows reading `DHALSIM`
-and no way to tell which is which. So a future reader — human or agent — who
-finds `DHALSIM (Water)` and recognises it as clutter would be following a good
-rule into a bad outcome. This document exists to stop that edit.
+**The element is the identifying half of the name.** Collaboration units ship
+as five elemental copies under one licensed name. The game distinguishes them
+by the icon's colour frame, which JASWA does not reproduce at every size a name
+appears in.
 
-**The element is not a decoration; it is the identifying half of the name.**
-Collaboration units ship as five elemental copies under one licensed name. The
-game itself distinguishes them by the icon's colour frame, which JASWA does not
-reproduce at every size a name appears in. Without the qualifier the two records
-are the same string.
-
-**Element is also load-bearing, not cosmetic.** An Attribute artifact may only be
-engraved to a monster of a matching element (`ARTIFACT-CANONICAL.md` §2), so a
+**Element is also load-bearing.** An Attribute artifact may only be
+engraved to a monster of a matching element (`ARTIFACT-CANONICAL.md` §1), so a
 user reading a recommendation for `DHALSIM` cannot act on it without knowing
 which DHALSIM. Hiding the element hides the reason a recommendation applies.
 
@@ -53,10 +45,10 @@ which DHALSIM. Hiding the element hides the reason a recommendation applies.
 
 The obvious implementation is a list of affected monsters. It was rejected.
 
-At the time of writing, **54 awakened monsters** share one name across all five
-elements — every Street Fighter, Witcher, Cookie Run, Assassin's Creed, Demon
-Slayer, Tekken and Frieren unit, among others. This is not a DHALSIM quirk; it
-is what every collaboration release does, and Com2uS ships them continually.
+Every collaboration release ships units that share one name across all five
+elements — Street Fighter, Witcher, Cookie Run, Assassin's Creed, Demon Slayer,
+Tekken and Frieren among them — and Com2uS ships them continually;
+`verify:element-qualified-names` prints how many names are ambiguous today.
 
 A hand-maintained list would therefore be wrong within one collaboration, and
 wrong in the quiet way: nobody notices a missing qualifier until they misread

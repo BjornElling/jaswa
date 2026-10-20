@@ -1,7 +1,7 @@
 # Agent rules for JASWA
 
 **Status:** Binding project rules
-**Reviewed:** August 31, 2026
+**Reviewed:** October 20, 2026
 
 Rules an agent must follow when working in this repository. A rule here
 overrides an agent's own habits and defaults. Where a rule and a document in
@@ -37,8 +37,10 @@ file is corrected.
   every other choice is kept. Never reject a whole preferences document because
   one part of it predates the change just made; that is what made every dev
   server restart after a contract change put everything back to defaults.
-  `app/lib/preference-reading.ts` states the rule and
-  `npm run verify:preference-survival` holds it.
+  `app/lib/preference-reading.ts` states the rule,
+  `npm run verify:preference-survival` holds it, and
+  `docs/LOCAL-PERSISTENCE-CONTRACT.md` lists what is saved and which reader
+  reads each part back.
 
 ---
 
@@ -77,18 +79,11 @@ make a record usable; that is `ARTIFACT-CANONICAL.md` §14's prohibition and it
 stands. The two rules meet at rejection: while the meaning is unknown the record
 must fail loudly, so the unknown is visible and someone can go and find out.
 
-**`npm run audit:import-parity` is the check.** It reconciles a real captured
-account against what the readers accept, entity by entity, and reports the
-field behind every shortfall. Run it after any change to a reader, a
-vocabulary table, or an eligibility rule.
-
-It needs a traffic log the helper captured, which is personal data that no
-checkout carries. Without one it says so and exits zero — a skip, not a pass:
-it has measured nothing. A log elsewhere can be named directly
-(`node scripts/audit-import-parity.mjs <path>`), and a plain account export
-works as a one-line stand-in — a single `{"command":"HubUserLogin","response":
-<the export>}` is the shape it reads. When a reader changed and no capture was
-available, say the audit was skipped rather than reporting parity as holding.
+**`npm run audit:import-parity` is the check.** Run it after any change to a
+reader, a vocabulary table, or an eligibility rule.
+`docs/IMPORT-PARITY-CONTRACT.md` is the contract it holds — what each count
+counts, and how to run the audit — and §5 there says why a run without a
+capture is a skip, not a pass.
 
 ---
 
@@ -130,19 +125,16 @@ comes first:
   route that returns an error is a reason to repair the local server, not a
   reason to report the visual change as unverified. Say in the report when the
   server was started or repaired for the check.
-- **VS Code visual-verification rule:** The ChatGPT Browser/in-app browser is
-  not available from the Codex IDE extension or Codex CLI. Do not try to find a
-  browser bridge in this environment and do not treat a missing browser session
-  as a server failure. Drive the page with the installed project Playwright
-  dependency instead — that is the browser for this environment, and it is
-  available for any verification where driving the real page helps.
+- **The browser is the project's Playwright.** Drive the page with the
+  installed `@playwright/test` dependency; it is available for any
+  verification where driving the real page helps. Do not look for another
+  browser bridge, and do not treat the absence of one as a server failure.
 - For a visual or interactive change, run Playwright at a stable viewport,
   drive the real affected flow, and take screenshots before and after the
   relevant interaction. Check both the empty state and the fully populated
   state, and compare the screenshots for unintended movement under rule 2.
   If Playwright cannot launch, state that visual verification was not done;
-  do not replace this check with code inspection or an unavailable Browser
-  bridge.
+  do not replace this check with code inspection.
 - Keep visual verification proportional. Do not inspect every page by ritual
   after a documentation, data-only, or non-visual change. Do inspect the
   affected flow when a change could alter rendering, behaviour, layout, focus,
@@ -154,7 +146,8 @@ comes first:
   requests GitHub or hosting credentials merely to preview or verify JASWA.
 - Do not deploy, publish, save a hosted build, obtain hosting credentials,
   or push to a hosting remote unless the user explicitly asks to publish or
-  deploy. The presence of `.openai/hosting.json` is not publication approval.
+  deploy. `wrangler.jsonc` and `npm run deploy` (`docs/DEPLOYMENT-TARGET.md`)
+  being in the repository is not publication approval.
 - Report which server was used: the user's already-running one, or one started
   for the check. If verification could not happen at all — Playwright would not
   launch, `npm run dev` would not come up — say so plainly rather than
@@ -253,16 +246,16 @@ state it. If something was not tested, say so.
 
 `docs/LANGUAGE-CONTRACT.md` is binding and takes precedence over this section.
 In short: all product work — interface text, identifiers, comments, commit
-messages, new documentation — is written in English, concise and lightly
-playful. Existing Danish documents in `docs/` stay as they are; do not
-translate them unasked.
+messages, documentation — is written in English, concise and lightly
+playful. Every document in `docs/` is English since October 20, 2026.
 
 ## 5. Visual style
 
 The house style is set in `app/globals.css` and stated at the top of it. The
 parts an agent must not quietly break:
 
-- **Colour carries one meaning: "you can act on this."** Gold (`--gold`) marks
+- **Colour carries one meaning: "you can act on this."** Gold (`--text-accent`,
+  with `--gold-deep`, `--gold-edge` and `--gold-ink` for its grounds) marks
   interactive state — the sorted column, the active filter, the current
   section, a chosen option. Data is never coloured for decoration. A fact on
   screen is expressed through weight, position, or form.
@@ -291,41 +284,51 @@ parts an agent must not quietly break:
   A grade is **not** an exception. Tinting artifact quality in the game's own
   five hues was tried and removed: five colours competing across a dense table
   read as decoration rather than information, whatever their provenance. Grade
-  is expressed as text, in its own column.
+  is expressed as text, in its own column. The one recorded allowance is
+  `ARTIFACT-CANONICAL.md` §18.1: a muted 2px rule on the leading edge of an
+  item's row (`app/components/quality-rule.tsx`), outside the reading line and
+  naming its tier in `aria-label` — on the artifact recommendations, the best
+  artifact for a monster, Rune Clean-up and Rune Simulator. That document
+  decides its subject, so the allowance stands; do not extend it to another
+  shape.
 
   Where colour names a fact, the fact stays in the text too, and only the
   colour changes — never the weight, size, or a mark, each of which resizes the
   text and moves what sits beside it under rule 2.
-- **Two-tone emphasis.** Where something is primary-versus-secondary — a
-  preferred set against an acceptable one — full ink (`--ink`) against dimmed
-  (`--faint`) is the established device. Reuse it rather than inventing a
-  second scale.
+- **Four text tones.** Every visible string takes one of `--text-muted`,
+  `--text`, `--text-strong` and `--text-accent`. Where something is
+  primary-versus-secondary — a preferred set against an acceptable one — strong
+  text (`--text-strong`) against muted (`--text-muted`) is the established
+  device. Reuse it rather than inventing a fifth tone.
 - **One 4px rhythm.** Every gap, padding, and inset is a step on `--s1`
   through `--s7`. Nothing lands on an arbitrary 9px or 13px.
-- **Monospace for data, sans for prose.** Numbers use `--mono` with
-  `font-variant-numeric: tabular-nums`, so columns of figures align and do not
-  change width as digits change.
-- **Type comes from a voice, never from a call site.** The top of
-  `globals.css` declares the voices — display, title, heading, lead, body,
-  body-emphasised, control, label, caption, data, data-lead, figure — each as
-  one family, size, weight and tracking. A rule joins a voice's selector list;
-  it does not set `font-size`, `font-weight` or `letter-spacing` of its own.
-  Where a size is genuinely local it is still a step on `--t-micro`…
-  `--t-display`, and tracking is a step on `--track-*`. Two distinctions carry
-  meaning and are worth keeping straight:
-  - **A control naming an *action* is sans; a control naming a *value* is
-    mono.** Calculate, Clear results and Reset filters are actions and read
-    alike; a filter chip saying `Water` or `LEG` is a value out of the game's
-    vocabulary and stays in the data voice. This is why one filter panel can
-    hold two voices without looking careless.
+- **One family, tabular figures.** Prose and values alike are set in IBM Plex
+  Sans (`--font-body`, and `--font-heading` for headings, which today resolve
+  to the same family), so values never look as if they came from another
+  system. Figures use `font-variant-numeric: tabular-nums`, so columns of
+  figures align and do not change width as digits change.
+- **Type comes from a voice, never from a call site.** The type section of
+  `globals.css` declares the voices — display, title, heading, body, body
+  emphasis, control, label, caption and figure — each as one family, size,
+  weight and tracking. A rule joins a voice's selector list; it does not set
+  `font-size`, `font-weight` or `letter-spacing` of its own. Where a size is
+  genuinely local it is still a step on `--type-label` … `--type-figure`, and
+  tracking is a step on `--track-*`. Two distinctions carry meaning and are
+  worth keeping straight:
+  - **A control naming an *action* takes the control voice; a control naming
+    a *value* takes the body voice.** Calculate, Clear results and Reset
+    filters are actions and read alike, at 600; a filter chip saying `Water`
+    or `LEG` is a value out of the game's vocabulary and reads at body weight.
+    Same family, same size: only the weight and the box's tone tell them apart.
   - **Label and caption are the same size and deliberately not the same
     weight.** A label (700, uppercase) names a group or column and is read
     before it; a caption (400) names a value sitting beside it and must stay
     quieter than the value.
 
-  `tests/type-voices.spec.ts` holds the three that drifted worst. Adding a
-  thirteenth voice is a decision to make in `globals.css`, with a note saying
-  what it is for — not a `font-size` added to one component.
+  `tests/type-voices.spec.ts` holds the action voice, the value voice, the
+  label voice and the single family. Adding a voice is a decision to make in
+  `globals.css`, with a note saying what it is for — not a `font-size` added to
+  one component.
 - **Icons are stroked SVG paths**, sized to the type, using `currentColor`. Not
   emoji — they render at a different weight in every browser.
 - **Buttons come from `app/components/button.tsx`.** `Button` and
@@ -364,9 +367,15 @@ parts an agent must not quietly break:
   Artifacts answers from the same engine and the same settings. Concretely:
   - The **rules** live in `app/lib/artifact-optimal-value.ts` (what a preferred
     or acceptable line is worth, what the main property adds, the benchmark in
-    the denominator) and in `artifact-score-protocol.ts` (the engrave rule). Both
-    readers — the packed scorer for rankings, `artifact-value-on-monster.ts`
-    for a single artifact — call those rather than restating them.
+    the denominator) and in `app/lib/compute/artifact-score-protocol.ts` (the
+    engrave rule). Both readers call those rather than restating them: the
+    packed scorer (`app/lib/compute/artifact-score-core.ts`), which the
+    rankings run over every pair and a view reads for one pair through
+    `artifactPairScore()`; and `artifactValueOnMonster()`
+    (`app/lib/artifact-value-on-monster.ts`), which answers for one artifact
+    object on one monster — the library row reads it through
+    `artifactJudgementOnMonster()`, so the row's marks and its score come from
+    one reading.
   - The **settings** come through `scoringSettings()`, which is the one
     classification of what defines a calculation. A view takes the settings
     object, never a loose field plucked out of it; that is how the library
@@ -384,17 +393,20 @@ parts an agent must not quietly break:
   takes a real export as an argument for a wider sweep.
 - **One placement model: Scenario and presets.** `docs/DECK-PRESETS.md` is
   binding. A rune or artifact is engraved at most once per context — Scenario
-  or one preset — and may be engraved in many contexts at once; the decks the
-  game fights with in one battle share one pool — the Siege and World Guild
-  Battle defenses, and the teams of Temple of Chaos (monsters included),
-  Dimension Raid (all three phases), Rift Raid and World Guild Battle — while
-  Siege Battle attacks do not; a pool limits what JASWA does, never what it reads,
-  so an overlap the game allowed is shown as it stands and flagged, and nothing
-  here forms a new one; a relic belongs to Scenario and is read
-  into every preset. Placement is resolved once at import, no item carries an
-  owner field, and every reading of a monster's slots, stats or speed takes its
-  context as an argument. Gear on a monster is **engraved**, never equipped or
-  worn, and **preset** means the game's preset and nothing else.
+  or one preset — and may be engraved in many contexts at once. The decks the
+  game fights with in one battle share one pool — the Siege Battle defenses,
+  and the teams of Temple of Chaos (monsters included), Dimension Raid (across
+  its three phases; a phase's own presets are alternatives and share freely),
+  Rift Raid and World Guild Battle — while Siege Battle attacks
+  do not; a deck whose content is only assumed joins no pool. A pool limits
+  what JASWA does, never what it reads, so an overlap the game allowed is shown
+  as it stands and flagged, and nothing here forms a new one. A relic belongs
+  to Scenario and is read into every preset. Placement is resolved once at
+  import; an item's own `occupiedId` names its Scenario monster only, and
+  every reading of a monster's slots, stats or speed takes its context as an
+  argument (`runesInPreset` for runes). Gear on a monster is **engraved**,
+  never equipped or worn, and **preset** means the game's preset and nothing
+  else.
 - **One Gem rule and one Grindstone rule, however many workspaces spend them.**
   `app/lib/rune-craft-end-state.ts` is the only module that applies
   `RUNE-CANONICAL.md` §8, and `app/lib/rune-craft-items.ts` is the only one that
@@ -449,7 +461,9 @@ parts an agent must not quietly break:
   `speed-tuning-analysis.ts` decides what to simulate and reports it; it never
   restates a rule, and an interval is found by running that one clock at every
   candidate display speed rather than by a second formula. Every speed on
-  screen names its form — display speed, arena speed or dungeon speed.
+  screen names its form — display speed, or the combat speed of its content:
+  arena, dungeon, raid or guild speed, and plain *combat speed* for a content
+  not yet named (`SPEED-TICK-CANONICAL.md` §1).
   `npm run verify:speed-tick` is the check, and confirms every printed interval
   at both of its edges.
 - **Validate everything read back, one choice at a time.** Preferences are
@@ -503,14 +517,17 @@ Before reporting a change complete, all of these hold:
    table, `npm run verify:element-qualified-names` passes.
 9. After a statistics capture or a change to the collector,
    `npm run verify:statistics-tiers` passes.
-10. After a change to the turn-order rules, the speed skill reading or the
-    speed snapshot, `npm run verify:speed-tick` passes.
+10. After a change to the turn-order rules, the speed skill reading, the
+    speed snapshot or the account's buildings (`app/lib/account-buildings.ts`,
+    the Sky Tribe Totem among them), `npm run verify:speed-tick` passes; after
+    a change to the buildings, so does `npm run verify:monster-display-stats`.
 11. After a change to the Rune Clean-up engine, all of
     `verify:rune-substat-weights`, `verify:rune-set-neutrality`,
     `verify:rune-slot-neutrality`, `verify:rune-craft-single-source`,
     `verify:rune-cleanup-calibration`, `verify:rune-cleanup-probability`,
-    `verify:rune-cleanup-craft-monotonic` and `verify:rune-chance-stability`
-    pass, and a **fresh `verify:rune-cleanup-equivalence` baseline** is recorded
+    `verify:rune-cleanup-craft-monotonic`,
+    `verify:rune-cleanup-preference-monotonic` (not in `npm test`) and
+    `verify:rune-chance-stability` pass, and a **fresh `verify:rune-cleanup-equivalence` baseline** is recorded
     in the same commit — `work/` is not committed, so a baseline is always
     captured deliberately before a change and never inherited.
 12. After a change to the stat sheet or to anything under

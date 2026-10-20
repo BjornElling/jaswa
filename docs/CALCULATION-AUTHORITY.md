@@ -1,7 +1,7 @@
 # Calculation authority — SWCalc's game mechanics
 
 **Status:** Binding source rule for every calculation JASWA performs
-**Reviewed:** October 1, 2026
+**Reviewed:** October 20, 2026
 
 ## Rule
 
@@ -9,14 +9,14 @@
 is the **authoritative documentation** for how the game calculates: the damage
 pipeline and its terms (scaling, critical damage, damage bonus, the defense
 factor, ignore defense, variance, additional damage, reductions), combat speed,
-the speed buff, the attack-bar tick, turn order and the unit-specific rules the
-page lists.
+the speed buff, turn order and the unit-specific rules the page lists.
 
 - Where SWCalc states a rule, JASWA follows it. A different source, another
   optimizer's figure or an earlier JASWA choice gives way, and the document
   that recorded the older choice is corrected.
 - Where SWCalc says nothing, the subject's own canonical document in `docs/`
-  decides, as before, and still marks what is **modelled** rather than verified.
+  decides, names its source, and marks what is **modelled** rather than
+  verified.
 - SWCalc calls its formulas "model formulas for prediction and tuning, not
   reverse-engineered game source code". That is the standing of every rule taken
   from it: the best documented model, not the game's code. A reproducible
@@ -25,6 +25,8 @@ page lists.
 
 ## Where JASWA uses it
 
+Read October 19, 2026 (the page carries no date or version).
+
 | SWCalc term | JASWA | Where |
 | --- | --- | --- |
 | Term 2, Crit = 1 + displayed CD | `DMG = ATK × (1 + CR × CD)` | `RUNE-ROLE-METRICS.md` §2 |
@@ -32,25 +34,30 @@ page lists.
 | Term 4, Dbreak = 0.3 | `E.HP D` uses `0.3 × DEF` | `RUNE-ROLE-METRICS.md` §4 |
 | Ch. 2, CombatSpeed = ⌈B(1 + ΣSpd%) + ΣFlat⌉ · SpdBuff | one rounding up, then the buff unrounded | `SPEED-TICK-CANONICAL.md` §2 |
 | Ch. 2, SpdBuff% = ⌊30 · (1 + effect)⌋ | the recipient's artifact SPD UP Effect, truncated | `SPEED-TICK-CANONICAL.md` §2 |
-| Ch. 2, ΔATB = CombatSpeed · TickSize | 7 % per tick | `SPEED-TICK-CANONICAL.md` §3 |
 | Ch. 2, Leo rule | others held to the slowest Leo | `SPEED-TICK-CANONICAL.md` §3.1 |
-| Ch. 2, highest attack bar first; ties in setup order | ties within the team by listed order; SWCalc names no side, so a tie with the enemy goes to the attacker per SWGT and Ellia | `SPEED-TICK-CANONICAL.md` §3.2 |
+| Ch. 2, Attack Bar ties: start-of-battle combat speed, then pick order | ties by start-of-battle combat speed; at equal speed the attacker, then pick order | `SPEED-TICK-CANONICAL.md` §3.2 |
 
-## Reconciliation of October 1, 2026
+## Rules taken from other sources
 
-Three calculations differed from SWCalc and were corrected:
+SWCalc does not state these. Each is stated, with its source, in one place:
 
-1. **E.HP and E.HP D** used `1140 + 3.5 × DEF`, chosen because it reproduced
-   SWOP Pro's figures. SWCalc's defense factor is `1142 + 3.572 × DEF`. JASWA now
-   uses SWCalc's, and its E.HP no longer equals SWOP Pro's (Beth: 63,951 here,
-   62,984 in SWOP Pro).
-2. **The speed buff** multiplied the unrounded speed and rounded the product
-   up: `⌈(B·(1+…) + b) × 1.3⌉`. SWCalc rounds once before the buff and leaves the
-   buffed figure unrounded (its Agrius example: 265 × 1.37 = 363.05).
-3. **Leo** was not modelled. His Eye of the Storm caps every other monster's
-   combat speed at his own; Speed Tuning now applies it.
+| Rule | Source | Stated in |
+| --- | --- | --- |
+| A tick fills 7 % of combat speed, 4.5 % in a raid | Ellia's Wiki, *Attack Bar* | `SPEED-TICK-CANONICAL.md` §3, `speed-tick.ts` |
+| At equal start speed the attacker moves first | SWGT, Ellia's Wiki | `SPEED-TICK-CANONICAL.md` §3.2 |
+| Sky Tribe Totem: 20 levels, 15 % at the top | the Fandom wiki's upgrade table; the export's own level 20 | `SPEED-TICK-CANONICAL.md` §2.1 |
+| Which leads count where, raids included | Fandom *Leader Skill*; XelNecra's 2016 guide; the developer's decisions | `SPEED-TICK-CANONICAL.md` §2.2 |
+| Glory buildings: ids, level tables, everywhere but RTA | RuneManager, swarm-api and Swarfarm for the ids; the Fandom wiki and Com2uS's v6.2.7 notice for the levels; Fandom *Buildings* for the reach | `account-buildings.ts`; `SPEED-TICK-CANONICAL.md` §2.4 |
+| CRI Rate stops at 100 % | established game rule | `criticalRateCapPercent` in `rune-potential-metrics.ts` |
+| Element advantage adds 15 % CRI Rate | Fandom *Attribute Advantage*: "the attacker gets extra 15% critical hit chance" | `elementAdvantageLift` in `monster-stats.ts` |
+| Resistance never falls below 15 %; ACC and RES stop at 100 % | Fandom *Guide: Accuracy and Resistance* | `accuracy-ceiling.ts` |
 
-Everything else JASWA computes either agrees with SWCalc (display speed's
-Swift rounding, the additive speed bucket, flat speed after the percentages,
-the tick, the fullest bar moving first) or is a subject SWCalc does not cover
-(rune efficiency, artifact and relic scoring, the Rune Clean-up probabilities).
+## Where JASWA differs from another optimizer
+
+- **E.HP differs from SWOP Pro by design.** JASWA uses SWCalc's
+  `1142 + 3.572 × DEF`; SWOP Pro's figures fit `1140 + 3.5 × DEF` (Beth: 63,951
+  here, 62,984 in SWOP Pro).
+
+Everything else JASWA computes either agrees with SWCalc or is a subject SWCalc
+does not cover (rune efficiency, artifact and relic scoring, the Rune Clean-up
+probabilities).

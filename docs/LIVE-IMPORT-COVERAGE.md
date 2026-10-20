@@ -1,18 +1,11 @@
 # Live import coverage
 
-**Status:** Binding coverage for the direct-import live route  
-**Reviewed:** September 23, 2026
+**Status:** Binding coverage for the direct-import live route
+**Reviewed:** October 20, 2026
 
-The route is also bound by [Import and Count Parity Contract](./IMPORT-PARITY-CONTRACT.md):
-the prepared profile must have the same account counts as the game for
-monsters, runes, craft items, artifacts, and relics. A response record with a
-zero, missing, or placeholder identifier is not an owned record and must not
-enter a counted collection.
-
-The game can briefly leave a valid craft or Summoned Shrine stack at quantity
-zero after its last item is spent. The import validates its identity and shape,
-then removes that empty remainder before the profile is stored; it does not
-turn an otherwise healthy live account into an unreadable one.
+What the helper's live route reads from the game's traffic. The counts it must
+keep equal to the game's, the zero-stack rule and the ownership rule are
+[Import and Count Parity Contract](./IMPORT-PARITY-CONTRACT.md) §2–§3.
 
 JASWA treats a successful game response as an account mutation when it carries
 an owned record. The live route is deliberately broader than a command allow
@@ -26,10 +19,11 @@ new reward wrapper names do not silently lose a record.
 | Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveUnitBuilding` (Monster Storage and back), any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell requests, and the monsters a `ConvertUnitToItem` request names (crafting Engraved Stones answers with the item alone, so the request is the only record of what it spent; roster and Normal shrine copies both go, and a conversion naming no readable monster or spending an engraved one stops live import) |
 | Sealed Shrine | `unit_storage_normal_list` at the top of a response; `unit_storage_list` from `getUnitStorageList` and from the `GetUnitStorageList` inside `GetWizardDataPart1` | — | Those lists are the whole tab and replace the collection. `SacrificeUnit_V4` answers with only the Summoned stacks it fed from — an empty list when every fodder came from the roster — and updates those stacks alone; a fed stack its answer does not restate, or a top-level Summoned list under any other command, stops live import. `MoveStorageFromTo` is read side by side — see below |
 | Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, reappraisal, refine/convert, engrave/remove, sell and remove lists |
-| Artifacts | `artifact`, `artifact_info`, `artifacts` | V2 `changed_item_list` type `73`; legacy reward crates and quest/mail claims | Upgrade, occupation changes, sell and remove lists |
-| Relics | `relic`, `relic_info`, `relics` | Relic-shaped `changed_item_list` records and reward crates | Power-up, occupation changes, breakdown/sell and remove lists; the root relic stays present because one relic can be engraved on many monsters |
+| Artifacts | `artifact`, `artifact_info`, `artifacts` | V2 `changed_item_list` type `73`; legacy reward crates and quest/mail claims | Upgrade, engrave/remove, sell and remove lists |
+| Relics | `relic`, `relic_info`, `relics` | Relic-shaped `changed_item_list` records and reward crates | Power-up, engrave/remove on a unit, breakdown/sell and remove lists; the root relic stays present because one relic can be engraved on many monsters |
 | Gems, grindstones and engraved conversion stones | `rune_craft_item`, `craft`, `craft_item`, `changestone(s)`, craft lists | Craft records inside reward crates and generic account reward containers | Amplify/convert and `SellRuneCraftItem` consume the requested quantity from a stack |
 | Artifact craft materials | `artifact_craft`, `artifact_crafts` | Full artifact-craft records in account reward containers | Explicit artifact-craft removal fields and sell requests |
+| Saved decks | `deck_info` in a `setDeckList` answer; `defense_deck_info` and `server_arena_defense_deck_info` | — | The saved type's decks are replaced whole (`DECK-PRESETS.md` §3) |
 | Other account inventory | `inventory_item`, `inventory_info`, `inventory_item_list` | Full inventory rows in account reward containers | Updated by full account rows; opaque currency-only values remain outside the gear model |
 
 ## Acquisition paths covered
@@ -43,8 +37,8 @@ new reward wrapper names do not silently lose a record.
 - Relic crafting, relic power-ups and relic breakdown rewards.
 - Monster summons, fusion/evolution/awakening/skill changes and feeding when
   the response returns a full or partial account unit.
-- Monster roster/storage moves, one monster or a batch, and gear
-  occupation changes.
+- Monster roster/storage moves, one monster or a batch, and engrave/remove of
+  gear.
 - Sealing a monster into either Sealed Shrine tab and taking one back out, from
   the game's own answer to the move rather than only from a full account read.
 
@@ -66,19 +60,15 @@ The stack list in a move's answer holds only the stacks the move touched, so
 it updates those stacks instead of replacing the tab. A stack left at quantity
 zero is removed.
 
-Any other side, a known side answered without the fields above, gear
-coming off with the seal, or sealing a monster that still carries gear
-opens a capture gap and pauses live import. Before this, the helper assumed
-side `3` was Monster Storage. Sealed Summoned copies were filed as Storage, and
-a monster sealed into the Normal tab stayed in the inventory, because an
-unrecognised move changed nothing and nothing said so.
+Any other side, a known side answered without the fields above, gear coming
+off with the seal, or sealing a monster that still carries gear opens a
+capture gap and pauses live import.
 
 ## What the diagnostic log says
 
-A command that reaches the account model and changes nothing now records that
-it changed nothing. Silence used to be the answer for both "the game said
-nothing about the account" and "the account model does not know this command
-yet", and the second is the one a stale dashboard is made of.
+A command that reaches the account model and changes nothing records that it
+changed nothing, so "the game said nothing about the account" and "the account
+model does not know this command yet" read differently.
 
 ## Safety rules
 
@@ -86,20 +76,16 @@ yet", and the second is the one a stale dashboard is made of.
   or overwrite account data.
 - `getServerArenaRewardInfoForNoti_v2` is a historical award notification,
   never an account mutation. Its `user_reward_info.reward_result` repeats
-  `changed_item_list` records from when the rewards were awarded. Replaying
-  them revived two sold runes after a fresh login on October 11, 2026; it can
-  also roll back upgraded gear and spent inventory quantities. Ignore the
-  notification as a whole. Fresh acquisition responses still update inventory.
+  `changed_item_list` records from when the rewards were awarded; replaying
+  them revives sold runes (observed after a fresh login, October 11, 2026) and
+  can roll back upgraded gear and spent inventory quantities. The notification
+  is ignored as a whole. Fresh acquisition responses still update inventory.
 - **A `before_*` record is history, never account state.** Several commands
   answer with both the record they just changed and the record as it stood
   before: `UpgradeArtifact_v2` returns `artifact` at the new level *and*
   `before_artifact` at the old one. The previous state is this account's own
-  record, which is what makes it dangerous — same identifier, same `wizard_id`,
-  complete valid shape, so every ownership test passes — and its key sorts
-  after the new one, so it was written last and won. A refined artifact kept
-  its old level in the snapshot and JASWA went on marking it unrefined, while
-  the command itself reported having changed the snapshot, because the material
-  it consumed had genuinely changed.
+  record — same identifier, same `wizard_id`, complete valid shape — so every
+  ownership test passes it, and it is ignored by name.
 - New records must either be in an account-owned response container or carry
   the current account's `wizard_id` with a positive entity identifier and an
   owned-record shape. The `wizard_id` alone never turns a preview into

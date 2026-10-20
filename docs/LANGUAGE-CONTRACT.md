@@ -1,7 +1,7 @@
 # Language Contract
 
-**Status:** Binding project rule  
-**Reviewed:** August 23, 2026
+**Status:** Binding project rule
+**Reviewed:** October 20, 2026
 
 ## Rule
 
@@ -22,16 +22,34 @@ accessibility. Keep humour short; make the action or meaning obvious first.
 
 ## Game terminology
 
-Use “monster” and “monsters” by default. **Mon** and **mons** are acceptable
-informal alternatives when explicitly requested by the user.
+Use "monster" and "monsters" by default. **Mon** and **mons** are the user's
+own choice for the interface labels that carry them today — *Value on mon*,
+*Score on this mon*, *mons you own*, *Fodder mon*, *Add mon*, *Use for mons*
+and their kin — and stay there (the user's decision, October 19, 2026). A new
+label uses "monster" unless the user asks for "mon".
 
-A rune, artifact or relic on a monster is **engraved**, never equipped or
-worn; one on no monster is **in inventory**. A **preset** is the game's saved
-deck and nothing else; a monster's own arrangement outside presets is
-**Scenario**. Reserve “default” for a standard setting or starting value,
-never for this placement context. A rune’s drop rarity is **rarity**. Language
-keywords and external API spellings retain their required form.
-`DECK-PRESETS.md` §2 holds the full table.
+The game uses **engrave** for all three kinds of gear: "engraved Runes",
+"Relic Engrave List", the "Rune / Artifact / Relic Engraving Statistics"
+panels. JASWA uses it alone. The full table:
+
+| Concept | JASWA word | Never |
+| --- | --- | --- |
+| A rune, artifact or relic on a monster | **engraved** (verb **engrave**) | equipped, equip, worn, wearer, wears, socketed |
+| A rune or artifact on no monster in a context | **in inventory** | free, unused, spare |
+| One saved deck | **preset** | deck (in the interface), scenario; "team" as the name of the saved deck |
+| The monsters a preset fights with | **team** — "Shares 2 runes with another team" | |
+| The grouping of presets | **content**, by the game's name | preset type, mode |
+| A monster's own arrangement outside presets | **Scenario** | current build, worn build, default |
+| Rune Clean-up's role targets | **roles** | presets |
+| A monster's stated job in Scenario or one content-area | **profile** | preset |
+| A rune's drop tier (Normal … Legend) | **rarity** | quality, grade |
+| A standard setting or starting value | **default** | the Scenario placement context |
+| A speed | its form: **display**, **arena**, **dungeon**, **raid**, **guild** or **combat speed** (`SPEED-TICK-CANONICAL.md` §1) | bare "speed"; a rune line's value is **SPD** |
+
+An artifact's tier (Normal … Legend) reads *Grade* on some pages and *Quality*
+on others; which word wins is open (`DECK-PRESETS.md` §7). Language keywords,
+external API spellings and raw export field names (`occupied_id`, `equip`)
+retain their required form.
 
 ## Exceptions
 

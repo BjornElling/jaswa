@@ -1,7 +1,7 @@
 # Hardware acceleration — where a calculation runs
 
 **Status:** Binding contract for every accelerated calculation
-**Reviewed:** 30 September 2026
+**Reviewed:** October 20, 2026
 
 One rule, for the whole program: **heavy work goes to the graphics card unless the
 user switched it off or the card refused.** This document says what "heavy work"
@@ -37,7 +37,7 @@ a different question than the worker does, and the two can disagree.
 ```ts
 type AcceleratedCalculation<TRequest, TResult> = {
   name: string;
-  cpu(request): TResult;                    // the reference
+  cpu(request): TResult | Promise<TResult>; // the reference
   gpu?(request, context): Promise<TResult>; // the card's version, where one exists
   agrees?(context): Promise<boolean>;       // must it prove itself first
 };
@@ -50,8 +50,8 @@ reason to move yet.
 
 **The card is offered whole questions, never decisions.** Thresholds, policy, gates,
 tie-breaks and anything a verdict turns on stay on the processor, so an answer cannot
-depend on where it was computed. What goes to the card is arithmetic with one number
-coming back.
+depend on where it was computed. What goes to the card is arithmetic whose answer the
+processor can check — a count, a matrix of scores, a shortlist it judges again.
 
 ## 3. The bargain about second implementations
 
@@ -70,7 +70,7 @@ why, and the gate allows exactly that and no more.
 
 ## 4. What WebGPU will not tell you
 
-Four failures, and only two of them announce themselves.
+Four failures, and only one of them is silent.
 
 - **A shader that will not compile** rejects the pipeline. Caught.
 - **A pass WebGPU rejects** does not throw. It drops the commands and leaves the output
@@ -83,24 +83,16 @@ Four failures, and only two of them announce themselves.
   offset of its own. Both take them from one layout module, the shader interpolates
   them into its own source rather than restating them, and a check under `scripts/`
   confirms that every constant the layout declares still reaches the shader and that no
-  record overruns its stride.
-
-  **A workgroup size is one of those offsets**, because `flatIndex` multiplies by it
-  once a dispatch passes 65,535 workgroups. It is written in three places — the
-  `@workgroup_size` attribute, the `WORKGROUP_SIZE` the preamble reads, and the
-  divisor the backend counts workgroups with — so all three interpolate one exported
-  constant. Three literals that agreed today attributed every result in the second
-  dispatch row to the wrong record the moment one of them moved, and the artifact
-  scorer reaches that row at about two thousand artifacts against two thousand
-  monsters.
-
-  **A buffer larger than the card promises is a fourth failure, and the gentlest.**
-  It is refused rather than misread, so the answer is right — but it is the
-  processor's, on precisely the largest account, which is the one the card was for.
-  Every implementation guarantees only 128 MiB for one storage binding, so a
-  calculation whose buffers scale with the account splits its work into passes it
-  knows will fit rather than finding out. Rune Clean-up sends 65,536 jobs at a time,
-  which is 16 MiB of answers.
+  record overruns its stride. **A workgroup size is one of those offsets**, because
+  `flatIndex` multiplies by it once a dispatch passes 65,535 workgroups: the
+  `@workgroup_size` attribute, the `WORKGROUP_SIZE` the preamble reads and the divisor
+  the backend counts workgroups with all interpolate one exported constant.
+- **A buffer larger than the card promises** is refused rather than misread, so the
+  answer is right — but it is the processor's, on precisely the largest account, which
+  is the one the card was for. Every implementation guarantees only 128 MiB for one
+  storage binding, so a calculation whose buffers scale with the account splits its
+  work into passes it knows will fit. Rune Clean-up sends 65,536 jobs at a time, which
+  is 16 MiB of answers.
 
 `verify:webgpu-parameter-layout` does this for the artifact scorer's uniform block,
 `verify:rune-chance-layout` for the rune chance kernel and
@@ -127,11 +119,10 @@ gates on a real card; the same harness would run them.
 | Rune Optimization search (`compute/rune-optimization-*`) | Up to eight workers; the tree on the processor, the tail's pairs on the card or processor (`RUNE-OPTIMIZATION.md` §7) |
 | Everything else | The processor |
 
-The second of those was the first to move after the artifact scorer, and the reason it
-was worth moving is the reason to be careful about the rest: it is the same short arithmetic a few million times with no
-lane depending on another. Most of what is left is not that shape. Relic verdicts are a
-dynamic-programming table per relic, the craft planner is a join, the grids are sorts.
-Moving those to a card would buy little and cost a second implementation each.
+Only work shaped for a card moves: the same short arithmetic many times, with no lane
+depending on another. Most of what is left is not that shape — relic verdicts are a
+dynamic-programming table per relic, the craft planner is a join, the grids are sorts —
+and moving it would buy little and cost a second implementation each.
 
 Even within an accelerated calculation, only the shaped part goes. Rune Clean-up hands
 over one question — how many of a rune's runs cleared a bar — and keeps every
@@ -142,14 +133,6 @@ it before a build enters the table. Artifact scoring hands over the matrix
 and recovers each winning pair's conversion detail on the processor afterwards,
 because that needs the whole reading and not its number.
 
-**What is left to do is to get the remaining account-wide work off the main thread**,
-which is a different job: `relicAdvice`, `allocateRelicEngravings` and `craftReach`
-still run synchronously while the page cannot paint. Rune Simulator now runs the
-experiment in its own worker; every checkpoint's Clean-up verdict uses the same chance
-counter and backend report as Rune Clean-up itself. The two calculations above are
-in workers precisely because that was the defect worth fixing first, and acceleration
-followed.
-
 ## 6. The checks
 
 | Check | What it holds |
@@ -157,7 +140,7 @@ followed.
 | `verify:acceleration-routing` | One module opens a device, one weighs the setting, no worker branches on it or decides in advance what to report |
 | `verify:webgpu-parameter-layout` | The artifact scorer's uniform block is the size the backend uploads, and its workgroup size is one constant rather than three literals |
 | `verify:rune-chance-layout` | Every offset the rune chance shader reads is one the layout declares, and no record overruns its stride |
-| `verify:rune-optimization-layout` | Every offset the optimization shader reads is one the layout declares, and its accumulators and figures are the stat sheet's own |
+| `verify:rune-optimization-layout` | Every offset the optimization shader reads is one the layout declares, its accumulators and figures are the stat sheet's own, and its formula constants equal the processor's with no literal copy left in the shader |
 | `verify:rune-optimization-card` | The optimization shader, run on this machine's card: its agreement gate passes and its searches are the processor's, pick for pick |
 
 The first four read source text. The last executes a shader, and needs a card and the
