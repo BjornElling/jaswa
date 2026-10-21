@@ -74,9 +74,10 @@ function leadReading(stat: LedStat, bonuses: CombatBonuses): string[] {
 }
 
 function pointBonusReading(figure: 'acc' | 'res', bonuses: CombatBonuses, ownValue: number | undefined, ownSets: TeammateSets): string {
-  const teammateBonus = combatStatBonus(figure, bonuses);
-  const ownBonus = combatStatBonus(figure, { ...bonuses, teammateSets: ownSets });
-  const bonus = ownBonus + teammateBonus;
+  /* The copy's own ACC and RES sets reach no figure, so they join its teammates'
+     here; adding two whole bonuses instead once counted the lead twice. */
+  const sets = Object.fromEntries(teamSetBonuses.map(({ name }) => [name, (ownSets[name] ?? 0) + (bonuses.teammateSets?.[name] ?? 0)]));
+  const bonus = combatStatBonus(figure, { ...bonuses, teammateSets: sets });
   if (bonus === 0) return '';
   const value = ownValue === undefined ? '' : ` Battle total: ${Math.min(percentStatCap, ownValue + bonus)}% ${statLabels[figure]}.`;
   return `Added to the shown value in battle: ${[...leadReading(figure, bonuses), ...teamSetReadings(figure, bonuses, ownSets)].join('; ')}.${value}`;

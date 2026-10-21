@@ -5,6 +5,7 @@ import { calculateMonsterTotals, combatStatBonus, monsterEffects, monsterTargetF
 import { copyProfile, readMonsterPreferences, withProfile } from '../app/lib/monster-preferences.ts';
 import { relicMonsterModel } from '../app/lib/relic-monster-value.ts';
 import { noBuildingBonuses, readBuildingBonuses } from '../app/lib/account-buildings.ts';
+import { combatBonusMarks } from '../app/lib/figure-marks.ts';
 
 const monster = {
   con: 659, atk: 637, def: 736, spd: 108,
@@ -103,6 +104,11 @@ assert.equal(crushing.dmg, Math.floor(totals.atk * (1 + Math.min(100, own.criRat
 assert.equal(combatStatBonus('acc', { ...plain, leads: { acc: 40 } }), 40);
 assert.equal(combatStatBonus('res', { ...plain, leads: { res: 41 }, teammateSets: { Tolerance: 1 } }), 51);
 assert.deepEqual(monsterTargetFigures(monster, { ...plain, leads: { acc: 40, res: 41 } }), own, 'ACC and RES leads move no figure');
+/* The battle value beside RES counts the lead once, the copy's own Tolerance set
+   and a teammate's beside it: 15 + 41 + 10 + 10. */
+const resReading = combatBonusMarks('res', { ...plain, leads: { res: 41 }, teammateSets: { Tolerance: 1 } }, 15, { Tolerance: 1 })[0].reading;
+assert.match(resReading, /Battle total: 76% RES\./, resReading);
+assert.match(combatBonusMarks('res', { ...plain, leads: { res: 41 } }, 15)[0].reading, /Battle total: 56% RES\./);
 
 console.log('Monster display stats: Icaru DEF, empty gear, relic mains, crit bonuses and leads in the composites only, and saved choices agree.');
 
