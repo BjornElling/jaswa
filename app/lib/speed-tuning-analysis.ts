@@ -14,7 +14,7 @@ import type { GameRecord } from './game-data';
 import { monsterSpeedParts } from './monster-stats';
 import { elementName } from './rune-sets';
 import { isReadableName, monsterPresentation } from './monster-catalog';
-import { speedContent } from './speed-contents';
+import { combatSpeedNameOf, speedContent } from './speed-contents';
 import type { DungeonStage, SpeedContent } from './speed-contents';
 import { speedLeaderSkill, speedSkillProfile } from './speed-skills';
 import type { SpeedSkillProfile } from './speed-skills';
@@ -475,15 +475,9 @@ export function outOfPlaceCount(reading: TeamReading): number {
   return reading.members.filter((member) => member.verdict.kind === 'early' || member.verdict.kind === 'late').length;
 }
 
-/* Each area's combat speed by name. A content not yet named has no area to
-   name it by, so its figure is the combat speed with General leads alone. */
-const combatSpeedNames: Readonly<Record<SpeedContent['area'], string>> = {
-  arena: 'arena speed', dungeon: 'dungeon speed', guild: 'guild speed', raid: 'raid speed', unnamed: 'combat speed',
-};
-
-/** "arena speed", "dungeon speed" and so on — the page always says which combat speed a figure is. */
+/** The combat speed a team's figures are in, by its content's area (`combatSpeedNameOf`). */
 export function combatSpeedName(reading: TeamReading): string {
-  return combatSpeedNames[reading.content.area];
+  return combatSpeedNameOf(reading.content.area);
 }
 
 /** What an interval asks for, in the words a team's member and a standing rule both use, or `null` where no display speed of that monster alone puts it right: then the line says nothing more. */

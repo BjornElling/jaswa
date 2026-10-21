@@ -280,7 +280,7 @@ for (const id of dungeonIds) {
     `${content.name}'s fastest enemy and useful accuracy follow its stages`);
 }
 check(speedContents.find((content) => content.id === 'arena')?.teamSize === 4, 'arena offence is four monsters');
-/* The profile's Accuracy goals: a Cairos area reads its Speed Tuning floor, so
+/* The profile's Accuracy goal: a Cairos area reads its Speed Tuning floor, so
    the two can never name two figures for one dungeon; the rest are sourced. */
 for (const [contentId, dungeonId] of [['giants', 'giants'], ['dragons', 'dragons'], ['steel', 'steel'], ['punisher', 'punisher']]) {
   check(accuracyCeilings(contentId)[0]?.percent === usefulAccuracy(dungeonId), `${contentId}'s Accuracy goal is its Speed Tuning floor's`);
@@ -288,7 +288,7 @@ for (const [contentId, dungeonId] of [['giants', 'giants'], ['dragons', 'dragons
 check(accuracyCeilings('giants')[0]?.part === 'Abyss Hard' && accuracyCeilings('steel')[0]?.part === 'B10', 'a Cairos goal names its floor as the game does');
 check(accuracyCeilings('rift-raid')[0]?.percent === 15, 'R5 asks 15 % Accuracy: its boss resists 30 %');
 check(accuracyCeilings('fire-beast')[0]?.percent === 0 && accuracyCeilings('dreaming-fairies')[0]?.percent === 35
-  && accuracyCeilings('roaring-beasts')[0]?.percent === 34 && accuracyCeilings('arena-attack')[0]?.percent === 85, 'the sourced Accuracy goals');
+  && accuracyCeilings('roaring-beasts')[0]?.percent === 34 && accuracyCeilings('arena-attack')[0]?.percent === 85, 'the sourced Accuracy goal');
 check(accuracyCeilings('temple-of-chaos').length === 0 && accuracyCeilings('raging-fires').length === 0 && accuracyCeilings(undefined).length === 0,
   'an area no source covers names no goal');
 

@@ -59,7 +59,9 @@ const stated: Partial<Readonly<Record<PresetContentId, readonly AccuracyCeiling[
      accuracy required is 45% for both toa and toah". **Modelled:** Hell's 55 is
      community guidance no source found states, and Swarfarm has no Trial
      enemies to derive it from as `usefulAccuracy` does for a Cairos floor. */
-  'trial-of-ascension': [{ part: 'Normal/Hard', percent: 45 }, { part: 'Hell', percent: 55 }],
+  /* Normal shares Hard's figure and asks no more of a team built for Hard, so
+     the two parts are named for the harder of each, short enough for one line. */
+  'trial-of-ascension': [{ part: 'Hard', percent: 45 }, { part: 'Hell', percent: 55 }],
   /* Swarfarm has no enemies for the Rift. The R5 boss resists 30 % (Theria
      Games, *Summoners War Chaos Beast Guide*), so 15 % — the r/summonerswar
      FAQ's own figure: "PvE accuracy requirements: 0% Rifts, 15% R5". The Rift
@@ -68,6 +70,11 @@ const stated: Partial<Readonly<Record<PresetContentId, readonly AccuracyCeiling[
   'ice-beast': [{ percent: 0 }], 'fire-beast': [{ percent: 0 }], 'wind-beast': [{ percent: 0 }],
   'light-beast': [{ percent: 0 }], 'dark-beast': [{ percent: 0 }],
 };
+
+/** Whether the area's enemies are players, whose stats are whatever their runes give. */
+export function facesPlayers(content: PresetContentId): boolean {
+  return stated[content] === player;
+}
 
 /**
  * The area's ceilings, or none where no source covers its enemies. A Cairos

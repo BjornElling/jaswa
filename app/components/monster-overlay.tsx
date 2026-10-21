@@ -23,7 +23,8 @@ import type { Artifact } from '../lib/artifacts';
 import { usePresets } from '../lib/presets-context';
 import { accountItems, scenarioPresetId, monsterInPreset } from '../lib/presets';
 import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
-import { AccuracyGoals, LeadFields, TeamLeads } from './fight-conditions';
+import { AreaLines, LeadFields, TeamLeads } from './fight-conditions';
+import { areaFacts } from '../lib/area-facts';
 import { readArtifacts } from '../lib/artifacts';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
 import { artifactCategoryLabels, artifactMainPropertyOrder, artifactPropertiesFor } from '../lib/artifact-properties';
@@ -92,10 +93,13 @@ const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 
 const targetRows: ReadonlyArray<{ key: keyof MonsterStatTargets; label: string }> =
   roleTargetColumns.map((column) => ({ key: column.key, label: `${column.label}${column.unit ?? ''}` }));
 
-function Section({ title, context, note, children }: { title: string; context?: string; note?: string; children: ReactNode }) {
+/* `clip` is for a title that changes with a choice, as `context` is: it ends in an
+   ellipsis rather than wrap, and is named whole on hover. */
+function Section({ title, context, clip, note, children }: { title: string; context?: string; clip?: boolean; note?: string; children: ReactNode }) {
+  const clipped = clip || context !== undefined;
   return <section className="overlay-block">
     <header className="overlay-block-head">
-      <h3 className={`overlay-block-title${context === undefined ? '' : ' overlay-block-title-contextual'}`} title={context === undefined ? undefined : `${title} (${context})`}>
+      <h3 className={`overlay-block-title${clipped ? ' overlay-block-title-contextual' : ''}`} title={clipped ? (context === undefined ? title : `${title} (${context})`) : undefined}>
         {title}{context !== undefined && <> <span className="overlay-block-context">({context})</span></>}
       </h3>
       {/* One line, always present, so a block cannot change height as its
@@ -449,6 +453,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   }));
 
   const format = (value: number) => formatNumber(value, general);
+  const area = areaFacts(preset, general);
 
   const toggle = (label: string, checked: boolean, onChange: (checked: boolean) => void) =>
     <label className="overlay-toggle">
@@ -621,9 +626,9 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
                 : <LeadFields values={statedLeads(draft)}
                   onChange={(stat, value) => change((state) => ({ ...state, [leadFieldOf[stat]]: value }))} />}
             </Section>
-            {/* Follows the Build for menu, since the area is what sets the ceiling. */}
-            <Section title="Accuracy goals">
-              <AccuracyGoals preset={preset} />
+            {/* Named for the Build for menu's area, since the area is what sets both figures. */}
+            <Section title={area.heading} clip>
+              <AreaLines facts={area} />
             </Section>
           </div>}
 

@@ -98,6 +98,17 @@ export const speedContents: readonly SpeedContent[] = [
   { id: 'unnamed', name: 'Not yet named', area: 'unnamed', tick: 'standard', teamSize: null, facesEnemies: false, floor: null, floorName: null, stages: [] },
 ];
 
+/* Each area's combat speed by name. A content not yet named has no area to
+   name it by, so its figure is the combat speed with General leads alone. */
+const combatSpeedNames: Readonly<Record<SpeedArea, string>> = {
+  arena: 'arena speed', dungeon: 'dungeon speed', guild: 'guild speed', raid: 'raid speed', unnamed: 'combat speed',
+};
+
+/** "arena speed", "dungeon speed" and so on — every page says which combat speed a figure is. */
+export function combatSpeedNameOf(area: SpeedArea): string {
+  return combatSpeedNames[area];
+}
+
 export function speedContent(id: SpeedContentId): SpeedContent {
   const content = speedContents.find((entry) => entry.id === id);
   if (!content) throw new Error(`Unknown speed content ${id}.`);

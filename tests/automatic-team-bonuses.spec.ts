@@ -65,7 +65,7 @@ test('team bonuses follow the chosen preset automatically, and only Scenario sta
   await expect(table.getByRole('cell', { name: full[8].trim(), exact: true }).first()).toBeVisible();
 });
 
-test('the Accuracy block names the area and its ceiling on one line, and changing area moves nothing', async ({ page }, testInfo) => {
+test('the area block is named for the area, states its Accuracy goal and fastest enemy, and changing area moves nothing', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -83,7 +83,8 @@ test('the Accuracy block names the area and its ceiling on one line, and changin
   await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-1');
   await page.getByRole('button', { name: 'Open profile', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('heading', { level: 3 })).toContainText(['Settings', 'Leads and bonuses', 'Accuracy goals']);
+  await expect(dialog.getByRole('heading', { level: 3 })).toContainText(['Settings', 'Leads and bonuses', 'Arena Attack']);
+  const heading = dialog.locator('.overlay-block').filter({ has: page.locator('.overlay-accuracy') }).locator('.overlay-block-title');
   const label = dialog.locator('.overlay-accuracy-label');
   const value = dialog.locator('.overlay-accuracy-value');
   /* What sits around the goals, and the first goal's own line: neither may move
@@ -91,20 +92,23 @@ test('the Accuracy block names the area and its ceiling on one line, and changin
   const boxes = () => dialog.locator('.overlay-block, .overlay-lead input, .overlay-accuracy-goal:first-child > *').evaluateAll((elements) =>
     elements.map((element) => { const b = element.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; }));
   const whole = () => dialog.locator('.overlay-accuracy-goal > *').evaluateAll((elements) => elements.every((element) => element.scrollWidth <= element.clientWidth));
-  await expect(label).toHaveText(['Arena Attack']);
-  await expect(value).toHaveText(['85%']);
+  await expect(heading).toHaveText('Arena Attack');
+  await expect(label).toHaveText(['Accuracy goal', 'Fastest enemy (arena speed)']);
+  await expect(value).toHaveText(['85%', 'Variable']);
   expect(await whole()).toBe(true);
   const before = await boxes();
   await page.screenshot({ path: testInfo.outputPath('accuracy-arena.png') });
   const area = dialog.getByLabel('Build for', { exact: true });
-  const cases: [string, string[], string[], string][] = [
-    ['Trial of Ascension', ['Trial of Ascension (Normal/Hard)', 'Trial of Ascension (Hell)'], ['45%', '55%'], 'toa'],
+  const cases: [string, string, string[], (string | RegExp)[], string][] = [
+    ['Trial of Ascension', 'Trial of Ascension', ['Accuracy goal (Hard, Hell)', 'Fastest enemy (dungeon speed)'],
+      ['45/55%', 'Unknown'], 'toa'],
     /* A Cairos dungeon reads its Speed Tuning floor; an area no source covers says so. */
-    ["Giant's Keep", ["Giant's Keep (Abyss Hard)"], ['35%'], 'cairos'],
-    ['Temple of Chaos', ['Temple of Chaos'], ['Unknown'], 'unknown'],
+    ["Giant's Keep", "Giant's Keep (Abyss Hard)", ['Accuracy goal', 'Fastest enemy (dungeon speed)'], ['35%', /^\d+$/], 'cairos'],
+    ['Temple of Chaos', 'Temple of Chaos', ['Accuracy goal', 'Fastest enemy (dungeon speed)'], ['Unknown', 'Unknown'], 'unknown'],
   ];
-  for (const [name, labels, values, shot] of cases) {
+  for (const [name, title, labels, values, shot] of cases) {
     await area.selectOption({ label: name });
+    await expect(heading).toHaveText(title);
     await expect(label).toHaveText(labels);
     await expect(value).toHaveText(values);
     expect(await whole()).toBe(true);
@@ -112,7 +116,7 @@ test('the Accuracy block names the area and its ceiling on one line, and changin
     await page.screenshot({ path: testInfo.outputPath(`accuracy-${shot}.png`) });
   }
   /* The longest area name the game has ends in an ellipsis rather than a second line. */
-  await label.first().evaluate((element) => { element.textContent = 'Sanctuary of Dreaming Fairies (Normal/Hard)'; });
+  await heading.evaluate((element) => { element.textContent = 'Sanctuary of Dreaming Fairies (Level 5)'; });
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('accuracy-long.png') });
 });

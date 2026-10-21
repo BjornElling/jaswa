@@ -2563,7 +2563,10 @@ label[for] {
 }
 .rune-optimization-question { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
 .rune-optimization-slot-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
-.rune-optimization-targets { white-space: normal; }
+/* The ranges are the question's middle, set apart from the slots above and the
+   fight below by more than the rows within either. A changed range is plain to see
+   in its own fields, so no caption under them says so. */
+.rune-optimization-targets { white-space: normal; margin-block: var(--s5); }
 /* The fight's conditions under the ranges, three blocks abreast as the profile
    has them — the two crit switches, the leads, and the area's Accuracy — each a
    third of the width, so none crowds the next. */
@@ -5731,6 +5734,9 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   gap: var(--s7);
   align-items: start;
 }
+/* The last block is named for the area, so a long name must end in an ellipsis
+   inside its column rather than widen the block past it. */
+.overlay-settings > .overlay-block { min-width: 0; grid-template-columns: minmax(0, 1fr); }
 .overlay-settings-toggles {
   display: grid;
   grid-template-columns: repeat(2, max-content);
@@ -5785,11 +5791,15 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-team-lead-note { grid-template-columns: var(--glyph-small) minmax(0, 1fr); min-width: 0; }
 .overlay-team-lead-note > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .overlay-team-lead-note > span:only-child { grid-column: 1 / -1; }
-/* Lines of a toggle row's height and spacing: the area at the left, the figure in
-   a column wide enough for "Variable" and "Unknown", so changing area moves neither. An area
-   name too long for the line ends in an ellipsis and is named whole on hover. */
-/* Two lines are kept in every area, since Trial of Ascension names two ceilings. */
+/* Lines of a toggle row's height and spacing: what is set against the team at the
+   left, the figure in a column wide enough for "Variable" and "Unknown", so changing
+   area moves neither. A label too long for the line ends in an ellipsis and is named
+   whole on hover. */
 .overlay-accuracy { display: grid; grid-template-rows: repeat(2, 28px); gap: var(--s1); }
+/* The area names the block, and a long one ends in an ellipsis rather than
+   widening its third of the row. */
+.rune-optimization-area { min-width: 0; }
+.rune-optimization-area > .filter-label { overflow: hidden; text-overflow: ellipsis; }
 .overlay-accuracy-goal {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 7ch;

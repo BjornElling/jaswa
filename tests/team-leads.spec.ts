@@ -127,8 +127,9 @@ test('Rune Optimization states the fight as the profile does, and changes it for
   /* The preset's leads, read off its leaders and not typed; the area's Accuracy goal. */
   await expect(fight.getByRole('list', { name: 'Leads and bonuses' }).getByRole('listitem')).toHaveText(['ATK30%', 'ATK21%', 'HP33%']);
   await expect(fight.getByRole('spinbutton')).toHaveCount(0);
-  await expect(fight.locator('.overlay-accuracy-label')).toHaveText(['Rift Raid (R5)']);
-  await expect(fight.locator('.overlay-accuracy-value')).toHaveText(['15%']);
+  await expect(fight.locator('.rune-optimization-area > .filter-label')).toHaveText('Rift Raid (R5)');
+  await expect(fight.locator('.overlay-accuracy-label')).toHaveText(['Accuracy goal', 'Fastest enemy (raid speed)']);
+  await expect(fight.locator('.overlay-accuracy-value')).toHaveText(['15%', 'Unknown']);
   const boxes = () => panel.locator('.rune-optimization-targets, .rune-optimization-fight > *, .rune-optimization-settings').evaluateAll((elements) =>
     elements.map((element) => { const b = element.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; }));
   const before = await boxes();
@@ -153,7 +154,7 @@ test('Rune Optimization states the fight as the profile does, and changes it for
   await fight.getByRole('spinbutton', { name: 'ATK, in percent' }).fill('50');
   await expect(dmg).not.toHaveText(scenarioDmg);
   await expect(fight.getByText('Changed for this calculation')).toBeVisible();
-  await expect(fight.locator('.overlay-accuracy-value')).toHaveText(['Variable']);
+  await expect(fight.locator('.overlay-accuracy-value')).toHaveText(['Variable', 'Variable']);
   await page.screenshot({ path: testInfo.outputPath('optimization-fight-scenario.png') });
 });
 

@@ -40,7 +40,8 @@ import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
 import { completedTeamSets, isStatFigure, leadStats, monsterStatSheet } from '../lib/monster-stats';
 import type { CombatBonuses, MonsterStatSheet, TeammateSets } from '../lib/monster-stats';
-import { AccuracyGoals, LeadFields, TeamLeads } from './fight-conditions';
+import { AreaLines, LeadFields, TeamLeads } from './fight-conditions';
+import { areaFacts } from '../lib/area-facts';
 import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
 import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
 import type { Preset } from '../lib/presets';
@@ -422,6 +423,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const workDetails = trial.work ? `After reduction: ${trial.work.slots.join(' × ')} choices by slot; ${trial.work.physicalRunes} physical runes, ${trial.work.variants} end states; ${trial.work.figures} judged figures, ${trial.work.ceilings} ceilings; up to ${trial.work.freeSlots} slots without a required set. Gems, Grindstones, stock limits and Intangible follow this calculation's settings.` : undefined;
   const changed = (same: boolean) => (same ? undefined : 'Changed for this calculation');
   const display = selected ? monsterPresentation(selected.masterId) : undefined;
+  const area = areaFacts(preset, general);
 
   return <WorkspacePage header={<OptimizationHeader />}>
     <div className="rune-optimization">
@@ -611,8 +613,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
                     element={element} general={general} />} />;
               })}
             </div>
-            <Provenance>{changed(monsterStatTargetKeys.every((key) => requirements.targets[key] === profile.requirements.targets[key]
-              && requirements.ceilings[key] === profile.requirements.ceilings[key])) ?? ''}</Provenance>
           </div>
           {/* What the fight adds, as the profile states it and changeable here for
               this calculation alone. A preset's leads are its leaders' and are only
@@ -639,9 +639,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
                 })} />}
               <Provenance>{changed(leadStats.every((stat) => requirements.leads?.[stat] === profile.requirements.leads?.[stat])) ?? ''}</Provenance>
             </div>
-            <div className="filter-group">
-              <span className="filter-label">Accuracy goals</span>
-              <AccuracyGoals preset={preset} />
+            <div className="filter-group rune-optimization-area">
+              <span className="filter-label" title={area.heading}>{area.heading}</span>
+              <AreaLines facts={area} />
             </div>
           </div>
         </div>

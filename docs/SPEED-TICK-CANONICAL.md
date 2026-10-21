@@ -20,7 +20,7 @@ A bare "speed" is not used. A rune line's value is **SPD**.
 | Name | What it is | Where it comes from |
 | --- | --- | --- |
 | **display speed** | Base speed plus the rune bonus: the figure on the game's monster screen and on every other JASWA page | `calculateMonsterTotals` in `monster-stats.ts`, the one stat sheet |
-| **combat speed** | The speed the clock runs on (§2). Named by where the team fights: | `combatSpeedName` in `speed-tuning-analysis.ts` |
+| **combat speed** | The speed the clock runs on (§2). Named by where the team fights: | `combatSpeedNameOf` in `speed-contents.ts` |
 | — **arena speed** | combat speed with arena's leaders | §2.2, area Arena |
 | — **dungeon speed** | combat speed with dungeon leaders | §2.2, area Dungeon |
 | — **raid speed** | combat speed in Rift Raid and the Dimension Raid phases | §2.2, area Raid |
@@ -383,10 +383,12 @@ no accepted name reads `Enemy n`, and `verify:speed-tick` fails on it.
 part of the turn order: the team overlay quotes the accuracy a monster can
 still use on the floor — its highest resistance less the 15 % floor no
 resistance falls below (`usefulAccuracy` in `accuracy-ceiling.ts`, which
-states the rule and its source once). The monster overlay's *Accuracy goals*
-read the same figure for a Cairos area, named by its floor as the game names
-it (`Giant's Keep (Abyss Hard)`, `Steel Fortress (B10)`), so the two pages
-cannot disagree about one dungeon.
+states the rule and its source once). The monster overlay's area block reads
+the same figure for a Cairos area as its *Accuracy goal*, and the floor's
+fastest enemy (`fastestEnemySpeed`) as its *Fastest enemy (dungeon speed)*,
+under a heading naming the floor as the game names it (`Giant's Keep (Abyss
+Hard)`, `Steel Fortress (B10)`), so the two pages cannot disagree about one
+dungeon.
 
 ## 7. Judging a tune
 

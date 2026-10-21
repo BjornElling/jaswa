@@ -1,9 +1,7 @@
-import { accuracyCeilings } from '../lib/accuracy-ceiling';
+import type { AreaFacts } from '../lib/area-facts';
 import type { FigureMark } from '../lib/figure-marks';
 import { leadMaximum, readLeadField } from '../lib/monster-preferences';
-import { monsterProfileAreaName } from '../lib/monster-profile-scope';
 import type { Leads, LeadStat } from '../lib/monster-stats';
-import type { Preset } from '../lib/presets';
 import { describeLeaderSkill, leaderAreaPhrase, leaderSkillStat } from '../lib/speed-skills';
 import type { LeaderSkill } from '../lib/speed-skills';
 import { statLabels } from '../lib/stat-labels';
@@ -16,7 +14,7 @@ import { MonsterPortrait } from './monster-portrait';
  * What a fight adds to a copy, drawn once for the two places that state it: the
  * monster profile, whose answers are the defaults, and Rune Optimization, which
  * may change them for one calculation. The leads a preset fights under, the
- * leads Scenario states by hand, and the Accuracy the area can use.
+ * leads Scenario states by hand, and what the area sets against the team.
  */
 
 /* The four leads Scenario states, in the order the user asked for them: the
@@ -95,22 +93,15 @@ export function TeamLeads({ reading, names }: { reading: TeamLeadReading; names:
 }
 
 /**
- * The most Accuracy the area can use, one line a ceiling. Scenario spans every
- * content, so its ceiling varies with the fight; an area no source covers says
- * so rather than borrow another's figure. A long area name ends in an ellipsis
- * rather than pushing the figure off its fixed column; an area of two ceilings
- * takes two lines.
+ * The area's lines under its own heading, which the caller sets in its own
+ * voice. A long label ends in an ellipsis rather than pushing the figure off
+ * its fixed column.
  */
-export function AccuracyGoals({ preset }: { preset: Pick<Preset, 'kind' | 'content'> | undefined }) {
-  const areaName = monsterProfileAreaName(preset ?? { kind: 'scenario', content: null });
-  const stated = accuracyCeilings(preset?.content?.id);
-  const goals = stated.length === 0
-    ? [{ label: areaName, value: !preset || preset.kind === 'scenario' ? 'Variable' : 'Unknown' }]
-    : stated.map((ceiling) => ({ label: ceiling.part === undefined ? areaName : `${areaName} (${ceiling.part})`, value: `${ceiling.percent}%` }));
+export function AreaLines({ facts }: { facts: AreaFacts }) {
   return <div className="overlay-accuracy">
-    {goals.map((goal) => <div className="overlay-accuracy-goal" key={goal.label}>
-      <p className="overlay-accuracy-label" title={goal.label}>{goal.label}</p>
-      <p className="overlay-accuracy-value">{goal.value}</p>
+    {facts.lines.map((line) => <div className="overlay-accuracy-goal" key={line.label}>
+      <p className="overlay-accuracy-label" title={line.label}>{line.label}</p>
+      <p className="overlay-accuracy-value">{line.value}</p>
     </div>)}
   </div>;
 }

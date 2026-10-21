@@ -57,7 +57,8 @@ figure to rank by. Its leads are the chosen preset's leaders' and only Scenario'
 stated (none unless stated; §2.2.3). The profile only remembers these answers and hands
 them to this page as its starting point: the page shows every one — under the stat
 ranges, *Settings* (*Always crits*, *Always element advantage*), *Leads and bonuses* and
-the area's *Accuracy goals*, drawn by the same components as the profile
+the area's block — named for the area, with its *Accuracy goal* and *Fastest enemy* —
+drawn by the same components as the profile
 (`fight-conditions.tsx`) — and any may be changed for one calculation without touching
 the profile. A preset's leads are read off its leaders here too, never typed. Whether a held Immemorial Gem or Grindstone may be spent is not the
 profile's: it is a setting of this page, shared by every monster, because the stock it
