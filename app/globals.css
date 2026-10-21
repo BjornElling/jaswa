@@ -319,7 +319,7 @@ label[for] {
 /* Body — every sentence, label and value that is not a heading. */
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
 .overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
-.rune-build-set, .overlay-toggle, .overlay-lead, .overlay-team-lead, .overlay-accuracy-label, .overlay-accuracy-value,
+.rune-build-set, .overlay-toggle, .overlay-leads-fields, .overlay-lead, .overlay-team-lead, .overlay-accuracy-label, .overlay-accuracy-value,
 .engraved-rune-main, .engraved-rune-innate, .engraved-rune-subs, .engraved-artifact-main, .engraved-artifact-subs,
 .engraved-relic-main, .engraved-relic-unique,
 .checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
@@ -2564,6 +2564,15 @@ label[for] {
 .rune-optimization-question { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
 .rune-optimization-slot-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
 .rune-optimization-targets { white-space: normal; }
+/* The fight's conditions under the ranges, three blocks abreast as the profile
+   has them — the two crit switches, the leads, and the area's Accuracy — each a
+   third of the width, so none crowds the next. */
+.rune-optimization-fight {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s6);
+  align-items: start;
+}
 .rune-optimization-settings {
   display: grid;
   gap: var(--s4);
@@ -5286,6 +5295,9 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The monster profile is about one monster, so its name is the largest type on
+   the panel, a step on the scale rather than a size of its own. */
+.monster-overlay-head .overlay-hero-name { font-size: var(--type-figure); line-height: 1.15; }
 /* The user's own name for the copy, dimmed against the catalogue's: it
    qualifies the name rather than competing with it. */
 .overlay-hero-nickname { color: var(--text); }
@@ -5721,7 +5733,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-settings {
   display: grid;
   grid-template-columns: max-content max-content minmax(0, 1fr);
-  gap: var(--s6);
+  gap: var(--s7);
   align-items: start;
 }
 .overlay-settings-toggles {
@@ -5729,18 +5741,18 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   grid-template-columns: repeat(2, max-content);
   grid-auto-rows: 28px;
   align-items: center;
-  gap: var(--s1) var(--s5);
+  gap: var(--s1) var(--s4);
 }
 .overlay-leads-fields {
   --lead-field: calc(3ch + 2 * var(--s3) + 2px);
-  --lead-columns: 8ch var(--lead-field) var(--glyph-small);
-  --lead-line: calc(8ch + var(--lead-field) + var(--glyph-small) + 2 * var(--s2));
+  --lead-columns: 7ch var(--lead-field) var(--glyph-small);
+  --lead-line: calc(7ch + var(--lead-field) + var(--glyph-small) + 2 * var(--s2));
   display: grid;
   grid-template-columns: repeat(2, var(--lead-line));
   grid-template-rows: repeat(2, 36px);
   grid-auto-flow: column;
   justify-content: start;
-  gap: var(--s1) var(--s6);
+  gap: var(--s1) var(--s5);
 }
 .overlay-lead { display: grid; grid-template-columns: var(--lead-columns); align-items: center; gap: var(--s2); color: var(--text-muted); }
 /* A preset's leads are read off its leaders, one line each in the box the typed
@@ -5754,30 +5766,27 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   margin: 0;
   padding: 0;
   list-style: none;
-  grid-template-columns: var(--lead-line);
+  grid-template-columns: calc(var(--glyph-small) + var(--s2) + var(--lead-line));
   grid-template-rows: repeat(3, 24px);
   grid-auto-flow: row;
   row-gap: 0;
-  width: calc(2 * var(--lead-line) + var(--s6));
+  width: calc(2 * var(--lead-line) + var(--s5));
   height: calc(2 * 36px + var(--s1));
   align-content: center;
 }
-.overlay-team-lead { display: grid; grid-template-columns: var(--lead-columns); align-items: center; gap: var(--s2); color: var(--text-muted); }
+.overlay-team-lead { display: grid; grid-template-columns: var(--glyph-small) var(--lead-columns); align-items: center; gap: var(--s2); color: var(--text-muted); }
+/* The leader's face, inside the line's own height. */
+.overlay-team-lead .monster-portrait { width: var(--glyph-small); height: var(--glyph-small); }
 .overlay-team-lead-value { padding-inline: var(--s3); text-align: right; color: var(--text-strong); font-variant-numeric: tabular-nums; }
 .overlay-team-lead[data-state='unreached'] :is(.overlay-team-lead-stat, .overlay-team-lead-value) {
   color: var(--text-muted);
   text-decoration: line-through;
 }
-/* A line with no lead to show keeps a lead line's width, ending in an ellipsis;
-   the block keeps both columns whatever it holds. */
-.overlay-team-lead-note {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  align-self: center;
-}
+/* A line with no lead to show keeps a lead line's width, its words ending in an
+   ellipsis; the block keeps both columns whatever it holds. */
+.overlay-team-lead-note { grid-template-columns: var(--glyph-small) minmax(0, 1fr); min-width: 0; }
+.overlay-team-lead-note > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overlay-team-lead-note > span:only-child { grid-column: 1 / -1; }
 /* Lines of a toggle row's height and spacing: the area at the left, the figure in
    a column wide enough for "Variable" and "Unknown", so changing area moves neither. An area
    name too long for the line ends in an ellipsis and is named whole on hover. */
@@ -5787,7 +5796,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   display: grid;
   grid-template-columns: minmax(0, 1fr) 7ch;
   align-items: center;
-  gap: var(--s3);
+  gap: var(--s2);
   min-width: 0;
 }
 .overlay-accuracy-label { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }

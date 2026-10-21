@@ -54,7 +54,12 @@ complete no set (no unless the owner said yes), whether an Intangible rune may b
 (yes unless the owner said no), whether the monster always crits or always has element
 advantage, the range each figure must fall in, and the
 figure to rank by. Its leads are the chosen preset's leaders' and only Scenario's are
-stated (none unless stated; §2.2.3). Whether a held Immemorial Gem or Grindstone may be spent is not the
+stated (none unless stated; §2.2.3). The profile only remembers these answers and hands
+them to this page as its starting point: the page shows every one — under the stat
+ranges, *Settings* (*Always crits*, *Always element advantage*), *Leads and bonuses* and
+the area's *Accuracy goals*, drawn by the same components as the profile
+(`fight-conditions.tsx`) — and any may be changed for one calculation without touching
+the profile. A preset's leads are read off its leaders here too, never typed. Whether a held Immemorial Gem or Grindstone may be spent is not the
 profile's: it is a setting of this page, shared by every monster, because the stock it
 spends is the account's. A slot the owner never answered stays unrestricted (`Any`), as
 it does in the monster profile. Community mains and their shares are reference text
@@ -163,8 +168,10 @@ Raid 1, 2 and 3 take part in every Rift Raid battle, and each one's leader leads
 preset, and one built in JASWA, fights under its own leader alone.
 
 A lead counts for a member where its area reaches the content and its element, if it
-names one, is the member's; of the leads of one attribute only the largest counts
-(`leadReaches`, `SPEED-TICK-CANONICAL.md` §2.2). ATK, DEF and HP leads are a share of
+names one, is the member's. Leads of different stats add up; of the leads of one stat for
+the same monsters — both for every monster, or both for one element — only the largest
+counts; a lead of one stat for every monster and one for an element add up on that
+element's monsters (`leadReaches`, `SPEED-TICK-CANONICAL.md` §2.2). ATK, DEF and HP leads are a share of
 base summed with every other percentage and rounded once, as the game counts a leader
 skill; CRI Rate, CRI Dmg, ACC and RES leads add points. ATK, CRI Rate and CRI Dmg reach
 DMG; HP and DEF reach E.HP and E.HP D; ACC and RES reach no composite and are named
@@ -175,8 +182,8 @@ speed leads itself.
 *Leads and bonuses* on the monster overlay lists, in a preset's area, one line per leader
 the team fights under — the stat and its percentage. A lead that does nothing for this
 copy stays on its line, muted and struck through, with a red mark naming where it would
-count (*Only counts in arena.*, *Only counts on Wind monsters.*) or which lead of its kind
-counts instead. A preset with no leader says *No leader in this preset*; a leader the
+count (*Only counts in arena.*, *Only counts on Wind monsters.*) or which lead of its stat for
+the same monsters counts instead. A preset with no leader says *No leader in this preset*; a leader the
 import no longer holds, or one with no leader skill, keeps a line saying so. The block
 keeps the box Scenario's fields take, so changing area moves nothing beside it.
 
@@ -198,7 +205,8 @@ the rule that they reach their holder too, in battle only, are `RUNE-CANONICAL.m
 (`teamSetBonuses` in `monster-stats.ts`). There are no manual counts. Profiles stay shared per content-area, but a team bonus is derived per preset,
 never saved in a profile. A preset that saves monsters only uses their Scenario runes.
 Scenario is the entire roster, not one team, and supplies no bonus from other monsters.
-Other presets and a shared pool do not add their monsters to the team.
+Other presets and a shared pool do not add their monsters to the team — not even the other
+Rift Raid decks, whose leaders lead every team of the battle but whose sets do not.
 
 Own and teammate HP/ATK/DEF contributions join the other combat percentages before
 rounding and reach DMG, E.HP and E.HP D exactly once. Accuracy and Tolerance are

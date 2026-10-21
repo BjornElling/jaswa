@@ -84,7 +84,8 @@ export function teamLeadsFor(preset: Preset, presets: readonly Preset[], unitId:
   const bonuses: Leads = {};
   for (const lead of leads) {
     const stat = lead.skill === null ? null : statOf[lead.skill.attribute];
-    if (lead.reach === 'counts' && stat !== null && lead.skill !== null) bonuses[stat] = lead.skill.percent;
+    /* A general lead and an element's lead of one stat both count, and add up. */
+    if (lead.reach === 'counts' && stat !== null && lead.skill !== null) bonuses[stat] = (bonuses[stat] ?? 0) + lead.skill.percent;
   }
   return { leads, bonuses };
 }

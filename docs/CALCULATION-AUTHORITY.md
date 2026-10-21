@@ -47,7 +47,7 @@ SWCalc does not state these. Each is stated, with its source, in one place:
 | At equal start speed the attacker moves first | SWGT, Ellia's Wiki | `SPEED-TICK-CANONICAL.md` §3.2 |
 | Sky Tribe Totem: 20 levels, 15 % at the top | the Fandom wiki's upgrade table; the export's own level 20 | `SPEED-TICK-CANONICAL.md` §2.1 |
 | Which leads count where, raids included | Fandom *Leader Skill*; XelNecra's 2016 guide; the developer's decisions | `SPEED-TICK-CANONICAL.md` §2.2 |
-| Leads of one attribute do not stack; Rift Raid 1–3 share their leaders | XelNecra's 2016 guide (stacking; that the largest counts is modelled); the developer, October 20, 2026 (Rift Raid) | `SPEED-TICK-CANONICAL.md` §2.2, `leadReaches` in `speed-tick.ts` |
+| Leads of one stat for the same monsters do not stack, for different monsters they do; Rift Raid 1–3 share their leaders | the developer, October 21, 2026, after Fandom, and XelNecra's 2016 guide (stacking; that the largest counts is modelled); the developer, October 20, 2026 (Rift Raid) | `SPEED-TICK-CANONICAL.md` §2.2, `leadReaches` in `speed-tick.ts` |
 | Glory buildings: ids, level tables, everywhere but RTA | RuneManager, swarm-api and Swarfarm for the ids; the Fandom wiki and Com2uS's v6.2.7 notice for the levels; Fandom *Buildings* for the reach | `account-buildings.ts`; `SPEED-TICK-CANONICAL.md` §2.4 |
 | CRI Rate stops at 100 % | established game rule | `criticalRateCapPercent` in `rune-potential-metrics.ts` |
 | Element advantage adds 15 % CRI Rate | Fandom *Attribute Advantage*: "the attacker gets extra 15% critical hit chance" | `elementAdvantageLift` in `monster-stats.ts` |

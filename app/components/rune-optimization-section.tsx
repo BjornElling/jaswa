@@ -37,7 +37,8 @@ import { monsterNameCollator } from '../lib/monster-grid';
 import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
-import { completedTeamSets, monsterTargetFigures } from '../lib/monster-stats';
+import { completedTeamSets, leadStats, monsterTargetFigures } from '../lib/monster-stats';
+import { AccuracyGoals, LeadFields, TeamLeads } from './fight-conditions';
 import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
 import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
 import type { Preset } from '../lib/presets';
@@ -225,6 +226,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const team = useMemo(() => preset && selected ? teamBonusesFor(preset, presets, selected.unitId, items, roster) : noTeamBonuses,
     [preset, presets, selected, items, roster]);
   const { teammateSets } = team;
+  const leaderNames = useMemo(() => Object.fromEntries(Object.entries(names).map(([id, entry]) => [id, entry.name])), [names]);
   const profile = useMemo(() => (selected
     ? profileRequirements(selected.unitId, selected.masterId, profiles[selected.unitId], team)
     : undefined), [selected, profiles, team]);
@@ -612,6 +614,36 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             <Provenance>{changed(monsterStatTargetKeys.every((key) => requirements.targets[key] === profile.requirements.targets[key]
               && requirements.ceilings[key] === profile.requirements.ceilings[key])) ?? ''}</Provenance>
           </div>
+          {/* What the fight adds, as the profile states it and changeable here for
+              this calculation alone. A preset's leads are its leaders' and are only
+              read; Scenario's may be changed like any other answer. */}
+          <div className="rune-optimization-fight">
+            <div className="filter-group">
+              <span className="filter-label">Settings</span>
+              <CheckboxRow label="Always crits" checked={requirements.alwaysCrits}
+                onChange={(checked) => change((state) => ({ ...state, alwaysCrits: checked }))} />
+              <CheckboxRow label="Always element advantage" checked={requirements.alwaysElementAdvantage}
+                onChange={(checked) => change((state) => ({ ...state, alwaysElementAdvantage: checked }))} />
+              <Provenance>{changed(requirements.alwaysCrits === profile.requirements.alwaysCrits
+                && requirements.alwaysElementAdvantage === profile.requirements.alwaysElementAdvantage) ?? ''}</Provenance>
+            </div>
+            <div className="filter-group">
+              <span className="filter-label">Leads and bonuses</span>
+              {team.leads !== null
+                ? <TeamLeads reading={team.leads} names={leaderNames} />
+                : <LeadFields values={requirements.leads ?? {}} onChange={(stat, value) => change((state) => {
+                  const leads = { ...state.leads };
+                  if (value === undefined) delete leads[stat];
+                  else leads[stat] = value;
+                  return { ...state, leads };
+                })} />}
+              <Provenance>{changed(leadStats.every((stat) => requirements.leads?.[stat] === profile.requirements.leads?.[stat])) ?? ''}</Provenance>
+            </div>
+            <div className="filter-group">
+              <span className="filter-label">Accuracy goals</span>
+              <AccuracyGoals preset={preset} />
+            </div>
+          </div>
         </div>
 
         <aside className="rune-optimization-settings" aria-label="Settings">
@@ -681,7 +713,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             <h2 id="rune-optimization-reset-title">Put back what the profile says?</h2>
           </div>
           <p id="rune-optimization-reset-text">
-            Every change made here for this calculation — builds, slots, ranking, stats and the set allowances — goes back to the monster’s profile.
+            Every change made here for this calculation — builds, slots, ranking, stats, the set allowances, crits, element advantage and Scenario’s leads — goes back to the monster’s profile.
           </p>
           <div className="dialog-actions">
             <Button autoFocus onClick={() => setConfirmingReset(false)}>Keep my changes</Button>

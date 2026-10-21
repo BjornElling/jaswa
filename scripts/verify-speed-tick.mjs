@@ -86,13 +86,18 @@ for (const leaderArea of ['General', 'Arena', 'Dungeon', 'Guild']) {
     check(leaderAreaReaches(leaderArea, area) === counts, `${leaderArea} lead in ${area}: reach and speed agree`);
   }
 }
-/* Rift Raid 1–3 fight under all three leaders, and speed leads do not stack:
-   the largest that reaches a member counts. */
+/* Rift Raid 1–3 fight under all three leaders. Speed leads for the same
+   monsters do not stack, the largest counting; for different monsters they add up. */
 check(battleSpeedPercent([{ percent: 19, area: 'General', element: null }, { percent: 24, area: 'General', element: null }], 'raid', 'Fire') === 24,
   'two speed leads give the larger, not the sum');
 check(battleSpeedPercent([{ percent: 33, area: 'General', element: 'Wind' }, { percent: 24, area: 'General', element: null }], 'raid', 'Fire') === 24,
   'a lead that does not reach a member leaves the next one to count');
 check(battleSpeedPercent([], 'raid', 'Fire') === 0, 'no leader, no lead');
+check(battleSpeedPercent([{ percent: 24, area: 'General', element: null }, { percent: 15, area: 'General', element: 'Fire' }], 'raid', 'Fire') === 39
+  && battleSpeedPercent([{ percent: 24, area: 'General', element: null }, { percent: 15, area: 'General', element: 'Fire' }], 'raid', 'Wind') === 24,
+  'a general and an element speed lead add up on that element, and only there');
+check(battleSpeedPercent([{ percent: 15, area: 'General', element: 'Fire' }, { percent: 19, area: 'General', element: 'Fire' }], 'raid', 'Fire') === 19,
+  'two speed leads for the same element do not add up');
 
 /* 2. The clock. */
 for (const [speed, ticks] of [[1429, 1], [715, 2], [477, 3], [358, 4], [286, 5], [285, 6], [239, 6], [143, 10]]) {

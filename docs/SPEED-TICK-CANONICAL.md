@@ -144,12 +144,23 @@ Raid battle, and each one's leader leads all three decks (the developer,
 October 20, 2026; `battleDecks` in `preset-contents.ts`). A team of one of them
 fights under its own leader and the other two's, which Speed Tuning reads off
 those decks and never chooses (`otherLeaders`); another Rift Raid preset, and
-one built in JASWA, fights under its own. Leads of one attribute do not stack —
-XelNecra's guide above: "if two players decide to bring a speed leader, only
-one of the leader abilities will come into effect". That the largest is the one
-that counts is **modelled**. `leadReaches` (`speed-tick.ts`) is the one rule —
-area, element, then no stacking — that the speed figures and every other lead
-reader (`team-leads.ts`, `RUNE-OPTIMIZATION.md` §2.2.3) apply.
+one built in JASWA, fights under its own. Which of a battle's leads add up
+(the developer, October 21, 2026, after Fandom):
+
+- **Different stats add up:** +33 % ATK, +24 % CRI Rate and +33 % HP all count.
+- **One stat, the same monsters, does not:** two leads of +33 % ATK for every
+  monster give +33 %, not +66 % — XelNecra's guide above agrees: "if two
+  players decide to bring a speed leader, only one of the leader abilities
+  will come into effect". The largest counts; that it is the largest is
+  **modelled**.
+- **One stat, different monsters, adds up:** +33 % ATK for every monster and
+  +40 % ATK for Fire monsters give a Fire monster +73 %, and any other +33 %.
+
+`leadReaches` (`speed-tick.ts`) is the one rule — area, element, then the
+stacking above — that the speed figures and every other lead reader
+(`team-leads.ts`, `RUNE-OPTIMIZATION.md` §2.2.3) apply. The teams' Fight,
+Enhance and Determination sets are not shared across the battle's decks: a
+team set reaches its own team only (§2.2.4 of `RUNE-OPTIMIZATION.md`).
 
 ### 2.3 Guild
 

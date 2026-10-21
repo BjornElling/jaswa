@@ -459,7 +459,7 @@ console.log('Automatic team bonuses: all five sets, Intangible, own-set exclusio
 
 /* Leads are the preset's leaders' (`team-leads.ts`): Rift Raid 1–3 fight one
    battle under all three leaders, a lead counts only where its area and element
-   reach, and leads of one attribute do not stack. Master ids from the snapshot:
+   reach, and leads of one attribute for the same monsters do not stack. Master ids from the snapshot:
    14404 CRI Rate 24 % everywhere, 12813 CRI Rate 10 %, 11801 SPD 19 %, 16714 CRI
    Dmg 25 %, 10101 RES 20 %, 14115 ATK 33 % in arena, 10502 ATK 30 % on Fire. */
 {
@@ -494,6 +494,16 @@ console.log('Automatic team bonuses: all five sets, Intangible, own-set exclusio
   const twoCrits = [raid(1, ['7'], '7'), raid(2, ['1'], '1')];
   assert.deepEqual(summary(reading(twoCrits[0], '7', twoCrits)), [['7', 'outranked'], ['1', 'counts']]);
   assert.deepEqual(reading(twoCrits[0], '7', twoCrits).bonuses, { criRate: 24 });
+
+  /* One stat, different monsters: a lead for every monster (13911, ATK 25 %)
+     and a lead for Fire (11202, ATK 40 %) add up on a Fire member; two Fire
+     leads of one stat do not (10502's 30 % gives way to 11202's 40 %). */
+  const atkRoster = new Map([...roster, unit('20', 13911, 4), unit('21', 11202, 2), unit('22', 10502, 2), unit('23', 99999, 1)]);
+  const atk = [raid(1, ['20', '21'], '20'), raid(2, ['21'], '21'), raid(3, ['22', '23'], '22')];
+  const fire = teamLeadsFor(atk[0], atk, '21', atkRoster);
+  assert.deepEqual(fire.leads.map((lead) => lead.reach), ['counts', 'counts', 'outranked']);
+  assert.deepEqual(fire.bonuses, { atk: 65 }, 'a general and an element lead of one stat add up');
+  assert.deepEqual(teamLeadsFor(atk[0], atk, '23', atkRoster).bonuses, { atk: 25 }, 'a Water member takes the general lead alone');
 
   /* A leader the import no longer holds, and one with no leader skill, add nothing and are still named. */
   const odd = fake('deck-1-1', 'game', 'arena-attack', 1, ['8', 'gone'], 'gone');
