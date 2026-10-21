@@ -37,14 +37,14 @@ Will in a row is a conservative opening comparison build, not a claim that every
 
 ### Team 1 — Theomars lead: Miriam and burst
 
-| Monster | Position | Recommended rune sets | ACC requirement | EHP reference | Raid combat SPD | Display SPD |
-| --- | --- | --- | --- | ---: | ---: | ---: |
-| Fran | Front | Fight / Fight / Will | 15% | 145k | 227 | 186 |
-| Darion (2A) | Front | Fight / Shield / Will | 15%; awakening covers it | 175k | 216 | 177 |
-| Miriam | Front | Fight / Enhance / Will | No investment | 145k | 215 | 174 |
-| Brandia | Back | Rage / Fight | 15% | 85k | 210 | 166 |
-| Theomars (Leader) | Front | Vampire / Will | 15% | 130k | 202 | 163 |
-| Baleygr | Back | Rage / Will | No investment | 85k | 197 | 157 |
+| Monster            | Position | Recommended rune sets      | ACC requirement          | EHP reference | Raid combat SPD | Display SPD |
+| ------------------ | -------- | -------------------------- | ------------------------ | ------------: | --------------: | ----------: |
+| Fran               | Front    | Fight / Fight / Will       | 15%                      |          145k |             227 |         186 |
+| Darion (2A)        | Front    | Fight / Shield / Will      | 15%; awakening covers it |          175k |             216 |         177 |
+| Miriam             | Front    | Fight / Enhance / Will     | No investment            |          145k |             215 |         174 |
+| Brandia            | Back     | Rage / Fight               | 15%                      |           85k |             210 |         166 |
+| Theomars (Leader)  | Front    | Vampire / Will             | 15%                      |          130k |             202 |         163 |
+| Baleygr            | Back     | Rage / Will                | No investment            |           85k |             197 |         157 |
 
 **Required opening aura:** Darion carries one complete Shield set (two Shield runes). It grants Baleygr an opening shield and an extra Knowledge source; one individual Shield rune does not activate the set. Keep this set on Team 1 in every baseline and candidate build involving Baleygr. With his own Will, he starts with two Knowledge while his passive is active.
 
@@ -56,14 +56,14 @@ Brandia gets first consideration for offensive improvement, but her actual skill
 
 ### Team 2 — Tesarion lead: twins and control
 
-| Monster | Position | Recommended rune sets | ACC requirement | EHP reference | Raid combat SPD | Display SPD |
-| --- | --- | --- | --- | ---: | ---: | ---: |
-| Riley | Front | Fight / Fight / Will | No investment | 145k | 226 | 187 |
-| Hwa | Front | Rage / Fight | 15%; awakening covers it | 130k | 221 | 180 |
-| Tesarion (Leader) | Front | Rage / Fight | 15%; awakening covers it | 130k | 214 | 175 |
-| Sabrina | Back | Rage / Fight | 15% | 85k | 209 | 169 |
-| Talia | Back | Rage / Fight | 15% | 85k | 203 | 162 |
-| Dias | Front | Fight / Tolerance / Will | 15% | 150k | 197 | 157 |
+| Monster            | Position | Recommended rune sets      | ACC requirement          | EHP reference | Raid combat SPD | Display SPD |
+| ------------------ | -------- | -------------------------- | ------------------------ | ------------: | --------------: | ----------: |
+| Riley              | Front    | Fight / Fight / Will       | No investment            |          145k |             226 |         187 |
+| Hwa                | Front    | Rage / Fight               | 15%; awakening covers it |          130k |             221 |         180 |
+| Tesarion (Leader)  | Front    | Rage / Fight               | 15%; awakening covers it |          130k |             214 |         175 |
+| Sabrina            | Back     | Rage / Fight               | 15%                      |           85k |             209 |         169 |
+| Talia              | Back     | Rage / Fight               | 15%                      |           85k |             203 |         162 |
+| Dias               | Front    | Fight / Tolerance / Will   | 15%                      |          150k |             197 |         157 |
 
 Riley's S3 removes **one harmful effect from each ally**, heals and grants ATK. Her immunity skills are separate decisions; an opening ATK buff does not itself prove immunity coverage. S4 requires totems and cannot be assumed available immediately. Test triple-aura Riley before retaining Violent for its familiar PvP value; compare Violent / Fight only if extra healing or cleansing turns improve this raid's results. [Riley skills](https://www.sw-database.com/riley)
 
@@ -71,14 +71,14 @@ The twin pair is the primary damage package. Hwa supplies slow and local ATB red
 
 ### Team 3 — Akhamamir lead: team-ups and debuffs
 
-| Monster | Position | Recommended rune sets | ACC requirement | EHP reference | Raid combat SPD | Display SPD |
-| --- | --- | --- | --- | ---: | ---: | ---: |
-| Colleen (2A) | Back | Fight / Fight / Will | 15% | 90k | 255 | 213 |
-| Amarna | Front | Fight / Fight / Will | 15% | 145k | 252 | 212 |
-| Loren | Back | Revenge / Tolerance / Will | 15%; awakening covers it | 90k | 240 | 200 |
-| Seren (2A) | Front | Rage / Fight | 15% | 130k | 239 | 198 |
-| Raoq (2A) | Front | Vampire / Fight | 15% | 130k | 231 | 188 |
-| Akhamamir (Leader) | Front | Rage / Fight | 15% | 130k | 213 | 174 |
+| Monster            | Position | Recommended rune sets      | ACC requirement          | EHP reference | Raid combat SPD | Display SPD |
+| ------------------ | -------- | -------------------------- | ------------------------ | ------------: | --------------: | ----------: |
+| Colleen (2A)       | Back     | Fight / Fight / Will       | 15%                      |           90k |             255 |         213 |
+| Amarna             | Front    | Fight / Fight / Will       | 15%                      |          145k |             252 |         212 |
+| Loren              | Back     | Revenge / Tolerance / Will | 15%; awakening covers it |           90k |             240 |         200 |
+| Seren (2A)         | Front    | Rage / Fight               | 15%                      |          130k |             239 |         198 |
+| Raoq (2A)          | Front    | Vampire / Fight            | 15%                      |          130k |             231 |         188 |
+| Akhamamir (Leader) | Front    | Rage / Fight               | 15%                      |          130k |             213 |         174 |
 
 Colleen heals and buffs ATK; Amarna supplies recovery and team cleansing. **Neither grants immunity.** The early supports' Will protects them before their first actions; compare Will on the damage dealers too if opening Oblivion, attack break or slow costs more than Fight contributes. [Colleen skills](https://www.sw-database.com/colleen), [Amarna skills](https://www.sw-database.com/amarna-light-anubis)
 
