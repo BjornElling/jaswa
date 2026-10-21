@@ -482,15 +482,14 @@ and says so where it matters.
   orders a content's decks by `deck_seq`; whether the export carries the
   game's order needs a capture after July 15, 2026.
 - **Which saved decks make up one battle** in a content of several decks per
-  battle (§1) whose decks the export does not tell apart — Temple of Chaos,
-  Rift Raid, World Guild Battle. Every saved deck of such a content is read as
+  battle (§1) whose decks the export does not tell apart — Temple of Chaos and
+  World Guild Battle. Every saved deck of such a content is read as
   one pool, so two alternative teams for the same place in a battle that share
   a rune show as a fault on both though they never fight together. Dimension
   Raid does not have this gap: its phases are separate contents, and a phase's
-  own presets are alternatives (§4, *Pools*). For Rift Raid's *leaders* the gap
-  is closed — Rift Raid 1, 2 and 3 fight every battle together
-  (`RUNE-OPTIMIZATION.md` §2.2.3) — but its pool still spans every Rift Raid
-  deck until it is settled whether decks 4–10 ever stand beside them.
+  own presets are alternatives (§4, *Pools*). Nor does Rift Raid any longer:
+  it has decks 1, 2 and 3 only, and every battle fields all three (the
+  developer, October 20, 2026; `RUNE-OPTIMIZATION.md` §2.2.3).
 - **Team sizes not seen on screen.** Siege Battle and World Guild Battle are
   read as three, Labyrinth, Monster Subjugation, the Towers and Spires as five,
   the Rift of Worlds beasts and Rift Raid as six, Dimension Raid as five.

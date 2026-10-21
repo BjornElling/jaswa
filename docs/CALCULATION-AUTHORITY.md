@@ -52,6 +52,7 @@ SWCalc does not state these. Each is stated, with its source, in one place:
 | CRI Rate stops at 100 % | established game rule | `criticalRateCapPercent` in `rune-potential-metrics.ts` |
 | Element advantage adds 15 % CRI Rate | Fandom *Attribute Advantage*: "the attacker gets extra 15% critical hit chance" | `elementAdvantageLift` in `monster-stats.ts` |
 | Resistance never falls below 15 %; ACC and RES stop at 100 % | Fandom *Guide: Accuracy and Resistance* | `accuracy-ceiling.ts` |
+| An area's Accuracy goal: its most resistant enemy's RES less 15 % | Swarfarm's enemy data (Cairos, Dimension Hole level 5); Theria Games and the r/summonerswar FAQ (R5 15 %, Rift beasts 0 %); Fandom *Trial of Ascension* (45 %); an area no source covers names none | `accuracyCeilings` in `accuracy-ceiling.ts` |
 
 ## Where JASWA differs from another optimizer
 

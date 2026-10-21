@@ -61,10 +61,12 @@ test('the Accuracy block names the area and its ceiling on one line, and changin
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  /* A Trial of Ascension deck beside the fixture's own, so one copy stands in a
-     player area, a dungeon with no known ceiling and one with a known one. */
+  /* A Trial of Ascension and a Temple of Chaos deck beside the fixture's own, so
+     one copy stands in a player area, an area of two ceilings, a Cairos dungeon
+     and an area no source covers. */
   const source = JSON.parse(readFileSync(account, 'utf8'));
   source.deck_list.push({ deck_type: 6, deck_seq: 1, unit_id_list: [11, 0, 0, 0, 0], leader_unit_id: 0, equip: null });
+  source.deck_list.push({ deck_type: 23, deck_seq: 1, unit_id_list: [11, 0, 0, 0, 0], leader_unit_id: 0, equip: null });
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'automatic-team-bonuses.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(source)),
   });
@@ -89,7 +91,9 @@ test('the Accuracy block names the area and its ceiling on one line, and changin
   const area = dialog.getByLabel('Build for', { exact: true });
   const cases: [string, string[], string[], string][] = [
     ['Trial of Ascension', ['Trial of Ascension (Normal/Hard)', 'Trial of Ascension (Hell)'], ['45%', '55%'], 'toa'],
-    ["Giant's Keep", ["Giant's Keep"], ['Variable'], 'variable'],
+    /* A Cairos dungeon reads its Speed Tuning floor; an area no source covers says so. */
+    ["Giant's Keep", ["Giant's Keep (Abyss Hard)"], ['35%'], 'cairos'],
+    ['Temple of Chaos', ['Temple of Chaos'], ['Unknown'], 'unknown'],
   ];
   for (const [name, labels, values, shot] of cases) {
     await area.selectOption({ label: name });

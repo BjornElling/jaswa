@@ -510,8 +510,10 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
 
   const areaName = monsterProfileAreaName(preset ?? { kind: 'scenario', content: null });
   const stated = accuracyCeilings(preset?.content?.id);
+  /* Scenario spans every content, so its ceiling varies with the fight; an area
+     no source covers says so rather than borrow another's figure. */
   const accuracyGoals = stated.length === 0
-    ? [{ label: areaName, value: 'Variable' }]
+    ? [{ label: areaName, value: !preset || preset.kind === 'scenario' ? 'Variable' : 'Unknown' }]
     : stated.map((ceiling) => ({ label: ceiling.part === undefined ? areaName : `${areaName} (${ceiling.part})`, value: `${ceiling.percent}%` }));
 
   const toggle = (label: string, checked: boolean, onChange: (checked: boolean) => void) =>

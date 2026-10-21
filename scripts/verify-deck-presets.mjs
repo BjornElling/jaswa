@@ -472,17 +472,18 @@ console.log('Automatic team bonuses: all five sets, Intangible, own-set exclusio
     id, kind, name: id, number, members, leaderUnitId, content: contentId === null ? null : presetContent(contentId),
   });
   const raid = (number, members, leader) => fake(`deck-3-${number}`, 'game', 'rift-raid', number, members, leader);
-  const battle = [raid(1, ['1', '9'], '1'), raid(2, ['2', '5'], '2'), raid(3, ['3', '6'], '3'), raid(4, ['4'], '4')];
+  /* Rift Raid has decks 1, 2 and 3 only, and every battle fields all three. */
+  const battle = [raid(1, ['1', '9'], '1'), raid(2, ['2', '5', '4'], '2'), raid(3, ['3', '6'], '3')];
   const reading = (preset, unitId, presets = battle) => teamLeadsFor(preset, presets, unitId, roster);
   const summary = (read) => read.leads.map((lead) => [lead.unitId, lead.reach]);
 
   assert.deepEqual(battleLeaders(battle[1], battle).map((leader) => leader.unitId), ['2', '1', '3'],
     'a Rift Raid deck fights under its own leader first, then the battle\'s others in deck order');
-  assert.deepEqual(battleLeaders(battle[3], battle).map((leader) => leader.unitId), ['4'], 'Rift Raid 4 is no deck of the battle');
   const first = reading(battle[0], '9');
   assert.deepEqual(summary(first), [['1', 'counts'], ['2', 'counts'], ['3', 'counts']]);
   assert.deepEqual(first.bonuses, { criRate: 24, criDmg: 25 }, 'SPD reaches no figure here; CRI Rate and CRI Dmg do');
-  assert.deepEqual(reading(battle[3], '4').bonuses, { res: 20 });
+  const resisting = [raid(1, ['4'], '4'), raid(2, ['1'], null), raid(3, ['2'], null)];
+  assert.deepEqual(reading(resisting[2], '2', resisting).bonuses, { res: 20 }, 'a leader of another deck reaches a deck with none');
 
   /* An Arena lead counts in no raid; a Fire lead only on a Fire member. */
   const arenaLed = [raid(1, ['5'], '5'), raid(2, ['6', '9'], '6')];

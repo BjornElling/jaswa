@@ -371,8 +371,11 @@ no accepted name reads `Enemy n`, and `verify:speed-tick` fails on it.
 **Useful accuracy.** The snapshot also keeps each enemy's `resist`. It is not
 part of the turn order: the team overlay quotes the accuracy a monster can
 still use on the floor — its highest resistance less the 15 % floor no
-resistance falls below (`resistanceFloorPercent` in `accuracy-ceiling.ts`,
-which states the rule and its source once).
+resistance falls below (`usefulAccuracy` in `accuracy-ceiling.ts`, which
+states the rule and its source once). The monster overlay's *Accuracy goals*
+read the same figure for a Cairos area, named by its floor as the game names
+it (`Giant's Keep (Abyss Hard)`, `Steel Fortress (B10)`), so the two pages
+cannot disagree about one dungeon.
 
 ## 7. Judging a tune
 

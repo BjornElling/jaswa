@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
  * A preset's leads are read off its leaders (`team-leads.ts`); only Scenario
  * states them by hand. The account's leaders, from the speed fixture:
  * 1 Wind, ATK 30 % on Wind monsters; 2 ATK 21 % in arena; 3 Fire, SPD 28 % in
- * dungeons; 5 ATK 33 % in dungeons; 6 HP 33 % everywhere.
+ * dungeons; 6 HP 33 % everywhere. Rift Raid has decks 1, 2 and 3 only.
  */
 const fixture = fileURLToPath(new URL('./fixtures/speed-account.json', import.meta.url));
 const deck = (type: number, seq: number, members: number[], leader: number) =>
@@ -19,7 +19,6 @@ async function open(page: Page) {
     deck(3, 1, [1, 3, 0, 0, 0, 0], 1),
     deck(3, 2, [2, 6, 0, 0, 0, 0], 2),
     deck(3, 3, [6, 4, 0, 0, 0, 0], 6),
-    deck(3, 4, [5, 1, 0, 0, 0, 0], 5),
     deck(1, 1, [2, 1, 0, 0], 2),
     deck(1, 2, [1, 0, 0, 0], 0),
   ];
@@ -47,8 +46,11 @@ test('a Rift Raid deck fights under the leaders of Rift Raid 1, 2 and 3, each le
   await page.setViewportSize({ width: 1920, height: 1080 });
   await open(page);
   const dialog = await profile(page, 'deck-3-1', '1');
-  /* Its own leader first, then the battle's other decks; Rift Raid 4 is not one of them. */
+  /* Its own leader first, then the battle's other two decks, read down one under the other. */
   await expect(leadLines(page)).toHaveText(['ATK30%', 'ATK21%', 'HP33%']);
+  const places = await leadLines(page).evaluateAll((lines) => lines.map((line) => line.getBoundingClientRect()).map(({ x, y }) => ({ x, y })));
+  expect(new Set(places.map(({ x }) => x)).size).toBe(1);
+  expect(places.every((place, at) => at === 0 || place.y > places[at - 1].y)).toBe(true);
   const [own, arena, hp] = [0, 1, 2].map((at) => leadLines(page).nth(at));
   await expect(own).toHaveAttribute('data-state', 'counts');
   await expect(hp).toHaveAttribute('data-state', 'counts');
@@ -69,12 +71,6 @@ test('a Rift Raid deck fights under the leaders of Rift Raid 1, 2 and 3, each le
   await expect(leadLines(page).nth(0)).toHaveAttribute('data-state', 'unreached');
   await expect(leadLines(page).nth(0).getByRole('img', { name: 'Only counts on Wind monsters.' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('rift-raid-fire.png') });
-  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
-
-  /* Rift Raid 4 fights alone, under its own dungeon lead, which no raid counts. */
-  await profile(page, 'deck-3-4', '1');
-  await expect(leadLines(page)).toHaveText(['ATK33%']);
-  await expect(leadLines(page).first()).toHaveAttribute('data-state', 'unreached');
 });
 
 test('the leads block keeps its box from Scenario to a preset, empty or led', async ({ page }, testInfo) => {
