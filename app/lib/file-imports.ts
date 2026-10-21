@@ -444,7 +444,7 @@ function validateAccountCollections(value: GameRecord): string | undefined {
     && !isValidIdentifiedCollection(value.rune_craft_item_list, 'craft_item_id', isValidCraftRecord)) {
     return 'This file contains an invalid craft-item collection.';
   }
-  /* The buildings move every arena and dungeon speed and every stat they
+  /* The buildings move every combat speed and every stat they
      touch, so a building list that cannot say a level is refused rather than
      read as "no building". */
   return accountBuildingsProblem(value);

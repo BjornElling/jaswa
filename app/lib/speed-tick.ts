@@ -1,19 +1,20 @@
 /**
  * The game's turn-order rules, and the only place JASWA states them.
  *
- * Everything Speed Tuning shows — an arena speed, a dungeon speed, who moves
- * when, an interval of display speeds — is computed here or from what this
+ * Everything Speed Tuning shows — a combat speed, who moves when, an interval
+ * of display speeds — is computed here or from what this
  * module returns. `docs/SPEED-TICK-CANONICAL.md` is the written form of the same
  * rules, with their sources and the points the sources leave open; a rule
  * changed here is changed there in the same commit.
  *
- * Three speeds, never confused (§1 of that document):
+ * Two speeds, never confused (§1 of that document):
  * - **display speed** — base speed plus the rune bonus, the figure the game's
  *   monster screen and every other JASWA page show. Swift's 25 % is inside it,
  *   rounded up to a whole number.
- * - **arena speed** and **dungeon speed** — the combat speed in that content:
- *   base speed times totem, leader and Swift percentages, plus flat rune speed,
- *   rounded up once over the whole sum. Swift is exact here, not rounded.
+ * - **combat speed** — the speed in a fight, whatever the content: base speed
+ *   times totem, leader and Swift percentages, plus flat rune speed, rounded up
+ *   once over the whole sum. Swift is exact here, not rounded. Which leads
+ *   count depends on where the team fights; the name does not.
  *
  * Attack bars are reported in hundredths of a percent — a turn is 10,000 — and
  * every amount a skill names is in the same unit. The clock itself counts a
@@ -183,8 +184,8 @@ function combatSpeedThousandths(sheet: SpeedSheet): number {
 }
 
 /**
- * Combat speed — arena speed or dungeon speed, depending on the percentages
- * the sheet was given: ⌈B·(1 + t + l + s) + b⌉, one rounding over the whole.
+ * Combat speed, with whatever percentages the sheet was given for its content:
+ * ⌈B·(1 + t + l + s) + b⌉, one rounding over the whole.
  */
 export function combatSpeed(sheet: SpeedSheet): number {
   return Math.ceil(combatSpeedThousandths(sheet) / 1_000);

@@ -145,7 +145,7 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
 {
   /* §4: a one-ally boost goes to the lowest other bar under auto battle — never
      to the caster, whose bar has just emptied — unless the skill names the
-     highest. The Giant's Keep team that showed it, at its dungeon speeds:
+     highest. The Giant's Keep team that showed it, at its combat speeds:
      Konamiya fills Teshar, who has just moved, and Teshar's second turn comes
      before Prilea's, as observed in the game on October 8, 2026. */
   const fill = (target) => [{ kind: 'ally-attack-bar', amount: 10_000, target }];
@@ -188,7 +188,7 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
      ⌊30 · (1 + effect)⌋ % (SWCalc: Agrius at +24 % is 37 %, +22 % is 36 %). */
   check(speedBuffPotency(0) === 30 && speedBuffPotency(24) === 37 && speedBuffPotency(22) === 36 && speedBuffPotency(16) === 34,
     'the speed buff is ⌊30 · (1 + SPD UP Effect)⌋ %');
-  /* The Dragon's Lair team that showed it, at its dungeon speeds: Agrius's own
+  /* The Dragon's Lair team that showed it, at its combat speeds: Agrius's own
      buff after every turn takes his second turn before Julie's only once his
      artifacts lift it to 35 %, as the game played it on October 9, 2026. */
   const lair = (effect) => simulateBattle([

@@ -117,7 +117,7 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
         {dungeon !== null && <div className="speed-dungeon-choice">
           <dl className="speed-dungeon-facts" data-shown="true">
             <dt className="type-caption">Fastest enemy</dt>
-            <dd>{formatNumber(fastestEnemySpeed(dungeon), general)} dungeon speed</dd>
+            <dd>{formatNumber(fastestEnemySpeed(dungeon), general)} combat speed</dd>
             <dt className="type-caption">Acc needed</dt>
             <dd>{usefulAccuracy(dungeon)}%</dd>
           </dl>

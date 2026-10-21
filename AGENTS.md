@@ -471,9 +471,10 @@ parts an agent must not quietly break:
   `speed-tuning-analysis.ts` decides what to simulate and reports it; it never
   restates a rule, and an interval is found by running that one clock at every
   candidate display speed rather than by a second formula. Every speed on
-  screen names its form — display speed, or the combat speed of its content:
-  arena, dungeon, raid or guild speed, and plain *combat speed* for a content
-  not yet named (`SPEED-TICK-CANONICAL.md` §1).
+  screen names its form, and there are two: *display speed*, as the game's
+  monster screen shows it, and *combat speed*, the speed in a fight — one name
+  in every content, never arena, dungeon, raid or guild speed
+  (`SPEED-TICK-CANONICAL.md` §1).
   `npm run verify:speed-tick` is the check, and confirms every printed interval
   at both of its edges.
 - **Validate everything read back, one choice at a time.** Preferences are

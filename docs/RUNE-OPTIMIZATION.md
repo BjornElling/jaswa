@@ -131,8 +131,8 @@ judged on the figure as the table shows it.
   Crystal Altar HP %, Ancient Sword ATK %, the Sanctuary of the copy's own element ATK %,
   Fallen Ancient Guardian CRI Dmg points and Sky Tribe Totem SPD %). A CRI Rate range of
   100 on a copy with a 24-point crit lead asks the runes for 76. A SPD range is the combat
-  speed of the preset's content (`SPEED-TICK-CANONICAL.md` §1) — raid speed in a Rift Raid
-  preset — and plain combat speed in Scenario, which counts the totem and no lead.
+  speed of the preset's content (`SPEED-TICK-CANONICAL.md` §1) — with Rift Raid's leads in a
+  Rift Raid preset, and in Scenario with the totem and no lead.
 - **The three composites** — DMG, E.HP and E.HP D — are read from those eight.
 
 Under each range the page shows the display stat, as the game's monster panel has it, and

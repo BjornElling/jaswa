@@ -17,7 +17,7 @@ export type DungeonId = 'giants' | 'dragons' | 'necropolis' | 'spiritual' | 'ste
 export type OpenContentId = 'other-dungeon' | 'guild' | 'raid' | 'unnamed';
 export type SpeedContentId = 'arena' | DungeonId | OpenContentId;
 
-/** One stage of a dungeon floor: its enemies' dungeon speeds, resistance percents and game monster ids, in one order. */
+/** One stage of a dungeon floor: its enemies' combat speeds, resistance percents and game monster ids, in one order. */
 export type DungeonStage = { fastest: number; speeds: readonly number[]; resists: readonly number[]; monsters: readonly number[] };
 
 export type SpeedContent = {
@@ -98,17 +98,6 @@ export const speedContents: readonly SpeedContent[] = [
   { id: 'unnamed', name: 'Not yet named', area: 'unnamed', tick: 'standard', teamSize: null, facesEnemies: false, floor: null, floorName: null, stages: [] },
 ];
 
-/* Each area's combat speed by name. A content not yet named has no area to
-   name it by, so its figure is the combat speed with General leads alone. */
-const combatSpeedNames: Readonly<Record<SpeedArea, string>> = {
-  arena: 'arena speed', dungeon: 'dungeon speed', guild: 'guild speed', raid: 'raid speed', unnamed: 'combat speed',
-};
-
-/** "arena speed", "dungeon speed" and so on — every page says which combat speed a figure is. */
-export function combatSpeedNameOf(area: SpeedArea): string {
-  return combatSpeedNames[area];
-}
-
 export function speedContent(id: SpeedContentId): SpeedContent {
   const content = speedContents.find((entry) => entry.id === id);
   if (!content) throw new Error(`Unknown speed content ${id}.`);
@@ -119,7 +108,7 @@ export function isDungeonId(id: SpeedContentId): id is DungeonId {
   return (dungeonIds as readonly string[]).includes(id);
 }
 
-/** The fastest enemy anywhere on a dungeon floor, in dungeon speed. */
+/** The fastest enemy anywhere on a dungeon floor, in combat speed. */
 export function fastestEnemySpeed(id: DungeonId): number {
   return Math.max(...speedContent(id).stages.map((stage) => stage.fastest));
 }

@@ -15,17 +15,18 @@ Where SWCalc states a rule it decides (`CALCULATION-AUTHORITY.md`).
 
 ## 1. Every speed names its form
 
-A bare "speed" is not used. A rune line's value is **SPD**.
+A bare "speed" is not used, and there are exactly two forms. A rune line's
+value is **SPD**.
 
 | Name | What it is | Where it comes from |
 | --- | --- | --- |
 | **display speed** | Base speed plus the rune bonus: the figure on the game's monster screen and on every other JASWA page | `calculateMonsterTotals` in `monster-stats.ts`, the one stat sheet |
-| **combat speed** | The speed the clock runs on (§2). Named by where the team fights: | `combatSpeedNameOf` in `speed-contents.ts` |
-| — **arena speed** | combat speed with arena's leaders | §2.2, area Arena |
-| — **dungeon speed** | combat speed with dungeon leaders | §2.2, area Dungeon |
-| — **raid speed** | combat speed in Rift Raid and the Dimension Raid phases | §2.2, area Raid |
-| — **guild speed** | combat speed in the Guild tab's contents | §2.2, area Guild |
-| — **combat speed** | the plain name, for a preset whose content is not yet named: General leads only | §2.2 |
+| **combat speed** | The speed the clock runs on (§2): display speed's base and runes with the totem and the leads that count where the team fights (§2.2) — General leads only for a preset whose content is not yet named | `combatSpeed` in `speed-tick.ts` |
+
+One name for every content, by the user's decision of October 21, 2026: an
+earlier "arena speed", "dungeon speed", "raid speed" and "guild speed" made
+the reader ask whether they were four different things. Where the team fights
+decides which leads count, never what the figure is called.
 
 A what-if value is always a display speed. It is turned back into flat rune
 speed (`runeSpeedForDisplay`), so an experiment changes the runes and nothing
@@ -278,7 +279,7 @@ the highest Attack Bar" (*Tactical Bomb*, *Sword of Justice*) goes to the
 highest. The caster is never its own target. The target is chosen once per
 turn, so a skill that fills a bar and grants a buff gives both to the same
 ally. Level bars go to the monster listed first. Observation, October 8, 2026,
-Giant's Keep on full auto at dungeon speeds 182, 181, 176, 173 and 172:
+Giant's Keep on full auto at combat speeds 182, 181, 176, 173 and 172:
 Prilea, Teshar, Konamiya — whose *Resurge* fills Teshar, the lowest bar,
 having just moved — Homunculus, Lyn, then Teshar again before Prilea. The team
 table names the recipient of a member's first turn in the tag under it:
@@ -350,7 +351,7 @@ floor 2) where one exists, otherwise the highest floor.
 | Punisher's Crypt | B10 | No Abyss on Swarfarm |
 | Hall of Magic | B10 | |
 
-Enemy speeds are Swarfarm's per-enemy `speed`, read as dungeon speed. Each
+Enemy speeds are Swarfarm's per-enemy `speed`, read as combat speed. Each
 stage is simulated from empty bars with the team, and the page reports when
 its first enemy moves. **Unverified:** whether the game resets bars between
 stages; the page counts each stage from its start. Several Abyss stages repeat
@@ -385,7 +386,7 @@ still use on the floor — its highest resistance less the 15 % floor no
 resistance falls below (`usefulAccuracy` in `accuracy-ceiling.ts`, which
 states the rule and its source once). The monster overlay's area block reads
 the same figure for a Cairos area as its *Accuracy goal*, and the floor's
-fastest enemy (`fastestEnemySpeed`) as its *Fastest enemy (dungeon speed)*,
+fastest enemy (`fastestEnemySpeed`) as its *Fastest enemy (combat speed)*,
 under a heading naming the floor as the game names it (`Giant's Keep (Abyss
 Hard)`, `Steel Fortress (B10)`), so the two pages cannot disagree about one
 dungeon.

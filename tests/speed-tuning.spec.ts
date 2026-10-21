@@ -126,7 +126,7 @@ test('every preset with a monster is a line under its content, and every line op
   const trialTeam = page.getByRole('dialog', { name: 'Trial of Ascension 1' });
   /* Five places, as a Trial of Ascension deck has, and no enemies to cut in. */
   await expect(trialTeam.locator('.speed-slot')).toHaveCount(5);
-  await expect(trialTeam.getByRole('columnheader', { name: 'Dungeon speed' })).toBeVisible();
+  await expect(trialTeam.getByRole('columnheader', { name: 'Combat speed' })).toBeVisible();
   await expect(trialTeam.getByText('No enemy data for this content')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('speed-trial-team.png') });
   await trialTeam.getByRole('button', { name: 'Close' }).click();
@@ -325,7 +325,7 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await line.click();
 
   /* The dungeon's facts and every stage's row are there before anything moves. */
-  await expect(card.locator('.speed-dungeon-facts')).toContainText(/Fastest enemy\d+ dungeon speedAcc needed\d+%/);
+  await expect(card.locator('.speed-dungeon-facts')).toContainText(/Fastest enemy\d+ combat speedAcc needed\d+%/);
   const enemyTurns = card.getByRole('region', { name: 'Enemy cut in' });
   await expect(enemyTurns.locator('tbody tr')).toHaveCount(4);
   await expect(card.locator('.speed-slot')).toHaveCount(5);
@@ -648,7 +648,7 @@ test('arena presets face a worst-case enemy', async ({ page }, testInfo) => {
   /* A first turn with no later one beside it is not spelled out. */
   await expect(card.getByRole('region', { name: 'Enemy cut in' }).locator('tbody tr')).toHaveText(['Worst caseLushen #2']);
   await expect(card.getByRole('region', { name: 'Enemy cut in' }).getByRole('img', { name: 'Can cut in before Megan (2A)' })).toBeVisible();
-  /* Two copies at one arena speed tie on the bar; both name the field-position
+  /* Two copies at one combat speed tie on the bar; both name the field-position
      decision without suggesting a speed change. Megan is behind Lushen #2 as
      placed, but the worst-case enemy gets in before her, which is red. */
   await expect(card.locator('.speed-verdict:not([data-state="good"])')).toHaveCount(3);

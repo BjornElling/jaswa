@@ -3,7 +3,7 @@ import { formatNumber } from './formatting';
 import { monsterProfileAreaName } from './monster-profile-scope';
 import { presetContent } from './preset-contents';
 import type { Preset } from './presets';
-import { combatSpeedNameOf, fastestEnemySpeed, isDungeonId, speedContent } from './speed-contents';
+import { fastestEnemySpeed, isDungeonId } from './speed-contents';
 import type { GeneralSettings } from './types';
 
 export type AreaFacts = { heading: string; lines: { label: string; value: string }[] };
@@ -32,5 +32,5 @@ export function areaFacts(preset: Pick<Preset, 'kind' | 'content'> | undefined, 
   const speed = content ? presetContent(content.id).speed : 'unnamed';
   const fastest = scenario || (content && facesPlayers(content.id)) ? 'Variable'
     : isDungeonId(speed) ? formatNumber(fastestEnemySpeed(speed), general) : 'Unknown';
-  return { heading, lines: [accuracy, { label: `Fastest enemy (${combatSpeedNameOf(speedContent(speed).area)})`, value: fastest }] };
+  return { heading, lines: [accuracy, { label: 'Fastest enemy (combat speed)', value: fastest }] };
 }

@@ -6,7 +6,6 @@ import type { MonsterCopyName } from '../lib/monster-names';
 import { attackBarPercent } from '../lib/speed-skills';
 import { fullAttackBar } from '../lib/speed-tick';
 import type { BattleTrace } from '../lib/speed-tick';
-import { combatSpeedName } from '../lib/speed-tuning-analysis';
 import type { TeamReading } from '../lib/speed-tuning-analysis';
 import type { GeneralSettings } from '../lib/types';
 
@@ -54,10 +53,9 @@ function boostAt(snapshot: BattleTrace['snapshots'][number], key: string): numbe
  * tick's fill, before anyone moves — so where two lanes cross the line on the
  * same tick, the figures say why the higher one went first.
  */
-function TurnTimeline({ view, rows, speedName, general, active }: {
+function TurnTimeline({ view, rows, general, active }: {
   view: View;
   rows: Row[];
-  speedName: string;
   general: GeneralSettings;
   active: boolean;
 }) {
@@ -94,7 +92,7 @@ function TurnTimeline({ view, rows, speedName, general, active }: {
       return <div key={row.key} role="row" className="speed-lane-row" data-enemy={row.enemy ? 'true' : undefined}>
         <span role="rowheader" className="speed-lane-label">
           <span className="speed-lane-name">{row.name}</span>
-          <span className="type-caption">{formatNumber(row.speed, general)} {speedName}</span>
+          <span className="type-caption">{formatNumber(row.speed, general)} combat speed</span>
         </span>
         <span className="speed-lane-track">
           <svg className="speed-lane-plot" width={width} height={laneHeight} viewBox={`0 0 ${width} ${laneHeight}`} aria-hidden="true">
@@ -162,7 +160,6 @@ export function SpeedTurnOrderDialog({ reading, title, names, general, onClose }
   const [viewId, setViewId] = useState(choices[reading.worstStage ?? 0].id);
   const view = choices.find((entry) => entry.id === viewId) ?? choices[0];
 
-  const speedName = combatSpeedName(reading);
   const rowsOf = (choice: View): Row[] => [
     ...reading.members.map((member) => ({
       key: member.unitId,
@@ -193,7 +190,7 @@ export function SpeedTurnOrderDialog({ reading, title, names, general, onClose }
       <div className="speed-turn-body">
         <div className="speed-turn-stack">
           {choices.map((choice) => <TurnTimeline key={choice.id} view={choice} rows={rowsOf(choice)}
-            speedName={speedName} general={general} active={choice.id === view.id} />)}
+            general={general} active={choice.id === view.id} />)}
         </div>
       </div>
   </Overlay>;

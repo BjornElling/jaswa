@@ -128,7 +128,7 @@ test('Rune Optimization states the fight as the profile does, and changes it for
   await expect(fight.getByRole('list', { name: 'Leads and bonuses' }).getByRole('listitem')).toHaveText(['ATK30%', 'ATK21%', 'HP33%']);
   await expect(fight.getByRole('spinbutton')).toHaveCount(0);
   await expect(fight.locator('.rune-optimization-area > .filter-label')).toHaveText('Rift Raid (R5)');
-  await expect(fight.locator('.overlay-accuracy-label')).toHaveText(['Accuracy goal', 'Fastest enemy (raid speed)']);
+  await expect(fight.locator('.overlay-accuracy-label')).toHaveText(['Accuracy goal', 'Fastest enemy (combat speed)']);
   await expect(fight.locator('.overlay-accuracy-value')).toHaveText(['15%', 'Unknown']);
   const boxes = () => panel.locator('.rune-optimization-targets, .rune-optimization-fight > *, .rune-optimization-settings').evaluateAll((elements) =>
     elements.map((element) => { const b = element.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; }));

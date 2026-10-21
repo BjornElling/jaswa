@@ -12,7 +12,7 @@ import type { MonsterCopyName } from '../lib/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortAllyBoost, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
 import { leaderAreaReaches } from '../lib/speed-tick';
 import type { SpeedArea } from '../lib/speed-tick';
-import { combatSpeedName, displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
+import { displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
 import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
 import { whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
 import type { SpeedTeam } from '../lib/speed-tuning-preferences';
@@ -143,7 +143,6 @@ function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings)
 export function SpeedTeamEditor({ reading, title, names, general, onChange, onWhatIf, onOpenMonster, turnOrderAction, enemiesKnown = true, leading }: EditorProps) {
   const { team, content } = reading;
   const reorder = useDragReorder<HTMLTableElement>({ count: team.members.length, onMove: move });
-  const speedName = combatSpeedName(reading);
   const readingById = new Map(reading.members.map((member) => [member.unitId, member]));
 
   function move(from: number, to: number) {
@@ -151,7 +150,6 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
     onChange((current) => ({ ...current, members: moveItem(current.members, from, to) }));
   }
 
-  const speedHeading = speedName.charAt(0).toUpperCase() + speedName.slice(1);
   /* The enemy rows are the content's: one worst case in arena, a row per stage
      in a Cairos dungeon, and none where the content has no enemy data. */
   const enemyRows = content.area === 'arena' ? [null] : content.stages;
@@ -172,7 +170,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         <th scope="col" className="align-right">Display speed</th>
         <th scope="col" className="align-right">Interval</th>
         <th scope="col" className="align-right">What if...</th>
-        <th scope="col" className="align-right">{speedHeading}</th>
+        <th scope="col" className="align-right">Combat speed</th>
         <th scope="col"><span className="visually-hidden">Move</span></th>
       </tr></thead>
       {/* One body per slot, two rows each: the name, and under it the
@@ -272,7 +270,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
                 onChange={(value) => onWhatIf(member.unitId, value)} />
             </td>
-            <td className="speed-figure speed-combat" rowSpan={2} title={`${formatNumber(monster.combatSpeed, general)} ${speedName}${monster.leaderPercent > 0
+            <td className="speed-figure speed-combat" rowSpan={2} title={`${formatNumber(monster.combatSpeed, general)} combat speed${monster.leaderPercent > 0
               ? `, with a +${monster.leaderPercent} % SPD lead${team.otherLeaders.length > 0 ? ` from the leaders of ${[title, ...team.otherLeaders.map((leader) => leader.presetName)].join(', ')}` : ''}` : ''}`}>
               {formatNumber(monster.combatSpeed, general)}
             </td>

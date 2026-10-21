@@ -1,6 +1,6 @@
 /**
- * Reads one saved team against the current import: each member's arena or
- * dungeon speed, the order the team really moves in, what is wrong with it,
+ * Reads one saved team against the current import: each member's combat
+ * speed, the order the team really moves in, what is wrong with it,
  * when an enemy first moves, and the display speeds that put each member
  * between its neighbours in the order (`tuningRange`).
  *
@@ -14,7 +14,7 @@ import type { GameRecord } from './game-data';
 import { monsterSpeedParts } from './monster-stats';
 import { elementName } from './rune-sets';
 import { isReadableName, monsterPresentation } from './monster-catalog';
-import { combatSpeedNameOf, speedContent } from './speed-contents';
+import { speedContent } from './speed-contents';
 import type { DungeonStage, SpeedContent } from './speed-contents';
 import { speedLeaderSkill, speedSkillProfile } from './speed-skills';
 import type { SpeedSkillProfile } from './speed-skills';
@@ -60,7 +60,7 @@ export type MemberReading = {
   displaySpeed: number;
   whatIf: boolean;
   leaderPercent: number;
-  /** Arena speed or dungeon speed, by the team's content. */
+  /** Combat speed, with the leads and totem of the team's content. */
   combatSpeed: number;
   profile: SpeedSkillProfile;
   /**
@@ -98,7 +98,7 @@ export type MemberReading = {
 };
 
 export type EnemyStageReading = {
-  /** The fastest enemy's dungeon speed or, in arena, the worst-case enemy's arena speed. */
+  /** The fastest enemy's combat speed or, in arena, the worst-case enemy's. */
   enemySpeed: number;
   /** The tick of the first enemy turn. */
   firstEnemyTick: number;
@@ -322,7 +322,7 @@ export function enemyNamesOf(stage: DungeonStage): readonly string[] {
    turn: level with the team's first mover, since a tie goes to the attacker
    (`SPEED-TICK-CANONICAL.md` §3.2). Anything faster could win the opening
    outright; anything slower cuts in no earlier. Under Leo's
-   cap the first mover goes at no more than Leo's own arena speed. */
+   cap the first mover goes at no more than Leo's own combat speed. */
 function worstArenaStage(units: readonly TickUnit[], trace: BattleTrace): EnemyStageReading {
   const opener = trace.events[0]?.key;
   const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
@@ -473,11 +473,6 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
 /** A field-position tie is unresolved, but only a first turn out of its place is out of place. An enemy that gets in is counted on its own. */
 export function outOfPlaceCount(reading: TeamReading): number {
   return reading.members.filter((member) => member.verdict.kind === 'early' || member.verdict.kind === 'late').length;
-}
-
-/** The combat speed a team's figures are in, by its content's area (`combatSpeedNameOf`). */
-export function combatSpeedName(reading: TeamReading): string {
-  return combatSpeedNameOf(reading.content.area);
 }
 
 /** What an interval asks for, in the words a team's member and a standing rule both use, or `null` where no display speed of that monster alone puts it right: then the line says nothing more. */

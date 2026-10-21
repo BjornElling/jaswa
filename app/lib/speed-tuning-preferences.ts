@@ -4,8 +4,8 @@
  * tried on them. The teams themselves are the presets (`DECK-PRESETS.md` §5):
  * their monsters and leader are the preset's, so nothing here repeats them.
  *
- * Only the user's decisions are stored. Every figure the page shows — arena
- * speed, dungeon speed, a tick, an interval — is derived from the current
+ * Only the user's decisions are stored. Every figure the page shows — a combat
+ * speed, a tick, an interval — is derived from the current
  * import by `speed-tick.ts` on every render, so a stored order can never carry
  * a stale reading of a monster whose runes have since changed.
  */

@@ -93,18 +93,18 @@ test('the area block is named for the area, states its Accuracy goal and fastest
     elements.map((element) => { const b = element.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; }));
   const whole = () => dialog.locator('.overlay-accuracy-goal > *').evaluateAll((elements) => elements.every((element) => element.scrollWidth <= element.clientWidth));
   await expect(heading).toHaveText('Arena Attack');
-  await expect(label).toHaveText(['Accuracy goal', 'Fastest enemy (arena speed)']);
+  await expect(label).toHaveText(['Accuracy goal', 'Fastest enemy (combat speed)']);
   await expect(value).toHaveText(['85%', 'Variable']);
   expect(await whole()).toBe(true);
   const before = await boxes();
   await page.screenshot({ path: testInfo.outputPath('accuracy-arena.png') });
   const area = dialog.getByLabel('Build for', { exact: true });
   const cases: [string, string, string[], (string | RegExp)[], string][] = [
-    ['Trial of Ascension', 'Trial of Ascension', ['Accuracy goal (Hard, Hell)', 'Fastest enemy (dungeon speed)'],
+    ['Trial of Ascension', 'Trial of Ascension', ['Accuracy goal (Hard, Hell)', 'Fastest enemy (combat speed)'],
       ['45/55%', 'Unknown'], 'toa'],
     /* A Cairos dungeon reads its Speed Tuning floor; an area no source covers says so. */
-    ["Giant's Keep", "Giant's Keep (Abyss Hard)", ['Accuracy goal', 'Fastest enemy (dungeon speed)'], ['35%', /^\d+$/], 'cairos'],
-    ['Temple of Chaos', 'Temple of Chaos', ['Accuracy goal', 'Fastest enemy (dungeon speed)'], ['Unknown', 'Unknown'], 'unknown'],
+    ["Giant's Keep", "Giant's Keep (Abyss Hard)", ['Accuracy goal', 'Fastest enemy (combat speed)'], ['35%', /^\d+$/], 'cairos'],
+    ['Temple of Chaos', 'Temple of Chaos', ['Accuracy goal', 'Fastest enemy (combat speed)'], ['Unknown', 'Unknown'], 'unknown'],
   ];
   for (const [name, title, labels, values, shot] of cases) {
     await area.selectOption({ label: name });
