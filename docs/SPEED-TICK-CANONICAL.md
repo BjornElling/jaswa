@@ -500,9 +500,11 @@ plays.
 
 `scripts/refresh-swarfarm-speed-data.mjs` (`npm run refresh:speed-data`) writes
 `app/data/swarfarm-speed-skills.json` (leaders and skills; loaded by the Speed
-Tuning page only) and `app/data/swarfarm-speed-dungeons.json` (dungeon floors;
-small, read wherever a saved team is validated). It is a manual maintenance
-command with a three-second pause between requests and never runs in the app.
+Tuning page only). The dungeon floors a team is tuned against are the PvE
+database's (`PVE-STAGES.md`), read through `hardestPveFloor`, so Speed Tuning,
+the Accuracy goal and the fastest enemy on a profile read one floor. Both
+refreshes are manual maintenance commands with a three-second pause between
+requests and never run in the app.
 
 ## 9. The page
 

@@ -1,6 +1,5 @@
-import { presetContent } from './preset-contents';
 import type { PresetContentId } from './preset-contents';
-import { isDungeonId, speedContent } from './speed-contents';
+import { hardestPveFloor, highestResistanceOn, pveAreaOf } from './pve-stages';
 import type { DungeonId } from './speed-contents';
 
 /** One ceiling, in percent, and the part of the area it holds for where the area has several. */
@@ -22,9 +21,9 @@ function againstResistance(highest: number): number {
   return Math.max(0, highest - resistanceFloorPercent);
 }
 
-/** The most accuracy, in per cent, any monster can put to use on a dungeon floor of the speed snapshot. */
+/** The most Accuracy, in percent, any monster can put to use on the floor a Cairos dungeon is tuned for. */
 export function usefulAccuracy(id: DungeonId): number {
-  return againstResistance(Math.max(...speedContent(id).stages.flatMap((stage) => stage.resists)));
+  return againstResistance(highestResistanceOn(hardestPveFloor(id)!));
 }
 
 /**
@@ -33,40 +32,28 @@ export function usefulAccuracy(id: DungeonId): number {
  *
  * Against players — whose Resistance is whatever their runes give, up to the
  * cap — that is the cap less the floor. Against the game's own enemies it is
- * read from their stats wherever a source gives them, and an area whose enemies
- * no source covers names none rather than a guessed figure.
+ * read from the PvE database wherever it has the area, and from a stated
+ * figure where it does not; an area whose enemies no source covers names none
+ * rather than a guessed figure.
  */
 const player: readonly AccuracyCeiling[] = [{ percent: againstResistance(percentStatCap) }];
-
-/*
- * The Dimension Hole dungeons at level 5, the highest, from Swarfarm's enemy
- * data (`swarfarm.com/api/v2/levels/`, read October 21, 2026): every enemy of
- * Sanctuary of Dreaming Fairies and Castle of Forgotten Heroes resists 50 % at
- * most, of the other three 49 %. Swarfarm has no enemies for Hellground of
- * Raging Fires, which names none.
- */
-const dimensionHoleResistance: Partial<Readonly<Record<PresetContentId, number>>> = {
-  'dreaming-fairies': 50, 'forgotten-heroes': 50, 'roaring-beasts': 49, 'tough-beast-men': 49, 'silent-death': 49,
-};
 
 const stated: Partial<Readonly<Record<PresetContentId, readonly AccuracyCeiling[]>>> = {
   'arena-attack': player, 'arena-defense': player, 'interserver-defense': player,
   'siege': player, 'siege-defense': player, 'world-guild': player, 'world-guild-defense': player,
   /* One deck serves every difficulty, and Hell's floors resist more than the
      other two, so the area names both rather than one figure that is wrong for
-     half of it. The elemental towers and the Spires are not covered by either.
-     Normal and Hard: Fandom, *Trial of Ascension* (read October 21, 2026): "The
-     accuracy required is 45% for both toa and toah". **Modelled:** Hell's 55 is
-     community guidance no source found states, and Swarfarm has no Trial
-     enemies to derive it from as `usefulAccuracy` does for a Cairos floor. */
-  /* Normal shares Hard's figure and asks no more of a team built for Hard, so
-     the two parts are named for the harder of each, short enough for one line. */
+     half of it. Normal shares Hard's figure and asks no more of a team built
+     for Hard, so the two parts are named for the harder of each, short enough
+     for one line. The elemental towers and the Spires are not covered by
+     either. Normal and Hard: Fandom, *Trial of Ascension* (read October 21,
+     2026): "The accuracy required is 45% for both toa and toah". **Modelled:**
+     Hell's 55 is community guidance no source found states, and the PvE
+     database has no Trial enemies to derive it from. */
   'trial-of-ascension': [{ part: 'Hard', percent: 45 }, { part: 'Hell', percent: 55 }],
-  /* Swarfarm has no enemies for the Rift. The R5 boss resists 30 % (Theria
-     Games, *Summoners War Chaos Beast Guide*), so 15 % — the r/summonerswar
-     FAQ's own figure: "PvE accuracy requirements: 0% Rifts, 15% R5". The Rift
-     beasts take the same FAQ's 0 %. */
-  'rift-raid': [{ part: 'R5', percent: againstResistance(30) }],
+  /* The PvE database has no Rift beasts: the r/summonerswar FAQ's "PvE accuracy
+     requirements: 0% Rifts, 15% R5". Its 15 % for R5 is what the database's R5
+     boss gives as well. */
   'ice-beast': [{ percent: 0 }], 'fire-beast': [{ percent: 0 }], 'wind-beast': [{ percent: 0 }],
   'light-beast': [{ percent: 0 }], 'dark-beast': [{ percent: 0 }],
 };
@@ -77,19 +64,16 @@ export function facesPlayers(content: PresetContentId): boolean {
 }
 
 /**
- * The area's ceilings, or none where no source covers its enemies. A Cairos
- * dungeon's is its Speed Tuning floor's, read from the same snapshot, so the
- * overlay and Speed Tuning cannot name two figures for one dungeon.
+ * The area's ceilings, or none where no source covers its enemies. An area of
+ * the PvE database takes its hardest floor's, named by that floor — the floor
+ * Speed Tuning reads for a Cairos dungeon, so the overlay and Speed Tuning
+ * cannot name two figures for one dungeon.
  */
 export function accuracyCeilings(content: PresetContentId | undefined): readonly AccuracyCeiling[] {
   if (content === undefined) return [];
   const own = stated[content];
   if (own !== undefined) return own;
-  const speed = presetContent(content).speed;
-  if (isDungeonId(speed)) {
-    const floor = speedContent(speed).floorName;
-    return [{ ...(floor === null ? {} : { part: floor }), percent: usefulAccuracy(speed) }];
-  }
-  const resistance = dimensionHoleResistance[content];
-  return resistance === undefined ? [] : [{ part: 'Level 5', percent: againstResistance(resistance) }];
+  const area = pveAreaOf(content);
+  const floor = area === undefined ? undefined : hardestPveFloor(area);
+  return floor === undefined ? [] : [{ part: floor.name, percent: againstResistance(highestResistanceOn(floor)) }];
 }

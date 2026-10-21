@@ -452,6 +452,14 @@ parts an agent must not quietly break:
   and DEF a monster's artifacts and relic should carry. The overlay's defaults,
   both artifact score readers, the relic plan and the overlay's advice mark all
   read it; none computes a need of its own.
+- **One PvE database.** `docs/PVE-STAGES.md` is binding, and
+  `app/lib/pve-stages.ts` is the only place JASWA looks up what the game sets
+  against a team — an area's floors, waves and enemies with their speed,
+  Resistance, Accuracy, HP, ATK and DEF. Speed Tuning's floors, the Accuracy
+  goal and the fastest enemy all read it; a later figure that needs an enemy
+  reads it too rather than carry a table of its own. A figure no source gives
+  is unknown, never borrowed from another floor. `npm run verify:pve-stages`
+  is the check.
 - **One stat sheet, one build search.** `app/lib/monster-stats.ts` is the only
   place a monster's stats are summed — the Monsters page, the overlay, Speed
   Tuning and Rune Optimization all read it — and `docs/RUNE-OPTIMIZATION.md` is
@@ -532,6 +540,8 @@ Before reporting a change complete, all of these hold:
     speed snapshot or the account's buildings (`app/lib/account-buildings.ts`,
     the Sky Tribe Totem among them), `npm run verify:speed-tick` passes; after
     a change to the buildings, so does `npm run verify:monster-display-stats`.
+    After a change to the PvE database or a refresh of it, both
+    `npm run verify:pve-stages` and `npm run verify:speed-tick` pass.
 11. After a change to the Rune Clean-up engine, all of
     `verify:rune-substat-weights`, `verify:rune-set-neutrality`,
     `verify:rune-slot-neutrality`, `verify:rune-craft-single-source`,
