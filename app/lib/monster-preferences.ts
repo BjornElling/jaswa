@@ -134,7 +134,7 @@ export type MonsterCopyPreferences = {
   /**
    * Whether every hit this copy lands is a crit, whatever its CRI Rate — a skill,
    * a leader or a team that guarantees one. Every figure is then counted at a
-   * certain crit (`alwaysCritsLift`), and a CRI Rate target is met by definition.
+   * certain crit (`alwaysCritsFloor`), and a CRI Rate target is met by definition.
    * Absent is no.
    */
   alwaysCrits?: boolean;

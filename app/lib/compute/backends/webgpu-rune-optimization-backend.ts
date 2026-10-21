@@ -20,7 +20,7 @@
  * report and must say so rather than hand back a truncated list.
  */
 import {
-  baseLength, combatAt, effectSlot, effectSlotCount, figuresInto, targetFigureCount, totalCount, totalsInto,
+  baseLength, combatAt, criRateFloorAt, effectSlot, effectSlotCount, figuresInto, targetFigureCount, totalCount, totalsInto,
 } from '../../monster-stats';
 import type { PassLimits, TailCard, TailPass, TailQuestion } from '../../rune-optimization-search';
 import { metricDmg, metricEhp, metricEhpD } from '../../rune-potential-metrics';
@@ -104,7 +104,7 @@ type Battery = { question: TailQuestion; pass: TailPass };
  */
 function battery(seed: number, firstCount: number, lastCount: number, blocks: number): Battery {
   const draw = stream(seed);
-  const ranges: Array<[number, number]> = [[0, 60], [0, 900], [0, 60], [0, 90], [0, 60], [0, 90], [0, 0], [0, 45], [0, 40], [0, 70], [0, 40], [0, 40], [0, 24], [0, 24], [0, 24]];
+  const ranges: Array<[number, number]> = [[0, 60], [0, 900], [0, 60], [0, 90], [0, 60], [0, 90], [0, 0], [0, 45], [0, 40], [0, 70], [0, 40], [0, 40], [0, 24], [0, 24], [0, 24], [0, 30], [0, 30]];
   const candidates = new Float64Array((firstCount + lastCount) * effectSlotCount);
   for (let at = 0; at < firstCount + lastCount; at += 1) {
     for (let slot = 0; slot < effectSlotCount; slot += 1) {
@@ -131,8 +131,10 @@ function battery(seed: number, firstCount: number, lastCount: number, blocks: nu
   let pairs = 0;
   for (let block = 0; block < blocks; block += 1) pairs += blockRanges[block * 4 + 1] * blockRanges[block * 4 + 3];
   const question: TailQuestion = {
-    /* Every lead and a crit lift in play, so a misread combat slot changes a composite. */
-    base: Float64Array.of(10125, 714, 648, 101, 15, 50, 15, 0, 20, 33, 15, 30),
+    /* Every lead, the totem and a crit floor in play, so a misread combat slot
+       changes a figure. The floor sits inside the CRI Rates the battery draws,
+       so some pairs are lifted to it and some are not. */
+    base: Float64Array.of(10125, 714, 648, 101, 15, 50, 15, 0, 20, 33, 15, 14.5, 30, 25, 41, 25, 40),
     targets: new Float64Array(targetFigureCount).fill(Number.NaN),
     rank: 8,
     candidates,
@@ -147,21 +149,18 @@ function battery(seed: number, firstCount: number, lastCount: number, blocks: nu
  * arithmetic that has gone wrong, not by generosity.
  */
 function generousFigures(base: Float64Array, effects: Float64Array, out: Float64Array) {
-  const raised = (stat: number, percent: number, flat: number, lead = 0) => base[stat] * (100 + effects[percent] + lead) / 100 + 1 + effects[flat];
-  out[0] = raised(0, effectSlot.hpPercent, effectSlot.hpFlat);
-  out[1] = raised(1, effectSlot.atkPercent, effectSlot.atkFlat);
-  out[2] = raised(2, effectSlot.defPercent, effectSlot.defFlat);
-  out[3] = raised(3, effectSlot.spdPercent, effectSlot.spdFlat);
-  out[4] = base[4] + effects[effectSlot.criticalRate];
-  out[5] = base[5] + effects[effectSlot.criticalDamage];
-  out[6] = base[6] + effects[effectSlot.resistance];
-  out[7] = base[7] + effects[effectSlot.accuracy];
-  const hp = raised(0, effectSlot.hpPercent, effectSlot.hpFlat, base[combatAt.hp] + effects[effectSlot.teamHpPercent]);
-  const atk = raised(1, effectSlot.atkPercent, effectSlot.atkFlat, base[combatAt.atk] + effects[effectSlot.teamAtkPercent]);
-  const def = raised(2, effectSlot.defPercent, effectSlot.defFlat, base[combatAt.def] + effects[effectSlot.teamDefPercent]);
-  out[8] = metricDmg(atk, out[4] + base[combatAt.criRate], out[5]);
-  out[9] = metricEhp(hp, def);
-  out[10] = metricEhpD(hp, def);
+  const raised = (stat: number, percent: number, flat: number, lead: number) => base[stat] * (100 + effects[percent] + lead) / 100 + 1 + effects[flat];
+  out[0] = raised(0, effectSlot.hpPercent, effectSlot.hpFlat, base[combatAt.hp] + effects[effectSlot.teamHpPercent]);
+  out[1] = raised(1, effectSlot.atkPercent, effectSlot.atkFlat, base[combatAt.atk] + effects[effectSlot.teamAtkPercent]);
+  out[2] = raised(2, effectSlot.defPercent, effectSlot.defFlat, base[combatAt.def] + effects[effectSlot.teamDefPercent]);
+  out[3] = raised(3, effectSlot.spdPercent, effectSlot.spdFlat, base[combatAt.spd]);
+  out[4] = Math.max(base[4] + effects[effectSlot.criticalRate] + base[combatAt.criRate], base[criRateFloorAt]);
+  out[5] = base[5] + effects[effectSlot.criticalDamage] + base[combatAt.criDmg];
+  out[6] = base[6] + effects[effectSlot.resistance] + effects[effectSlot.teamResistance] + base[combatAt.res];
+  out[7] = base[7] + effects[effectSlot.accuracy] + effects[effectSlot.teamAccuracy] + base[combatAt.acc];
+  out[8] = metricDmg(out[1], out[4], out[5]);
+  out[9] = metricEhp(out[0], out[2]);
+  out[10] = metricEhpD(out[0], out[2]);
   for (let at = 0; at < targetFigureCount; at += 1) out[at] += Math.abs(out[at]) * relativeSlack + absoluteSlack;
 }
 

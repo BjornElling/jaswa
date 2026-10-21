@@ -6,7 +6,8 @@ import { BandedChoiceLine } from './banded-choice-line';
 import type { ChoiceBand } from './banded-choice-line';
 import { Dropdown } from './dropdown';
 import { FigureMarks } from './figure-marks';
-import { combatBonusMarks, mainStatAdviceMarks, shortfallMarks } from '../lib/figure-marks';
+import { fightAddition, mainStatAdviceMarks, shortfallMarks } from '../lib/figure-marks';
+import { FightAdditionText } from './fight-addition';
 import type { FigureMark } from '../lib/figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 import { EngravedArtifacts, EngravedRelics, EngravedRunes } from './monster-engraved-gear';
@@ -43,7 +44,7 @@ import { resolveMonsterPreferences } from '../lib/monster-preference-resolution'
 import type { ResolvedMonsterPreferences } from '../lib/monster-preference-resolution';
 import type { Shortfall } from '../lib/monster-shortfall';
 import { monsterShortfalls } from '../lib/monster-shortfall';
-import { completedTeamSets, monsterTargetFigures } from '../lib/monster-stats';
+import { completedTeamSets, isStatFigure, monsterStatSheet } from '../lib/monster-stats';
 import { monsterUsage } from '../lib/monster-usage-statistics';
 import type { MonsterUsage } from '../lib/monster-usage-statistics';
 import type { Relic } from '../lib/relics';
@@ -86,10 +87,6 @@ import type { GeneralSettings } from '../lib/types';
 
 const categoryLabels = artifactCategoryLabels;
 const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
-
-/* The figures a lead or a crit condition can mark, which keep room for two marks:
-   a stat names where its lead goes, a composite what it counted. */
-const leadFigures: ReadonlySet<string> = new Set(['criRate', 'criDmg', 'atk', 'def', 'hp', 'acc', 'res', 'dmg', 'ehp', 'ehpD']);
 
 /** The eleven figures a copy can be built toward, in the order they are offered. */
 const targetRows: ReadonlyArray<{ key: keyof MonsterStatTargets; label: string }> =
@@ -318,15 +315,17 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
     [unitId, masterId, draft, monster, team],
   );
 
-  /* The eleven figures this copy has: its stats as its own panel shows them, and
-     the three composites with its fight — the account's buildings among it. They
-     are derived rather than stored, from the same stat sheet the shortfall check
-     and the Monsters page read. */
+  /* The eleven figures this copy has in its fight — the account's buildings and
+     totem among it — and its eight stats as its own panel shows them. They are
+     derived rather than stored, from the same stat sheet the shortfall check and
+     the Monsters page read. */
   const fight = useMemo(() => ({ ...resolved, buildings: readBuildingBonuses(game) }), [resolved, game]);
-  const current = useMemo(
-    () => (monster ? monsterTargetFigures(monster, fight) : undefined),
+  const sheet = useMemo(
+    () => (monster ? monsterStatSheet(monster, fight) : undefined),
     [monster, fight],
   );
+  const current = sheet?.figures;
+  const ownSets = useMemo(() => completedTeamSets(monster?.runes as Record<string, unknown>[] ?? []), [monster]);
 
   const engraved = useMemo(() => {
     if (!monster || !game) return { artifacts: {} as Partial<Record<ArtifactCategory, Artifact>>, relics: [] as Relic[] };
@@ -550,12 +549,15 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
               {targetRows.map((row, index) => {
                 const marks = statShortfalls.get(row.label) ?? [];
                 /* The copy's own figure, dimmed under the range: what is wanted
-                   leads, what is there qualifies it. Every mark the figure carries
-                   follows it on its own line. */
+                   leads, what is there qualifies it. A stat reads as its panel
+                   shows it, with what the fight adds after it — the range is the
+                   two together. Every mark the figure carries follows on its line. */
+                const stat = isStatFigure(row.key) ? row.key : undefined;
                 const now = <>
-                  {formatNumber(current[row.key], general)}
-                  <FigureMarks marks={[...shortfallMarks(marks, general), ...combatBonusMarks(row.key, resolved, current[row.key], completedTeamSets(monster?.runes as Record<string, unknown>[] ?? []))]}
-                    reserve={leadFigures.has(row.key) ? 2 : 1} />
+                  {formatNumber(stat !== undefined && sheet ? sheet.display[stat] : current[row.key], general)}
+                  {stat !== undefined && sheet && <FightAdditionText stat={stat} general={general}
+                    addition={fightAddition(stat, sheet.display[stat], sheet.figures[stat], fight, ownSets, elementName(monster?.attribute))} />}
+                  <FigureMarks marks={shortfallMarks(marks, general)} reserve={1} />
                 </>;
                 /* A monster that always crits is never asked for CRI Rate, so the
                    fields say so by standing still rather than by vanishing. */

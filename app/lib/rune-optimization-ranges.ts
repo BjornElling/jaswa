@@ -4,14 +4,15 @@ import {
 } from './monster-stats';
 import type { RankFigure, RuneOptimizationProblem } from './rune-optimization-problem';
 
-/** Dependencies, not a second stat sheet: every bound still reads monster-stats. */
+/** Dependencies, not a second stat sheet: every bound still reads monster-stats.
+    A stat is the fight's, so the copy's own team sets reach it. */
 const figureSlots: Readonly<Record<RankFigure, readonly number[]>> = {
-  hp: [effectSlot.hpPercent, effectSlot.hpFlat],
-  atk: [effectSlot.atkPercent, effectSlot.atkFlat],
-  def: [effectSlot.defPercent, effectSlot.defFlat],
+  hp: [effectSlot.teamHpPercent, effectSlot.hpPercent, effectSlot.hpFlat],
+  atk: [effectSlot.teamAtkPercent, effectSlot.atkPercent, effectSlot.atkFlat],
+  def: [effectSlot.teamDefPercent, effectSlot.defPercent, effectSlot.defFlat],
   spd: [effectSlot.spdPercent, effectSlot.spdFlat],
   criRate: [effectSlot.criticalRate], criDmg: [effectSlot.criticalDamage],
-  res: [effectSlot.resistance], acc: [effectSlot.accuracy],
+  res: [effectSlot.teamResistance, effectSlot.resistance], acc: [effectSlot.teamAccuracy, effectSlot.accuracy],
   dmg: [effectSlot.teamAtkPercent, effectSlot.atkPercent, effectSlot.atkFlat, effectSlot.criticalRate, effectSlot.criticalDamage],
   ehp: [effectSlot.teamHpPercent, effectSlot.teamDefPercent, effectSlot.hpPercent, effectSlot.hpFlat, effectSlot.defPercent, effectSlot.defFlat],
   ehpD: [effectSlot.teamHpPercent, effectSlot.teamDefPercent, effectSlot.hpPercent, effectSlot.hpFlat, effectSlot.defPercent, effectSlot.defFlat],

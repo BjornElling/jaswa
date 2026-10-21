@@ -55,12 +55,12 @@ export function leadArea(preset: Pick<Preset, 'content'>): SpeedArea {
  */
 export type TeamLead = BattleLeader & { masterId: string | null; skill: LeaderSkill | null; missing: boolean; reach: LeadReach | null };
 
-/** What the leads add, stat by stat; SPD apart, as no figure here reads it. */
+/** What the leads add, stat by stat. */
 export type TeamLeadReading = { leads: readonly TeamLead[]; bonuses: Leads };
 
-const statOf: Readonly<Record<LeaderAttribute, LedStat | null>> = {
+const statOf: Readonly<Record<LeaderAttribute, LedStat>> = {
   'Attack Power': 'atk', Defense: 'def', HP: 'hp', 'Critical Rate': 'criRate', 'Critical DMG': 'criDmg',
-  Accuracy: 'acc', Resistance: 'res', 'Attack Speed': null,
+  Accuracy: 'acc', Resistance: 'res', 'Attack Speed': 'spd',
 };
 
 /**
@@ -83,9 +83,11 @@ export function teamLeadsFor(preset: Preset, presets: readonly Preset[], unitId:
   const leads: TeamLead[] = read.map((lead) => ({ ...lead, reach: lead.skill === null ? null : reaches[next++] }));
   const bonuses: Leads = {};
   for (const lead of leads) {
-    const stat = lead.skill === null ? null : statOf[lead.skill.attribute];
     /* A general lead and an element's lead of one stat both count, and add up. */
-    if (lead.reach === 'counts' && stat !== null && lead.skill !== null) bonuses[stat] = (bonuses[stat] ?? 0) + lead.skill.percent;
+    if (lead.reach === 'counts' && lead.skill !== null) {
+      const stat = statOf[lead.skill.attribute];
+      bonuses[stat] = (bonuses[stat] ?? 0) + lead.skill.percent;
+    }
   }
   return { leads, bonuses };
 }

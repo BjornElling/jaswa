@@ -4,7 +4,7 @@
 `E.HP D` wherever they are read — the Monsters page, the monster overlay, Rune
 Optimization and its shader — and for `Eff. %` in Gems & Grinds
 **Depends on:** `docs/CALCULATION-AUTHORITY.md` and `docs/RUNE-CANONICAL.md`
-**Reviewed:** October 20, 2026
+**Reviewed:** October 21, 2026
 
 This is the only document that defines these four figures. The composites
 measure what a copy does in a fight; they are not a battle simulator and never
@@ -12,41 +12,50 @@ replace a monster's own skill.
 
 ## 1. Inputs
 
-**A stat is the copy's own; a composite is the fight's.**
+**The panel shows a stat; the fight judges it.**
 
-The eight stats are what the game's monster panel shows: the copy's base stats,
-its engraved runes (main property, innate, sub properties with their Grindstone
-bonuses), its personal set bonuses (Energy, Guard, Swift, Blade, Rage, Focus,
-Endure, Fatal; `RUNE-CANONICAL.md` §10), its artifacts' flat main properties and
-its relic's main property as a share of base. Nothing else — no team set, lead
-or building — because the panel shows none.
+The game's monster panel shows the copy's base stats, its engraved runes (main
+property, innate, sub properties with their Grindstone bonuses), its personal
+set bonuses (Energy, Guard, Swift, Blade, Rage, Focus, Endure, Fatal;
+`RUNE-CANONICAL.md` §10), its artifacts' flat main properties and its relic's
+main property as a share of base — no team set, lead or building. That
+**display sheet** is kept and shown, but no range, target, ranking or composite
+reads it.
 
-The composites start from the same sheet and add exactly what the fight adds
-(`CombatBonuses` in `app/lib/monster-stats.ts`):
+Every figure that is judged — the eight stats and the three composites — is the
+fight's: the display sheet plus exactly what the fight adds (`CombatBonuses` in
+`app/lib/monster-stats.ts`). The developer's decision of October 21, 2026: a
+value typed into a stat's range is the final value after every bonus, so a CRI
+Rate floor of 100 under a 24-point crit lead asks the runes for 76.
 
-- **Leads:** HP, ATK and DEF as a percentage of base, and CRI Rate in points.
-- **Team sets:** Fight, Determination and Enhance completed on the copy itself
-  or on its teammates, as a percentage of the copy's own base
-  (`RUNE-CANONICAL.md` §10).
-- **Crit conditions:** *always crits* lifts CRI Rate to the cap; *always element
-  advantage* adds 15 CRI Rate points. Evidence for the 15: Fandom, [*Attribute
+- **Leads:** HP, ATK, DEF and SPD as a percentage of base; CRI Rate, CRI Dmg,
+  RES and ACC in points. A preset's come off its leaders; Scenario states HP,
+  ATK, DEF and CRI Rate by hand and no SPD lead, as it is no team.
+- **Team sets:** Fight, Determination and Enhance as a percentage of the copy's
+  own base, Accuracy and Tolerance in points, completed on the copy itself or on
+  its teammates (`RUNE-CANONICAL.md` §10).
+- **Crit conditions:** *always crits* lifts CRI Rate to at least 100 and lowers
+  nothing past it; *always element advantage* adds 15 CRI Rate points. Evidence
+  for the 15: Fandom, [*Attribute
   Advantage*](https://summonerswar.fandom.com/wiki/Attribute_Advantage), read
   through its API on October 19, 2026: "When attacking with attribute
   advantage, the attacker gets extra 15% critical hit chance." SWCalc states no
   figure.
-- **Glory buildings**, read from the export's `deco_list`
+- **Glory buildings and the totem**, read from the export's `deco_list`
   (`app/lib/account-buildings.ts`, which records the decoration ids, level
   tables and their sources): Crystal Altar HP, Ancient Sword ATK and Guardstone
   DEF as a percentage of base; the Sanctuary of the copy's own element as ATK %
-  of base; the Fallen Ancient Guardian as CRI Dmg points. They apply wherever
-  the account fights except RTA (Fandom,
+  of base; the Fallen Ancient Guardian as CRI Dmg points; the Sky Tribe Totem as
+  SPD % of base. They apply wherever the account fights except RTA (Fandom,
   [*Buildings*](https://summonerswar.fandom.com/wiki/Buildings), October 19,
   2026), and no preset is an RTA team. An export with no building list counts
   none.
 
 Each percentage is summed with every other percentage on the stat and rounded
-up once, as the game counts a leader skill (`totalsInto`). The figures then
-read:
+up once, as the game counts a leader skill (`totalsInto`); the fight's SPD is so
+`SPEED-TICK-CANONICAL.md`'s combat speed. CRI Rate, RES and ACC are not capped
+as figures — a range sees the points past 100 — and DMG caps CRI Rate itself.
+The composites then read:
 
 - `ATK`, `HP` and `DEF` as whole numbers, as the fight has them.
 - `CR`, the fight's CRI Rate as a decimal, capped at `1`. CRI Rate is a chance,

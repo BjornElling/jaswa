@@ -60,9 +60,10 @@ test('a Rift Raid deck fights under the leaders of Rift Raid 1, 2 and 3, each le
   await expect(arena.getByRole('img', { name: 'Only counts in arena.' })).toBeVisible();
   await expect(own.getByRole('img')).toHaveCount(0);
   await expect(dialog.getByRole('spinbutton', { name: /, in percent$/ })).toHaveCount(0);
-  /* The counted leads reach the composites, and only them. */
-  await expect(dialog.locator('.stat-range[data-figure="dmg"]').getByRole('img', { name: /ATK lead \(\+30% base ATK\)/ })).toBeVisible();
-  await expect(dialog.locator('.stat-range[data-figure="ehp"]').getByRole('img', { name: /HP lead \(\+33% base HP\)/ })).toBeVisible();
+  /* The counted leads reach their stats, named after the panel's figure; the arena lead does not. */
+  await expect(dialog.locator('.stat-range[data-figure="atk"]').getByTitle(/^ATK lead \+30% of base ATK\./)).toBeVisible();
+  await expect(dialog.locator('.stat-range[data-figure="hp"]').getByTitle(/^HP lead \+33% of base HP\./)).toBeVisible();
+  await expect(dialog.getByTitle(/\+21%/)).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('rift-raid-wind.png') });
 
   /* The same battle for a Fire member: the Wind lead names its element. */
@@ -162,7 +163,7 @@ test('a lead typed in Scenario stays Scenario\'s, and a preset of the same copy 
   await dialog.getByRole('spinbutton', { name: 'ATK, in percent' }).fill('50');
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   dialog = await profile(page, 'deck-1-1', '1');
-  await expect(dialog.locator('.stat-range[data-figure="dmg"]').getByRole('img', { name: /ATK lead \(\+21% base ATK\)/ })).toBeVisible();
+  await expect(dialog.locator('.stat-range[data-figure="atk"]').getByTitle(/^ATK lead \+21% of base ATK\./)).toBeVisible();
   /* Copying the Scenario profile into the area brings everything but its lead. */
   await dialog.getByRole('combobox', { name: 'Copy the profile from another area' }).selectOption({ label: 'Scenario' });
   await dialog.getByRole('button', { name: 'Save changes' }).click();

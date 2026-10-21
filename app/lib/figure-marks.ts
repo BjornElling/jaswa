@@ -3,11 +3,9 @@ import type { GearKind, GearMainAdvice, MainStatAdvice, MainStatBasis } from './
 import { contradictsAdvice, honouredMainStat, mainStatStatement } from './main-stat-model';
 import type { MonsterCopyPreferences } from './monster-preferences';
 import type { Shortfall } from './monster-shortfall';
-import type { CombatBonuses, LedStat, TeammateSets } from './monster-stats';
-import { ledStats, combatStatBonus, elementAdvantageLift, teamSetBonuses } from './monster-stats';
-import { percentStatCap } from './accuracy-ceiling';
+import type { CombatBonuses, LedStat, StatFigure, TeammateSets } from './monster-stats';
+import { alwaysCritsFloor, elementAdvantageLift, teamSetBonuses } from './monster-stats';
 import { statLabels } from './stat-labels';
-import type { StatKey } from './stat-labels';
 import { formatNumber } from './formatting';
 import type { GeneralSettings } from './types';
 
@@ -21,66 +19,53 @@ export type FigureMark = {
   glyph: 'ring' | 'info' | 'slashed';
 };
 
-const leadWords: Readonly<Record<LedStat, { name: string; stat: string }>> = {
-  atk: { name: `${statLabels.atk} lead`, stat: statLabels.atk },
-  def: { name: `${statLabels.def} lead`, stat: statLabels.def },
-  hp: { name: `${statLabels.hp} lead`, stat: statLabels.hp },
-  criRate: { name: 'Crit lead', stat: statLabels.criRate },
-  criDmg: { name: `${statLabels.criDmg} lead`, stat: statLabels.criDmg },
-  acc: { name: `${statLabels.acc} lead`, stat: statLabels.acc },
-  res: { name: `${statLabels.res} lead`, stat: statLabels.res },
+const leadNames: Readonly<Record<LedStat, string>> = {
+  atk: `${statLabels.atk} lead`, def: `${statLabels.def} lead`, hp: `${statLabels.hp} lead`, spd: `${statLabels.spd} lead`,
+  criRate: 'Crit lead', criDmg: `${statLabels.criDmg} lead`, acc: `${statLabels.acc} lead`, res: `${statLabels.res} lead`,
 };
 
-/* The leads of a share of base; every other lead adds points. */
-const baseShareLeads: ReadonlySet<LedStat> = new Set(['atk', 'def', 'hp']);
-
-/* The leads each composite counts, in the order its formula reads them. */
-const compositeLeads: Readonly<Record<string, readonly LedStat[]>> = {
-  dmg: ['atk', 'criRate', 'criDmg'], ehp: ['hp', 'def'], ehpD: ['hp', 'def'],
+/* A building's name by the stat it raises; a Sanctuary is named by its element. */
+const buildingNames: Readonly<Record<'hp' | 'atk' | 'def' | 'spd' | 'criDmg', string>> = {
+  hp: 'Crystal Altar', atk: 'Ancient Sword', def: 'Guardstone', spd: 'Sky Tribe Totem', criDmg: 'Fallen Ancient Guardian',
 };
+
+/* The stats a source raises by a share of base; every other one by points. */
+const baseShareStats: ReadonlySet<StatFigure> = new Set(['hp', 'atk', 'def', 'spd']);
 
 /**
- * One fixed-size mark after a figure explains what the fight adds that the
- * figure beside it does not show, or does. A stat is the copy's own, so its mark
- * says where its lead goes instead; a composite counts the fight, so its mark
- * names what it counted (`monster-stats.ts` `combatAt`). A figure with none
- * carries no mark.
+ * What the fight adds to one stat, as a page shows it after the panel's figure:
+ * `amount` is the fight's figure less the panel's, and `raisedTo` the CRI Rate a
+ * guaranteed crit lifts the fight's to, which is said instead of an amount. The
+ * reading names every source — a lead, the team sets the copy and its teammates
+ * complete, a building, the totem, element advantage — one sentence each, in
+ * the share of base or the points the game states it in. A stat nothing reaches
+ * has an amount of 0 and no reading.
  */
-export function combatBonusMarks(figure: string, bonuses: CombatBonuses, ownValue?: number, ownSets: TeammateSets = {}): FigureMark[] {
-  const counted = figure in compositeLeads ? compositeLeads[figure] : [figure];
-  const additions = [
-    ...counted.flatMap((stat) => (ledStats as readonly string[]).includes(stat)
-      ? leadReading(stat as LedStat, bonuses) : []),
-    ...counted.flatMap((stat) => teamSetReadings(stat, bonuses, ownSets)),
-    counted.includes('criRate') && bonuses.alwaysCrits ? 'Guaranteed crits' : undefined,
-    counted.includes('criRate') && bonuses.alwaysElementAdvantage ? `Element advantage (+${elementAdvantageLift}% ${statLabels.criRate})` : undefined,
-  ].filter(Boolean).join('; ');
-  const reading = figure === 'acc' || figure === 'res'
-    ? pointBonusReading(figure, bonuses, ownValue, ownSets)
-    : additions ? `${figure in compositeLeads ? 'Calculated with' : 'Added to the shown value in battle:'} ${additions}.` : '';
-  return reading === '' ? [] : [{ key: 'combat-bonuses', tone: 'green', reading, glyph: 'info' }];
-}
+export type FightAddition = { amount: number; raisedTo: number | null; reading: string };
 
-function teamSetReadings(figure: string, bonuses: CombatBonuses, ownSets: TeammateSets): string[] {
-  return teamSetBonuses.flatMap((set) => {
-    const count = (ownSets[set.name] ?? 0) + (bonuses.teammateSets?.[set.name] ?? 0);
-    return count && set.stat === figure ? [`${count} ${set.name} set${count === 1 ? '' : 's'} (+${count * set.value}% ${set.stat === 'acc' || set.stat === 'res' ? '' : 'base '}${statLabels[set.stat as StatKey]})`] : [];
-  });
-}
-
-function leadReading(stat: LedStat, bonuses: CombatBonuses): string[] {
+export function fightAddition(stat: StatFigure, display: number, figure: number, bonuses: CombatBonuses,
+  ownSets: TeammateSets, element: string | undefined): FightAddition {
+  const share = baseShareStats.has(stat) ? ` of base ${statLabels[stat]}` : '';
+  const percent = (value: number) => `+${value}%${share}`;
   const lead = bonuses.leads?.[stat];
-  return lead ? [`${leadWords[stat].name} (+${lead}% ${baseShareLeads.has(stat) ? 'base ' : ''}${leadWords[stat].stat})`] : [];
-}
-
-function pointBonusReading(figure: 'acc' | 'res', bonuses: CombatBonuses, ownValue: number | undefined, ownSets: TeammateSets): string {
-  /* The copy's own ACC and RES sets reach no figure, so they join its teammates'
-     here; adding two whole bonuses instead once counted the lead twice. */
-  const sets = Object.fromEntries(teamSetBonuses.map(({ name }) => [name, (ownSets[name] ?? 0) + (bonuses.teammateSets?.[name] ?? 0)]));
-  const bonus = combatStatBonus(figure, { ...bonuses, teammateSets: sets });
-  if (bonus === 0) return '';
-  const value = ownValue === undefined ? '' : ` Battle total: ${Math.min(percentStatCap, ownValue + bonus)}% ${statLabels[figure]}.`;
-  return `Added to the shown value in battle: ${[...leadReading(figure, bonuses), ...teamSetReadings(figure, bonuses, ownSets)].join('; ')}.${value}`;
+  const sets = teamSetBonuses.flatMap((set) => {
+    const count = (ownSets[set.name] ?? 0) + (bonuses.teammateSets?.[set.name] ?? 0);
+    return count > 0 && set.stat === stat ? [`${count} × ${set.name} ${percent(count * set.value)}`] : [];
+  });
+  const buildings = bonuses.buildings;
+  const building = buildings !== undefined && stat in buildingNames
+    ? buildings[stat as keyof typeof buildingNames] : 0;
+  const sanctuary = buildings !== undefined && stat === 'atk' && element !== undefined ? buildings.elementAtk[element] ?? 0 : 0;
+  const lifted = stat === 'criRate' && bonuses.alwaysCrits;
+  const parts = [
+    lead ? `${leadNames[stat]} ${percent(lead)}` : '',
+    ...sets,
+    building ? `${buildingNames[stat as keyof typeof buildingNames]} ${percent(building)}` : '',
+    sanctuary ? `${element} Sanctuary ${percent(sanctuary)}` : '',
+    stat === 'criRate' && bonuses.alwaysElementAdvantage ? `Element advantage ${percent(elementAdvantageLift)}` : '',
+    lifted ? `Always crits: at least ${alwaysCritsFloor}%` : '',
+  ].filter((part) => part !== '');
+  return { amount: figure - display, raisedTo: lifted ? figure : null, reading: parts.map((part) => `${part}.`).join(' ') };
 }
 
 /** Whose wish it was stays in the sentence, so a user choice and a population default make different claims. */

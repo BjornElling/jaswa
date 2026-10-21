@@ -1,11 +1,14 @@
 /** The engraved main property belongs to the game's visible stat panel. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { calculateMonsterTotals, combatStatBonus, monsterEffects, monsterTargetFigures, completedTeamSets, teamSetBonuses } from '../app/lib/monster-stats.ts';
+import {
+  calculateMonsterTotals, combatStatBonus, monsterEffects, monsterStatSheet, monsterTargetFigures, completedTeamSets, teamSetBonuses,
+} from '../app/lib/monster-stats.ts';
 import { copyProfile, readMonsterPreferences, withProfile } from '../app/lib/monster-preferences.ts';
 import { relicMonsterModel } from '../app/lib/relic-monster-value.ts';
 import { noBuildingBonuses, readBuildingBonuses } from '../app/lib/account-buildings.ts';
-import { combatBonusMarks } from '../app/lib/figure-marks.ts';
+import { fightAddition } from '../app/lib/figure-marks.ts';
+import { combatSpeed } from '../app/lib/speed-tick.ts';
 
 const monster = {
   con: 659, atk: 637, def: 736, spd: 108,
@@ -39,43 +42,52 @@ const sheet = calculateMonsterTotals(unengraved);
 assert.deepEqual(model.totals, { HP: sheet.hp, ATK: sheet.atk, DEF: sheet.def, SPD: sheet.spd });
 assert.ok(calculateMonsterTotals(engraved).hp > sheet.hp);
 
-/* Element advantage lifts the DMG a figure is shown with, never the CRI Rate. */
+/* Element advantage is the fight's: it lifts CRI Rate, and DMG with it. */
 const totals = calculateMonsterTotals(monster);
 const plain = { alwaysCrits: false, alwaysElementAdvantage: false };
 const own = monsterTargetFigures(monster, plain);
+const statKeys = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];
+const panelKeys = { hp: 'hp', atk: 'atk', def: 'def', spd: 'spd', criRate: 'criticalRate', criDmg: 'criticalDamage', res: 'resistance', acc: 'accuracy' };
+for (const key of statKeys) assert.equal(own[key], totals[panelKeys[key]], `with no fight, ${key} is the panel's`);
 const advantaged = monsterTargetFigures(monster, { ...plain, alwaysElementAdvantage: true });
-assert.equal(advantaged.criRate, own.criRate);
+assert.equal(advantaged.criRate, own.criRate + 15);
 assert.equal(advantaged.dmg,
   Math.floor(totals.atk * (1 + Math.min(100, own.criRate + 15) / 100 * totals.criticalDamage / 100)));
 assert.ok(advantaged.dmg > own.dmg);
 
-/* A stat is the copy's own and a composite is the fight's: no lead reaches one of
-   the eight stats, and each composite counts every lead as a share of base summed
-   with every other percentage and rounded once. */
+/* Every figure is the fight's: a lead reaches its stat as a share of base summed
+   with every other percentage and rounded once, and each composite reads the
+   stats so counted — while the panel's sheet beside them does not move. */
 const leads = { atk: 33, def: 20, hp: 30, criRate: 33 };
-const led = monsterTargetFigures(monster, { ...plain, leads });
-const statKeys = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'];
-for (const key of statKeys) assert.equal(led[key], own[key], `a lead reached ${key}, which is the copy's own`);
+const ledSheet = monsterStatSheet(monster, { ...plain, leads });
+const led = ledSheet.figures;
 const effects = monsterEffects(monster);
 const ledAtk = Math.ceil(monster.atk * (100 + effects[2] + 33) / 100) + effects[3];
 const ledDef = Math.ceil(monster.def * (100 + effects[4] + 20) / 100) + effects[5];
 const ledHp = Math.ceil(monster.con * 15 * (100 + effects[0] + 30) / 100) + effects[1];
+assert.deepEqual([led.hp, led.atk, led.def, led.criRate], [ledHp, ledAtk, ledDef, own.criRate + 33]);
+for (const key of statKeys) assert.equal(ledSheet.display[key], totals[panelKeys[key]], `a lead reached the panel's ${key}`);
 assert.equal(led.dmg, Math.floor(ledAtk * (1 + Math.min(100, own.criRate + 33) / 100 * own.criDmg / 100)));
 assert.equal(led.ehp, Math.floor(ledHp * (1142 + 3.572 * ledDef) / 1000));
 assert.equal(led.ehpD, Math.floor(ledHp * (1142 + 3.572 * ledDef * 0.3) / 1000));
 
-/* The owner's own example: 67 % CRI Rate and a 33-point crit lead show 67 and deal
-   their damage at 100 %. */
+/* The owner's own example: 67 % CRI Rate and a 33-point crit lead fight at 100 %
+   and deal their damage there — as a guaranteed crit does, which lifts 67 to 100. */
 const keen = { ...monster, critical_rate: 67 };
 const keenFigures = monsterTargetFigures(keen, { ...plain, leads: { criRate: 33 } });
-assert.equal(keenFigures.criRate, 67);
+assert.equal(keenFigures.criRate, 100);
 assert.equal(keenFigures.dmg, Math.floor(own.atk * (1 + own.criDmg / 100)));
-assert.equal(keenFigures.dmg, monsterTargetFigures(keen, { ...plain, alwaysCrits: true }).dmg);
-/* Past 100 % nothing more is dealt: the lead is added to the copy's own CRI Rate
-   first and the sum capped once, so 90 with the same lead and element advantage
-   deals exactly what 67 does — and below the cap the lead still counts in full. */
+const certain = monsterTargetFigures(keen, { ...plain, alwaysCrits: true });
+assert.equal(certain.criRate, 100);
+assert.equal(certain.dmg, keenFigures.dmg);
+assert.equal(monsterTargetFigures({ ...monster, critical_rate: 90 }, { ...plain, alwaysCrits: true, leads: { criRate: 24 } }).criRate, 114,
+  'a guaranteed crit lifts to 100 and lowers nothing past it');
+/* Past 100 % nothing more is dealt, though the figure still says so: the lead is
+   added to the copy's own CRI Rate, and DMG caps the sum once, so 90 with the same
+   lead and element advantage deals exactly what 67 does — and below the cap the
+   lead still counts in full. */
 const past = monsterTargetFigures({ ...monster, critical_rate: 90 }, { ...plain, alwaysElementAdvantage: true, leads: { criRate: 33 } });
-assert.equal(past.criRate, 90);
+assert.equal(past.criRate, 138);
 assert.equal(past.dmg, keenFigures.dmg);
 const below = monsterTargetFigures({ ...monster, critical_rate: 40 }, { ...plain, leads: { criRate: 33 } });
 assert.equal(below.dmg, Math.floor(own.atk * (1 + 0.73 * own.criDmg / 100)));
@@ -96,21 +108,47 @@ assert.deepEqual(copyProfile({ unitId: '1', label: 'Nuker', critLead: 19 }, '1',
   'a lead copied from Scenario into an area is left behind');
 assert.deepEqual(copyProfile({ unitId: '1', critLead: 19 }, '1', 'scenario'), { unitId: '1', critLead: 19 });
 
-/* A leader's CRI Dmg reaches DMG; its ACC and RES reach no composite, and are
-   the battle value beside the stat, as the Accuracy and Tolerance sets are. */
+/* A leader's CRI Dmg reaches CRI Dmg and DMG; its ACC and RES reach their own
+   stat and no composite. */
 const crushing = monsterTargetFigures(monster, { ...plain, leads: { criDmg: 25 } });
-for (const key of statKeys) assert.equal(crushing[key], own[key], `a CRI Dmg lead reached ${key}`);
+assert.equal(crushing.criDmg, own.criDmg + 25);
 assert.equal(crushing.dmg, Math.floor(totals.atk * (1 + Math.min(100, own.criRate) / 100 * (own.criDmg + 25) / 100)));
 assert.equal(combatStatBonus('acc', { ...plain, leads: { acc: 40 } }), 40);
 assert.equal(combatStatBonus('res', { ...plain, leads: { res: 41 }, teammateSets: { Tolerance: 1 } }), 51);
-assert.deepEqual(monsterTargetFigures(monster, { ...plain, leads: { acc: 40, res: 41 } }), own, 'ACC and RES leads move no figure');
-/* The battle value beside RES counts the lead once, the copy's own Tolerance set
-   and a teammate's beside it: 15 + 41 + 10 + 10. */
-const resReading = combatBonusMarks('res', { ...plain, leads: { res: 41 }, teammateSets: { Tolerance: 1 } }, 15, { Tolerance: 1 })[0].reading;
-assert.match(resReading, /Battle total: 76% RES\./, resReading);
-assert.match(combatBonusMarks('res', { ...plain, leads: { res: 41 } }, 15)[0].reading, /Battle total: 56% RES\./);
+const resolute = monsterTargetFigures(monster, { ...plain, leads: { acc: 40, res: 41 } });
+assert.deepEqual({ ...resolute, acc: own.acc, res: own.res }, own, 'ACC and RES leads move no other figure');
+assert.deepEqual([resolute.acc, resolute.res], [own.acc + 40, own.res + 41]);
+/* RES counts the lead once, the copy's own Tolerance set and a teammate's beside
+   it: 15 + 41 + 10 + 10 — Baleygr's 41 % lead was once counted twice. */
+const tolerant = { ...monster, resist: 15, runes: [{ set_id: 23 }, { set_id: 23 }] };
+const tolerantBonuses = { ...plain, leads: { res: 41 }, teammateSets: { Tolerance: 1 } };
+const tolerantSheet = monsterStatSheet(tolerant, tolerantBonuses);
+assert.deepEqual([tolerantSheet.display.res, tolerantSheet.figures.res], [15, 76]);
+const resAddition = fightAddition('res', tolerantSheet.display.res, tolerantSheet.figures.res, tolerantBonuses, completedTeamSets(tolerant.runes), undefined);
+assert.equal(resAddition.amount, 61);
+assert.equal(resAddition.reading, 'RES lead +41%. 2 × Tolerance +20%.');
 
-console.log('Monster display stats: Icaru DEF, empty gear, relic mains, crit bonuses and leads in the composites only, and saved choices agree.');
+/* What a page says the fight adds: the figure less the panel's, every source named. */
+const totemBuildings = { ...noBuildingBonuses, spd: 15, atk: 20, elementAtk: { Water: 21 } };
+const quick = monsterStatSheet({ ...monster, attribute: 1 }, { ...plain, leads: { spd: 24 }, buildings: totemBuildings });
+const quickSpd = fightAddition('spd', quick.display.spd, quick.figures.spd, { ...plain, leads: { spd: 24 }, buildings: totemBuildings }, {}, 'Water');
+assert.equal(quickSpd.amount, quick.figures.spd - quick.display.spd);
+assert.equal(quickSpd.reading, 'SPD lead +24% of base SPD. Sky Tribe Totem +15% of base SPD.');
+assert.equal(fightAddition('atk', quick.display.atk, quick.figures.atk, { ...plain, buildings: totemBuildings }, { Fight: 1 }, 'Water').reading,
+  '1 × Fight +8% of base ATK. Ancient Sword +20% of base ATK. Water Sanctuary +21% of base ATK.');
+const lifted = fightAddition('criRate', 15, 100, { ...plain, alwaysCrits: true, alwaysElementAdvantage: true }, {}, undefined);
+assert.deepEqual(lifted, { amount: 85, raisedTo: 100, reading: 'Element advantage +15%. Always crits: at least 100%.' });
+assert.deepEqual(fightAddition('acc', 0, 0, plain, {}, undefined), { amount: 0, raisedTo: null, reading: '' });
+
+/* The fight's SPD is `speed-tick.ts`'s combat speed, written over the accumulators. */
+for (const [baseSpeed, runeSpeed, swift, percent] of [[101, 64, true, 14.5], [99, 87, false, 39], [122, 40, true, 0], [100, 0, true, 2.5]]) {
+  const runes = [{ set_id: swift ? 3 : 1, pri_eff: [8, runeSpeed] }, ...Array.from({ length: swift ? 3 : 0 }, () => ({ set_id: 3 }))];
+  const copy = { ...monster, spd: baseSpeed, runes, artifacts: [], relics: [] };
+  assert.equal(monsterTargetFigures(copy, { ...plain, buildings: { ...noBuildingBonuses, spd: percent } }).spd,
+    combatSpeed({ baseSpeed, runeSpeed, swift, percentOfBase: percent }), `combat speed of ${baseSpeed} + ${runeSpeed}`);
+}
+
+console.log('Monster display stats: Icaru DEF, empty gear, relic mains, every fight bonus in the fight\'s figures and none on the panel, and saved choices agree.');
 
 // Own completed sets are counted once; teammate entries are additional sets, not team totals.
 for (const set of teamSetBonuses) {
@@ -125,7 +163,12 @@ for (const set of teamSetBonuses) {
   const withTeam = { ...plain, teammateSets: { [set.name]: 2 } };
   const figures = monsterTargetFigures(holder, withTeam);
   const self = monsterTargetFigures(holder, plain);
-  for (const key of statKeys) assert.equal(figures[key], self[key]);
+  const bareFigures = monsterTargetFigures(bare, plain);
+  for (const key of statKeys) if (key !== set.stat) assert.equal(figures[key], self[key]);
+  if (set.stat === 'acc' || set.stat === 'res') {
+    assert.equal(self[set.stat], bareFigures[set.stat] + set.value, 'the holder\'s own set reaches its fight');
+    assert.equal(figures[set.stat], self[set.stat] + 2 * set.value);
+  } else assert.ok(figures[set.stat] > self[set.stat] && self[set.stat] > bareFigures[set.stat]);
   assert.equal(combatStatBonus(set.stat, withTeam), set.value * 2);
   if (set.stat === 'atk') assert.equal(figures.dmg, Math.floor(Math.ceil(monster.atk * 124 / 100) * 1.075));
   if (set.stat === 'hp' || set.stat === 'def') assert.ok(figures.ehp > self.ehp);
@@ -166,12 +209,18 @@ console.log('Fran: all eight game display stats match; own Fight + two teammate 
 
 /* The Glory buildings are the fight's, never the panel's: at level 20 they add
    20 % of base HP, ATK and DEF, 21 % ATK on their Sanctuary's element and 25 CRI
-   Dmg, summed with every other percentage and rounded once — and no stat moves. */
-const buildings = readBuildingBonuses({ deco_list: [4, 8, 9, 31, 15, 16, 17, 18, 19].map((master_id) => ({ master_id, level: 20 })) });
+   Dmg, summed with every other percentage and rounded once, and the totem 15 %
+   of base SPD. */
+const buildings = readBuildingBonuses({ deco_list: [4, 6, 8, 9, 31, 15, 16, 17, 18, 19].map((master_id) => ({ master_id, level: 20 })) });
+assert.equal(buildings.spd, 15);
 const water = { ...monster, attribute: 1 };
-const built = monsterTargetFigures(water, { ...plain, buildings });
+const builtSheet = monsterStatSheet(water, { ...plain, buildings });
+const built = builtSheet.figures;
 const bare = monsterTargetFigures(water, plain);
-for (const key of statKeys) assert.equal(built[key], bare[key], `a building reached ${key}, which the panel does not show`);
+for (const key of statKeys) assert.equal(builtSheet.display[key], bare[key], `a building reached the panel's ${key}`);
+for (const key of ['res', 'acc', 'criRate']) assert.equal(built[key], bare[key], `no building reaches ${key}`);
+assert.equal(built.spd, Math.ceil(monster.spd * (100 + 15) / 100));
+assert.equal(built.criDmg, bare.criDmg + 25);
 const builtAtk = Math.ceil(monster.atk * (100 + effects[2] + 20 + 21) / 100) + effects[3];
 const builtDef = Math.ceil(monster.def * (100 + effects[4] + 20) / 100) + effects[5];
 const builtHp = Math.ceil(monster.con * 15 * (100 + effects[0] + 20) / 100) + effects[1];
@@ -182,4 +231,4 @@ const fire = monsterTargetFigures({ ...monster, attribute: 2 }, { ...plain, buil
 assert.equal(fire.dmg, Math.floor((Math.ceil(monster.atk * (100 + effects[2] + 20) / 100) + effects[3]) * (1 + own.criRate / 100 * (own.criDmg + 25) / 100)),
   'a Sanctuary reaches its own element only');
 assert.deepEqual(monsterTargetFigures(water, { ...plain, buildings: noBuildingBonuses }), bare, 'no building counts nothing');
-console.log('Buildings: HP, ATK, DEF, a Sanctuary on its element and CRI Dmg reach the composites only.');
+console.log('Buildings: HP, ATK, DEF, SPD, a Sanctuary on its element and CRI Dmg reach the fight, never the panel.');

@@ -481,7 +481,7 @@ console.log('Automatic team bonuses: all five sets, Intangible, own-set exclusio
     'a Rift Raid deck fights under its own leader first, then the battle\'s others in deck order');
   const first = reading(battle[0], '9');
   assert.deepEqual(summary(first), [['1', 'counts'], ['2', 'counts'], ['3', 'counts']]);
-  assert.deepEqual(first.bonuses, { criRate: 24, criDmg: 25 }, 'SPD reaches no figure here; CRI Rate and CRI Dmg do');
+  assert.deepEqual(first.bonuses, { criRate: 24, spd: 19, criDmg: 25 }, 'a SPD lead reaches the fight\'s SPD like any other');
   const resisting = [raid(1, ['4'], '4'), raid(2, ['1'], null), raid(3, ['2'], null)];
   assert.deepEqual(reading(resisting[2], '2', resisting).bonuses, { res: 20 }, 'a leader of another deck reaches a deck with none');
 

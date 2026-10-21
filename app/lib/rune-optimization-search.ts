@@ -628,7 +628,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     // A completion cannot exceed either the optimistic contribution or a
     // stated direct-stat ceiling. Composites read these tighter totals through
     // the shared sheet, so a forbidden ATK surplus cannot promise extra DMG.
-    for (const index of ceilingIndexes) if (index < baseStatCount) capTotal(problem.base, totals, index, ceilings[index], effectsNow);
+    for (const index of ceilingIndexes) if (index < baseStatCount) capTotal(totals, index, ceilings[index]);
     for (let at = 0; at < targetIndexes.length; at += 1) {
       const index = targetIndexes[at];
       if (figureOf(totals, index) < targets[index]) return false;

@@ -127,7 +127,7 @@ test('engraved relic mains appear in current stats, while a bare copy keeps its 
   await page.screenshot({ path: testInfo.outputPath('relic-stat-bare.png') });
 });
 
-test('leads and element advantage reach the composites, never a stat or its range', async ({ page }, testInfo) => {
+test('leads and element advantage reach the fight\'s stat, which a range names, and never the panel\'s', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await importAccount(page);
   await openOverlay(page);
@@ -147,32 +147,29 @@ test('leads and element advantage reach the composites, never a stat or its rang
   await dialog.getByLabel('Always element advantage').check();
   await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
   await expect(rate.locator('.overlay-stat-current')).toContainText('51');
-  const mark = rate.getByRole('img', { name: /Added to the shown value in battle: Crit lead.*33% CRI Rate.*Element advantage.*15% CRI Rate/ });
-  await expect(mark).toBeVisible();
-  await expect(mark).toHaveAttribute('title', /33%.*15%/);
-  /* A range names the copy's own CRI Rate, whatever the fight adds: 51 meets a
-     floor of 51, and 84 — 51 with the lead — is not met by the lead. */
+  const addition = rate.getByTitle('Crit lead +33%. Element advantage +15%.', { exact: true });
+  await expect(addition).toHaveText(/\(\+48\)/);
+  /* A range names the CRI Rate the copy fights at: 51 with the lead and the
+     advantage is 99, which meets a floor of 84 and not one of 100. */
   const critFloor = rate.getByRole('spinbutton', { name: 'CtR%: at least' });
-  await critFloor.fill('51');
-  await expect(rate.getByRole('img', { name: /Your target: CtR%/ })).toHaveCount(0);
   await critFloor.fill('84');
-  await expect(rate.getByRole('img', { name: /Your target: CtR% ≥ 84; current: 51\./ })).toBeVisible();
+  await expect(rate.getByRole('img', { name: /Your target: CtR%/ })).toHaveCount(0);
+  await critFloor.fill('100');
+  await expect(rate.getByRole('img', { name: /Your target: CtR% ≥ 100; current: 99\./ })).toBeVisible();
   await critFloor.fill('');
-  const damage = dialog.locator('.stat-range[data-figure="dmg"]');
-  await expect(damage.getByRole('img', { name: 'Calculated with Crit lead (+33% CRI Rate); Element advantage (+15% CRI Rate).' })).toBeVisible();
 
-  /* The other leads the same way: in the composites they reach, never in the stat. */
+  /* The other leads the same way: on the stat's own line, after the panel's figure,
+     and into the composites that read it. */
   const hp = dialog.locator('.stat-range[data-figure="hp"]');
   const effective = dialog.locator('.stat-range[data-figure="ehp"]');
-  const shownHp = await hp.locator('.overlay-stat-current').innerText();
+  const shownHp = await hp.locator('.overlay-stat-current').evaluate((node) => node.firstChild?.textContent);
   const effectiveBefore = await effective.locator('.overlay-stat-current').innerText();
   await dialog.getByRole('spinbutton', { name: 'HP, in percent' }).fill('24');
-  await expect(hp.locator('.overlay-stat-current')).toHaveText(shownHp);
-  await expect(hp.getByRole('img', { name: /Added to the shown value in battle: HP lead \(\+24% base HP\)\./ })).toBeVisible();
+  expect(await hp.locator('.overlay-stat-current').evaluate((node) => node.firstChild?.textContent)).toEqual(shownHp);
+  await expect(hp.getByTitle('HP lead +24% of base HP.', { exact: true })).toHaveText(/\(\+[\d.,]+\)/);
   await expect(effective.locator('.overlay-stat-current')).not.toHaveText(effectiveBefore);
-  await expect(effective.getByRole('img', { name: 'Calculated with HP lead (+24% base HP).' })).toBeVisible();
   await dialog.getByRole('spinbutton', { name: 'HP, in percent' }).fill('');
-  /* No composite reads SPD, so there is no Speed lead to state. */
+  /* Scenario is no team, so it has no Speed lead to state. */
   await expect(dialog.getByRole('spinbutton', { name: 'Speed lead, in percent' })).toHaveCount(0);
   expect(await rate.boundingBox()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('crit-bonuses-filled.png') });
@@ -192,12 +189,12 @@ test('leads and element advantage reach the composites, never a stat or its rang
   await expect(dialog.getByLabel('Always element advantage')).toBeChecked();
   await expect(dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' })).toHaveValue('33');
   await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('');
-  await expect(rate.getByRole('img', { name: /Element advantage \(\+15% CRI Rate\)/ })).toBeVisible();
+  await expect(rate.getByTitle('Element advantage +15%.', { exact: true })).toHaveText(/\(\+15\)/);
   await dialog.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
   await dialog.getByRole('button', { name: /^Save and optimize runes for / }).click();
   const optimizationStats = page.getByRole('group', { name: 'Stats', exact: true });
   await expect(optimizationStats.locator('.stat-range[data-figure="criRate"] .overlay-stat-current')).toContainText('51');
-  await expect(optimizationStats.getByRole('img', { name: /Added to the shown value in battle: Crit lead.*33% CRI Rate.*Element advantage.*15% CRI Rate/ })).toBeVisible();
+  await expect(optimizationStats.getByTitle('Crit lead +33%. Element advantage +15%.', { exact: true })).toHaveText(/\(\+48\)/);
   /* DMG is dealt at 51 + 15 + 33 = 99 % crit: the advantage and the lead both count. */
   await expect(optimizationStats.locator('.stat-range[data-figure="dmg"] .overlay-stat-current')).toContainText(/8[.,]183/);
 });

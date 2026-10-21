@@ -78,6 +78,7 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
   let rank = u32(question[QUESTION_RANK_AT]);
   floors[rank] = max(floors[rank], question[QUESTION_BAR_AT]);
 
+  // The first eight base positions are the figures' own order (layout).
   let baseHp = question[QUESTION_BASE_AT + FIGURE_HP];
   let baseAtk = question[QUESTION_BASE_AT + FIGURE_ATK];
   let baseDef = question[QUESTION_BASE_AT + FIGURE_DEF];
@@ -94,24 +95,25 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
       effects[slot] = base[slot] + candidates[first + slot] + candidates[last + slot];
     }
 
-    figures[FIGURE_HP] = roundedUp(baseHp * (100.0 + effects[ACC_HP_PERCENT]) / 100.0) + effects[ACC_HP_FLAT];
-    figures[FIGURE_ATK] = roundedUp(baseAtk * (100.0 + effects[ACC_ATK_PERCENT]) / 100.0) + effects[ACC_ATK_FLAT];
-    figures[FIGURE_DEF] = roundedUp(baseDef * (100.0 + effects[ACC_DEF_PERCENT]) / 100.0) + effects[ACC_DEF_FLAT];
-    figures[FIGURE_SPD] = roundedUp(baseSpd * (100.0 + effects[ACC_SPD_PERCENT]) / 100.0) + effects[ACC_SPD_FLAT];
-    figures[FIGURE_CRI_RATE] = question[QUESTION_BASE_AT + FIGURE_CRI_RATE] + effects[ACC_CRITICAL_RATE];
-    figures[FIGURE_CRI_DMG] = question[QUESTION_BASE_AT + FIGURE_CRI_DMG] + effects[ACC_CRITICAL_DAMAGE];
-    figures[FIGURE_RES] = question[QUESTION_BASE_AT + FIGURE_RES] + effects[ACC_RESISTANCE];
-    figures[FIGURE_ACC] = question[QUESTION_BASE_AT + FIGURE_ACC] + effects[ACC_ACCURACY];
+    // Every figure is the fight's (combatAt): each lead, building and the totem
+    // summed with the other percentages and rounded once, team sets and points on
+    // top, and a guaranteed crit lifting CRI Rate to its floor.
+    figures[FIGURE_HP] = roundedUp(baseHp * (100.0 + effects[ACC_HP_PERCENT] + effects[ACC_TEAM_HP_PERCENT] + question[QUESTION_BASE_AT + COMBAT_HP]) / 100.0) + effects[ACC_HP_FLAT];
+    figures[FIGURE_ATK] = roundedUp(baseAtk * (100.0 + effects[ACC_ATK_PERCENT] + effects[ACC_TEAM_ATK_PERCENT] + question[QUESTION_BASE_AT + COMBAT_ATK]) / 100.0) + effects[ACC_ATK_FLAT];
+    figures[FIGURE_DEF] = roundedUp(baseDef * (100.0 + effects[ACC_DEF_PERCENT] + effects[ACC_TEAM_DEF_PERCENT] + question[QUESTION_BASE_AT + COMBAT_DEF]) / 100.0) + effects[ACC_DEF_FLAT];
+    figures[FIGURE_SPD] = roundedUp(baseSpd * (100.0 + effects[ACC_SPD_PERCENT] + question[QUESTION_BASE_AT + COMBAT_SPD]) / 100.0) + effects[ACC_SPD_FLAT];
+    figures[FIGURE_CRI_RATE] = max(question[QUESTION_BASE_AT + FIGURE_CRI_RATE] + effects[ACC_CRITICAL_RATE] + question[QUESTION_BASE_AT + COMBAT_CRI_RATE],
+      question[QUESTION_BASE_AT + CRI_RATE_FLOOR_AT]);
+    figures[FIGURE_CRI_DMG] = question[QUESTION_BASE_AT + FIGURE_CRI_DMG] + effects[ACC_CRITICAL_DAMAGE] + question[QUESTION_BASE_AT + COMBAT_CRI_DMG];
+    figures[FIGURE_RES] = question[QUESTION_BASE_AT + FIGURE_RES] + effects[ACC_RESISTANCE] + effects[ACC_TEAM_RESISTANCE] + question[QUESTION_BASE_AT + COMBAT_RES];
+    figures[FIGURE_ACC] = question[QUESTION_BASE_AT + FIGURE_ACC] + effects[ACC_ACCURACY] + effects[ACC_TEAM_ACCURACY] + question[QUESTION_BASE_AT + COMBAT_ACC];
 
-    // The composites read the fight's HP, ATK, DEF, CRI Rate and CRI Dmg (combatAt):
-    // each lead summed with the other percentages and rounded once; the Fallen
-    // Ancient Guardian's CRI Dmg reaches DMG only, never the shown CRI Dmg.
-    let hp = max(0.0, roundedUp(baseHp * (100.0 + effects[ACC_HP_PERCENT] + effects[ACC_TEAM_HP_PERCENT] + question[QUESTION_BASE_AT + COMBAT_HP]) / 100.0) + effects[ACC_HP_FLAT]);
-    let atk = max(0.0, roundedUp(baseAtk * (100.0 + effects[ACC_ATK_PERCENT] + effects[ACC_TEAM_ATK_PERCENT] + question[QUESTION_BASE_AT + COMBAT_ATK]) / 100.0) + effects[ACC_ATK_FLAT]);
-    let def = max(0.0, roundedUp(baseDef * (100.0 + effects[ACC_DEF_PERCENT] + effects[ACC_TEAM_DEF_PERCENT] + question[QUESTION_BASE_AT + COMBAT_DEF]) / 100.0) + effects[ACC_DEF_FLAT]);
     // RUNE-ROLE-METRICS.md §2–4, as rune-potential-metrics.ts states them.
-    let criticalRate = min(CRITICAL_RATE_CAP_PERCENT, max(0.0, figures[FIGURE_CRI_RATE] + question[QUESTION_BASE_AT + COMBAT_CRI_RATE])) / 100.0;
-    figures[FIGURE_DMG] = atk * (1.0 + criticalRate * max(0.0, figures[FIGURE_CRI_DMG] + question[QUESTION_BASE_AT + COMBAT_CRI_DMG]) / 100.0);
+    let hp = max(0.0, figures[FIGURE_HP]);
+    let atk = max(0.0, figures[FIGURE_ATK]);
+    let def = max(0.0, figures[FIGURE_DEF]);
+    let criticalRate = min(CRITICAL_RATE_CAP_PERCENT, max(0.0, figures[FIGURE_CRI_RATE])) / 100.0;
+    figures[FIGURE_DMG] = atk * (1.0 + criticalRate * max(0.0, figures[FIGURE_CRI_DMG]) / 100.0);
     figures[FIGURE_EHP] = hp * (DEFENSE_FACTOR_BASE + DEFENSE_FACTOR_PER_DEF * def) / DEFENSE_FACTOR_SCALE;
     figures[FIGURE_EHP_D] = hp * (DEFENSE_FACTOR_BASE + DEFENSE_FACTOR_PER_DEF * def * BROKEN_DEFENSE_SHARE) / DEFENSE_FACTOR_SCALE;
 

@@ -3,7 +3,8 @@ import type { ReactNode } from 'react';
 import { Button, InlineButton } from './button';
 import { CalculationStatus } from './calculation-status';
 import { FigureMarks } from './figure-marks';
-import { buildIssueMarks, combatBonusMarks } from '../lib/figure-marks';
+import { buildIssueMarks, fightAddition } from '../lib/figure-marks';
+import { FightAdditionText } from './fight-addition';
 import { CheckboxRow, RadioLine } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
@@ -37,7 +38,8 @@ import { monsterNameCollator } from '../lib/monster-grid';
 import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
-import { completedTeamSets, leadStats, monsterTargetFigures } from '../lib/monster-stats';
+import { completedTeamSets, isStatFigure, leadStats, monsterStatSheet } from '../lib/monster-stats';
+import type { CombatBonuses, MonsterStatSheet, TeammateSets } from '../lib/monster-stats';
 import { AccuracyGoals, LeadFields, TeamLeads } from './fight-conditions';
 import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
 import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
@@ -61,7 +63,7 @@ import type { CraftUse, RuneOptimizationSettings } from '../lib/rune-optimizatio
 import { roleTargetColumns } from '../lib/rune-roles';
 import { referenceLines } from '../lib/rune-reference-stats';
 import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
-import { activeRuneSets } from '../lib/rune-sets';
+import { activeRuneSets, elementName } from '../lib/rune-sets';
 import { runeBuildName } from '../lib/rune-set-pairs';
 import { readRunes } from '../lib/runes';
 import type { Rune } from '../lib/runes';
@@ -301,9 +303,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      main, broken sets refused, a Gem the settings no longer offer — dims every row
      it now rules out, so the table answers the question the player is looking at.
      Widening one dims nothing and finds nothing new; the stale warning says so. Its
-     figures are still counted the way the search counted them, the fight in the
-     composites only; a CRI Rate range the Always crits switch has since set aside
-     stops counting. */
+     figures are still counted with the fight the search counted them in; a CRI
+     Rate range the Always crits switch has since set aside stops counting. */
   const tableAlwaysCritsCount = current?.requirements.alwaysCrits;
   const tableLimits = useMemo(() => {
     if (tableAlwaysCritsCount === undefined || !requirements) return undefined;
@@ -331,14 +332,15 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       now: { runes: runesById, items: itemsById, locks },
     })
     : undefined), [current, selected, tableLimits, resultCount, settings, spared, runesById, itemsById, locks]);
-  const figuresNow = useCallback((bonuses: RequirementsDraft) => {
-    if (!selected) return undefined;
-    const figures = monsterTargetFigures(selected.record, bonuses);
-    return monsterStatTargetKeys.map((key) => figures[key]);
-  }, [selected]);
-  const currentFigures = useMemo(() => requirements ? figuresNow(requirements) : undefined, [figuresNow, requirements]);
+  const sheetNow = useCallback((bonuses: RequirementsDraft) => (selected ? monsterStatSheet(selected.record, bonuses) : undefined), [selected]);
+  const currentSheet = useMemo(() => requirements ? sheetNow(requirements) : undefined, [sheetNow, requirements]);
   /* The table's `Now` row is counted the way its builds were. */
-  const tableNowFigures = useMemo(() => current ? figuresNow({ ...current.requirements, teammateSets, buildings }) : undefined, [figuresNow, current, teammateSets, buildings]);
+  const tableNowFigures = useMemo(() => {
+    const sheet = current ? sheetNow({ ...current.requirements, teammateSets, buildings }) : undefined;
+    return sheet ? monsterStatTargetKeys.map((key) => sheet.figures[key]) : undefined;
+  }, [sheetNow, current, teammateSets, buildings]);
+  const element = selected ? elementName(selected.record.attribute) : undefined;
+  const ownSets = useMemo(() => completedTeamSets(selected?.record.runes as Record<string, unknown>[] ?? []), [selected]);
   const currentBuild = selected ? runeBuildName(activeRuneSets(selected.record).map((set) => set.name)) : '';
 
   function change(update: (current: RequirementsDraft) => RequirementsDraft) {
@@ -605,10 +607,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
                   atLeast={requirements.targets[key]} atMost={requirements.ceilings[key]}
                   onAtLeast={limit('targets')} onAtMost={limit('ceilings')}
                   disabled={crits} title={crits ? 'Always crits, so no CRI Rate is needed' : undefined}
-                  current={<>
-                    {currentFigures ? formatNumber(currentFigures[figureIndex(key)], general) : '—'}
-                    <FigureMarks marks={combatBonusMarks(key, requirements, currentFigures?.[figureIndex(key)], completedTeamSets(selected?.record.runes as Record<string, unknown>[] ?? []))} reserve={1} />
-                  </>} />;
+                  current={<FigureNow figure={key} sheet={currentSheet} bonuses={requirements} ownSets={ownSets}
+                    element={element} general={general} />} />;
               })}
             </div>
             <Provenance>{changed(monsterStatTargetKeys.every((key) => requirements.targets[key] === profile.requirements.targets[key]
@@ -784,6 +784,29 @@ function CraftSetting({ legend, name, use, grade, roll, onUse, onGrade, onRoll }
   </div>;
 }
 
+/**
+ * One figure as Rune Optimization shows it: a stat as the monster's panel has it
+ * with what the fight adds after it, a composite as the fight has it. The range
+ * above and the search both read the fight's figure, which is the two together.
+ */
+function FigureNow({ figure, sheet, bonuses, ownSets, element, general }: {
+  figure: RankFigure;
+  sheet: MonsterStatSheet | undefined;
+  bonuses: CombatBonuses;
+  ownSets: TeammateSets;
+  element: string | undefined;
+  general: Preferences['general'];
+}) {
+  if (!isStatFigure(figure)) return <>{sheet ? formatNumber(sheet.figures[figure], general) : '—'}</>;
+  return <>
+    {sheet ? formatNumber(sheet.display[figure], general) : '—'}
+    <FightAdditionText stat={figure} general={general}
+      addition={sheet ? fightAddition(figure, sheet.display[figure], sheet.figures[figure], bonuses, ownSets, element) : null} />
+  </>;
+}
+
+/* The table reads every figure as the fight has it and nothing else: the line
+   under the ranges says what the fight adds, the table compares the totals. */
 function Results({ answer, builds, rankBy, currentBuild, currentFigures, general, describe, chosen, onChoose }: {
   answer: RuneOptimizationAnswer;
   builds: readonly CurrentBuild[];

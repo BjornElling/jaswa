@@ -117,44 +117,50 @@ and a ceiling (`ceilings`, `statCeilings`), each absent or stated on its own. Ab
 "no limit at that end"; `0` is a stated limit of nothing (`AGENTS.md` §3). A build outside
 any range is not listed.
 
-### 2.2.1 A stat is the copy's own; a composite is the fight's
+### 2.2.1 Every figure is the fight's
 
-One rule decides what every figure on this page means, and every range is judged on the
-figure as the table shows it:
+One rule decides what every figure on this page means: **a range names the final value,
+after everything the fight adds** (the developer, October 21, 2026), and every range is
+judged on the figure as the table shows it.
 
-- **The eight stats** — HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES and ACC — are the copy's
-  display stats, including personal sets but excluding team sets (§2.2.4). They are
-  entered, judged and shown without anything a fight adds. A CRI Rate range of 67–69 on a
-  copy with a 33-point crit lead asks the runes for 67–69. A SPD range is display speed.
-- **The three composites** — DMG, E.HP and E.HP D — are what the copy does in the fight,
-  so they count everything the fight adds: leads (§2.2.3), crit conditions (§2.2.2), team
-  sets (§2.2.4) and the account's **Glory buildings** (`readBuildingBonuses` in
-  `account-buildings.ts`: Guardstone DEF %, Crystal Altar HP %, Ancient Sword ATK %, the
-  Sanctuary of the copy's own element ATK %, and Fallen Ancient Guardian CRI Dmg points).
+- **The eight stats** — HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES and ACC — are counted as
+  the copy fights with them: its display stats plus leads (§2.2.3), crit conditions
+  (§2.2.2), team sets on itself and its teammates (§2.2.4) and the account's **Glory
+  buildings and totem** (`readBuildingBonuses` in `account-buildings.ts`: Guardstone DEF %,
+  Crystal Altar HP %, Ancient Sword ATK %, the Sanctuary of the copy's own element ATK %,
+  Fallen Ancient Guardian CRI Dmg points and Sky Tribe Totem SPD %). A CRI Rate range of
+  100 on a copy with a 24-point crit lead asks the runes for 76. A SPD range is the combat
+  speed of the preset's content (`SPEED-TICK-CANONICAL.md` §1) — raid speed in a Rift Raid
+  preset — and plain combat speed in Scenario, which counts the totem and no lead.
+- **The three composites** — DMG, E.HP and E.HP D — are read from those eight.
+
+Under each range the page shows the display stat, as the game's monster panel has it, and
+after it in muted ink what the fight adds — `(+1,234)`, or `→ 100` where *Always crits*
+lifts CRI Rate — with every source named on hover (`fightAddition` in `figure-marks.ts`):
+`Crit lead +24%. Element advantage +15%.`. The addition keeps a box as wide as the widest
+its stat can carry, so a lead or a setting that changes it moves nothing. The builds table
+shows the totals and nothing else, the `Now` row included. The composites carry no
+addition: they are the fight's by definition.
 
 `monster-stats.ts` states this once. `combatBase` puts what a fight adds into the copy's
-base, after its eight stats, at `combatAt`; `totalsInto` writes the eight stats without it
-and, beside them, HP, ATK, DEF, CRI Rate and CRI Dmg with it; only the composites read the
-second five. The page passes the buildings with the requirements, so the search, the
-shader (which adds the building CRI Dmg through `COMBAT_CRI_DMG`), a found build read
-again, the overlay and its shortfall marks all sum through that one sheet, and no figure
-carries a bonus the figure beside it lacks. `verify:monster-display-stats` holds the rule
-on hand-built copies, and `verify:rune-optimization` against brute force.
+base, after its eight stats, at `combatAt`, and the CRI Rate a guaranteed crit lifts to at
+`criRateFloorAt`; `totalsInto` writes the eight display stats and, beside them, the same
+eight as the fight has them; every figure reads the second eight. The page passes the
+buildings with the requirements, so the search, the shader, a found build read again, the
+overlay and its shortfall marks all sum through that one sheet. `verify:monster-display-stats`
+holds the rule on hand-built copies, and `verify:rune-optimization` against brute force.
 
-A ceiling on a led stat needs one care in the search's bound: the stat is capped at the
-ceiling, but the composite reads the stat with its fight bonuses, which may stand above the
-ceiling by as much as they add. `capTotal` caps that second figure at the ceiling plus
-`⌈B·L/100⌉`, where L includes leads, buildings and the upper bound on own and teammate team
-sets, and CRI Rate and CRI Dmg at the ceiling plus their points, so the bound stays an
-upper bound.
+A ceiling names the fight's figure itself, so the search's bound clamps that figure at the
+ceiling (`capTotal`); every composite rises with the stats it reads, so the clamped figure
+bounds them too.
 
 ### 2.2.2 Crit conditions
 
-A monster whose owner says it always crits is counted at a certain crit: `alwaysCritsLift`
-adds a hundred points to the CRI Rate DMG reads. DMG reads CRI Rate capped at 100 %, so
-nothing a rune adds to CRI Rate moves a figure; the reductions stop comparing CRI Rate for
-DMG, and a CRI Rate floor is never asked. *Always element advantage* adds 15 points to the
-same CRI Rate. Both reach DMG and never the CRI Rate shown or its range.
+A monster whose owner says it always crits is counted at a certain crit: the fight's CRI
+Rate is lifted to at least 100 (`alwaysCritsFloor`), and one past it stays where it is.
+DMG reads CRI Rate capped at 100 %, so nothing a rune adds to CRI Rate moves DMG; the
+reductions stop comparing CRI Rate for DMG, and a CRI Rate range is never asked. *Always
+element advantage* adds 15 points to the fight's CRI Rate, which a range sees.
 
 ### 2.2.3 Leads
 
@@ -171,13 +177,12 @@ A lead counts for a member where its area reaches the content and its element, i
 names one, is the member's. Leads of different stats add up; of the leads of one stat for
 the same monsters — both for every monster, or both for one element — only the largest
 counts; a lead of one stat for every monster and one for an element add up on that
-element's monsters (`leadReaches`, `SPEED-TICK-CANONICAL.md` §2.2). ATK, DEF and HP leads are a share of
-base summed with every other percentage and rounded once, as the game counts a leader
-skill; CRI Rate, CRI Dmg, ACC and RES leads add points. ATK, CRI Rate and CRI Dmg reach
-DMG; HP and DEF reach E.HP and E.HP D; ACC and RES reach no composite and are named
-beside the stat as its battle value, as the Accuracy and Tolerance sets are. No figure
-here reads a SPD lead: a SPD range is display speed, and Speed Tuning counts the battle's
-speed leads itself.
+element's monsters (`leadReaches`, `SPEED-TICK-CANONICAL.md` §2.2). ATK, DEF, HP and SPD
+leads are a share of base summed with every other percentage and rounded once, as the game
+counts a leader skill; CRI Rate, CRI Dmg, ACC and RES leads add points. Each reaches its
+own stat; ATK, CRI Rate and CRI Dmg reach DMG, and HP and DEF reach E.HP and E.HP D. A SPD
+lead is judged by the same reach Speed Tuning reads, so a SPD range and Speed Tuning's
+combat speed agree.
 
 *Leads and bonuses* on the monster overlay lists, in a preset's area, one line per leader
 the team fights under — the stat and its percentage. A lead that does nothing for this
@@ -193,9 +198,8 @@ blank lead means none; an explicit zero is kept as the user's choice. Only Scena
 profile holds them: a lead stored in another area's profile is dropped alone on reading,
 on saving and on *Copy from…* (`heldIn` in `monster-preferences.ts`).
 
-Green tooltips say “Added to the shown value in battle” beside a display stat and
-“Calculated with” beside a composite. Own and teammate sets are combined, for example
-“3 Fight sets (+24% base ATK)”.
+What the fight adds to a stat is named on hover over its addition (§2.2.1). Own and
+teammate sets are combined, for example “3 × Fight +24% of base ATK.”.
 
 ### 2.2.4 Automatic team-set bonuses
 

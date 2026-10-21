@@ -40,39 +40,42 @@ export type MonsterTotals = {
 export const effectSlot = {
   hpPercent: 0, hpFlat: 1, atkPercent: 2, atkFlat: 3, defPercent: 4, defFlat: 5,
   spdPercent: 6, spdFlat: 7, criticalRate: 8, criticalDamage: 9, resistance: 10, accuracy: 11,
-  teamHpPercent: 12, teamAtkPercent: 13, teamDefPercent: 14,
+  teamHpPercent: 12, teamAtkPercent: 13, teamDefPercent: 14, teamResistance: 15, teamAccuracy: 16,
 } as const;
 
-export const effectSlotCount = 15;
+export const effectSlotCount = 17;
 
 /** The eight base stats in `MonsterTotals` order: HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES, ACC. */
 export const baseStatCount = 8;
 
 /**
- * What a fight adds to a copy, kept in its base after the eight stats: HP, ATK
- * and DEF as a percentage of base — leads and Glory buildings — the CRI Rate
- * points a crit lead, a guaranteed crit and element advantage add, and the CRI
- * Dmg points the Fallen Ancient Guardian adds. The totals carry the same five
- * positions — HP, ATK, DEF, CRI Rate and CRI Dmg as the fight has them — and
- * only the composites read those.
+ * What a fight adds to a copy, kept in its base after the eight stats, one
+ * position per stat in the same order: HP, ATK, DEF and SPD as a percentage of
+ * base — leads, Glory buildings and the Sky Tribe Totem — and CRI Rate, CRI Dmg,
+ * RES and ACC in points — leads, the teammates' team sets, element advantage and
+ * the Fallen Ancient Guardian. After them, `criRateFloorAt`: the CRI Rate a
+ * guaranteed crit raises the fight's to. The totals carry the eight stats as the
+ * panel shows them, then the same eight as the fight has them, at `combatAt`.
  *
- * **A stat is the copy's own; a composite is the fight's.** The eight stats are
- * what the game's monster panel shows: runes, gear and the copy's personal sets,
+ * **The panel shows a stat; a fight is judged by it.** The display stats are what
+ * the game's monster panel shows: runes, gear and the copy's personal sets,
  * and nothing else — no team set, no lead, no building, as the panel shows none.
- * So a CRI Rate range of 67 with a 33-point crit lead asks the runes for 67.
- * DMG, E.HP and E.HP D are what the copy does in the fight, so they count
- * exactly what `CombatBonuses` names: the leads, the teammates' team sets, the
- * crit conditions and the account's Glory buildings (`account-buildings.ts`).
- * One sum gives both, so no figure can carry a bonus another figure beside it
- * lacks.
+ * Every figure a range, a target or a ranking reads is the fight's: a CRI Rate
+ * range of 100 with a 24-point crit lead asks the runes for 76, and DMG, E.HP and
+ * E.HP D are counted from the same eight. One sum gives both, so a stat and the
+ * composite beside it can never count the fight differently. The display stats
+ * stay beside them so a page can show what the fight adds (`figure-marks.ts`).
  */
-export const combatAt = { hp: 8, atk: 9, def: 10, criRate: 11, criDmg: 12 } as const;
+export const combatAt = { hp: 8, atk: 9, def: 10, spd: 11, criRate: 12, criDmg: 13, res: 14, acc: 15 } as const;
 
-/** A copy's base as every sheet reads it: the eight stats, then `combatAt`. */
-export const baseLength = 13;
+/** Where a copy's base holds the CRI Rate a guaranteed crit lifts the fight's to; 0 without one. */
+export const criRateFloorAt = 16;
 
-/** The totals `totalsInto` writes: the eight stats, then the five the composites read. */
-export const totalCount = 13;
+/** A copy's base as every sheet reads it: the eight stats, then `combatAt`, then `criRateFloorAt`. */
+export const baseLength = 17;
+
+/** The totals `totalsInto` writes: the eight display stats, then the eight the fight has. */
+export const totalCount = 16;
 
 /* A rune property's effect id against the accumulator it feeds. The main, the
    innate and every sub property read through the same table, so a flat and a
@@ -120,9 +123,8 @@ const setStatValues: Readonly<Record<number, { slot: number; value: number }>> =
   8: { slot: effectSlot.atkPercent, value: 35 }, // Fatal
   ...Object.fromEntries(teamSetBonuses.flatMap(({ setId, stat, value }) => {
     const slot = stat === 'hp' ? effectSlot.teamHpPercent : stat === 'atk' ? effectSlot.teamAtkPercent
-      : stat === 'def' ? effectSlot.teamDefPercent : undefined;
-    // ACC and RES team sets affect no display stat or composite; their battle points are read from completedTeamSets.
-    return slot === undefined ? [] : [[setId, { slot, value }]];
+      : stat === 'def' ? effectSlot.teamDefPercent : stat === 'res' ? effectSlot.teamResistance : effectSlot.teamAccuracy;
+    return [[setId, { slot, value }]];
   })),
 };
 
@@ -163,9 +165,15 @@ export function addSetBonuses(counts: ArrayLike<number>, completes: number, effe
 
 /**
  * The eight stats from a copy's base and its summed accumulators, into `out` in
- * `MonsterTotals` order, then HP, ATK, DEF and CRI Rate as the fight has them
- * (`combatAt`). HP, ATK, DEF and SPD round up once, after every percentage is
- * summed, which is how the game shows them. `out` holds `totalCount`.
+ * `MonsterTotals` order, then the same eight as the fight has them (`combatAt`).
+ * HP, ATK, DEF and SPD round up once, after every percentage is summed, which is
+ * how the game shows them and how it counts a leader skill, a building and the
+ * totem — so a lead is not a fixed number of points on the stat. SPD's fight form
+ * is `speed-tick.ts`'s `combatSpeed`, written over the accumulators: Swift is in
+ * the percentage, flat rune speed is whole, so `⌈B·(1 + s + t + l) + b⌉` is
+ * `⌈B·(100 + s + t + l)/100⌉ + b`; `verify:monster-display-stats` holds the two equal.
+ * The fight's CRI Rate is not capped here: the cap is DMG's (`metricDmg`), and a
+ * range sees the points past it. `out` holds `totalCount`.
  */
 export function totalsInto(base: ArrayLike<number>, effects: ArrayLike<number>, out: Float64Array): void {
   out[0] = Math.ceil(base[0] * (100 + effects[effectSlot.hpPercent]) / 100) + effects[effectSlot.hpFlat];
@@ -176,27 +184,24 @@ export function totalsInto(base: ArrayLike<number>, effects: ArrayLike<number>, 
   out[5] = base[5] + effects[effectSlot.criticalDamage];
   out[6] = base[6] + effects[effectSlot.resistance];
   out[7] = base[7] + effects[effectSlot.accuracy];
-  /* A lead is summed with every other percentage and rounded once, as the game
-     counts a leader skill — so it is not a fixed number of points on the stat. */
   out[8] = Math.ceil(base[0] * (100 + effects[effectSlot.hpPercent] + effects[effectSlot.teamHpPercent] + base[8]) / 100) + effects[effectSlot.hpFlat];
   out[9] = Math.ceil(base[1] * (100 + effects[effectSlot.atkPercent] + effects[effectSlot.teamAtkPercent] + base[9]) / 100) + effects[effectSlot.atkFlat];
   out[10] = Math.ceil(base[2] * (100 + effects[effectSlot.defPercent] + effects[effectSlot.teamDefPercent] + base[10]) / 100) + effects[effectSlot.defFlat];
-  out[11] = out[4] + base[11];
-  out[12] = out[5] + base[12];
+  out[11] = Math.ceil(base[3] * (100 + effects[effectSlot.spdPercent] + base[11]) / 100) + effects[effectSlot.spdFlat];
+  out[12] = Math.max(out[4] + base[12], base[criRateFloorAt]);
+  out[13] = out[5] + base[13];
+  out[14] = out[6] + effects[effectSlot.teamResistance] + base[14];
+  out[15] = out[7] + effects[effectSlot.teamAccuracy] + base[15];
 }
 
 /**
- * Hold a stat's total, and the fight's total beside it, to what a ceiling on the
- * stat allows — for a bound over builds not yet finished, which must stay an upper
- * bound. Leads, buildings and team sets totalling `L` % add at most `⌈B·L/100⌉` to a stat that rounds up, since
- * `⌈x + y⌉ ≤ ⌈x⌉ + ⌈y⌉`; CRI Rate and CRI Dmg points add exactly.
+ * Hold a stat as the fight has it to what a ceiling on it allows — for a bound
+ * over builds not yet finished, which must stay an upper bound. A ceiling names
+ * the fight's figure itself, and every composite rises with the stats it reads,
+ * so the clamped figure bounds them too.
  */
-export function capTotal(base: ArrayLike<number>, totals: Float64Array, index: number, ceiling: number, effects: ArrayLike<number>): void {
-  totals[index] = Math.min(totals[index], ceiling);
-  const combat = index === 4 ? combatAt.criRate : index === 5 ? combatAt.criDmg : index < 3 ? combatAt.hp + index : -1;
-  if (combat < 0) return;
-  const reach = index === 4 || index === 5 ? base[combat] : Math.ceil(base[index] * (base[combat] + effects[effectSlot.teamHpPercent + index]) / 100);
-  totals[combat] = Math.min(totals[combat], ceiling + reach);
+export function capTotal(totals: Float64Array, index: number, ceiling: number): void {
+  totals[baseStatCount + index] = Math.min(totals[baseStatCount + index], ceiling);
 }
 
 /**
@@ -211,10 +216,10 @@ export const targetFigureKeys = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg',
 export const targetFigureCount = targetFigureKeys.length;
 
 /**
- * The eleven figures from eight totals, into `out` in `monsterStatTargetKeys`
- * order — HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES, ACC, DMG, E.HP, E.HP D.
- * The composites are truncated as `RUNE-ROLE-METRICS.md` displays them, so a
- * figure compared anywhere is the figure the user is shown.
+ * The eleven figures from the totals, into `out` in `monsterStatTargetKeys`
+ * order — HP, ATK, DEF, SPD, CRI Rate, CRI Dmg, RES, ACC as the fight has them,
+ * then DMG, E.HP, E.HP D. The composites are truncated as `RUNE-ROLE-METRICS.md`
+ * displays them, so a figure compared anywhere is the figure the user is shown.
  */
 export function figuresInto(totals: ArrayLike<number>, out: Float64Array): void {
   for (let at = 0; at < targetFigureCount; at += 1) out[at] = figureOf(totals, at);
@@ -230,7 +235,7 @@ export function figureOf(totals: ArrayLike<number>, index: number): number {
     case 8: return Math.floor(Math.max(0, metricDmg(totals[combatAt.atk], totals[combatAt.criRate], totals[combatAt.criDmg])));
     case 9: return Math.floor(Math.max(0, metricEhp(totals[combatAt.hp], totals[combatAt.def])));
     case 10: return Math.floor(Math.max(0, metricEhpD(totals[combatAt.hp], totals[combatAt.def])));
-    default: return totals[index];
+    default: return totals[baseStatCount + index];
   }
 }
 
@@ -244,7 +249,7 @@ export function monsterBaseStats(monster: RecordLike): Float64Array {
     numberValue(monster.con) * 15, numberValue(monster.atk), numberValue(monster.def), numberValue(monster.spd),
     numberValue(monster.critical_rate), numberValue(monster.critical_damage),
     numberValue(monster.resist), numberValue(monster.accuracy),
-    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0,
   );
 }
 
@@ -359,11 +364,11 @@ export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swi
 }
 
 /**
- * A guaranteed crit adds enough CRI Rate points to reach the DMG cap. Like
- * every crit point a fight adds, it reaches DMG and nothing else (`combatAt`), and
- * a CRI Rate target is met by definition, so that target is never asked.
+ * A guaranteed crit raises the fight's CRI Rate to the DMG cap, and leaves one
+ * already past it where it is. A CRI Rate target is met by definition, so that
+ * target is never asked.
  */
-export const alwaysCritsLift = criticalRateCapPercent;
+export const alwaysCritsFloor = criticalRateCapPercent;
 
 /**
  * What element advantage adds to the CRI Rate DMG is dealt at. SWCalc states
@@ -382,15 +387,12 @@ export const leadStats = ['atk', 'def', 'hp', 'criRate'] as const;
 export type LeadStat = typeof leadStats[number];
 
 /**
- * Every stat a leader skill raises in a fight: the four above, and CRI Dmg, ACC
- * and RES by points. CRI Dmg reaches DMG; ACC and RES reach no composite and are
- * named beside the stat as a battle value, as the Accuracy and Tolerance sets are.
- *
- * There is no SPD lead here. No composite reads SPD, and a SPD range is the
- * copy's own display speed like every other stat range; Speed Tuning reads a
- * team's speed leads itself.
+ * Every stat a leader skill raises in a fight: the four above, SPD by a share of
+ * base speed, and CRI Dmg, ACC and RES by points. Scenario states no SPD lead,
+ * as it is no team; a preset's comes off its leader like every other
+ * (`team-leads.ts`), judged by the same reach Speed Tuning reads.
  */
-export const ledStats = ['atk', 'def', 'hp', 'criRate', 'criDmg', 'acc', 'res'] as const;
+export const ledStats = ['atk', 'def', 'hp', 'spd', 'criRate', 'criDmg', 'acc', 'res'] as const;
 export type LedStat = typeof ledStats[number];
 export type Leads = Partial<Record<LedStat, number>>;
 
@@ -407,48 +409,53 @@ export type CombatBonuses = {
   buildings?: BuildingBonuses;
 };
 
-/** Excludes completed sets already counted from this copy's own runes. */
-export function combatStatBonus(stat: LeadStat | 'acc' | 'res', bonuses: CombatBonuses): number {
+/** A lead and the teammates' team sets; the copy's own sets come from its runes. */
+export function combatStatBonus(stat: LedStat, bonuses: CombatBonuses): number {
   const lead = bonuses.leads?.[stat] ?? 0;
   return teamSetBonuses.reduce((sum, set) => sum + (set.stat === stat ? (bonuses.teammateSets?.[set.name] ?? 0) * set.value : 0), lead);
 }
 
 /**
- * A copy's base with what its fight adds: the one place a lead, a building or a
- * crit condition joins a calculation. Every sheet that reads it — the overlay,
- * the search, the shader beside it, a found build read again — counts them the
- * same way, because `totalsInto` is the only arithmetic that reads `combatAt`.
- * A building is a share of base summed with every other percentage, as a lead is
- * (Fandom: "additive with bonuses from runes, leader skills, and glory
- * buildings"); a Sanctuary reaches its own element only.
+ * A copy's base with what its fight adds: the one place a lead, a building, the
+ * totem or a crit condition joins a calculation. Every sheet that reads it — the
+ * overlay, the search, the shader beside it, a found build read again — counts
+ * them the same way, because `totalsInto` is the only arithmetic that reads
+ * `combatAt`. A building is a share of base summed with every other percentage,
+ * as a lead is (Fandom: "additive with bonuses from runes, leader skills, and
+ * glory buildings"); a Sanctuary reaches its own element only.
  */
 export function combatBase(monster: RecordLike, bonuses: CombatBonuses): Float64Array {
   const base = monsterBaseStats(monster);
-  for (const stat of ['hp', 'atk', 'def', 'criRate'] as const) base[combatAt[stat]] += combatStatBonus(stat, bonuses);
-  base[combatAt.criRate] += (bonuses.alwaysCrits ? alwaysCritsLift : 0)
-    + (bonuses.alwaysElementAdvantage ? elementAdvantageLift : 0);
-  base[combatAt.criDmg] += bonuses.leads?.criDmg ?? 0;
+  for (const stat of ledStats) base[combatAt[stat]] += combatStatBonus(stat, bonuses);
+  base[combatAt.criRate] += bonuses.alwaysElementAdvantage ? elementAdvantageLift : 0;
+  base[criRateFloorAt] = bonuses.alwaysCrits ? alwaysCritsFloor : 0;
   const buildings = bonuses.buildings;
   if (buildings !== undefined) {
-    const element = elementName(monster.attribute);
     base[combatAt.hp] += buildings.hp;
-    base[combatAt.atk] += buildings.atk + (element === undefined ? 0 : buildings.elementAtk[element] ?? 0);
+    base[combatAt.atk] += buildings.atk + sanctuaryAtk(monster, buildings);
     base[combatAt.def] += buildings.def;
+    base[combatAt.spd] += buildings.spd;
     base[combatAt.criDmg] += buildings.criDmg;
   }
   return base;
 }
 
+/** The ATK percent the Sanctuary of this copy's element adds. */
+export function sanctuaryAtk(monster: RecordLike, buildings: BuildingBonuses): number {
+  const element = elementName(monster.attribute);
+  return element === undefined ? 0 : buildings.elementAtk[element] ?? 0;
+}
+
 /**
- * The eleven figures a copy can be measured against: its eight stats under the
- * names a target is stated in, plus the three composites derived from them.
+ * The eleven figures a copy can be measured against: its eight stats as the
+ * fight has them, under the names a target is stated in, plus the three
+ * composites derived from them.
  *
  * It exists so that the overlay's reference column and the shortfall check read
  * one answer. Two call sites deriving DMG separately is how one screen comes to
  * say a target is met while the other says it is not — and the composites are
  * derived here rather than stored precisely so that cannot happen
  * (`AGENTS.md` §6). The truncation is `RUNE-ROLE-METRICS.md`'s display rule.
- * The stats are the copy's own and the composites count its fight (`combatAt`).
  */
 export type TargetFigures = {
   hp: number; atk: number; def: number; spd: number;
@@ -456,14 +463,34 @@ export type TargetFigures = {
   dmg: number; ehp: number; ehpD: number;
 };
 
-export function monsterTargetFigures(monster: RecordLike, bonuses: CombatBonuses): TargetFigures {
+/** The eight stats, under the names a target is stated in. */
+export const statFigureKeys = ['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc'] as const;
+export type StatFigure = typeof statFigureKeys[number];
+export type StatFigures = Record<StatFigure, number>;
+export const isStatFigure = (figure: string): figure is StatFigure => (statFigureKeys as readonly string[]).includes(figure);
+
+/**
+ * A copy's figures as the fight has them, and its eight stats as its panel shows
+ * them, from one sum: what a page shows as a stat and what the fight adds to it
+ * are the difference of the two, so neither can be counted apart from the other.
+ */
+export type MonsterStatSheet = { figures: TargetFigures; display: StatFigures };
+
+export function monsterStatSheet(monster: RecordLike, bonuses: CombatBonuses): MonsterStatSheet {
+  return statSheetOf(combatBase(monster, bonuses), monsterEffects(monster));
+}
+
+/** The same from a base and summed accumulators, for a build that is not the copy's. */
+export function statSheetOf(base: ArrayLike<number>, effects: ArrayLike<number>): MonsterStatSheet {
   const totals = new Float64Array(totalCount);
-  totalsInto(combatBase(monster, bonuses), monsterEffects(monster), totals);
+  totalsInto(base, effects, totals);
   const figures = new Float64Array(targetFigureCount);
   figuresInto(totals, figures);
-  return {
-    hp: figures[0], atk: figures[1], def: figures[2], spd: figures[3],
-    criRate: figures[4], criDmg: figures[5], res: figures[6], acc: figures[7],
-    dmg: figures[8], ehp: figures[9], ehpD: figures[10],
-  };
+  const keyed = Object.fromEntries(targetFigureKeys.map((key, at) => [key, figures[at]])) as TargetFigures;
+  const display = Object.fromEntries(statFigureKeys.map((key, at) => [key, totals[at]])) as StatFigures;
+  return { figures: keyed, display };
+}
+
+export function monsterTargetFigures(monster: RecordLike, bonuses: CombatBonuses): TargetFigures {
+  return monsterStatSheet(monster, bonuses).figures;
 }

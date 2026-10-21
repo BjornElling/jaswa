@@ -130,7 +130,7 @@ export type ResolvedMonsterPreferences = {
   statCeilings: Partial<Record<keyof MonsterStatTargets, ResolvedStatTarget>>;
   /** The figure to maximise once every target is met, where one was named. */
   runeSuggestionStat?: keyof MonsterStatTargets;
-  /** Whether every figure is counted at a certain crit (`monster-stats.ts` `alwaysCritsLift`). */
+  /** Whether every figure is counted at a certain crit (`monster-stats.ts` `alwaysCritsFloor`). */
   alwaysCrits: boolean;
   alwaysElementAdvantage: boolean;
   /**

@@ -21,7 +21,7 @@
  * The accumulator and figure positions are the stat sheet's own (`monster-stats.ts`),
  * taken from there rather than numbered again here.
  */
-import { baseLength, combatAt, effectSlot, effectSlotCount, targetFigureCount, targetFigureKeys } from '../../monster-stats';
+import { baseLength, combatAt, criRateFloorAt, effectSlot, effectSlotCount, targetFigureCount, targetFigureKeys } from '../../monster-stats';
 import {
   brokenDefenseShare, criticalRateCapPercent, defenseFactorBase, defenseFactorPerDef, defenseFactorScale,
 } from '../../rune-potential-metrics';
@@ -36,15 +36,15 @@ export const accumulatorStride = effectSlotCount;
 /**
  * The copy's base as `combatBase` gives it: the eight stats in `MonsterTotals`
  * order — which is the figures' own order for the first eight — then what the
- * fight adds for the composites, at `combatAt`.
+ * fight adds to each, at `combatAt`, then the CRI Rate a guaranteed crit lifts to.
  */
 export const questionBaseAt = 0;
 /** One floor per figure. A figure with no floor carries the lowest finite float. */
 export const questionFloorsAt = questionBaseAt + baseLength;
 export const questionRankAt = questionFloorsAt + targetFigureCount;
 export const questionBarAt = questionRankAt + 1;
-/** 12 + 11 + 2 = 25, rounded up to 28 so a later field costs nothing. */
-export const questionLength = 28;
+/** 17 + 11 + 2 = 30, rounded up to 32 so a later field costs nothing. */
+export const questionLength = 32;
 
 /* --------------------------------------------------------------- the ranges */
 
@@ -119,6 +119,8 @@ export const runeOptimizationConstants: Readonly<Record<string, number>> = {
   ACC_TEAM_HP_PERCENT: effectSlot.teamHpPercent,
   ACC_TEAM_ATK_PERCENT: effectSlot.teamAtkPercent,
   ACC_TEAM_DEF_PERCENT: effectSlot.teamDefPercent,
+  ACC_TEAM_RESISTANCE: effectSlot.teamResistance,
+  ACC_TEAM_ACCURACY: effectSlot.teamAccuracy,
   FIGURE_COUNT: targetFigureCount,
   FIGURE_HP: figure('hp'),
   FIGURE_ATK: figure('atk'),
@@ -134,8 +136,12 @@ export const runeOptimizationConstants: Readonly<Record<string, number>> = {
   COMBAT_HP: combatAt.hp,
   COMBAT_ATK: combatAt.atk,
   COMBAT_DEF: combatAt.def,
+  COMBAT_SPD: combatAt.spd,
   COMBAT_CRI_RATE: combatAt.criRate,
   COMBAT_CRI_DMG: combatAt.criDmg,
+  COMBAT_RES: combatAt.res,
+  COMBAT_ACC: combatAt.acc,
+  CRI_RATE_FLOOR_AT: criRateFloorAt,
   QUESTION_BASE_AT: questionBaseAt,
   QUESTION_FLOORS_AT: questionFloorsAt,
   QUESTION_RANK_AT: questionRankAt,

@@ -25,7 +25,7 @@ import type { CombatBonuses } from './monster-stats';
 import type { RuneSlotKey } from './monster-defaults';
 import type { MonsterStatTargets } from './monster-preferences';
 import {
-  addGearEffects, addSetBonuses, combatBase, effectSlot, effectSlotCount, effectSlotOf,
+  addGearEffects, addSetBonuses, baseStatCount, combatBase, effectSlot, effectSlotCount, effectSlotOf,
   figuresInto, intangibleCompletion, intangibleSetId, setIdBound,
   statSetBonuses, targetFigureCount, targetFigureKeys, totalCount, totalsInto,
 } from './monster-stats';
@@ -238,7 +238,7 @@ function figuresOf(base: Float64Array, effects: Float64Array, out: Float64Array 
    the composites and the rounding of HP, ATK and DEF cannot read as a zero
    gradient. The gradient only orders and cuts candidates — it never decides a
    figure — so its precision is a matter of how well the cut aims, not of truth. */
-const gradientSteps = Float64Array.of(10, 1000, 10, 100, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+const gradientSteps = Float64Array.of(10, 1000, 10, 100, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
 
 function gradient(base: Float64Array, reference: Float64Array, figure: number): Float64Array {
   const at = figuresOf(base, reference)[figure];
@@ -279,9 +279,9 @@ export type BuildPiece = { rune: Rune; mainValue: number; lines: readonly EndSta
 /**
  * The eleven figures of six runes on a copy, summed exactly as the search sums a
  * finished build — the artifacts, each rune's effects, the completed sets with the
- * Intangible's completion, and the copy's fight in its composites — so a build
- * counted again after the account changed reads the figure the search would have
- * given it. They are the figures the table shows and every range judges.
+ * Intangible's completion, and the copy's fight — so a build counted again after
+ * the account changed reads the figure the search would have given it. They are
+ * the figures the table shows and every range judges.
  */
 export function buildFigures(monster: GameRecord, pieces: readonly BuildPiece[], bonuses: CombatBonuses): number[] {
   const start = new Float64Array(effectSlotCount);
@@ -896,9 +896,11 @@ export function prepareRuneOptimization(
   const referenceBase = Object.fromEntries(targetStats.map((stat, at) => [stat, base[at]])) as ReferenceStats;
   const beforeRunes = new Float64Array(totalCount);
   totalsInto(base, start, beforeRunes);
+  /* A range names the fight's figure, so what the runes still owe it is counted
+     from the fight's figure before them: gear, leads and buildings already paid. */
   const pressureTargets = Object.fromEntries(targetStats.flatMap((stat, at) => {
     const target = targets[figureIndex(stat)];
-    return Number.isFinite(target) ? [[stat, Math.max(0, target - (beforeRunes[at] - base[at]))]] : [];
+    return Number.isFinite(target) ? [[stat, Math.max(0, target - (beforeRunes[baseStatCount + at] - base[at]))]] : [];
   }));
   const weights = substatWeights({ targets: pressureTargets, mains: mainPlan as BuildMains,
     artifacts: { hp: false, atk: false, def: false }, base: referenceBase,

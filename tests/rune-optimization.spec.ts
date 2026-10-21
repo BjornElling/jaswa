@@ -797,17 +797,18 @@ test('a monster that always crits is counted at a certain crit and shows its own
   const statsBefore = await box(stats);
   await page.screenshot({ path: testInfo.outputPath('always-crits-off.png') });
   await toggle.check();
-  /* The choice moves nothing beside it: the mark's place was already kept. */
+  /* The choice moves nothing beside it: the addition's place was already kept. */
   expect(await box(stats)).toEqual(statsBefore);
-  await expect(profile.getByRole('img', { name: 'Added to the shown value in battle: Guaranteed crits.', exact: true })).toBeVisible();
+  await expect(profile.getByTitle('Always crits: at least 100%.', { exact: true })).toHaveText(/→ 100/);
   await expect(profile.getByLabel('CtR%: at least')).toBeDisabled();
   await expect(profile.getByLabel('CtR%: at most')).toBeDisabled();
   await page.screenshot({ path: testInfo.outputPath('always-crits-on.png') });
   await profile.getByRole('button', { name: 'Save changes' }).click();
   await expect(profile).toBeHidden();
 
-  /* CRI Rate reads the same; DMG is now counted with every hit a crit. */
-  await expect(targets.getByRole('img', { name: 'Added to the shown value in battle: Guaranteed crits.', exact: true })).toBeVisible();
+  /* The panel's CRI Rate reads the same, lifted to 100 after it; DMG is now
+     counted with every hit a crit. */
+  await expect(targets.getByTitle('Always crits: at least 100%.', { exact: true })).toHaveText(/→ 100/);
   await expect(targets.getByLabel('CtR%: at least')).toBeDisabled();
   const after = await targets.innerText();
   const figure = (text: string, at: number) => text.split('\n').map((line) => line.trim()).filter((line) => /^[\d.,]+$/.test(line))[at];
@@ -818,12 +819,12 @@ test('a monster that always crits is counted at a certain crit and shows its own
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(table.getByRole('row')).not.toHaveCount(1);
-  /* The mark stays above, by the field; the table reads figures only. */
-  await expect(table.getByRole('img', { name: /Guaranteed crits/ })).toHaveCount(0);
+  /* The addition stays above, by the field; the table reads totals only. */
+  await expect(table.getByTitle(/Always crits/)).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('always-crits-table.png'), fullPage: true });
 });
 
-test('a CRI Rate range names the copy\'s own CRI Rate, and DMG is dealt with the crit lead', async ({ page }, testInfo) => {
+test('a CRI Rate range names the CRI Rate the copy fights at, crit lead included', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
@@ -838,10 +839,10 @@ test('a CRI Rate range names the copy\'s own CRI Rate, and DMG is dealt with the
   const profile = page.getByRole('dialog').filter({ has: page.getByRole('spinbutton', { name: 'CRI Rate, in percent' }) });
   await profile.getByRole('spinbutton', { name: 'CRI Rate, in percent' }).fill('33');
   await profile.getByRole('button', { name: 'Save changes' }).click();
-  await rate.getByRole('spinbutton', { name: 'CtR%: at least' }).fill('34');
-  await rate.getByRole('spinbutton', { name: 'CtR%: at most' }).fill('36');
-  await expect(rate.getByRole('img', { name: /Added to the shown value in battle: Crit lead \(\+33% CRI Rate\)\./ })).toBeVisible();
-  await expect(rate.locator('.overlay-stat-current')).toHaveText(shown);
+  await rate.getByRole('spinbutton', { name: 'CtR%: at least' }).fill('67');
+  await rate.getByRole('spinbutton', { name: 'CtR%: at most' }).fill('69');
+  await expect(rate.getByTitle('Crit lead +33%.', { exact: true })).toHaveText(/\(\+33\)/);
+  expect(await rate.locator('.overlay-stat-current').evaluate((node) => node.firstChild?.textContent)).toEqual(shown.split('\n')[0].trim());
   expect(await box(rate)).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('raw-crit-range-filled.png') });
   await rankUnranked(page);
@@ -849,15 +850,15 @@ test('a CRI Rate range names the copy\'s own CRI Rate, and DMG is dealt with the
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(table).toBeVisible();
   const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
-  /* The range is met by the copy's own CRI Rate, which the column shows; the lead
-     reaches DMG only, which is dealt at the CRI Rate the fight gives it. */
+  /* The range is met by the CRI Rate the copy fights at, which the column shows,
+     and DMG is dealt at it. */
   expect(await rows.count()).toBeGreaterThan(0);
   const figure = async (row: Locator, at: number) => Number((await row.getByRole('cell').nth(at).innerText()).replace(/\D/g, ''));
   for (const row of await rows.all()) {
-    const own = await figure(row, 7);
-    expect(own).toBeGreaterThanOrEqual(34);
-    expect(own).toBeLessThanOrEqual(36);
-    expect(await figure(row, 11)).toBe(Math.floor(await figure(row, 4) * (1 + Math.min(100, own + 33) / 100 * await figure(row, 8) / 100)));
+    const fought = await figure(row, 7);
+    expect(fought).toBeGreaterThanOrEqual(67);
+    expect(fought).toBeLessThanOrEqual(69);
+    expect(await figure(row, 11)).toBe(Math.floor(await figure(row, 4) * (1 + Math.min(100, fought) / 100 * await figure(row, 8) / 100)));
   }
   await page.screenshot({ path: testInfo.outputPath('raw-crit-range-results.png'), fullPage: true });
 });

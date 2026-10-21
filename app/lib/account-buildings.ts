@@ -1,7 +1,7 @@
 /**
  * The account's Glory buildings, read from the export's `deco_list`: the Sky
- * Tribe Totem for Speed Tuning, and the buildings that raise HP, ATK, DEF and
- * CRI Dmg for the composites a fight is judged by.
+ * Tribe Totem, and the buildings that raise HP, ATK, DEF and CRI Dmg, for the
+ * stats a fight is judged by and Speed Tuning's combat speeds.
  *
  * **The decoration ids.** `master_id` 4 Guardstone, 6 Sky Tribe Totem, 8 Crystal
  * Altar, 9 Ancient Sword, 15–19 the Fire, Water, Wind, Light and Dark
@@ -26,7 +26,7 @@
  * Every one applies wherever the account fights (Fandom *Buildings*: "including
  * Arena (both Offense and Defense)"); only RTA turns them off, and no preset is
  * an RTA team. The game's monster panel does not show them, so the display sheet
- * leaves them out and only the composites count them (`monster-stats.ts`).
+ * leaves them out and only the fight's figures count them (`monster-stats.ts`).
  */
 import type { GameRecord } from './game-data';
 import { totemMaximumLevel, totemPercentByLevel } from './speed-tick';
@@ -68,18 +68,20 @@ export const statBuildings: readonly StatBuilding[] = [
 
 /**
  * What the account's buildings add to one fight, before the monster's element
- * picks its Sanctuary: HP, ATK and DEF in percent of base, CRI Dmg in points.
+ * picks its Sanctuary: HP, ATK, DEF and — the Sky Tribe Totem — SPD in percent of
+ * base, CRI Dmg in points.
  */
 export type BuildingBonuses = {
   hp: number;
   atk: number;
   def: number;
+  spd: number;
   criDmg: number;
   /** A Sanctuary's ATK percent, by the element it raises. */
   elementAtk: Readonly<Partial<Record<string, number>>>;
 };
 
-export const noBuildingBonuses: BuildingBonuses = { hp: 0, atk: 0, def: 0, criDmg: 0, elementAtk: {} };
+export const noBuildingBonuses: BuildingBonuses = { hp: 0, atk: 0, def: 0, spd: 0, criDmg: 0, elementAtk: {} };
 
 export type SkyTribeTotem =
   | { state: 'built'; level: number; percent: number }
@@ -143,7 +145,10 @@ export function totemPercent(totem: SkyTribeTotem): number {
  */
 export function readBuildingBonuses(data: GameRecord | undefined): BuildingBonuses | undefined {
   if (!data || !Array.isArray(data.deco_list)) return undefined;
-  const bonuses = { hp: 0, atk: 0, def: 0, criDmg: 0, elementAtk: {} as Partial<Record<string, number>> };
+  const bonuses = {
+    hp: 0, atk: 0, def: 0, spd: totemPercent(readSkyTribeTotem(data)), criDmg: 0,
+    elementAtk: {} as Partial<Record<string, number>>,
+  };
   for (const building of statBuildings) {
     const bonus = building.bonusByLevel[buildingLevel(data, building.masterId)];
     if (building.element === null) bonuses[building.stat] += bonus;

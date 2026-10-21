@@ -13,7 +13,12 @@ async function open(page: Page) {
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
 }
 
-const figures = (page: Page) => page.locator('.stat-ranges .stat-range .overlay-stat-current').allTextContents();
+/* Each figure as its panel shows it — the text before what the fight adds — so a
+   comparison reads the copy's stat, and `additions` reads the fight's part apart. */
+const figures = (page: Page) => page.locator('.stat-ranges .stat-range .overlay-stat-current')
+  .evaluateAll((nodes) => nodes.map((node) => node.firstChild?.textContent ?? ''));
+const additions = (page: Page) => page.locator('.stat-ranges .stat-range .overlay-stat-current')
+  .evaluateAll((nodes) => nodes.map((node) => node.querySelector('[aria-hidden="true"]')?.textContent ?? ''));
 const number = (text: string) => Number(text.replace(/[^0-9]/g, ''));
 
 test('team bonuses follow the chosen preset automatically, and only Scenario states its leads', async ({ page }, testInfo) => {
@@ -32,13 +37,16 @@ test('team bonuses follow the chosen preset automatically, and only Scenario sta
   expect(await figures(page)).toEqual(scenario);
   await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-1');
   const full = await figures(page);
+  /* The panel's stats stay the copy's own; what the team adds follows them, and
+     the composites count it. */
   expect(full.slice(0, 8)).toEqual(scenario.slice(0, 8));
+  expect((await additions(page)).slice(0, 8)).toEqual(['(+900)', '(+187)', '(+45)', '', '', '', '(+10)', '(+10)']);
   expect(number(full[8])).toBeGreaterThan(number(scenario[8]));
   expect(number(full[9])).toBeGreaterThan(number(scenario[9]));
   expect(number(full[10])).toBeGreaterThan(number(scenario[10]));
   await page.getByRole('button', { name: 'Open profile', exact: true }).click();
-  await expect(dialog.getByRole('img', { name: /3 Fight sets \(\+24% base ATK\)/ }).first()).toBeVisible();
-  await expect(dialog.getByRole('img', { name: /Added to the shown value in battle: 1 Accuracy set \(\+10% ACC\)/ })).toBeVisible();
+  await expect(dialog.getByTitle('3 × Fight +24% of base ATK.', { exact: true })).toBeVisible();
+  await expect(dialog.getByTitle('1 × Accuracy +10%.', { exact: true })).toBeVisible();
   /* A preset's leads are its leader's, read rather than typed: this deck has none. */
   const leads = dialog.getByRole('list', { name: 'Leads and bonuses' });
   await expect(leads.getByRole('listitem')).toHaveText(['No leader in this preset']);
@@ -113,7 +121,11 @@ test('Now, the profile and a zero-move result agree with automatic team bonuses'
   await page.setViewportSize({ width: 1920, height: 1080 });
   await open(page);
   await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-1');
-  const shown = await figures(page);
+  /* The table reads every figure as the fight has it: the panel's and what the
+     fight adds, together. */
+  const panel = await figures(page);
+  const added = await additions(page);
+  const totals = panel.map((value, at) => number(value) + number(added[at]));
   await page.getByLabel('Just fill in empty slots').check();
   await page.getByLabel('Count unfinished runes at their +15 main stat').uncheck();
   await page.locator('.rune-optimization-gems').getByRole('radio', { name: 'None', exact: true }).check();
@@ -126,7 +138,7 @@ test('Now, the profile and a zero-move result agree with automatic team bonuses'
   const cells = (at: number) => rows.nth(at).getByRole('cell').allTextContents();
   const now = await cells(0);
   const found = await cells(1);
-  expect(now.slice(3)).toEqual(shown.map((value) => value.trim()));
+  expect(now.slice(3).map(number)).toEqual(totals);
   expect(found.slice(3)).toEqual(now.slice(3));
   expect(found[2]).toBe('0');
   await page.screenshot({ path: testInfo.outputPath('automatic-team-builds.png') });

@@ -1,0 +1,17 @@
+/* What the fight adds, after a stat (`fight-addition.tsx`). The box is as wide
+   as the widest addition its stat carries — `(+12,345)` for HP, ATK and DEF, a
+   few points for the rest — so an addition arriving or growing moves nothing. */
+.addition {
+  display: inline-block;
+  flex: 0 0 auto;
+  inline-size: 7ch;
+  block-size: 1lh;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: start;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.addition:is([data-stat='hp'], [data-stat='atk'], [data-stat='def']) { inline-size: 9ch; }
+.addition:empty { cursor: auto; }
