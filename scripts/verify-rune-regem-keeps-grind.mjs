@@ -44,7 +44,7 @@ for (const [label, first] of [
   assert.equal(craftedScore(plan, options, prices, lines, 0), gemRoll + stone + 0, `${label}: Clean-up priced the line bare`);
 
   const variant = craftVariants({ gem: assumedCraftHalf('gem', 'standard', 'Hero', 'maximum'), grind: null },
-    1, 3, null, lines, true, (statId) => statId === ATK_PERCENT)
+    1, 3, null, lines, true, (statId) => statId === ATK_PERCENT, false)
     .find((each) => each.gemmedAt === 0 && each.lines[0].statId === ATK_PERCENT);
   assert.ok(variant, `${label}: the optimizer offered no same-property Gem`);
   assert.equal(variant.lines[0].grind, stone, `${label}: the optimizer dropped the stone`);

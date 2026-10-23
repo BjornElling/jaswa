@@ -284,6 +284,12 @@ gemmed stat* is ticked (on by default). Off, that line may still be gemmed again
 better roll of the property it already carries; a rune without a converted line is
 untouched.
 
+*Can gem away speed* is off by default. While it is off, a Gem may improve a Speed line
+with another Speed Gem, but may not replace a Speed line with another property. This also
+protects Speed that an earlier Gem put on the rune, even if the rune originally carried a
+different property there. Turning this on permits that replacement, subject to *Allow
+changing a gemmed stat* when the line is already gemmed.
+
 **Unfinished runes.** A main property grows deterministically with power-up level, so
 *Count unfinished runes at their +15 main stat* is a fact about what the rune will carry,
 not a projection of luck. Sub properties are counted as they stand. With *Slot 1/3/5 only

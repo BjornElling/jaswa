@@ -408,7 +408,7 @@ export function setRuleMissed(
 
 /** The settings that decide which Gems and Grindstones a build may count on. */
 export type CraftSettings = Pick<RuneOptimizationSettings,
-  'gems' | 'grinds' | 'gemGrade' | 'grindGrade' | 'gemRollAssumption' | 'grindRollAssumption' | 'allowImmemorial' | 'allowGemStatChange'>;
+  'gems' | 'grinds' | 'gemGrade' | 'grindGrade' | 'gemRollAssumption' | 'grindRollAssumption' | 'allowImmemorial' | 'allowGemStatChange' | 'allowGemSpeedRemoval'>;
 
 /**
  * The Gems and Grindstones the settings offer one rune, with each held choice's
@@ -775,6 +775,7 @@ export function prepareRuneOptimization(
     const variants = supply.gem === null && supply.grind === null
       ? [{ lines, gemmedAt: -1, stock: [] as number[] }]
       : craftVariants(supply, rune.slot, rune.mainStatId, rune.prefixStatId, lines, rune.level >= gemMinimumLevel, wanted,
+        settings.allowGemSpeedRemoval,
         (statId) => pinned.has(effectSlotOf(statId)));
 
     if (supply.gem && lines.filter((line) => !wanted(line.statId)).length > 1) {

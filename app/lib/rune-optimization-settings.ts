@@ -116,6 +116,12 @@ export type RuneOptimizationSettings = {
    */
   allowGemStatChange: boolean;
   /**
+   * Whether an Enchanted Gem may replace a Speed sub property with another property.
+   * Off, any line currently carrying Speed stays Speed, whether it began there or a
+   * previous Gem put it there. Re-rolling that line as Speed remains allowed.
+   */
+  allowGemSpeedRemoval: boolean;
+  /**
    * Whether a rune engraved on another monster *of the same preset* may be moved
    * onto this one. A rune engraved only in other presets is always free: a preset
    * holds its own gear (`DECK-PRESETS.md` §1), so taking it costs them nothing. A
@@ -166,6 +172,7 @@ export const defaultRuneOptimizationSettings: RuneOptimizationSettings = {
   grindRollAssumption: defaultCraftRollAssumption,
   allowImmemorial: true,
   allowGemStatChange: true,
+  allowGemSpeedRemoval: false,
   runesOnOtherMonsters: true,
   includeHigherPriority: false,
   unfinishedAtMaximum: true,
@@ -185,6 +192,7 @@ export const runeOptimizationSettingChecks: FieldChecks<RuneOptimizationSettings
   grindRollAssumption: isOneOf(craftRollAssumptions),
   allowImmemorial: isBoolean,
   allowGemStatChange: isBoolean,
+  allowGemSpeedRemoval: isBoolean,
   runesOnOtherMonsters: isBoolean,
   includeHigherPriority: isBoolean,
   unfinishedAtMaximum: isBoolean,

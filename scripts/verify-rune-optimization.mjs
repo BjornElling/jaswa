@@ -52,13 +52,15 @@
  */
 import assert from 'node:assert/strict';
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
+import { defaultRuneOptimizationSettings } from '../app/lib/rune-optimization-settings.ts';
 import { gemRemovalPrices } from '../app/lib/rune-optimization-gem-preference.ts';
+import { assumedCraftHalf, craftVariants } from '../app/lib/rune-craft-end-state.ts';
 import {
   calculateMonsterTotals, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys,
 } from '../app/lib/monster-stats.ts';
 import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
 import {
-  buildFigures, canStillFinishSets, canStillSatisfy, prepareRuneOptimization, remainingSetSupport,
+  buildFigures, canStillFinishSets, canStillSatisfy, craftSupplies, prepareRuneOptimization, remainingSetSupport,
   targetCeilings, targetFloors,
 } from '../app/lib/rune-optimization-problem.ts';
 import { currentBuilds } from '../app/lib/rune-optimization-refresh.ts';
@@ -774,6 +776,35 @@ for (let index = 0; index < 40; index += 1) {
 assert.ok(statChangeRefused > 5, `only ${statChangeRefused} accounts had a gemmed property to hold`);
 assert.ok(sameStatKept > 0, 'no account re-rolled a held gemmed property');
 console.log(`PASS: holding the gemmed stat refused property swaps in ${statChangeRefused} accounts, kept same-property re-rolls in ${sameStatKept} and touched nothing else.`);
+
+/* Speed stays when its current line is gemmed, even if a previous Gem put it there. */
+const speedGemSupply = { gem: assumedCraftHalf('gem', 'standard', 'Legend', 'maximum'), grind: null };
+const speedLines = [
+  { statId: 8, value: 4, grind: 0, gemmed: false },
+  { statId: 2, value: 8, grind: 0, gemmed: false },
+];
+const speedLineGems = (lines, allowGemSpeedRemoval) => craftVariants(speedGemSupply, 2, 3, null,
+  lines, true, () => true, allowGemSpeedRemoval).filter((candidate) => candidate.gemmedAt === 0);
+const nativeSpeedGems = speedLineGems(speedLines, false);
+assert.ok(nativeSpeedGems.length > 0 && nativeSpeedGems.every((candidate) => candidate.lines[0].statId === 8),
+  'an unconverted Speed line must allow a same-stat Gem but refuse replacing Speed');
+const convertedSpeedGems = speedLineGems(speedLines.map((line, index) => index === 0 ? { ...line, gemmed: true } : line), false);
+assert.ok(convertedSpeedGems.length > 0 && convertedSpeedGems.every((candidate) => candidate.lines[0].statId === 8),
+  'a Speed line from an earlier Gem must also stay Speed when removal is off');
+assert.ok(speedLineGems(speedLines, true).some((candidate) => candidate.lines[0].statId !== 8),
+  'turning Can gem away speed on must permit a different Gem property');
+const keepGemmedStatSettings = {
+  ...defaultRuneOptimizationSettings, gems: 'theoretical', gemGrade: 'Legend', gemRollAssumption: 'maximum',
+  allowGemStatChange: false, allowGemSpeedRemoval: true,
+};
+const speedRune = { ancient: false, setId: 13, slot: 2, mainStatId: 3, prefixStatId: null,
+  subProperties: speedLines.map((line, index) => index === 0 ? { ...line, gemmed: true } : line) };
+const keptGemmedStat = craftVariants(craftSupplies(keepGemmedStatSettings, [])(speedRune), 2, 3, null,
+  speedLines.map((line, index) => index === 0 ? { ...line, gemmed: true } : line), true, () => true, true)
+  .filter((candidate) => candidate.gemmedAt === 0);
+assert.ok(keptGemmedStat.length > 0 && keptGemmedStat.every((candidate) => candidate.lines[0].statId === 8),
+  'Allow changing a gemmed stat must remain a separate restriction when Can gem away speed is on');
+console.log('PASS: Can gem away speed protects both native and previously gemmed Speed, while same-stat Speed Gems remain available.');
 
 // Filled slots stay untouched, including their craft work and unfinished mains.
 for (const filled of [0, 1, 3, 5, 6]) {

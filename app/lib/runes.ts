@@ -27,6 +27,8 @@ export const runeStatNames: Readonly<Record<number, string>> = {
 
 /** The same eleven, in the order the game's own property list reads. */
 export const runeStatIds: readonly number[] = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12];
+/** The stat id carried by SPD lines in a rune export. */
+export const runeSpeedStatId = 8;
 
 export function runeStatName(id: number): string | undefined {
   return runeStatNames[id];

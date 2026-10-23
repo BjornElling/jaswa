@@ -40,7 +40,7 @@
 import { craftRollValue, craftValueRange, grindableStatIds } from './rune-craft-items';
 import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption, CraftValueRange } from './rune-craft-items';
 import { allStatIds } from './rune-properties';
-import { slotAllowsSubStat } from './runes';
+import { runeSpeedStatId, slotAllowsSubStat } from './runes';
 import type { ItemGrade } from './types';
 import type { Valuation } from './rune-substat-weights';
 
@@ -503,6 +503,7 @@ export type CraftVariant = {
 export function craftVariants(
   supply: CraftSupply, slot: number, mainStatId: number, prefixStatId: number | null,
   lines: readonly EndStateLine[], gemAllowed: boolean, wanted: (statId: number) => boolean,
+  allowGemSpeedRemoval: boolean,
   keepLower: (statId: number) => boolean = () => false,
 ): CraftVariant[] {
   const grind = supply.grind;
@@ -538,6 +539,8 @@ export function craftVariants(
     if (onlyAt !== -1 && at !== onlyAt) continue;
     const line = lines[at];
     for (const statId of allStatIds) {
+      /* Speed stays on the rune unless the owner explicitly allows a Gem to replace it. */
+      if (!allowGemSpeedRemoval && line.statId === runeSpeedStatId && statId !== runeSpeedStatId) continue;
       if (!wanted(statId) && !keepLower(line.statId)) continue;
       if (statId === mainStatId || statId === prefixStatId || !slotAllowsSubStat(slot, statId)) continue;
       if (lines.some((other, index) => index !== at && other.statId === statId)) continue;

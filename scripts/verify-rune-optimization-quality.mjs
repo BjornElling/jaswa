@@ -231,7 +231,7 @@ const partialSupply = heldCraftHalf('grindstone', [
 ], 'maximum');
 const partial = craftVariants({ gem: null, grind: partialSupply }, 3, 5, null,
   [{ statId: 8, value: 10, grind: 0, gemmed: false }, { statId: 4, value: 10, grind: 0, gemmed: false }],
-  true, () => true);
+  true, () => true, false);
 assert.deepEqual(new Set(partial.map((variant) => [...variant.stock].sort().join(','))), new Set(['', '0', '1', '0,1']),
   'each held stone must be independently optional');
 
@@ -272,7 +272,7 @@ assert.equal(searchRuneBuilds(ceilingCraft).builds[0]?.figures[figureIndex('spd'
 
 const removingGem = craftVariants({ gem: assumedCraftHalf('gem', 'standard', 'Legend', 'maximum'), grind: null },
   3, 5, null, [{ statId: 8, value: 20, grind: 0, gemmed: false }], true,
-  (stat) => stat === 8, (stat) => stat === 8);
+  (stat) => stat === 8, true, (stat) => stat === 8);
 assert.ok(removingGem.some((variant) => variant.lines[0].statId === 8 && variant.lines[0].value === 10),
   'a same-stat lower Gem can satisfy an upper range');
 assert.ok(removingGem.some((variant) => variant.lines[0].statId === 12),

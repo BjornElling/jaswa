@@ -44,7 +44,7 @@ reader, one choice at a time (`app/lib/preference-reading.ts`, AGENTS.md §0):
 | `monsterPriority` | Scenario's priority list | `readMonsterPriority` (`monster-priority.ts`) |
 | `presetPriority` | The order the user gave each game preset's monsters | `readPresetPriority` (`monster-priority.ts`) |
 | `presets` | The presets built in JASWA: a name, a content, the monsters, the leader and, once engraved, every member's runes and artifacts (`DECK-PRESETS.md` §4) | `readOwnPresets` (`presets.ts`) |
-| `runeOptimization` | Rune Optimization settings, among them whether held Immemorial Gems and Grindstones may be spent and whether a Gem may change a gemmed line's property | `readSettings` |
+| `runeOptimization` | Rune Optimization settings, among them whether held Immemorial Gems and Grindstones may be spent, whether a Gem may change a gemmed line's property, and whether a Gem may replace Speed | `readSettings` |
 
 Two former keys are still read so the user's own choices survive their
 rename: `runePotentialPresets` holds the roles when no `runeRoles` key exists,

@@ -309,8 +309,10 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   await expect(requirements.getByLabel('Allow Intangible runes')).toBeChecked();
   await expect(requirements.getByLabel('Allow Immemorial Gems and Grindstones')).toBeChecked();
   await expect(requirements.getByLabel('Allow changing a gemmed stat')).toBeChecked();
+  await expect(requirements.getByLabel('Can gem away speed')).not.toBeChecked();
   /* It asks about a Gem, so it waits while no Gem is counted. */
   await expect(requirements.getByLabel('Allow changing a gemmed stat')).toBeDisabled();
+  await expect(requirements.getByLabel('Can gem away speed')).toBeDisabled();
 
   /* A requirement changed here changes that field's caption and nothing else. */
   const panelBefore = await box(requirements);
@@ -426,9 +428,18 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   const rowsBefore = await table.getByRole('row').count();
   await page.screenshot({ path: testInfo.outputPath('optimization-before-stale.png') });
   await expect(settings.getByLabel('Allow changing a gemmed stat')).toBeDisabled();
+  const speedGem = settings.getByLabel('Can gem away speed');
+  await expect(speedGem).not.toBeChecked();
+  await expect(speedGem).toBeDisabled();
   await settings.getByRole('radio', { name: 'Theoretical' }).first().check();
   await expect(gradeSelect).toBeEnabled();
   await expect(settings.getByLabel('Allow changing a gemmed stat')).toBeEnabled();
+  await expect(speedGem).toBeEnabled();
+  await expect(speedGem).not.toBeChecked();
+  const itemControls = await box(settings.locator('.rune-optimization-items'));
+  await speedGem.check();
+  expect(await box(settings.locator('.rune-optimization-items'))).toEqual(itemControls);
+  await expect.poll(async () => ((await storedPreferences(page))?.runeOptimization as Record<string, unknown>)?.allowGemSpeedRemoval).toBe(true);
   expect(await box(settings)).toEqual(settingsBefore);
   /* The table stays; the warning beside Find builds says it answers the earlier
      question, and appearing moves neither the button nor the table. */
@@ -439,7 +450,9 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   await expect.poll(async () => ((await storedPreferences(page))?.runeOptimization as Record<string, unknown>)?.gems).toBe('theoretical');
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await expect(page.getByRole('complementary', { name: 'Settings' }).getByRole('radio', { name: 'Theoretical' }).first()).toBeChecked();
+  const reloadedSettings = page.getByRole('complementary', { name: 'Settings' });
+  await expect(reloadedSettings.getByRole('radio', { name: 'Theoretical' }).first()).toBeChecked();
+  await expect(reloadedSettings.getByLabel('Can gem away speed')).toBeChecked();
 });
 
 test('Optimize from a build monster returns to a fresh search for that copy', async ({ page }) => {

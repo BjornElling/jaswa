@@ -707,6 +707,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             <CheckboxRow label="Allow changing a gemmed stat" checked={settings.allowGemStatChange}
               disabled={settings.gems === 'none'}
               onChange={(allowGemStatChange) => onUpdate({ allowGemStatChange })} />
+            <CheckboxRow label="Can gem away speed" checked={settings.allowGemSpeedRemoval}
+              disabled={settings.gems === 'none'}
+              onChange={(allowGemSpeedRemoval) => onUpdate({ allowGemSpeedRemoval })} />
           </div>
           <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} grade={settings.gemGrade} roll={settings.gemRollAssumption}
             onUse={(gems) => onUpdate({ gems })} onGrade={(gemGrade) => onUpdate({ gemGrade })} onRoll={(gemRollAssumption) => onUpdate({ gemRollAssumption })} />
