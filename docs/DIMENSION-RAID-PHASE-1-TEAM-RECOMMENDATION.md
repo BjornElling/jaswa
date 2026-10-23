@@ -4,118 +4,128 @@
 
 **Account reference:** JASWA Helper — roster overview imported October 23, 2026
 
-**Scope:** One Phase 1 team with one monster of each element, excluding every
-monster shown in the current Phase 2 and Phase 3 presets. Rune assignments are
+**Scope:** One Phase 1 team, subject to the live weekly entry condition and the
+rule that a monster cannot be used in more than one phase. Rune assignments are
 out of scope; this is a team to test, not a verified clear.
 
 ## First team to test
 
-Try **Shaina #1, Talia #1, Hraesvelg, Amarna and Hellea**. The lineup has one
-monster of each element and uses none of the monsters reserved by the shown
-Phase 2 and Phase 3 teams.
+Use **Fran (leader), Vigor (2A), Naomi (2A), Xiao Lin and Kaki**. This is the
+best fit among the teams discussed for the current survival problem: Fran and
+Vigor give the team an opening immunity, two team heals and an additional
+single-target cleanse, while Naomi and Xiao Lin supply focused boss damage.
+Kaki adds self-healing and area damage for the Soul Clones.
 
-One earlier reason for this lineup was wrong: **Shaina and Talia do not team up
-with each other.** Their ally attack requires a Boomerang Warrior, and this
-five-monster team has none. Keep them only for their separate skills; do not
-count a twin combo or its extra hits as part of the plan. [Shaina's skill
-description](https://swarfarm.com/bestiary/21902-fire-chakram-dancer-shaina/),
-[Talia's skill description](https://swarfarm.com/bestiary/21901-water-chakram-dancer-talia/)
+Fran should take the first turn and use **Fairy's Blessing (S3)**. It heals the
+whole team, increases Attack and grants two turns of immunity. Vigor's 2A
+**Predator's Cry (S2)** heals the team by 20%, increases Attack Speed and
+reduces the chance of receiving Critical Hits for two turns. Fran's S2 removes
+all harmful effects from and heals one ally; it is not a team-wide cleanse.
+Her S3 also has a four-turn cooldown when fully skilled, so Vigor's repeatable
+team heal matters between casts. [Fran's skills](https://swarena.gg/monster/fran),
+[Vigor's 2A skills](https://swarena.gg/monster/vigor-2a)
 
-| Monster | Element | Job in this team | Why it earns the slot |
+Immunity is a sensible first layer against harmful effects and suits the
+opening you requested. Do not count it as guaranteed protection from every
+Continuous Damage effect: available skill descriptions for Dimension Predator
+variants are not consistent about whether the boss's DoT bypasses immunity.
+The official raid note identifies the previous Dimension Predator as the Phase
+1 boss, but its skill details are embedded in an image. Confirm in the first
+run whether the opening DoTs land through Fran's immunity. If they do, keep the
+immunity opener for other debuffs, and make HP, Defense and the two team heals
+carry the DoT damage. [Com2uS's Dimension Raid announcement](https://summonerswar.com/en/skyarena/news/list/4419?category=update&page=1),
+[community notes on the original Predator fight](https://www.reddit.com/r/summonerswar/comments/ofae15/)
+
+| Monster | Element | Job | Why it earns the slot |
 | --- | --- | --- | --- |
-| **Shaina #1** | Fire | Repeated defense-break pressure | Her passive weakens Defense with each attack. This is useful setup for Talia, but it is not a team-up. |
-| **Talia #1** | Water | Main single-target damage | Her third skill hits harder against a weakened target below half HP. Her second skill cleanses herself, raises her Attack, and grants another turn. |
-| **Hraesvelg** | Wind | First-cycle team buff and damage | His third skill raises the team's Attack and Attack Speed for two turns. Berserk raises his damage and speed while lowering his Defense, so keep him sturdy. |
-| **Amarna** | Light | Cleanse, healing and recovery | His third skill removes harmful effects from the whole team, heals, and can revive fallen allies. He also brings defense break and Brand. |
-| **Hellea** | Dark | Brand and defense break | Her third skill applies both to the boss, giving Talia a better damage window. |
+| **Fran** | Light | First turn, team heal and immunity | Open with S3. Her S2 can cleanse and heal the ally in the most danger. Her General +10% Attack Speed lead helps the whole team move sooner. |
+| **Vigor (2A)** | Water | Team sustain and anti-Critical Hit support | S2 heals everyone by 20%, raises their Attack Speed and reduces the chance they receive Critical Hits for two turns. Use it when healing is needed, not only for its speed buff. |
+| **Naomi (2A)** | Wind | Main boss damage | Her passive gives guaranteed Critical Rate against a debuffed target and increases damage for each harmful effect. Her S2 can apply Brand. The boss is immune to Attack Bar reduction, so do not rely on that part of her skills for control. |
+| **Xiao Lin** | Water | Multi-hit damage and Defense break | Her four-hit skill deals more damage for each harmful effect and can apply Defense break. Her Attack Bar reduction is not useful against this boss. |
+| **Kaki** | Fire | Bruiser and area damage | His passive converts Attack into Defense and prevents his attacks from Critical Hits; S1 heals him for part of its damage, and S2 gives him an area attack for the Soul Clones. |
 
-The current Phase 2 and Phase 3 teams reserve Icaru (2A), Kro (2A), Raoq
-(2A), Fran, Loren, Carcano, Darion (2A), Veromos, Riley and Laika. The
-recommendation uses none of them. Com2uS says duplicate monsters cannot be
-used across the three phases. [Dimension Raid announcement](https://summonerswar.com/en/skyarena/news/list/4419?category=update&page=1)
+Fran plus Vigor is the reason to prefer this version over **Fran / Jultan /
+Naomi / Xiao Lin / Kaki** for a team that is already close to dying: Vigor
+adds repeatable team recovery and critical-hit protection, while that version
+gets Jultan's high-HP passive and extra Defense-break pressure instead. Compared
+with **Fran / Vigor / Jultan / Lushen / Kaki**, this lineup trades Jultan's
+bruising and Lushen's cleave for Naomi and Xiao Lin's boss damage. The
+**Fran / Naomi / Verdehile / Galleon / Eirgar** option leans further into
+turn cycling and offense, but it has less direct team sustain than Fran plus
+Vigor. The recommendation is a survival-and-damage balance, not a guaranteed
+clear.
+
+The current Phase 2 preset reserves Fran. Com2uS does not allow duplicate
+monsters across phases, so using her here requires moving her out of Phase 2
+and choosing a replacement for that team. The weekly Phase 1 entry condition
+also rotates with the active Dimension Dungeon; check that all five can enter
+before using the team. [Com2uS on phase teams and entry conditions](https://summonerswar.com/en/skyarena/news/list/4419?category=update&page=1)
 
 ## Leader choice
 
-Dimension Raid is treated as **Raid** for leader skills in JASWA. General and
-element leader skills count; Dungeon and Guild leader skills do not
-(`SPEED-TICK-CANONICAL.md` §2.2). The leaders on this five-monster shortlist
-therefore do not offer a team-wide Attack boost:
-
-| Leader | Skill | Reach in this team | Recommendation |
-| --- | --- | --- | --- |
-| **Amarna** | +25% Defense, General | All five | Default for the first stability test. |
-| **Hellea** | +30% Attack, Dark | Hellea only | Try if the team survives comfortably and damage is the bottleneck. |
-| **Shaina** | +33% Attack, Dungeons | None in Dimension Raid | Do not count this lead here. |
-| **Talia** | +24% Critical Rate, Dungeons | None in Dimension Raid | Do not count this lead here. |
-| **Hraesvelg** | +33% Attack, Guild | None in Dimension Raid | Do not count this lead here. |
-
-For this exact five, **Amarna is the useful all-team lead**; Hellea is the
-offensive alternative for one monster. A stronger roster-specific Attack
-leader cannot be named from the lineup and reservation list alone. Any
-replacement has to be owned, meet the live Phase 1 entry condition, preserve
-one monster per element, and not be reserved by Phase 2 or 3. Do not treat
-Shaina's Dungeon lead as an active Raid lead.
+Use **Fran's General +10% Attack Speed lead**. JASWA's Raid rule counts General
+leads in Dimension Raid (SPEED-TICK-CANONICAL.md §2.2). It benefits all five
+members and supports Fran's first-turn plan. Naomi's Guild Attack Speed lead
+does not count in this content. [Fran's leader skill](https://swarena.gg/monster/fran)
 
 ## Speed and turn order
 
-Aim for this **display speed ladder**, highest first. It gives every monster a
-first turn before the boss while leaving **exactly 5 display speed between each
-pair** for rune adjustment:
+Use the **combat speed** targets in JASWA's Speed Tuning view. Fran's target is
+the highest so she moves first; keep the rest in the listed order for a clean
+opening. A boss combat speed of **150** is a community report, not a published
+Com2uS figure or a JASWA enemy record. The targets below leave at least 10
+combat speed above that reference for every monster, but confirm the opening
+order in battle.
 
-| Monster | Display speed target | Approx. combat speed with level-20 Totem | First-cycle job |
+| Monster | Combat speed target | Approx. display speed with level-20 Totem | Opening job |
 | --- | ---: | ---: | --- |
-| **Hraesvelg** | **200** | **216** | Open with the team Attack and Attack Speed buff. |
-| **Hellea** | **195** | **211** | Apply Brand and Defense break. |
-| **Shaina #1** | **190** | **206** | Add Defense-break pressure. |
-| **Talia #1** | **185** | **201** | Take the damage turn after the setup. |
-| **Amarna** | **180** | **195–196** | Close the opening sequence; cover recovery after the boss responds. |
+| **Fran (leader)** | **180** | **154** | Move first; use S3 for team heal, Attack buff and immunity. |
+| **Vigor (2A)** | **172** | **143** | Use S2 for team recovery and its two-turn buffs. |
+| **Naomi (2A)** | **168** | **138** | Attack after harmful effects are on the boss. |
+| **Xiao Lin** | **164** | **138** | Add multi-hit damage and Defense-break chances. |
+| **Kaki** | **160** | **131** | Add damage and help defeat the Soul Clones. |
 
-The combat-speed estimates assume a level-20 Sky Tribe Totem (+15%), Amarna's
-Defense lead, no speed leader, and no Hraesvelg buff yet. The only range is
-Amarna's one-point Swift display-rounding difference. Actual combat speed also
-depends on the account's Totem and engraved runes; use JASWA's combat-speed
-reading for each finished build. The display targets themselves are already
-well above the boss's **community-reported combat speed of 150**, even before
-the Totem is added. Com2uS has not published that speed, so treat the first
-battle as confirmation. [Phase 1 team report](https://www.reddit.com/r/summonerswar/comments/183g8ik/dimensional_raid_1_team_4_dimensions/),
-[Hraesvelg stats](https://swarfarm.com/bestiary/18803-wind-barbaric-king-hraesvelg/),
-[Hellea stats](https://swarfarm.com/bestiary/10505-dark-harpy-hellea/),
-[Shaina stats](https://swarfarm.com/bestiary/21902-fire-chakram-dancer-shaina/),
-[Talia stats](https://swarfarm.com/bestiary/21901-water-chakram-dancer-talia/),
-[Amarna stats](https://swarfarm.com/bestiary/20404-light-anubis-amarna/)
+The approximate display speeds assume a level-20 Sky Tribe Totem (+15%),
+Fran's +10% General Speed lead, and no Swift set. They use the awakened base
+speeds of Fran (103), Vigor (2A, 115), Naomi (2A, 119), Xiao Lin (102) and Kaki
+(115). Swift and actual rune SPD change the display figures; keep the combat
+speed targets as the reference and confirm each build in Speed Tuning. Fran's
+lead adds to the totem in the combat-speed calculation (SPEED-TICK-CANONICAL.md
+§§2–2.2). [Community report for the boss's 150 speed](https://www.reddit.com/r/summonerswar/comments/183g8ik/dimensional_raid_1_team_4_dimensions/)
 
-Keep at least 5 display speed between adjacent monsters if a rune swap changes
-the totals, and keep Amarna at 180 or higher so the whole team retains its
-first-turn margin. This is the intended opening speed order, not a promise
-about which skill Auto will choose. Hraesvelg's Attack Speed buff and Berserk
-change turn order after his opening move, so confirm the first cycle in battle.
+These are moderate opening targets rather than a reason to sacrifice bulk for
+more speed. Prioritize HP and Defense on Fran, Vigor, Naomi and especially
+Xiao Lin; Fran's healing also scales with Attack, so retain enough Attack for
+useful recovery. Kaki needs enough HP to survive direct hits alongside his
+Attack and passive Defense. If a monster still drops into danger, add bulk
+before raising the whole team's speed. Vigor's Speed buff changes later turn
+timing, so the table describes the unbuffed opening order only.
 
 Set the game's **Attack Order** separately: it controls target priority, not
-which monster moves first. For Phase 1, make the boss the priority target, then
-follow any target the fight explicitly requires. Com2uS added Attack Order for
-Phases 1 and 3. [v8.0.9 update notice](https://summonerswar.com/en/skyarena/news/list/4420)
-
-Display speed and combat speed are different figures. JASWA models combat speed
-from base speed, Totem, a leader that counts in Raid, Swift and engraved rune
-SPD, then advances the Raid clock in 4.5% ticks (`SPEED-TICK-CANONICAL.md`
-§§1–3). Its PvE database has no Dimension Raid boss speed (`PVE-STAGES.md`
-§§2–3), so 150 remains the community report above, not a JASWA enemy record.
-
-## Entry condition
-
-Phase 1 inherits the entry condition of the Dimension Hole area hosting the
-raid, and that condition rotates. The account reference suggests Karzhan's
-default-four-star cap, but the condition is not shown here. The proposed five
-meet that cap: Shaina, Talia, Hraesvelg and Amarna are default four-star;
-Hellea is default three-star. Check the live condition before using this team
-after a rotation. [Com2uS on Phase 1's rotating condition](https://summonerswar.com/en/skyarena/news/list/4419?category=update&page=1),
-[Com2uS on Karzhan's four-star cap](https://sw.com2us.com/en/skyarena/news/list/1890?category=update&page=1)
+which monster moves first. Prioritize the boss during the opening; switch to
+the Soul Clones when they appear, then return to the boss. [Com2uS on Attack
+Order](https://summonerswar.com/en/skyarena/news/list/4420)
 
 ## First-run check
 
-Start with Amarna as leader and use the speed ladder above. Record whether all
-five get their first turn before the boss, Hraesvelg buffs before the damage
-turns, Hellea's Brand and Defense break land before Talia, and the boss's
-hit-triggered response puts a dangerous monster at risk. If survival is
-comfortable but damage is short, test Hellea as leader. Change one choice at a
-time and keep the result provisional until the Phase 1 run is observed.
+Test one run manually before relying on Repeat Battle:
+
+1. Confirm Fran acts before the boss and opens with S3.
+2. Check whether the boss's opening Continuous Damage lands through immunity.
+3. Use Vigor's S2 when the team's HP needs recovery; use Fran's S2 cleanse on
+   the ally most at risk.
+4. Note which monster takes the most direct damage and whether the Soul Clones
+   fall before their turn limit.
+
+If DoTs land through immunity, judge the team by its HP after the next few
+turns rather than the immunity icon alone. If one member remains at risk, add
+bulk to that build first. The recommendation stays provisional until the
+Phase 1 run confirms both survival and the opening order.
+
+### Monster skill references
+
+[Fran](https://swarena.gg/monster/fran),
+[Vigor (2A)](https://swarena.gg/monster/vigor-2a),
+[Naomi (2A)](https://rosa-midman.com/game-data/summoners-war-rta/monster/naomi-2a),
+[Xiao Lin](https://www.playerdojo.com/summoners-war/monsters/xiao-lin-water-597),
+[Kaki](https://swarena.gg/monster/kaki)
