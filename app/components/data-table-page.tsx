@@ -31,7 +31,7 @@ export function DataTablePage({
   lead, filters, columnGroup, header, children, filterClassName, tableClassName, headerLabel, tableLabel,
 }: DataTablePageProps) {
   return <section className="data-table-page">
-    <section className="panel data-table-filter-panel" aria-label="Table filters">
+    <section className="data-table-filter-panel" aria-label="Table filters">
       {lead && <div className="data-table-lead">{lead}</div>}
       <div className={filterClassName ? `filter-strip ${filterClassName}` : 'filter-strip'}>{filters}</div>
     </section>

@@ -1,0 +1,24 @@
+{
+  "unit_list": [],
+  "runes": [
+    {
+      "rune_id": 805,
+      "set_id": 18,
+      "slot_no": 2,
+      "class": 16,
+      "rank": 5,
+      "extra": 15,
+      "upgrade_curr": 12,
+      "occupied_type": 2,
+      "occupied_id": 0,
+      "pri_eff": [4, 63],
+      "prefix_eff": [0, 0],
+      "sec_eff": [[1, 300, 0, 0], [8, 5, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0]]
+    }
+  ],
+  "artifacts": [],
+  "relics": [],
+  "rune_craft_item_list": [
+    { "craft_item_id": 9801, "craft_type": 6, "craft_type_id": 180215, "amount": 1, "sell_value": 44400 }
+  ]
+}

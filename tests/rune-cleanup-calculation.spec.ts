@@ -15,6 +15,9 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   await expect(cleanup.getByText('Nothing calculated yet.')).toBeVisible();
   await expect(cleanup.locator('.list-actions')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Use game-sorting' })).toBeVisible();
+  const filterPanel = page.locator('.data-table-filter-panel');
+  expect(await filterPanel.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+  expect(await filterPanel.evaluate((element) => getComputedStyle(element).borderWidth)).toBe('0px');
   const columnLabels = [['Search', 'Level', 'Slot'], ['Main', 'Set', 'Show only'],
     ['Stars', 'Rarity', 'Location', 'Advice'], ['Never sell if...', 'Use game-sorting']];
   for (const [index, labels] of columnLabels.entries()) {
@@ -350,6 +353,9 @@ test('keeps the filter panel visible when calculation prerequisites are missing'
   await expect(page.getByText('No monster has reached level 40.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
   await expect(page.locator('.rune-filter-strip')).toBeVisible();
+  const filterPanel = page.locator('.data-table-filter-panel');
+  expect(await filterPanel.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+  expect(await filterPanel.evaluate((element) => getComputedStyle(element).borderWidth)).toBe('0px');
   await page.screenshot({ path: testInfo.outputPath('no-reference.png'), fullPage: true });
   await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);

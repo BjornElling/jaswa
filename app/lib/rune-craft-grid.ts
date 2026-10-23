@@ -60,10 +60,10 @@ export function craftScopeText(item: CraftItem, reach: CraftReach): string {
 /** What an item is looking for, for the title on the count that reports it. */
 export function craftRequirementText(item: CraftItem): string {
   const scope = craftScopeWord(item);
-  const runes = scope ? `${scope} runes` : 'Runes of any set';
+  const runes = scope ? `${scope} runes` : 'runes of any set';
   return item.kind === 'gem'
-    ? `${runes} at +${gemMinimumLevel} or higher with a replaceable sub property; a same-stat Gem needs a higher possible roll`
-    : `${runes} with a ${item.statName} sub property whose current grind this stone could raise`;
+    ? `This Gem can improve one sub property on ${runes} at +${gemMinimumLevel} or higher. If the rune already has ${item.statName}, the Gem's best roll must exceed its current value.`
+    : `This Grindstone can improve ${item.statName} on ${runes}.`;
 }
 
 /** `7–10`, or the em dash where no verified range exists (Ancient items). */

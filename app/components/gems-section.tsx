@@ -121,7 +121,7 @@ const craftColumns: readonly SortableColumn<CraftRow>[] = (() => {
     column('range', 'Rolls', 'What one use of this item can roll'),
     column('held', 'Held'),
     column('fits', 'Fits', 'Runes in your account this item could improve'),
-    column('scope', 'Where it can go'),
+    column('scope', 'Availability'),
   ];
 })();
 
@@ -221,7 +221,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
       ? 'This import holds no gems or grindstones.'
       : 'Nothing to show until a game file is imported.'}</h2>
     <p className="next-step">{game
-      ? 'Report it from the rail if your account does have a craft inventory.'
+      ? 'If your account has any, report the missing items from the rail.'
       : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
   </section>;
 
@@ -265,8 +265,8 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
                   active={kinds.includes(kind)}
                   onClick={() => toggleValue(kind, 'kinds')}
                   title={kind === 'gem'
-                    ? 'Replaces one sub property with its own stat'
-                    : 'Adds to a sub property the rune already has'}
+                    ? "Replaces one sub property with this Gem's stat"
+                    : 'Adds a grind bonus to one existing sub property'}
                 >{craftKindLabels[kind]}</FilterButton>)}
               </div>
             </div>
@@ -324,11 +324,11 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
               <div className="filter-group-controls">
                 <FilterButton active={showUsable}
                   onClick={() => setFilters((current) => ({ ...current, showUsable: !current.showUsable }))}
-                  title="Items with at least one possible improvement on a rune you own"
+                  title="Items that could improve at least one rune you own"
                 >Usable</FilterButton>
                 <FilterButton active={showDead}
                   onClick={() => setFilters((current) => ({ ...current, showDead: !current.showDead }))}
-                  title="Items with no possible improvement on any rune you own"
+                  title="Items that cannot improve any rune you own"
                 >Dead stock</FilterButton>
               </div>
             </div>
@@ -346,7 +346,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
                 <ValueSlider
                   minimum={minimumCraftQuantity} maximum={maximumCraftQuantity}
                   value={minimumQuantity} disabled={!minimumQuantityEnabled}
-                  label="Minimum gem and grind quantity"
+                  label="Minimum quantity of this item"
                   valueText={(value) => `Have at least ${value} of this item`}
                   onChange={(value) => setFilters((current) => ({ ...current, minimumQuantity: value }))} />
               </div>

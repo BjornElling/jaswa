@@ -23,7 +23,7 @@ import type { Rune, RuneSubProperty } from './runes';
  * the first — "no Violent rune has SPD left to grind" is a fact the user can
  * act on, where "no Violent rune" would be simply false.
  */
-export const craftBlockOrder = ['set', 'level', 'slot', 'duplicate', 'target', 'potential'] as const;
+export const craftBlockOrder = ['set', 'level', 'slot', 'duplicate', 'stat', 'target', 'potential'] as const;
 export type CraftBlock = typeof craftBlockOrder[number];
 
 /** One legal way to spend an item on a rune: which sub property it lands on. */
@@ -81,13 +81,14 @@ export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
   if (maximum === null) return { fits: false, block: 'target' };
 
   if (item.kind === 'grindstone') {
-    const targets = rune.subProperties
+    const matching = rune.subProperties
       .map((property, index) => ({ index, property }))
-      .filter(({ property }) => property.statId === item.statId
-        /* §8: a second grindstone is only allowed where it could beat the bonus
-           already applied. The shared craft rule supplies the verified ordinary
-           or Ancient ceiling for that exact item. */
-        && property.grind < maximum);
+      .filter(({ property }) => property.statId === item.statId);
+    if (!matching.length) return { fits: false, block: 'stat' };
+    /* §8: a second grindstone is only allowed where it could beat the bonus
+       already applied. The shared craft rule supplies the verified ordinary
+       or Ancient ceiling for that exact item. */
+    const targets = matching.filter(({ property }) => property.grind < maximum);
     return targets.length ? { fits: true, targets } : { fits: false, block: 'target' };
   }
 
@@ -379,12 +380,13 @@ export function craftBlockReason(item: CraftItem, block: CraftBlock): string {
   switch (block) {
     case 'set': return `You own no ${runes}`;
     case 'level': return `No ${runes} has reached +${gemMinimumLevel}`;
-    case 'slot': return `No ${runes} at +${gemMinimumLevel} or higher sits in a slot that can carry ${item.statName}`;
-    case 'duplicate': return `No ${runes} at +${gemMinimumLevel} or higher can take ${item.statName} without a duplicate`;
+    case 'slot': return `No ${runes} at +${gemMinimumLevel} or higher has a slot that allows ${item.statName} as a sub property`;
+    case 'duplicate': return `No ${runes} at +${gemMinimumLevel} or higher can gain ${item.statName} from this Gem`;
+    case 'stat': return `No ${runes} has ${item.statName}`;
     case 'target': return item.kind === 'gem'
-      ? `No ${runes} at +${gemMinimumLevel} or higher has a sub property this Gem can replace`
-      : `No ${runes} has ${item.statName} this stone could improve`;
-    case 'potential': return `No ${runes} at +${gemMinimumLevel} or higher has a ${item.statName} line this Gem could roll higher than`;
+      ? `No ${runes} at +${gemMinimumLevel} or higher has a sub property this Gem can improve`
+      : `No ${runes} has any ${item.statName} line this Grindstone can improve`;
+    case 'potential': return `This Gem cannot improve ${item.statName} on any ${runes} at +${gemMinimumLevel} or higher`;
   }
 }
 

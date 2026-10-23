@@ -689,27 +689,16 @@ label[for] {
   background: transparent;
   padding: 0;
 }
-/* The column count is stated rather than filled, because the group that starts
-   each row has to lose its divider and only a known count says which group
-   that is. Four columns need 1184px of a 1600px window beside the rail; below
-   that the strip steps down rather than letting a column overflow. */
-.filter-strip > .filter-group:nth-child(4n + 1) { padding-left: 0; border-left: 0; }
+/* Four columns need 1184px of a 1600px window beside the rail; below that the
+   strip steps down rather than letting a column overflow. Every group keeps
+   its left rule, including the first group in each row. */
 @media (min-width: 1921px) and (max-width: 1700px) {
   .filter-strip { --filter-columns: 3; }
-  .filter-strip > .filter-group:nth-child(4n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
-  .filter-strip > .filter-group:nth-child(3n + 1) { padding-left: 0; border-left: 0; }
 }
 @media (min-width: 1921px) and (max-width: 1120px) {
   .filter-strip { --filter-columns: 2; }
-  .filter-strip > .filter-group:nth-child(3n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
-  .filter-strip > .filter-group:nth-child(2n + 1) { padding-left: 0; border-left: 0; }
 }
-/* The divider sits on a group's left and is dropped where a column starts a
-   row, so a rule never hangs at the end of a row with nothing beyond it. Which
-   groups start a row depends on how many columns fit, so the count is set per
-   breakpoint below alongside the columns themselves.
-
-   A group is also only as tall as its own controls. Grid items stretch to
+/* A group is only as tall as its own controls. Grid items stretch to
    the tallest item on their row by default, which let one tall group —
    Storage's three stacked Location checkboxes — set the height of every
    group beside it: Search, Element and Type each grew a block of empty
@@ -797,17 +786,8 @@ label[for] {
     "search quality main    location  include"
     "sort   type    element archetype .";
 }
-/* Every group carries the rule that indents it, and only the two that begin a
-   visual row drop it — Search and Sort by, named right below.
-
-   Named rather than counted. The shared strip drops the rule with
-   `nth-child(<n> + 1)` per breakpoint, which reads DOM order, and this strip's
-   DOM order is no longer its visual order: Location and Include come last in
-   the markup but sit on the first row. Counting therefore took the rule off
-   whichever group happened to land on that index — Archetype and Include,
-   both mid-row — and butted them against their neighbours. Every count is
-   undone here, at each breakpoint's own specificity, so the two named
-   row-starters below are the only groups without a rule at any width. */
+/* Named areas put Search and Sort at the start of each row; they keep the same
+   left divider as every other group. */
 .artifact-filter-strip > .filter-group,
 .artifact-filter-strip > .filter-group:nth-child(2n + 1),
 .artifact-filter-strip > .filter-group:nth-child(3n + 1),
@@ -815,8 +795,8 @@ label[for] {
   padding-left: var(--s4);
   border-left: 1px solid var(--line);
 }
-.artifact-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
-.artifact-filter-sort-by { grid-area: sort; padding-left: 0 !important; border-left: 0 !important; }
+.artifact-filter-search { grid-area: search; }
+.artifact-filter-sort-by { grid-area: sort; }
 .artifact-filter-quality { grid-area: quality; }
 .artifact-filter-main-stat { grid-area: main; }
 .artifact-filter-location { grid-area: location; }
@@ -938,12 +918,11 @@ label[for] {
 .artifact-library { width: 100%; }
 @media (min-width: 1921px) and (max-width: 760px) {
   .filter-strip { --filter-columns: 1; }
-  .filter-strip > .filter-group:nth-child(2n + 1) { padding-left: var(--s4); border-left: 1px solid var(--line); }
-  .filter-strip > .filter-group { padding-left: 0; border-left: 0; }
 }
 .data-table-filter-panel {
   margin-bottom: var(--s4);
   padding: var(--s5);
+  background: var(--raise);
 }
 .data-table-filter-panel .filter-strip { width: 100%; }
 /* The context the table is read in, on lines of their own above the filters and
@@ -1149,10 +1128,8 @@ label[for] {
   white-space: nowrap;
 }
 
-/* Two rows: what the relic is, then what can still happen to it. Search leads
-   the first and the score threshold the second, so the two row-starters are the
-   only groups without an indent rule — the same arrangement, and the same
-   reason, as the artifact strip above. */
+/* Two rows: what the relic is, then what can still happen to it. Search and the
+   score threshold start their rows and keep the same divider as every group. */
 .relic-filter-strip {
   grid-template-areas:
     "search main  synergy    advice"
@@ -1165,8 +1142,8 @@ label[for] {
   padding-left: var(--s4);
   border-left: 1px solid var(--line);
 }
-.relic-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
-.relic-filter-threshold { grid-area: risk; padding-left: 0 !important; border-left: 0 !important; }
+.relic-filter-search { grid-area: search; }
+.relic-filter-threshold { grid-area: risk; }
 .relic-filter-main { grid-area: main; }
 .relic-filter-synergy { grid-area: synergy; }
 .relic-filter-synergy .filter-button {
@@ -1279,9 +1256,8 @@ label[for] {
 .relic-verdict[data-verdict='none'] { color: var(--state-bad); }
 .relic-verdict[data-verdict='unrated'] { color: var(--state-warn); }
 
-/* Two rows: what the monster is, then what to leave out. Search leads the first
-   and "Hide if" the second, so those two are the only groups without an indent
-   rule — the same arrangement, and the same reason, as the strips above. */
+/* Two rows: what the monster is, then what to leave out. Search and "Hide if"
+   start their rows and keep the same divider as every group. */
 .relic-monster-filter-strip {
   grid-template-areas:
     "search element type include"
@@ -1294,8 +1270,8 @@ label[for] {
   padding-left: var(--s4);
   border-left: 1px solid var(--line);
 }
-.relic-monster-filter-search { grid-area: search; padding-left: 0 !important; border-left: 0 !important; }
-.relic-monster-filter-hide { grid-area: hide; padding-left: 0 !important; border-left: 0 !important; }
+.relic-monster-filter-search { grid-area: search; }
+.relic-monster-filter-hide { grid-area: hide; }
 .relic-monster-filter-element { grid-area: element; }
 .relic-monster-filter-type { grid-area: type; }
 .relic-monster-filter-include { grid-area: include; }
@@ -1318,12 +1294,6 @@ label[for] {
       "type   include"
       "hide   .";
   }
-  /* Two columns, so children 1 and 3 start a row and are the two that drop
-     their divider — a rule must never hang at the end of a row. */
-  .relic-monster-filter-strip > .filter-group:nth-child(2n + 1) {
-    padding-left: 0;
-    border-left: 0;
-  }
 }
 @media (max-width: 760px) {
   .relic-monster-filter-strip {
@@ -1336,18 +1306,14 @@ label[for] {
       "include"
       "hide";
   }
-  .relic-monster-filter-strip > .filter-group {
-    padding-left: 0;
-    border-left: 0;
-  }
 }
 
 /* ------------------------------------------------------ gems and grinds
    The box list. Its strip needs no `grid-template-areas` of its own: the two
    rows it wants — what an item *is*, then what it is *for* — are already the
    order the markup declares them in, so the shared four-column grid places
-   them and the shared `nth-child(4n + 1)` rule takes the divider off Search
-   and Stat. Areas are what the relic and artifact strips need because their
+   them with the same left rule as every other filter group. Areas are what the
+   relic and artifact strips need because their
    markup order stopped matching their reading order; this one has no such
    debt and should not take one on.
 
@@ -1358,6 +1324,8 @@ label[for] {
 .craft-library { width: 100%; }
 .craft-grid { width: 100%; min-width: 0; table-layout: fixed; }
 .craft-filter-status { bottom: 0; height: auto; }
+.craft-filter-stat .jaswa-select,
+.craft-filter-set .jaswa-select { width: calc(100% - var(--s4)); }
 .craft-quantity-filter { align-items: flex-start; gap: var(--s3); }
 .craft-quantity-filter .checkbox-row { flex: 0 0 auto; }
 .craft-quantity-filter .range-slider { flex: 1 1 auto; width: auto; min-width: 0; margin-top: var(--s1); }
@@ -2212,18 +2180,15 @@ label[for] {
    To add a panel: give it .filter-panel plus its own class for the areas only.
    To change spacing: change it here, so every box moves together.
 
-   The ground is the raised one every other box in the house stands on — the
-   library strips, Clean-up, Speed Tuning, the empty states. A filter box on the
-   sunk ground read as a hole in the page beside them, and made one workspace
-   look like a different program from the next. The fields inside keep the sunk
-   ground, so they read as wells cut into the panel, as they do everywhere. */
+   The groups themselves carry the shared left rule. The panel uses the same
+   raised ground as the table filters, without adding a second frame. */
 .filter-panel {
   display: grid;
   align-items: end;
   gap: var(--s4);
   padding: var(--s4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: 0;
   background: var(--raise);
 }
 /* min-width lets a group shrink inside its track instead of forcing the panel
@@ -6578,7 +6543,6 @@ th.align-center .rank-heading { justify-content: center; }
   display: flex; flex-direction: column; gap: var(--s4); min-width: 0;
   padding-left: var(--s4); border-left: 1px solid var(--line);
 }
-.rune-filter-column:first-child { padding-left: 0; border-left: 0; }
 .rune-filter-column > .filter-group { padding-left: 0; border-left: 0; }
 .rune-speed-protection .filter-group-controls { flex-wrap: nowrap; }
 .rune-speed-protection .filter-group-controls + .filter-group-controls { margin-top: var(--s1); }

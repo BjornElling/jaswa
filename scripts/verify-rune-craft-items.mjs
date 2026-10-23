@@ -185,7 +185,9 @@ try {
   assert.deepEqual(craftItemFit(accuracySpdGem, maxedAccuracyRune), { fits: false, block: 'potential' },
     'a same-stat Gem is not usable when its best roll cannot beat the current line');
   assert.equal(craftBlockReason(accuracySpdGem, 'potential'),
-    'No Accuracy rune at +12 or higher has a SPD line this Gem could roll higher than');
+    'This Gem cannot improve SPD on any Accuracy rune at +12 or higher');
+  assert.equal(craftBlockReason(accuracySpdGem, 'duplicate'),
+    'No Accuracy rune at +12 or higher can gain SPD from this Gem');
   /* A rune without the gem's stat offers every sub property instead. */
   assert.deepEqual(
     craftItemFit(violentSpdGem, rune({ sec_eff: [[2, 8, 0, 0], [9, 6, 0, 0]] })).targets.map((t) => t.index),
@@ -199,7 +201,17 @@ try {
   assert.deepEqual(craftItemFit(violentSpdStone, rune()).targets.map((t) => t.index), [3]);
   assert.equal(craftItemFit(violentSpdStone, rune({ sec_eff: [[8, 5, 0, 10]] })).block, 'target',
     'a Legend SPD stone tops out at 5 and cannot beat a bonus of 10');
-  assert.equal(craftItemFit(violentSpdStone, rune({ sec_eff: [[2, 8, 0, 0]] })).block, 'target');
+  assert.equal(craftItemFit(violentSpdStone, rune({ sec_eff: [[2, 8, 0, 0]] })).block, 'stat');
+  const ancientDestroyHpStone = readCraftItem(stack(6, 18_02_15));
+  const ancientDestroyRune = readRune({
+    ...runeRecord, rune_id: 805, set_id: 18, class: 16, extra: 15,
+    sec_eff: [[1, 300, 0, 0], [8, 5, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0]],
+  });
+  assert.ok(ancientDestroyHpStone && ancientDestroyRune);
+  assert.equal(craftItemFit(ancientDestroyHpStone, ancientDestroyRune).block, 'stat');
+  assert.equal(craftBlockReason(ancientDestroyHpStone, 'stat'), 'No Ancient Destroy rune has HP %');
+  assert.equal(craftBlockReason(violentSpdStone, 'target'),
+    'No Violent rune has any SPD line this Grindstone can improve');
 
   /* Reach is measured over every rune and splits out the ones in inventory,
      which is the difference between spending an item tonight and taking a

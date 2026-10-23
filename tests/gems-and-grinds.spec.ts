@@ -66,11 +66,23 @@ test('a same-stat gem remains usable when its best roll can raise the rune', asy
   const row = page.locator('.craft-grid tbody tr').filter({ hasText: 'Accuracy' });
   await expect(row).toHaveCount(1);
   await expect(row.locator('td').nth(6)).toHaveText('1');
-  await expect(row.locator('td').nth(6)).toHaveAttribute('title', /same-stat Gem needs a higher possible roll/);
+  await expect(row.locator('td').nth(6)).toHaveAttribute('title', /If the rune already has SPD, the Gem's best roll must exceed its current value/);
   await expect(row.locator('td').nth(7)).toHaveText('1 in inventory');
   /* One Accuracy rune has a weak SPD line the Legend Gem could raise; the
      other is already at the Gem's ceiling and does not inflate Fits. */
   await expect(row.locator('td').nth(7)).not.toContainText('2 in inventory');
+});
+
+test('a grindstone says when none of the matching runes has its stat', async ({ page }) => {
+  await openWorkspace(page);
+  const ancientAccount = fileURLToPath(new URL('./fixtures/craft-ancient-destroy-no-hp-percent.json', import.meta.url));
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(ancientAccount);
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('button', { name: 'Gems & Grinds' }).click();
+
+  const row = page.locator('.craft-grid tbody tr').filter({ hasText: 'Destroy' });
+  await expect(row).toHaveCount(1);
+  await expect(row.locator('td').nth(7)).toHaveText('No Ancient Destroy rune has HP %');
 });
 
 test('every stack says how far it reaches, and a dead one says why', async ({ page }) => {
@@ -105,6 +117,17 @@ test('filters narrow the box without moving it', async ({ page }, testInfo) => {
 
   const strip = page.locator('.craft-filter-strip');
   const before = await strip.boundingBox();
+  const filterFrame = page.locator('.data-table-filter-panel');
+  expect(await filterFrame.evaluate((element) => getComputedStyle(element).borderWidth)).toBe('0px');
+  expect(await filterFrame.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+  expect(Number.parseFloat(await page.locator('.craft-filter-search').evaluate((element) => getComputedStyle(element).borderLeftWidth))).toBeGreaterThan(0);
+  const dropdownGaps = await Promise.all(['craft-stat', 'craft-set'].map((id) => page.locator(`#${id}`).evaluate((element) => {
+    const group = element.parentElement?.parentElement;
+    if (!group) return -1;
+    return group.getBoundingClientRect().right - element.getBoundingClientRect().right;
+  })));
+  expect(dropdownGaps[0]).toBeGreaterThanOrEqual(15);
+  expect(dropdownGaps[1]).toBeGreaterThanOrEqual(15);
   await page.screenshot({ path: testInfo.outputPath('gems-filters-before.png'), fullPage: true });
   /* With neither fit choice selected the group does not narrow the box. */
   await expect(page.locator('.craft-grid tbody tr')).toHaveCount(6);
@@ -129,7 +152,7 @@ test('filters narrow the box without moving it', async ({ page }, testInfo) => {
 
   /* The stock threshold is optional. It stays in the layout while disabled,
      and when enabled it compares each stack's held count. */
-  const minimum = page.getByRole('slider', { name: 'Minimum gem and grind quantity' });
+  const minimum = page.getByRole('slider', { name: 'Minimum quantity of this item' });
   await expect(minimum).toBeDisabled();
   await page.getByRole('checkbox', { name: 'Have ≥' }).check();
   await expect(minimum).toBeEnabled();
@@ -149,14 +172,22 @@ test('filters narrow the box without moving it', async ({ page }, testInfo) => {
   expect(await strip.boundingBox()).toEqual(before);
 });
 
-test('best use ranks the runes one gem can be spent on', async ({ page }) => {
+test('best use ranks the runes one gem can be spent on', async ({ page }, testInfo) => {
   await openWorkspace(page);
   await importCraftAccount(page);
   await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
   await expect(page.locator('.craft-best-use-filters')).toBeVisible();
+  expect(await page.locator('.craft-best-use-filters').evaluate((element) => getComputedStyle(element).borderWidth)).toBe('0px');
+  expect(await page.locator('.craft-best-use-filters').evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+  expect(Number.parseFloat(await page.locator('.craft-best-use-kind').evaluate((element) => getComputedStyle(element).borderLeftWidth))).toBeGreaterThan(0);
   await expect(page.getByText('Choose a gem or grindstone above.')).toBeVisible();
+  const filterBox = page.locator('.craft-best-use-filters');
+  const filterBoxBefore = await filterBox.boundingBox();
+  await page.screenshot({ path: testInfo.outputPath('gems-best-use-filters-before.png'), fullPage: true });
 
   await chooseItem(page, 'Violent', 'Gem', 'SPD', 'Legend');
+  expect(await filterBox.boundingBox()).toEqual(filterBoxBefore);
+  await page.screenshot({ path: testInfo.outputPath('gems-best-use-filters-after.png'), fullPage: true });
   await expect(page.getByRole('heading', { name: 'Legend Violent SPD Gem' })).toBeVisible();
   await expect(page.locator('.craft-best-use-facts')).toContainText('7–10');
   /* The score is the one figure here that is not yet the real answer, and it

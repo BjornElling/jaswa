@@ -361,8 +361,8 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
     <div className="filter-panel craft-best-use-filters">
       {buttonGroup('Item', 'kinds', craftKinds, (kind) => craftKindLabels[kind], 'craft-best-use-kind',
         (kind) => kind === 'gem'
-          ? 'Replaces one sub property with its own stat'
-          : 'Adds to a sub property the rune already has')}
+          ? "Replaces one sub property with this Gem's stat"
+          : 'Adds a grind bonus to one existing sub property')}
       {buttonGroup('Family', 'lineages', craftLineages, (lineage) => craftLineageLabels[lineage],
         'craft-best-use-lineage', (lineage) => craftLineageNotes[lineage])}
       {buttonGroup('Grade', 'grades', itemGrades, (grade) => grade.slice(0, 3).toUpperCase(), 'craft-best-use-grade')}
