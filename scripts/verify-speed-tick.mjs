@@ -289,8 +289,9 @@ check(accuracyCeilings('giants')[0]?.part === 'Abyss Hard' && accuracyCeilings('
 check(accuracyCeilings('rift-raid')[0]?.percent === 15, 'R5 asks 15 % Accuracy: its boss resists 30 %');
 check(accuracyCeilings('fire-beast')[0]?.percent === 0 && accuracyCeilings('dreaming-fairies')[0]?.percent === 35
   && accuracyCeilings('roaring-beasts')[0]?.percent === 34 && accuracyCeilings('arena-attack')[0]?.percent === 85, 'the sourced Accuracy goal');
-check(accuracyCeilings('temple-of-chaos').length === 0 && accuracyCeilings('raging-fires').length === 0 && accuracyCeilings(undefined).length === 0,
-  'an area no source covers names no goal');
+check(accuracyCeilings('temple-of-chaos')[0]?.part === 'Level 100' && accuracyCeilings('temple-of-chaos')[0]?.percent === 35
+  && accuracyCeilings('raging-fires').length === 0 && accuracyCeilings(undefined).length === 0,
+  'a sourced area names its goal and areas no source covers name no goal');
 
 /* The totem, and its import boundary. */
 check(readSkyTribeTotem({ deco_list: [{ master_id: 6, level: 20 }] }).state === 'built', 'the totem is decoration 6');
