@@ -7,6 +7,7 @@ import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { Dropdown } from './dropdown';
 import { FilterSummary } from './filter-summary';
 import { Disclosure, PageHeader } from './page-chrome';
+import { ValueSlider } from './range-slider';
 import { SortableHeader } from './sortable-table';
 import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
@@ -53,7 +54,12 @@ type CraftFilterState = {
   set: string;
   showUsable: boolean;
   showDead: boolean;
+  minimumQuantityEnabled: boolean;
+  minimumQuantity: number;
 };
+
+const minimumCraftQuantity = 1;
+const maximumCraftQuantity = 10;
 
 const defaultCraftFilters: CraftFilterState = {
   search: '',
@@ -62,8 +68,10 @@ const defaultCraftFilters: CraftFilterState = {
   grades: [],
   statId: '',
   set: '',
-  showUsable: true,
-  showDead: true,
+  showUsable: false,
+  showDead: false,
+  minimumQuantityEnabled: false,
+  minimumQuantity: minimumCraftQuantity,
 };
 
 function isCraftFilterState(value: unknown): value is CraftFilterState {
@@ -79,7 +87,12 @@ function isCraftFilterState(value: unknown): value is CraftFilterState {
     && typeof candidate.statId === 'string'
     && typeof candidate.set === 'string'
     && typeof candidate.showUsable === 'boolean'
-    && typeof candidate.showDead === 'boolean';
+    && typeof candidate.showDead === 'boolean'
+    && typeof candidate.minimumQuantityEnabled === 'boolean'
+    && typeof candidate.minimumQuantity === 'number'
+    && Number.isSafeInteger(candidate.minimumQuantity)
+    && candidate.minimumQuantity >= minimumCraftQuantity
+    && candidate.minimumQuantity <= maximumCraftQuantity;
 }
 
 const craftCell = columnClasses(craftItemTableColumns);
@@ -107,7 +120,7 @@ const craftColumns: readonly SortableColumn<CraftRow>[] = (() => {
        the first one — the rest belongs to the accessible name. */
     column('range', 'Rolls', 'What one use of this item can roll'),
     column('held', 'Held'),
-    column('fits', 'Fits', 'Runes in your account it can be spent on'),
+    column('fits', 'Fits', 'Runes in your account this item could improve'),
     column('scope', 'Where it can go'),
   ];
 })();
@@ -121,7 +134,8 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.craft-items', defaultCraftFilters, isCraftFilterState,
   );
-  const { search, kinds, lineages, grades, statId, set, showUsable, showDead } = filters;
+  const { search, kinds, lineages, grades, statId, set, showUsable, showDead,
+    minimumQuantityEnabled, minimumQuantity } = filters;
 
   const data = game?.data as GameRecord | undefined;
   const items = useMemo(() => readCraftItems(data), [data]);
@@ -169,8 +183,8 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
     const chosenStat = statId === '' ? null : Number(statId);
     return rows.filter((row) => {
       const usable = row.reach.fits > 0;
-      if (!showUsable && usable) return false;
-      if (!showDead && !usable) return false;
+      if ((showUsable || showDead) && !(usable ? showUsable : showDead)) return false;
+      if (minimumQuantityEnabled && row.item.amount < minimumQuantity) return false;
       if (kinds.length && !kinds.includes(row.item.kind)) return false;
       if (lineages.length && !lineages.includes(row.item.lineage)) return false;
       if (grades.length && !grades.includes(row.item.grade)) return false;
@@ -180,7 +194,8 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
       if (!term) return true;
       return craftRowSearchText(row).includes(term);
     });
-  }, [rows, search, kinds, lineages, grades, statId, set, showUsable, showDead]);
+  }, [rows, search, kinds, lineages, grades, statId, set, showUsable, showDead,
+    minimumQuantityEnabled, minimumQuantity]);
 
   /* The box opens on the items worth spending, best grade first. The tiebreak
      goes to the hook rather than into each column's own comparison: inside it,
@@ -309,12 +324,31 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
               <div className="filter-group-controls">
                 <FilterButton active={showUsable}
                   onClick={() => setFilters((current) => ({ ...current, showUsable: !current.showUsable }))}
-                  title="Items at least one rune in your account can take"
+                  title="Items with at least one possible improvement on a rune you own"
                 >Usable</FilterButton>
                 <FilterButton active={showDead}
                   onClick={() => setFilters((current) => ({ ...current, showDead: !current.showDead }))}
-                  title="Items no rune in your account can take today"
+                  title="Items with no possible improvement on any rune you own"
                 >Dead stock</FilterButton>
+              </div>
+            </div>
+
+            <div className="filter-group craft-filter-quantity">
+              <span className="filter-label">Quantity</span>
+              <div className="filter-group-controls craft-quantity-filter">
+                <label className="checkbox-row">
+                  <input type="checkbox" checked={minimumQuantityEnabled}
+                    onChange={(event) => setFilters((current) => ({
+                      ...current, minimumQuantityEnabled: event.target.checked,
+                    }))} />
+                  <span>Have ≥</span>
+                </label>
+                <ValueSlider
+                  minimum={minimumCraftQuantity} maximum={maximumCraftQuantity}
+                  value={minimumQuantity} disabled={!minimumQuantityEnabled}
+                  label="Minimum gem and grind quantity"
+                  valueText={(value) => `Have at least ${value} of this item`}
+                  onChange={(value) => setFilters((current) => ({ ...current, minimumQuantity: value }))} />
               </div>
             </div>
 

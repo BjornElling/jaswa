@@ -38,10 +38,12 @@ async function chooseItem(page: Page, group: string, ...parts: string[]) {
   await chooser.selectOption(value);
 }
 
-test('the box says what to do when nothing has been imported', async ({ page }) => {
+test('the box says what to do when nothing has been imported', async ({ page }, testInfo) => {
   await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await expect(page.getByRole('heading', { name: 'Nothing to show until a game file is imported.' })).toBeVisible();
   await expect(page.getByText('Go to Home and drop in the JSON file exported from Summoners War.')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('gems-empty.png'), fullPage: true });
 });
 
 test('the account badge and the box agree on how many items there are', async ({ page }) => {
@@ -52,6 +54,23 @@ test('the account badge and the box agree on how many items there are', async ({
   await expect(page.locator('.import-badge')).toContainText('9 gems & grinds');
   await expect(page.locator('.craft-held-balance')).toContainText('9');
   await expect(page.locator('.craft-grid tbody tr')).toHaveCount(6);
+});
+
+test('a same-stat gem remains usable when its best roll can raise the rune', async ({ page }) => {
+  await openWorkspace(page);
+  const accuracyAccount = fileURLToPath(new URL('./fixtures/craft-accuracy-regem-account.json', import.meta.url));
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(accuracyAccount);
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('button', { name: 'Gems & Grinds' }).click();
+
+  const row = page.locator('.craft-grid tbody tr').filter({ hasText: 'Accuracy' });
+  await expect(row).toHaveCount(1);
+  await expect(row.locator('td').nth(6)).toHaveText('1');
+  await expect(row.locator('td').nth(6)).toHaveAttribute('title', /same-stat Gem needs a higher possible roll/);
+  await expect(row.locator('td').nth(7)).toHaveText('1 in inventory');
+  /* One Accuracy rune has a weak SPD line the Legend Gem could raise; the
+     other is already at the Gem's ceiling and does not inflate Fits. */
+  await expect(row.locator('td').nth(7)).not.toContainText('2 in inventory');
 });
 
 test('every stack says how far it reaches, and a dead one says why', async ({ page }) => {
@@ -79,12 +98,27 @@ test('every stack says how far it reaches, and a dead one says why', async ({ pa
   await expect(ancient.locator('td').nth(4)).not.toHaveText('—');
 });
 
-test('filters narrow the box without moving it', async ({ page }) => {
+test('filters narrow the box without moving it', async ({ page }, testInfo) => {
   await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await importCraftAccount(page);
 
   const strip = page.locator('.craft-filter-strip');
   const before = await strip.boundingBox();
+  await page.screenshot({ path: testInfo.outputPath('gems-filters-before.png'), fullPage: true });
+  /* With neither fit choice selected the group does not narrow the box. */
+  await expect(page.locator('.craft-grid tbody tr')).toHaveCount(6);
+  const fit = page.getByRole('group', { name: 'Choose which items to include' });
+  await fit.getByRole('button', { name: 'Usable' }).click();
+  await expect(page.locator('.craft-grid tbody tr')).toHaveCount(5);
+  await page.screenshot({ path: testInfo.outputPath('gems-filters-usable.png'), fullPage: true });
+  await fit.getByRole('button', { name: 'Dead stock' }).click();
+  await expect(page.locator('.craft-grid tbody tr')).toHaveCount(6);
+  await fit.getByRole('button', { name: 'Usable' }).click();
+  await expect(page.locator('.craft-grid tbody tr')).toHaveCount(1);
+  await fit.getByRole('button', { name: 'Dead stock' }).click();
+  await expect(page.locator('.craft-grid tbody tr')).toHaveCount(6);
+
   await page.getByRole('group', { name: 'Filter by item' }).getByRole('button', { name: 'Grind' }).click();
   await expect(page.locator('.craft-grid tbody tr')).toHaveCount(1);
   /* Rule 2: the control the user clicked changed, and nothing around it moved. */
@@ -93,13 +127,25 @@ test('filters narrow the box without moving it', async ({ page }) => {
   await page.getByRole('button', { name: 'Reset items filters' }).click();
   await expect(page.locator('.craft-grid tbody tr')).toHaveCount(6);
 
-  /* Both halves of an exhaustive pair off is a request for nothing, and the
-     table says what to do about it rather than going blank. */
-  const fit = page.getByRole('group', { name: 'Choose which items to include' });
-  await fit.getByRole('button', { name: 'Usable' }).click();
-  await fit.getByRole('button', { name: 'Dead stock' }).click();
-  await expect(page.locator('.table-empty-state'))
-    .toHaveText('No gems or grindstones match these filters. Clear a filter to see more.');
+  /* The stock threshold is optional. It stays in the layout while disabled,
+     and when enabled it compares each stack's held count. */
+  const minimum = page.getByRole('slider', { name: 'Minimum gem and grind quantity' });
+  await expect(minimum).toBeDisabled();
+  await page.getByRole('checkbox', { name: 'Have ≥' }).check();
+  await expect(minimum).toBeEnabled();
+  await minimum.fill('2');
+  await expect(page.locator('.craft-grid tbody tr')).toHaveCount(2);
+  await expect(page.locator('.craft-grid tbody tr td:nth-child(6)')).toHaveText(['3', '2']);
+  await minimum.fill('3');
+  await expect(page.locator('.craft-grid tbody tr')).toHaveCount(1);
+  await expect(page.locator('.craft-grid tbody tr td:nth-child(6)')).toHaveText('3');
+  await page.screenshot({ path: testInfo.outputPath('gems-filters-quantity.png'), fullPage: true });
+  expect(await strip.boundingBox()).toEqual(before);
+
+  await page.getByRole('button', { name: 'Reset items filters' }).click();
+  await expect(page.locator('.craft-grid tbody tr')).toHaveCount(6);
+  await expect(minimum).toBeDisabled();
+  await expect(minimum).toHaveValue('1');
   expect(await strip.boundingBox()).toEqual(before);
 });
 

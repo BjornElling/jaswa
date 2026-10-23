@@ -23,7 +23,7 @@ import type { Rune, RuneSubProperty } from './runes';
  * the first — "no Violent rune has SPD left to grind" is a fact the user can
  * act on, where "no Violent rune" would be simply false.
  */
-export const craftBlockOrder = ['set', 'level', 'slot', 'duplicate', 'target'] as const;
+export const craftBlockOrder = ['set', 'level', 'slot', 'duplicate', 'target', 'potential'] as const;
 export type CraftBlock = typeof craftBlockOrder[number];
 
 /** One legal way to spend an item on a rune: which sub property it lands on. */
@@ -63,26 +63,31 @@ export function lineageFits(item: CraftItem, rune: Pick<Rune, 'ancient' | 'setId
 }
 
 /**
- * Every legal way to spend one item on one rune, or the reason there is none.
+ * Every way one item can potentially improve one rune, or the reason there is none.
  *
  * A gem replaces one existing sub property, so its target is any sub property
  * whose *other* three do not already carry the gem's stat — which means a rune
  * that already has the stat has exactly one legal target: that property itself,
- * re-rolled, keeping its grindstone. A rune already carrying a converted line
- * offers that line alone. A grindstone instead adds to a property of its own stat, and may
- * only be spent where its ceiling can beat the bonus already sitting there.
+ * re-rolled, keeping its grindstone. It is a potential improvement only when
+ * the Gem's best roll beats the current base value. A different stat remains a
+ * possible improvement for a role that wants that stat. A rune already carrying
+ * a converted line offers that line alone. A grindstone instead adds to a
+ * property of its own stat, and may only be spent where its ceiling can beat
+ * the bonus already sitting there.
  */
 export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
   if (!lineageFits(item, rune)) return { fits: false, block: 'set' };
+  const maximum = craftItemRoll(item.kind, item.lineage, item.statId, item.grade, 'maximum');
+  if (maximum === null) return { fits: false, block: 'target' };
 
   if (item.kind === 'grindstone') {
     const targets = rune.subProperties
       .map((property, index) => ({ index, property }))
       .filter(({ property }) => property.statId === item.statId
         /* §8: a second grindstone is only allowed where it could beat the bonus
-           already applied. `CraftItem` supplies the verified ordinary or Ancient
-           ceiling for that exact item. */
-        && (item.range === undefined || property.grind < item.range.maximum));
+           already applied. The shared craft rule supplies the verified ordinary
+           or Ancient ceiling for that exact item. */
+        && property.grind < maximum);
     return targets.length ? { fits: true, targets } : { fits: false, block: 'target' };
   }
 
@@ -96,10 +101,12 @@ export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
   /* §8: one converted line at a time, so a rune that already carries one offers
      only that line to a further Gem. */
   const converted = rune.subProperties.findIndex((property) => property.gemmed);
-  const targets = rune.subProperties
+  const eligible = rune.subProperties
     .map((property, index) => ({ index, property }))
     .filter(({ index }) => (converted === -1 || index === converted) && rune.subProperties
       .every((other, otherIndex) => otherIndex === index || other.statId !== item.statId));
+  const targets = eligible.filter(({ property }) => property.statId !== item.statId || maximum > property.value);
+  if (!targets.length && eligible.length) return { fits: false, block: 'potential' };
   return targets.length ? { fits: true, targets } : { fits: false, block: 'duplicate' };
 }
 
@@ -299,7 +306,7 @@ export function roleWantsRune(role: RuneRole, rune: Rune): boolean {
 
 /** How much of the account one item can reach, and why it reaches no further. */
 export type CraftReach = {
-  /** Runes the item can legally be spent on. */
+  /** Runes on which the item has at least one possible improvement. */
   fits: number;
   /**
    * How many of those are engraved nowhere — on no monster in Scenario and in
@@ -372,11 +379,12 @@ export function craftBlockReason(item: CraftItem, block: CraftBlock): string {
   switch (block) {
     case 'set': return `You own no ${runes}`;
     case 'level': return `No ${runes} has reached +${gemMinimumLevel}`;
-    case 'slot': return `No ${runes} sits in a slot that can carry ${item.statName}`;
-    case 'duplicate': return `Every ${runes} already carries ${item.statName}`;
+    case 'slot': return `No ${runes} at +${gemMinimumLevel} or higher sits in a slot that can carry ${item.statName}`;
+    case 'duplicate': return `No ${runes} at +${gemMinimumLevel} or higher can take ${item.statName} without a duplicate`;
     case 'target': return item.kind === 'gem'
-      ? `No ${runes} has a sub property to replace`
+      ? `No ${runes} at +${gemMinimumLevel} or higher has a sub property this Gem can replace`
       : `No ${runes} has ${item.statName} this stone could improve`;
+    case 'potential': return `No ${runes} at +${gemMinimumLevel} or higher has a ${item.statName} line this Gem could roll higher than`;
   }
 }
 

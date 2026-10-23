@@ -22,7 +22,7 @@ try {
   const { readCraftItem, readCraftItems, craftValueRange, craftRollValue, roundAwayFromZero } =
     await server.ssrLoadModule('/app/lib/rune-craft-items.ts');
   const { readRune } = await server.ssrLoadModule('/app/lib/runes.ts');
-  const { craftItemFit, craftReach } = await server.ssrLoadModule('/app/lib/rune-craft-plan.ts');
+  const { craftItemFit, craftReach, craftBlockReason } = await server.ssrLoadModule('/app/lib/rune-craft-plan.ts');
 
   const stack = (craftType, craftTypeId, amount = 1) => ({
     craft_item_id: craftTypeId * 10 + craftType, craft_type: craftType, craft_type_id: craftTypeId, amount,
@@ -142,6 +142,7 @@ try {
   const fatalSpdGem = readCraftItem(stack(1, 8_08_05));
   const immemorialSpdGem = readCraftItem(stack(3, 99_08_05));
   const ancientSpdGem = readCraftItem(stack(5, 13_08_15));
+  const accuracySpdGem = readCraftItem(stack(1, 22_08_05));
 
   /* A gem must match the set; Immemorial matches every set; Ancient matches
      Ancient runes of its own set and nothing else, in either direction (§7). */
@@ -174,6 +175,17 @@ try {
      property, re-rolled — every other target would duplicate it. */
   const reroll = craftItemFit(violentSpdGem, rune());
   assert.deepEqual(reroll.targets.map((target) => target.index), [3]);
+  const accuracyRune = rune({ set_id: 22 });
+  assert.deepEqual(craftItemFit(accuracySpdGem, accuracyRune).targets.map((target) => target.index), [3],
+    'a same-stat Gem can improve a weak SPD line on an Accuracy rune');
+  const maxedAccuracyRune = rune({
+    set_id: 22,
+    sec_eff: [[2, 8, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0], [8, 10, 0, 3]],
+  });
+  assert.deepEqual(craftItemFit(accuracySpdGem, maxedAccuracyRune), { fits: false, block: 'potential' },
+    'a same-stat Gem is not usable when its best roll cannot beat the current line');
+  assert.equal(craftBlockReason(accuracySpdGem, 'potential'),
+    'No Accuracy rune at +12 or higher has a SPD line this Gem could roll higher than');
   /* A rune without the gem's stat offers every sub property instead. */
   assert.deepEqual(
     craftItemFit(violentSpdGem, rune({ sec_eff: [[2, 8, 0, 0], [9, 6, 0, 0]] })).targets.map((t) => t.index),
@@ -203,12 +215,16 @@ try {
   const reach = craftReach([violentSpdGem, fatalSpdGem], box, engraved);
   assert.deepEqual(reach.get(violentSpdGem.id), { fits: 2, spare: 1, block: null });
   assert.deepEqual(reach.get(fatalSpdGem.id), { fits: 1, spare: 1, block: null });
+  const accuracyReach = craftReach([accuracySpdGem], [accuracyRune, maxedAccuracyRune], engraved);
+  assert.deepEqual(accuracyReach.get(accuracySpdGem.id), { fits: 1, spare: 1, block: null },
+    'dead stock ignores the Accuracy rune whose SPD line the Gem cannot improve');
   /* Nothing fits: the blocker reported is the nearest miss across the box, not
      the first one met. Rune 3 is the right set and merely under-levelled, so
      "no rune has reached +12" is the honest line, not "you own no Violent rune". */
   const blocked = craftReach([violentSpdGem], [box[2], box[3]], engraved);
   assert.equal(blocked.get(violentSpdGem.id).fits, 0);
   assert.equal(blocked.get(violentSpdGem.id).block, 'level');
+  assert.equal(craftReach([accuracySpdGem], [maxedAccuracyRune], engraved).get(accuracySpdGem.id).block, 'potential');
 
   console.log('Verified the rune_craft_item_list encoding, its value tables and its placement rules.');
 } finally {
