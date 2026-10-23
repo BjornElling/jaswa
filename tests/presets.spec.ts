@@ -891,6 +891,52 @@ test('Rune Optimization preserves the other preset members regardless of priorit
   await page.screenshot({ path: testInfo.outputPath('preset-optimization-switches.png'), fullPage: true });
 });
 
+test('Rune Optimization lists monsters by priority, then alphabetically', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openOptimization(page);
+
+  const monster = page.getByLabel('Monster', { exact: true });
+  const options = async () => monster.locator('option').evaluateAll((elements) => elements
+    .map((element) => element as HTMLOptionElement)
+    .filter((option) => option.value !== '')
+    .map((option) => ({ value: option.value, label: option.textContent?.trim() ?? '' })));
+
+  /* With no Scenario priority set, the complete list stays alphabetical. */
+  const alphabetical = await options();
+  expect(alphabetical.length).toBeGreaterThan(1);
+  await page.screenshot({ path: testInfo.outputPath('optimization-priority-empty.png'), fullPage: true });
+
+  /* A single Scenario priority entry leads; the rest keep their alphabetical order. */
+  await openPresets(page);
+  await contentChoice(page).selectOption('Scenario');
+  const prioritized = alphabetical.at(-1)!;
+  await addMenu(page).selectOption(prioritized.value);
+  await expect(page.locator('.monster-priority-entry')).toHaveCount(1);
+  await openOptimization(page);
+  const scenarioOptions = await options();
+  expect(scenarioOptions).toEqual([prioritized, ...alphabetical.slice(0, -1)]);
+
+  /* The game's preset carries its own list, which the same dropdown follows. */
+  await openPresets(page);
+  await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
+  let presetOrder = await order(page);
+  if (JSON.stringify(presetOrder) === JSON.stringify(alphabetical.map(({ label }) => label))) {
+    await page.getByRole('button', { name: `Move ${presetOrder[1]} up` }).click();
+    presetOrder = await order(page);
+  }
+  await openOptimization(page);
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-4');
+  const presetMonster = page.getByLabel('Monster', { exact: true });
+  await expect.poll(async () => (await options()).map(({ label }) => label)).toEqual(presetOrder);
+  const before = await box(presetMonster);
+  await page.screenshot({ path: testInfo.outputPath('optimization-priority-preset-empty.png'), fullPage: true });
+  await presetMonster.selectOption('11');
+  expect(await box(presetMonster)).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('optimization-priority-preset-selected.png'), fullPage: true });
+});
+
 test('a rune engraved on a monster in another preset is free here, and an engrave stays in its preset', async ({ page }, testInfo) => {
   test.slow();
   await page.setViewportSize({ width: 1920, height: 1080 });

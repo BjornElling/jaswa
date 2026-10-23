@@ -198,6 +198,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     [presets, activePresetId]);
   const profiles = useMemo(() => profilesIn(preferences.monsterPreferences, profileScope), [preferences.monsterPreferences, profileScope]);
   const names = useMemo(() => monsterCopyNames(monsters, profiles), [monsters, profiles]);
+  const priority = useMemo(() => preset
+    ? presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority) : [],
+  [preset, preferences.monsterPriority, preferences.presetPriority]);
+  const priorityIndex = useMemo(() => new Map(priority.map((id, index) => [id, index])), [priority]);
   const options = useMemo<MonsterOption[]>(() => (preset ? monsters : [])
     .filter((monster) => monster.unit_id !== undefined && monster.unit_id !== null
       && preset?.members.includes(String(monster.unit_id)))
@@ -206,8 +210,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       return { unitId: id, masterId: String(monster.unit_master_id ?? ''), name: names[id]?.name ?? id,
         record: preset ? monsterInPreset(monster, preset, items) : monster };
     })
-    .sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId)),
-  [monsters, names, preset, items]);
+    .sort((left, right) => {
+      const leftRank = priorityIndex.get(left.unitId);
+      const rightRank = priorityIndex.get(right.unitId);
+      const priorityDifference = leftRank === undefined ? rightRank === undefined ? 0 : 1
+        : rightRank === undefined ? -1 : leftRank - rightRank;
+      return priorityDifference || monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId);
+    }),
+  [monsters, names, preset, items, priorityIndex]);
   const selected = options.find((option) => option.unitId === unitId);
   const buildMonster = useMemo(() => {
     if (!selected) return { unitId, masterId: '', name: '', initial: '?' };
