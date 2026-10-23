@@ -220,13 +220,14 @@ they change no own-stat range. Incomplete sets, sold runes and missing members a
 nothing.
 
 The preset table, profile, shortfall check, search and graphics-card input all read this
-derivation. A search preserves every other team member's runes, whatever the switches for
-higher-priority monsters or engraved runes say, so it cannot borrow a rune and silently
-break the bonus its results rely on. When the account or preset changes, the bonus is
-derived again; an open result is reread with the current bonus and marked stale if the
-question changed. Each candidate's own sets are counted from that candidate, never from
-the build being replaced. Shield grants a shield, not a stat bonus, and is outside this
-model.
+derivation. A search may take a rune from another member of the selected team when
+*Only runes not engraved in preset* is clear. The selected team's priority list protects
+higher-priority members unless *Include runes from higher-priority monsters* is on. Neither
+setting reads runes from another phase or orders monsters on another team. When the
+account or preset changes, the bonus is derived again; an open result is reread with the
+current bonus and marked stale if the question changed. Each candidate's own sets are
+counted from that candidate, never from the build being replaced. Shield grants a shield,
+not a stat bonus, and is outside this model.
 
 ### 2.3 The figure to rank by
 
@@ -245,10 +246,10 @@ inventory); the page reads every rune through `runesInPreset`, which returns cop
 `occupiedId` is the owner **in that preset**, or `null` where none of the preset's monsters
 carries it. So in this calculation `occupiedId` means "engraved on this monster in this
 preset", and a rune engraved only in other presets counts as not engraved in this one,
-because a preset holds its own gear. The exception is a preset of a pool, such as a Temple
-of Chaos team: every rune another preset of its pool holds reaches the search as excluded
-(`runeLocksInPreset`), including one this monster shares with that preset, so no build
-forms an overlap.
+because a preset holds its own gear. A pool can reserve runes from another phase:
+`poolRuneIds` reaches the search as excluded through `runeLocksInPreset`. A rune held by
+another team of the same content remains a candidate. An engrave may then reuse it without
+changing the other preset.
 
 A **candidate** is one rune in one end state: as it stands, or with the Gem and
 Grindstones the settings allow. A rune enters its own slot's list when:
@@ -256,18 +257,20 @@ Grindstones the settings allow. A rune enters its own slot's list when:
 - it is **not locked to another monster** of the preset, and **not excluded** from this
   one (`rune-locks.ts`). A rune locked to *this* monster is the slot's only candidate,
   exactly as engraved: no filter removes it, no craft item is counted on it, and the slot
-  is not searched. Locks and exclusions bind one scope — Scenario, one preset, or the pool
-  a content's presets share — and no other; they live with the import, so a new import has
+  is not searched. Locks and exclusions bind one scope — Scenario or one preset — and no
+  other; they live with the import, so a new import has
   none, and they are off under *Always synchronized*. Locking a rune engraves it first.
 - it is not engraved in this preset, is on this monster, or — unless *Only runes not
   engraved in preset* is ticked — is on another monster of the preset;
-- outside a concrete team (Scenario), that other monster is not **above it on the preset's
+- within a concrete team, that other monster is not **above it on the preset's
   priority list** (`monster-priority.ts`, the *Presets* page), unless *Include runes from
   higher-priority monsters* is ticked. A monster not on the list ranks below every monster
-  on it. The page resolves the list into the copies spared (`RuneOptimizationInput.spared`);
+  on it. Only members of this preset are compared. The page resolves the list into the
+  copies spared (`RuneOptimizationInput.spared`);
   `mayTakeFrom` is the one rule the search and the re-reading of a build apply. The two
   switches are independent, though the second has nothing to decide while the first is
-  ticked;
+  ticked. Scenario has no team: its Include switch is disabled and higher-priority
+  protection stays on when borrowing from the roster, regardless of a saved switch value;
 - its set can appear in a stated build, unless a build leaves slots free;
 - its main is one the slot accepts;
 - it is not Intangible, unless Intangible runes are allowed.

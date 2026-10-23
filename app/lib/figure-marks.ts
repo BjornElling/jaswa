@@ -143,7 +143,7 @@ export function mainStatAdviceMarks(
 }
 
 /**
- * A monster's runes or artifacts that another team of its pool holds too
+ * A reserved rune or artifact that another team of its pool holds too
  * (`DECK-PRESETS.md` §4). The game lets the overlap be saved and fields each
  * item on one team only, so it is a fault of every team involved.
  */

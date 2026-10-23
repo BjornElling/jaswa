@@ -91,9 +91,9 @@ export type RuneOptimizationInput = {
    */
   locks: Readonly<Record<string, RuneLock>>;
   /**
-   * Copies whose engraved runes this calculation may not take, whatever the settings
-   * say about other monsters: those above it on the priority list, resolved by the
-   * page (`higherPriorityThan`) so the search never reads the list itself.
+   * Same-team copies whose engraved runes this calculation may not take while
+   * higher-priority runes are excluded; resolved by the page so the search never
+   * reads the priority list itself. Runes from another phase are excluded by locks.
    */
   spared: readonly string[];
   craftItems: readonly CraftItem[];

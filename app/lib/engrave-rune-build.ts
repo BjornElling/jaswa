@@ -125,8 +125,9 @@ function withDeckGear(data: GameRecord, preset: Preset, equip: GameRecord[]): Ga
  * each rune it moves sat. Only the chosen preset changes, in a pool too: the
  * other teams are the account as the game has it, and an engrave here does not
  * edit them (`DECK-PRESETS.md` §4). What keeps the pool whole is that a build
- * may not bring in a rune another deck of the pool holds; one the monster
- * already carries here stays, overlap or not, since keeping it forms nothing.
+ * may not engrave a rune a different phase of its pool holds. A cross-phase
+ * overlap already present in the import remains visible, but a new build cannot
+ * preserve it.
  */
 export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: string, runeIds: readonly string[]): ImportedGame {
   if (preset.kind === 'own') throw new Error('A preset built in JASWA is engraved in the preferences.');
@@ -139,9 +140,8 @@ export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: 
     }));
     return { ...game, data, loadedPlacements: remember(game, preset.id, owners(game.data.runes), owners(data.runes), runeIds) };
   }
-  const carried = new Set(preset.runesOf.get(unitId) ?? []);
-  if (runeIds.some((id) => !carried.has(id) && preset.poolRuneIds.has(id))) {
-    throw new Error('A rune in this build is engraved on another team of this content.');
+  if (runeIds.some((id) => preset.poolRuneIds.has(id))) {
+    throw new Error('A rune in this build is engraved in another phase of this content.');
   }
   const gear = engravedGear(preset, unitId, runeIds);
   const equip = [...gear].map(([member, entry]) => ({

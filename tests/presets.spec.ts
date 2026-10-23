@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 
 /**
  * The Presets page (`docs/DECK-PRESETS.md` §5) and the one place a preset's
- * priority list is read: Rune Optimization preserves every other member of a
- * preset, and treats a rune engraved only in other presets as free.
+ * priority list is read: Rune Optimization can borrow a teammate's rune by
+ * priority, and treats a rune engraved only in another phase as unavailable.
  */
 
 const base = JSON.parse(readFileSync(new URL('./fixtures/rune-optimization-account.json', import.meta.url), 'utf8'));
@@ -840,7 +840,7 @@ async function find(page: Page) {
   return considered(page);
 }
 
-test('Rune Optimization preserves the other preset members regardless of priority', async ({ page }, testInfo) => {
+test('Rune Optimization borrows teammate runes by priority, and the switch only includes higher-priority monsters', async ({ page }, testInfo) => {
   /* Several complete searches and the priority edits share this test's time budget. */
   test.slow();
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -858,30 +858,32 @@ test('Rune Optimization preserves the other preset members regardless of priorit
   await expect(freeOnly).not.toBeChecked();
   await expect(include).not.toBeChecked();
 
-  /* The game lists 12 first in Arena Attack 4, so 12's runes there are spared for 11. */
+  /* The game lists 12 first in Arena Attack 4, so 11 cannot take its runes by default. */
   const spared = await find(page);
   const includeBox = await box(include);
   const freeBox = await box(freeOnly);
+  await page.screenshot({ path: testInfo.outputPath('priority-include-before.png'), fullPage: true });
   await include.check();
   const withEveryone = await find(page);
-  expect(spared).toBe(withEveryone);
+  expect(withEveryone).toBeGreaterThan(spared);
+  expect(await box(include)).toEqual(includeBox);
+  await page.screenshot({ path: testInfo.outputPath('priority-include-after.png'), fullPage: true });
   await include.uncheck();
 
-  /* Reordering priority cannot release a teammate's runes. */
+  /* Moving 11 above 12 makes 12's runes available without changing the switch. */
   await openPresets(page);
   await expect(chosenPreset(page)).toHaveText('Arena Attack 4');
   await page.getByRole('button', { name: `Move ${names[11]} up` }).click();
   await openOptimization(page);
   expect(await find(page)).toBe(withEveryone);
 
-  /* The same team is preserved in either priority order. */
+  /* Moving 12 back above 11 spares its runes again. */
   await openPresets(page);
   await page.getByRole('button', { name: `Move ${names[12]} up` }).click();
   await openOptimization(page);
   expect(await find(page)).toBe(spared);
 
-  /* Taking only what is free in the preset leaves the other switch as it is, enabled and in place;
-     with two monsters, sparing the other one and taking from nobody refuse the same runes. */
+  /* Taking only runes that are not engraved in the team leaves the priority switch enabled and in place. */
   await freeOnly.check();
   await expect(include).toBeEnabled();
   await expect(include).not.toBeChecked();

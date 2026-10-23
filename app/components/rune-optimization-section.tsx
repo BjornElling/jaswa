@@ -263,9 +263,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
   const scenarioPlaces = useMemo(() => (preset && preset.kind !== 'scenario'
     ? new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId])) : undefined), [accountRunes, preset]);
-  /* The preset's locks as this monster reads them: its own locks and exclusions, the
-     runes locked to the rest of the team, and the runes another team of its pool
-     holds, none of which it may take. */
+  /* The preset's locks as this monster reads them: its team's locks and exclusions,
+     plus runes held in another phase of the same content pool. */
   const locks = useMemo(() => (preset && unitId !== '' ? runeLocksInPreset(runeLocks, preset, unitId) : {}),
     [preset, unitId, runeLocks]);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
@@ -275,7 +274,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   /* The preset's priority list is resolved here, into the copies this one may not
      take from, so the search reads one list of monsters and never the switch or the order. */
-  const sparing = settings.runesOnOtherMonsters && !settings.includeHigherPriority;
+  /* Scenario has no team whose higher-priority members the switch can include.
+     Keep the existing priority protection there even if another preset saved it on. */
+  const includeHigherPriority = preset?.kind !== 'scenario' && settings.includeHigherPriority;
+  const sparing = settings.runesOnOtherMonsters && !includeHigherPriority;
   const spared = useMemo(() => (sparing && preset
     ? higherPriorityThan(presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority), unitId) : []),
   [sparing, preset, preferences.monsterPriority, preferences.presetPriority, unitId]);
@@ -672,8 +674,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
             <CheckboxRow label="Just fill in empty slots" checked={settings.fillEmptySlotsOnly}
               onChange={(fillEmptySlotsOnly) => onUpdate({ fillEmptySlotsOnly })} />
-            <CheckboxRow label="Include runes from higher-priority monsters" checked={settings.includeHigherPriority}
-              onChange={(includeHigherPriority) => onUpdate({ includeHigherPriority })} />
+            <CheckboxRow label="Include runes from higher-priority monsters" checked={preset?.kind !== 'scenario' && settings.includeHigherPriority}
+              onChange={(includeHigherPriority) => onUpdate({ includeHigherPriority })} disabled={preset?.kind === 'scenario'} />
             <div className="rune-optimization-change-limit">
               <label className="checkbox-row">
                 <input type="checkbox" aria-label="Limit changes" checked={settings.limitChanges}

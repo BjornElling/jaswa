@@ -74,14 +74,14 @@ export type Preset = {
    * saved it. It says only what JASWA may not bring into this deck.
    */
   pool: string | null;
-  /** The runes and artifacts another deck of the pool holds, which nothing done here may bring into this one. */
+  /** Runes reserved by another phase, plus artifacts reserved by other decks of the pool. */
   poolRuneIds: ReadonlySet<string>;
   poolArtifactIds: ReadonlySet<string>;
   /** Monsters standing in another deck of a pool that shares its monsters, which this preset may not take in. */
   poolTakenUnitIds: ReadonlySet<string>;
   /**
-   * What this preset holds that another deck of its pool holds too: runes and
-   * artifacts, and monsters where the pool shares them. The game does not
+   * What this preset holds that another deck of its pool holds too: reserved
+   * runes, artifacts, and monsters where the pool shares them. The game does not
    * always stop it, so it is read as the account stands and shown as a fault
    * of the preset, never refused at the import.
    */
@@ -207,10 +207,10 @@ export function readPresets(data: GameRecord | undefined, own: readonly OwnPrese
 /**
  * The game's decks of one pool — one content's, or all of Dimension Raid's
  * phases' — each told what the others hold.
- * Nothing is taken from any deck: the game does not always stop two teams
- * holding the same rune, so every team keeps the gear the game saved on it and
- * an overlap shows as a fault of each team involved. The pool is a limit on
- * what JASWA does — Rune Optimization, an engrave, a monster joining a deck —
+ * Nothing is taken from any deck: every team keeps the gear the game saved on
+ * it. A cross-phase or restricted-pool overlap shows as a fault of each team
+ * involved; same-phase rune reuse is permitted. The pool is a limit on what
+ * JASWA does — Rune Optimization, an engrave, a monster joining a deck —
  * never on what it reads. A preset built in JASWA is a draft of one team and
  * never joins the game's pool.
  *
@@ -231,15 +231,17 @@ function joinPools(presets: Preset[]): Preset[] {
   return presets.map((preset) => {
     const key = poolKey(preset);
     if (!key) return preset;
-    /* Where the battle places one deck per content, the content's other decks
-       are alternatives to this one, not teammates, and hold nothing against it. */
+    /* Runes are reserved across phases, not across teams of one phase. The
+       content id is the phase boundary; artifact and monster pools are separate. */
     const alternatives = preset.content?.sharedPool?.oneDeckPerContent ?? false;
     const others = (pools.get(key) ?? []).filter((entry) => entry !== preset
       && !(alternatives && entry.content?.id === preset.content?.id));
-    const elsewhere = (pick: (entry: Preset) => Iterable<string>) => new Set(others.flatMap((entry) => [...pick(entry)]));
-    const runesElsewhere = elsewhere((entry) => entry.runeOwner.keys());
-    const artifactsElsewhere = elsewhere((entry) => entry.artifactOwner.keys());
-    const taken = preset.content?.sharedPool?.monsters ? elsewhere((entry) => entry.members) : new Set<string>();
+    const runeOthers = others.filter((entry) => entry.content?.id !== preset.content?.id);
+    const elsewhere = (entries: readonly Preset[], pick: (entry: Preset) => Iterable<string>) =>
+      new Set(entries.flatMap((entry) => [...pick(entry)]));
+    const runesElsewhere = elsewhere(runeOthers, (entry) => entry.runeOwner.keys());
+    const artifactsElsewhere = elsewhere(others, (entry) => entry.artifactOwner.keys());
+    const taken = preset.content?.sharedPool?.monsters ? elsewhere(others, (entry) => entry.members) : new Set<string>();
     return { ...preset, pool: key, poolRuneIds: runesElsewhere, poolArtifactIds: artifactsElsewhere, poolTakenUnitIds: taken,
       poolConflicts: {
         runeIds: [...preset.runeOwner.keys()].filter((id) => runesElsewhere.has(id)),

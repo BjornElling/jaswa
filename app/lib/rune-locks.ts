@@ -7,9 +7,9 @@ import type { Preset } from './presets';
  * The one model behind every Lock and Exclude control in JASWA — the build
  * overlay's, the rune overlay's — and the one the build search and the
  * re-reading of a found build read. Both words bind a rune to a monster in one
- * **scope**: a preset, or the pool several presets share
- * (`DECK-PRESETS.md` §1, rules 4–6), Scenario being a scope of its own. Nothing binds
- * outside it, because a rune in another preset is another placement.
+ * **scope**: one preset, Scenario being a scope of its own. A lock belongs to
+ * the team that set it; a shared pool can constrain which runes a phase may
+ * use, but it does not bind alternative teams together.
  *
  * - **Locked** is the rune engraved on the monster and staying there: the
  *   search takes it as the slot's one answer and never offers it to another
@@ -47,9 +47,9 @@ export type RuneLocks = Readonly<Record<string, Readonly<Record<string, Readonly
 
 export const noRuneLocks: RuneLocks = {};
 
-/** The scope a preset's locks live in: the pool it shares with the game's other decks of its battle, else the preset itself. */
-export function runeLockScope(preset: Pick<Preset, 'id' | 'pool'>): string {
-  return preset.pool ?? preset.id;
+/** Locks belong to one team, even when its content shares a pool with other teams. */
+export function runeLockScope(preset: Pick<Preset, 'id'>): string {
+  return preset.id;
 }
 
 export function runeLockOf(locks: RuneLocks, scope: string, unitId: string, runeId: string): RuneLock | undefined {
@@ -71,22 +71,13 @@ export function runeLocksFor(locks: RuneLocks, scope: string, unitId: string): R
 }
 
 /**
- * What one monster's search reads in a preset: `runeLocksFor` in the preset's
- * scope, and every rune another deck of its pool holds as `excluded`
- * (`DECK-PRESETS.md` §4). That is the pool's whole hold on the search: a
- * Temple of Chaos team is never offered a rune another team carries, a rune it
- * shares with one included, so a build found here forms no overlap and undoes
- * any it can. User locks stand over the pool; another member's own runes
- * always stay with that member during a single-monster search.
+ * What one monster's search reads in a preset: its team's locks and exclusions,
+ * and every rune a different phase of its content pool holds as `excluded`.
+ * Runes held by another team in the same phase remain available; `spared` in
+ * Rune Optimization applies that team's monster priority to them.
  */
-export function runeLocksInPreset(locks: RuneLocks, preset: Pick<Preset, 'id' | 'pool' | 'poolRuneIds' | 'kind' | 'runesOf'>, unitId: string): Record<string, RuneLock> {
+export function runeLocksInPreset(locks: RuneLocks, preset: Pick<Preset, 'id' | 'poolRuneIds'>, unitId: string): Record<string, RuneLock> {
   const read = runeLocksFor(locks, runeLockScope(preset), unitId);
-  // A single-monster search preserves the other members and the team bonuses they supply.
-  if (preset.kind !== 'scenario') {
-    for (const [member, runes] of preset.runesOf) {
-      if (member !== unitId) for (const runeId of runes) read[runeId] = 'excluded';
-    }
-  }
   for (const runeId of preset.poolRuneIds) read[runeId] ??= 'excluded';
   return read;
 }

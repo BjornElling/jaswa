@@ -66,10 +66,10 @@ export type PresetContent = {
 };
 
 /**
- * What the decks of one pool share: always their runes and artifacts, and for
- * some contents their monsters. `id` names the pool rather than the content,
- * because one battle can span several contents: Dimension Raid's three phases
- * are three contents and one pool.
+ * Which saved teams reserve gear or monsters against one another. `id` names
+ * the pool rather than the content, because one battle can span several
+ * contents: Dimension Raid's three phases are three contents and one pool.
+ * Rune searches reserve runes only across different contents in that pool.
  */
 export type SharedPool = {
   id: string;
