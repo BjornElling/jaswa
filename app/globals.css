@@ -5622,6 +5622,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .stat-range, .stat-ranges > .overlay-stat { grid-column: span 2; }
 .stat-range { display: grid; gap: var(--s1); min-width: 0; }
+.stat-range-input[aria-invalid='true'] { border-color: var(--state-bad); box-shadow: 0 0 0 1px var(--state-bad); }
+.stat-range-input[aria-invalid='true']:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
 /* The two survival composites run to six and seven digits where a stat runs to
    five, and the second row has a sixth of its width spare — so they take it, half
    a column each, rather than every field growing to fit them. */

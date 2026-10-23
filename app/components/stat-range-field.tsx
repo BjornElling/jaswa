@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { ReactNode, Ref } from 'react';
 
 /**
@@ -26,17 +27,27 @@ export function StatRangeField({
   title?: string;
   firstField?: Ref<HTMLInputElement>;
 }) {
-  return <div className="stat-range" data-figure={figure} role="group" aria-label={label}>
+  const invalid = atLeast !== undefined && atMost !== undefined && atLeast > atMost;
+  const errorId = useId();
+  const error = 'Minimum must not exceed maximum.';
+  const inputTitle = [title, invalid ? error : undefined].filter(Boolean).join(' ');
+
+  return <div className="stat-range" data-figure={figure} data-invalid={invalid ? 'true' : undefined} role="group" aria-label={label}>
     <span className="overlay-stat-head">{label}</span>
     <div className="stat-range-fields">
       <input ref={firstField} className="stat-range-input" type="number" min={0} step={1} inputMode="numeric"
-        placeholder="min" aria-label={`${label}: at least`} disabled={disabled} title={title}
+        placeholder="min" aria-label={`${label}: at least`} disabled={disabled} title={inputTitle || undefined}
+        aria-invalid={invalid || undefined} aria-describedby={invalid ? errorId : undefined}
         value={atLeast ?? ''} onChange={(event) => onAtLeast(event.target.value)} />
       <span className="stat-range-dash" aria-hidden="true">–</span>
       <input className="stat-range-input" type="number" min={0} step={1} inputMode="numeric"
-        placeholder="max" aria-label={`${label}: at most`} disabled={disabled} title={title}
+        placeholder="max" aria-label={`${label}: at most`} disabled={disabled} title={inputTitle || undefined}
+        aria-invalid={invalid || undefined} aria-describedby={invalid ? errorId : undefined}
         value={atMost ?? ''} onChange={(event) => onAtMost(event.target.value)} />
     </div>
+    <span id={errorId} className="visually-hidden" aria-live="polite">
+      {invalid ? error : ''}
+    </span>
     {/* Spans, not paragraphs, here and in the name above: inside a dialog
         `.dialog p` outranks the label and caption voices, and printed the figure
         as loud as the fields it qualifies. */}
