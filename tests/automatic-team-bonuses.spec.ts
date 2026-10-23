@@ -69,11 +69,13 @@ test('the area block is named for the area, states its Accuracy goal and fastest
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  /* A Trial of Ascension and a Temple of Chaos deck beside the fixture's own, so
-     one copy stands in a player area, an area of two ceilings, a Cairos dungeon
-     and an area no source covers. */
+  /* One copy stands in Arena, ToA, Cairos, all Dimension Raid phases and
+     Temple of Chaos. */
   const source = JSON.parse(readFileSync(account, 'utf8'));
   source.deck_list.push({ deck_type: 6, deck_seq: 1, unit_id_list: [11, 0, 0, 0, 0], leader_unit_id: 0, equip: null });
+  for (const deck_type of [19, 20, 21]) {
+    source.deck_list.push({ deck_type, deck_seq: 1, unit_id_list: [11, 0, 0, 0, 0], leader_unit_id: 0, equip: null });
+  }
   source.deck_list.push({ deck_type: 23, deck_seq: 1, unit_id_list: [11, 0, 0, 0, 0], leader_unit_id: 0, equip: null });
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'automatic-team-bonuses.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(source)),
@@ -102,9 +104,12 @@ test('the area block is named for the area, states its Accuracy goal and fastest
   const cases: [string, string, string[], (string | RegExp)[], string][] = [
     ['Trial of Ascension', 'Trial of Ascension', ['Accuracy goal (Hard, Hell)', 'Fastest enemy (combat speed)'],
       ['45/55%', 'Unknown'], 'toa'],
-    /* A Cairos dungeon reads its Speed Tuning floor; an area no source covers says so. */
+    /* Cairos and each raid phase read their own enemy waves. */
     ["Giant's Keep", "Giant's Keep (Abyss Hard)", ['Accuracy goal', 'Fastest enemy (combat speed)'], ['35%', /^\d+$/], 'cairos'],
-    ['Temple of Chaos', 'Temple of Chaos', ['Accuracy goal', 'Fastest enemy (combat speed)'], ['Unknown', 'Unknown'], 'unknown'],
+    ['Dimension Raid Phase 1', 'Dimension Raid Phase 1 (Level 5)', ['Accuracy goal', 'Fastest enemy (combat speed)'], ['34%', '150'], 'dimension-raid-1'],
+    ['Dimension Raid Phase 2', 'Dimension Raid Phase 2 (Level 5)', ['Accuracy goal', 'Fastest enemy (combat speed)'], ['15%', '145'], 'dimension-raid-2'],
+    ['Dimension Raid Phase 3', 'Dimension Raid Phase 3 (Level 5)', ['Accuracy goal', 'Fastest enemy (combat speed)'], ['34%', '150'], 'dimension-raid-3'],
+    ['Temple of Chaos', 'Temple of Chaos (Level 100)', ['Accuracy goal', 'Fastest enemy (combat speed)'], ['35%', 'Unknown'], 'temple-of-chaos'],
   ];
   for (const [name, title, labels, values, shot] of cases) {
     await area.selectOption({ label: name });

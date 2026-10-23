@@ -32,7 +32,8 @@ export function areaFacts(preset: Pick<Preset, 'kind' | 'content'> | undefined, 
     : { label: `Accuracy goal (${ceilings.map((ceiling) => ceiling.part).join(', ')})`, value: `${ceilings.map((ceiling) => ceiling.percent).join('/')}%` };
   const area = pveAreaOf(content?.id);
   const floor = area === undefined ? undefined : hardestPveFloor(area);
+  const fastestEnemy = floor === undefined ? undefined : fastestEnemyOn(floor);
   const fastest = scenario || (content && facesPlayers(content.id)) ? 'Variable'
-    : floor ? formatNumber(fastestEnemyOn(floor), general) : 'Unknown';
+    : fastestEnemy === undefined ? 'Unknown' : formatNumber(fastestEnemy, general);
   return { heading, lines: [accuracy, { label: 'Fastest enemy (combat speed)', value: fastest }] };
 }

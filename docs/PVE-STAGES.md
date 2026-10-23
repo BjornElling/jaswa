@@ -1,7 +1,7 @@
 # PvE database
 
 **Status:** Binding
-**Reviewed:** October 21, 2026
+**Reviewed:** October 24, 2026
 **Code:** `app/lib/pve-stages.ts`, `app/data/swarfarm-pve-stages.json`
 **Refresh:** `npm run refresh:pve-stages`
 **Check:** `npm run verify:pve-stages`
@@ -49,10 +49,14 @@ block that states it, for example `Giant's Keep (Abyss Hard)` or
 | Forest of Roaring Beasts, Sanctuary of Dreaming Fairies, Cliff of Tough Beast Men, Ruin of Silent Death, Castle of Forgotten Heroes | Level 5 | Swarfarm |
 | Hellground of Raging Fires | none: Swarfarm files it without enemies | none |
 | Rift Raid | R5 | Stated (§4) |
+| Dimension Raid phases 1, 2, 3 | Levels 1–5 | Swarfarm |
+| Temple of Chaos | Level 100 | Stated (§4) |
 
-An area with no floor has no figures. A reader shows `Unknown` and does not
-borrow another area's enemies. The Rift Beasts, Trial of Ascension, Temple of
-Chaos and the guild contents are not in the database yet.
+An area with no stage data has no stage-derived figures. A separately sourced
+Accuracy goal can still be stated where the area has one. Readers show
+`Unknown` and do not borrow another area's enemies. The Rift Beasts, Trial of
+Ascension floors, its elemental towers, Spires of Ascension and guild contents
+still have no staged enemy data.
 
 ## 3. Swarfarm
 
@@ -61,7 +65,10 @@ Chaos and the guild contents are not in the database yet.
 under Cairos Dungeon, Dimensional Hole, Rift Beast or Rift Raid, except its
 placeholders and the Dimension Predator, and keeps every floor that has
 enemies in every wave. Each enemy is one row, in the column order the file
-names in `enemyColumns`. `pve-stages.ts` checks that order on load.
+names in `enemyColumns`. `pve-stages.ts` checks that order on load. The five
+rotating Dimension Raid entries have the same five levels and wave layouts;
+the reader checks that they still match and splits their waves into the game's
+three phases.
 
 The refresh runs by hand only, never in the app. It waits three seconds
 between requests, stops on a rate limit, and refuses a floor where an enemy
@@ -85,3 +92,7 @@ already covers.
   the three decks faces one head, so the floor is one wave with one enemy.
   Stars and CRI damage reduction are not given. The 30 % Resistance gives the
   15 % Accuracy goal that the r/summonerswar FAQ also states.
+- **Temple of Chaos Level 100.** [SWCalc, *Summoners War Mechanics*](https://swcalc.cz/game-mechanics#temple-of-chaos)
+  gives the boss 735,495 HP, 22,265 ATK, 1,000 DEF and a constant 50 %
+  Resistance. Its speed is not stated, so the fastest-enemy figure remains
+  unknown. The Resistance gives the 35 % Accuracy goal.

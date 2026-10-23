@@ -63,8 +63,12 @@ function dungeonContent(id: DungeonId): SpeedContent {
   const stages = floor.waves.map((wave) => {
     const monsters = wave.map((enemy) => enemy.monster);
     if (monsters.some((monster) => monster === null)) throw new Error(`The PvE database's ${dungeonNames[id]} ${floor.name} has an enemy without a monster.`);
-    return { fastest: Math.max(...wave.map((enemy) => enemy.speed)), speeds: wave.map((enemy) => enemy.speed),
-      resists: wave.map((enemy) => enemy.resistance), monsters: monsters as number[] };
+    if (wave.some((enemy) => enemy.speed === null || enemy.resistance === null)) {
+      throw new Error(`The PvE database's ${dungeonNames[id]} ${floor.name} has an enemy without a speed or Resistance.`);
+    }
+    const speeds = wave.map((enemy) => enemy.speed as number);
+    return { fastest: Math.max(...speeds), speeds,
+      resists: wave.map((enemy) => enemy.resistance as number), monsters: monsters as number[] };
   });
   return {
     id,
@@ -100,5 +104,8 @@ export function isDungeonId(id: SpeedContentId): id is DungeonId {
 
 /** The fastest enemy on the floor a dungeon is tuned for, in combat speed. */
 export function fastestEnemySpeed(id: DungeonId): number {
-  return fastestEnemyOn(hardestPveFloor(id)!);
+  const floor = hardestPveFloor(id);
+  const fastest = floor === undefined ? undefined : fastestEnemyOn(floor);
+  if (fastest === undefined) throw new Error(`The PvE database's ${id} floor has no stated enemy speed.`);
+  return fastest;
 }

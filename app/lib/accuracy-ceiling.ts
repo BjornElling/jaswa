@@ -23,7 +23,10 @@ function againstResistance(highest: number): number {
 
 /** The most Accuracy, in percent, any monster can put to use on the floor a Cairos dungeon is tuned for. */
 export function usefulAccuracy(id: DungeonId): number {
-  return againstResistance(highestResistanceOn(hardestPveFloor(id)!));
+  const floor = hardestPveFloor(id);
+  const resistance = floor === undefined ? undefined : highestResistanceOn(floor);
+  if (resistance === undefined) throw new Error(`The PvE database's ${id} floor has no stated Resistance.`);
+  return againstResistance(resistance);
 }
 
 /**
@@ -75,5 +78,6 @@ export function accuracyCeilings(content: PresetContentId | undefined): readonly
   if (own !== undefined) return own;
   const area = pveAreaOf(content);
   const floor = area === undefined ? undefined : hardestPveFloor(area);
-  return floor === undefined ? [] : [{ part: floor.name, percent: againstResistance(highestResistanceOn(floor)) }];
+  const resistance = floor === undefined ? undefined : highestResistanceOn(floor);
+  return floor === undefined || resistance === undefined ? [] : [{ part: floor.name, percent: againstResistance(resistance) }];
 }

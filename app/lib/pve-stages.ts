@@ -7,22 +7,23 @@
  *
  * Two sources, never mixed within one floor:
  * - **Swarfarm**, through `app/data/swarfarm-pve-stages.json`, which
- *   `scripts/refresh-swarfarm-pve-stages.mjs` writes: every Cairos, Abyss and
- *   Dimension Hole floor Swarfarm files enemies for, every figure filled.
+ *   `scripts/refresh-swarfarm-pve-stages.mjs` writes: every Cairos, Abyss,
+ *   Dimension Hole and Dimension Raid floor Swarfarm files enemies for, every
+ *   figure filled.
  * - **Stated floors**, below: an area Swarfarm files without enemies, entered
  *   by hand from a named source. A figure the source does not give is `null`
  *   and reads as unknown; it is never filled in from a neighbouring floor.
  *
- * An area neither covers has no floor, and every reader says so rather than
- * borrow another area's enemies.
+ * An area with no stage data has no stage-derived figures, and every reader
+ * says so rather than borrow another area's enemies.
  */
 import stagesData from '../data/swarfarm-pve-stages.json';
 
-/** An area JASWA can look enemies up for: the Cairos dungeons Speed Tuning reads, the Dimension Hole areas, and Rift Raid. */
+/** An area JASWA can look enemies up for: Cairos, Dimension Hole, Dimension Raid, Rift Raid and Temple of Chaos. */
 export type PveAreaId =
   | 'giants' | 'dragons' | 'necropolis' | 'spiritual' | 'steel' | 'punisher' | 'magic'
   | 'roaring-beasts' | 'dreaming-fairies' | 'tough-beast-men' | 'silent-death' | 'forgotten-heroes' | 'raging-fires'
-  | 'rift-raid';
+  | 'rift-raid' | 'dimension-raid-1' | 'dimension-raid-2' | 'dimension-raid-3' | 'temple-of-chaos';
 
 /** One enemy. Swarfarm fills every figure; a stated floor leaves `null` where its source is silent. */
 export type PveEnemy = {
@@ -33,9 +34,9 @@ export type PveEnemy = {
   level: number | null;
   stars: number | null;
   /** Combat speed: an enemy fights under no lead, so this is the figure the clock runs on. */
-  speed: number;
+  speed: number | null;
   /** Resistance, in percent. */
-  resistance: number;
+  resistance: number | null;
   /** Accuracy, in percent. */
   accuracy: number | null;
   hp: number | null;
@@ -106,6 +107,45 @@ function swarfarmFloorName(dungeon: SnapshotDungeon, floor: number): string {
   return dungeon.category === 'Dimensional Hole' ? `Level ${floor}` : `B${floor}`;
 }
 
+/* Swarfarm carries the same five levels for each weekly Dimension Raid
+   rotation. Keep checking that shared layout: the three game phases below
+   read different wave groups from it, and a changed rotation must be visible. */
+const dimensionRaidNames = [
+  'Karzhan Remains - Raid', 'Ellunia Remains - Raid', 'Lumel Remains - Raid',
+  'Khalderun Remains - Raid', 'Sacreon Remains - Raid',
+] as const;
+
+function dimensionRaidFloors(phase: 1 | 2 | 3): PveFloor[] {
+  const rotations = dimensionRaidNames.map((name) => {
+    const dungeon = snapshot.find((entry) => entry.name === name);
+    if (!dungeon) throw new Error(`The PvE database has no Swarfarm entry for ${name}.`);
+    return dungeon;
+  });
+  const [representative, ...others] = rotations;
+  const layout = (dungeon: SnapshotDungeon) => JSON.stringify(dungeon.floors.map(({ floor, teamSize, waves }) => (
+    { floor, teamSize, waves }
+  )));
+  if (others.some((dungeon) => layout(dungeon) !== layout(representative))) {
+    throw new Error('The PvE database no longer has the same Dimension Raid waves in every rotating dimension.');
+  }
+
+  return representative.floors.map((floor) => {
+    if (floor.waves.length !== 5) {
+      throw new Error(`Swarfarm's ${representative.name} Level ${floor.floor} has ${floor.waves.length} waves; Dimension Raid has five.`);
+    }
+    const waves = phase === 1 ? floor.waves.slice(0, 1)
+      : phase === 2 ? floor.waves.slice(1, 4)
+        : floor.waves.slice(4, 5);
+    return {
+      area: `dimension-raid-${phase}`,
+      name: `Level ${floor.floor}`,
+      teamSize: floor.teamSize,
+      waves: waves.map((wave) => wave.map(swarfarmEnemy)),
+      source: swarfarmSource,
+    };
+  });
+}
+
 /* Easiest first: an area's own floors in order, then its Abyss, which is
    harder than the dungeon's last floor whatever the levels say — B12's
    monsters are levelled above Abyss Hard's. */
@@ -140,11 +180,25 @@ const statedFloors: readonly PveFloor[] = [{
     hp: 863_400, attack: 3_996, defense: 2_670, criRate: 0, criDamageReduction: null,
   }]],
   source: { name: 'Theria Games, Summoners War Chaos Beast Guide', url: 'https://theriagames.com/guide/summoners-war-chaos-beast-guide/', read: '2026-10-21' },
+}, {
+  /* SWCalc gives the Level 100 boss's HP, ATK, DEF and constant Resistance.
+     Its turn cadence is not a speed figure, so this floor keeps speed unknown. */
+  area: 'temple-of-chaos',
+  name: 'Level 100',
+  teamSize: null,
+  waves: [[{
+    monster: null, name: 'Temple of Chaos Boss', level: 100, stars: null, speed: null, resistance: 50, accuracy: null,
+    hp: 735_495, attack: 22_265, defense: 1_000, criRate: null, criDamageReduction: null,
+  }]],
+  source: { name: 'SWCalc, Summoners War Mechanics', url: 'https://swcalc.cz/game-mechanics#temple-of-chaos', read: '2026-10-24' },
 }];
 
 const floorsByArea = new Map<PveAreaId, readonly PveFloor[]>();
 for (const [area, names] of Object.entries(swarfarmNames) as [PveAreaId, readonly string[]][]) {
   floorsByArea.set(area, swarfarmFloors(area, names));
+}
+for (const phase of [1, 2, 3] as const) {
+  floorsByArea.set(`dimension-raid-${phase}`, dimensionRaidFloors(phase));
 }
 for (const floor of statedFloors) {
   if (floorsByArea.get(floor.area)?.length) throw new Error(`The PvE database states a floor for ${floor.area}, which Swarfarm already covers.`);
@@ -173,12 +227,14 @@ export function hardestPveFloor(area: PveAreaId): PveFloor | undefined {
   return pveFloors(area).at(-1);
 }
 
-/** The fastest enemy anywhere on a floor, in combat speed. */
-export function fastestEnemyOn(floor: PveFloor): number {
-  return Math.max(...floor.waves.flat().map((enemy) => enemy.speed));
+/** The fastest stated enemy speed on a floor, or none where its source is silent. */
+export function fastestEnemyOn(floor: PveFloor): number | undefined {
+  const speeds = floor.waves.flat().flatMap((enemy) => enemy.speed === null ? [] : [enemy.speed]);
+  return speeds.length === 0 ? undefined : Math.max(...speeds);
 }
 
-/** The most resistant enemy anywhere on a floor, in percent. */
-export function highestResistanceOn(floor: PveFloor): number {
-  return Math.max(...floor.waves.flat().map((enemy) => enemy.resistance));
+/** The highest stated Resistance on a floor, or none where its source is silent. */
+export function highestResistanceOn(floor: PveFloor): number | undefined {
+  const resistances = floor.waves.flat().flatMap((enemy) => enemy.resistance === null ? [] : [enemy.resistance]);
+  return resistances.length === 0 ? undefined : Math.max(...resistances);
 }
