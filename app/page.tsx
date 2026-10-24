@@ -27,6 +27,7 @@ import type { MonsterProfileScope } from './lib/monster-profile-scope';
 import type { MonsterPriority } from './lib/monster-priority';
 import { scenarioPresetId, engravings, readPresets, selectedPresetKey } from './lib/presets';
 import { PresetsContext } from './lib/presets-context';
+import { summarizeRunePlacement } from './lib/rune-placement';
 import type { OwnPreset } from './lib/presets';
 import type { PresetWrites } from './components/presets-section';
 import { profilesIn, withProfile } from './lib/monster-preferences';
@@ -231,7 +232,11 @@ export default function Home() {
   /* Scenario and every preset, resolved once for every page that reads one
      (`DECK-PRESETS.md` §4). */
   const presets = useMemo(() => readPresets(game?.data, preferences.presets), [game, preferences.presets]);
-  const presetsReading = useMemo(() => ({ presets, ...engravings(presets) }), [presets]);
+  const presetsReading = useMemo(() => {
+    const reading = engravings(presets);
+    const runes = new Map([...reading.runes].map(([id, places]) => [id, summarizeRunePlacement(places)]));
+    return { presets, runes, artifacts: reading.artifacts };
+  }, [presets]);
   /* JASWA changes the account only while no live sync would put the game's own back. */
   const canEngrave = preferences.importRoute === 'file' || preferences.directImportMode === 'on-load';
   /* The locks every page reads: none while synchronized, and only those that still
@@ -918,6 +923,7 @@ export default function Home() {
     {overlayRune && <Suspense fallback={null}><RuneOverlay
       rune={overlayRune}
       game={game?.data}
+      profiles={preferences.monsterPreferences}
       general={preferences.general}
       settings={preferences.runePotential}
       roles={preferences.runeRoles}
@@ -928,7 +934,6 @@ export default function Home() {
         && runeLockOf(runeLocks, scenarioPresetId, overlayRune.occupiedId, overlayRune.id) === 'locked'}
       canLock={canEngrave}
       onLock={(runeId, unitId, on) => lockRune(scenarioPresetId, unitId, runeId, on ? 'locked' : null)}
-      onOpenMonster={openMonsterOverlay}
       onClose={closeOverlay}
     /></Suspense>}
 

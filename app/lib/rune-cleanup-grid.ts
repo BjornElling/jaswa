@@ -14,7 +14,7 @@ import { runeVerdictLabels } from './rune-cleanup-advice';
 import { filteredRuneVerdict, runeHoldLabels } from './rune-holds';
 import type { RuneHoldVerdict, ShownRuneVerdict } from './rune-holds';
 import { lastSubPropertyLevel } from './rune-properties';
-import type { Engraving } from './presets';
+import type { RunePlacementSummary } from './rune-placement';
 
 export type RuneCleanupRow = {
   rune: Rune;
@@ -22,14 +22,11 @@ export type RuneCleanupRow = {
   index: number;
   advice: RuneAdvice;
   /**
-   * Where the rune is: engraved on a monster in Scenario or a preset, in
-   * inventory when on none, or sold since the calculation. A rune can be
-   * engraved in many presets at once (`DECK-PRESETS.md` §1), so the places are
-   * listed in `places`; the cell can name its Scenario monster without changing
-   * the location used by filters and sorting.
+   * Its canonical Scenario-first reading, also used by the location cell,
+   * filters, ordering and sell mark.
    */
   location: 'Engraved' | 'Inventory' | 'Sold';
-  places: readonly Engraving[];
+  placement: RunePlacementSummary;
   /** The places in words — "monster — preset" — so a search finds a rune by where it is. */
   placeText: string;
   /** Sold since the calculation: the row stays, as the rune last was, so the rows around it do not move. */
@@ -219,7 +216,7 @@ export function compareRuneCleanupRows(
     case 'main': return (runeStatName(left.rune.mainStatId) ?? '').localeCompare(runeStatName(right.rune.mainStatId) ?? '');
     case 'innate': return runeInnateText(left.rune).localeCompare(runeInnateText(right.rune));
     case 'subs': return runeSubText(left.rune).localeCompare(runeSubText(right.rune));
-    case 'location': return left.location.localeCompare(right.location) || left.places.length - right.places.length;
+    case 'location': return left.location.localeCompare(right.location) || left.placement.count - right.placement.count;
     case 'role': return (left.advice.role?.name ?? '').localeCompare(right.advice.role?.name ?? '');
     case 'maxValue': return left.advice.maxValue - right.advice.maxValue;
     case 'chance': return left.advice.chance - right.advice.chance;

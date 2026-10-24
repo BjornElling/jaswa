@@ -9,6 +9,7 @@ import { neutralComparisonCredit, prepareRuneCandidate, roleBuilds } from '../ap
 import { maximumRoll, subPropertyTargetStat } from '../app/lib/rune-properties.ts';
 import { maxRollScale } from '../app/lib/rune-substat-weights.ts';
 import { runeStatName } from '../app/lib/runes.ts';
+import { emptyRunePlacement, hasRunePlacementOutsideScenario, summarizeRunePlacement } from '../app/lib/rune-placement.ts';
 
 const defaultCraftCredit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 
@@ -103,20 +104,21 @@ const places = [
   { presetId: 'arena-1', unitId: '1' },
   { presetId: 'arena-2', unitId: '1' },
 ];
+const placements = [[], places.slice(0, 1), places.slice(1, 2), places.slice(1), places,
+  [{ presetId: 'own:fixture', unitId: '2' }]].map(summarizeRunePlacement);
 for (const level of [0, 9, 12, 13, 14, 15]) {
   const candidate = { ...rune, level };
-  for (const locations of [[], places.slice(0, 1), places.slice(1, 2), places.slice(1), places,
-    [{ presetId: 'own:fixture', unitId: '2' }]]) {
-    const protectedRune = locations.some((place) => place.presetId !== 'scenario');
-    const answer = withRuneSellProtection(candidate, original, engravingSettings, locations);
+  for (const placement of placements) {
+    const protectedRune = hasRunePlacementOutsideScenario(placement);
+    const answer = withRuneSellProtection(candidate, original, engravingSettings, placement);
     assert.equal(answer.verdict, protectedRune
       ? level === 12 || level === 15 ? 'keep' : 'power-up' : 'sell');
     assert.equal(answer.maxValue, original.maxValue);
     assert.equal(answer.chance, original.chance);
     assert.equal(answer.role, original.role);
-    assert.equal(withRuneSellProtection(candidate, answer, { ...engravingSettings, neverSellEngravedPlacements: false }, locations).verdict, 'sell');
-    assert.equal(withRuneSellProtection(candidate, answer, engravingSettings, []).verdict, 'sell');
-    assert.equal(withRuneSellProtection(candidate, answer, engravingSettings, places.slice(0, 1)).verdict, 'sell');
+    assert.equal(withRuneSellProtection(candidate, answer, { ...engravingSettings, neverSellEngravedPlacements: false }, placement).verdict, 'sell');
+    assert.equal(withRuneSellProtection(candidate, answer, engravingSettings, emptyRunePlacement).verdict, 'sell');
+    assert.equal(withRuneSellProtection(candidate, answer, engravingSettings, summarizeRunePlacement(places.slice(0, 1))).verdict, 'sell');
   }
 }
 for (const enabled of [true, false]) {
@@ -135,8 +137,8 @@ const retained = readPreferences({ ...blank, runePotential: missingEngraving }, 
 assert.equal(retained.runePotential.neverSellEngravedPlacements, true);
 assert.equal(retained.runePotential.neverSellPreGrindSpeed, false);
 assert.equal(retained.runePotential.powerUpPolicy, 2);
-assert.equal(withRuneSellProtection(rune, original, engravingSettings, places.slice(0, 1)).verdict, 'sell');
-assert.equal(withRuneSellProtection(rune, original, engravingSettings, places.slice(1, 2)).reason, 'Preset engraving protected');
+assert.equal(withRuneSellProtection(rune, original, engravingSettings, summarizeRunePlacement(places.slice(0, 1))).verdict, 'sell');
+assert.equal(withRuneSellProtection(rune, original, engravingSettings, summarizeRunePlacement(places.slice(1, 2))).reason, 'Preset engraving protected');
 console.log('PASS: any non-Scenario engraving protects a rune, Scenario alone does not, placement changes reverse protection, and saved choices survive independently.');
 
 /* Re-app targets: one per slot, matched field by field, and an advice of their own. */

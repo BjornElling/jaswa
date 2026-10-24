@@ -12,8 +12,8 @@
  */
 import { gemMinimumLevel, runeMaximumLevel } from './runes';
 import { isFourPieceSet } from './rune-calculation-inputs';
-import { scenarioPresetId } from './presets';
-import type { Engraving } from './presets';
+import { emptyRunePlacement, hasRunePlacementOutsideScenario } from './rune-placement';
+import type { RunePlacementSummary } from './rune-placement';
 import type { Rune } from './runes';
 import type { RuneRole } from './rune-roles';
 import type { RunePotentialSettings } from './types';
@@ -929,7 +929,7 @@ function decide({ rune, value, standing, chance, role, rank, cleared, brokenReje
 
 /** User safeguards outrank selling policy without changing any score or odds. */
 export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings: RunePotentialSettings,
-  places: readonly Engraving[] = [],
+  placement: RunePlacementSummary = emptyRunePlacement,
 ): RuneAdvice {
   const original = advice.unprotectedAdvice ?? { verdict: advice.verdict, reason: advice.reason };
   const minimum = settings.preGrindSpeedMinimum;
@@ -942,7 +942,7 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
     && Number.isInteger(potentialMinimum) && potentialMinimum >= 0 && potentialMinimum <= 999
     && advice.chance >= 0.01 && advice.maxValue >= potentialMinimum / 100;
   const protectedEngravings = settings.neverSellEngravedPlacements
-    && places.some((place) => place.presetId !== scenarioPresetId);
+    && hasRunePlacementOutsideScenario(placement);
   /* A re-app or refine target is a way out of a sale and nothing else: it is
      only ever asked of a rune the engine would sell, so a rune worth powering up
      or keeping is never sent to a stone. Asked there, it names what to do rather

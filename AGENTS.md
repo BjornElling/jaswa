@@ -416,7 +416,13 @@ parts an agent must not quietly break:
   every reading of a monster's slots, stats or speed takes its context as an
   argument (`runesInPreset` for runes). Gear on a monster is **engraved**,
   never equipped or worn, and **preset** means the game's preset and nothing
-  else.
+  else. For runes, `app/lib/rune-placement.ts` is the one Scenario-first
+  reading outside Rune Optimization: Scenario's monster and the count of its
+  other placements, or *Engraved × n* when there is no Scenario placement.
+  Location labels, engraved filters and sell safeguards all read that summary.
+  Rune Optimization alone reads the selected preset's current placement and
+  applies the game's remembered-placement rule; no other workspace resolves a
+  rune's current location from one preset.
 - **One Gem rule and one Grindstone rule, however many workspaces spend them.**
   `app/lib/rune-craft-end-state.ts` is the only module that applies
   `RUNE-CANONICAL.md` §8, and `app/lib/rune-craft-items.ts` is the only one that

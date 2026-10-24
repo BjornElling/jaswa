@@ -17,8 +17,9 @@ import type { PresetContent, PresetContentId, PresetTab } from './preset-content
 import { completedTeamSets, teamSetBonuses } from './monster-stats';
 import type { TeammateSets } from './monster-stats';
 import { isRecord } from './preference-reading';
+import { scenarioPresetId } from './preset-ids';
 
-export const scenarioPresetId = 'scenario';
+export { scenarioPresetId } from './preset-ids';
 
 export type PresetKind = 'scenario' | 'game' | 'own';
 

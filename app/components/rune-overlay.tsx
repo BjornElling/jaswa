@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { AncientName } from './ancient-mark';
 import { CircularArrowsMark } from './converted-artifact-mark';
 import { EngravedPlace } from './engraved-place';
-import { MonsterLink } from './monster-link';
-import type { MonsterReference, OpenMonsterOverlay } from './monster-link';
 import { Overlay } from './overlay';
 import { RuneEmblem } from './rune-emblem';
 import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
@@ -11,8 +9,7 @@ import { StarIcon } from './star-icon';
 import { formatNumber } from '../lib/formatting';
 import { runeChanceText } from '../lib/rune-cleanup-grid';
 import type { GameRecord } from '../lib/game-data';
-import { monsterPresentation } from '../lib/monster-catalog';
-import { engravingLines } from '../lib/presets';
+import { monsterCopyNamesIn } from '../lib/monster-names';
 import { usePresets } from '../lib/presets-context';
 import { runeAdviceChannel } from '../lib/compute/rune-advice-client';
 import { rememberedRuneAdvice, rememberRuneAdvice } from '../lib/compute/rune-advice-memory';
@@ -22,6 +19,8 @@ import { qualityThresholds, runeCraftSteps } from '../lib/rune-cleanup-advice';
 import type { RoleReading, RuneAdvice, RuneCraftStep } from '../lib/rune-cleanup-advice';
 import type { MatchRank } from '../lib/rune-cleanup-model';
 import { canLockRune } from '../lib/rune-holds';
+import { emptyRunePlacement } from '../lib/rune-placement';
+import type { MonsterPreferences } from '../lib/monster-preferences';
 import type { RuneHold } from '../lib/rune-holds';
 import { runeLockLabels } from '../lib/rune-locks';
 import type { RuneRole } from '../lib/rune-roles';
@@ -46,23 +45,6 @@ import type { GeneralSettings, RunePotentialSettings } from '../lib/types';
 /** A rune carries at most four sub properties; the list always reserves all
     four, so a rune with two does not make a shorter panel than one with four. */
 const subPropertySlots = 4;
-
-/** A monster the rune is engraved on, as a way into its own overlay. One this
-    import does not contain is named as such and opens nothing. */
-function engravedOn(unitId: string, game: GameRecord | undefined): {
-  target: MonsterReference | null; name: string; imageFilename?: string; initial: string;
-} {
-  const units = Array.isArray(game?.unit_list) ? game.unit_list as GameRecord[] : [];
-  const unit = units.find((entry) => String(entry.unit_id) === unitId);
-  if (unit === undefined) return { target: null, name: 'Monster not in this import', initial: '?' };
-  const display = monsterPresentation(unit.unit_master_id);
-  return {
-    target: { kind: 'copy', unitId, masterId: String(unit.unit_master_id) },
-    name: display.name,
-    imageFilename: display.imageFilename,
-    initial: display.shortName,
-  };
-}
 
 /**
  * What the Improvements column has to say, and why it says nothing where it does.
@@ -325,9 +307,10 @@ function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
   </span>;
 }
 
-export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcceleration, hold, onHold, locked, canLock, onLock, onClose, onOpenMonster }: {
+export function RuneOverlay({ rune, game, profiles, general, settings, roles, hardwareAcceleration, hold, onHold, locked, canLock, onLock, onClose }: {
   rune: Rune;
   game: GameRecord | undefined;
+  profiles: MonsterPreferences;
   general: GeneralSettings;
   settings: RunePotentialSettings;
   roles: readonly RuneRole[];
@@ -342,14 +325,15 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
   canLock: boolean;
   onLock: (runeId: string, unitId: string, on: boolean) => Promise<void>;
   onClose: () => void;
-  onOpenMonster: OpenMonsterOverlay;
 }) {
-  /* Every place the rune is engraved. One place is named and opens its
-     monster; more are counted, and named on hover. */
+  /* Every location reader takes the same Scenario-first summary. */
   const placements = usePresets();
-  const places = useMemo(() => placements.runes.get(rune.id) ?? [], [placements, rune.id]);
-  const engraved = useMemo(() => (places.length === 1 ? engravedOn(places[0].unitId, game) : null), [places, game]);
-  const monsterName = (unitId: string) => engravedOn(unitId, game).name;
+  const placement = useMemo(() => placements.runes.get(rune.id) ?? emptyRunePlacement, [placements, rune.id]);
+  const namesIn = useMemo(() => {
+    const units = Array.isArray(game?.unit_list) ? game.unit_list as GameRecord[] : [];
+    return monsterCopyNamesIn(units, profiles, placements.presets);
+  }, [game, profiles, placements.presets]);
+  const monsterName = (unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import';
   const { known, explained } = useRuneAdvice(rune, game, settings, roles, hardwareAcceleration);
   const maxCraft = maxCraftOf(known, explained, rune);
   const figure = (value: number) => formatNumber(value, general);
@@ -372,11 +356,8 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
         <h2 id="rune-overlay-title" className="overlay-hero-name">
           <AncientName name={rune.setName} ancient={rune.ancient} />
         </h2>
-        {/* Location is the last fact in the same row, pushed to the far end: its
-            label reads on the line the other labels read on, and its value on
-            theirs. Gold where it is a monster, because there it is also the way
-            into that monster; plain white where it is the inventory, a fact with
-            nowhere to go. */}
+        {/* Location closes the row and reads from the same Scenario-first
+            summary as every other rune view. */}
         <dl id="rune-overlay-facts" className="overlay-facts">
           {facts.map((fact) => <div key={fact.label}>
             <dt>{fact.label}</dt>
@@ -385,12 +366,7 @@ export function RuneOverlay({ rune, game, general, settings, roles, hardwareAcce
           <div className="rune-overlay-location">
             <dt>Location</dt>
             <dd>
-              {engraved === null
-                ? <EngravedPlace places={places} presets={placements.presets} monsterName={monsterName} />
-                : <span title={engravingLines(places, placements.presets, monsterName).join('\n')}>
-                  <MonsterLink target={engraved.target} name={engraved.name} portrait={{ imageFilename: engraved.imageFilename, initial: engraved.initial }}
-                    presetId={places[0].presetId} onOpen={onOpenMonster} />
-                </span>}
+              <EngravedPlace runePlacement={placement} presets={placements.presets} monsterName={monsterName} />
             </dd>
           </div>
         </dl>

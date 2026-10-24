@@ -265,12 +265,14 @@ test('Instructions hold a rune under its own word and file it under Keep; Unsell
   await expect(advice(violentRow)).toHaveText(engineVerdict);
 });
 
-test('an engraved rune names its monster as a way into that monster', async ({ page }) => {
+test('an engraved rune shows its Scenario location without a monster link', async ({ page }) => {
   const links = await openCleanup(page);
   await links.filter({ hasText: 'Fatal' }).click();
   const overlay = page.getByRole('dialog', { name: 'Fatal' });
-  await overlay.getByRole('button', { name: 'Elucia (2A)' }).click();
-  await expect(page.getByRole('dialog', { name: /Elucia/ })).toBeVisible();
+  const location = overlay.locator('.rune-overlay-location .engraved-place');
+  await expect(location).toHaveText('Elucia (2A)');
+  await expect(location).toHaveAttribute('title', /Scenario/);
+  await expect(location.getByRole('button')).toHaveCount(0);
 });
 
 test('while an overlay is up the page behind it neither scrolls nor keeps it open', async ({ page }) => {

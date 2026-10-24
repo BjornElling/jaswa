@@ -15,7 +15,8 @@ import { formatDecimal, formatNumber } from '../lib/formatting';
 import type { GameRecord } from '../lib/game-data';
 import { monsterNameCollator } from '../lib/monster-grid';
 import { monsterCopyNamesIn } from '../lib/monster-names';
-import type { Engraving } from '../lib/presets';
+import { emptyRunePlacement, hasRunePlacement } from '../lib/rune-placement';
+import type { RunePlacementSummary } from '../lib/rune-placement';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import {
@@ -104,7 +105,7 @@ function isBestUseState(value: unknown): value is BestUseState {
     && candidate.count >= optionRange.minimum && candidate.count <= optionRange.maximum;
 }
 
-type Row = { candidate: CraftCandidate; location: 'Engraved' | 'Inventory'; places: readonly Engraving[]; order: number };
+type Row = { candidate: CraftCandidate; location: 'Engraved' | 'Inventory'; placement: RunePlacementSummary; order: number };
 
 /**
  * One ranking, with the sentence that says what it ranked by.
@@ -227,8 +228,8 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
     };
     const found: Row[] = [];
     runes.forEach((rune, order) => {
-      const places = placements.runes.get(rune.id) ?? [];
-      const engraved = places.length > 0;
+      const placement = placements.runes.get(rune.id) ?? emptyRunePlacement;
+      const engraved = hasRunePlacement(placement);
       if (engraved ? !state.showEngraved : !state.showInventory) return;
       if (role && !roleWantsRune(role, rune)) return;
       const candidate = craftCandidate(item, rune, options);
@@ -236,7 +237,7 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
       found.push({
         candidate,
         location: engraved ? 'Engraved' : 'Inventory',
-        places,
+        placement,
         order,
       });
     });
@@ -248,7 +249,7 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
     /* Sorted on the name as the column draws it, mark included, so a set's
        Ancient runes sit beside its ordinary ones instead of tying with them. */
     { key: 'rune', label: 'Rune', align: 'left', compare: (left, right) => monsterNameCollator.compare(runeName(left.candidate.rune), runeName(right.candidate.rune)) || left.candidate.rune.slot - right.candidate.rune.slot },
-    { key: 'location', label: 'Location', align: 'left', compare: (left, right) => left.location.localeCompare(right.location) || left.places.length - right.places.length },
+    { key: 'location', label: 'Location', align: 'left', compare: (left, right) => left.location.localeCompare(right.location) || left.placement.count - right.placement.count },
     { key: 'target', label: item?.kind === 'grindstone' ? 'Improves' : 'Replaces', align: 'left', compare: (left, right) => left.candidate.replaced.statId - right.candidate.replaced.statId },
     { key: 'now', label: 'Now', align: 'right', compare: (left, right) => (left.candidate.scoreNow ?? -1) - (right.candidate.scoreNow ?? -1), initialDirection: 'descending' },
     { key: 'after', label: 'After', align: 'right', compare: (left, right) => (craftLandingScore(left.candidate) ?? -1) - (craftLandingScore(right.candidate) ?? -1), initialDirection: 'descending' },
@@ -298,7 +299,7 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
 
   /* The table shows the rune's own facts; the gem's arithmetic is in the two
      score columns beside them. A rune is named by what a player would call it. */
-  const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, places }) => <tr key={candidate.rune.id} {...rowOpener}>
+  const body = (sorted: readonly Row[]) => <tbody>{sorted.map(({ candidate, placement }) => <tr key={candidate.rune.id} {...rowOpener}>
     <td className={cell('rune')}>
       <RuneLink
         target={{ kind: 'account', runeId: candidate.rune.id }}
@@ -317,7 +318,7 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
       </RuneLink>
     </td>
     <td className={cell('location')}>
-      <EngravedPlace places={places} presets={placements.presets} monsterName={(unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import'} />
+      <EngravedPlace runePlacement={placement} presets={placements.presets} monsterName={(unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import'} />
     </td>
     {/* What lands where, in the game's own numbers: the property being spent
         on, and what it would read afterwards. A gem changes the stat as well

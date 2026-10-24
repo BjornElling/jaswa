@@ -306,7 +306,7 @@ label[for] {
 .best-artifact-category h3, .best-artifact-current-slot-title,
 .best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
 .field-lead > span, .overlay-block-title, .speed-basis-title,
-.overlay-facts dd, .rune-overlay-location .monster-name, .rune-build-centre-name,
+.overlay-facts dd, .rune-build-centre-name,
 .rune-optimization-monster-select .jaswa-select, .jaswa-select.monster-priority-select,
 .jaswa-select.rune-optimization-preset-select, .jaswa-select.preset-team-button,
 .jaswa-select.monster-overlay-preset-select {
@@ -5405,9 +5405,6 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 
 /* Location closes the rune's row of facts at its far end. */
 .overlay-facts > .rune-overlay-location { margin-left: auto; padding-right: 0; border-left: 0; min-width: 180px; }
-/* An engraved rune's location is a way into its monster, so it wears the accent
-   from the first paint rather than only under the pointer. */
-.rune-overlay-location .monster-link { color: var(--text-accent); }
 
 /* A tile the size of the monster overlay's portrait, holding the game's two
    layers — the slot's frame and the set's glyph — stacked in one cell. The

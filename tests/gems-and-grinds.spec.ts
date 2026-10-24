@@ -296,6 +296,36 @@ test('best use ranks the runes one gem can be spent on', async ({ page }, testIn
   await expect(strongest.locator('tbody')).not.toContainText('Fatal');
 });
 
+test('best-use location names Scenario and counts the other placement', async ({ page }, testInfo) => {
+  await openWorkspace(page);
+  const account = JSON.parse(await readFile(craftAccount, 'utf8')) as {
+    runes: Record<string, unknown>[];
+    unit_list: { runes: Record<string, unknown>[] }[];
+    deck_list?: unknown[];
+  };
+  const rune = account.runes.find((entry: Record<string, unknown>) => entry.rune_id === 101);
+  if (!rune || !account.unit_list[0]) throw new Error('The placement fixture is incomplete.');
+  rune.occupied_type = 1;
+  rune.occupied_id = 1;
+  account.unit_list[0].runes.push(rune);
+  const gear = (unit_id: number, rune_id_list: number[]) => ({ unit_id, rune_id_list, artifact_id_list: [] });
+  account.deck_list = [{ deck_type: 1, deck_seq: 1, unit_id_list: [1, 2], equip: [gear(1, []), gear(2, [101])] }];
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'scenario-and-preset.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('button', { name: 'Gems & Grinds' }).click();
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  await chooseItem(page, 'Violent', 'Gem', 'SPD', 'Legend');
+
+  const strongest = page.locator('.craft-best-use-results .best-artifact-result').first();
+  const location = strongest.locator('tbody tr').first().locator('td:nth-child(2) .engraved-place');
+  await expect(location).toHaveText('Elucia (2A) (+ 1)');
+  await expect(location).toHaveAttribute('title', /Scenario/);
+  await expect(location).toHaveAttribute('title', /Arena Attack 1/);
+  await page.screenshot({ path: testInfo.outputPath('gems-best-use-scenario-and-preset.png'), fullPage: true });
+});
+
 test('a gem can be followed by a grindstone, and only a gem can', async ({ page }) => {
   await openWorkspace(page);
   await importCraftAccount(page);

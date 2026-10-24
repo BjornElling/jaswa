@@ -412,6 +412,15 @@ chosen preset as the game's rune list does:
 - *Previously* names the rune's earlier place in that preset after JASWA moves
   it, in *Location*'s words.
 
+This is the one rune workspace that reads a rune's current place from the chosen
+preset. `runesInPreset` supplies that placement and the build card applies the
+game's remembered-placement rule. Every other rune workspace uses the shared
+Scenario-first reading in `rune-placement.ts`: name the Scenario monster and
+count the other placements, or say *Engraved* with the total when there is no
+Scenario placement. Location labels, engraved filters and safeguards read that
+same summary; no other workspace chooses one preset's monster as the rune's
+current location.
+
 **Speed Tuning.** Every preset with a monster is a team, and nothing else is:
 its monsters are the preset's, every speed is computed from the preset's own
 runes with the relic from Scenario, and the leader is the user's to choose on
@@ -421,15 +430,18 @@ the team is read in the game's own order. How the page lays out and judges a
 team is `SPEED-TICK-CANONICAL.md` §9.
 
 **Rune Clean-up, Gems & Grinds and every rune or artifact list.**
-- One *Engraved* label replaces the monster name in the location column. A
-  fixed-width count beside it gives the number of placements.
+- Runes use the Scenario-first reading above: the Scenario monster's name, with
+  `(+ n)` for other placements; or *Engraved × n* when Scenario has none.
+  A rune with no placements says *Inventory*.
+- Artifacts show every placement as `monster — preset`; their Scenario-only
+  owner field is not a rune-placement summary.
 - Hover or focus reveals the monsters, grouped by context.
 - The filter is the same everywhere: *Engraved* / *Inventory*, and nothing
   chosen means everything.
 - A sell recommendation for an engraved item carries a red mark, because
   selling empties a slot in every context that uses it.
 
-**Artifact pages.** The artifact list's location follows the rune rule above.
+**Artifact pages.** The artifact list's location names every placement above.
 Artifact Optimization and its value columns plan Scenario: which artifact a
 monster carries in Scenario and what to engrave, keep or sell there.
 

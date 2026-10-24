@@ -8,7 +8,7 @@ import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
-import { EngravedPlace } from './engraved-place';
+import { ArtifactEngravedPlace } from './engraved-place';
 import { MonsterLink } from './monster-link';
 import type { OpenMonsterOverlay } from './monster-link';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -490,7 +490,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
                   and named on hover, since an artifact can sit on a monster in
                   many presets at once. */}
               {row.engravedOn === undefined
-                ? <EngravedPlace places={row.places} presets={placements.presets} monsterName={monsterName} />
+                ? <ArtifactEngravedPlace places={row.places} presets={placements.presets} monsterName={monsterName} />
                 : <MonsterLink
                   target={{ kind: 'copy', unitId: row.engravedOn.unitId, masterId: row.engravedOn.masterId }}
                   name={monsterName(row.engravedOn.unitId, row.engravedOn.presetId)}

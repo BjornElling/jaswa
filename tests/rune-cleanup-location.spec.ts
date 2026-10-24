@@ -122,4 +122,13 @@ test('Location names the Scenario monster and counts each other preset and prote
     expect(count!.x + count!.width).toBeLessThanOrEqual(cell!.x + cell!.width);
     await page.screenshot({ path: testInfo.outputPath(`long-name-${width}.png`) });
   }
+
+  const sharedRow = cells.filter({ hasText: '(+ 2)' }).locator('xpath=..');
+  await sharedRow.locator('.rune-link').click();
+  const runeOverlay = page.getByRole('dialog');
+  const overlayLocation = runeOverlay.locator('.rune-overlay-location .engraved-place');
+  await expect(overlayLocation).toHaveText(`Elucia (2A) (${nickname}) (+ 2)`);
+  await expect(overlayLocation).toHaveAttribute('title', /Scenario/);
+  await expect(overlayLocation).toHaveAttribute('title', /Arena Attack 1/);
+  await page.screenshot({ path: testInfo.outputPath('overlay-scenario-and-presets.png') });
 });

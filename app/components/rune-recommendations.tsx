@@ -22,6 +22,7 @@ import { formatNumber } from '../lib/formatting';
 import { readRunes, runeMaximumLevel, runeStatName } from '../lib/runes';
 import { monsterCopyNamesIn } from '../lib/monster-names';
 import { engravingLines } from '../lib/presets';
+import { emptyRunePlacement, hasRunePlacement } from '../lib/rune-placement';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import { runeVerdictLabels, withRuneSellProtection } from '../lib/rune-cleanup-advice';
@@ -243,11 +244,11 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      the one resolution the page made (`presets-context.ts`). */
   const monsterName = useCallback((unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import', [namesIn]);
   const placeOf = useCallback((runeId: string, gone: boolean) => {
-    const places = gone ? [] : reading.runes.get(runeId) ?? [];
+    const placement = gone ? emptyRunePlacement : reading.runes.get(runeId) ?? emptyRunePlacement;
     return {
-      location: gone ? 'Sold' as const : places.length > 0 ? 'Engraved' as const : 'Inventory' as const,
-      places,
-      placeText: engravingLines(places, reading.presets, monsterName).join(' '),
+      location: gone ? 'Sold' as const : hasRunePlacement(placement) ? 'Engraved' as const : 'Inventory' as const,
+      placement,
+      placeText: engravingLines(placement.places, reading.presets, monsterName).join(' '),
     };
   }, [reading, monsterName]);
 
@@ -373,7 +374,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index, gone }) => {
       const place = placeOf(rune.id, gone);
       return {
-        rune, advice: withRuneSellProtection(rune, advice, settings, place.places), index, gone,
+        rune, advice: withRuneSellProtection(rune, advice, settings, place.placement), index, gone,
         ...place,
         hold: gone ? null : runeHoldVerdict(runeHolds[rune.id], lockedRunes.has(rune.id)),
       };
@@ -693,7 +694,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 : row.rune.subProperties.map((property, at) => <RuneSubLine key={at} property={property} />)}
             </td>
             <td className={cell('location')}>
-              <EngravedPlace places={row.places} sold={row.gone} presets={reading.presets} monsterName={monsterName} showScenarioMonster />
+              <EngravedPlace runePlacement={row.placement} sold={row.gone} presets={reading.presets} monsterName={monsterName} />
             </td>
             <td className={cell('role', !row.advice.role && 'muted')}>
               {row.advice.role?.name ?? '—'}
@@ -717,7 +718,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 <span className="rune-verdict" data-verdict={shownRuneVerdict(row)}>
                   {shownRuneVerdictLabel(row)}
                 </span>
-                <FigureMarks marks={engravedSaleMarks(shownRuneVerdict(row), row.places.length)} reserve={1} />
+                <FigureMarks marks={engravedSaleMarks(shownRuneVerdict(row), row.placement.count)} reserve={1} />
               </span>
             </td>
           </tr>) : <tr>
