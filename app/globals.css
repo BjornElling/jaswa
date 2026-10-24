@@ -5164,7 +5164,7 @@ input[type='checkbox']:checked {
 .dialog.overlay {
   position: relative;
   width: min(var(--measure), 100%);
-  max-height: min(92vh, 1000px, calc(100vh - var(--s5) - var(--s7)));
+  max-height: min(96vh, 1016px, calc(100vh - var(--s5) - var(--s7)));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   padding: 0;
