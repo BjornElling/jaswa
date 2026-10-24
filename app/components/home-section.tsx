@@ -79,9 +79,9 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
       <div className="settings-layout">
         <div className="stack acceleration-choice">
           <p className="lead">
-            Your graphics card was designed to calculate thousands of little
-            things simultaneously. Like runes. You should utilize this, unless it
-            causes the program to misbehave.
+            Graphics cards are designed to calculate thousands of little
+            things simultaneously. Like runes.<br />
+            You should utilize this, unless it causes the program to misbehave.
           </p>
           <CheckboxRow label="Use the graphics card for heavy calculations" checked={hardwareAcceleration}
             onChange={onHardwareAcceleration} />

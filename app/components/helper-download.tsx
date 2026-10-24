@@ -25,7 +25,11 @@ function WindowsMark() {
  * navigation: the browser fetches the file itself. One component, so the Game
  * data card and the update warning can never point at two different files.
  */
-export function HelperDownload({ tone = 'important', size = 'regular', children = 'Download helper' }: {
+export function HelperDownload({
+  tone = 'important',
+  size = 'regular',
+  children = `Download helper (v. ${recommendedHelperVersion})`,
+}: {
   /* Quiet inside the update warning: a gold frame in a red card is two
      verdicts in one box, and the card already says this is the thing to do. */
   tone?: 'important' | 'quiet';
