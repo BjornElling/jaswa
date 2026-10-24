@@ -236,33 +236,27 @@ export const relicTableColumns: readonly TableColumn[] = [
 
 /**
  * The gem and grindstone box. An account holds hundreds of stacks of a dozen
- * repeating shapes, so the four columns that say *what* an item is are cut to
- * their own words and the width is spent on the two that say what it is worth
- * keeping: how far it reaches into the rune box, and what it is looking for.
+ * repeating shapes, so the first five columns identify the item and its roll;
+ * the last two say how many are held and how many runes they can improve.
  *
  * There were five. `Family` printed Standard on most of eight hundred rows to
  * say nothing, and on the rest repeated what the Set column now carries itself:
  * an Ancient stack wears the mark after its set name, and an Immemorial one has
- * no set to name, so that column reads `Immemorial`. The 10 % the family took
- * went back to the columns that were tightest against their own headings.
+ * no set to name, so that column reads `Immemorial`.
  *
- * The gutter sits on the last column rather than on `Fits`: that is where the
- * run of figures ends and prose begins, and a right-aligned number followed by
- * left-aligned text otherwise meets at bare padding and the two read as one
- * block. Put on `Fits` instead, the seam ate two thirds of a column whose
- * heading is already wider than the figure under it.
  */
+/* The other six columns share the space `Rolls` gives up, closing the gap
+   between the left-aligned grade and the right-aligned range. */
+const craftColumnWidth = '14.666666666666667%';
+
 export const craftItemTableColumns: readonly TableColumn[] = [
-  { key: 'item', width: '9%', align: 'left' },
-  /* The widest of the four descriptive columns: it now has to hold the longest
-     set name and the mark after it, and `Immemorial` besides. */
-  { key: 'set', width: '15%', align: 'left' },
-  { key: 'stat', width: '11%', align: 'left' },
-  { key: 'grade', width: '10%', align: 'left' },
-  { key: 'range', width: '11%', align: 'right' },
-  { key: 'held', width: '9%', align: 'right' },
-  { key: 'fits', width: '9%', align: 'right' },
-  { key: 'scope', width: '26%', align: 'left', gutter: 'left' },
+  { key: 'item', width: craftColumnWidth, align: 'left' },
+  { key: 'set', width: craftColumnWidth, align: 'left' },
+  { key: 'stat', width: craftColumnWidth, align: 'left' },
+  { key: 'grade', width: craftColumnWidth, align: 'left' },
+  { key: 'range', width: '12%', align: 'right' },
+  { key: 'quantity', width: craftColumnWidth, align: 'right' },
+  { key: 'improves', width: craftColumnWidth, align: 'right' },
 ];
 
 /** Fixed columns keep the plan steady as filters and saved monster choices change. */

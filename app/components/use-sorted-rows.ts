@@ -55,7 +55,9 @@ export type SortState = { key: string; direction: SortDirection };
  * A stable tiebreak is part of the contract rather than an implementation
  * detail. Scores are compared as whole percentage points (§17.1), so ties are
  * common by design, and without a stated fallback two runs of the same data
- * would order equal rows differently.
+ * would order equal rows differently. The tiebreak also receives the active
+ * sort so a table can keep its own fixed secondary order without reversing it
+ * when the chosen column changes direction.
  *
  * It lives beside `SortableHeader` rather than in it for the reason
  * `columnClasses` lives in `table-layouts.ts`: a module that exports a React
@@ -69,7 +71,7 @@ export function useSortedRows<Row>(
   rows: readonly Row[],
   columns: readonly SortableColumn<Row>[],
   initial: SortState,
-  tiebreak?: (left: Row, right: Row) => number,
+  tiebreak?: (left: Row, right: Row, sort: SortState) => number,
 ) {
   const [sort, setSort] = useState<SortState>(initial);
 
@@ -82,14 +84,14 @@ export function useSortedRows<Row>(
       if (absent) {
         const missing = Number(absent(left)) - Number(absent(right));
         if (missing !== 0) return missing;
-        if (absent(left)) return tiebreak ? tiebreak(left, right) : 0;
+        if (absent(left)) return tiebreak ? tiebreak(left, right, sort) : 0;
       }
       const ordered = column.compare?.(left, right) ?? 0;
       if (ordered !== 0) return ordered * direction;
       /* The fallback is not reversed: it keeps equal rows in one stated order
          whichever way the column is pointing, so toggling direction does not
          reshuffle rows the user can see are identical. */
-      return tiebreak ? tiebreak(left, right) : 0;
+      return tiebreak ? tiebreak(left, right, sort) : 0;
     });
   }, [rows, columns, sort, tiebreak]);
 

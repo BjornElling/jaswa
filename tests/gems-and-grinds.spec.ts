@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -46,14 +47,69 @@ test('the box says what to do when nothing has been imported', async ({ page }, 
   await page.screenshot({ path: testInfo.outputPath('gems-empty.png'), fullPage: true });
 });
 
-test('the account badge and the box agree on how many items there are', async ({ page }) => {
+test('the account badge and the table quantities agree on how many items there are', async ({ page }) => {
   await openWorkspace(page);
   await importCraftAccount(page);
   /* §0.1 part 2: the count on the badge is the count the user can reach. Both
      figures are the sum of the stacks, not the number of stacks. */
   await expect(page.locator('.import-badge')).toContainText('9 gems & grinds');
-  await expect(page.locator('.craft-held-balance')).toContainText('9');
   await expect(page.locator('.craft-grid tbody tr')).toHaveCount(6);
+  const quantities = await page.locator('.craft-grid tbody tr td:nth-child(6)').allTextContents();
+  expect(quantities).toEqual(['1', '1', '1', '1', '3', '2']);
+  expect(quantities.map(Number).reduce((total, quantity) => total + quantity, 0)).toBe(9);
+  const headers = page.locator('.craft-grid thead th');
+  await expect(headers).toHaveCount(7);
+  await expect(page.getByRole('columnheader', { name: 'Quantity' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: /^Can improve/ })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: /^(Held|Fits|Availability)/ })).toHaveCount(0);
+  const columnWidths = await page.locator('.craft-grid').first().locator('col')
+    .evaluateAll((columns) => columns.map((column) => column.getBoundingClientRect().width));
+  expect(columnWidths).toHaveLength(7);
+  const widthsWithoutRolls = columnWidths.filter((_, index) => index !== 4);
+  const widthSpread = widthsWithoutRolls.length
+    ? Math.max(...widthsWithoutRolls) - Math.min(...widthsWithoutRolls)
+    : Infinity;
+  expect(widthSpread).toBeLessThanOrEqual(1);
+  const narrowestOtherColumn = widthsWithoutRolls.length ? Math.min(...widthsWithoutRolls) : -Infinity;
+  expect(columnWidths[4]).toBeLessThan(narrowestOtherColumn);
+});
+
+test('the box opens by item, set, Ancient, stat and quality, while a chosen sort leads', async ({ page }) => {
+  await openWorkspace(page);
+  const account = JSON.parse(await readFile(craftAccount, 'utf8')) as {
+    rune_craft_item_list: Record<string, unknown>[];
+  };
+  account.rune_craft_item_list.push(
+    { craft_item_id: 9007, craft_type: 1, craft_type_id: 130804, amount: 1, sell_value: 25000 },
+    { craft_item_id: 9008, craft_type: 1, craft_type_id: 130404, amount: 1, sell_value: 25000 },
+  );
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'craft-sort-account.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('button', { name: 'Gems & Grinds' }).click();
+
+  const rows = page.locator('.craft-grid tbody tr');
+  await expect(rows.locator('td:nth-child(1)'))
+    .toHaveText(['Gem', 'Gem', 'Gem', 'Gem', 'Gem', 'Gem', 'Gem', 'Grind']);
+  await expect(rows.locator('td:nth-child(2)'))
+    .toContainText(['Fatal', 'Immemorial', 'Rage', 'Violent', 'Violent', 'Violent', 'Violent', 'Violent']);
+  await expect(rows.locator('td:nth-child(4)'))
+    .toHaveText(['Legend', 'Legend', 'Legend', 'Legend', 'Hero', 'Legend', 'Hero', 'Hero']);
+  await expect(rows.locator('td:nth-child(3)'))
+    .toHaveText(['SPD', 'Resistance', 'SPD', 'SPD', 'ATK %', 'SPD', 'SPD', 'SPD']);
+  await expect(rows.nth(3).locator('td').nth(1).getByTitle('Ancient')).toHaveText('A');
+  await expect(rows.nth(4).locator('td').nth(1).getByTitle('Ancient')).toHaveCount(0);
+
+  /* Quantity takes the lead when chosen; ties return to Gem/Grind, Set, Ancient,
+     Stat and descending quality instead of falling back to import order. */
+  await page.getByRole('columnheader', { name: 'Quantity' }).getByRole('button').click();
+  await expect(rows.locator('td:nth-child(6)')).toHaveText(['3', '2', '1', '1', '1', '1', '1', '1']);
+  await expect(rows.locator('td:nth-child(1)'))
+    .toHaveText(['Gem', 'Grind', 'Gem', 'Gem', 'Gem', 'Gem', 'Gem', 'Gem']);
+  await expect(rows.nth(2).locator('td').nth(1)).toContainText('Fatal');
 });
 
 test('a same-stat gem remains usable when its best roll can raise the rune', async ({ page }) => {
@@ -66,11 +122,10 @@ test('a same-stat gem remains usable when its best roll can raise the rune', asy
   const row = page.locator('.craft-grid tbody tr').filter({ hasText: 'Accuracy' });
   await expect(row).toHaveCount(1);
   await expect(row.locator('td').nth(6)).toHaveText('1');
-  await expect(row.locator('td').nth(6)).toHaveAttribute('title', /If the rune already has SPD, the Gem's best roll must exceed its current value/);
-  await expect(row.locator('td').nth(7)).toHaveText('1 in inventory');
+  await expect(row.locator('td').nth(6)).toHaveAttribute('title', /If a rune already has SPD, the Gem's best roll must exceed its current value/);
   /* One Accuracy rune has a weak SPD line the Legend Gem could raise; the
-     other is already at the Gem's ceiling and does not inflate Fits. */
-  await expect(row.locator('td').nth(7)).not.toContainText('2 in inventory');
+     other is already at the Gem's ceiling and does not inflate the count. */
+  await expect(row.locator('td')).toHaveCount(7);
 });
 
 test('a grindstone says when none of the matching runes has its stat', async ({ page }) => {
@@ -82,22 +137,23 @@ test('a grindstone says when none of the matching runes has its stat', async ({ 
 
   const row = page.locator('.craft-grid tbody tr').filter({ hasText: 'Destroy' });
   await expect(row).toHaveCount(1);
-  await expect(row.locator('td').nth(7)).toHaveText('No Ancient Destroy rune has HP %');
+  await expect(row.locator('td').nth(6)).toHaveText('0');
+  await expect(row.locator('td').nth(6)).toHaveAttribute('title', 'No Ancient Destroy rune has HP %');
 });
 
-test('every stack says how far it reaches, and a dead one says why', async ({ page }) => {
+test('the count covers each rune the item can improve, including engraved runes', async ({ page }, testInfo) => {
   await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await importCraftAccount(page);
 
   const rows = page.locator('.craft-grid tbody tr');
-  /* A gem for a set the account owns no rune of has nowhere to go, and the row
-     names the rule it failed rather than printing a bare zero. */
+  /* A gem for a set the account owns no rune of shows zero and explains why in
+     the count's title. */
   const rage = rows.filter({ hasText: 'Rage' });
-  await expect(rage).toContainText('You own no Rage rune');
-  /* A gem whose only home is engraved on a monster costs a build before it costs a
-     gem, which is the difference the last column exists to show. */
-  await expect(rows.filter({ hasText: 'Fatal' })).toContainText('1 engraved');
-  await expect(rows.filter({ hasText: 'Immemorial' })).toContainText('1 in inventory · 1 engraved');
+  await expect(rage.locator('td').nth(6)).toHaveText('0');
+  await expect(rage.locator('td').nth(6)).toHaveAttribute('title', 'You own no Rage rune');
+  await expect(rows.filter({ hasText: 'Fatal' }).locator('td').nth(6)).toHaveText('1');
+  await expect(rows.filter({ hasText: 'Immemorial' }).locator('td').nth(6)).toHaveText('2');
   /* Ancient items carry their own verified ranges, not a borrowed ordinary
      table. The row is found by the mark rather than by the word: the Set column
      names the set and the mark says Ancient, and there is no Family column. */
@@ -108,6 +164,21 @@ test('every stack says how far it reaches, and a dead one says why', async ({ pa
   await expect(ancientSet).not.toContainText('Ancient');
   await expect(ancientSet.getByTitle('Ancient')).toHaveText('A');
   await expect(ancient.locator('td').nth(4)).not.toHaveText('—');
+
+  const tables = page.locator('.craft-grid');
+  const tableBounds = await tables.evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x, y, width, height };
+  }));
+  const improveHeader = page.getByRole('columnheader', { name: /^Can improve/ });
+  await page.screenshot({ path: testInfo.outputPath('gems-can-improve-before-sort.png'), fullPage: true });
+  await improveHeader.getByRole('button').click();
+  await page.screenshot({ path: testInfo.outputPath('gems-can-improve-after-sort.png'), fullPage: true });
+  expect(await tables.evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x, y, width, height };
+  }))).toEqual(tableBounds);
+  await expect(rows.first().locator('td').nth(6)).toHaveText('2');
 });
 
 test('filters narrow the box without moving it', async ({ page }, testInfo) => {
@@ -117,6 +188,28 @@ test('filters narrow the box without moving it', async ({ page }, testInfo) => {
 
   const strip = page.locator('.craft-filter-strip');
   const before = await strip.boundingBox();
+  const setGroupBounds = await page.locator('.craft-filter-set').boundingBox();
+  const statGroupBounds = await page.locator('.craft-filter-stat').boundingBox();
+  expect(setGroupBounds).not.toBeNull();
+  expect(statGroupBounds).not.toBeNull();
+  expect(setGroupBounds!.y).toBe(statGroupBounds!.y);
+  expect(setGroupBounds!.x).toBeLessThan(statGroupBounds!.x);
+  const setFilter = page.getByRole('combobox', { name: 'Filter by the rune set the item belongs to' });
+  const statFilter = page.getByRole('combobox', { name: 'Filter by the stat the item gives' });
+  const setBounds = await setFilter.boundingBox();
+  const statBounds = await statFilter.boundingBox();
+  expect(setBounds).not.toBeNull();
+  expect(statBounds).not.toBeNull();
+  expect(setBounds!.width).toBeCloseTo(statBounds!.width, 0);
+  expect(setBounds!.width).toBeLessThan(setGroupBounds!.width * 0.75);
+  await setFilter.selectOption({ label: 'Fatal' });
+  await expect(setFilter).toHaveValue('Fatal');
+  expect(await strip.boundingBox()).toEqual(before);
+  await statFilter.selectOption({ label: 'SPD' });
+  await expect(statFilter).toHaveValue('8');
+  expect(await strip.boundingBox()).toEqual(before);
+  await page.getByRole('button', { name: 'Reset items filters' }).click();
+  expect(await strip.boundingBox()).toEqual(before);
   const filterFrame = page.locator('.data-table-filter-panel');
   expect(await filterFrame.evaluate((element) => getComputedStyle(element).borderWidth)).toBe('0px');
   expect(await filterFrame.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');

@@ -534,14 +534,14 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               'selectedSlots', (slot) => String(slot), 'rune-filter-slot')}
           </div>
           <div className="rune-filter-column">
-            <TokenChoiceField label="Main" description="Filter by main property" empty="Any main"
-              className="rune-filter-main" options={mainOptions} chosen={selectedMains}
-              onChange={(next) => setFilters((current) => ({ ...current, selectedMains: next }))} />
             {/* Two long vocabularies — rune sets and main properties — each answered on one line rather
                 than spelled out in full across the strip. */}
             <TokenChoiceField label="Set" description="Filter by rune set" empty="Any set"
               className="rune-filter-set" options={setOptions} chosen={selectedSets}
               onChange={(next) => setFilters((current) => ({ ...current, selectedSets: next }))} />
+            <TokenChoiceField label="Main" description="Filter by main property" empty="Any main"
+              className="rune-filter-main" options={mainOptions} chosen={selectedMains}
+              onChange={(next) => setFilters((current) => ({ ...current, selectedMains: next }))} />
             <div className="filter-group rune-filter-ancient" role="group" aria-label="Show only Ancient runes">
               <span className="filter-label">Show only</span>
               <div className="filter-group-controls">

@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { usePresets } from '../lib/presets-context';
 import { AncientName } from './ancient-mark';
 import { FilterButton } from './button';
 import { CraftItemBestUse } from './craft-item-best-use';
@@ -21,11 +20,11 @@ import {
 } from '../lib/rune-craft-items';
 import type { CraftKind, CraftLineage } from '../lib/rune-craft-items';
 import {
-  compareCraftRows, craftRangeText, craftRequirementText, craftRowSearchText, craftScopeText,
+  compareCraftRows, compareCraftRowTieBreaks, craftRangeText, craftRequirementText, craftRowSearchText,
   defaultCraftSortDirections,
 } from '../lib/rune-craft-grid';
 import type { CraftRow, CraftSortKey } from '../lib/rune-craft-grid';
-import { craftReach } from '../lib/rune-craft-plan';
+import { craftBlockReason, craftReach } from '../lib/rune-craft-plan';
 import { readRunes, runeStatIds, runeStatName } from '../lib/runes';
 import type { RuneRole } from '../lib/rune-roles';
 import type { ImportedGame, ItemGrade, Preferences } from '../lib/types';
@@ -39,9 +38,9 @@ const anySetValue = 'immemorial';
 
 /**
  * Every control here decides which *stacks* are listed. None of them touches
- * `Fits`, which is measured over the whole rune box on purpose: it is the
- * figure that says whether a stack is worth keeping, and a filter must never
- * change what a page computes (`AGENTS.md` §6).
+ * `Can improve`, which is measured over the whole rune box on purpose: it says
+ * how many runes can gain the item's stat, and a filter must never change what
+ * a page computes (`AGENTS.md` §6).
  */
 type CraftFilterState = {
   search: string;
@@ -115,13 +114,11 @@ const craftColumns: readonly SortableColumn<CraftRow>[] = (() => {
     column('set', 'Set'),
     column('stat', 'Stat'),
     column('grade', 'Grade'),
-    /* One word each. The columns either side are narrow enough that a
-       two-line heading here overhangs them, and the word a reader needs is
-       the first one — the rest belongs to the accessible name. */
+    /* `Rolls` keeps the visible heading compact; its accessible name says
+       exactly what the number describes. */
     column('range', 'Rolls', 'What one use of this item can roll'),
-    column('held', 'Held'),
-    column('fits', 'Fits', 'Runes in your account this item could improve'),
-    column('scope', 'Availability'),
+    column('quantity', 'Quantity'),
+    column('improves', 'Can improve', 'Runes on which this item can raise its stat value'),
   ];
 })();
 
@@ -144,8 +141,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
     () => (Array.isArray(data?.unit_list) ? data.unit_list : []) as GameRecord[],
     [data],
   );
-  const placements = usePresets();
-  const reach = useMemo(() => craftReach(items, runes, placements.runes), [items, runes, placements]);
+  const reach = useMemo(() => craftReach(items, runes), [items, runes]);
   const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
 
   const rows = useMemo<CraftRow[]>(() => items.map((item, index) => ({
@@ -154,7 +150,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
     /* Every item was measured together, so the map always holds it; the
        fallback exists because a `Map` lookup is optional, not because a stack
        could be missing. */
-    reach: reach.get(item.id) ?? { fits: 0, spare: 0, block: 'set' },
+    reach: reach.get(item.id) ?? { improves: 0, block: 'set' },
   })), [items, reach]);
 
   /* Both dropdowns offer what the box actually holds rather than the game's
@@ -176,13 +172,11 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
     };
   }, [items]);
 
-  const held = useMemo(() => items.reduce((total, item) => total + item.amount, 0), [items]);
-
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     const chosenStat = statId === '' ? null : Number(statId);
     return rows.filter((row) => {
-      const usable = row.reach.fits > 0;
+      const usable = row.reach.improves > 0;
       if ((showUsable || showDead) && !(usable ? showUsable : showDead)) return false;
       if (minimumQuantityEnabled && row.item.amount < minimumQuantity) return false;
       if (kinds.length && !kinds.includes(row.item.kind)) return false;
@@ -197,13 +191,12 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
   }, [rows, search, kinds, lineages, grades, statId, set, showUsable, showDead,
     minimumQuantityEnabled, minimumQuantity]);
 
-  /* The box opens on the items worth spending, best grade first. The tiebreak
-     goes to the hook rather than into each column's own comparison: inside it,
-     it is reversed along with the column and a descending sort would walk the
-     import backwards. */
+  /* Gem/Grind, Set, Ancient, Stat and Grade give the box one repeatable order.
+     A chosen column leads; those fields settle its ties. */
   const { sorted, sort, toggle } = useSortedRows(
-    visible, craftColumns, { key: 'grade', direction: 'descending' },
-    (left, right) => left.index - right.index,
+    visible, craftColumns, { key: 'item', direction: 'ascending' },
+    (left, right, activeSort) => compareCraftRowTieBreaks(left, right, activeSort.key as CraftSortKey)
+      || left.index - right.index,
   );
 
   function toggleValue<T>(value: T, key: 'kinds' | 'lineages' | 'grades') {
@@ -293,17 +286,6 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
               </div>
             </div>
 
-            <div className="filter-group craft-filter-stat">
-              <label className="filter-label" htmlFor="craft-stat">Stat</label>
-              <div className="filter-group-controls">
-                <Dropdown id="craft-stat" value={statId} placeholder="Any stat"
-                  onChange={(event) => setFilters((current) => ({ ...current, statId: event.target.value }))}
-                  aria-label="Filter by the stat the item gives">
-                  {statOptions.map((id) => <option key={id} value={id}>{runeStatName(id)}</option>)}
-                </Dropdown>
-              </div>
-            </div>
-
             <div className="filter-group craft-filter-set">
               <label className="filter-label" htmlFor="craft-set">Set</label>
               <div className="filter-group-controls">
@@ -312,6 +294,17 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
                   aria-label="Filter by the rune set the item belongs to">
                   {setOptions.names.map((name) => <option key={name} value={name}>{name}</option>)}
                   {setOptions.immemorial && <option value={anySetValue}>Immemorial</option>}
+                </Dropdown>
+              </div>
+            </div>
+
+            <div className="filter-group craft-filter-stat">
+              <label className="filter-label" htmlFor="craft-stat">Stat</label>
+              <div className="filter-group-controls">
+                <Dropdown id="craft-stat" value={statId} placeholder="Any stat"
+                  onChange={(event) => setFilters((current) => ({ ...current, statId: event.target.value }))}
+                  aria-label="Filter by the stat the item gives">
+                  {statOptions.map((id) => <option key={id} value={id}>{runeStatName(id)}</option>)}
                 </Dropdown>
               </div>
             </div>
@@ -353,11 +346,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
             </div>
 
             <FilterSummary visible={visible.length} total={rows.length} noun="items"
-              onReset={() => setFilters(defaultCraftFilters)} className="craft-filter-status"
-              below={<aside className="craft-held-balance" aria-label={`Gems and grindstones held: ${format(held)}`}>
-                <span className="craft-held-balance-label">Held</span>
-                <span className="craft-held-balance-value">{format(held)}</span>
-              </aside>} />
+              onReset={() => setFilters(defaultCraftFilters)} className="craft-filter-status" />
           </>}
         >
           <tbody>
@@ -376,16 +365,12 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
                 title={row.item.range ? undefined : 'This item has no legal roll range.'}>
                 {craftRangeText(row.item, format)}
               </td>
-              <td className={craftCell('held')}>{format(row.item.amount)}</td>
-              {/* The count carries the rule it counted by, so a reader who
-                  wonders where 116 came from has the answer without leaving
-                  the row. */}
-              <td className={craftCell('fits', row.reach.fits === 0 && 'muted')}
-                title={craftRequirementText(row.item)}>
-                {row.reach.fits === 0 ? '—' : format(row.reach.fits)}
-              </td>
-              <td className={craftCell('scope', row.reach.fits === 0 && 'muted')}>
-                {craftScopeText(row.item, row.reach)}
+              <td className={craftCell('quantity')}>{format(row.item.amount)}</td>
+              <td className={craftCell('improves', row.reach.improves === 0 && 'muted')}
+                title={row.reach.block === null
+                  ? craftRequirementText(row.item)
+                  : craftBlockReason(row.item, row.reach.block)}>
+                {format(row.reach.improves)}
               </td>
             </tr>) : <tr>
               <td className="table-empty-state" colSpan={craftItemTableColumns.length}>

@@ -18,7 +18,7 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   const filterPanel = page.locator('.data-table-filter-panel');
   expect(await filterPanel.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
   expect(await filterPanel.evaluate((element) => getComputedStyle(element).borderWidth)).toBe('0px');
-  const columnLabels = [['Search', 'Level', 'Slot'], ['Main', 'Set', 'Show only'],
+  const columnLabels = [['Search', 'Level', 'Slot'], ['Set', 'Main', 'Show only'],
     ['Stars', 'Rarity', 'Location', 'Advice'], ['Never sell if...', 'Use game-sorting']];
   for (const [index, labels] of columnLabels.entries()) {
     await expect(page.locator('.rune-filter-column').nth(index).locator('.filter-label')).toHaveText(labels);
@@ -298,9 +298,9 @@ test('potential protection saves both choices and keeps independent filter colum
   await page.screenshot({ path: testInfo.outputPath('potential-full.png'), fullPage: true });
   const main = await page.locator('.rune-filter-main').boundingBox();
   const set = await page.locator('.rune-filter-set').boundingBox();
-  expect(set!.x).toBe(main!.x);
+  expect(main!.x).toBe(set!.x);
   const scale = main!.width / 260;
-  expect(set!.y).toBeCloseTo(main!.y + main!.height + 16 * scale, 1);
+  expect(main!.y).toBeCloseTo(set!.y + set!.height + 16 * scale, 1);
   const adviceGroup = await page.locator('.rune-filter-advice').boundingBox();
   const locationGroup = await page.locator('.rune-filter-usage').boundingBox();
   const protection = await page.locator('.rune-speed-protection').boundingBox();

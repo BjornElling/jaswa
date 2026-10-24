@@ -305,25 +305,16 @@ export function roleWantsRune(role: RuneRole, rune: Rune): boolean {
 
 /* -------------------------------------------------------------- inventory */
 
-/** How much of the account one item can reach, and why it reaches no further. */
+/** How many runes one item can improve, and why none can be improved. */
 export type CraftReach = {
-  /** Runes on which the item has at least one possible improvement. */
-  fits: number;
-  /**
-   * How many of those are engraved nowhere — on no monster in Scenario and in
-   * no preset (`DECK-PRESETS.md` §1), since crafting one changes it in each.
-   *
-   * The split is the difference between an item that can be spent this evening
-   * and one that costs a monster its build first, which is the fact a box list
-   * of eight hundred stacks is otherwise silent about.
-   */
-  spare: number;
+  /** Runes on which the item can raise the value of its own stat. */
+  improves: number;
   /** The nearest miss across every rune, where nothing fits at all. */
   block: CraftBlock | null;
 };
 
 /**
- * How far each item reaches across the account's runes.
+ * How many of the account's runes each item can improve.
  *
  * Always every rune, whatever the table above is filtered to. A filter narrows
  * what a page shows and never what it computes (`AGENTS.md` §6), and this
@@ -334,7 +325,7 @@ export type CraftReach = {
  * names a set and can never reach past it, and scanning the whole box for each
  * of several hundred stacks is work with a known answer.
  */
-export function craftReach(items: readonly CraftItem[], runes: readonly Rune[], engraved: { has(runeId: string): boolean }): Map<string, CraftReach> {
+export function craftReach(items: readonly CraftItem[], runes: readonly Rune[]): Map<string, CraftReach> {
   const bySet = new Map<number, Rune[]>();
   const ordinary: Rune[] = [];
   for (const rune of runes) {
@@ -346,8 +337,7 @@ export function craftReach(items: readonly CraftItem[], runes: readonly Rune[], 
   const reach = new Map<string, CraftReach>();
   for (const item of items) {
     const scope = item.setId === null ? ordinary : bySet.get(item.setId) ?? [];
-    let fits = 0;
-    let spare = 0;
+    let improves = 0;
     let nearest = -1;
     for (const rune of scope) {
       const fit = craftItemFit(item, rune);
@@ -355,13 +345,11 @@ export function craftReach(items: readonly CraftItem[], runes: readonly Rune[], 
         nearest = Math.max(nearest, craftBlockOrder.indexOf(fit.block));
         continue;
       }
-      fits += 1;
-      if (!engraved.has(rune.id)) spare += 1;
+      improves += 1;
     }
     reach.set(item.id, {
-      fits,
-      spare,
-      block: fits > 0 ? null : craftBlockOrder[nearest] ?? 'set',
+      improves,
+      block: improves > 0 ? null : craftBlockOrder[nearest] ?? 'set',
     });
   }
   return reach;

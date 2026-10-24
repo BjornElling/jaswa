@@ -213,9 +213,7 @@ try {
   assert.equal(craftBlockReason(violentSpdStone, 'target'),
     'No Violent rune has any SPD line this Grindstone can improve');
 
-  /* Reach is measured over every rune and splits out the ones in inventory,
-     which is the difference between spending an item tonight and taking a
-     monster's build apart first. */
+  /* Reach counts every rune whose corresponding stat the item can improve. */
   const box = [
     readRune({ rune_id: 1, set_id: 13, slot_no: 2, class: 6, rank: 5, extra: 5, upgrade_curr: 12, occupied_type: 2, occupied_id: 0, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
     readRune({ rune_id: 2, set_id: 13, slot_no: 2, class: 6, rank: 5, extra: 5, upgrade_curr: 12, occupied_type: 1, occupied_id: 77, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
@@ -223,20 +221,19 @@ try {
     readRune({ rune_id: 4, set_id: 8, slot_no: 2, class: 6, rank: 5, extra: 5, upgrade_curr: 12, occupied_type: 2, occupied_id: 0, pri_eff: [4, 63], prefix_eff: [0, 0], sec_eff: [[2, 8, 0, 0]] }),
   ];
   assert.equal(box.every(Boolean), true, 'every fixture rune reads');
-  const engraved = new Set(box.filter((rune) => rune.occupiedId !== null).map((rune) => rune.id));
-  const reach = craftReach([violentSpdGem, fatalSpdGem], box, engraved);
-  assert.deepEqual(reach.get(violentSpdGem.id), { fits: 2, spare: 1, block: null });
-  assert.deepEqual(reach.get(fatalSpdGem.id), { fits: 1, spare: 1, block: null });
-  const accuracyReach = craftReach([accuracySpdGem], [accuracyRune, maxedAccuracyRune], engraved);
-  assert.deepEqual(accuracyReach.get(accuracySpdGem.id), { fits: 1, spare: 1, block: null },
-    'dead stock ignores the Accuracy rune whose SPD line the Gem cannot improve');
+  const reach = craftReach([violentSpdGem, fatalSpdGem], box);
+  assert.deepEqual(reach.get(violentSpdGem.id), { improves: 2, block: null });
+  assert.deepEqual(reach.get(fatalSpdGem.id), { improves: 1, block: null });
+  const accuracyReach = craftReach([accuracySpdGem], [accuracyRune, maxedAccuracyRune]);
+  assert.deepEqual(accuracyReach.get(accuracySpdGem.id), { improves: 1, block: null },
+    'the count excludes the Accuracy rune whose SPD line the Gem cannot improve');
   /* Nothing fits: the blocker reported is the nearest miss across the box, not
      the first one met. Rune 3 is the right set and merely under-levelled, so
      "no rune has reached +12" is the honest line, not "you own no Violent rune". */
-  const blocked = craftReach([violentSpdGem], [box[2], box[3]], engraved);
-  assert.equal(blocked.get(violentSpdGem.id).fits, 0);
+  const blocked = craftReach([violentSpdGem], [box[2], box[3]]);
+  assert.equal(blocked.get(violentSpdGem.id).improves, 0);
   assert.equal(blocked.get(violentSpdGem.id).block, 'level');
-  assert.equal(craftReach([accuracySpdGem], [maxedAccuracyRune], engraved).get(accuracySpdGem.id).block, 'potential');
+  assert.equal(craftReach([accuracySpdGem], [maxedAccuracyRune]).get(accuracySpdGem.id).block, 'potential');
 
   console.log('Verified the rune_craft_item_list encoding, its value tables and its placement rules.');
 } finally {

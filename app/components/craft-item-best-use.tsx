@@ -350,7 +350,7 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
      ruled every candidate out, or the game's rules did — and in the second case
      the box list's own words say which rule, from the same reader, so the two
      pages cannot explain the same dead stack differently. */
-  const reach = useMemo(() => (item ? craftReach([item], runes, placements.runes).get(item.id) : undefined), [item, runes, placements]);
+  const reach = useMemo(() => (item ? craftReach([item], runes).get(item.id) : undefined), [item, runes]);
 
   return <div className="craft-best-use">
     <p className="lead">
