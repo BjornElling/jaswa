@@ -33,12 +33,15 @@ export function areaFacts(preset: Pick<Preset, 'kind' | 'content'> | undefined, 
     : { label: `Accuracy goal (${ceilings.map((ceiling) => ceiling.part).join(', ')})`, value: `${ceilings.map((ceiling) => ceiling.percent).join('/')}%` };
   const area = pveAreaOf(content?.id);
   const floor = area === undefined ? undefined : hardestPveFloor(area);
+  /* Every Rune Optimization preset gets the same threshold reference; the
+     selected preset changes its area facts, not the monster's breakpoint. */
+  const thresholdFloor = hardestPveFloor('necropolis');
   const fastestEnemy = floor === undefined ? undefined : fastestEnemyOn(floor);
   const fastest = scenario || (content && facesPlayers(content.id)) ? 'Variable'
     : fastestEnemy === undefined ? 'Unknown' : formatNumber(fastestEnemy, general);
   return {
     heading,
     lines: [accuracy, { label: 'Fastest enemy (combat speed)', value: fastest }],
-    thresholds: combatThresholdsForMonster(masterId, floor),
+    thresholds: combatThresholdsForMonster(masterId, thresholdFloor),
   };
 }

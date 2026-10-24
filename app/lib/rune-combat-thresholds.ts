@@ -12,6 +12,7 @@ export type CombatThreshold = {
   masterId: string;
   stat: Extract<StatKey, 'hp' | 'atk' | 'def' | 'spd'>;
   points: readonly CombatThresholdPoint[];
+  reference?: string;
 };
 
 type ThresholdRow = Omit<CombatThreshold, 'masterId'>;
@@ -56,11 +57,12 @@ const atAttackRatio = (floor: PveFloor, ratio: number, effect: string): Threshol
 };
 
 const readers = new Map<string, ThresholdReader>();
+const intrinsicThresholds = new Map<string, readonly ThresholdRow[]>();
 function register(ids: readonly string[], read: ThresholdReader) {
   for (const id of ids) readers.set(id, read);
 }
 
-register(['11031'], () => [{
+intrinsicThresholds.set('11031', [{
   stat: 'def',
   points: [
     { value: 2501, relation: 'at-least', effect: 'Skill 2 can include 2 allies in the team-up.' },
@@ -138,8 +140,13 @@ register(['29713', '29714'], (floor) => atSpeedGap(floor, 126,
  * than implying a cap the game has not established.
  */
 export function combatThresholdsForMonster(masterId: string | undefined, floor: PveFloor | undefined): readonly CombatThreshold[] {
-  if (!masterId || floor?.area !== 'necropolis' || floor.name !== 'Abyss Hard') return [];
-  const rows = readers.get(masterId)?.(floor) ?? [];
+  if (!masterId) return [];
+  const rows = [
+    ...(intrinsicThresholds.get(masterId) ?? []),
+    ...(floor?.area === 'necropolis' && floor.name === 'Abyss Hard'
+      ? (readers.get(masterId)?.(floor) ?? []).map((row) => ({ ...row, reference: 'Necropolis (Abyss Hard)' }))
+      : []),
+  ];
   const grouped = new Map<CombatThreshold['stat'], ThresholdRow>();
   for (const row of rows) {
     const current = grouped.get(row.stat);

@@ -166,9 +166,9 @@ export function AreaLines({ facts, general, reserveThresholdRows = false }: {
         ? threshold.points.map((point) => `${point.relation === 'greater-than' ? '>' : ''}${number(point.value)}`).join('/')
         : '';
       const stat = threshold ? statLabels[threshold.stat] : '';
-      const description = threshold ? threshold.points.map((point) => `${point.relation === 'greater-than'
+      const description = threshold ? `${threshold.reference ? `${threshold.reference}: ` : ''}${threshold.points.map((point) => `${point.relation === 'greater-than'
         ? `Combat ${stat} must be greater than ${number(point.value)}`
-        : `At least ${number(point.value)} combat ${stat}`}: ${point.effect}`).join(' ') : '';
+        : `At least ${number(point.value)} combat ${stat}`}: ${point.effect}`).join(' ')}` : '';
       return <div className={`overlay-combat-threshold${threshold ? '' : ' overlay-combat-threshold-placeholder'}`}
         key={`threshold-slot-${index}`} title={threshold ? `${display?.name}: ${description}` : undefined}
         aria-label={threshold && display ? `${display.name}, ${stat} ${value}. ${description}` : undefined}
