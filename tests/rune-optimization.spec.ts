@@ -314,10 +314,9 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   await expect(requirements.getByLabel('Allow changing a gemmed stat')).toBeDisabled();
   await expect(requirements.getByLabel('Can gem away speed')).toBeDisabled();
 
-  /* A requirement changed here changes that field's caption and nothing else. */
+  /* A requirement changes the calculation without moving its panel. */
   const panelBefore = await box(requirements);
   await requirements.getByLabel('Allow Intangible runes').uncheck();
-  await expect(requirements.getByText('Changed for this calculation')).toBeVisible();
   expect(await box(requirements)).toEqual(panelBefore);
 
   await rankUnranked(page);

@@ -38,7 +38,7 @@ import { monsterNameCollator } from '../lib/monster-grid';
 import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
-import { completedTeamSets, isStatFigure, leadStats, monsterStatSheet } from '../lib/monster-stats';
+import { completedTeamSets, isStatFigure, monsterStatSheet } from '../lib/monster-stats';
 import type { CombatBonuses, MonsterStatSheet, TeammateSets } from '../lib/monster-stats';
 import { AreaLines, LeadFields, TeamLeads } from './fight-conditions';
 import { areaFacts } from '../lib/area-facts';
@@ -54,7 +54,7 @@ import { estimateRuneOptimizationBuilds, figureIndex } from '../lib/rune-optimiz
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../lib/rune-optimization-problem';
 import { buildFollowable, currentBuilds } from '../lib/rune-optimization-refresh';
 import type { CurrentBuild } from '../lib/rune-optimization-refresh';
-import { askable, profileRequirements, sameList } from '../lib/rune-optimization-requirements';
+import { askable, profileRequirements } from '../lib/rune-optimization-requirements';
 import type { RequirementsDraft } from '../lib/rune-optimization-requirements';
 import {
   craftUseLabels, craftUses, runeOptimizationDepthPlans, runeOptimizationDepthReach, runeOptimizationDepths,
@@ -140,7 +140,7 @@ function roughCount(value: number, general: GeneralSettings): string {
 }
 
 /** A caption that is always one line and always present, so its wording can change without moving a field (`AGENTS.md` §2). */
-function Provenance({ children }: { children: ReactNode }) {
+function Provenance({ children = '' }: { children?: ReactNode }) {
   return <p className="rune-optimization-provenance">{children}</p>;
 }
 
@@ -433,7 +433,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     : trial.failed ? { tone: null, text: 'Search trial unavailable. Completion time is uncertain.' }
       : runeOptimizationWorkWarning(trial.work, plan.seconds * 1000);
   const workDetails = trial.work ? `After reduction: ${trial.work.slots.join(' × ')} choices by slot; ${trial.work.physicalRunes} physical runes, ${trial.work.variants} end states; ${trial.work.figures} judged figures, ${trial.work.ceilings} ceilings; up to ${trial.work.freeSlots} slots without a required set. Gems, Grindstones, stock limits and Intangible follow this calculation's settings.` : undefined;
-  const changed = (same: boolean) => (same ? undefined : 'Changed for this calculation');
   const display = selected ? monsterPresentation(selected.masterId) : undefined;
   const area = areaFacts(preset, general);
 
@@ -535,8 +534,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
                 onChange={(event) => rankBy(event.target.value as RankFigure | '')}>
                 {monsterStatTargetKeys.map((key) => <option key={key} value={key}>{figureLabels[key]}</option>)}
               </Dropdown>
-              <Provenance>{requirements && profile ? changed(requirements.rankBy === profile.requirements.rankBy)
-                ?? (unranked ? 'The profile names none' : '') : ''}</Provenance>
+              <Provenance>{requirements && profile && unranked ? 'The profile names none' : ''}</Provenance>
             </div>
           </div>
         </div>
@@ -588,8 +586,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             <span className="filter-label">Builds</span>
             <RuneBuildField chosen={requirements.builds}
               onChange={(next) => change((state) => ({ ...state, builds: next }))} />
-            <Provenance>{changed(sameList(requirements.builds, profile.requirements.builds))
-              ?? (profile.requirements.builds.length === 0 ? 'The profile names no build, so any will do' : '')}</Provenance>
+            <Provenance>{profile.requirements.builds.length === 0 ? 'The profile names no build, so any will do' : ''}</Provenance>
           </div>
           <div className="rune-optimization-slot-row">
             {runeSlotKeys.map((key) => <div className="filter-group rune-optimization-slot" key={key}>
@@ -636,8 +633,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
                 onChange={(checked) => change((state) => ({ ...state, alwaysCrits: checked }))} />
               <CheckboxRow label="Always element advantage" checked={requirements.alwaysElementAdvantage}
                 onChange={(checked) => change((state) => ({ ...state, alwaysElementAdvantage: checked }))} />
-              <Provenance>{changed(requirements.alwaysCrits === profile.requirements.alwaysCrits
-                && requirements.alwaysElementAdvantage === profile.requirements.alwaysElementAdvantage) ?? ''}</Provenance>
+              <Provenance />
             </div>
             <div className="filter-group">
               <span className="filter-label">Leads and bonuses</span>
@@ -649,7 +645,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
                   else leads[stat] = value;
                   return { ...state, leads };
                 })} />}
-              <Provenance>{changed(leadStats.every((stat) => requirements.leads?.[stat] === profile.requirements.leads?.[stat])) ?? ''}</Provenance>
+              <Provenance />
             </div>
             <div className="filter-group rune-optimization-area">
               <span className="filter-label" title={area.heading}>{area.heading}</span>
@@ -665,8 +661,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               onChange={(checked) => change((state) => ({ ...state, allowBroken: checked }))} />
             <CheckboxRow label="Allow Intangible runes" checked={requirements.allowIntangible}
               onChange={(checked) => change((state) => ({ ...state, allowIntangible: checked }))} />
-            <Provenance>{changed(requirements.allowBroken === profile.requirements.allowBroken
-              && requirements.allowIntangible === profile.requirements.allowIntangible) ?? ''}</Provenance>
+            <Provenance />
           </div>
           <div className="filter-group rune-optimization-sources">
             <span className="filter-label">Selection</span>

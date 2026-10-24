@@ -137,23 +137,21 @@ test('Rune Optimization states the fight as the profile does, and changes it for
   const plainDmg = await dmg.innerText();
   await page.screenshot({ path: testInfo.outputPath('optimization-fight-default.png') });
 
-  /* A switch changed here is this calculation's: the figures follow it, the
-     provenance says so, nothing moves, and the profile keeps its own answer. */
+  /* The figures follow a switch for this calculation, nothing moves, and the
+     profile keeps its own answer. */
   await fight.getByLabel('Always crits').check();
   await expect(dmg).not.toHaveText(plainDmg);
-  await expect(fight.getByText('Changed for this calculation')).toBeVisible();
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('optimization-fight-changed.png') });
   const stored = await page.evaluate(() => JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}').monsterPreferences);
   expect(stored?.['content:rift-raid']?.['1']?.alwaysCrits).toBeUndefined();
 
-  /* Scenario's leads are typed, and changed here for this calculation too. */
+  /* Scenario's leads are typed here for this calculation. */
   await page.getByLabel('Preset', { exact: true }).selectOption('scenario');
   await page.getByLabel('Monster', { exact: true }).selectOption('1');
   const scenarioDmg = await dmg.innerText();
   await fight.getByRole('spinbutton', { name: 'ATK, in percent' }).fill('50');
   await expect(dmg).not.toHaveText(scenarioDmg);
-  await expect(fight.getByText('Changed for this calculation')).toBeVisible();
   await expect(fight.locator('.overlay-accuracy-value')).toHaveText(['Variable', 'Variable']);
   await page.screenshot({ path: testInfo.outputPath('optimization-fight-scenario.png') });
 });
