@@ -52,7 +52,7 @@ import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } fro
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
 import { estimateRuneOptimizationBuilds, figureIndex } from '../lib/rune-optimization-problem';
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../lib/rune-optimization-problem';
-import { currentBuilds } from '../lib/rune-optimization-refresh';
+import { buildFollowable, currentBuilds } from '../lib/rune-optimization-refresh';
 import type { CurrentBuild } from '../lib/rune-optimization-refresh';
 import { askable, profileRequirements, sameList } from '../lib/rune-optimization-requirements';
 import type { RequirementsDraft } from '../lib/rune-optimization-requirements';
@@ -756,6 +756,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     {builds && showingBuild && chosenBuild !== null && builds[chosenBuild] && <RuneBuildOverlay
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
+      followable={buildFollowable(builds[chosenBuild])}
       runesById={runesById} presetId={activePresetId} loadedPlacements={game?.loadedPlacements?.[activePresetId]} scenarioPlaces={scenarioPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
       canLock={canEngrave}

@@ -817,6 +817,8 @@ needs a running dev server and a card, and is not part of `npm test`.
    is no separate plan or undo state. Gems, Grindstones and future power-ups remain
    modifications to perform in the game. Engraving in Scenario or a game preset is
    unavailable under *Always synchronized*; a preset built in JASWA may always be engraved.
+   A rune the current filters refuse, or a set combination they disallow, disables the
+   action.
 5. **Following the table** — a change to the runes does not throw the table away. A sync
    re-reads every build against the account as it is now (`rune-optimization-refresh.ts`):
    a Gem or stone applied since the search counts as done at what it rolled, one not yet

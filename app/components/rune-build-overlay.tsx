@@ -287,7 +287,7 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
 }
 
 export function RuneBuildOverlay({
-  index, buildName, moves, runes, runesById, presetId, loadedPlacements, scenarioPlaces, monster, engravedOn, general, canEngrave, onEngrave,
+  index, buildName, moves, runes, followable, runesById, presetId, loadedPlacements, scenarioPlaces, monster, engravedOn, general, canEngrave, onEngrave,
   canLock, lockOf, onLock, onClose, onOpenRune, onOpenMonster,
 }: {
   index: number;
@@ -296,6 +296,8 @@ export function RuneBuildOverlay({
   buildName: string;
   moves: number;
   runes: readonly CurrentPick[];
+  /** A current setting or placement has not made any part of this build unusable. */
+  followable: boolean;
   runesById: ReadonlyMap<string, Rune>;
   /** Where the runes JASWA has moved sat in this preset when the import was loaded (`ImportedGame`). */
   loadedPlacements: Readonly<Record<string, string | null>> | undefined;
@@ -339,6 +341,8 @@ export function RuneBuildOverlay({
   const places: Places = { thisMonster: monster.unitId, presetId, scenarioPlaces, engravedOn, onOpenMonster };
   const complete = bySlot.length === 6 && bySlot.every((picked) => runesById.has(picked.runeId));
   const alreadyEngraved = complete && bySlot.every((picked) => runesById.get(picked.runeId)?.occupiedId === monster.unitId);
+  const engraveReason = !canEngrave ? alwaysSynchronizedReason
+    : followable ? undefined : 'A rune or set in this build no longer fits the current settings.';
 
   /* A click while a choice is saving is let go rather than the boxes disabled:
      disabling the box under the pointer drops its focus, and Escape with it. */
@@ -379,15 +383,15 @@ export function RuneBuildOverlay({
         </div>)}
       </dl>
       <div className="rune-build-engrave">
-        <Button type="button" tone="primary" disabled={!canEngrave || !complete} busy={saving}
+        <Button type="button" tone="primary" disabled={!canEngrave || !complete || !followable} busy={saving}
           busyLabel="Engraving…" done={alreadyEngraved} doneLabel="Engraved"
-          title={canEngrave ? undefined : alwaysSynchronizedReason}
+          title={engraveReason}
           onClick={() => void engrave()}>Engrave on monster</Button>
-        <span className="rune-build-engrave-info" tabIndex={canEngrave ? -1 : 0}
-          role="img" aria-hidden={canEngrave}
-          aria-label={canEngrave ? undefined : alwaysSynchronizedReason}
-          title={alwaysSynchronizedReason}
-          data-visible={!canEngrave}>
+        <span className="rune-build-engrave-info" tabIndex={engraveReason ? 0 : -1}
+          role="img" aria-hidden={!engraveReason}
+          aria-label={engraveReason}
+          title={engraveReason}
+          data-visible={Boolean(engraveReason)}>
           <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><path d="M8 7.2v3.5M8 5.1h.01" /></svg>
         </span>
         <span className="rune-build-engrave-error" role="alert" aria-hidden={!saveError}

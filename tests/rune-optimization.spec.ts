@@ -707,6 +707,9 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
   await expect(choices).toHaveCount(12);
   for (const choice of await choices.all()) await expect(choice).toHaveAttribute('aria-pressed', 'false');
   const before = await boxes();
+  const engraveAction = detail.getByRole('button', { name: 'Engrave on monster' });
+  const engraveActionBox = await box(engraveAction);
+  await expect(engraveAction).toBeEnabled();
   await page.screenshot({ path: testInfo.outputPath('build-locks-empty.png') });
 
   /* Each box names the move it makes: a rune on another monster is engraved to be
@@ -731,8 +734,12 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
   await expect(lockOf(other)).toHaveAccessibleName('Engrave and lock');
   await expect(other.locator('.rune-build-card-where-value').first()).toHaveText('Inventory');
   await expect(detail.getByRole('region', { name: `${otherSlot} modifications` })).toContainText('Rune excluded from this monster');
+  await expect(engraveAction).toBeDisabled();
+  await expect(engraveAction).toHaveAttribute('title', 'A rune or set in this build no longer fits the current settings.');
+  expect(await box(engraveAction)).toEqual(engraveActionBox);
   expect(await boxes()).toEqual(before);
   expect(await spilling()).toBe(0);
+  await page.screenshot({ path: testInfo.outputPath('build-unfollowable.png') });
   await page.screenshot({ path: testInfo.outputPath('build-locks-full.png') });
 
   /* Lock and Exclude are one choice: locking the excluded rune replaces the exclusion; pressing it again takes the lock off and leaves the rune engraved. */
