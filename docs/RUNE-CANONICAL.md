@@ -290,6 +290,18 @@ again.
 A Gem never gives the stat of the rune's main property, innate or another of its
 sub properties, so §4 and §5 hold for a conversion too.
 
+**A Gem of the same stat must strictly increase the existing base value.** This
+applies equally to a naturally rolled line and an earlier Gem's line. Compare
+the values before Grindstones: natural SPD 10 cannot become Hero Gem SPD 8,
+and gemmed SPD 10 + Grindstone 5 cannot become SPD 7 + Grindstone 5. An equal
+base value is not an improvement either. This is a binding calculation premise
+confirmed by the developer on October 24, 2026, with no exception for stat
+ceilings, held stock, theoretical items or roll assumptions.
+`canGemReplaceValue` in `rune-craft-end-state.ts` enforces it for Rune
+Optimization and Gems & Grinds; the best-score end state never accepts a
+non-improving same-stat Gem. `npm run verify:rune-regem-keeps-grind` holds the
+natural and converted cases, including their existing Grindstones.
+
 | Gem grade | HP + | HP %, ATK %, DEF % | ATK +, DEF + | SPD | CRI Rate | CRI Dmg | Resistance, Accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Normal | 100–150 | 2–4 % | 8–12 | 1–3 | 1–3 % | 1–3 % | 2–4 % |

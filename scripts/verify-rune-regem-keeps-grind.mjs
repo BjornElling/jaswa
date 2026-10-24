@@ -9,7 +9,7 @@
  * from the line itself.
  */
 import assert from 'node:assert/strict';
-import { assumedCraftHalf, craftedLines, craftedScore, craftPlan, craftVariants, gemOptions, priceList }
+import { assumedCraftHalf, heldCraftHalf, craftedLines, craftedScore, craftPlan, craftVariants, gemOptions, priceList }
   from '../app/lib/rune-craft-end-state.ts';
 import { craftValueRange } from '../app/lib/rune-craft-items.ts';
 import { craftCandidate, craftItemFit } from '../app/lib/rune-craft-plan.ts';
@@ -81,4 +81,41 @@ for (const [label, first] of [
   checks += 1;
 }
 
-console.log(`PASS: ${checks} checks — a same-property Gem keeps the line's stone in Clean-up, Rune Optimization and Gems & Grinds; a property change starts bare; a converted rune offers only its converted line.`);
+/* The base-value constraint holds even when a ceiling makes less SPD desirable.
+   Natural SPD 10 and gemmed SPD 10 both refuse Hero SPD 8, with or without a
+   stone. Held stock and theoretical assumptions answer the same game question. */
+for (const gemmed of [false, true]) for (const grind of [0, 5]) {
+  for (const value of [7, 8, 10]) {
+    const lines = [line(SPD, value, gemmed, grind), line(HP_PERCENT, 8), line(9, 6), line(12, 8)];
+    const item = { id: 'hero-speed', kind: 'gem', lineage: 'standard', setId: 13, setName: 'Violent',
+      statId: SPD, statName: 'SPD', grade: 'Hero', amount: 1,
+      range: craftValueRange('gem', 'standard', SPD, 'Hero') };
+    for (const roll of ['minimum', 'average', 'maximum']) {
+      const supplies = [assumedCraftHalf('gem', 'standard', 'Hero', roll),
+        heldCraftHalf('gem', [{ item, stock: 0 }], roll)];
+      for (const gem of supplies) for (const ceiling of [false, true]) {
+        const variants = craftVariants({ gem, grind: null }, 1, 3, null, lines, true,
+          (statId) => statId === SPD, false, () => ceiling);
+        assert.ok(variants.some((variant) => variant.gemmedAt === -1), 'no Gem must remain an option');
+        for (const variant of variants) {
+          if (variant.gemmedAt !== 0 || variant.lines[0].statId !== SPD) continue;
+          assert.ok(variant.lines[0].value > value, 'same-stat Gems must strictly raise the base value');
+          assert.equal(variant.lines[0].grind, grind, 'the existing stone must survive');
+        }
+        checks += 1;
+      }
+      const candidate = craftCandidate(item, rune(lines), { grindAfter: null, roll });
+      if (candidate) assert.ok(candidate.result.value > value, 'the craft planner offered a non-improving same-stat Gem');
+      const prices = priceList(valuing(SPD));
+      const localPlan = craftPlan('standard', { ...credit, gem: roll });
+      const ended = craftedLines(localPlan, gemOptions(localPlan, prices, 1, 3, null), prices, lines, 0);
+      assert.ok(ended[0].value >= value, 'Clean-up lowered a same-stat base value');
+      assert.equal(ended[0].grind, grind);
+      checks += 2;
+    }
+  }
+}
+assert.deepEqual(craftVariants({ gem: null, grind: null }, 1, 3, null, [], true, () => true, false),
+  [{ lines: [], gemmedAt: -1, stock: [] }], 'an empty rune and supply must remain unchanged');
+
+console.log(`PASS: ${checks} checks — natural and converted lines only accept a higher same-stat Gem base value; ceilings cannot override it; existing stones survive.`);

@@ -318,9 +318,12 @@ from `+12` one Gem into every legal wanted stat. A Gem or stone on a stat nothin
 calculation reads is not offered.
 
 Every held grade and compatible stack is offered, and each held Grindstone is optional
-independently. A theoretical stone is also optional where a ceiling reads its stat. A
-lower same-stat Gem, or a Gem into a stat the question otherwise ignores, is retained
-where removing an existing contribution can meet a ceiling. An item that changes no read
+independently. A theoretical stone is also optional where a ceiling reads its stat.
+A same-stat Gem is offered only when its assumed roll strictly raises the existing
+base value, before Grindstones, on natural and converted lines alike. A ceiling never
+relaxes this game constraint (`RUNE-CANONICAL.md` §8). A Gem into a different stat the
+question otherwise ignores is retained where removing an existing contribution can
+meet a ceiling. An item that changes no read
 figure and removes no ceiling contribution is omitted.
 
 Before craft expansion, the six slot/set lists are reconciled against the finished set

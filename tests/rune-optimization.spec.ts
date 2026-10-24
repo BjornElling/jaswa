@@ -114,6 +114,54 @@ async function rankUnranked(page: Page, figure = 'spd') {
   if (await rank.inputValue() === '') await rank.selectOption(figure);
 }
 
+test('a Speed ceiling cannot be met by gemming the same stat down', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.getByLabel('Use the graphics card for heavy calculations').uncheck();
+  const data = JSON.parse(readFileSync(account, 'utf8'));
+  data.unit_list = data.unit_list.map((unit: Record<string, unknown>) => ({ ...unit, runes: [] }));
+  data.runes = Array.from({ length: 6 }, (_, at) => ({
+    ...data.runes.find((rune: { slot_no: number }) => rune.slot_no === at + 1),
+    rune_id: 9100 + at, occupied_id: 0, upgrade_curr: 15, set_id: at < 4 ? 5 : 4,
+    pri_eff: [[3, 160], [4, 63], [5, 160], [10, 80], [1, 2448], [4, 63]][at],
+    prefix_eff: [0, 0],
+    sec_eff: [[8, 10, at === 1 ? 1 : 0, 5], [2, 8, 0, 0], [9, 6, 0, 0], [12, 8, 0, 0]],
+  }));
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'same-stat-gem.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)),
+  });
+  await openOptimization(page);
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
+  for (const input of await requirements.locator('.stat-ranges input[type="number"]').all()) await input.fill('');
+  await rankUnranked(page);
+  await page.getByRole('complementary', { name: 'Settings' }).getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
+  await page.getByLabel('Gems: grade', { exact: true }).selectOption('Hero');
+  await page.getByLabel('Gems: roll', { exact: true }).selectOption('maximum');
+  await page.getByLabel('Allow changing a gemmed stat').uncheck();
+  await page.getByLabel('Can gem away speed').uncheck();
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Slot 2 modifications' })).toContainText('As it is');
+  await page.screenshot({ path: testInfo.outputPath('same-stat-gem-unchanged.png'), fullPage: true });
+  await page.keyboard.press('Escape');
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  const headers = await table.getByRole('columnheader').allInnerTexts();
+  const speedAt = headers.findIndex((text) => text.trim() === 'SPD');
+  expect(speedAt).toBeGreaterThan(0);
+  const result = table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 1', exact: true }) });
+  const speed = Number((await result.getByRole('cell').nth(speedAt).innerText()).replace(/\D/g, ''));
+  expect(speed).toBeGreaterThan(190);
+  const before = await box(requirements);
+  await page.getByLabel('Spd: at most', { exact: true }).fill(String(speed - 1));
+  await page.screenshot({ path: testInfo.outputPath('same-stat-gem-ceiling-before.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByText('No build meets every requirement.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toHaveCount(0);
+  expect(await box(requirements)).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('same-stat-gem-ceiling-after.png'), fullPage: true });
+});
+
 async function freshWorkspace(page: Page) {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();

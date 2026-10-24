@@ -273,8 +273,8 @@ assert.equal(searchRuneBuilds(ceilingCraft).builds[0]?.figures[figureIndex('spd'
 const removingGem = craftVariants({ gem: assumedCraftHalf('gem', 'standard', 'Legend', 'maximum'), grind: null },
   3, 5, null, [{ statId: 8, value: 20, grind: 0, gemmed: false }], true,
   (stat) => stat === 8, true, (stat) => stat === 8);
-assert.ok(removingGem.some((variant) => variant.lines[0].statId === 8 && variant.lines[0].value === 10),
-  'a same-stat lower Gem can satisfy an upper range');
+assert.ok(removingGem.every((variant) => variant.lines[0].statId !== 8 || variant.lines[0].value >= 20),
+  'a ceiling cannot permit a same-stat Gem to lower a natural base value');
 assert.ok(removingGem.some((variant) => variant.lines[0].statId === 12),
   'an otherwise irrelevant Gem can remove a stat that exceeds a ceiling');
 console.log('PASS: partial grinding, lower owned grades, exact shared supply at depths 1 and 10, optional theoretical stones and ceiling-reducing Gems remain reachable.');

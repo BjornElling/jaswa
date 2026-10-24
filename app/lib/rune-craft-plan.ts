@@ -9,7 +9,7 @@
 import { mainPropertyMaximum, maximumRoll, scalesWithBase, subPropertyTargetStat } from './rune-properties';
 import type { RuneRole } from './rune-roles';
 import { runeMainStatIds } from './rune-roles';
-import { craftItemRoll } from './rune-craft-end-state';
+import { canGemReplaceValue, craftItemRoll } from './rune-craft-end-state';
 import type { CraftItem, CraftRollAssumption } from './rune-craft-items';
 import type { ItemGrade } from './types';
 import { gemMinimumLevel, isPercentStat, runeLineValue, runeSubValue, slotAllowsSubStat } from './runes';
@@ -106,7 +106,7 @@ export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
     .map((property, index) => ({ index, property }))
     .filter(({ index }) => (converted === -1 || index === converted) && rune.subProperties
       .every((other, otherIndex) => otherIndex === index || other.statId !== item.statId));
-  const targets = eligible.filter(({ property }) => property.statId !== item.statId || maximum > property.value);
+  const targets = eligible.filter(({ property }) => canGemReplaceValue(property, item.statId, maximum));
   if (!targets.length && eligible.length) return { fits: false, block: 'potential' };
   return targets.length ? { fits: true, targets } : { fits: false, block: 'duplicate' };
 }
@@ -257,6 +257,7 @@ export function craftCandidate(
 
   let best: CraftCandidate | null = null;
   for (const target of fit.targets) {
+    if (item.kind === 'gem' && !canGemReplaceValue(target.property, item.statId, rolled)) continue;
     const projected = withCraftApplied(rune, item, target, rolled, grindAfter);
     const scoreAfter = provisionalRuneScore(projected);
     const candidate: CraftCandidate = {

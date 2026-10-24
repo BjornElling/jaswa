@@ -30,6 +30,8 @@
  * 3. **The new effect id must be legal**: allowed in the slot, and not the main
  *    property, the innate, or any *other* sub property. Re-rolling the replaced
  *    line's own id is allowed, and is what a player does to improve a bad value.
+ *    It must strictly raise the base value, whether that line was naturally rolled
+ *    or gemmed. No setting or stat ceiling can permit an equal or lower value.
  * 4. **A Gemmed line may then be ground**, where its new id is grindable. So an
  *    enchanted value that can be ground is always counted as ground.
  *
@@ -276,6 +278,14 @@ export type EndStateLine = {
   /** This line is the rune's one converted line, so only it may be replaced again. */
   gemmed: boolean;
 };
+
+/**
+ * A same-stat Gem must raise the base value, before Grindstones. This is a game
+ * constraint for natural and converted lines alike, never a scoring preference.
+ * Slot, duplicate-stat and converted-line restrictions are checked separately.
+ */
+export const canGemReplaceValue = (line: Pick<EndStateLine, 'statId' | 'value'>, statId: number, roll: number): boolean =>
+  statId !== line.statId || roll > line.value;
 
 /**
  * **The best legal end state of a finished line-up, in this role's units.**
@@ -544,11 +554,9 @@ export function craftVariants(
       if (!wanted(statId) && !keepLower(line.statId)) continue;
       if (statId === mainStatId || statId === prefixStatId || !slotAllowsSubStat(slot, statId)) continue;
       if (lines.some((other, index) => index !== at && other.statId === statId)) continue;
-      /* A lower reroll can meet a ceiling; otherwise it can only spend an item
-         to weaken the same contribution and is safely left out. */
       for (const choice of gem.choices[statId]) {
         const roll = choice.value;
-        if (statId === line.statId && (roll === line.value || (roll < line.value && !keepLower(statId)))) continue;
+        if (!canGemReplaceValue(line, statId, roll)) continue;
         const replaced = lines.map((entry, index) => (index !== at ? entry : {
           statId, value: roll, gemmed: true,
           /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
