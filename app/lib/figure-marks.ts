@@ -6,6 +6,7 @@ import type { Shortfall } from './monster-shortfall';
 import type { CombatBonuses, LedStat, StatFigure, TeammateSets } from './monster-stats';
 import { alwaysCritsFloor, elementAdvantageLift, teamSetBonuses } from './monster-stats';
 import { statLabels } from './stat-labels';
+import { monsterPresentation } from './monster-catalog';
 import { formatNumber } from './formatting';
 import type { GeneralSettings } from './types';
 
@@ -47,7 +48,6 @@ export function fightAddition(stat: StatFigure, display: number, figure: number,
   ownSets: TeammateSets, element: string | undefined): FightAddition {
   const share = baseShareStats.has(stat) ? ` of base ${statLabels[stat]}` : '';
   const percent = (value: number) => `+${value}%${share}`;
-  const lead = bonuses.leads?.[stat];
   const sets = teamSetBonuses.flatMap((set) => {
     const count = (ownSets[set.name] ?? 0) + (bonuses.teammateSets?.[set.name] ?? 0);
     return count > 0 && set.stat === stat ? [`${count} × ${set.name} ${percent(count * set.value)}`] : [];
@@ -57,12 +57,17 @@ export function fightAddition(stat: StatFigure, display: number, figure: number,
     ? buildings[stat as keyof typeof buildingNames] : 0;
   const sanctuary = buildings !== undefined && stat === 'atk' && element !== undefined ? buildings.elementAtk[element] ?? 0 : 0;
   const lifted = stat === 'criRate' && bonuses.alwaysCrits;
+  const automatic = (bonuses.automaticLeadLines ?? []).filter((line) => line.stat === stat);
+  const automaticContribution = automatic.reduce((sum, line) => sum + line.contribution, 0);
+  const lead = (bonuses.leads?.[stat] ?? 0) - automaticContribution;
+  const passive = automatic.map((line) => `${monsterPresentation(line.sourceMasterId).name} passive: ${line.description}`);
   const parts = [
     lead ? `${leadNames[stat]} ${percent(lead)}` : '',
     ...sets,
     building ? `${buildingNames[stat as keyof typeof buildingNames]} ${percent(building)}` : '',
     sanctuary ? `${element} Sanctuary ${percent(sanctuary)}` : '',
     stat === 'criRate' && bonuses.alwaysElementAdvantage ? `Element advantage ${percent(elementAdvantageLift)}` : '',
+    ...passive,
     lifted ? `Always crits: at least ${alwaysCritsFloor}%` : '',
   ].filter((part) => part !== '');
   return { amount: figure - display, raisedTo: lifted ? figure : null, reading: parts.map((part) => `${part}.`).join(' ') };

@@ -53,6 +53,8 @@ export function profileRequirements(
       alwaysElementAdvantage: resolved.alwaysElementAdvantage,
       leads: resolved.leads,
       teammateSets: resolved.teammateSets,
+      leadRules: resolved.leadRules,
+      automaticLeadLines: resolved.automaticLeadLines,
       targets,
       ceilings,
       rankBy: resolved.runeSuggestionStat,

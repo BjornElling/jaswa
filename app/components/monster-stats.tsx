@@ -234,6 +234,8 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
         alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
         leads: fightLeads(team, stated),
         teammateSets: team.teammateSets,
+        leadRules: team.leads.rules,
+        automaticLeadLines: team.leads.automaticLines,
         buildings,
       });
       return {

@@ -5716,34 +5716,39 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   --lead-line: calc(7ch + var(--lead-field) + var(--glyph-small) + 2 * var(--s2));
   display: grid;
   grid-template-columns: repeat(2, var(--lead-line));
-  grid-template-rows: repeat(2, 36px);
-  grid-auto-flow: column;
+  grid-template-rows: auto auto;
   justify-content: start;
   gap: var(--s1) var(--s5);
 }
+.overlay-lead-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, var(--lead-line)); grid-template-rows: repeat(2, 36px); grid-auto-flow: column; gap: var(--s1) var(--s5); }
 .overlay-lead { display: grid; grid-template-columns: var(--lead-columns); align-items: center; gap: var(--s2); color: var(--text-muted); }
 /* A preset's leads are read off its leaders, one line each in the box the typed
    leads take in Scenario, so changing area moves nothing beside the block: the
    stat where a field's name stands, the figure where its field stands, and the
    mark where its percent sign stands. A lead that does nothing for this copy is
    muted and struck through, which changes no width (`AGENTS.md` §2). */
-/* Read down, one lead under the other: three lines — the most a battle has, Rift
-   Raid's — in the height of the two rows of fields, and the width of both columns. */
+/* Read down in one list: leaders first, then any automatic additions, with every
+   row sharing the same portrait, property and value columns. */
 .overlay-team-leads {
   /* The face, then the stat a step further off, and the figure well clear of the
      stat: three lines read down a column, not across a cramped row. */
-  --team-lead-columns: var(--glyph-small) 12ch var(--lead-field) var(--glyph-small);
+  --team-lead-columns: var(--glyph-small) minmax(0, 12ch) minmax(0, 17ch) var(--glyph-small);
   margin: 0;
   padding: 0;
   list-style: none;
-  grid-template-columns: calc(2 * var(--glyph-small) + 12ch + var(--lead-field) + 3 * var(--s3));
+  display: grid;
+  grid-template-columns: calc(2 * var(--glyph-small) + 12ch + 17ch + 3 * var(--s3));
   grid-template-rows: repeat(3, 24px);
+  grid-auto-rows: 24px;
   grid-auto-flow: row;
   row-gap: 0;
-  width: calc(2 * var(--lead-line) + var(--s5));
-  height: calc(2 * 36px + var(--s1));
+  width: 100%;
+  height: auto;
+  min-height: 76px;
   align-content: center;
 }
+.overlay-lead-bonus-list { grid-template-rows: auto; grid-auto-rows: 24px; height: auto; min-height: 24px; }
+.overlay-team-bonuses > .overlay-team-leads { grid-column: 1 / -1; grid-row: 1; }
 .overlay-team-lead { display: grid; grid-template-columns: var(--team-lead-columns); align-items: center; gap: var(--s3); color: var(--text-muted); }
 /* The leader's face, inside the line's own height. */
 .overlay-team-lead .monster-portrait { width: var(--glyph-small); height: var(--glyph-small); }

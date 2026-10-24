@@ -38,8 +38,8 @@ import { monsterNameCollator } from '../lib/monster-grid';
 import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
-import { completedTeamSets, isStatFigure, monsterStatSheet } from '../lib/monster-stats';
-import type { CombatBonuses, MonsterStatSheet, TeammateSets } from '../lib/monster-stats';
+import { completedTeamSets, isStatFigure, ledStats, monsterStatSheet } from '../lib/monster-stats';
+import type { CombatBonuses, Leads, MonsterStatSheet, TeammateSets } from '../lib/monster-stats';
 import { AreaLines, LeadFields, TeamLeads } from './fight-conditions';
 import { areaFacts } from '../lib/area-facts';
 import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
@@ -99,6 +99,22 @@ const searchPhaseWords: Record<RuneOptimizationPhase, string> = {
   candidates: 'Reading rune end states…', reducing: 'Checking rune candidates…',
   guiding: 'Finding promising builds…', searching: 'Searching…', retrying: 'Retrying with one worker…',
 };
+
+function withoutAutomaticLeads(values: Leads, automatic: Leads): Leads {
+  const stated = { ...values };
+  for (const stat of ledStats) {
+    if (stated[stat] !== undefined && automatic[stat] !== undefined) stated[stat] = (stated[stat] ?? 0) - (automatic[stat] ?? 0);
+  }
+  return stated;
+}
+
+function withAutomaticLeads(stated: Leads, automatic: Leads): Leads {
+  const combined = { ...stated };
+  for (const stat of ledStats) {
+    if (automatic[stat] !== undefined) combined[stat] = (combined[stat] ?? 0) + (automatic[stat] ?? 0);
+  }
+  return combined;
+}
 
 type MonsterOption = { unitId: string; masterId: string; name: string; record: GameRecord };
 
@@ -252,7 +268,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const buildings = useMemo(() => readBuildingBonuses(game?.data), [game]);
   const requirements = useMemo(() => {
     const draft = edited ? edits.requirements : profile?.requirements;
-    return draft ? { ...draft, teammateSets, ...(team.leads === null ? {} : { leads: team.leads.bonuses }), buildings } : undefined;
+    return draft ? {
+      ...draft,
+      teammateSets,
+      leads: team.leads.scenario ? draft.leads : team.leads.bonuses,
+      leadRules: team.leads.rules,
+      automaticLeadLines: team.leads.automaticLines,
+      buildings,
+    } : undefined;
   }, [edited, edits, profile, teammateSets, team, buildings]);
   /* The requirements as a question the search can take: only once a figure to
      rank by is named, by the profile or here. Nothing names one for the user. */
@@ -334,6 +357,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       alwaysCrits: tableAlwaysCritsCount,
       alwaysElementAdvantage: current?.requirements.alwaysElementAdvantage ?? false,
       leads: current?.requirements.leads,
+      leadRules: current?.requirements.leadRules,
+      automaticLeadLines: current?.requirements.automaticLeadLines,
       teammateSets,
       buildings,
     };
@@ -637,14 +662,15 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             </div>
             <div className="filter-group">
               <span className="filter-label">Leads and bonuses</span>
-              {team.leads !== null
-                ? <TeamLeads reading={team.leads} names={leaderNames} />
-                : <LeadFields values={requirements.leads ?? {}} onChange={(stat, value) => change((state) => {
-                  const leads = { ...state.leads };
+              {team.leads.scenario
+                ? <LeadFields values={withoutAutomaticLeads(requirements.leads ?? {}, team.leads.bonuses)} reading={team.leads} names={leaderNames}
+                  onChange={(stat, value) => change((state) => {
+                  const leads = withoutAutomaticLeads(state.leads ?? {}, team.leads.bonuses);
                   if (value === undefined) delete leads[stat];
                   else leads[stat] = value;
-                  return { ...state, leads };
-                })} />}
+                  return { ...state, leads: withAutomaticLeads(leads, team.leads.bonuses) };
+                })} />
+                : <TeamLeads reading={team.leads} names={leaderNames} />}
               <Provenance />
             </div>
             <div className="filter-group rune-optimization-area">

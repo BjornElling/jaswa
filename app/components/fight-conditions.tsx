@@ -27,19 +27,55 @@ const leadRows: ReadonlyArray<{ stat: LeadStat; label: string }> = [
 ];
 
 /** Scenario's leads, typed: one field a stat, empty for none and `0` for a stated zero. */
-export function LeadFields({ values, onChange }: {
+export function LeadFields({ values, onChange, reading, names }: {
   values: Leads;
   onChange: (stat: LeadStat, value: number | undefined) => void;
+  reading: TeamLeadReading;
+  names: Record<string, string>;
 }) {
   return <div className="overlay-leads-fields" role="group" aria-label="Leads and bonuses">
-    {leadRows.map((row) => <label className="overlay-lead" key={row.stat}>
-      <span>{row.label}</span>
-      <input type="number" min={0} max={leadMaximum} step={1} inputMode="numeric"
-        aria-label={`${row.label}, in percent`} placeholder="—" value={values[row.stat] ?? ''}
-        onChange={(event) => onChange(row.stat, readLeadField(event.target.value))} />
-      <span>%</span>
-    </label>)}
+    <div className="overlay-lead-grid">
+      {leadRows.map((row) => <label className="overlay-lead" key={row.stat}>
+        <span>{row.label}</span>
+        <input type="number" min={0} max={leadMaximum} step={1} inputMode="numeric"
+          aria-label={`${row.label}, in percent`} placeholder="—" value={values[row.stat] ?? ''}
+          onChange={(event) => onChange(row.stat, readLeadField(event.target.value))} />
+        <span>%</span>
+      </label>)}
+    </div>
+    {reading.leads.some((lead) => lead.automatic !== undefined) && <AutomaticBonusRows
+      leads={reading.leads.filter((lead) => lead.automatic !== undefined)} names={names}
+      listLabel="Automatic passive stat bonuses" className="overlay-lead-bonus-list" />}
   </div>;
+}
+
+function AutomaticBonusRow({ lead, names }: { lead: TeamLead; names: Record<string, string> }) {
+  const bonus = lead.automatic;
+  if (bonus === undefined) return null;
+  const display = monsterPresentation(bonus.sourceMasterId);
+  const name = names[bonus.sourceUnitId] ?? display.name;
+  return <li className="overlay-team-lead" title={`${name}: ${bonus.description}`}
+    aria-label={`${name}, ${statLabels[bonus.stat]} ${bonus.value}. ${bonus.description}`}>
+    <MonsterPortrait imageFilename={display.imageFilename} initial={display.shortName} name={name} decorative />
+    <span className="overlay-team-lead-stat">{statLabels[bonus.stat]}</span>
+    <span className="overlay-team-lead-value">{bonus.value}</span>
+    <span aria-hidden="true" />
+  </li>;
+}
+
+/** Passive additions use the same portrait, stat and value columns as leader rows. */
+function AutomaticBonusRows({ leads, names, listLabel, className = '' }: {
+  leads: readonly TeamLead[];
+  names: Record<string, string>;
+  listLabel: string;
+  className?: string;
+}) {
+  return <ul className={`overlay-team-leads ${className}`} aria-label={listLabel}>
+    {leads.length === 0 && <li className="overlay-team-lead overlay-team-lead-note">
+      <span>No automatic passive stat bonuses</span>
+    </li>}
+    {leads.map((lead) => <AutomaticBonusRow key={`${lead.automatic?.sourceUnitId}-${lead.automatic?.stat}`} lead={lead} names={names} />)}
+  </ul>;
 }
 
 /* Why a lead the team fights under does nothing for this copy, for the red mark
@@ -62,34 +98,44 @@ function unreachedReading(lead: TeamLead, counting: TeamLead | undefined, names:
  * its red mark says where it would count. Read only: the leader is chosen with
  * the crown on Presets, or in the game.
  */
-export function TeamLeads({ reading, names }: { reading: TeamLeadReading; names: Record<string, string> }) {
-  return <ul className="overlay-leads-fields overlay-team-leads" aria-label="Leads and bonuses">
-    {reading.leads.length === 0 && <li className="overlay-team-lead overlay-team-lead-note"><span>No leader in this preset</span></li>}
-    {reading.leads.map((lead, at) => {
-      const name = names[lead.unitId] ?? 'A leader';
-      const where = `${name}, leader of ${lead.presetName}`;
-      /* The leader's face, small enough to sit inside the line: which lead is
-         whose is read at a glance, and the line keeps its height. */
-      const display = lead.masterId === null ? undefined : monsterPresentation(lead.masterId);
-      const face = <MonsterPortrait imageFilename={display?.imageFilename} initial={display?.shortName ?? ''} name={name} decorative />;
-      if (lead.skill === null) {
-        return <li key={`${lead.presetId}-${at}`} className="overlay-team-lead overlay-team-lead-note" title={where}>
-          {face}<span>{lead.missing ? 'Leader not in this import' : `${name}: no leader skill`}</span>
+export function TeamLeads({ reading, names }: {
+  reading: TeamLeadReading;
+  names: Record<string, string>;
+}) {
+  const actualLeads = reading.leads.filter((lead) => lead.automatic === undefined);
+  return <div className="overlay-team-bonuses overlay-leads-fields" role="group" aria-label="Leads and bonuses">
+    <ul className="overlay-team-leads" aria-label="Leads and bonuses">
+      {actualLeads.length === 0 && !reading.scenario
+        && <li className="overlay-team-lead overlay-team-lead-note"><span>No leader in this preset</span></li>}
+      {reading.leads.map((lead, at) => {
+        if (lead.automatic !== undefined) {
+          return <AutomaticBonusRow key={`${lead.automatic.sourceUnitId}-${lead.automatic.stat}`} lead={lead} names={names} />;
+        }
+        const name = names[lead.unitId] ?? 'A leader';
+        const where = `${name}, leader of ${lead.presetName}`;
+        /* The leader's face, small enough to sit inside the line: which lead is
+           whose is read at a glance, and the line keeps its height. */
+        const display = lead.masterId === null ? undefined : monsterPresentation(lead.masterId);
+        const face = <MonsterPortrait imageFilename={display?.imageFilename} initial={display?.shortName ?? ''} name={name} decorative />;
+        if (lead.skill === null) {
+          return <li key={`${lead.presetId}-${at}`} className="overlay-team-lead overlay-team-lead-note" title={where}>
+            {face}<span>{lead.missing ? 'Leader not in this import' : `${name}: no leader skill`}</span>
+          </li>;
+        }
+        const counts = lead.reach === 'counts';
+        const counting = reading.leads.find((other) => other.reach === 'counts' && other.skill?.attribute === lead.skill?.attribute
+          && other.skill?.element === lead.skill?.element);
+        const marks: FigureMark[] = counts ? [] : [{ key: 'unreached', tone: 'red', glyph: 'info', reading: unreachedReading(lead, counting, names) }];
+        return <li key={`${lead.presetId}-${at}`} className="overlay-team-lead" data-state={counts ? 'counts' : 'unreached'}
+          title={`${where}: ${describeLeaderSkill(lead.skill)}`}>
+          {face}
+          <span className="overlay-team-lead-stat">{leaderSkillStat(lead.skill)}</span>
+          <span className="overlay-team-lead-value">{lead.skill.percent}%</span>
+          <FigureMarks marks={marks} reserve={1} />
         </li>;
-      }
-      const counts = lead.reach === 'counts';
-      const counting = reading.leads.find((other) => other.reach === 'counts' && other.skill?.attribute === lead.skill?.attribute
-        && other.skill?.element === lead.skill?.element);
-      const marks: FigureMark[] = counts ? [] : [{ key: 'unreached', tone: 'red', glyph: 'info', reading: unreachedReading(lead, counting, names) }];
-      return <li key={`${lead.presetId}-${at}`} className="overlay-team-lead" data-state={counts ? 'counts' : 'unreached'}
-        title={`${where}: ${describeLeaderSkill(lead.skill)}`}>
-        {face}
-        <span className="overlay-team-lead-stat">{leaderSkillStat(lead.skill)}</span>
-        <span className="overlay-team-lead-value">{lead.skill.percent}%</span>
-        <FigureMarks marks={marks} reserve={1} />
-      </li>;
-    })}
-  </ul>;
+      })}
+    </ul>
+  </div>;
 }
 
 /**

@@ -21,7 +21,7 @@
  * The accumulator and figure positions are the stat sheet's own (`monster-stats.ts`),
  * taken from there rather than numbered again here.
  */
-import { baseLength, combatAt, criRateFloorAt, effectSlot, effectSlotCount, targetFigureCount, targetFigureKeys } from '../../monster-stats';
+import { baseLength, combatAt, criRateFloorAt, effectSlot, effectSlotCount, passiveRuleAt, targetFigureCount, targetFigureKeys } from '../../monster-stats';
 import {
   brokenDefenseShare, criticalRateCapPercent, defenseFactorBase, defenseFactorPerDef, defenseFactorScale,
 } from '../../rune-potential-metrics';
@@ -43,7 +43,7 @@ export const questionBaseAt = 0;
 export const questionFloorsAt = questionBaseAt + baseLength;
 export const questionRankAt = questionFloorsAt + targetFigureCount;
 export const questionBarAt = questionRankAt + 1;
-/** 17 + 11 + 2 = 30, rounded up to 32 so a later field costs nothing. */
+/** 19 base values + 11 floors + rank and bar = 32. */
 export const questionLength = 32;
 
 /* --------------------------------------------------------------- the ranges */
@@ -142,6 +142,8 @@ export const runeOptimizationConstants: Readonly<Record<string, number>> = {
   COMBAT_RES: combatAt.res,
   COMBAT_ACC: combatAt.acc,
   CRI_RATE_FLOOR_AT: criRateFloorAt,
+  PASSIVE_DEFENSE_FROM_ATTACK_PERCENT_AT: passiveRuleAt.defenseFromAttackPercent,
+  PASSIVE_BALANCE_ATTACK_DEFENSE_AT: passiveRuleAt.balanceAttackDefense,
   QUESTION_BASE_AT: questionBaseAt,
   QUESTION_FLOORS_AT: questionFloorsAt,
   QUESTION_RANK_AT: questionRankAt,

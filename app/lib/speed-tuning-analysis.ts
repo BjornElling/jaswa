@@ -136,6 +136,7 @@ type Candidate = {
   unitId: string;
   profile: SpeedSkillProfile;
   speedBuffPercent: number;
+  leaderPercent: number;
   base: Omit<SpeedSheet, 'runeSpeed'>;
   runeSpeed: number;
 };
@@ -380,14 +381,17 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     const parts = monsterSpeedParts(monster);
     const element = elementName(monster.attribute) ?? null;
     const shown = whatIfs?.get(member.unitId) ?? parts.displaySpeed;
+    const leaderPercent = battleSpeedPercent(speedLeads, content.area, element);
     return {
       unitId: member.unitId,
       profile: speedSkillProfile(monster),
       speedBuffPercent: speedBuffPotency(parts.speedUpEffect),
+      leaderPercent,
       base: {
         baseSpeed: parts.baseSpeed,
         swift: parts.swift,
-        percentOfBase: totemPercent + battleSpeedPercent(speedLeads, content.area, element),
+        passiveFlatSpeed: parts.passiveFlatSpeed,
+        percentOfBase: totemPercent + leaderPercent + parts.passiveSpeedPercent,
       },
       runeSpeed: runeSpeedForDisplay(parts.baseSpeed, parts.swift, shown),
     };
@@ -444,7 +448,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
       importedDisplaySpeed: parts.displaySpeed,
       displaySpeed: shown,
       whatIf: whatIfs?.has(member.unitId) ?? false,
-      leaderPercent: candidate.base.percentOfBase - totemPercent,
+      leaderPercent: candidate.leaderPercent,
       combatSpeed: units[index].speed,
       profile: candidate.profile,
       turnPositions: opening.flatMap((event, at) => event.key === member.unitId ? [at + 1] : []),

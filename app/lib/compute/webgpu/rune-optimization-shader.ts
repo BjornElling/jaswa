@@ -101,6 +101,15 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     figures[FIGURE_HP] = roundedUp(baseHp * (100.0 + effects[ACC_HP_PERCENT] + effects[ACC_TEAM_HP_PERCENT] + question[QUESTION_BASE_AT + COMBAT_HP]) / 100.0) + effects[ACC_HP_FLAT];
     figures[FIGURE_ATK] = roundedUp(baseAtk * (100.0 + effects[ACC_ATK_PERCENT] + effects[ACC_TEAM_ATK_PERCENT] + question[QUESTION_BASE_AT + COMBAT_ATK]) / 100.0) + effects[ACC_ATK_FLAT];
     figures[FIGURE_DEF] = roundedUp(baseDef * (100.0 + effects[ACC_DEF_PERCENT] + effects[ACC_TEAM_DEF_PERCENT] + question[QUESTION_BASE_AT + COMBAT_DEF]) / 100.0) + effects[ACC_DEF_FLAT];
+    let defenseFromAttack = question[QUESTION_BASE_AT + PASSIVE_DEFENSE_FROM_ATTACK_PERCENT_AT];
+    if (defenseFromAttack > 0.0) {
+      figures[FIGURE_DEF] = figures[FIGURE_DEF] + ceil(figures[FIGURE_ATK] * defenseFromAttack / 100.0);
+    }
+    if (question[QUESTION_BASE_AT + PASSIVE_BALANCE_ATTACK_DEFENSE_AT] > 0.0) {
+      let balanced = max(figures[FIGURE_ATK], figures[FIGURE_DEF]);
+      figures[FIGURE_ATK] = balanced;
+      figures[FIGURE_DEF] = balanced;
+    }
     figures[FIGURE_SPD] = roundedUp(baseSpd * (100.0 + effects[ACC_SPD_PERCENT] + question[QUESTION_BASE_AT + COMBAT_SPD]) / 100.0) + effects[ACC_SPD_FLAT];
     figures[FIGURE_CRI_RATE] = max(question[QUESTION_BASE_AT + FIGURE_CRI_RATE] + effects[ACC_CRITICAL_RATE] + question[QUESTION_BASE_AT + COMBAT_CRI_RATE],
       question[QUESTION_BASE_AT + CRI_RATE_FLOOR_AT]);

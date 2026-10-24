@@ -30,20 +30,21 @@ decides which leads count, never what the figure is called.
 
 A what-if value is always a display speed. It is turned back into flat rune
 speed (`runeSpeedForDisplay`), so an experiment changes the runes and nothing
-else: base speed, Swift, totem and leader stay the monster's own. It is saved
+else: base speed, Swift, totem, leader and passive stay the monster's own. It is saved
 with the team, so the experiment is there when the team is opened again, but
 only the team's overlay reads it: the page behind it, its verdicts and every
 other figure judge the runes engraved.
 
 ## 2. Combat speed
 
-    S = ⌈ B · (1 + t + l + s) + b ⌉                 without a speed buff
-    S = ⌈ B · (1 + t + l + s) + b ⌉ · (1 + p/100)   under a speed buff
+    S = ⌈ B · (1 + t + l + s + r) + b + f ⌉                 without a speed buff
+    S = ⌈ B · (1 + t + l + s + r) + b + f ⌉ · (1 + p/100)   under a speed buff
 
-- `B` is base speed, `b` all flat speed on runes (main, innate, substats and grinds).
+- `B` is base speed, `b` all flat speed on runes (main, innate, substats and grinds),
+  and `f` is a fixed flat speed passive that is automatic from battle start.
 - `t` is the Sky Tribe Totem (§2.1), `l` the leader skill (§2.2), `s` Swift
-  (0.25 with a completed Swift set, otherwise 0). All three are fractions of
-  **base** speed and add.
+  (0.25 with a completed Swift set, otherwise 0), and `r` an automatic passive
+  speed percentage. All four are fractions of **base** speed and add.
 - **One rounding up, over the whole sum.** No term is rounded on its own.
 - **The buff multiplies the rounded figure and is not rounded again**, so a
   buffed speed may carry a tenth.
@@ -71,8 +72,8 @@ rune speed and never makes that mistake. The display rounds **up**: JASWA's
 stat sheet and SWSpeedTuner agree.
 
 **Integer arithmetic.** The totem moves in half percents, so the formula is
-evaluated as `B · (1,000 + 10·(t + l) + 250·Swift) + 1,000·b` in whole numbers,
-and no rounding meets a floating-point remainder.
+evaluated as `B · (1,000 + 10·(t + l + r) + 250·Swift) + 1,000·(b + f)` in whole
+numbers, and no rounding meets a floating-point remainder.
 
 ### 2.1 Sky Tribe Totem
 

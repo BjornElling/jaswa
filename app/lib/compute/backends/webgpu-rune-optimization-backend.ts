@@ -20,7 +20,7 @@
  * report and must say so rather than hand back a truncated list.
  */
 import {
-  baseLength, combatAt, criRateFloorAt, effectSlot, effectSlotCount, figuresInto, targetFigureCount, totalCount, totalsInto,
+  baseLength, combatAt, criRateFloorAt, effectSlot, effectSlotCount, figuresInto, passiveRuleAt, targetFigureCount, totalCount, totalsInto,
 } from '../../monster-stats';
 import type { PassLimits, TailCard, TailPass, TailQuestion } from '../../rune-optimization-search';
 import { metricDmg, metricEhp, metricEhpD } from '../../rune-potential-metrics';
@@ -134,7 +134,8 @@ function battery(seed: number, firstCount: number, lastCount: number, blocks: nu
     /* Every lead, the totem and a crit floor in play, so a misread combat slot
        changes a figure. The floor sits inside the CRI Rates the battery draws,
        so some pairs are lifted to it and some are not. */
-    base: Float64Array.of(10125, 714, 648, 101, 15, 50, 15, 0, 20, 33, 15, 14.5, 30, 25, 41, 25, 40),
+    base: Float64Array.of(10125, 714, 648, 101, 15, 50, 15, 0, 20, 33, 15, 14.5, 30, 25, 41, 25, 40,
+      seed % 2 === 1 ? 20 : 0, seed % 2 === 0 ? 1 : 0),
     targets: new Float64Array(targetFigureCount).fill(Number.NaN),
     rank: 8,
     candidates,
@@ -153,6 +154,9 @@ function generousFigures(base: Float64Array, effects: Float64Array, out: Float64
   out[0] = raised(0, effectSlot.hpPercent, effectSlot.hpFlat, base[combatAt.hp] + effects[effectSlot.teamHpPercent]);
   out[1] = raised(1, effectSlot.atkPercent, effectSlot.atkFlat, base[combatAt.atk] + effects[effectSlot.teamAtkPercent]);
   out[2] = raised(2, effectSlot.defPercent, effectSlot.defFlat, base[combatAt.def] + effects[effectSlot.teamDefPercent]);
+  const defenseFromAttack = base[passiveRuleAt.defenseFromAttackPercent] ?? 0;
+  if (defenseFromAttack > 0) out[2] += Math.ceil(out[1] * defenseFromAttack / 100);
+  if ((base[passiveRuleAt.balanceAttackDefense] ?? 0) > 0) out[1] = out[2] = Math.max(out[1], out[2]);
   out[3] = raised(3, effectSlot.spdPercent, effectSlot.spdFlat, base[combatAt.spd]);
   out[4] = Math.max(base[4] + effects[effectSlot.criticalRate] + base[combatAt.criRate], base[criRateFloorAt]);
   out[5] = base[5] + effects[effectSlot.criticalDamage] + base[combatAt.criDmg];

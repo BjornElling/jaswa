@@ -529,10 +529,15 @@ console.log('Automatic team bonuses: all five sets, Intangible, own-set exclusio
     [{ unitId: 'gone', missing: true, skill: null, reach: null }]);
   const leaderless = fake('deck-1-2', 'game', 'arena-attack', 2, ['8'], '8');
   assert.deepEqual(reading(leaderless, '8', [leaderless]).leads.map(({ skill, missing }) => ({ skill, missing })), [{ skill: null, missing: false }]);
-  assert.deepEqual(reading(fake('deck-1-3', 'game', 'arena-attack', 3, ['8'], null), '8', []), { leads: [], bonuses: {} });
+  assert.deepEqual(reading(fake('deck-1-3', 'game', 'arena-attack', 3, ['8'], null), '8', []), {
+    leads: [], bonuses: {}, rules: [], automaticLines: [], scenario: false,
+  });
 
-  /* Scenario states its leads by hand; a Rift Raid preset built here is a battle of its own; a preset not yet named counts General leads alone. */
-  assert.equal(reading(fake('scenario', 'scenario', null, null, ['1'], null), '1'), null);
+  /* Scenario states its leads by hand; its reading still holds personal automatic bonuses. */
+  assert.deepEqual(reading(fake('scenario', 'scenario', null, null, ['1'], null), '1'), {
+    leads: [], bonuses: {}, rules: [], automaticLines: [], scenario: true,
+  });
+  /* A Rift Raid preset built here is a battle of its own; a preset not yet named counts General leads alone. */
   const own = fake('own-1', 'own', 'rift-raid', null, ['2'], '2');
   assert.deepEqual(battleLeaders(own, [...battle, own]).map((leader) => leader.unitId), ['2']);
   const unnamed = fake('deck-99-1', 'game', null, null, ['5', '1'], '5');

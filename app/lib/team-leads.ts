@@ -11,6 +11,10 @@
  */
 import type { GameRecord } from './game-data';
 import type { Leads, LedStat, TeammateSets } from './monster-stats';
+import {
+  grantsBoomerangWarriorAccuracy, grantsShainaPassive, personalPassiveStatBonus, shainaAccuracyBonus,
+} from './passive-stat-bonuses';
+import type { AutomaticStatLine, PassiveStatBonus, PassiveStatRule } from './passive-stat-bonuses';
 import { isRecord } from './preference-reading';
 import { teammateSetsInPreset } from './presets';
 import type { AccountItems, Preset } from './presets';
@@ -53,10 +57,22 @@ export function leadArea(preset: Pick<Preset, 'content'>): SpeedArea {
  * cannot be read. `reach` says whether a lead counts for this member, and why
  * not where it does not; only a read lead has one.
  */
-export type TeamLead = BattleLeader & { masterId: string | null; skill: LeaderSkill | null; missing: boolean; reach: LeadReach | null };
+export type TeamLead = BattleLeader & {
+  masterId: string | null;
+  skill: LeaderSkill | null;
+  missing: boolean;
+  reach: LeadReach | null;
+  automatic?: AutomaticStatLine;
+};
 
 /** What the leads add, stat by stat. */
-export type TeamLeadReading = { leads: readonly TeamLead[]; bonuses: Leads };
+export type TeamLeadReading = {
+  leads: readonly TeamLead[];
+  bonuses: Leads;
+  rules: readonly PassiveStatRule[];
+  automaticLines: readonly AutomaticStatLine[];
+  scenario: boolean;
+};
 
 const statOf: Readonly<Record<LeaderAttribute, LedStat>> = {
   'Attack Power': 'atk', Defense: 'def', HP: 'hp', 'Critical Rate': 'criRate', 'Critical DMG': 'criDmg',
@@ -64,15 +80,14 @@ const statOf: Readonly<Record<LeaderAttribute, LedStat>> = {
 };
 
 /**
- * The leads one member of a preset fights under, or `null` for Scenario, whose
- * leads are the profile's own. `roster` is every copy the import holds by unit
- * id: a leader may stand in another deck of the battle.
+ * The leaders and automatic additions one member fights under. Scenario has no
+ * leaders, but still reads the copy's own automatic passives. `roster` is every
+ * copy the import holds by unit id: a leader may stand in another deck.
  */
 export function teamLeadsFor(preset: Preset, presets: readonly Preset[], unitId: string,
-  roster: ReadonlyMap<string, GameRecord>): TeamLeadReading | null {
-  if (preset.kind === 'scenario') return null;
+  roster: ReadonlyMap<string, GameRecord>): TeamLeadReading {
   const member = roster.get(unitId);
-  const read = battleLeaders(preset, presets).map((leader) => {
+  const read = (preset.kind === 'scenario' ? [] : battleLeaders(preset, presets)).map((leader) => {
     const record = roster.get(leader.unitId);
     const masterId = record === undefined ? null : String(record.unit_master_id ?? '');
     return { ...leader, masterId, skill: record === undefined ? null : leaderSkill(record.unit_master_id), missing: record === undefined };
@@ -80,30 +95,89 @@ export function teamLeadsFor(preset: Preset, presets: readonly Preset[], unitId:
   const skills = read.flatMap((lead) => lead.skill === null ? [] : [lead.skill]);
   const reaches = leadReaches(skills, leadArea(preset), elementName(member?.attribute) ?? null);
   let next = 0;
-  const leads: TeamLead[] = read.map((lead) => ({ ...lead, reach: lead.skill === null ? null : reaches[next++] }));
+  const rows: TeamLead[] = read.map((lead) => ({ ...lead, reach: lead.skill === null ? null : reaches[next++] }));
   const bonuses: Leads = {};
-  for (const lead of leads) {
+  for (const lead of rows) {
     /* A general lead and an element's lead of one stat both count, and add up. */
     if (lead.reach === 'counts' && lead.skill !== null) {
       const stat = statOf[lead.skill.attribute];
       bonuses[stat] = (bonuses[stat] ?? 0) + lead.skill.percent;
     }
   }
-  return { leads, bonuses };
+  const personal = personalPassiveStatBonus(unitId, member?.unit_master_id);
+  const passiveSources: PassiveStatBonus[] = personal === undefined ? [] : [personal];
+  if (preset.kind !== 'scenario' && grantsBoomerangWarriorAccuracy(member?.unit_master_id)) {
+    const shainaId = preset.members.find((sourceUnitId) => {
+      const source = roster.get(sourceUnitId);
+      return source !== undefined && grantsShainaPassive(source.unit_master_id);
+    });
+    if (shainaId !== undefined) {
+      const source = roster.get(shainaId);
+      if (source !== undefined) passiveSources.push(shainaAccuracyBonus(shainaId, source.unit_master_id));
+    }
+  }
+  const automaticLines: AutomaticStatLine[] = [];
+  const rules: PassiveStatRule[] = [];
+  for (const source of passiveSources) {
+    for (const addition of source.effects) {
+      const base = addition.stat === 'hp' ? Number(member?.con) * 15 : Number(member?.[addition.stat]);
+      const contribution = addition.kind !== 'flat' ? addition.amount
+        : Number.isFinite(base) && base > 0 ? addition.amount * 100 / base : 0;
+      const line: AutomaticStatLine = {
+        sourceUnitId: source.sourceUnitId,
+        sourceMasterId: source.sourceMasterId,
+        stat: addition.stat,
+        value: addition.kind === 'basePercent' ? `+${addition.amount}%` : `+${addition.amount}`,
+        contribution,
+        description: source.scope === 'team'
+          ? 'Adds +25 ACC points to every Boomerang Warrior in this preset.'
+          : grantsShainaPassive(source.sourceMasterId) ? 'Adds +25 ACC points to Shaina herself.'
+          : addition.kind === 'basePercent' ? `Adds +${addition.amount}% of base ${addition.stat.toUpperCase()} at battle start.`
+            : addition.kind === 'flat' ? `Adds +${addition.amount} fixed ${addition.stat.toUpperCase()} to combat speed.`
+              : `Adds +${addition.amount} ${addition.stat.toUpperCase()} points.`,
+      };
+      automaticLines.push(line);
+      bonuses[addition.stat] = (bonuses[addition.stat] ?? 0) + contribution;
+      rows.push({ unitId: source.sourceUnitId, presetId: preset.id, presetName: preset.name,
+        masterId: source.sourceMasterId, skill: null, missing: false, reach: 'counts', automatic: line });
+    }
+    rules.push(...source.rules);
+    for (const rule of source.rules) {
+      const statRows = rule.kind === 'defenseFromAttack'
+        ? [{ stat: 'def' as const, value: `+${rule.percent}% ATK` }]
+        : [{ stat: 'atk' as const, value: 'max(ATK, DEF)' }, { stat: 'def' as const, value: 'max(ATK, DEF)' }];
+      for (const { stat, value } of statRows) {
+        const line: AutomaticStatLine = { sourceUnitId: source.sourceUnitId, sourceMasterId: source.sourceMasterId,
+          stat, value, contribution: 0, description: rule.summary };
+        automaticLines.push(line);
+        rows.push({ unitId: source.sourceUnitId, presetId: preset.id, presetName: preset.name,
+          masterId: source.sourceMasterId, skill: null, missing: false, reach: 'counts', automatic: line });
+      }
+    }
+  }
+  return { leads: rows, bonuses, rules, automaticLines, scenario: preset.kind === 'scenario' };
 }
 
 /**
  * What a preset's team adds to one member's fight: its teammates' completed
- * team sets, and the leads it fights under — `null` in Scenario, where the
- * profile states them.
+ * team sets, and its lead reading. Scenario adds the profile's stated leads to
+ * that reading; preset readings already contain the game's leaders.
  */
-export type TeamBonuses = { teammateSets: TeammateSets; leads: TeamLeadReading | null };
+export type TeamBonuses = {
+  teammateSets: TeammateSets;
+  leads: TeamLeadReading;
+};
 
-export const noTeamBonuses: TeamBonuses = { teammateSets: {}, leads: null };
+export const noTeamBonuses: TeamBonuses = { teammateSets: {}, leads: {
+  leads: [], bonuses: {}, rules: [], automaticLines: [], scenario: true,
+} };
 
 export function teamBonusesFor(preset: Preset, presets: readonly Preset[], unitId: string, items: AccountItems,
   roster: ReadonlyMap<string, GameRecord>): TeamBonuses {
-  return { teammateSets: teammateSetsInPreset(preset, unitId, items), leads: teamLeadsFor(preset, presets, unitId, roster) };
+  return {
+    teammateSets: teammateSetsInPreset(preset, unitId, items),
+    leads: teamLeadsFor(preset, presets, unitId, roster),
+  };
 }
 
 /** Every copy the import holds, by unit id, for reading a leader wherever it stands. */

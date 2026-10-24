@@ -11,7 +11,9 @@ import type {
   BandedChoices, MonsterCopyPreferences, MonsterStatTargets,
 } from './monster-preferences';
 import { monsterStatTargetKeys, statedLeads } from './monster-preferences';
+import { ledStats } from './monster-stats';
 import type { Leads, TeammateSets } from './monster-stats';
+import type { AutomaticStatLine, PassiveStatRule } from './passive-stat-bonuses';
 import { noTeamBonuses } from './team-leads';
 import type { TeamBonuses } from './team-leads';
 import type { RelicMainProperty } from './relic-properties';
@@ -140,6 +142,10 @@ export type ResolvedMonsterPreferences = {
   leads: Leads;
   /** Derived from the chosen preset, never a stored profile choice. */
   teammateSets: TeammateSets;
+  /** Battle-start rules that derive one stat from another. */
+  leadRules: readonly PassiveStatRule[];
+  /** Source detail for the automatic rows already included in `leads`. */
+  automaticLeadLines: readonly AutomaticStatLine[];
   /**
    * What the main-stat model makes of this copy (`main-stat-model.ts`) — the
    * default its gear mains fall back on, and what a stated main is checked
@@ -291,7 +297,15 @@ function resolveStatTargets(
 
 /** The leads a copy fights under: its preset's leaders', or in Scenario the ones its profile states. */
 export function fightLeads(team: TeamBonuses, stated: MonsterCopyPreferences | undefined): Leads {
-  return team.leads === null ? statedLeads(stated) : team.leads.bonuses;
+  const values = { ...team.leads.bonuses };
+  if (team.leads.scenario) {
+    const statedValues = statedLeads(stated);
+    for (const stat of ledStats) {
+      const value = statedValues[stat];
+      if (value !== undefined) values[stat] = (values[stat] ?? 0) + value;
+    }
+  }
+  return values;
 }
 
 /**
@@ -327,6 +341,8 @@ export function resolveMonsterPreferences(
     alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
     leads: fightLeads(team, stated),
     teammateSets: team.teammateSets,
+    leadRules: team.leads.rules,
+    automaticLeadLines: team.leads.automaticLines,
     ...(advice === undefined ? {} : { mainStatAdvice: advice }),
   };
 }

@@ -168,24 +168,29 @@ export function runeSpeedForDisplay(baseSpeed: number, swift: boolean, shownDisp
 export type SpeedSheet = {
   baseSpeed: number;
   runeSpeed: number;
+  /** A fixed, automatic passive speed addition, before the clock rounds once. */
+  passiveFlatSpeed?: number;
   swift: boolean;
-  /** Totem plus leader, in percent of base speed. May be fractional (2.5 %). */
+  /** Totem, leader and automatic passive percentages, in percent of base speed. May be fractional (2.5 %). */
   percentOfBase: number;
 };
 
 /*
- * The unrounded combat speed, times 1,000: B·(1,000 + 10·(totem + leader) +
- * 250·Swift) + 1,000·b. Totem steps are half percents, so ten times a percent
- * is always whole and the product is an exact integer.
+ * The unrounded combat speed, times 1,000: B·(1,000 + 10·(totem + leader +
+ * passive percent) + 250·Swift) + 1,000·(rune speed + flat passive speed).
+ * Totem steps are half percents, so ten times a percent is always whole and
+ * the product is an exact integer.
  */
 function combatSpeedThousandths(sheet: SpeedSheet): number {
   const percentTenths = Math.round(sheet.percentOfBase * 10);
-  return sheet.baseSpeed * (1_000 + percentTenths + (sheet.swift ? swiftPercent * 10 : 0)) + 1_000 * sheet.runeSpeed;
+  return sheet.baseSpeed * (1_000 + percentTenths + (sheet.swift ? swiftPercent * 10 : 0))
+    + 1_000 * (sheet.runeSpeed + (sheet.passiveFlatSpeed ?? 0));
 }
 
 /**
  * Combat speed, with whatever percentages the sheet was given for its content:
- * ⌈B·(1 + t + l + s) + b⌉, one rounding over the whole.
+ * ⌈B·(1 + t + l + s + p) + b + q⌉, one rounding over the whole: `p` is an
+ * automatic passive percentage and `q` its flat speed addition.
  */
 export function combatSpeed(sheet: SpeedSheet): number {
   return Math.ceil(combatSpeedThousandths(sheet) / 1_000);

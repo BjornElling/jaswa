@@ -621,10 +621,11 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
               </div>
             </Section>
             <Section title="Leads and bonuses">
-              {team.leads !== null
-                ? <TeamLeads reading={team.leads} names={leaderNames} />
-                : <LeadFields values={statedLeads(draft)}
-                  onChange={(stat, value) => change((state) => ({ ...state, [leadFieldOf[stat]]: value }))} />}
+              {team.leads.scenario
+                ? <LeadFields values={statedLeads(draft)} reading={team.leads} names={leaderNames}
+                  onChange={(stat, value) => change((state) => ({ ...state, [leadFieldOf[stat]]: value }))}
+                />
+                : <TeamLeads reading={team.leads} names={leaderNames} />}
             </Section>
             {/* Named for the Build for menu's area, since the area is what sets both figures. */}
             <Section title={area.heading} clip>

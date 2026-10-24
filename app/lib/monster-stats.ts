@@ -5,6 +5,8 @@ import {
 } from './rune-sets';
 import { swiftPercent } from './speed-tick';
 import { spdUpEffectPropertyId } from './artifact-properties';
+import { personalPassiveStatBonus } from './passive-stat-bonuses';
+import type { AutomaticStatLine, PassiveStatRule } from './passive-stat-bonuses';
 
 /* The set rules live with the set table in `rune-sets.ts`; the search workers
    have always read them from here, so they are offered here too. */
@@ -71,8 +73,11 @@ export const combatAt = { hp: 8, atk: 9, def: 10, spd: 11, criRate: 12, criDmg: 
 /** Where a copy's base holds the CRI Rate a guaranteed crit lifts the fight's to; 0 without one. */
 export const criRateFloorAt = 16;
 
-/** A copy's base as every sheet reads it: the eight stats, then `combatAt`, then `criRateFloorAt`. */
-export const baseLength = 17;
+/** Battle-start rules that derive a stat from another stat rather than a fixed addition. */
+export const passiveRuleAt = { defenseFromAttackPercent: 17, balanceAttackDefense: 18 } as const;
+
+/** A copy's base as every sheet reads it: the eight stats, `combatAt`, crit floor, then passive rules. */
+export const baseLength = 19;
 
 /** The totals `totalsInto` writes: the eight display stats, then the eight the fight has. */
 export const totalCount = 16;
@@ -187,6 +192,16 @@ export function totalsInto(base: ArrayLike<number>, effects: ArrayLike<number>, 
   out[8] = Math.ceil(base[0] * (100 + effects[effectSlot.hpPercent] + effects[effectSlot.teamHpPercent] + base[8]) / 100) + effects[effectSlot.hpFlat];
   out[9] = Math.ceil(base[1] * (100 + effects[effectSlot.atkPercent] + effects[effectSlot.teamAtkPercent] + base[9]) / 100) + effects[effectSlot.atkFlat];
   out[10] = Math.ceil(base[2] * (100 + effects[effectSlot.defPercent] + effects[effectSlot.teamDefPercent] + base[10]) / 100) + effects[effectSlot.defFlat];
+  /* Kaki reads his battle-start ATK after other stat additions, then adds one
+     fifth of it to DEF. Leona's battle-start passive makes both figures equal
+     to whichever is higher. These rules remain in the shared sheet so the
+     optimizer's candidate runes are counted too. */
+  const defenseFromAttack = base[passiveRuleAt.defenseFromAttackPercent] ?? 0;
+  if (defenseFromAttack > 0) out[10] = Math.ceil(out[10] + out[9] * defenseFromAttack / 100);
+  if ((base[passiveRuleAt.balanceAttackDefense] ?? 0) > 0) {
+    out[9] = Math.max(out[9], out[10]);
+    out[10] = out[9];
+  }
   out[11] = Math.ceil(base[3] * (100 + effects[effectSlot.spdPercent] + base[11]) / 100) + effects[effectSlot.spdFlat];
   out[12] = Math.max(out[4] + base[12], base[criRateFloorAt]);
   out[13] = out[5] + base[13];
@@ -249,7 +264,7 @@ export function monsterBaseStats(monster: RecordLike): Float64Array {
     numberValue(monster.con) * 15, numberValue(monster.atk), numberValue(monster.def), numberValue(monster.spd),
     numberValue(monster.critical_rate), numberValue(monster.critical_damage),
     numberValue(monster.resist), numberValue(monster.accuracy),
-    0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   );
 }
 
@@ -346,7 +361,10 @@ export function monsterEffects(monster: RecordLike): Float64Array {
  * any speed buff it receives, in percent. The display speed itself is the stat
  * sheet's own figure, so it can never disagree with the Monsters page.
  */
-export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swift: boolean; displaySpeed: number; speedUpEffect: number } {
+export function monsterSpeedParts(monster: RecordLike): {
+  baseSpeed: number; swift: boolean; displaySpeed: number; speedUpEffect: number;
+  passiveFlatSpeed: number; passiveSpeedPercent: number;
+} {
   const counts = engravedSetCounts(monster);
   let speedUpEffect = 0;
   for (const artifact of records(monster.artifacts)) {
@@ -355,11 +373,15 @@ export function monsterSpeedParts(monster: RecordLike): { baseSpeed: number; swi
       if (Array.isArray(line) && numberValue(line[0]) === spdUpEffectPropertyId) speedUpEffect += numberValue(line[1]);
     }
   }
+  const passiveSpeed = personalPassiveStatBonus(String(monster.unit_id ?? ''), monster.unit_master_id)?.effects
+    .filter((entry) => entry.stat === 'spd') ?? [];
   return {
     baseSpeed: numberValue(monster.spd),
     swift: swiftSets(counts, intangibleCompletion(counts)) > 0,
     displaySpeed: calculateMonsterTotals(monster).spd,
     speedUpEffect,
+    passiveFlatSpeed: passiveSpeed.filter((entry) => entry.kind === 'flat').reduce((sum, entry) => sum + entry.amount, 0),
+    passiveSpeedPercent: passiveSpeed.filter((entry) => entry.kind === 'basePercent').reduce((sum, entry) => sum + entry.amount, 0),
   };
 }
 
@@ -401,6 +423,10 @@ export type CombatBonuses = {
   alwaysElementAdvantage: boolean;
   leads?: Leads;
   teammateSets?: TeammateSets;
+  /** Cross-stat battle-start rules from the same lead reading. */
+  leadRules?: readonly PassiveStatRule[];
+  /** Source detail for bonuses already folded into `leads`. */
+  automaticLeadLines?: readonly AutomaticStatLine[];
   /**
    * The account's Glory buildings (`readBuildingBonuses`). Every caller that
    * holds the import passes them; absent counts none, as for an export with no
@@ -427,6 +453,10 @@ export function combatStatBonus(stat: LedStat, bonuses: CombatBonuses): number {
 export function combatBase(monster: RecordLike, bonuses: CombatBonuses): Float64Array {
   const base = monsterBaseStats(monster);
   for (const stat of ledStats) base[combatAt[stat]] += combatStatBonus(stat, bonuses);
+  for (const rule of bonuses.leadRules ?? []) {
+    if (rule.kind === 'defenseFromAttack') base[passiveRuleAt.defenseFromAttackPercent] += rule.percent;
+    else base[passiveRuleAt.balanceAttackDefense] = 1;
+  }
   base[combatAt.criRate] += bonuses.alwaysElementAdvantage ? elementAdvantageLift : 0;
   base[criRateFloorAt] = bonuses.alwaysCrits ? alwaysCritsFloor : 0;
   const buildings = bonuses.buildings;
