@@ -47,7 +47,7 @@ export type ButtonTone = 'quiet' | 'primary' | 'danger' | 'important';
     control; `compact` is for a line of settings, where the button is part of
     the sentence rather than a call to action; `prominent` is for the action a
     whole panel builds up to. */
-export type ButtonSize = 'compact' | 'regular' | 'prominent';
+export type ButtonSize = 'compact' | 'regular' | 'prominent' | 'card';
 
 const toneClass: Record<ButtonTone, string> = {
   quiet: '',
@@ -60,6 +60,7 @@ const sizeClass: Record<ButtonSize, string> = {
   compact: 'compact',
   regular: '',
   prominent: 'prominent',
+  card: 'corner-card',
 };
 
 /**

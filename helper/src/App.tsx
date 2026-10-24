@@ -146,7 +146,7 @@ function reading(status: Status | null): Reading {
 
 /* Stroked paths sized to the type, per the house style — no emoji, whose weight
    changes with whatever font the platform substitutes. */
-function Glyph({ name }: { name: 'jaswa' | 'download' | 'report' | 'log' | 'record' | 'open' }) {
+function Glyph({ name }: { name: 'jaswa' | 'download' | 'report' | 'log' | 'record' | 'open' | 'restart' }) {
   const paths = {
     jaswa: <path d="M8 2.5 12.5 5v6L8 13.5 3.5 11V5z" />,
     download: <path d="M8 2.5v7.5m0 0L5 7m3 3 3-3M3 13h10" />,
@@ -154,6 +154,7 @@ function Glyph({ name }: { name: 'jaswa' | 'download' | 'report' | 'log' | 'reco
     log: <path d="M4 2.5h5.5L12 5v8.5H4zM9.5 2.5V5H12M6 8h4M6 10.5h4" />,
     record: <><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2" /></>,
     open: <path d="M9 3h4v4M13 3 7.5 8.5M11 9.5V13H3V5h3.5" />,
+    restart: <path d="M13 6a5.5 5.5 0 1 0 .3 3M13 2.5V6H9.5" />,
   };
   return (
     <svg className="glyph" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -375,6 +376,10 @@ export function App() {
           </button>
           <button type="button" disabled={!traffic?.recorded} onClick={() => void call('open_traffic_log')}>
             <Glyph name="open" />Open traffic log
+          </button>
+          <button type="button" onClick={() => void call('restart_helper')}
+            title="Restart the helper, then reopen Summoners War to capture a fresh login.">
+            <Glyph name="restart" />Restart helper
           </button>
         </div>
       </section>

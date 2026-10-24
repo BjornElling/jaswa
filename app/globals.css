@@ -622,6 +622,7 @@ label[for] {
   pointer-events: none;
 }
 .import-confirmation { animation: import-confirmation-leave 400ms ease 3.6s forwards; }
+.import-confirmation.import-failure { --notice: var(--state-bad); animation: none; }
 /* With no badge above it the warning opens the corner at the badge's own inset,
    at a width that holds its title on one line. */
 .helper-update {
@@ -4255,6 +4256,32 @@ input[type='checkbox']:checked {
 /* The action a whole panel builds up to. Enlarged so it reads as the panel's
    conclusion rather than one more control in the flow. */
 .button.prominent { height: 44px; padding: 0 var(--s5); }
+/* The account action borrows the badge's measured box, so work and confirmation
+   can change without shifting either card or the page underneath. */
+.button.corner-card {
+  height: calc(var(--s7) * 2);
+  width: calc(var(--s7) * 6);
+  padding: var(--s2) var(--s3);
+  white-space: normal;
+  justify-content: end;
+  text-align: right;
+  border-color: var(--gold-edge);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gold-deep) 62%, transparent), transparent 78%),
+    color-mix(in srgb, var(--raise) 90%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--text-accent);
+}
+.game-reload {
+  position: absolute;
+  top: var(--s4);
+  right: var(--gutter);
+  z-index: 20;
+}
+.button.corner-card:hover:not(:disabled) {
+  color: var(--text-accent);
+  border-color: var(--text-accent);
+}
 .button:hover:not(:disabled) { color: var(--text-strong); border-color: var(--text-muted); }
 /* A platform mark before the label. Sized off the cap height rather than the
    line box, so it sits as a badge beside the word instead of out-measuring it,
@@ -6207,6 +6234,11 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
     position: static;
     justify-self: end;
     width: auto;
+    margin: var(--s3) var(--gutter) 0;
+  }
+  .button.game-reload.corner-card {
+    position: static;
+    justify-self: end;
     margin: var(--s3) var(--gutter) 0;
   }
 }

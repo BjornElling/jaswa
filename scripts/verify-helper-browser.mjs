@@ -54,7 +54,7 @@ try {
   assert.equal(await downloadLink.getAttribute('download'), installerName);
   await page.getByText('Helper is tired, boss').first().waitFor();
   await page.getByText(`Version ${recommended} is now available.`).first().waitFor();
-  await page.getByText(/invalid snapshot envelope/).first().waitFor({ timeout: 20000 });
+  await page.getByText('Game data could not be loaded. JASWA is keeping the last saved import. Check the helper.').waitFor({ timeout: 20000 });
   await page.screenshot({ path: 'outputs/helper-hardening/app-empty-profile-error.png', fullPage: true });
   const readGame = () => page.evaluate(() => new Promise((resolve, reject) => {
     const open = indexedDB.open('jaswa-local');
@@ -66,7 +66,7 @@ try {
   }));
   mode = 'valid';
   version = recommended;
-  await page.waitForFunction(() => !document.body.textContent.includes('invalid snapshot envelope'), null, { timeout: 20000 });
+  await page.waitForFunction(() => !document.body.textContent.includes('Game data could not be loaded.'), null, { timeout: 20000 });
   await page.waitForFunction(() => !document.body.textContent.includes('Helper is tired, boss'), null, { timeout: 20000 });
   assert.equal(await page.getByText('Helper is tired, boss').count(), 0, 'a current helper leaves no update box behind');
   for (let attempt = 0; attempt < 30 && !(await readGame()); attempt += 1) await page.waitForTimeout(500);
@@ -100,7 +100,7 @@ try {
   mode = 'valid';
   await page.waitForFunction(() => !document.body.textContent.includes('seen a Summoners War connection but no account login yet'), null, { timeout: 20000 });
   mode = 'capture-error';
-  await page.getByText(/Capture failed. Save an error report/).first().waitFor({ timeout: 20000 });
+  await page.getByRole('status', { name: 'Helper program connection' }).getByText('The helper could not load game data. Save an error report in the helper, then restart it and the game.').waitFor({ timeout: 20000 });
   assert.equal((await readGame()).instanceId, instance, 'the last good import remains saved');
   assert.equal((await controls()).length, beforeError.length, 'capture failure keeps the route controls available');
   await page.screenshot({ path: 'outputs/helper-hardening/app-full-capture-error.png', fullPage: true });

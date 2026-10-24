@@ -184,6 +184,16 @@ would share an SWEX export.
 
 ## Failure handling and private reports
 
+**Restart helper**, below **Log all traffic**, removes the local redirect and
+relaunches the helper. Reopen Summoners War afterwards to capture a fresh login.
+Save an error report first if you need to keep evidence from the current run.
+
+In JASWA, **Read on game start** also offers **Reload game data** below the
+account counts. It reads the helper's latest complete snapshot on demand and
+replaces local game-data plans, while keeping personalization. It cannot repair
+a capture gap: restart the helper and game when capture has stopped.
+Home shows a short recovery message; Report Issue keeps the technical detail.
+
 An unreadable account-login response pauses live import. Auxiliary gateway
 traffic, such as chat-service discovery, cannot invalidate a captured account.
 An unrelated successful command cannot repair a missing update: only a complete new login releases that capture gap.

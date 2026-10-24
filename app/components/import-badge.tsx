@@ -5,6 +5,7 @@ import type { GeneralSettings, ImportedGame } from '../lib/types';
 import { formatDateTime, formatNumber } from '../lib/formatting';
 import { recommendedHelperVersion } from '../lib/helper-version';
 import { HelperDownload } from './helper-download';
+import { Button } from './button';
 
 export function ImportBadge({ game, general, ref }: {
   game: ImportedGame;
@@ -105,8 +106,8 @@ function placeNotice(notice: HTMLElement, badge: HTMLElement | null, gap: number
 }
 
 /**
- * The cards that hang under the account badge: the helper warning, then the
- * import confirmation.
+ * One placement pass keeps the reload action, helper warning and confirmation
+ * below the account badge and clear of one another.
  *
  * Both are placed in one pass because each depends on the one above it. Placed
  * by two components, the toast measured the warning before the warning had
@@ -117,7 +118,11 @@ function placeNotice(notice: HTMLElement, badge: HTMLElement | null, gap: number
  * Both are overlays rather than lines in Game data. Neither may push the
  * choices the user was about to make down the page.
  */
-export function CornerNotices({ badge, badgeShown, helperUpdate, confirmation, general }: {
+export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, confirmation, general }: {
+  reload: boolean;
+  reloadError: string | null;
+  reloading: boolean;
+  onReload: () => void;
   /** The import badge, where the page has one: the card both must not cover. */
   badge: RefObject<HTMLElement | null>;
   /** Whether the badge is on the page, so its arrival or removal re-places both cards. */
@@ -128,8 +133,9 @@ export function CornerNotices({ badge, badgeShown, helperUpdate, confirmation, g
   general: GeneralSettings;
 }) {
   const notice = useRef<HTMLElement | null>(null);
+  const reloadButton = useRef<HTMLButtonElement | null>(null);
   const toast = useRef<HTMLElement | null>(null);
-  const toastShown = confirmation !== null;
+  const toastShown = confirmation !== null || (reload && reloadError !== null);
 
   /* Before the paint, not after: measured in an ordinary effect a card would
      appear over the badge for one frame and then jump out from under it. */
@@ -138,11 +144,17 @@ export function CornerNotices({ badge, badgeShown, helperUpdate, confirmation, g
     const gap = step('--s3', 12);
     const above = badge.current;
     const update = () => {
-      if (notice.current) placeNotice(notice.current, above, gap);
+      const button = reloadButton.current;
+      if (button) {
+        placeNotice(button, above, gap);
+        if (above) button.style.width = `${above.offsetWidth}px`;
+        button.style.height = above ? `${above.offsetHeight}px` : '';
+      }
+      if (notice.current) placeNotice(notice.current, button ?? above, gap);
       const card = toast.current;
       if (!card) return;
-      const clear = notice.current ?? above;
-      const shape = above ?? notice.current;
+      const clear = notice.current ?? button ?? above;
+      const shape = above ?? button ?? notice.current;
       const place = clear && shape ? placeBelow(clear, shape, inset, gap) : null;
       card.style.top = place ? `${place.top}px` : '';
       card.style.right = place ? `${place.right}px` : '';
@@ -156,17 +168,27 @@ export function CornerNotices({ badge, badgeShown, helperUpdate, confirmation, g
        font arriving is enough — and the ones below are cut to its measurements,
        so they watch the boxes rather than only the events around them. */
     const watcher = new ResizeObserver(update);
-    for (const box of [above, notice.current]) if (box) watcher.observe(box);
+    for (const box of [above, reloadButton.current, notice.current]) if (box) watcher.observe(box);
     return () => {
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
       watcher.disconnect();
     };
-  }, [badge, badgeShown, helperUpdate, toastShown]);
+  }, [badge, badgeShown, helperUpdate, toastShown, reload, reloadError]);
 
   return <>
+    {reload && <Button ref={reloadButton} size="card" className="game-reload" busy={reloading}
+      busyLabel="Reloading game data…" onClick={onReload}
+      title="Read the helper's latest game data. Replaces changes planned in JASWA.">
+      Reload game data
+    </Button>}
     {helperUpdate && <HelperUpdateNotice ref={notice} />}
-    {confirmation && <ImportConfirmation ref={toast} game={confirmation} general={general} />}
+    {reload && reloadError
+      ? <aside ref={toast} className="import-confirmation import-failure" role="status" aria-label="Game data reload failed">
+        <p className="corner-notice-title">Game data reload failed</p>
+        <p className="corner-notice-detail">{reloadError}</p>
+      </aside>
+      : confirmation && <ImportConfirmation ref={toast} game={confirmation} general={general} />}
   </>;
 }
 

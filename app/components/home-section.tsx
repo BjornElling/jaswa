@@ -8,6 +8,7 @@ import { accelerationLabels, helperLabels } from '../lib/workspace-config';
 import { formatDateTime } from '../lib/formatting';
 import { HelperDownload } from './helper-download';
 import type { HelperConnection } from '../lib/helper-client';
+import { helperStatusMessage } from '../lib/helper-client';
 import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame } from '../lib/types';
 
 function AccelerationMark({ state }: { state: AccelerationState | 'restart' }) {
@@ -156,7 +157,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
                 <p className="acceleration-word">{helperLabel}</p>
               </div>
               <p className="acceleration-adapter">
-                <b title={helperConnection.detail}>{helperConnection.detail}</b>
+                <b>{helperStatusMessage(helperConnection)}</b>
               </p>
             </section>
 
@@ -173,7 +174,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
               <RadioRow
                 name="direct-import-mode"
                 label="Read on game start"
-                note="Only loads data when you start the game. Good for planning. Doesn't factor in any changes you make in the game after that point."
+                note="Loads data when you start the game. Good for planning. Use Reload game data to read later changes when you choose."
                 value="on-load"
                 current={directImportMode}
                 onChange={onDirectImportMode}

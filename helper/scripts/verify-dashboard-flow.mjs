@@ -79,6 +79,9 @@ try {
     const { x, y, width, height } = button.getBoundingClientRect(); return { x, y, width, height };
   }));
   const before = await boxes();
+  await page.getByRole('button', { name: 'Restart helper' }).click();
+  assert.ok(await page.evaluate(() => window.commands.includes('restart_helper')));
+  assert.deepEqual(await boxes(), before);
 
   /* The activity box reaches the window's floor: the old layout ended with a
      56px strip and left the rest of the window empty below it. */
@@ -205,5 +208,5 @@ try {
   assert.ok(caption.some((entry) => entry.includes('close')), `expected a close call, saw ${caption}`);
 
   assert.deepEqual(errors, []);
-  console.log('Helper release dashboard: waiting, captured, live, restart-required, game-closed, long errors, report consent, traffic toggle, caption buttons and rejected IPC passed. The frame is the helper\'s own, the wordmark matches the application\'s, every state states its own explanation, the activity box reaches the window floor, and all six controls keep identical bounds throughout. Screenshots: outputs/helper-hardening.');
+  console.log('Helper dashboard: empty and populated states, restart command, report consent, traffic toggle, caption buttons and rejected IPC passed. All controls keep identical bounds. Screenshots: outputs/helper-hardening.');
 } finally { await browser.close(); }

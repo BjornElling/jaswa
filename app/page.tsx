@@ -5,7 +5,7 @@ import { CornerNotices, ImportBadge } from './components/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
 import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, readPreferences, validateGameFile } from './lib/file-imports';
-import { checkHelperConnection, readHelperProfile } from './lib/helper-client';
+import { checkHelperConnection, helperStatusMessage, readHelperProfile } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
 import { accountCounts } from './lib/account-counts';
@@ -90,7 +90,7 @@ export default function Home() {
   const runeCleanupSession = useMemo(() => createRuneCleanupSession(runeCleanupAccount), [runeCleanupAccount]);
   const [preferences, setPreferences] = useState<Preferences>(blankPreferences());
   const [pendingGame, setPendingGame] = useState<ImportedGame | null>(null);
-  const [importConfirmation, setImportConfirmation] = useState<ImportedGame | null>(null);
+  const [importConfirmation, setImportConfirmation] = useState<{ game: ImportedGame; manual: boolean } | null>(null);
   const [message, setMessage] = useState('');
   const [report, setReport] = useState<{ category: ReportCategory; details: string } | null>(null);
   const [ready, setReady] = useState(false);
@@ -122,6 +122,9 @@ export default function Home() {
   const settingsInput = useRef<HTMLInputElement>(null);
   const appliedHelperRevision = useRef<number | null>(null);
   const appliedHelperSession = useRef<string | null>(null);
+  const reloadHelper = useRef<((force: boolean) => Promise<void>) | null>(null);
+  const [reloadingHelper, setReloadingHelper] = useState(false);
+  const [helperReloadError, setHelperReloadError] = useState<string | null>(null);
   /* Which helper snapshot JASWA has already refused, so a two-second poll
      reports an unreadable account once rather than on every pass. */
   const reportedHelperRejection = useRef<string | null>(null);
@@ -164,26 +167,36 @@ export default function Home() {
     if (!ready || preferences.importRoute !== 'direct') return;
     let disposed = false;
     let refreshing = false;
-    async function refreshHelper() {
-      if (refreshing) return;
+    let reloadPending = false;
+    async function refreshHelper(force = false) {
+      if (force) { setReloadingHelper(true); setHelperReloadError(null); }
+      if (refreshing) {
+        reloadPending ||= force;
+        return;
+      }
       refreshing = true;
       try {
         const connection = await checkHelperConnection();
         if (disposed) return;
         setHelperConnection(connection);
-        if (!connection.profileReady) return;
+        if (!connection.profileReady) {
+          if (force) setHelperReloadError(helperStatusMessage(connection));
+          return;
+        }
         const needsImport = preferences.directImportMode === 'live'
           ? appliedHelperRevision.current !== connection.revision || appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`
           : appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`;
-        if (!needsImport) return;
+        if (!force && !needsImport) return;
         const result = await readHelperProfile();
         if (disposed) return;
         if (result.state === 'unavailable') {
-          setMessage(`${result.reason} JASWA is keeping the last saved import.`);
+          if (force) setHelperReloadError('Game data could not be loaded. Check the helper on Home.');
+          else setMessage('Game data could not be loaded. JASWA is keeping the last saved import. Check the helper.');
           setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
           return;
         }
         if (result.state === 'unreadable') {
+          if (force) setHelperReloadError('Game data could not be read. Check the helper on Home.');
           setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
           /* The helper is connected and sending, and JASWA cannot read what it
              sent. Say so in the same words the file route uses — but once per
@@ -191,7 +204,7 @@ export default function Home() {
              seconds, and never re-import the same rejected revision. */
           const { instanceId, sessionId, revision } = result.identity;
           const rejected = `${instanceId}:${sessionId}:${revision}`;
-          if (reportedHelperRejection.current !== rejected) {
+          if (!force && reportedHelperRejection.current !== rejected) {
             reportedHelperRejection.current = rejected;
             /* What the user loses differs, and guessing wrong is worse than
                saying less: with an earlier import the workspace is merely
@@ -205,19 +218,29 @@ export default function Home() {
         const { profile } = result;
         const validation = validateGameFile(profile.data);
         if (!validation.valid) return;
-        if (!await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId }))) return;
+        if (!await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId }), force)) return;
         reportedHelperRejection.current = null;
+        setHelperReloadError(null);
         appliedHelperRevision.current = profile.revision;
         appliedHelperSession.current = `${profile.instanceId}:${profile.sessionId}`;
       } catch {
-        if (!disposed) setMessage('JASWA could not save the helper import. Please try again.');
+        if (!disposed) {
+          if (force) setHelperReloadError('Game data could not be loaded. Please try again.');
+          else setMessage('JASWA could not save the helper import. Please try again.');
+        }
       } finally {
         refreshing = false;
+        if (force && !disposed) setReloadingHelper(false);
+        if (reloadPending && !disposed) {
+          reloadPending = false;
+          void refreshHelper(true);
+        }
       }
     }
+    reloadHelper.current = refreshHelper;
     void refreshHelper();
     const interval = window.setInterval(() => void refreshHelper(), 2000);
-    return () => { disposed = true; window.clearInterval(interval); };
+    return () => { disposed = true; reloadHelper.current = null; setReloadingHelper(false); window.clearInterval(interval); };
   }, [preferences.directImportMode, preferences.importRoute, ready]);
 
   /* The poll stops when the route leaves direct import, and the last answer it
@@ -285,15 +308,16 @@ export default function Home() {
     appliedHelperSession.current = null;
   }
 
-  async function applyImport(imported: ImportedGame) {
+  async function applyImport(imported: ImportedGame, manual = false) {
     try {
       await saveImportedGame(imported);
     } catch {
-      setMessage('JASWA could not save this import. Please try again.');
+      if (manual) setHelperReloadError('JASWA could not save game data. Please try again.');
+      else setMessage('JASWA could not save this import. Please try again.');
       return false;
     }
     setGame(imported);
-    setImportConfirmation(imported);
+    setImportConfirmation({ game: imported, manual });
     setPendingGame(null);
     setMessage('');
     return true;
@@ -725,9 +749,12 @@ export default function Home() {
 
     <section className="workspace">
       {game && <ImportBadge ref={importBadge} game={game} general={preferences.general} />}
-      {page === 'home' && <CornerNotices badge={importBadge} badgeShown={game !== null}
-        helperUpdate={helperUpdateDue}
-        confirmation={importConfirmation} general={preferences.general} />}
+      <CornerNotices badge={importBadge} badgeShown={game !== null}
+        reload={preferences.importRoute === 'direct' && preferences.directImportMode === 'on-load'}
+        reloadError={helperReloadError}
+        reloading={reloadingHelper} onReload={() => void reloadHelper.current?.(true)}
+        helperUpdate={page === 'home' && helperUpdateDue}
+        confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} />
 
       {page === 'home' && <HomeSection
         game={game}

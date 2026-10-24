@@ -17,6 +17,14 @@ export type HelperConnection = {
   sessionId: number;
 };
 
+/** Keep socket evidence in diagnostics; the Home card needs a next step. */
+export function helperStatusMessage(connection: HelperConnection): string {
+  if (connection.state !== 'unavailable') return connection.detail;
+  if (connection.detail.startsWith('Helper is not running.')) return 'Helper is not running. Open it and try again.';
+  if (connection.detail.startsWith('Gateway exchange failed:')) return 'Connection to the game was interrupted. Restart the helper, then reopen the game.';
+  return 'The helper could not load game data. Save an error report in the helper, then restart it and the game.';
+}
+
 export type HelperProfile = {
   updatedAt: string;
   instanceId: string;

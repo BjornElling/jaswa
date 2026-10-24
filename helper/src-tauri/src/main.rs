@@ -35,6 +35,14 @@ fn open_jaswa() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn restart_helper(app: tauri::AppHandle, state: State<'_, HelperState>) {
+    // Remove the redirect before relaunching so DNS can find the real gateways.
+    diagnostics::record("helper", "Restart requested — removing the local redirect");
+    state.service.stop();
+    app.request_restart();
+}
+
+#[tauri::command]
 fn download_json(state: State<'_, HelperState>) -> Result<String, String> {
     let snapshot = state
         .service
@@ -254,6 +262,7 @@ fn main() {
             open_diagnostics,
             open_traffic_log,
             save_error_report,
+            restart_helper,
         ])
         .setup(|app| {
             let show = MenuItemBuilder::with_id(SHOW_WINDOW, "Show JASWA Helper").build(app)?;
@@ -301,7 +310,7 @@ fn main() {
                 // Quitting from the tray removes the redirect; being killed from
                 // Task Manager does not, and the absence of this line is how the
                 // log says which of the two happened.
-                diagnostics::record("helper", "Quit from the tray — removing the local redirect");
+                diagnostics::record("helper", "Helper exiting — removing the local redirect");
                 app.state::<HelperState>().service.stop();
             }
         });
