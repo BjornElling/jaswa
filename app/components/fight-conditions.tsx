@@ -7,6 +7,8 @@ import type { LeaderSkill } from '../lib/speed-skills';
 import { statLabels } from '../lib/stat-labels';
 import type { TeamLead, TeamLeadReading } from '../lib/team-leads';
 import { monsterPresentation } from '../lib/monster-catalog';
+import { formatNumber } from '../lib/formatting';
+import type { GeneralSettings } from '../lib/types';
 import { FigureMarks } from './figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 
@@ -143,11 +145,38 @@ export function TeamLeads({ reading, names }: {
  * voice. A long label ends in an ellipsis rather than pushing the figure off
  * its fixed column.
  */
-export function AreaLines({ facts }: { facts: AreaFacts }) {
-  return <div className="overlay-accuracy">
+export function AreaLines({ facts, general, reserveThresholdRows = false }: {
+  facts: AreaFacts;
+  general: GeneralSettings;
+  reserveThresholdRows?: boolean;
+}) {
+  if (reserveThresholdRows && facts.thresholds.length > 3) {
+    throw new Error('The area block reserves three monster-threshold rows.');
+  }
+  const number = (value: number) => formatNumber(value, general);
+  const thresholdRows = reserveThresholdRows ? Array.from({ length: 3 }, (_, index) => facts.thresholds[index]) : facts.thresholds;
+  return <div className={`overlay-accuracy${reserveThresholdRows ? ' overlay-accuracy-thresholds' : ''}`}>
     {facts.lines.map((line) => <div className="overlay-accuracy-goal" key={line.label}>
       <p className="overlay-accuracy-label" title={line.label}>{line.label}</p>
       <p className="overlay-accuracy-value">{line.value}</p>
     </div>)}
+    {thresholdRows.map((threshold, index) => {
+      const display = threshold ? monsterPresentation(threshold.masterId) : undefined;
+      const value = threshold
+        ? threshold.points.map((point) => `${point.relation === 'greater-than' ? '>' : ''}${number(point.value)}`).join('/')
+        : '';
+      const stat = threshold ? statLabels[threshold.stat] : '';
+      const description = threshold ? threshold.points.map((point) => `${point.relation === 'greater-than'
+        ? `Combat ${stat} must be greater than ${number(point.value)}`
+        : `At least ${number(point.value)} combat ${stat}`}: ${point.effect}`).join(' ') : '';
+      return <div className={`overlay-combat-threshold${threshold ? '' : ' overlay-combat-threshold-placeholder'}`}
+        key={`threshold-slot-${index}`} title={threshold ? `${display?.name}: ${description}` : undefined}
+        aria-label={threshold && display ? `${display.name}, ${stat} ${value}. ${description}` : undefined}
+        role={threshold ? 'group' : undefined} aria-hidden={threshold ? undefined : true}>
+        <MonsterPortrait imageFilename={display?.imageFilename} initial={display?.shortName ?? ''} name={display?.name ?? ''} decorative />
+        <span className="overlay-combat-threshold-stat">{stat}</span>
+        <span className="overlay-combat-threshold-value">{value}</span>
+      </div>;
+    })}
   </div>;
 }

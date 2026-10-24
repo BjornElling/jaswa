@@ -233,6 +233,20 @@ export function fastestEnemyOn(floor: PveFloor): number | undefined {
   return speeds.length === 0 ? undefined : Math.max(...speeds);
 }
 
+/** The highest stated enemy combat stat on a floor, or none where its source is silent. */
+export function highestEnemyStatOn(floor: PveFloor, stat: 'hp' | 'attack' | 'defense'): number | undefined {
+  const values = floor.waves.flat().flatMap((enemy) => enemy[stat] === null ? [] : [enemy[stat]]);
+  return values.length === 0 ? undefined : Math.max(...values);
+}
+
+/** The highest stated enemy combat stat in the final wave, which holds the floor's boss. */
+export function highestEnemyStatInFinalWaveOn(floor: PveFloor, stat: 'hp' | 'attack' | 'defense' | 'speed'): number | undefined {
+  const finalWave = floor.waves.at(-1);
+  if (!finalWave) return undefined;
+  const values = finalWave.flatMap((enemy) => enemy[stat] === null ? [] : [enemy[stat]]);
+  return values.length === 0 ? undefined : Math.max(...values);
+}
+
 /** The highest stated Resistance on a floor, or none where its source is silent. */
 export function highestResistanceOn(floor: PveFloor): number | undefined {
   const resistances = floor.waves.flat().flatMap((enemy) => enemy.resistance === null ? [] : [enemy.resistance]);

@@ -629,7 +629,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             </Section>
             {/* Named for the Build for menu's area, since the area is what sets both figures. */}
             <Section title={area.heading} clip>
-              <AreaLines facts={area} />
+              <AreaLines facts={area} general={general} />
             </Section>
           </div>}
 

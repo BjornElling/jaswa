@@ -57,7 +57,8 @@ figure to rank by. Its leads are the chosen preset's leaders' and only Scenario'
 stated (none unless stated; §2.2.3). The profile only remembers these answers and hands
 them to this page as its starting point: the page shows every one — under the stat
 ranges, *Settings* (*Always crits*, *Always element advantage*), *Leads and bonuses* and
-the area's block — named for the area, with its *Accuracy goal* and *Fastest enemy* —
+the area's block — named for the area, with its *Accuracy goal*, *Fastest enemy* and any
+combat-stat thresholds for the selected monster (§2.2.5) —
 drawn by the same components as the profile
 (`fight-conditions.tsx`) — and any may be changed for one calculation without touching
 the profile. A preset's leads are read off its leaders here too, never typed. Whether a held Immemorial Gem or Grindstone may be spent is not the
@@ -228,6 +229,33 @@ account or preset changes, the bonus is derived again; an open result is reread 
 current bonus and marked stale if the question changed. Each candidate's own sets are
 counted from that candidate, never from the build being replaced. Shield grants a shield,
 not a stat bonus, and is outside this model.
+
+### 2.2.5 Combat-stat thresholds
+
+Rune Optimization adds verified stat breakpoints to the area block for the selected monster
+in Necropolis (Abyss Hard). A line shows that monster's portrait, the stat, and each
+breakpoint for it in order (`DEF 2,501/3,301` for Icaru); its tooltip names the effect at
+each value. Three lines keep their space whether or not the selected monster has a
+threshold, so changing monsters moves nothing beside the choice.
+
+Every value is a **combat stat**, in the form the optimizer judges after its modeled leads,
+team sets and buildings. Temporary battle buffs are not included. Enemy comparisons use
+the hardest floor's highest relevant combat stat, or its fastest combat speed; Agrius uses
+the final-wave boss because its passive only applies in boss battles. A strict comparison
+stays strict (`SPD >169`), rather than being rounded to a display-speed target. The shared
+PvE database supplies the enemy figures (`pve-stages.ts`); its hardest floor is the one that
+names this block.
+
+The audit read all 3,315 Skill 2–4 and passive records in the current Swarfarm skill catalogue.
+It includes exact Icaru DEF breakpoints, enemy-stat comparisons, and verified full-effect
+speed gaps (Agrius, Sonia, Leah, Rigna, Tirsa and Birgitta; [SWCalc's unit mechanics](https://swcalc.cz/game-mechanics)).
+It does not invent missing tier formulas: Asura's attack-count steps, Varuna's extra-hit
+steps, the attack-count tiers for Sukuna and Hayato, Ciri's full-ignore speed gap, and
+Eivor/Brita's Might thresholds remain unlisted until their exact breakpoints are verified.
+Continuous scaling without a confirmed full-effect breakpoint is shown only where the
+starting comparison is explicit in the skill text; the tooltip says that the effect scales
+with the combat-stat gap. Icaru's known values are 2,501 DEF for a two-ally team-up and
+3,301 DEF for the maximum three-ally team-up ([SWGT Icaru data](https://swgt.io/monsterSearch/?com2usID=11031)).
 
 ### 2.3 The figure to rank by
 

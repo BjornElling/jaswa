@@ -459,7 +459,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       : runeOptimizationWorkWarning(trial.work, plan.seconds * 1000);
   const workDetails = trial.work ? `After reduction: ${trial.work.slots.join(' × ')} choices by slot; ${trial.work.physicalRunes} physical runes, ${trial.work.variants} end states; ${trial.work.figures} judged figures, ${trial.work.ceilings} ceilings; up to ${trial.work.freeSlots} slots without a required set. Gems, Grindstones, stock limits and Intangible follow this calculation's settings.` : undefined;
   const display = selected ? monsterPresentation(selected.masterId) : undefined;
-  const area = areaFacts(preset, general);
+  const area = areaFacts(preset, general, selected?.masterId);
 
   return <WorkspacePage header={<OptimizationHeader />}>
     <div className="rune-optimization">
@@ -675,7 +675,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             </div>
             <div className="filter-group rune-optimization-area">
               <span className="filter-label" title={area.heading}>{area.heading}</span>
-              <AreaLines facts={area} />
+              <AreaLines facts={area} general={general} reserveThresholdRows />
             </div>
           </div>
         </div>

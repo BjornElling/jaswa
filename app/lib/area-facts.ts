@@ -3,9 +3,10 @@ import { formatNumber } from './formatting';
 import { monsterProfileAreaName } from './monster-profile-scope';
 import type { Preset } from './presets';
 import { fastestEnemyOn, hardestPveFloor, pveAreaOf } from './pve-stages';
+import { combatThresholdsForMonster, type CombatThreshold } from './rune-combat-thresholds';
 import type { GeneralSettings } from './types';
 
-export type AreaFacts = { heading: string; lines: { label: string; value: string }[] };
+export type AreaFacts = { heading: string; lines: { label: string; value: string }[]; thresholds: readonly CombatThreshold[] };
 
 /**
  * What the area sets against the team: the most Accuracy that still does
@@ -17,7 +18,7 @@ export type AreaFacts = { heading: string; lines: { label: string; value: string
  * covers say so rather than borrow another area's figure, and players' are
  * whatever their runes give.
  */
-export function areaFacts(preset: Pick<Preset, 'kind' | 'content'> | undefined, general: GeneralSettings): AreaFacts {
+export function areaFacts(preset: Pick<Preset, 'kind' | 'content'> | undefined, general: GeneralSettings, masterId?: string): AreaFacts {
   const areaName = monsterProfileAreaName(preset ?? { kind: 'scenario', content: null });
   const content = preset?.content ?? undefined;
   const scenario = !preset || preset.kind === 'scenario';
@@ -35,5 +36,9 @@ export function areaFacts(preset: Pick<Preset, 'kind' | 'content'> | undefined, 
   const fastestEnemy = floor === undefined ? undefined : fastestEnemyOn(floor);
   const fastest = scenario || (content && facesPlayers(content.id)) ? 'Variable'
     : fastestEnemy === undefined ? 'Unknown' : formatNumber(fastestEnemy, general);
-  return { heading, lines: [accuracy, { label: 'Fastest enemy (combat speed)', value: fastest }] };
+  return {
+    heading,
+    lines: [accuracy, { label: 'Fastest enemy (combat speed)', value: fastest }],
+    thresholds: combatThresholdsForMonster(masterId, floor),
+  };
 }

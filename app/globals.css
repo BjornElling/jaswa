@@ -5794,6 +5794,18 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    area moves neither. A label too long for the line ends in an ellipsis and is named
    whole on hover. */
 .overlay-accuracy { display: grid; grid-template-rows: repeat(2, 28px); gap: var(--s1); }
+.overlay-accuracy-thresholds { grid-template-rows: repeat(5, 28px); }
+.overlay-combat-threshold {
+  display: grid;
+  grid-template-columns: var(--glyph-small) minmax(0, 1fr) minmax(0, 17ch);
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+.overlay-combat-threshold .monster-portrait { width: var(--glyph-small); height: var(--glyph-small); }
+.overlay-combat-threshold-stat { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.overlay-combat-threshold-value { min-width: 0; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.overlay-combat-threshold-placeholder { visibility: hidden; }
 /* The area names the block, and a long one ends in an ellipsis rather than
    widening its third of the row. */
 .rune-optimization-area { min-width: 0; }
