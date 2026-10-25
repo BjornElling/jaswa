@@ -1,3 +1,4 @@
+import { filterIncludes } from '../lib/filter-selection';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, FilterButton } from './button';
@@ -387,10 +388,9 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
   /* Every filter narrows a ranking that was already calculated, so clicking one
      answers immediately rather than asking for the scores again. The order is
      never touched: the list stays the ranking, minus the rows filtered out. */
-  const visibleRows = rows.filter((row) => (!filters.locations.length
-    || filters.locations.includes(row.artifact.occupiedId === null ? 'inventory' : 'engraved'))
-    && (!filters.mainProperties.length || filters.mainProperties.includes(row.artifact.mainProperty))
-    && (!filters.grades.length || filters.grades.includes(row.artifact.grade))
+  const visibleRows = rows.filter((row) => filterIncludes(filters.locations, row.artifact.occupiedId === null ? 'inventory' : 'engraved', artifactLocations)
+    && filterIncludes(filters.mainProperties, row.artifact.mainProperty, artifactMainPropertyOrder)
+    && filterIncludes(filters.grades, row.artifact.grade, artifactGradeOrder)
     && (filters.includeIntangible || !row.artifact.intangible)
     && (!selectedSubPropertyId || row.artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId)));
   const categoryRows = (category: ArtifactCategory) => visibleRows
@@ -563,7 +563,7 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
       <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
         backend={currentCalculation.backend} general={general} />
       <div className="best-artifact-results">
-        {filters.categories.length ? categoryOrder.filter((category) => filters.categories.includes(category))
+        {categoryOrder.filter((category) => filterIncludes(filters.categories, category, categoryOrder))
           .map((category) => {
             const shown = categoryRows(category);
             return <section key={category} className="best-artifact-category"
@@ -583,8 +583,7 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
                   row={row} context={context} />)}</ol>
                 : <p className="best-artifact-empty">No artifact matches these filters in this category.</p>}
             </section>;
-          })
-          : <p className="best-artifact-empty">Both rankings are switched off. Turn Attribute or Type back on under Type above.</p>}
+          })}
       </div>
     </>}
   </div>;

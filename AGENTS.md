@@ -203,6 +203,16 @@ changes the page, and leaving a page closes what was opened over it.
 - `tests/overlay-in-place.spec.ts` clicks one opener of each kind on every rail
   page and fails if the page, the stored page or the browser's history moves.
 
+## 2.2 Inclusive filters share one rule
+
+No selected options means every option; selecting the whole group also means
+every option. Only a proper, non-empty subset narrows the results. Apply this
+to every inclusive filter group through `app/lib/filter-selection.ts`, including
+Location groups stored as separate booleans. Keep the user's actual selections
+as chosen; interpreting an empty group must not select its controls for them.
+Conditions such as *Hide if*, *Only show if*, thresholds and calculation modes
+retain their stated meaning. `docs/ACCOUNT-TABLES.md` owns the full contract.
+
 ## 3. Test both extremes of user input
 
 **Every feature that changes user-visible behaviour is verified with nothing

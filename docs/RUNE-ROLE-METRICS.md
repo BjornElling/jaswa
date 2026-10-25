@@ -110,36 +110,20 @@ are the one implementation; the Rune Optimization shader reads their constants
 by name. Every composite on screen and in every comparison is rounded down to a
 whole number (`figureOf`).
 
-## 5. Eff. % — SWOP-compatible rune efficiency
+## 5. Gems & Grinds craft score
 
-`Eff. %` belongs to **one rune**, not to a monster, and only Gems & Grinds reads
-it: it is that workspace's provisional, role-blind score
-(`provisionalRuneScore` in `app/lib/rune-craft-plan.ts`). It is the share of a
-standardised six-star +15 rune's stat budget the rune holds. The main property,
-the current sub properties with their Grindstone bonuses, and the innate count;
-the Gem marker does not change the value. Flat HP, ATK and DEF count at half
-their value.
+Gems & Grinds judges current sub properties and the innate against every allowed
+build of every role. The weights, main-stat matching and fixed neutral perfect-rune
+ceiling come from `prepareRuneCandidate` in `rune-cleanup-model.ts`. It credits no
+future power-up rolls and no further craft beyond the named item and optional
+follow-up Grindstone. The main property selects the ruler; it is not part of the
+scored budget. Accepted and broken readings take the same discounts as Clean-up.
 
-```text
-mainShare  = mainPropertyMaximum(stars, main) / mainPropertyMaximum(6, main)
-lineValue  = (baseOrGemValue + grindValue) × 0.5   // HP +, ATK +, DEF +
-           =  baseOrGemValue + grindValue           // every other stat
-lineShare  = lineValue / (5 × maximumRoll(stat, 6))
-Eff. %     = 100 × (mainShare + Σ lineShare over sub properties and innate) / 2.8
-```
-
-`5 × maximumRoll(stat, 6)` is a six-star line that took every upgrade:
-
-| Stat | Reference |
-| --- | ---: |
-| HP + | 1,875 |
-| HP %, ATK %, DEF %, Resistance, Accuracy | 40 % |
-| ATK +, DEF + | 100 |
-| SPD, CRI Rate | 30 |
-| CRI Dmg | 35 % |
-
-An Ancient rune (`class: 16`) reads as six stars, so its main share is that of a
-6★ rune. Values stay exact in the calculation.
+Score is the best current reading in percentage points of that fixed ruler,
+before and after separately. Gain is their difference, so a change of best role
+is counted. This is a current-line craft comparison, distinct from Clean-up's
+future Max value and expected-value verdict. `RUNE-CRAFT-ITEMS.md` section 5
+states the rankings and their resource scope.
 
 ## 6. Control against SWOP Pro
 

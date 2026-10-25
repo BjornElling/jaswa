@@ -1,3 +1,4 @@
+import { filterIncludes, filterPair } from '../lib/filter-selection';
 import { useMemo } from 'react';
 import { FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
@@ -300,13 +301,10 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
          — so a row hidden here is one the export really does show engraved, not
          one whose record merely mentions a relic the library rejected. */
       if (hideAlreadyEngraved && row.engraved.length) return false;
-      /* Storage and Inventory are the game's two places a monster can be, so
-         the pair is exhaustive: turning both off is a request for nothing. */
-      if (!showStorage && row.inStorage) return false;
-      if (!showInventory && !row.inStorage) return false;
+      if (!filterPair(row.inStorage, showStorage, showInventory)) return false;
       if (!showBelowMaxLevel && (row.level === null || row.level < maxMonsterLevel)) return false;
-      if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
-      if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
+      if (!filterIncludes(selectedElements, row.element, elementNameList)) return false;
+      if (!filterIncludes(selectedArchetypes, row.archetype, monsterFilterArchetypes)) return false;
       if (!term) return true;
       return searchedMasterIds?.has(row.masterId) || relicMonsterSearchText(row).includes(term);
     });

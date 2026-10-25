@@ -1,3 +1,4 @@
+import { filterIncludes, filterPair } from '../lib/filter-selection';
 import { type ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { FilterButton } from './button';
 import { PageHeader } from './page-chrome';
@@ -272,16 +273,15 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
     const term = search.trim().toLowerCase();
     const filtered = rows.filter((row) => {
       const engraved = row.places.length > 0;
-      if (!showEngraved && engraved) return false;
-      if (!showInventory && !engraved) return false;
+      if (!filterPair(engraved, showEngraved, showInventory)) return false;
       /* Include, not narrow-to: switched off, the wildcards leave the list;
          switched on, they sit among the rest and the class buttons still
          choose between elements and archetypes as before. */
       if (!includeIntangible && row.artifact.intangible) return false;
-      if (selectedCategories.length && !selectedCategories.includes(row.artifact.category)) return false;
-      if (selectedGrades.length && !selectedGrades.includes(row.artifact.grade)) return false;
-      if (selectedMainProperties.length && !selectedMainProperties.includes(row.artifact.mainProperty)) return false;
-      if (selectedClasses.length && !selectedClasses.includes(artifactEngraveClassLabel(row.artifact))) return false;
+      if (!filterIncludes(selectedCategories, row.artifact.category, categoryOrder)) return false;
+      if (!filterIncludes(selectedGrades, row.artifact.grade, artifactGradeOrder)) return false;
+      if (!filterIncludes(selectedMainProperties, row.artifact.mainProperty, artifactMainPropertyOrder)) return false;
+      if (!filterIncludes(selectedClasses, artifactEngraveClassLabel(row.artifact), artifactClassOptions)) return false;
       if (activeSortBySubProperty !== null
         && !row.subProperties.some((property) => property.definition.id === activeSortBySubProperty)) return false;
       if (!term) return true;

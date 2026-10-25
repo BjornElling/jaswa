@@ -12,7 +12,8 @@ import assert from 'node:assert/strict';
 import { assumedCraftHalf, heldCraftHalf, craftedLines, craftedScore, craftPlan, craftVariants, gemOptions, priceList }
   from '../app/lib/rune-craft-end-state.ts';
 import { craftValueRange } from '../app/lib/rune-craft-items.ts';
-import { craftCandidate, craftItemFit } from '../app/lib/rune-craft-plan.ts';
+import { craftItemApplications, craftItemFit } from '../app/lib/rune-craft-end-state.ts';
+const craftCandidate = (item, rune, options) => craftItemApplications(item, rune, options)[0] ?? null;
 
 const ATK_PERCENT = 4;
 const HP_PERCENT = 2;

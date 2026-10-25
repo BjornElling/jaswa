@@ -1,3 +1,4 @@
+import { filterIncludes, filterIncludesAny } from '../lib/filter-selection';
 import { useMemo } from 'react';
 import { FilterButton } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
@@ -440,10 +441,10 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
          stacks are no longer such a row: `sealedStackDefaults` gives them the
          Lv. 1 the game guarantees, so they filter like any other level. */
       if (row.level === null ? minimumLevel !== storageMinimumLevel || maximumLevel !== storageMaximumLevel : row.level < minimumLevel || row.level > maximumLevel) return false;
-      if (!row.locations.some((location) => selectedLocations.includes(location))) return false;
-      if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
-      if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
-      if (selectedGrades.length && (row.grade === null || !selectedGrades.includes(row.grade))) return false;
+      if (!filterIncludesAny(selectedLocations, row.locations, storageLocationOptions)) return false;
+      if (!filterIncludes(selectedElements, row.element, storageElementOptions)) return false;
+      if (!filterIncludes(selectedArchetypes, row.archetype, monsterFilterArchetypes)) return false;
+      if (!filterIncludes(selectedGrades, row.grade, storageGradeOptions)) return false;
       /* Level 40 is the target that consumes fodder, never the fodder itself;
          a fully skilled copy is finished and cannot be fodder either. The
          account-level selection index still uses level-40 copies as evidence

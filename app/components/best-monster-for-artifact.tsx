@@ -1,3 +1,4 @@
+import { filterIncludes } from '../lib/filter-selection';
 import { type ReactNode, useMemo, useState } from 'react';
 import { Button, FilterButton } from './button';
 import { CalculationStatus } from './calculation-status';
@@ -163,12 +164,12 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
     ? filters.subPropertyId : '';
   const artifactsByFilter = useMemo(() => artifacts.filter((artifact) => {
     const restriction = artifactEngraveClassLabel(artifact);
-    return (!filters.categories.length || filters.categories.includes(artifact.category))
-      && (!filters.restrictions.length || filters.restrictions.includes(restriction))
-      && (!filters.grades.length || filters.grades.includes(artifact.grade))
-      && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty))
+    return filterIncludes(filters.categories, artifact.category, categoryOrder)
+      && filterIncludes(filters.restrictions, restriction, restrictionOptions)
+      && filterIncludes(filters.grades, artifact.grade, artifactGradeOrder)
+      && filterIncludes(filters.mainProperties, artifact.mainProperty, artifactMainPropertyOrder)
       && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId))
-      && (!filters.locations.length || filters.locations.includes(artifact.occupiedId === null ? 'inventory' : 'engraved'));
+      && filterIncludes(filters.locations, artifact.occupiedId === null ? 'inventory' : 'engraved', artifactLocations);
   }).sort((left, right) => monsterNameCollator.compare(artifactSortKey(left), artifactSortKey(right))
     || monsterNameCollator.compare(left.id, right.id)), [artifacts, filters, selectedSubPropertyId]);
   const selectedArtifact = artifactsByFilter.find((artifact) => artifact.id === filters.selectedArtifactId);

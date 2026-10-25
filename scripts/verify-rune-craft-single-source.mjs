@@ -52,6 +52,7 @@ const guarded = [
      that half is a caller about to write the other half somewhere new. The whole
      rule — `gemOptions` and `craftedScore` — is what callers are given instead. */
   'gemCredit',
+  'canGemReplaceValue',
 ];
 
 function everyFile(directory) {

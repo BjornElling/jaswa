@@ -1,3 +1,4 @@
+import { filterIncludes, filterPair } from '../lib/filter-selection';
 import { lazy, Suspense, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { FilterButton } from './button';
@@ -168,12 +169,11 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
-      if (!showEngraved && row.engraved > 0) return false;
-      if (!showInventory && row.engraved === 0) return false;
-      if (selectedMains.length && !selectedMains.includes(row.relic.mainProperty)) return false;
-      if (selectedBands.length && !selectedBands.includes(row.synergy)) return false;
-      if (selectedVerdicts.length && !selectedVerdicts.includes(row.advice.verdict)) return false;
-      if (selectedDurability.length && !selectedDurability.includes(row.relic.durability)) return false;
+      if (!filterPair(row.engraved > 0, showEngraved, showInventory)) return false;
+      if (!filterIncludes(selectedMains, row.relic.mainProperty, relicMainPropertyOrder)) return false;
+      if (!filterIncludes(selectedBands, row.synergy, relicSynergyBandOrder)) return false;
+      if (!filterIncludes(selectedVerdicts, row.advice.verdict, relicVerdictOrder)) return false;
+      if (!filterIncludes(selectedDurability, row.relic.durability, durabilityOptions)) return false;
       if (row.relic.level < lowestLevel || row.relic.level > highestLevel) return false;
       if (!term) return true;
       return relicSearchText(row, format).includes(term);

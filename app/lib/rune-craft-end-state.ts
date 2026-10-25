@@ -42,7 +42,8 @@
 import { craftRollValue, craftValueRange, grindableStatIds } from './rune-craft-items';
 import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption, CraftValueRange } from './rune-craft-items';
 import { allStatIds } from './rune-properties';
-import { runeSpeedStatId, slotAllowsSubStat } from './runes';
+import { gemMinimumLevel, runeSpeedStatId, slotAllowsSubStat } from './runes';
+import type { Rune, RuneSubProperty } from './runes';
 import type { ItemGrade } from './types';
 import type { Valuation } from './rune-substat-weights';
 
@@ -493,6 +494,14 @@ export type CraftVariant = {
   readonly stock: readonly number[];
 };
 
+function legalGemTarget(slot: number, mainStatId: number, prefixStatId: number | null,
+  lines: readonly EndStateLine[], at: number, statId: number): boolean {
+  const converted = lines.findIndex((line) => line.gemmed);
+  return (converted === -1 || at === converted) && statId !== mainStatId && statId !== prefixStatId
+    && slotAllowsSubStat(slot, statId)
+    && lines.every((line, other) => other === at || line.statId !== statId);
+}
+
 /**
  * **Every end state of a finished line-up worth handing to the search.**
  *
@@ -552,8 +561,7 @@ export function craftVariants(
       /* Speed stays on the rune unless the owner explicitly allows a Gem to replace it. */
       if (!allowGemSpeedRemoval && line.statId === runeSpeedStatId && statId !== runeSpeedStatId) continue;
       if (!wanted(statId) && !keepLower(line.statId)) continue;
-      if (statId === mainStatId || statId === prefixStatId || !slotAllowsSubStat(slot, statId)) continue;
-      if (lines.some((other, index) => index !== at && other.statId === statId)) continue;
+      if (!legalGemTarget(slot, mainStatId, prefixStatId, lines, at, statId)) continue;
       for (const choice of gem.choices[statId]) {
         const roll = choice.value;
         if (!canGemReplaceValue(line, statId, roll)) continue;
@@ -567,4 +575,128 @@ export function craftVariants(
     }
   }
   return variants;
+}
+
+export type CraftApplication = {
+  target: CraftTarget;
+  result: RuneSubProperty;
+  lines: readonly EndStateLine[];
+};
+
+/** One held item, every legal target. Follow-up stones touch only its gemmed line. */
+export function craftItemApplications(item: CraftItem, rune: Rune, options: {
+  roll: CraftRollAssumption; grindAfter: { grade: ItemGrade } | null;
+}): CraftApplication[] {
+  if (!lineageFits(item, rune) || item.amount <= 0) return [];
+  const held = heldCraftHalf(item.kind, [{ item, stock: 0 }], options.roll);
+  const variants = craftVariants({
+    gem: item.kind === 'gem' ? held : null,
+    grind: item.kind === 'grindstone' ? held : null,
+  }, rune.slot, rune.mainStatId, rune.prefixStatId, rune.subProperties,
+  rune.level >= gemMinimumLevel, () => true, true);
+  return variants.filter((variant) => variant.stock.includes(0)).map((variant) => {
+    const index = item.kind === 'gem' ? variant.gemmedAt
+      : variant.lines.findIndex((line, at) => line.grind !== rune.subProperties[at].grind);
+    let lines = variant.lines;
+    if (item.kind === 'gem' && options.grindAfter) {
+      const grind = assumedCraftHalf('grindstone', item.lineage, options.grindAfter.grade, options.roll);
+      lines = craftVariants({ gem: null, grind }, rune.slot, rune.mainStatId, rune.prefixStatId,
+        lines, false, (statId) => statId === item.statId, true)[0].lines;
+    }
+    return { target: { index, property: rune.subProperties[index] }, result: lines[index], lines };
+  });
+}
+
+/**
+ * Why an item cannot be spent on a rune, ordered by how close the rune came.
+ *
+ * The order is the point. An item that fits nothing is told about once, in one
+ * line, and that line should name the last thing that stopped it rather than
+ * the first — "no Violent rune has SPD left to grind" is a fact the user can
+ * act on, where "no Violent rune" would be simply false.
+ */
+export const craftBlockOrder = ['set', 'level', 'slot', 'duplicate', 'stat', 'target', 'potential'] as const;
+export type CraftBlock = typeof craftBlockOrder[number];
+
+/** One legal way to spend an item on a rune: which sub property it lands on. */
+export type CraftTarget = {
+  /** Index into the rune's own `subProperties`. */
+  index: number;
+  property: RuneSubProperty;
+};
+
+export type CraftFit =
+  | { fits: true; targets: CraftTarget[] }
+  | { fits: false; block: CraftBlock };
+
+/**
+ * Whether the item's lineage lets it touch this rune at all (§8, *Which runes an
+ * item may go on*).
+ *
+ * Ancient runes and ordinary runes each take their own items, and §8 is
+ * explicit that an ordinary gem is not a permitted fallback on an Ancient rune.
+ * Intangible needs no clause of its own: it is a set like any other here, so an
+ * Intangible item matches it by set and an Immemorial one by belonging to none,
+ * which is exactly the pair §8 allows it.
+ */
+export function lineageFits(item: CraftItem, rune: Pick<Rune, 'ancient' | 'setId'>): boolean {
+  /* Immemorial is the only item that belongs to no set, and the only one whose
+     match is the lineage alone. An Ancient item still names a set in its own
+     id, so Ancient is a second condition on top of the set — not a replacement
+     for it. Read as a replacement, an Ancient Violent gem offered itself to
+     every Ancient rune in the account.
+
+     An Immemorial item is refused on an Ancient rune. No published source states
+     it, but the user confirmed it in play (October 2026): an Ancient rune takes
+     Ancient items and nothing else, Immemorial included. */
+  if (item.lineage === 'immemorial') return !rune.ancient;
+  if (rune.ancient !== (item.lineage === 'ancient')) return false;
+  return item.setId === rune.setId;
+}
+
+/**
+ * Every way one item can potentially improve one rune, or the reason there is none.
+ *
+ * A gem replaces one existing sub property, so its target is any sub property
+ * whose *other* three do not already carry the gem's stat — which means a rune
+ * that already has the stat has exactly one legal target: that property itself,
+ * re-rolled, keeping its grindstone. It is a potential improvement only when
+ * the Gem's best roll beats the current base value. A different stat remains a
+ * possible improvement for a role that wants that stat. A rune already carrying
+ * a converted line offers that line alone. A grindstone instead adds to a
+ * property of its own stat, and may only be spent where its ceiling can beat
+ * the bonus already sitting there.
+ */
+export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
+  if (!lineageFits(item, rune)) return { fits: false, block: 'set' };
+  const maximum = craftItemRoll(item.kind, item.lineage, item.statId, item.grade, 'maximum');
+  if (maximum === null) return { fits: false, block: 'target' };
+
+  if (item.kind === 'grindstone') {
+    const matching = rune.subProperties
+      .map((property, index) => ({ index, property }))
+      .filter(({ property }) => property.statId === item.statId);
+    if (!matching.length) return { fits: false, block: 'stat' };
+    /* §8: a second grindstone is only allowed where it could beat the bonus
+       already applied. The shared craft rule supplies the verified ordinary
+       or Ancient ceiling for that exact item. */
+    const targets = matching.filter(({ property }) => property.grind < maximum);
+    return targets.length ? { fits: true, targets } : { fits: false, block: 'target' };
+  }
+
+  if (rune.level < gemMinimumLevel) return { fits: false, block: 'level' };
+  if (!slotAllowsSubStat(rune.slot, item.statId)) return { fits: false, block: 'slot' };
+  if (item.statId === rune.mainStatId || item.statId === rune.prefixStatId) {
+    return { fits: false, block: 'duplicate' };
+  }
+  if (!rune.subProperties.length) return { fits: false, block: 'target' };
+
+  /* §8: one converted line at a time, so a rune that already carries one offers
+     only that line to a further Gem. */
+  const eligible = rune.subProperties
+    .map((property, index) => ({ index, property }))
+    .filter(({ index }) => legalGemTarget(rune.slot, rune.mainStatId, rune.prefixStatId, rune.subProperties, index, item.statId));
+  const targets = eligible.filter(({ property }) => canGemReplaceValue(property, item.statId, maximum));
+  if (!targets.length && eligible.length) return { fits: false, block: 'potential' };
+  return targets.length ? { fits: true, targets } : { fits: false, block: 'duplicate' };
 }

@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { filterIncludes, filterPair } from '../lib/filter-selection';
+import { useMemo, useSyncExternalStore } from 'react';
 import { AncientName } from './ancient-mark';
 import { FilterButton } from './button';
 import { CraftItemBestUse } from './craft-item-best-use';
+import { craftResultMemory } from '../lib/compute/craft-result-memory';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { Dropdown } from './dropdown';
 import { FilterSummary } from './filter-summary';
@@ -125,6 +127,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
   preferences: Preferences;
   onOpenRune: OpenRuneOverlay;
 }) {
+  const craftCalculation = useSyncExternalStore(craftResultMemory.subscribe, craftResultMemory.getSnapshot, craftResultMemory.getSnapshot);
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.craft-items', defaultCraftFilters, isCraftFilterState,
   );
@@ -173,11 +176,11 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
     const chosenStat = statId === '' ? null : Number(statId);
     return rows.filter((row) => {
       const usable = row.reach.improves > 0;
-      if ((showUsable || showDead) && !(usable ? showUsable : showDead)) return false;
+      if (!filterPair(usable, showUsable, showDead)) return false;
       if (minimumQuantityEnabled && row.item.amount < minimumQuantity) return false;
-      if (kinds.length && !kinds.includes(row.item.kind)) return false;
-      if (lineages.length && !lineages.includes(row.item.lineage)) return false;
-      if (grades.length && !grades.includes(row.item.grade)) return false;
+      if (!filterIncludes(kinds, row.item.kind, craftKinds)) return false;
+      if (!filterIncludes(lineages, row.item.lineage, craftLineages)) return false;
+      if (!filterIncludes(grades, row.item.grade, itemGrades)) return false;
       if (chosenStat !== null && row.item.statId !== chosenStat) return false;
       if (set === anySetValue && row.item.setName !== null) return false;
       if (set !== '' && set !== anySetValue && row.item.setName !== set) return false;
@@ -219,7 +222,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
   return <WorkspacePage
     header={<PageHeader
       title="Gems &amp; Grinds"
-      tagline="You have a box full of upgrades and a shortage of patience. One of those is fixable." />}
+      tagline="" />}
   >
     <Disclosure title="Your box" sessionKey="gems.box" defaultOpen>
       {!items.length ? noItems : <div className="craft-library">
@@ -289,9 +292,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
               </div>
             </div>
 
-            {/* The pair is exhaustive — an item either has somewhere to go or it
-                has not — so turning both off is a request for nothing, exactly
-                as Inventory and Storage are on the roster. */}
+            {/* Fit is an inclusive pair, like Location: neither or both means all. */}
             <div className="filter-group craft-filter-fit" role="group" aria-label="Choose which items to include">
               <span className="filter-label">Fit</span>
               <div className="filter-group-controls">
@@ -373,7 +374,27 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
         profiles={preferences.monsterPreferences}
         roles={roles}
         general={preferences.general}
+        settings={preferences.runePotential}
+        hardwareAcceleration={preferences.hardwareAcceleration}
         onOpenRune={onOpenRune}
+        calculation={craftCalculation}
+        onCalculated={craftResultMemory.remember}
+      />}
+    </Disclosure>
+    <Disclosure title="Recommendations" sessionKey="gems.recommendations" deferContent>
+      {!items.length ? noItems : <CraftItemBestUse
+        recommendations
+        items={items}
+        runes={runes}
+        monsters={monsters}
+        profiles={preferences.monsterPreferences}
+        roles={roles}
+        general={preferences.general}
+        settings={preferences.runePotential}
+        hardwareAcceleration={preferences.hardwareAcceleration}
+        onOpenRune={onOpenRune}
+        calculation={craftCalculation}
+        onCalculated={craftResultMemory.remember}
       />}
     </Disclosure>
   </WorkspacePage>;

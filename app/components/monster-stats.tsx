@@ -1,3 +1,4 @@
+import { filterIncludes, filterPair } from '../lib/filter-selection';
 import { type ReactNode, useMemo } from 'react';
 import { FilterButton } from './button';
 import { PageHeader } from './page-chrome';
@@ -314,14 +315,11 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return rows.filter((row) => {
-      /* Storage and Inventory are the game's two places a monster can be, so
-         the pair is exhaustive: turning both off is a request for nothing. */
-      if (!showStorage && row.inStorage) return false;
-      if (!showInventory && !row.inStorage) return false;
+      if (!filterPair(row.inStorage, showStorage, showInventory)) return false;
       if (!showBelowMaxLevel && (row.level === null || row.level < maxMonsterLevel)) return false;
       if (!showRainbowmons && isRainbowmon(row.masterId)) return false;
-      if (selectedElements.length && (!row.element || !selectedElements.includes(row.element))) return false;
-      if (selectedArchetypes.length && (!row.archetype || !selectedArchetypes.includes(row.archetype))) return false;
+      if (!filterIncludes(selectedElements, row.element, monsterElementOptions)) return false;
+      if (!filterIncludes(selectedArchetypes, row.archetype, monsterFilterArchetypes)) return false;
       if (searchedMasterIds === undefined) return true;
       return searchedMasterIds.has(row.masterId)
         || row.sets.some((set) => set.name.toLowerCase().includes(term));

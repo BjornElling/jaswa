@@ -29,10 +29,9 @@ import {
   figuresInto, intangibleCompletion, intangibleSetId, setIdBound,
   statSetBonuses, targetFigureCount, targetFigureKeys, totalCount, totalsInto,
 } from './monster-stats';
-import { assumedCraftHalf, craftVariants, heldCraftHalf } from './rune-craft-end-state';
+import { assumedCraftHalf, craftVariants, heldCraftHalf, lineageFits } from './rune-craft-end-state';
 import type { CraftHalf, CraftSupply, EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
-import { lineageFits } from './rune-craft-plan';
 import type { RuneLock } from './rune-locks';
 import { runeOptimizationDepthPlans } from './rune-optimization-settings';
 import { craftAllocationKey, craftRecipeKey, prepareCraftAllocation } from './rune-optimization-craft-allocation';

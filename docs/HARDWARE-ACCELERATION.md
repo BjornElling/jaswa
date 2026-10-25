@@ -117,6 +117,7 @@ gates on a real card; the same harness would run them.
 | Rune Clean-up odds (`compute/rune-chance-*`) | Worker; card or processor |
 | Rune Simulator experiment | Worker; processor, with each checkpoint's Clean-up odds on the card when allowed |
 | Rune Optimization search (`compute/rune-optimization-*`) | Up to eight workers; the tree on the processor, the tail's pairs on the card or processor (`RUNE-OPTIMIZATION.md` §7) |
+| Gems & Grinds Best use and Recommendations | Dedicated worker; legal craft states on the processor, current-line role score matrix on the card or processor (`RUNE-CRAFT-ITEMS.md` §5) |
 | Everything else | The processor |
 
 Only work shaped for a card moves: the same short arithmetic many times, with no lane
@@ -142,9 +143,11 @@ because that needs the whole reading and not its number.
 | `verify:rune-chance-layout` | Every offset the rune chance shader reads is one the layout declares, and no record overruns its stride |
 | `verify:rune-optimization-layout` | Every offset the optimization shader reads is one the layout declares, its accumulators and figures are the stat sheet's own, and its formula constants equal the processor's with no literal copy left in the shader |
 | `verify:rune-optimization-card` | The optimization shader, run on this machine's card: its agreement gate passes and its searches are the processor's, pick for pick |
+| `verify:craft-recommendations` | Craft rankings agree with exhaustive role readings; packing and WGSL use the shared score layout |
+| `verify:craft-recommendations-card` | The craft score shader's agreement gate and exact ranking parity, run on this machine's card |
 
-The first four read source text. The last executes a shader, and needs a card and the
-dev server to do it.
+The layout and routing checks read source text. The checks ending in `-card`
+execute a shader and need a card and the dev server to do it.
 
 ## 7. Change procedure
 

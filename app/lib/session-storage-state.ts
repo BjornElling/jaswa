@@ -1,14 +1,15 @@
 import { type Dispatch, type SetStateAction, useMemo, useSyncExternalStore } from 'react';
 
-type SessionValueValidator<T> = (value: unknown) => value is T;
+type SessionValueReader<T> = ((value: unknown) => value is T) | { read: (value: unknown) => T };
 
-function readSessionValue<T>(key: string, validate: SessionValueValidator<T>): T | null {
+function readSessionValue<T>(key: string, reader: SessionValueReader<T>): T | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.sessionStorage.getItem(key);
     if (raw === null) return null;
     const value: unknown = JSON.parse(raw);
-    return validate(value) ? value : null;
+    if (typeof reader !== 'function') return reader.read(value);
+    return reader(value) ? value : null;
   } catch {
     return null;
   }
@@ -34,7 +35,7 @@ type SessionStore<T> = {
 function createSessionStore<T>(
   key: string,
   initialValue: T,
-  validate: SessionValueValidator<T>,
+  reader: SessionValueReader<T>,
 ): SessionStore<T> {
   let value = initialValue;
   let loaded = false;
@@ -43,7 +44,7 @@ function createSessionStore<T>(
   function load() {
     if (loaded) return;
     loaded = true;
-    const stored = readSessionValue(key, validate);
+    const stored = readSessionValue(key, reader);
     if (stored !== null) value = stored;
   }
 
@@ -70,15 +71,16 @@ function createSessionStore<T>(
 
 /**
  * Session state starts with its server-safe default, then adopts a validated
- * value from this tab during hydration. Updates write immediately so leaving a
- * page cannot race the persistence of the latest choice.
+ * value from this tab during hydration. Independent choices can supply a
+ * `readSettings` reader so one invalid field cannot reset its neighbours. Updates
+ * write immediately so leaving a page cannot race the persistence of the latest choice.
  */
 export function useSessionStorageState<T>(
   key: string,
   initialValue: T,
-  validate: SessionValueValidator<T>,
+  reader: SessionValueReader<T>,
 ): [T, Dispatch<SetStateAction<T>>] {
-  const store = useMemo(() => createSessionStore(key, initialValue, validate), [key, initialValue, validate]);
+  const store = useMemo(() => createSessionStore(key, initialValue, reader), [key, initialValue, reader]);
   const value = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   return [value, store.setState];
 }

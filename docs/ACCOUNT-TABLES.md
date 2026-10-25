@@ -16,6 +16,30 @@ stability in `AGENTS.md` §2.
 
 ---
 
+## 0. Inclusive filter selections
+
+`app/lib/filter-selection.ts` states the rule for every inclusive filter group:
+no selected options and all offered options selected both mean **all**. Only a
+proper, non-empty subset narrows the rows. Multiple selections in one group
+are alternatives; different groups combine. A record carrying several locations
+matches when one of those locations matches the chosen subset.
+
+This applies to Location, Element, Type, Grade, Set, Slot, Rarity, Durability,
+Advice and their equivalents across Monsters, Runes, Artifacts, Relics and
+Gems & Grinds. The booleans used by a two-option Location group obey exactly
+the same rule. Selecting the entire offered vocabulary is unrestricted even
+where a record has an unstated field or a category the short filter row omits.
+The user's controls keep their actual pressed/checked state; no interpretation
+rewrites saved choices or resets other filters.
+
+Conditions such as *Hide if*, *Only show if*, *Have ≥*, *Include Intangible*,
+*Ancient*, and *Lvl. < 40* retain their existing predicate semantics. Search,
+numeric ranges, calculation modes and role requirements also retain their own
+meaning. The developer confirmed this boundary on October 25, 2026.
+
+`verify:filter-selection` holds the shared truth tables and its use in each
+workspace; `tests/filter-selection.spec.ts` drives the visible groups.
+
 ## 1. Every table sorts on every column
 
 Any table sorts by any of its columns, ascending and descending — names,

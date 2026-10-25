@@ -1,3 +1,4 @@
+import { filterIncludes } from '../lib/filter-selection';
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
@@ -397,22 +398,23 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   );
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
+    const sets = setOptions.map((option) => option.value);
+    const mains = mainOptions.map((option) => option.value);
     return rows.filter((row) => {
-      if (selectedPlaces.length === 1
-        && selectedPlaces[0] !== (row.location === 'Engraved' ? 'engraved' : 'inventory')) return false;
+      if (!filterIncludes(selectedPlaces, row.location === 'Engraved' ? 'engraved' : 'inventory', placeOptions)) return false;
       if (showOnlyAncient && !row.rune.ancient) return false;
-      if (selectedSets.length && !selectedSets.includes(row.rune.setName)) return false;
-      if (selectedSlots.length && !selectedSlots.includes(row.rune.slot)) return false;
-      if (selectedStars.length && !selectedStars.includes(row.rune.stars)) return false;
-      if (selectedRarities.length && !selectedRarities.includes(row.rune.rarity)) return false;
-      if (selectedVerdicts.length && !selectedVerdicts.includes(adviceFilterOf(filteredRuneVerdict(shownRuneVerdict(row))))) return false;
-      if (selectedMains.length && !selectedMains.includes(row.rune.mainStatId)) return false;
+      if (!filterIncludes(selectedSets, row.rune.setName, sets)) return false;
+      if (!filterIncludes(selectedSlots, row.rune.slot, slotOptions)) return false;
+      if (!filterIncludes(selectedStars, row.rune.stars, starOptions)) return false;
+      if (!filterIncludes(selectedRarities, row.rune.rarity, rarityOptions)) return false;
+      if (!filterIncludes(selectedVerdicts, adviceFilterOf(filteredRuneVerdict(shownRuneVerdict(row))), adviceFilterOptions)) return false;
+      if (!filterIncludes(selectedMains, row.rune.mainStatId, mains)) return false;
       if (row.rune.level < lowestLevel || row.rune.level > highestLevel) return false;
       if (!term) return true;
       return runeCleanupSearchText(row).includes(term);
     });
   }, [rows, search, selectedSets, selectedSlots, selectedStars, selectedRarities, selectedVerdicts,
-    selectedMains, lowestLevel, highestLevel, selectedPlaces, showOnlyAncient]);
+    selectedMains, lowestLevel, highestLevel, selectedPlaces, showOnlyAncient, setOptions, mainOptions]);
 
   const { sorted, sort, toggle: toggleColumn, setSort } = useSortedRows(
     visible, columns, snapshot?.sort ?? (gameSort === null

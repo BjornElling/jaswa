@@ -304,9 +304,9 @@ label[for] {
 .artifact-conversion-title, .artifact-scope-box h3, .artifact-scope-subheading,
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
-.best-monster-artifact-details h3, .craft-best-use-item h3, .empty-state h2,
+.best-monster-artifact-details h3, .empty-state h2,
 .field-lead > span, .overlay-block-title, .speed-basis-title,
-.overlay-facts dd, .rune-build-centre-name,
+.overlay-facts dd, .rune-build-centre-name, .craft-rune-identity > .rune-link, .craft-recommendation-title,
 .rune-optimization-monster-select .jaswa-select, .jaswa-select.monster-priority-select,
 .jaswa-select.rune-optimization-preset-select, .jaswa-select.preset-team-button,
 .jaswa-select.monster-overlay-preset-select {
@@ -338,8 +338,7 @@ label[for] {
 .grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
 .best-artifact-entry-name, .best-artifact-fact dd,
 .best-artifact-improvements, .best-artifact-current-slot .artifact-subs li,
-.best-artifact-entry .artifact-subs li, .craft-best-use-facts dt,
-.craft-best-use-facts dd, .craft-rune-detail, .math-copy > p,
+.best-artifact-entry .artifact-subs li, .math-copy > p,
 .math-example p, .math-table, .rune-simulator-stats-table td,
 .rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th,
 .rune-overlay-innate, .rune-overlay-subs, .rune-overlay-evaluation-facts,
@@ -377,7 +376,8 @@ label[for] {
 
 /* Labels name a group or column; captions name a nearby value. They share the
    one label size so only weight and casing distinguish the two. */
-.type-label, .rail-heading, .filter-label, .eyebrow, .route-option,
+.type-label, .rail-heading, .craft-recommendation-lines th,
+.filter-label, .eyebrow, .route-option,
 .grid-table thead th, .best-artifact-improvements-title,
 .best-artifact-result th, .best-monster-table th,
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
@@ -1323,89 +1323,60 @@ label[for] {
 .craft-quantity-filter .checkbox-row { flex: 0 0 auto; }
 .craft-quantity-filter .range-slider { flex: 1 1 auto; width: auto; min-width: 0; margin-top: var(--s1); }
 
-/* Two lines in one cell, as the relic tables read: what the thing is, then the
-   quieter detail that identifies which one. */
-.craft-rune-name { display: block; }
-.craft-rune-detail {
-  display: block;
-  color: var(--text-muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-/* One panel, four regular columns. Every group states one question and the
-   chooser takes a row of its own in the middle, because everything above it
-   narrows the chooser and everything below it shapes the answer. Layout only;
-   every shared measurement comes from .filter-panel. */
+/* The follow-up grind keeps its track when hidden, so changing item kind moves nothing. */
 .craft-best-use { display: grid; gap: var(--s4); }
-.craft-best-use > .lead { margin: 0; }
 .craft-best-use-filters {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-areas:
-    "kind  family grade stat    "
-    "item  item   item  item    "
-    "role  roll   grind location"
-    "count count  .     actions ";
+    "kind family grade location"
+    "item count set stat"
+    "already . . actions";
 }
 .craft-best-use-kind { grid-area: kind; }
 .craft-best-use-lineage { grid-area: family; }
 .craft-best-use-grade { grid-area: grade; }
 .craft-best-use-stat { grid-area: stat; }
 .craft-best-use-select { grid-area: item; }
-.craft-best-use-role { grid-area: role; }
+.craft-best-use-set { grid-area: set; }
 .craft-best-use-roll { grid-area: roll; }
 .craft-best-use-grind { grid-area: grind; }
 .craft-best-use-location { grid-area: location; }
 .craft-best-use-count { grid-area: count; }
+.craft-best-use-already { grid-area: already; }
 .craft-best-use-actions { grid-area: actions; justify-self: end; }
-.craft-best-use-select .filter-group-controls,
-.craft-best-use-role .filter-group-controls,
-.craft-best-use-roll .filter-group-controls,
-.craft-best-use-stat .filter-group-controls,
-.craft-best-use-count .filter-group-controls { width: 100%; }
-/* The follow-up grindstone is one question in two controls: the toggle keeps
-   its own measure and the grade select takes whatever is left, so neither is
-   cut to half a track it does not need. */
-.craft-best-use-grind .filter-group-controls { width: 100%; }
+.craft-best-use-filters .filter-group-controls { width: 100%; }
 .craft-best-use-grind .jaswa-select { min-width: 0; }
-
-.craft-best-use-item {
-  display: grid;
-  grid-template-columns: minmax(22ch, .8fr) minmax(0, 1.2fr);
-  gap: var(--s5);
-  padding: var(--s4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--sunk);
+.craft-calculation-settings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-areas: "roll grind . ."; gap: var(--s4); }
+.craft-calculation-settings .filter-group-controls { width: 100%; }
+.craft-calculation-actions { display: flex; gap: var(--s3); align-items: center; }
+.craft-calculation-status { min-height: var(--s6); }
+.craft-calculation-status p { margin: 0; }
+.craft-best-use-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); align-items: start; }
+.craft-best-use-results[data-kind="gem"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.craft-ranking, .craft-stat-rankings { display: grid; gap: var(--s4); min-width: 0; }
+.craft-ranking > h3, .craft-ranking > p { margin: 0; }
+.craft-recommendation { display: grid; gap: var(--s4); padding: var(--s4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunk); min-width: 0; }
+.craft-recommendation-title { margin: 0; color: var(--text-strong); overflow-wrap: anywhere; }
+.craft-rune-header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s3); align-items: center; }
+.craft-rune-identity { display: grid; gap: var(--s2); min-width: 0; }
+.craft-rune-identity > .rune-link { justify-self: start; color: var(--text-strong); }
+.craft-rune-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); margin: 0; }
+.craft-rune-facts dt, .craft-evaluation dt, .craft-rune-location dt { color: var(--text-muted); }
+.craft-rune-facts dd, .craft-evaluation dd, .craft-rune-location dd { margin: 0; color: var(--text-strong); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.craft-rune-location { display: grid; grid-template-columns: 8ch minmax(0, 1fr); align-items: baseline; gap: var(--s3); margin: 0; }
+.craft-rune-properties { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s1) 0; color: var(--text-strong); }
+.craft-rune-main { grid-column: 1 / -1; }
+.craft-rune-innate { min-height: 1lh; color: var(--text-muted); }
+.craft-after-label { align-self: baseline; color: var(--text-muted); }
+.craft-recommendation-lines { grid-column: 1 / -1; width: 100%; table-layout: fixed; border-collapse: collapse; }
+.craft-recommendation-lines th { height: var(--s4); padding: 0; text-align: left; color: var(--text-muted); }
+.craft-recommendation-lines td { height: var(--s5); padding: 0; vertical-align: middle; }
+.craft-recommendation-lines .rune-sub { margin-right: 0; }
+.craft-evaluation { display: grid; gap: var(--s2); margin: 0; padding-top: var(--s3); border-top: 1px solid var(--line); }
+.craft-evaluation > div { display: grid; grid-template-columns: 8ch minmax(0, 1fr); gap: var(--s3); align-items: baseline; }
+@media (max-width: 1000px) {
+  .craft-best-use-results, .craft-best-use-results[data-kind="gem"] { grid-template-columns: minmax(0, 1fr); }
 }
-.craft-best-use-item p, .craft-best-use-item h3 { margin: 0; }
-.craft-best-use-item h3 { margin-top: var(--s1); }
-.craft-best-use-item h3 + p { margin-top: var(--s2); color: var(--text); }
-.craft-best-use-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2) var(--s5); margin: 0; }
-.craft-best-use-facts > div { display: grid; grid-template-columns: 12ch minmax(0, 1fr); gap: var(--s3); }
-.craft-best-use-facts dt, .craft-best-use-facts dd { margin: 0; }
-.craft-best-use-facts dt { color: var(--text); }
-.craft-best-use-facts dd { color: var(--text-strong); font-variant-numeric: tabular-nums; }
-
-.craft-best-use-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
-/* Six columns, so the four-column widths the shared result card declares are
-   restated here rather than letting the last two fall past the edge. */
-.best-artifact-result .craft-best-use-table th:nth-child(1) { width: 24%; }
-.best-artifact-result .craft-best-use-table th:nth-child(2) { width: 18%; }
-.best-artifact-result .craft-best-use-table th:nth-child(3) { width: 20%; }
-.best-artifact-result .craft-best-use-table th:nth-child(4),
-.best-artifact-result .craft-best-use-table th:nth-child(5),
-.best-artifact-result .craft-best-use-table th:nth-child(6) { width: 12.666%; }
-/* The card gives every `span` in a cell the second line's offset. The first
-   line of a two-line cell is not a second line, so it takes it back. */
-.best-artifact-result .craft-best-use-table td .craft-rune-name {
-  margin-top: 0;
-  color: var(--text-strong);
-}
-.best-artifact-result .craft-best-use-table td .craft-rune-detail { color: var(--text-muted); }
-/* What the rune is worth today sits in the same box as what it would be worth,
-   so the three figures share one baseline — it is the two-tone pair, not a
-   second size or weight, that says which of them is the conclusion. */
-.craft-best-use-table td b.craft-score-quiet { color: var(--text); font-weight: 400; }
 
 .grid-table thead th:first-child,
 .grid-table tbody td:first-child { padding-left: var(--gutter); }
@@ -2692,11 +2663,13 @@ label[for] {
 .rune-build-card-ancient[data-ancient='false'] { visibility: hidden; }
 /* The overlay's emblem at three fifths, every layer by the same factor, so the
    slots keep the proportions they have in the game's circle. */
-.rune-build-card .rune-emblem { width: 64px; height: 64px; }
-.rune-build-card .rune-emblem-frame { width: 54px; }
+.rune-build-card .rune-emblem, .craft-recommendation .rune-emblem { width: 64px; height: 64px; }
+.rune-build-card .rune-emblem-frame, .craft-recommendation .rune-emblem-frame { width: 54px; }
 .rune-build-card .rune-emblem[data-slot="1"] .rune-emblem-frame,
-.rune-build-card .rune-emblem[data-slot="4"] .rune-emblem-frame { width: 46px; }
-.rune-build-card .rune-emblem-glyph { width: 34px; }
+.rune-build-card .rune-emblem[data-slot="4"] .rune-emblem-frame,
+.craft-recommendation .rune-emblem[data-slot="1"] .rune-emblem-frame,
+.craft-recommendation .rune-emblem[data-slot="4"] .rune-emblem-frame { width: 46px; }
+.rune-build-card .rune-emblem-glyph, .craft-recommendation .rune-emblem-glyph { width: 34px; }
 .rune-build-card-identity { min-width: 0; display: grid; gap: var(--s1); }
 .rune-build-card-identity .rune-link { justify-self: start; color: var(--text-strong); }
 .rune-build-card-grade { color: var(--text-muted); }
@@ -6545,7 +6518,10 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-sub .rune-sub-marks:empty { display: none; }
 .rune-sub-gem.artifact-sub-mark { margin-left: 0; }
 .rune-sub-gem,
+.rune-sub-ground-figure,
 [data-ground='true'] .rune-sub-value { color: var(--rune-ground); }
+.rune-sub-grind-step { display: inline-flex; gap: var(--s1); align-items: baseline; }
+.rune-sub-ground-figure { font-variant-numeric: tabular-nums; }
 .rune-innate { margin-right: 0; }
 
 .rune-verdict { display: block; }

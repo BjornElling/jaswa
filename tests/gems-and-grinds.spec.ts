@@ -10,6 +10,278 @@ import { fileURLToPath } from 'node:url';
  */
 const craftAccount = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
+test('craft controls reserve their boxes and calculate three grind rankings', async ({ page }, testInfo) => {
+  await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importCraftAccount(page);
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  const panel = page.locator('.craft-best-use');
+  const filters = panel.locator('.craft-best-use-filters');
+  const bounds = await filters.boundingBox();
+  const boxes = () => panel.locator('.filter-group').evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect(); return { x, y, width, height };
+  }));
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('craft-controls-before.png'), fullPage: true });
+  await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath('craft-controls-gem.png'), fullPage: true });
+  expect(await boxes()).toEqual(before);
+  await expect(panel.getByRole('group', { name: 'Grind the gemmed property afterwards' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Grindstone', exact: true }).click();
+  await expect(panel.getByText('Then grind it', { exact: true })).toBeHidden();
+  await chooseItem(page, 'Violent', 'Grind', 'SPD');
+  expect(await filters.boundingBox()).toEqual(bounds);
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(panel.getByRole('heading', { name: /^Highest stat/ })).toBeVisible();
+  await expect(panel.locator('.craft-ranking')).toHaveCount(3);
+  await expect(panel.locator('.craft-recommendation').first()).toContainText('SPD');
+  await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+  await page.screenshot({ path: testInfo.outputPath('craft-grind-results.png'), fullPage: true });
+  await panel.getByRole('combobox', { name: 'Filter candidate runes by set' }).selectOption('Fatal');
+  await expect(panel.locator('.craft-ranking')).toHaveCount(3);
+  await expect(panel.locator('.craft-recommendation')).toHaveCount(0);
+});
+
+test('gems project a follow-up grind and keep only two result columns', async ({ page }, testInfo) => {
+  await openWorkspace(page);
+  await importCraftAccount(page);
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  const panel = page.locator('.craft-best-use');
+  await chooseItem(page, 'Violent', 'Gem', 'SPD', 'Legend');
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(panel.locator('.craft-ranking')).toHaveCount(2);
+  const card = panel.locator('.craft-recommendation').first();
+  await expect(card.locator('.craft-recommendation-title')).toContainText('Legend Violent');
+  await expect(card.locator('.rune-emblem')).toBeVisible();
+  await expect(card.locator('.craft-rune-location dt')).toHaveText('Location');
+  await expect(card.getByText('Best role before', { exact: true })).toHaveCount(0);
+  await expect(card.getByText('Set and main stat', { exact: true })).toHaveCount(0);
+  await expect(card.getByText('Gain', { exact: true })).toHaveCount(0);
+  const sizes = await card.evaluate((element) => {
+    const main = element.querySelector('.craft-rune-main'), sub = element.querySelector('.rune-sub');
+    return [main ? parseFloat(getComputedStyle(main).fontSize) : 0, sub ? parseFloat(getComputedStyle(sub).fontSize) : 0];
+  });
+  expect(sizes[0]).toBe(sizes[1]);
+  const before = await card.textContent();
+  await page.screenshot({ path: testInfo.outputPath('craft-gem-before-grind.png'), fullPage: true });
+  await panel.getByRole('group', { name: 'Grind the gemmed property afterwards' }).getByRole('button', { name: 'Yes' }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(card).not.toHaveText(before!);
+  await expect(card.locator('.rune-sub-grind-step')).toContainText('→');
+  await expect(card.locator('.rune-sub-ground-figure')).toHaveText('+14');
+  await expect(panel.getByText('Selected item', { exact: true })).toHaveCount(0);
+  await expect(panel.getByText('Provisional score.', { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('craft-gem-after-grind.png'), fullPage: true });
+  const scope = panel.getByRole('group', { name: 'Choose rune locations' });
+  await scope.getByRole('button', { name: 'Engraved' }).click();
+  await scope.getByRole('button', { name: 'Inventory' }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(panel.locator('.craft-ranking')).toHaveCount(2);
+  await expect(panel.locator('.craft-recommendation').first()).toBeVisible();
+});
+
+test('Recommendations filters the complete held box without another calculation', async ({ page }, testInfo) => {
+  let craftWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
+  await openWorkspace(page);
+  await importCraftAccount(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.locator('summary').filter({ hasText: 'Recommendations' }).click();
+  const panel = page.locator('[data-mode="recommendations"]');
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(panel.locator('.craft-ranking')).toHaveCount(3);
+  await expect(panel.locator('.craft-recommendation').first()).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('craft-recommendations-grind.png'), fullPage: true });
+  await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+  await expect(panel.locator('.craft-ranking')).toHaveCount(2);
+  await expect(panel.locator('.craft-recommendation').first()).toBeVisible();
+  expect(craftWorkers).toBe(1);
+  await page.screenshot({ path: testInfo.outputPath('craft-recommendations-gem.png'), fullPage: true });
+  await panel.getByRole('button', { name: 'Clear results', exact: true }).click();
+  await expect(panel.locator('.craft-ranking')).toHaveCount(0);
+});
+
+test('both craft views share a complete calculation and filter beyond its initial shortlist', async ({ page }) => {
+  let craftWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
+  await openWorkspace(page);
+  await importCraftAccount(page);
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  const best = page.locator('[data-mode="selected"]');
+  await best.getByRole('slider', { name: 'Number of runes listed in each ranking' }).fill('1');
+  await best.getByRole('combobox', { name: 'Filter candidate runes by set' }).selectOption('Violent');
+  await best.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(best.locator('.craft-recommendation').first()).toBeVisible();
+  expect(craftWorkers).toBe(1);
+  await best.getByRole('combobox', { name: 'Filter candidate runes by set' }).selectOption('');
+  await chooseItem(page, 'Fatal', 'Gem', 'SPD', 'Legend');
+  await expect(best.locator('.craft-ranking').first().locator('.craft-recommendation')).toHaveCount(1);
+  await expect(best.locator('.craft-recommendation').first()).toContainText('Fatal');
+  const location = best.getByRole('group', { name: 'Choose rune locations' });
+  await location.getByRole('button', { name: 'Engraved', exact: true }).click();
+  await expect(best.locator('.craft-recommendation')).toHaveCount(0);
+  await location.getByRole('button', { name: 'Inventory', exact: true }).click();
+  await expect(best.locator('.craft-recommendation').first()).toContainText('Fatal');
+  await page.locator('summary').filter({ hasText: 'Recommendations' }).click();
+  const recommendations = page.locator('[data-mode="recommendations"]');
+  await expect(recommendations.locator('.craft-recommendation').first()).toBeVisible();
+  await recommendations.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+  await recommendations.getByRole('slider', { name: 'Number of runes listed in each ranking' }).fill('10');
+  await expect(recommendations.locator('.craft-ranking').first().locator('.craft-recommendation')).toHaveCount(3);
+  await recommendations.getByRole('combobox', { name: 'Filter candidate runes by set' }).selectOption('Fatal');
+  await expect(recommendations.locator('.craft-ranking').first().locator('.craft-recommendation')).toHaveCount(1);
+  expect(craftWorkers).toBe(1);
+  await expect(best.locator('.craft-best-use-filters').getByText('Assumed roll', { exact: true })).toHaveCount(0);
+  await expect(best.locator('.craft-best-use-filters').getByText('Then grind it', { exact: true })).toHaveCount(0);
+  await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds', exact: true }).click();
+  await expect(recommendations.locator('.craft-recommendation').first()).toContainText('Fatal');
+  expect(craftWorkers).toBe(1);
+});
+
+test('a changed filter contract preserves every valid independent choice', async ({ page }) => {
+  await openWorkspace(page);
+  await importCraftAccount(page);
+  await page.evaluate(() => sessionStorage.setItem('jaswa.filters.craft-best-use', JSON.stringify({
+    kinds: ['gem'], lineages: ['ancient'], grades: ['Legend'], selectedItemId: '9005', statId: '8',
+    roleId: 'removed-role-filter', roll: 'maximum', grindAfter: true, grindGrade: 'Hero',
+    showEngraved: false, showInventory: true, count: 'unreadable',
+  })));
+  await page.reload();
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  const panel = page.locator('.craft-best-use');
+  await expect(panel.getByRole('button', { name: 'Enchanted gem', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.getByRole('group', { name: 'Family', exact: true }).getByRole('button', { name: 'Ancient' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.getByRole('combobox', { name: 'How well the roll is assumed to land' })).toHaveValue('maximum');
+  await expect(panel.getByRole('combobox', { name: 'Narrow the list to one stat' })).toHaveValue('8');
+  await expect(panel.getByRole('combobox', { name: 'Grade of the grindstone to assume' })).toHaveValue('Hero');
+  await expect(panel.getByRole('combobox', { name: 'Filter candidate runes by set' })).toHaveValue('');
+  await expect(panel.getByRole('slider', { name: 'Number of runes listed in each ranking' })).toHaveValue('5');
+  await expect(panel.getByRole('group', { name: 'Choose rune locations' }).getByRole('button', { name: 'Engraved' })).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('Already grinded and gemmed filter the item stat before craft, instantly in both views', async ({ page }) => {
+  let craftWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
+  await openWorkspace(page);
+  const account = JSON.parse(await readFile(craftAccount, 'utf8'));
+  const unfinished = account.runes.find((rune: { rune_id: number }) => rune.rune_id === 102);
+  const finished = account.runes.find((rune: { rune_id: number }) => rune.rune_id === 101);
+  account.runes.push(
+    { ...unfinished, rune_id: 202, sec_eff: [[2, 8, 0, 0], [8, 5, 0, 2]] },
+    { ...finished, rune_id: 203, sec_eff: [[2, 8, 0, 0], [8, 5, 1, 0], [9, 6, 0, 0], [10, 5, 0, 0]] },
+  );
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'marked-craft-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
+  for (const [title, mode] of [['Best use for this', 'selected'], ['Recommendations', 'recommendations']]) {
+    await page.locator('summary').filter({ hasText: title }).click();
+    const panel = page.locator(`[data-mode="${mode}"]`);
+    const highest = panel.locator('.craft-ranking').first().locator('.craft-recommendation');
+    const alreadyGround = panel.getByRole('group', { name: 'Stat already grinded', exact: true });
+    await expect(alreadyGround.getByRole('button', { name: 'Yes', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(alreadyGround.getByRole('button', { name: 'No', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    if (mode === 'selected') await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+    await expect(highest).toHaveCount(3);
+    await alreadyGround.getByRole('button', { name: 'Yes', exact: true }).click();
+    await expect(highest).toHaveCount(1);
+    await expect(highest.locator('tbody td:first-child .rune-sub[data-ground="true"]')).toHaveCount(1);
+    await alreadyGround.getByRole('button', { name: 'No', exact: true }).click();
+    await expect(highest).toHaveCount(3);
+    await alreadyGround.getByRole('button', { name: 'Yes', exact: true }).click();
+    await expect(highest).toHaveCount(2);
+    await alreadyGround.getByRole('button', { name: 'No', exact: true }).click();
+    await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+    const alreadyGemmed = panel.getByRole('group', { name: "Stat already gem'ed", exact: true });
+    await alreadyGemmed.getByRole('button', { name: 'Yes', exact: true }).click();
+    await expect(highest).toHaveCount(1);
+    await expect(highest.locator('tbody td:first-child .rune-sub-gem')).toHaveCount(1);
+    expect(craftWorkers).toBe(1);
+  }
+});
+
+test('result locations name Scenario and count every other engraving', async ({ page }) => {
+  await openWorkspace(page);
+  const account = JSON.parse(await readFile(craftAccount, 'utf8'));
+  const rune = account.runes.find((entry: { rune_id: number }) => entry.rune_id === 101);
+  rune.prefix_eff = [11, 6];
+  Object.assign(rune, { occupied_type: 1, occupied_id: 1 });
+  account.unit_list[0].runes.push(rune);
+  account.deck_list = Array.from({ length: 4 }, (_, index) => ({
+    deck_type: 1, deck_seq: index + 1, unit_id_list: [1, 2], equip: [
+      { unit_id: 1, rune_id_list: [], artifact_id_list: [] },
+      { unit_id: 2, rune_id_list: [101], artifact_id_list: [] },
+    ],
+  }));
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'craft-placement-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  await chooseItem(page, 'Violent', 'Gem', 'SPD', 'Legend');
+  const panel = page.locator('.craft-best-use');
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const location = panel.locator('.craft-recommendation').first().locator('.craft-rune-location');
+  await expect(panel.locator('.craft-recommendation').first().locator('.craft-rune-innate')).toHaveText('Resistance+6%');
+  await expect(location).toContainText('Location');
+  await expect(location).toContainText('Elucia (2A) (+ 4)');
+  await expect(location.locator('.engraved-place')).toHaveAttribute('title', /Scenario/);
+});
+
+test('a full rune box, long role name and all filter choices fit, and cleared roles are explained', async ({ page }, testInfo) => {
+  await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const account = JSON.parse(await readFile(craftAccount, 'utf8'));
+  const source = account.runes.find((rune: Record<string, unknown>) => rune.rune_id === 102);
+  account.runes.push(...Array.from({ length: 40 }, (_, index) => ({ ...source, rune_id: 10000 + index,
+    upgrade_curr: 15, sec_eff: [[2, 30, 0, 0], [8, 12 + index % 18, 0, 0], [9, 18, 0, 0], [10, 20, 0, 0]] })));
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'full-craft-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.evaluate(async () => {
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const { savePreferences } = await import(storagePath);
+    const { blankPreferences } = await import(importsPath);
+    const preferences = blankPreferences();
+    preferences.runeRoles.forEach((role: { name: string }) => { role.name = 'A long role name at the allowed limit for this craft test.....'.slice(0, 60); });
+    await savePreferences(preferences);
+  });
+  await page.reload();
+  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
+  await page.locator('summary').filter({ hasText: 'Recommendations' }).click();
+  const panel = page.locator('[data-mode="recommendations"]');
+  for (const label of ['Family', 'Grade']) {
+    await expect(panel.getByRole('group', { name: label, exact: true }).getByRole('button').first()).toBeVisible();
+    for (const button of await panel.getByRole('group', { name: label, exact: true }).getByRole('button').all()) await button.click();
+  }
+  await panel.getByRole('slider', { name: 'Number of runes listed in each ranking' }).fill('10');
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(panel.locator('.craft-ranking').first().locator('.craft-recommendation')).toHaveCount(10);
+  await expect(panel.locator('.craft-ranking').nth(2).locator('.craft-recommendation')).toHaveCount(10);
+  expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  expect(await panel.locator('.craft-recommendation').evaluateAll((elements) => elements.every((element) => element.scrollWidth <= element.clientWidth))).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('craft-full-box-long-roles.png'), fullPage: true });
+  await panel.locator('.rune-link').first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Gems & Grinds', exact: true })).toBeAttached();
+  await page.keyboard.press('Escape');
+  await expect(panel.locator('.rune-link').first()).toBeFocused();
+  await page.evaluate(async () => {
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const { savePreferences } = await import(storagePath);
+    const { blankPreferences } = await import(importsPath);
+    await savePreferences({ ...blankPreferences(), runeRoles: [] });
+  });
+  await page.reload();
+  await expect(panel.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
+  await expect(panel.locator('.craft-calculation-status')).toContainText('Add a role in Rune Clean-up');
+  await page.screenshot({ path: testInfo.outputPath('craft-no-roles.png'), fullPage: true });
+});
+
 async function openWorkspace(page: Page) {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -28,6 +300,7 @@ async function importCraftAccount(page: Page) {
 }
 
 async function chooseItem(page: Page, group: string, ...parts: string[]) {
+  if (parts.includes('Gem')) await page.getByRole('group', { name: 'Item', exact: true }).getByRole('button', { name: 'Enchanted gem', exact: true }).click();
   const chooser = page.getByRole('combobox', { name: 'Choose a gem or grindstone to place' });
   const value = await chooser.evaluate((select: HTMLSelectElement, [label, want]: [string, string[]]) => {
     const optgroup = [...select.querySelectorAll('optgroup')].find((entry) => entry.label === label);
@@ -275,136 +548,4 @@ test('filters narrow the box without moving it', async ({ page }, testInfo) => {
   await expect(minimum).toBeDisabled();
   await expect(minimum).toHaveValue('1');
   expect(await strip.boundingBox()).toEqual(before);
-});
-
-test('best use ranks the runes one gem can be spent on', async ({ page }, testInfo) => {
-  await openWorkspace(page);
-  await importCraftAccount(page);
-  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
-  await expect(page.locator('.craft-best-use-filters')).toBeVisible();
-  expect(await page.locator('.craft-best-use-filters').evaluate((element) => getComputedStyle(element).borderWidth)).toBe('0px');
-  expect(await page.locator('.craft-best-use-filters').evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
-  expect(Number.parseFloat(await page.locator('.craft-best-use-kind').evaluate((element) => getComputedStyle(element).borderLeftWidth))).toBeGreaterThan(0);
-  await expect(page.getByText('Choose a gem or grindstone above.')).toBeVisible();
-  const filterBox = page.locator('.craft-best-use-filters');
-  const filterBoxBefore = await filterBox.boundingBox();
-  await page.screenshot({ path: testInfo.outputPath('gems-best-use-filters-before.png'), fullPage: true });
-
-  await chooseItem(page, 'Violent', 'Gem', 'SPD', 'Legend');
-  expect(await filterBox.boundingBox()).toEqual(filterBoxBefore);
-  await page.screenshot({ path: testInfo.outputPath('gems-best-use-filters-after.png'), fullPage: true });
-  await expect(page.getByRole('heading', { name: 'Legend Violent SPD Gem' })).toBeVisible();
-  await expect(page.locator('.craft-best-use-facts')).toContainText('7–10');
-  /* The score is the one figure here that is not yet the real answer, and it
-     says so where it is read. */
-  await expect(page.locator('.craft-best-use .notice').first()).toContainText('Provisional score');
-
-  const strongest = page.locator('.craft-best-use-results .best-artifact-result').first();
-  await expect(strongest.locator('tbody tr')).toHaveCount(1);
-  await expect(strongest.locator('tbody tr').first()).toContainText('Violent');
-  await expect(strongest.locator('tbody tr').first()).toContainText('Inventory');
-
-  /* A Violent gem cannot reach the Fatal rune, whatever the filters say. */
-  await expect(strongest.locator('tbody')).not.toContainText('Fatal');
-});
-
-test('best-use location names Scenario and counts the other placement', async ({ page }, testInfo) => {
-  await openWorkspace(page);
-  const account = JSON.parse(await readFile(craftAccount, 'utf8')) as {
-    runes: Record<string, unknown>[];
-    unit_list: { runes: Record<string, unknown>[] }[];
-    deck_list?: unknown[];
-  };
-  const rune = account.runes.find((entry: Record<string, unknown>) => entry.rune_id === 101);
-  if (!rune || !account.unit_list[0]) throw new Error('The placement fixture is incomplete.');
-  rune.occupied_type = 1;
-  rune.occupied_id = 1;
-  account.unit_list[0].runes.push(rune);
-  const gear = (unit_id: number, rune_id_list: number[]) => ({ unit_id, rune_id_list, artifact_id_list: [] });
-  account.deck_list = [{ deck_type: 1, deck_seq: 1, unit_id_list: [1, 2], equip: [gear(1, []), gear(2, [101])] }];
-  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
-    name: 'scenario-and-preset.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
-  });
-  await expect(page.locator('.import-badge')).toBeVisible();
-  await page.getByRole('button', { name: 'Gems & Grinds' }).click();
-  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
-  await chooseItem(page, 'Violent', 'Gem', 'SPD', 'Legend');
-
-  const strongest = page.locator('.craft-best-use-results .best-artifact-result').first();
-  const location = strongest.locator('tbody tr').first().locator('td:nth-child(2) .engraved-place');
-  await expect(location).toHaveText('Elucia (2A) (+ 1)');
-  await expect(location).toHaveAttribute('title', /Scenario/);
-  await expect(location).toHaveAttribute('title', /Arena Attack 1/);
-  await page.screenshot({ path: testInfo.outputPath('gems-best-use-scenario-and-preset.png'), fullPage: true });
-});
-
-test('a gem can be followed by a grindstone, and only a gem can', async ({ page }) => {
-  await openWorkspace(page);
-  await importCraftAccount(page);
-  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
-
-  const grindGroup = page.getByRole('group', { name: 'Grind the gemmed property afterwards' });
-  await chooseItem(page, 'Violent', 'Grind', 'SPD');
-  /* A grindstone has nothing to follow, so the control dims in place rather
-     than disappearing and closing the gap under the pointer (rule 2). */
-  await expect(grindGroup.getByRole('button', { name: 'Yes' })).toBeDisabled();
-  await expect(page.locator('.craft-best-use-table th').nth(2)).toHaveText('Improves');
-
-  await chooseItem(page, 'Violent', 'Gem', 'SPD', 'Legend');
-  await expect(page.locator('.craft-best-use-table th').nth(2)).toHaveText('Replaces');
-  const row = page.locator('.craft-best-use-results .best-artifact-result').first().locator('tbody tr').first();
-  const withoutGrind = await row.textContent();
-  await grindGroup.getByRole('button', { name: 'Yes' }).click();
-  await expect(page.locator('.craft-best-use-facts')).toContainText('Legend grindstone');
-  expect(await row.textContent()).not.toBe(withoutGrind);
-});
-
-test('an Ancient item is placed and projected from its own range', async ({ page }) => {
-  await openWorkspace(page);
-  await importCraftAccount(page);
-  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
-
-  /* An `<optgroup>` holds text and no markup, so the chooser spells the mark
-     out where the tables draw it. */
-  await chooseItem(page, 'Violent A', 'Gem', 'SPD');
-  const chosen = page.locator('.craft-best-use-item h3');
-  await expect(chosen).toContainText('Legend Violent');
-  await expect(chosen.getByTitle('Ancient')).toHaveText('A');
-
-  const row = page.locator('.craft-best-use-results .best-artifact-result').first().locator('tbody tr').first();
-  /* The rune is named — as its set plus the mark, never as a set of its own —
-     and its before/after figures are calculated from the Ancient table, never
-     an ordinary fallback. */
-  const runeName = row.locator('td').first().locator('.craft-rune-name');
-  await expect(runeName).toContainText('Violent');
-  await expect(runeName).not.toContainText('Ancient');
-  await expect(runeName.getByTitle('Ancient')).toHaveText('A');
-  await expect(row.locator('td').nth(4)).not.toHaveText('—');
-  await expect(row.locator('td').nth(5)).not.toHaveText('—');
-});
-
-test('a role narrows which runes are offered', async ({ page }) => {
-  await openWorkspace(page);
-  await importCraftAccount(page);
-  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
-
-  await chooseItem(page, 'Immemorial', 'Gem', 'Resistance');
-  const strongest = page.locator('.craft-best-use-results .best-artifact-result').first();
-  await expect(strongest.locator('tbody tr')).toHaveCount(2);
-
-  /* Bomber takes both sets but wants ATK % or HP % in slot 4, so the CRI Dmg
-     rune the Fatal gem lives on falls out of the role and the Violent one
-     stays. Neither rune's own figures move: a role narrows the candidates. */
-  await page.getByRole('combobox', { name: 'Judge the runes against one role' })
-    .selectOption({ label: 'Bomber' });
-  await expect(strongest.locator('tbody tr')).toHaveCount(1);
-  await expect(strongest.locator('tbody tr').first()).toContainText('Violent');
-
-  /* Turning off both locations leaves nothing, and the page says which
-     control to widen rather than looking broken. */
-  const scope = page.getByRole('group', { name: 'Choose rune locations' });
-  await scope.getByRole('button', { name: 'Engraved' }).click();
-  await scope.getByRole('button', { name: 'Inventory' }).click();
-  await expect(page.locator('.craft-best-use .notice.warning'))
-    .toContainText('No rune matches the Role and the Location filters above.');
 });

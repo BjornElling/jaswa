@@ -1,3 +1,4 @@
+import { filterIncludes } from '../lib/filter-selection';
 import { Fragment, useMemo, useState } from 'react';
 import { Button, FilterButton } from './button';
 import { CalculationStatus } from './calculation-status';
@@ -275,12 +276,12 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const visibleArtifacts = useMemo(() => artifacts.filter((artifact) => {
     const restriction = artifactEngraveClassLabel(artifact);
-    return (!filters.categories.length || filters.categories.includes(artifact.category))
-      && (!filters.restrictions.length || filters.restrictions.includes(restriction))
-      && (!filters.grades.length || filters.grades.includes(artifact.grade))
-      && (!filters.mainProperties.length || filters.mainProperties.includes(artifact.mainProperty))
+    return filterIncludes(filters.categories, artifact.category, categoryOrder)
+      && filterIncludes(filters.restrictions, restriction, restrictionOptions)
+      && filterIncludes(filters.grades, artifact.grade, artifactGradeOrder)
+      && filterIncludes(filters.mainProperties, artifact.mainProperty, artifactMainPropertyOrder)
       && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId))
-      && (!filters.locations.length || filters.locations.includes(artifact.occupiedId === null ? 'inventory' : 'engraved'));
+      && filterIncludes(filters.locations, artifact.occupiedId === null ? 'inventory' : 'engraved', artifactLocations);
   }), [artifacts, filters, selectedSubPropertyId]);
 
   function toggle(key: keyof ArtifactFilters, value: string) {
@@ -379,7 +380,7 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
     const plannedLocation: ArtifactLocation = row.allocation ? 'engraved' : 'inventory';
     const alreadyMatching = row.allocation !== undefined
       && row.artifact.occupiedId === row.allocation.monster.unitId;
-    return (!filters.plannedLocations.length || filters.plannedLocations.includes(plannedLocation))
+    return filterIncludes(filters.plannedLocations, plannedLocation, artifactLocations)
       && !(filters.matching.includes('hide') && alreadyMatching);
   }), [rows, filters.plannedLocations, filters.matching]);
 

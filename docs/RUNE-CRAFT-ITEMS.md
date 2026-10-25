@@ -102,3 +102,84 @@ readers accept everything — 826 of 826 stacks, 3,242 of 3,242 runes.
 
 `npm run verify:rune-craft-items` pins section 1, section 2 and the placement
 rules built on them, against synthetic records rather than personal data.
+
+## 5. Best use and Recommendations
+
+Both disclosures read `rune-craft-recommendations.ts`. Every calculation reads
+all held Gems, all held Grindstones and all runes, independently of the filters.
+Best use narrows that complete answer to one stack; Recommendations narrows it
+by the selected categories. With no item chosen, Best use includes every item
+of the displayed kind, following the universal inclusive-filter rule.
+A suggestion spends one item independently, with an optional assumed follow-up
+Grindstone on the gemmed property only. Suggestions are alternatives, not a
+stock allocation across several runes. Stock depth does not multiply a rune's
+score or produce duplicate entries for the same rune in one ranking.
+
+`craftItemApplications` in `rune-craft-end-state.ts` enumerates every legal target
+through `craftVariants`, the same end-state enumeration Rune Optimization uses.
+It includes a converted line's same-stat re-Gem and retained stone, rejects a
+non-improving assumed same-stat roll, respects level, slot, innate, duplicate,
+lineage and set restrictions, and excludes a stone whose assumed roll cannot
+beat the current bonus. The inventory's *Can improve* remains a potential count
+at the item's maximum, independent of the assumed-roll rankings.
+
+Each before and after line-up meets every allowed build of every role. The
+valuation and fixed neutral ceiling are Clean-up's `prepareRuneCandidate`
+reading, with the same accepted/broken discounts. The score prices the current
+sub properties and innate only: no imagined power-ups and no additional craft.
+The best reading is chosen separately before and after; its role may change.
+This current-line reading is distinct from Clean-up's future-value verdict.
+Both use the same ruler; neither a filter nor the item moves it.
+
+- **Highest score:** the distinct runes with a positive score gain, ordered by
+  score after spending the item.
+- **Highest gain:** those runes ordered by the increase in their best score,
+  in percentage points.
+- **Highest stat:** Grindstones only. The distinct runes ordered by the final
+  value of the specific sub property the item improves, including its stone.
+  Recommendations gives each stat its own ranking: HP + and SPD are different
+  units. A genuine stat increase remains eligible even when no role values it.
+
+Ties use rune id, item id and target index. The calculation retains the best
+target for **every rune/item pair**, including pairs below the current shortlist.
+Score and gain share that best target because the pair's baseline is fixed.
+Filtering and ranking are immediate projections of this complete answer; each
+displayed ranking includes a rune at most once. Item, kind, family, grade, rune
+set, stat, Location, already-crafted state and count never invalidate an answer or start a worker.
+The two disclosures share one answer through `compute/craft-result-memory.ts`,
+including after workspace navigation. Reset filters resets only filters.
+
+**Stat already grinded / Stat already gem'ed** reads the item's specific stat
+on the rune before spending anything: a positive existing Grindstone bonus for
+a stone, or an existing converted marker on that same stat for a Gem. A marker
+on a different stat does not match. Yes and No toggle independently; neither
+is chosen by default, and neither or both includes every state.
+
+Assumed roll and Then grind it sit outside the filter box as calculation
+assumptions. Changing them, the account, roles or scoring preferences requires
+a new calculation and cancels work answering the old question. Calculation is
+explicit, cancellable, and runs in a dedicated worker. Session filters are
+read one choice at a time; adding Rune set does not discard the other choices.
+
+The processor joins items by set and lineage and prepares role prices once per
+build/slot/star class. Thirty-two rune matrices are combined before dispatch so
+small questions do not each pay for a separate card readback. The score matrix goes through `runAccelerated`, with a
+card agreement gate and bounded passes of at most 16,384 jobs (under 2 MiB per
+storage binding). Every buffer offset and workgroup size comes from
+`compute/webgpu/craft-score-layout.ts`. The card narrows the contenders within
+0.001 percentage point plus a conservative relative allowance of 2⁻¹⁶; the
+processor rechecks every possible winner in double
+precision and makes the final ranking. The result reports the engine used.
+
+`npm run verify:craft-recommendations` compares rankings with exhaustive role
+readings and holds the shared shader layout. `npm run
+verify:craft-recommendations-card` executes the agreement gate and checks exact
+rankings against the processor on this machine's card at localhost:3000.
+
+Cards lead with the item being spent, followed by the rune's emblem, facts and
+labelled Location. The main property uses body emphasis; role and score use
+ordinary body text. Innate and the After label share one row above the compact
+four-line sub-property reading. A gemmed After line with
+a stone shows its Gem value and mark, then an arrow to the total including the
+stone. Only Best role and before/after Score remain in the evaluation. Rank
+headings stand alone; explanatory prose belongs in this contract.
