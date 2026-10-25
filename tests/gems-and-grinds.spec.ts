@@ -201,7 +201,19 @@ test('filters narrow the box without moving it', async ({ page }, testInfo) => {
   expect(setBounds).not.toBeNull();
   expect(statBounds).not.toBeNull();
   expect(setBounds!.width).toBeCloseTo(statBounds!.width, 0);
-  expect(setBounds!.width).toBeLessThan(setGroupBounds!.width * 0.75);
+  expect(setBounds!.width).toBe(260);
+  await expect(strip.getByRole('textbox')).toHaveCount(0);
+  const groups = strip.locator('.filter-group');
+  await expect(groups.locator('.filter-label')).toHaveText(['Item', 'Set', 'Stat', 'Family', 'Grade', 'Fit', 'Quantity']);
+  const groupBoxes = await groups.evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x, y, width, height };
+  }));
+  expect(groupBoxes[0].y).toBe(groupBoxes[1].y);
+  expect(groupBoxes[1].y).toBe(groupBoxes[2].y);
+  expect(groupBoxes[3].y).toBeGreaterThan(groupBoxes[0].y);
+  expect(groupBoxes[3].x).toBe(groupBoxes[0].x);
+  expect(groupBoxes[4].x).toBe(groupBoxes[1].x);
   await setFilter.selectOption({ label: 'Fatal' });
   await expect(setFilter).toHaveValue('Fatal');
   expect(await strip.boundingBox()).toEqual(before);
@@ -213,7 +225,7 @@ test('filters narrow the box without moving it', async ({ page }, testInfo) => {
   const filterFrame = page.locator('.data-table-filter-panel');
   expect(await filterFrame.evaluate((element) => getComputedStyle(element).borderWidth)).toBe('0px');
   expect(await filterFrame.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
-  expect(Number.parseFloat(await page.locator('.craft-filter-search').evaluate((element) => getComputedStyle(element).borderLeftWidth))).toBeGreaterThan(0);
+  expect(Number.parseFloat(await page.locator('.craft-filter-kind').evaluate((element) => getComputedStyle(element).borderLeftWidth))).toBeGreaterThan(0);
   const dropdownGaps = await Promise.all(['craft-stat', 'craft-set'].map((id) => page.locator(`#${id}`).evaluate((element) => {
     const group = element.parentElement?.parentElement;
     if (!group) return -1;

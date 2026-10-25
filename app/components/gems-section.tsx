@@ -20,7 +20,7 @@ import {
 } from '../lib/rune-craft-items';
 import type { CraftKind, CraftLineage } from '../lib/rune-craft-items';
 import {
-  compareCraftRows, compareCraftRowTieBreaks, craftRangeText, craftRequirementText, craftRowSearchText,
+  compareCraftRows, compareCraftRowTieBreaks, craftRangeText, craftRequirementText,
   defaultCraftSortDirections,
 } from '../lib/rune-craft-grid';
 import type { CraftRow, CraftSortKey } from '../lib/rune-craft-grid';
@@ -43,7 +43,6 @@ const anySetValue = 'immemorial';
  * a page computes (`AGENTS.md` §6).
  */
 type CraftFilterState = {
-  search: string;
   kinds: CraftKind[];
   lineages: CraftLineage[];
   grades: ItemGrade[];
@@ -61,7 +60,6 @@ const minimumCraftQuantity = 1;
 const maximumCraftQuantity = 10;
 
 const defaultCraftFilters: CraftFilterState = {
-  search: '',
   kinds: [],
   lineages: [],
   grades: [],
@@ -76,8 +74,7 @@ const defaultCraftFilters: CraftFilterState = {
 function isCraftFilterState(value: unknown): value is CraftFilterState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
-  return typeof candidate.search === 'string'
-    && Array.isArray(candidate.kinds)
+  return Array.isArray(candidate.kinds)
     && candidate.kinds.every((entry) => craftKinds.includes(entry as CraftKind))
     && Array.isArray(candidate.lineages)
     && candidate.lineages.every((entry) => craftLineages.includes(entry as CraftLineage))
@@ -131,7 +128,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.craft-items', defaultCraftFilters, isCraftFilterState,
   );
-  const { search, kinds, lineages, grades, statId, set, showUsable, showDead,
+  const { kinds, lineages, grades, statId, set, showUsable, showDead,
     minimumQuantityEnabled, minimumQuantity } = filters;
 
   const data = game?.data as GameRecord | undefined;
@@ -173,7 +170,6 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
   }, [items]);
 
   const visible = useMemo(() => {
-    const term = search.trim().toLowerCase();
     const chosenStat = statId === '' ? null : Number(statId);
     return rows.filter((row) => {
       const usable = row.reach.improves > 0;
@@ -185,10 +181,9 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
       if (chosenStat !== null && row.item.statId !== chosenStat) return false;
       if (set === anySetValue && row.item.setName !== null) return false;
       if (set !== '' && set !== anySetValue && row.item.setName !== set) return false;
-      if (!term) return true;
-      return craftRowSearchText(row).includes(term);
+      return true;
     });
-  }, [rows, search, kinds, lineages, grades, statId, set, showUsable, showDead,
+  }, [rows, kinds, lineages, grades, statId, set, showUsable, showDead,
     minimumQuantityEnabled, minimumQuantity]);
 
   /* Gem/Grind, Set, Ancient, Stat and Grade give the box one repeatable order.
@@ -236,21 +231,6 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
           columnGroup={<TableColumnGroup columns={craftItemTableColumns} />}
           header={<SortableHeader columns={craftColumns} sort={sort} onToggle={toggle} />}
           filters={<>
-            <div className="filter-group craft-filter-search">
-              <span className="filter-label">Search</span>
-              <div className="filter-group-controls">
-                <div className="search-field">
-                  <span aria-hidden="true">⌕</span>
-                  <input value={search}
-                    onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-                    placeholder="Filter the box" aria-label="Filter gems and grindstones by set, stat or grade" />
-                  <FilterButton
-                    onClick={() => setFilters((current) => ({ ...current, search: '' }))}
-                    hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
-                </div>
-              </div>
-            </div>
-
             <div className="filter-group craft-filter-kind" role="group" aria-label="Filter by item">
               <span className="filter-label">Item</span>
               <div className="filter-group-controls">
@@ -261,28 +241,6 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
                     ? "Replaces one sub property with this Gem's stat"
                     : 'Adds a grind bonus to one existing sub property'}
                 >{craftKindLabels[kind]}</FilterButton>)}
-              </div>
-            </div>
-
-            <div className="filter-group craft-filter-lineage" role="group" aria-label="Filter by family">
-              <span className="filter-label">Family</span>
-              <div className="filter-group-controls">
-                {craftLineages.map((lineage) => <FilterButton key={lineage}
-                  active={lineages.includes(lineage)}
-                  onClick={() => toggleValue(lineage, 'lineages')}
-                  title={craftLineageNotes[lineage]}
-                >{craftLineageLabels[lineage]}</FilterButton>)}
-              </div>
-            </div>
-
-            <div className="filter-group craft-filter-grade" role="group" aria-label="Filter by grade">
-              <span className="filter-label">Grade</span>
-              <div className="filter-group-controls">
-                {itemGrades.map((grade) => <FilterButton key={grade}
-                  active={grades.includes(grade)}
-                  onClick={() => toggleValue(grade, 'grades')}
-                  aria-label={grade}
-                >{grade.slice(0, 3).toUpperCase()}</FilterButton>)}
               </div>
             </div>
 
@@ -306,6 +264,28 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
                   aria-label="Filter by the stat the item gives">
                   {statOptions.map((id) => <option key={id} value={id}>{runeStatName(id)}</option>)}
                 </Dropdown>
+              </div>
+            </div>
+
+            <div className="filter-group craft-filter-lineage" role="group" aria-label="Filter by family">
+              <span className="filter-label">Family</span>
+              <div className="filter-group-controls">
+                {craftLineages.map((lineage) => <FilterButton key={lineage}
+                  active={lineages.includes(lineage)}
+                  onClick={() => toggleValue(lineage, 'lineages')}
+                  title={craftLineageNotes[lineage]}
+                >{craftLineageLabels[lineage]}</FilterButton>)}
+              </div>
+            </div>
+
+            <div className="filter-group craft-filter-grade" role="group" aria-label="Filter by grade">
+              <span className="filter-label">Grade</span>
+              <div className="filter-group-controls">
+                {itemGrades.map((grade) => <FilterButton key={grade}
+                  active={grades.includes(grade)}
+                  onClick={() => toggleValue(grade, 'grades')}
+                  aria-label={grade}
+                >{grade.slice(0, 3).toUpperCase()}</FilterButton>)}
               </div>
             </div>
 
