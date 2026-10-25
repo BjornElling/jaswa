@@ -233,8 +233,8 @@ not a stat bonus, and is outside this model.
 ### 2.2.5 Combat-stat thresholds
 
 Rune Optimization adds verified stat breakpoints to the area block for the selected monster
-in every preset type. The selected preset still sets the area facts; all enemy-relative
-breakpoints use Necropolis (Abyss Hard) as their fixed reference, which the tooltip names.
+in every preset type. Enemy-relative breakpoints use the selected preset's own area and
+its hardest documented floor, matching the area facts; the tooltip names that reference.
 A line shows the monster's portrait, the stat, and each breakpoint for it in order
 (`DEF 2,501/3,301` for Icaru); its tooltip names the effect at each value. Three lines keep
 their space whether or not the selected monster has a threshold, so changing presets or
@@ -242,11 +242,14 @@ monsters moves nothing beside the choice.
 
 Every value is a **combat stat**, in the form the optimizer judges after its modeled leads,
 team sets and buildings. Temporary battle buffs are not included. Enemy comparisons use
-the reference floor's highest relevant combat stat, or its fastest combat speed; Agrius uses
+the highest relevant combat stat on that floor, or its fastest combat speed; Agrius uses
 the final-wave boss because its passive only applies in boss battles. A strict comparison
 stays strict (`SPD >169`), rather than being rounded to a display-speed target. The shared
-PvE database supplies the reference enemies (`pve-stages.ts`); every preset uses Necropolis
-(Abyss Hard) so a monster's breakpoints do not change with the selected preset.
+PvE database supplies the enemies (`pve-stages.ts`); changing the selected area changes
+enemy-relative breakpoints. Scenario, unnamed content, PvP and areas without documented
+enemies show no enemy-relative breakpoint. Missing enemy stats remain unknown and never
+borrow another dungeon's values. Intrinsic thresholds such as Icaru's DEF stay available
+in every area because they do not compare against an enemy.
 
 The audit read all 3,315 Skill 2–4 and passive records in the current Swarfarm skill catalogue.
 It includes exact Icaru DEF breakpoints, enemy-stat comparisons, and verified full-effect

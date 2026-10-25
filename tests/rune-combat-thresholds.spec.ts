@@ -33,6 +33,11 @@ test('combat thresholds follow the selected monster across presets and keep thei
   });
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Optimization', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
+  await expect(page.locator('.rune-optimization-area')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('empty-account.png') });
+  await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'necropolis-thresholds.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
   });
@@ -91,8 +96,8 @@ test('combat thresholds follow the selected monster across presets and keep thei
   await page.getByLabel('Monster', { exact: true }).selectOption('12');
   await expect(actualThresholds).toHaveCount(1);
   await expect(actualThresholds.first().locator('.overlay-combat-threshold-stat')).toHaveText('SPD');
-  await expect(actualThresholds.first().locator('.overlay-combat-threshold-value')).toHaveText('309');
-  await expect(actualThresholds.first()).toHaveAttribute('title', /Necropolis \(Abyss Hard\).*\+200 combat SPD.*final-wave boss/);
+  await expect(actualThresholds.first().locator('.overlay-combat-threshold-value')).toHaveText('350');
+  await expect(actualThresholds.first()).toHaveAttribute('title', /Steel Fortress \(B10\).*\+200 combat SPD.*final-wave boss/);
   expect(await rowBoxes()).toEqual(filledRows);
   await page.screenshot({ path: testInfo.outputPath('steel-fortress-agrius-thresholds.png') });
 
@@ -100,4 +105,14 @@ test('combat thresholds follow the selected monster across presets and keep thei
   await expect(actualThresholds).toHaveCount(0);
   expect(await rowBoxes()).toEqual(filledRows);
   await page.screenshot({ path: testInfo.outputPath('steel-fortress-no-threshold-monster.png') });
+
+  await page.getByLabel('Preset', { exact: true }).selectOption('scenario');
+  await page.getByLabel('Monster', { exact: true }).selectOption('12');
+  await expect(actualThresholds).toHaveCount(0);
+  await expect(area.locator('.filter-label')).toHaveText('Scenario');
+  expect(await rowBoxes()).toEqual(filledRows);
+  await page.screenshot({ path: testInfo.outputPath('scenario-no-enemy-reference.png') });
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await expect(actualThresholds.first().locator('.overlay-combat-threshold-value')).toHaveText('2,501/3,301');
+  expect(await rowBoxes()).toEqual(filledRows);
 });

@@ -20,8 +20,8 @@ export type AreaFacts = { heading: string; lines: { label: string; value: string
  */
 export function areaFacts(preset: Pick<Preset, 'kind' | 'content'> | undefined, general: GeneralSettings, masterId?: string): AreaFacts {
   const areaName = monsterProfileAreaName(preset ?? { kind: 'scenario', content: null });
-  const content = preset?.content ?? undefined;
   const scenario = !preset || preset.kind === 'scenario';
+  const content = scenario ? undefined : preset.content ?? undefined;
   const ceilings = accuracyCeilings(content?.id);
   const only = ceilings.length === 1 ? ceilings[0] : undefined;
   const heading = only?.part === undefined ? areaName : `${areaName} (${only.part})`;
@@ -33,15 +33,13 @@ export function areaFacts(preset: Pick<Preset, 'kind' | 'content'> | undefined, 
     : { label: `Accuracy goal (${ceilings.map((ceiling) => ceiling.part).join(', ')})`, value: `${ceilings.map((ceiling) => ceiling.percent).join('/')}%` };
   const area = pveAreaOf(content?.id);
   const floor = area === undefined ? undefined : hardestPveFloor(area);
-  /* Every Rune Optimization preset gets the same threshold reference; the
-     selected preset changes its area facts, not the monster's breakpoint. */
-  const thresholdFloor = hardestPveFloor('necropolis');
   const fastestEnemy = floor === undefined ? undefined : fastestEnemyOn(floor);
   const fastest = scenario || (content && facesPlayers(content.id)) ? 'Variable'
     : fastestEnemy === undefined ? 'Unknown' : formatNumber(fastestEnemy, general);
   return {
     heading,
     lines: [accuracy, { label: 'Fastest enemy (combat speed)', value: fastest }],
-    thresholds: combatThresholdsForMonster(masterId, thresholdFloor),
+    thresholds: combatThresholdsForMonster(masterId, floor).map((row) => row.reference === undefined
+      ? row : { ...row, reference: `${areaName} (${row.reference})` }),
   };
 }

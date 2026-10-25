@@ -9,8 +9,8 @@
 What the game sets against a team in PvE: area by area, floor by floor, wave
 by wave, enemy by enemy. JASWA looks an enemy up here and nowhere else.
 Speed Tuning's floors, the Accuracy goal and the fastest enemy on a monster's
-profile already read it. A later figure that needs an enemy's HP or DEF, such
-as whether a monster kills it in one hit, reads it too.
+profile and Rune Optimization's enemy-relative combat-stat thresholds already
+read it. A later figure that needs an enemy's HP or DEF, such as whether a monster kills it in one hit, reads it too.
 
 ## 1. What an enemy carries
 
@@ -39,7 +39,9 @@ one**: an Abyss counts as harder than the dungeon's last ordinary floor, even
 though B12's monsters are levelled above Abyss Hard's. A team built for an
 area is judged against `hardestPveFloor`, and the floor's name heads the
 block that states it, for example `Giant's Keep (Abyss Hard)` or
-`Rift Raid (R5)`.
+`Rift Raid (R5)`. Every enemy-relative calculation uses its own area and floor;
+no dungeon serves as a fixed reference for other content. Intrinsic monster
+thresholds remain independent of the area.
 
 | Area | Hardest floor | Source |
 | --- | --- | --- |

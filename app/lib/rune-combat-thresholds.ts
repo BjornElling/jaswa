@@ -143,8 +143,8 @@ export function combatThresholdsForMonster(masterId: string | undefined, floor: 
   if (!masterId) return [];
   const rows = [
     ...(intrinsicThresholds.get(masterId) ?? []),
-    ...(floor?.area === 'necropolis' && floor.name === 'Abyss Hard'
-      ? (readers.get(masterId)?.(floor) ?? []).map((row) => ({ ...row, reference: 'Necropolis (Abyss Hard)' }))
+    ...(floor !== undefined
+      ? (readers.get(masterId)?.(floor) ?? []).map((row) => ({ ...row, reference: floor.name }))
       : []),
   ];
   const grouped = new Map<CombatThreshold['stat'], ThresholdRow>();

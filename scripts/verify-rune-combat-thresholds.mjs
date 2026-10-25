@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { areaFacts } from '../app/lib/area-facts.ts';
 import { combatThresholdsForMonster } from '../app/lib/rune-combat-thresholds.ts';
-import { hardestPveFloor } from '../app/lib/pve-stages.ts';
+import { presetContents } from '../app/lib/preset-contents.ts';
+import { fastestEnemySpeed, speedContent, dungeonIds } from '../app/lib/speed-contents.ts';
+import { usefulAccuracy } from '../app/lib/accuracy-ceiling.ts';
+import { hardestPveFloor, pveAreaOf, pveFloors, fastestEnemyOn, highestEnemyStatOn, highestEnemyStatInFinalWaveOn, highestResistanceOn } from '../app/lib/pve-stages.ts';
 
 const necropolis = hardestPveFloor('necropolis');
 assert.equal(necropolis?.name, 'Abyss Hard');
@@ -35,18 +38,45 @@ assert.deepEqual(combatThresholdsForMonster('11011', necropolis), []);
 assert.deepEqual(combatThresholdsForMonster('10131', necropolis), []);
 
 const general = { numberFormat: 'american', dateOrder: 'system', hourCycle: 'system', timeZone: 'system', manualTimeZone: '' };
-const presetKinds = [
-  { kind: 'scenario', content: null },
-  { kind: 'game', content: null },
-  { kind: 'game', content: { id: 'steel', name: 'Steel Fortress' } },
-  { kind: 'own', content: null },
-  { kind: 'own', content: { id: 'steel', name: 'Steel Fortress' } },
-];
-for (const preset of presetKinds) {
-  const icaru = areaFacts(preset, general, '11031').thresholds;
-  assert.deepEqual(icaru[0]?.points.map(({ value }) => value), [2501, 3301], `${preset.kind} Icaru keeps both DEF breakpoints`);
-  const agrius = areaFacts(preset, general, '34112').thresholds;
-  assert.deepEqual(agrius[0]?.points.map(({ value }) => value), [309], `${preset.kind} Agrius keeps the Necropolis SPD breakpoint`);
+// Exercise every content, including missing stage data, through both preset kinds.
+for (const content of [null, ...presetContents]) {
+  const area = pveAreaOf(content?.id);
+  const floor = area === undefined ? undefined : hardestPveFloor(area);
+  for (const kind of ['game', 'own']) {
+    const preset = { kind, content };
+    assert.deepEqual(areaFacts(preset, general, '11031').thresholds[0]?.points.map(({ value }) => value), [2501, 3301]);
+    for (const masterId of ['34112', '29711', '16513', '26113', '20814', '30112']) {
+      const expected = combatThresholdsForMonster(masterId, floor).map((row) => ({
+        ...row, reference: `${content.name} (${floor.name})`,
+      }));
+      assert.deepEqual(areaFacts(preset, general, masterId).thresholds, expected, `${kind} ${content?.id} ${masterId}`);
+    }
+  }
+  // Scenario never takes enemies from a content accidentally attached to it.
+  assert.deepEqual(areaFacts({ kind: 'scenario', content }, general, '34112').thresholds, []);
+  if (!area) continue;
+  for (const ownFloor of pveFloors(area)) {
+    const points = (id, stat) => combatThresholdsForMonster(id, ownFloor).find((row) => row.stat === stat)?.points.map(({ value }) => value);
+    const speed = fastestEnemyOn(ownFloor);
+    const bossSpeed = highestEnemyStatInFinalWaveOn(ownFloor, 'speed');
+    const hp = highestEnemyStatOn(ownFloor, 'hp');
+    const defense = highestEnemyStatOn(ownFloor, 'defense');
+    const attack = highestEnemyStatOn(ownFloor, 'attack');
+    assert.deepEqual(points('29711', 'spd'), speed === undefined ? undefined : [speed, Math.ceil(speed + 126)]);
+    assert.deepEqual(points('34112', 'spd'), bossSpeed === undefined ? undefined : [Math.ceil(bossSpeed + 200)]);
+    assert.deepEqual(points('20814', 'hp'), hp === undefined ? undefined : [Math.floor(hp) + 1]);
+    assert.deepEqual(points('16513', 'def'), defense === undefined ? undefined : [Math.floor(defense * 2) + 1]);
+    assert.deepEqual(points('30112', 'atk'), attack === undefined ? undefined : [Math.floor(attack) + 1]);
+  }
 }
-
-console.log('Rune combat thresholds use the Necropolis reference for every preset kind, including intrinsic Icaru DEF breakpoints.');
+assert.deepEqual(areaFacts(undefined, general, '34112').thresholds, []);
+assert.deepEqual(areaFacts(undefined, general).thresholds, []);
+assert.deepEqual(combatThresholdsForMonster('34112', undefined), []);
+for (const id of dungeonIds) {
+  const floor = hardestPveFloor(id);
+  assert.equal(fastestEnemySpeed(id), fastestEnemyOn(floor));
+  assert.equal(usefulAccuracy(id), Math.max(0, highestResistanceOn(floor) - 15));
+  assert.equal(speedContent(id).floorName, floor.name);
+  assert.deepEqual(speedContent(id).stages.map((stage) => stage.speeds), floor.waves.map((wave) => wave.map((enemy) => enemy.speed)));
+}
+console.log('Every preset uses its own PvE area; thresholds follow every documented floor, missing stats stay unknown, and intrinsic breakpoints survive without enemies.');
