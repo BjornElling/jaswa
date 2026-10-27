@@ -198,8 +198,23 @@ export function isPresetContentId(value: unknown): value is PresetContentId {
  *   6 Punisher's Crypt — the capacity table's own order. 1, 2, 3 and 5 were
  *   confirmed on saved decks; 4 and 6 by the same order in the account's recent
  *   decks, whose Cairos sub-types 19–24 the screen confirmed for all six.
+ * - `deck_type` 27 holds the Monster Subjugation decks, split by hundreds the
+ *   same way: 201 is Fire's first deck (the player, October 27, 2026). Water,
+ *   Wind and Boss are read as 1, 3 and 4 by the Guild tab's order, and stay
+ *   assumed until a saved deck confirms them.
  */
-const cairosByHundreds: Readonly<Record<number, PresetContentId>> = { 1: 'giants', 2: 'dragons', 3: 'necropolis', 4: 'spiritual', 5: 'steel', 6: 'punisher' };
+type ByHundreds = Readonly<Record<number, { id: PresetContentId; assumed: boolean }>>;
+
+const byHundreds: Readonly<Record<number, ByHundreds>> = {
+  24: {
+    1: { id: 'giants', assumed: false }, 2: { id: 'dragons', assumed: false }, 3: { id: 'necropolis', assumed: false },
+    4: { id: 'spiritual', assumed: false }, 5: { id: 'steel', assumed: false }, 6: { id: 'punisher', assumed: false },
+  },
+  27: {
+    1: { id: 'subjugation-water', assumed: true }, 2: { id: 'subjugation-fire', assumed: false },
+    3: { id: 'subjugation-wind', assumed: true }, 4: { id: 'subjugation-boss', assumed: true },
+  },
+};
 
 const confirmed: Readonly<Record<number, PresetContentId>> = {
   1: 'arena-attack', 3: 'rift-raid', 6: 'trial-of-ascension',
@@ -211,12 +226,12 @@ const confirmed: Readonly<Record<number, PresetContentId>> = {
  * Assumed, October 8, 2026, from one account's decks (`DECK-PRESETS.md` §7):
  * - `deck_type` 2: fourteen three-monster decks numbered 1–15 — a guild attack,
  *   and fifteen is World Guild Battle's capacity where Siege Battle's is 25.
- * - `deck_type` 4, 8 and 9: five-monster decks of three or fewer, holding the
- *   same teams as one another, and two of 9's were last fought in a content of
- *   four areas — the shape of Monster Subjugation, with Labyrinth beside it.
+ * - `deck_type` 4: five-monster decks of three or fewer, read as Labyrinth.
+ *   8 and 9 hold the same kind of teams and were once read as Monster
+ *   Subjugation; type 27 turned out to be that, so they stand unnamed.
  */
 const assumed: Readonly<Record<number, PresetContentId>> = {
-  2: 'world-guild', 4: 'labyrinth-normal', 8: 'subjugation-water', 9: 'subjugation-fire',
+  2: 'world-guild', 4: 'labyrinth-normal',
 };
 
 /**
@@ -225,9 +240,10 @@ const assumed: Readonly<Record<number, PresetContentId>> = {
  * presets not yet named rather than being dropped.
  */
 export function deckContent(deckType: number, deckSequence: number): { content: PresetContent; number: number; assumed: boolean } | null {
-  if (deckType === 24) {
-    const id = cairosByHundreds[Math.floor(deckSequence / 100)];
-    return id ? { content: presetContent(id), number: deckSequence % 100, assumed: false } : null;
+  const areas = byHundreds[deckType];
+  if (areas) {
+    const area = areas[Math.floor(deckSequence / 100)];
+    return area ? { content: presetContent(area.id), number: deckSequence % 100, assumed: area.assumed } : null;
   }
   const sure = confirmed[deckType];
   if (sure) return { content: presetContent(sure), number: deckSequence, assumed: false };

@@ -194,11 +194,10 @@ preset is never hidden for want of a name (AGENTS.md §0.1). Matched so far
 | 3 | Rift Raid | `deck_seq` | screen |
 | 4 | Labyrinth Normal | `deck_seq` | assumed (§7) |
 | 6 | Trial of Ascension | `deck_seq` | screen |
-| 8 | Monster Subjugation Water | `deck_seq` | assumed (§7) |
-| 9 | Monster Subjugation Fire | `deck_seq` | assumed (§7) |
 | 19, 20, 21 | Dimension Raid phases 1, 2, 3 | `deck_seq` | screen |
 | 23 | Temple of Chaos | `deck_seq` | the developer, October 10, 2026: the account's three Temple of Chaos teams |
 | 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 | screen (screens of October 7, 2026) |
+| 27 | Monster Subjugation: the hundreds of `deck_seq` are 1 Water, 2 Fire, 3 Wind, 4 Boss | `deck_seq` mod 100 | 2 Fire: the developer, October 27, 2026; 1, 3 and 4 assumed from the Guild tab's order |
 
 4 and 6 under type 24 were confirmed through the recent decks, whose Cairos
 sub-types 19–24 run in the same order and were matched on screen for all six.
@@ -483,10 +482,12 @@ and says so where it matters.
   the same teams as one another. None is Temple of Chaos, whose presets are
   type 23, nor a Dimension Hole dungeon or Rift of Worlds beast,
   whose teams are four and six. Two of type 9's teams were last fought in a
-  content whose recent-deck numbers fall in four groups — Monster
-  Subjugation's shape, with Labyrinth the other guild content of five. Read as
-  Labyrinth Normal (4), Monster Subjugation Water (8) and Fire (9); the areas
-  within each are a guess the Guild tab's screen will settle.
+  content whose recent-deck numbers fall in four groups. 8 and 9 were read as
+  Monster Subjugation Water and Fire until type 27 proved to be Monster
+  Subjugation (deck 201 is Fire's first, October 27, 2026); they now stand
+  unnamed until the screen names them. 4 is still read as Labyrinth Normal.
+- **Monster Subjugation Water, Wind and Boss.** Type 27's hundreds 1, 3 and 4
+  follow the Guild tab's order; only Fire (2) has been seen.
 - **Saving the Arena Interserver defense.** Not yet captured. The helper takes
   any answer carrying `server_arena_defense_deck_info` whole, as it does for
   the Arena defense, whose save is confirmed.
