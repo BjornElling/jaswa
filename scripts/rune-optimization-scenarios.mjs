@@ -15,13 +15,25 @@ import { defaultRuneOptimizationSettings } from '../app/lib/rune-optimization-se
 import { runeBuild } from '../app/lib/rune-set-pairs.ts';
 import { runeSetId } from '../app/lib/rune-sets.ts';
 import { slotAllowsSubStat, slotMainProperties } from '../app/lib/runes.ts';
+import { withheldRunes } from '../app/lib/rune-sources.ts';
+
+/**
+ * The runes the copy may not take, through the app's one rule: its team is the
+ * copies the account's runes are engraved on, and every fourth account ranks
+ * copy 2 above the copy searched for. `settings` asks the same team again under
+ * other switches.
+ */
+export function withheldIn(input, index, settings = input.settings) {
+  const runeOwner = new Map(input.runes.filter((rune) => rune.occupiedId !== null).map((rune) => [rune.id, rune.occupiedId]));
+  return withheldRunes({ kind: 'game', runeOwner, poolRunes: new Map() }, input.unitId, index % 4 === 3 ? ['2', input.unitId] : [], settings, {});
+}
 
 /** Scarce grades expose craft choices that an independent per-rune guide can miss. */
 export function stockGuidanceScenarios(count = 40) {
   const generator = scenarioGenerator(20261005, [3, 5]);
   return Array.from({ length: count }, (_, index) => {
     const input = generator.scenario(index);
-    input.locks = {}; input.spared = [];
+    input.locks = {}; input.withheld = {};
     input.runes = input.runes.map((rune) => ({ ...rune, setId: 13, occupiedId: null, ancient: false, level: 15 }));
     input.requirements = { ...input.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
       allowBroken: true, allowIntangible: false, alwaysCrits: false,
@@ -134,7 +146,7 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
     if (random() < 0.35) ceilings.spd = between(130, 190);
     if (random() < 0.2) ceilings.hp = between(12000, 20000);
     if (random() < 0.15) ceilings.criRate = between(40, 90);
-    return {
+    const input = {
       unitId: '1',
       monster: {
         unit_id: 1, con: 700, atk: 700, def: 600, spd: 101, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0,
@@ -142,9 +154,6 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
         relics: index % 2 === 0 ? [{ pri_effect: [102, 12] }] : [],
       },
       runes, locks, craftItems,
-      /* Every fourth account ranks copy 2 above the one being searched for, without
-         drawing on the generator, so the accounts the other seeds produce stay as they were. */
-      spared: index % 4 === 3 ? ['2'] : [],
       requirements: {
         builds: wantedBuilds,
         slotMains: { slot2: random() < 0.3 ? ['Spd'] : [], slot4: [], slot6: [] },
@@ -156,6 +165,10 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
         depth: 'complete', resultCount: 5,
       },
     };
+    /* The team's priority comes from the index alone, without drawing on the
+       generator, so the accounts the other seeds produce stay as they were. */
+    input.withheld = withheldIn(input, index);
+    return input;
   }
 
   return { scenario, random };
@@ -166,7 +179,7 @@ export function craftedRangeScenarios() {
   const generator = scenarioGenerator(20261006, [2, 2]);
   return Array.from({ length: 18 }, (_, index) => {
     const input = generator.scenario(0);
-    input.locks = {}; input.spared = [];
+    input.locks = {}; input.withheld = {};
     input.runes = input.runes.filter((rune, at, all) => rune.slot >= 5
       || all.findIndex((other) => other.slot === rune.slot) === at).map((rune, at) => ({
       ...rune, occupiedId: rune.slot < 5 ? input.unitId : null, level: 15,

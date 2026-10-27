@@ -69,7 +69,8 @@ export type PresetContent = {
  * Which saved teams reserve gear or monsters against one another. `id` names
  * the pool rather than the content, because one battle can span several
  * contents: Dimension Raid's three phases are three contents and one pool.
- * Rune searches reserve runes only across different contents in that pool.
+ * Every deck that can stand in the same battle reserves against the others:
+ * in a team pool every team, in a phase pool every deck of another phase.
  */
 export type SharedPool = {
   id: string;
@@ -78,7 +79,7 @@ export type SharedPool = {
    * Whether the battle places one deck of each content, so two decks of the
    * same content are alternatives that never stand together and may hold the
    * same gear. Only decks of different contents of the pool then exclude each
-   * other.
+   * other: a phase pool. Off, every deck excludes every other: a team pool.
    */
   oneDeckPerContent: boolean;
 };

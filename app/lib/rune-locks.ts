@@ -8,8 +8,8 @@ import type { Preset } from './presets';
  * overlay's, the rune overlay's — and the one the build search and the
  * re-reading of a found build read. Both words bind a rune to a monster in one
  * **scope**: one preset, Scenario being a scope of its own. A lock belongs to
- * the team that set it; a shared pool can constrain which runes a phase may
- * use, but it does not bind alternative teams together.
+ * the team that set it; what a pool's other decks may take is
+ * `rune-sources.ts`'s to say, and it never takes a rune locked there.
  *
  * - **Locked** is the rune engraved on the monster and staying there: the
  *   search takes it as the slot's one answer and never offers it to another
@@ -67,18 +67,6 @@ export function runeLocksFor(locks: RuneLocks, scope: string, unitId: string): R
   for (const byRune of Object.values(locks[scope] ?? {})) {
     for (const [runeId, lock] of Object.entries(byRune)) if (lock === 'locked') read[runeId] = lock;
   }
-  return read;
-}
-
-/**
- * What one monster's search reads in a preset: its team's locks and exclusions,
- * and every rune a different phase of its content pool holds as `excluded`.
- * Runes held by another team in the same phase remain available; `spared` in
- * Rune Optimization applies that team's monster priority to them.
- */
-export function runeLocksInPreset(locks: RuneLocks, preset: Pick<Preset, 'id' | 'poolRuneIds'>, unitId: string): Record<string, RuneLock> {
-  const read = runeLocksFor(locks, runeLockScope(preset), unitId);
-  for (const runeId of preset.poolRuneIds) read[runeId] ??= 'excluded';
   return read;
 }
 

@@ -8,7 +8,7 @@ import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
 
 const source = process.argv[2] ? JSON.parse(readFileSync(process.argv[2], 'utf8')) : scenarioGenerator(20261004, [35, 45]).scenario(0);
 const make = (name, requirements = {}, settings = {}, changes = {}) => ({ name, input: {
-  ...source, locks: {}, spared: [], ...changes,
+  ...source, locks: {}, withheld: {}, ...changes,
   requirements: { ...source.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
     allowBroken: true, allowIntangible: false, targets: {}, ceilings: {}, alwaysCrits: false, rankBy: 'dmg', ...requirements },
   settings: { ...source.settings, depth: 'complete', gems: 'none', grinds: 'none', resultCount: 10,

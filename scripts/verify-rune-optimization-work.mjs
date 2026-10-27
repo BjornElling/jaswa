@@ -8,7 +8,7 @@ import {
 } from '../app/lib/rune-optimization-work.ts';
 
 const input = scenarioGenerator(20261004).scenario(0);
-input.locks = {}; input.spared = [];
+input.locks = {}; input.withheld = {};
 input.requirements = { ...input.requirements, targets: {}, ceilings: {}, builds: [], allowBroken: true,
   slotMains: { slot2: [], slot4: [], slot6: [] } };
 input.settings = { ...input.settings, depth: 'complete', gems: 'none', grinds: 'none', runesOnOtherMonsters: true };

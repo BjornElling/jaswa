@@ -432,7 +432,13 @@ parts an agent must not quietly break:
   Location labels, engraved filters and sell safeguards all read that summary.
   Rune Optimization alone reads the selected preset's current placement and
   applies the game's remembered-placement rule; no other workspace resolves a
-  rune's current location from one preset.
+  rune's current location from one preset. **Whose engraved runes a monster
+  may take is one rule, `app/lib/rune-sources.ts`:** a teammate's by the
+  team's priority list, another deck of its pool's only with *Include runes
+  from higher-priority monsters* — teams and phases are never ranked against
+  each other — and an engrave that takes such a rune takes it off that deck.
+  The search and the re-reading of a build read its answer (`withheld`); no
+  other module decides it.
 - **One Gem rule and one Grindstone rule, however many workspaces spend them.**
   `app/lib/rune-craft-end-state.ts` is the only module that applies
   `RUNE-CANONICAL.md` §8, and `app/lib/rune-craft-items.ts` is the only one that

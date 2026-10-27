@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 /**
  * The Presets page (`docs/DECK-PRESETS.md` §5) and the one place a preset's
  * priority list is read: Rune Optimization can borrow a teammate's rune by
- * priority, and treats a rune engraved only in another phase as unavailable.
+ * priority, and takes a rune another deck of its pool holds only when included.
  */
 
 const base = JSON.parse(readFileSync(new URL('./fixtures/rune-optimization-account.json', import.meta.url), 'utf8'));
@@ -854,7 +854,7 @@ test('Rune Optimization borrows teammate runes by priority, and the switch only 
   await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-4');
   const freeOnly = page.getByLabel('Only runes not engraved in preset');
   const include = page.getByLabel('Include runes from higher-priority monsters');
-  /* Both off, and neither ever disables the other. */
+  /* Both off; Include is disabled only while free runes alone are taken. */
   await expect(freeOnly).not.toBeChecked();
   await expect(include).not.toBeChecked();
 
@@ -897,9 +897,10 @@ test('Rune Optimization borrows teammate runes by priority, and the switch only 
   await openOptimization(page);
   expect(await find(page)).toBe(spared);
 
-  /* Taking only runes that are not engraved in the team leaves the priority switch enabled and in place. */
+  /* Taking only runes that are not engraved in the team leaves the priority switch nothing to
+     decide: it is disabled, in place. */
   await freeOnly.check();
-  await expect(include).toBeEnabled();
+  await expect(include).toBeDisabled();
   await expect(include).not.toBeChecked();
   expect(await box(include)).toEqual(includeBox);
   expect(await box(freeOnly)).toEqual(freeBox);
@@ -1039,6 +1040,78 @@ test('a rune on the optimized monster in Scenario is inventory in another preset
   await expect(detail.getByRole('button', { name: 'Engraved', exact: true })).toBeDisabled();
   expect(await box(detail.locator('.rune-build-circle'))).toEqual(circleBefore);
   await detail.screenshot({ path: testInfo.outputPath('scenario-engraved-preset-engraved.png') });
+});
+
+test('a rune another team of a team pool holds is withheld until included, names its team, and leaves it on engrave', async ({ page }, testInfo) => {
+  test.slow();
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  /* Temple of Chaos 1 holds 11 on the account's only six runes; Temple of Chaos 2 holds 12 on none.
+     The two teams fight in one battle, so a rune stands in one of them only. */
+  const elevenRunes = base.unit_list.find((unit: { unit_id: number }) => unit.unit_id === 11).runes;
+  const runeIds = elevenRunes.map((rune: { rune_id: number }) => rune.rune_id);
+  const poolAccount = {
+    ...base,
+    runes: [],
+    unit_list: base.unit_list.map((unit: { unit_id: number; runes: unknown[] }) => ({ ...unit, runes: unit.unit_id === 11 ? elevenRunes : [] })),
+    deck_list: [
+      { deck_type: 23, deck_seq: 1, unit_id_list: [11, 0, 0, 0, 0], equip: [{ unit_id: 11, rune_id_list: runeIds, artifact_id_list: [] }] },
+      { deck_type: 23, deck_seq: 2, unit_id_list: [12, 0, 0, 0, 0], equip: [{ unit_id: 12, rune_id_list: [], artifact_id_list: [] }] },
+    ],
+  };
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'team-pool.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(poolAccount)),
+  });
+  await openOptimization(page);
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-23-2');
+  await page.getByLabel('Monster', { exact: true }).selectOption('12');
+  const settings = page.getByRole('complementary', { name: 'Settings' });
+  const freeOnly = settings.getByLabel('Only runes not engraved in preset');
+  const include = settings.getByLabel('Include runes from higher-priority monsters');
+  const rank = page.getByLabel('Rank by', { exact: true });
+  if (await rank.inputValue() === '') await rank.selectOption('spd');
+
+  /* Off, the other team's runes are not this team's to take: nothing fills a slot. */
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByText(/No rune can fill slot 1, 2, 3, 4, 5, 6/)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('team-pool-withheld.png'), fullPage: true });
+
+  /* Only free runes leaves Include nothing to decide, and the switch keeps its box. */
+  const includeBox = await box(include);
+  await freeOnly.check();
+  await expect(include).toBeDisabled();
+  expect(await box(include)).toEqual(includeBox);
+  await freeOnly.uncheck();
+  await expect(include).toBeEnabled();
+
+  /* Included, the six runes are offered, and each card names the team holding it. */
+  await include.check();
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: 'Build 1' });
+  await expect(detail.locator('.rune-build-card')).toHaveCount(6);
+  for (const card of await detail.locator('.rune-build-card').all()) {
+    await expect(card.locator('.rune-build-card-where').first()).toContainText('· Temple of Chaos 1');
+    await expect(card.locator('.rune-build-card-where-value [title$="· Temple of Chaos 1"]')).toHaveCount(1);
+  }
+  const circleBefore = await box(detail.locator('.rune-build-circle'));
+  await detail.screenshot({ path: testInfo.outputPath('team-pool-included.png') });
+
+  /* Engraved, the runes leave Temple of Chaos 1, so the pool never holds one twice. */
+  await detail.getByRole('button', { name: 'Engrave on monster' }).click();
+  await expect(detail.getByRole('button', { name: 'Engraved', exact: true })).toBeDisabled();
+  expect(await box(detail.locator('.rune-build-circle'))).toEqual(circleBefore);
+  await detail.screenshot({ path: testInfo.outputPath('team-pool-engraved.png') });
+  const decks = await page.evaluate(async () => new Promise<Array<{ deck_seq: number; equip: Array<{ unit_id: number; rune_id_list: number[] }> }>>((resolve) => {
+    const request = indexedDB.open('jaswa-local', 1);
+    request.onsuccess = () => {
+      const read = request.result.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
+      read.onsuccess = () => { resolve(read.result.data.deck_list); request.result.close(); };
+    };
+  }));
+  const gearIn = (seq: number, unitId: number) => decks.find((entry) => entry.deck_seq === seq)?.equip.find((entry) => entry.unit_id === unitId)?.rune_id_list;
+  expect(gearIn(1, 11)).toEqual([]);
+  expect([...gearIn(2, 12) ?? []].sort()).toEqual([...runeIds].sort());
 });
 
 test('a rune on another monster in Scenario names that monster in a preset build', async ({ page }, testInfo) => {

@@ -52,7 +52,7 @@ inputs.push(...inputs.slice(0, 18).map(({ input }, index) => ({
 // Own team sets and external counts must travel through the card's same stat sheet.
 inputs.push(...Array.from({ length: 11 }, (_, index) => {
   const input = scenarioGenerator(20261016 + index, [3, 3]).scenario(0);
-  input.locks = {}; input.spared = [];
+  input.locks = {}; input.withheld = {};
   input.runes = input.runes.map((rune, at) => ({ ...rune, setId: 19 + (at % 3 === 0 ? (index + 1) % 5 : index % 5) }));
   Object.assign(input.requirements, {
     builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,

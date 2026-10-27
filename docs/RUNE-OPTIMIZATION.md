@@ -221,10 +221,8 @@ they change no own-stat range. Incomplete sets, sold runes and missing members a
 nothing.
 
 The preset table, profile, shortfall check, search and graphics-card input all read this
-derivation. A search may take a rune from another member of the selected team when
-*Only runes not engraved in preset* is clear. The selected team's priority list protects
-higher-priority members unless *Include runes from higher-priority monsters* is on. Neither
-setting reads runes from another phase or orders monsters on another team. When the
+derivation. Which runes a search may take from other monsters — of the team or of another
+deck of its pool — is §3's one rule (`rune-sources.ts`). When the
 account or preset changes, the bonus is derived again; an open result is reread with the
 current bonus and marked stale if the question changed. Each candidate's own sets are
 counted from that candidate, never from the build being replaced. Shield grants a shield,
@@ -279,10 +277,9 @@ inventory); the page reads every rune through `runesInPreset`, which returns cop
 `occupiedId` is the owner **in that preset**, or `null` where none of the preset's monsters
 carries it. So in this calculation `occupiedId` means "engraved on this monster in this
 preset", and a rune engraved only in other presets counts as not engraved in this one,
-because a preset holds its own gear. A pool can reserve runes from another phase:
-`poolRuneIds` reaches the search as excluded through `runeLocksInPreset`. A rune held by
-another team of the same content remains a candidate. An engrave may then reuse it without
-changing the other preset.
+because a preset holds its own gear. A deck of a pool is the exception: what the pool's
+other decks hold (`poolRunes`, `DECK-PRESETS.md` §4) is withheld by the rule below, and an
+engrave that brings such a rune in takes it off those decks.
 
 A **candidate** is one rune in one end state: as it stands, or with the Gem and
 Grindstones the settings allow. A rune enters its own slot's list when:
@@ -293,17 +290,22 @@ Grindstones the settings allow. A rune enters its own slot's list when:
   is not searched. Locks and exclusions bind one scope — Scenario or one preset — and no
   other; they live with the import, so a new import has
   none, and they are off under *Always synchronized*. Locking a rune engraves it first.
-- it is not engraved in this preset, is on this monster, or — unless *Only runes not
-  engraved in preset* is ticked — is on another monster of the preset;
-- within a concrete team, that other monster is not **above it on the preset's
-  priority list** (`monster-priority.ts`, the *Presets* page), unless *Include runes from
-  higher-priority monsters* is ticked. A monster not on the list ranks below every monster
-  on it. Only members of this preset are compared. The page resolves the list into the
-  copies spared (`RuneOptimizationInput.spared`);
-  `mayTakeFrom` is the one rule the search and the re-reading of a build apply. The two
-  switches are independent, though the second has nothing to decide while the first is
-  ticked. Scenario has no team: its Include switch is disabled and higher-priority
-  protection stays on when borrowing from the roster, regardless of a saved switch value;
+- it is on this monster, or engraved nowhere it could be taken from, or **withheld by
+  nobody**: `withheldRunes` (`rune-sources.ts`) is the one rule of whose runes a monster
+  may take, and the page hands its answer to the search as `RuneOptimizationInput.withheld`
+  — the rune and the copy holding it — so the search reads neither the priority list, the
+  pool nor the switches. `mayTake` is the one reading the search and the re-reading of a
+  build apply. The rule:
+  - a rune on **another monster of the team** may be taken unless *Only runes not engraved
+    in preset* is ticked, and from a monster **above this one on the preset's priority
+    list** (`monster-priority.ts`, the *Presets* page) only with *Include runes from
+    higher-priority monsters*. A monster not on the list ranks below every monster on it;
+  - a rune **another deck of the pool** holds is never ranked: it is taken only with
+    *Include runes from higher-priority monsters*, never under *Only runes not engraved in
+    preset*, and never while it is locked there;
+  - *Include* has nothing to decide while *Only runes not engraved in preset* is ticked,
+    nor in Scenario, which is no team; the page disables it there and keeps the stored
+    choice for when it applies again;
 - its set can appear in a stated build, unless a build leaves slots free;
 - its main is one the slot accepts;
 - it is not Intangible, unless Intangible runes are allowed.

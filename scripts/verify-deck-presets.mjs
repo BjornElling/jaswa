@@ -16,7 +16,8 @@ import {
 } from '../app/lib/presets.ts';
 import { engraveImportedGame } from '../app/lib/engrave-rune-build.ts';
 import { addToGamePreset } from '../app/lib/game-preset-edits.ts';
-import { noRuneLocks, runeLocksInPreset } from '../app/lib/rune-locks.ts';
+import { noRuneLocks } from '../app/lib/rune-locks.ts';
+import { includeHigherPriorityApplies, withheldRunes } from '../app/lib/rune-sources.ts';
 import { readRunes } from '../app/lib/runes.ts';
 import { presetContent, presetContents } from '../app/lib/preset-contents.ts';
 import { battleLeaders, leadArea, teamLeadsFor } from '../app/lib/team-leads.ts';
@@ -292,7 +293,7 @@ const ownPreset = readPresets(game.data, readOwnPresets([{ id: 'own-x', name: 'M
 assert.throws(() => engraveImportedGame(game, find(ownPreset, 'own-x'), '11', keepBuild), /preferences/,
   'an own preset is engraved in the preferences, never in the import');
 
-/* 4. A pool: Temple of Chaos's teams share monsters and artifacts; same-phase rune placements are reusable. */
+/* 4. A team pool: Temple of Chaos's teams share monsters, artifacts and runes. */
 /* The game does not always stop an overlap, so the import reads it and the preset carries it as a fault. */
 const overlapping = { ...only(
   deck(23, 1, [1], [gear(1, [101], [artifactId])]),
@@ -301,10 +302,10 @@ const overlapping = { ...only(
 ), artifacts: [] };
 assert.equal(validateGameFile(overlapping).valid, true, `an overlap in a pool never fails the import: ${validateGameFile(overlapping).message}`);
 const overlapPresets = readPresets(createImportedGame('overlap.json', clone(overlapping), validateGameFile(overlapping)).data, []);
-assert.deepEqual(find(overlapPresets, 'deck-23-2').poolConflicts, { runeIds: [], artifactIds: [String(artifactId)], unitIds: ['1'] },
-  'same-phase teams can reuse a rune while artifact and monster overlaps remain visible');
-assert.deepEqual(find(overlapPresets, 'deck-23-1').poolConflicts, { runeIds: [], artifactIds: [String(artifactId)], unitIds: ['1'] },
-  'the same-phase rune overlap is not reported as a conflict');
+assert.deepEqual(find(overlapPresets, 'deck-23-2').poolConflicts, { runeIds: ['101'], artifactIds: [String(artifactId)], unitIds: ['1'] },
+  'each team of a team pool names the rune, artifact and monster it shares');
+assert.deepEqual(find(overlapPresets, 'deck-23-1').poolConflicts, { runeIds: ['101'], artifactIds: [String(artifactId)], unitIds: ['1'] },
+  'on both sides of the overlap');
 assert.deepEqual(find(overlapPresets, 'deck-1-1').poolConflicts, { runeIds: [], artifactIds: [], unitIds: [] },
   'outside a pool one rune and one monster may stand in several presets');
 const overlapRunes = readRunes(createImportedGame('overlap.json', clone(overlapping), validateGameFile(overlapping)).data);
@@ -328,21 +329,39 @@ const poolRunes = readRunes(poolGame.data);
 const occupiedIn = (presetId) => Object.fromEntries(runesInPreset(poolRunes, find(pooled, presetId)).map((rune) => [rune.id, rune.occupiedId]));
 assert.equal(occupiedIn('deck-23-2')['5013'], null, 'each team is read alone: a rune on another team is not engraved in this one');
 assert.equal(occupiedIn('deck-23-2')['5007'], '12', 'and the team\'s own Scenario gear is its own');
-assert.deepEqual([...find(pooled, 'deck-23-2').poolRuneIds], [], 'same-phase teams do not reserve one another\'s runes');
+assert.deepEqual([...find(pooled, 'deck-23-2').poolRunes.keys()].sort(), [...arenaEleven].sort(), 'a team knows every rune another team of its pool holds');
+assert.deepEqual(find(pooled, 'deck-23-2').poolRunes.get('5013'), [{ presetId: 'deck-23-1', unitId: '11' }], 'and where');
 
-/* Same-phase team runes are offered, while user locks stay local to one team. */
-assert.equal(runeLocksInPreset(noRuneLocks, find(pooled, 'deck-23-2'), '12')['5013'], undefined);
-assert.equal(runeLocksInPreset(noRuneLocks, find(pooled, 'deck-23-2'), '12')['5007'], undefined, 'the team\'s own runes stay open to it');
-assert.equal(runeLocksInPreset(noRuneLocks, find(pooled, 'deck-1-1'), '11')['5013'], undefined, 'outside a pool nothing is held back');
-const lockedHere = { 'deck-23-2': { 12: { 5013: 'locked' } } };
-assert.equal(runeLocksInPreset(lockedHere, find(pooled, 'deck-23-2'), '12')['5013'], 'locked', 'a lock applies within its team');
-assert.equal(runeLocksInPreset(lockedHere, find(pooled, 'deck-23-1'), '11')['5013'], undefined, 'a lock in one team does not bind another same-phase team');
+/* Whose runes a monster may take (`rune-sources.ts`): another team's only when included, never ranked. */
+const sources = (runesOnOtherMonsters, includeHigherPriority) => ({ runesOnOtherMonsters, includeHigherPriority });
+assert.equal(withheldRunes(find(pooled, 'deck-23-2'), '12', [], sources(true, false), noRuneLocks)['5013'], '11',
+  'a rune another team holds is withheld, and names its holder');
+assert.equal(withheldRunes(find(pooled, 'deck-23-2'), '12', [], sources(true, false), noRuneLocks)['5007'], undefined, 'the team\'s own runes stay open to it');
+assert.equal(withheldRunes(find(pooled, 'deck-23-2'), '12', [], sources(true, true), noRuneLocks)['5013'], undefined,
+  'including higher-priority monsters opens the other teams too');
+assert.equal(withheldRunes(find(pooled, 'deck-23-2'), '12', [], sources(false, true), noRuneLocks)['5013'], '11',
+  'only runes engraved nowhere: Include has nothing to decide');
+assert.equal(includeHigherPriorityApplies(find(pooled, 'deck-23-2'), sources(false, true)), false, 'so the page disables it');
+assert.equal(includeHigherPriorityApplies(find(pooled, 'scenario'), sources(true, true)), false, 'as in Scenario, which is no team');
+assert.equal(withheldRunes(find(pooled, 'deck-1-1'), '11', [], sources(true, false), noRuneLocks)['5013'], undefined, 'outside a pool nothing is held back');
+const lockedThere = { 'deck-23-1': { 11: { 5013: 'locked' } } };
+assert.equal(withheldRunes(find(pooled, 'deck-23-2'), '12', [], sources(true, true), lockedThere)['5013'], '11',
+  'a rune locked on another team stays there, included or not');
+/* Inside one team the priority list rules: a copy takes from one below it, from one above only when included. */
+const teamPreset = { kind: 'game', runeOwner: new Map([['a', '1'], ['b', '2'], ['c', '3']]), poolRunes: new Map() };
+assert.deepEqual(withheldRunes(teamPreset, '2', ['1', '2', '3'], sources(true, false), noRuneLocks), { a: '1' }, 'the copy above is spared, the one below is not');
+assert.deepEqual(withheldRunes(teamPreset, '2', ['1', '2', '3'], sources(true, true), noRuneLocks), {}, 'included, nothing is spared');
+assert.deepEqual(withheldRunes(teamPreset, '2', ['1', '2', '3'], sources(false, true), noRuneLocks), { a: '1', c: '3' }, 'only free runes: every teammate\'s are kept');
+assert.deepEqual(withheldRunes(teamPreset, '3', ['1'], sources(true, false), noRuneLocks), { a: '1' }, 'a copy off the list ranks below every copy on it');
 
-/* An engrave may reuse a same-phase rune and never edits another team. */
+/* An engrave that brings in another team's rune takes it off that team. */
 const poolBuild = ['5013', '5008', '5009', '5010', '5011', '5012'];
-const reusable = engraveImportedGame(poolGame, find(pooled, 'deck-23-2'), '12', poolBuild);
-assert.deepEqual(runeIdsByMember(gearOf(reusable.data, 23, 2)), { 12: poolBuild }, 'same-phase teams may use the same rune');
-assert.deepEqual(gearOf(reusable.data, 23, 1), gearOf(poolGame.data, 23, 1), 'reusing a rune leaves the other team untouched');
+const taking = engraveImportedGame(poolGame, find(pooled, 'deck-23-2'), '12', poolBuild);
+assert.deepEqual(runeIdsByMember(gearOf(taking.data, 23, 2)), { 12: poolBuild }, 'the build lands in its team');
+assert.deepEqual(runeIdsByMember(gearOf(taking.data, 23, 1)), { 11: arenaEleven.filter((id) => id !== '5013') }, 'and the rune leaves the team that held it');
+assert.equal(taking.loadedPlacements['deck-23-1']['5013'], '11', 'where it sat there is remembered there');
+assert.deepEqual(find(readPresets(taking.data, []), 'deck-23-2').poolConflicts.runeIds, [], 'no overlap is formed');
+assert.deepEqual(gearOf(taking.data, 1, 1), gearOf(poolGame.data, 1, 1), 'a deck outside the pool is untouched');
 
 /* The game let team 2's 12 keep 5013, which team 1's 11 carries too. Both are read as
    the game has them, and engraving team 1 leaves team 2's runes where they are. */
@@ -353,7 +372,9 @@ const sharedAccount = { ...optimization, deck_list: [
 const sharedGame = createImportedGame('shared.json', clone(sharedAccount), validateGameFile(sharedAccount));
 const shared = readPresets(sharedGame.data, []);
 assert.deepEqual(find(shared, 'deck-23-2').runesOf.get('12'), poolBuild, 'a team keeps the rune it shares with another');
-assert.deepEqual(find(shared, 'deck-23-2').poolConflicts.runeIds, [], 'a same-phase overlap is allowed and not marked as a fault');
+assert.deepEqual(find(shared, 'deck-23-2').poolConflicts.runeIds, ['5013'], 'and the overlap is marked as a fault');
+assert.equal(withheldRunes(find(shared, 'deck-23-2'), '12', [], sources(true, false), noRuneLocks)['5013'], undefined,
+  'a shared rune the monster carries stays its own');
 const unitInShared = createImportedGame('shared.json', clone(sharedAccount), validateGameFile(sharedAccount)).data.unit_list.find((unit) => unit.unit_id === 12);
 assert.deepEqual(monsterInPreset(unitInShared, find(shared, 'deck-23-2'), accountItems(sharedGame.data)).runes.map((rune) => String(rune.rune_id)), poolBuild,
   'the team\'s monster carries all six runes, as the game shows it');
@@ -362,6 +383,7 @@ assert.deepEqual(runeIdsByMember(gearOf(teamOne.data, 23, 1)), { 11: keepBuild }
 assert.deepEqual(gearOf(teamOne.data, 23, 2), gearOf(sharedGame.data, 23, 2), 'and the other team is untouched');
 const kept = engraveImportedGame(sharedGame, find(shared, 'deck-23-2'), '12', poolBuild);
 assert.deepEqual(runeIdsByMember(gearOf(kept.data, 23, 2)), { 12: poolBuild }, 'a shared rune the monster already carries may stay');
+assert.deepEqual(gearOf(kept.data, 23, 1), gearOf(sharedGame.data, 23, 1), 'keeping it takes nothing from the other team');
 
 /* A monster in another team cannot join; a newcomer brings only Scenario gear no team holds. */
 const editable = { ...poolGame, data: { ...poolGame.data, deck_list: [
@@ -393,34 +415,40 @@ assert.deepEqual(['deck-19-1', 'deck-20-1', 'deck-21-1'].map((id) => find(raidPr
   'Dimension Raid\'s phases are one pool');
 assert.deepEqual(find(raidPresets, 'deck-21-1').poolConflicts, { runeIds: ['101'], artifactIds: [], unitIds: [] },
   'a rune on phase 1 is unavailable in phase 3');
-assert.deepEqual([...find(raidPresets, 'deck-20-1').poolRuneIds].sort(), ['101', '102'], 'a phase knows the runes the other phases hold');
+assert.deepEqual([...find(raidPresets, 'deck-20-1').poolRunes.keys()].sort(), ['101', '102'], 'a phase knows the runes the other phases hold');
 assert.deepEqual(find(raidPresets, 'deck-20-1').poolTakenUnitIds.size, 0, 'and takes in any monster');
 /* A battle places one deck per phase, so a phase's own presets are alternatives. */
 assert.deepEqual(find(raidPresets, 'deck-19-2').poolConflicts.runeIds, [],
   'two presets of one phase may hold the same rune');
-assert.equal(find(raidPresets, 'deck-19-3').poolRuneIds.has('102'), false, 'same-phase teams do not withhold runes from each other');
-assert.equal(find(raidPresets, 'deck-21-1').poolRuneIds.has('102'), true, 'while another phase is still kept off it');
+assert.equal(find(raidPresets, 'deck-19-3').poolRunes.has('102'), false, 'same-phase teams do not withhold runes from each other');
+assert.equal(find(raidPresets, 'deck-21-1').poolRunes.has('102'), true, 'while another phase is still kept off it');
 assert.equal(find(raidPresets, 'deck-3-2').pool, 'pool:rift-raid');
-assert.deepEqual(find(raidPresets, 'deck-3-2').poolConflicts.runeIds, [], 'Rift Raid teams in the same phase may reuse runes');
+assert.deepEqual(find(raidPresets, 'deck-3-2').poolConflicts.runeIds, ['101'], 'Rift Raid is a team pool: its teams may not share a rune');
 /* deck_type 2 is World Guild Battle only by assumption: a guessed content is
    listed and marked, but withholds no rune from anything JASWA proposes. */
 assert.equal(find(raidPresets, 'deck-2-2').contentAssumed, true);
 assert.equal(find(raidPresets, 'deck-2-2').pool, null, 'a deck whose content is only assumed joins no pool');
 assert.deepEqual(find(raidPresets, 'deck-2-2').poolConflicts.runeIds, [], 'and so has no overlap to report');
-assert.equal(runeLocksInPreset(noRuneLocks, find(raidPresets, 'deck-2-1'), '1')['101'], undefined,
+assert.equal(withheldRunes(find(raidPresets, 'deck-2-2'), '2', [], sources(true, false), noRuneLocks)['101'], undefined,
   'a rune another assumed deck holds stays on offer');
 assert.equal(find(raidPresets, 'deck-6-1').pool, null, 'a content of one deck per battle shares nothing');
-assert.equal(runeLocksInPreset(noRuneLocks, find(raidPresets, 'deck-6-1'), '1')['101'], undefined);
-assert.equal(runeLocksInPreset(noRuneLocks, find(raidPresets, 'deck-20-1'), '2')['101'], 'excluded',
-  'Rune Optimization in one phase is never offered a rune another phase holds');
+assert.equal(find(raidPresets, 'deck-6-1').poolRunes.size, 0);
+assert.equal(withheldRunes(find(raidPresets, 'deck-20-1'), '2', [], sources(true, false), noRuneLocks)['101'], '1',
+  'Rune Optimization in one phase is not offered a rune another phase holds');
+assert.equal(withheldRunes(find(raidPresets, 'deck-20-1'), '2', [], sources(true, true), noRuneLocks)['101'], undefined,
+  'unless higher-priority monsters are included');
 const phaseAccount = { ...optimization, deck_list: [
   deck(19, 1, [11], [gear(11, arenaEleven.map(Number))]),
+  deck(19, 2, [11], [gear(11, arenaEleven.map(Number))]),
   deck(20, 1, [12], [gear(12, [])]),
 ] };
 const phaseGame = createImportedGame('phase.json', clone(phaseAccount), validateGameFile(phaseAccount));
 const phasePresets = readPresets(phaseGame.data, []);
-assert.throws(() => engraveImportedGame(phaseGame, find(phasePresets, 'deck-20-1'), '12', poolBuild), /another phase/,
-  'an engrave cannot take a rune held in another phase');
+const fromPhaseOne = engraveImportedGame(phaseGame, find(phasePresets, 'deck-20-1'), '12', poolBuild);
+for (const seq of [1, 2]) {
+  assert.deepEqual(runeIdsByMember(gearOf(fromPhaseOne.data, 19, seq)), { 11: arenaEleven.filter((id) => id !== '5013') },
+    'a rune taken from another phase leaves every one of its alternative decks');
+}
 const crossPhaseOverlap = { ...phaseAccount, deck_list: [
   deck(19, 1, [11], [gear(11, [5013])]),
   deck(20, 1, [12], [gear(12, [5013])]),
@@ -428,8 +456,9 @@ const crossPhaseOverlap = { ...phaseAccount, deck_list: [
 const overlapGame = createImportedGame('phase-overlap.json', clone(crossPhaseOverlap), validateGameFile(crossPhaseOverlap));
 const overlapPhasePresets = readPresets(overlapGame.data, []);
 assert.deepEqual(find(overlapPhasePresets, 'deck-20-1').runesOf.get('12'), ['5013'], 'an imported cross-phase overlap remains visible as saved');
-assert.throws(() => engraveImportedGame(overlapGame, find(overlapPhasePresets, 'deck-20-1'), '12', ['5013', '5008', '5009', '5010', '5011', '5012']), /another phase/,
-  'even an existing cross-phase overlap cannot be preserved by a new engrave');
+const keptOverlap = engraveImportedGame(overlapGame, find(overlapPhasePresets, 'deck-20-1'), '12', ['5013', '5008', '5009', '5010', '5011', '5012']);
+assert.deepEqual(gearOf(keptOverlap.data, 19, 1), gearOf(overlapGame.data, 19, 1),
+  'an overlap the game allowed stays where it is: keeping the rune forms nothing new');
 for (const entry of presetContents) {
   const shared = ['siege-defense', 'world-guild', 'world-guild-defense', 'temple-of-chaos', 'rift-raid', 'dimension-raid-1', 'dimension-raid-2', 'dimension-raid-3'];
   assert.equal(entry.sharedPool !== null, shared.includes(entry.id), `${entry.name} ${shared.includes(entry.id) ? 'shares' : 'does not share'} one rune set across its decks`);
@@ -467,9 +496,9 @@ assert.deepEqual(teammateSetsInPreset(team('deck-1-2'), '11', teamItems), {});
 assert.deepEqual(teammateSetsInPreset(team('deck-1-3'), '11', teamItems), {});
 assert.deepEqual(teammateSetsInPreset(team('deck-24-101'), '11', teamItems), { Fight: 1, Determination: 1, Accuracy: 1 });
 assert.deepEqual(teammateSetsInPreset(team('deck-1-1'), 'not-a-member', teamItems), {});
-const teamLocks = runeLocksInPreset(noRuneLocks, team('deck-1-1'), '11');
-for (const id of team('deck-1-1').runesOf.get('12')) assert.equal(teamLocks[id], undefined, 'a same-team rune is available to priority rules');
-for (const id of team('deck-1-1').runesOf.get('11')) assert.equal(teamLocks[id], undefined);
+const teamWithheld = withheldRunes(team('deck-1-1'), '11', [], { runesOnOtherMonsters: true, includeHigherPriority: false }, noRuneLocks);
+for (const id of team('deck-1-1').runesOf.get('12')) assert.equal(teamWithheld[id], undefined, 'a same-team rune is available to priority rules');
+for (const id of team('deck-1-1').runesOf.get('11')) assert.equal(teamWithheld[id], undefined);
 const withoutSoldRune = { ...teamItems, runes: new Map(teamItems.runes) };
 withoutSoldRune.runes.delete(team('deck-1-1').runesOf.get('12')[0]);
 assert.equal(teammateSetsInPreset(team('deck-1-1'), '11', withoutSoldRune).Fight, 1);

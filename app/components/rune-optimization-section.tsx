@@ -35,7 +35,8 @@ import { runeSlotKeys } from '../lib/monster-defaults';
 import type { RuneSlotKey } from '../lib/monster-defaults';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { monsterNameCollator } from '../lib/monster-grid';
-import { higherPriorityThan, presetPriorityOf } from '../lib/monster-priority';
+import { presetPriorityOf } from '../lib/monster-priority';
+import { includeHigherPriorityApplies, withheldRunes } from '../lib/rune-sources';
 import { monsterCopyNames } from '../lib/monster-names';
 import { monsterStatTargetKeys, profilesIn, readTargetField } from '../lib/monster-preferences';
 import { completedTeamSets, isStatFigure, ledStats, monsterStatSheet } from '../lib/monster-stats';
@@ -46,7 +47,7 @@ import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '
 import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
 import type { Preset } from '../lib/presets';
 import { readBuildingBonuses } from '../lib/account-buildings';
-import { runeLockOf, runeLockScope, runeLocksInPreset } from '../lib/rune-locks';
+import { runeLockOf, runeLockScope, runeLocksFor } from '../lib/rune-locks';
 import type { RuneLock, RuneLocks } from '../lib/rune-locks';
 import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../lib/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
@@ -292,24 +293,28 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     const members = new Set(preset.members);
     return new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId !== null && members.has(rune.occupiedId) ? null : rune.occupiedId]));
   }, [accountRunes, preset]);
-  /* The preset's locks as this monster reads them: its team's locks and exclusions,
-     plus runes held in another phase of the same content pool. */
-  const locks = useMemo(() => (preset && unitId !== '' ? runeLocksInPreset(runeLocks, preset, unitId) : {}),
+  /* The preset's locks as this monster reads them: its team's locks and exclusions.
+     What the pool's other decks hold is `withheld`'s to say. */
+  const locks = useMemo(() => (preset && unitId !== '' ? runeLocksFor(runeLocks, runeLockScope(preset), unitId) : {}),
     [preset, unitId, runeLocks]);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
   const craftItems = useMemo(() => (game ? readCraftItems(game.data) : []), [game]);
   const itemsById = useMemo(() => new Map(craftItems.map((item) => [item.id, item])), [craftItems]);
   const alwaysCrits = requirements?.alwaysCrits ?? false;
 
-  /* The preset's priority list is resolved here, into the copies this one may not
-     take from, so the search reads one list of monsters and never the switch or the order. */
-  /* Scenario has no team whose higher-priority members the switch can include.
-     Keep the existing priority protection there even if another preset saved it on. */
-  const includeHigherPriority = preset?.kind !== 'scenario' && settings.includeHigherPriority;
-  const sparing = settings.runesOnOtherMonsters && !includeHigherPriority;
-  const spared = useMemo(() => (sparing && preset
-    ? higherPriorityThan(presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority), unitId) : []),
-  [sparing, preset, preferences.monsterPriority, preferences.presetPriority, unitId]);
+  /* Whose runes this monster may take is `rune-sources.ts`'s one rule; the search
+     reads its answer and never the priority list, the pool or the switches. */
+  const { runesOnOtherMonsters, includeHigherPriority } = settings;
+  const withheld = useMemo(() => (preset && unitId !== ''
+    ? withheldRunes(preset, unitId, priority, { runesOnOtherMonsters, includeHigherPriority }, runeLocks) : {}),
+  [preset, unitId, priority, runesOnOtherMonsters, includeHigherPriority, runeLocks]);
+  const includeApplies = preset !== undefined && includeHigherPriorityApplies(preset, settings);
+  /* Where another deck of the pool holds a rune, so a build taking it names that deck. */
+  const poolPlaces = useMemo(() => {
+    if (!preset || preset.poolRunes.size === 0) return undefined;
+    const names = new Map(presets.map((entry) => [entry.id, entry.name]));
+    return new Map([...preset.poolRunes].map(([runeId, [holder]]) => [runeId, { ...holder, presetName: names.get(holder.presetId) ?? '' }]));
+  }, [preset, presets]);
   const gemPreservationRoles = useMemo(() => {
     const lines = referenceLines(game?.data);
     return preferences.runeRoles.flatMap((role) => {
@@ -318,8 +323,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     });
   }, [game, preferences.runeRoles]);
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && question && (!settings.limitChanges || settings.maxChanges !== undefined) ? {
-    unitId: selected.unitId, monster: selected.record, runes, locks, spared, craftItems, requirements: question, settings, gemPreservationRoles,
-  } : undefined), [selected, question, runes, locks, spared, craftItems, settings, gemPreservationRoles]);
+    unitId: selected.unitId, monster: selected.record, runes, locks, withheld, craftItems, requirements: question, settings, gemPreservationRoles,
+  } : undefined), [selected, question, runes, locks, withheld, craftItems, settings, gemPreservationRoles]);
   const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
   const trial = useRuneOptimizationWork(input, preferences.hardwareAcceleration, state === 'calculating');
   /* The question on screen. The account is never part of it: the player follows the
@@ -328,7 +333,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      fewer builds is the same table cut shorter. */
   const { resultCount, ...searchSettings } = settings;
   const keyOf = (asked: RequirementsDraft | undefined) =>
-    JSON.stringify({ presetId: activePresetId, unitId, requirements: asked, settings: searchSettings, spared,
+    JSON.stringify({ presetId: activePresetId, unitId, requirements: asked, settings: searchSettings, withheld,
       gemRoles: preferences.runeRoles });
   const inputKey = keyOf(requirements);
   /* A table stays on screen while its monster is chosen, whatever is changed above
@@ -371,11 +376,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   }, [tableAlwaysCritsCount, requirements, alwaysCrits, current, teammateSets, buildings]);
   const builds = useMemo(() => (current && selected && tableLimits
     ? currentBuilds(current.answer.builds.slice(0, resultCount), {
-      unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings, spared,
+      unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings, withheld,
       before: { runes: current.runes, items: current.items },
       now: { runes: runesById, items: itemsById, locks },
     })
-    : undefined), [current, selected, tableLimits, resultCount, settings, spared, runesById, itemsById, locks]);
+    : undefined), [current, selected, tableLimits, resultCount, settings, withheld, runesById, itemsById, locks]);
   const sheetNow = useCallback((bonuses: RequirementsDraft) => (selected ? monsterStatSheet(selected.record, bonuses) : undefined), [selected]);
   const currentSheet = useMemo(() => requirements ? sheetNow(requirements) : undefined, [sheetNow, requirements]);
   /* The table's `Now` row is counted the way its builds were. */
@@ -701,8 +706,10 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
             <CheckboxRow label="Just fill in empty slots" checked={settings.fillEmptySlotsOnly}
               onChange={(fillEmptySlotsOnly) => onUpdate({ fillEmptySlotsOnly })} />
-            <CheckboxRow label="Include runes from higher-priority monsters" checked={preset?.kind !== 'scenario' && settings.includeHigherPriority}
-              onChange={(includeHigherPriority) => onUpdate({ includeHigherPriority })} disabled={preset?.kind === 'scenario'} />
+            {/* Nothing to include in Scenario, which is no team, nor while only free
+                runes are taken; the stored choice is kept for when it applies again. */}
+            <CheckboxRow label="Include runes from higher-priority monsters" checked={includeApplies && settings.includeHigherPriority}
+              onChange={(include) => onUpdate({ includeHigherPriority: include })} disabled={!includeApplies} />
             <div className="rune-optimization-change-limit">
               <label className="checkbox-row">
                 <input type="checkbox" aria-label="Limit changes" checked={settings.limitChanges}
@@ -784,7 +791,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
       followable={buildFollowable(builds[chosenBuild])}
-      runesById={runesById} presetId={activePresetId} loadedPlacements={game?.loadedPlacements?.[activePresetId]} scenarioPlaces={scenarioPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
+      runesById={runesById} presetId={activePresetId} loadedPlacements={game?.loadedPlacements?.[activePresetId]} scenarioPlaces={scenarioPlaces} poolPlaces={poolPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
       canLock={canEngrave}
       lockOf={(runeId) => (preset ? runeLockOf(runeLocks, runeLockScope(preset), buildMonster.unitId, runeId) : undefined)}

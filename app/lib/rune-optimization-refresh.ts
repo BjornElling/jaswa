@@ -45,7 +45,7 @@ import type { CraftSupply, EndStateLine } from './rune-craft-end-state';
 import type { CraftItem } from './rune-craft-items';
 import type { RuneLock } from './rune-locks';
 import {
-  buildFigures, countedMainValue, craftSupplies, figureIndex, mayTakeFrom, setRuleMissed, slotMainAllowed,
+  buildFigures, countedMainValue, craftSupplies, figureIndex, mayTake, setRuleMissed, slotMainAllowed,
   targetCeilings, targetFloors,
 } from './rune-optimization-problem';
 import type { CraftSettings, RankFigure, RuneOptimizationRequirements } from './rune-optimization-problem';
@@ -62,7 +62,7 @@ export type PickIssue =
   | { kind: 'slot-taken'; runeId: string }
   /** Excluded from this monster's builds since the search. */
   | { kind: 'excluded' }
-  /** Engraved on another monster, whose runes the settings or the priority list keep. */
+  /** Engraved on another monster — of this team or another deck of its pool — whose runes `withheldRunes` keeps. */
   | { kind: 'engraved-elsewhere'; engravedOn: string }
   /** A Gem or Grindstone still to come needs more of a held item than the account has left. */
   | { kind: 'items' }
@@ -105,10 +105,10 @@ export type RefreshContext = {
   monster: GameRecord;
   requirements: Pick<RuneOptimizationRequirements, 'targets' | 'ceilings' | 'alwaysCrits' | 'alwaysElementAdvantage' | 'leads' | 'teammateSets'
     | 'buildings' | 'builds' | 'slotMains' | 'allowBroken' | 'allowIntangible'>;
-  settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters' | 'fillEmptySlotsOnly' | 'limitChanges' | 'maxChanges'
+  settings: Pick<RuneOptimizationSettings, 'fillEmptySlotsOnly' | 'limitChanges' | 'maxChanges'
     | 'unfinishedAtMaximum' | 'oddSlotsAtTwelve'> & CraftSettings;
-  /** The copies whose runes may not be taken, as `RuneOptimizationInput.spared`. */
-  spared: readonly string[];
+  /** The runes that may not be taken, as `RuneOptimizationInput.withheld`. */
+  withheld: Readonly<Record<string, string>>;
   /** The runes and held items the search read. */
   before: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem> };
   /** `locks` as the search reads them (`RuneOptimizationInput.locks`). */
@@ -263,8 +263,8 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
     if (locked && !lockedHere) issue = { kind: 'locked-away', engravedOn: is.occupiedId };
     else if (now.locks[found.runeId] === 'excluded') issue = { kind: 'excluded' };
     else if (taken !== undefined && taken !== found.runeId) issue = { kind: 'slot-taken', runeId: taken };
-    else if (is.occupiedId !== null && is.occupiedId !== unitId && !mayTakeFrom(context, is.occupiedId)) {
-      issue = { kind: 'engraved-elsewhere', engravedOn: is.occupiedId };
+    else if (is.occupiedId !== unitId && !mayTake(context, found.runeId)) {
+      issue = { kind: 'engraved-elsewhere', engravedOn: context.withheld[found.runeId] };
     } else if (engraved && !held) issue = { kind: 'slot-filled' };
     else if (!held && is.setId === intangibleSetId && !requirements.allowIntangible) issue = { kind: 'intangible' };
     else if (!held && !slotMainAllowed(requirements, is)) issue = { kind: 'slot-main' };

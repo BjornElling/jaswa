@@ -85,10 +85,10 @@ The rules JASWA relies on:
    | Content | Decks in one battle | Pool | Evidence |
    | --- | --- | --- | --- |
    | Temple of Chaos | three teams | rule 5, monsters included | [900]; the developer, October 10, 2026 |
-   | Dimension Raid | one deck per phase, phases 1–3 | one pool across the three phase contents; runes may be reused within one phase | The developer's in-game observation, recorded October 19, 2026 |
-   | Rift Raid | several teams | one pool of gear; same-content teams may reuse runes | **modelled** on the same ground — the decks fight at once (the developer's decision, October 19, 2026); same-phase rune reuse, October 24, 2026 |
-   | World Guild Battle (attack) | several teams | one pool of gear; same-content teams may reuse runes | **modelled**, as Rift Raid; same-phase rune reuse, October 24, 2026 |
-   | Guild Rival Battle | its simultaneous teams | the World Guild Battle pool: the two share one row of the capacity table and one set of presets [920] | **modelled**, as Rift Raid; same-phase rune reuse, October 24, 2026 |
+   | Dimension Raid | one deck per phase, phases 1–3 | a **phase pool**: one pool across the three phase contents; a phase's own decks are alternatives and may share a rune | The developer's in-game observation, recorded October 19, 2026 |
+   | Rift Raid | several teams | a **team pool**: no rune on two teams | **modelled** on the same ground — the decks fight at once (the developer's decision, October 19, 2026) |
+   | World Guild Battle (attack) | several teams | a **team pool**: every monster of every team draws on one set of runes | The developer, October 27, 2026 |
+   | Guild Rival Battle | its simultaneous teams | the World Guild Battle pool: the two share one row of the capacity table and one set of presets [920] | **modelled**, as World Guild Battle |
 
    The pools carry artifacts with the runes, because the reason is the same —
    the decks fight at the same time. Nothing says their monsters may not
@@ -98,12 +98,13 @@ The rules JASWA relies on:
    them a pool by analogy with Siege Battle's; that pool is **modelled and
    unsourced**, and dormant while no `deck_type` is matched to the content
    (§7).
-   For Rune Optimization, a phase is the content represented by one confirmed
-   `PresetContentId`. A rune held by another team of the same content remains
-   available; a rune held by a different content in the pool is excluded.
-   Artifacts and monster placement keep their pool rules. This is the
-   developer's JASWA rule, recorded October 24, 2026; it is separate from the
-   game's overlap warning.
+   Two kinds of pool, then. In a **team pool** every team reserves against
+   every other. In a **phase pool** — Dimension Raid, where a phase is the
+   content of one confirmed `PresetContentId` — only decks of different phases
+   reserve; a phase's own decks are alternatives. The developer's rule,
+   October 27, 2026, which replaces the same-content rune reuse of October 24
+   (that rule let every team of a one-content pool share runes, Temple of
+   Chaos's included).
 7. **Relics are not saved per preset.** A preset uses whatever relic the
    monster carries in Scenario [920]: *"the Relic information currently
    engraved on the Monster will be reflected in the Preset."* A relic is
@@ -267,12 +268,12 @@ deck whose content is assumed is read as a placement of its own and withholds
 nothing, because a guess about its content is no ground for refusing a rune.
 A preset built in JASWA is a draft of one team and never joins a pool.
 
-Where the battle places one deck of each content — Dimension Raid, one deck
-per phase (`oneDeckPerContent`) — the decks of one content are alternatives:
-they never stand together, so they may hold the same gear. In every pool,
-Rune Optimization reserves runes across *different* content phases only; a
-rune held by another team of the selected content remains available. Artifacts
-and monster placements continue to follow their pool rules.
+A pool is a **team pool** or a **phase pool**. Where the battle places one
+deck of each content — Dimension Raid, one deck per phase
+(`oneDeckPerContent`) — the decks of one content are alternatives: they never
+stand together, so they may hold the same gear, and only the other phases'
+decks reserve against them. Everywhere else every deck of the pool reserves
+against every other. Runes, artifacts and monsters follow the same decks.
 
 **A pool is a limit on what JASWA does, never on what it reads.** Every deck
 of a pool is its own context, read exactly as the game saved it, with its own
@@ -282,24 +283,28 @@ together.
 
 - **An overlap is a fault of the preset, never of the import.** Decks of one
   pool that hold the same item — or, for Temple of Chaos, the same monster —
-  keep it on every one of them. Same-phase rune reuse is allowed and is not a
-  conflict. Cross-phase rune overlaps, artifact overlaps
-  and restricted monster overlaps remain visible through `poolConflicts` and
-  the Presets page's warning line.
-- Each deck knows what the pool's other decks hold (`poolRuneIds`,
-  `poolArtifactIds`, `poolTakenUnitIds`) and uses it only to refuse, so JASWA
-  never forms an overlap:
-  - Rune Optimization excludes runes held by another phase. Same-phase runes
-    from other teams are available; only runes held by this team's members
-    follow its priority list and *Include runes from higher-priority monsters*;
-  - an engrave refuses a rune held in another phase, while a same-phase rune
-    may be engraved in the selected team without changing the other team;
+  keep it on every one of them. Alternatives of one phase may share; every
+  other overlap is visible through `poolConflicts` and the Presets page's
+  warning line.
+- Each deck knows what the pool's other decks hold (`poolRunes`, with the deck
+  and monster holding each rune, `poolArtifactIds`, `poolTakenUnitIds`), so
+  JASWA never forms an overlap:
+  - **whose runes a monster may take is one rule, `rune-sources.ts`.** Teams
+    are never ranked against each other: a rune another deck of the pool
+    holds is withheld unless *Include runes from higher-priority monsters* is
+    ticked, and *Only runes not engraved in preset* withholds it always. A
+    rune locked on another deck is withheld whatever the switches say. Inside
+    the team, the priority list rules as before (§5);
+  - an engrave that brings such a rune in **takes it off every deck of the
+    pool holding it**, remembering where it sat there — the one write into
+    another deck, and the price of including it. A rune the monster already
+    carries here stays where the game left it elsewhere: keeping it forms no
+    new overlap;
   - a monster joining a game deck brings its Scenario gear less what the deck
     or the pool holds, and a monster another Temple of Chaos team holds is not
     offered;
-  - a Lock or Exclude applies to the selected preset only (`rune-locks.ts`).
-- Nothing done in one deck writes into another, a deck of the same pool
-  included.
+  - a Lock or Exclude is set in the selected preset only (`rune-locks.ts`).
+- Apart from that one taking, nothing done in one deck writes into another.
 
 ### Team sets
 
@@ -370,9 +375,10 @@ an import, and are checked one preset at a time on load.
   brings its Scenario gear, less what the preset or its pool already engraves;
   one taken out takes its gear there with it; its area profile stays.
 - The order of monsters within a preset is their priority for runes held by
-  this team. Priority never reaches another team: a same-phase rune on another
-  team is available without taking it from that team, and a rune held in
-  another phase is unavailable regardless of priority.
+  this team: a monster may take a rune from one below it, from one above it
+  only with *Include runes from higher-priority monsters*. Priority never
+  reaches another team; a rune another deck of the pool holds is taken only
+  with that same switch (`rune-sources.ts`).
 - Each monster has a shortcut to Rune Optimization in that preset. The preset
   has one *Speed tuning*, under *Add preset* and *Delete preset*, which opens
   its team over Presets — the overlay Speed Tuning's own lines open — disabled

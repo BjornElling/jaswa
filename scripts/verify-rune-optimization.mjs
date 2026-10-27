@@ -69,7 +69,7 @@ import {
 } from '../app/lib/rune-optimization-search.ts';
 import { runeBuild } from '../app/lib/rune-set-pairs.ts';
 import { runeSetId, runeSetPieceCount } from '../app/lib/rune-sets.ts';
-import { craftedRangeScenarios, scenarioGenerator } from './rune-optimization-scenarios.mjs';
+import { craftedRangeScenarios, scenarioGenerator, withheldIn } from './rune-optimization-scenarios.mjs';
 
 const { scenario } = scenarioGenerator();
 const figures = monsterStatTargetKeys;
@@ -243,7 +243,7 @@ function affordableScenario(index) {
     if (index >= 160) {
       // Two required two-sets leave the last pair open. The broad set pool is
       // exactly where a bound must stop promising incompatible four-set bonuses.
-      input.locks = {}; input.spared = [];
+      input.locks = {}; input.withheld = {};
       input.settings = { ...input.settings, depth: 'complete', gems: 'none', grinds: 'none', runesOnOtherMonsters: true };
       input.requirements = { ...input.requirements, builds: index % 2 ? ['Shield/Will'] : [],
         slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: index % 3 === 0,
@@ -286,28 +286,29 @@ for (let index = 0; index < scenarios; index += 1) {
     assert.ok(problem.slots.flat().every((candidate) => candidate.stock.every((entry) => !immemorial.has(entry))),
       'an Immemorial item was spent although the profile refuses them');
   }
-  if (input.spared.length > 0) {
-    const placeByRuneId = new Map(input.runes.map((rune) => [rune.id, rune.occupiedId]));
-    const placeOf = (candidate) => placeByRuneId.get(candidate.runeId);
-    assert.ok(problem.slots.flat().every((candidate) => !input.spared.includes(placeOf(candidate))),
-      `scenario ${index}: a rune engraved on a higher-priority monster was offered`);
-    /* The same account with the list ignored offers some of those runes, so the refusal above was a refusal. */
-    if (input.settings.runesOnOtherMonsters) {
-      const unspared = prepareRuneOptimization({ ...input, spared: [] }, { reduce: false });
-      if (unspared.slots.flat().some((candidate) => input.spared.includes(placeOf(candidate)))) sparedChecked += 1;
-    }
+  const placeByRuneId = new Map(input.runes.map((rune) => [rune.id, rune.occupiedId]));
+  const placeOf = (candidate) => placeByRuneId.get(candidate.runeId);
+  assert.ok(problem.slots.flat().every((candidate) => placeOf(candidate) === input.unitId || input.withheld[candidate.runeId] === undefined),
+    `scenario ${index}: a withheld rune was offered`);
+  if (index % 4 === 3 && input.settings.runesOnOtherMonsters) {
+    /* Copy 2 ranks above the copy searched for: the one rule withholds its runes, and only its. */
+    assert.deepEqual(Object.keys(input.withheld).sort(), input.runes.filter((rune) => rune.occupiedId === '2').map((rune) => rune.id).sort(),
+      `scenario ${index}: the runes withheld are not exactly the higher-priority copy's`);
+    /* The same account with nothing withheld offers some of those runes, so the refusal above was a refusal. */
+    const unspared = prepareRuneOptimization({ ...input, withheld: {} }, { reduce: false });
+    if (unspared.slots.flat().some((candidate) => placeOf(candidate) === '2')) sparedChecked += 1;
   }
   /* Taking nothing from the preset still leaves the copy its own runes: the switch
      refuses the rest of the team's, never the ones being rearranged. */
   if (!input.settings.runesOnOtherMonsters) {
-    const placeByRuneId = new Map(input.runes.map((rune) => [rune.id, rune.occupiedId]));
     const narrowed = prepareRuneOptimization(input, { reduce: false }).slots.flat();
-    assert.ok(narrowed.every((candidate) => [null, input.unitId].includes(placeByRuneId.get(candidate.runeId))),
+    assert.ok(narrowed.every((candidate) => [null, input.unitId].includes(placeOf(candidate))),
       `scenario ${index}: a rune engraved on another monster of the preset was offered`);
     const ownIds = (slots) => [...new Set(slots.flat().map((candidate) => candidate.runeId)
       .filter((runeId) => placeByRuneId.get(runeId) === input.unitId))].sort();
     const own = ownIds(narrowed);
-    const widened = prepareRuneOptimization({ ...input, settings: { ...input.settings, runesOnOtherMonsters: true } }, { reduce: false }).slots;
+    const widening = { ...input.settings, runesOnOtherMonsters: true };
+    const widened = prepareRuneOptimization({ ...input, settings: widening, withheld: withheldIn(input, index, widening) }, { reduce: false }).slots;
     assert.deepEqual(own, ownIds(widened), `scenario ${index}: the copy lost its own runes to the preset switch`);
     if (own.length > 0) ownKeptChecked += 1;
   }
@@ -369,7 +370,7 @@ for (let index = 0; index < scenarios; index += 1) {
   }));
   /* One re-reading of a build against the account `runes`, the locks and the items. */
   const reread = (build, runes, { locks = input.locks, items = itemsById } = {}) => currentBuilds([build], {
-    unitId: input.unitId, monster: input.monster, requirements: input.requirements, settings: input.settings, spared: input.spared,
+    unitId: input.unitId, monster: input.monster, requirements: input.requirements, settings: input.settings, withheld: input.withheld,
     before: { runes: runesById, items: itemsById }, now: { runes, items, locks },
   })[0];
   const issues = (build) => build.runes.flatMap((picked) => (picked.issue ? [`${picked.slot}:${picked.issue.kind}`] : []));
@@ -467,7 +468,7 @@ for (let index = 0; index < scenarios; index += 1) {
        narrowing names exactly the runes or the sets it now rules out. */
     const narrowed = (requirements, settings = {}) => currentBuilds([build], {
       unitId: input.unitId, monster: input.monster, requirements: { ...input.requirements, ...requirements },
-      settings: { ...input.settings, ...settings }, spared: input.spared,
+      settings: { ...input.settings, ...settings }, withheld: input.withheld,
       before: { runes: runesById, items: itemsById }, now: { runes: resent, items: itemsById, locks: input.locks },
     })[0];
     const setCounts = new Map();
@@ -546,7 +547,7 @@ for (const bonuses of [
 ]) {
   const { seed, ...conditions } = bonuses;
   const input = scenarioGenerator(20261025 + seed, [3, 3]).scenario(0);
-  input.locks = {}; input.spared = [];
+  input.locks = {}; input.withheld = {};
   Object.assign(input.requirements, {
     builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
     alwaysCrits: false, ...conditions, targets: { criRate: 67 }, ceilings: { criRate: 69 }, rankBy: 'dmg',
@@ -586,7 +587,7 @@ for (const [index, { leads, capped, rankBy }] of [
   { leads: { atk: 33, criRate: 19 }, capped: ['atk'], rankBy: 'dmg' },
 ].entries()) {
   const input = scenarioGenerator(20261108 + index, [3, 3]).scenario(0);
-  input.locks = {}; input.spared = [];
+  input.locks = {}; input.withheld = {};
   Object.assign(input.requirements, {
     builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
     alwaysCrits: false, alwaysElementAdvantage: false, leads, targets: {}, ceilings: {}, rankBy,
@@ -604,7 +605,7 @@ for (const [index, { leads, capped, rankBy }] of [
   intervalTables += 1;
 }for (let index = 0; index < figures.length; index += 1) {
   const input = scenarioGenerator(20261004 + index, [3, 3]).scenario(index);
-  input.locks = {}; input.spared = [];
+  input.locks = {}; input.withheld = {};
   Object.assign(input.requirements, {
     builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
     allowIntangible: true, alwaysCrits: false, alwaysElementAdvantage: false, leads: {},
@@ -636,7 +637,7 @@ for (const [index, { leads, capped, rankBy }] of [
    properties; a scalar ordering of rounded HP or DMG would be unsafe here. */
 for (let index = 0; index < figures.length; index += 1) {
   const input = scenarioGenerator(20261015 + index, [20, 20]).scenario(0);
-  input.locks = {}; input.spared = [];
+  input.locks = {}; input.withheld = {};
   input.runes = input.runes.filter((rune, at, all) => rune.slot >= 5
     || all.findIndex((other) => other.slot === rune.slot) === at)
     .map((rune) => ({ ...rune, setId: 1, occupiedId: null }));
@@ -664,7 +665,7 @@ for (let index = 0; index < figures.length; index += 1) {
    threshold that depends on the machine. Both paths must finish and keep the
    same physical builds, crafting plans, figures and tie order. */
 const intervalInput = scenarioGenerator(20260930, [10, 10]).scenario(0);
-intervalInput.locks = {}; intervalInput.spared = [];
+intervalInput.locks = {}; intervalInput.withheld = {};
 Object.assign(intervalInput.requirements, {
   builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,
   allowIntangible: false, alwaysCrits: false, alwaysElementAdvantage: false, leads: {},
@@ -809,7 +810,7 @@ console.log('PASS: Can gem away speed protects both native and previously gemmed
 // Filled slots stay untouched, including their craft work and unfinished mains.
 for (const filled of [0, 1, 3, 5, 6]) {
   const input = scenario(2);
-  input.locks = {}; input.spared = [];
+  input.locks = {}; input.withheld = {};
   const occupied = new Set();
   input.runes = input.runes.map((rune) => {
     const keep = rune.slot <= filled && !occupied.has(rune.slot);
@@ -841,7 +842,7 @@ const flatExpected = { 1: [580, 790, 1000, 1240, 1530, 1800], 3: [39, 53, 67, 82
 for (let stars = 1; stars <= 6; stars += 1) {
   for (const level of [0, 12, 13, 14, 15]) {
     const input = scenario(2);
-    input.locks = {}; input.spared = [];
+    input.locks = {}; input.withheld = {};
     input.requirements = { ...input.requirements, builds: [], allowBroken: true, allowIntangible: true,
       slotMains: { slot2: [], slot4: [], slot6: [] }, targets: {}, ceilings: {} };
     input.settings = { ...input.settings, gems: 'none', grinds: 'none', limitChanges: false,
@@ -879,7 +880,7 @@ console.log('PASS: 36 change-limited searches match exhaustive enumeration, spli
 
 {
   const input = affordableScenario(2);
-  input.locks = {}; input.spared = [];
+  input.locks = {}; input.withheld = {};
   input.requirements = { ...input.requirements, builds: [], allowBroken: true, allowIntangible: true,
     slotMains: { slot2: [], slot4: [], slot6: [] }, targets: {}, ceilings: {} };
   input.settings = { ...input.settings, fillEmptySlotsOnly: true, gems: 'none', grinds: 'none' };
@@ -897,7 +898,7 @@ console.log('PASS: 36 change-limited searches match exhaustive enumeration, spli
   const now = new Map([...before].map(([id, rune]) => [id, { ...rune,
     occupiedId: rune.slot <= 2 ? null : rune.occupiedId }]));
   const context = { unitId: input.unitId, monster: input.monster, requirements: input.requirements,
-    settings: { ...input.settings, limitChanges: true, maxChanges: 1 }, spared: [],
+    settings: { ...input.settings, limitChanges: true, maxChanges: 1 }, withheld: {},
     before: { runes: before, items: new Map() }, now: { runes: now, items: new Map(), locks: {} } };
   const limited = currentBuilds([build], context)[0];
   assert.equal(limited.moves, 2);
@@ -922,7 +923,7 @@ console.log('PASS: refreshed builds identify newly occupied slots and changes be
   assert.ok(prices[1] > prices[3], 'DEF must be worth keeping for Slow DD');
   assert.equal(gemRemovalPrices([])(rune), undefined, 'cleared roles must not acquire shipped replacements');
   assert.equal(gemRemovalPrices([{ role: { ...role, targets: {} }, base }])(rune), undefined);
-  input.runes = [...input.runes.filter((entry) => entry.slot !== 2), rune]; input.locks = {}; input.spared = [];
+  input.runes = [...input.runes.filter((entry) => entry.slot !== 2), rune]; input.locks = {}; input.withheld = {};
   input.requirements = { ...input.requirements, builds: [], allowBroken: true, allowIntangible: false,
     slotMains: { slot2: [], slot4: [], slot6: [] }, rankBy: 'dmg', targets: {}, ceilings: {} };
   input.settings = { ...input.settings, depth: 'complete', gems: 'theoretical', grinds: 'none', fillEmptySlotsOnly: false };
@@ -943,7 +944,7 @@ console.log('PASS: tied Gem plans preserve HP and DEF for Slow DD, respect monst
 // Teammate bonuses must agree across exact reductions, bounds and reread builds.
 for (let index = 0; index < figures.length; index += 1) {
   const input = scenarioGenerator(20261016 + index, [3, 3]).scenario(0);
-  input.locks = {}; input.spared = [];
+  input.locks = {}; input.withheld = {};
   input.runes = input.runes.map((rune, at) => ({ ...rune, setId: 19 + (at % 3 === 0 ? (index + 1) % 5 : index % 5) }));
   Object.assign(input.requirements, {
     builds: [], slotMains: { slot2: [], slot4: [], slot6: [] }, allowBroken: true,

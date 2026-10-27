@@ -124,9 +124,13 @@ type Places = {
   presetId: string;
   /** The game's engraving outside presets, which its rune list still shows — for monsters outside this preset only. */
   scenarioPlaces: ReadonlyMap<string, string | null> | undefined;
+  /** Where another deck of the build's pool holds a rune, which an engrave takes it off. */
+  poolPlaces: ReadonlyMap<string, PoolPlace> | undefined;
   engravedOn: (unitId: string) => EngravedOnMonster | undefined;
   onOpenMonster: OpenMonsterOverlay;
 };
+
+export type PoolPlace = { presetId: string; presetName: string; unitId: string };
 
 /* `presetId` is where the monster carries the rune, so its overlay opens on the
    build the rune is part of there. */
@@ -155,6 +159,15 @@ function removedFromScenarioMonster(runeId: string, place: string | null, loaded
 
 function gamePlaceName(runeId: string, place: string | null, places: Places, loadedPlace?: string | null): ReactNode {
   if (place !== null) return presetPlaceName(place, places);
+  /* Another team of the pool holds it: that is where the rune is in this battle,
+     whatever Scenario says, and where an engrave takes it from. */
+  const pooled = places.poolPlaces?.get(runeId);
+  /* The card cuts a long place short, and the deck is the half that matters, so the whole place is in the title. */
+  if (pooled) {
+    return <span title={`${places.engravedOn(pooled.unitId)?.name ?? 'Monster not in this import'} · ${pooled.presetName}`}>
+      {monsterName(pooled.unitId, pooled.presetId, places)} · {pooled.presetName}
+    </span>;
+  }
   const inScenario = places.scenarioPlaces?.get(runeId) ?? null;
   return inScenario === null || inScenario === places.thisMonster || removedFromScenarioMonster(runeId, place, loadedPlace, places)
     ? 'Inventory' : monsterName(inScenario, scenarioPresetId, places);
@@ -164,6 +177,8 @@ function gamePlaceName(runeId: string, place: string | null, places: Places, loa
    outside Scenario — the Scenario monster the game's rune list shows, else none. */
 function shownPlace(runeId: string, place: string | null, places: Places, loadedPlace?: string | null): string | null {
   if (place !== null || places.presetId === scenarioPresetId) return place;
+  const pooled = places.poolPlaces?.get(runeId);
+  if (pooled) return `${pooled.presetId}\0${pooled.unitId}`;
   const inScenario = places.scenarioPlaces?.get(runeId) ?? null;
   return inScenario === places.thisMonster || removedFromScenarioMonster(runeId, place, loadedPlace, places) ? null : inScenario;
 }
@@ -287,7 +302,7 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
 }
 
 export function RuneBuildOverlay({
-  index, buildName, moves, runes, followable, runesById, presetId, loadedPlacements, scenarioPlaces, monster, engravedOn, general, canEngrave, onEngrave,
+  index, buildName, moves, runes, followable, runesById, presetId, loadedPlacements, scenarioPlaces, poolPlaces, monster, engravedOn, general, canEngrave, onEngrave,
   canLock, lockOf, onLock, onClose, onOpenRune, onOpenMonster,
 }: {
   index: number;
@@ -303,6 +318,7 @@ export function RuneBuildOverlay({
   loadedPlacements: Readonly<Record<string, string | null>> | undefined;
   /** Scenario's owner, which the game's rune list shows even when this preset leaves the rune in inventory. */
   scenarioPlaces: ReadonlyMap<string, string | null> | undefined;
+  poolPlaces?: ReadonlyMap<string, PoolPlace>;
   /** Drawn in the middle of the circle, and the monster its own runes read as staying on. */
   monster: BuildMonster;
   engravedOn: (unitId: string) => EngravedOnMonster | undefined;
@@ -338,7 +354,7 @@ export function RuneBuildOverlay({
     { label: 'Grindstones', value: formatNumber(grinds, general) },
   ];
   const engravedOnName = (unitId: string) => engravedOn(unitId)?.name;
-  const places: Places = { thisMonster: monster.unitId, presetId, scenarioPlaces, engravedOn, onOpenMonster };
+  const places: Places = { thisMonster: monster.unitId, presetId, scenarioPlaces, poolPlaces, engravedOn, onOpenMonster };
   const complete = bySlot.length === 6 && bySlot.every((picked) => runesById.has(picked.runeId));
   const alreadyEngraved = complete && bySlot.every((picked) => runesById.get(picked.runeId)?.occupiedId === monster.unitId);
   const engraveReason = !canEngrave ? alwaysSynchronizedReason

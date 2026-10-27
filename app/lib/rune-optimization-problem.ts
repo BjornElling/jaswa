@@ -90,11 +90,12 @@ export type RuneOptimizationInput = {
    */
   locks: Readonly<Record<string, RuneLock>>;
   /**
-   * Same-team copies whose engraved runes this calculation may not take while
-   * higher-priority runes are excluded; resolved by the page so the search never
-   * reads the priority list itself. Runes from another phase are excluded by locks.
+   * Every engraved rune this calculation may not take, by rune, with the copy
+   * holding it — in this team or in another deck of its pool. Resolved by the
+   * page through `withheldRunes`, the one rule of whose runes a monster may
+   * take, so the search reads neither the priority list, the pool nor the switches.
    */
-  spared: readonly string[];
+  withheld: Readonly<Record<string, string>>;
   craftItems: readonly CraftItem[];
   requirements: RuneOptimizationRequirements;
   settings: RuneOptimizationSettings;
@@ -340,12 +341,12 @@ function usableSetsOf(builds: BuildRequirement[] | null): ReadonlySet<number> | 
 }
 
 /**
- * Whether a rune engraved on `engravedOn`, another copy, may be moved onto this one. One
- * rule for the search and for the re-reading of a found build, so a row is never
- * dimmed for a source the search itself would have taken.
+ * Whether a rune not on this monster may be moved onto it. One reading for the
+ * search and for the re-reading of a found build, so a row is never dimmed for a
+ * source the search itself would have taken.
  */
-export function mayTakeFrom(input: { settings: Pick<RuneOptimizationSettings, 'runesOnOtherMonsters'>; spared: readonly string[] }, engravedOn: string): boolean {
-  return input.settings.runesOnOtherMonsters && !input.spared.includes(engravedOn);
+export function mayTake(input: { withheld: Readonly<Record<string, string>> }, runeId: string): boolean {
+  return input.withheld[runeId] === undefined;
 }
 
 /**
@@ -365,7 +366,7 @@ function admission(input: RuneOptimizationInput, usableSets: ReadonlySet<number>
   const lock = input.locks[rune.id];
   if (lock === 'locked') return onThisMonster ? 'locked' : 'refused';
   if (lock === 'excluded') return 'refused';
-  if (!onThisMonster && rune.occupiedId !== null && !mayTakeFrom(input, rune.occupiedId)) return 'refused';
+  if (!onThisMonster && !mayTake(input, rune.id)) return 'refused';
   if (rune.setId === intangibleSetId && !requirements.allowIntangible) return 'refused';
   if (usableSets !== null && rune.setId !== intangibleSetId && !usableSets.has(rune.setId)) return 'refused';
   return slotMainAllowed(requirements, rune) ? 'admitted' : 'refused';

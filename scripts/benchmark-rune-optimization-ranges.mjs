@@ -7,7 +7,7 @@ import { searchRuneBuilds } from '../app/lib/rune-optimization-search.ts';
 const captured = process.argv[2] ? JSON.parse(readFileSync(process.argv[2], 'utf8')) : null;
 const source = captured ?? scenarioGenerator(20261004, [2, 2]).scenario(0);
 const input = captured ? { ...source, settings: { ...source.settings, depth: 'quick' } } : {
-  ...source, locks: {}, spared: [],
+  ...source, locks: {}, withheld: {},
   requirements: { ...source.requirements, builds: [], slotMains: { slot2: [], slot4: [], slot6: [] },
     allowBroken: true, allowIntangible: false, alwaysCrits: false,
     targets: {}, ceilings: {}, rankBy: 'dmg' },

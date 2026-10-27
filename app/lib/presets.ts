@@ -75,8 +75,14 @@ export type Preset = {
    * saved it. It says only what JASWA may not bring into this deck.
    */
   pool: string | null;
-  /** Runes reserved by another phase, plus artifacts reserved by other decks of the pool. */
-  poolRuneIds: ReadonlySet<string>;
+  /**
+   * Every rune another deck of the pool holds, by rune, with each deck and
+   * monster holding it — every other team of a team pool, every deck of another
+   * phase of a phase pool. Rune Optimization withholds them unless the user
+   * includes them (`rune-sources.ts`), and an engrave that takes one takes it
+   * off each holder.
+   */
+  poolRunes: ReadonlyMap<string, readonly PoolHolder[]>;
   poolArtifactIds: ReadonlySet<string>;
   /** Monsters standing in another deck of a pool that shares its monsters, which this preset may not take in. */
   poolTakenUnitIds: ReadonlySet<string>;
@@ -110,13 +116,16 @@ function owners(gearOf: ReadonlyMap<string, readonly string[]>): Map<string, str
 
 export type PoolConflicts = { runeIds: readonly string[]; artifactIds: readonly string[]; unitIds: readonly string[] };
 
+/** Where another deck of a pool holds a rune: the deck, and its monster carrying it. */
+export type PoolHolder = { presetId: string; unitId: string };
+
 const noPoolConflicts: PoolConflicts = { runeIds: [], artifactIds: [], unitIds: [] };
 
 /* A preset's placement fields before pools are joined: each preset alone. */
 function placement(runesOf: ReadonlyMap<string, readonly string[]>, artifactsOf: ReadonlyMap<string, readonly string[]>) {
   const runeOwner = owners(runesOf);
   const artifactOwner = owners(artifactsOf);
-  return { runesOf, artifactsOf, runeOwner, artifactOwner, pool: null, poolRuneIds: new Set<string>(), poolArtifactIds: new Set<string>(),
+  return { runesOf, artifactsOf, runeOwner, artifactOwner, pool: null, poolRunes: new Map<string, PoolHolder[]>(), poolArtifactIds: new Set<string>(),
     poolTakenUnitIds: new Set<string>(), poolConflicts: noPoolConflicts };
 }
 
@@ -208,12 +217,16 @@ export function readPresets(data: GameRecord | undefined, own: readonly OwnPrese
 /**
  * The game's decks of one pool — one content's, or all of Dimension Raid's
  * phases' — each told what the others hold.
- * Nothing is taken from any deck: every team keeps the gear the game saved on
- * it. A cross-phase or restricted-pool overlap shows as a fault of each team
- * involved; same-phase rune reuse is permitted. The pool is a limit on what
- * JASWA does — Rune Optimization, an engrave, a monster joining a deck —
- * never on what it reads. A preset built in JASWA is a draft of one team and
- * never joins the game's pool.
+ * Two kinds of pool, one rule: every deck that can stand in the same battle
+ * reserves against this one. In a team pool — World Guild Battle, Temple of
+ * Chaos — that is every other team; in a phase pool (`oneDeckPerContent`) the
+ * decks of this phase are alternatives that never stand together, so only
+ * the other phases' decks reserve.
+ * Nothing is taken from any deck on reading: every team keeps the gear the
+ * game saved on it, and an overlap shows as a fault of each team involved.
+ * The pool is a limit on what JASWA does — Rune Optimization, an engrave, a
+ * monster joining a deck — never on what it reads. A preset built in JASWA is
+ * a draft of one team and never joins the game's pool.
  *
  * Nor does a deck whose content is only assumed from its numbers: the pool
  * withholds runes from what JASWA proposes, and a guess about which content a
@@ -232,18 +245,19 @@ function joinPools(presets: Preset[]): Preset[] {
   return presets.map((preset) => {
     const key = poolKey(preset);
     if (!key) return preset;
-    /* Runes are reserved across phases, not across teams of one phase. The
-       content id is the phase boundary; artifact and monster pools are separate. */
+    /* A phase's own decks are alternatives and reserve nothing against it; the
+       content id is the phase boundary. Gear and monsters follow the same decks. */
     const alternatives = preset.content?.sharedPool?.oneDeckPerContent ?? false;
     const others = (pools.get(key) ?? []).filter((entry) => entry !== preset
       && !(alternatives && entry.content?.id === preset.content?.id));
-    const runeOthers = others.filter((entry) => entry.content?.id !== preset.content?.id);
-    const elsewhere = (entries: readonly Preset[], pick: (entry: Preset) => Iterable<string>) =>
-      new Set(entries.flatMap((entry) => [...pick(entry)]));
-    const runesElsewhere = elsewhere(runeOthers, (entry) => entry.runeOwner.keys());
-    const artifactsElsewhere = elsewhere(others, (entry) => entry.artifactOwner.keys());
-    const taken = preset.content?.sharedPool?.monsters ? elsewhere(others, (entry) => entry.members) : new Set<string>();
-    return { ...preset, pool: key, poolRuneIds: runesElsewhere, poolArtifactIds: artifactsElsewhere, poolTakenUnitIds: taken,
+    const elsewhere = (pick: (entry: Preset) => Iterable<string>) => new Set(others.flatMap((entry) => [...pick(entry)]));
+    const runesElsewhere = new Map<string, PoolHolder[]>();
+    for (const entry of others) for (const [runeId, unitId] of entry.runeOwner) {
+      runesElsewhere.set(runeId, [...runesElsewhere.get(runeId) ?? [], { presetId: entry.id, unitId }]);
+    }
+    const artifactsElsewhere = elsewhere((entry) => entry.artifactOwner.keys());
+    const taken = preset.content?.sharedPool?.monsters ? elsewhere((entry) => entry.members) : new Set<string>();
+    return { ...preset, pool: key, poolRunes: runesElsewhere, poolArtifactIds: artifactsElsewhere, poolTakenUnitIds: taken,
       poolConflicts: {
         runeIds: [...preset.runeOwner.keys()].filter((id) => runesElsewhere.has(id)),
         artifactIds: [...preset.artifactOwner.keys()].filter((id) => artifactsElsewhere.has(id)),
@@ -399,7 +413,7 @@ export const selectedPresetKey = 'jaswa.presets.selected';
  * does. A rune read from the export names its monster in Scenario; read through
  * here it names its monster in the preset asked about, so a calculation for
  * one preset cannot mistake another preset's placement for its own. A deck of a
- * pool is read alone too; what the pool's other decks hold is `poolRuneIds`.
+ * pool is read alone too; what the pool's other decks hold is `poolRunes`.
  */
 export function runesInPreset<T extends { id: string; occupiedId: string | null }>(runes: readonly T[], preset: Preset): T[] {
   if (preset.kind === 'scenario') return [...runes];
