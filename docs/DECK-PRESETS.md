@@ -400,7 +400,10 @@ pool included. Its candidates, switches, locks and exclusions are
 `RUNE-OPTIMIZATION.md` §3. A build's *Location* names a rune's place in the
 chosen preset as the game's rune list does:
 - a rune in inventory in the preset that is engraved on a monster in Scenario
-  is named by that monster alone;
+  is named by that monster alone, as long as that monster is not in the preset;
+- a rune whose Scenario monster is in the preset says *Inventory*, as in the
+  game: the preset decides that monster's runes, so one taken off it there —
+  in JASWA or in the game, then synchronized — is unengraved in the preset;
 - one exception, as in the game: a rune the preset carried on a monster when
   the import was loaded, taken off that monster in the preset since, while the
   monster still carries it in Scenario, says *Inventory*, with that monster as

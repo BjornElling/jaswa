@@ -122,7 +122,7 @@ type Places = {
   thisMonster: string;
   /** The preset the build is for. */
   presetId: string;
-  /** The game's engraving outside presets, which its rune list still shows. */
+  /** The game's engraving outside presets, which its rune list still shows — for monsters outside this preset only. */
   scenarioPlaces: ReadonlyMap<string, string | null> | undefined;
   engravedOn: (unitId: string) => EngravedOnMonster | undefined;
   onOpenMonster: OpenMonsterOverlay;

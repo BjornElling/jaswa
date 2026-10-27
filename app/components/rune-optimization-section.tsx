@@ -284,8 +284,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
   const accountRunes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
   const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
-  const scenarioPlaces = useMemo(() => (preset && preset.kind !== 'scenario'
-    ? new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId])) : undefined), [accountRunes, preset]);
+  /* A member's runes in the preset are the preset's to say, so a rune its Scenario
+     owner does not carry here is unengraved in the game's preset list, however it
+     came off — in JASWA or in the game. Only a monster outside the preset is named. */
+  const scenarioPlaces = useMemo(() => {
+    if (!preset || preset.kind === 'scenario') return undefined;
+    const members = new Set(preset.members);
+    return new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId !== null && members.has(rune.occupiedId) ? null : rune.occupiedId]));
+  }, [accountRunes, preset]);
   /* The preset's locks as this monster reads them: its team's locks and exclusions,
      plus runes held in another phase of the same content pool. */
   const locks = useMemo(() => (preset && unitId !== '' ? runeLocksInPreset(runeLocks, preset, unitId) : {}),
