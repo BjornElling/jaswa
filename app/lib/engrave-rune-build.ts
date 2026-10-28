@@ -135,13 +135,16 @@ function withDeckGear(data: GameRecord, preset: Preset, equip: GameRecord[]): Ga
 /**
  * Engrave a build in Scenario or in one of the game's presets, remembering where
  * each rune it moves sat. Outside a pool only the chosen preset changes. In a
- * pool, a rune the build brings in from another deck of the pool — which
+ * pool, every rune of `claimed` another deck of the pool holds — which
  * `withheldRunes` offered only because the user included it — is taken off
- * every deck holding it, so the pool stays whole (`DECK-PRESETS.md` §4). One
- * the monster already carries here stays where the game left it on the other
- * deck: keeping it forms no new overlap.
+ * every deck holding it, so the pool stays whole (`DECK-PRESETS.md` §4). A
+ * whole build claims all six, those the monster already carries included: an
+ * overlap the game let be saved fields neither team, and engraving the build is
+ * the user settling it. A lock claims only its own rune, and an exclusion none,
+ * so a click on one rune never settles an overlap of another.
  */
-export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: string, runeIds: readonly string[]): ImportedGame {
+export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: string, runeIds: readonly string[],
+  claimed: readonly string[] = runeIds): ImportedGame {
   if (preset.kind === 'own') throw new Error('A preset built in JASWA is engraved in the preferences.');
   checkBuild(game.data, unitId, runeIds);
   if (preset.kind === 'scenario') {
@@ -155,8 +158,8 @@ export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: 
   const gear = engravedGear(preset, unitId, runeIds);
   let data = withDeckGear(game.data, preset, equipOf(gear));
   let loadedPlacements = remember(game.loadedPlacements, preset.id, preset.runeOwner, ownersOf(gear), runeIds);
-  const carried = new Set(preset.runesOf.get(unitId) ?? []);
-  const taken = new Set(runeIds.filter((id) => !carried.has(id) && preset.poolRunes.has(id)));
+  const engraved = new Set(runeIds);
+  const taken = new Set(claimed.filter((id) => engraved.has(id) && preset.poolRunes.has(id)));
   const holders = new Set([...taken].flatMap((id) => preset.poolRunes.get(id)?.map((holder) => holder.presetId) ?? []));
   for (const holder of readPresets(game.data, []).filter((entry) => holders.has(entry.id))) {
     const left = gearWithout(holder, taken);

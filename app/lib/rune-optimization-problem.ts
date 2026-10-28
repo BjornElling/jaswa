@@ -341,7 +341,8 @@ function usableSetsOf(builds: BuildRequirement[] | null): ReadonlySet<number> | 
 }
 
 /**
- * Whether a rune not on this monster may be moved onto it. One reading for the
+ * Whether a rune may be on this monster in a build — moved onto it, or kept
+ * where another deck of the pool holds it too. One reading for the
  * search and for the re-reading of a found build, so a row is never dimmed for a
  * source the search itself would have taken.
  */
@@ -359,14 +360,16 @@ function admission(input: RuneOptimizationInput, usableSets: ReadonlySet<number>
   const { requirements, unitId } = input;
   const onThisMonster = rune.occupiedId === unitId;
   if (input.settings.fillEmptySlotsOnly) {
-    const engraved = input.runes.find((entry) => entry.slot === rune.slot && entry.occupiedId === unitId);
+    /* A slot filled with a rune another deck of the pool holds too is not this
+       monster's to keep, so it is as open as an empty one. */
+    const engraved = input.runes.find((entry) => entry.slot === rune.slot && entry.occupiedId === unitId && mayTake(input, entry.id));
     if (engraved) return engraved.id === rune.id ? 'locked' : 'refused';
   }
   /* A lock keeps the rune where it is, and an exclusion keeps it off this monster. */
   const lock = input.locks[rune.id];
   if (lock === 'locked') return onThisMonster ? 'locked' : 'refused';
   if (lock === 'excluded') return 'refused';
-  if (!onThisMonster && !mayTake(input, rune.id)) return 'refused';
+  if (!mayTake(input, rune.id)) return 'refused';
   if (rune.setId === intangibleSetId && !requirements.allowIntangible) return 'refused';
   if (usableSets !== null && rune.setId !== intangibleSetId && !usableSets.has(rune.setId)) return 'refused';
   return slotMainAllowed(requirements, rune) ? 'admitted' : 'refused';

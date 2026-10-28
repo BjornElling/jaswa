@@ -395,7 +395,7 @@ export default function Home() {
           ownPresets = ownPresets.map((entry) => entry.id === presetId ? engraved : entry);
           changePreferences((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? engraved : entry) }));
         } else {
-          next = engraveImportedGame(next, preset, unitId, runeIds);
+          next = engraveImportedGame(next, preset, unitId, runeIds, lock === 'locked' ? [runeId] : []);
         }
       }
       const locks: RuneLocks = heldRuneLocks(withRuneLock(runeLocks, runeLockScope(preset), unitId, runeId, lock, slotOf),

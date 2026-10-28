@@ -217,22 +217,22 @@ const byHundreds: Readonly<Record<number, ByHundreds>> = {
   },
 };
 
+/* `deck_type` 2, World Guild Battle, was confirmed by the player on October 28,
+   2026: its presets 1 and 2 on the game's screen are JASWA's decks 2-1 and 2-2. */
 const confirmed: Readonly<Record<number, PresetContentId>> = {
-  1: 'arena-attack', 3: 'rift-raid', 6: 'trial-of-ascension',
+  1: 'arena-attack', 2: 'world-guild', 3: 'rift-raid', 6: 'trial-of-ascension',
   19: 'dimension-raid-1', 20: 'dimension-raid-2', 21: 'dimension-raid-3',
   23: 'temple-of-chaos',
 };
 
 /*
  * Assumed, October 8, 2026, from one account's decks (`DECK-PRESETS.md` §7):
- * - `deck_type` 2: fourteen three-monster decks numbered 1–15 — a guild attack,
- *   and fifteen is World Guild Battle's capacity where Siege Battle's is 25.
  * - `deck_type` 4: five-monster decks of three or fewer, read as Labyrinth.
  *   8 and 9 hold the same kind of teams and were once read as Monster
  *   Subjugation; type 27 turned out to be that, so they stand unnamed.
  */
 const assumed: Readonly<Record<number, PresetContentId>> = {
-  2: 'world-guild', 4: 'labyrinth-normal',
+  4: 'labyrinth-normal',
 };
 
 /**

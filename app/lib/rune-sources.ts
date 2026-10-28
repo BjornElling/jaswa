@@ -12,7 +12,7 @@ import type { RuneOptimizationSettings } from './rune-optimization-settings';
  * build read the answer, and the page's switches only feed it
  * (`docs/RUNE-OPTIMIZATION.md` §3, `docs/DECK-PRESETS.md` §4).
  *
- * - **Its own runes** are always its own.
+ * - **Its own runes** are its own, unless another deck of its pool holds one too.
  * - **A rune on another monster of its team** may be taken from a monster below
  *   it on the team's priority list; from one above it only with *Include runes
  *   from higher-priority monsters*.
@@ -20,6 +20,8 @@ import type { RuneOptimizationSettings } from './rune-optimization-settings';
  *   such as World Guild Battle, any deck of another phase of Dimension Raid — is
  *   never ranked against this team: it may be taken only with *Include runes
  *   from higher-priority monsters*, and an engrave then takes it off that deck.
+ *   That holds for a rune this monster carries as well: an overlap the game let
+ *   be saved is the other deck's as much as this one's.
  * - ***Only runes not engraved in preset*** takes none of the two, and leaves
  *   *Include* nothing to decide.
  * - **A rune locked** to a monster of another deck of the pool stays there,
@@ -54,9 +56,9 @@ export function withheldRunes(
     if (!settings.runesOnOtherMonsters || (!include && above.has(owner))) withheld[runeId] = owner;
   }
   for (const [runeId, holders] of preset.poolRunes) {
-    /* A rune this monster carries here and another deck carries too is an overlap
-       the game allowed; keeping it forms nothing, so it stays this monster's. */
-    if (preset.runeOwner.get(runeId) === unitId) continue;
+    /* No exception for a rune this monster carries here too: the game let the
+       overlap be saved but fields neither team with it, so keeping it is no
+       answer either. Taken like any other deck's rune, an engrave settles it. */
     const locked = holders.find((holder) => runeLockOf(locks, holder.presetId, holder.unitId, runeId) === 'locked');
     if (locked) withheld[runeId] = locked.unitId;
     else if (!include) withheld[runeId] ??= holders[0].unitId;

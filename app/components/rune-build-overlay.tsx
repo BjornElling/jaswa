@@ -158,13 +158,14 @@ function removedFromScenarioMonster(runeId: string, place: string | null, loaded
 }
 
 function gamePlaceName(runeId: string, place: string | null, places: Places, loadedPlace?: string | null): ReactNode {
-  if (place !== null) return presetPlaceName(place, places);
   /* Another team of the pool holds it: that is where the rune is in this battle,
-     whatever Scenario says, and where an engrave takes it from. */
+     whatever Scenario says, and where an engrave takes it from — also where this
+     monster carries it too, an overlap the game let be saved. */
   const pooled = places.poolPlaces?.get(runeId);
+  if (place !== null && (place !== places.thisMonster || !pooled)) return presetPlaceName(place, places);
   /* The card cuts a long place short, and the deck is the half that matters, so the whole place is in the title. */
   if (pooled) {
-    return <span title={`${places.engravedOn(pooled.unitId)?.name ?? 'Monster not in this import'} · ${pooled.presetName}`}>
+    return <span title={`${place === null ? '' : 'This monster, and '}${places.engravedOn(pooled.unitId)?.name ?? 'Monster not in this import'} · ${pooled.presetName}`}>
       {monsterName(pooled.unitId, pooled.presetId, places)} · {pooled.presetName}
     </span>;
   }
@@ -356,7 +357,9 @@ export function RuneBuildOverlay({
   const engravedOnName = (unitId: string) => engravedOn(unitId)?.name;
   const places: Places = { thisMonster: monster.unitId, presetId, scenarioPlaces, poolPlaces, engravedOn, onOpenMonster };
   const complete = bySlot.length === 6 && bySlot.every((picked) => runesById.has(picked.runeId));
-  const alreadyEngraved = complete && bySlot.every((picked) => runesById.get(picked.runeId)?.occupiedId === monster.unitId);
+  /* A rune another deck of the pool holds too is not settled by sitting here: engraving takes it off that deck. */
+  const alreadyEngraved = complete && bySlot.every((picked) => runesById.get(picked.runeId)?.occupiedId === monster.unitId
+    && !poolPlaces?.has(picked.runeId));
   const engraveReason = !canEngrave ? alwaysSynchronizedReason
     : followable ? undefined : 'A rune or set in this build no longer fits the current settings.';
 

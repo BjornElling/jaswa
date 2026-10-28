@@ -290,8 +290,8 @@ Grindstones the settings allow. A rune enters its own slot's list when:
   is not searched. Locks and exclusions bind one scope — Scenario or one preset — and no
   other; they live with the import, so a new import has
   none, and they are off under *Always synchronized*. Locking a rune engraves it first.
-- it is on this monster, or engraved nowhere it could be taken from, or **withheld by
-  nobody**: `withheldRunes` (`rune-sources.ts`) is the one rule of whose runes a monster
+- it is **withheld by nobody** — its own runes are withheld by nobody unless another deck
+  of the pool holds one too: `withheldRunes` (`rune-sources.ts`) is the one rule of whose runes a monster
   may take, and the page hands its answer to the search as `RuneOptimizationInput.withheld`
   — the rune and the copy holding it — so the search reads neither the priority list, the
   pool nor the switches. `mayTake` is the one reading the search and the re-reading of a
@@ -302,7 +302,12 @@ Grindstones the settings allow. A rune enters its own slot's list when:
     higher-priority monsters*. A monster not on the list ranks below every monster on it;
   - a rune **another deck of the pool** holds is never ranked: it is taken only with
     *Include runes from higher-priority monsters*, never under *Only runes not engraved in
-    preset*, and never while it is locked there;
+    preset*, and never while it is locked there. That goes for a rune this monster carries
+    too, where the game let the overlap be saved: it fields neither team, so it is neither
+    kept as the slot's answer — not even under *Fill empty slots only*, which reads that
+    slot as empty — nor kept in a found build, which is dimmed as engraved elsewhere. A
+    Lock on this monster is the user's word and keeps it; engraving a build that keeps it
+    takes it off the other deck;
   - *Include* has nothing to decide while *Only runes not engraved in preset* is ticked,
     nor in Scenario, which is no team; the page disables it there and keeps the stored
     choice for when it applies again;

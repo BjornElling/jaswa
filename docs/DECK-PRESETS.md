@@ -191,7 +191,7 @@ preset is never hidden for want of a name (AGENTS.md §0.1). Matched so far
 | `deck_type` | Content | Number shown | Basis |
 | --- | --- | --- | --- |
 | 1 | Arena Attack | `deck_seq` | screen |
-| 2 | World Guild Battle | `deck_seq` | assumed: 14 three-monster decks numbered 1–15, World Guild Battle's capacity |
+| 2 | World Guild Battle | `deck_seq` | the developer, October 28, 2026: presets 1 and 2 on the game's screen |
 | 3 | Rift Raid | `deck_seq` | screen |
 | 4 | Labyrinth Normal | `deck_seq` | assumed (§7) |
 | 6 | Trial of Ascension | `deck_seq` | screen |
@@ -293,13 +293,18 @@ together.
     are never ranked against each other: a rune another deck of the pool
     holds is withheld unless *Include runes from higher-priority monsters* is
     ticked, and *Only runes not engraved in preset* withholds it always. A
-    rune locked on another deck is withheld whatever the switches say. Inside
-    the team, the priority list rules as before (§5);
-  - an engrave that brings such a rune in **takes it off every deck of the
-    pool holding it**, remembering where it sat there — the one write into
-    another deck, and the price of including it. A rune the monster already
-    carries here stays where the game left it elsewhere: keeping it forms no
-    new overlap;
+    rune locked on another deck is withheld whatever the switches say. **A
+    rune the monster carries here and another deck holds too is no
+    exception:** the game let the overlap be saved but fields neither team
+    with it, so it is withheld from both monsters alike, and a build keeps it
+    only on the same terms as taking it. Inside the team, the priority list
+    rules as before (§5);
+  - an engrave of a build **takes every such rune it keeps or brings in off
+    every deck of the pool holding it**, remembering where it sat there — the
+    one write into another deck, and the price of including it. Engraving a
+    build that keeps an overlapping rune is the user settling the overlap in
+    this deck's favour. A Lock claims only its own rune and an Exclude none,
+    so neither settles an overlap of another rune;
   - a monster joining a game deck brings its Scenario gear less what the deck
     or the pool holds, and a monster another Temple of Chaos team holds is not
     offered;
@@ -469,7 +474,7 @@ belongs to.
 `readPresets` and in the pages' readings: an empty preset, a full preset, a
 rune shared by two presets with different monsters, a sold rune still named by
 a preset, a sold member with gear, a Normal Sealed Shrine member, a pool
-overlap, and an assumed deck that joins no pool. It measures a private traffic
+overlap, World Guild Battle's teams as one pool, and an assumed deck that joins no pool. It measures a private traffic
 log without printing IDs:
 `node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-deck-presets.mjs <log-path>`.
 `npm run audit:import-parity` checks that every saved deck of a real capture
@@ -481,12 +486,6 @@ is a preset the interface offers, with its own placements
 Each is a TODO: until it is answered, JASWA keeps the safe reading named here
 and says so where it matters.
 
-- **`deck_type` 2 — which guild content.** Fourteen three-monster decks,
-  numbered 1–15. More than ten rules out the Siege Battle defense presets.
-  They are Siege Battle attack or World Guild Battle / Guild Rival Battle
-  attack; fifteen is the latter's capacity where Siege Battle's is 25, so they
-  are read as World Guild Battle until the screen says otherwise. While
-  assumed they join no pool.
 - **`deck_type` 4, 8, 9.** Five-monster decks, three or fewer of each, holding
   the same teams as one another. None is Temple of Chaos, whose presets are
   type 23, nor a Dimension Hole dungeon or Rift of Worlds beast,

@@ -1114,6 +1114,70 @@ test('a rune another team of a team pool holds is withheld until included, names
   expect([...gearIn(2, 12) ?? []].sort()).toEqual([...runeIds].sort());
 });
 
+test('a rune two teams of a pool both carry is kept by neither until included, and engraving settles it', async ({ page }, testInfo) => {
+  test.slow();
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  /* The game let Temple of Chaos 1's 11 and Temple of Chaos 2's 12 be saved on the
+     account's only six runes, and fields neither team with them. */
+  const elevenRunes = base.unit_list.find((unit: { unit_id: number }) => unit.unit_id === 11).runes;
+  const runeIds = elevenRunes.map((rune: { rune_id: number }) => rune.rune_id);
+  const overlapAccount = {
+    ...base,
+    runes: [],
+    unit_list: base.unit_list.map((unit: { unit_id: number; runes: unknown[] }) => ({ ...unit, runes: unit.unit_id === 11 ? elevenRunes : [] })),
+    deck_list: [
+      { deck_type: 23, deck_seq: 1, unit_id_list: [11, 0, 0, 0, 0], equip: [{ unit_id: 11, rune_id_list: runeIds, artifact_id_list: [] }] },
+      { deck_type: 23, deck_seq: 2, unit_id_list: [12, 0, 0, 0, 0], equip: [{ unit_id: 12, rune_id_list: runeIds, artifact_id_list: [] }] },
+    ],
+  };
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'team-overlap.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(overlapAccount)),
+  });
+  await openOptimization(page);
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-23-2');
+  await page.getByLabel('Monster', { exact: true }).selectOption('12');
+  const settings = page.getByRole('complementary', { name: 'Settings' });
+  const include = settings.getByLabel('Include runes from higher-priority monsters');
+  const rank = page.getByLabel('Rank by', { exact: true });
+  if (await rank.inputValue() === '') await rank.selectOption('spd');
+
+  /* Carrying them here is no claim: the other team holds them just as much. */
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByText(/No rune can fill slot 1, 2, 3, 4, 5, 6/)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('team-overlap-withheld.png'), fullPage: true });
+
+  /* Included, the build keeps them, names the other team, and is not yet engraved. */
+  await include.check();
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
+  const detail = page.getByRole('dialog', { name: 'Build 1' });
+  await expect(detail.locator('.rune-build-card')).toHaveCount(6);
+  for (const card of await detail.locator('.rune-build-card').all()) {
+    await expect(card.locator('.rune-build-card-where').first()).toContainText('· Temple of Chaos 1');
+  }
+  const engrave = detail.getByRole('button', { name: 'Engrave on monster' });
+  await expect(engrave).toBeEnabled();
+  const circleBefore = await box(detail.locator('.rune-build-circle'));
+  await detail.screenshot({ path: testInfo.outputPath('team-overlap-included.png') });
+
+  /* Engraved, the runes leave Temple of Chaos 1: the overlap is settled in this team's favour. */
+  await engrave.click();
+  await expect(detail.getByRole('button', { name: 'Engraved', exact: true })).toBeDisabled();
+  expect(await box(detail.locator('.rune-build-circle'))).toEqual(circleBefore);
+  await detail.screenshot({ path: testInfo.outputPath('team-overlap-engraved.png') });
+  const decks = await page.evaluate(async () => new Promise<Array<{ deck_seq: number; equip: Array<{ unit_id: number; rune_id_list: number[] }> }>>((resolve) => {
+    const request = indexedDB.open('jaswa-local', 1);
+    request.onsuccess = () => {
+      const read = request.result.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
+      read.onsuccess = () => { resolve(read.result.data.deck_list); request.result.close(); };
+    };
+  }));
+  const gearIn = (seq: number, unitId: number) => decks.find((entry) => entry.deck_seq === seq)?.equip.find((entry) => entry.unit_id === unitId)?.rune_id_list;
+  expect(gearIn(1, 11)).toEqual([]);
+  expect([...gearIn(2, 12) ?? []].sort()).toEqual([...runeIds].sort());
+});
+
 test('a rune on another monster in Scenario names that monster in a preset build', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);

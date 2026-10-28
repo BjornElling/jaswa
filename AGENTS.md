@@ -420,7 +420,8 @@ parts an agent must not quietly break:
   Rift Raid and World Guild Battle — while Siege Battle attacks
   do not; a deck whose content is only assumed joins no pool. A pool limits
   what JASWA does, never what it reads, so an overlap the game allowed is shown
-  as it stands and flagged, and nothing here forms a new one. A relic belongs
+  as it stands and flagged, nothing here forms a new one, and no build keeps
+  one: the overlapping rune is withheld from both its monsters. A relic belongs
   to Scenario and is read into every preset. Placement is resolved once at
   import; an item's own `occupiedId` names its Scenario monster only, and
   every reading of a monster's slots, stats or speed takes its context as an

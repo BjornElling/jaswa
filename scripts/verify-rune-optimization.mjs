@@ -64,6 +64,7 @@ import {
   targetCeilings, targetFloors,
 } from '../app/lib/rune-optimization-problem.ts';
 import { currentBuilds } from '../app/lib/rune-optimization-refresh.ts';
+import { withheldRunes } from '../app/lib/rune-sources.ts';
 import {
   mergeBuildResults, searchRuneBuilds, searchRuneBuildsInPasses, searchRuneBuildsInSlices,
 } from '../app/lib/rune-optimization-search.ts';
@@ -288,7 +289,7 @@ for (let index = 0; index < scenarios; index += 1) {
   }
   const placeByRuneId = new Map(input.runes.map((rune) => [rune.id, rune.occupiedId]));
   const placeOf = (candidate) => placeByRuneId.get(candidate.runeId);
-  assert.ok(problem.slots.flat().every((candidate) => placeOf(candidate) === input.unitId || input.withheld[candidate.runeId] === undefined),
+  assert.ok(problem.slots.flat().every((candidate) => input.withheld[candidate.runeId] === undefined),
     `scenario ${index}: a withheld rune was offered`);
   if (index % 4 === 3 && input.settings.runesOnOtherMonsters) {
     /* Copy 2 ranks above the copy searched for: the one rule withholds its runes, and only its. */
@@ -838,6 +839,47 @@ for (const filled of [0, 1, 3, 5, 6]) {
   assert.deepEqual(actual.builds.map((build) => ({ value: build.figures[figures.indexOf(input.requirements.rankBy)], moves: build.moves })), expected);
   for (const build of actual.builds) assert.equal(build.moves, 6 - filled);
 }
+/* A rune this monster carries that another deck of its pool holds too — an overlap
+   the game let be saved — is withheld like any of that deck's runes: never kept as
+   the slot's answer, not even by an empty-slots-only search, and a build keeping it
+   is dimmed as engraved elsewhere. */
+{
+  const input = scenario(2);
+  input.locks = {};
+  input.runes = input.runes.map((rune) => ({ ...rune, occupiedId: rune.slot === 1 && rune === input.runes.find((entry) => entry.slot === 1) ? input.unitId : null }));
+  const shared = input.runes.find((rune) => rune.occupiedId === input.unitId);
+  input.withheld = withheldRunes({ kind: 'game', runeOwner: new Map([[shared.id, input.unitId]]),
+    poolRunes: new Map([[shared.id, [{ presetId: 'deck-23-1', unitId: '99' }]]]) }, input.unitId, [], input.settings, {});
+  assert.deepEqual(input.withheld, { [shared.id]: '99' }, 'a shared rune on this monster is the other deck\'s as much as its own');
+  input.requirements = { ...input.requirements, builds: [], allowBroken: true,
+    allowIntangible: true, slotMains: { slot2: [], slot4: [], slot6: [] }, targets: {}, ceilings: {} };
+  for (const fillEmptySlotsOnly of [false, true]) {
+    input.settings = { ...input.settings, fillEmptySlotsOnly, limitChanges: false, gems: 'none', grinds: 'none' };
+    const slotOne = prepareRuneOptimization(input, { reduce: false }).slots[0];
+    assert.ok(slotOne.length > 0 && slotOne.every((candidate) => candidate.runeId !== shared.id),
+      `the shared rune must leave slot 1 open${fillEmptySlotsOnly ? ' under Fill empty slots only' : ''}`);
+  }
+  /* A build found while the user had it locked here, to be re-read once the lock is gone. */
+  const lockedProblem = prepareRuneOptimization({ ...input, locks: { [shared.id]: 'locked' } });
+  const [found] = searchRuneBuilds(lockedProblem).builds;
+  const build = { ...found, runes: found.picks.map((at, slot) => {
+    const candidate = lockedProblem.slots[slot][at];
+    return { runeId: candidate.runeId, slot: candidate.slot, setId: candidate.setId, mainValue: candidate.mainValue, lines: candidate.lines,
+      gemmedAt: candidate.gemmedAt, groundAt: candidate.groundAt, spends: [], moves: candidate.moves, locked: false };
+  }) };
+  assert.ok(build.runes.some((picked) => picked.runeId === shared.id), 'a lock here keeps the shared rune in the search');
+  const runesById = new Map(input.runes.map((rune) => [rune.id, rune]));
+  const reread = currentBuilds([build], { unitId: input.unitId, monster: input.monster, requirements: input.requirements,
+    settings: { ...input.settings, fillEmptySlotsOnly: false }, withheld: input.withheld,
+    before: { runes: runesById, items: new Map() }, now: { runes: runesById, items: new Map(), locks: {} } })[0];
+  assert.deepEqual(reread.runes.find((picked) => picked.runeId === shared.id).issue, { kind: 'engraved-elsewhere', engravedOn: '99' },
+    'a build keeping the shared rune is dimmed');
+  const lockedHere = currentBuilds([build], { unitId: input.unitId, monster: input.monster, requirements: input.requirements,
+    settings: { ...input.settings, fillEmptySlotsOnly: false }, withheld: input.withheld,
+    before: { runes: runesById, items: new Map() }, now: { runes: runesById, items: new Map(), locks: { [shared.id]: 'locked' } } })[0];
+  assert.equal(lockedHere.runes.find((picked) => picked.runeId === shared.id).issue, null, 'unless the user locked it here');
+}
+console.log('PASS: a rune another deck of the pool holds too is withheld from the monster carrying it.');
 const flatExpected = { 1: [580, 790, 1000, 1240, 1530, 1800], 3: [39, 53, 67, 82, 99, 118], 5: [39, 53, 67, 82, 99, 118] };
 for (let stars = 1; stars <= 6; stars += 1) {
   for (const level of [0, 12, 13, 14, 15]) {

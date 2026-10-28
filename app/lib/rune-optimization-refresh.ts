@@ -62,7 +62,8 @@ export type PickIssue =
   | { kind: 'slot-taken'; runeId: string }
   /** Excluded from this monster's builds since the search. */
   | { kind: 'excluded' }
-  /** Engraved on another monster — of this team or another deck of its pool — whose runes `withheldRunes` keeps. */
+  /** Engraved on another monster — of this team or another deck of its pool, this monster's own rune included where
+   * that deck holds it too — whose runes `withheldRunes` keeps. */
   | { kind: 'engraved-elsewhere'; engravedOn: string }
   /** A Gem or Grindstone still to come needs more of a held item than the account has left. */
   | { kind: 'items' }
@@ -256,14 +257,14 @@ function readBuild(build: OptimizedBuild, context: RefreshContext, lockedSlots: 
     let issue: PickIssue | null = null;
     const taken = lockedSlots.get(picked.slot);
     const engraved = settings.fillEmptySlotsOnly
-      ? [...now.runes.values()].find((rune) => rune.slot === picked.slot && rune.occupiedId === unitId) : undefined;
+      ? [...now.runes.values()].find((rune) => rune.slot === picked.slot && rune.occupiedId === unitId && mayTake(context, rune.id)) : undefined;
     /* A rune locked here, or the one an empty-slots-only search must keep, is its
        slot's answer whatever the filters say, as the search reads it (`admission`). */
     const held = lockedHere || engraved?.id === picked.runeId;
     if (locked && !lockedHere) issue = { kind: 'locked-away', engravedOn: is.occupiedId };
     else if (now.locks[found.runeId] === 'excluded') issue = { kind: 'excluded' };
     else if (taken !== undefined && taken !== found.runeId) issue = { kind: 'slot-taken', runeId: taken };
-    else if (is.occupiedId !== unitId && !mayTake(context, found.runeId)) {
+    else if (!lockedHere && !mayTake(context, found.runeId)) {
       issue = { kind: 'engraved-elsewhere', engravedOn: context.withheld[found.runeId] };
     } else if (engraved && !held) issue = { kind: 'slot-filled' };
     else if (!held && is.setId === intangibleSetId && !requirements.allowIntangible) issue = { kind: 'intangible' };
