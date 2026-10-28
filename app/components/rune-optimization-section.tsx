@@ -8,7 +8,8 @@ import { FightAdditionText } from './fight-addition';
 import { CheckboxRow, RadioLine } from './form-controls';
 import { Dropdown } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
-import { monsterUsage } from '../lib/monster-usage-statistics';
+import { GameStatisticsButton } from './game-statistics-button';
+import type { OpenMonsterStatistics } from './game-statistics-button';
 import { Overlay } from './overlay';
 import { PencilIcon } from './pencil-icon';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -162,7 +163,7 @@ function Provenance({ children = '' }: { children?: ReactNode }) {
 }
 
 export function RuneOptimizationSection({ game, monsters, preferences, presets, presetId, onSelectPreset, onUpdate, canEngrave, onEngrave,
-  runeLocks, onLock, onOpenMonster, onOpenRune, onTuneSpeed }: {
+  runeLocks, onLock, onOpenMonster, onOpenStatistics, onOpenRune, onTuneSpeed }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
@@ -178,6 +179,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   runeLocks: RuneLocks;
   onLock: (presetId: string, unitId: string, runeId: string, lock: RuneLock | null) => Promise<void>;
   onOpenMonster: OpenMonsterOverlay;
+  onOpenStatistics: OpenMonsterStatistics;
   onOpenRune: OpenRuneOverlay;
   /** Opens this preset's team over the page. */
   onTuneSpeed: OpenSpeedTeamOverlay;
@@ -260,7 +262,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const profile = useMemo(() => (selected
     ? profileRequirements(selected.unitId, selected.masterId, profiles[selected.unitId], team)
     : undefined), [selected, profiles, team]);
-  const usage = useMemo(() => selected ? monsterUsage(selected.masterId) : undefined, [selected]);
   /* A change made here is for this copy in this preset: the same copy in another
      preset is another question, and does not inherit it. */
   const edited = edits !== null && edits.unitId === unitId && edits.presetId === activePresetId;
@@ -487,7 +488,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             }}>
             {presets.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </Dropdown>
-          <label className="filter-label" htmlFor="rune-optimization-monster">Monster</label>
+          {/* The game's statistics are about the monster, so they are offered on
+              its name's own line, at the field's right edge. Always there, and
+              only enabled once a monster is chosen. */}
+          <div className="rune-optimization-monster-head">
+            <label className="filter-label" htmlFor="rune-optimization-monster">Monster</label>
+            <GameStatisticsButton inline masterId={selected?.masterId} name={selected?.name ?? ''} onOpen={onOpenStatistics} />
+          </div>
           {/* The portrait sits inside the field, at the start of the name it
               belongs to. Its box is there with no monster chosen too, so choosing
               one fills a space rather than pushing the name along (`AGENTS.md` §2). */}
@@ -630,8 +637,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               <RuneSlotMainField slot={slotNumbers[key]} options={runeSlotMainsBySlot[key]}
                 chosen={requirements.slotMains[key]} className="rune-optimization-slot-field"
                 onChange={(next) => change((state) => ({ ...state, slotMains: { ...state.slotMains, [key]: next } }))} />
-              <Provenance>{usage?.runes?.slots[key]
-                ?.slice(0, 3).map((entry) => `${entry.label} ${(entry.share * 100).toFixed(0)}%`).join(', ') || 'Not captured'}</Provenance>
             </div>)}
           </div>
           <div className="filter-group rune-optimization-targets" role="group" aria-label="Stats">

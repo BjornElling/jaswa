@@ -30,7 +30,7 @@ const pages = ['Home', 'Monster Stats', 'Monster Numbers', 'Presets', 'Speed Tun
 const expected: Record<string, readonly RegExp[]> = {
   Presets: [/^Speed tuning for Arena Attack 4$/],
   'Speed Tuning': [/^Arena Attack 4: /],
-  'Rune Optimization': [/^Speed tuning for Arena Attack 4$/, /^Open profile$/],
+  'Rune Optimization': [/^Speed tuning for Arena Attack 4$/, /^Open profile$/, /^Game statistics for /],
 };
 
 async function freshWorkspace(page: Page) {

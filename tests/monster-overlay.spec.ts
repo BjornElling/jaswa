@@ -586,7 +586,7 @@ test('what is wanted takes the left, and what is engraved the right third', asyn
   await openOverlay(page);
   const dialog = page.getByRole('dialog');
   const runeLabels = await dialog.locator('.monster-overlay-wants .overlay-block').first().locator('.overlay-row-label').allTextContents();
-  expect(runeLabels).toEqual(['Desired builds', 'Most common']);
+  expect(runeLabels).toEqual(['Desired builds']);
   const wants = (await dialog.locator('.monster-overlay-wants').boundingBox())!;
   const column = (await dialog.locator('.monster-overlay-engraved').boundingBox())!;
   expect(column.x).toBeGreaterThan(wants.x + wants.width);
@@ -603,7 +603,7 @@ test('the Runes block opens the panel, above the stats', async ({ page }) => {
   await openOverlay(page);
   const titles = await page.locator('.overlay-block-title').allTextContents();
   expect(titles).toEqual([
-    'Runes', 'Stats', 'Settings', 'Leads and bonuses', 'Scenario', 'Artifacts and relics', 'Engraved runes (Scenario)', 'Engraved artifacts', 'Engraved relics', 'Most common artifacts',
+    'Runes', 'Stats', 'Settings', 'Leads and bonuses', 'Scenario', 'Artifacts and relics', 'Engraved runes (Scenario)', 'Engraved artifacts', 'Engraved relics',
   ]);
 });
 

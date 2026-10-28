@@ -1,59 +1,50 @@
-import type { ArtifactCategory, ArtifactMainProperty } from './artifact-properties';
+import type { ArtifactCategory } from './artifact-properties';
 import { artifactProperty } from './artifact-properties';
-import type { MonsterDefaults, RuneSlotKey } from './monster-defaults';
+import type { RuneSlotKey } from './monster-defaults';
 import { monsterDefaults, runeSlotKeys } from './monster-defaults';
-import type { RelicMainProperty } from './relic-properties';
 import { relicProperty, relicPropertyLabel } from './relic-properties';
-import type { RuneSlotMain } from './rune-slot-mains';
+import { runeSlotMainEffect } from './rune-slot-mains';
+import { runeStatName } from './runes';
 
 /**
- * What the wider player base most commonly engraves, ready to read.
+ * What the wider player base engraves on one monster, ready to read on the
+ * statistics overlay.
  *
- * The defaults module already folds the three panels into bands; this turns the
- * same folding into ordered lists for the overlay's "most common" rows, so the
- * two can never disagree about one dataset. Nothing new is measured here.
+ * The defaults module already folds the game's three panels; this turns the
+ * same folding into ordered lists, so the overlay and the defaults can never
+ * disagree about one dataset. Nothing new is measured here.
  *
- * Every list is ordered by share, largest first, and carries the observation
- * count behind it: a share without its sample size is what the dataset itself
- * refuses to store, and the overlay says "from 41,203 builds" for the same
- * reason.
+ * Every list is ordered by share, largest first, and every panel carries the
+ * count behind it and the day it was seen: a share without its sample size is
+ * what the dataset itself refuses to store.
  */
 
 export type UsageEntry = {
   /** What the row names, in the words the user reads it in. */
   label: string;
   share: number;
-  /** Whether the share clears the cut that would make it a default. */
-  wanted: boolean;
 };
-
-/** A substat or unique row, which the overlay can adopt by id. */
-export type UsagePropertyEntry = UsageEntry & { id: number };
-
-/** A row keyed by the vocabulary a preference is stated in. */
-export type UsageChoiceEntry<T extends string> = UsageEntry & { value: T };
 
 export type MonsterUsage = {
   runes?: {
-    sets: UsageChoiceEntry<string>[];
     /** Whole builds, as the game's panel lists them — see `RuneDefaults.builds`. */
-    builds: ReadonlyArray<{ label: string; share: number }>;
-    slots: Record<RuneSlotKey, UsageChoiceEntry<RuneSlotMain>[]>;
+    builds: UsageEntry[];
+    slots: Record<RuneSlotKey, UsageEntry[]>;
+    /** Each sub property's share of every sub line. */
+    subs: UsageEntry[];
+    /** Monsters behind the panel: the largest slot's runes, since the set list is capped by the game. */
     observations: number;
-    /** Builds behind the set list, which the game truncates — see `RuneSetShareBasis`. */
-    setObservations: number;
+    observedAt?: string;
   };
-  artifacts?: Partial<Record<ArtifactCategory, {
-    main: UsageChoiceEntry<ArtifactMainProperty>[];
-    sub: UsagePropertyEntry[];
-    mainObservations: number;
-    subObservations: number;
-  }>>;
+  artifacts?: {
+    categories: Partial<Record<ArtifactCategory, { main: UsageEntry[]; sub: UsageEntry[]; observations: number }>>;
+    observedAt?: string;
+  };
   relics?: {
-    main: UsageChoiceEntry<RelicMainProperty>[];
-    unique: UsagePropertyEntry[];
-    mainObservations: number;
-    uniqueObservations: number;
+    main: UsageEntry[];
+    unique: UsageEntry[];
+    observations: number;
+    observedAt?: string;
   };
 };
 
@@ -61,92 +52,79 @@ function byShare(left: { share: number }, right: { share: number }): number {
   return right.share - left.share;
 }
 
-function choiceEntries<T extends string>(
-  entries: Map<T, { band: string; share: number }> | undefined,
-): UsageChoiceEntry<T>[] {
-  if (!entries) return [];
-  return [...entries]
-    .map(([value, entry]) => ({ value, label: value, share: entry.share, wanted: entry.band !== 'unwanted' }))
-    .sort(byShare);
-}
-
-function propertyEntries(
-  entries: Map<number, { band: string; share: number }> | undefined,
-  name: (id: number) => string | undefined,
-): UsagePropertyEntry[] {
-  if (!entries) return [];
-  const rows: UsagePropertyEntry[] = [];
-  for (const [id, entry] of entries) {
-    const label = name(id);
-    /* A property the vocabulary cannot name cannot be shown or adopted, so it
-       is dropped rather than printed as a bare number. */
-    if (label === undefined) continue;
-    rows.push({ id, label, share: entry.share, wanted: entry.band !== 'unwanted' });
+/* A property the vocabulary cannot name cannot be shown, so it is dropped rather
+   than printed as a bare number. */
+function entries<K>(shares: Iterable<[K, number]>, name: (key: K) => string | undefined): UsageEntry[] {
+  const rows: UsageEntry[] = [];
+  for (const [key, share] of shares) {
+    const label = name(key);
+    if (label !== undefined) rows.push({ label, share });
   }
   return rows.sort(byShare);
 }
 
-function runeUsage(defaults: MonsterDefaults): MonsterUsage['runes'] {
-  const runes = defaults.runes;
-  if (!runes) return undefined;
-  const slots = {} as Record<RuneSlotKey, UsageChoiceEntry<RuneSlotMain>[]>;
-  for (const key of runeSlotKeys) slots[key] = choiceEntries(runes.slots[key]);
-  return {
-    sets: choiceEntries(runes.sets),
-    builds: runes.builds.map((entry) => ({ label: entry.build, share: entry.share })),
-    slots,
-    /* The slot distributions are the honest measure of how many builds stand
-       behind this monster's rune panel: the set list is capped by the game. */
-    observations: Math.max(...runeSlotKeys.map((key) => runes.slotObservations[key]), 0),
-    setObservations: runes.setObservations,
-  };
+function shares<K>(banded: Map<K, { share: number }>): Iterable<[K, number]> {
+  return [...banded].map(([key, entry]) => [key, entry.share] as [K, number]);
 }
 
-function artifactUsage(defaults: MonsterDefaults): MonsterUsage['artifacts'] {
-  const artifacts = defaults.artifacts;
-  if (!artifacts) return undefined;
-  const usage: NonNullable<MonsterUsage['artifacts']> = {};
-  for (const category of ['attribute', 'type'] as const) {
-    const panel = artifacts[category];
-    if (!panel) continue;
-    usage[category] = {
-      main: choiceEntries(panel.main),
-      sub: propertyEntries(panel.sub, (id) => artifactProperty(id)?.name),
-      mainObservations: panel.mainObservations,
-      subObservations: panel.subObservations,
-    };
-  }
-  return Object.keys(usage).length > 0 ? usage : undefined;
-}
-
-function relicUsage(defaults: MonsterDefaults): MonsterUsage['relics'] {
-  const relics = defaults.relics;
-  if (!relics) return undefined;
-  return {
-    main: choiceEntries(relics.main),
-    unique: propertyEntries(relics.unique, (id) => {
-      const definition = relicProperty(id);
-      return definition ? relicPropertyLabel(definition) : undefined;
-    }),
-    mainObservations: relics.mainObservations,
-    uniqueObservations: relics.uniqueObservations,
-  };
-}
+const ownName = <K extends string>(key: K) => key;
 
 /**
- * The most common choices for this monster's species, or an empty record where
+ * The game's statistics for this monster's species, or an empty record where
  * the dataset has not captured it.
  *
  * An uncaptured monster is the ordinary case rather than an edge one — most of
- * the game's roster is not captured — so the overlay renders "not captured" in
- * the same reserved space rather than treating it as a fault.
+ * the game's roster is not captured — so the overlay says "not captured" in
+ * the same place rather than treating it as a fault.
  */
 export function monsterUsage(masterId: unknown): MonsterUsage {
   const defaults = monsterDefaults(masterId);
   if (!defaults) return {};
-  return {
-    runes: runeUsage(defaults),
-    artifacts: artifactUsage(defaults),
-    relics: relicUsage(defaults),
-  };
+  const usage: MonsterUsage = {};
+
+  const runes = defaults.runes;
+  if (runes) {
+    const slots = {} as Record<RuneSlotKey, UsageEntry[]>;
+    /* In the game's words, as the sub properties beside them are: `SPD` and
+       `HP %` rather than the role vocabulary's `Spd` and `HP%`. */
+    for (const key of runeSlotKeys) {
+      slots[key] = entries(shares(runes.slots[key]), (main) => runeStatName(runeSlotMainEffect(main)));
+    }
+    usage.runes = {
+      builds: runes.builds.map((entry) => ({ label: entry.build, share: entry.share })),
+      slots,
+      subs: entries(runes.subShares, runeStatName),
+      observations: Math.max(...runeSlotKeys.map((key) => runes.slotObservations[key]), 0),
+      observedAt: defaults.observedAt.runes,
+    };
+  }
+
+  const artifacts = defaults.artifacts;
+  if (artifacts) {
+    const categories: NonNullable<MonsterUsage['artifacts']>['categories'] = {};
+    for (const category of ['attribute', 'type'] as const) {
+      const panel = artifacts[category];
+      if (!panel) continue;
+      categories[category] = {
+        main: entries(shares(panel.main), ownName),
+        sub: entries(shares(panel.sub), (id) => artifactProperty(id)?.name),
+        observations: panel.mainObservations,
+      };
+    }
+    usage.artifacts = { categories, observedAt: defaults.observedAt.artifacts };
+  }
+
+  const relics = defaults.relics;
+  if (relics) {
+    usage.relics = {
+      main: entries(shares(relics.main), ownName),
+      unique: entries(shares(relics.unique), (id) => {
+        const definition = relicProperty(id);
+        return definition ? relicPropertyLabel(definition) : undefined;
+      }),
+      observations: Math.max(relics.mainObservations, relics.uniqueObservations),
+      observedAt: defaults.observedAt.relics,
+    };
+  }
+  return usage;
 }

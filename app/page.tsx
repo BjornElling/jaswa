@@ -38,6 +38,7 @@ import type { RuneLock, RuneLocks } from './lib/rune-locks';
 import type { MonsterReference, OpenMonsterOverlay } from './components/monster-link';
 import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
 import type { OpenSpeedTeamOverlay } from './components/preset-speed-team-overlay';
+import type { OpenMonsterStatistics } from './components/game-statistics-button';
 import { useSessionStorageState, writeSessionValue } from './lib/session-storage-state';
 import { pageChoices, type Page, type ReportCategory } from './lib/workspace-config';
 
@@ -59,6 +60,7 @@ const PresetsSection = lazy(() => import('./components/presets-section').then(({
 const RuneOptimizationSection = lazy(() => import('./components/rune-optimization-section').then(({ RuneOptimizationSection: component }) => ({ default: component })));
 const MonsterOverlay = lazy(() => import('./components/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
 const RuneOverlay = lazy(() => import('./components/rune-overlay').then(({ RuneOverlay: component }) => ({ default: component })));
+const MonsterStatisticsOverlay = lazy(() => import('./components/monster-statistics-overlay').then(({ MonsterStatisticsOverlay: component }) => ({ default: component })));
 const PresetSpeedTeamOverlay = lazy(() => import('./components/preset-speed-team-overlay').then(({ PresetSpeedTeamOverlay: component }) => ({ default: component })));
 
 type OverlayTarget =
@@ -107,6 +109,10 @@ export default function Home() {
      than a kind of `overlay` because a monster opened from the team stacks on
      top of it, and closing that monster must leave the team standing. */
   const [speedTeam, setSpeedTeam] = useState<string | null>(null);
+  /* The species whose game statistics are open. Its own state for the speed
+     team's reason: it stacks on the monster profile that opened it. */
+  const [statisticsMonster, setStatisticsMonster] = useState<string | null>(null);
+  const statisticsOpener = useRef<HTMLElement | null>(null);
   /* The control that opened the overlay, so focus returns to the exact row the
      reader came from. It is held here rather than in the overlay because it has
      to outlive the overlay's own unmount. */
@@ -456,6 +462,18 @@ export default function Home() {
     speedTeamOpener.current = opener;
     setSpeedTeam(presetId);  };
 
+  const openMonsterStatistics: OpenMonsterStatistics = (masterId, opener) => {
+    statisticsOpener.current = opener;
+    setStatisticsMonster(masterId);
+  };
+
+  function closeMonsterStatistics() {
+    setStatisticsMonster(null);
+    const opener = statisticsOpener.current;
+    statisticsOpener.current = null;
+    if (opener?.isConnected) opener.focus();
+  }
+
   function closeSpeedTeam() {
     setSpeedTeam(null);
     const opener = speedTeamOpener.current;
@@ -469,6 +487,8 @@ export default function Home() {
     setOverlay(null);
     speedTeamOpener.current = null;
     setSpeedTeam(null);
+    statisticsOpener.current = null;
+    setStatisticsMonster(null);
   }
 
   function closeOverlay() {
@@ -892,6 +912,7 @@ export default function Home() {
         runeLocks={runeLocks}
         onLock={lockRune}
         onOpenMonster={openMonsterOverlay}
+        onOpenStatistics={openMonsterStatistics}
         onOpenRune={openRuneOverlay}
         onTuneSpeed={openSpeedTeam}
       /></Suspense>}
@@ -954,6 +975,15 @@ export default function Home() {
       onClose={closeOverlay}
       presetId={overlay.presetId ?? scenarioPresetId}
       onOptimize={optimizeMonster}
+      onOpenStatistics={openMonsterStatistics}
+    /></Suspense>}
+
+    {/* After the monster profile, which opens it on top of itself. */}
+    {statisticsMonster !== null && <Suspense fallback={null}><MonsterStatisticsOverlay
+      key={statisticsMonster}
+      masterId={statisticsMonster}
+      general={preferences.general}
+      onClose={closeMonsterStatistics}
     /></Suspense>}
 
     {overlayRune && <Suspense fallback={null}><RuneOverlay

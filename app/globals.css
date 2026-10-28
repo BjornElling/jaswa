@@ -318,7 +318,7 @@ label[for] {
 
 /* Body — every sentence, label and value that is not a heading. */
 .type-body, .lead, .notice, .dialog p, .slider-note, .radio-note,
-.overlay-nickname-input, .overlay-empty, .usage-entry, .overlay-stat-value,
+.overlay-nickname-input, .overlay-empty, .overlay-stat-value, .game-statistics-share,
 .rune-build-set, .overlay-toggle, .overlay-leads-fields, .overlay-lead, .overlay-team-lead, .overlay-accuracy-label, .overlay-accuracy-value,
 .engraved-rune-main, .engraved-rune-innate, .engraved-rune-subs, .engraved-artifact-main, .engraved-artifact-subs,
 .engraved-relic-main, .engraved-relic-unique,
@@ -383,7 +383,8 @@ label[for] {
 .artifact-recommendation-table th, .overlay-row-label, .overlay-stat-head,
 .rune-simulator-stats-table thead th, .overlay-facts dt, .rune-overlay-subs th,
 .rune-overlay-readings thead th, .speed-group-title, .rune-build-card-where-label, .rune-build-change-title,
-.monster-priority-head, .engraved-artifact-category, .monster-overlay-preset-label {
+.monster-priority-head, .engraved-artifact-category, .monster-overlay-preset-label,
+.game-statistics-eyebrow, .game-statistics-card-title {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 700;
@@ -392,7 +393,7 @@ label[for] {
 }
 .type-caption, .slot-label, .editor-slot-label, .target dt, .choice-legend,
 .field-compact > span, .relic-stone-balance-label,
-.role-type, .overlay-provenance, .usage-share,
+.role-type, .overlay-provenance, .game-statistics-part-title,
 .overlay-stat-current, .overlay-slot-name, .engraved-rune-level, .engraved-artifact-class,
 .speed-lane-turn text, .speed-lane-figure,
 .rune-optimization-provenance, .rune-build-card-grade, .rune-build-change-kind,
@@ -2291,6 +2292,9 @@ label[for] {
   pointer-events: none;
 }
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
+/* The field's name at its left edge and the game's statistics for the chosen
+   monster at its right, on one line the width of the field. */
+.rune-optimization-monster-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s2); width: 48ch; max-width: 100%; }
 /* Profile actions stay with the monster selected above them. */
 .rune-optimization-profile-row { display: flex; align-items: center; gap: var(--s2); width: 48ch; max-width: 100%; margin-bottom: var(--s2); }
 /* The team's way to Speed Tuning ends the row under the field's right edge,
@@ -5211,13 +5215,17 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   border-bottom: 1px solid var(--line);
 }
 .monster-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto; }
-/* Reserve the same head space for every area name. */
+/* Reserve the same head space for every area name. Three equal columns under
+   it — optimize, the game's statistics, copy — wide enough for the longest. */
 .monster-overlay-controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s2);
-  width: 44ch;
+  width: 76ch;
 }
+/* A monster the account does not own offers its statistics alone, at the edge. */
+.monster-overlay-controls > .game-statistics-button:only-child { grid-column: 3; }
+.game-statistics-button-face { display: inline-flex; align-items: center; gap: var(--s2); }
 /* The one fact here a reader must not take for Scenario when it is not, so its
    menu alone is marked, by its name in the accent and a gold edge, rather than
    by a box around the row that outshouts the monster. */
@@ -5260,7 +5268,7 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
 }
 /* The monster profile is about one monster, so its name is the largest type on
    the panel, a step on the scale rather than a size of its own. */
-.monster-overlay-head .overlay-hero-name { font-size: var(--type-figure); line-height: 1.15; }
+.monster-overlay-head .overlay-hero-name, .game-statistics-head .overlay-hero-name { font-size: var(--type-figure); line-height: 1.15; }
 /* The user's own name for the copy, dimmed against the catalogue's: it
    qualifies the name rather than competing with it. */
 .overlay-hero-nickname { color: var(--text); }
@@ -5570,9 +5578,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    height, so a block cannot resize when its provenance changes. */
 .overlay-provenance { margin: 0; color: var(--text-muted); min-height: 1lh; }
 
-/* A fixed label column, so Desired and Most common start their values on one
-   vertical line and the comparison is a single downward glance. The label column
-   is the gear grid's too, so every answer on the left starts on one line. */
+/* A fixed label column, the gear grid's too, so every answer on the left starts
+   on one vertical line. */
 .overlay-lines {
   display: grid;
   grid-template-columns: 148px minmax(0, 1fr);
@@ -5795,19 +5802,6 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   align-items: center;
   gap: var(--s1) var(--s4);
 }
-/* The population's artifacts, beside what is engraved: a narrower label column,
-   since the right third has no room for the left's. */
-.overlay-common { grid-template-columns: 112px minmax(0, 1fr); gap: var(--s1) var(--s3); }
-/* Inline rather than flex, so a row too long for its column ends in an ellipsis
-   instead of a word cut in half. */
-.overlay-slot .usage-line, .overlay-lines .usage-line {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-:is(.overlay-slot, .overlay-lines) .usage-entry + .usage-entry { margin-left: var(--s3); }
 /* A gear answer names long properties, so its pills get the room a filter's
    single short value does not need. */
 .overlay-band-field .token-choice-pill { max-width: 22ch; }
@@ -6026,8 +6020,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-toggle input { border-color: var(--gold-edge); }
 .overlay-lead input { width: var(--lead-field); font-variant-numeric: tabular-nums; }
 
-/* Three slots on one row, under the build: each names itself, opens its own
-   mains, and carries its population on one line beneath. */
+/* Three slots on one row, under the build: each names itself and opens its own
+   mains. */
 .overlay-slot-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -6145,16 +6139,66 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .engraved-relic-main { color: var(--text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .engraved-relic-unique { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 
-.usage-line { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s3); row-gap: 0; }
-/* Most common is reference, never an answer, so all of it reads muted. */
-.usage-entry { color: var(--text-muted); }
-/* The name leads and the number qualifies it — no bars, which would be
-   decoration and would resize with their value. */
-.usage-share {
-  margin-left: var(--s2);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+/* ------------------------------------------------ game statistics overlay */
+
+/* Narrower than the profile it opens over, so the profile's edge still shows
+   around it and the stack reads as one thing laid on another. Five rune cards
+   abreast need about this much and no more. */
+.dialog.monster-statistics-overlay { width: min(1280px, 100%); }
+.game-statistics-head .overlay-identity { gap: var(--s2); }
+/* Says whose figures these are before the name is read: the game's, not the
+   user's. Muted, because the name below already carries the accent. */
+.game-statistics-eyebrow { margin: 0; display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); }
+.game-statistics-eyebrow svg { flex: none; }
+
+/* Rune builds and sub properties are the long lists, so they take the wider
+   ends of the row; the three slots sit between them in their game order. */
+.game-statistics-cards { display: grid; gap: var(--s3); align-items: stretch; }
+.game-statistics-runes { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)) minmax(0, 1.2fr); }
+/* Artifacts and the relic share one row, the two blocks' gap equal to the cards'
+   own, so the three cards fall on thirds. */
+.game-statistics-gear { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--s3); align-items: start; }
+.game-statistics-artifacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.game-statistics-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--s2);
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
 }
+/* In line with the rows' own text, which sits a step in from its fill. */
+.game-statistics-card-title, .game-statistics-part-title { padding-inline: var(--s2); }
+.game-statistics-card-title { margin: 0; color: var(--text-muted); }
+.game-statistics-part { display: grid; gap: var(--s2); }
+.game-statistics-part + .game-statistics-part { padding-top: var(--s3); border-top: 1px solid var(--line); }
+.game-statistics-part-title { margin: 0; color: var(--text-muted); }
+.game-statistics-shares { display: grid; margin: 0; padding: 0; list-style: none; }
+.game-statistics-shares[data-across] { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: var(--s2); }
+/* The name and its share on one line, over a ground filled as far as the share
+   reaches: the rows of a card read down as one chart. The fill is form, not
+   colour — grey on grey — and stops short of the row's top and bottom so
+   neighbouring rows stay apart without a gap between them. The share column
+   fits `100.0 %`, so no figure moves its name. */
+.game-statistics-share {
+  --share-fill: var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7ch;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: var(--s1) var(--s2);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(var(--share-fill), var(--share-fill)) left center / var(--share, 0%) calc(100% - var(--s1)) no-repeat;
+  color: var(--text);
+}
+.game-statistics-share-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-statistics-share-value { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* What most players engrave leads in strong text against the rest, the
+   house's primary-against-secondary device; the folded tail reads muted. */
+.game-statistics-share[data-lead] { --share-fill: var(--line-strong); color: var(--text-strong); }
+.game-statistics-share[data-others] { --share-fill: var(--hover); color: var(--text-muted); }
 
 /* ----------------------------------------------------------- responsive */
 

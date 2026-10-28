@@ -99,6 +99,15 @@ export type RuneDefaults = {
   /** Observations behind each slot. */
   slotObservations: Record<RuneSlotKey, number>;
   /**
+   * Each sub property's share of every sub line across the six slots, by
+   * `RUNE-CANONICAL.md` §2's stat id. Reference only, for the statistics
+   * overlay: no preference is stated in sub properties, so nothing defaults
+   * from it. A share of lines rather than of runes, because the lines per rune
+   * are not a constant the panel lets anything divide by.
+   */
+  subShares: Map<number, number>;
+  subObservations: number;
+  /**
    * What the population's runes add to HP, ATK and DEF, in percent of base, for
    * `main-stat-model.ts` to read when a copy says nothing of its own. Absent where
    * the panel holds no percentage line at all.
@@ -137,6 +146,15 @@ export type MonsterDefaults = {
   runes?: RuneDefaults;
   artifacts?: ArtifactDefaults;
   relics?: RelicDefaults;
+  /** When each panel was seen in the game, as `ENGRAVING-STATISTICS.md` §6 dates it. */
+  observedAt: Partial<Record<'runes' | 'artifacts' | 'relics', string>>;
+};
+
+/** What the whole dataset is: which of the game's models it reads, and when it was seen. */
+export const engravingStatisticsSource = {
+  gameMode: (statistics as { gameMode: string }).gameMode,
+  observedFrom: (statistics as { observedFrom: string }).observedFrom,
+  observedTo: (statistics as { observedTo: string }).observedTo,
 };
 
 type EffectCount = { effectId: number; count: number; slotId?: number };
@@ -181,7 +199,7 @@ export const defaultedMonsterSpeciesIds: readonly string[] = Object.keys(monster
  * no panel leaves a captured monster with nothing at all.
  *
  * - **Artifact main** keeps the three-value cut: three values against an even
- *   33 %. It is reference now, read only by the overlay's Most common row: the
+ *   33 %. It is reference now, read only by the statistics overlay: the
  *   main's default is the main-stat model's (`main-stat-model.ts`).
  * - **Artifact sub** is deliberately *not* §19.3's 10 %, and this is the one
  *   place the overlay's cuts and the scorer's part company. They answer
@@ -341,9 +359,16 @@ function runeDefaults(panel: RunePanelStatistics | undefined): RuneDefaults | un
   const hasSlots = runeSlotKeys.some((key) => slots[key].size > 0);
   if (sets.size === 0 && !hasSlots) return undefined;
 
+  const secondary = panel.secondaryEffect ?? [];
+  const subObservations = totalCount(secondary);
+  const subCounts = new Map<number, number>();
+  for (const row of secondary) subCounts.set(row.effectId, (subCounts.get(row.effectId) ?? 0) + row.count);
+  const subShares = new Map<number, number>();
+  if (subObservations > 0) for (const [effectId, count] of subCounts) subShares.set(effectId, count / subObservations);
+
   const mainStatNeed = runeStatisticsNeed(panel);
   return {
-    sets, builds, basis: 'observed-top-ten', setObservations, slots, slotObservations,
+    sets, builds, basis: 'observed-top-ten', setObservations, slots, slotObservations, subShares, subObservations,
     ...(mainStatNeed === undefined ? {} : { mainStatNeed }),
   };
 }
@@ -472,7 +497,11 @@ export function monsterDefaults(masterId: unknown): MonsterDefaults | undefined 
     const artifacts = artifactDefaults(recorded.artifacts);
     const relics = relicDefaults(recorded.relics);
     if (!runes && !artifacts && !relics) return undefined;
-    return { speciesId, runes, artifacts, relics };
+    const observedAt: MonsterDefaults['observedAt'] = {};
+    if (runes && recorded.runes?.observedAt) observedAt.runes = recorded.runes.observedAt;
+    if (artifacts && recorded.artifacts?.observedAt) observedAt.artifacts = recorded.artifacts.observedAt;
+    if (relics && recorded.relics?.observedAt) observedAt.relics = recorded.relics.observedAt;
+    return { speciesId, runes, artifacts, relics, observedAt };
   })();
 
   resolved.set(speciesId, defaults);

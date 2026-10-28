@@ -16,6 +16,8 @@ import { RuneSlotMainField } from './rune-slot-main-field';
 import { StatRangeField } from './stat-range-field';
 import type { TokenChoiceOption } from './token-choice-field';
 import { Button } from './button';
+import { GameStatisticsButton } from './game-statistics-button';
+import type { OpenMonsterStatistics } from './game-statistics-button';
 import { Overlay, OverlayAction } from './overlay';
 import { PencilIcon } from './pencil-icon';
 import type { MonsterReference } from './monster-link';
@@ -46,8 +48,6 @@ import type { ResolvedMonsterPreferences } from '../lib/monster-preference-resol
 import type { Shortfall } from '../lib/monster-shortfall';
 import { monsterShortfalls } from '../lib/monster-shortfall';
 import { completedTeamSets, isStatFigure, monsterStatSheet } from '../lib/monster-stats';
-import { monsterUsage } from '../lib/monster-usage-statistics';
-import type { MonsterUsage } from '../lib/monster-usage-statistics';
 import type { Relic } from '../lib/relics';
 import { readRelics } from '../lib/relics';
 import { canEngraveArtifacts, canEngraveRelics } from '../lib/monster-engrave-eligibility';
@@ -66,8 +66,10 @@ import type { GeneralSettings } from '../lib/types';
  * **Everything on this panel is a statement the optimizers will act on.** The
  * user names the rune builds they will accept, the artifact and relic
  * properties worth engraving, and the figures the copy is being built toward;
- * the account's current gear and the community's statistics appear beside those
- * answers as *reference*, never as an answer already given.
+ * the account's current gear appears beside those answers as *reference*, never
+ * as an answer already given. What the wider player base engraves is the game's
+ * answer rather than the user's, so it opens in an overlay of its own
+ * (`monster-statistics-overlay.tsx`) instead of sitting beside the fields.
  *
  * That reverses how this panel worked. It used to open with the community's
  * most common choices already lit, which made every default look like a
@@ -115,34 +117,6 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
     <p className="overlay-row-label">{label}</p>
     <div className="overlay-row-value">{children}</div>
   </>;
-}
-
-/**
- * A community row, shown as reference: the three choices the population makes
- * most, each with its share, as the game's own statistics panel shows them.
- *
- * It is reference only. There is no longer any way to adopt it as an answer —
- * the Adopt buttons are gone, because a statistic the user has not looked at is
- * not a decision they made, and a panel that let one become a decision in a
- * click made every default look like a choice. Where the user says nothing, the
- * optimizers fall back on these figures anyway, so adopting them explicitly
- * changed nothing except who appeared to have decided.
- */
-function Usage({ entries }: {
-  entries: ReadonlyArray<{ label: string; share: number }> | undefined;
-}) {
-  const shown = (entries ?? []).slice(0, 3);
-  const share = (value: number) => `${(value * 100).toFixed(0)} %`;
-  /* The whole row in the title as well, since a narrow column clips its tail
-     rather than wrapping it onto a second line. */
-  return <div className="usage-line" title={shown.map((entry) => `${entry.label} ${share(entry.share)}`).join(', ') || undefined}>
-    {shown.length === 0
-      ? <span className="overlay-empty">Not captured</span>
-      : shown.map((entry) => <span className="usage-entry" key={entry.label}>
-        {entry.label}
-        <span className="usage-share">{share(entry.share)}</span>
-      </span>)}
-  </div>;
 }
 
 /**
@@ -245,7 +219,7 @@ function Nickname({ value, editing, onEditingChange, onCommit }: {
   </>;
 }
 
-export function MonsterOverlay({ target, game, general, profiles, presetId, onSave, onClose, onOptimize }: {
+export function MonsterOverlay({ target, game, general, profiles, presetId, onSave, onClose, onOptimize, onOpenStatistics }: {
   target: MonsterReference;
   game: GameRecord | undefined;
   general: GeneralSettings;
@@ -256,6 +230,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   onSave: (scope: MonsterProfileScope, unitId: string, preferences: MonsterCopyPreferences) => void;
   onClose: () => void;
   onOptimize: (unitId: string, presetId: string) => void;
+  onOpenStatistics: OpenMonsterStatistics;
 }) {
   const unitId = target.kind === 'copy' ? target.unitId : '';
   const presetsReading = usePresets();
@@ -313,7 +288,6 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
     const roster = Array.isArray(game.unit_list) ? game.unit_list as GameRecord[] : [];
     return numberedMonsterNames(roster)[target.unitId] ?? display.name;
   }, [game, target, display.name]);
-  const usage: MonsterUsage = useMemo(() => monsterUsage(masterId), [masterId]);
   const resolved: ResolvedMonsterPreferences = useMemo(
     () => resolveMonsterPreferences(unitId, masterId, draft, monster, team),
     [unitId, masterId, draft, monster, team],
@@ -423,9 +397,9 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   }
 
   /* Every menu offers its bare vocabulary, in the vocabulary's own order. The
-     population's shares are read only in the Most common column beside the
-     fields: a percentage beside an option, or an order sorted by it, leans on
-     the choice it is meant only to inform. */
+     population's shares are read only on the game statistics overlay: a
+     percentage beside an option, or an order sorted by it, leans on the choice
+     it is meant only to inform. */
   const mainStatOptions: TokenChoiceOption<ArtifactMainProperty>[] =
     artifactMainPropertyOrder.map((property) => ({ value: property, label: property }));
 
@@ -439,14 +413,6 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
     value: definition.id,
     label: relicPropertyLabel(definition),
   }));
-
-  /* The one main answer serves every piece, but the population was asked per
-     artifact category, so its reference names which artifact each share is
-     from — on one line, the leading main of each. */
-  const mainUsage = (['attribute', 'type'] as const).flatMap((category) => {
-    const leading = usage.artifacts?.[category]?.main.find((entry) => entry.wanted);
-    return leading === undefined ? [] : [{ label: `${categoryLabels[category]} ${leading.label}`, share: leading.share }];
-  });
 
   const setArtifactSub = (category: ArtifactCategory, next: BandedChoices<number>) => change((state) => ({
     ...state, artifacts: { ...state.artifacts, sub: { ...state.artifacts?.sub, [category]: next } },
@@ -491,9 +457,11 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             </div>)}
           </dl>
         </div>
-        {/* Team choices belong to the workspace; profile choices belong to areas. */}
-        {editable && <div className="monster-overlay-controls">
-          <div className="monster-overlay-preset" role="group" aria-label="Build for area">
+        {/* Team choices belong to the workspace; profile choices belong to areas.
+            The game's statistics are about the species, so a monster the account
+            does not own offers them too. */}
+        <div className="monster-overlay-controls">
+          {editable && <div className="monster-overlay-preset" role="group" aria-label="Build for area">
             <label className="monster-overlay-preset-label" htmlFor="monster-overlay-preset">Build for</label>
             <Dropdown id="monster-overlay-preset" className="monster-overlay-preset-select" value={activeScope}
               disabled={dirty || areas.length < 2}
@@ -501,14 +469,15 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
               onChange={(event) => openArea(event.target.value)}>
               {areas.map((entry) => <option key={entry.profileScope} value={entry.profileScope}>{monsterProfileAreaName(entry)}</option>)}
             </Dropdown>
-          </div>
-          <Button className="monster-overlay-optimize"
+          </div>}
+          {editable && <Button className="monster-overlay-optimize"
             aria-label={`Save and optimize runes for ${heroName}`}
             onClick={() => {
               if (dirty) onSave(activeScope, target.unitId, { ...draft, unitId: target.unitId });
               onOptimize(target.unitId, activePresetId);
-            }}>Save and optimize</Button>
-          <Dropdown className="monster-overlay-copy-select" aria-label="Copy the profile from another area"
+            }}>Save and optimize</Button>}
+          <GameStatisticsButton masterId={masterId} name={heroName} className="monster-overlay-statistics" onOpen={onOpenStatistics} />
+          {editable && <Dropdown className="monster-overlay-copy-select" aria-label="Copy the profile from another area"
             value="" placeholder="Copy from…" disabled={copySources.length === 0}
             onChange={(event) => {
               const stated = copySources.find((entry) => entry.id === event.target.value)?.stated;
@@ -516,38 +485,32 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             }}>
             {copySources.map((entry) => <option key={entry.id} value={entry.id}
               disabled={!entry.stated || !statesSomething(entry.stated)}>{entry.name}</option>)}
-          </Dropdown>
-        </div>}
+          </Dropdown>}
+        </div>
       </header>
 
       <div className="overlay-body monster-overlay-body">
         <div className="monster-overlay-wants">
-          <Section title="Runes">
+          {editable && <Section title="Runes">
             <div className="overlay-lines">
-              {editable && <Line label="Desired builds">
+              <Line label="Desired builds">
                 <RuneBuildField chosen={draft.runeSets ?? []}
                   onChange={(next) => change((state) => ({ ...state, runeSets: next }))} />
-              </Line>}
-              <Line label="Most common">
-                <Usage entries={usage.runes?.builds} />
               </Line>
             </div>
-            {/* A slot's statistics sit under the slot they describe, where they
-                are read against its answer. */}
             <div className="overlay-slot-row">
               {runeSlotKeys.map((key) => <div className="overlay-slot" key={key}>
                 <span className="overlay-slot-name">Slot {slotNumbers[key]}</span>
-                {editable && <RuneSlotMainField slot={slotNumbers[key]}
+                <RuneSlotMainField slot={slotNumbers[key]}
                   options={runeSlotMainsBySlot[key]}
                   chosen={runeSlotMainsBySlot[key].filter((stat) => draft.runeSlots?.[key]?.includes(stat))}
                   onChange={(next) => change((state) => ({
                     ...state,
                     runeSlots: { ...state.runeSlots, [key]: next },
-                  }))} />}
-                <Usage entries={usage.runes?.slots[key]} />
+                  }))} />
               </div>)}
             </div>
-          </Section>
+          </Section>}
 
           {current !== undefined && <Section title="Stats">
             <div className="stat-ranges overlay-stat-ranges">
@@ -657,7 +620,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
           {monster === undefined
             ? <p className="notice">
               You do not own a copy of this monster, so there is nothing to set preferences on.
-              What the wider player base engraves is below.
+              What the wider player base engraves is under Game statistics.
             </p>
             : <>
               {/* What the copy has engraved, written the way a desired build is, so the
@@ -673,18 +636,6 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
                 <EngravedRelics relics={engraved.relics} format={format} />
               </Section>
             </>}
-          {/* The population's artifacts, as reference beside what this copy
-              has engraved rather than inside the answers. Relics are left out: their
-              statistics are one unique nearly every monster leads with, and say
-              almost nothing about this one (`ENGRAVING-STATISTICS.md` §10). */}
-          <Section title="Most common artifacts">
-            <div className="overlay-lines overlay-common">
-              <Line label="Main stat"><Usage entries={mainUsage} /></Line>
-              {(['attribute', 'type'] as const).map((category) => <Line key={category} label={categoryLabels[category]}>
-                <Usage entries={usage.artifacts?.[category]?.sub.filter((entry) => entry.wanted)} />
-              </Line>)}
-            </div>
-          </Section>
         </div>
       </div>
   </Overlay>;

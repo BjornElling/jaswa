@@ -32,6 +32,11 @@ export function runeSlotMainByEffect(effectId: number): RuneSlotMain | undefined
   return mainsById.get(effectId);
 }
 
+/** The export's effect id for a main, so a reader can name it in `runes.ts`'s game words. */
+export function runeSlotMainEffect(main: RuneSlotMain): number {
+  return idsByMain[main];
+}
+
 function mainsAllowedIn(slot: number): readonly RuneSlotMain[] {
   return (slotMainProperties[slot] ?? [])
     .map((id) => mainsById.get(id))

@@ -4,7 +4,8 @@
 **Reviewed:** October 20, 2026
 **Collected by:** `scripts/collect-engraving-statistics.mjs`
 **Read by:** `app/lib/monster-defaults.ts` (all three panels, as the preference
-defaults), `app/lib/artifact-preferences.ts` (the artifact scoring defaults)
+defaults), `app/lib/artifact-preferences.ts` (the artifact scoring defaults),
+`app/lib/monster-usage-statistics.ts` (the game statistics overlay, §11)
 **Held by:** `npm run verify:statistics-tiers`, `npm run verify:monster-defaults`
 
 ---
@@ -44,7 +45,7 @@ included, in `rune-slot-mains.ts`'s vocabulary. `RuneMainStat` stays the
 Clean-up roles' own.
 
 **A rune build's share is the game's.** Each `runeset` row is one combination;
-the overlay's Most common line shows its count over the list's total
+the game statistics overlay shows its count over the list's total
 (`Violent/Revenge 28 %`), a partition summing to one. The per-set participation
 rate behind the defaults (§10) is a separate reading and is not shown.
 
@@ -212,8 +213,8 @@ cut in one table and `classifyShare` is the one classifier.
   30 % 2.30. It also absorbs the top-ten inflation of §1. A set the table gives
   no piece count throws rather than being guessed.
 - **Artifact and relic mains are not defaults.** Every gear main defaults to
-  the main-stat model (`MAIN-STAT-MODEL.md`); these shares stay on the overlay
-  as reference.
+  the main-stat model (`MAIN-STAT-MODEL.md`); these shares stay on the game
+  statistics overlay as reference.
 - **Artifact sub** has a separate, stricter scoring cut (10 % / 5 %,
   `ARTIFACT-CANONICAL.md` §19.3); the overlay's single 6 % band is what this
   table holds. A second overlay band would hold fourteen of twenty-three
@@ -233,3 +234,33 @@ signal (HP leads on 546 types, ATK on 422, DEF on 49), the unique half little �
 Nimble Primal leads on 974 of 1,017 captured relic panels. Accepting that
 default accepts population habit, not knowledge about the monster. A relic
 default never enters the relic plan's score (`RELIC-CANONICAL.md` §11.5).
+
+## 11. Where the panels are shown
+
+**The shares have one place on screen: the game statistics overlay**
+(`app/components/monster-statistics-overlay.tsx`). The monster profile and
+Rune Optimization each carry one *Game statistics* button that opens it over
+the page; neither shows a share beside its own fields any more, because a
+share sitting next to a choice leans on it, and the profile's answers are the
+user's while these figures are the game's.
+
+The overlay says so before anything else — the eyebrow reads *Game
+statistics*, and its facts name the source (*Monster Info → Statistics*), the
+model (§3) and the day the panels were seen (§6). It shows every panel the
+dataset holds:
+
+| Card | Reads | Share of |
+| --- | --- | --- |
+| Builds | `runeset` | the game's top-ten list (§1) |
+| Slot 2, 4, 6 | `primary_effect` by slot | that slot's runes |
+| Sub properties | rune `secondary_effect`, all six slots | every sub line |
+| Attribute and Type artifact | artifact `primary_effect` and `secondary_effect` by slot | that piece's mains and sub lines |
+| Relic | relic `primary_effect` and `secondary_effect` | relics and their uniques |
+
+A rune sub property is a share of **lines**, not of runes: the panel's sub
+totals are not four lines per rune for every monster, so nothing may divide by
+a rune count it does not state. Artifact sub properties and relic uniques keep
+their six leaders and fold the rest into *Others*, as the game's panel does.
+Each share fills its row to its true length against the whole, never against
+the card's leader. A species with no captured panel says so in one line; a
+missing panel inside a captured one reads *Not captured* in its card.

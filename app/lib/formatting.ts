@@ -48,6 +48,22 @@ export function formatDateTime(value: string | undefined, settings: GeneralSetti
   }
 }
 
+/** A day without its hour, guarded as `formatDateTime` is and for its reasons. */
+export function formatDate(value: string | undefined, settings: GeneralSettings): string {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  try {
+    return new Intl.DateTimeFormat(dateLocale(settings), { dateStyle: 'medium', timeZone: formattingTimeZone(settings) }).format(parsed);
+  } catch {
+    try {
+      return new Intl.DateTimeFormat(dateLocale(settings), { dateStyle: 'medium' }).format(parsed);
+    } catch {
+      return '—';
+    }
+  }
+}
+
 export function formatNumber(value: number | null, settings: GeneralSettings): string {
   /* NaN and Infinity read as "NaN" and "∞" on screen, which tell the user
      nothing and are the shape of a bug rather than of a figure. They mean the

@@ -27,7 +27,8 @@ test('community rune mains stay suggestions until the user chooses them', async 
     await expect(requirements.getByRole('button', { name: new RegExp(`^Slot ${slot} main stat:`) }))
       .toHaveAttribute('aria-label', `Slot ${slot} main stat: Any`);
   }
-  await expect(requirements.locator('.rune-optimization-slot').first()).toContainText(/\d+%/);
+  /* The population's shares live on the game statistics overlay, not under the slots. */
+  await expect(requirements.locator('.rune-optimization-slot').first()).not.toContainText(/\d+\s?%/);
   await page.getByRole('button', { name: 'Open profile' }).click();
   const dialog = page.getByRole('dialog');
   const gear = dialog.locator('.overlay-gear');
