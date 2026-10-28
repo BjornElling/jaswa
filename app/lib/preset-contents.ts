@@ -200,10 +200,9 @@ export function isPresetContentId(value: unknown): value is PresetContentId {
  *   confirmed on saved decks; 4 and 6 by the same order in the account's recent
  *   decks, whose Cairos sub-types 19–24 the screen confirmed for all six.
  * - `deck_type` 27 holds the Monster Subjugation decks, split by hundreds the
- *   same way: 201 is Fire's first deck (the player, October 27, 2026) and 1001
- *   the Boss's (October 28, 2026). The Boss at 10 rather than 4 says the
- *   hundreds are not simply the Guild tab's order, so Water at 1 and Wind at 3
- *   stay assumed until a saved deck confirms them.
+ *   same way: 1 Water, 2 Fire, 3 Wind, 10 Boss. 201 was confirmed by the player
+ *   on October 27, 2026; 1001, 1xx and 3xx on October 28, 2026. The Boss sits
+ *   at 10, not 4, so the hundreds are not the Guild tab's order.
  */
 type ByHundreds = Readonly<Record<number, { id: PresetContentId; assumed: boolean }>>;
 
@@ -213,8 +212,8 @@ const byHundreds: Readonly<Record<number, ByHundreds>> = {
     4: { id: 'spiritual', assumed: false }, 5: { id: 'steel', assumed: false }, 6: { id: 'punisher', assumed: false },
   },
   27: {
-    1: { id: 'subjugation-water', assumed: true }, 2: { id: 'subjugation-fire', assumed: false },
-    3: { id: 'subjugation-wind', assumed: true }, 10: { id: 'subjugation-boss', assumed: false },
+    1: { id: 'subjugation-water', assumed: false }, 2: { id: 'subjugation-fire', assumed: false },
+    3: { id: 'subjugation-wind', assumed: false }, 10: { id: 'subjugation-boss', assumed: false },
   },
 };
 
