@@ -8,19 +8,23 @@ const recommended = /recommendedHelperVersion = '(\d+\.\d+\.\d+)'/.exec(readFile
    differs from the window's while a scrollbar is drawn. */
 test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
-type Helper = { reachable: boolean; version: string; profileReady: boolean };
+/** `announced` is what JASWA last told the helper it ships, read off the poll. */
+type Helper = { reachable: boolean; version: string; profileReady: boolean; announced?: string | null };
 
 /* A helper whose answer the test can change between polls, so the warning is
    seen to arrive and to leave on the same page rather than on two loads. */
 async function serveHelper(page: Page, helper: Helper) {
   const identity = { instanceId: 'test-helper', sessionId: 1, revision: 1 };
   const headers = { 'Access-Control-Allow-Origin': '*' };
-  await page.route('http://127.0.0.1:37654/health', (route) => helper.reachable
-    ? route.fulfill({ headers, json: {
-      ...identity, running: true, version: helper.version, profileReady: helper.profileReady, lastError: null,
-      restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
-    } })
-    : route.abort());
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && url.pathname === '/health', (route) => {
+    helper.announced = new URL(route.request().url()).searchParams.get('latest');
+    return helper.reachable
+      ? route.fulfill({ headers, json: {
+        ...identity, running: true, version: helper.version, profileReady: helper.profileReady, lastError: null,
+        restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
+      } })
+      : route.abort();
+  });
   await page.route('http://127.0.0.1:37654/profile', (route) => route.fulfill({ headers, json: {
     ...identity, updatedAt: new Date().toISOString(), source: 'game-start', data: account,
   } }));
@@ -47,6 +51,9 @@ test('with nothing imported, the warning takes the corner and leaves with the ro
   helper.reachable = true;
   await expect(notice(page)).toBeVisible();
   await expect(notice(page)).toContainText(`Version ${recommended} is now available.`);
+  /* The helper's own window learns of the release from this poll, not from a
+     request of its own. */
+  expect(helper.announced).toBe(recommended);
   await expect(notice(page)).toContainText('You should let it rest.');
   const link = notice(page).getByRole('link', { name: 'Download update' });
   await expect(link).toHaveAttribute('href', `/JASWA-Helper-Setup-${recommended}.exe`);

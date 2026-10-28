@@ -27,7 +27,7 @@ try {
   let revision = 1;
   let version = outdated;
   await page.route('http://127.0.0.1:37654/**', async (route) => {
-    const health = route.request().url().endsWith('/health');
+    const health = new URL(route.request().url()).pathname === '/health';
     const headers = { 'access-control-allow-origin': origin, 'access-control-allow-private-network': 'true' };
     const data = structuredClone(account);
     if (mode === 'unreadable') data.artifacts[0].type = 999;

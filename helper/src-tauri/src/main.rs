@@ -34,6 +34,25 @@ fn open_jaswa() -> Result<(), String> {
     windows::open("http://localhost:3000")
 }
 
+/// The address comes from the service, never from the dashboard: the window
+/// only asks for "the update", so nothing it renders can choose what opens.
+#[tauri::command]
+fn download_update(state: State<'_, HelperState>) -> Result<String, String> {
+    let release = state
+        .service
+        .newer_release()
+        .ok_or("No newer helper is known. Open JASWA, and it tells the helper.")?;
+    windows::open(&release.installer_url())?;
+    diagnostics::record(
+        "helper",
+        &format!("Opened the installer for helper {}", release.version()),
+    );
+    Ok(format!(
+        "Downloading helper {} — run the installer to update.",
+        release.version()
+    ))
+}
+
 #[tauri::command]
 fn restart_helper(app: tauri::AppHandle, state: State<'_, HelperState>) {
     // Remove the redirect before relaunching so DNS can find the real gateways.
@@ -263,6 +282,7 @@ fn main() {
             open_traffic_log,
             save_error_report,
             restart_helper,
+            download_update,
         ])
         .setup(|app| {
             let show = MenuItemBuilder::with_id(SHOW_WINDOW, "Show JASWA Helper").build(app)?;

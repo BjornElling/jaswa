@@ -70,6 +70,14 @@ JASWA compares the connected helper's reported version with
 `recommendedHelperVersion` and calls out an upgrade on the home page before a
 compatibility problem can look like bad game data.
 
+The helper's own window says it too. JASWA's status poll is
+`/health?latest=<recommendedHelperVersion>`, and a newer version from an
+allowed origin lights the mark beside the title bar's version, adds one
+Activity line naming both versions, and turns the last Troubleshooting cell
+into **Update to v…**, which opens `<origin>/JASWA-Helper-Setup-<version>.exe`
+in the browser. The helper asks no server of its own, so until JASWA has been
+opened in this run that cell reads *No newer version*, never *up to date*.
+
 Because the per-user store follows whichever profile is active, the helper asks
 for consent and installs that root *before* it relaunches as administrator.
 Elevating first would write the root into the administrator's store, leaving

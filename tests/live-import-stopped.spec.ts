@@ -27,7 +27,7 @@ test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 async function serveHelper(page: Page, state: { revision: number; data: Account }) {
   const headers = { 'Access-Control-Allow-Origin': '*' };
   const identity = () => ({ instanceId: 'test-helper', sessionId: 1, revision: state.revision });
-  await page.route('http://127.0.0.1:37654/health', (route) => route.fulfill({ headers, json: {
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && url.pathname === '/health', (route) => route.fulfill({ headers, json: {
     ...identity(), running: true, version: '99.0.0', profileReady: true, lastError: null,
     restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
   } }));

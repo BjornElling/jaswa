@@ -13,7 +13,7 @@ const output = resolve(root, 'outputs/helper-hardening');
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 const initial = {
-  status: { version, hasProfile: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: null, updatedAt: null },
+  status: { version, updateVersion: null, hasProfile: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: null, updatedAt: null },
   traffic: { enabled: false, entries: 0, recorded: false, full: false, lastError: null },
 };
 try {
@@ -48,6 +48,7 @@ try {
           window.dashboard.traffic.enabled = args.enabled;
           return { deliberately: 'not a text result' };
         }
+        if (command === 'download_update') return `Downloading helper ${window.dashboard.status.updateVersion} — run the installer to update.`;
         if (command === 'save_error_report') return 'Saved a private error report. Send it to the developer.';
         if (command === 'download_json') {
           if (window.downloadFailure) throw window.downloadFailure;
@@ -69,6 +70,13 @@ try {
   assert.equal(await page.locator('.titlebar-brand').textContent(), 'jaswa helper');
   assert.equal(await page.locator('.titlebar-brand .brand-sw').textContent(), 'sw');
   assert.equal(await page.locator('.titlebar .version').textContent(), `v${version}`);
+  /* No update known: the sixth cell is already there, quiet and disabled, and
+     the title bar's mark is unlit. */
+  const update = page.locator('.tool-grid button.update');
+  assert.equal(await update.textContent(), 'No newer version');
+  assert.equal(await update.isDisabled(), true);
+  const mark = () => page.locator('.version-mark').evaluate((node) => getComputedStyle(node).opacity);
+  assert.equal(await mark(), '0');
   assert.equal(await page.locator('header').count(), 0, 'the wordmark is not repeated below the title bar');
 
   /* Every control in the window, not just the two primary ones: the capture
@@ -119,7 +127,7 @@ try {
      status and the explanation beneath it was a constant. Each state now
      asserts its own explanation, so the two cannot drift apart again. */
   const state = async (status, title, detail) => {
-    await page.evaluate((value) => { window.dashboard.status = value; }, { version, updatedAt: '2026-09-06T12:00:00Z', ...status });
+    await page.evaluate((value) => { window.dashboard.status = value; }, { version, updateVersion: null, updatedAt: '2026-09-06T12:00:00Z', ...status });
     await headline(title).waitFor();
     await page.locator('.capture .detail').filter({ hasText: detail }).waitFor();
     const detailBox = await page.locator('.capture .detail').evaluate((node) => ({
@@ -180,11 +188,36 @@ try {
     'Summoners War is not running', 'Open the game to capture a fresh one');
   await page.screenshot({ path: resolve(output, 'helper-game-closed.png'), fullPage: true });
 
+  /* JASWA announced a newer helper. The control that was already in the
+     sixth cell lights up and names it; the title bar's mark lights; Activity
+     carries both numbers. Nothing else moves, the title bar included. */
+  const titleBar = () => page.locator('.titlebar > *').evaluateAll((nodes) => nodes.map((node) => {
+    const { x, y, width, height } = node.getBoundingClientRect(); return { x, y, width, height };
+  }));
+  const frame = await titleBar();
+  await page.screenshot({ path: resolve(output, 'helper-update-before.png'), fullPage: true });
+  await page.evaluate(() => { window.dashboard.status = { ...window.dashboard.status, updateVersion: '9.9.9' }; });
+  await page.getByRole('button', { name: 'Update to v9.9.9' }).waitFor();
+  assert.equal(await update.isDisabled(), false);
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.version-mark')).opacity === '1');
+  assert.match(await page.locator('.titlebar .version').getAttribute('aria-label'), /version 9\.9\.9 available/);
+  await page.locator('.activity-text').filter({ hasText: `Helper 9.9.9 is available — this is ${version}.` }).waitFor();
+  assert.deepEqual(await boxes(), before);
+  assert.deepEqual(await titleBar(), frame);
+  await update.click();
+  await page.locator('.activity-text').filter({ hasText: 'Downloading helper 9.9.9 — run the installer' }).waitFor();
+  assert.ok(await page.evaluate(() => window.commands.includes('download_update')));
+  assert.deepEqual(await boxes(), before);
+  await page.screenshot({ path: resolve(output, 'helper-update-after.png'), fullPage: true });
+
   await page.evaluate((version) => {
-    window.dashboard.status = { version, hasProfile: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
+    window.dashboard.status = { version, updateVersion: '1234.5678.9012', hasProfile: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
     window.dashboard.traffic = { enabled: true, entries: 999999999, recorded: true, full: false, lastError: 'Disk write failed. '.repeat(60) };
   }, version);
   await headline('Capture stopped').waitFor();
+  /* A long version still fits its cell rather than widening the grid. */
+  await page.getByRole('button', { name: 'Update to v1234.5678.9012' }).waitFor();
+  assert.equal(await update.evaluate((node) => node.scrollWidth <= node.clientWidth), true, 'a long version must fit the update button');
   /* Two 1,200-character errors at once — one in the capture card, one in the
      activity list. Each scrolls inside its own box, so no button moves and
      nothing overflows the window. */
@@ -208,5 +241,5 @@ try {
   assert.ok(caption.some((entry) => entry.includes('close')), `expected a close call, saw ${caption}`);
 
   assert.deepEqual(errors, []);
-  console.log('Helper dashboard: empty and populated states, restart command, report consent, traffic toggle, caption buttons and rejected IPC passed. All controls keep identical bounds. Screenshots: outputs/helper-hardening.');
+  console.log('Helper dashboard: empty and populated states, restart command, report consent, traffic toggle, caption buttons, update offer and rejected IPC passed. All controls keep identical bounds. Screenshots: outputs/helper-hardening.');
 } finally { await browser.close(); }

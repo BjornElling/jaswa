@@ -70,6 +70,75 @@ struct Shared {
     last_error: Mutex<Option<String>>,
     incidents: Mutex<Incidents>,
     api_connections: AtomicUsize,
+    /// The newest helper a JASWA page has said it ships, kept only while it is
+    /// newer than this one. The page already knows its own release, so it
+    /// tells the helper on its status poll and the helper makes no request of
+    /// its own to find out.
+    newer_release: Mutex<Option<Release>>,
+}
+
+#[derive(Clone)]
+pub struct Release {
+    version: [u32; 3],
+    /// The page that announced it, which is also where its installer is served.
+    origin: String,
+}
+
+impl Release {
+    pub fn version(&self) -> String {
+        let [major, minor, patch] = self.version;
+        format!("{major}.{minor}.{patch}")
+    }
+    pub fn installer_url(&self) -> String {
+        format!("{}/JASWA-Helper-Setup-{}.exe", self.origin, self.version())
+    }
+}
+
+/// `major.minor.patch` in plain digits and nothing else. `u32::from_str` would
+/// also take `+1`, which no release is ever called.
+fn parse_version(text: &str) -> Option<[u32; 3]> {
+    let mut parts = text.split('.');
+    let mut version = [0; 3];
+    for slot in &mut version {
+        let part = parts.next()?;
+        if part.is_empty() || !part.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        *slot = part.parse().ok()?;
+    }
+    parts.next().is_none().then_some(version)
+}
+
+fn own_version() -> [u32; 3] {
+    parse_version(env!("CARGO_PKG_VERSION")).expect("the helper's own version is major.minor.patch")
+}
+
+/// Takes the `latest=` a JASWA page sent with its poll. A page that ships an
+/// older or the same helper says nothing worth showing, so it is ignored, and
+/// an announcement never lowers what an earlier page already reported.
+fn note_release(shared: &Shared, query: &str, origin: &str) {
+    let Some(version) = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("latest="))
+        .and_then(parse_version)
+    else {
+        return;
+    };
+    let mut newest = shared.newer_release.lock().expect("release lock poisoned");
+    let floor = newest.as_ref().map_or(own_version(), |release| release.version);
+    if version <= floor {
+        return;
+    }
+    let release = Release { version, origin: origin.to_owned() };
+    diagnostics::record(
+        "jaswa",
+        &format!(
+            "JASWA at {origin} ships helper {}; this is {}",
+            release.version(),
+            env!("CARGO_PKG_VERSION")
+        ),
+    );
+    *newest = Some(release);
 }
 
 /// Creates the local identity and puts its root in the current user's trust
@@ -127,6 +196,7 @@ impl Service {
             last_error: Mutex::new(None),
             incidents: Mutex::new(Incidents::default()),
             api_connections: AtomicUsize::new(0),
+            newer_release: Mutex::new(None),
         });
         let service = Self {
             shared: Arc::clone(&shared),
@@ -211,6 +281,13 @@ impl Service {
     pub fn status(&self) -> Value {
         status(&self.shared)
     }
+    pub fn newer_release(&self) -> Option<Release> {
+        self.shared
+            .newer_release
+            .lock()
+            .expect("release lock poisoned")
+            .clone()
+    }
 }
 
 impl Drop for Service {
@@ -260,9 +337,16 @@ fn status(shared: &Shared) -> Value {
         .expect("incident lock poisoned")
         .active();
     let last_error = last_error.or_else(diagnostics::last_error).or_else(|| capture_gap.then(|| "An exchange could not be imported. Save an error report, then restart Summoners War to capture a fresh account. Live import is paused.".to_owned()));
+    let update_version = shared
+        .newer_release
+        .lock()
+        .expect("release lock poisoned")
+        .as_ref()
+        .map(Release::version);
     json!({
         "running": shared.running.load(Ordering::Acquire),
         "version": env!("CARGO_PKG_VERSION"),
+        "updateVersion": update_version,
         "hasProfile": snapshot.has_profile,
         "updatedAt": snapshot.updated_at,
         "source": snapshot.source,
@@ -336,8 +420,12 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
             .map(|(_, value)| value.trim())
     });
     let permitted = origin.is_some_and(allowed_origin);
-    let route = first.split_whitespace().nth(1).unwrap_or_default();
+    let target = first.split_whitespace().nth(1).unwrap_or_default();
+    let (route, query) = target.split_once('?').unwrap_or((target, ""));
     let method = first.split_whitespace().next().unwrap_or_default();
+    if let (true, "GET", "/health", Some(origin)) = (permitted, method, route, origin) {
+        note_release(&shared, query, origin);
+    }
     let (code, value) = if method == "OPTIONS" && permitted {
         (204, None)
     } else if method != "GET" {
@@ -1502,6 +1590,52 @@ mod tests {
         worker.join().unwrap();
     }
 
+    fn poll_health(shared: &Arc<Shared>, target: &str, origin: &str) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let serving = Arc::clone(shared);
+        let worker =
+            thread::spawn(move || respond_api(listener.accept().unwrap().0, serving).unwrap());
+        client
+            .write_all(format!("GET {target} HTTP/1.1\r\nOrigin: {origin}\r\n\r\n").as_bytes())
+            .unwrap();
+        let mut response = String::new();
+        client.read_to_string(&mut response).unwrap();
+        worker.join().unwrap();
+        response
+    }
+
+    /// Only JASWA's own page may announce a release, only a newer one counts,
+    /// and a later page shipping an older helper cannot take the offer back.
+    #[test]
+    fn a_jaswa_page_announces_a_newer_helper_on_its_status_poll() {
+        let shared = Arc::new(shared_for_test());
+        let [major, minor, patch] = own_version();
+        let newer = format!("{major}.{minor}.{}", patch + 1);
+        let older = format!("{major}.{minor}.{patch}");
+
+        let refused = poll_health(&shared, &format!("/health?latest={newer}"), "http://evil.example");
+        assert!(refused.starts_with("HTTP/1.1 403"));
+        assert!(shared.newer_release.lock().unwrap().is_none());
+
+        for malformed in ["+1.0.0", "1.0", "1.0.0.1", "1.0.x", ""] {
+            poll_health(&shared, &format!("/health?latest={malformed}"), "http://localhost:3000");
+        }
+        poll_health(&shared, &format!("/health?latest={older}"), "http://localhost:3000");
+        assert!(shared.newer_release.lock().unwrap().is_none());
+
+        let answer = poll_health(&shared, &format!("/health?latest={newer}"), "http://localhost:3000");
+        assert!(answer.starts_with("HTTP/1.1 200"));
+        assert!(answer.contains(&format!("\"updateVersion\":\"{newer}\"")));
+        poll_health(&shared, &format!("/health?latest={older}"), "http://127.0.0.1:3000");
+        let release = shared.newer_release.lock().unwrap().clone().unwrap();
+        assert_eq!(release.version(), newer);
+        assert_eq!(
+            release.installer_url(),
+            format!("http://localhost:3000/JASWA-Helper-Setup-{newer}.exe")
+        );
+    }
+
     /// A pair of HTTP messages on one connection, as the game sends them.
     struct Conversation {
         incoming: io::Cursor<Vec<u8>>,
@@ -1800,6 +1934,7 @@ mod tests {
             last_error: Mutex::new(None),
             incidents: Mutex::new(Incidents::default()),
             api_connections: AtomicUsize::new(0),
+            newer_release: Mutex::new(None),
         }
     }
 

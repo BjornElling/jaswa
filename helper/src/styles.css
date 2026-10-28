@@ -165,7 +165,25 @@ h1, p { margin: 0; }
   /* Reserved so a two-digit version cannot pull the caption controls sideways. */
   min-width: 6ch;
   text-align: right;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s2);
 }
+
+/* Lit when a newer helper is known. It is always in the bar and only changes
+   opacity, so the version beside it never moves (rule 2). Gold, because it
+   points at the one thing to do about it: the update button below. */
+.version-mark {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 20%, transparent);
+  opacity: 0;
+  transition: opacity .2s;
+}
+.version-mark[data-lit='true'] { opacity: 1; }
 
 .titlebar-controls { display: flex; height: 100%; }
 
@@ -411,6 +429,16 @@ button:disabled { color: var(--ghost); border-color: var(--line); background: va
   background: color-mix(in srgb, var(--state-warn) 16%, var(--raise));
   color: var(--state-warn);
 }
+
+/* An available update is something to act on, so it wears the accent as
+   "Open JASWA" does — colour and ground only. The weight stays regular, as a
+   bolder label would reflow inside the box the moment the update arrives. */
+.tool-grid button.update:not(:disabled) {
+  border-color: var(--gold-edge);
+  background: linear-gradient(180deg, var(--gold-deep), color-mix(in srgb, var(--gold-deep) 45%, var(--raise)));
+  color: var(--gold);
+}
+.tool-grid button.update:hover:not(:disabled) { border-color: var(--gold); background: var(--gold-deep); color: var(--gold); }
 
 /* --------------------------------------------------------- the activity
    What replaced two homeless pieces of text.

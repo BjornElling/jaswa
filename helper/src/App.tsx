@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Status = {
   version: string;
+  /** A newer helper the JASWA page has announced, or `null` when none is known. */
+  updateVersion: string | null;
   hasProfile: boolean;
   profileReady: boolean;
   restartRequired: boolean;
@@ -31,6 +33,7 @@ function validDashboard(value: unknown): value is Dashboard {
     && typeof status.version === 'string' && status.version.length > 0
     && [status.hasProfile, status.profileReady, status.restartRequired, status.gameStartedBeforeHelper, status.gameLoginPending, traffic.enabled, traffic.recorded, traffic.full].every((entry) => typeof entry === 'boolean')
     && [status.lastError, status.source, status.updatedAt, traffic.lastError].every(text)
+    && (status.updateVersion === null || (typeof status.updateVersion === 'string' && /^\d+\.\d+\.\d+$/.test(status.updateVersion)))
     && Number.isSafeInteger(traffic.entries) && traffic.entries >= 0);
 }
 
@@ -146,7 +149,7 @@ function reading(status: Status | null): Reading {
 
 /* Stroked paths sized to the type, per the house style — no emoji, whose weight
    changes with whatever font the platform substitutes. */
-function Glyph({ name }: { name: 'jaswa' | 'download' | 'report' | 'log' | 'record' | 'open' | 'restart' }) {
+function Glyph({ name }: { name: 'jaswa' | 'download' | 'report' | 'log' | 'record' | 'open' | 'restart' | 'update' }) {
   const paths = {
     jaswa: <path d="M8 2.5 12.5 5v6L8 13.5 3.5 11V5z" />,
     download: <path d="M8 2.5v7.5m0 0L5 7m3 3 3-3M3 13h10" />,
@@ -155,6 +158,7 @@ function Glyph({ name }: { name: 'jaswa' | 'download' | 'report' | 'log' | 'reco
     record: <><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2" /></>,
     open: <path d="M9 3h4v4M13 3 7.5 8.5M11 9.5V13H3V5h3.5" />,
     restart: <path d="M13 6a5.5 5.5 0 1 0 .3 3M13 2.5V6H9.5" />,
+    update: <><circle cx="8" cy="8" r="5.5" /><path d="M8 10.75v-5.5m0 0L5.75 7.5M8 5.25l2.25 2.25" /></>,
   };
   return (
     <svg className="glyph" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -193,13 +197,18 @@ function caption(command: 'minimize' | 'close') {
   return invoke(`plugin:window|${command}`, { label: 'main' });
 }
 
-function TitleBar({ version }: { version: string | null }) {
+/* The mark beside the version is always in the bar and only lit when a newer
+   helper is known, so the version never shifts when one is announced. */
+function TitleBar({ version, update }: { version: string | null; update: string | null }) {
   return (
     <div className="titlebar" data-tauri-drag-region>
       <p className="titlebar-brand" data-tauri-drag-region>
         <Wordmark /> helper
       </p>
-      <span className="version" aria-label={`Helper version ${version ?? 'unknown'}`}>v{version ?? '—'}</span>
+      <span className="version"
+        aria-label={`Helper version ${version ?? 'unknown'}${update ? `, version ${update} available` : ''}`}>
+        <span className="version-mark" data-lit={Boolean(update)} aria-hidden="true" />v{version ?? '—'}
+      </span>
       <div className="titlebar-controls">
         <button type="button" className="caption" aria-label="Minimise" onClick={() => void caption('minimize')}>
           <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M0 5h10" /></svg>
@@ -326,6 +335,14 @@ export function App() {
     note(now.state === 'bad' ? `${now.headline} — ${now.detail}` : now.headline, { tone: now.state === 'bad' ? 'error' : 'note' });
   }, [now.state, now.headline, now.detail, note]);
 
+  /* Both numbers, once: the title bar only says that something is newer, and
+     the button only says what to get. */
+  const update = status?.updateVersion ?? null;
+  const ownVersion = status?.version;
+  useEffect(() => {
+    if (update && ownVersion) note(`Helper ${update} is available — this is ${ownVersion}.`);
+  }, [update, ownVersion, note]);
+
   async function toggleTraffic() {
     if (!recording && !window.confirm('Record everything Summoners War sends to your Downloads folder? This writes decoded account data to a local file and never uploads it.')) return;
     await call('set_traffic_logging', { enabled: !recording });
@@ -336,7 +353,7 @@ export function App() {
      window, and the space it cost is exactly what the activity box needed. */
   return (
     <>
-      <TitleBar version={status?.version ?? null} />
+      <TitleBar version={status?.version ?? null} update={update} />
       <main>
       <section className={`capture state-${now.state}`} aria-live="polite">
         <div className="capture-head">
@@ -380,6 +397,14 @@ export function App() {
           <button type="button" onClick={() => void call('restart_helper')}
             title="Restart the helper, then reopen Summoners War to capture a fresh login.">
             <Glyph name="restart" />Restart helper
+          </button>
+          {/* The grid's sixth cell, always occupied, so an announced update
+              lights a control that was already there. The helper only knows
+              what JASWA tells it, so "no newer version" is all it can honestly
+              claim — not "up to date". */}
+          <button type="button" className="update" disabled={!update} onClick={() => void call('download_update')}
+            title={update ? `Download helper ${update} — this is ${ownVersion}.` : 'JASWA tells the helper when a newer version is out.'}>
+            <Glyph name="update" />{update ? `Update to v${update}` : 'No newer version'}
           </button>
         </div>
       </section>

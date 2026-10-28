@@ -14,7 +14,7 @@ test('on-demand reload keeps the corner cards aligned and preserves the selected
   const identity = () => ({ instanceId: 'reload-helper', sessionId: 1, revision });
   await page.route('http://127.0.0.1:37654/**', async (route) => {
     const headers = { 'Access-Control-Allow-Origin': '*' };
-    if (route.request().url().endsWith('/health')) {
+    if (new URL(route.request().url()).pathname === '/health') {
       await route.fulfill({ headers, json: { ...identity(), running: true, version, profileReady: ready,
         lastError: ready ? null : 'Gateway exchange failed: GetDailyQuests_v2 via private-host:443, 30841 ms: TimedOut '.repeat(20),
         restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false } });

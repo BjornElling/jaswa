@@ -11,7 +11,7 @@ const fileAccount = fileURLToPath(new URL('./fixtures/speed-account.json', impor
 async function serveHelper(page: Page) {
   const identity = { instanceId: 'test-helper', sessionId: 1, revision: 1 };
   const headers = { 'Access-Control-Allow-Origin': '*' };
-  await page.route('http://127.0.0.1:37654/health', (route) => route.fulfill({ headers, json: {
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && url.pathname === '/health', (route) => route.fulfill({ headers, json: {
     ...identity, running: true, profileReady: true, lastError: null,
     restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
   } }));
