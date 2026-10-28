@@ -1202,24 +1202,39 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     } else if let Some(reason) = profile.unmodeled_exchange(&response, &request) {
         drop(profile);
         fail(reason);
-    } else if profile.apply_update(&response, &request) {
-        diagnostics::record(
-            "capture",
-            &format!(
+    } else {
+        let changed = profile.apply_update(&response, &request);
+        let (set_aside, refused) = profile.take_declined();
+        let entry = if let Some(reason) = refused {
+            reason
+        } else if changed {
+            format!(
                 "{command_name} changed the snapshot (revision {})",
                 profile.status().revision
-            ),
-        );
+            )
+        } else {
+            /* The silent case is the one that brings a user here: the dashboard
+            says Connected, the account is yesterday's, and the log said nothing
+            because nothing happened. A command the account model does not act on
+            names itself instead, so the game's own word for what the user just
+            did can be looked up rather than guessed at. */
+            format!("{command_name} changed nothing in the snapshot")
+        };
+        diagnostics::record("capture", &format!("{entry}{}", kept_gear_note(&set_aside)));
+    }
+}
+
+/* A monster shown in a deck's gear is expected on every battle start, so it is
+logged rather than raised; named, so a command that truly moves gear and is not
+read as one can be found. */
+fn kept_gear_note(units: &[String]) -> String {
+    if units.is_empty() {
+        String::new()
     } else {
-        /* The silent case is the one that brings a user here: the dashboard
-        says Connected, the account is yesterday's, and the log said nothing
-        because nothing happened. A command the account model does not act on
-        names itself instead, so the game's own word for what the user just
-        did can be looked up rather than guessed at. */
-        diagnostics::record(
-            "capture",
-            &format!("{command_name} changed nothing in the snapshot"),
-        );
+        format!(
+            "; kept the account's gear on {} monster(s) it showed in other gear",
+            units.len()
+        )
     }
 }
 

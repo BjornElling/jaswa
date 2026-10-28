@@ -1,7 +1,7 @@
 # Live import coverage
 
 **Status:** Binding coverage for the direct-import live route
-**Reviewed:** October 20, 2026
+**Reviewed:** October 28, 2026
 
 What the helper's live route reads from the game's traffic. The counts it must
 keep equal to the game's, the zero-stack rule and the ownership rule are
@@ -97,6 +97,29 @@ model does not know this command yet" read differently.
 - RTA and World Arena commands remain completely outside the account sync.
 - A relic is not treated like a rune or artifact: its inventory record remains
   in the root collection while individual monster copies are added or removed.
+- **Only a command that moves gear changes which runes and artifacts a monster
+  carries** — one whose name holds `equip` or `occupation`, and the request
+  says where each item went. Any other answer may show a monster in the gear of
+  a deck or a battle: `battleGuildRivalStart` answers with the attacking team in
+  its World Guild Battle preset's runes (October 28, 2026). Read as the
+  monsters' own, 24 runes stood on two monsters at once and JASWA refused every
+  revision after it, so decks saved in the game afterwards never arrived. Such
+  a record still updates the monster; its runes and artifacts are kept as the
+  account has them, and the diagnostic log counts the monsters it did this to.
+  The rule is not tied to a container name, because no list of names can know
+  every screen the game shows a team on.
+- **The rune and artifact inventories hold what no monster carries.** A record
+  of gear a monster carries — a power-up answer, say — updates that monster's
+  copy and is never added to the inventory as well.
+- **An exchange that would leave a rune or artifact on two monsters is refused
+  whole**, and the account is kept as it stood. JASWA's import refuses that
+  account (`validateGameFile`), so serving it would stop live import until the
+  next login; refusing the one exchange keeps every later one arriving. The
+  diagnostic log names the command, so its shape can be modelled.
+- **A refused snapshot is said on every page.** When JASWA cannot import the
+  helper's newest snapshot, a *Live import stopped* card stands under the
+  import badge with the reason until a readable snapshot arrives. Said on Home
+  alone, the refusal left every other page quietly showing an older import.
 
 The raw traffic log remains the diagnostic record for a response shape that
 the current model cannot identify. It is never converted into a guessed item.

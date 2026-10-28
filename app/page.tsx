@@ -128,6 +128,11 @@ export default function Home() {
   /* Which helper snapshot JASWA has already refused, so a two-second poll
      reports an unreadable account once rather than on every pass. */
   const reportedHelperRejection = useRef<string | null>(null);
+  /* Why the helper's newest snapshot was not imported, while that stands. The
+     refusal was once said on Home alone, so on every other page the import
+     simply stopped moving: decks saved in the game never arrived, and nothing
+     said why. */
+  const [liveImportStopped, setLiveImportStopped] = useState<string | null>(null);
   /* The current import, readable from the polling interval's callback. That
      callback outlives the render that created it, so `game` inside it is
      whatever was loaded when the interval started. */
@@ -192,11 +197,13 @@ export default function Home() {
         if (result.state === 'unavailable') {
           if (force) setHelperReloadError('Game data could not be loaded. Check the helper on Home.');
           else setMessage('Game data could not be loaded. JASWA is keeping the last saved import. Check the helper.');
+          setLiveImportStopped(result.reason);
           setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
           return;
         }
         if (result.state === 'unreadable') {
           if (force) setHelperReloadError('Game data could not be read. Check the helper on Home.');
+          setLiveImportStopped(result.reason);
           setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
           /* The helper is connected and sending, and JASWA cannot read what it
              sent. Say so in the same words the file route uses — but once per
@@ -220,6 +227,7 @@ export default function Home() {
         if (!validation.valid) return;
         if (!await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId }), force)) return;
         reportedHelperRejection.current = null;
+        setLiveImportStopped(null);
         setHelperReloadError(null);
         appliedHelperRevision.current = profile.revision;
         appliedHelperSession.current = `${profile.instanceId}:${profile.sessionId}`;
@@ -240,7 +248,7 @@ export default function Home() {
     reloadHelper.current = refreshHelper;
     void refreshHelper();
     const interval = window.setInterval(() => void refreshHelper(), 2000);
-    return () => { disposed = true; reloadHelper.current = null; setReloadingHelper(false); window.clearInterval(interval); };
+    return () => { disposed = true; reloadHelper.current = null; setReloadingHelper(false); setLiveImportStopped(null); window.clearInterval(interval); };
   }, [preferences.directImportMode, preferences.importRoute, ready]);
 
   /* The poll stops when the route leaves direct import, and the last answer it
@@ -754,6 +762,7 @@ export default function Home() {
         reloadError={helperReloadError}
         reloading={reloadingHelper} onReload={() => void reloadHelper.current?.(true)}
         helperUpdate={page === 'home' && helperUpdateDue}
+        importStopped={game ? liveImportStopped : null}
         confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} />
 
       {page === 'home' && <HomeSection

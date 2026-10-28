@@ -89,6 +89,10 @@ pub struct ProfileStore {
     revision: u64,
     session_id: u64,
     instance_id: String,
+    /* What the last `apply_update` declined, for the caller to log: monsters
+    whose answer showed them in a deck's gear, and an exchange refused whole. */
+    set_aside: Vec<String>,
+    refused: Option<String>,
 }
 
 impl Default for ProfileStore {
@@ -101,6 +105,8 @@ impl Default for ProfileStore {
             revision: 0,
             session_id: 0,
             instance_id: Uuid::new_v4().to_string(),
+            set_aside: Vec::new(),
+            refused: None,
         }
     }
 }
@@ -295,6 +301,12 @@ impl ProfileStore {
             .or_else(|| unmodeled_summoned_stacks(request, response))
     }
 
+    /// What the last `apply_update` declined: the monsters whose gear it kept
+    /// as the account had it, and the reason it refused the exchange, if it did.
+    pub fn take_declined(&mut self) -> (Vec<String>, Option<String>) {
+        (std::mem::take(&mut self.set_aside), self.refused.take())
+    }
+
     pub fn apply_update(&mut self, response: &Value, request: &Value) -> bool {
         let command = request
             .get("command")
@@ -311,8 +323,11 @@ impl ProfileStore {
         {
             return false;
         }
+        self.set_aside.clear();
+        self.refused = None;
         let mut profile = self.profile.clone().expect("checked above");
         let mut changed = false;
+        let moves_gear = gear_moving_command(&command);
         let account_wizard_id = identifier(&profile, "wizard_id");
         let claimed_mail_ids = mail_claim_ids(request);
         let response_items = response_entities(
@@ -340,6 +355,26 @@ impl ProfileStore {
                 if let Some(id) = identifier(item, entity.identifier) {
                     received_unit_ids.push(id);
                 }
+            }
+            let scenario;
+            let item = if entity.collection == "unit_list" && !moves_gear {
+                let (record, set_aside) = with_scenario_gear(&profile, item);
+                if set_aside {
+                    self.set_aside.extend(identifier(item, "unit_id"));
+                }
+                scenario = record;
+                &scenario
+            } else {
+                item
+            };
+            /* The inventory collections hold what no monster carries. A record
+            of gear a monster carries updates the monster's copy below, and
+            pushed into the inventory it stood in two places at once. */
+            if matches!(entity.collection, "runes" | "artifacts")
+                && engraved_outside_inventory(&profile, *entity, item)
+            {
+                changed |= sync_equipment_copies(&mut profile, *entity, item);
+                continue;
             }
             if merge_into(&mut profile, entity.collection, item, entity.identifier) {
                 changed = true;
@@ -437,10 +472,7 @@ impl ProfileStore {
         }
         changed |= apply_defense_decks(&mut profile, response);
         for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
-            if command.contains("equip")
-                || command.contains("occupation")
-                || command.contains("unequip")
-            {
+            if moves_gear {
                 let bare_item_allowed = entity.collection != "relics";
                 for (item_id, destination) in
                     occupation_updates(request, entity.identifier, bare_item_allowed)
@@ -523,6 +555,20 @@ impl ProfileStore {
                     set_collection(&mut profile, "rune_craft_item_list", next);
                     changed = true;
                 }
+            }
+        }
+        /* The last line of defence, for an answer shaped in a way nothing above
+        reads correctly yet: an account carrying one rune or artifact on two
+        monsters is one JASWA must refuse, and every later revision would be
+        refused with it. Keeping the account as it stood leaves live import
+        running; the caller names the exchange so the shape can be modelled. */
+        if changed && self.profile.as_ref().and_then(contradiction).is_none() {
+            if let Some(reason) = contradiction(&profile) {
+                self.refused = Some(format!(
+                    "{} would have left the account with {reason}; the account was kept as it stood.",
+                    request.get("command").and_then(Value::as_str).unwrap_or("An exchange")
+                ));
+                return false;
             }
         }
         if changed {
@@ -1171,10 +1217,92 @@ fn sync_unit_equipment(profile: &mut Value, unit: &Value) -> bool {
     let mut changed = false;
     for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
         for item in collection(unit, entity.collection) {
+            if entity.collection != "relics" && engraved_outside_inventory(profile, entity, item) {
+                continue;
+            }
             changed |= merge_into(profile, entity.collection, item, entity.identifier);
         }
     }
     changed
+}
+
+/* Only a command that moves gear may change which runes and artifacts a monster
+carries; `apply_update` reads the request for where each one went. Every other
+answer that names a monster may show it in the gear of a deck or a battle
+instead — `battleGuildRivalStart` answers with the attacking team in the World
+Guild Battle preset's runes — and read as the monster's own, those runes stood
+on two monsters at once and JASWA refused every revision after it. */
+fn gear_moving_command(command: &str) -> bool {
+    command.contains("equip") || command.contains("occupation")
+}
+
+/* `unit` with its runes and artifacts left out where they differ from the gear
+the account has on that monster, so the merge keeps the account's. A monster
+new to the account is taken as it comes. Relics are left alone: one relic is
+read into every preset and may stand on many monsters. */
+fn with_scenario_gear(profile: &Value, unit: &Value) -> (Value, bool) {
+    let Some(held) = identifier(unit, "unit_id").and_then(|id| {
+        collection(profile, "unit_list")
+            .iter()
+            .find(|current| identifier(current, "unit_id").as_deref() == Some(id.as_str()))
+    }) else {
+        return (unit.clone(), false);
+    };
+    let mut record = unit.clone();
+    let mut set_aside = false;
+    for entity in [ENTITIES[1], ENTITIES[2]] {
+        let Some(shown) = unit.get(entity.collection).and_then(Value::as_array) else {
+            continue;
+        };
+        if gear_ids(shown, entity) != gear_ids(collection(held, entity.collection), entity) {
+            if let Some(object) = record.as_object_mut() {
+                object.remove(entity.collection);
+            }
+            set_aside = true;
+        }
+    }
+    (record, set_aside)
+}
+
+fn gear_ids(items: &[Value], entity: Entity) -> std::collections::BTreeSet<String> {
+    items
+        .iter()
+        .filter_map(|item| identifier(item, entity.identifier))
+        .collect()
+}
+
+/* Gear a monster carries and the inventory collection does not hold. */
+fn engraved_outside_inventory(profile: &Value, entity: Entity, item: &Value) -> bool {
+    let Some(id) = identifier(item, entity.identifier) else {
+        return false;
+    };
+    let holds = |items: &[Value]| {
+        items
+            .iter()
+            .any(|current| identifier(current, entity.identifier).as_deref() == Some(id.as_str()))
+    };
+    !holds(collection(profile, entity.collection))
+        && collection(profile, "unit_list")
+            .iter()
+            .any(|unit| holds(collection(unit, entity.collection)))
+}
+
+/* The contradiction JASWA's import refuses (`validateGameFile`): one rune or one
+artifact on two monsters. */
+fn contradiction(profile: &Value) -> Option<String> {
+    for (entity, noun) in [(ENTITIES[1], "rune"), (ENTITIES[2], "artifact")] {
+        let mut seen = std::collections::HashSet::new();
+        for unit in collection(profile, "unit_list") {
+            for item in collection(unit, entity.collection) {
+                if let Some(id) = identifier(item, entity.identifier) {
+                    if !seen.insert(id.clone()) {
+                        return Some(format!("{noun} {id} on two monsters"));
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 fn update_unit_building(profile: &mut Value, ids: &[String], building_id: &Value) -> bool {
     if ids.is_empty() {
@@ -2166,6 +2294,86 @@ mod tests {
         ), "the same answer again changes nothing");
     }
 
+    fn two_monsters_with_gear() -> ProfileStore {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [
+                {"unit_id": 1, "wizard_id": 7, "unit_level": 40,
+                    "runes": [{"rune_id": 5, "occupied_id": 1, "slot_no": 1}, {"rune_id": 6, "occupied_id": 1, "slot_no": 2}],
+                    "artifacts": [{"rid": 8, "occupied_id": 1, "slot": 1}]},
+                {"unit_id": 2, "wizard_id": 7, "unit_level": 40, "runes": [], "artifacts": []}
+            ],
+            "runes": [{"rune_id": 9, "occupied_id": 0, "slot_no": 3}], "artifacts": [], "relics": [], "rune_craft_item_list": []
+        })));
+        store
+    }
+
+    /* The capture behind this: `battleGuildRivalStart` answered with the team
+    dressed in its World Guild Battle preset's runes, the account came out with
+    24 runes on two monsters, and JASWA refused every revision after it. The
+    container's name is not what decides it, so the test does not depend on one. */
+    #[test]
+    fn a_monster_shown_in_a_decks_gear_keeps_the_gear_it_has() {
+        let mut store = two_monsters_with_gear();
+        let before = store.read().unwrap().data;
+        assert!(store.apply_update(
+            &json!({"ret_code": 0, "battle_team": {"unit_list": [
+                {"unit_id": 2, "wizard_id": 7, "unit_level": 40, "runes": [{"rune_id": 5, "occupied_id": 2, "slot_no": 1}, {"rune_id": 9, "occupied_id": 2, "slot_no": 3}]},
+                {"unit_id": 1, "wizard_id": 7, "unit_level": 40, "runes": [{"rune_id": 6, "occupied_id": 1, "slot_no": 2}], "artifacts": [], "skills": [[1, 2]]}
+            ]}}),
+            &json!({"command": "battleGuildRivalStart"})
+        ), "what the record says beyond its gear is still read");
+        let (set_aside, refused) = store.take_declined();
+        assert_eq!(set_aside, vec!["2".to_owned(), "1".to_owned()]);
+        assert_eq!(refused, None);
+        let data = store.read().unwrap().data;
+        assert_eq!(data["unit_list"][0]["runes"], before["unit_list"][0]["runes"]);
+        assert_eq!(data["unit_list"][0]["artifacts"], before["unit_list"][0]["artifacts"]);
+        assert_eq!(data["unit_list"][0]["skills"], json!([[1, 2]]));
+        assert_eq!(data["unit_list"][1]["runes"], json!([]));
+        assert_eq!(data["runes"], before["runes"], "the inventory is untouched");
+    }
+
+    #[test]
+    fn a_command_that_moves_gear_still_moves_it() {
+        let mut store = two_monsters_with_gear();
+        assert!(store.apply_update(
+            &json!({"ret_code": 0, "unit_info": {"unit_id": 2, "wizard_id": 7, "runes": [{"rune_id": 5, "occupied_id": 2, "slot_no": 1}]}}),
+            &json!({"command": "EquipRune", "rune_id": 5, "unit_id": 2})
+        ));
+        let data = store.read().unwrap().data;
+        assert_eq!(data["unit_list"][1]["runes"][0]["rune_id"], 5);
+        assert!(!data["unit_list"][0]["runes"].as_array().unwrap().iter().any(|rune| rune["rune_id"] == 5));
+    }
+
+    #[test]
+    fn a_powered_up_rune_on_a_monster_stays_out_of_the_inventory() {
+        let mut store = two_monsters_with_gear();
+        assert!(store.apply_update(
+            &json!({"ret_code": 0, "rune": {"rune_id": 5, "wizard_id": 7, "occupied_id": 1, "slot_no": 1, "upgrade_curr": 12}}),
+            &json!({"command": "UpgradeRune", "rune_id": 5})
+        ));
+        let data = store.read().unwrap().data;
+        assert_eq!(data["unit_list"][0]["runes"][0]["upgrade_curr"], 12);
+        assert_eq!(data["runes"].as_array().unwrap().len(), 1, "the inventory still holds rune 9 alone");
+    }
+
+    #[test]
+    fn an_exchange_that_would_engrave_a_rune_twice_is_refused_whole() {
+        let mut store = two_monsters_with_gear();
+        let before = store.read().unwrap();
+        assert!(!store.apply_update(
+            &json!({"ret_code": 0, "unit_info": {"unit_id": 2, "wizard_id": 7, "runes": [{"rune_id": 5, "occupied_id": 2, "slot_no": 1}]}}),
+            &json!({"command": "EquipRune", "rune_id": 9, "unit_id": 2})
+        ));
+        let (_, refused) = store.take_declined();
+        assert!(refused.is_some_and(|reason| reason.contains("EquipRune") && reason.contains("rune 5 on two monsters")));
+        let after = store.read().unwrap();
+        assert_eq!(after.data, before.data);
+        assert_eq!(after.revision, before.revision);
+    }
+
     #[test]
     fn an_arena_defense_arriving_whole_replaces_the_one_held() {
         let mut store = ProfileStore::default();
@@ -2794,8 +3002,8 @@ mod tests {
             &json!({"command": "UpgradeArtifact_v2", "artifact_id": 7})
         ));
         let data = &store.read().unwrap().data;
-        assert_eq!(data["artifacts"][0]["level"], 15);
         assert_eq!(data["unit_list"][0]["artifacts"][0]["level"], 15);
+        assert_eq!(data["artifacts"], json!([]), "an engraved artifact never joins the inventory");
     }
 
     #[test]

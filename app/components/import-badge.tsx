@@ -118,7 +118,7 @@ function placeNotice(notice: HTMLElement, badge: HTMLElement | null, gap: number
  * Both are overlays rather than lines in Game data. Neither may push the
  * choices the user was about to make down the page.
  */
-export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, confirmation, general }: {
+export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, confirmation, general }: {
   reload: boolean;
   reloadError: string | null;
   reloading: boolean;
@@ -129,6 +129,8 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
   badgeShown: boolean;
   /** The connected helper is older than the one JASWA recommends. */
   helperUpdate: boolean;
+  /** Why the helper's newest snapshot was refused while the shown import stands, or `null`. */
+  importStopped: string | null;
   confirmation: ImportedGame | null;
   general: GeneralSettings;
 }) {
@@ -174,7 +176,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       window.removeEventListener('resize', update);
       watcher.disconnect();
     };
-  }, [badge, badgeShown, helperUpdate, toastShown, reload, reloadError]);
+  }, [badge, badgeShown, helperUpdate, importStopped, toastShown, reload, reloadError]);
 
   return <>
     {reload && <Button ref={reloadButton} size="card" className="game-reload" busy={reloading}
@@ -182,7 +184,10 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       title="Read the helper's latest game data. Replaces changes planned in JASWA.">
       Reload game data
     </Button>}
-    {helperUpdate && <HelperUpdateNotice ref={notice} />}
+    {/* One standing card at a time: an import that has stopped outranks an old helper. */}
+    {importStopped !== null
+      ? <ImportStoppedNotice ref={notice} reason={importStopped} />
+      : helperUpdate && <HelperUpdateNotice ref={notice} />}
     {reload && reloadError
       ? <aside ref={toast} className="import-confirmation import-failure" role="status" aria-label="Game data reload failed">
         <p className="corner-notice-title">Game data reload failed</p>
@@ -210,6 +215,26 @@ function HelperUpdateNotice({ ref }: { ref: Ref<HTMLElement> }) {
       Version {recommendedHelperVersion} is now available.
     </p>
     <div className="helper-update-action"><HelperDownload tone="quiet" size="compact">Download update</HelperDownload></div>
+  </aside>;
+}
+
+/* Stands on every page while the helper's newest game data is refused: the badge
+   above it keeps the time of the import still shown, and this says why that
+   time has stopped moving. */
+function ImportStoppedNotice({ reason, ref }: { reason: string; ref: Ref<HTMLElement> }) {
+  return <aside ref={ref} className="helper-update" role="status" aria-live="polite" aria-label="Live import stopped">
+    <p className="corner-notice-title">
+      <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+        <path d="M10 2.75 18 16.75H2z" opacity=".45" />
+        <path d="M10 8v3.75M10 14.25v.25" />
+      </svg>
+      Live import stopped
+    </p>
+    <p className="corner-notice-detail">
+      {reason}<br />
+      Changes made in the game since then are not shown.
+    </p>
   </aside>;
 }
 
