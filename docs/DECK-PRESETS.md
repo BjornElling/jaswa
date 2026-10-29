@@ -198,6 +198,7 @@ preset is never hidden for want of a name (AGENTS.md §0.1). Matched so far
 | 19, 20, 21 | Dimension Raid phases 1, 2, 3 | `deck_seq` | screen |
 | 23 | Temple of Chaos | `deck_seq` | the developer, October 10, 2026: the account's three Temple of Chaos teams |
 | 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 | screen (screens of October 7, 2026) |
+| 25 | Rift of Worlds beasts: the hundreds of `deck_seq` are 1 Ice, 2 Fire, 3 Wind, 4 Light, 5 Dark Beast | `deck_seq` mod 100 | 5 Dark Beast captured as the developer saved its decks 1 and 2, October 29, 2026; 1–4 assumed (§7) |
 | 27 | Monster Subjugation: the hundreds of `deck_seq` are 1 Water, 2 Fire, 3 Wind, 10 Boss | `deck_seq` mod 100 | the developer: 2 Fire on October 27, 2026; 1 Water, 3 Wind and 10 Boss on October 28, 2026 |
 
 4 and 6 under type 24 were confirmed through the recent decks, whose Cairos
@@ -494,6 +495,10 @@ and says so where it matters.
   Monster Subjugation Water and Fire until type 27 proved to be Monster
   Subjugation (deck 201 is Fire's first, October 27, 2026); they now stand
   unnamed until the screen names them. 4 is still read as Labyrinth Normal.
+- **`deck_type` 25, hundreds 1–4.** Only Dark Beast (5) has been captured.
+  Ice, Fire, Wind and Light Beast are read as 1–4 from the tab's menu order,
+  which is also the element order type 27 numbers by, and marked assumed until
+  a save in each is captured.
 - **Saving the Arena Interserver defense.** Not yet captured. The helper takes
   any answer carrying `server_arena_defense_deck_info` whole, as it does for
   the Arena defense, whose save is confirmed.

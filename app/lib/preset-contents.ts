@@ -203,6 +203,10 @@ export function isPresetContentId(value: unknown): value is PresetContentId {
  *   same way: 1 Water, 2 Fire, 3 Wind, 10 Boss. 201 was confirmed by the player
  *   on October 27, 2026; 1001, 1xx and 3xx on October 28, 2026. The Boss sits
  *   at 10, not 4, so the hundreds are not the Guild tab's order.
+ * - `deck_type` 25 holds the Rift of Worlds beast decks, split by hundreds the
+ *   same way. 5 Dark Beast was captured as the player saved Dark Beast's decks
+ *   1 and 2 on October 29, 2026. 1 Ice, 2 Fire, 3 Wind and 4 Light are assumed:
+ *   that is the tab's menu order and the element order type 27 numbers by.
  */
 type ByHundreds = Readonly<Record<number, { id: PresetContentId; assumed: boolean }>>;
 
@@ -210,6 +214,10 @@ const byHundreds: Readonly<Record<number, ByHundreds>> = {
   24: {
     1: { id: 'giants', assumed: false }, 2: { id: 'dragons', assumed: false }, 3: { id: 'necropolis', assumed: false },
     4: { id: 'spiritual', assumed: false }, 5: { id: 'steel', assumed: false }, 6: { id: 'punisher', assumed: false },
+  },
+  25: {
+    1: { id: 'ice-beast', assumed: true }, 2: { id: 'fire-beast', assumed: true }, 3: { id: 'wind-beast', assumed: true },
+    4: { id: 'light-beast', assumed: true }, 5: { id: 'dark-beast', assumed: false },
   },
   27: {
     1: { id: 'subjugation-water', assumed: false }, 2: { id: 'subjugation-fire', assumed: false },

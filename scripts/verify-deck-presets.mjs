@@ -19,7 +19,7 @@ import { addToGamePreset } from '../app/lib/game-preset-edits.ts';
 import { noRuneLocks } from '../app/lib/rune-locks.ts';
 import { includeHigherPriorityApplies, withheldRunes } from '../app/lib/rune-sources.ts';
 import { readRunes } from '../app/lib/runes.ts';
-import { presetContent, presetContents } from '../app/lib/preset-contents.ts';
+import { deckContent, presetContent, presetContents } from '../app/lib/preset-contents.ts';
 import { battleLeaders, leadArea, teamLeadsFor } from '../app/lib/team-leads.ts';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -169,6 +169,11 @@ assert.deepEqual(presetMenu(readPresets({ ...prepared, deck_list: [] }, [])).map
   'the presets not yet named leave the menu once there are none');
 assert.equal(presets.find((preset) => preset.id === 'deck-1-4').contentAssumed, false, 'a confirmed deck type is not marked assumed');
 assert.equal(presets.find((preset) => preset.id === 'deck-24-101').number, 1, 'a Cairos preset is numbered within its dungeon');
+/* The capture of October 29, 2026: saving Dark Beast's second team sent decks 25-501 and 25-502. */
+assert.deepEqual(deckContent(25, 502), { content: presetContent('dark-beast'), number: 2, assumed: false },
+  'a Dark Beast deck is named, numbered within its beast and confirmed');
+assert.equal(deckContent(25, 101)?.content.id, 'ice-beast', 'the other beasts follow the menu order');
+assert.equal(deckContent(25, 101)?.assumed, true, 'and are marked assumed until captured');
 assert.deepEqual(readPresets(undefined, []), [], 'no import, no presets');
 const presetById = new Map(presets.map((preset) => [preset.id, preset]));
 
