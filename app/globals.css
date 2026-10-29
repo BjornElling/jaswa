@@ -6215,28 +6215,22 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .game-statistics-part-title { margin: 0; color: var(--text-muted); }
 .game-statistics-shares { display: grid; margin: 0; padding: 0; list-style: none; }
 .game-statistics-shares[data-across] { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: var(--s2); }
-/* The name and its share on one line, over a ground filled as far as the share
-   reaches: the rows of a card read down as one chart. The fill is form, not
-   colour — grey on grey — and stops short of the row's top and bottom so
-   neighbouring rows stay apart without a gap between them. The share column
-   fits `100.0 %`, so no figure moves its name. */
+/* The name and its share on one line, and no bar behind them: the figure says
+   it already. The share column fits `100.0 %`, so no figure moves its name. */
 .game-statistics-share {
-  --share-fill: var(--line);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 7ch;
   align-items: baseline;
   gap: var(--s2);
   padding: var(--s1) var(--s2);
-  border-radius: var(--radius-sm);
-  background: linear-gradient(var(--share-fill), var(--share-fill)) left center / var(--share, 0%) calc(100% - var(--s1)) no-repeat;
   color: var(--text);
 }
 .game-statistics-share-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-statistics-share-value { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* What most players engrave leads in strong text against the rest, the
    house's primary-against-secondary device; the folded tail reads muted. */
-.game-statistics-share[data-lead] { --share-fill: var(--line-strong); color: var(--text-strong); }
-.game-statistics-share[data-others] { --share-fill: var(--hover); color: var(--text-muted); }
+.game-statistics-share[data-lead] { color: var(--text-strong); }
+.game-statistics-share[data-others] { color: var(--text-muted); }
 
 /* ----------------------------------------------------------- responsive */
 

@@ -245,9 +245,8 @@ share sitting next to a choice leans on it, and the profile's answers are the
 user's while these figures are the game's.
 
 The overlay says so before anything else — the eyebrow reads *Game
-statistics*, and its facts name the source (*Monster Info → Statistics*), the
-model (§3) and the day the panels were seen (§6). It shows every panel the
-dataset holds:
+statistics* — and then shows only the shares: no facts row, no sample counts.
+It shows every panel the dataset holds:
 
 | Card | Reads | Share of |
 | --- | --- | --- |
@@ -261,6 +260,5 @@ A rune sub property is a share of **lines**, not of runes: the panel's sub
 totals are not four lines per rune for every monster, so nothing may divide by
 a rune count it does not state. Artifact sub properties and relic uniques keep
 their six leaders and fold the rest into *Others*, as the game's panel does.
-Each share fills its row to its true length against the whole, never against
-the card's leader. A species with no captured panel says so in one line; a
+A share is a figure only, with no bar behind it. A species with no captured panel says so in one line; a
 missing panel inside a captured one reads *Not captured* in its card.

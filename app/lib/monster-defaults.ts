@@ -146,15 +146,6 @@ export type MonsterDefaults = {
   runes?: RuneDefaults;
   artifacts?: ArtifactDefaults;
   relics?: RelicDefaults;
-  /** When each panel was seen in the game, as `ENGRAVING-STATISTICS.md` §6 dates it. */
-  observedAt: Partial<Record<'runes' | 'artifacts' | 'relics', string>>;
-};
-
-/** What the whole dataset is: which of the game's models it reads, and when it was seen. */
-export const engravingStatisticsSource = {
-  gameMode: (statistics as { gameMode: string }).gameMode,
-  observedFrom: (statistics as { observedFrom: string }).observedFrom,
-  observedTo: (statistics as { observedTo: string }).observedTo,
 };
 
 type EffectCount = { effectId: number; count: number; slotId?: number };
@@ -497,11 +488,7 @@ export function monsterDefaults(masterId: unknown): MonsterDefaults | undefined 
     const artifacts = artifactDefaults(recorded.artifacts);
     const relics = relicDefaults(recorded.relics);
     if (!runes && !artifacts && !relics) return undefined;
-    const observedAt: MonsterDefaults['observedAt'] = {};
-    if (runes && recorded.runes?.observedAt) observedAt.runes = recorded.runes.observedAt;
-    if (artifacts && recorded.artifacts?.observedAt) observedAt.artifacts = recorded.artifacts.observedAt;
-    if (relics && recorded.relics?.observedAt) observedAt.relics = recorded.relics.observedAt;
-    return { speciesId, runes, artifacts, relics, observedAt };
+    return { speciesId, runes, artifacts, relics };
   })();
 
   resolved.set(speciesId, defaults);

@@ -69,8 +69,8 @@ test('the profile opens the game statistics over itself, and keeps no shares of 
   /* It says whose figures these are before anything else. */
   await expect(panel.locator('.game-statistics-eyebrow')).toHaveText('Game statistics');
   await expect(panel.getByRole('heading', { name: 'Elucia (2A)' })).toBeVisible();
-  await expect(panel.locator('.overlay-facts')).toContainText('Monster Info → Statistics');
-  await expect(panel.locator('.overlay-facts')).toContainText('PvE');
+  /* The figures speak alone: no facts row, no counts, no bars. */
+  await expect(panel.locator('.overlay-facts, .overlay-provenance')).toHaveCount(0);
 
   /* Every panel the dataset carries, the relic and the rune sub properties included. */
   await expect(panel.locator('.overlay-block-title')).toHaveText(['Runes', 'Artifacts', 'Relics']);
@@ -132,6 +132,5 @@ test('a monster nobody captured says so rather than showing an empty panel', asy
   await expect(panel).toBeVisible();
   await expect(panel.getByText(/statistics for this monster have not been captured yet/)).toBeVisible();
   await expect(panel.locator('.game-statistics-card')).toHaveCount(0);
-  await expect(panel.locator('.overlay-facts')).toContainText('—');
   await page.screenshot({ path: testInfo.outputPath('uncaptured.png') });
 });

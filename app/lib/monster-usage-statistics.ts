@@ -32,19 +32,13 @@ export type MonsterUsage = {
     slots: Record<RuneSlotKey, UsageEntry[]>;
     /** Each sub property's share of every sub line. */
     subs: UsageEntry[];
-    /** Monsters behind the panel: the largest slot's runes, since the set list is capped by the game. */
-    observations: number;
-    observedAt?: string;
   };
   artifacts?: {
-    categories: Partial<Record<ArtifactCategory, { main: UsageEntry[]; sub: UsageEntry[]; observations: number }>>;
-    observedAt?: string;
+    categories: Partial<Record<ArtifactCategory, { main: UsageEntry[]; sub: UsageEntry[] }>>;
   };
   relics?: {
     main: UsageEntry[];
     unique: UsageEntry[];
-    observations: number;
-    observedAt?: string;
   };
 };
 
@@ -94,8 +88,6 @@ export function monsterUsage(masterId: unknown): MonsterUsage {
       builds: runes.builds.map((entry) => ({ label: entry.build, share: entry.share })),
       slots,
       subs: entries(runes.subShares, runeStatName),
-      observations: Math.max(...runeSlotKeys.map((key) => runes.slotObservations[key]), 0),
-      observedAt: defaults.observedAt.runes,
     };
   }
 
@@ -108,10 +100,9 @@ export function monsterUsage(masterId: unknown): MonsterUsage {
       categories[category] = {
         main: entries(shares(panel.main), ownName),
         sub: entries(shares(panel.sub), (id) => artifactProperty(id)?.name),
-        observations: panel.mainObservations,
       };
     }
-    usage.artifacts = { categories, observedAt: defaults.observedAt.artifacts };
+    usage.artifacts = { categories };
   }
 
   const relics = defaults.relics;
@@ -122,8 +113,6 @@ export function monsterUsage(masterId: unknown): MonsterUsage {
         const definition = relicProperty(id);
         return definition ? relicPropertyLabel(definition) : undefined;
       }),
-      observations: Math.max(relics.mainObservations, relics.uniqueObservations),
-      observedAt: defaults.observedAt.relics,
     };
   }
   return usage;

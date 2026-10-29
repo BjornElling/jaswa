@@ -1,15 +1,14 @@
-import { type CSSProperties, type ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { MonsterPortrait } from './monster-portrait';
 import { Overlay } from './overlay';
 import { StatisticsIcon } from './game-statistics-button';
 import { artifactCategoryLabels } from '../lib/artifact-properties';
-import { formatDate, formatDecimal, formatNumber } from '../lib/formatting';
+import { formatDecimal } from '../lib/formatting';
 import { monsterPresentation } from '../lib/monster-catalog';
-import { engravingStatisticsSource, runeSlotKeys } from '../lib/monster-defaults';
+import { runeSlotKeys } from '../lib/monster-defaults';
 import type { RuneSlotKey } from '../lib/monster-defaults';
 import { monsterUsage } from '../lib/monster-usage-statistics';
 import type { UsageEntry } from '../lib/monster-usage-statistics';
-import { elementName } from '../lib/rune-sets';
 import type { GeneralSettings } from '../lib/types';
 
 /**
@@ -21,11 +20,7 @@ import type { GeneralSettings } from '../lib/types';
  * they inform, and a share sitting next to a choice leans on it; here they are
  * read whole, a click away, and nothing on this panel can be chosen. Every
  * panel the dataset holds is shown — rune builds, slot mains and sub
- * properties, both artifacts and the relic — with the count behind it.
- *
- * Each share fills its row to its true length against the whole, never against
- * its card's leader: a fill stretched to the leader would make a 15 % favourite
- * look like a consensus.
+ * properties, both artifacts and the relic.
  */
 
 const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
@@ -43,10 +38,8 @@ function ShareRow({ label, share, general, lead = false, others = false }: {
   label: string; share: number; general: GeneralSettings; lead?: boolean; others?: boolean;
 }) {
   const percent = `${formatDecimal(share * 100, general)} %`;
-  /* The row is its own bar: its ground filled as far as the share reaches. */
-  const fill = { '--share': `${Math.min(Math.max(share, 0), 1) * 100}%` } as CSSProperties;
   return <li className="game-statistics-share" data-lead={lead || undefined} data-others={others || undefined}
-    style={fill} title={`${label} ${percent}`}>
+    title={`${label} ${percent}`}>
     <span className="game-statistics-share-name">{label}</span>
     <span className="game-statistics-share-value">{percent}</span>
   </li>;
@@ -80,11 +73,10 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
   </div>;
 }
 
-function Block({ title, note, className, children }: { title: string; note: string; className?: string; children: ReactNode }) {
+function Block({ title, className, children }: { title: string; className?: string; children: ReactNode }) {
   return <section className={['overlay-block', className].filter(Boolean).join(' ')}>
     <header className="overlay-block-head">
       <h3 className="overlay-block-title">{title}</h3>
-      <p className="overlay-provenance">{note}</p>
     </header>
     {children}
   </section>;
@@ -98,16 +90,6 @@ export function MonsterStatisticsOverlay({ masterId, general, onClose }: {
   const display = monsterPresentation(masterId);
   const usage = useMemo(() => monsterUsage(masterId), [masterId]);
   const captured = usage.runes !== undefined || usage.artifacts !== undefined || usage.relics !== undefined;
-  /* The panels of one monster are seen minutes apart, so the latest names the visit. */
-  const seen = [usage.runes?.observedAt, usage.artifacts?.observedAt, usage.relics?.observedAt]
-    .filter((stamp): stamp is string => stamp !== undefined).sort().at(-1);
-
-  const facts: { label: string; value: string }[] = [
-    { label: 'Element', value: elementName(Number(masterId.at(-1))) ?? '—' },
-    { label: 'Source', value: 'Monster Info → Statistics' },
-    { label: 'Content', value: engravingStatisticsSource.gameMode },
-    { label: 'Seen in game', value: formatDate(seen, general) },
-  ];
 
   return <Overlay labelledBy="monster-statistics-title" className="monster-statistics-overlay" onClose={onClose}>
     <header className="overlay-head game-statistics-head">
@@ -115,12 +97,6 @@ export function MonsterStatisticsOverlay({ masterId, general, onClose }: {
       <div className="overlay-identity">
         <p className="game-statistics-eyebrow"><StatisticsIcon />Game statistics</p>
         <h2 id="monster-statistics-title" className="overlay-hero-name" title={display.name}>{display.name}</h2>
-        <dl className="overlay-facts">
-          {facts.map((fact) => <div key={fact.label}>
-            <dt>{fact.label}</dt>
-            <dd>{fact.value}</dd>
-          </div>)}
-        </dl>
       </div>
     </header>
 
@@ -128,9 +104,7 @@ export function MonsterStatisticsOverlay({ masterId, general, onClose }: {
       {!captured
         ? <p className="notice">The game&apos;s statistics for this monster have not been captured yet.</p>
         : <>
-          <Block title="Runes" note={usage.runes
-            ? `${formatNumber(usage.runes.observations, general)} monsters · sub properties as a share of every sub line`
-            : 'Not captured'}>
+          <Block title="Runes">
             <div className="game-statistics-cards game-statistics-runes">
               <Card title="Builds"><Shares label="Rune builds" entries={usage.runes?.builds} general={general} /></Card>
               {runeSlotKeys.map((key) => <Card key={key} title={`Slot ${slotNumbers[key]}`}>
@@ -141,12 +115,7 @@ export function MonsterStatisticsOverlay({ masterId, general, onClose }: {
           </Block>
 
           <div className="game-statistics-gear">
-            <Block title="Artifacts" note={usage.artifacts
-              ? `${(['attribute', 'type'] as const).flatMap((category) => {
-                const observations = usage.artifacts?.categories[category]?.observations;
-                return observations === undefined ? [] : [`${formatNumber(observations, general)} ${artifactCategoryLabels[category]}`];
-              }).join(' and ')} artifacts`
-              : 'Not captured'}>
+            <Block title="Artifacts">
               <div className="game-statistics-cards game-statistics-artifacts">
                 {(['attribute', 'type'] as const).map((category) => {
                   const panel = usage.artifacts?.categories[category];
@@ -160,7 +129,7 @@ export function MonsterStatisticsOverlay({ masterId, general, onClose }: {
                 })}
               </div>
             </Block>
-            <Block title="Relics" note={usage.relics ? `${formatNumber(usage.relics.observations, general)} relics` : 'Not captured'}>
+            <Block title="Relics">
               <div className="game-statistics-cards">
                 <Card title="Relic">
                   <Part title="Main stat"><Shares label="Relic main stat" entries={usage.relics?.main} general={general} across /></Part>
