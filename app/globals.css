@@ -397,7 +397,7 @@ label[for] {
 .overlay-stat-current, .overlay-slot-name, .engraved-rune-level, .engraved-artifact-class,
 .speed-lane-turn text, .speed-lane-figure,
 .rune-optimization-provenance, .rune-build-card-grade, .rune-build-change-kind,
-.speed-summary-state, .speed-leader-skill, .inline-button {
+.speed-summary-state, .speed-leader-skill, .inline-button, .craft-wanted-table td {
   font-family: var(--font-body);
   font-size: var(--type-label);
   font-weight: 400;
@@ -1392,18 +1392,32 @@ label[for] {
    its height never depends on where the controls to its left end. Rune
    Optimization's measure, so the buttons sit where they sit there. */
 .craft-controls { display: contents; }
-.craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr) 56ch; align-items: start; }
-.craft-best-use[data-mode="missing"] .craft-controls { display: grid; }
+/* Three columns of one height: the controls; the buttons that ask, their
+   report and the ways back; and Most wanted, narrow and ten rows tall, at the
+   far edge. The controls and the buttons stretch to the box, so none of the
+   three ends short of the others. */
+.craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr) max-content 44ch; align-items: stretch; }
+.craft-best-use[data-mode="missing"] .craft-controls { display: grid; align-content: start; background: var(--raise); }
 .craft-best-use[data-mode="missing"] .craft-best-use-filters { border-top: 1px solid var(--line); }
 .craft-best-use[data-mode="missing"] .craft-question {
   grid-template-columns: max-content 16ch max-content;
   grid-template-areas: "kind roll grind";
   justify-content: start;
 }
+/* The list length on a row of its own: it shapes the rankings below, not
+   which items or runes they draw from. */
+.craft-best-use[data-mode="missing"] .craft-best-use-filters {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    "family grade    location"
+    "set    stat     already"
+    "count  .        .";
+}
 .craft-best-use[data-mode="missing"] .craft-best-use-results { grid-column: 1 / -1; }
-.craft-side { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
+.craft-side { display: contents; }
 .craft-side-actions {
   display: grid;
+  grid-template-rows: auto auto 1fr;
   gap: var(--s2);
   justify-items: end;
   padding: var(--s4);
@@ -1411,17 +1425,29 @@ label[for] {
 }
 .craft-side .craft-calculation-actions { grid-area: auto; gap: var(--s2); align-self: auto; }
 .craft-side .craft-calculation-status { grid-area: auto; width: 100%; min-height: 2lh; }
-@media (max-width: 1200px) {
+.craft-side .craft-view-actions { grid-area: auto; align-self: end; gap: var(--s3); }
+@media (max-width: 1400px) {
+  .craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr) 44ch; }
+  .craft-best-use[data-mode="missing"] .craft-controls { grid-column: 1 / -1; }
+}
+@media (max-width: 1000px) {
   .craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr); }
   .craft-best-use[data-mode="missing"] .craft-question { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "kind roll" "grind grind"; }
+  .craft-best-use[data-mode="missing"] .craft-best-use-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "family grade" "location set" "stat already" "count count";
+  }
 }
 .craft-best-use-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); align-items: start; }
-.craft-wanted > p { margin-bottom: 0; }
-.craft-wanted-table { width: 100%; margin-top: var(--s3); table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.craft-wanted .statistics-lead { margin-bottom: var(--s3); }
+.craft-wanted-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .craft-wanted-table col, .craft-wanted-table th:first-child { width: auto; }
-.craft-wanted-table th:not(:first-child), .craft-wanted-table td:not(:first-child) { width: 10ch; text-align: right; }
+.craft-wanted-table th:not(:first-child), .craft-wanted-table td:not(:first-child) { width: 7ch; text-align: right; }
+.craft-wanted-table th:last-child, .craft-wanted-table td:last-child { width: 10ch; }
+/* An empty row is as tall as a filled one, so the box keeps its ten. */
+.craft-wanted-table td { height: calc(1lh + 2 * var(--s1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .craft-wanted-table th { padding: 0 0 var(--s2); text-align: left; color: var(--text-muted); border-bottom: 1px solid var(--line); }
-.craft-wanted-table td { padding: var(--s2) 0; color: var(--text-strong); border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.craft-wanted-table td { padding: var(--s1) 0; color: var(--text-strong); border-bottom: 1px solid var(--line); }
 .craft-best-use-results[data-kind="gem"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .craft-ranking, .craft-stat-rankings { display: grid; gap: var(--s4); min-width: 0; }
 .craft-ranking > h3, .craft-ranking > p { margin: 0; }

@@ -91,6 +91,9 @@ function CraftItemName({ item }: { item: CraftItem }) {
 }
 
 /** What Ignore on this card waves away: the rune, and the item's kind and stat, whatever its grade or set. */
+/* Most wanted's own length, apart from the rankings': its box keeps this many
+   rows whatever the answer, so the column beside it never changes height. */
+const wantedLength = 10;
 const ignoreOf = (row: CraftRecommendation): CraftIgnore => ({ runeId: row.rune.id, kind: row.item.kind, statId: row.item.statId });
 
 /* An Immemorial item rolls what the set's own item rolls, so What's missing
@@ -253,7 +256,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && !ignored.has(craftIgnoreKey(ignoreOf(row)))) ?? [],
   [result, kind, mode, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices, keepSet, ignored]);
   const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark), [visible, state.count, benchmark]);
-  const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, state.count, benchmark) : [], [mode, visible, state.count, benchmark]);
+  const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, wantedLength, benchmark) : [], [mode, visible, benchmark]);
   const empty = base === null ? 'A level 40 monster is needed to score runes.' : !roles.length ? 'Add a role in Rune Clean-up to judge these runes.'
     : mode === 'missing' ? (!runes.length ? 'Import runes to see what they are missing.' : null)
       : !items.length ? 'Import gems and grindstones to calculate.' : null;
@@ -345,22 +348,36 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   </div>;
   /* Kept in the column before there is an answer, quiet until there is one, so
      the column has its shape from the start. */
-  const wantedBox = <section className={result && keepersSettled ? 'statistics craft-wanted' : 'statistics craft-wanted pending'} aria-label="Most wanted">
+  const answered = Boolean(result && keepersSettled);
+  const wantedBox = <section className={answered ? 'statistics craft-wanted' : 'statistics craft-wanted pending'} aria-label="Most wanted">
     <h4>Most wanted</h4>
-    {!result || !keepersSettled ? <p className="statistics-lead">Calculate to see which items your box lacks.</p>
-      : wanted.length ? <table className="craft-wanted-table">
-        <thead><tr>
-          <th scope="col">Item</th>
-          <th scope="col" title="Runes on which this is the missing item that lifts them furthest past your box">Runes</th>
-          <th scope="col" title="The largest score gain over your box on one of those runes">Top gain</th>
-        </tr></thead>
-        <tbody>{wanted.map((entry) => <tr key={entry.item.id}>
+    <p className="statistics-lead">{!answered ? 'Calculate to see which items your box lacks.'
+      : wanted.length ? 'The items your box lacks, by the runes they lift most.'
+        : 'Your box already holds the best item for every rune shown.'}</p>
+    <table className="craft-wanted-table">
+      <thead><tr>
+        <th scope="col">Item</th>
+        <th scope="col" title="Runes on which this is the missing item that lifts them furthest past your box">Runes</th>
+        <th scope="col" title="The largest score gain over your box on one of those runes">Gain</th>
+      </tr></thead>
+      <tbody>{Array.from({ length: wantedLength }, (_, at) => {
+        const entry = answered ? wanted[at] : undefined;
+        return entry ? <tr key={entry.item.id}>
           <td title={immemorialAlternative(entry.item)}><CraftItemName item={entry.item} /></td>
           <td>{format(entry.runes)}</td>
           <td>+{score(entry.topGain)}</td>
-        </tr>)}</tbody>
-      </table> : <p className="statistics-lead">Your box already holds the best item for every rune shown.</p>}
+        </tr> : <tr key={`empty-${at}`} aria-hidden="true"><td /><td /><td /></tr>;
+      })}</tbody>
+    </table>
   </section>;
+  const resets = <div className="filter-panel-actions craft-view-actions">
+    <Button className="filter-reset" onClick={() => setState((previous) => ({ ...previous,
+      ...Object.fromEntries(filterFields.map((field) => [field, defaultState[field]])) }))}
+    aria-label={`Reset ${{ recommendations: 'recommendations', selected: 'best use', missing: "what's missing" }[mode]} filters`}>Reset filters</Button>
+    {/* Kept mounted while there is nothing to reset, so the panel never changes height. */}
+    {onIgnore && <Button className="filter-reset" disabled={!ignores?.length} onClick={() => onIgnore(null)}
+      title={ignores?.length ? `Suggest again the ${format(ignores.length)} ignored here` : 'Nothing is ignored here'}>Reset ignored</Button>}
+  </div>;
 
   return <div className="craft-best-use" data-mode={mode}>
     <div className="craft-controls">
@@ -398,7 +415,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       <div className="filter-group craft-view-stat"><label className="filter-label" htmlFor={`${prefix}-stat`}>Stat</label><div className="filter-group-controls">
         <Dropdown id={`${prefix}-stat`} value={state.statId} placeholder="Any stat" aria-label="Narrow the list to one stat" onChange={(event) => update('statId', event.target.value)}>
           {runeStatIds.map((id) => <option key={id} value={id}>{runeStatName(id)}</option>)}</Dropdown></div></div>
-      <div className="filter-group craft-view-count"><span className="filter-label">Per ranking</span><div className="filter-group-controls">
+      <div className="filter-group craft-view-count"><span className="filter-label">Suggestions per list</span><div className="filter-group-controls">
         <ValueSlider minimum={1} maximum={10} value={state.count} label="Number of runes listed in each ranking" valueText={(value) => `${value} runes in each ranking`}
           onChange={(count) => update('count', count)} /></div></div>
       <div className="filter-group craft-view-set"><label className="filter-label" htmlFor={`${prefix}-set`}>Rune set</label><div className="filter-group-controls">
@@ -412,18 +429,11 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           Re-app, Refine and a rune kept only by a safeguard all stay out. */}
       {mode === 'selected' && choiceGroup('Only keep-runes', 'keep', ['yes'] as const, () => state.keepOnly,
         () => update('keepOnly', !state.keepOnly), () => 'Yes', () => 'Only runes whose calculated Rune Clean-up verdict is Keep')}
-      <div className="filter-panel-actions craft-view-actions">
-        <Button className="filter-reset" onClick={() => setState((previous) => ({ ...previous,
-          ...Object.fromEntries(filterFields.map((field) => [field, defaultState[field]])) }))}
-        aria-label={`Reset ${{ recommendations: 'recommendations', selected: 'best use', missing: "what's missing" }[mode]} filters`}>Reset filters</Button>
-        {/* Kept mounted while there is nothing to reset, so the panel never changes height. */}
-        {onIgnore && <Button className="filter-reset" disabled={!ignores?.length} onClick={() => onIgnore(null)}
-          title={ignores?.length ? `Suggest again the ${format(ignores.length)} ignored here` : 'Nothing is ignored here'}>Reset ignored</Button>}
-      </div>
+      {!sideColumn && resets}
     </div>
     </div>
     {sideColumn && <aside className="craft-side">
-      <div className="craft-side-actions">{actions}{status}</div>
+      <div className="craft-side-actions">{actions}{status}{resets}</div>
       {wantedBox}
     </aside>}
     {result && keepersSettled && <div className="craft-best-use-results" data-kind={kind}>

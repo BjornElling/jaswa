@@ -117,11 +117,18 @@ subject per row — the item (Family, Grade, Stat), then the rune it goes on
 (Rune set, Location, Stat already grinded / gem'ed, and in Best use Only
 keep-runes) — with the ranking length and Reset filters in the last column.
 The other views leave Only keep-runes' cell empty, so no group moves between
-views. What's missing sets the two panels as one surface with a rule between
-them and gives Clear results, Calculate, the cancelling ✕ (Rune
-Optimization's stop) and the status a column of their own on the right, with
-*Most wanted* beneath them in a box of the Statistics kind; the other views are
-to follow once that layout is settled. Reset filters returns the filter panel
+views.
+
+What's missing is laid out in three columns of one height, and the other views
+are to follow once it is settled. The controls come first: the two panels as
+one surface with a rule between them, the filters in three columns — Family,
+Grade, Location; Rune set, Stat, Stat already grinded / gem'ed — and
+*Suggestions per list*, the ranking length, on a row of its own. Then a column
+for Clear results, Calculate, the cancelling ✕ (Rune Optimization's stop), the
+status beneath them and Reset filters and Reset ignored at its foot. Last, at
+the far edge, *Most wanted* in a box of the Statistics kind: ten rows always,
+whatever the ranking length, in the caption size so the box stays narrow.
+Reset filters returns the filter panel
 only; the item kind, the chosen stack and the assumptions are the question.
 
 Recommendations and Best use read `rune-craft-recommendations.ts`. Every calculation reads
