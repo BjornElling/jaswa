@@ -473,9 +473,16 @@ export function assumedCraftHalf(
 export function heldCraftHalf(
   kind: CraftKind, items: ReadonlyArray<{ item: CraftItem; stock: number }>, assumption: CraftRollAssumption,
 ): CraftHalf {
+  return craftHalfOf(kind, items.filter(({ item }) => item.amount > 0), assumption);
+}
+
+/** The same half without asking whether a stack is empty: What's missing asks about items nobody holds. */
+function craftHalfOf(
+  kind: CraftKind, items: ReadonlyArray<{ item: CraftItem; stock: number }>, assumption: CraftRollAssumption,
+): CraftHalf {
   const choices: CraftChoice[][] = Array.from({ length: statIdBound }, () => []);
   for (const { item, stock: index } of items) {
-    if (item.kind !== kind || item.amount <= 0 || item.statId < 0 || item.statId >= statIdBound) continue;
+    if (item.kind !== kind || item.statId < 0 || item.statId >= statIdBound) continue;
     const roll = craftItemRoll(kind, item.lineage, item.statId, item.grade, assumption);
     if (roll === null) continue;
     choices[item.statId].push({ value: roll, stock: index });
@@ -583,12 +590,17 @@ export type CraftApplication = {
   lines: readonly EndStateLine[];
 };
 
-/** One held item, every legal target. Follow-up stones touch only its gemmed line. */
+/**
+ * One item, every legal target. Follow-up stones touch only its gemmed line.
+ *
+ * Whether the box holds the item is not asked here: What's missing judges the
+ * items an account lacks by exactly the rules that place the ones it has.
+ */
 export function craftItemApplications(item: CraftItem, rune: Rune, options: {
   roll: CraftRollAssumption; grindAfter: { grade: ItemGrade } | null;
 }): CraftApplication[] {
-  if (!lineageFits(item, rune) || item.amount <= 0) return [];
-  const held = heldCraftHalf(item.kind, [{ item, stock: 0 }], options.roll);
+  if (!lineageFits(item, rune)) return [];
+  const held = craftHalfOf(item.kind, [{ item, stock: 0 }], options.roll);
   const variants = craftVariants({
     gem: item.kind === 'gem' ? held : null,
     grind: item.kind === 'grindstone' ? held : null,

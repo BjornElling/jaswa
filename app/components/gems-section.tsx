@@ -3,7 +3,8 @@ import { useMemo, useSyncExternalStore } from 'react';
 import { AncientName } from './ancient-mark';
 import { FilterButton } from './button';
 import { CraftItemBestUse } from './craft-item-best-use';
-import { craftResultMemory } from '../lib/compute/craft-result-memory';
+import type { CraftViewMode } from './craft-item-best-use';
+import { craftResultMemory, missingCraftResultMemory } from '../lib/compute/craft-result-memory';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { Dropdown } from './dropdown';
 import { FilterSummary } from './filter-summary';
@@ -128,6 +129,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
   onOpenRune: OpenRuneOverlay;
 }) {
   const craftCalculation = useSyncExternalStore(craftResultMemory.subscribe, craftResultMemory.getSnapshot, craftResultMemory.getSnapshot);
+  const missingCalculation = useSyncExternalStore(missingCraftResultMemory.subscribe, missingCraftResultMemory.getSnapshot, missingCraftResultMemory.getSnapshot);
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.craft-items', defaultCraftFilters, isCraftFilterState,
   );
@@ -215,15 +217,45 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
       ? 'If your account has any, report the missing items from the rail.'
       : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
   </section>;
+  const noRunes = <section className="empty-state">
+    <h2>{game ? 'This import holds no runes to improve.' : 'Nothing to show until a game file is imported.'}</h2>
+    <p className="next-step">{game
+      ? 'Import an account that holds runes to see which gems and grindstones they lack.'
+      : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
+  </section>;
 
-  /* Two questions, two menus, the same split the relic workspace makes. The box
-     asks what the account is sitting on and whether any of it can still be
-     spent; Best use takes one item and asks where it should go. */
+  /* One engine, three ways to ask it, read here plus the box itself. Every
+     view reads the same props; only the question differs. Deferred: `details`
+     renders its children open or shut, so a closed bar would otherwise mount
+     a second copy of the empty state and its controls. */
+  const craftView = (mode: CraftViewMode, memory: typeof craftCalculation) => <CraftItemBestUse
+    mode={mode}
+    items={items}
+    runes={runes}
+    monsters={monsters}
+    profiles={preferences.monsterPreferences}
+    roles={roles}
+    general={preferences.general}
+    settings={preferences.runePotential}
+    hardwareAcceleration={preferences.hardwareAcceleration}
+    onOpenRune={onOpenRune}
+    calculation={memory}
+    onCalculated={mode === 'missing' ? missingCraftResultMemory.remember : craftResultMemory.remember}
+  />;
+
+  /* Recommendations leads: it is the question most visits come with — what to
+     spend next — and the box beneath it is the inventory it answers from. The
+     box alone opens by itself, because it needs no calculation to say
+     something. Best use narrows the answer to one stack; What's missing turns
+     it round and asks what the box lacks. */
   return <WorkspacePage
     header={<PageHeader
       title="Gems &amp; Grinds"
       tagline="" />}
   >
+    <Disclosure title="Recommendations" sessionKey="gems.recommendations" deferContent>
+      {!items.length ? noItems : craftView('recommendations', craftCalculation)}
+    </Disclosure>
     <Disclosure title="Your box" sessionKey="gems.box" defaultOpen>
       {!items.length ? noItems : <div className="craft-library">
         <DataTablePage
@@ -363,39 +395,13 @@ export function GemsSection({ game, roles, preferences, onOpenRune }: {
       </div>}
     </Disclosure>
 
-    {/* Deferred: `details` renders its children open or shut, so a closed bar
-        would otherwise mount a second copy of the empty state and judge every
-        rune in the box against an item nobody has chosen yet. */}
     <Disclosure title="Best use for this" sessionKey="gems.best-use" deferContent>
-      {!items.length ? noItems : <CraftItemBestUse
-        items={items}
-        runes={runes}
-        monsters={monsters}
-        profiles={preferences.monsterPreferences}
-        roles={roles}
-        general={preferences.general}
-        settings={preferences.runePotential}
-        hardwareAcceleration={preferences.hardwareAcceleration}
-        onOpenRune={onOpenRune}
-        calculation={craftCalculation}
-        onCalculated={craftResultMemory.remember}
-      />}
+      {!items.length ? noItems : craftView('selected', craftCalculation)}
     </Disclosure>
-    <Disclosure title="Recommendations" sessionKey="gems.recommendations" deferContent>
-      {!items.length ? noItems : <CraftItemBestUse
-        recommendations
-        items={items}
-        runes={runes}
-        monsters={monsters}
-        profiles={preferences.monsterPreferences}
-        roles={roles}
-        general={preferences.general}
-        settings={preferences.runePotential}
-        hardwareAcceleration={preferences.hardwareAcceleration}
-        onOpenRune={onOpenRune}
-        calculation={craftCalculation}
-        onCalculated={craftResultMemory.remember}
-      />}
+    {/* An empty box is the one with the most missing, so this view needs
+        runes, not items. */}
+    <Disclosure title="What's missing" sessionKey="gems.missing" deferContent>
+      {!runes.length ? noRunes : craftView('missing', missingCalculation)}
     </Disclosure>
   </WorkspacePage>;
 }

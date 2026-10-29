@@ -17,7 +17,8 @@ import { emptyRunePlacement, hasRunePlacement } from '../lib/rune-placement';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import { craftKindLabels, craftLineageLabels, craftRollLabels, craftRollAssumptions,
-  defaultCraftRollAssumption, craftSetLabel, itemGrades } from '../lib/rune-craft-items';
+  defaultCraftRollAssumption, craftSetLabel, itemGrades, missingCraftGrades, missingCraftItems,
+  missingCraftLineages } from '../lib/rune-craft-items';
 import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption } from '../lib/rune-craft-items';
 import { craftItemRange } from '../lib/rune-craft-end-state';
 import { runeStatIds, runeStatName, runeLineStat, runeLineFigure } from '../lib/runes';
@@ -25,15 +26,34 @@ import type { Rune } from '../lib/runes';
 import type { RuneRole } from '../lib/rune-roles';
 import type { GeneralSettings, ItemGrade, RunePotentialSettings } from '../lib/types';
 import { referenceLines } from '../lib/rune-reference-stats';
-import type { CraftRecommendation, CraftRecommendationRequest, CraftCalculation } from '../lib/rune-craft-recommendations';
-import { craftCalculationKey, craftRecommendationRankings, craftStatAlreadyChanged } from '../lib/rune-craft-recommendations';
+import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation } from '../lib/rune-craft-recommendations';
+import { craftCalculationKey, craftRecommendationRankings, craftStatAlreadyChanged, heldCraftBenchmark,
+  isHeldCraft, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { readSettings, isBoolean, isOneOf, isWholeNumberIn } from '../lib/preference-reading';
 
+/**
+ * The three questions Gems & Grinds asks of one engine:
+ * - `recommendations`: where the box's items do the most good;
+ * - `selected`: where one chosen stack does the most good;
+ * - `missing`: which items the box lacks would beat the best it can already do.
+ */
+export type CraftViewMode = 'recommendations' | 'selected' | 'missing';
+
 const craftKinds: readonly CraftKind[] = ['gem', 'grindstone'];
 const craftLineages: readonly CraftLineage[] = ['standard', 'immemorial', 'ancient'];
 const alreadyOptions = ['yes', 'no'] as const;
+
+/* What's missing names an item by its set, never Immemorial, and asks only
+   about the grades worth chasing (`missingCraftItems`), so its two groups offer
+   only those choices. */
+const modeChoices: Record<CraftViewMode, { lineages: readonly CraftLineage[]; grades: readonly ItemGrade[]; storageKey: string }> = {
+  recommendations: { lineages: craftLineages, grades: itemGrades, storageKey: 'jaswa.filters.craft-recommendations' },
+  selected: { lineages: craftLineages, grades: itemGrades, storageKey: 'jaswa.filters.craft-best-use' },
+  missing: { lineages: missingCraftLineages, grades: missingCraftGrades, storageKey: 'jaswa.filters.craft-missing' },
+};
+
 const defaultState = {
   kinds: ['grindstone'] as CraftKind[], lineages: [] as CraftLineage[], grades: [] as ItemGrade[],
   statId: '', selectedItemId: '', set: '', roll: defaultCraftRollAssumption,
@@ -41,28 +61,45 @@ const defaultState = {
   already: [] as Array<typeof alreadyOptions[number]>,
 };
 type State = typeof defaultState;
+/** Reset filters returns these and only these: the item kind, the chosen stack and the assumptions are the question, not a filter. */
+const filterFields = ['lineages', 'grades', 'statId', 'set', 'showEngraved', 'showInventory', 'count', 'already'] as const;
 const isString = (value: unknown) => typeof value === 'string';
 const isListOf = <T,>(choices: readonly T[]) => (value: unknown) => Array.isArray(value) && value.every(isOneOf(choices));
-function readState(value: unknown): State {
-  return readSettings(value, defaultState, {
+const stateReaders = Object.fromEntries((Object.keys(modeChoices) as CraftViewMode[]).map((mode) => [mode, {
+  read: (value: unknown): State => readSettings(value, defaultState, {
     kinds: (value) => Array.isArray(value) && value.length === 1 && isOneOf(craftKinds)(value[0]),
-    lineages: isListOf(craftLineages), grades: isListOf(itemGrades), statId: (value) => value === '' || runeStatIds.some((id) => String(id) === value),
+    lineages: isListOf(modeChoices[mode].lineages), grades: isListOf(modeChoices[mode].grades),
+    statId: (value) => value === '' || runeStatIds.some((id) => String(id) === value),
     selectedItemId: isString, set: isString, roll: isOneOf(craftRollAssumptions), grindAfter: isBoolean,
     grindGrade: isOneOf(itemGrades), showEngraved: isBoolean, showInventory: isBoolean, count: isWholeNumberIn(1, 10),
     already: isListOf(alreadyOptions),
-  });
-}
-const stateReader = { read: readState };
+  }),
+}])) as Record<CraftViewMode, { read: (value: unknown) => State }>;
 
-export function CraftItemBestUse({ items, runes, monsters, profiles, roles, general, settings, hardwareAcceleration, onOpenRune, recommendations = false, calculation, onCalculated }: {
+/** `Legend Violent · SPD Grind`, with the Ancient mark drawn rather than spelled. */
+function CraftItemName({ item }: { item: CraftItem }) {
+  return <>
+    {item.grade} <AncientName name={item.setName ?? craftLineageLabels.immemorial} ancient={item.lineage === 'ancient'} />
+    {' · '}{item.statName} {craftKindLabels[item.kind]}
+  </>;
+}
+
+/* An Immemorial item rolls what the set's own item rolls, so What's missing
+   names the set's item and says on its title that either will do. */
+const immemorialAlternative = (item: CraftItem) => item.amount === 0 && item.lineage === 'standard'
+  ? `An Immemorial ${item.statName} ${craftKindLabels[item.kind]} of this grade fits too` : undefined;
+
+export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles, general, settings, hardwareAcceleration, onOpenRune, calculation, onCalculated }: {
+  mode: CraftViewMode;
   items: readonly CraftItem[]; runes: readonly Rune[]; monsters: readonly GameRecord[];
   profiles: MonsterPreferences; roles: readonly RuneRole[]; general: GeneralSettings;
-  settings: RunePotentialSettings; hardwareAcceleration: boolean; onOpenRune: OpenRuneOverlay; recommendations?: boolean;
+  settings: RunePotentialSettings; hardwareAcceleration: boolean; onOpenRune: OpenRuneOverlay;
   calculation: CraftCalculation | null; onCalculated: (value: CraftCalculation | null) => void;
 }) {
-  const [state, setState] = useSessionStorageState(recommendations ? 'jaswa.filters.craft-recommendations' : 'jaswa.filters.craft-best-use', defaultState, stateReader);
+  const choices = modeChoices[mode];
+  const [state, setState] = useSessionStorageState(choices.storageKey, defaultState, stateReaders[mode]);
   const kind = state.kinds.length === 1 ? state.kinds[0] : 'grindstone';
-  const prefix = recommendations ? 'craft-recommendations' : 'craft-best-use';
+  const prefix = `craft-${mode}`;
   const alreadyLabel = kind === 'grindstone' ? 'Stat already grinded' : "Stat already gem'ed";
   const format = (value: number) => formatNumber(value, general);
   const score = (value: number) => `${formatDecimal(value, general)} %`;
@@ -70,26 +107,27 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
   const namesIn = useMemo(() => monsterCopyNamesIn(monsters, profiles, placements.presets), [monsters, profiles, placements.presets]);
   const sets = useMemo(() => [...new Set(runes.map((rune) => rune.setName))].sort(), [runes]);
   const offered = useMemo(() => items.filter((item) => item.kind === kind
-    && filterIncludes(state.lineages, item.lineage, craftLineages)
-    && filterIncludes(state.grades, item.grade, itemGrades)
-    && (!state.statId || String(item.statId) === state.statId)), [items, kind, state.lineages, state.grades, state.statId]);
+    && filterIncludes(state.lineages, item.lineage, choices.lineages)
+    && filterIncludes(state.grades, item.grade, choices.grades)
+    && (!state.statId || String(item.statId) === state.statId)), [items, kind, state.lineages, state.grades, state.statId, choices]);
   const groups = useMemo(() => {
     const found = new Map<string, CraftItem[]>();
     for (const item of offered) { const label = craftSetLabel(item); const group = found.get(label) ?? []; group.push(item); found.set(label, group); }
     return [...found].sort(([a], [b]) => a.localeCompare(b));
   }, [offered]);
-  const selected = offered.find((item) => item.id === state.selectedItemId);
-  const grindPossible = items.some((item) => item.kind === 'gem' &&
-    craftItemRange('grindstone', item.lineage, item.statId, state.grindGrade) !== undefined);
+  const selected = mode === 'selected' ? offered.find((item) => item.id === state.selectedItemId) : undefined;
   const base = useMemo(() => {
     const lines = referenceLines({ unit_list: monsters });
     return lines ? new Map([...lines].map(([type, line]) => [type, line.stats])) : null;
   }, [monsters]);
+  const missing = useMemo(() => mode === 'missing' ? missingCraftItems(items, runes) : [], [mode, items, runes]);
+  const grindPossible = [...items, ...missing].some((item) => item.kind === 'gem' &&
+    craftItemRange('grindstone', item.lineage, item.statId, state.grindGrade) !== undefined);
   const request = useMemo<CraftRecommendationRequest | null>(() => base ? {
-    items, runes, roles, base, settings, roll: state.roll,
+    items, missing, runes, roles, base, settings, roll: state.roll,
     grindAfter: state.grindAfter ? { grade: state.grindGrade } : null,
     preferGpu: hardwareAcceleration,
-  } : null, [base, items, runes, roles, settings, state.roll, state.grindAfter, state.grindGrade, hardwareAcceleration]);
+  } : null, [base, items, missing, runes, roles, settings, state.roll, state.grindAfter, state.grindGrade, hardwareAcceleration]);
   const calculationKey = useMemo(() => request ? craftCalculationKey(request) : '', [request]);
   const worker = useRef<Worker | null>(null);
   const workerRequest = useRef<CraftRecommendationRequest | null>(null);
@@ -127,32 +165,41 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
     running.postMessage(request);
   }
   const update = <K extends keyof State,>(key: K, value: State[K]) => setState((previous) => ({ ...previous, [key]: value }));
-  const group = <T extends string,>(label: string, key: 'lineages' | 'grades', values: readonly T[], display: (value: T) => string, area: string) =>
-    <div className={`filter-group craft-best-use-${area}`} role="group" aria-label={label}>
-      <span className="filter-label">{label}</span><div className="filter-group-controls">{values.map((value) => <FilterButton key={value}
-        active={(state[key] as string[]).includes(value)} onClick={() => setState((previous) => ({ ...previous,
-          [key]: (previous[key] as string[]).includes(value) ? previous[key].filter((entry) => entry !== value) : [...previous[key], value] }))}>{display(value)}</FilterButton>)}</div>
+  const toggle = <K extends 'lineages' | 'grades' | 'already',>(key: K, value: State[K][number]) => setState((previous) => {
+    const chosen = previous[key] as readonly string[];
+    return { ...previous, [key]: chosen.includes(value) ? chosen.filter((entry) => entry !== value) : [...chosen, value] };
+  });
+  const choiceGroup = <T extends string,>(label: string, area: string, values: readonly T[], isActive: (value: T) => boolean,
+    onToggle: (value: T) => void, display: (value: T) => string, title?: (value: T) => string, accessibleLabel = label) =>
+    <div className={`filter-group craft-view-${area}`} role="group" aria-label={accessibleLabel}>
+      <span className="filter-label">{label}</span>
+      <div className="filter-group-controls">{values.map((value) => <FilterButton key={value} active={isActive(value)}
+        title={title?.(value)} onClick={() => onToggle(value)}>{display(value)}</FilterButton>)}</div>
     </div>;
   const result = calculation?.key === calculationKey ? calculation.result : undefined;
+  /* The box's best on each rune comes from the whole answer, so a filter that
+     hides a held item cannot lower the bar a missing one has to clear. */
+  const benchmark = useMemo<CraftBenchmark>(() => mode === 'missing' && result ? heldCraftBenchmark(result.candidates) : runeAsItStands,
+    [mode, result]);
   const visible = useMemo(() => result?.candidates.filter((row) => row.item.kind === kind
-    && (recommendations || !selected || row.item.id === selected.id)
-    && filterIncludes(state.lineages, row.item.lineage, craftLineages)
-    && filterIncludes(state.grades, row.item.grade, itemGrades)
+    && isHeldCraft(row) === (mode !== 'missing')
+    && (!selected || row.item.id === selected.id)
+    && filterIncludes(state.lineages, row.item.lineage, choices.lineages)
+    && filterIncludes(state.grades, row.item.grade, choices.grades)
     && (!state.statId || String(row.item.statId) === state.statId)
     && (!state.set || row.rune.setName === state.set)
     && filterIncludes(state.already, craftStatAlreadyChanged(row.rune, row.item) ? 'yes' : 'no', alreadyOptions)
     && filterPair(hasRunePlacement(placements.runes.get(row.rune.id) ?? emptyRunePlacement), state.showEngraved, state.showInventory)) ?? [],
-  [result, kind, recommendations, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements]);
-  const rankings = useMemo(() => craftRecommendationRankings(visible, state.count), [visible, state.count]);
+  [result, kind, mode, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices]);
+  const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark), [visible, state.count, benchmark]);
+  const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, state.count, benchmark) : [], [mode, visible, state.count, benchmark]);
   const empty = base === null ? 'A level 40 monster is needed to score runes.' : !roles.length ? 'Add a role in Rune Clean-up to judge these runes.'
-    : !items.length ? 'Import gems and grindstones to calculate.' : null;
+    : mode === 'missing' ? (!runes.length ? 'Import runes to see what they are missing.' : null)
+      : !items.length ? 'Import gems and grindstones to calculate.' : null;
   function runeCard(row: CraftRecommendation) {
     const rune = row.rune;
     return <article className="craft-recommendation" key={rune.id}>
-      <h4 className="craft-recommendation-title">
-        {row.item.grade} <AncientName name={row.item.setName ?? 'Immemorial'} ancient={row.item.lineage === 'ancient'} />
-        {' · '}{row.item.statName} {craftKindLabels[row.item.kind]}
-      </h4>
+      <h4 className="craft-recommendation-title" title={immemorialAlternative(row.item)}><CraftItemName item={row.item} /></h4>
       <header className="craft-rune-header">
         <RuneEmblem setName={rune.setName} slot={rune.slot} />
         <div className="craft-rune-identity">
@@ -188,6 +235,8 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
       <dl className="craft-evaluation">
         <div><dt>Best role</dt><dd>{row.after.role}</dd></div>
         <div><dt>Score</dt><dd className="craft-score-change"><span className="muted">{score(row.before.score)}</span> → {score(row.after.score)}</dd></div>
+        {/* The bar the missing item cleared: the best the box's own items reach on this rune. */}
+        {mode === 'missing' && <div><dt>Your box</dt><dd>{score(benchmark.score(row))}</dd></div>}
       </dl>
     </article>;
   }
@@ -198,60 +247,82 @@ export function CraftItemBestUse({ items, runes, monsters, profiles, roles, gene
     </section>;
   }
 
-  return <div className="craft-best-use" data-mode={recommendations ? 'recommendations' : 'selected'}>
-    <div className="filter-panel craft-best-use-filters">
-      <div className="filter-group craft-best-use-kind" role="group" aria-label="Item"><span className="filter-label">Item</span>
-        <div className="filter-group-controls">{craftKinds.map((value) => <FilterButton key={value} active={kind === value}
-          onClick={() => update('kinds', [value])}>{value === 'gem' ? 'Enchanted gem' : 'Grindstone'}</FilterButton>)}</div></div>
-      {group('Family', 'lineages', craftLineages, (value) => craftLineageLabels[value], 'lineage')}
-      {group('Grade', 'grades', itemGrades, (value) => value.slice(0, 3).toUpperCase(), 'grade')}
-      <div className="filter-group craft-best-use-location" role="group" aria-label="Choose rune locations"><span className="filter-label">Location</span>
-        <div className="filter-group-controls">{(['showEngraved', 'showInventory'] as const).map((key) => <FilterButton key={key} active={state[key]}
-          onClick={() => update(key, !state[key])}>{key === 'showEngraved' ? 'Engraved' : 'Inventory'}</FilterButton>)}</div></div>
-      <div className="filter-group craft-best-use-select" style={{ visibility: recommendations ? 'hidden' : undefined }}>
+  return <div className="craft-best-use" data-mode={mode}>
+    {/* The question: which kind of item, which stack where there is one to
+        choose, what each roll is assumed to give, and the button that asks it.
+        Everything in the panel below only narrows the answer. */}
+    <div className="filter-panel craft-question">
+      {choiceGroup('Item', 'kind', craftKinds, (value) => kind === value, (value) => update('kinds', [value]),
+        (value) => value === 'gem' ? 'Enchanted gem' : 'Grindstone')}
+      {mode === 'selected' && <div className="filter-group craft-view-select">
         <label className="filter-label" htmlFor={`${prefix}-item`}>Craft item</label><div className="filter-group-controls">
           <Dropdown id={`${prefix}-item`} value={selected?.id ?? ''} placeholder="Any item" aria-label="Choose a gem or grindstone to place"
             onChange={(event) => update('selectedItemId', event.target.value)}>
             {groups.map(([label, entries]) => <optgroup key={label} label={label}>{entries.map((item) => <option key={item.id} value={item.id}>
               {craftKindLabels[item.kind]} · {craftSetLabel(item)} · {item.statName} · {item.grade} · {format(item.amount)} held
-            </option>)}</optgroup>)}</Dropdown></div></div>
-      <div className="filter-group craft-best-use-count"><span className="filter-label"># of options</span><div className="filter-group-controls">
-        <ValueSlider minimum={1} maximum={10} value={state.count} label="Number of runes listed in each ranking" valueText={(value) => `${value} runes in each ranking`}
-          onChange={(count) => update('count', count)} /></div></div>
-      <div className="filter-group craft-best-use-set"><label className="filter-label" htmlFor={`${prefix}-set`}>Rune set</label><div className="filter-group-controls">
-        <Dropdown id={`${prefix}-set`} value={state.set ?? ''} placeholder="Any rune set" aria-label="Filter candidate runes by set"
-          onChange={(event) => update('set', event.target.value)}>{sets.map((set) => <option key={set}>{set}</option>)}</Dropdown></div></div>
-      <div className="filter-group craft-best-use-stat"><label className="filter-label" htmlFor={`${prefix}-stat`}>Stat</label><div className="filter-group-controls">
-        <Dropdown id={`${prefix}-stat`} value={state.statId} placeholder="Any stat" aria-label="Narrow the list to one stat" onChange={(event) => update('statId', event.target.value)}>
-          {runeStatIds.map((id) => <option key={id} value={id}>{runeStatName(id)}</option>)}</Dropdown></div></div>
-      <div className="filter-group craft-best-use-already" role="group" aria-label={alreadyLabel}>
-        <span className="filter-label">{alreadyLabel}</span><div className="filter-group-controls">
-          {alreadyOptions.map((value) => <FilterButton key={value} active={state.already.includes(value)}
-            onClick={() => update('already', state.already.includes(value) ? state.already.filter((entry) => entry !== value) : [...state.already, value])}>
-            {value === 'yes' ? 'Yes' : 'No'}
-          </FilterButton>)}
-        </div>
-      </div>
-      <div className="filter-panel-actions craft-best-use-actions"><Button onClick={() => setState((previous) => ({ ...previous, kinds: defaultState.kinds, lineages: [], grades: [], statId: '', selectedItemId: '', set: '', showEngraved: true, showInventory: true, count: defaultState.count, already: [] }))} aria-label={recommendations ? 'Reset recommendations filters' : 'Reset best use filters'}>Reset filters</Button></div>
-    </div>
-    <div className="craft-calculation-settings">
-      <div className="filter-group craft-best-use-roll"><label className="filter-label" htmlFor={`${prefix}-roll`}>Assumed roll</label><div className="filter-group-controls">
+            </option>)}</optgroup>)}</Dropdown></div></div>}
+      <div className="filter-group craft-view-roll"><label className="filter-label" htmlFor={`${prefix}-roll`}>Assumed roll</label><div className="filter-group-controls">
         <Dropdown id={`${prefix}-roll`} value={state.roll} aria-label="How well the roll is assumed to land" onChange={(event) => update('roll', event.target.value as CraftRollAssumption)}>
           {craftRollAssumptions.map((roll) => <option key={roll} value={roll}>{craftRollLabels[roll]}</option>)}</Dropdown></div></div>
-      <div className="filter-group craft-best-use-grind" role="group" aria-label="Grind the gemmed property afterwards" style={{ visibility: kind === 'gem' ? undefined : 'hidden' }}>
+      <div className="filter-group craft-view-grind" role="group" aria-label="Grind the gemmed property afterwards" style={{ visibility: kind === 'gem' ? undefined : 'hidden' }}>
         <span className="filter-label">Then grind it</span><div className="filter-group-controls"><FilterButton active={state.grindAfter} disabled={!grindPossible}
           title={grindPossible ? 'Grind the gemmed property at the assumed grade and roll' : 'The offered item stats cannot be ground'} onClick={() => update('grindAfter', !state.grindAfter)}>Yes</FilterButton>
           <Dropdown value={state.grindGrade} disabled={!state.grindAfter || !grindPossible} aria-label="Grade of the grindstone to assume"
             onChange={(event) => update('grindGrade', event.target.value as ItemGrade)}>{itemGrades.map((grade) => <option key={grade}>{grade}</option>)}</Dropdown></div></div>
+      <div className="craft-calculation-actions">
+        <Button tone="primary" size="prominent" busy={current?.busy} busyLabel="Calculating…" disabled={Boolean(empty) || current?.busy}
+          onClick={calculate}>Calculate</Button>
+        <Button disabled={!current && !result} onClick={clear}>Clear results</Button>
+        <Button disabled={!current?.busy} onClick={clear}>Cancel</Button>
+      </div>
+      <div className="craft-calculation-status">
+        {current?.busy || current?.error || !result
+          ? <p className="calculation-status" role="status">{current?.busy ? `Calculating… ${Math.floor(current.progress * 100)} %` : current?.error ?? empty ?? ''}</p>
+          : <CalculationStatus durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />}
+      </div>
     </div>
-    <div className="craft-calculation-actions"><Button tone="primary" size="prominent" busy={current?.busy} busyLabel="Calculating…" disabled={Boolean(empty) || current?.busy}
-      onClick={calculate}>Calculate</Button><Button disabled={!current && !result} onClick={clear}>Clear results</Button><Button disabled={!current?.busy} onClick={clear}>Cancel</Button></div>
-    <div className="craft-calculation-status">
-      {current?.busy || current?.error || !result
-        ? <p className="calculation-status" role="status">{current?.busy ? `Calculating… ${Math.floor(current.progress * 100)} %` : current?.error ?? empty ?? ''}</p>
-        : <CalculationStatus durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />}
+    {/* Two rows with one subject each — the item, then the rune it goes on —
+        and the length of every ranking with the way back beside them. */}
+    <div className="filter-panel craft-best-use-filters">
+      {choiceGroup('Family', 'lineage', choices.lineages, (value) => state.lineages.includes(value), (value) => toggle('lineages', value),
+        (value) => craftLineageLabels[value])}
+      {choiceGroup('Grade', 'grade', choices.grades, (value) => state.grades.includes(value), (value) => toggle('grades', value),
+        (value) => value.slice(0, 3).toUpperCase(), (value) => value)}
+      <div className="filter-group craft-view-stat"><label className="filter-label" htmlFor={`${prefix}-stat`}>Stat</label><div className="filter-group-controls">
+        <Dropdown id={`${prefix}-stat`} value={state.statId} placeholder="Any stat" aria-label="Narrow the list to one stat" onChange={(event) => update('statId', event.target.value)}>
+          {runeStatIds.map((id) => <option key={id} value={id}>{runeStatName(id)}</option>)}</Dropdown></div></div>
+      <div className="filter-group craft-view-count"><span className="filter-label">Per ranking</span><div className="filter-group-controls">
+        <ValueSlider minimum={1} maximum={10} value={state.count} label="Number of runes listed in each ranking" valueText={(value) => `${value} runes in each ranking`}
+          onChange={(count) => update('count', count)} /></div></div>
+      <div className="filter-group craft-view-set"><label className="filter-label" htmlFor={`${prefix}-set`}>Rune set</label><div className="filter-group-controls">
+        <Dropdown id={`${prefix}-set`} value={state.set ?? ''} placeholder="Any rune set" aria-label="Filter candidate runes by set"
+          onChange={(event) => update('set', event.target.value)}>{sets.map((set) => <option key={set}>{set}</option>)}</Dropdown></div></div>
+      {choiceGroup('Location', 'location', ['showEngraved', 'showInventory'] as const, (key) => state[key], (key) => update(key, !state[key]),
+        (key) => key === 'showEngraved' ? 'Engraved' : 'Inventory', undefined, 'Choose rune locations')}
+      {choiceGroup(alreadyLabel, 'already', alreadyOptions, (value) => state.already.includes(value), (value) => toggle('already', value),
+        (value) => value === 'yes' ? 'Yes' : 'No')}
+      <div className="filter-panel-actions craft-view-actions">
+        <Button className="filter-reset" onClick={() => setState((previous) => ({ ...previous,
+          ...Object.fromEntries(filterFields.map((field) => [field, defaultState[field]])) }))}
+        aria-label={`Reset ${{ recommendations: 'recommendations', selected: 'best use', missing: "what's missing" }[mode]} filters`}>Reset filters</Button>
+      </div>
     </div>
     {result && <div className="craft-best-use-results" data-kind={kind}>
+      {mode === 'missing' && <section className="craft-wanted" aria-label="Most wanted">
+        <h3>Most wanted</h3>
+        {wanted.length ? <table className="craft-wanted-table">
+          <thead><tr>
+            <th scope="col">Item</th>
+            <th scope="col" title="Runes on which this is the missing item that lifts them furthest past your box">Runes</th>
+            <th scope="col" title="The largest score gain over your box on one of those runes">Top gain</th>
+          </tr></thead>
+          <tbody>{wanted.map((entry) => <tr key={entry.item.id}>
+            <td title={immemorialAlternative(entry.item)}><CraftItemName item={entry.item} /></td>
+            <td>{format(entry.runes)}</td>
+            <td>+{score(entry.topGain)}</td>
+          </tr>)}</tbody>
+        </table> : <p className="best-artifact-empty">Your box already holds the best item for every rune shown.</p>}
+      </section>}
       {ranking('Highest score', rankings.highestScore)}{ranking('Highest gain', rankings.highestGain)}
       {kind === 'grindstone' && <div className="craft-stat-rankings">{rankings.highestStat.size ? [...rankings.highestStat].sort(([a], [b]) => a - b).map(([stat, rows]) =>
         <div key={stat}>{ranking('Highest stat', rows, runeStatName(stat))}</div>) : ranking('Highest stat', [])}</div>}

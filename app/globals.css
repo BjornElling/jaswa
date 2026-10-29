@@ -376,7 +376,7 @@ label[for] {
 
 /* Labels name a group or column; captions name a nearby value. They share the
    one label size so only weight and casing distinguish the two. */
-.type-label, .rail-heading, .craft-recommendation-lines th,
+.type-label, .rail-heading, .craft-recommendation-lines th, .craft-wanted-table th,
 .filter-label, .eyebrow, .route-option,
 .grid-table thead th, .best-artifact-improvements-title,
 .best-artifact-result th, .best-monster-table th,
@@ -1324,35 +1324,73 @@ label[for] {
 .craft-quantity-filter .checkbox-row { flex: 0 0 auto; }
 .craft-quantity-filter .range-slider { flex: 1 1 auto; width: auto; min-width: 0; margin-top: var(--s1); }
 
-/* The follow-up grind keeps its track when hidden, so changing item kind moves nothing. */
+/* Two panels, the split Rune Optimization makes (`RUNE-OPTIMIZATION.md` §8):
+   the question first — item kind, the stack where there is one to choose, the
+   assumptions, and Calculate at the far end where the eye finishes the row —
+   then the filters, which only narrow its answer and never start a worker.
+   The filters run one subject per row: what the item is, then which rune it
+   goes on; the last column holds the ranking length and the way back. Every
+   view of the page shares these areas, so a group never changes place between
+   them. The follow-up grind keeps its track when hidden, so changing the item
+   kind moves nothing. */
 .craft-best-use { display: grid; gap: var(--s4); }
+.craft-question {
+  grid-template-columns: max-content 16ch max-content minmax(0, 1fr) max-content;
+  grid-template-areas:
+    "kind roll grind . actions"
+    "status status status status status";
+}
+.craft-best-use[data-mode="selected"] .craft-question {
+  grid-template-columns: max-content minmax(24ch, 48ch) 16ch max-content minmax(0, 1fr) max-content;
+  grid-template-areas:
+    "kind item roll grind . actions"
+    "status status status status status status";
+}
+.craft-view-kind { grid-area: kind; }
+.craft-view-select { grid-area: item; }
+.craft-view-roll { grid-area: roll; }
+.craft-view-grind { grid-area: grind; }
+.craft-calculation-actions { grid-area: actions; display: flex; gap: var(--s3); align-items: center; align-self: end; }
+.craft-calculation-status { grid-area: status; min-height: var(--s6); }
+.craft-calculation-status p { margin: 0; }
+.craft-question .filter-group-controls { width: 100%; }
+.craft-view-select .jaswa-select, .craft-view-roll .jaswa-select { width: 100%; min-width: 0; }
+.craft-view-grind .jaswa-select { width: 12ch; min-width: 0; }
 .craft-best-use-filters {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-areas:
-    "kind family grade location"
-    "item count set stat"
-    "already . . actions";
+    "family   grade    stat    count"
+    "set      location already actions";
 }
-.craft-best-use-kind { grid-area: kind; }
-.craft-best-use-lineage { grid-area: family; }
-.craft-best-use-grade { grid-area: grade; }
-.craft-best-use-stat { grid-area: stat; }
-.craft-best-use-select { grid-area: item; }
-.craft-best-use-set { grid-area: set; }
-.craft-best-use-roll { grid-area: roll; }
-.craft-best-use-grind { grid-area: grind; }
-.craft-best-use-location { grid-area: location; }
-.craft-best-use-count { grid-area: count; }
-.craft-best-use-already { grid-area: already; }
-.craft-best-use-actions { grid-area: actions; justify-self: end; }
+.craft-view-lineage { grid-area: family; }
+.craft-view-grade { grid-area: grade; }
+.craft-view-stat { grid-area: stat; }
+.craft-view-count { grid-area: count; }
+.craft-view-set { grid-area: set; }
+.craft-view-location { grid-area: location; }
+.craft-view-already { grid-area: already; }
+.craft-view-actions { grid-area: actions; justify-self: end; align-self: end; }
 .craft-best-use-filters .filter-group-controls { width: 100%; }
-.craft-best-use-grind .jaswa-select { min-width: 0; }
-.craft-calculation-settings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-areas: "roll grind . ."; gap: var(--s4); }
-.craft-calculation-settings .filter-group-controls { width: 100%; }
-.craft-calculation-actions { display: flex; gap: var(--s3); align-items: center; }
-.craft-calculation-status { min-height: var(--s6); }
-.craft-calculation-status p { margin: 0; }
+.craft-best-use-filters .jaswa-select { width: 100%; min-width: 0; }
+@media (max-width: 1200px) {
+  .craft-question, .craft-best-use[data-mode="selected"] .craft-question {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "kind item" "roll grind" "actions actions" "status status";
+  }
+  .craft-best-use-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "family grade" "stat count" "set location" "already actions";
+  }
+}
 .craft-best-use-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); align-items: start; }
+/* What's missing, said per item, spans the rankings it summarises. */
+.craft-wanted { grid-column: 1 / -1; display: grid; gap: var(--s3); }
+.craft-wanted > h3, .craft-wanted > p { margin: 0; }
+.craft-wanted-table { width: 100%; max-width: 72ch; table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.craft-wanted-table col, .craft-wanted-table th:first-child { width: auto; }
+.craft-wanted-table th:not(:first-child), .craft-wanted-table td:not(:first-child) { width: 12ch; text-align: right; }
+.craft-wanted-table th { padding: 0 0 var(--s2); text-align: left; color: var(--text-muted); border-bottom: 1px solid var(--line); }
+.craft-wanted-table td { padding: var(--s2) 0; color: var(--text-strong); border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .craft-best-use-results[data-kind="gem"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .craft-ranking, .craft-stat-rankings { display: grid; gap: var(--s4); min-width: 0; }
 .craft-ranking > h3, .craft-ranking > p { margin: 0; }

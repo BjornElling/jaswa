@@ -38,6 +38,9 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
       { id: 'presets', label: 'Presets', name: 'Presets', glyph: '⇅' },
       { id: 'speed', label: 'Speed tuning', name: 'Speed Tuning', glyph: '↝' },
       { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
+      /* Spending gems and grindstones is finishing a build, so it sits beside
+         the build search rather than with the clean-up that sells runes. */
+      { id: 'gems', label: 'Gems & grinds', name: 'Gems & Grinds', glyph: '✦' },
     ],
   },
   {
@@ -45,7 +48,6 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     items: [
       { id: 'rune-setup', label: 'Settings', name: 'Rune Settings', glyph: '⚙' },
       { id: 'potential', label: 'Clean-up', name: 'Rune Clean-up', glyph: '◌' },
-      { id: 'gems', label: 'Gems & grinds', name: 'Gems & Grinds', glyph: '✦' },
       /* An experiment on runes nobody owns yet, judged by the same Clean-up
          engine as the ones above — it belongs with them, not with the settings. */
       ...(import.meta.env.DEV ? [{ id: 'rune-simulator' as const, label: 'Simulator', name: 'Rune Simulator', glyph: '↻' }] : []),

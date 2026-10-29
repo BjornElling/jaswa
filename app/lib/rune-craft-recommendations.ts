@@ -16,7 +16,10 @@ import { combineCalculationBackends } from './compute/calculation-summary';
 import type { CalculationBackend } from './compute/calculation-summary';
 
 export type CraftRecommendationRequest = {
-  items: readonly CraftItem[]; runes: readonly Rune[]; roles: readonly RuneRole[];
+  items: readonly CraftItem[];
+  /** Items the box lacks, judged beside the held ones — What's missing; empty elsewhere. */
+  missing: readonly CraftItem[];
+  runes: readonly Rune[]; roles: readonly RuneRole[];
   base: ReadonlyMap<RoleType, ReferenceStats>; settings: RunePotentialSettings;
   roll: CraftRollAssumption; grindAfter: { grade: ItemGrade } | null; preferGpu: boolean;
 };
@@ -57,18 +60,80 @@ export function rankCraftRecommendations(rows: readonly CraftRecommendation[], c
   return [...distinct.values()].sort(compare).slice(0, count);
 }
 
+/**
+ * The bar a suggestion must clear on its rune. For the box's own items it is
+ * the rune as it stands; for What's missing it is the best the box can already
+ * do to that rune, because an item worth chasing is one that beats it.
+ */
+export type CraftBenchmark = {
+  score: (row: CraftRecommendation) => number;
+  stat: (row: CraftRecommendation) => number;
+};
+
+export const runeAsItStands: CraftBenchmark = { score: (row) => row.before.score, stat: () => -Infinity };
+
+export const isHeldCraft = (row: CraftRecommendation): boolean => row.item.amount > 0;
+
+/**
+ * The box's best on every rune, read from the complete calculation rather than
+ * the filtered one: what the account can already do does not change because a
+ * filter hides some of it.
+ */
+export function heldCraftBenchmark(rows: readonly CraftRecommendation[]): CraftBenchmark {
+  const scores = new Map<string, number>();
+  const stats = new Map<string, number>();
+  const scoreKey = (row: CraftRecommendation) => `${row.rune.id}\0${row.item.kind}`;
+  const statKey = (row: CraftRecommendation) => `${row.rune.id}\0${row.item.statId}`;
+  for (const row of rows) if (isHeldCraft(row)) {
+    scores.set(scoreKey(row), Math.max(scores.get(scoreKey(row)) ?? -Infinity, row.after.score));
+    if (row.item.kind === 'grindstone') stats.set(statKey(row), Math.max(stats.get(statKey(row)) ?? -Infinity, row.stat));
+  }
+  return {
+    score: (row) => Math.max(row.before.score, scores.get(scoreKey(row)) ?? -Infinity),
+    stat: (row) => stats.get(statKey(row)) ?? -Infinity,
+  };
+}
+
 /** A projection of the complete calculation. Filters and result count never change its scores. */
-export function craftRecommendationRankings(rows: readonly CraftRecommendation[], count: number): CraftRankings {
-  const positive = rows.filter((row) => row.gain > 0);
+export function craftRecommendationRankings(rows: readonly CraftRecommendation[], count: number,
+  benchmark: CraftBenchmark = runeAsItStands): CraftRankings {
+  const gain = (row: CraftRecommendation) => row.after.score - benchmark.score(row);
+  const positive = rows.filter((row) => gain(row) > 0);
   const byStat = new Map<number, CraftRecommendation[]>();
-  for (const row of rows) if (row.item.kind === 'grindstone') {
+  for (const row of rows) if (row.item.kind === 'grindstone' && row.stat > benchmark.stat(row)) {
     const own = byStat.get(row.item.statId) ?? []; own.push(row); byStat.set(row.item.statId, own);
   }
   return {
     highestScore: rankCraftRecommendations(positive, count, (row) => row.after.score),
-    highestGain: rankCraftRecommendations(positive, count, (row) => row.gain),
+    highestGain: rankCraftRecommendations(positive, count, gain),
     highestStat: new Map([...byStat].map(([stat, own]) => [stat, rankCraftRecommendations(own, count, (row) => row.stat)])),
   };
+}
+
+export type WantedCraftItem = { item: CraftItem; runes: number; topGain: number };
+
+/**
+ * What's missing, said per item: each rune names the one item it lacks that
+ * would lift it furthest past the box, and the items are ordered by how many
+ * runes named them. A Legend gem that helps a little everywhere does not crowd
+ * out the stone that is the answer for thirty runes.
+ */
+export function wantedCraftItems(rows: readonly CraftRecommendation[], count: number,
+  benchmark: CraftBenchmark): WantedCraftItem[] {
+  const gain = (row: CraftRecommendation) => row.after.score - benchmark.score(row);
+  const best = new Map<string, CraftRecommendation>();
+  for (const row of rows) {
+    if (gain(row) <= 0) continue;
+    const previous = best.get(row.rune.id);
+    if (!previous || gain(row) > gain(previous) || (gain(row) === gain(previous) && tie(row, previous) < 0)) best.set(row.rune.id, row);
+  }
+  const tally = new Map<string, WantedCraftItem>();
+  for (const row of best.values()) {
+    const entry = tally.get(row.item.id) ?? { item: row.item, runes: 0, topGain: 0 };
+    tally.set(row.item.id, { item: row.item, runes: entry.runes + 1, topGain: Math.max(entry.topGain, gain(row)) });
+  }
+  return [...tally.values()].sort((a, b) => b.runes - a.runes || b.topGain - a.topGain
+    || a.item.id.localeCompare(b.item.id)).slice(0, count);
 }
 
 export type CraftCalculation = { key: string; result: CraftRecommendations };
@@ -81,7 +146,7 @@ export function craftStatAlreadyChanged(rune: Pick<Rune, 'subProperties'>, item:
 
 /** Only calculation inputs address the shared result; a filter cannot invalidate it. */
 export function craftCalculationKey(request: CraftRecommendationRequest): string {
-  return JSON.stringify([request.runes, request.items, request.roles, [...request.base],
+  return JSON.stringify([request.runes, request.items, request.missing, request.roles, [...request.base],
     request.settings.acceptedRunes, request.settings.brokenRunes, request.roll, request.grindAfter]);
 }
 
@@ -96,7 +161,7 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest,
   let comparisons = 0;
   const bySet = new Map<number, CraftItem[]>();
   const anySet: CraftItem[] = [];
-  for (const item of request.items) {
+  for (const item of [...request.items, ...request.missing]) {
     if (item.setId === null) anySet.push(item);
     else { const set = bySet.get(item.setId) ?? []; set.push(item); bySet.set(item.setId, set); }
   }

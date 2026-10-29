@@ -25,7 +25,7 @@ import type { GameRecord } from './game-data';
 import type { ItemGrade } from './types';
 import { withAncientMark } from './ancient-mark';
 import { qualityTiers } from './quality-tiers';
-import { runeStatName } from './runes';
+import { runeStatIds, runeStatName } from './runes';
 import { runeSetName } from './rune-sets';
 
 /** The five item grades of `docs/RUNE-CANONICAL.md` §8, weakest first: the game's one tier list. */
@@ -307,6 +307,57 @@ export function readCraftItems(data: GameRecord | undefined): CraftItem[] {
     items.push(item);
   }
   return items;
+}
+
+/**
+ * The grades What's missing asks about. Hero and Legend are the items worth
+ * chasing: a lower grade of the same item rolls less and could only ever
+ * appear as a worse copy of the Legend one beside it.
+ */
+export const missingCraftGrades: readonly ItemGrade[] = ['Hero', 'Legend'];
+
+/** What's missing names items by set or Ancient set, never Immemorial (see below). */
+export const missingCraftLineages: readonly CraftLineage[] = ['standard', 'ancient'];
+
+/**
+ * Every item the game makes for the runes on this account that the box does
+ * not already hold, each with `amount: 0`.
+ *
+ * Only sets the account has runes of are asked about, and only the lineage
+ * those runes take: an Ancient Violent stone is missing only where an Ancient
+ * Violent rune could use it. An Immemorial item rolls exactly what the set's own
+ * item of that grade rolls, so it is never listed as a third choice; instead an
+ * Immemorial item in the box counts as holding the set's item for every
+ * ordinary set, which is where it fits.
+ */
+export function missingCraftItems(
+  held: readonly CraftItem[], runes: readonly { setId: number; ancient: boolean }[],
+): CraftItem[] {
+  const key = (kind: CraftKind, lineage: CraftLineage, setId: number | null, statId: number, grade: ItemGrade) =>
+    [kind, lineage, setId ?? '', statId, grade].join(':');
+  const owned = new Set(held.map((item) => key(item.kind, item.lineage, item.setId, item.statId, item.grade)));
+  const sets = new Map<string, { setId: number; lineage: CraftLineage }>();
+  for (const rune of runes) {
+    const lineage: CraftLineage = rune.ancient ? 'ancient' : 'standard';
+    sets.set(`${lineage}:${rune.setId}`, { setId: rune.setId, lineage });
+  }
+  const missing: CraftItem[] = [];
+  for (const { setId, lineage } of [...sets.values()].sort((a, b) => a.setId - b.setId || a.lineage.localeCompare(b.lineage))) {
+    const setName = runeSetName(setId) ?? null;
+    for (const kind of ['gem', 'grindstone'] as const) {
+      for (const statId of kind === 'gem' ? runeStatIds : grindableStatIds) {
+        for (const grade of missingCraftGrades) {
+          const id = key(kind, lineage, setId, statId, grade);
+          if (owned.has(id) || (lineage === 'standard' && owned.has(key(kind, 'immemorial', null, statId, grade)))) continue;
+          missing.push({
+            id: `missing:${id}`, kind, lineage, setId, setName, statId, statName: runeStatName(statId) ?? '',
+            grade, amount: 0, range: craftValueRange(kind, lineage, statId, grade),
+          });
+        }
+      }
+    }
+  }
+  return missing;
 }
 
 export const craftKindLabels: Readonly<Record<CraftKind, string>> = {

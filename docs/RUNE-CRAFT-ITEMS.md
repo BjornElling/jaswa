@@ -1,7 +1,7 @@
 # Rune craft items — what `rune_craft_item_list` holds
 
 **Status:** Binding for every reader of the export's rune craft items
-**Reviewed:** October 20, 2026
+**Reviewed:** October 29, 2026
 
 `RUNE-CANONICAL.md` §8 is the authority on what an Enchanted Gem and a
 Grindstone *do*, which runes each may go on, and the value tables JASWA reads.
@@ -103,9 +103,22 @@ readers accept everything — 826 of 826 stacks, 3,242 of 3,242 runes.
 `npm run verify:rune-craft-items` pins section 1, section 2 and the placement
 rules built on them, against synthetic records rather than personal data.
 
-## 5. Best use and Recommendations
+## 5. Recommendations, Best use and What's missing
 
-Both disclosures read `rune-craft-recommendations.ts`. Every calculation reads
+The page lists Recommendations, Your box, Best use for this and What's missing,
+in that order; the box alone opens by itself. All three craft views are one
+component, `craft-item-best-use.tsx`, with one mode each, and read
+`rune-craft-recommendations.ts`.
+
+Every view has two panels. The question panel holds the item kind, the stack
+(Best use only), Assumed roll, Then grind it, and Calculate, Clear results and
+Cancel with the calculation status beneath them. The filter panel runs one
+subject per row — the item (Family, Grade, Stat), then the rune it goes on
+(Rune set, Location, Stat already grinded / gem'ed) — with the ranking length
+and Reset filters in the last column. Reset filters returns the filter panel
+only; the item kind, the chosen stack and the assumptions are the question.
+
+Recommendations and Best use read `rune-craft-recommendations.ts`. Every calculation reads
 all held Gems, all held Grindstones and all runes, independently of the filters.
 Best use narrows that complete answer to one stack; Recommendations narrows it
 by the selected categories. With no item chosen, Best use includes every item
@@ -149,13 +162,40 @@ set, stat, Location, already-crafted state and count never invalidate an answer 
 The two disclosures share one answer through `compute/craft-result-memory.ts`,
 including after workspace navigation. Reset filters resets only filters.
 
+### What's missing
+
+What's missing asks the engine about the box **and** everything it lacks, in one
+calculation with its own memory (`missingCraftResultMemory`), so it never
+overwrites the answer the other two views share. `missingCraftItems` lists, for
+every set the account has runes of and only in the lineage those runes take,
+every Hero and Legend Gem and Grindstone the box does not hold, with
+`amount: 0`. Lower grades are left out because a lower grade of the same item
+only rolls less. An Immemorial item rolls what the set's own item of that grade
+rolls, so it is never a third choice: one held covers the set's item for every
+ordinary set, and a listed set item says on its title that an Immemorial one
+fits too. Whether an item is held is not a placement rule, so
+`craftItemApplications` judges an absent item exactly as a held one.
+
+Only absent items are shown, and each must clear a bar: the best the box's own
+items of the same kind reach on that rune, or the rune as it stands where none
+does (`heldCraftBenchmark`). The bar is read from the whole answer, so a filter
+cannot lower it. Highest score and Highest gain list the runes an absent item
+lifts past that bar, Highest gain by the distance past it; Highest stat lists
+stones whose final value beats the best held stone of that stat. Each card adds
+*Your box*, the bar it cleared. *Most wanted* says it per item: every rune names
+the one absent item that lifts it furthest past the box, and items are ordered
+by how many runes named them, then by their largest gain. The same ranking
+function (`craftRecommendationRankings`) serves all three views; the box's views
+pass the rune as it stands as their bar. An account with runes and an empty box
+can still ask; one with no runes is told to import some.
+
 **Stat already grinded / Stat already gem'ed** reads the item's specific stat
 on the rune before spending anything: a positive existing Grindstone bonus for
 a stone, or an existing converted marker on that same stat for a Gem. A marker
 on a different stat does not match. Yes and No toggle independently; neither
 is chosen by default, and neither or both includes every state.
 
-Assumed roll and Then grind it sit outside the filter box as calculation
+Assumed roll and Then grind it sit in the question panel as calculation
 assumptions. Changing them, the account, roles or scoring preferences requires
 a new calculation and cancels work answering the old question. Calculation is
 explicit, cancellable, and runs in a dedicated worker. Session filters are

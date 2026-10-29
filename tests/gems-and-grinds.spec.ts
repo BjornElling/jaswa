@@ -312,6 +312,68 @@ async function chooseItem(page: Page, group: string, ...parts: string[]) {
   await chooser.selectOption(value);
 }
 
+test("What's missing lists only absent items that beat the box, without moving a control", async ({ page }, testInfo) => {
+  let craftWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
+  await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importCraftAccount(page);
+  await expect(page.locator('summary')).toHaveText(['›Recommendations', '›Your box', '›Best use for this', "›What's missing"]);
+  await page.locator('summary').filter({ hasText: "What's missing" }).click();
+  const panel = page.locator('[data-mode="missing"]');
+  await expect(panel.getByRole('group', { name: 'Family', exact: true }).getByRole('button')).toHaveText(['Standard', 'Ancient']);
+  await expect(panel.getByRole('group', { name: 'Grade', exact: true }).getByRole('button')).toHaveText(['HER', 'LEG']);
+  await page.screenshot({ path: testInfo.outputPath('craft-missing-empty.png'), fullPage: true });
+  /* Measured from the panel, so a scroll the click causes is not mistaken for movement. */
+  const boxes = () => panel.locator('.filter-group').evaluateAll((elements) => elements.map((element) => {
+    const origin = element.closest('.craft-best-use')!.getBoundingClientRect();
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x: x - origin.x, y: y - origin.y, width, height };
+  }));
+  const before = await boxes();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(panel.getByRole('heading', { name: /^Highest stat/ }).first()).toBeVisible();
+  expect(await boxes()).toEqual(before);
+  const wanted = panel.getByRole('region', { name: 'Most wanted' });
+  await expect(wanted.locator('tbody tr').first()).toBeVisible();
+  /* The box holds a Hero Violent SPD stone, so only the Legend one may be wanted. */
+  for (const title of await panel.locator('.craft-recommendation-title').allTextContents()) {
+    expect(title).not.toBe('Hero Violent · SPD Grind');
+  }
+  for (const card of await panel.locator('.craft-recommendation').all()) {
+    await expect(card.locator('.craft-evaluation dt')).toHaveText(['Best role', 'Score', 'Your box']);
+  }
+  await page.screenshot({ path: testInfo.outputPath('craft-missing-results.png'), fullPage: true });
+  await panel.getByRole('group', { name: 'Grade', exact: true }).getByRole('button', { name: 'HER' }).click();
+  await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+  await expect(panel.locator('.craft-ranking')).toHaveCount(2);
+  expect(await boxes()).toEqual(before);
+  /* Reset returns the filters and leaves the question — the item kind — alone. */
+  await panel.getByRole('button', { name: "Reset what's missing filters" }).click();
+  await expect(panel.getByRole('group', { name: 'Grade', exact: true }).getByRole('button', { name: 'HER' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(panel.getByRole('button', { name: 'Enchanted gem', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(craftWorkers).toBe(1);
+  /* The box's own answer is a separate question and is not overwritten. */
+  await page.locator('summary').filter({ hasText: 'Recommendations' }).click();
+  await expect(page.locator('[data-mode="recommendations"] .craft-ranking')).toHaveCount(0);
+});
+
+test("What's missing still asks when the box is empty", async ({ page }) => {
+  await openWorkspace(page);
+  const account = JSON.parse(await readFile(craftAccount, 'utf8'));
+  account.rune_craft_item_list = [];
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'empty-box-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
+  await page.locator('summary').filter({ hasText: "What's missing" }).click();
+  const panel = page.locator('[data-mode="missing"]');
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(panel.locator('.craft-recommendation').first()).toBeVisible();
+  await expect(panel.locator('.craft-recommendation-title').first()).toContainText('Legend');
+});
+
 test('the box says what to do when nothing has been imported', async ({ page }, testInfo) => {
   await openWorkspace(page);
   await page.setViewportSize({ width: 1920, height: 1080 });

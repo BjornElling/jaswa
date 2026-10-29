@@ -58,7 +58,7 @@ table filters are stored in `sessionStorage`. They survive page navigation and
 reloads in the same tab, but are not part of the durable workspace and are not
 shared with another tab. Invalid stored values are ignored and the interface
 returns to its current default; a fresh tab starts on Home with all disclosure
-bars closed. Best use and Recommendations read their filter fields through
+bars closed. Recommendations, Best use and What's missing read their filter fields through
 `readSettings`, so one invalid or newly added choice does not reset the others.
 
 ## What is not a saved choice

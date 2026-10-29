@@ -18,10 +18,10 @@ for (const populated of [false, true]) {
     });
     await expect(group('Monsters').getByRole('button')).toHaveText(['♜Stats', '♜Numbers']);
     await expect(group('Rune Optimization').getByRole('button')).toHaveText([
-      '⇅Presets', '↝Speed tuning', '◈Optimization',
+      '⇅Presets', '↝Speed tuning', '◈Optimization', '✦Gems & grinds',
     ]);
     await expect(group('Rune Clean-up').getByRole('button')).toHaveText([
-      '⚙Settings', '◌Clean-up', '✦Gems & grinds', '↻Simulator',
+      '⚙Settings', '◌Clean-up', '↻Simulator',
     ]);
 
     await rail.getByRole('button', { name: 'Monster Stats', exact: true }).click();
