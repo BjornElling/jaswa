@@ -207,8 +207,9 @@ because the user protects it is not one the calculation keeps. The verdicts
 come from Clean-up's own engine (`use-rune-keepers.ts`): answers Clean-up
 already holds for these inputs are read from `rune-advice-memory.ts`, and only
 the runes it has not judged are asked of the advice worker, on a channel of
-their own, once a craft answer is on screen. While they are asked, the status
-line says so and the rankings wait rather than show an unnarrowed list. This is
+their own, once a craft answer is on screen. While they are first asked, the
+status line says so and the rankings wait rather than show an unnarrowed list;
+once an answer exists, a later update narrows by it until the new one is in. This is
 the one filter that may start a worker, and it is never the craft worker.
 
 **Ignore** sits in the top-right corner of every card in Best use and What's
@@ -223,20 +224,31 @@ Ignoring narrows what is shown like a filter: it never invalidates an answer,
 and What's missing's bar is still read from the whole answer.
 
 Assumed roll and Then grind it sit in the question panel as calculation
-assumptions. Changing them, the runes, roles or scoring preferences requires
-a new calculation and cancels work answering the old question.
+assumptions. Changing them, the roles, scoring preferences or the account's
+Lv. 40 monsters requires a new calculation and cancels work answering the old
+question.
 
-**A change to the box never does.** Every rune/item pair is judged on the rune
-and that item alone, so the remembered answer is keyed by everything but the
-items and lists the items it has judged (`craftItemKey`: the item without its
-amount). `reconcileCraftCalculation` brings it up to the box as it is: a stack
-that has left the box takes its rows with it at once, and they are gone, not
-greyed; a stack whose amount merely changed keeps its rows under its new size;
-and an item new to the box — held, or, in What's missing, newly absent — is
-calculated alone, without pressing Calculate, and folded in by
-`extendCraftCalculation`. The extended answer is exactly a fresh calculation's,
-which `verify:craft-recommendations` holds. A failed extension is reported in
-the status line and not retried until the box changes again. Calculation is
+**A change to the box or the runes never does.** Every rune/item pair is judged
+on that rune and that item alone, so the remembered answer is keyed by
+everything but the items and runes, and lists the items and runes it has judged
+(`craftItemKey`: the item without its amount; `craftRuneKey`: the whole rune).
+`reconcileCraftCalculation` brings it up to the account as it is: a stack that
+has left the box, and a rune gone or changed, takes its rows with it at once,
+and they are gone, not greyed; a stack whose amount merely changed keeps its
+rows under its new size. What is new — an item held, or in What's missing newly
+absent; a rune new or changed — is calculated alone, without pressing
+Calculate: every item on each new rune, and each new item on the runes already
+judged (`craftExtensionRequests`), folded in by `extendCraftCalculation`. The
+extended answer is exactly a fresh calculation's, which
+`verify:craft-recommendations` holds. A failed extension is reported in the
+status line and not retried until the account changes again.
+
+So a live sync, which replaces the whole import whenever the game changes,
+never empties either view, and a reader scrolled down the rankings stays where
+they are. Only keep-runes holds the same line: while Rune Clean-up judges a
+new or changed rune, the rankings go on narrowing by its previous answer rather
+than wait empty. `gems-and-grinds-live-sync.spec.ts` drives both views through a
+live sync with the page scrolled down and fails on any scroll. Calculation is
 explicit, cancellable, and runs in a dedicated worker. Session filters are
 read one choice at a time; adding Rune set does not discard the other choices.
 

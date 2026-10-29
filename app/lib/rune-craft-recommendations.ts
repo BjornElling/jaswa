@@ -137,11 +137,13 @@ export function wantedCraftItems(rows: readonly CraftRecommendation[], count: nu
 }
 
 /**
- * A remembered answer. `key` is everything but the items (`craftCalculationKey`);
- * `items` names every item it has judged (`craftItemKey`), so a change to the box
- * costs only the items that are new to it (`reconcileCraftCalculation`).
+ * A remembered answer. `key` is everything but the items and the runes
+ * (`craftCalculationKey`); `items` and `runes` name every item and rune it has
+ * judged (`craftItemKey`, `craftRuneKey`), so a change to the account — a stone
+ * spent, a rune powered up, a live sync — costs only what is new to it
+ * (`reconcileCraftCalculation`).
  */
-export type CraftCalculation = { key: string; items: readonly string[]; result: CraftRecommendations };
+export type CraftCalculation = { key: string; items: readonly string[]; runes: readonly string[]; result: CraftRecommendations };
 
 /**
  * What an item contributes to the arithmetic: everything but how many are held.
@@ -151,33 +153,73 @@ export type CraftCalculation = { key: string; items: readonly string[]; result: 
 export const craftItemKey = (item: CraftItem): string => JSON.stringify({ ...item, amount: undefined });
 
 /**
- * The remembered answer brought up to the box as it is now, without asking again
- * for anything already judged: a row whose item has left the box is dropped — not
- * kept greyed — a row whose stack merely changed size names the stack as it is now,
- * and `added` lists the items nobody has judged yet, for a calculation of those alone.
+ * A rune as the arithmetic sees it. Everything is in it, its placement included,
+ * so a rune moved to another monster is judged again; that costs one rune, and
+ * a key that left a field out would one day leave out one that mattered.
  */
-export function reconcileCraftCalculation(calculation: CraftCalculation, items: readonly CraftItem[]): {
-  result: CraftRecommendations; added: CraftItem[];
-} {
-  const current = new Map(items.map((item) => [craftItemKey(item), item]));
-  const judged = new Set(calculation.items);
+export const craftRuneKey = (rune: Rune): string => JSON.stringify(rune);
+
+export type ReconciledCraftCalculation = {
+  result: CraftRecommendations;
+  /** Items nobody has judged yet. */
+  addedItems: CraftItem[];
+  /** Runes nobody has judged yet: new to the account, or changed since. */
+  addedRunes: Rune[];
+};
+
+/**
+ * The remembered answer brought up to the account as it is now, without asking
+ * again for anything already judged: a row whose item has left the box, or whose
+ * rune is gone or has changed, is dropped — not kept greyed — and a row whose
+ * stack merely changed size names the stack as it is now. What is new is listed
+ * for `craftExtensionRequests` to ask about alone.
+ */
+export function reconcileCraftCalculation(calculation: CraftCalculation, items: readonly CraftItem[],
+  runes: readonly Rune[]): ReconciledCraftCalculation {
+  const currentItems = new Map(items.map((item) => [craftItemKey(item), item]));
+  const currentRunes = new Map(runes.map((rune) => [craftRuneKey(rune), rune]));
+  const judgedItems = new Set(calculation.items);
+  const judgedRunes = new Set(calculation.runes);
   const candidates = calculation.result.candidates.flatMap((row) => {
-    const item = current.get(craftItemKey(row.item));
-    return item ? [item === row.item ? row : { ...row, item }] : [];
+    const item = currentItems.get(craftItemKey(row.item));
+    const rune = currentRunes.get(craftRuneKey(row.rune));
+    if (!item || !rune) return [];
+    return [item === row.item && rune === row.rune ? row : { ...row, item, rune }];
   });
-  return { result: { ...calculation.result, candidates }, added: items.filter((item) => !judged.has(craftItemKey(item))) };
+  return {
+    result: { ...calculation.result, candidates },
+    addedItems: items.filter((item) => !judgedItems.has(craftItemKey(item))),
+    addedRunes: runes.filter((rune) => !judgedRunes.has(craftRuneKey(rune))),
+  };
 }
 
-/** A calculation of `added` folded into the answer it extends. */
-export function extendCraftCalculation(calculation: CraftCalculation, added: CraftRecommendations, items: readonly CraftItem[]): CraftCalculation {
+/**
+ * The questions that bring a reconciled answer up to date, and no more: every
+ * item on each new rune, and each new item on the runes already judged. The two
+ * never ask about the same pair, so their answers simply add up.
+ */
+export function craftExtensionRequests(request: CraftRecommendationRequest, reconciled: ReconciledCraftCalculation): CraftRecommendationRequest[] {
+  const { addedItems, addedRunes } = reconciled;
+  const newRunes = new Set(addedRunes);
+  const known = request.runes.filter((rune) => !newRunes.has(rune));
+  const asks: CraftRecommendationRequest[] = [];
+  if (addedRunes.length) asks.push({ ...request, runes: addedRunes, items: [...request.items, ...request.missing], missing: [] });
+  if (addedItems.length && known.length) asks.push({ ...request, runes: known, items: addedItems, missing: [] });
+  return asks;
+}
+
+/** The answers to `craftExtensionRequests`, folded into the answer they extend. */
+export function extendCraftCalculation(calculation: CraftCalculation, added: readonly CraftRecommendations[],
+  items: readonly CraftItem[], runes: readonly Rune[]): CraftCalculation {
   return {
     key: calculation.key,
     items: [...new Set([...calculation.items, ...items.map(craftItemKey)])],
+    runes: [...new Set([...calculation.runes, ...runes.map(craftRuneKey)])],
     result: {
-      candidates: [...calculation.result.candidates, ...added.candidates],
-      comparisons: calculation.result.comparisons + added.comparisons,
-      durationMs: calculation.result.durationMs + added.durationMs,
-      backend: combineCalculationBackends([calculation.result.backend, added.backend]),
+      candidates: [...calculation.result.candidates, ...added.flatMap((answer) => answer.candidates)],
+      comparisons: added.reduce((total, answer) => total + answer.comparisons, calculation.result.comparisons),
+      durationMs: added.reduce((total, answer) => total + answer.durationMs, calculation.result.durationMs),
+      backend: combineCalculationBackends([calculation.result.backend, ...added.map((answer) => answer.backend)]),
     },
   };
 }
@@ -190,11 +232,12 @@ export function craftStatAlreadyChanged(rune: Pick<Rune, 'subProperties'>, item:
 
 /**
  * Only calculation inputs address the shared result; a filter cannot invalidate it.
- * The items are left out: each is judged on its own, so a change to the box extends
- * or prunes the answer rather than discarding it (`reconcileCraftCalculation`).
+ * The items and runes are left out: each pair is judged on its own, so a change to
+ * the account extends or prunes the answer rather than discarding it
+ * (`reconcileCraftCalculation`).
  */
-export function craftCalculationKey(request: Omit<CraftRecommendationRequest, 'items' | 'missing'>): string {
-  return JSON.stringify([request.runes, request.roles, [...request.base],
+export function craftCalculationKey(request: Omit<CraftRecommendationRequest, 'items' | 'missing' | 'runes'>): string {
+  return JSON.stringify([request.roles, [...request.base],
     request.settings.acceptedRunes, request.settings.brokenRunes, request.roll, request.grindAfter]);
 }
 

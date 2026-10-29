@@ -6,7 +6,7 @@ import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { acceptedWorth, brokenWorth } from '../app/lib/rune-cleanup-advice.ts';
 import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope, neutralComparisonCredit } from '../app/lib/rune-cleanup-model.ts';
 import { recommendRuneCraft, craftRecommendationRankings, craftStatAlreadyChanged, heldCraftBenchmark, isHeldCraft,
-  wantedCraftItems, craftItemKey, reconcileCraftCalculation, extendCraftCalculation } from '../app/lib/rune-craft-recommendations.ts';
+  wantedCraftItems, craftItemKey, craftRuneKey, reconcileCraftCalculation, craftExtensionRequests, extendCraftCalculation } from '../app/lib/rune-craft-recommendations.ts';
 import { craftScoreLayout as L } from '../app/lib/compute/webgpu/craft-score-layout.ts';
 import { readFileSync } from 'node:fs';
 
@@ -176,24 +176,39 @@ for (const kind of ['gem', 'grindstone']) {
 }
 assert.deepEqual(wantedCraftItems([], 5, benchmark), []);
 
-/* A changed box is answered from what is already known: a stack gone takes its
-   rows, a stack spent down keeps its rows under its new size, and an item new to
-   the box is judged alone — and the result is exactly a fresh calculation's. */
-const sorted = (rows) => JSON.stringify(rows.map((row) => [row.rune.id, row.item.id, row.item.amount, row.after.score, row.stat]).sort());
+/* A changed account is answered from what is already known — the box and the
+   runes alike, as live sync changes both. A stack gone takes its rows, a stack
+   spent down keeps its rows under its new size, a rune gone or changed takes its
+   rows, and only what is new is judged — and the result is exactly a fresh
+   calculation's. */
+const sorted = (rows) => JSON.stringify(rows.map((row) => [row.rune.id, row.rune.subProperties[0]?.value, row.item.id, row.item.amount,
+  row.after.score, row.stat]).sort());
 const firstBox = items.slice(0, 20);
-const firstAnswer = await recommendRuneCraft({ ...emptyRequest, runes, items: firstBox, roles, roll: 'two-thirds' });
-const remembered = { key: 'context', items: firstBox.map(craftItemKey), result: firstAnswer };
+const firstRunes = runes.slice(0, 36);
+const firstAnswer = await recommendRuneCraft({ ...emptyRequest, runes: firstRunes, items: firstBox, roles, roll: 'two-thirds' });
+const remembered = { key: 'context', items: firstBox.map(craftItemKey), runes: firstRunes.map(craftRuneKey), result: firstAnswer };
 const spent = firstBox.slice(2).find((item) => firstAnswer.candidates.some((row) => row.item === item));
-assert.ok(spent, 'the first box judged nothing to spend down');
+const powered = firstRunes.slice(2).find((rune) => rune.subProperties.length && firstAnswer.candidates.some((row) => row.rune === rune));
+assert.ok(spent && powered, 'the first answer judged nothing to change');
 const secondBox = [...firstBox.slice(2).map((item) => item === spent ? { ...item, amount: 7 } : item), ...items.slice(20, 26)];
-const reconciled = reconcileCraftCalculation(remembered, secondBox);
-assert.deepEqual(reconciled.added.map((item) => item.id), items.slice(20, 26).map((item) => item.id), 'only the new stacks are asked about');
-const extension = await recommendRuneCraft({ ...emptyRequest, runes, items: reconciled.added, roles, roll: 'two-thirds' });
-const extended = reconcileCraftCalculation(extendCraftCalculation(remembered, extension, reconciled.added), secondBox);
-assert.equal(extended.added.length, 0, 'an extended answer has judged the whole box');
-const fresh = await recommendRuneCraft({ ...emptyRequest, runes, items: secondBox, roles, roll: 'two-thirds' });
+const changed = { ...powered, subProperties: powered.subProperties.map((line, at) => at === 0 ? { ...line, value: line.value + 1 } : line) };
+const secondRunes = [...firstRunes.slice(2).map((rune) => rune === powered ? changed : rune), ...runes.slice(36, 44)];
+const reconciled = reconcileCraftCalculation(remembered, secondBox, secondRunes);
+assert.deepEqual(reconciled.addedItems.map((item) => item.id), items.slice(20, 26).map((item) => item.id), 'only the new stacks are asked about');
+assert.deepEqual(reconciled.addedRunes.map((rune) => rune.id), [changed, ...runes.slice(36, 44)].map((rune) => rune.id),
+  'only the new and the changed runes are asked about');
+const secondRequest = { ...emptyRequest, runes: secondRunes, items: secondBox, roles, roll: 'two-thirds' };
+const asks = craftExtensionRequests(secondRequest, reconciled);
+assert.equal(asks.length, 2, 'new runes and new items are two questions');
+const answers = await Promise.all(asks.map((ask) => recommendRuneCraft(ask)));
+const extended = reconcileCraftCalculation(extendCraftCalculation(remembered, answers, reconciled.addedItems, reconciled.addedRunes),
+  secondBox, secondRunes);
+assert.equal(extended.addedItems.length + extended.addedRunes.length, 0, 'an extended answer has judged the whole account');
+const fresh = await recommendRuneCraft(secondRequest);
 assert.equal(sorted(extended.result.candidates), sorted(fresh.candidates), 'an extended answer differs from a fresh one');
 assert.ok(extended.result.candidates.some((row) => row.item.amount === 7), 'a spent-down stack keeps its rows under its new size');
 assert.ok(!extended.result.candidates.some((row) => firstBox.slice(0, 2).includes(row.item)), 'a stack gone left a row behind');
+assert.ok(!extended.result.candidates.some((row) => firstRunes.slice(0, 2).includes(row.rune) || row.rune === powered),
+  'a rune gone or changed left a row behind');
 console.log(`PASS: What's missing judged ${missing.length} absent items on ${runes.length} runes in ${Math.round(missingMs)} ms without moving a held answer.`);
 console.log(`PASS: ${comparisons.toLocaleString('en-US')} craft/build comparisons agree with exhaustive role readings; every optimizer variant, stat-specific ranking and empty case holds.`);

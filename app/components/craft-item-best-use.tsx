@@ -27,8 +27,8 @@ import type { RuneRole } from '../lib/rune-roles';
 import type { GeneralSettings, ItemGrade, RunePotentialSettings } from '../lib/types';
 import { referenceLines } from '../lib/rune-reference-stats';
 import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations } from '../lib/rune-craft-recommendations';
-import { craftCalculationKey, craftItemKey, craftRecommendationRankings, craftStatAlreadyChanged, extendCraftCalculation, heldCraftBenchmark,
-  reconcileCraftCalculation,
+import { craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftStatAlreadyChanged,
+  extendCraftCalculation, heldCraftBenchmark, reconcileCraftCalculation,
   isHeldCraft, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
 import { useSessionStorageState } from '../lib/session-storage-state';
@@ -151,53 +151,64 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     if (workerRequest.current !== request) return;
     worker.current?.terminate(); worker.current = null; workerRequest.current = null;
   }, [request]);
-  /* The remembered answer, brought up to the box as it is now: an item gone from
-     the box takes its rows with it at once, and an item new to it is judged alone
-     (below) — so spending or gaining a stone never empties the page. */
+  /* The remembered answer, brought up to the account as it is now: an item or rune
+     gone takes its rows with it at once, and what is new is judged alone (below) —
+     so neither a spent stone nor a live sync ever empties the page, and the reader
+     stays where they were. */
   const reconciled = useMemo(() => request && calculation?.key === calculationKey
-    ? reconcileCraftCalculation(calculation, [...request.items, ...request.missing]) : null, [request, calculation, calculationKey]);
+    ? reconcileCraftCalculation(calculation, [...request.items, ...request.missing], request.runes) : null, [request, calculation, calculationKey]);
   function clear() { worker.current?.terminate(); worker.current = null; workerRequest.current = null; setWork(null); onCalculated(null); }
-  /** Asks the worker `asked` on behalf of `request`, whose status it reports, and stores what `settle` makes of the answer. */
-  function run(request: CraftRecommendationRequest, asked: CraftRecommendationRequest, settle: (result: CraftRecommendations) => CraftCalculation) {
+  /**
+   * Asks the worker each of `asks` in turn on behalf of `request`, whose status it
+   * reports, and stores what `settle` makes of the answers once all are in.
+   */
+  function run(request: CraftRecommendationRequest, asks: readonly CraftRecommendationRequest[],
+    settle: (results: CraftRecommendations[]) => CraftCalculation) {
     worker.current?.terminate();
     const running = new Worker(new URL('../lib/compute/craft-recommendation-worker.ts', import.meta.url), { type: 'module' });
     worker.current = running;
     workerRequest.current = request;
     setWork({ request, busy: true, progress: 0 });
+    const results: CraftRecommendations[] = [];
     running.onmessage = (event: MessageEvent<CraftRecommendationResponse>) => {
       if (worker.current !== running) return;
       const message = event.data;
-      if (message.type === 'progress') setWork((previous) => previous?.request === request ? { ...previous, progress: message.fraction } : previous);
-      else {
-        setWork({ request, busy: false, progress: 1,
-          ...(message.type === 'error' ? { error: message.message } : {}) });
-        if (message.type === 'result') onCalculated(settle(message.result));
-        running.terminate(); worker.current = null; workerRequest.current = null;
+      if (message.type === 'progress') {
+        const progress = (results.length + message.fraction) / asks.length;
+        setWork((previous) => previous?.request === request ? { ...previous, progress } : previous);
+        return;
       }
+      if (message.type === 'result') results.push(message.result);
+      if (message.type === 'result' && results.length < asks.length) { running.postMessage(asks[results.length]); return; }
+      setWork({ request, busy: false, progress: 1,
+        ...(message.type === 'error' ? { error: message.message } : {}) });
+      if (message.type === 'result') onCalculated(settle(results));
+      running.terminate(); worker.current = null; workerRequest.current = null;
     };
     running.onerror = () => {
       if (worker.current !== running) return;
       setWork({ request, busy: false, progress: 0, error: 'The craft worker could not finish. Try calculating again.' });
       running.terminate(); worker.current = null; workerRequest.current = null;
     };
-    running.postMessage(asked);
+    running.postMessage(asks[0]);
   }
   function calculate() {
     if (!request) return;
-    run(request, request, (result) => ({ key: calculationKey, items: [...request.items, ...request.missing].map(craftItemKey), result }));
+    run(request, [request], ([result]) => ({ key: calculationKey,
+      items: [...request.items, ...request.missing].map(craftItemKey), runes: request.runes.map(craftRuneKey), result }));
   }
-  /* Only what the answer has never judged is asked, once per box: a failed
-     extension is reported rather than retried in a loop. */
+  /* Only what the answer has never judged is asked, once per account state: a
+     failed extension is reported rather than retried in a loop. */
   useEffect(() => {
-    if (!request || !calculation || !reconciled?.added.length || work?.request === request) return;
-    const { added } = reconciled;
-    const isAdded = new Set(added);
+    if (!request || !calculation || !reconciled || work?.request === request) return;
+    const asks = craftExtensionRequests(request, reconciled);
+    if (!asks.length) return;
+    const { addedItems, addedRunes } = reconciled;
     let current = true;
     /* Started from a microtask, as the worker's own answers are, so the effect never sets state as it runs. */
     void Promise.resolve().then(() => {
       if (!current) return;
-      run(request, { ...request, items: request.items.filter((item) => isAdded.has(item)), missing: request.missing.filter((item) => isAdded.has(item)) },
-        (result) => extendCraftCalculation(calculation, result, added));
+      run(request, asks, (results) => extendCraftCalculation(calculation, results, addedItems, addedRunes));
     });
     return () => { current = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` is redeclared every render; the answer it extends is in the list.
@@ -220,7 +231,10 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
      starts Rune Clean-up's worker on an empty page. */
   const keepers = useRuneKeepers({ enabled: mode === 'selected' && state.keepOnly && result !== undefined,
     runes, inputs: adviceInputs, base, hardwareAcceleration });
-  const keepersSettled = keepers.state === 'off' || keepers.state === 'ready';
+  /* The runes the rankings may show: Clean-up's answer, or while it is being
+     brought up to date the one before it, so an update never empties the page. */
+  const keepSet = keepers.state === 'ready' ? keepers.keep : keepers.state === 'pending' ? keepers.previous : null;
+  const keepersSettled = keepers.state === 'off' || keepSet !== null;
   const ignored = useMemo(() => new Set((ignores ?? []).map(craftIgnoreKey)), [ignores]);
   /* The box's best on each rune comes from the whole answer, so a filter that
      hides a held item cannot lower the bar a missing one has to clear. */
@@ -235,9 +249,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && (!state.set || row.rune.setName === state.set)
     && filterIncludes(state.already, craftStatAlreadyChanged(row.rune, row.item) ? 'yes' : 'no', alreadyOptions)
     && filterPair(hasRunePlacement(placements.runes.get(row.rune.id) ?? emptyRunePlacement), state.showEngraved, state.showInventory)
-    && (keepers.state !== 'ready' || keepers.keep.has(row.rune.id))
+    && (keepSet === null || keepSet.has(row.rune.id))
     && !ignored.has(craftIgnoreKey(ignoreOf(row)))) ?? [],
-  [result, kind, mode, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices, keepers, ignored]);
+  [result, kind, mode, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices, keepSet, ignored]);
   const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark), [visible, state.count, benchmark]);
   const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, state.count, benchmark) : [], [mode, visible, state.count, benchmark]);
   const empty = base === null ? 'A level 40 monster is needed to score runes.' : !roles.length ? 'Add a role in Rune Clean-up to judge these runes.'
