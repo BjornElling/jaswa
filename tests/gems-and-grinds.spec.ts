@@ -378,6 +378,51 @@ test('Ignore hides one rune and item stat in its own view, survives a reload, an
   await expect(recommendations.getByRole('button', { name: 'Reset ignored' })).toHaveCount(0);
 });
 
+test('a changed box keeps the answer: a gone stack drops out, a new one is judged alone', async ({ page }, testInfo) => {
+  let craftWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
+  await openWorkspace(page);
+  const account = JSON.parse(await readFile(craftAccount, 'utf8'));
+  /* Every import after the first replaces one, and the page asks before it does. */
+  let replacing = false;
+  const reimport = async (name: string, items: Record<string, unknown>[]) => {
+    await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
+    await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+      name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...account, rune_craft_item_list: items })),
+    });
+    if (replacing) await page.getByRole('dialog').getByRole('button', { name: 'Replace data' }).click();
+    replacing = true;
+    await expect(page.getByText(`${name} · imported`)).toBeVisible();
+    await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
+  };
+  await reimport('box-first.json', account.rune_craft_item_list);
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  const panel = page.locator('[data-mode="selected"]');
+  const titles = panel.locator('.craft-recommendation-title');
+  await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(titles.filter({ hasText: 'Fatal' }).first()).toBeVisible();
+  expect(craftWorkers).toBe(1);
+
+  /* The Fatal Gem is spent: its cards leave, everything else stays, and nothing is asked again. */
+  const withoutFatal = account.rune_craft_item_list.filter((item: { craft_item_id: number }) => item.craft_item_id !== 9003);
+  await reimport('box-spent.json', withoutFatal);
+  await expect(titles.first()).toBeVisible();
+  await expect(titles.filter({ hasText: 'Fatal' })).toHaveCount(0);
+  expect(craftWorkers).toBe(1);
+  await page.screenshot({ path: testInfo.outputPath('craft-box-spent.png'), fullPage: true });
+
+  /* A Hero Violent SPD Gem arrives: only it is judged, and the list it joins never empties. */
+  await reimport('box-gained.json', [...withoutFatal, { craft_item_id: 9010, craft_type: 1, craft_type_id: 130804, amount: 1, sell_value: 25000 }]);
+  await expect(titles.first()).toBeVisible();
+  await expect.poll(() => craftWorkers).toBe(2);
+  await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+  await expect(titles.filter({ hasText: 'Fatal' })).toHaveCount(0);
+  await panel.getByRole('group', { name: 'Grade', exact: true }).getByRole('button', { name: 'HER' }).click();
+  await expect(titles.filter({ hasText: 'Hero Violent' }).first()).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('craft-box-gained.png'), fullPage: true });
+});
+
 test('result locations name Scenario and count every other engraving', async ({ page }) => {
   await openWorkspace(page);
   const account = JSON.parse(await readFile(craftAccount, 'utf8'));

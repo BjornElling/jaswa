@@ -6,7 +6,7 @@ import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { acceptedWorth, brokenWorth } from '../app/lib/rune-cleanup-advice.ts';
 import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope, neutralComparisonCredit } from '../app/lib/rune-cleanup-model.ts';
 import { recommendRuneCraft, craftRecommendationRankings, craftStatAlreadyChanged, heldCraftBenchmark, isHeldCraft,
-  wantedCraftItems } from '../app/lib/rune-craft-recommendations.ts';
+  wantedCraftItems, craftItemKey, reconcileCraftCalculation, extendCraftCalculation } from '../app/lib/rune-craft-recommendations.ts';
 import { craftScoreLayout as L } from '../app/lib/compute/webgpu/craft-score-layout.ts';
 import { readFileSync } from 'node:fs';
 
@@ -175,5 +175,25 @@ for (const kind of ['gem', 'grindstone']) {
     'every improvable rune names exactly one wanted item');
 }
 assert.deepEqual(wantedCraftItems([], 5, benchmark), []);
+
+/* A changed box is answered from what is already known: a stack gone takes its
+   rows, a stack spent down keeps its rows under its new size, and an item new to
+   the box is judged alone — and the result is exactly a fresh calculation's. */
+const sorted = (rows) => JSON.stringify(rows.map((row) => [row.rune.id, row.item.id, row.item.amount, row.after.score, row.stat]).sort());
+const firstBox = items.slice(0, 20);
+const firstAnswer = await recommendRuneCraft({ ...emptyRequest, runes, items: firstBox, roles, roll: 'two-thirds' });
+const remembered = { key: 'context', items: firstBox.map(craftItemKey), result: firstAnswer };
+const spent = firstBox.slice(2).find((item) => firstAnswer.candidates.some((row) => row.item === item));
+assert.ok(spent, 'the first box judged nothing to spend down');
+const secondBox = [...firstBox.slice(2).map((item) => item === spent ? { ...item, amount: 7 } : item), ...items.slice(20, 26)];
+const reconciled = reconcileCraftCalculation(remembered, secondBox);
+assert.deepEqual(reconciled.added.map((item) => item.id), items.slice(20, 26).map((item) => item.id), 'only the new stacks are asked about');
+const extension = await recommendRuneCraft({ ...emptyRequest, runes, items: reconciled.added, roles, roll: 'two-thirds' });
+const extended = reconcileCraftCalculation(extendCraftCalculation(remembered, extension, reconciled.added), secondBox);
+assert.equal(extended.added.length, 0, 'an extended answer has judged the whole box');
+const fresh = await recommendRuneCraft({ ...emptyRequest, runes, items: secondBox, roles, roll: 'two-thirds' });
+assert.equal(sorted(extended.result.candidates), sorted(fresh.candidates), 'an extended answer differs from a fresh one');
+assert.ok(extended.result.candidates.some((row) => row.item.amount === 7), 'a spent-down stack keeps its rows under its new size');
+assert.ok(!extended.result.candidates.some((row) => firstBox.slice(0, 2).includes(row.item)), 'a stack gone left a row behind');
 console.log(`PASS: What's missing judged ${missing.length} absent items on ${runes.length} runes in ${Math.round(missingMs)} ms without moving a held answer.`);
 console.log(`PASS: ${comparisons.toLocaleString('en-US')} craft/build comparisons agree with exhaustive role readings; every optimizer variant, stat-specific ranking and empty case holds.`);

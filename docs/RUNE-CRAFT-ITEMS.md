@@ -223,8 +223,20 @@ Ignoring narrows what is shown like a filter: it never invalidates an answer,
 and What's missing's bar is still read from the whole answer.
 
 Assumed roll and Then grind it sit in the question panel as calculation
-assumptions. Changing them, the account, roles or scoring preferences requires
-a new calculation and cancels work answering the old question. Calculation is
+assumptions. Changing them, the runes, roles or scoring preferences requires
+a new calculation and cancels work answering the old question.
+
+**A change to the box never does.** Every rune/item pair is judged on the rune
+and that item alone, so the remembered answer is keyed by everything but the
+items and lists the items it has judged (`craftItemKey`: the item without its
+amount). `reconcileCraftCalculation` brings it up to the box as it is: a stack
+that has left the box takes its rows with it at once, and they are gone, not
+greyed; a stack whose amount merely changed keeps its rows under its new size;
+and an item new to the box — held, or, in What's missing, newly absent — is
+calculated alone, without pressing Calculate, and folded in by
+`extendCraftCalculation`. The extended answer is exactly a fresh calculation's,
+which `verify:craft-recommendations` holds. A failed extension is reported in
+the status line and not retried until the box changes again. Calculation is
 explicit, cancellable, and runs in a dedicated worker. Session filters are
 read one choice at a time; adding Rune set does not discard the other choices.
 

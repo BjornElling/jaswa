@@ -26,8 +26,9 @@ import type { Rune } from '../lib/runes';
 import type { RuneRole } from '../lib/rune-roles';
 import type { GeneralSettings, ItemGrade, RunePotentialSettings } from '../lib/types';
 import { referenceLines } from '../lib/rune-reference-stats';
-import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation } from '../lib/rune-craft-recommendations';
-import { craftCalculationKey, craftRecommendationRankings, craftStatAlreadyChanged, heldCraftBenchmark,
+import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations } from '../lib/rune-craft-recommendations';
+import { craftCalculationKey, craftItemKey, craftRecommendationRankings, craftStatAlreadyChanged, extendCraftCalculation, heldCraftBenchmark,
+  reconcileCraftCalculation,
   isHeldCraft, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
 import { useSessionStorageState } from '../lib/session-storage-state';
@@ -150,9 +151,14 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     if (workerRequest.current !== request) return;
     worker.current?.terminate(); worker.current = null; workerRequest.current = null;
   }, [request]);
+  /* The remembered answer, brought up to the box as it is now: an item gone from
+     the box takes its rows with it at once, and an item new to it is judged alone
+     (below) — so spending or gaining a stone never empties the page. */
+  const reconciled = useMemo(() => request && calculation?.key === calculationKey
+    ? reconcileCraftCalculation(calculation, [...request.items, ...request.missing]) : null, [request, calculation, calculationKey]);
   function clear() { worker.current?.terminate(); worker.current = null; workerRequest.current = null; setWork(null); onCalculated(null); }
-  function calculate() {
-    if (!request) return;
+  /** Asks the worker `asked` on behalf of `request`, whose status it reports, and stores what `settle` makes of the answer. */
+  function run(request: CraftRecommendationRequest, asked: CraftRecommendationRequest, settle: (result: CraftRecommendations) => CraftCalculation) {
     worker.current?.terminate();
     const running = new Worker(new URL('../lib/compute/craft-recommendation-worker.ts', import.meta.url), { type: 'module' });
     worker.current = running;
@@ -165,7 +171,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       else {
         setWork({ request, busy: false, progress: 1,
           ...(message.type === 'error' ? { error: message.message } : {}) });
-        if (message.type === 'result') onCalculated({ key: calculationKey, result: message.result });
+        if (message.type === 'result') onCalculated(settle(message.result));
         running.terminate(); worker.current = null; workerRequest.current = null;
       }
     };
@@ -174,8 +180,28 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       setWork({ request, busy: false, progress: 0, error: 'The craft worker could not finish. Try calculating again.' });
       running.terminate(); worker.current = null; workerRequest.current = null;
     };
-    running.postMessage(request);
+    running.postMessage(asked);
   }
+  function calculate() {
+    if (!request) return;
+    run(request, request, (result) => ({ key: calculationKey, items: [...request.items, ...request.missing].map(craftItemKey), result }));
+  }
+  /* Only what the answer has never judged is asked, once per box: a failed
+     extension is reported rather than retried in a loop. */
+  useEffect(() => {
+    if (!request || !calculation || !reconciled?.added.length || work?.request === request) return;
+    const { added } = reconciled;
+    const isAdded = new Set(added);
+    let current = true;
+    /* Started from a microtask, as the worker's own answers are, so the effect never sets state as it runs. */
+    void Promise.resolve().then(() => {
+      if (!current) return;
+      run(request, { ...request, items: request.items.filter((item) => isAdded.has(item)), missing: request.missing.filter((item) => isAdded.has(item)) },
+        (result) => extendCraftCalculation(calculation, result, added));
+    });
+    return () => { current = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` is redeclared every render; the answer it extends is in the list.
+  }, [request, calculation, reconciled, work?.request]);
   const update = <K extends keyof State,>(key: K, value: State[K]) => setState((previous) => ({ ...previous, [key]: value }));
   const toggle = <K extends 'lineages' | 'grades' | 'already',>(key: K, value: State[K][number]) => setState((previous) => {
     const chosen = previous[key] as readonly string[];
@@ -188,7 +214,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       <div className="filter-group-controls">{values.map((value) => <FilterButton key={value} active={isActive(value)}
         title={title?.(value)} onClick={() => onToggle(value)}>{display(value)}</FilterButton>)}</div>
     </div>;
-  const result = calculation?.key === calculationKey ? calculation.result : undefined;
+  const result = reconciled?.result;
   const adviceInputs = useMemo(() => ({ data: { unit_list: monsters } as GameRecord, settings, roles }), [monsters, settings, roles]);
   /* Asked only once there is an answer to narrow, so the filter alone never
      starts Rune Clean-up's worker on an empty page. */

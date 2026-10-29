@@ -136,7 +136,51 @@ export function wantedCraftItems(rows: readonly CraftRecommendation[], count: nu
     || a.item.id.localeCompare(b.item.id)).slice(0, count);
 }
 
-export type CraftCalculation = { key: string; result: CraftRecommendations };
+/**
+ * A remembered answer. `key` is everything but the items (`craftCalculationKey`);
+ * `items` names every item it has judged (`craftItemKey`), so a change to the box
+ * costs only the items that are new to it (`reconcileCraftCalculation`).
+ */
+export type CraftCalculation = { key: string; items: readonly string[]; result: CraftRecommendations };
+
+/**
+ * What an item contributes to the arithmetic: everything but how many are held.
+ * A pair is judged on the rune and the item alone, never on the rest of the box,
+ * so spending one of three stones changes no answer — only the stack it names.
+ */
+export const craftItemKey = (item: CraftItem): string => JSON.stringify({ ...item, amount: undefined });
+
+/**
+ * The remembered answer brought up to the box as it is now, without asking again
+ * for anything already judged: a row whose item has left the box is dropped — not
+ * kept greyed — a row whose stack merely changed size names the stack as it is now,
+ * and `added` lists the items nobody has judged yet, for a calculation of those alone.
+ */
+export function reconcileCraftCalculation(calculation: CraftCalculation, items: readonly CraftItem[]): {
+  result: CraftRecommendations; added: CraftItem[];
+} {
+  const current = new Map(items.map((item) => [craftItemKey(item), item]));
+  const judged = new Set(calculation.items);
+  const candidates = calculation.result.candidates.flatMap((row) => {
+    const item = current.get(craftItemKey(row.item));
+    return item ? [item === row.item ? row : { ...row, item }] : [];
+  });
+  return { result: { ...calculation.result, candidates }, added: items.filter((item) => !judged.has(craftItemKey(item))) };
+}
+
+/** A calculation of `added` folded into the answer it extends. */
+export function extendCraftCalculation(calculation: CraftCalculation, added: CraftRecommendations, items: readonly CraftItem[]): CraftCalculation {
+  return {
+    key: calculation.key,
+    items: [...new Set([...calculation.items, ...items.map(craftItemKey)])],
+    result: {
+      candidates: [...calculation.result.candidates, ...added.candidates],
+      comparisons: calculation.result.comparisons + added.comparisons,
+      durationMs: calculation.result.durationMs + added.durationMs,
+      backend: combineCalculationBackends([calculation.result.backend, added.backend]),
+    },
+  };
+}
 
 /** Read the item's own stat before spending it, rather than the replacement's marker. */
 export function craftStatAlreadyChanged(rune: Pick<Rune, 'subProperties'>, item: Pick<CraftItem, 'kind' | 'statId'>): boolean {
@@ -144,9 +188,13 @@ export function craftStatAlreadyChanged(rune: Pick<Rune, 'subProperties'>, item:
   return item.kind === 'grindstone' ? (property?.grind ?? 0) > 0 : property?.gemmed === true;
 }
 
-/** Only calculation inputs address the shared result; a filter cannot invalidate it. */
-export function craftCalculationKey(request: CraftRecommendationRequest): string {
-  return JSON.stringify([request.runes, request.items, request.missing, request.roles, [...request.base],
+/**
+ * Only calculation inputs address the shared result; a filter cannot invalidate it.
+ * The items are left out: each is judged on its own, so a change to the box extends
+ * or prunes the answer rather than discarding it (`reconcileCraftCalculation`).
+ */
+export function craftCalculationKey(request: Omit<CraftRecommendationRequest, 'items' | 'missing'>): string {
+  return JSON.stringify([request.runes, request.roles, [...request.base],
     request.settings.acceptedRunes, request.settings.brokenRunes, request.roll, request.grindAfter]);
 }
 
