@@ -1386,13 +1386,40 @@ label[for] {
     grid-template-areas: "family grade" "stat count" "set location" "already keep" ". actions";
   }
 }
+/* What's missing: the question and its filters as one surface on the left,
+   with only a rule between them; on the right a column of its own — the buttons
+   that ask, their report, and Most wanted in a box of the Statistics kind — so
+   its height never depends on where the controls to its left end. Rune
+   Optimization's measure, so the buttons sit where they sit there. */
+.craft-controls { display: contents; }
+.craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr) 56ch; align-items: start; }
+.craft-best-use[data-mode="missing"] .craft-controls { display: grid; }
+.craft-best-use[data-mode="missing"] .craft-best-use-filters { border-top: 1px solid var(--line); }
+.craft-best-use[data-mode="missing"] .craft-question {
+  grid-template-columns: max-content 16ch max-content;
+  grid-template-areas: "kind roll grind";
+  justify-content: start;
+}
+.craft-best-use[data-mode="missing"] .craft-best-use-results { grid-column: 1 / -1; }
+.craft-side { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
+.craft-side-actions {
+  display: grid;
+  gap: var(--s2);
+  justify-items: end;
+  padding: var(--s4);
+  background: var(--raise);
+}
+.craft-side .craft-calculation-actions { grid-area: auto; gap: var(--s2); align-self: auto; }
+.craft-side .craft-calculation-status { grid-area: auto; width: 100%; min-height: 2lh; }
+@media (max-width: 1200px) {
+  .craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr); }
+  .craft-best-use[data-mode="missing"] .craft-question { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "kind roll" "grind grind"; }
+}
 .craft-best-use-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); align-items: start; }
-/* What's missing, said per item, spans the rankings it summarises. */
-.craft-wanted { grid-column: 1 / -1; display: grid; gap: var(--s3); }
-.craft-wanted > h3, .craft-wanted > p { margin: 0; }
-.craft-wanted-table { width: 100%; max-width: 72ch; table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.craft-wanted > p { margin-bottom: 0; }
+.craft-wanted-table { width: 100%; margin-top: var(--s3); table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .craft-wanted-table col, .craft-wanted-table th:first-child { width: auto; }
-.craft-wanted-table th:not(:first-child), .craft-wanted-table td:not(:first-child) { width: 12ch; text-align: right; }
+.craft-wanted-table th:not(:first-child), .craft-wanted-table td:not(:first-child) { width: 10ch; text-align: right; }
 .craft-wanted-table th { padding: 0 0 var(--s2); text-align: left; color: var(--text-muted); border-bottom: 1px solid var(--line); }
 .craft-wanted-table td { padding: var(--s2) 0; color: var(--text-strong); border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .craft-best-use-results[data-kind="gem"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2511,13 +2538,13 @@ label[for] {
 .rune-optimization-action-row { display: flex; align-items: center; gap: var(--s2); }
 /* The page's conclusion: the filled button the other workspaces end on, given
    the panel's full height of attention. */
-.rune-optimization-find { min-width: 20ch; }
+.rune-optimization-find, .craft-calculate { min-width: 20ch; }
 .rune-optimization-find-hold { display: flex; }
 /* A square the height of the button beside it, holding only its mark. Written
    against the size it shares, which is declared further down, so that size's own
    padding does not squeeze the mark to nothing. */
-.button.prominent.rune-optimization-stop { width: 44px; padding: 0; }
-.rune-optimization-stop svg { flex: none; }
+.button.prominent.rune-optimization-stop, .button.prominent.craft-cancel { width: 44px; padding: 0; }
+.rune-optimization-stop svg, .craft-cancel svg { flex: none; }
 /* The table on screen answers a question that is no longer the one above it. A box
    of fixed measure, always in the panel and only made visible, so nothing beside
    it moves; the machine reporting on its own answer, so the verdict colour. */
@@ -2598,12 +2625,14 @@ label[for] {
 .rune-optimization-status { align-self: end; width: 100%; min-height: 3lh; }
 /* Dimmed: it reports on the answer below, and is read after it, not before. A
    failure keeps its verdict red. */
-.rune-optimization-status .calculation-status { white-space: normal; }
-.rune-optimization-status .calculation-status:not([data-failed]) { color: var(--text-muted); }
+.rune-optimization-status .calculation-status, .craft-side .calculation-status { white-space: normal; }
+.rune-optimization-status .calculation-status:not([data-failed]),
+.craft-side .calculation-status:not([data-failed]) { color: var(--text-muted); }
 /* Except while the search runs: then the line is the work the user just asked for,
    in the accent that marks what they are acting on. Colour only, so the line keeps
    its width (`AGENTS.md` §2). */
 .rune-optimization-status .calculation-status.rune-optimization-searching,
+.craft-side .calculation-status.craft-calculating,
 .calculation-progress { color: var(--text-accent); }
 .rune-optimization-results { display: grid; gap: var(--s2); }
 .rune-optimization-results > h3 { margin: 0; }

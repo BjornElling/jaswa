@@ -117,7 +117,11 @@ subject per row — the item (Family, Grade, Stat), then the rune it goes on
 (Rune set, Location, Stat already grinded / gem'ed, and in Best use Only
 keep-runes) — with the ranking length and Reset filters in the last column.
 The other views leave Only keep-runes' cell empty, so no group moves between
-views. Reset filters returns the filter panel
+views. What's missing sets the two panels as one surface with a rule between
+them and gives Clear results, Calculate, the cancelling ✕ (Rune
+Optimization's stop) and the status a column of their own on the right, with
+*Most wanted* beneath them in a box of the Statistics kind; the other views are
+to follow once that layout is settled. Reset filters returns the filter panel
 only; the item kind, the chosen stack and the assumptions are the question.
 
 Recommendations and Best use read `rune-craft-recommendations.ts`. Every calculation reads

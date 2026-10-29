@@ -313,7 +313,57 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     </section>;
   }
 
+  /* What's missing tries the side column first: the buttons, their report and
+     Most wanted in a column of their own, so none of them waits on where the
+     question's controls happen to end. The other views follow once it is agreed. */
+  const sideColumn = mode === 'missing';
+  const actions = <div className="craft-calculation-actions">
+    {sideColumn && <Button disabled={!current && !result} onClick={clear}>Clear results</Button>}
+    <Button tone="primary" size="prominent" className="craft-calculate" busy={current?.busy} busyLabel="Calculating…" disabled={Boolean(empty) || current?.busy}
+      onClick={calculate}>Calculate</Button>
+    {!sideColumn && <Button disabled={!current && !result} onClick={clear}>Clear results</Button>}
+    {sideColumn
+      /* Rune Optimization's stop: a mark beside the button it stops, not a second button of its weight. */
+      ? <Button tone="danger" size="prominent" className="craft-cancel" disabled={!current?.busy}
+        aria-label="Cancel the calculation" title="Cancel the calculation" onClick={clear}>
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      </Button>
+      : <Button disabled={!current?.busy} onClick={clear}>Cancel</Button>}
+  </div>;
+  const status = <div className="craft-calculation-status">
+    {current?.busy || current?.error || !result
+      ? <p className={current?.busy ? 'calculation-status craft-calculating' : 'calculation-status'} role="status">{current?.busy ? `Calculating… ${Math.floor(current.progress * 100)} %` : current?.error ?? empty ?? ''}</p>
+      : keepers.state === 'pending' || keepers.state === 'failed'
+        ? <p className="calculation-status" role="status">{keepers.state === 'failed' ? keepers.message
+          /* Clean-up's own words for its two phases, so the wait reads the same on both pages. */
+          : keepers.calibration !== null
+            ? `Calibrating Rune Clean-up… ${format(Math.round(keepers.calibration * 100))} % · only needed once`
+            : `Asking Rune Clean-up which runes it keeps… ${format(Math.floor(keepers.progress * 100))} %`}</p>
+        : <CalculationStatus twoLines={sideColumn} durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />}
+  </div>;
+  /* Kept in the column before there is an answer, quiet until there is one, so
+     the column has its shape from the start. */
+  const wantedBox = <section className={result && keepersSettled ? 'statistics craft-wanted' : 'statistics craft-wanted pending'} aria-label="Most wanted">
+    <h4>Most wanted</h4>
+    {!result || !keepersSettled ? <p className="statistics-lead">Calculate to see which items your box lacks.</p>
+      : wanted.length ? <table className="craft-wanted-table">
+        <thead><tr>
+          <th scope="col">Item</th>
+          <th scope="col" title="Runes on which this is the missing item that lifts them furthest past your box">Runes</th>
+          <th scope="col" title="The largest score gain over your box on one of those runes">Top gain</th>
+        </tr></thead>
+        <tbody>{wanted.map((entry) => <tr key={entry.item.id}>
+          <td title={immemorialAlternative(entry.item)}><CraftItemName item={entry.item} /></td>
+          <td>{format(entry.runes)}</td>
+          <td>+{score(entry.topGain)}</td>
+        </tr>)}</tbody>
+      </table> : <p className="statistics-lead">Your box already holds the best item for every rune shown.</p>}
+  </section>;
+
   return <div className="craft-best-use" data-mode={mode}>
+    <div className="craft-controls">
     {/* The question: which kind of item, which stack where there is one to
         choose, what each roll is assumed to give, and the button that asks it.
         Everything in the panel below only narrows the answer. */}
@@ -335,23 +385,8 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           title={grindPossible ? 'Grind the gemmed property at the assumed grade and roll' : 'The offered item stats cannot be ground'} onClick={() => update('grindAfter', !state.grindAfter)}>Yes</FilterButton>
           <Dropdown value={state.grindGrade} disabled={!state.grindAfter || !grindPossible} aria-label="Grade of the grindstone to assume"
             onChange={(event) => update('grindGrade', event.target.value as ItemGrade)}>{itemGrades.map((grade) => <option key={grade}>{grade}</option>)}</Dropdown></div></div>
-      <div className="craft-calculation-actions">
-        <Button tone="primary" size="prominent" busy={current?.busy} busyLabel="Calculating…" disabled={Boolean(empty) || current?.busy}
-          onClick={calculate}>Calculate</Button>
-        <Button disabled={!current && !result} onClick={clear}>Clear results</Button>
-        <Button disabled={!current?.busy} onClick={clear}>Cancel</Button>
-      </div>
-      <div className="craft-calculation-status">
-        {current?.busy || current?.error || !result
-          ? <p className="calculation-status" role="status">{current?.busy ? `Calculating… ${Math.floor(current.progress * 100)} %` : current?.error ?? empty ?? ''}</p>
-          : keepers.state === 'pending' || keepers.state === 'failed'
-            ? <p className="calculation-status" role="status">{keepers.state === 'failed' ? keepers.message
-              /* Clean-up's own words for its two phases, so the wait reads the same on both pages. */
-              : keepers.calibration !== null
-                ? `Calibrating Rune Clean-up… ${format(Math.round(keepers.calibration * 100))} % · only needed once`
-                : `Asking Rune Clean-up which runes it keeps… ${format(Math.floor(keepers.progress * 100))} %`}</p>
-            : <CalculationStatus durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />}
-      </div>
+      {!sideColumn && actions}
+      {!sideColumn && status}
     </div>
     {/* Two rows with one subject each — the item, then the rune it goes on —
         and the length of every ranking with the way back beside them. */}
@@ -386,22 +421,12 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           title={ignores?.length ? `Suggest again the ${format(ignores.length)} ignored here` : 'Nothing is ignored here'}>Reset ignored</Button>}
       </div>
     </div>
+    </div>
+    {sideColumn && <aside className="craft-side">
+      <div className="craft-side-actions">{actions}{status}</div>
+      {wantedBox}
+    </aside>}
     {result && keepersSettled && <div className="craft-best-use-results" data-kind={kind}>
-      {mode === 'missing' && <section className="craft-wanted" aria-label="Most wanted">
-        <h3>Most wanted</h3>
-        {wanted.length ? <table className="craft-wanted-table">
-          <thead><tr>
-            <th scope="col">Item</th>
-            <th scope="col" title="Runes on which this is the missing item that lifts them furthest past your box">Runes</th>
-            <th scope="col" title="The largest score gain over your box on one of those runes">Top gain</th>
-          </tr></thead>
-          <tbody>{wanted.map((entry) => <tr key={entry.item.id}>
-            <td title={immemorialAlternative(entry.item)}><CraftItemName item={entry.item} /></td>
-            <td>{format(entry.runes)}</td>
-            <td>+{score(entry.topGain)}</td>
-          </tr>)}</tbody>
-        </table> : <p className="best-artifact-empty">Your box already holds the best item for every rune shown.</p>}
-      </section>}
       {ranking('Highest score', rankings.highestScore)}{ranking('Highest gain', rankings.highestGain)}
       {kind === 'grindstone' && <div className="craft-stat-rankings">{rankings.highestStat.size ? [...rankings.highestStat].sort(([a], [b]) => a - b).map(([stat, rows]) =>
         <div key={stat}>{ranking('Highest stat', rows, runeStatName(stat))}</div>) : ranking('Highest stat', [])}</div>}
