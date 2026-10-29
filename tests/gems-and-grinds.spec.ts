@@ -308,6 +308,76 @@ test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a s
   expect(adviceWorkers).toBe(0);
 });
 
+test('Ignore hides one rune and item stat in its own view, survives a reload, and Reset ignored brings it back', async ({ page }, testInfo) => {
+  await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importCraftAccount(page);
+  await page.evaluate(async () => {
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const { savePreferences } = await import(storagePath);
+    const { blankPreferences } = await import(importsPath);
+    await savePreferences(blankPreferences());
+  });
+  await page.reload();
+  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  const panel = page.locator('[data-mode="selected"]');
+  const cards = panel.locator('.craft-recommendation');
+  /* A card is its rune and what the item does to it: `Violent rune, slot 2 +12 · SPD Gem`. */
+  const suggestions = () => cards.evaluateAll((elements) => elements.map((element) => {
+    const level = element.querySelector('.craft-rune-facts div:last-child dd')?.textContent;
+    const what = element.querySelector('.craft-recommendation-title')?.textContent?.split(' · ')[1];
+    return `${element.querySelector('.rune-link')?.getAttribute('aria-label')} ${level} · ${what}`;
+  }));
+  const resetIgnored = panel.getByRole('button', { name: 'Reset ignored' });
+  const boxes = () => panel.locator('.filter-group, .craft-view-actions').evaluateAll((elements) => elements.map((element) => {
+    const origin = element.closest('.craft-best-use')!.getBoundingClientRect();
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x: x - origin.x, y: y - origin.y, width, height };
+  }));
+  const calculate = async () => {
+    await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+    await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+    await expect(cards.first()).toBeVisible();
+  };
+  await calculate();
+  await expect(resetIgnored).toBeDisabled();
+  const before = await boxes();
+  const all = await suggestions();
+  const first = cards.first();
+  const ignoredOne = (await suggestions())[0];
+  const head = await first.locator('.craft-recommendation-head').boundingBox();
+  const corner = await first.getByRole('button', { name: /^Ignore / }).boundingBox();
+  expect(corner!.x + corner!.width).toBeCloseTo(head!.x + head!.width, 0);
+  expect(corner!.y).toBeCloseTo(head!.y, 0);
+  await page.screenshot({ path: testInfo.outputPath('craft-ignore-before.png'), fullPage: true });
+  await first.getByRole('button', { name: /^Ignore / }).click();
+  await expect.poll(suggestions).not.toContain(ignoredOne);
+  expect((await suggestions()).every((entry) => all.includes(entry))).toBe(true);
+  await expect(resetIgnored).toBeEnabled();
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('craft-ignore-after.png'), fullPage: true });
+
+  /* A saved choice: a reload and a new calculation still leave it out. */
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await calculate();
+  expect(await suggestions()).not.toContain(ignoredOne);
+
+  /* What's missing keeps its own list. */
+  await page.locator('summary').filter({ hasText: "What's missing" }).click();
+  await expect(page.locator('[data-mode="missing"]').getByRole('button', { name: 'Reset ignored' })).toBeDisabled();
+
+  await resetIgnored.click();
+  await expect(resetIgnored).toBeDisabled();
+  await expect.poll(suggestions).toContain(ignoredOne);
+  expect(await boxes()).toEqual(before);
+  /* Recommendations offers no Ignore. */
+  await page.locator('summary').filter({ hasText: 'Recommendations' }).click();
+  const recommendations = page.locator('[data-mode="recommendations"]');
+  await expect(recommendations.getByRole('button', { name: 'Reset ignored' })).toHaveCount(0);
+});
+
 test('result locations name Scenario and count every other engraving', async ({ page }) => {
   await openWorkspace(page);
   const account = JSON.parse(await readFile(craftAccount, 'utf8'));

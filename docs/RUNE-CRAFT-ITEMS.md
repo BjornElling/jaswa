@@ -211,6 +211,17 @@ their own, once a craft answer is on screen. While they are asked, the status
 line says so and the rankings wait rather than show an unnarrowed list. This is
 the one filter that may start a worker, and it is never the craft worker.
 
+**Ignore** sits in the top-right corner of every card in Best use and What's
+missing. It waves away the card's rune together with the item's kind and stat:
+ignoring a SPD Grind on a rune hides every SPD Grind on that rune, of any grade
+or set, while an ATK Grind or a SPD Gem on it is still suggested. Each view
+keeps its own list, so ignoring in one leaves the other alone. The lists are
+saved choices (`craftIgnores`, `craft-ignores.ts`) keyed by `rune_id`, so they
+outlast reloads, imports and live sync. **Reset ignored**, under Reset filters,
+empties the view's list; it stays in place, disabled, while the list is empty.
+Ignoring narrows what is shown like a filter: it never invalidates an answer,
+and What's missing's bar is still read from the whole answer.
+
 Assumed roll and Then grind it sit in the question panel as calculation
 assumptions. Changing them, the account, roles or scoring preferences requires
 a new calculation and cancels work answering the old question. Calculation is

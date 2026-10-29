@@ -3,6 +3,7 @@ import type { MonsterPriority, PresetPriority } from './monster-priority';
 import type { OwnPreset } from './presets';
 import type { CraftRollAssumption } from './rune-craft-items';
 import type { RuneHolds } from './rune-holds';
+import type { CraftIgnores } from './craft-ignores';
 import type { RuneLocks } from './rune-locks';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
 import type { ReappTargets } from './rune-reapp-targets';
@@ -137,4 +138,4 @@ export type ArtifactSettings = {
  * `runeRoles` was stored as `runePotentialPresets` when roles were called
  * presets; `readPreferences` still reads that key so the user's roles survive.
  */
-export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; runePotential: RunePotentialSettings; runeRoles: RuneRole[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; presets: OwnPreset[]; presetPriority: PresetPriority; runeOptimization: RuneOptimizationSettings };
+export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; craftIgnores: CraftIgnores; runePotential: RunePotentialSettings; runeRoles: RuneRole[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; presets: OwnPreset[]; presetPriority: PresetPriority; runeOptimization: RuneOptimizationSettings };

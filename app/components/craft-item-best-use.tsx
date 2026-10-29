@@ -1,7 +1,7 @@
 import { filterIncludes, filterPair } from '../lib/filter-selection';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AncientName } from './ancient-mark';
-import { Button, FilterButton } from './button';
+import { Button, FilterButton, InlineButton } from './button';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { EngravedPlace } from './engraved-place';
@@ -32,6 +32,8 @@ import { craftCalculationKey, craftRecommendationRankings, craftStatAlreadyChang
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { useRuneKeepers } from './use-rune-keepers';
+import { craftIgnoreKey } from '../lib/craft-ignores';
+import type { CraftIgnore } from '../lib/craft-ignores';
 import { readSettings, isBoolean, isOneOf, isWholeNumberIn } from '../lib/preference-reading';
 
 /**
@@ -87,17 +89,24 @@ function CraftItemName({ item }: { item: CraftItem }) {
   </>;
 }
 
+/** What Ignore on this card waves away: the rune, and the item's kind and stat, whatever its grade or set. */
+const ignoreOf = (row: CraftRecommendation): CraftIgnore => ({ runeId: row.rune.id, kind: row.item.kind, statId: row.item.statId });
+
 /* An Immemorial item rolls what the set's own item rolls, so What's missing
    names the set's item and says on its title that either will do. */
 const immemorialAlternative = (item: CraftItem) => item.amount === 0 && item.lineage === 'standard'
   ? `An Immemorial ${item.statName} ${craftKindLabels[item.kind]} of this grade fits too` : undefined;
 
-export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles, general, settings, hardwareAcceleration, onOpenRune, calculation, onCalculated }: {
+export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles, general, settings, hardwareAcceleration, onOpenRune, calculation, onCalculated, ignores, onIgnore }: {
   mode: CraftViewMode;
   items: readonly CraftItem[]; runes: readonly Rune[]; monsters: readonly GameRecord[];
   profiles: MonsterPreferences; roles: readonly RuneRole[]; general: GeneralSettings;
   settings: RunePotentialSettings; hardwareAcceleration: boolean; onOpenRune: OpenRuneOverlay;
   calculation: CraftCalculation | null; onCalculated: (value: CraftCalculation | null) => void;
+  /** This view's waved-away suggestions, or `null` where the view offers no Ignore. */
+  ignores: readonly CraftIgnore[] | null;
+  /** Adds an entry, or with `null` clears this view's list. */
+  onIgnore?: (entry: CraftIgnore | null) => void;
 }) {
   const choices = modeChoices[mode];
   const [state, setState] = useSessionStorageState(choices.storageKey, defaultState, stateReaders[mode]);
@@ -186,6 +195,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   const keepers = useRuneKeepers({ enabled: mode === 'selected' && state.keepOnly && result !== undefined,
     runes, inputs: adviceInputs, base, hardwareAcceleration });
   const keepersSettled = keepers.state === 'off' || keepers.state === 'ready';
+  const ignored = useMemo(() => new Set((ignores ?? []).map(craftIgnoreKey)), [ignores]);
   /* The box's best on each rune comes from the whole answer, so a filter that
      hides a held item cannot lower the bar a missing one has to clear. */
   const benchmark = useMemo<CraftBenchmark>(() => mode === 'missing' && result ? heldCraftBenchmark(result.candidates) : runeAsItStands,
@@ -199,8 +209,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && (!state.set || row.rune.setName === state.set)
     && filterIncludes(state.already, craftStatAlreadyChanged(row.rune, row.item) ? 'yes' : 'no', alreadyOptions)
     && filterPair(hasRunePlacement(placements.runes.get(row.rune.id) ?? emptyRunePlacement), state.showEngraved, state.showInventory)
-    && (keepers.state !== 'ready' || keepers.keep.has(row.rune.id))) ?? [],
-  [result, kind, mode, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices, keepers]);
+    && (keepers.state !== 'ready' || keepers.keep.has(row.rune.id))
+    && !ignored.has(craftIgnoreKey(ignoreOf(row)))) ?? [],
+  [result, kind, mode, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices, keepers, ignored]);
   const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark), [visible, state.count, benchmark]);
   const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, state.count, benchmark) : [], [mode, visible, state.count, benchmark]);
   const empty = base === null ? 'A level 40 monster is needed to score runes.' : !roles.length ? 'Add a role in Rune Clean-up to judge these runes.'
@@ -209,7 +220,12 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   function runeCard(row: CraftRecommendation) {
     const rune = row.rune;
     return <article className="craft-recommendation" key={rune.id}>
-      <h4 className="craft-recommendation-title" title={immemorialAlternative(row.item)}><CraftItemName item={row.item} /></h4>
+      <div className="craft-recommendation-head">
+        <h4 className="craft-recommendation-title" title={immemorialAlternative(row.item)}><CraftItemName item={row.item} /></h4>
+        {onIgnore && <InlineButton onClick={() => onIgnore(ignoreOf(row))}
+          aria-label={`Ignore ${row.item.statName} ${craftKindLabels[row.item.kind]} on this ${rune.setName} rune`}
+          title={`Stop suggesting ${row.item.statName} ${craftKindLabels[row.item.kind]}s for this rune here`}>Ignore</InlineButton>}
+      </div>
       <header className="craft-rune-header">
         <RuneEmblem setName={rune.setName} slot={rune.slot} />
         <div className="craft-rune-identity">
@@ -325,6 +341,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
         <Button className="filter-reset" onClick={() => setState((previous) => ({ ...previous,
           ...Object.fromEntries(filterFields.map((field) => [field, defaultState[field]])) }))}
         aria-label={`Reset ${{ recommendations: 'recommendations', selected: 'best use', missing: "what's missing" }[mode]} filters`}>Reset filters</Button>
+        {/* Kept mounted while there is nothing to reset, so the panel never changes height. */}
+        {onIgnore && <Button className="filter-reset" disabled={!ignores?.length} onClick={() => onIgnore(null)}
+          title={ignores?.length ? `Suggest again the ${format(ignores.length)} ignored here` : 'Nothing is ignored here'}>Reset ignored</Button>}
       </div>
     </div>
     {result && keepersSettled && <div className="craft-best-use-results" data-kind={kind}>

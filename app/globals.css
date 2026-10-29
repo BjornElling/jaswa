@@ -1362,7 +1362,7 @@ label[for] {
 .craft-best-use-filters {
   grid-template-columns: repeat(4, minmax(0, 1fr)) max-content;
   grid-template-areas:
-    "family   grade    stat    count .      "
+    "family   grade    stat    count actions"
     "set      location already keep  actions";
 }
 .craft-view-lineage { grid-area: family; }
@@ -1399,6 +1399,9 @@ label[for] {
 .craft-ranking, .craft-stat-rankings { display: grid; gap: var(--s4); min-width: 0; }
 .craft-ranking > h3, .craft-ranking > p { margin: 0; }
 .craft-recommendation { display: grid; gap: var(--s4); padding: var(--s4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--sunk); min-width: 0; }
+/* Ignore sits in the corner beside the item's name, never over it: the name
+   wraps in its own track. */
+.craft-recommendation-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s3); align-items: start; }
 .craft-recommendation-title { margin: 0; color: var(--text-strong); overflow-wrap: anywhere; }
 .craft-rune-header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s3); align-items: center; }
 .craft-rune-identity { display: grid; gap: var(--s2); min-width: 0; }

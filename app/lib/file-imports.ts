@@ -4,6 +4,7 @@ import type {
 } from './types';
 import { readMonsterPreferences } from './monster-preferences';
 import { readRuneHolds } from './rune-holds';
+import { blankCraftIgnores, readCraftIgnores } from './craft-ignores';
 import { defaultReappTargets, readReappTargets } from './rune-reapp-targets';
 import { readMonsterPriority, readPresetPriority } from './monster-priority';
 import { readOwnPresets, runeSlots } from './presets';
@@ -114,6 +115,7 @@ export function blankPreferences(): Preferences {
     general: blankGeneralSettings(),
     monsterPreferences: {},
     runeHolds: {},
+    craftIgnores: blankCraftIgnores(),
     runePotential: defaultRunePotentialSettings,
     runeRoles: defaultRuneRoles(),
     artifacts: defaultArtifactSettings,
@@ -173,7 +175,7 @@ function readRunePotentialSettings(value: unknown, fallback: RunePotentialSettin
 
 const preferenceSections = [
   'updatedAt', 'hardwareAcceleration', 'importRoute', 'directImportMode', 'general',
-  'monsterPreferences', 'runeHolds', 'runePotential', 'runeRoles', 'artifacts', 'speedTuning',
+  'monsterPreferences', 'runeHolds', 'craftIgnores', 'runePotential', 'runeRoles', 'artifacts', 'speedTuning',
   'monsterPriority', 'presets', 'presetPriority', 'runeOptimization',
 ] as const satisfies readonly (keyof Preferences)[];
 
@@ -208,6 +210,7 @@ export function readPreferences(value: unknown, game: ImportedGame | null): Pref
     general: readGeneralSettings(stored.general),
     monsterPreferences: readMonsterPreferences(stored.monsterPreferences),
     runeHolds: readRuneHolds(stored.runeHolds),
+    craftIgnores: readCraftIgnores(stored.craftIgnores),
     runePotential: readRunePotentialSettings(stored.runePotential, blank.runePotential),
     runeRoles: readRuneRoles(storedRuneRoles(stored)),
     artifacts: readSettings(stored.artifacts, blank.artifacts, artifactSettingChecks),

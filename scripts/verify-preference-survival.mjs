@@ -39,6 +39,7 @@ try {
       'content:arena-attack': { 17: { unitId: '17', statCeilings: { spd: 180 } }, 18: { unitId: '18', alwaysCrits: true } },
     },
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true } },
+    craftIgnores: { selected: [{ runeId: '901', kind: 'grindstone', statId: 8 }], missing: [{ runeId: '902', kind: 'gem', statId: 4 }] },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
     runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
@@ -178,6 +179,13 @@ try {
   /* A rune hold loses what it cannot read — a lock, which lives with the import now — not the rune's other choice or any other rune. */
   const holds = readPreferences({ ...chosen, runeHolds: { ...chosen.runeHolds, 902: { unsellable: true, locked: true }, 903: { locked: true } } }, null);
   assert.deepEqual(holds.runeHolds, { 901: { unsellable: true }, 902: { unsellable: true } }, 'an unreadable rune hold costs only that choice');
+
+  /* An ignored craft suggestion that cannot be read, or is listed twice, costs only that entry. */
+  const ignores = readPreferences({ ...chosen, craftIgnores: {
+    selected: [...chosen.craftIgnores.selected, { runeId: '901', kind: 'grindstone', statId: 8 }, { runeId: '903', kind: 'relic', statId: 8 }, { runeId: '', kind: 'gem', statId: 8 }],
+    missing: 'unreadable',
+  } }, null);
+  assert.deepEqual(ignores.craftIgnores, { selected: chosen.craftIgnores.selected, missing: [] }, 'an unreadable ignore costs only that entry or that view');
 
   /* A priority entry that cannot be read costs that entry; the order of the rest stands. */
   const priority = readPreferences({ ...chosen, monsterPriority: ['18', 5, '', '17', '18'] }, null);
