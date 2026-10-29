@@ -927,6 +927,14 @@ function decide({ rune, value, standing, chance, role, rank, cleared, brokenReje
   };
 }
 
+/**
+ * The engine's own verdict, before any safeguard of `withRuneSellProtection`
+ * turned a sale into a keep, a power-up or a reroll. A page asking what the
+ * calculation thinks of a rune reads this; a page asking what to do reads `verdict`.
+ */
+export const calculatedRuneVerdict = (advice: RuneAdvice): RuneVerdict =>
+  advice.unprotectedAdvice?.verdict ?? advice.verdict;
+
 /** User safeguards outrank selling policy without changing any score or odds. */
 export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings: RunePotentialSettings,
   placement: RunePlacementSummary = emptyRunePlacement,

@@ -114,8 +114,10 @@ Every view has two panels. The question panel holds the item kind, the stack
 (Best use only), Assumed roll, Then grind it, and Calculate, Clear results and
 Cancel with the calculation status beneath them. The filter panel runs one
 subject per row — the item (Family, Grade, Stat), then the rune it goes on
-(Rune set, Location, Stat already grinded / gem'ed) — with the ranking length
-and Reset filters in the last column. Reset filters returns the filter panel
+(Rune set, Location, Stat already grinded / gem'ed, and in Best use Only
+keep-runes) — with the ranking length and Reset filters in the last column.
+The other views leave Only keep-runes' cell empty, so no group moves between
+views. Reset filters returns the filter panel
 only; the item kind, the chosen stack and the assumptions are the question.
 
 Recommendations and Best use read `rune-craft-recommendations.ts`. Every calculation reads
@@ -158,7 +160,8 @@ target for **every rune/item pair**, including pairs below the current shortlist
 Score and gain share that best target because the pair's baseline is fixed.
 Filtering and ranking are immediate projections of this complete answer; each
 displayed ranking includes a rune at most once. Item, kind, family, grade, rune
-set, stat, Location, already-crafted state and count never invalidate an answer or start a worker.
+set, stat, Location, already-crafted state, Only keep-runes and count never
+invalidate an answer or start the craft worker.
 The two disclosures share one answer through `compute/craft-result-memory.ts`,
 including after workspace navigation. Reset filters resets only filters.
 
@@ -194,6 +197,19 @@ on the rune before spending anything: a positive existing Grindstone bonus for
 a stone, or an existing converted marker on that same stat for a Gem. A marker
 on a different stat does not match. Yes and No toggle independently; neither
 is chosen by default, and neither or both includes every state.
+
+**Only keep-runes** (Best use only) has one choice, Yes. Chosen, it keeps the
+runes whose *calculated* Rune Clean-up verdict is Keep and drops every other
+verdict — Power up, Sell, and the Re-app and Refine a reroll target puts on a
+sale. The sell safeguards (pre-grind SPD, potential value, preset engravings,
+reroll targets) are read past through `calculatedRuneVerdict`: a rune kept only
+because the user protects it is not one the calculation keeps. The verdicts
+come from Clean-up's own engine (`use-rune-keepers.ts`): answers Clean-up
+already holds for these inputs are read from `rune-advice-memory.ts`, and only
+the runes it has not judged are asked of the advice worker, on a channel of
+their own, once a craft answer is on screen. While they are asked, the status
+line says so and the rankings wait rather than show an unnarrowed list. This is
+the one filter that may start a worker, and it is never the craft worker.
 
 Assumed roll and Then grind it sit in the question panel as calculation
 assumptions. Changing them, the account, roles or scoring preferences requires

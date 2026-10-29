@@ -47,7 +47,16 @@ export function rememberRuneAdvice(
 }
 
 export function rememberedRuneAdvice(inputs: RuneAdviceInputs, rune: Rune): RuneAdvice | undefined {
-  if (remembered === null || remembered.key !== inputsKey(inputs)) return undefined;
-  const entry = remembered.entries.get(rune.id);
-  return entry && sameRune(entry.rune, rune) ? withRuneSellProtection(rune, entry.advice, inputs.settings) : undefined;
+  return rememberedRuneAdviceFor(inputs, [rune]).get(rune.id);
+}
+
+/** The same for a whole box, with the inputs compared once rather than once per rune. */
+export function rememberedRuneAdviceFor(inputs: RuneAdviceInputs, runes: readonly Rune[]): Map<string, RuneAdvice> {
+  const found = new Map<string, RuneAdvice>();
+  if (remembered === null || remembered.key !== inputsKey(inputs)) return found;
+  for (const rune of runes) {
+    const entry = remembered.entries.get(rune.id);
+    if (entry && sameRune(entry.rune, rune)) found.set(rune.id, withRuneSellProtection(rune, entry.advice, inputs.settings));
+  }
+  return found;
 }

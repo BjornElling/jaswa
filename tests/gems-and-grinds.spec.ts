@@ -202,6 +202,112 @@ test('Already grinded and gemmed filter the item stat before craft, instantly in
   }
 });
 
+test('Only keep-runes asks Rune Clean-up and narrows Best use without moving a control', async ({ page }, testInfo) => {
+  let craftWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
+  await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importCraftAccount(page);
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  const panel = page.locator('[data-mode="selected"]');
+  const keepOnly = panel.getByRole('group', { name: 'Only keep-runes', exact: true });
+  await expect(keepOnly.getByRole('button')).toHaveText(['Yes']);
+  await expect(keepOnly.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'false');
+  const boxes = () => panel.locator('.filter-group').evaluateAll((elements) => elements.map((element) => {
+    const origin = element.closest('.craft-best-use')!.getBoundingClientRect();
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x: x - origin.x, y: y - origin.y, width, height };
+  }));
+  const before = await boxes();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const cards = panel.locator('.craft-recommendation');
+  await expect(cards.first()).toBeVisible();
+  const all = await cards.count();
+  await page.screenshot({ path: testInfo.outputPath('craft-keep-only-off.png'), fullPage: true });
+  /* Every wording the status line passes through, so a silent wait cannot pass. */
+  await panel.locator('.craft-calculation-status').evaluate((status) => {
+    const seen: string[] = [];
+    (window as unknown as { statusSeen: string[] }).statusSeen = seen;
+    new MutationObserver(() => seen.push(status.textContent ?? '')).observe(status, { subtree: true, childList: true, characterData: true });
+  });
+  await keepOnly.getByRole('button', { name: 'Yes' }).click();
+  await expect(keepOnly.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('.craft-best-use-results')).toBeVisible();
+  await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+  const seen = await page.evaluate(() => (window as unknown as { statusSeen: string[] }).statusSeen);
+  expect(seen.some((text) => /^Calibrating Rune Clean-up… \d+ % · only needed once$/.test(text)), seen.join(' | ')).toBe(true);
+  expect(seen.some((text) => /^Asking Rune Clean-up which runes it keeps… \d+ %$/.test(text)), seen.join(' | ')).toBe(true);
+  expect(await cards.count()).toBeLessThanOrEqual(all);
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('craft-keep-only-on.png'), fullPage: true });
+  await panel.getByRole('button', { name: 'Reset best use filters' }).click();
+  await expect(keepOnly.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(cards).toHaveCount(all);
+  expect(craftWorkers).toBe(1);
+  /* Best use's own: the other views keep the cell empty. */
+  await page.locator('summary').filter({ hasText: 'Recommendations' }).click();
+  await expect(page.locator('[data-mode="recommendations"]').getByRole('group', { name: 'Only keep-runes' })).toHaveCount(0);
+});
+
+test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a safeguarded Keep', async ({ page }) => {
+  let adviceWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('rune-advice-worker')) adviceWorkers += 1; });
+  await openWorkspace(page);
+  await importCraftAccount(page);
+  await page.evaluate(async () => {
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const { savePreferences } = await import(storagePath);
+    const { blankPreferences } = await import(importsPath);
+    await savePreferences(blankPreferences());
+  });
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  /* Clean-up's answers, seeded as its table would leave them: the filter reads
+     these rather than ask the worker, so each verdict is the one stated here. */
+  await page.evaluate(async () => {
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    /* The memory is module state, so it is reached through the very URL the app
+       loaded — after an edit the dev server serves it with a timestamp query. */
+    const importer = await (await fetch('/app/components/use-rune-keepers.ts')).text();
+    const memoryPath = /["'](\/app\/lib\/compute\/rune-advice-memory\.ts[^"']*)["']/.exec(importer)?.[1]
+      ?? '/app/lib/compute/rune-advice-memory.ts';
+    const runesPath = '/app/lib/runes.ts';
+    const { loadImportedGame } = await import(storagePath);
+    const { blankPreferences } = await import(importsPath);
+    const { rememberRuneAdvice } = await import(memoryPath);
+    const { readRunes } = await import(runesPath);
+    const game = await loadImportedGame();
+    const preferences = blankPreferences();
+    const runes = readRunes(game.data);
+    const advice = (verdict: string, unprotected?: string) => ({ verdict, reason: '', maxValue: 0, standing: 0, floorShare: 0,
+      floorMaxValue: 0, chance: 0, role: null, rank: 'broken', craftedLines: null, buildMains: null, readings: null, bestLineTypes: false,
+      ...(unprotected ? { unprotectedAdvice: { verdict: unprotected, reason: '' } } : {}) });
+    const verdicts: Record<string, ReturnType<typeof advice>> = {
+      101: advice('keep'), 102: advice('power-up'), 103: advice('reapp', 'sell'), 104: advice('keep', 'sell'),
+    };
+    rememberRuneAdvice({ data: { unit_list: game.data.unit_list }, settings: preferences.runePotential, roles: preferences.runeRoles },
+      runes, new Map(runes.map((rune: { id: string }) => [rune.id, verdicts[rune.id]])));
+  });
+  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
+  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
+  const panel = page.locator('[data-mode="selected"]');
+  /* Gems reach the three runes from +12 — the Keep, the Re-app and the safeguarded Keep. */
+  await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const cards = panel.locator('.craft-recommendation');
+  await expect(cards.first()).toBeVisible();
+  const labels = async () => new Set(await cards.evaluateAll((elements) => elements.map((element) =>
+    `${element.querySelector('.rune-link')?.getAttribute('aria-label')} ${element.querySelector('.craft-rune-facts')?.textContent}`)));
+  expect((await labels()).size).toBe(3);
+  await panel.getByRole('group', { name: 'Only keep-runes', exact: true }).getByRole('button', { name: 'Yes' }).click();
+  await expect(panel.locator('.craft-best-use-results')).toBeVisible();
+  const kept = [...await labels()];
+  expect(kept).toHaveLength(1);
+  expect(kept[0]).toMatch(/^Violent rune, slot 2 .*\+12$/);
+  /* Every rune was already judged, so nothing was asked again. */
+  expect(adviceWorkers).toBe(0);
+});
+
 test('result locations name Scenario and count every other engraving', async ({ page }) => {
   await openWorkspace(page);
   const account = JSON.parse(await readFile(craftAccount, 'utf8'));

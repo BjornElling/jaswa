@@ -31,6 +31,7 @@ import { craftCalculationKey, craftRecommendationRankings, craftStatAlreadyChang
   isHeldCraft, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
 import { useSessionStorageState } from '../lib/session-storage-state';
+import { useRuneKeepers } from './use-rune-keepers';
 import { readSettings, isBoolean, isOneOf, isWholeNumberIn } from '../lib/preference-reading';
 
 /**
@@ -59,10 +60,12 @@ const defaultState = {
   statId: '', selectedItemId: '', set: '', roll: defaultCraftRollAssumption,
   grindAfter: false, grindGrade: 'Legend' as ItemGrade, showEngraved: true, showInventory: true, count: 5,
   already: [] as Array<typeof alreadyOptions[number]>,
+  /** Best use only: the runes Rune Clean-up's calculation itself keeps. */
+  keepOnly: false,
 };
 type State = typeof defaultState;
 /** Reset filters returns these and only these: the item kind, the chosen stack and the assumptions are the question, not a filter. */
-const filterFields = ['lineages', 'grades', 'statId', 'set', 'showEngraved', 'showInventory', 'count', 'already'] as const;
+const filterFields = ['lineages', 'grades', 'statId', 'set', 'showEngraved', 'showInventory', 'count', 'already', 'keepOnly'] as const;
 const isString = (value: unknown) => typeof value === 'string';
 const isListOf = <T,>(choices: readonly T[]) => (value: unknown) => Array.isArray(value) && value.every(isOneOf(choices));
 const stateReaders = Object.fromEntries((Object.keys(modeChoices) as CraftViewMode[]).map((mode) => [mode, {
@@ -72,7 +75,7 @@ const stateReaders = Object.fromEntries((Object.keys(modeChoices) as CraftViewMo
     statId: (value) => value === '' || runeStatIds.some((id) => String(id) === value),
     selectedItemId: isString, set: isString, roll: isOneOf(craftRollAssumptions), grindAfter: isBoolean,
     grindGrade: isOneOf(itemGrades), showEngraved: isBoolean, showInventory: isBoolean, count: isWholeNumberIn(1, 10),
-    already: isListOf(alreadyOptions),
+    already: isListOf(alreadyOptions), keepOnly: isBoolean,
   }),
 }])) as Record<CraftViewMode, { read: (value: unknown) => State }>;
 
@@ -177,6 +180,12 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
         title={title?.(value)} onClick={() => onToggle(value)}>{display(value)}</FilterButton>)}</div>
     </div>;
   const result = calculation?.key === calculationKey ? calculation.result : undefined;
+  const adviceInputs = useMemo(() => ({ data: { unit_list: monsters } as GameRecord, settings, roles }), [monsters, settings, roles]);
+  /* Asked only once there is an answer to narrow, so the filter alone never
+     starts Rune Clean-up's worker on an empty page. */
+  const keepers = useRuneKeepers({ enabled: mode === 'selected' && state.keepOnly && result !== undefined,
+    runes, inputs: adviceInputs, base, hardwareAcceleration });
+  const keepersSettled = keepers.state === 'off' || keepers.state === 'ready';
   /* The box's best on each rune comes from the whole answer, so a filter that
      hides a held item cannot lower the bar a missing one has to clear. */
   const benchmark = useMemo<CraftBenchmark>(() => mode === 'missing' && result ? heldCraftBenchmark(result.candidates) : runeAsItStands,
@@ -189,8 +198,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && (!state.statId || String(row.item.statId) === state.statId)
     && (!state.set || row.rune.setName === state.set)
     && filterIncludes(state.already, craftStatAlreadyChanged(row.rune, row.item) ? 'yes' : 'no', alreadyOptions)
-    && filterPair(hasRunePlacement(placements.runes.get(row.rune.id) ?? emptyRunePlacement), state.showEngraved, state.showInventory)) ?? [],
-  [result, kind, mode, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices]);
+    && filterPair(hasRunePlacement(placements.runes.get(row.rune.id) ?? emptyRunePlacement), state.showEngraved, state.showInventory)
+    && (keepers.state !== 'ready' || keepers.keep.has(row.rune.id))) ?? [],
+  [result, kind, mode, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices, keepers]);
   const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark), [visible, state.count, benchmark]);
   const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, state.count, benchmark) : [], [mode, visible, state.count, benchmark]);
   const empty = base === null ? 'A level 40 monster is needed to score runes.' : !roles.length ? 'Add a role in Rune Clean-up to judge these runes.'
@@ -278,7 +288,13 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       <div className="craft-calculation-status">
         {current?.busy || current?.error || !result
           ? <p className="calculation-status" role="status">{current?.busy ? `Calculating… ${Math.floor(current.progress * 100)} %` : current?.error ?? empty ?? ''}</p>
-          : <CalculationStatus durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />}
+          : keepers.state === 'pending' || keepers.state === 'failed'
+            ? <p className="calculation-status" role="status">{keepers.state === 'failed' ? keepers.message
+              /* Clean-up's own words for its two phases, so the wait reads the same on both pages. */
+              : keepers.calibration !== null
+                ? `Calibrating Rune Clean-up… ${format(Math.round(keepers.calibration * 100))} % · only needed once`
+                : `Asking Rune Clean-up which runes it keeps… ${format(Math.floor(keepers.progress * 100))} %`}</p>
+            : <CalculationStatus durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />}
       </div>
     </div>
     {/* Two rows with one subject each — the item, then the rune it goes on —
@@ -301,13 +317,17 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
         (key) => key === 'showEngraved' ? 'Engraved' : 'Inventory', undefined, 'Choose rune locations')}
       {choiceGroup(alreadyLabel, 'already', alreadyOptions, (value) => state.already.includes(value), (value) => toggle('already', value),
         (value) => value === 'yes' ? 'Yes' : 'No')}
+      {/* Rune Clean-up's calculated Keep, read past the sell safeguards: Power up,
+          Re-app, Refine and a rune kept only by a safeguard all stay out. */}
+      {mode === 'selected' && choiceGroup('Only keep-runes', 'keep', ['yes'] as const, () => state.keepOnly,
+        () => update('keepOnly', !state.keepOnly), () => 'Yes', () => 'Only runes whose calculated Rune Clean-up verdict is Keep')}
       <div className="filter-panel-actions craft-view-actions">
         <Button className="filter-reset" onClick={() => setState((previous) => ({ ...previous,
           ...Object.fromEntries(filterFields.map((field) => [field, defaultState[field]])) }))}
         aria-label={`Reset ${{ recommendations: 'recommendations', selected: 'best use', missing: "what's missing" }[mode]} filters`}>Reset filters</Button>
       </div>
     </div>
-    {result && <div className="craft-best-use-results" data-kind={kind}>
+    {result && keepersSettled && <div className="craft-best-use-results" data-kind={kind}>
       {mode === 'missing' && <section className="craft-wanted" aria-label="Most wanted">
         <h3>Most wanted</h3>
         {wanted.length ? <table className="craft-wanted-table">

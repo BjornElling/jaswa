@@ -1327,7 +1327,8 @@ label[for] {
 /* Two panels, the split Rune Optimization makes (`RUNE-OPTIMIZATION.md` §8):
    the question first — item kind, the stack where there is one to choose, the
    assumptions, and Calculate at the far end where the eye finishes the row —
-   then the filters, which only narrow its answer and never start a worker.
+   then the filters, which only narrow its answer and never start the craft
+   worker (Only keep-runes may ask Rune Clean-up's, for verdicts it lacks).
    The filters run one subject per row: what the item is, then which rune it
    goes on; the last column holds the ranking length and the way back. Every
    view of the page shares these areas, so a group never changes place between
@@ -1356,11 +1357,13 @@ label[for] {
 .craft-question .filter-group-controls { width: 100%; }
 .craft-view-select .jaswa-select, .craft-view-roll .jaswa-select { width: 100%; min-width: 0; }
 .craft-view-grind .jaswa-select { width: 12ch; min-width: 0; }
+/* Only keep-runes is Best use's own; the other views leave its cell empty
+   rather than close it up, so no group moves between views. */
 .craft-best-use-filters {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr)) max-content;
   grid-template-areas:
-    "family   grade    stat    count"
-    "set      location already actions";
+    "family   grade    stat    count .      "
+    "set      location already keep  actions";
 }
 .craft-view-lineage { grid-area: family; }
 .craft-view-grade { grid-area: grade; }
@@ -1369,6 +1372,7 @@ label[for] {
 .craft-view-set { grid-area: set; }
 .craft-view-location { grid-area: location; }
 .craft-view-already { grid-area: already; }
+.craft-view-keep { grid-area: keep; }
 .craft-view-actions { grid-area: actions; justify-self: end; align-self: end; }
 .craft-best-use-filters .filter-group-controls { width: 100%; }
 .craft-best-use-filters .jaswa-select { width: 100%; min-width: 0; }
@@ -1379,7 +1383,7 @@ label[for] {
   }
   .craft-best-use-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas: "family grade" "stat count" "set location" "already actions";
+    grid-template-areas: "family grade" "stat count" "set location" "already keep" ". actions";
   }
 }
 .craft-best-use-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); align-items: start; }
