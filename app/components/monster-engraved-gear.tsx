@@ -2,7 +2,7 @@ import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { RuneEmblem } from './rune-emblem';
 import { RuneInnateLine, RuneSubLine } from './rune-sub-line';
 import type { Artifact } from '../lib/artifacts';
-import { artifactCategoryLabel, artifactEngraveClassLabel, displaySubProperty } from '../lib/artifact-grid';
+import { artifactCategoryLabel, artifactEngraveClassLabel, displaySubFigure, displaySubProperty } from '../lib/artifact-grid';
 import type { ArtifactCategory } from '../lib/artifact-properties';
 import type { Relic } from '../lib/relics';
 import { relicEffectText } from '../lib/relic-grid';
@@ -25,8 +25,9 @@ const subPropertySlots = 4;
 
 /**
  * One engraved rune, the way the game lists it: the emblem says slot and set before
- * either word is read, the set and its level, the main property and the innate
- * sit beside it, and after a step the sub properties one under another.
+ * either word is read, the set and its level and the main property sit beside it,
+ * and under it the innate, then after a small step the sub properties one under
+ * another.
  */
 function EngravedRune({ slot, rune, format }: {
   slot: number;
@@ -80,7 +81,7 @@ function EngravedArtifact({ category, artifact, format }: {
   format: (value: number) => string;
 }) {
   const label = artifactCategoryLabel(category);
-  return <section className="engraved-artifact" aria-label={`${label} artifact`}>
+  return <section className="engraved-artifact" data-empty={artifact === undefined ? 'true' : undefined} aria-label={`${label} artifact`}>
     <p className="engraved-artifact-head">
       <span className="engraved-artifact-category">{label}</span>
       <span className="engraved-artifact-class">
@@ -92,9 +93,12 @@ function EngravedArtifact({ category, artifact, format }: {
       {Array.from({ length: subPropertySlots }, (_, at) => {
         const line = artifact?.subProperties[at];
         if (!line) return <li key={at} aria-hidden="true" />;
-        const text = displaySubProperty(line, format);
-        return <li key={at} title={text}>
-          <span className="engraved-artifact-line">{text}</span>
+        /* Named and figured as a rune's sub line is, so the two kinds of gear read alike. */
+        return <li key={at} title={displaySubProperty(line, format)}>
+          <span className="engraved-artifact-line">
+            <span className="engraved-artifact-sub-name">{line.definition.name}</span>
+            {' '}<span className="engraved-artifact-sub-value">{displaySubFigure(line, format)}</span>
+          </span>
           {artifact?.convertedPropertyIndex === at && <ConvertedArtifactMark position={at} />}
         </li>;
       })}

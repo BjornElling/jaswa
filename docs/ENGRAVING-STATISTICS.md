@@ -239,8 +239,9 @@ default never enters the relic plan's score (`RELIC-CANONICAL.md` §11.5).
 
 **The shares have one place on screen: the game statistics overlay**
 (`app/components/monster-statistics-overlay.tsx`). The monster profile and
-Rune Optimization each carry one *Game statistics* button that opens it over
-the page; neither shows a share beside its own fields any more, because a
+Rune Optimization each carry one quiet *Statistics* button that opens it over
+the page — on the profile beside the monster's own facts, since the figures are
+about the species; neither shows a share beside its own fields any more, because a
 share sitting next to a choice leans on it, and the profile's answers are the
 user's while these figures are the game's.
 

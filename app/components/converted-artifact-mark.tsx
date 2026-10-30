@@ -1,4 +1,4 @@
-/** The circular arrows are the shared mark for a property changed in place. */
+/** The circular arrows are the shared mark for a property changed in place, gold on a rune and an artifact alike. */
 export function CircularArrowsMark({ label, className = '' }: { label: string; className?: string }) {
   return <svg className={`artifact-sub-mark artifact-sub-converted ${className}`.trim()} viewBox="0 0 16 16" role="img"
     aria-label={label}>

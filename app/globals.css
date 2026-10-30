@@ -5315,17 +5315,21 @@ html.overlay-open .overlay-backdrop { right: var(--overlay-gutter, 0px); }
   border-bottom: 1px solid var(--line);
 }
 .monster-overlay-head { grid-template-columns: auto minmax(0, 1fr) auto; }
-/* Reserve the same head space for every area name. Three equal columns under
-   it — optimize, the game's statistics, copy — wide enough for the longest. */
+/* Reserve the same head space for every area name, two equal columns under it —
+   optimize and copy. Fixed rather than sized to the area chosen, and no wider
+   than those two need: a longer area name clips in the menu and is named whole
+   in its title. */
 .monster-overlay-controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s2);
-  width: 76ch;
+  width: 48ch;
 }
-/* A monster the account does not own offers its statistics alone, at the edge. */
-.monster-overlay-controls > .game-statistics-button:only-child { grid-column: 3; }
 .game-statistics-button-face { display: inline-flex; align-items: center; gap: var(--s2); }
+/* The statistics after the facts, on the facts' value line: a quiet word about
+   this monster rather than a button competing with the area's controls. */
+.monster-overlay-facts-line { display: flex; align-items: flex-end; gap: var(--s4); min-width: 0; }
+.monster-overlay-facts-line > .game-statistics-button { flex: none; margin-bottom: 2px; }
 /* The one fact here a reader must not take for Scenario when it is not, so its
    menu alone is marked, by its name in the accent and a gold edge, rather than
    by a box around the row that outshouts the monster. */
@@ -5673,7 +5677,6 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-block-title { margin: 0; }
 /* A long preset name must not wrap the heading or move the gear below it. */
 .overlay-block-title-contextual { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.overlay-block-context { color: var(--text-muted); }
 /* Always rendered, whatever it says: the three wordings sit on one line of a
    height, so a block cannot resize when its provenance changes. */
 .overlay-provenance { margin: 0; color: var(--text-muted); min-height: 1lh; }
@@ -5693,9 +5696,9 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 /* ------------------------------------------------ monster overlay columns */
 
 /* What is wanted takes two thirds and what is engraved the last third, read across
-   one line of sight. Both columns start at the top and size to their content,
-   so a copy with nothing engraved leaves the right column short rather than moving
-   the answers on the left. */
+   one line of sight. Both columns start at the top; the left one sizes to its
+   content and the right one spreads to match it, so nothing engraved can move the
+   answers on the left. */
 .monster-overlay-body {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--s6);
@@ -5704,6 +5707,16 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .monster-overlay-wants, .monster-overlay-engraved { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
 .monster-overlay-body .overlay-block { gap: var(--s2); }
+/* The engraved column ends where the form beside it ends: it is stretched to the
+   row and its blocks spread down it, so the last relic sits level with the last
+   gear question instead of the column stopping short or running on below. Its
+   own steps stay small, so it is the form, not the engraved gear, that sets the
+   row's height. */
+.monster-overlay-body > .monster-overlay-engraved { align-self: stretch; align-content: space-between; gap: var(--s1); }
+.monster-overlay-engraved { line-height: 1.4; }
+/* No relic takes a relic row's box, so engraving one changes nothing around it. */
+.monster-overlay-engraved .overlay-block > .overlay-empty { margin: 0; padding: var(--s2) var(--s3); border: 1px solid transparent; }
+.monster-overlay-engraved .overlay-block { gap: var(--s3); }
 .monster-overlay-engraved .notice { margin: 0; }
 
 /* The eleven ranges — the eight stats and the three composites — in two rows of
@@ -6144,7 +6157,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .engraved-runes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s2);
+  gap: var(--s3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -6153,9 +6166,9 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   min-width: 0;
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
-  grid-template-rows: repeat(3, 1lh) auto;
+  grid-template-rows: repeat(2, 1lh) auto auto;
   column-gap: var(--s2);
-  padding: var(--s2);
+  padding: var(--s3);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--sunk);
@@ -6168,7 +6181,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .engraved-rune[data-slot="6"] { grid-area: 1 / 1; }
 /* The overlay's emblem at a third, every layer by the same factor, so the slots
    keep the proportions they have in the game's circle. */
-.engraved-rune .rune-emblem, .engraved-rune-blank { grid-row: 1 / span 3; width: 36px; height: 36px; border-radius: var(--radius-sm); }
+.engraved-rune .rune-emblem, .engraved-rune-blank { grid-row: 1 / span 2; align-self: center; width: 36px; height: 36px; border-radius: var(--radius-sm); }
 .engraved-rune .rune-emblem-frame { width: 30px; }
 .engraved-rune .rune-emblem[data-slot="1"] .rune-emblem-frame,
 .engraved-rune .rune-emblem[data-slot="4"] .rune-emblem-frame { width: 25px; }
@@ -6185,6 +6198,9 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The innate is a property line like the subs, so it starts on their edge under
+   the emblem, a small step above them rather than one of them. */
+.engraved-rune-innate { grid-column: 1 / -1; margin-top: var(--s2); }
 .engraved-rune-set { display: flex; justify-content: space-between; gap: var(--s1); color: var(--text-strong); }
 .engraved-rune-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .engraved-rune-main { color: var(--text-strong); font-variant-numeric: tabular-nums; }
@@ -6201,18 +6217,19 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .engraved-rune-subs .rune-sub { margin-right: 0; }
 .engraved-rune[data-empty='true'] .engraved-rune-subs { display: none; }
-.engraved-rune[data-empty='true']::after { content: ''; grid-column: 1 / -1; height: calc(4lh + var(--s2)); }
+/* The innate's line and the four subs', with both steps, so an empty slot is as tall as a filled one. */
+.engraved-rune[data-empty='true']::after { content: ''; grid-column: 1 / -1; height: calc(5lh + 2 * var(--s2)); }
 
 /* The two artifacts side by side, each the same five rows: its category and the
    class it fits, the main named, and four lines that clip with the whole line in
    the title rather than wrap and make one card taller than its neighbour. */
-.engraved-artifacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
+.engraved-artifacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
 .engraved-artifact {
   min-width: 0;
   display: grid;
   grid-template-rows: 1lh 1lh auto;
   gap: var(--s1);
-  padding: var(--s2);
+  padding: var(--s3);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--sunk);
@@ -6220,20 +6237,29 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .engraved-artifact-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); margin: 0; min-width: 0; }
 .engraved-artifact-category { color: var(--text-muted); }
 .engraved-artifact-class { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
-.engraved-artifact-main { margin: 0; color: var(--text-strong); }
-.engraved-artifact-subs { display: grid; grid-auto-rows: 1lh; margin: 0; padding: 0; list-style: none; color: var(--text); }
+/* Through the card, because `.dialog p` would otherwise set the main in body ink
+   and at the dialog's prose spacing rather than the card's. */
+.engraved-artifact > p { line-height: inherit; }
+.engraved-artifact > .engraved-artifact-main { margin: 0; color: var(--text-strong); }
+.engraved-artifact[data-empty='true'] > .engraved-artifact-main { color: var(--text-muted); }
+/* On top of the card's own gap, the rune card's step before its subs (`--s2`), so
+   the subs of both kinds of gear stand off from what heads them alike. */
+.engraved-artifact-subs { display: grid; grid-auto-rows: 1lh; margin: var(--s1) 0 0; padding: 0; list-style: none; color: var(--text); }
 .engraved-artifact-subs li { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
 .engraved-artifact-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* A rune's sub line's two tones (`.rune-sub-name`, `.rune-sub-value`). */
+.engraved-artifact-sub-name { color: var(--text-muted); }
+.engraved-artifact-sub-value { color: var(--text-strong); font-variant-numeric: tabular-nums; }
 
 /* A relic per line — main, unique, level — so a copy with several engraved costs the
    column one line each; the unique clips with the whole effect in its title. */
-.engraved-relics { display: grid; gap: var(--s1); margin: 0; padding: 0; list-style: none; }
+.engraved-relics { display: grid; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
 .engraved-relic {
   display: grid;
   grid-template-columns: 9ch minmax(0, 1fr) auto;
   align-items: baseline;
   gap: var(--s2);
-  padding: var(--s1) var(--s2);
+  padding: var(--s2) var(--s3);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--sunk);
@@ -6657,7 +6683,9 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-sub-marks { display: inline-flex; align-items: center; align-self: center; gap: var(--s1); }
 .rune-sub .rune-sub-marks:empty { display: none; }
 .rune-sub-gem.artifact-sub-mark { margin-left: 0; }
-.rune-sub-gem,
+/* The circular arrows on the mark itself, so a Gem's and an artifact's
+   conversion read as the one mark they are. */
+.artifact-sub-converted,
 .rune-sub-ground-figure,
 [data-ground='true'] .rune-sub-value { color: var(--rune-ground); }
 .rune-sub-grind-step { display: inline-flex; gap: var(--s1); align-items: baseline; }

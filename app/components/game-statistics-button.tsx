@@ -34,9 +34,9 @@ export function GameStatisticsButton({ masterId, name, size = 'regular', inline 
     className: ['game-statistics-button', className].filter(Boolean).join(' '),
     disabled: masterId === undefined,
     'aria-haspopup': 'dialog' as const,
-    'aria-label': name === '' ? 'Game statistics' : `Game statistics for ${name}`,
+    'aria-label': name === '' ? 'Statistics' : `Statistics for ${name}`,
     onClick: (event: MouseEvent<HTMLButtonElement>) => { if (masterId !== undefined) onOpen(masterId, event.currentTarget); },
   };
-  const face = <span className="game-statistics-button-face"><StatisticsIcon /><span>Game statistics</span></span>;
+  const face = <span className="game-statistics-button-face"><StatisticsIcon /><span>Statistics</span></span>;
   return inline ? <InlineButton {...props}>{face}</InlineButton> : <Button size={size} {...props}>{face}</Button>;
 }

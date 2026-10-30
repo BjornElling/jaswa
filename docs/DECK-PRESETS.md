@@ -348,8 +348,9 @@ and Scenario have separate profiles, even when they hold the same copy.
   relic and rune workspaces read Scenario's profile.
 - The overlay's *Build for* offers Scenario and each area once, without a team
   dropdown. It switches the shared profile and a representative team's gear
-  together, waits while an edit is unsaved, and names that team in a muted
-  parenthesis in the *Engraved runes* heading. Opening from a team keeps that
+  together, waits while an edit is unsaved, and names that team in the
+  *Engraved runes* heading's hover title, leaving the heading's line to the
+  heading and the build. Opening from a team keeps that
   team; switching area uses its first team.
 - A stored profile keyed by team or by no context is outside the contract and
   is rejected one scope at a time; every other preference survives.

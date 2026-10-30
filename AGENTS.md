@@ -297,7 +297,8 @@ parts an agent must not quietly break:
     paints a Grindstone-touched figure gold — sign and percent sign included,
     the name not. An Enchanted Gem's mark — the circular arrows an artifact's
     converted line also carries, with nothing drawn around them — is gold
-    always, as in the game. `app/components/rune-sub-line.tsx` is the
+    always, as in the game, and so is that same mark on an artifact's converted
+    line, so the one mark never reads as two. `app/components/rune-sub-line.tsx` is the
     one place that writes a rune property line, innate or sub, so no page can
     word or colour one its own way.
 

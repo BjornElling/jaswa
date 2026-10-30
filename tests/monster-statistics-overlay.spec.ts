@@ -54,7 +54,7 @@ test('the profile opens the game statistics over itself, and keeps no shares of 
   await profile.locator('.stat-range-input').first().fill('20000');
   await expect(profile.getByRole('button', { name: 'Save changes' })).toBeEnabled();
 
-  const opener = profile.getByRole('button', { name: 'Game statistics for Elucia (2A)' });
+  const opener = profile.getByRole('button', { name: 'Statistics for Elucia (2A)' });
   await expect(opener).toHaveAttribute('aria-haspopup', 'dialog');
   const atRest = await opener.boundingBox();
   await page.screenshot({ path: testInfo.outputPath('profile.png') });
@@ -101,14 +101,14 @@ test('the profile opens the game statistics over itself, and keeps no shares of 
 test('Rune Optimization offers the statistics beside the monster, and only once one is chosen', async ({ page }) => {
   await importAccount(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Optimization', exact: true }).click();
-  const opener = page.locator('main').getByRole('button', { name: /^Game statistics/ });
+  const opener = page.locator('main').getByRole('button', { name: /^Statistics/ });
   await expect(opener).toBeDisabled();
   const panel = page.locator('.rune-optimization-monster-panel');
   const before = await panel.boundingBox();
 
   await page.getByLabel('Monster', { exact: true }).selectOption('1');
   await expect(opener).toBeEnabled();
-  await expect(opener).toHaveAccessibleName('Game statistics for Elucia (2A)');
+  await expect(opener).toHaveAccessibleName('Statistics for Elucia (2A)');
   /* Choosing a monster enables the button; it moves nothing. */
   expect(await panel.boundingBox()).toEqual(before);
   /* The slots no longer carry the population's mains under them. */
@@ -127,7 +127,7 @@ test('a monster nobody captured says so rather than showing an empty panel', asy
   account.unit_list[1].unit_master_id = uncapturedMasterId;
   await importAccount(page, account);
   await openProfile(page, 1);
-  await page.getByRole('dialog').getByRole('button', { name: /^Game statistics for / }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /^Statistics for / }).click();
   const panel = statistics(page);
   await expect(panel).toBeVisible();
   await expect(panel.getByText(/statistics for this monster have not been captured yet/)).toBeVisible();

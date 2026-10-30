@@ -125,7 +125,15 @@ export function displaySubProperty(
   subProperty: ArtifactSubProperty,
   format: (value: number) => string,
 ): string {
-  return `${subProperty.definition.name} ${subProperty.definition.valueSign ?? '+'}${format(subProperty.valueHundredths / 100)}%`;
+  return `${subProperty.definition.name} ${displaySubFigure(subProperty, format)}`;
+}
+
+/** The signed figure alone, for a view that sets the name and the figure apart. */
+export function displaySubFigure(
+  subProperty: ArtifactSubProperty,
+  format: (value: number) => string,
+): string {
+  return `${subProperty.definition.valueSign ?? '+'}${format(subProperty.valueHundredths / 100)}%`;
 }
 
 export function compareArtifactRows(

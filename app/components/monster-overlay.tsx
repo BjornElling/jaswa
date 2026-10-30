@@ -95,15 +95,13 @@ const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 
 const targetRows: ReadonlyArray<{ key: keyof MonsterStatTargets; label: string }> =
   roleTargetColumns.map((column) => ({ key: column.key, label: `${column.label}${column.unit ?? ''}` }));
 
-/* `clip` is for a title that changes with a choice, as `context` is: it ends in an
-   ellipsis rather than wrap, and is named whole on hover. */
-function Section({ title, context, clip, note, children }: { title: string; context?: string; clip?: boolean; note?: string; children: ReactNode }) {
-  const clipped = clip || context !== undefined;
+/* `clip` is for a title that changes with a choice: it ends in an ellipsis rather
+   than wrap, and is named whole on hover. `hint` is what the title is about when
+   the line has no room to say it. */
+function Section({ title, clip, hint, note, children }: { title: string; clip?: boolean; hint?: string; note?: string; children: ReactNode }) {
   return <section className="overlay-block">
     <header className="overlay-block-head">
-      <h3 className={`overlay-block-title${clipped ? ' overlay-block-title-contextual' : ''}`} title={clipped ? (context === undefined ? title : `${title} (${context})`) : undefined}>
-        {title}{context !== undefined && <> <span className="overlay-block-context">({context})</span></>}
-      </h3>
+      <h3 className={`overlay-block-title${clip ? ' overlay-block-title-contextual' : ''}`} title={hint ?? (clip ? title : undefined)}>{title}</h3>
       {/* One line, always present, so a block cannot change height as its
           wording changes (`AGENTS.md` §2). */}
       <p className="overlay-provenance">{note ?? ''}</p>
@@ -450,18 +448,22 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             {editable && <Nickname value={draft.label} editing={editingNickname} onEditingChange={setEditingNickname}
               onCommit={(label) => change((state) => ({ ...state, label }))} />}
           </div>
-          <dl className="overlay-facts">
-            {facts.map((fact) => <div key={fact.label} title={fact.title}>
-              <dt>{fact.label}</dt>
-              <dd>{fact.value ?? '—'}</dd>
-            </div>)}
-          </dl>
+          {/* The game's statistics are about the species, so they sit with the
+              monster's own facts, and a monster the account does not own offers
+              them too. */}
+          <div className="monster-overlay-facts-line">
+            <dl className="overlay-facts">
+              {facts.map((fact) => <div key={fact.label} title={fact.title}>
+                <dt>{fact.label}</dt>
+                <dd>{fact.value ?? '—'}</dd>
+              </div>)}
+            </dl>
+            <GameStatisticsButton inline masterId={masterId} name={heroName} className="monster-overlay-statistics" onOpen={onOpenStatistics} />
+          </div>
         </div>
-        {/* Team choices belong to the workspace; profile choices belong to areas.
-            The game's statistics are about the species, so a monster the account
-            does not own offers them too. */}
-        <div className="monster-overlay-controls">
-          {editable && <div className="monster-overlay-preset" role="group" aria-label="Build for area">
+        {/* Team choices belong to the workspace; profile choices belong to areas. */}
+        {editable && <div className="monster-overlay-controls">
+          <div className="monster-overlay-preset" role="group" aria-label="Build for area">
             <label className="monster-overlay-preset-label" htmlFor="monster-overlay-preset">Build for</label>
             <Dropdown id="monster-overlay-preset" className="monster-overlay-preset-select" value={activeScope}
               disabled={dirty || areas.length < 2}
@@ -469,15 +471,14 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
               onChange={(event) => openArea(event.target.value)}>
               {areas.map((entry) => <option key={entry.profileScope} value={entry.profileScope}>{monsterProfileAreaName(entry)}</option>)}
             </Dropdown>
-          </div>}
-          {editable && <Button className="monster-overlay-optimize"
+          </div>
+          <Button className="monster-overlay-optimize"
             aria-label={`Save and optimize runes for ${heroName}`}
             onClick={() => {
               if (dirty) onSave(activeScope, target.unitId, { ...draft, unitId: target.unitId });
               onOptimize(target.unitId, activePresetId);
-            }}>Save and optimize</Button>}
-          <GameStatisticsButton masterId={masterId} name={heroName} className="monster-overlay-statistics" onOpen={onOpenStatistics} />
-          {editable && <Dropdown className="monster-overlay-copy-select" aria-label="Copy the profile from another area"
+            }}>Save and optimize</Button>
+          <Dropdown className="monster-overlay-copy-select" aria-label="Copy the profile from another area"
             value="" placeholder="Copy from…" disabled={copySources.length === 0}
             onChange={(event) => {
               const stated = copySources.find((entry) => entry.id === event.target.value)?.stated;
@@ -485,8 +486,8 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             }}>
             {copySources.map((entry) => <option key={entry.id} value={entry.id}
               disabled={!entry.stated || !statesSomething(entry.stated)}>{entry.name}</option>)}
-          </Dropdown>}
-        </div>
+          </Dropdown>
+        </div>}
       </header>
 
       <div className="overlay-body monster-overlay-body">
@@ -620,13 +621,16 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
           {monster === undefined
             ? <p className="notice">
               You do not own a copy of this monster, so there is nothing to set preferences on.
-              What the wider player base engraves is under Game statistics.
+              What the wider player base engraves is under Statistics.
             </p>
             : <>
               {/* What the copy has engraved, written the way a desired build is, so the
                   two read against each other without translation. */}
-              {/* The heading names the gear's preset; relics are Scenario's in every preset. */}
-              <Section title="Engraved runes" context={preset?.name ?? 'Scenario'} note={currentBuild === '' ? 'No runes engraved' : currentBuild}>
+              {/* The heading leaves the preset to the Build for menu and names it on
+                  hover, since several presets can share one area; relics are
+                  Scenario's in every preset. */}
+              <Section title="Engraved runes" hint={`Engraved in ${preset?.name ?? 'Scenario'}`}
+                note={currentBuild === '' ? 'No runes engraved' : currentBuild}>
                 <EngravedRunes runes={engravedRunes} format={format} />
               </Section>
               <Section title="Engraved artifacts">

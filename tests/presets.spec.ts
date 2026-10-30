@@ -1361,7 +1361,7 @@ test('two teams share one area profile while retaining their gear and surviving 
   let dialog = await openProfileIn(page, '12', 'deck-1-4');
   const areas = dialog.getByLabel('Build for', { exact: true });
   await expect(areas.locator('option')).toHaveText(['Scenario', 'Arena Attack', 'Not yet named']);
-  await expect(dialog.getByRole('heading', { name: 'Engraved runes (Arena Attack 4)', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Engraved runes', exact: true })).toHaveAttribute('title', 'Engraved in Arena Attack 4');
   const gearCards = () => dialog.locator('.engraved-rune:not([data-empty])');
   // The teams have different saved gear; neither is merged into the profile.
   await expect(gearCards()).toHaveCount(3);
@@ -1382,7 +1382,7 @@ test('two teams share one area profile while retaining their gear and surviving 
 
   dialog = await openProfileIn(page, '12', 'deck-1-5');
   await expect(spdAtMost(dialog)).toHaveValue('180');
-  await expect(dialog.getByRole('heading', { name: 'Engraved runes (Arena Attack 5)', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Engraved runes', exact: true })).toHaveAttribute('title', 'Engraved in Arena Attack 5');
   await expect(gearCards()).toHaveCount(0);
   await expect(dialog.getByLabel('Copy the profile from another area').locator('option')).toHaveText(['Copy from…', 'Scenario', 'Not yet named']);
   await spdAtMost(dialog).fill('0');
