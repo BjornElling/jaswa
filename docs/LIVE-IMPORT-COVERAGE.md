@@ -57,6 +57,17 @@ reader used by the service's capture-gap check and by the update itself.
    gain authority from its name: when a confirmed record is present it is an
    incidental copy, never a second update. Conflicting confirmed records refuse
    the exchange rather than choosing by JSON key order.
+7. Gear actions share one boundary for direct and compound answers. A root
+   gear-operation envelope (for example `UpdateArtifactOccupation` inside
+   `UpdateUnitEquip`) is opened only for a gear-moving request and with its
+   own explicit successful `ret_code`. Failed children are ignored. An unknown
+   ancestor still breaks authority. `updated_` collections use the same entity
+   vocabulary as ordinary collections; they do not need per-command exceptions.
+   Monster replacement lists are merged before individual gear records, so
+   an item just removed from a monster returns to inventory. The returned
+   gear's `occupied_id` applies its actual placement, including displaced gear;
+   request-side identifiers are read only for the named gear type, since an
+   artifact and a relic can share a `rid`.
 
 The same request gate covers sales, material consumption, gear movement and
 building moves. Removal lists are read at the current response root, with
@@ -257,6 +268,26 @@ only in modification time in this capture, so comparing scores alone would
 not detect choosing the wrong record. The replay checks the complete committed
 record, its engraved copies, the material quantity and unchanged runes. A
 service fixture proves that the next dungeon reward still arrives.
+
+The subsequent 1.0.38 report stopped on
+`UpdateUnitEquip.UpdateArtifactOccupation.updated_artifacts`. Its two current
+artifact records and two updated monsters now pass through the shared gear
+boundary. Replay keeps all 804 artifacts and 1,240 runes, and both monsters'
+artifact lists and both returned artifact records match the captured answer
+exactly. Tests cover direct and compound answers, zero/one/100 moved records,
+swaps, removal to inventory, failed children, shared artifact/relic identifiers,
+unknown ancestors and the next encrypted live exchange. A full rollback of the
+continuous-path boundary was rejected: it would again let an unfamiliar
+historical wrapper authorise its nested rewards. The common gear protocol is
+modelled instead, with the archive regression tests kept intact.
+
+`tests/helper-artifact-movement.spec.ts` sends Rust-replayed compound snapshots
+through browser polling. It checks the empty workspace, all four fixture
+artifacts before and after movement, unchanged row bounds and the next artifact
+reward. A local browser replay of the private report also renders all 804
+artifacts before and after the move, with every row's bounds unchanged. All
+seven saved error reports replay without unresolved exchanges; the sale report
+still removes all 100 sold runes.
 
 [SWEX review](./SWEX-REVIEW.md) records the external sources, existing safeguards
 and remaining evidence gaps. A logger displaying a reroll candidate is not proof

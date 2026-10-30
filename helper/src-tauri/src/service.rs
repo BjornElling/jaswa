@@ -1727,6 +1727,38 @@ mod tests {
     }
 
     #[test]
+    fn compound_gear_changes_keep_later_rewards_arriving() {
+        for populated in [false, true] {
+            let shared = shared_for_test();
+            *shared.game_running.lock().unwrap() = true;
+            let send = |request: Value, response: Value| {
+                capture(message(&encoded(&request, false)).as_bytes(),
+                    message(&encoded(&response, true)).as_bytes(), &shared);
+                assert!(!shared.incidents.lock().unwrap().active());
+                assert_eq!(status(&shared)["profileReady"], true);
+            };
+            let artifact = json!({"rid": 5, "slot": 1, "occupied_id": 1});
+            send(json!({"command": "HubUserLogin"}), json!({"unit_list": [
+                {"unit_id": 1, "artifacts": if populated { json!([artifact]) } else { json!([]) }}
+            ], "runes": [], "artifacts": []}));
+            let removed = json!({"rid": 5, "slot": 0, "occupied_id": 0});
+            send(json!({"command": "UpdateUnitEquip", "artifact_updates": if populated {
+                json!([{"artifact_id": 5, "occupied_id": 0}])
+            } else { json!([]) }}), json!({"ret_code": 0, "UpdateArtifactOccupation": {
+                "ret_code": 0, "updated_artifacts": if populated { json!([removed]) } else { json!([]) },
+                "updated_units": [{"unit_id": 1, "artifacts": []}]
+            }}));
+            let data = shared.profile.lock().unwrap().read().unwrap().data;
+            assert_eq!(data["artifacts"], if populated { json!([removed]) } else { json!([]) });
+            assert_eq!(data["unit_list"][0]["artifacts"], json!([]));
+            send(json!({"command": "BattleDungeonResult_V2"}), json!({"changed_item_list": [
+                {"type": 8, "info": {"rune_id": 8, "set_id": 13}}
+            ]}));
+            assert_eq!(shared.profile.lock().unwrap().read().unwrap().data["runes"][0]["rune_id"], 8);
+        }
+    }
+
+    #[test]
     fn rejects_ambiguous_http_framing_instead_of_dropping_the_body() {
         for headers in [
             "Content-Length: nope",

@@ -357,7 +357,10 @@ impl ProfileStore {
             self.refused = Some(reason);
             return false;
         }
-        let response_items = entities.records;
+        let mut response_items = entities.records;
+        // A monster's replacement gear list may omit an item just taken off.
+        // Read those lists first, so the item's own record can return to inventory.
+        response_items.sort_by_key(|(entity, _)| entity.collection != "unit_list");
         /* A normal-shrine record and a live unit have the same identity. The
         game moves that one record between the two collections; it never owns
         two copies under one unit id. Keep the ids that a response establishes
@@ -493,6 +496,28 @@ impl ProfileStore {
         changed |= apply_defense_decks(&mut profile, response);
         for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
             if moves_gear {
+                // Server records name the actual owner, including displaced
+                // gear. They also avoid interpreting an artifact's rid as a relic.
+                if entity.collection != "relics" {
+                    for (_, item) in response_items.iter().filter(|(kind, _)| kind.collection == entity.collection) {
+                        if let Some(owner) = identifier(item, "occupied_id") {
+                            changed |= move_equipment(&mut profile, entity,
+                                &identifier(item, entity.identifier).expect("live record has an id"),
+                                (owner != "0").then_some(owner.as_str()));
+                        }
+                    }
+                }
+                let names_entity = match entity.collection {
+                    "runes" => command.contains("rune"),
+                    "artifacts" => command.contains("artifact"),
+                    "relics" => command.contains("relic"),
+                    _ => false,
+                };
+                // Compound requests are answered with typed current records;
+                // their heterogeneous update arrays are not a bag of shared ids.
+                if !names_entity {
+                    continue;
+                }
                 let bare_item_allowed = entity.collection != "relics";
                 for (item_id, destination) in
                     occupation_updates(request, entity.identifier, bare_item_allowed)
@@ -1467,7 +1492,7 @@ fn account_request(request: &Value) -> AccountRequest {
     if (base.starts_with("battle") && base.ends_with("result"))
         || matches!(base, "arenabattleresult" | "moveunitbuilding" | "movestoragefromto"
             | "dorandomwishitem" | "getupdateddataafterwebevent")
-        || (base.starts_with("update") && base.contains("occupation"))
+        || (base.starts_with("update") && gear_moving_command(base))
     {
         AccountRequest::Mutation
     } else {
@@ -1506,6 +1531,7 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
         live_request: bool,
         battle_team: bool,
         bulk_rune_upgrade: bool,
+        moves_gear: bool,
     }
     fn visit(
         value: &Value,
@@ -1600,7 +1626,14 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
         let is_unit = valid_identifier(value, "unit_id") && candidate_at(value, ENTITIES[0], parent);
         for (key, entry) in map {
             let child_path = if path.is_empty() { key.clone() } else { format!("{path}.{key}") };
-            let edge = (scope.bulk_rune_upgrade && path.is_empty() && key == "upgrade_rune_list")
+            // The game bundles gear operations under their command names.
+            // Their own result code governs the child, not the outer success.
+            let gear_operation = path.is_empty() && scope.moves_gear
+                && gear_moving_command(&key.to_ascii_lowercase())
+                && account_request(&serde_json::json!({"command": key})).reads_current()
+                && entry.get("ret_code").is_some();
+            let edge = gear_operation
+                || (scope.bulk_rune_upgrade && path.is_empty() && key == "upgrade_rune_list")
                 || account_container(key)
                 || ENTITIES.iter().any(|entity| direct_record_field(key, *entity) || account_collection(key, *entity))
                 || (path.is_empty() && scope.battle_team && key == "battle_team")
@@ -1609,7 +1642,8 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
             let root_allowed = !path.is_empty() || scope.live_request
                 || (scope.battle_team && matches!(key.as_str(), "battle_team" | "unit_list" | "unit_info"));
             visit(entry, &child_path, key, inside_unit || is_unit,
-                authorized && edge && root_allowed, blocked, scope, found);
+                authorized && edge && root_allowed,
+                blocked || (gear_operation && !successful_response(entry)), scope, found);
         }
     }
     let mut found = LiveEntities::default();
@@ -1623,7 +1657,9 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
     let bulk_rune_upgrade = request.get("command").and_then(Value::as_str)
         .is_some_and(|command| command.eq_ignore_ascii_case("UpgradeRuneList"));
     let scope = Scope { profile, claimed_mail_ids, shrine_move,
-        live_request: account_request(request).reads_current(), battle_team, bulk_rune_upgrade };
+        live_request: account_request(request).reads_current(), battle_team, bulk_rune_upgrade,
+        moves_gear: account_mutation_command(request) && request.get("command")
+            .and_then(Value::as_str).is_some_and(|command| gear_moving_command(&command.to_ascii_lowercase())) };
     visit(value, "", "", false, true, false, &scope, &mut found);
     // A confirmed record is the committed state, not another candidate to
     // merge in JSON order. Acquisition still needs the same request and path.
@@ -1701,6 +1737,7 @@ fn direct_record_field(parent: &str, entity: Entity) -> bool {
 }
 
 fn account_collection(parent: &str, entity: Entity) -> bool {
+    let parent = parent.strip_prefix("updated_").unwrap_or(parent);
     if parent.strip_suffix("_list").is_some_and(|name| direct_record_field(name, entity)) {
         return true;
     }
@@ -2402,6 +2439,106 @@ fn craft_consumptions(value: &Value) -> Vec<(String, i64)> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn direct_and_bundled_gear_answers_share_the_same_boundary() {
+        for entity in [ENTITIES[1], ENTITIES[2]] {
+            for count in [0, 1, 100] {
+                for bundled in [false, true] {
+                    let operation = if entity.collection == "runes" { "EquipRuneList" } else { "UpdateArtifactOccupation" };
+                    let items: Vec<_> = (1..=count).map(|id| {
+                        if entity.collection == "runes" {
+                            json!({"rune_id": id, "occupied_id": 1, "slot_no": 1})
+                        } else {
+                            json!({"rid": id, "occupied_id": 1, "slot": 1})
+                        }
+                    }).collect();
+                    let mut snapshot = json!({"unit_list": [
+                        {"unit_id": 1, "runes": [], "artifacts": []},
+                        {"unit_id": 2, "runes": [], "artifacts": []}
+                    ], "runes": [], "artifacts": [],
+                        "relics": [{"rid": 1, "durability": 10}]});
+                    snapshot["unit_list"][0][entity.collection] = json!(items);
+                    let mut store = ProfileStore::default();
+                    assert!(store.accept_snapshot(snapshot));
+                    let moved: Vec<_> = items.iter().map(|item| {
+                        let mut item = item.clone();
+                        item["occupied_id"] = json!(2);
+                        item
+                    }).collect();
+                    let mut response = json!({"ret_code": 0});
+                    response[format!("updated_{}", entity.collection)] = json!(moved);
+                    let response = if bundled { json!({"ret_code": 0, operation: response}) } else { response };
+                    let request = json!({"command": if bundled { "UpdateUnitEquip" } else { operation }});
+                    assert!(store.unmodeled_exchange(&response, &request).is_none());
+                    assert_eq!(store.apply_update(&response, &request), count > 0);
+                    assert!(store.take_declined().1.is_none());
+                    let data = store.read().unwrap().data;
+                    assert!(collection(&data["unit_list"][0], entity.collection).is_empty());
+                    assert_eq!(collection(&data["unit_list"][1], entity.collection), moved);
+                    assert!(collection(&data, entity.collection).is_empty());
+                    assert_eq!(data["relics"], json!([{"rid": 1, "durability": 10}]));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn compound_swaps_keep_the_servers_units_and_ignore_failed_children() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"unit_list": [
+            {"unit_id": 1, "artifacts": [{"rid": 5, "slot": 1, "occupied_id": 1}]},
+            {"unit_id": 2, "artifacts": [{"rid": 6, "slot": 1, "occupied_id": 2}]}
+        ], "runes": [], "artifacts": []})));
+        let request = json!({"command": "UpdateUnitEquip", "artifact_updates": [
+            {"artifact_id": 5, "occupied_id": 2}, {"artifact_id": 6, "occupied_id": 1}
+        ]});
+        let response = json!({"ret_code": 0, "UpdateArtifactOccupation": {"ret_code": 0,
+            "updated_artifacts": [{"rid": 5, "slot": 1, "occupied_id": 2}, {"rid": 6, "slot": 1, "occupied_id": 1}],
+            "updated_units": [
+                {"unit_id": 1, "artifacts": [{"rid": 6, "slot": 1, "occupied_id": 1}]},
+                {"unit_id": 2, "artifacts": [{"rid": 5, "slot": 1, "occupied_id": 2}]}
+            ]}, "EquipRuneList": {"ret_code": 1, "updated_runes": [{"rune_id": 999, "slot_no": 1}]}});
+        assert!(store.unmodeled_exchange(&response, &request).is_none());
+        assert!(store.apply_update(&response, &request));
+        assert!(store.take_declined().1.is_none());
+        let data = store.read().unwrap().data;
+        assert_eq!(data["unit_list"][0]["artifacts"][0]["rid"], 6);
+        assert_eq!(data["unit_list"][1]["artifacts"][0]["rid"], 5);
+        assert!(collection(&data, "runes").is_empty());
+        assert!(collection(&data, "artifacts").is_empty());
+        let failed = json!({"ret_code": 0, "UpdateArtifactOccupation": {"ret_code": 1,
+            "updated_artifacts": [{"rid": 5, "slot": 1, "occupied_id": 1}]}});
+        assert!(store.unmodeled_exchange(&failed, &request).is_none());
+        assert!(!store.apply_update(&failed, &request));
+        assert_eq!(store.read().unwrap().data, data);
+        let removed = json!({"ret_code": 0, "UpdateArtifactOccupation": {"ret_code": 0,
+            "updated_artifacts": [{"rid": 5, "slot": 0, "occupied_id": 0}],
+            "updated_units": [{"unit_id": 2, "artifacts": []}]}});
+        assert!(store.apply_update(&removed, &request));
+        assert!(store.take_declined().1.is_none());
+        let data = store.read().unwrap().data;
+        assert_eq!(data["artifacts"], json!([{"rid": 5, "slot": 0, "occupied_id": 0}]));
+        assert!(collection(&data["unit_list"][1], "artifacts").is_empty());
+        assert_eq!(data["unit_list"][0]["artifacts"][0]["rid"], 6);
+    }
+
+    #[test]
+    fn gear_command_names_cannot_restart_authority_inside_an_unknown_or_historical_path() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"unit_list": [], "runes": []})));
+        let operation = json!({"ret_code": 0, "updated_artifacts": [{"rid": 5, "slot": 1}]});
+        for response in [
+            json!({"unknown": {"UpdateArtifactOccupation": operation}}),
+            json!({"UpdateArtifactOccupation": {"updated_artifacts": [{"rid": 5, "slot": 1}]}}),
+        ] {
+            assert!(store.unmodeled_exchange(&response, &json!({"command": "UpdateUnitEquip"})).is_some());
+        }
+        assert!(store.unmodeled_exchange(&json!({"UpdateArtifactOccupation": operation}),
+            &json!({"command": "GetMailList"})).is_some());
+        assert!(!store.apply_update(&json!({"clear_reward_crate_list": [{"UpdateArtifactOccupation": operation}]}),
+            &json!({"command": "UpdateUnitEquip"})));
+    }
 
     #[test]
     fn merges_known_live_equipment_without_leaking_an_opponent() {
