@@ -1404,12 +1404,12 @@ fn candidate_at(value: &Value, entity: Entity, parent: &str) -> bool {
         return true;
     }
     match entity.collection {
-        "artifacts" if entity.direct.contains(&parent) => {
+        "artifacts" if direct_record_field(parent, entity) => {
             ["upgrade_curr", "occupied_id", "level", "locked"]
                 .iter()
                 .any(|key| value.get(*key).is_some())
         }
-        "relics" if entity.direct.contains(&parent) => [
+        "relics" if direct_record_field(parent, entity) => [
             "upgrade_curr",
             "occupied_id",
             "level",
@@ -1424,6 +1424,7 @@ fn candidate_at(value: &Value, entity: Entity, parent: &str) -> bool {
 #[derive(Default)]
 struct LiveEntities {
     records: Vec<(Entity, Value)>,
+    confirmed_records: Vec<(Entity, Value)>,
     unresolved: Option<String>,
     mirrors: Vec<(String, Entity, String)>,
 }
@@ -1488,6 +1489,12 @@ fn account_mutation_command(request: &Value) -> bool {
     account_request(request) == AccountRequest::Mutation
 }
 
+/// An unreadable answer to a known account operation is a capture gap, not
+/// auxiliary traffic. The service and the merger must use the same boundary.
+pub fn requires_account_response(request: &Value) -> bool {
+    account_request(request).reads_current()
+}
+
 /* Ownership is not freshness: archives carry valid ids and this account's
 wizard id too. Only a continuous, recognised path from the response root may
 supply live records. An unknown wrapper cannot grant authority to its children. */
@@ -1538,14 +1545,19 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
         });
         if !inside_unit && !blocked && !belongs_elsewhere {
             for entity in ENTITIES {
-                let named_record = entity.direct.contains(&parent) || account_collection(parent, entity);
+                let named_record = direct_record_field(parent, entity) || account_collection(parent, entity);
                 if !valid_identifier(value, entity.identifier)
                     || !(candidate_at(value, entity, parent) || named_record) {
                     continue;
                 }
                 if authorized && (!path.is_empty() || scope.live_request) {
-                    if candidate_at(value, entity, parent) || known_account_entity(scope.profile, entity, value) {
-                        found.records.push((entity, value.clone()));
+                    if known_account_entity(scope.profile, entity, value)
+                        || new_account_entity(scope.profile, entity, value) {
+                        if confirmed_record_field(parent).is_some() {
+                            found.confirmed_records.push((entity, value.clone()));
+                        } else {
+                            found.records.push((entity, value.clone()));
+                        }
                     } else {
                         found.unresolved.get_or_insert_with(|| format!(
                             "Incomplete new account record at {path} ({} {}). Live import is paused.",
@@ -1568,7 +1580,8 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
                     });
                     if !foreign {
                         if authorized {
-                            if candidate(&item, entity) || known_account_entity(scope.profile, entity, &item) {
+                            if known_account_entity(scope.profile, entity, &item)
+                                || new_account_entity(scope.profile, entity, &item) {
                                 found.records.push((entity, item));
                             } else {
                                 found.unresolved.get_or_insert_with(|| format!(
@@ -1589,7 +1602,7 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
             let child_path = if path.is_empty() { key.clone() } else { format!("{path}.{key}") };
             let edge = (scope.bulk_rune_upgrade && path.is_empty() && key == "upgrade_rune_list")
                 || account_container(key)
-                || ENTITIES.iter().any(|entity| entity.direct.contains(&key.as_str()) || account_collection(key, *entity))
+                || ENTITIES.iter().any(|entity| direct_record_field(key, *entity) || account_collection(key, *entity))
                 || (path.is_empty() && scope.battle_team && key == "battle_team")
                 || (scope.shrine_move && (child_path == "result_from" || child_path == "result_from.add_unit_list"))
                 || (matches!(parent, "changed_item_list" | "item_list" | "changed_item") && key == "info");
@@ -1612,12 +1625,37 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
     let scope = Scope { profile, claimed_mail_ids, shrine_move,
         live_request: account_request(request).reads_current(), battle_team, bulk_rune_upgrade };
     visit(value, "", "", false, true, false, &scope, &mut found);
+    // A confirmed record is the committed state, not another candidate to
+    // merge in JSON order. Acquisition still needs the same request and path.
+    let confirmed = std::mem::take(&mut found.confirmed_records);
+    let mut positions: std::collections::HashMap<_, usize> = std::collections::HashMap::new();
+    let mut committed: Vec<(Entity, Value)> = Vec::new();
+    for (entity, item) in confirmed {
+        let key = (entity.collection, identifier(&item, entity.identifier));
+        if let Some(&index) = positions.get(&key) {
+            let existing = &mut committed[index].1;
+            let conflict = item.as_object().is_some_and(|fields| fields.iter()
+                .any(|(key, value)| existing.get(key).is_some_and(|current| current != value)));
+            if conflict {
+                found.unresolved.get_or_insert_with(|| format!(
+                    "Conflicting confirmed {} records. Live import is paused.", entity.collection));
+            } else {
+                *existing = merge_record(Some(existing), item);
+            }
+        } else {
+            positions.insert(key, committed.len());
+            committed.push((entity, item));
+        }
+    }
+    found.records.retain(|(entity, item)| !positions.contains_key(
+        &(entity.collection, identifier(item, entity.identifier))));
+    found.records.extend(committed);
     // A second view of an authoritative record is not another acquisition.
     // Its contents never win, even when it precedes the current record in JSON.
+    let current_ids: std::collections::HashSet<_> = found.records.iter()
+        .map(|(entity, item)| (entity.collection, identifier(item, entity.identifier))).collect();
     for (path, entity, id) in std::mem::take(&mut found.mirrors) {
-        if !found.records.iter().any(|(current, item)| current.collection == entity.collection
-            && identifier(item, entity.identifier).as_deref() == Some(&id))
-        {
+        if !current_ids.contains(&(entity.collection, Some(id.clone()))) {
             found.unresolved.get_or_insert_with(|| format!(
                 "Unrecognised account-data path {path} ({} {id}). Live import is paused until this response is understood.",
                 entity.collection
@@ -1653,8 +1691,17 @@ fn claimed_mail_record(value: &Value, parent: &str, claimed_mail_ids: &[String])
     identifier(value, "mail_id").is_some_and(|id| claimed_mail_ids.contains(&id))
 }
 
+fn confirmed_record_field(parent: &str) -> Option<&str> {
+    let parent = parent.strip_suffix("_list").unwrap_or(parent);
+    parent.strip_prefix("confirmed_").or_else(|| parent.strip_suffix("_confirmed"))
+}
+
+fn direct_record_field(parent: &str, entity: Entity) -> bool {
+    entity.direct.contains(&confirmed_record_field(parent).unwrap_or(parent))
+}
+
 fn account_collection(parent: &str, entity: Entity) -> bool {
-    if entity.direct.iter().any(|name| parent.strip_suffix("_list") == Some(*name)) {
+    if parent.strip_suffix("_list").is_some_and(|name| direct_record_field(name, entity)) {
         return true;
     }
     match entity.collection {
@@ -1690,7 +1737,8 @@ at level 15 and `before_artifact` at level 12, and the account kept 12, so a
 refined artifact stayed marked unrefined however many times the snapshot
 refreshed. A "before" record is history, never account state. */
 fn superseded_record(parent: &str) -> bool {
-    parent.starts_with("before_")
+    let parent = parent.strip_suffix("_list").unwrap_or(parent);
+    parent.starts_with("before_") || parent.ends_with("_before")
 }
 
 /* A monster the game has just sealed into the Normal tab, answered in full so
@@ -3717,6 +3765,121 @@ mod tests {
 
 #[cfg(test)]
 mod phantom_rune_regression {
+    #[test]
+    fn compatible_confirmations_update_known_items_but_incomplete_new_items_are_refused() {
+        use super::*;
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": [],
+            "artifacts": [{"rid": 1, "slot": 1, "level": 12, "locked": 0}]})));
+        let request = json!({"command": "ConfirmArtifactConversion"});
+        let response = json!({"ret_code": 0, "artifact_confirmed": {"rid": 1, "level": 15},
+            "confirmed_artifact": {"rid": 1, "locked": 1}});
+        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert!(store.apply_update(&response, &request));
+        assert_eq!(store.read().unwrap().data["artifacts"], json!([{"rid": 1, "slot": 1, "level": 15, "locked": 1}]));
+        let before = store.read().unwrap();
+        let missing_owner = json!({"unit": {"unit_id": 2, "unit_master_id": 10101}});
+        assert!(store.unmodeled_exchange(&missing_owner, &request).unwrap().contains("Incomplete"));
+        assert!(!store.apply_update(&missing_owner, &request));
+        assert_eq!(store.read().unwrap().data, before.data);
+        for field in ["artifact", "artifact_confirmed", "confirmed_artifact"] {
+            let mut response = json!({"ret_code": 0});
+            response[field] = json!({"rid": 2, "level": 15});
+            assert!(store.unmodeled_exchange(&response, &request).unwrap().contains("Incomplete"));
+            assert!(!store.apply_update(&response, &request));
+            assert_eq!(store.read().unwrap().data, before.data);
+            assert_eq!(store.read().unwrap().revision, before.revision);
+        }
+    }
+
+    #[test]
+    fn a_large_confirmed_batch_keeps_every_item_without_replaying_candidates() {
+        use super::*;
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": []})));
+        let current: Vec<_> = (1..=1000).map(|id| json!({"rune_id": id, "set_id": 13, "upgrade_curr": 15})).collect();
+        let candidates: Vec<_> = (1..=1000).map(|id| json!({"rune_id": id, "set_id": 13, "upgrade_curr": 0})).collect();
+        let response = json!({"ret_code": 0, "rune_confirmed_list": current,
+            "rune_before_list": candidates, "rune_after_list": candidates});
+        let request = json!({"command": "ConfirmRune"});
+        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert!(store.apply_update(&response, &request));
+        assert_eq!(store.read().unwrap().data["runes"], json!(current));
+    }
+
+    #[test]
+    fn confirmed_state_wins_over_before_after_and_plain_mirrors_for_every_entity() {
+        use super::*;
+        for (entity, old, current) in [
+            (ENTITIES[0], json!({"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 1}),
+                json!({"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 40})),
+            (ENTITIES[1], json!({"rune_id": 1, "set_id": 13, "upgrade_curr": 0}),
+                json!({"rune_id": 1, "set_id": 13, "upgrade_curr": 15})),
+            (ENTITIES[2], json!({"rid": 1, "slot": 1, "level": 12}),
+                json!({"rid": 1, "slot": 1, "level": 15})),
+            (ENTITIES[3], json!({"rid": 1, "sec_effect": [], "durability": 5}),
+                json!({"rid": 1, "sec_effect": [], "durability": 10})),
+            (ENTITIES[4], json!({"craft_item_id": 1, "craft_type": 6, "amount": 5}),
+                json!({"craft_item_id": 1, "craft_type": 6, "amount": 4})),
+            (ENTITIES[5], json!({"rid": 1, "master_id": 1, "quantity": 1}),
+                json!({"rid": 1, "master_id": 1, "quantity": 0})),
+            (ENTITIES[6], json!({"rid": 1, "item_master_id": 1, "item_master_type": 8, "item_quantity": 2}),
+                json!({"rid": 1, "item_master_id": 1, "item_master_type": 8, "item_quantity": 1})),
+        ] {
+            for populated in [false, true] {
+                for prefix in [false, true] {
+                    for list in [false, true] {
+                        let mut store = ProfileStore::default();
+                        let mut snapshot = json!({"wizard_id": 7, "unit_list": [], "runes": []});
+                        if populated { snapshot[entity.collection] = json!([old.clone()]); }
+                        assert!(store.accept_snapshot(snapshot));
+                        let noun = entity.direct[0];
+                        let mut response = json!({"ret_code": 0});
+                        response[noun] = old.clone();
+                        response[format!("{noun}_before")] = old.clone();
+                        response[format!("before_{noun}")] = old.clone();
+                        response[format!("{noun}_after")] = old.clone();
+                        let name = if prefix { format!("confirmed_{noun}") } else { format!("{noun}_confirmed") };
+                        let name = if list { format!("{name}_list") } else { name };
+                        response[name] = if list { json!([current.clone()]) } else { current.clone() };
+                        let request = json!({"command": "ConvertArtifactByCraft"});
+                        assert_eq!(store.unmodeled_exchange(&response, &request), None, "{noun}");
+                        assert!(store.apply_update(&response, &request), "{noun}");
+                        assert_eq!(collection(&store.read().unwrap().data, entity.collection), &[current.clone()], "{noun}");
+                        let before = store.read().unwrap().data;
+                        assert_eq!(store.unmodeled_exchange(&json!({"artifact_before": old}), &request), None);
+                        assert!(!store.apply_update(&json!({"artifact_before": old}), &request));
+                        assert_eq!(store.read().unwrap().data, before);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn confirmation_does_not_authorise_archives_queries_or_conflicting_committed_records() {
+        use super::*;
+        let old = json!({"rid": 1, "slot": 1, "level": 12});
+        let new = json!({"rid": 1, "slot": 1, "level": 15});
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": [], "artifacts": [old.clone()]})));
+        let before = store.read().unwrap();
+        for (command, response) in [
+            ("ConvertArtifactByCraft", json!({"unknown_archive": {"artifact_confirmed": new}})),
+            ("GetArtifactHistory", json!({"artifact_confirmed": new})),
+            ("ConvertArtifactByCraft", json!({"artifact_after": new})),
+            ("ConvertArtifactByCraft", json!({"artifact_confirmed": new, "confirmed_artifact": old})),
+            ("ConvertArtifactByCraft", json!({"artifact_confirmed": new,
+                "artifact_after": {"rid": 2, "slot": 1, "level": 15}})),
+        ] {
+            let request = json!({"command": command});
+            assert!(store.unmodeled_exchange(&response, &request).is_some());
+            assert!(!store.apply_update(&response, &request));
+            assert_eq!(store.read().unwrap().data, before.data);
+            assert_eq!(store.read().unwrap().revision, before.revision);
+        }
+    }
+
     #[test]
     fn unnamed_combatants_are_not_unrecognised_account_monsters() {
         use super::*;

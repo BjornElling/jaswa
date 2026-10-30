@@ -126,7 +126,7 @@ fn download_json(state: State<'_, HelperState>) -> Result<String, String> {
     let directory = windows::downloads_directory()?;
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     let path = directory.join(&export.filename);
-    fs::write(&path, export.content).map_err(|error| error.to_string())?;
+    windows::write_private_file(&path, export.content.as_bytes())?;
     Ok(format!(
         "Saved {} to your Downloads folder.",
         export.filename
@@ -154,9 +154,9 @@ fn save_error_report(state: State<'_, HelperState>) -> Result<String, String> {
     let directory = windows::downloads_directory()?;
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
     let path = directory.join(format!("JASWA-error-report-{}.json", uuid::Uuid::new_v4()));
-    fs::write(
+    windows::write_private_file(
         &path,
-        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+        &serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
     )
     .map_err(|error| format!("Could not save the error report: {error}"))?;
     match windows::open(&directory.display().to_string()) {

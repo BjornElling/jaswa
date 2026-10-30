@@ -2,7 +2,7 @@ use crate::{
     config::{GATEWAYS, HELPER_PORT, HOSTS_MARKER, allowed_origin, data_directory},
     diagnostics,
     incidents::Incidents,
-    profile::ProfileStore,
+    profile::{ProfileStore, requires_account_response},
     protocol::{decode_request, decode_response},
     traffic::TrafficLog,
 };
@@ -1311,8 +1311,9 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     };
     let command_name = command.to_owned();
     let required_snapshot = is_snapshot_command(command);
+    let required_account = required_snapshot || requires_account_response(&request);
     let Ok(response_text) = std::str::from_utf8(http_body(response)) else {
-        if required_snapshot {
+        if required_account {
             fail(format!("The response to {command_name} was not text."));
         } else {
             diagnostics::record(
@@ -1325,7 +1326,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     let response = match decode_response(response_text) {
         Ok(response) => response,
         Err(error) => {
-            if required_snapshot {
+            if required_account {
                 fail(format!(
                     "Could not decode the response to {command_name}: {error}"
                 ));
@@ -1344,7 +1345,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         }
     };
     if !response.is_object() {
-        if required_snapshot {
+        if required_account {
             fail(format!("{command_name} has no response object."));
         } else {
             diagnostics::record(
@@ -1666,6 +1667,63 @@ mod tests {
             !shared.incidents.lock().unwrap().active(),
             "chat-service traffic must not turn a healthy account capture into an incident"
         );
+    }
+
+    #[test]
+    fn unreadable_account_updates_are_never_mistaken_for_auxiliary_traffic() {
+        for populated in [false, true] {
+            for command in ["SellRune", "ConvertArtifactByCraft", "BattleDungeonResult_V2", "GetUnitInfo"] {
+                for response in [message("not an account envelope"),
+                    message(&encoded(&json!([1, 2]), true))] {
+                    let shared = shared_for_test();
+                    *shared.game_running.lock().unwrap() = true;
+                    let runes = if populated { json!([{"rune_id": 1, "set_id": 13}]) } else { json!([]) };
+                    let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
+                    let account = message(&encoded(&json!({"wizard_id": 7, "unit_list": [], "runes": runes}), true));
+                    capture(login.as_bytes(), account.as_bytes(), &shared);
+                    let before = shared.profile.lock().unwrap().read().unwrap().data;
+                    let request = message(&encoded(&json!({"command": command}), false));
+                    capture(request.as_bytes(), response.as_bytes(), &shared);
+                    assert_eq!(status(&shared)["profileReady"], false, "{command}");
+                    assert!(shared.incidents.lock().unwrap().active(), "{command}");
+                    assert_eq!(shared.profile.lock().unwrap().read().unwrap().data, before);
+                    capture(login.as_bytes(), account.as_bytes(), &shared);
+                    assert_eq!(status(&shared)["profileReady"], true, "a complete login repairs the gap");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_confirmed_artifact_conversion_keeps_later_rewards_arriving() {
+        for populated in [false, true] {
+            let shared = shared_for_test();
+            *shared.game_running.lock().unwrap() = true;
+            let before = json!({"rid": 1, "slot": 1, "level": 15,
+                "sec_effects": [[404, 4, 0, 0, 0]]});
+            let after = json!({"rid": 1, "slot": 1, "level": 15,
+                "sec_effects": [[215, 9, 0, 1, 0]]});
+            let artifacts = if populated { json!([before.clone()]) } else { json!([]) };
+            let send = |request: Value, response: Value| {
+                capture(message(&encoded(&request, false)).as_bytes(),
+                    message(&encoded(&response, true)).as_bytes(), &shared);
+                assert!(!shared.incidents.lock().unwrap().active());
+                assert_eq!(status(&shared)["profileReady"], true);
+            };
+            send(json!({"command": "HubUserLogin"}), json!({"wizard_id": 7,
+                "unit_list": [], "runes": [], "artifacts": artifacts,
+                "artifact_crafts": [{"rid": 2, "master_id": 3, "quantity": 1}]}));
+            send(json!({"command": "ConvertArtifactByCraft", "artifact_id": 1}), json!({"ret_code": 0,
+                "artifact_before": before, "artifact_after": after,
+                "artifact_confirmed": after,
+                "artifact_craft": {"rid": 2, "master_id": 3, "quantity": 0}}));
+            let data = shared.profile.lock().unwrap().read().unwrap().data;
+            assert_eq!(data["artifacts"], json!([after]));
+            assert_eq!(data["artifact_crafts"][0]["quantity"], 0);
+            send(json!({"command": "BattleDimensionHoleDungeonResult_v2"}), json!({"ret_code": 0,
+                "changed_item_list": [{"type": 8, "info": {"rune_id": 3, "set_id": 13}}]}));
+            assert_eq!(shared.profile.lock().unwrap().read().unwrap().data["runes"][0]["rune_id"], 3);
+        }
     }
 
     #[test]

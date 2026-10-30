@@ -50,6 +50,13 @@ reader used by the service's capture-gap check and by the update itself.
    exchange whole and opens the existing visible capture gap. It is neither
    imported speculatively nor silently skipped. The diagnostic names its path
    and entity identifier, and the raw exchange remains available for modelling.
+6. A direct record marked `confirmed_…` or `…_confirmed`, including its list
+   form, is the committed state and wins over other copies of that identifier
+   regardless of field order. The same request and continuous-path checks still
+   apply. `before_…` and `…_before` are history. An `…_after` candidate does not
+   gain authority from its name: when a confirmed record is present it is an
+   incidental copy, never a second update. Conflicting confirmed records refuse
+   the exchange rather than choosing by JSON key order.
 
 The same request gate covers sales, material consumption, gear movement and
 building moves. Removal lists are read at the current response root, with
@@ -69,7 +76,7 @@ protocol contract, not a claim that every future game command is known.
 | --- | --- | --- | --- |
 | Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveUnitBuilding` (Monster Storage and back), any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell requests, and the monsters a `ConvertUnitToItem` request names (crafting Engraved Stones answers with the item alone, so the request is the only record of what it spent; roster and Normal shrine copies both go, and a conversion naming no readable monster or spending an engraved one stops live import) |
 | Sealed Shrine | `unit_storage_normal_list` at the top of a response; `unit_storage_list` from `getUnitStorageList` and from the `GetUnitStorageList` inside `GetWizardDataPart1` | — | Those lists are the whole tab and replace the collection. `SacrificeUnit_V4` answers with only the Summoned stacks it fed from — an empty list when every fodder came from the roster — and updates those stacks alone; a fed stack its answer does not restate, or a top-level Summoned list under any other command, stops live import. `MoveStorageFromTo` is read side by side — see below |
-| Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, bulk power-up (`UpgradeRuneList`), reappraisal, refine/convert, engrave/remove, sell and remove lists |
+| Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, bulk power-up (`UpgradeRuneList`), confirmed rerolls, grind/Gem conversion, engrave/remove, sell and remove lists |
 | Artifacts | `artifact`, `artifact_info`, `artifacts` | V2 `changed_item_list` type `73`; legacy reward crates and quest/mail claims | Upgrade, engrave/remove, sell and remove lists |
 | Relics | `relic`, `relic_info`, `relics` | Relic-shaped `changed_item_list` records and reward crates | Power-up, engrave/remove on a unit, breakdown/sell and remove lists; the root relic stays present because one relic can be engraved on many monsters |
 | Gems, grindstones and engraved conversion stones | `rune_craft_item`, `craft`, `craft_item`, `changestone(s)`, craft lists | Craft records inside reward crates and generic account reward containers | Amplify/convert and `SellRuneCraftItem` consume the requested quantity from a stack |
@@ -193,6 +200,11 @@ model does not know this command yet" read differently.
 The raw traffic log remains the diagnostic record for a response shape that
 the current model cannot identify. It is never converted into a guessed item.
 
+An unreadable answer to a recognised account mutation or current-state read is
+a capture gap, even when it is not a login. The service uses the account
+reader's request classification for this decision. Auxiliary chat/service
+lookups remain separate; their different envelopes cannot invalidate an account.
+
 ## Verification
 
 `cargo test --manifest-path helper/src-tauri/Cargo.toml` covers all seven entity
@@ -237,6 +249,18 @@ unrecognised monster records; it does not authorise that enemy container or add
 another command name to a permission list. Replays of the saved dungeon,
 bulk-upgrade and sale incidents, plus fixtures with colliding NPC ids and new
 wave wrappers, check both the false refusal and the original archive safeguard.
+
+The later `ConvertArtifactByCraft` report carries `artifact_before`,
+`artifact_after`, `artifact_confirmed` and the spent `artifact_craft` stack.
+The committed record changes the converted sub property; its candidate differs
+only in modification time in this capture, so comparing scores alone would
+not detect choosing the wrong record. The replay checks the complete committed
+record, its engraved copies, the material quantity and unchanged runes. A
+service fixture proves that the next dungeon reward still arrives.
+
+[SWEX review](./SWEX-REVIEW.md) records the external sources, existing safeguards
+and remaining evidence gaps. A logger displaying a reroll candidate is not proof
+that the candidate is committed inventory.
 
 `tests/helper-bulk-sale.spec.ts` generates snapshots with that Rust replay tool
 and serves them through the helper polling route. It checks the empty workspace,

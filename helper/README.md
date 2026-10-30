@@ -199,6 +199,11 @@ that SWEX writes so the file can be opened directly in SWOP. The file remains
 on this computer, but it is private account data: share it only where you
 would share an SWEX export.
 
+Exports and saved error reports are written completely to a sibling staging
+file, flushed and closed before replacing the destination. A write or replace
+failure keeps any previous export intact and removes the incomplete staging
+file. A locked destination reports the error rather than claiming a saved file.
+
 ## Failure handling and private reports
 
 **Restart helper**, below **Log all traffic** and in the tray menu, recovers
@@ -221,7 +226,8 @@ a capture gap: try **Restart helper** for connection faults; reopen the game
 when the helper reports missing or unreadable account changes.
 Home shows a short recovery message; Report Issue keeps the technical detail.
 
-An unreadable account-login response pauses live import. Auxiliary gateway
+An unreadable answer to a known account mutation, account read or login pauses
+live import. Auxiliary gateway
 traffic, such as chat-service discovery, cannot invalidate a captured account.
 An unrelated successful command cannot repair a missing update: only a complete new login releases that capture gap.
 An invalid login discards the previous account. Infrastructure failures remain

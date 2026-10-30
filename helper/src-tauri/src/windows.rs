@@ -327,9 +327,54 @@ fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
+/// Publish a complete private file without truncating the last good export.
+/// Staging beside the destination keeps the final rename on the same volume.
+pub fn write_private_file(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    let parent = path.parent().ok_or("The export has no destination folder.")?;
+    let pending = parent.join(format!(".jaswa-{}.tmp", uuid::Uuid::new_v4()));
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&pending)
+        .map_err(|error| format!("Could not stage the complete file: {error}"))?;
+    let result = (|| -> std::io::Result<()> {
+        file.write_all(bytes)?;
+        file.sync_all()
+    })();
+    drop(file);
+    let result = result.and_then(|()| std::fs::rename(&pending, path));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&pending);
+    }
+    result.map_err(|error| format!("Could not save the complete file. Any existing copy was left untouched: {error}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn private_exports_publish_complete_files_and_replace_the_previous_copy() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("account.json");
+        for content in [b"{}".as_slice(), b"{\"runes\":[1,2,3]}", b"{\"runes\":[]}"] {
+            write_private_file(&path, content).unwrap();
+            assert_eq!(std::fs::read(&path).unwrap(), content);
+            assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn a_locked_export_keeps_its_previous_contents_and_leaves_no_partial_file() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("account.json");
+        std::fs::write(&path, b"{\"runes\":[1]}").unwrap();
+        let locked = std::fs::OpenOptions::new().read(true).share_mode(0).open(&path).unwrap();
+        assert!(write_private_file(&path, b"{}").is_err());
+        drop(locked);
+        assert_eq!(std::fs::read(&path).unwrap(), b"{\"runes\":[1]}");
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
 
     #[test]
     fn resolves_the_users_configured_downloads_folder() {

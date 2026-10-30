@@ -12,6 +12,7 @@ test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 test('confirms a JSON import in the viewport without moving the page', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
 
   await page.locator('.drop-zone').scrollIntoViewIfNeeded();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
@@ -42,6 +43,8 @@ test('confirms a JSON import in the viewport without moving the page', async ({ 
 test('the confirmation clears the account badge they share a corner with', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  // Both cards must be measured in the same font and the same layout pass.
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(syntheticAccount);
 
   const confirmation = page.getByRole('status', { name: 'Game data loaded correctly' });
@@ -56,8 +59,11 @@ test('the confirmation clears the account badge they share a corner with', async
   await page.evaluate(() => window.scrollTo(0, 0));
   await settle();
   expect(await page.evaluate(() => window.innerWidth - document.documentElement.clientWidth)).toBeGreaterThan(0);
-  const topBadge = await badge.boundingBox();
-  const stacked = await confirmation.boundingBox();
+  const measure = () => page.evaluate(() => ({
+    badge: document.querySelector('.import-badge')!.getBoundingClientRect().toJSON(),
+    confirmation: document.querySelector('.import-confirmation')!.getBoundingClientRect().toJSON(),
+  }));
+  const { badge: topBadge, confirmation: stacked } = await measure();
   expect(topBadge).not.toBeNull();
   expect(stacked).not.toBeNull();
   /* Under the badge, not over it, and the same box: both edges, the width and
@@ -80,8 +86,7 @@ test('the confirmation clears the account badge they share a corner with', async
      is the same whatever is left of the card above. */
   await page.evaluate(() => window.scrollBy(0, 20));
   await settle();
-  const halfBadge = await badge.boundingBox();
-  const halfStacked = await confirmation.boundingBox();
+  const { badge: halfBadge, confirmation: halfStacked } = await measure();
   expect(halfStacked!.y - (halfBadge!.y + halfBadge!.height))
     .toBeCloseTo(stacked!.y - (topBadge!.y + topBadge!.height), 0);
 
