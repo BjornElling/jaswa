@@ -2,11 +2,15 @@ import { accuracyCeilings, facesPlayers } from './accuracy-ceiling';
 import { formatNumber } from './formatting';
 import { monsterProfileAreaName } from './monster-profile-scope';
 import type { Preset } from './presets';
-import { fastestEnemyOn, hardestPveFloor, pveAreaOf } from './pve-stages';
+import { fastestEnemyOn, hardestPveFloor, labyrinthEnemySpeedRanks, pveAreaOf } from './pve-stages';
 import { combatThresholdsForMonster, type CombatThreshold } from './rune-combat-thresholds';
 import type { GeneralSettings } from './types';
 
-export type AreaFacts = { heading: string; lines: { label: string; value: string }[]; thresholds: readonly CombatThreshold[] };
+export type AreaFacts = {
+  heading: string;
+  lines: { label: string; value: string; title?: string; parts?: readonly { value: string; title: string }[] }[];
+  thresholds: readonly CombatThreshold[];
+};
 
 /**
  * What the area sets against the team: the most Accuracy that still does
@@ -36,9 +40,16 @@ export function areaFacts(preset: Pick<Preset, 'kind' | 'content'> | undefined, 
   const fastestEnemy = floor === undefined ? undefined : fastestEnemyOn(floor);
   const fastest = scenario || (content && facesPlayers(content.id)) ? 'Variable'
     : fastestEnemy === undefined ? 'Unknown' : formatNumber(fastestEnemy, general);
+  const ranks = area === undefined ? [] : labyrinthEnemySpeedRanks(area);
+  const parts = ranks.map(({ speed, title }) => ({
+    value: formatNumber(speed, general), title,
+  }));
   return {
     heading,
-    lines: [accuracy, { label: 'Fastest enemy (combat speed)', value: fastest }],
+    lines: [accuracy, parts.length === 0 ? { label: 'Fastest enemy (combat speed)', value: fastest }
+      : { label: 'Enemy combat speeds', value: parts.map((part) => part.value).join('/'), parts }].map((line) => ({
+      ...line, title: floor?.source.note,
+    })),
     thresholds: combatThresholdsForMonster(masterId, floor).map((row) => row.reference === undefined
       ? row : { ...row, reference: `${areaName} (${row.reference})` }),
   };

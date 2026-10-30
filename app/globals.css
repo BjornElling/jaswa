@@ -5892,6 +5892,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .overlay-accuracy-label { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
 .overlay-accuracy-value { margin: 0; text-align: right; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+/* Three Labyrinth speed ranks keep the same room when a source knows only one. */
+.overlay-accuracy-ranked-speeds { grid-template-columns: minmax(0, 1fr) 12ch; }
 
 /* Every gear question on one grid: its name and the Preferred and Accepted
    lines. The answer columns are equal, so a pill added in one never moves the

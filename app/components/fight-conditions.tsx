@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { AreaFacts } from '../lib/area-facts';
 import type { FigureMark } from '../lib/figure-marks';
 import { leadMaximum, readLeadField } from '../lib/monster-preferences';
@@ -156,9 +157,11 @@ export function AreaLines({ facts, general, reserveThresholdRows = false }: {
   const number = (value: number) => formatNumber(value, general);
   const thresholdRows = reserveThresholdRows ? Array.from({ length: 3 }, (_, index) => facts.thresholds[index]) : facts.thresholds;
   return <div className={`overlay-accuracy${reserveThresholdRows ? ' overlay-accuracy-thresholds' : ''}`}>
-    {facts.lines.map((line) => <div className="overlay-accuracy-goal" key={line.label}>
+    {facts.lines.map((line) => <div className={`overlay-accuracy-goal${line.parts ? ' overlay-accuracy-ranked-speeds' : ''}`} key={line.label} title={line.title}>
       <p className="overlay-accuracy-label" title={line.label}>{line.label}</p>
-      <p className="overlay-accuracy-value">{line.value}</p>
+      <p className="overlay-accuracy-value">{line.parts ? line.parts.map((part, index) => <Fragment key={index}>
+        {index > 0 && '/'}<span title={part.title} aria-label={part.title} tabIndex={0}>{part.value}</span>
+      </Fragment>) : line.value}</p>
     </div>)}
     {thresholdRows.map((threshold, index) => {
       const display = threshold ? monsterPresentation(threshold.masterId) : undefined;

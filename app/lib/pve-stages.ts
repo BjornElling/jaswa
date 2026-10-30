@@ -13,17 +13,23 @@
  * - **Stated floors**, below: an area Swarfarm files without enemies, entered
  *   by hand from a named source. A figure the source does not give is `null`
  *   and reads as unknown; it is never filled in from a neighbouring floor.
+ *   A source publishing only independent sampled maxima keeps those apart
+ *   from waves, so they never turn into an invented enemy or final-wave boss.
  *
  * An area with no stage data has no stage-derived figures, and every reader
  * says so rather than borrow another area's enemies.
  */
 import stagesData from '../data/swarfarm-pve-stages.json';
+import labyrinthMinibossData from '../data/labyrinth-miniboss-stages.json';
+import { monsterPresentation } from './monster-catalog';
 
-/** An area JASWA can look enemies up for: Cairos, Dimension Hole, Dimension Raid, Rift Raid and Temple of Chaos. */
+/** An area JASWA can look enemies up for, including sampled Labyrinth stage types. */
 export type PveAreaId =
   | 'giants' | 'dragons' | 'necropolis' | 'spiritual' | 'steel' | 'punisher' | 'magic'
   | 'roaring-beasts' | 'dreaming-fairies' | 'tough-beast-men' | 'silent-death' | 'forgotten-heroes' | 'raging-fires'
-  | 'rift-raid' | 'dimension-raid-1' | 'dimension-raid-2' | 'dimension-raid-3' | 'temple-of-chaos';
+  | 'rift-raid' | 'dimension-raid-1' | 'dimension-raid-2' | 'dimension-raid-3' | 'temple-of-chaos'
+  | 'labyrinth-normal' | 'labyrinth-rescue' | 'labyrinth-explode' | 'labyrinth-cooldown'
+  | 'labyrinth-speed-limit' | 'labyrinth-time-limit' | 'labyrinth-boss';
 
 /** One enemy. Swarfarm fills every figure; a stated floor leaves `null` where its source is silent. */
 export type PveEnemy = {
@@ -48,7 +54,10 @@ export type PveEnemy = {
   criDamageReduction: number | null;
 };
 
-export type PveSource = { name: string; url: string; read: string };
+export type PveSource = { name: string; url: string; read: string; note?: string };
+
+/** Independent maxima from a published sample, never a synthetic enemy or a final wave. */
+type PveObservedMaxima = Pick<PveEnemy, 'speed' | 'resistance' | 'hp' | 'attack' | 'defense'>;
 
 export type PveFloor = {
   area: PveAreaId;
@@ -56,9 +65,9 @@ export type PveFloor = {
   name: string;
   /** How many monsters the player brings, or `null` where the source does not say. */
   teamSize: number | null;
-  waves: readonly (readonly PveEnemy[])[];
   source: PveSource;
-};
+} & ({ waves: readonly (readonly PveEnemy[])[]; observedMaxima?: never }
+  | { waves: readonly []; observedMaxima: PveObservedMaxima });
 
 type SnapshotFloor = { floor: number; swarfarmLevel: number; teamSize: number; waves: number[][][] };
 type SnapshotDungeon = { name: string; category: string; swarfarmDungeon: number; floors: SnapshotFloor[] };
@@ -191,7 +200,48 @@ const statedFloors: readonly PveFloor[] = [{
     hp: 735_495, attack: 22_265, defense: 1_000, criRate: null, criDamageReduction: null,
   }]],
   source: { name: 'SWCalc, Summoners War Mechanics', url: 'https://swcalc.cz/game-mechanics#temple-of-chaos', read: '2026-10-24' },
-}];
+}, ...(labyrinthMinibossData as PveFloor[]), {
+  /* The author's linked CSV is no longer public. The post itself states the
+     boss's Resistance; its estimated Accuracy is deliberately not used. */
+  area: 'labyrinth-boss',
+  name: 'Hell',
+  teamSize: 5,
+  waves: [[{
+    monster: null, name: 'Tartarus', level: null, stars: null, speed: null, resistance: 55, accuracy: null,
+    hp: null, attack: null, defense: null, criRate: null, criDamageReduction: null,
+  }]],
+  source: {
+    name: 'shinedday, Tartarus Hard/Hell — All miniboss up',
+    url: 'https://www.reddit.com/r/summonerswar/comments/qpzqo6/', read: '2026-10-30',
+    note: 'Hell: 55% Resistance. Speeds describe miniboss waves, not Tartarus.',
+  },
+}, ...labyrinthSampleFloors()];
+
+function labyrinthSampleFloors(): PveFloor[] {
+  /* The table reports maxima across 89 sampled stages, not which enemy has
+     them or which wave it stands in. Keeping that distinction prevents a
+     monster-specific final-wave threshold from inventing a boss here. */
+  const rows = [
+    ['labyrinth-normal', 252, 80, 76_905, 2_799],
+    ['labyrinth-speed-limit', 225, 42, 54_660, 1_157],
+    ['labyrinth-explode', 252, 42, 77_700, 2_862],
+    ['labyrinth-rescue', 248, 42, 54_120, 2_141],
+    ['labyrinth-cooldown', 252, 42, 53_235, 2_128],
+    ['labyrinth-time-limit', 268, 86, 102_855, 2_225],
+  ] as const;
+  return rows.map(([area, speed, resistance, hp, defense]) => ({
+    area,
+    name: area === 'labyrinth-time-limit' ? '20 waves' : 'Hell',
+    teamSize: 5,
+    waves: [],
+    observedMaxima: { speed, resistance, hp, defense, attack: null },
+    source: {
+      name: 'shinedday, Tartarus Labyrinth — data for each stages',
+      url: 'https://www.reddit.com/r/summonerswar/comments/qlveqf/', read: '2026-10-30',
+      note: area === 'labyrinth-speed-limit' ? 'Hell sample; allied speed is limited.' : '89-stage sample (2021).',
+    },
+  }));
+}
 
 const floorsByArea = new Map<PveAreaId, readonly PveFloor[]>();
 for (const [area, names] of Object.entries(swarfarmNames) as [PveAreaId, readonly string[]][]) {
@@ -201,12 +251,18 @@ for (const phase of [1, 2, 3] as const) {
   floorsByArea.set(`dimension-raid-${phase}`, dimensionRaidFloors(phase));
 }
 for (const floor of statedFloors) {
-  if (floorsByArea.get(floor.area)?.length) throw new Error(`The PvE database states a floor for ${floor.area}, which Swarfarm already covers.`);
+  if (floorsByArea.get(floor.area)?.some((entry) => entry.source === swarfarmSource)) {
+    throw new Error(`The PvE database states a floor for ${floor.area}, which Swarfarm already covers.`);
+  }
   floorsByArea.set(floor.area, [...(floorsByArea.get(floor.area) ?? []), floor]);
 }
 /* A floor or wave with no enemy would read as a floor nothing stands on, and
    every figure below would fall back to nothing; it is a defect in the data. */
 for (const floor of [...floorsByArea.values()].flat()) {
+  if (floor.observedMaxima) {
+    if (floor.waves.length !== 0) throw new Error(`The PvE database mixes sampled maxima with enemy waves for ${floor.area}.`);
+    continue;
+  }
   if (floor.waves.length === 0 || floor.waves.some((wave) => wave.length === 0)) {
     throw new Error(`The PvE database's ${floor.area} ${floor.name} has a wave without enemies.`);
   }
@@ -229,12 +285,14 @@ export function hardestPveFloor(area: PveAreaId): PveFloor | undefined {
 
 /** The fastest stated enemy speed on a floor, or none where its source is silent. */
 export function fastestEnemyOn(floor: PveFloor): number | undefined {
+  if (floor.observedMaxima) return floor.observedMaxima.speed ?? undefined;
   const speeds = floor.waves.flat().flatMap((enemy) => enemy.speed === null ? [] : [enemy.speed]);
   return speeds.length === 0 ? undefined : Math.max(...speeds);
 }
 
 /** The highest stated enemy combat stat on a floor, or none where its source is silent. */
 export function highestEnemyStatOn(floor: PveFloor, stat: 'hp' | 'attack' | 'defense'): number | undefined {
+  if (floor.observedMaxima) return floor.observedMaxima[stat] ?? undefined;
   const values = floor.waves.flat().flatMap((enemy) => enemy[stat] === null ? [] : [enemy[stat]]);
   return values.length === 0 ? undefined : Math.max(...values);
 }
@@ -249,6 +307,58 @@ export function highestEnemyStatInFinalWaveOn(floor: PveFloor, stat: 'hp' | 'att
 
 /** The highest stated Resistance on a floor, or none where its source is silent. */
 export function highestResistanceOn(floor: PveFloor): number | undefined {
+  if (floor.observedMaxima) return floor.observedMaxima.resistance ?? undefined;
   const resistances = floor.waves.flat().flatMap((enemy) => enemy.resistance === null ? [] : [enemy.resistance]);
   return resistances.length === 0 ? undefined : Math.max(...resistances);
+}
+
+export type PveEnemySpeedRank = { speed: number; title: string };
+
+/** Labyrinth alone offers three distinct known speeds. Ties share a rank so
+ * two identical crystals do not hide the next speed the team could target.
+ * Sample maxima cannot supply runners-up; no other stage's figure fills them.
+ */
+export function labyrinthEnemySpeedRanks(area: PveAreaId): readonly PveEnemySpeedRank[] {
+  if (!area.startsWith('labyrinth-')) return [];
+  const floor = hardestPveFloor(area);
+  if (!floor) return [];
+  const bySpeed = new Map<number, { wave: number; name: string; bosses: Set<string> }[]>();
+  const maximum = floor.observedMaxima?.speed;
+  if (maximum !== null && maximum !== undefined) {
+    bySpeed.set(maximum, []);
+  } else {
+    /* The game shares one boss preset category. Its captured miniboss approach
+       waves belong here too; Tartarus has no stated numeric speed to rank. */
+    for (const bossFloor of pveFloors(area)) {
+      bossFloor.waves.forEach((wave, index) => {
+        for (const enemy of wave) {
+          if (enemy.speed === null) continue;
+          const encounters = bySpeed.get(enemy.speed) ?? [];
+          const name = enemy.name ?? monsterPresentation(String(enemy.monster)).name;
+          let encounter = encounters.find((entry) => entry.wave === index + 1 && entry.name === name);
+          if (!encounter) {
+            encounter = { wave: index + 1, name, bosses: new Set<string>() };
+            encounters.push(encounter);
+          }
+          encounter.bosses.add(bossFloor.name.replace(/ Hell$/, ''));
+          bySpeed.set(enemy.speed, encounters);
+        }
+      });
+    }
+  }
+  const speeds = [...bySpeed.keys()].sort((left, right) => right - left);
+  const ranks = ['Fastest', 'Second-fastest', 'Third-fastest'];
+  return speeds.slice(0, 3).map((speed, index) => {
+    const encounters = bySpeed.get(speed)!;
+    const byWave = new Map<number, Set<string>>();
+    for (const { wave, name } of encounters) {
+      const names = byWave.get(wave) ?? new Set<string>();
+      names.add(name);
+      byWave.set(wave, names);
+    }
+    const detail = floor.observedMaxima ? 'observed in the sample'
+      : encounters.length === 1 ? `${[...encounters[0].bosses].join('/')}, wave ${encounters[0].wave}: ${encounters[0].name}`
+        : [...byWave].map(([wave, names]) => `wave ${wave}: ${[...names].join('/')}`).join('; ');
+    return { speed, title: `${ranks[index]}: ${speed} combat speed — ${detail}.` };
+  });
 }
