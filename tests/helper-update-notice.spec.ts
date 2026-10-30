@@ -154,7 +154,7 @@ test('a readable old version survives an unrecognised health response', async ({
 });
 
 
-test('the download row names a current running helper without moving the page', async ({ page }, testInfo) => {
+test('the download row flags a new version and names a current helper without moving the page', async ({ page }, testInfo) => {
   const helper: Helper = { reachable: false, version: recommended, profileReady: false };
   await serveHelper(page, helper);
   await page.goto('/');
@@ -173,17 +173,25 @@ test('the download row names a current running helper without moving the page', 
   await page.screenshot({ path: testInfo.outputPath('download-empty-before.png') });
   helper.reachable = true;
   await expect(current).toBeVisible();
-  await expect(current).toHaveText('Running helper is up to date.');
+  await expect(current).toHaveText('Running helper is up to date.', { useInnerText: true });
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('download-empty-current.png') });
   helper.version = '0.0.1';
-  await expect(current).toBeHidden();
+  await expect(current).toBeVisible();
+  await expect(current).toHaveText(`New version · v${recommended}`, { useInnerText: true });
+  await expect(current).toHaveAttribute('data-state', 'update');
   await expect(notice(page)).toBeVisible();
   expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('download-empty-update.png') });
   helper.profileReady = true;
-  helper.version = recommended;
   await expect(page.getByRole('complementary', { name: 'Imported game data' })).toBeVisible();
+  await expect(current).toHaveText(`New version · v${recommended}`, { useInnerText: true });
+  const populated = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('download-full-update.png') });
+  helper.version = recommended;
   await expect(current).toBeVisible();
+  await expect(current).toHaveText('Running helper is up to date.', { useInnerText: true });
+  expect(await boxes()).toEqual(populated);
   await page.screenshot({ path: testInfo.outputPath('download-full-current.png') });
   await importRoute(page, 'file').click();
   await page.getByRole('dialog').getByRole('button', { name: 'Switch mode' }).click();

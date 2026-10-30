@@ -4808,8 +4808,18 @@ input[type='checkbox']:checked {
 .route-download {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
 }
-.helper-download-status { color: var(--text-muted); }
-.helper-download-status[data-current="false"] { visibility: hidden; }
+.helper-download-status {
+  color: var(--text-muted);
+  padding: var(--s1) var(--s2);
+  border: 1px solid transparent;
+  border-radius: var(--s1);
+}
+.helper-download-status[data-state="unknown"] { visibility: hidden; }
+.helper-download-status[data-state="update"] {
+  color: var(--text-accent); background: var(--gold-deep); border-color: var(--gold-edge);
+}
+.helper-download-update { display: inline-flex; align-items: center; gap: var(--s2); }
+.helper-download-update svg { flex: none; }
 
 /* The verdict card is a full-width block in the aside it was written for; here
    it sits in a column of its own content and takes the column's width. */

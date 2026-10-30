@@ -1,5 +1,5 @@
 import { type DragEvent, useEffect, useState } from 'react';
-import { Button } from './button';
+import { Button, LabelSwap } from './button';
 import { WorkspacePage } from './workspace-page';
 import { CheckboxRow, ImportRouteCard, RadioRow } from './form-controls';
 import { detectGraphicsCard, disabledStatus } from '../lib/hardware-acceleration';
@@ -62,6 +62,9 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
     : detected ?? { state: 'checking', adapterName: 'Asking the browser…', detail: 'Looking for a graphics card to compute on.' };
   const helperState = helperConnection.restartRequired ? 'restart' : helperConnection.state;
   const helperLabel = helperConnection.restartRequired ? 'Restart game' : helperLabels[helperConnection.state];
+  const helperDownloadState = importRoute !== 'direct' ? 'unknown'
+    : helperConnection.updateAvailable ? 'update'
+      : helperConnection.version === recommendedHelperVersion ? 'current' : 'unknown';
 
   return <WorkspacePage
     header={<header className="hero">
@@ -148,8 +151,17 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
             <div className="route-download">
               <HelperDownload />
               <span className="helper-download-status" role="status"
-                data-current={importRoute === 'direct' && helperConnection.version === recommendedHelperVersion}>
-                Running helper is up to date.
+                data-state={helperDownloadState}>
+                <LabelSwap showing={helperDownloadState} faces={{
+                  current: 'Running helper is up to date.',
+                  update: <span className="helper-download-update">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                      strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M8 11V2m-3 3 3-3 3 3M3 10v4h10v-4" />
+                    </svg>
+                    New version · v{recommendedHelperVersion}
+                  </span>,
+                }} />
               </span>
             </div>
 
