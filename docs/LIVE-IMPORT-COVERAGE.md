@@ -245,14 +245,19 @@ model does not know this command yet" read differently.
   diagnostic log names the command, so its shape can be modelled.
 - **A refused snapshot is said on every page.** When JASWA cannot import the
   helper's newest snapshot, a *Live import stopped* card stands under the
-  import badge with the reason until a readable snapshot arrives. Said on Home
-  alone, the refusal left every other page quietly showing an older import.
+  import badge with the reason while the helper offers that refused snapshot.
+  A readable snapshot or ordinary waiting after the game closes clears it.
+  Said on Home alone, the refusal left every other page quietly showing an older
+  import.
 - **A helper-side refusal is said there too.** In live mode, an unavailable
-  helper with an existing import raises the same notice even when its health
-  answer withholds the profile. Recovery to the already accepted session and
-  revision clears that connection warning without requiring another import.
-  An empty workspace does not claim to be showing stale account data, and
-  ordinary waiting for the game remains distinct from an error.
+  helper with an existing import raises the same notice only when its health
+  answer reports `lastError`, the helper dashboard's red capture state.
+  An unreachable API, an HTTP failure, ordinary waiting and a closed game never
+  stand in for that report. A healthy waiting state clears an earlier capture
+  warning; recovery to the accepted session and revision needs no new import.
+  A rejected account snapshot still names its validation failure on every page,
+  in yellow: red is reserved for the helper dashboard's own red capture state.
+  An empty workspace does not claim to be showing stale account data.
 
 The raw traffic log remains the diagnostic record for a response shape that
 the current model cannot identify. It is never converted into a guessed item.
@@ -356,3 +361,12 @@ and serves them through the helper polling route. It checks the empty workspace,
 the populated Rune Clean-up table, Sold rows after a sale, and the next reward.
 Before/after screenshots and row-box comparisons hold the layout still. The
 test requires the Rust toolchain in addition to the project's Playwright setup.
+
+Connection recovery is covered by local TCP/TLS tests in `service.rs`: empty
+and populated accounts, repeated recovery on one game connection, partial
+requests, in-flight responses, invalid encrypted updates and logins, refused
+upstreams, closed and truncated responses, invalid HTTP, failed redirect repair,
+shutdown, and new faults arriving during recovery. The real `/health` and
+`/profile` responders expose the retained session and the next imported reward;
+failed mutations are never replayed. These tests use local game/server peers,
+not a running Summoners War client.

@@ -9,7 +9,7 @@ const recommended = /recommendedHelperVersion = '(\d+\.\d+\.\d+)'/.exec(readFile
 test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
 /** `announced` is what JASWA last told the helper it ships, read off the poll. */
-type Helper = { reachable: boolean; version: string; profileReady: boolean; announced?: string | null };
+type Helper = { reachable: boolean; version: string; profileReady: boolean; announced?: string | null; error?: string | null };
 
 /* A helper whose answer the test can change between polls, so the warning is
    seen to arrive and to leave on the same page rather than on two loads. */
@@ -20,7 +20,7 @@ async function serveHelper(page: Page, helper: Helper) {
     helper.announced = new URL(route.request().url()).searchParams.get('latest');
     return helper.reachable
       ? route.fulfill({ headers, json: {
-        ...identity, running: true, version: helper.version, profileReady: helper.profileReady, missedChanges: [], lastError: null,
+        ...identity, running: true, version: helper.version, profileReady: helper.profileReady, missedChanges: [], lastError: helper.error ?? null,
         restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
       } })
       : route.abort();
@@ -126,9 +126,7 @@ test('an update stays visible across pages and alongside a stopped import', asyn
   await page.screenshot({ path: testInfo.outputPath('before-navigation.png') });
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
   await expect(notice(page)).toBeVisible({ timeout: 5000 });
-  helper.reachable = false;
-  await expect(page.getByRole('status', { name: 'Live import stopped' })).toBeVisible();
-  helper.reachable = true;
+  helper.error = 'Gateway exchange failed: the connection was interrupted.';
   helper.profileReady = false;
   await expect(notice(page)).toBeVisible();
   await expect(page.getByRole('status', { name: 'Live import stopped' })).toBeVisible();

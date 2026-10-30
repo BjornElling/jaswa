@@ -26,11 +26,11 @@ test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
 type Miss = { command: string; reason: string };
 
-async function serveHelper(page: Page, state: { revision: number; data: Account; error?: string | null; missed?: Miss[] }) {
+async function serveHelper(page: Page, state: { revision: number; data: Account; error?: string | null; missed?: Miss[]; ready?: boolean }) {
   const headers = { 'Access-Control-Allow-Origin': '*' };
   const identity = () => ({ instanceId: 'test-helper', sessionId: 1, revision: state.revision });
   await page.route((url) => url.origin === 'http://127.0.0.1:37654' && url.pathname === '/health', (route) => route.fulfill({ headers, json: {
-    ...identity(), running: true, version: '99.0.0', profileReady: !state.error, missedChanges: state.missed ?? [], lastError: state.error ?? null,
+    ...identity(), running: true, version: '99.0.0', profileReady: (state.ready ?? true) && !state.error, missedChanges: state.missed ?? [], lastError: state.error ?? null,
     restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
   } }));
   await page.route('http://127.0.0.1:37654/profile', (route) => route.fulfill({ headers, json: {
@@ -64,6 +64,7 @@ test('a helper-side stop is visible over the current page and clears on same-rev
   state.error = reason;
   await expect(stopped(page)).toBeVisible({ timeout: 8_000 });
   await expect(stopped(page)).toContainText(reason);
+  expect(await stopped(page).evaluate(card => getComputedStyle(card).getPropertyValue('--notice').trim() === getComputedStyle(card).getPropertyValue('--state-bad').trim())).toBe(true);
   expect(await pageBoxes(page)).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('helper-gap-stopped.png') });
   await railButton(page, 'Presets').click();
@@ -168,6 +169,7 @@ test('a refused snapshot is said on every page, over it, and goes with the next 
   state.data = withOneRuneTwice();
   await expect(stopped(page)).toBeVisible();
   await expect(stopped(page)).toContainText('This file engraves one rune on two monsters.');
+  expect(await stopped(page).evaluate(card => getComputedStyle(card).getPropertyValue('--notice').trim() === getComputedStyle(card).getPropertyValue('--state-warn').trim())).toBe(true);
   await expect(stopped(page)).toContainText('Changes made in the game since then are not shown.');
   /* The import shown is still the last good one, and the page under the card did not move. */
   expect(await badge.textContent()).toBe(importedAt);
@@ -188,4 +190,58 @@ test('a refused snapshot is said on every page, over it, and goes with the next 
   await expect(stopped(page)).toHaveCount(0);
   await expect(badge).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('stopped-recovered.png') });
+});
+
+
+test('routine waiting and API failures never impersonate a red capture state', async ({ page }, testInfo) => {
+  const state = { revision: 1, data: account, ready: true, error: null as string | null };
+  await serveHelper(page, state);
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.locator('input[name="import-route"][value="direct"]').check();
+  const badge = page.getByRole('complementary', { name: 'Imported game data' });
+  await expect(badge).toBeVisible();
+  await railButton(page, 'Presets').click();
+  await expect(page.getByRole('status', { name: 'Game data loaded correctly' })).toHaveCount(0);
+  await expect(page.locator('.workspace-page > *').first()).toBeVisible();
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  const before = await pageBoxes(page);
+  const imported = await badge.textContent();
+  await page.screenshot({ path: testInfo.outputPath('connection-before.png') });
+
+  state.error = 'Gateway exchange failed: a real interrupted exchange';
+  await expect(stopped(page)).toContainText(state.error);
+  await page.screenshot({ path: testInfo.outputPath('connection-real-error.png') });
+  state.error = null;
+  state.ready = false;
+  await expect(stopped(page)).toHaveCount(0, { timeout: 8000 });
+  await page.screenshot({ path: testInfo.outputPath('connection-game-closed.png') });
+  expect(await pageBoxes(page)).toEqual(before);
+
+  for (const failure of ['connectionrefused', 'http-error', 'invalid-health', 'startup', 'waiting']) {
+    await page.route('http://127.0.0.1:37654/**', route => {
+      if (failure === 'connectionrefused') return route.abort('connectionrefused');
+      if (failure === 'http-error') return route.fulfill({ status: 503, json: {} });
+      if (failure === 'invalid-health') return route.fulfill({ json: {} });
+      return route.fulfill({ headers: { 'Access-Control-Allow-Origin': '*' }, json: {
+        instanceId: 'test-helper', sessionId: 1, revision: 1, running: true, version: '99.0.0',
+        profileReady: false, lastError: null, missedChanges: [],
+        restartRequired: failure === 'startup', gameStartedBeforeHelper: failure === 'startup',
+        gameLoginPending: failure === 'waiting',
+      } });
+    });
+    await page.waitForTimeout(4500);
+    await expect(stopped(page)).toHaveCount(0, { timeout: 1000 });
+    expect(await badge.textContent()).toBe(imported);
+    expect(await pageBoxes(page)).toEqual(before);
+    await page.screenshot({ path: testInfo.outputPath(`connection-${failure}.png`) });
+    await page.unroute('http://127.0.0.1:37654/**');
+  }
+  state.ready = true;
+  state.revision = 2;
+  state.data = structuredClone(account);
+  state.data.unit_list[0].runes = [];
+  await expect(badge).not.toHaveText(imported!);
+  await expect(stopped(page)).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('connection-resumed.png') });
 });

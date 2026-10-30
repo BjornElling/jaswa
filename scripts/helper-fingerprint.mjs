@@ -60,6 +60,7 @@ export const fingerprintedFiles = [
   'helper/src-tauri/src/lib.rs',
   'helper/src-tauri/src/main.rs',
   'helper/src-tauri/src/profile.rs',
+  'helper/src-tauri/src/profile/live.rs',
   'helper/src-tauri/src/protocol.rs',
   'helper/src-tauri/src/service.rs',
   'helper/src-tauri/src/traffic.rs',

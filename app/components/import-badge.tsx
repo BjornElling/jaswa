@@ -118,7 +118,7 @@ function placeNotice(notice: HTMLElement, badge: HTMLElement | null, gap: number
  * Both are overlays rather than lines in Game data. Neither may push the
  * choices the user was about to make down the page.
  */
-export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, missedCommands, confirmation, general }: {
+export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, captureFailed, missedCommands, confirmation, general }: {
   reload: boolean;
   reloadError: string | null;
   reloading: boolean;
@@ -131,6 +131,8 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
   helperUpdate: boolean;
   /** Why the helper's newest snapshot was refused while the shown import stands, or `null`. */
   importStopped: string | null;
+  /** Red is reserved for the same capture fault the helper itself reports. */
+  captureFailed: boolean;
   /** Commands whose changes the helper could not read while import goes on; empty when none. */
   missedCommands: string[];
   confirmation: ImportedGame | null;
@@ -193,7 +195,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       title="Read the helper's latest game data. Replaces changes planned in JASWA.">
       Reload game data
     </Button>}
-    {importStopped !== null && <ImportStoppedNotice ref={stoppedNotice} reason={importStopped} />}
+    {importStopped !== null && <ImportStoppedNotice ref={stoppedNotice} reason={importStopped} failed={captureFailed} />}
     {missed !== null && <MissedChangesNotice ref={stoppedNotice} commands={missed} />}
     {helperUpdate && <HelperUpdateNotice ref={updateNotice} />}
     {reload && reloadError
@@ -229,8 +231,8 @@ function HelperUpdateNotice({ ref }: { ref: Ref<HTMLElement> }) {
 /* Stands on every page while the helper's newest game data is refused: the badge
    above it keeps the time of the import still shown, and this says why that
    time has stopped moving. */
-function ImportStoppedNotice({ reason, ref }: { reason: string; ref: Ref<HTMLElement> }) {
-  return <aside ref={ref} className="helper-update" role="status" aria-live="polite" aria-label="Live import stopped">
+function ImportStoppedNotice({ reason, failed, ref }: { reason: string; failed: boolean; ref: Ref<HTMLElement> }) {
+  return <aside ref={ref} className={`helper-update${failed ? '' : ' import-paused'}`} role="status" aria-live="polite" aria-label="Live import stopped">
     <p className="corner-notice-title">
       <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">

@@ -640,7 +640,8 @@ label[for] {
 .import-confirmation p, .helper-update p { margin: 0; }
 /* A gap the user can close by restarting the game is something left to do,
    not something wrong: import goes on beneath it. */
-.helper-update.missed-changes { --notice: var(--state-warn); }
+.helper-update.missed-changes,
+.helper-update.import-paused { --notice: var(--state-warn); }
 /* The card's one action, closing it on the same right edge as its text. */
 .helper-update-action { display: flex; justify-content: end; margin-top: var(--s2); }
 .corner-notice-title {

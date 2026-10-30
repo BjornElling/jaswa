@@ -2,7 +2,7 @@
    Keeping this contract explicit makes an old helper visible before a stale
    snapshot is mistaken for a data problem. The release check below keeps the
    repeated version strings in sync at build time. */
-export const recommendedHelperVersion = '1.0.40';
+export const recommendedHelperVersion = '1.0.41';
 
 const helperVersionPattern = /^(\d+)\.(\d+)\.(\d+)$/;
 

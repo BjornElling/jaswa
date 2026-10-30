@@ -103,7 +103,7 @@ export default function Home() {
   const [loadPreferencesPrompt, setLoadPreferencesPrompt] = useState(false);
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
-  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedCommands: [] });
+  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ captureError: null, state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedCommands: [] });
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
   const [overlay, setOverlay] = useState<OverlayTarget | null>(null);
   const [optimizerVisit, setOptimizerVisit] = useState(0);
@@ -193,11 +193,9 @@ export default function Home() {
         if (disposed) return;
         setHelperConnection(connection);
         if (!connection.profileReady) {
-          // An unreadable login or a lost connection makes the helper withhold its snapshot entirely.
-          // The reader below never runs, so this refusal must be said here too.
-          if (gameRef.current && preferences.directImportMode === 'live' && connection.state === 'unavailable') {
-            setLiveImportStopped(connection.detail);
-          }
+          // Waiting, a closed game and a lost API connection are not capture failures.
+          // Only the helper's own red state belongs in this notice.
+          setLiveImportStopped(preferences.directImportMode === 'live' ? connection.captureError : null);
           if (force) setHelperReloadError(helperStatusMessage(connection));
           return;
         }
@@ -218,7 +216,6 @@ export default function Home() {
         if (result.state === 'unavailable') {
           if (force) setHelperReloadError('Game data could not be loaded. Check the helper on Home.');
           else setMessage('Game data could not be loaded. JASWA is keeping the last saved import. Check the helper.');
-          setLiveImportStopped(result.reason);
           setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
           return;
         }
@@ -806,6 +803,7 @@ export default function Home() {
         reloading={reloadingHelper} onReload={() => void reloadHelper.current?.(true)}
         helperUpdate={helperUpdateDue}
         importStopped={game ? liveImportStopped : null}
+        captureFailed={helperConnection.captureError !== null && helperConnection.captureError === liveImportStopped}
         missedCommands={game && preferences.importRoute === 'direct' && helperConnection.state === 'ready' ? helperConnection.missedCommands : []}
         confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} />
 

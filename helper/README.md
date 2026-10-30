@@ -208,16 +208,20 @@ file. A locked destination reports the error rather than claiming a saved file.
 
 **Restart helper**, below **Log all traffic** and in the tray menu, recovers
 connections inside the running helper. It resumes paused API and gateway
-listeners on their existing ports, closes idle game sockets so the game can
-reconnect, restores the redirect if needed, and retries a failed diagnostic log.
-An exchange already talking to the game server finishes normally: recovery
-never retries a game command. The account, session, traffic recording, settings
-and incident evidence stay in memory, and Summoners War can stay open.
+listeners on their existing ports, restores the redirect if needed, and retries
+a failed diagnostic log. Established game sockets stay open, including idle
+connections, partially received requests and exchanges awaiting a server reply.
+Recovery never retries a game command. The account, session, traffic recording,
+settings and incident evidence stay in memory, and Summoners War can stay open.
 
 Recovery cannot reconstruct a missing server response or interpret an unknown
 account update, and it does not need to: a missed change never stops capture.
 A helper that started after the game still needs a fresh login, and the button
-says so instead of serving stale data.
+says so instead of serving stale data. An unreadable login has the same limit:
+recovery succeeds and keeps listening, but the capture state stays red until a
+complete login arrives. It does not turn that missing account into a failed
+restart or erase the error report. A terminated helper process cannot preserve
+its in-memory session; this button recovers the running service.
 
 A change the helper cannot read — an unreadable answer to an account command,
 or an answer carrying this account's records where the reader does not look —
@@ -239,8 +243,9 @@ Only an unreadable login stops capture, because without one there is no account
 to update. Auxiliary gateway traffic, such as chat-service discovery, is not
 account data and is never a missed change. An invalid login discards the
 previous account. Infrastructure failures remain visible until connection
-recovery. `/health` exposes the reason and `/profile` refuses a snapshot that
-is not ready. JASWA keeps its last good saved import.
+recovery. An uncertain upstream exchange remains a missed change after recovery,
+so resuming never claims that a missing server response was imported. `/health`
+exposes the reason and `/profile` refuses a snapshot that is not ready. JASWA keeps its last good saved import.
 
 **Save error report** writes a uniquely named JSON file to Downloads. It begins
 with a plain-language finding and next step, then includes the full status,

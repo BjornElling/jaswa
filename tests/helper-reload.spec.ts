@@ -35,7 +35,7 @@ test('on-demand reload keeps the corner cards aligned and preserves the selected
   await page.reload();
   const status = page.getByRole('status', { name: 'Helper program connection' });
   const reload = page.getByRole('button', { name: 'Reload game data', exact: true });
-  await expect(status).toContainText('Connection to the game was interrupted. Restart the helper, then reopen the game.');
+  await expect(status).toContainText('Connection to the game was interrupted. Try Restart helper. Check its status for any missing game data.');
   await expect(status).not.toContainText('GetDailyQuests');
   await expect(status).not.toContainText('private-host');
   await expect(reload).toBeEnabled();
