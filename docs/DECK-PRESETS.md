@@ -193,7 +193,7 @@ preset is never hidden for want of a name (AGENTS.md §0.1). Matched so far
 | 1 | Arena Attack | `deck_seq` | screen |
 | 2 | World Guild Battle | `deck_seq` | the developer, October 28, 2026: presets 1 and 2 on the game's screen |
 | 3 | Rift Raid | `deck_seq` | screen |
-| 4 | Labyrinth Normal | `deck_seq` | assumed (§7) |
+| 4, 5, 7, 8, 9, 10, 11 | Labyrinth Normal, Rescue, Speed Limit, Time Limit, Cooldown Time Up, Explode, Boss | `deck_seq` | captured as the developer saved one deck in each, October 30, 2026, each save matched to a screenshot of its menu entry |
 | 6 | Trial of Ascension | `deck_seq` | screen |
 | 19, 20, 21 | Dimension Raid phases 1, 2, 3 | `deck_seq` | screen |
 | 23 | Temple of Chaos | `deck_seq` | the developer, October 10, 2026: the account's three Temple of Chaos teams |
@@ -488,14 +488,6 @@ is a preset the interface offers, with its own placements
 Each is a TODO: until it is answered, JASWA keeps the safe reading named here
 and says so where it matters.
 
-- **`deck_type` 4, 8, 9.** Five-monster decks, three or fewer of each, holding
-  the same teams as one another. None is Temple of Chaos, whose presets are
-  type 23, nor a Dimension Hole dungeon or Rift of Worlds beast,
-  whose teams are four and six. Two of type 9's teams were last fought in a
-  content whose recent-deck numbers fall in four groups. 8 and 9 were read as
-  Monster Subjugation Water and Fire until type 27 proved to be Monster
-  Subjugation (deck 201 is Fire's first, October 27, 2026); they now stand
-  unnamed until the screen names them. 4 is still read as Labyrinth Normal.
 - **`deck_type` 25, hundreds 1–4.** Only Dark Beast (5) has been captured.
   Ice, Fire, Wind and Light Beast are read as 1–4 from the tab's menu order,
   which is also the element order type 27 numbers by, and marked assumed until
@@ -524,8 +516,9 @@ and says so where it matters.
   it has decks 1, 2 and 3 only, and every battle fields all three (the
   developer, October 20, 2026; `RUNE-OPTIMIZATION.md` §2.2.3).
 - **Team sizes not seen on screen.** Siege Battle and World Guild Battle are
-  read as three, Labyrinth, Monster Subjugation, the Towers and Spires as five,
+  read as three, Monster Subjugation, the Towers and Spires as five,
   the Rift of Worlds beasts and Rift Raid as six, Dimension Raid as five.
-  Dimension Hole's four and Temple of Chaos's five are from the screen.
+  Dimension Hole's four, Temple of Chaos's five, Labyrinth Rescue's four and
+  the other Labyrinth contents' five are from the screen.
 - **An artifact's tier word.** The interface says *Grade* on some pages and
   *Quality* on others (`LANGUAGE-CONTRACT.md`).

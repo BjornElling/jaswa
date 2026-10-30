@@ -117,7 +117,8 @@ const contents: readonly PresetContent[] = [
      follows Siege Battle's by analogy. */
   content('world-guild-defense', 'World Guild Battle Defense', 'Guild', 'other', 3, 'guild', { id: 'world-guild-defense', monsters: false, oneDeckPerContent: false }),
   content('labyrinth-normal', 'Labyrinth Normal', 'Guild', 'other', 5, 'guild'),
-  content('labyrinth-rescue', 'Labyrinth Rescue', 'Guild', 'other', 5, 'guild'),
+  /* Rescue's deck rows hold four monsters on the game's screen (October 30, 2026). */
+  content('labyrinth-rescue', 'Labyrinth Rescue', 'Guild', 'other', 4, 'guild'),
   content('labyrinth-explode', 'Labyrinth Explode', 'Guild', 'other', 5, 'guild'),
   content('labyrinth-cooldown', 'Labyrinth Cooldown Time Up', 'Guild', 'other', 5, 'guild'),
   content('labyrinth-speed-limit', 'Labyrinth Speed Limit', 'Guild', 'other', 5, 'guild'),
@@ -226,21 +227,16 @@ const byHundreds: Readonly<Record<number, ByHundreds>> = {
 };
 
 /* `deck_type` 2, World Guild Battle, was confirmed by the player on October 28,
-   2026: its presets 1 and 2 on the game's screen are JASWA's decks 2-1 and 2-2. */
+   2026: its presets 1 and 2 on the game's screen are JASWA's decks 2-1 and 2-2.
+   The seven Labyrinth types were captured as the player saved one deck in each
+   on October 30, 2026, each save matched to a screenshot of that menu entry.
+   They do not follow the menu's order, so none of them is read from another. */
 const confirmed: Readonly<Record<number, PresetContentId>> = {
   1: 'arena-attack', 2: 'world-guild', 3: 'rift-raid', 6: 'trial-of-ascension',
+  4: 'labyrinth-normal', 5: 'labyrinth-rescue', 7: 'labyrinth-speed-limit', 8: 'labyrinth-time-limit',
+  9: 'labyrinth-cooldown', 10: 'labyrinth-explode', 11: 'labyrinth-boss',
   19: 'dimension-raid-1', 20: 'dimension-raid-2', 21: 'dimension-raid-3',
   23: 'temple-of-chaos',
-};
-
-/*
- * Assumed, October 8, 2026, from one account's decks (`DECK-PRESETS.md` §7):
- * - `deck_type` 4: five-monster decks of three or fewer, read as Labyrinth.
- *   8 and 9 hold the same kind of teams and were once read as Monster
- *   Subjugation; type 27 turned out to be that, so they stand unnamed.
- */
-const assumed: Readonly<Record<number, PresetContentId>> = {
-  4: 'labyrinth-normal',
 };
 
 /**
@@ -255,7 +251,5 @@ export function deckContent(deckType: number, deckSequence: number): { content: 
     return area ? { content: presetContent(area.id), number: deckSequence % 100, assumed: area.assumed } : null;
   }
   const sure = confirmed[deckType];
-  if (sure) return { content: presetContent(sure), number: deckSequence, assumed: false };
-  const likely = assumed[deckType];
-  return likely ? { content: presetContent(likely), number: deckSequence, assumed: true } : null;
+  return sure ? { content: presetContent(sure), number: deckSequence, assumed: false } : null;
 }

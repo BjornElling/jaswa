@@ -449,10 +449,15 @@ assert.equal(withheldRunes(find(raidPresets, 'deck-2-2'), '2', [], sources(true,
   'and the rune both carry is kept by neither');
 assert.equal(withheldRunes(find(raidPresets, 'deck-2-1'), '1', [], sources(true, false), noRuneLocks)['101'], '2', 'on both sides');
 /* An assumed content is listed and marked, but joins no pool: a guess withholds no rune. */
-const assumedPresets = readPresets(createImportedGame('assumed.json', clone({ ...raids, deck_list: [deck(4, 1, [1], [gear(1, [101])])] }),
-  validateGameFile({ ...raids, deck_list: [deck(4, 1, [1], [gear(1, [101])])] })).data, []);
-assert.equal(find(assumedPresets, 'deck-4-1').contentAssumed, true);
-assert.equal(find(assumedPresets, 'deck-4-1').pool, null, 'a deck whose content is only assumed joins no pool');
+const assumedPresets = readPresets(createImportedGame('assumed.json', clone({ ...raids, deck_list: [deck(25, 101, [1], [gear(1, [101])])] }),
+  validateGameFile({ ...raids, deck_list: [deck(25, 101, [1], [gear(1, [101])])] })).data, []);
+assert.equal(find(assumedPresets, 'deck-25-101').contentAssumed, true);
+assert.equal(find(assumedPresets, 'deck-25-101').pool, null, 'a deck whose content is only assumed joins no pool');
+/* The seven Labyrinth types, each captured as the player saved it on October 30, 2026. */
+for (const [type, id] of [[4, 'labyrinth-normal'], [5, 'labyrinth-rescue'], [7, 'labyrinth-speed-limit'], [8, 'labyrinth-time-limit'],
+  [9, 'labyrinth-cooldown'], [10, 'labyrinth-explode'], [11, 'labyrinth-boss']]) {
+  assert.deepEqual(deckContent(type, 2), { content: presetContent(id), number: 2, assumed: false }, `deck_type ${type} is ${id}`);
+}
 assert.equal(find(raidPresets, 'deck-6-1').pool, null, 'a content of one deck per battle shares nothing');
 assert.equal(find(raidPresets, 'deck-6-1').poolRunes.size, 0);
 assert.equal(withheldRunes(find(raidPresets, 'deck-20-1'), '2', [], sources(true, false), noRuneLocks)['101'], '1',
