@@ -152,3 +152,40 @@ test('a readable old version survives an unrecognised health response', async ({
   await expect(notice(page)).toBeVisible();
   await expect(page.getByRole('status', { name: 'Helper program connection' })).toContainText('could not load game data');
 });
+
+
+test('the download row names a current running helper without moving the page', async ({ page }, testInfo) => {
+  const helper: Helper = { reachable: false, version: recommended, profileReady: false };
+  await serveHelper(page, helper);
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await importRoute(page, 'direct').check();
+  await expect(page.getByRole('status', { name: 'Helper program connection' })).toContainText('Helper is not running');
+  const download = page.getByRole('link', { name: 'Download helper', exact: true });
+  const current = page.locator('.helper-download-status');
+  await expect(download).toHaveAttribute('href', `/JASWA-Helper-Setup-${recommended}.exe`);
+  await expect(current).toBeHidden();
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  const boxes = () => page.locator('.route-download, .route-download a, .helper-download-status, .route-link, .route-modes').evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect(); return { x, y, width, height };
+  }));
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('download-empty-before.png') });
+  helper.reachable = true;
+  await expect(current).toBeVisible();
+  await expect(current).toHaveText('Running helper is up to date.');
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('download-empty-current.png') });
+  helper.version = '0.0.1';
+  await expect(current).toBeHidden();
+  await expect(notice(page)).toBeVisible();
+  expect(await boxes()).toEqual(before);
+  helper.profileReady = true;
+  helper.version = recommended;
+  await expect(page.getByRole('complementary', { name: 'Imported game data' })).toBeVisible();
+  await expect(current).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('download-full-current.png') });
+  await importRoute(page, 'file').click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Switch mode' }).click();
+  await expect(current).toBeHidden();
+});

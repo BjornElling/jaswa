@@ -9,6 +9,7 @@ import { formatDateTime } from '../lib/formatting';
 import { HelperDownload } from './helper-download';
 import type { HelperConnection } from '../lib/helper-client';
 import { helperStatusMessage } from '../lib/helper-client';
+import { recommendedHelperVersion } from '../lib/helper-version';
 import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame } from '../lib/types';
 
 function AccelerationMark({ state }: { state: AccelerationState | 'restart' }) {
@@ -146,6 +147,10 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
 
             <div className="route-download">
               <HelperDownload />
+              <span className="helper-download-status" role="status"
+                data-current={importRoute === 'direct' && helperConnection.version === recommendedHelperVersion}>
+                Running helper is up to date.
+              </span>
             </div>
 
             <section className={`statistics acceleration ${helperState} route-link`} role="status" aria-label="Helper program connection">

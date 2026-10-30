@@ -333,7 +333,7 @@ label[for] {
 .token-choice-note,
 .artifact-subs li, .relic-effect, .best-monster-intangible,
 .calculation-status, .calculation-progress, .range-slider-values, .rune-optimization-depth-control output,
-.helper-current-version, .import-badge-count, .best-artifact-result table,
+.helper-current-version, .helper-download-status, .import-badge-count, .best-artifact-result table,
 .best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table,
 .grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
 .best-artifact-entry-name, .best-artifact-fact dd,
@@ -4803,11 +4803,13 @@ input[type='checkbox']:checked {
 .text-link:hover { color: #dcb45f; }
 .text-link:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; border-radius: 2px; }
 
-/* The download row. The reason the route may not apply is carried by the
-   heading's qualifier, so this row holds the button alone. */
+/* The status keeps its space while the helper is checked, so its answer cannot
+   move the rest of the route. */
 .route-download {
   display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
 }
+.helper-download-status { color: var(--text-muted); }
+.helper-download-status[data-current="false"] { visibility: hidden; }
 
 /* The verdict card is a full-width block in the aside it was written for; here
    it sits in a column of its own content and takes the column's width. */

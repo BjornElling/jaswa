@@ -28,7 +28,7 @@ function WindowsMark() {
 export function HelperDownload({
   tone = 'important',
   size = 'regular',
-  children = `Download helper (v. ${recommendedHelperVersion})`,
+  children = 'Download helper',
 }: {
   /* Quiet inside the update warning: a gold frame in a red card is two
      verdicts in one box, and the card already says this is the thing to do. */
