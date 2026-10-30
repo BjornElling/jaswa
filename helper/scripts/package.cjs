@@ -20,6 +20,8 @@ async function main() {
   const bundleDirectory = path.join(tauriDirectory, 'target', 'release', 'bundle', 'nsis');
   const publishedInstaller = path.join(publicDirectory, `JASWA-Helper-Setup-${helperVersion}.exe`);
   await run(process.execPath, [require.resolve('@tauri-apps/cli/tauri.js'), 'build', '--bundles', 'nsis'], { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
+  // A signed outer installer does not prove that its executable was signed.
+  await run(signTool(), ['verify', '/pa', '/tw', path.join(tauriDirectory, 'target', 'release', 'jaswa-helper.exe')], { stdio: 'inherit' });
   const installers = (await readdir(bundleDirectory))
     .filter((file) => file.endsWith(`_${helperVersion}_x64-setup.exe`));
   if (installers.length !== 1) {

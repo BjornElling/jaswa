@@ -17,10 +17,10 @@ use serde_json::{Value, json};
 use std::{
     fs,
     io::{self, Read, Write},
-    net::{TcpListener, TcpStream},
+    net::{Shutdown, TcpListener, TcpStream},
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, Weak,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     thread,
@@ -46,6 +46,8 @@ pub struct Service {
 
 struct Shared {
     running: AtomicBool,
+    recovery: AtomicUsize,
+    connections: Mutex<Vec<Weak<GatewayConnection>>>,
     profile: Mutex<ProfileStore>,
     traffic: Mutex<TrafficLog>,
     game_running: Mutex<bool>,
@@ -75,6 +77,38 @@ struct Shared {
     /// tells the helper on its status poll and the helper makes no request of
     /// its own to find out.
     newer_release: Mutex<Option<Release>>,
+}
+
+#[derive(PartialEq, Eq)]
+enum GatewayActivity {
+    Reading,
+    Exchange,
+    Closed,
+}
+
+struct GatewayConnection {
+    socket: TcpStream,
+    activity: Mutex<GatewayActivity>,
+}
+
+impl GatewayConnection {
+    fn recover_idle(&self) {
+        let mut activity = self.activity.lock().expect("connection activity lock poisoned");
+        if *activity == GatewayActivity::Reading {
+            *activity = GatewayActivity::Closed;
+            let _ = self.socket.shutdown(Shutdown::Both);
+        }
+    }
+}
+
+// Keep the bound listener while its accept loop is paused. Recovery must not
+// race the game for a new socket or take the redirect away from a live session.
+fn wait_for_recovery(shared: &Shared, generation: usize) {
+    while shared.running.load(Ordering::Acquire)
+        && shared.recovery.load(Ordering::Acquire) == generation
+    {
+        thread::sleep(Duration::from_millis(50));
+    }
 }
 
 #[derive(Clone)]
@@ -185,6 +219,8 @@ impl Service {
         }
         let shared = Arc::new(Shared {
             running: AtomicBool::new(true),
+            recovery: AtomicUsize::new(0),
+            connections: Mutex::new(Vec::new()),
             profile: Mutex::new(ProfileStore::default()),
             traffic: Mutex::new(TrafficLog::new(None)),
             game_running: Mutex::new(false),
@@ -233,6 +269,19 @@ impl Service {
         diagnostics::record("hosts", "Local gateway redirect installed");
         start_watchdog(Arc::clone(&shared));
         Ok(service)
+    }
+
+    pub fn recover(&self) -> Result<String, String> {
+        if !self.shared.running.load(Ordering::Acquire) {
+            return Err("The helper is shutting down.".into());
+        }
+        // A user-requested recovery may restore the redirect; the watchdog
+        // still never writes against changes made by security software.
+        install_hosts()?;
+        diagnostics::retry();
+        recover_connections(&self.shared);
+        diagnostics::record("helper", "Recovery requested — resumed listeners and closed idle gateway connections; active exchanges, account and session kept");
+        recovery_result(&self.shared)
     }
 
     pub fn stop(&self) {
@@ -288,6 +337,34 @@ impl Service {
             .expect("release lock poisoned")
             .clone()
     }
+}
+
+fn recover_connections(shared: &Shared) {
+    // Clear the old fault before waking workers, so a new fault cannot be
+    // erased by the recovery that exposed it.
+    *shared.last_error.lock().expect("error lock poisoned") = None;
+    let connections = shared.connections.lock().expect("connection registry lock poisoned");
+    for connection in connections.iter().filter_map(Weak::upgrade) {
+        connection.recover_idle();
+    }
+    shared.recovery.fetch_add(1, Ordering::AcqRel);
+}
+
+fn recovery_result(shared: &Shared) -> Result<String, String> {
+    if shared.incidents.lock().expect("incident lock poisoned").active() {
+        return Err("Connections recovered, but account changes are missing or unreadable. Save an error report, then reopen Summoners War for a complete account. The last snapshot and error evidence were kept.".into());
+    }
+    if let Some(error) = diagnostics::last_error() {
+        return Err(error);
+    }
+    if !shared.profile.lock().expect("profile lock poisoned").status().has_profile {
+        return if shared.game_started_before_helper.load(Ordering::Acquire) {
+            Err("Connections recovered, but this game started before the helper. Reopen Summoners War to capture its account login.".into())
+        } else {
+            Ok("Helper connections recovered. Waiting for an account login from Summoners War.".into())
+        };
+    }
+    Ok("Helper connections recovered. Your account and session were kept; Summoners War can stay open.".into())
 }
 
 impl Drop for Service {
@@ -370,6 +447,7 @@ fn start_api(shared: Arc<Shared>) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     thread::spawn(move || {
         while shared.running.load(Ordering::Acquire) {
+            let generation = shared.recovery.load(Ordering::Acquire);
             match listener.accept() {
                 Ok((stream, _)) => {
                     if let Err(error) = stream.set_nonblocking(false) {
@@ -395,7 +473,7 @@ fn start_api(shared: Arc<Shared>) -> Result<(), String> {
                 Err(error) => {
                     *shared.last_error.lock().expect("error lock poisoned") =
                         Some(format!("Local API stopped: {error}"));
-                    break;
+                    wait_for_recovery(&shared, generation);
                 }
             }
         }
@@ -709,6 +787,7 @@ fn start_bridge(
         .map_err(|error| error.to_string())?;
     thread::spawn(move || {
         while shared.running.load(Ordering::Acquire) {
+            let generation = shared.recovery.load(Ordering::Acquire);
             match listener.accept() {
                 Ok((stream, _)) => {
                     // A connection on the gateway port is the game reaching the
@@ -737,7 +816,7 @@ fn start_bridge(
                 Err(error) => {
                     *shared.last_error.lock().expect("error lock poisoned") =
                         Some(format!("Gateway bridge for {hostname} stopped: {error}"));
-                    break;
+                    wait_for_recovery(&shared, generation);
                 }
             }
         }
@@ -754,6 +833,24 @@ fn relay(
 ) {
     let mut last_request = Vec::new();
     let mut last_response = Vec::new();
+    let mut uncertain_exchange = false;
+    let tracked = socket.try_clone().map(|socket| Arc::new(GatewayConnection {
+        socket,
+        activity: Mutex::new(GatewayActivity::Reading),
+    }));
+    let tracked = match tracked {
+        Ok(tracked) => tracked,
+        Err(error) => {
+            shared.open_connections.fetch_sub(1, Ordering::AcqRel);
+            *shared.last_error.lock().expect("error lock poisoned") = Some(format!("Could not track a gateway connection: {error}"));
+            return;
+        }
+    };
+    {
+        let mut connections = shared.connections.lock().expect("connection registry lock poisoned");
+        connections.retain(|entry| entry.strong_count() != 0);
+        connections.push(Arc::downgrade(&tracked));
+    }
     let result = (|| -> Result<(), String> {
         socket
             .set_read_timeout(Some(Duration::from_secs(120)))
@@ -786,6 +883,13 @@ fn relay(
             else {
                 return Ok(());
             };
+            {
+                let mut activity = tracked.activity.lock().expect("connection activity lock poisoned");
+                if *activity == GatewayActivity::Closed {
+                    return Ok(());
+                }
+                *activity = GatewayActivity::Exchange;
+            }
             // Every exchange on a live connection renews the contact time, so a
             // long, idle-but-open session is never mistaken for the game closing.
             mark_contact(&shared);
@@ -815,6 +919,7 @@ fn relay(
             };
             let mut outgoing =
                 connect_upstream(hostname, upstream, &roots, &name).map_err(&context)?;
+            uncertain_exchange = true;
             let response = exchange_once(&mut outgoing, &request).map_err(|error| {
                 // Even an incomplete HTTP reply is evidence; the old report
                 // discarded it and could not distinguish silence from truncation.
@@ -832,6 +937,8 @@ fn relay(
                         capture(&request, &response, &shared);
                     }
                 });
+            uncertain_exchange = false;
+            *tracked.activity.lock().expect("connection activity lock poisoned") = GatewayActivity::Reading;
             if upstream_time >= Duration::from_secs(5)
                 || forward_time >= Duration::from_secs(1)
                 || capture_time >= Duration::from_secs(1)
@@ -857,6 +964,9 @@ fn relay(
     })();
     shared.open_connections.fetch_sub(1, Ordering::AcqRel);
     if let Err(error) = result {
+        if !uncertain_exchange && *tracked.activity.lock().expect("connection activity lock poisoned") == GatewayActivity::Closed {
+            return;
+        }
         diagnostics::record("capture", &error);
         let profile = shared
             .profile
@@ -864,13 +974,17 @@ fn relay(
             .expect("profile lock poisoned")
             .read()
             .and_then(|value| serde_json::to_value(value).ok());
-        shared
-            .incidents
-            .lock()
-            .expect("incident lock poisoned")
-            .record(&error, &last_request, &last_response, profile);
+        // Only a request that may have reached the game server can leave a
+        // missing mutation. An idle socket failure costs no account data.
+        if uncertain_exchange {
+            shared
+                .incidents
+                .lock()
+                .expect("incident lock poisoned")
+                .record(&error, &last_request, &last_response, profile);
+        }
         *shared.last_error.lock().expect("error lock poisoned") = Some(format!(
-            "Gateway exchange failed: {error}. Save an error report, then restart the helper and game."
+            "Gateway exchange failed: {error}. Save an error report, then try Restart helper. A missing game response still needs a fresh login."
         ));
     }
 }
@@ -1923,6 +2037,8 @@ mod tests {
     fn shared_for_test() -> Shared {
         Shared {
             running: AtomicBool::new(true),
+            recovery: AtomicUsize::new(0),
+            connections: Mutex::new(Vec::new()),
             profile: Mutex::new(ProfileStore::default()),
             traffic: Mutex::new(TrafficLog::new(None)),
             game_running: Mutex::new(false),
@@ -1936,6 +2052,76 @@ mod tests {
             api_connections: AtomicUsize::new(0),
             newer_release: Mutex::new(None),
         }
+    }
+
+    #[test]
+    fn connection_recovery_keeps_empty_and_populated_sessions_and_gap_evidence() {
+        for populated in [false, true] {
+            let shared = shared_for_test();
+            if populated {
+                *shared.game_running.lock().unwrap() = true;
+                shared.profile.lock().unwrap().accept_snapshot(json!({"wizard_id": 7,
+                    "unit_list": [{"unit_id": 8, "unit_master_id": 10101}],
+                    "runes": [{"rune_id": 4, "set_id": 13}]}));
+            }
+            let before = serde_json::to_value(shared.profile.lock().unwrap().read()).unwrap();
+            *shared.last_error.lock().unwrap() = Some("Local API stopped".into());
+            recover_connections(&shared);
+            assert!(recovery_result(&shared).is_ok());
+            assert_eq!(serde_json::to_value(shared.profile.lock().unwrap().read()).unwrap(), before);
+            assert_eq!(shared.recovery.load(Ordering::Acquire), 1);
+            assert!(shared.last_error.lock().unwrap().is_none());
+            shared.incidents.lock().unwrap().record("missing response", b"request", b"", Some(before.clone()));
+            let evidence = shared.incidents.lock().unwrap().report();
+            recover_connections(&shared);
+            assert!(recovery_result(&shared).unwrap_err().contains("account changes are missing"));
+            assert_eq!(shared.incidents.lock().unwrap().report(), evidence);
+            assert_eq!(serde_json::to_value(shared.profile.lock().unwrap().read()).unwrap(), before);
+        }
+        let shared = shared_for_test();
+        shared.game_started_before_helper.store(true, Ordering::Release);
+        recover_connections(&shared);
+        assert!(recovery_result(&shared).unwrap_err().contains("started before the helper"));
+    }
+
+    #[test]
+    fn recovery_closes_idle_sockets_but_never_interrupts_a_game_exchange() {
+        for exchanging in [false, true] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+            let (mut server, _) = listener.accept().unwrap();
+            client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let connection = Arc::new(GatewayConnection {
+                socket: server.try_clone().unwrap(),
+                activity: Mutex::new(if exchanging { GatewayActivity::Exchange } else { GatewayActivity::Reading }),
+            });
+            let shared = shared_for_test();
+            shared.connections.lock().unwrap().push(Arc::downgrade(&connection));
+            recover_connections(&shared);
+            let mut byte = [0];
+            if exchanging {
+                server.write_all(b"x").unwrap();
+                assert_eq!(client.read(&mut byte).unwrap(), 1);
+                assert_eq!(byte, *b"x");
+            } else {
+                assert_eq!(client.read(&mut byte).unwrap(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn a_paused_listener_resumes_without_rebinding_its_port() {
+        let shared = Arc::new(shared_for_test());
+        let paused = Arc::clone(&shared);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let worker = thread::spawn(move || {
+            wait_for_recovery(&paused, 0);
+            listener.accept().unwrap();
+        });
+        recover_connections(&shared);
+        let _client = TcpStream::connect(address).unwrap();
+        worker.join().unwrap();
     }
 
     #[test]

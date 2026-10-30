@@ -1,11 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "JASWA Helper",
-  "version": "1.0.36",
+  "version": "1.0.37",
   "identifier": "dk.jaswa.helper",
   "build": {
     "beforeDevCommand": "npm run frontend:dev",
     "beforeBuildCommand": "npm run build:frontend",
+    "beforeBundleCommand": "node src-tauri/sign.cjs src-tauri/target/release/jaswa-helper.exe",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },

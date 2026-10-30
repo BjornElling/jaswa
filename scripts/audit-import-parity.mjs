@@ -151,7 +151,8 @@ function storageAmount(records) {
   return { total, invalid };
 }
 
-const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true, hmr: false } });
+// This one-shot reader needs transforms, never a watch on Cargo's locked binaries.
+const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true, hmr: false, watch: null } });
 let failures = 0;
 /* Set when there is no capture to read, so the audit reports a skip and exits
    zero rather than a shortfall it never actually measured. */

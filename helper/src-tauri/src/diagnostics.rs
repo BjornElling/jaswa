@@ -40,6 +40,22 @@ pub fn last_error() -> Option<String> {
         .clone()
 }
 
+/// Reopen a failed log without discarding evidence from the current session.
+pub fn retry() {
+    if last_error().is_none() {
+        return;
+    }
+    let Some(lock) = FILE.get() else { return; };
+    let mut slot = lock.lock().unwrap_or_else(|error| error.into_inner());
+    match fs::OpenOptions::new().create(true).append(true).open(path()) {
+        Ok(file) => {
+            *slot = Some(file);
+            *LAST_ERROR.lock().unwrap_or_else(|error| error.into_inner()) = None;
+        }
+        Err(error) => failed(error),
+    }
+}
+
 fn failed(error: std::io::Error) {
     *LAST_ERROR.lock().unwrap_or_else(|error| error.into_inner()) = Some(format!(
         "The diagnostic log could not be written: {error}. Save an error report to preserve the in-memory evidence."

@@ -50,6 +50,12 @@ try {
         }
         if (command === 'download_update') return `Downloading helper ${window.dashboard.status.updateVersion} — run the installer to update.`;
         if (command === 'save_error_report') return 'Saved a private error report. Send it to the developer.';
+        if (command === 'restart_helper') {
+          if (window.recoveryFailure) throw window.recoveryFailure;
+          return window.dashboard.status.hasProfile
+            ? 'Helper connections recovered. Your account and session were kept; Summoners War can stay open.'
+            : 'Helper connections recovered. Waiting for an account login from Summoners War.';
+        }
         if (command === 'download_json') {
           if (window.downloadFailure) throw window.downloadFailure;
           return 'Saved Culpa-1.json to your Downloads folder.';
@@ -87,9 +93,13 @@ try {
     const { x, y, width, height } = button.getBoundingClientRect(); return { x, y, width, height };
   }));
   const before = await boxes();
+  await page.screenshot({ path: resolve(output, 'helper-empty-before-recovery.png'), fullPage: true });
   await page.getByRole('button', { name: 'Restart helper' }).click();
   assert.ok(await page.evaluate(() => window.commands.includes('restart_helper')));
+  await page.locator('.activity-text').filter({ hasText: 'Helper connections recovered. Waiting' }).waitFor();
+  await headline('Waiting for Summoners War').waitFor();
   assert.deepEqual(await boxes(), before);
+  await page.screenshot({ path: resolve(output, 'helper-empty-after-recovery.png'), fullPage: true });
 
   /* The activity box reaches the window's floor: the old layout ended with a
      56px strip and left the rest of the window empty below it. */
@@ -150,6 +160,19 @@ try {
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'game-start' },
     'Account captured', 'read your account when the game logged in');
   await page.screenshot({ path: resolve(output, 'helper-captured.png'), fullPage: true });
+  const captured = await page.evaluate(() => structuredClone(window.dashboard));
+  await page.getByRole('button', { name: 'Restart helper' }).click();
+  await page.locator('.activity-text').filter({ hasText: 'Your account and session were kept' }).waitFor();
+  await headline('Account captured').waitFor();
+  assert.deepEqual(await page.evaluate(() => window.dashboard), captured);
+  assert.deepEqual(await boxes(), before);
+  await page.screenshot({ path: resolve(output, 'helper-captured-after-recovery.png'), fullPage: true });
+  await page.evaluate(() => { window.recoveryFailure = 'Connections recovered, but account changes are missing or unreadable.'; });
+  await page.getByRole('button', { name: 'Restart helper' }).click();
+  await page.locator('.activity-error').filter({ hasText: 'account changes are missing or unreadable' }).waitFor();
+  assert.deepEqual(await boxes(), before);
+  assert.deepEqual(await page.evaluate(() => window.dashboard), captured);
+  await page.evaluate(() => { window.recoveryFailure = null; });
   await page.getByRole('button', { name: 'Download JSON' }).click();
   assert.ok(await page.evaluate(() => window.commands.includes('download_json')),
     'the captured-account action must reach the SWEX-compatible download command');

@@ -5,6 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 const helper = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const hooks = await readFile(resolve(helper, 'src-tauri/windows/hooks.nsh'), 'utf8');
+const config = JSON.parse(await readFile(resolve(helper, 'src-tauri/tauri.conf.json'), 'utf8'));
+const packager = await readFile(resolve(helper, 'scripts/package.cjs'), 'utf8');
+assert.equal(config.build.beforeBundleCommand,
+  'node src-tauri/sign.cjs src-tauri/target/release/jaswa-helper.exe',
+  'the program must be signed before NSIS embeds it; signCommand signs only the installer and uninstaller');
+assert.match(packager, /\['verify', '\/pa', '\/tw', path\.join\(tauriDirectory, 'target', 'release', 'jaswa-helper\.exe'\)\]/,
+  'packaging must verify the embedded program as well as the installer');
 
 for (const macro of ['NSIS_HOOK_PREINSTALL', 'NSIS_HOOK_PREUNINSTALL']) {
   const start = hooks.indexOf(`!macro ${macro}`);

@@ -177,8 +177,9 @@ npm run package
 The packager finds the x64 `signtool.exe` from an installed Windows SDK. Set
 `JASWA_SIGNTOOL_PATH` only when the SDK lives elsewhere.
 
-The command asks Tauri to sign the helper executable, uninstaller and generated
-installer, verifies the installer, then writes it to
+The pre-bundle hook signs the compiled helper before NSIS embeds it; Tauri's
+`signCommand` signs the uninstaller and generated installer. The packager verifies
+both the helper and installer, then writes the installer to
 `public/JASWA-Helper-Setup-<version>.exe`. Never distribute a manually built, unsigned
 installer. A new signed release must also be scanned by Microsoft Defender and
 submitted to Microsoft as a false positive if Defender blocks it.
@@ -200,21 +201,32 @@ would share an SWEX export.
 
 ## Failure handling and private reports
 
-**Restart helper**, below **Log all traffic**, removes the local redirect and
-relaunches the helper. Reopen Summoners War afterwards to capture a fresh login.
-Save an error report first if you need to keep evidence from the current run.
+**Restart helper**, below **Log all traffic** and in the tray menu, recovers
+connections inside the running helper. It resumes paused API and gateway
+listeners on their existing ports, closes idle game sockets so the game can
+reconnect, restores the redirect if needed, and retries a failed diagnostic log.
+An exchange already talking to the game server finishes normally: recovery
+never retries a game command. The account, session, traffic recording, settings
+and incident evidence stay in memory, and Summoners War can stay open.
+
+Recovery cannot reconstruct a missing server response or interpret an unknown
+account update. Such a capture gap stays visible and still needs a fresh game
+login. A helper that started after the game also still needs that login. The
+button reports these cases instead of clearing the fault and serving stale data.
 
 In JASWA, **Read on game start** also offers **Reload game data** below the
 account counts. It reads the helper's latest complete snapshot on demand and
 replaces local game-data plans, while keeping personalization. It cannot repair
-a capture gap: restart the helper and game when capture has stopped.
+a capture gap: try **Restart helper** for connection faults; reopen the game
+when the helper reports missing or unreadable account changes.
 Home shows a short recovery message; Report Issue keeps the technical detail.
 
 An unreadable account-login response pauses live import. Auxiliary gateway
 traffic, such as chat-service discovery, cannot invalidate a captured account.
 An unrelated successful command cannot repair a missing update: only a complete new login releases that capture gap.
 An invalid login discards the previous account. Infrastructure failures remain
-visible until the helper restarts. `/health` exposes the reason and `/profile`
+visible until connection recovery. An idle socket fault, before any request
+could reach the game server, does not open an account-data gap. `/health` exposes the reason and `/profile`
 refuses a snapshot that is not ready. JASWA keeps its last good saved import.
 
 **Save error report** writes a uniquely named JSON file to Downloads. It begins

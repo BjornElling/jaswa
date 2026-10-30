@@ -111,11 +111,8 @@ fn download_update(state: State<'_, HelperState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn restart_helper(app: tauri::AppHandle, state: State<'_, HelperState>) {
-    // Remove the redirect before relaunching so DNS can find the real gateways.
-    diagnostics::record("helper", "Restart requested — removing the local redirect");
-    state.service.stop();
-    app.request_restart();
+fn restart_helper(state: State<'_, HelperState>) -> Result<String, String> {
+    state.service.recover()
 }
 
 #[tauri::command]
@@ -180,7 +177,7 @@ fn report_summary(status: &Value) -> Value {
     let (finding, next_step) = if let Some(error) = has_error {
         (
             format!("Capture stopped: {error}"),
-            "Keep this report and restart the helper before reopening Summoners War.",
+            "Keep this report and try Restart helper. Reopen Summoners War only if the helper still reports missing or unreadable account changes.",
         )
     } else if status["gameStartedBeforeHelper"] == true {
         (
@@ -397,7 +394,7 @@ fn main() {
                         }
                     }
                     OPEN_TRAFFIC => tray_result(open_traffic_log(app.state()).map(|()| None)),
-                    RESTART => restart_helper(app.clone(), app.state()),
+                    RESTART => tray_result(restart_helper(app.state()).map(Some)),
                     UPDATE => tray_result(download_update(app.state()).map(Some)),
                     QUIT => app.exit(0),
                     _ => {}

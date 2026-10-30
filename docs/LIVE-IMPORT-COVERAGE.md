@@ -39,7 +39,14 @@ reader used by the service's capture-gap check and by the update itself.
 5. An incidental copy of an entity also present on an authoritative current
    path is ignored. The current record wins regardless of JSON key order;
    the copy cannot overwrite it, count twice or stop a valid update.
-   An otherwise plausible additional record on an unknown request or path refuses the
+   A monster-shaped object outside a recognised account field needs a
+   `wizard_id` before it is treated as a possible account record. Battle-local
+   `unit_id` values and monster species are also used for NPCs and prove no
+   ownership, even when a local id happens to match an owned monster. This
+   applies across content names and wave wrappers, rather than adding a dungeon
+   exception. Recognised account fields and owned records on unknown paths
+   remain subject to the checks above.
+   An otherwise plausible additional account record on an unknown request or path refuses the
    exchange whole and opens the existing visible capture gap. It is neither
    imported speculatively nor silently skipped. The diagnostic names its path
    and entity identifier, and the raw exchange remains available for modelling.
@@ -221,6 +228,15 @@ its removals, and all later responses were held back. Replaying the saved error
 report now yields 1,661 → 1,561 runes and proves that all 100 sold identifiers
 are absent. The broader fixtures exercise the other two gaps and current-record
 mirrors. This replaces the closed command list, rather than expanding it.
+
+The October 30 Dimensional Rift report exposed a different boundary error:
+`BattleDimensionHoleDungeonStart.dungeon_units` holds enemy waves, with local
+unit ids and no owner. Shape-based discovery called those enemies unrecognised
+account records and paused import. The reader now requires account evidence for
+unrecognised monster records; it does not authorise that enemy container or add
+another command name to a permission list. Replays of the saved dungeon,
+bulk-upgrade and sale incidents, plus fixtures with colliding NPC ids and new
+wave wrappers, check both the false refusal and the original archive safeguard.
 
 `tests/helper-bulk-sale.spec.ts` generates snapshots with that Rust replay tool
 and serves them through the helper polling route. It checks the empty workspace,

@@ -399,7 +399,7 @@ export function App() {
             <Glyph name="open" />Open traffic log
           </button>
           <button type="button" onClick={() => void call('restart_helper')}
-            title="Restart the helper, then reopen Summoners War to capture a fresh login.">
+            title="Recover helper connections while keeping your account and game session. Missing account changes still need a fresh game login.">
             <Glyph name="restart" />Restart helper
           </button>
           {/* The grid's sixth cell, always occupied, so an announced update

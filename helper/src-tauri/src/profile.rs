@@ -1552,7 +1552,11 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
                             entity.collection, identifier(value, entity.identifier).unwrap_or_default()
                         ));
                     }
-                } else {
+                } else if named_record || entity.collection != "unit_list"
+                    || identifier(value, "wizard_id").is_some()
+                {
+                    // Combatants also carry unit_id and unit_master_id. Outside
+                    // an account field, shape alone cannot make an NPC ours.
                     found.mirrors.push((path.to_owned(), entity,
                         identifier(value, entity.identifier).unwrap_or_default()));
                 }
@@ -3713,6 +3717,38 @@ mod tests {
 
 #[cfg(test)]
 mod phantom_rune_regression {
+    #[test]
+    fn unnamed_combatants_are_not_unrecognised_account_monsters() {
+        use super::*;
+        for populated in [false, true] {
+            let mut store = ProfileStore::default();
+            let units = if populated { json!([{"unit_id": 1, "wizard_id": 7,
+                "unit_master_id": 10101, "unit_level": 40}]) } else { json!([]) };
+            assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": units, "runes": []})));
+            let before = store.read().unwrap().data;
+            // A combat unit's ids are local to the battle and can even match ours.
+            // Neither a new content name nor a new wave wrapper changes ownership.
+            for command in ["BattleDimensionHoleDungeonStart", "BattleDungeonStart", "FutureBattleStart"] {
+                for wrapper in ["dungeon_units", "waves", "future_combatants"] {
+                    let request = json!({"command": command});
+                    let mut response = json!({"ret_code": 0});
+                    response[wrapper] = json!([[{"unit_id": 1, "unit_master_id": 999,
+                        "unit_level": 50, "runes": [], "boss": 1}]]);
+                    assert_eq!(store.unmodeled_exchange(&response, &request), None);
+                    store.apply_update(&response, &request);
+                    assert_eq!(store.read().unwrap().data, before);
+                    // An owned monster at an unknown path must still be diagnosed.
+                    response[wrapper][0][0]["wizard_id"] = json!(7);
+                    assert!(store.unmodeled_exchange(&response, &request).is_some());
+                }
+            }
+            let reward = json!({"changed_item_list": [{"type": 8,
+                "info": {"rune_id": 2, "set_id": 13, "slot_no": 1}}]});
+            assert!(store.apply_update(&reward, &json!({"command": "BattleDimensionHoleDungeonResult_V2"})));
+            assert_eq!(store.read().unwrap().data["runes"][0]["rune_id"], 2);
+        }
+    }
+
     use super::*;
     use serde_json::json;
 

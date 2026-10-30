@@ -13,6 +13,7 @@ async function main() {
     throw new Error('A trusted JASWA_SIGNING_THUMBPRINT and signing target are required. Refusing to create an unsigned executable.');
   }
   await run(signTool(), ['sign', '/sha1', thumbprint, '/fd', 'SHA256', '/tr', 'http://timestamp.digicert.com', '/td', 'SHA256', target], { stdio: 'inherit' });
+  await run(signTool(), ['verify', '/pa', '/tw', target], { stdio: 'inherit' });
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
