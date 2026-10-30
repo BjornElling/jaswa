@@ -232,13 +232,28 @@ try {
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-status-failure.png'), fullPage: true });
 
-  /* The frame's own controls: close hides to the tray, exactly as the
-     decorated window's `CloseRequested` handler did. */
+  /* Both destinations persist without moving the surrounding controls. */
+  const setting = page.getByLabel('Minimise to');
+  assert.equal(await setting.inputValue(), 'tray');
+  const settingsBox = await setting.boundingBox();
+  await page.screenshot({ path: resolve(output, 'helper-tray-setting.png'), fullPage: true });
   await page.getByRole('button', { name: 'Minimise' }).click();
+  assert.equal(await page.evaluate(() => window.commands.at(-1)), 'plugin:window|close');
+  await setting.selectOption('taskbar');
+  assert.deepEqual(await setting.boundingBox(), settingsBox);
+  assert.deepEqual(await boxes(), before);
+  await page.getByRole('button', { name: 'Minimise' }).click();
+  assert.equal(await page.evaluate(() => window.commands.at(-1)), 'plugin:window|minimize');
+  await page.screenshot({ path: resolve(output, 'helper-taskbar-setting.png'), fullPage: true });
+  await page.reload();
+  await headline('Waiting for Summoners War').waitFor();
+  assert.equal(await setting.inputValue(), 'taskbar');
+  await setting.selectOption('tray');
+  await page.reload();
+  await headline('Waiting for Summoners War').waitFor();
+  assert.equal(await setting.inputValue(), 'tray');
   await page.getByRole('button', { name: 'Close to the system tray' }).click();
-  const caption = await page.evaluate(() => window.commands.filter((entry) => entry.startsWith('plugin:window|')));
-  assert.ok(caption.some((entry) => entry.includes('minimize')), `expected a minimize call, saw ${caption}`);
-  assert.ok(caption.some((entry) => entry.includes('close')), `expected a close call, saw ${caption}`);
+  assert.equal(await page.evaluate(() => window.commands.at(-1)), 'plugin:window|close');
 
   assert.deepEqual(errors, []);
   console.log('Helper dashboard: empty and populated states, restart command, report consent, traffic toggle, caption buttons, update offer and rejected IPC passed. All controls keep identical bounds. Screenshots: outputs/helper-hardening.');

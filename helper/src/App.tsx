@@ -184,7 +184,7 @@ function Wordmark() {
 
    Losing the system bar means re-supplying what it did. Dragging is the
    webview's `data-tauri-drag-region`, and minimise and close are ordinary
-   buttons calling the window commands — close hides rather than quits,
+   buttons calling the window commands — minimise follows the saved choice, and close hides rather than quits,
    matching the `CloseRequested` handler the decorated window had, so the
    helper keeps capturing from the tray.
 
@@ -199,7 +199,7 @@ function caption(command: 'minimize' | 'close') {
 
 /* The mark beside the version is always in the bar and only lit when a newer
    helper is known, so the version never shifts when one is announced. */
-function TitleBar({ version, update }: { version: string | null; update: string | null }) {
+function TitleBar({ version, update, minimizeTo }: { version: string | null; update: string | null; minimizeTo: 'tray' | 'taskbar' }) {
   return (
     <div className="titlebar" data-tauri-drag-region>
       <p className="titlebar-brand" data-tauri-drag-region>
@@ -210,7 +210,7 @@ function TitleBar({ version, update }: { version: string | null; update: string 
         <span className="version-mark" data-lit={Boolean(update)} aria-hidden="true" />v{version ?? '—'}
       </span>
       <div className="titlebar-controls">
-        <button type="button" className="caption" aria-label="Minimise" onClick={() => void caption('minimize')}>
+        <button type="button" className="caption" aria-label="Minimise" onClick={() => void caption(minimizeTo === 'tray' ? 'close' : 'minimize')}>
           <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M0 5h10" /></svg>
         </button>
         <button type="button" className="caption caption-close" aria-label="Close to the system tray" onClick={() => void caption('close')}>
@@ -263,6 +263,10 @@ function Signal({ state, label }: { state: Reading['state']; label: string }) {
 
 export function App() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [minimizeTo, setMinimizeTo] = useState<'tray' | 'taskbar'>(() => {
+    try { return localStorage.getItem('jaswa-helper-minimize-to') === 'taskbar' ? 'taskbar' : 'tray'; }
+    catch { return 'tray'; }
+  });
   const busy = useRef(false);
   const polling = useRef(false);
   const [activity, setActivity] = useState<Entry[]>([]);
@@ -353,7 +357,7 @@ export function App() {
      window, and the space it cost is exactly what the activity box needed. */
   return (
     <>
-      <TitleBar version={status?.version ?? null} update={update} />
+      <TitleBar version={status?.version ?? null} update={update} minimizeTo={minimizeTo} />
       <main>
       <section className={`capture state-${now.state}`} aria-live="polite">
         <div className="capture-head">
@@ -407,6 +411,20 @@ export function App() {
             <Glyph name="update" />{update ? `Update to v${update}` : 'No newer version'}
           </button>
         </div>
+      </section>
+
+      <section className="settings" aria-label="Settings">
+        <label htmlFor="minimize-to">Minimise to</label>
+        <select id="minimize-to" value={minimizeTo} onChange={(event) => {
+          const value = event.target.value === 'taskbar' ? 'taskbar' : 'tray';
+          try {
+            localStorage.setItem('jaswa-helper-minimize-to', value);
+            setMinimizeTo(value);
+          } catch { note('Could not save the minimise setting. Please try again.', { tone: 'error', answer: true }); }
+        }}>
+          <option value="tray">System tray</option>
+          <option value="taskbar">Taskbar</option>
+        </select>
       </section>
 
       <section className="activity" aria-label="Activity">

@@ -67,7 +67,7 @@ each other. They agreed, so it passed — while the dashboard was rewritten
 underneath them and the app went on offering the same version for download.
 
 JASWA compares the connected helper's reported version with
-`recommendedHelperVersion` and calls out an upgrade on the home page before a
+`recommendedHelperVersion` and calls out an upgrade across JASWA before a
 compatibility problem can look like bad game data.
 
 The helper's own window says it too. JASWA's status poll is
@@ -108,6 +108,14 @@ Stopping the helper from Task Manager skips its cleanup, which leaves the
 loopback gateway entries in the Windows hosts file. A running game then has
 nowhere to reach until a helper takes those ports back, so quit it from its
 tray icon and start the replacement promptly.
+
+## Window settings
+
+The helper's **Minimise to** setting defaults to **System tray**, hiding the
+window while capture continues. Click its notification-area icon to reopen it.
+Choose **Taskbar** to use Windows' usual minimised window instead. The choice is
+stored in the helper's local WebView profile and survives a restart or upgrade.
+Close always hides the window to the system tray; use the tray menu to quit.
 
 ## The diagnostic log
 

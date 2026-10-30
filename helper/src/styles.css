@@ -224,7 +224,7 @@ main {
   /* The three fixed boxes keep their reserved heights and the activity box
      takes whatever is left, so the window has no empty tail at the bottom
      whatever its content — which is what the old 56px message strip left. */
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto 1fr;
   /* Both directions of the same rule: `min-height: 0` lets the row shrink to
      the window rather than overflowing it, and `height: 100%` makes it fill
      the window rather than stopping at its content. Without the second, the
@@ -525,3 +525,8 @@ button:disabled { color: var(--ghost); border-color: var(--line); background: va
   background: var(--line-strong) content-box;
 }
 .activity-list::-webkit-scrollbar-thumb:hover { background: var(--ghost) content-box; }
+
+/* The window preference has one fixed row, so changing it cannot move the dashboard. */
+.settings { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); color: var(--dim); font-size: var(--t-body); }
+.settings select { width: 160px; height: 32px; padding: 0 var(--s2); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--raise); color: var(--ink); font: inherit; }
+.settings select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
