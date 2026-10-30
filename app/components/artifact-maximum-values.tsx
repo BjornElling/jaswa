@@ -48,6 +48,7 @@ const restrictionOptions = [
   ...Object.values(artifactElements), ...Object.values(artifactArchetypes), artifactIntangibleLabel,
 ];
 const artifactLocations = ['inventory', 'engraved'] as const;
+const conversionFilters = ['yes', 'no'] as const;
 
 type ArtifactLocation = typeof artifactLocations[number];
 /* The one option under "Already matching". It is a list like every other
@@ -67,6 +68,7 @@ type ArtifactFilters = {
    * allocated one, inventory if the advice is to sell it. */
   plannedLocations: ArtifactLocation[];
   matching: MatchingFilter[];
+  conversions: (typeof conversionFilters[number])[];
 };
 type OwnedMonster = { unitId: string; masterId: string; name: string };
 type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScoreResult };
@@ -77,9 +79,8 @@ type Calculation = { inputKey: string; backend: CalculationBackend; durationMs: 
    minus the ones already on the monster it names. Everything else — the pieces
    to sell, and the placements that are already right — stays one click away in
    the panel rather than filling the first screen with rows carrying no action.
-   Both are ordinary filters, so "Clear results" and the buttons themselves
-   return the complete plan. */
-const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: ['engraved'], matching: ['hide'] };
+   Both are ordinary filters, so toggling them off returns the complete plan. */
+const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: ['engraved'], matching: ['hide'], conversions: [] };
 
 /* `names` is read off the whole roster, never off `monsters`: numbering a
    filtered subset would call the second Lushen "Lushen" whenever the first was
@@ -270,6 +271,7 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
   }, [artifacts]);
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId) ? filters.subPropertyId : '';
   const inputKey = JSON.stringify({
+    stones: settings.conversionStoneMode === 'owned' ? stones : [],
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.category, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex, ...artifact.subProperties.map((property) => [property.definition.id, property.valueHundredths, property.maximumHundredths])]),
     monsters: scopedMonsters.map((monster) => [monster.unitId, monster.masterId]), scenarioProfiles, settings: scoringSettings(settings),
   });
@@ -370,7 +372,7 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [visibleArtifacts, currentCalculation, monsterByUnitId, artifactOrder]);
 
-  /* Two of the filters ask about the advice rather than the artifact, so they
+  /* These filters ask about the advice rather than the artifact, so they
      cannot run in `visibleArtifacts` with the rest: the allocation is not known
      until the calculation has been paired with the row. They narrow which rows
      are shown and nothing else — the allocation itself is computed over the
@@ -381,8 +383,9 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
     const alreadyMatching = row.allocation !== undefined
       && row.artifact.occupiedId === row.allocation.monster.unitId;
     return filterIncludes(filters.plannedLocations, plannedLocation, artifactLocations)
+      && filterIncludes(filters.conversions, row.allocation?.conversions.length ? 'yes' : 'no', conversionFilters)
       && !(filters.matching.includes('hide') && alreadyMatching);
-  }), [rows, filters.plannedLocations, filters.matching]);
+  }), [rows, filters.plannedLocations, filters.conversions, filters.matching]);
 
   /* Every slot in the scope, split into the three states it can be in. They
      are derived from one total here rather than reported independently, which
@@ -473,6 +476,7 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
           as one filter shown twice. */}
       {buttonGroup('Location before', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Engraved', 'artifact-recommendation-filter-location')}
       {buttonGroup('Location after', 'plannedLocations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Engraved', 'artifact-recommendation-filter-planned-location')}
+      {buttonGroup('Conversion', 'conversions', conversionFilters, (value) => value === 'yes' ? 'Yes' : 'No', 'artifact-recommendation-filter-conversion')}
       {/* On by default (`defaultFilters`): a row where the plan agrees with
           reality is still part of the plan, but it asks nothing of the user, so
           the view opens on the work list and the button restores the whole

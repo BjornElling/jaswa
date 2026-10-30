@@ -185,7 +185,8 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
   }, [artifacts]);
   const artifactInput = artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
     ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]);
-  const inputKey = JSON.stringify({ artifactInput, monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), scenarioProfiles, selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
+  const inputKey = JSON.stringify({ artifactInput, stones: settings.conversionStoneMode === 'owned' ? stones : [],
+    monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), scenarioProfiles, selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
   const owner = selectedArtifact?.occupiedId === null || selectedArtifact === undefined
     ? undefined : ownMonsters.find((monster) => monster.unitId === selectedArtifact.occupiedId);

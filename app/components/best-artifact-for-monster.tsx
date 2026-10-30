@@ -362,6 +362,7 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
   }, [artifacts, data, settings, monstersByUnitId, scenarioProfiles]);
 
   const inputKey = JSON.stringify({
+    stones: settings.conversionStoneMode === 'owned' ? stones : [],
     artifacts: artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
       ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]),
     selectedUnitId: filters.selectedUnitId,

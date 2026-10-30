@@ -3104,7 +3104,7 @@ label[for] {
   grid-template-areas:
     "type     restriction restriction .        calculate"
     "quality  main        substat     obtained calculate"
-    "location planned     matching    .        calculate";
+    "location planned     conversion  matching calculate";
   align-items: start;
 }
 .artifact-recommendation-filter-type { grid-area: type; }
@@ -3124,6 +3124,7 @@ label[for] {
 .artifact-recommendation-filter-location { grid-area: location; }
 .artifact-recommendation-filter-planned-location { grid-area: planned; }
 .artifact-recommendation-filter-matching { grid-area: matching; }
+.artifact-recommendation-filter-conversion { grid-area: conversion; }
 /* Sized to the longest option the list can hold — the legacy "ATK Increased
    Proportional to Lost HP" family, which needs about 270px including the
    padding and the chevron's reserved space. Anything narrower clips a name
@@ -3289,7 +3290,8 @@ label[for] {
     grid-template-areas:
       "type      restriction restriction"
       "quality   main        substat"
-      "location  planned     matching"
+      "location  planned     conversion"
+      "matching  matching    matching"
       "obtained  obtained    obtained"
       "calculate calculate   calculate";
   }
@@ -3305,7 +3307,7 @@ label[for] {
 @media (min-width: 1921px) and (max-width: 960px) {
   /* Matches .filter-panel.is-stacked; spelled out because this panel also
      needs its own area names for the action. */
-  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "obtained" "location" "planned" "matching" "calculate"; align-items: stretch; }
+  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "obtained" "location" "planned" "conversion" "matching" "calculate"; align-items: stretch; }
   /* Stacked, the strong rule no longer separates two columns, so ordering
      stretches like every other block and keeps its label alignment. */
   .artifact-recommendation-filter-obtained { justify-self: stretch; }

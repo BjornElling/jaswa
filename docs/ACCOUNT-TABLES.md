@@ -119,6 +119,11 @@ engraved if a monster was allocated the artifact, inventory if the advice is
 many rows as the summary's filled slots once **Already matching** is off.
 **Already matching / Hide** removes the *Keep* rows.
 
+**Conversion / Yes** shows rows with recommended conversions. **No** shows rows
+with no recommendation, including Intangible artifacts, which cannot be
+converted. No selection or both options shows all rows. This filter reads the
+complete plan and never changes its scores or allocation.
+
 **The view opens on the work list**: `Location after: Engraved` and `Already
 matching: Hide` start pressed, leaving the artifacts the plan would engrave and
 that are not yet there. It is a default, not a restriction: one click restores
@@ -127,6 +132,11 @@ read the advice, so they narrow rows and never change it.
 `verify:recommendation-filters` drives them on a real import.
 
 ## 7. A stale result says so, and the user chooses who refreshes it
+
+In owned-stone mode, every artifact recommendation view includes the stone
+inventory in its calculation input. Spending the last stone invalidates its
+recommendations even when the attempted conversion leaves the artifact unchanged.
+Theoretical and no-conversion modes do not depend on the stone inventory.
 
 A calculated table answers the settings and import it was calculated from.
 When either moves, it is marked **out of date** in every view, never presented
