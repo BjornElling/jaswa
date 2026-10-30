@@ -26,7 +26,8 @@ use windows_sys::Win32::{
     UI::{
         Shell::{FOLDERID_Downloads, IsUserAnAdmin, SHGetKnownFolderPath, ShellExecuteW},
         WindowsAndMessaging::{
-            IDYES, MB_ICONERROR, MB_ICONWARNING, MB_OK, MB_YESNO, MessageBoxW, SW_SHOWNORMAL,
+            IDYES, MB_ICONERROR, MB_ICONINFORMATION, MB_ICONWARNING, MB_OK, MB_YESNO, MessageBoxW,
+            SW_SHOWNORMAL,
         },
     },
 };
@@ -170,6 +171,14 @@ pub fn downloads_directory() -> Result<PathBuf, String> {
 
 pub fn show_error(message: &str) {
     message_box(message, "JASWA Helper", MB_OK | MB_ICONERROR);
+}
+
+pub fn show_info(message: &str) {
+    message_box(message, "JASWA Helper", MB_OK | MB_ICONINFORMATION);
+}
+
+pub fn confirm_action(message: &str) -> bool {
+    message_box(message, "JASWA Helper", MB_YESNO | MB_ICONWARNING) == IDYES
 }
 
 pub fn confirm_certificate_installation() -> bool {

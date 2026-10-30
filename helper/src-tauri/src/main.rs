@@ -5,12 +5,69 @@ use serde_json::{Value, json};
 use std::fs;
 use tauri::{
     Manager, RunEvent, State,
-    menu::{MenuBuilder, MenuItemBuilder},
+    menu::{CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItem, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 
 const SHOW_WINDOW: &str = "show-window";
 const QUIT: &str = "quit";
+const OPEN_JASWA: &str = "open-jaswa";
+const DOWNLOAD_JSON: &str = "download-json";
+const SAVE_REPORT: &str = "save-report";
+const OPEN_DIAGNOSTICS: &str = "open-diagnostics";
+const TRAFFIC: &str = "traffic";
+const OPEN_TRAFFIC: &str = "open-traffic";
+const RESTART: &str = "restart";
+const UPDATE: &str = "update";
+
+struct TrayItems {
+    download: MenuItem<tauri::Wry>,
+    traffic: CheckMenuItem<tauri::Wry>,
+    open_traffic: MenuItem<tauri::Wry>,
+    update: CheckMenuItem<tauri::Wry>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct TrayReading {
+    has_profile: bool,
+    recording: bool,
+    recorded: bool,
+    update: Option<String>,
+}
+
+impl TrayReading {
+    fn from_dashboard(dashboard: &Value) -> Self {
+        Self {
+            has_profile: dashboard["status"]["hasProfile"] == true,
+            recording: dashboard["traffic"]["enabled"] == true,
+            recorded: dashboard["traffic"]["recorded"] == true,
+            update: dashboard["status"]["updateVersion"]
+                .as_str()
+                .map(str::to_owned),
+        }
+    }
+}
+
+impl TrayItems {
+    fn refresh(&self, service: &Service) -> tauri::Result<()> {
+        let reading = TrayReading::from_dashboard(&dashboard(service));
+        self.download.set_enabled(reading.has_profile)?;
+        self.traffic.set_text(if reading.recording {
+            "Stop traffic log"
+        } else {
+            "Log all traffic"
+        })?;
+        self.traffic.set_checked(reading.recording)?;
+        self.open_traffic.set_enabled(reading.recorded)?;
+        self.update.set_text(reading.update.as_ref().map_or_else(
+            || "No newer version".to_owned(),
+            |version| format!("Update to v{version}"),
+        ))?;
+        self.update.set_enabled(reading.update.is_some())?;
+        self.update.set_checked(reading.update.is_some())?;
+        Ok(())
+    }
+}
 
 struct HelperState {
     service: Service,
@@ -286,8 +343,30 @@ fn main() {
         ])
         .setup(|app| {
             let show = MenuItemBuilder::with_id(SHOW_WINDOW, "Show JASWA Helper").build(app)?;
+            let open = MenuItemBuilder::with_id(OPEN_JASWA, "Open JASWA").build(app)?;
+            let download = MenuItemBuilder::with_id(DOWNLOAD_JSON, "Download JSON").build(app)?;
+            let report = MenuItemBuilder::with_id(SAVE_REPORT, "Save error report").build(app)?;
+            let diagnostics = MenuItemBuilder::with_id(OPEN_DIAGNOSTICS, "Open diagnostic log").build(app)?;
+            let traffic = CheckMenuItemBuilder::with_id(TRAFFIC, "Log all traffic").build(app)?;
+            let open_traffic = MenuItemBuilder::with_id(OPEN_TRAFFIC, "Open traffic log").build(app)?;
+            let restart = MenuItemBuilder::with_id(RESTART, "Restart helper").build(app)?;
+            let update = CheckMenuItemBuilder::with_id(UPDATE, "No newer version").build(app)?;
             let quit = MenuItemBuilder::with_id(QUIT, "Quit").build(app)?;
-            let menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
+            let menu = MenuBuilder::new(app).item(&show).separator()
+                .items(&[&open, &download, &report, &diagnostics, &traffic, &open_traffic, &restart, &update])
+                .separator().item(&quit).build()?;
+            let items = TrayItems { download, traffic, open_traffic, update };
+            items.refresh(&app.state::<HelperState>().service)?;
+            app.manage(items);
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                let items = app_handle.state::<TrayItems>();
+                if let Err(error) = items.refresh(&app_handle.state::<HelperState>().service) {
+                    diagnostics::record("tray", &format!("Could not refresh menu: {error}"));
+                    break;
+                }
+            });
             TrayIconBuilder::with_id("helper")
                 .tooltip("JASWA Helper")
                 .icon(
@@ -299,6 +378,27 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     SHOW_WINDOW => show_window(app),
+                    OPEN_JASWA => tray_result(open_jaswa().map(|()| None)),
+                    DOWNLOAD_JSON => tray_result(download_json(app.state()).map(Some)),
+                    SAVE_REPORT => {
+                        if windows::confirm_action("Save a private error report? It may contain account and session data, the failed exchange and your snapshot. Nothing is uploaded. Send the file only to your developer through a private channel.") {
+                            tray_result(save_error_report(app.state()).map(Some));
+                        }
+                    }
+                    OPEN_DIAGNOSTICS => tray_result(open_diagnostics().map(|()| None)),
+                    TRAFFIC => {
+                        let state = app.state::<HelperState>();
+                        let enabled = state.service.traffic().status().enabled;
+                        if enabled || windows::confirm_action("Record everything Summoners War sends to your Downloads folder? This writes decoded account data to a local file and never uploads it.") {
+                            state.service.traffic().set_enabled(!enabled);
+                            if let Some(error) = state.service.traffic().status().last_error {
+                                windows::show_error(&format!("Could not record traffic: {error}"));
+                            }
+                        }
+                    }
+                    OPEN_TRAFFIC => tray_result(open_traffic_log(app.state()).map(|()| None)),
+                    RESTART => restart_helper(app.clone(), app.state()),
+                    UPDATE => tray_result(download_update(app.state()).map(Some)),
                     QUIT => app.exit(0),
                     _ => {}
                 })
@@ -336,6 +436,14 @@ fn main() {
         });
 }
 
+fn tray_result(result: Result<Option<String>, String>) {
+    match result {
+        Ok(Some(message)) => windows::show_info(&message),
+        Ok(None) => {}
+        Err(error) => windows::show_error(&error),
+    }
+}
+
 fn show_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -371,6 +479,27 @@ fn certificate_installation_approved() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tray_reads_empty_and_populated_dashboard_states() {
+        let empty = TrayReading::from_dashboard(&json!({
+            "status": {"hasProfile": false, "updateVersion": null},
+            "traffic": {"enabled": false, "recorded": false}
+        }));
+        assert_eq!(empty, TrayReading { has_profile: false, recording: false, recorded: false, update: None });
+        let full = TrayReading::from_dashboard(&json!({
+            "status": {"hasProfile": true, "updateVersion": "1.2.3"},
+            "traffic": {"enabled": true, "recorded": true}
+        }));
+        assert_eq!(full, TrayReading { has_profile: true, recording: true, recorded: true, update: Some("1.2.3".into()) });
+        let stopped = TrayReading::from_dashboard(&json!({
+            "status": {"hasProfile": true, "updateVersion": null},
+            "traffic": {"enabled": false, "recorded": true}
+        }));
+        assert!(!stopped.recording);
+        assert!(stopped.recorded);
+        assert!(stopped.update.is_none());
+    }
 
     #[test]
     fn report_explains_a_delayed_login_without_blaming_helper_startup() {
