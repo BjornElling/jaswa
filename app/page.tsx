@@ -804,7 +804,7 @@ export default function Home() {
         reload={preferences.importRoute === 'direct' && preferences.directImportMode === 'on-load'}
         reloadError={helperReloadError}
         reloading={reloadingHelper} onReload={() => void reloadHelper.current?.(true)}
-        helperUpdate={page === 'home' && helperUpdateDue}
+        helperUpdate={helperUpdateDue}
         importStopped={game ? liveImportStopped : null}
         confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} />
 

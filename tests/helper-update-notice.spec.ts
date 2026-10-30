@@ -114,3 +114,41 @@ test('under the badge the warning comes first, the confirmation below it, all on
   await expect(badge).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('notice-full-updated.png') });
 });
+
+test('an update stays visible across pages and alongside a stopped import', async ({ page }, testInfo) => {
+  const helper: Helper = { reachable: true, version: '0.0.1', profileReady: true };
+  await serveHelper(page, helper);
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await importRoute(page, 'direct').check();
+  await expect(page.getByRole('complementary', { name: 'Imported game data' })).toBeVisible();
+  await expect(notice(page)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('before-navigation.png') });
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await expect(notice(page)).toBeVisible({ timeout: 5000 });
+  helper.reachable = false;
+  await expect(page.getByRole('status', { name: 'Live import stopped' })).toBeVisible();
+  helper.reachable = true;
+  helper.profileReady = false;
+  await expect(notice(page)).toBeVisible();
+  await expect(page.getByRole('status', { name: 'Live import stopped' })).toBeVisible();
+  const stoppedBox = (await page.getByRole('status', { name: 'Live import stopped' }).boundingBox())!;
+  const updateBox = (await notice(page).boundingBox())!;
+  expect(updateBox.y).toBeGreaterThan(stoppedBox.y + stoppedBox.height);
+  expect(updateBox.x).toBeCloseTo(stoppedBox.x, 0);
+  expect(updateBox.width).toBeCloseTo(stoppedBox.width, 0);
+  await page.screenshot({ path: testInfo.outputPath('both-notices.png') });
+});
+
+
+test('a readable old version survives an unrecognised health response', async ({ page }) => {
+  await page.route('http://127.0.0.1:37654/health**', (route) => route.fulfill({
+    headers: { 'Access-Control-Allow-Origin': '*' },
+    json: { running: true, version: '0.0.1' },
+  }));
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await importRoute(page, 'direct').check();
+  await expect(notice(page)).toBeVisible();
+  await expect(page.getByRole('status', { name: 'Helper program connection' })).toContainText('could not load game data');
+});

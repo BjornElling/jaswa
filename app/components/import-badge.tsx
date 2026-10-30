@@ -134,7 +134,8 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
   confirmation: ImportedGame | null;
   general: GeneralSettings;
 }) {
-  const notice = useRef<HTMLElement | null>(null);
+  const stoppedNotice = useRef<HTMLElement | null>(null);
+  const updateNotice = useRef<HTMLElement | null>(null);
   const reloadButton = useRef<HTMLButtonElement | null>(null);
   const toast = useRef<HTMLElement | null>(null);
   const toastShown = confirmation !== null || (reload && reloadError !== null);
@@ -152,11 +153,12 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
         if (above) button.style.width = `${above.offsetWidth}px`;
         button.style.height = above ? `${above.offsetHeight}px` : '';
       }
-      if (notice.current) placeNotice(notice.current, button ?? above, gap);
+      if (stoppedNotice.current) placeNotice(stoppedNotice.current, button ?? above, gap);
+      if (updateNotice.current) placeNotice(updateNotice.current, stoppedNotice.current ?? button ?? above, gap);
       const card = toast.current;
       if (!card) return;
-      const clear = notice.current ?? button ?? above;
-      const shape = above ?? button ?? notice.current;
+      const clear = updateNotice.current ?? stoppedNotice.current ?? button ?? above;
+      const shape = above ?? button ?? stoppedNotice.current ?? updateNotice.current;
       const place = clear && shape ? placeBelow(clear, shape, inset, gap) : null;
       card.style.top = place ? `${place.top}px` : '';
       card.style.right = place ? `${place.right}px` : '';
@@ -170,7 +172,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
        font arriving is enough — and the ones below are cut to its measurements,
        so they watch the boxes rather than only the events around them. */
     const watcher = new ResizeObserver(update);
-    for (const box of [above, reloadButton.current, notice.current]) if (box) watcher.observe(box);
+    for (const box of [above, reloadButton.current, stoppedNotice.current, updateNotice.current]) if (box) watcher.observe(box);
     return () => {
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
@@ -184,10 +186,8 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       title="Read the helper's latest game data. Replaces changes planned in JASWA.">
       Reload game data
     </Button>}
-    {/* One standing card at a time: an import that has stopped outranks an old helper. */}
-    {importStopped !== null
-      ? <ImportStoppedNotice ref={notice} reason={importStopped} />
-      : helperUpdate && <HelperUpdateNotice ref={notice} />}
+    {importStopped !== null && <ImportStoppedNotice ref={stoppedNotice} reason={importStopped} />}
+    {helperUpdate && <HelperUpdateNotice ref={updateNotice} />}
     {reload && reloadError
       ? <aside ref={toast} className="import-confirmation import-failure" role="status" aria-label="Game data reload failed">
         <p className="corner-notice-title">Game data reload failed</p>
