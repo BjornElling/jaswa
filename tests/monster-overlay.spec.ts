@@ -362,9 +362,9 @@ test('an option is preferred or accepted, never both, and an empty band says wha
   const gear = dialog.locator('.overlay-gear');
   const before = await gear.boundingBox();
 
-  /* Nothing stated narrows nothing. */
-  await expect(line('preferred')).toHaveAttribute('aria-label', 'Main stat, preferred: Any');
-  await expect(line('accepted')).toHaveAttribute('aria-label', 'Main stat, accepted: Any');
+  /* Nothing stated leaves the default to answer. */
+  await expect(line('preferred')).toHaveAttribute('aria-label', 'Main stat, preferred: Default');
+  await expect(line('accepted')).toHaveAttribute('aria-label', 'Main stat, accepted: Default');
 
   await line('preferred').click();
   await menu('preferred').getByRole('menuitem', { name: 'HP', exact: true }).click();
@@ -510,6 +510,47 @@ test('a cleared preference stays cleared, and does not fall back to the default'
   const reopened = page.getByRole('button', { name: /^Slot 4 main stat:/ });
   await reopened.scrollIntoViewIfNeeded();
   await expect(reopened).toHaveAttribute('aria-label', 'Slot 4 main stat: Any');
+});
+
+test('an emptied gear answer is no answer, and only that answer returns to its default', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importAccount(page);
+  await openOverlay(page);
+  const dialog = page.getByRole('dialog');
+  const line = (name: string, band: 'preferred' | 'accepted') =>
+    dialog.getByRole('button', { name: new RegExp(`^${name}, ${band}:`) });
+  const choose = async (name: string, option: string) => {
+    await line(name, 'preferred').click();
+    await page.getByRole('menu', { name: `${name}, preferred` }).getByRole('menuitem', { name: option, exact: true }).click();
+  };
+
+  /* Two gear answers stated and saved. */
+  await choose('Main stat', 'DEF');
+  await choose('Attribute substats', 'Life Drain');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toBeHidden();
+  expect((await storedPreferences(page))?.['1']).toEqual({
+    unitId: '1',
+    mainStat: { preferred: ['DEF'], acceptable: [] },
+    artifacts: { sub: { attribute: { preferred: [215], acceptable: [] } } },
+  });
+
+  /* Taking the substat back empties that question alone: it is not stored as
+     an empty pair, and the main beside it stays as stated. */
+  await openOverlay(page);
+  await dialog.getByRole('button', { name: 'Remove Life Drain from Attribute substats, preferred' }).click();
+  await expect(line('Attribute substats', 'preferred')).toHaveAttribute('aria-label', 'Attribute substats, preferred: Default');
+  await expect(line('Attribute substats', 'accepted')).toHaveAttribute('aria-label', 'Attribute substats, accepted: Default');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toBeHidden();
+  expect((await storedPreferences(page))?.['1']).toEqual({ unitId: '1', mainStat: { preferred: ['DEF'], acceptable: [] } });
+
+  /* Emptying the last gear answer leaves nothing stated, so the record goes. */
+  await openOverlay(page);
+  await dialog.getByRole('button', { name: 'Remove DEF from Main stat, preferred' }).click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(dialog).toBeHidden();
+  expect((await storedPreferences(page))?.['1']).toBeUndefined();
 });
 
 test('a rune build is chosen as a whole, set by set, never as loose sets', async ({ page }) => {

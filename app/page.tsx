@@ -523,8 +523,8 @@ export default function Home() {
    *
    * A record that ends up saying nothing is removed rather than kept as a husk,
    * so the map holds copies the user has actually decided something about and a
-   * count of records is a count of decisions. A record holding only cleared
-   * preferences still says something and stays.
+   * count of records is a count of decisions. A record holding only a cleared
+   * rune list still says something and stays; emptied gear answers say nothing.
    */
   function updateMonsterPreferences(scope: MonsterProfileScope, unitId: string, next: MonsterCopyPreferences) {
     changePreferences((current) => ({ ...current, monsterPreferences: withProfile(current.monsterPreferences, scope, unitId, next) }));

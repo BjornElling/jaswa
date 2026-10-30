@@ -9,7 +9,7 @@ import type { GameRecord } from '../game-data';
 import { copyArtifactMainBands, honouredMainStat } from '../main-stat-model';
 import { canEngraveArtifacts } from '../monster-engrave-eligibility';
 import type { MonsterCopyPreferences, MonsterProfiles } from '../monster-preferences';
-import { statedBand } from '../monster-preferences';
+import { statedAnswer, statedBand } from '../monster-preferences';
 import { monsterSpeciesPresentation } from '../monster-catalog';
 import { monsterSpeciesId } from '../monster-identity';
 import { labelledMonsterName, monsterCopyNames } from '../monster-names';
@@ -150,7 +150,7 @@ function packCopy(
   if (!species) return undefined;
   const unitId = String(monster.unit_id);
   const mains = copyArtifactMainBands(monster, stated);
-  const subs = stated?.artifacts?.sub?.[category];
+  const subs = statedAnswer(stated?.artifacts?.sub?.[category]);
   /* The user's two bands are the scorer's two bands, and an option in neither
      is unwanted — `copyArtifactMainBands` and `statedBand` are the readings of
      that, shared with the per-artifact reader. */

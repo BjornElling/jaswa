@@ -3,7 +3,7 @@ import { artifactMainPropertyOrder, artifactMainValue } from './artifact-propert
 import type { GameRecord } from './game-data';
 import { monsterDefaults } from './monster-defaults';
 import type { BandedChoices, MonsterCopyPreferences } from './monster-preferences';
-import { statedBand } from './monster-preferences';
+import { statedAnswer, statedBand } from './monster-preferences';
 import { effectSlot, monsterBaseStats, monsterEffects } from './monster-stats';
 import { relicMainPercent, relicMaximumLevel } from './relic-properties';
 import { mainPropertyMaximum } from './rune-properties';
@@ -209,13 +209,14 @@ export function speciesMainStatAdvice(masterId: unknown): MainStatAdvice | undef
  *   nothing preferred is to hand, and here nothing ever is. It is kept as typed
  *   (`AGENTS.md` §0) and ignored until a preferred main joins it, and the overlay
  *   says so in red.
- * - `silent` — nothing stated, or both bands cleared. The model answers.
+ * - `silent` — nothing stated, or both bands emptied (`statedAnswer`). The
+ *   model answers.
  */
 export type MainStatStatement = 'stated' | 'no-preferred' | 'silent';
 
 export function mainStatStatement(stated: MonsterCopyPreferences | undefined): MainStatStatement {
-  const mains = stated?.mainStat;
-  if (mains === undefined || (mains.preferred.length === 0 && mains.acceptable.length === 0)) return 'silent';
+  const mains = statedAnswer(stated?.mainStat);
+  if (mains === undefined) return 'silent';
   return mains.preferred.length > 0 ? 'stated' : 'no-preferred';
 }
 

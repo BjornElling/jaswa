@@ -556,9 +556,10 @@ non-finite or negative contribution, or a reduction of 100 % or more, throws.
 
 ### 11.5 Saved choices and engraving capacity
 
-- A saved non-empty main or unique selection restricts that half; a cleared
-  menu or no selection allows any. The statistics default never enters the
-  score. No owned relic matching: `No recommendation`, saying why.
+- A saved non-empty main or unique selection restricts that half; no
+  selection — never made, or both bands emptied, which is not stored
+  (`ARTIFACT-CANONICAL.md` §19.4) — allows any. The statistics default never
+  enters the score. No owned relic matching: `No recommendation`, saying why.
 - Highest score wins; a tie keeps the relic already engraved, then acquisition
   order. Tolerance is 1e-10 points, for floating point only.
 - The **150 limit** gates new engravings; a full relic stays available to a

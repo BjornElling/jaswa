@@ -901,8 +901,9 @@ one answer on both kinds of row.
   differently (`MAIN-STAT-MODEL.md` §6).
 - **A gear answer is two bands**, preferred and accepted (`BandedChoices`). An
   option sits in at most one band; one in neither is unwanted. **Two empty
-  bands are `Any`**: every option counts as preferred. The main is the
-  exception: two empty bands leave it to the model.
+  bands are no answer**: the question reads as never stated, and the default
+  answers it — the model for the main, the statistics for each substat
+  category and the relic's uniques (§19.4).
 - A sub property has no minimum roll; the score already measures the roll.
 
 ### 19.3 The statistics supply the sub-property defaults, by fixed shares
@@ -932,7 +933,7 @@ An even share of 23 properties is about 4.3 %.
 overlay as reference only. The other panels' cuts are in
 `ENGRAVING-STATISTICS.md` §10.
 
-### 19.4 A user's statement always wins, and "cleared" is not "unset"
+### 19.4 A user's statement always wins; an emptied gear answer is no statement
 
 The statistics are consulted only where the user has stated nothing; the two
 are never blended. The rule is the same for rune sets, rune slot mains,
@@ -941,16 +942,25 @@ artifact properties and relic properties.
 | State | Stored | The answer comes from |
 | --- | --- | --- |
 | The user chose some options | the list of them | the user |
-| The user stated nothing | **no key at all** | the statistics, where they cover the species |
-| The user cleared it | **an empty list** | the user — **not** the default |
+| The user stated nothing | **no key at all** | the default: statistics or model, where they cover the species |
+| The user cleared a rune list | **an empty list** | the user — **not** the default |
+| The user emptied both bands of a gear answer | **no key at all** | the default |
 
-Store only what the user stated. *Never stated* is an absent key and *cleared*
-an empty array, which survives `JSON.stringify` where `undefined` does not;
-`app/lib/monster-preferences.ts` rejects any other value. A gear answer keeps
-the three states as a pair of bands. **Reset to defaults** returns a choice to
-absent; clearing every option leaves the empty list. A rune answer is a yes/no
-list; a gear answer is two bands, each chosen on its own line rather than by
-cycling a chip.
+Store only what the user stated. *Never stated* is an absent key. A rune
+answer is a yes/no list, and *cleared* is an empty array — "none of these" —
+which survives `JSON.stringify` where `undefined` does not.
+
+A gear answer is two bands, each chosen on its own line rather than by cycling
+a chip, and two empty bands are **not** an answer. They once read `Any`, every
+option preferred, and that was a trap: an owner who took their choices back
+expecting the statistics left a copy that scored every artifact it could wear
+above the benchmark and drew artifacts from every monster with a real
+preference. So each of the four gear questions — the main, Attribute substats,
+Type substats and relic uniques — is judged on its own: one emptied falls back
+to its default, and the others keep what they state. `statedAnswer` in
+`app/lib/monster-preferences.ts` is the one reading; the write route never
+stores two empty bands, and the stored-copy reader reads a pair it finds as
+never stated. **Reset to defaults** returns every choice to absent.
 
 ### 19.5 A species with no preferences is not judged
 

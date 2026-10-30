@@ -338,8 +338,9 @@ and Scenario have separate profiles, even when they hold the same copy.
 - No fallback between areas. An unstated choice reads species defaults there,
   never Scenario's profile. *Copy from…* copies another area's stated choices;
   later edits stay independent. A profile with no stated choices stays visible
-  but cannot be copied; an explicit zero or a deliberately cleared choice is a
-  stated choice.
+  but cannot be copied; an explicit zero or a deliberately cleared rune list is
+  a stated choice, and a gear answer with both bands emptied is not
+  (`ARTIFACT-CANONICAL.md` §19.4).
 - Removing a monster from a team or deleting a team leaves its area profile
   intact, including when it was the area's last team, so re-importing the team
   uses the user's choices again.

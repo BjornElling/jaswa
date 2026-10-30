@@ -46,24 +46,29 @@ export const monsterStatTargetKeys: ReadonlyArray<keyof MonsterStatTargets> = [
  * match ahead of an acceptable one. So a gear answer is a `BandedChoices`: what
  * the copy prefers, and what it will accept when nothing preferred is to hand.
  *
- * Whichever shape, the three states `ARTIFACT-CANONICAL.md` §19.4 protects are
- * carried by the presence of the key:
+ * The states `ARTIFACT-CANONICAL.md` §19.4 protects are carried by the
+ * presence of the key:
  *
  * | State | How it is stored | Where the answer comes from |
  * | --- | --- | --- |
  * | Chosen | in the list (or one of the two bands) | the user |
  * | Never stated | **no key at all** | the default |
- * | Deliberately cleared | an **empty list** (or two empty bands) | the user — *not* the default |
+ * | A rune list cleared | an **empty list** | the user — *not* the default |
+ * | A gear answer cleared | **no key at all** | the default |
  *
- * The third row is still the one that gets got wrong: an empty array survives
- * `JSON.stringify` where `undefined` does not, so a user who cleared every
- * choice keeps that answer across a reload instead of having the defaults
- * quietly returned to them. A cleared answer reads `Any` — it narrows nothing.
+ * The two kinds part at the cleared row on purpose. A rune list emptied says
+ * "none of these" and has to survive a reload as that. A gear answer emptied
+ * used to read `Any` — every property preferred — and that made a copy whose
+ * owner had merely taken their choices back the best home for every artifact
+ * it could wear, at scores far above the benchmark. So a gear answer with both
+ * bands empty is no answer: it is not stored, not read back, and the default
+ * stands in, one question at a time (`statedAnswer`).
  */
 
 /**
  * One gear question answered in two bands. An option sits in at most one of
- * them; one in neither is not wanted, unless both are empty, which is `Any`.
+ * them; one in neither is not wanted. Both empty is not an answer at all
+ * (`statedAnswer`).
  */
 export type BandedChoices<T> = { preferred: T[]; acceptable: T[] };
 
@@ -89,15 +94,44 @@ export function bandedChoices<T>(choices: BandedChoices<T> | undefined): T[] {
 }
 
 /**
+ * A gear answer where it is one, `undefined` where both bands are empty — the
+ * same as never stated, so the default answers that question. Every reader of
+ * a copy's gear takes its answer through this, and the write route and the
+ * stored-copy reader drop an empty one, so no reader can find `Any` in two
+ * empty bands again.
+ */
+export function statedAnswer<T>(choices: BandedChoices<T> | undefined): BandedChoices<T> | undefined {
+  if (choices === undefined) return undefined;
+  return choices.preferred.length > 0 || choices.acceptable.length > 0 ? choices : undefined;
+}
+
+/**
+ * A profile with every gear answer that says nothing taken out, each question
+ * on its own: an emptied main leaves the substats and uniques as stated.
+ */
+export function withGearStated(profile: MonsterCopyPreferences): MonsterCopyPreferences {
+  const kept = { ...profile };
+  const mainStat = statedAnswer(profile.mainStat);
+  if (mainStat === undefined) delete kept.mainStat;
+  else kept.mainStat = mainStat;
+  const sub: Partial<Record<ArtifactCategory, BandedChoices<number>>> = {};
+  for (const category of ['attribute', 'type'] as const) {
+    const stated = statedAnswer(profile.artifacts?.sub?.[category]);
+    if (stated !== undefined) sub[category] = stated;
+  }
+  if (Object.keys(sub).length > 0) kept.artifacts = { sub };
+  else delete kept.artifacts;
+  const unique = statedAnswer(profile.relics?.unique);
+  if (unique !== undefined) kept.relics = { unique };
+  else delete kept.relics;
+  return kept;
+}
+
+/**
  * The band a stated answer puts one option in — the single reading every scorer
- * of a copy's gear takes, so two of them cannot disagree about what `Any` is.
- *
- * Two empty bands narrow nothing, so every option is preferred: the user cleared
- * the question, and an answer of "none of them" would score every artifact at
- * zero for an answer that reads `Any` on screen.
+ * of a copy's gear takes. Only an answer from `statedAnswer` reaches it.
  */
 export function statedBand<T>(choices: BandedChoices<T>, option: T): 'preferred' | 'acceptable' | 'unwanted' {
-  if (choices.preferred.length === 0 && choices.acceptable.length === 0) return 'preferred';
   if (choices.preferred.includes(option)) return 'preferred';
   return choices.acceptable.includes(option) ? 'acceptable' : 'unwanted';
 }
@@ -238,7 +272,7 @@ export function withProfile(
   preferences: MonsterPreferences, scope: MonsterProfileScope, unitId: string, next: MonsterCopyPreferences | undefined,
 ): MonsterPreferences {
   const profiles = { ...preferences[scope] };
-  const kept = next === undefined ? undefined : heldIn(scope, next);
+  const kept = next === undefined ? undefined : heldIn(scope, withGearStated(next));
   if (kept !== undefined && statesSomething(kept)) profiles[unitId] = { ...kept, unitId };
   else delete profiles[unitId];
   const read = { ...preferences };
@@ -292,10 +326,10 @@ export function blankMonsterCopyPreferences(unitId: string): MonsterCopyPreferen
  *
  * The write route drops an empty one rather than keeping a husk, so a user who
  * clears everything they set leaves no trace and a count of records is a count
- * of decisions. **An empty list is not nothing:** a user who cleared every rune
- * build they had chosen is saying they want none of them, which is a different
- * answer from never having opened the overlay, and it has to survive a reload
- * (`AGENTS.md` §6).
+ * of decisions. **An empty rune list is not nothing:** a user who cleared every
+ * rune build they had chosen is saying they want none of them, which is a
+ * different answer from never having opened the overlay, and it has to survive a
+ * reload (`AGENTS.md` §6). Two empty gear bands are nothing (`statedAnswer`).
  */
 export function statesSomething(preferences: MonsterCopyPreferences): boolean {
   if (preferences.label !== undefined && preferences.label.length > 0) return true;
@@ -306,9 +340,10 @@ export function statesSomething(preferences: MonsterCopyPreferences): boolean {
   if (preferences.alwaysElementAdvantage !== undefined) return true;
   if (leadFields.some((field) => preferences[field] !== undefined)) return true;
   if (runeSlotKeys.some((key) => preferences.runeSlots?.[key] !== undefined)) return true;
-  if (preferences.mainStat !== undefined) return true;
-  if (preferences.artifacts?.sub?.attribute !== undefined || preferences.artifacts?.sub?.type !== undefined) return true;
-  if (preferences.relics?.unique !== undefined) return true;
+  if (statedAnswer(preferences.mainStat) !== undefined) return true;
+  if (statedAnswer(preferences.artifacts?.sub?.attribute) !== undefined
+    || statedAnswer(preferences.artifacts?.sub?.type) !== undefined) return true;
+  if (statedAnswer(preferences.relics?.unique) !== undefined) return true;
   if (preferences.runeSuggestionStat !== undefined) return true;
   for (const targets of [preferences.statTargets, preferences.statCeilings]) {
     if (targets !== undefined && monsterStatTargetKeys.some((key) => targets[key] !== undefined)) return true;
@@ -391,7 +426,7 @@ function readArtifactPreferences(value: unknown): ArtifactPreferences | undefine
     const sub: Partial<Record<ArtifactCategory, BandedChoices<number>>> = {};
     for (const category of ['attribute', 'type'] as const) {
       const stated = value.sub[category];
-      if (isBanded(stated, isArtifactSubIn(category))) sub[category] = stated;
+      if (isBanded(stated, isArtifactSubIn(category)) && statedAnswer(stated)) sub[category] = stated;
     }
     if (Object.keys(sub).length > 0) read.sub = sub;
   }
@@ -428,7 +463,7 @@ export function statedLeads(preferences: MonsterCopyPreferences | undefined): Le
 function readRelicPreferences(value: unknown): RelicPreferences | undefined {
   if (!isRecord(value)) return undefined;
   const read: RelicPreferences = {};
-  if (isBanded(value.unique, isRelicUniqueId)) read.unique = value.unique;
+  if (isBanded(value.unique, isRelicUniqueId) && statedAnswer(value.unique)) read.unique = value.unique;
   return Object.keys(read).length > 0 ? read : undefined;
 }
 
@@ -497,7 +532,9 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | '
   defLead: isLead,
   hpLead: isLead,
   runeSlots: isRuneSlots,
-  mainStat: (value) => isBanded(value, isArtifactMain),
+  /* Two empty gear bands are no answer (`statedAnswer`), so a stored pair is
+     read as never stated and that one question starts from its default. */
+  mainStat: (value) => isBanded(value, isArtifactMain) && statedAnswer(value) !== undefined,
   statTargets: isStatTargets,
   statCeilings: isStatTargets,
   runeSuggestionStat: (value) => monsterStatTargetKeys.includes(value as keyof MonsterStatTargets),

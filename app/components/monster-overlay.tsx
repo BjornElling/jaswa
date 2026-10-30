@@ -41,7 +41,7 @@ import type {
 } from '../lib/monster-preferences';
 import {
   blankMonsterCopyPreferences, copyProfile, leadFieldOf, monsterLabelMaximum, profileIn, statedLeads, statesSomething,
-  readTargetField,
+  readTargetField, withGearStated,
 } from '../lib/monster-preferences';
 import { resolveMonsterPreferences } from '../lib/monster-preference-resolution';
 import type { ResolvedMonsterPreferences } from '../lib/monster-preference-resolution';
@@ -412,7 +412,9 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
     label: relicPropertyLabel(definition),
   }));
 
-  const setArtifactSub = (category: ArtifactCategory, next: BandedChoices<number>) => change((state) => ({
+  /* Through `withGearStated`, so a gear line emptied while editing is already
+     the default it will be once saved, and the marks read it as such. */
+  const setArtifactSub = (category: ArtifactCategory, next: BandedChoices<number>) => change((state) => withGearStated({
     ...state, artifacts: { ...state.artifacts, sub: { ...state.artifacts?.sub, [category]: next } },
   }));
 
@@ -606,13 +608,13 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
               <p className="overlay-row-label">Accepted</p>
               <GearRow name="Main stat" options={mainStatOptions} value={draft.mainStat}
                 marks={mainStatAdviceMarks(draft, resolved.mainStatAdvice)}
-                onChange={(next) => change((state) => ({ ...state, mainStat: next }))} />
+                onChange={(next) => change((state) => withGearStated({ ...state, mainStat: next }))} />
               {(['attribute', 'type'] as const).map((category) => <GearRow key={category}
                 name={`${categoryLabels[category]} substats`} options={substatOptions(category)}
                 value={draft.artifacts?.sub?.[category]}
                 onChange={(next) => setArtifactSub(category, next)} />)}
               <GearRow name="Relic uniques" options={relicUniqueOptions} value={draft.relics?.unique}
-                onChange={(next) => change((state) => ({ ...state, relics: { ...state.relics, unique: next } }))} />
+                onChange={(next) => change((state) => withGearStated({ ...state, relics: { ...state.relics, unique: next } }))} />
             </div>
           </Section>}
         </div>

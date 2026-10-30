@@ -9,7 +9,7 @@ import { canEngraveArtifacts } from './monster-engrave-eligibility';
 import type { Artifact } from './artifacts';
 import type { ArtifactPropertyPreference } from './artifact-optimal-value';
 import type { MonsterCopyPreferences } from './monster-preferences';
-import { statedBand } from './monster-preferences';
+import { statedAnswer, statedBand } from './monster-preferences';
 import type { ArtifactSettings } from './types';
 import type { GameRecord } from './game-data';
 
@@ -88,7 +88,7 @@ export function artifactJudgementOnMonster(
      reads, so the two cannot place one property differently. A property
      outside the scored vocabulary — every legacy one — is unwanted on both
      paths, exactly as the packed scorer, which has no index for it, weighs it. */
-  const statedSubs = stated?.artifacts?.sub?.[artifact.category];
+  const statedSubs = statedAnswer(stated?.artifacts?.sub?.[artifact.category]);
   const preferenceFor = (id: number): ArtifactPropertyPreference => {
     if (!artifactPropertyIndex.has(id)) return 'unwanted';
     return statedSubs === undefined ? recorded.sub.get(id) ?? 'unwanted' : statedBand(statedSubs, id);

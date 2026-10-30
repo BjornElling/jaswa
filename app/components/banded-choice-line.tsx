@@ -17,9 +17,9 @@ const bandNames: Record<ChoiceBand, string> = { preferred: 'preferred', acceptab
  * first would ask the user to hold that rule in their head; moving one is taking
  * it off here and adding it there, which is two moves the user can see.
  *
- * The empty line reads `Any` while the whole answer narrows nothing, and `None`
- * once the other band names something — at that point an empty band is a real
- * statement, and `Any` would be untrue.
+ * The empty line reads `Default` while the whole answer is empty — two empty
+ * bands are no answer, so the default answers (`statedAnswer`) — and `None`
+ * once the other band names something, when an empty band is a real statement.
  */
 export function BandedChoiceLine<T extends string | number>({ name, band, options, value, onChange }: {
   /** What the question is called, before the band — `Artifact main stat`. */
@@ -42,7 +42,7 @@ export function BandedChoiceLine<T extends string | number>({ name, band, option
     acceptable: band === 'acceptable' ? next : value?.acceptable ?? [],
   });
   return <TokenChoiceLine name={label} description={label} className="overlay-band-field"
-    empty={taken.size === 0 ? 'Any' : 'None'}
+    empty={taken.size === 0 ? 'Default' : 'None'}
     pills={picked}
     onRemove={(option) => write(chosen.filter((entry) => entry !== option))}
     renderMenu={(close) => <ul className="token-choice-list">

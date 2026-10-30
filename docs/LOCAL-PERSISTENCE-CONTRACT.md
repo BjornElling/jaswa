@@ -93,8 +93,9 @@ section:
   other's.
 - **`updateMonsterPreferences`** — a monster-overlay choice. A record that no
   longer states anything is removed rather than stored empty, so a count of
-  records is a count of decisions — but an explicitly cleared preference *is* a
-  statement and is stored (`ARTIFACT-CANONICAL.md` §19.4).
+  records is a count of decisions — but an explicitly cleared rune list *is* a
+  statement and is stored. A gear answer with both bands emptied is not, and
+  is removed like a choice never made (`ARTIFACT-CANONICAL.md` §19.4).
 
 New durable data has one named, central write route, a complete validator for
 data read back from the browser or a file, and a row in this contract.
@@ -125,6 +126,7 @@ temporary states listed above does not accidentally create durable data.
 For monster preferences, verify all three of `ARTIFACT-CANONICAL.md` §19.4's
 states survive a reload: a stated choice, an untouched one still reading its
 statistics default, and a **deliberately cleared** one that must not revert to
-that default. Check a gear answer the same way — two empty bands are a saved
-`Any`, not an absent answer — and confirm that a record whose every choice has
-been undone is removed rather than stored empty.
+that default. Check a gear answer the other way — two empty bands are removed
+and its default stands in again, while the copy's other gear answers stay —
+and confirm that a record whose every choice has been undone is removed rather
+than stored empty.

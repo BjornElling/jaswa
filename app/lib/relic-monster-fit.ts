@@ -1,7 +1,7 @@
 import { relicEngravingLimit } from './relic-properties';
 import type { Relic } from './relics';
 import type { MonsterCopyPreferences } from './monster-preferences';
-import { statedBand } from './monster-preferences';
+import { statedAnswer, statedBand } from './monster-preferences';
 import { honouredMainStat } from './main-stat-model';
 import { relicMonsterValue } from './relic-monster-value';
 import type { RelicMonsterModel, RelicMonsterValue } from './relic-monster-value';
@@ -13,7 +13,7 @@ export type RelicCandidate = { relic: Relic; value: RelicMonsterValue };
  * How well a relic answers the copy's stated choices: `0` where every stated
  * question is answered from its preferred band, `1` where one is answered only
  * from its acceptable band, and `undefined` where one is not answered at all.
- * A question never stated, or cleared to `Any`, is answered by every relic.
+ * A question never stated, or with both bands emptied, is answered by every relic.
  *
  * The tier ranks ahead of the score, as a preferred artifact conversion
  * displaces an acceptable one (`ARTIFACT-CANONICAL.md` §17.5): accepting a
@@ -23,9 +23,10 @@ export type RelicCandidate = { relic: Relic; value: RelicMonsterValue };
 function relicTier(relic: Relic, preferences?: MonsterCopyPreferences): 0 | 1 | undefined {
   /* A main answer with nothing preferred is not an answer yet (`mainStatStatement`). */
   const mainStat = honouredMainStat(preferences);
+  const unique = statedAnswer(preferences?.relics?.unique);
   const bands = [
     mainStat === undefined ? 'preferred' : statedBand(mainStat, relic.mainProperty),
-    preferences?.relics?.unique === undefined ? 'preferred' : statedBand(preferences.relics.unique, relic.unique.definition.id),
+    unique === undefined ? 'preferred' : statedBand(unique, relic.unique.definition.id),
   ];
   if (bands.includes('unwanted')) return undefined;
   return bands.includes('acceptable') ? 1 : 0;

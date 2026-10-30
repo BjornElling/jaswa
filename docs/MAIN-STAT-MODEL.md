@@ -106,7 +106,8 @@ Worked examples (relic, so worth is the need's own order):
 
 - **Defaults.** Where a copy has no honoured main answer, its artifact mains and
   relic main default to the model's answer for that copy, through
-  `resolveMonsterPreferences`. Two cleared bands are no answer. The population's
+  `resolveMonsterPreferences`. Two emptied bands are no answer and are not
+  stored (`ARTIFACT-CANONICAL.md` §19.4). The population's
   main-stat shares are reference on the overlay only
   (`ENGRAVING-STATISTICS.md` §10).
 - **Artifact scoring.** A species row is scored on the model's statistics

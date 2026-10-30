@@ -157,7 +157,7 @@ test('saved relic choices constrain engraving and survive a reload', async ({ pa
   const elucia = monsterRow(page, 'Elucia');
   await elucia.getByRole('button', { name: /Elucia/ }).click();
   const dialog = page.getByRole('dialog');
-  /* ATK is the only main the copy will take, and the uniques are left at Any. */
+  /* ATK is the only main the copy will take, and the uniques are left at their default. */
   await dialog.getByRole('button', { name: /^Main stat, preferred:/ }).click();
   await page.getByRole('menu', { name: 'Main stat, preferred' }).getByRole('menuitem', { name: 'ATK', exact: true }).click();
   await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -170,7 +170,7 @@ test('saved relic choices constrain engraving and survive a reload', async ({ pa
   await expect(page.getByRole('dialog').getByRole('button', { name: /^Main stat, preferred:/ }))
     .toHaveAttribute('aria-label', 'Main stat, preferred: ATK');
   await expect(page.getByRole('dialog').getByRole('button', { name: /^Relic uniques, preferred:/ }))
-    .toHaveAttribute('aria-label', 'Relic uniques, preferred: Any');
+    .toHaveAttribute('aria-label', 'Relic uniques, preferred: Default');
 });
 /* A monster carries one relic at most (v9.1.8), and the import refuses a file
    engraving two (`relicEngravingProblem`), so the cell names exactly one. */

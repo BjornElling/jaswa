@@ -10,7 +10,7 @@ import { monsterDefaults, runeSlotKeys } from './monster-defaults';
 import type {
   BandedChoices, MonsterCopyPreferences, MonsterStatTargets,
 } from './monster-preferences';
-import { monsterStatTargetKeys, statedLeads } from './monster-preferences';
+import { monsterStatTargetKeys, statedAnswer, statedLeads } from './monster-preferences';
 import { ledStats } from './monster-stats';
 import type { Leads, TeammateSets } from './monster-stats';
 import type { AutomaticStatLine, PassiveStatRule } from './passive-stat-bonuses';
@@ -263,7 +263,7 @@ function resolveArtifactCategory(
   /* The main is the model's, not the population's: both categories carry the
      same three mains at the same values, so the model answers them alike. */
   const main = resolveBands(honouredMainStat(stated), modelDefaults(advice?.artifact));
-  const sub = resolveBands(stated?.artifacts?.sub?.[category], categoryDefaults?.sub);
+  const sub = resolveBands(statedAnswer(stated?.artifacts?.sub?.[category]), categoryDefaults?.sub);
   return { main, sub, judged: answers(main) || answers(sub) };
 }
 
@@ -276,7 +276,7 @@ function resolveRelics(
   /* The one main answer serves the relic as it serves both artifacts; where it
      was never given, the model's answer for a relic stands in. */
   const main = resolveBands(honouredMainStat(stated), modelDefaults(advice?.relic));
-  const unique = resolveBands(stated?.relics?.unique, relicDefaults?.unique);
+  const unique = resolveBands(statedAnswer(stated?.relics?.unique), relicDefaults?.unique);
   return { main, unique, judged: answers(main) || answers(unique) };
 }
 

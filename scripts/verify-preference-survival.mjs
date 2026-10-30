@@ -132,6 +132,24 @@ try {
   const unreadableContext = readPreferences({ ...chosen, monsterPreferences: { ...chosen.monsterPreferences, 'deck-9-9': 'x', '': { 17: scenarioCopy } } }, null);
   assert.deepEqual(unreadableContext.monsterPreferences, chosen.monsterPreferences, 'an unreadable context costs only itself');
 
+  /* Two empty gear bands are no answer (`ARTIFACT-CANONICAL.md` §19.4): a stored
+     pair reads as never stated, one question at a time, and the stated gear
+     answer beside it is kept. A copy holding nothing else goes altogether. */
+  const none = { preferred: [], acceptable: [] };
+  const emptiedGear = readPreferences({ ...chosen, monsterPreferences: withScenario({
+    ...scenarioCopy, mainStat: none,
+    artifacts: { sub: { attribute: none, type: { preferred: [215], acceptable: [] } } },
+    relics: { unique: none },
+  }) }, null);
+  assert.deepEqual(emptiedGear.monsterPreferences.scenario[17],
+    { ...scenarioCopy, artifacts: { sub: { type: { preferred: [215], acceptable: [] } } } },
+    'an emptied gear answer reads as never stated and costs none of its neighbours');
+  const onlyEmptiedGear = readPreferences({ ...chosen, monsterPreferences: withScenario({
+    unitId: '17', mainStat: none, artifacts: { sub: { attribute: none } },
+  }) }, null);
+  assert.equal(onlyEmptiedGear.monsterPreferences.scenario, undefined,
+    'a copy whose every gear answer is emptied states nothing and is not kept');
+
   /* Team scopes and contextless documents are outside the current contract.
      Reject only those choices; keep every readable area and other section. */
   const obsolete = readPreferences({ ...chosen, monsterPreferences: {

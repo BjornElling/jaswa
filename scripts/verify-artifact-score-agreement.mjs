@@ -153,8 +153,9 @@ try {
            The first uses both bands: the main it carries only accepted, and the
            properties it carries split between preferred and accepted, so a
            disagreement about what an accepted line is worth cannot hide. The
-           second clears both questions to `Any`, which is the one stated answer
-           that reaches a legacy line — and the two readers must agree on it. */
+           second empties both bands of both questions, which is no answer
+           (`statedAnswer`): both readers must fall back to the defaults alike,
+           rather than one of them reading the empty pair as a statement. */
         const carried = artifact.subProperties.filter((line) => line.maximumHundredths !== null);
         if (carried.length === 0) continue;
         const ids = carried.map((line) => line.definition.id);
@@ -175,7 +176,7 @@ try {
           const statedLibraryPercent = statedLibrary === undefined ? undefined : Math.round(statedLibrary * 100);
           const statedEnginePercent = statedEngine === undefined ? undefined : statedEngine.value;
           const statedWhere = `artifact ${artifact.id} on stated copy ${unitId}`
-            + ` (${main.preferred.length + main.acceptable.length === 0 ? 'Any' : 'banded'})`
+            + ` (${main.preferred.length + main.acceptable.length === 0 ? 'emptied' : 'banded'})`
             + ` at acceptableWorth ${acceptableWorth} %`;
           assert.equal(statedLibraryPercent === undefined, statedEnginePercent === undefined,
             `${statedWhere}: the library ${statedLibraryPercent === undefined ? 'does not judge' : `says ${statedLibraryPercent} %`}`
@@ -198,7 +199,7 @@ try {
     + ` (${pairs} engraved artifacts across ${bySpecies.size} species,`
     + ` ${copyRowCompared} of them on a copy rebuilt so the main-stat model reads it apart from its species,`
     + ` at each of ${acceptableWorthChoices.length} acceptable-worth settings;`
-    + ` ${statedCompared} of them against a per-copy statement in two bands or cleared to Any).`);
+    + ` ${statedCompared} of them against a per-copy statement in two bands or with both bands emptied).`);
 } finally {
   await server.close();
 }

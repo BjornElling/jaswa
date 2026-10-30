@@ -32,7 +32,7 @@ test('community rune mains stay suggestions until the user chooses them', async 
   await page.getByRole('button', { name: 'Open profile' }).click();
   const dialog = page.getByRole('dialog');
   const gear = dialog.locator('.overlay-gear');
-  await expect(gear.getByRole('button', { name: /: Any$/ })).toHaveCount(8);
+  await expect(gear.getByRole('button', { name: /: Default$/ })).toHaveCount(8);
   await expect(dialog.locator('.token-choice-pill')).toHaveCount(0);
   await dialog.screenshot({ path: testInfo.outputPath('empty-profile.png') });
   await dialog.getByRole('spinbutton', { name: 'Spd: at least', exact: true }).fill('150');
