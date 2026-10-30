@@ -382,7 +382,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
         : 'Nothing to show until a game file is imported.'}</h2>
       <p className="next-step">{game
         ? 'Report it from the rail if your account does have artifacts.'
-        : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
+        : 'Go to Home to connect the helper or import a game file.'}</p>
     </section> : <div className="artifact-library">
       <DataTablePage
       filterClassName="artifact-filter-strip"

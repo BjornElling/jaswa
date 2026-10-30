@@ -24,11 +24,11 @@ function withOneRuneTwice(): Account {
 
 test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
-async function serveHelper(page: Page, state: { revision: number; data: Account }) {
+async function serveHelper(page: Page, state: { revision: number; data: Account; error?: string | null }) {
   const headers = { 'Access-Control-Allow-Origin': '*' };
   const identity = () => ({ instanceId: 'test-helper', sessionId: 1, revision: state.revision });
   await page.route((url) => url.origin === 'http://127.0.0.1:37654' && url.pathname === '/health', (route) => route.fulfill({ headers, json: {
-    ...identity(), running: true, version: '99.0.0', profileReady: true, lastError: null,
+    ...identity(), running: true, version: '99.0.0', profileReady: !state.error, lastError: state.error ?? null,
     restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
   } }));
   await page.route('http://127.0.0.1:37654/profile', (route) => route.fulfill({ headers, json: {
@@ -40,6 +40,36 @@ const stopped = (page: Page) => page.getByRole('status', { name: 'Live import st
 const railButton = (page: Page, name: string) => page.getByRole('navigation').getByRole('button', { name, exact: true });
 const pageBoxes = (page: Page) => page.locator('.workspace-page > *').evaluateAll((boxes) =>
   boxes.map((box) => { const { x, y, width, height } = box.getBoundingClientRect(); return { x, y, width, height }; }));
+
+test('a helper capture gap is visible over the current page and clears on same-revision recovery', async ({ page }, testInfo) => {
+  const reason = 'An exchange could not be imported. Live import is paused.';
+  const state = { revision: 1, data: account, error: reason as string | null };
+  await serveHelper(page, state);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.locator('input[name="import-route"][value="direct"]').check();
+  await railButton(page, 'Rune Clean-up').click();
+  await expect(stopped(page)).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('helper-gap-empty.png') });
+
+  state.error = null;
+  await expect(page.getByRole('complementary', { name: 'Imported game data' })).toBeVisible();
+  await expect(page.getByRole('status', { name: 'Game data loaded correctly' })).toHaveCount(0);
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  const before = await pageBoxes(page);
+  await page.screenshot({ path: testInfo.outputPath('helper-gap-before.png') });
+  state.error = reason;
+  await expect(stopped(page)).toBeVisible({ timeout: 8_000 });
+  await expect(stopped(page)).toContainText(reason);
+  expect(await pageBoxes(page)).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('helper-gap-stopped.png') });
+  await railButton(page, 'Presets').click();
+  await expect(stopped(page)).toBeVisible();
+  state.error = null;
+  await expect(stopped(page)).toHaveCount(0, { timeout: 8_000 });
+  await page.screenshot({ path: testInfo.outputPath('helper-gap-recovered.png') });
+});
 
 test('a refused snapshot is said on every page, over it, and goes with the next readable one', async ({ page }, testInfo) => {
   const state = { revision: 1, data: account };

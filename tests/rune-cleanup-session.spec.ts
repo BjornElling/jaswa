@@ -16,7 +16,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   await page.screenshot({ path: testInfo.outputPath('empty-before-navigation.png') });
   await visit('Home');
   await visit('Rune Clean-up');
-  await expect(page.getByText('Nothing to judge until a game file is imported.')).toBeVisible();
+  await expect(page.getByText('Nothing to judge until account data is imported.')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('empty-after-navigation.png') });
   await visit('Home');
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);

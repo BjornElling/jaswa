@@ -18,10 +18,14 @@ to existing records, so history cannot restore sold gear or undo upgrades.
 `ProfileStore::live_entities` in `helper/src-tauri/src/profile.rs` is the one
 reader used by the service's capture-gap check and by the update itself.
 
-1. `account_mutation_command` recognises supported state-changing requests.
-   A new command cannot authorise a record merely by returning familiar fields.
+1. `account_request` separates mutation families, current-account queries,
+   ordinary queries, historical notifications and unknown requests. Mutation
+   families follow their operation, not a closed list of content names: a new
+   dungeon result or a namespaced claim uses the same boundary. Current-state
+   queries may update response values; they never execute request-side sales,
+   craft consumption or movement. A query naming a rune is not a sale.
 2. Authority follows a continuous recognised path from the response root:
-   direct entity fields or collections, current `changed_item_list` / `item_list`
+   direct entity fields or their `_list` arrays, current `changed_item_list` / `item_list`
    records, or the legacy `reward.crate` form. An unknown ancestor breaks that
    chain. A familiar collection or `reward` below it never restarts authority.
 3. Only the root mail entries identified by a successful `ReceiveMail` request
@@ -31,7 +35,10 @@ reader used by the service's capture-gap check and by the update itself.
 4. Known archives, previews, opponent records and `before_*` records are excluded
    at their boundary. The exclusions describe understood non-account data;
    they are not the permission model for everything else.
-5. An otherwise plausible record on an unknown request or path refuses the
+5. An incidental copy of an entity also present on an authoritative current
+   path is ignored. The current record wins regardless of JSON key order;
+   the copy cannot overwrite it, count twice or stop a valid update.
+   An otherwise plausible additional record on an unknown request or path refuses the
    exchange whole and opens the existing visible capture gap. It is neither
    imported speculatively nor silently skipped. The diagnostic names its path
    and entity identifier, and the raw exchange remains available for modelling.
@@ -42,7 +49,7 @@ explicit `result_from` / `result_to` envelopes for Shrine moves. An unknown
 nested removal path opens a capture gap; archive removal lists are ignored.
 Recursively finding a `remove_*` field is no longer enough to delete an item.
 
-The supported requests are stated once beside this reader. The concrete rune
+The request classification is stated once beside this reader. The concrete rune
 and artifact actions and legacy/current reward paths were also checked against
 [SWEX's live-sync implementation](https://github.com/Xzandro/sw-exporter/blob/master/app/plugins/live-sync.js),
 including `ConfirmRune` and `UpdateArtifactOccupation`. This is a bounded
@@ -68,13 +75,10 @@ protocol contract, not a claim that every future game command is known.
   both the older `reward.crate` form and the newer `changed_item_list` form.
 - Shop and black-market purchases when the response contains a full rune or
   craft record.
-- Mail claims and the supported daily and Play Pass reward claims. A different
-  quest or event claim command must establish its live contract before its
-  records are accepted.
-- Supported relic power-ups and breakdown responses. A different crafting
-  command carrying entities opens a capture gap rather than inheriting trust.
-- Monster summons and feeding. Other monster mutation commands carrying
-  records likewise require an explicit supported request.
+- Mail, daily, Play Pass, quest and event claims using a current reward path.
+- Crafting, power-ups and breakdown responses using current entity fields.
+- Monster summons, power-ups, awakening, evolution, fusion and feeding, through
+  current direct records or their list forms.
 - Monster roster/storage moves, one monster or a batch, and engrave/remove of
   gear.
 - Sealing a monster into either Sealed Shrine tab and taking one back out, from
@@ -112,6 +116,10 @@ model does not know this command yet" read differently.
 
 - A non-zero top-level `ret_code` is ignored, so a failed action cannot erase
   or overwrite account data.
+- `*_repurchase_list` is a list of items no longer owned, even when returned
+  beside a successful sale. It is excluded for every entity type and every
+  command. A successful repurchase enters through the current record returned
+  for that action, never by replaying the list.
 - `clear_reward_crate_list` is a reward archive, never current inventory.
   `GetGuildDataAll.GetGuildBossClearRewardCrateList` repeats items from opened
   guild-boss crates, including runes already sold. On October 30, 2026, a
@@ -124,7 +132,10 @@ model does not know this command yet" read differently.
   `changed_item_list` records from when the rewards were awarded; replaying
   them revives sold runes (observed after a fresh login, October 11, 2026) and
   can roll back upgraded gear and spent inventory quantities. The notification
-  is ignored as a whole. Fresh acquisition responses still update inventory.
+  is ignored as a whole. Its `user_reward_info` field is not globally excluded
+  from other exchanges: an unclassified claimed-reward path must be reported,
+  rather than silently losing a real award. Fresh acquisition responses still
+  update inventory.
 - **A `before_*` record is history, never account state.** Several commands
   answer with both the record they just changed and the record as it stood
   before: `UpgradeArtifact_v2` returns `artifact` at the new level *and*
@@ -164,6 +175,12 @@ model does not know this command yet" read differently.
   helper's newest snapshot, a *Live import stopped* card stands under the
   import badge with the reason until a readable snapshot arrives. Said on Home
   alone, the refusal left every other page quietly showing an older import.
+- **A helper-side refusal is said there too.** In live mode, an unavailable
+  helper with an existing import raises the same notice even when its health
+  answer withholds the profile. Recovery to the already accepted session and
+  revision clears that connection warning without requiring another import.
+  An empty workspace does not claim to be showing stale account data, and
+  ordinary waiting for the game remains distinct from an error.
 
 The raw traffic log remains the diagnostic record for a response shape that
 the current model cannot identify. It is never converted into a guessed item.
@@ -173,15 +190,20 @@ the current model cannot identify. It is never converted into a guessed item.
 `cargo test --manifest-path helper/src-tauri/Cargo.toml` covers all seven entity
 types with empty and populated inventories, unknown commands, unknown ancestors
 containing familiar reward paths, genuine acquisitions, selective mail claims,
-failed actions and the observed guild-boss and Arena reward archives. The same
-boundary protects new items and existing items from stale writes.
+failed actions and the observed guild-boss and Arena reward archives. It also
+covers empty/single/100-rune sales with repurchase history, artifact and craft
+sales, current-state reads, direct-record arrays, namespaced mutation families
+and incidental mirrors. A service-level encrypted exchange test confirms that
+a sale does not latch an incident and block the next reward.
 
-`npm run audit:helper-replay -- <traffic.log> [expected-rune-count]` replays a
-personal capture through the actual Rust account model. It begins at a recorded
-login, reports all unresolved exchanges and final entity counts, and exits with
-failure if any gap is found or the optional expected rune count differs.
-Earlier exchanges are not replayed without a baseline. The audit reads local
-files and prints counts and diagnostic paths, never raw requests or records.
+`npm run audit:helper-replay -- <traffic.log-or-error-report.json> [expected-rune-count]`
+replays a personal capture through the actual Rust account model. A traffic log
+begins at a recorded login; an error report begins at its saved account and
+decodes the failed exchange with the helper's own protocol reader. The audit
+reports unresolved exchanges and final counts, and fails on gaps, an unexpected
+rune count, or a sold rune remaining after an incident replay. Earlier traffic
+is not replayed without a baseline. `--write-profile <path>` optionally saves
+the replayed snapshot locally. Raw requests and records are never printed.
 
 The October 30 capture's fresh login contains 1,661 runes. Replaying the guild
 metadata and subsequent live responses keeps 1,661, without unresolved paths;
@@ -189,3 +211,18 @@ the previous helper restored three archived runes and reported 1,664.
 This proves the captured session, not every unrecorded activity in the game.
 `npm run audit:import-parity` separately checks that the application's import
 readers preserve every entity in that login.
+
+The first 1.0.32 sale exposed three coverage gaps in that verification: no sale
+with repurchase history, no ordinary mutation absent from the closed command
+list, and no direct-record array. Its `SellRune` returned 100 sold runes at the
+root plus 95 repurchase listings. The latter stopped the whole exchange before
+its removals, and all later responses were held back. Replaying the saved error
+report now yields 1,661 → 1,561 runes and proves that all 100 sold identifiers
+are absent. The broader fixtures exercise the other two gaps and current-record
+mirrors. This replaces the closed command list, rather than expanding it.
+
+`tests/helper-bulk-sale.spec.ts` generates snapshots with that Rust replay tool
+and serves them through the helper polling route. It checks the empty workspace,
+the populated Rune Clean-up table, Sold rows after a sale, and the next reward.
+Before/after screenshots and row-box comparisons hold the layout still. The
+test requires the Rust toolchain in addition to the project's Playwright setup.

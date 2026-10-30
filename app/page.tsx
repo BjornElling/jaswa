@@ -193,13 +193,26 @@ export default function Home() {
         if (disposed) return;
         setHelperConnection(connection);
         if (!connection.profileReady) {
+          // A capture gap makes the helper withhold its snapshot entirely.
+          // The reader below never runs, so this refusal must be said here too.
+          if (gameRef.current && preferences.directImportMode === 'live' && connection.state === 'unavailable') {
+            setLiveImportStopped(connection.detail);
+          }
           if (force) setHelperReloadError(helperStatusMessage(connection));
           return;
         }
         const needsImport = preferences.directImportMode === 'live'
           ? appliedHelperRevision.current !== connection.revision || appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`
           : appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`;
-        if (!force && !needsImport) return;
+        if (!force && !needsImport) {
+          // A healthy, already accepted revision can clear a connection failure
+          // without re-importing it or hiding a different rejected revision.
+          if (appliedHelperRevision.current === connection.revision
+            && appliedHelperSession.current === `${connection.instanceId}:${connection.sessionId}`) {
+            setLiveImportStopped(null);
+          }
+          return;
+        }
         const result = await readHelperProfile();
         if (disposed) return;
         if (result.state === 'unavailable') {

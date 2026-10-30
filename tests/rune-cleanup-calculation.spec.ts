@@ -166,7 +166,7 @@ test('protects current pre-grind speed immediately without moving the filter con
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  await expect(page.getByText('Nothing to judge until a game file is imported.')).toBeVisible();
+  await expect(page.getByText('Nothing to judge until account data is imported.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
   await expect(page.getByRole('combobox', { name: 'Use game-sorting' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('speed-no-import.png') });
@@ -248,7 +248,7 @@ test('potential protection saves both choices and keeps independent filter colum
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  await expect(page.getByText('Nothing to judge until a game file is imported.')).toBeVisible();
+  await expect(page.getByText('Nothing to judge until account data is imported.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
   await expect(page.getByRole('combobox', { name: 'Use game-sorting' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('potential-no-import.png') });

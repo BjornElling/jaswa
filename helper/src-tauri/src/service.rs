@@ -1289,7 +1289,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         );
     } else if let Some(reason) = profile.unmodeled_exchange(&response, &request) {
         drop(profile);
-        fail(reason);
+        fail(format!("{command_name}: {reason}"));
     } else {
         let changed = profile.apply_update(&response, &request);
         let (set_aside, refused) = profile.take_declined();
@@ -1936,6 +1936,32 @@ mod tests {
             api_connections: AtomicUsize::new(0),
             newer_release: Mutex::new(None),
         }
+    }
+
+    #[test]
+    fn a_sale_archive_does_not_latch_a_gap_or_block_later_rewards() {
+        let shared = shared_for_test();
+        *shared.game_running.lock().unwrap() = true;
+        let send = |request: Value, response: Value| {
+            capture(message(&encoded(&request, false)).as_bytes(),
+                message(&encoded(&response, true)).as_bytes(), &shared);
+            assert!(!shared.incidents.lock().unwrap().active());
+            assert_eq!(status(&shared)["lastError"], Value::Null);
+            assert_eq!(status(&shared)["profileReady"], true);
+        };
+        let rune = |id| json!({"rune_id": id, "wizard_id": 7, "set_id": 13, "slot_no": 1});
+        send(json!({"command": "HubUserLogin"}), json!({"wizard_id": 7,
+            "unit_list": [], "runes": [rune(1), rune(2)]}));
+        send(json!({"command": "SellRune", "rune_id_list": [1]}), json!({"ret_code": 0,
+            "runes": [rune(1)], "rune_repurchase_list": [
+                {"rid": 11, "delete_type": 1, "price": 100, "rune": rune(1)},
+                {"rid": 12, "delete_type": 1, "price": 100, "rune": rune(99)}
+            ]}));
+        assert_eq!(shared.profile.lock().unwrap().read().unwrap().data["runes"], json!([rune(2)]));
+        send(json!({"command": "BattleDungeonResult_V2"}), json!({"ret_code": 0,
+            "changed_item_list": [{"type": 8, "info": rune(3)}]}));
+        assert_eq!(shared.profile.lock().unwrap().read().unwrap().data["runes"], json!([rune(2), rune(3)]));
+        assert_eq!(status(&shared)["revision"], 3);
     }
 
     /// A game that has never connected is not running — the state the helper

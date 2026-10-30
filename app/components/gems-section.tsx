@@ -217,13 +217,13 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
       : 'Nothing to show until a game file is imported.'}</h2>
     <p className="next-step">{game
       ? 'If your account has any, report the missing items from the rail.'
-      : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
+      : 'Go to Home to connect the helper or import a game file.'}</p>
   </section>;
   const noRunes = <section className="empty-state">
     <h2>{game ? 'This import holds no runes to improve.' : 'Nothing to show until a game file is imported.'}</h2>
     <p className="next-step">{game
       ? 'Import an account that holds runes to see which gems and grindstones they lack.'
-      : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
+      : 'Go to Home to connect the helper or import a game file.'}</p>
   </section>;
 
   /* One engine, three ways to ask it, read here plus the box itself. Every

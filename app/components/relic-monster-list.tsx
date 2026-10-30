@@ -345,7 +345,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
         : 'This import holds no monsters to engrave.'}</h2>
       <p className="next-step">{roster.length
         ? 'Relics need Lv. 40, and JASWA leaves Material monsters out of the plan.'
-        : 'Go to Home and drop in the JSON file exported from Summoners War.'}</p>
+        : 'Go to Home to connect the helper or import a game file.'}</p>
     </section>;
   }
 

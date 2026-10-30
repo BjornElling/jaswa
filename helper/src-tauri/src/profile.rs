@@ -296,6 +296,9 @@ impl ProfileStore {
     /// Names an exchange the account model cannot apply faithfully, so the
     /// caller can stop live import instead of letting the account drift.
     pub fn unmodeled_exchange(&self, response: &Value, request: &Value) -> Option<String> {
+        if account_request(request) == AccountRequest::History {
+            return None;
+        }
         unmodeled_shrine_move(self.profile.as_ref(), request, response)
             .or_else(|| unmodeled_unit_conversion(self.profile.as_ref(), request, response))
             .or_else(|| unmodeled_summoned_stacks(request, response))
@@ -312,8 +315,9 @@ impl ProfileStore {
             || command.contains("amplify") || command.contains("convert") || command.contains("sacrifice")
             || request.get("building_id").is_some();
         let named_items = ENTITIES.iter().any(|entity| !request_entity_identifiers(request, *entity).is_empty());
-        if !account_mutation_command(request)
-            && ((action && named_items) || !response_removals(response).is_empty())
+        let kind = account_request(request);
+        if (kind == AccountRequest::Unknown && action && named_items)
+            || (!kind.reads_current() && kind != AccountRequest::History && !response_removals(response).is_empty())
         {
             entities.unresolved.get_or_insert_with(|| format!(
                 "Unrecognised account mutation {command}. Live import is paused until this request is understood."
@@ -338,6 +342,7 @@ impl ProfileStore {
             || !response.is_object()
             || rta_command(request)
             || !successful_response(response)
+            || account_request(request) == AccountRequest::History
         {
             return false;
         }
@@ -512,7 +517,7 @@ impl ProfileStore {
                 }
             }
         }
-        if mutation {
+        if account_request(request).reads_current() {
             let mut envelopes = vec![response];
             if command == "movestoragefromto" {
                 envelopes.extend([response.get("result_from"), response.get("result_to")].into_iter().flatten());
@@ -1420,31 +1425,67 @@ fn candidate_at(value: &Value, entity: Entity, parent: &str) -> bool {
 struct LiveEntities {
     records: Vec<(Entity, Value)>,
     unresolved: Option<String>,
+    mirrors: Vec<(String, Entity, String)>,
 }
 
-/* A live record needs both a state-changing request and a recognised response
-path. A new notification cannot become an acquisition by reusing `reward` or
-`changed_item_list`. Unknown exchanges are surfaced by the boundary below. */
-fn account_mutation_command(request: &Value) -> bool {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AccountRequest {
+    Mutation,
+    CurrentState,
+    Query,
+    History,
+    Unknown,
+}
+
+impl AccountRequest {
+    fn reads_current(self) -> bool {
+        matches!(self, Self::Mutation | Self::CurrentState)
+    }
+}
+
+/* The request establishes intent; the response path still has to establish
+what changed. Content names do not define new protocols: a dungeon result,
+claim or monster power-up uses the same current-record boundary throughout. */
+fn account_request(request: &Value) -> AccountRequest {
     let command = request.get("command").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase();
     let base = command.rsplit_once("_v")
         .filter(|(_, suffix)| !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()))
         .map_or(command.as_str(), |(base, _)| base);
-    matches!(base,
-        "battledungeonresult" | "battlescenarioresult" | "battleworldbossresult"
-        | "battleriftdungeonresult" | "battleriftofworldsraidresult"
-        | "battledimensionholeresult" | "battledimensionholedungeonresult"
-        | "arenabattleresult" | "receivemail" | "receiveguildbossclearreward"
-        | "receivedailyrewardspecial" | "receivedailyrewardnewuser" | "receivedailyrewardinactive"
-        | "receivedailyrewardspecialevent" | "receivedailyrewardspecialpass" | "receiveplaypassreward"
-        | "pickguildmazebattleclearreward" | "buyshopitem" | "buyblackmarketitem"
-        | "summonunit" | "sellunit" | "sacrificeunit" | "convertunittoitem" | "movestoragefromto"
-        | "moveunitbuilding" | "upgraderune"
-        | "amplifyrune" | "convertrune" | "confirmrune" | "equiprune" | "equiprunelist" | "unequiprune"
-        | "sellrune" | "sellrunecraftitem" | "upgradeartifact" | "convertartifact"
-        | "equipartifact" | "unequipartifact" | "updateartifactoccupation" | "sellartifact" | "sellartifacts"
-        | "upgraderelic" | "equiprelic" | "unequiprelic" | "sellrelic" | "breakdownrelic"
-    )
+    if base == "getserverarenarewardinfofornoti" {
+        return AccountRequest::History;
+    }
+    if matches!(base, "getunitstoragelist" | "getunitinfo") || base.starts_with("getwizarddata") {
+        return AccountRequest::CurrentState;
+    }
+    let verbs = [
+        "receive", "claim", "pick", "buy", "repurchase", "summon", "sell",
+        "upgrade", "awaken", "evolve", "evolution", "fuse", "fusion", "sacrifice",
+        "convert", "amplify", "confirm", "craft", "create", "breakdown",
+        "disassemble", "equip", "unequip",
+    ];
+    if (base.starts_with("battle") && base.ends_with("result"))
+        || matches!(base, "arenabattleresult" | "moveunitbuilding" | "movestoragefromto"
+            | "dorandomwishitem" | "getupdateddataafterwebevent")
+        || (base.starts_with("update") && base.contains("occupation"))
+    {
+        AccountRequest::Mutation
+    } else {
+        // Namespaces such as collabo_ do not turn the same claim into a new protocol.
+        // The first operation wins: get_sell_history is a query, never a sale.
+        for part in base.split('_') {
+            if ["get", "check", "list", "query", "preview", "notify"].iter().any(|verb| part.starts_with(verb)) {
+                return AccountRequest::Query;
+            }
+            if verbs.iter().any(|verb| part.starts_with(verb)) {
+                return AccountRequest::Mutation;
+            }
+        }
+        AccountRequest::Unknown
+    }
+}
+
+fn account_mutation_command(request: &Value) -> bool {
+    account_request(request) == AccountRequest::Mutation
 }
 
 /* Ownership is not freshness: archives carry valid ids and this account's
@@ -1511,10 +1552,8 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
                         ));
                     }
                 } else {
-                    found.unresolved.get_or_insert_with(|| format!(
-                        "Unrecognised account-data path {path} ({} {}). Live import is paused until this response is understood.",
-                        entity.collection, identifier(value, entity.identifier).unwrap_or_default()
-                    ));
+                    found.mirrors.push((path.to_owned(), entity,
+                        identifier(value, entity.identifier).unwrap_or_default()));
                 }
             }
             if matches!(parent, "changed_item_list" | "item_list") {
@@ -1533,10 +1572,8 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
                                 ));
                             }
                         } else {
-                            found.unresolved.get_or_insert_with(|| format!(
-                                "Unrecognised reward path {path} ({} {}). Live import is paused.",
-                                entity.collection, identifier(&item, entity.identifier).unwrap_or_default()
-                            ));
+                            found.mirrors.push((path.to_owned(), entity,
+                                identifier(&item, entity.identifier).unwrap_or_default()));
                         }
                     }
                 }
@@ -1557,13 +1594,28 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
         }
     }
     let mut found = LiveEntities::default();
+    if account_request(request) == AccountRequest::History {
+        return found;
+    }
     let shrine_move = request.get("command").and_then(Value::as_str)
         .is_some_and(|command| command.eq_ignore_ascii_case("MoveStorageFromTo"));
     let battle_team = request.get("command").and_then(Value::as_str)
         .is_some_and(|command| command.eq_ignore_ascii_case("battleGuildRivalStart"));
     let scope = Scope { profile, claimed_mail_ids, shrine_move,
-        live_request: account_mutation_command(request), battle_team };
+        live_request: account_request(request).reads_current(), battle_team };
     visit(value, "", "", false, true, false, &scope, &mut found);
+    // A second view of an authoritative record is not another acquisition.
+    // Its contents never win, even when it precedes the current record in JSON.
+    for (path, entity, id) in std::mem::take(&mut found.mirrors) {
+        if !found.records.iter().any(|(current, item)| current.collection == entity.collection
+            && identifier(item, entity.identifier).as_deref() == Some(&id))
+        {
+            found.unresolved.get_or_insert_with(|| format!(
+                "Unrecognised account-data path {path} ({} {id}). Live import is paused until this response is understood.",
+                entity.collection
+            ));
+        }
+    }
     found
 }
 
@@ -1594,6 +1646,9 @@ fn claimed_mail_record(value: &Value, parent: &str, claimed_mail_ids: &[String])
 }
 
 fn account_collection(parent: &str, entity: Entity) -> bool {
+    if entity.direct.iter().any(|name| parent.strip_suffix("_list") == Some(*name)) {
+        return true;
+    }
     match entity.collection {
         "unit_list" => matches!(parent, "unit_list" | "units" | "mob_list"),
         "runes" => matches!(parent, "runes" | "rune_list"),
@@ -1653,6 +1708,9 @@ fn non_account_container(parent: &str) -> bool {
     {
         return true;
     }
+    if parent.ends_with("_repurchase_list") {
+        return true;
+    }
     matches!(
         parent.as_str(),
         "opp_unit_list"
@@ -1662,7 +1720,6 @@ fn non_account_container(parent: &str) -> bool {
             | "reward_item_list"
             // Opened guild-boss crates retain old item records, including sold gear.
             | "clear_reward_crate_list"
-            | "user_reward_info"
             // These are displayed teams and previews, not live monster records.
             | "my_unit_deck_list"
             | "rift_dungeon_unit_list"
@@ -3656,6 +3713,150 @@ mod phantom_rune_regression {
     use serde_json::json;
 
     #[test]
+    fn a_bulk_sale_with_repurchase_history_keeps_live_import_running() {
+        for count in [0, 1, 100] {
+            let rune = |id| json!({"rune_id": id, "wizard_id": 7, "set_id": 13,
+                "slot_no": 1, "upgrade_curr": 0, "occupied_type": 2, "occupied_id": 0});
+            let mut store = ProfileStore::default();
+            let runes = (1..=count + 1).map(rune).collect::<Vec<_>>();
+            assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": runes})));
+            let ids = (1..=count).collect::<Vec<_>>();
+            let request = json!({"command": "SellRune", "rune_id_list": ids, "sell_path": 0});
+            let response = json!({"ret_code": 0, "runes": ids.iter().map(|id| rune(*id)).collect::<Vec<_>>(),
+                "unit_info_list": [], "rune_repurchase_list": ids.iter().take(95).map(|id| json!({
+                    "rid": id + 1000, "wizard_id": 7, "delete_type": 1, "price": 100,
+                    "essence_count": 0, "date_add": "2026-10-30 10:29:39", "rune": rune(*id)
+                })).collect::<Vec<_>>()});
+            assert_eq!(store.unmodeled_exchange(&response, &request), None);
+            assert_eq!(store.apply_update(&response, &request), count > 0);
+            let data = store.read().unwrap().data;
+            assert_eq!(collection(&data, "runes"), &[rune(count + 1)]);
+            let reward = json!({"ret_code": 0, "changed_item_list": [{"type": 8, "info": rune(count + 2)}]});
+            let request = json!({"command": "BattleDungeonResult_V2"});
+            assert_eq!(store.unmodeled_exchange(&reward, &request), None);
+            assert!(store.apply_update(&reward, &request));
+            assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 2);
+        }
+    }
+
+    #[test]
+    fn ordinary_mutation_families_are_not_a_closed_list_of_content_names() {
+        let unit = json!({"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 40});
+        let rune = json!({"rune_id": 1, "wizard_id": 7, "set_id": 13, "slot_no": 1});
+        let cases = [
+            ("UpgradeUnit", json!({"unit_info": unit}), "unit_list"),
+            ("AwakenUnit", json!({"unit_info": unit}), "unit_list"),
+            ("EvolveUnit", json!({"unit_info_list": [unit]}), "unit_list"),
+            ("FuseUnit", json!({"unit": unit}), "unit_list"),
+            ("CraftRelic", json!({"relic": {"rid": 1, "wizard_id": 7,
+                "pri_effect": [100, 12], "sec_effect": [14, 150, 2]}}), "relics"),
+            ("ReceiveQuestReward", json!({"changed_item_list": [{"type": 8, "info": rune}]}), "runes"),
+            ("ClaimEventReward", json!({"reward": {"crate": {"runes": [rune]}}}), "runes"),
+            ("BattleNewDungeonResult_V2", json!({"changed_item_list": [{"type": 8, "info": rune}]}), "runes"),
+            ("getUpdatedDataAfterWebEvent", json!({"runes": [rune]}), "runes"),
+            ("collabo_receiveQuestReward", json!({"changed_item_list": [{"type": 8, "info": rune}]}), "runes"),
+            ("unit_UpgradeUnit", json!({"unit_info_list": [unit]}), "unit_list"),
+        ];
+        for (command, response, collection_name) in cases {
+            let mut store = ProfileStore::default();
+            assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": []})));
+            let request = json!({"command": command});
+            assert_eq!(store.unmodeled_exchange(&response, &request), None, "{command}");
+            assert!(store.apply_update(&response, &request), "{command}");
+            assert_eq!(collection(&store.read().unwrap().data, collection_name).len(), 1);
+        }
+    }
+
+    #[test]
+    fn direct_record_lists_have_the_same_authority_as_direct_records() {
+        for parent in ["unit_info", "unit_info_list", "unit_list"] {
+            let mut store = ProfileStore::default();
+            assert!(store.accept_snapshot(json!({"wizard_id": 7,
+                "unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 1}], "runes": []})));
+            let unit = json!({"unit_id": 1, "wizard_id": 7, "unit_level": 40});
+            let mut response = json!({"ret_code": 0});
+            response[parent] = if parent.ends_with("list") { json!([unit]) } else { unit };
+            let request = json!({"command": "SacrificeUnit_V4"});
+            assert_eq!(store.unmodeled_exchange(&response, &request), None, "{parent}");
+            assert!(store.apply_update(&response, &request), "{parent}");
+            assert_eq!(store.read().unwrap().data["unit_list"][0]["unit_level"], 40);
+        }
+    }
+
+    #[test]
+    fn current_records_win_over_incidental_mirrors_without_pausing() {
+        for (entity, record) in [
+            (ENTITIES[0], json!({"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 40})),
+            (ENTITIES[1], json!({"rune_id": 1, "wizard_id": 7, "set_id": 13, "upgrade_curr": 15})),
+            (ENTITIES[2], json!({"rid": 1, "wizard_id": 7, "slot": 1, "level": 15})),
+            (ENTITIES[3], json!({"rid": 1, "wizard_id": 7, "sec_effect": [14, 150, 2]})),
+            (ENTITIES[4], json!({"craft_item_id": 1, "wizard_id": 7, "craft_type": 6, "amount": 5})),
+            (ENTITIES[5], json!({"rid": 1, "wizard_id": 7, "master_id": 2, "quantity": 5})),
+            (ENTITIES[6], json!({"rid": 1, "wizard_id": 7, "item_master_type": 61, "item_master_id": 61, "item_quantity": 5})),
+        ] {
+            let mut store = ProfileStore::default();
+            assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": []})));
+            let mut stale = record.clone();
+            for field in ["unit_level", "upgrade_curr", "level", "amount", "quantity", "item_quantity"] {
+                if stale.get(field).is_some() { stale[field] = json!(1); }
+            }
+            let mut response = json!({"a_incidental_copy": stale, "z_incidental_copy": stale});
+            response[entity.collection] = json!([record]);
+            let request = json!({"command": "ReceiveMail"});
+            assert_eq!(store.unmodeled_exchange(&response, &request), None, "{}", entity.collection);
+            assert!(store.apply_update(&response, &request));
+            assert_eq!(collection(&store.read().unwrap().data, entity.collection), &[record]);
+        }
+    }
+
+    #[test]
+    fn state_queries_read_current_values_without_applying_request_side_effects() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [
+            {"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 1, "building_id": 0}
+        ], "runes": [{"rune_id": 5, "set_id": 13}]})));
+        let request = json!({"command": "GetUnitInfo", "unit_id": 1, "building_id": 99});
+        let response = json!({"unit_info_list": [{"unit_id": 1, "unit_level": 40}]});
+        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert!(store.apply_update(&response, &request));
+        assert_eq!(store.read().unwrap().data["unit_list"][0]["unit_level"], 40);
+        assert_eq!(store.read().unwrap().data["unit_list"][0]["building_id"], 0);
+        assert!(store.apply_update(&json!({"remove_rune_id_list": [5]}),
+            &json!({"command": "GetWizardDataPart1"})));
+        assert!(collection(&store.read().unwrap().data, "runes").is_empty());
+    }
+
+    #[test]
+    fn artifact_and_craft_sales_and_repurchase_follow_the_same_boundary() {
+        let mut store = ProfileStore::default();
+        let artifact = |id| json!({"rid": id, "wizard_id": 7, "slot": 1, "level": 15});
+        let rune = json!({"rune_id": 5, "wizard_id": 7, "set_id": 13, "slot_no": 1});
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": [],
+            "artifacts": [artifact(1), artifact(2)],
+            "relics": [{"rid": 1, "sec_effect": [14, 150, 2]}],
+            "rune_craft_item_list": [{"craft_item_id": 3, "craft_type": 6, "amount": 5}]})));
+        let request = json!({"command": "SellArtifacts", "artifact_ids": [1]});
+        let response = json!({"artifact_info_list": [artifact(1)], "artifact_repurchase_list": [
+            {"artifact": artifact(1)}, {"artifact": artifact(99)}
+        ]});
+        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert!(store.apply_update(&response, &request));
+        assert_eq!(collection(&store.read().unwrap().data, "artifacts"), &[artifact(2)]);
+        assert_eq!(collection(&store.read().unwrap().data, "relics").len(), 1);
+        assert!(store.apply_update(&json!({"ret_code": 0}), &json!({"command": "SellRuneCraftItem_V2",
+            "craft_item_id_list": [{"craft_item_id": 3, "amount": 2}]})));
+        assert_eq!(store.read().unwrap().data["rune_craft_item_list"][0]["amount"], 3);
+        let response = json!({"rune_repurchase_list": [{"rid": 11, "rune": rune}]});
+        let request = json!({"command": "GetRuneRepurchaseList"});
+        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert!(!store.apply_update(&response, &request));
+        assert!(collection(&store.read().unwrap().data, "runes").is_empty());
+        assert!(store.apply_update(&json!({"rune": rune}),
+            &json!({"command": "RepurchaseRune", "rid": 11})));
+        assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 1);
+    }
+
+    #[test]
     fn provenance_is_required_for_every_entity_and_every_existing_record() {
         let records = [
             json!({"unit_id": 11, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 1}),
@@ -3753,7 +3954,7 @@ mod phantom_rune_regression {
             "rune_craft_item_list": [{"craft_item_id": 3, "craft_type": 6, "amount": 5}]})));
         let before = store.read().unwrap().data;
         for request in [
-            json!({"command": "GetSellRuneHistory", "rune_id_list": [5]}),
+            json!({"command": "FutureSellRune", "rune_id_list": [5]}),
             json!({"command": "FutureAmplifyRune", "rune_id": 5, "craft_item_id": 3}),
             json!({"command": "FutureSacrificeUnit", "source_unit_list": [1]}),
             json!({"command": "FutureMoveUnit", "building_id": 99, "unit_id": 1}),
@@ -3762,6 +3963,10 @@ mod phantom_rune_regression {
             assert!(!store.apply_update(&json!({"ret_code": 0}), &request));
             assert_eq!(store.read().unwrap().data, before);
         }
+        let query = json!({"command": "GetSellRuneHistory", "rune_id_list": [5]});
+        assert_eq!(store.unmodeled_exchange(&json!({"ret_code": 0}), &query), None);
+        assert!(!store.apply_update(&json!({"ret_code": 0}), &query));
+        assert_eq!(store.read().unwrap().data, before);
         assert!(store.apply_update(&json!({"ret_code": 0}),
             &json!({"command": "SellRune", "rune_id_list": [5]})));
         assert!(collection(&store.read().unwrap().data, "runes").is_empty());
@@ -3778,7 +3983,7 @@ mod phantom_rune_regression {
         assert!(!store.apply_update(&response, &request));
         assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 1);
         assert!(store.apply_update(&json!({
-            "user_reward_info": {"remove_rune_id_list": [5]},
+            "clear_reward_crate_list": [{"remove_rune_id_list": [5]}],
             "runes": [{"rune_id": 6, "wizard_id": 7, "set_id": 13}]
         }), &request));
         assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 2);

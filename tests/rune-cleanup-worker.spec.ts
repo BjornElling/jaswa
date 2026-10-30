@@ -11,7 +11,7 @@ test('an empty workspace keeps the calculation status hidden', async ({ page }, 
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   const cleanup = page.locator('.workspace-page-content');
-  await expect(cleanup.getByText('Nothing to judge until a game file is imported.')).toBeVisible();
+  await expect(cleanup.getByText('Nothing to judge until account data is imported.')).toBeVisible();
   await expect(cleanup.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
   await expect(cleanup.locator('.rune-cleanup-progress')).toHaveAttribute('aria-hidden', 'true');
   await page.screenshot({ path: testInfo.outputPath('progress-no-import.png') });

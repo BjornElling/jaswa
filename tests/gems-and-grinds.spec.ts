@@ -599,7 +599,7 @@ test('the box says what to do when nothing has been imported', async ({ page }, 
   await openWorkspace(page);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await expect(page.getByRole('heading', { name: 'Nothing to show until a game file is imported.' })).toBeVisible();
-  await expect(page.getByText('Go to Home and drop in the JSON file exported from Summoners War.')).toBeVisible();
+  await expect(page.getByText('Go to Home to connect the helper or import a game file.')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('gems-empty.png'), fullPage: true });
 });
 

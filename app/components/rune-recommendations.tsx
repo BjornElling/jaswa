@@ -485,7 +485,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   </div>;
 
   const emptyState = !game
-    ? { title: 'Nothing to judge until a game file is imported.', detail: 'Go to Home and drop in the JSON file exported from Summoners War.' }
+    ? { title: 'Nothing to judge until account data is imported.', detail: 'Go to Home to connect the helper or import a game file.' }
     : !runes.length
       ? { title: 'This import holds no runes JASWA can read.', detail: 'Report it from the rail if your account does have runes.' }
       : !base

@@ -355,7 +355,7 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
   >
       {!monsters.length ? <section className="empty-state">
         <h2>Nothing to show until a game file is imported.</h2>
-        <p className="next-step">Go to Home and drop in the JSON file exported from Summoners War.</p>
+        <p className="next-step">Go to Home to connect the helper or import a game file.</p>
       </section> : <DataTablePage
         tableClassName="monster-grid"
         headerLabel="Stats columns"
