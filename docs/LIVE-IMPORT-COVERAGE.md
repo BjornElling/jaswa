@@ -30,7 +30,8 @@ reader used by the service's capture-gap check and by the update itself.
    chain. A familiar collection or `reward` below it never restarts authority.
 3. Only the root mail entries identified by a successful `ReceiveMail` request
    are opened. The other inbox entries remain previews. Shrine movement and
-   battle-team records have explicit, narrow paths; the shrine collections keep
+   battle-team records and the root `upgrade_rune_list` in `UpgradeRuneList`
+   have explicit, narrow paths; the shrine collections keep
    their own location-aware readers.
 4. Known archives, previews, opponent records and `before_*` records are excluded
    at their boundary. The exclusions describe understood non-account data;
@@ -61,7 +62,7 @@ protocol contract, not a claim that every future game command is known.
 | --- | --- | --- | --- |
 | Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveUnitBuilding` (Monster Storage and back), any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell requests, and the monsters a `ConvertUnitToItem` request names (crafting Engraved Stones answers with the item alone, so the request is the only record of what it spent; roster and Normal shrine copies both go, and a conversion naming no readable monster or spending an engraved one stops live import) |
 | Sealed Shrine | `unit_storage_normal_list` at the top of a response; `unit_storage_list` from `getUnitStorageList` and from the `GetUnitStorageList` inside `GetWizardDataPart1` | — | Those lists are the whole tab and replace the collection. `SacrificeUnit_V4` answers with only the Summoned stacks it fed from — an empty list when every fodder came from the roster — and updates those stacks alone; a fed stack its answer does not restate, or a top-level Summoned list under any other command, stops live import. `MoveStorageFromTo` is read side by side — see below |
-| Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, reappraisal, refine/convert, engrave/remove, sell and remove lists |
+| Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, bulk power-up (`UpgradeRuneList`), reappraisal, refine/convert, engrave/remove, sell and remove lists |
 | Artifacts | `artifact`, `artifact_info`, `artifacts` | V2 `changed_item_list` type `73`; legacy reward crates and quest/mail claims | Upgrade, engrave/remove, sell and remove lists |
 | Relics | `relic`, `relic_info`, `relics` | Relic-shaped `changed_item_list` records and reward crates | Power-up, engrave/remove on a unit, breakdown/sell and remove lists; the root relic stays present because one relic can be engraved on many monsters |
 | Gems, grindstones and engraved conversion stones | `rune_craft_item`, `craft`, `craft_item`, `changestone(s)`, craft lists | Craft records inside reward crates and generic account reward containers | Amplify/convert and `SellRuneCraftItem` consume the requested quantity from a stack |

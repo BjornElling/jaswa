@@ -1498,6 +1498,7 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
         shrine_move: bool,
         live_request: bool,
         battle_team: bool,
+        bulk_rune_upgrade: bool,
     }
     fn visit(
         value: &Value,
@@ -1582,7 +1583,8 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
         let is_unit = valid_identifier(value, "unit_id") && candidate_at(value, ENTITIES[0], parent);
         for (key, entry) in map {
             let child_path = if path.is_empty() { key.clone() } else { format!("{path}.{key}") };
-            let edge = account_container(key)
+            let edge = (scope.bulk_rune_upgrade && path.is_empty() && key == "upgrade_rune_list")
+                || account_container(key)
                 || ENTITIES.iter().any(|entity| entity.direct.contains(&key.as_str()) || account_collection(key, *entity))
                 || (path.is_empty() && scope.battle_team && key == "battle_team")
                 || (scope.shrine_move && (child_path == "result_from" || child_path == "result_from.add_unit_list"))
@@ -1601,8 +1603,10 @@ fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_ma
         .is_some_and(|command| command.eq_ignore_ascii_case("MoveStorageFromTo"));
     let battle_team = request.get("command").and_then(Value::as_str)
         .is_some_and(|command| command.eq_ignore_ascii_case("battleGuildRivalStart"));
+    let bulk_rune_upgrade = request.get("command").and_then(Value::as_str)
+        .is_some_and(|command| command.eq_ignore_ascii_case("UpgradeRuneList"));
     let scope = Scope { profile, claimed_mail_ids, shrine_move,
-        live_request: account_request(request).reads_current(), battle_team };
+        live_request: account_request(request).reads_current(), battle_team, bulk_rune_upgrade };
     visit(value, "", "", false, true, false, &scope, &mut found);
     // A second view of an authoritative record is not another acquisition.
     // Its contents never win, even when it precedes the current record in JSON.
@@ -3780,6 +3784,33 @@ mod phantom_rune_regression {
             assert_eq!(store.unmodeled_exchange(&response, &request), None, "{parent}");
             assert!(store.apply_update(&response, &request), "{parent}");
             assert_eq!(store.read().unwrap().data["unit_list"][0]["unit_level"], 40);
+        }
+    }
+
+    #[test]
+    fn bulk_rune_upgrade_reads_only_the_current_root_list() {
+        let rune = |id, level| json!({"rune_id": id, "wizard_id": 7, "set_id": 13,
+            "slot_no": 1, "upgrade_curr": level});
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [],
+            "runes": [rune(1, 0), rune(2, 3)]})));
+        let request = json!({"command": "UpgradeRuneList", "rune_id_list": [1, 2]});
+        let response = json!({"ret_code": 0, "upgrade_rune_list": [rune(1, 9), rune(2, 9)],
+            "upgrade_history_list": [{"rune_id": 1, "upgrade_history": {"primary": {"1": [100]}}}],
+            "clear_reward_crate_list": [{"reward": {"crate": {"runes": [rune(3, 0)]}}}]} );
+        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert!(store.apply_update(&response, &request));
+        let data = store.read().unwrap().data;
+        assert_eq!(collection(&data, "runes"), &[rune(1, 9), rune(2, 9)]);
+
+        for (request, response) in [
+            (json!({"command": "ReceiveReward"}), json!({"upgrade_rune_list": [rune(3, 0)]})),
+            (json!({"command": "UpgradeRuneList"}), json!({"unknown": {"upgrade_rune_list": [rune(3, 0)]}})),
+            (json!({"command": "GetRuneList"}), json!({"upgrade_rune_list": [rune(3, 0)]})),
+        ] {
+            assert!(store.unmodeled_exchange(&response, &request).is_some());
+            assert!(!store.apply_update(&response, &request));
+            assert_eq!(collection(&store.read().unwrap().data, "runes"), &[rune(1, 9), rune(2, 9)]);
         }
     }
 
