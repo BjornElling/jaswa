@@ -299,6 +299,27 @@ impl ProfileStore {
         unmodeled_shrine_move(self.profile.as_ref(), request, response)
             .or_else(|| unmodeled_unit_conversion(self.profile.as_ref(), request, response))
             .or_else(|| unmodeled_summoned_stacks(request, response))
+            .or_else(|| self.live_entities(response, request).unresolved)
+    }
+
+    fn live_entities(&self, response: &Value, request: &Value) -> LiveEntities {
+        if self.profile.is_none() || rta_command(request) || !successful_response(response) {
+            return LiveEntities::default();
+        }
+        let mut entities = response_entities(response, request, self.profile.as_ref().expect("checked above"), &mail_claim_ids(request));
+        let command = request.get("command").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase();
+        let action = gear_moving_command(&command) || command.contains("sell")
+            || command.contains("amplify") || command.contains("convert") || command.contains("sacrifice")
+            || request.get("building_id").is_some();
+        let named_items = ENTITIES.iter().any(|entity| !request_entity_identifiers(request, *entity).is_empty());
+        if !account_mutation_command(request)
+            && ((action && named_items) || !response_removals(response).is_empty())
+        {
+            entities.unresolved.get_or_insert_with(|| format!(
+                "Unrecognised account mutation {command}. Live import is paused until this request is understood."
+            ));
+        }
+        entities
     }
 
     /// What the last `apply_update` declined: the monsters whose gear it kept
@@ -317,9 +338,6 @@ impl ProfileStore {
             || !response.is_object()
             || rta_command(request)
             || !successful_response(response)
-            // Arena's notification replays past awards, including sold or upgraded gear.
-            // Its changed_item_list is history, not a new account mutation.
-            || command == "getserverarenarewardinfofornoti_v2"
         {
             return false;
         }
@@ -327,27 +345,23 @@ impl ProfileStore {
         self.refused = None;
         let mut profile = self.profile.clone().expect("checked above");
         let mut changed = false;
-        let moves_gear = gear_moving_command(&command);
-        let account_wizard_id = identifier(&profile, "wizard_id");
-        let claimed_mail_ids = mail_claim_ids(request);
-        let response_items = response_entities(
-            response,
-            "",
-            false,
-            false,
-            false,
-            account_wizard_id.as_deref(),
-            &claimed_mail_ids,
-        );
+        let mutation = account_mutation_command(request);
+        let moves_gear = mutation && gear_moving_command(&command);
+        let entities = self.live_entities(response, request);
+        if let Some(reason) = entities.unresolved {
+            self.refused = Some(reason);
+            return false;
+        }
+        let response_items = entities.records;
         /* A normal-shrine record and a live unit have the same identity. The
         game moves that one record between the two collections; it never owns
         two copies under one unit id. Keep the ids that a response establishes
         as live units, so an unseal reply which omits the complete shrine list
         cannot leave yesterday's shrine record beside today's inventory unit. */
         let mut received_unit_ids = Vec::new();
-        for (entity, item, trusted) in &response_items {
+        for (entity, item) in &response_items {
             if !known_account_entity(&profile, *entity, item)
-                && !trusted_account_entity(&profile, *entity, item, *trusted)
+                && !new_account_entity(&profile, *entity, item)
             {
                 continue;
             }
@@ -388,8 +402,8 @@ impl ProfileStore {
         }
         let response_craft_ids = response_items
             .iter()
-            .filter(|(entity, _, _)| entity.collection == "rune_craft_item_list")
-            .filter_map(|(_, item, _)| identifier(item, "craft_item_id"))
+            .filter(|(entity, _)| entity.collection == "rune_craft_item_list")
+            .filter_map(|(_, item)| identifier(item, "craft_item_id"))
             .collect::<Vec<_>>();
         /* Only a read of the shrine answers with the whole Summoned tab. A
         power-up answers with the stacks it fed from — none, when every fodder
@@ -455,6 +469,7 @@ impl ProfileStore {
         all, and changing nothing is silent. */
         if let Some(building_id) = request
             .get("building_id")
+            .filter(|_| mutation)
             .filter(|value| value.is_number() || value.is_string())
         {
             let building_id = building_id.clone();
@@ -497,13 +512,19 @@ impl ProfileStore {
                 }
             }
         }
-        changed |= remove_response_entities(&mut profile, response);
-        let mut removed_unit_ids = identifiers_in_fields(
-            response,
-            "unit_id",
-            &["remove_unit_id_list", "remove_unit_ids"],
-        );
-        if command.contains("sacrifice") {
+        if mutation {
+            let mut envelopes = vec![response];
+            if command == "movestoragefromto" {
+                envelopes.extend([response.get("result_from"), response.get("result_to")].into_iter().flatten());
+            }
+            for envelope in envelopes {
+                for (entity, ids) in response_removals(envelope) {
+                    changed |= remove_everywhere(&mut profile, entity, &ids);
+                }
+            }
+        }
+        let mut removed_unit_ids = Vec::new();
+        if mutation && command.contains("sacrifice") {
             removed_unit_ids.extend(identifiers_in_fields(
                 request,
                 "unit_id",
@@ -524,7 +545,7 @@ impl ProfileStore {
             removed_unit_ids.extend(spent);
         }
         changed |= remove_everywhere(&mut profile, ENTITIES[0], &unique(removed_unit_ids));
-        if command.contains("sell") {
+        if mutation && command.contains("sell") {
             for entity in ENTITIES {
                 if entity.collection == "inventory_info"
                     || (entity.collection == "rune_craft_item_list"
@@ -539,9 +560,9 @@ impl ProfileStore {
                 changed |= remove_everywhere(&mut profile, entity, &ids);
             }
         }
-        if command.contains("amplify")
+        if mutation && (command.contains("amplify")
             || command.contains("convert")
-            || command.contains("sellrunecraftitem")
+            || command.contains("sellrunecraftitem"))
         {
             let consumptions = craft_consumptions(request);
             let consumptions = consumptions
@@ -1395,113 +1416,154 @@ fn candidate_at(value: &Value, entity: Entity, parent: &str) -> bool {
         _ => false,
     }
 }
-fn response_entities(
-    value: &Value,
-    parent: &str,
-    inside_unit: bool,
-    account_context: bool,
-    blocked_context: bool,
-    account_wizard_id: Option<&str>,
-    claimed_mail_ids: &[String],
-) -> Vec<(Entity, Value, bool)> {
-    let mut found = Vec::new();
+#[derive(Default)]
+struct LiveEntities {
+    records: Vec<(Entity, Value)>,
+    unresolved: Option<String>,
+}
+
+/* A live record needs both a state-changing request and a recognised response
+path. A new notification cannot become an acquisition by reusing `reward` or
+`changed_item_list`. Unknown exchanges are surfaced by the boundary below. */
+fn account_mutation_command(request: &Value) -> bool {
+    let command = request.get("command").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase();
+    let base = command.rsplit_once("_v")
+        .filter(|(_, suffix)| !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()))
+        .map_or(command.as_str(), |(base, _)| base);
+    matches!(base,
+        "battledungeonresult" | "battlescenarioresult" | "battleworldbossresult"
+        | "battleriftdungeonresult" | "battleriftofworldsraidresult"
+        | "battledimensionholeresult" | "battledimensionholedungeonresult"
+        | "arenabattleresult" | "receivemail" | "receiveguildbossclearreward"
+        | "receivedailyrewardspecial" | "receivedailyrewardnewuser" | "receivedailyrewardinactive"
+        | "receivedailyrewardspecialevent" | "receivedailyrewardspecialpass" | "receiveplaypassreward"
+        | "pickguildmazebattleclearreward" | "buyshopitem" | "buyblackmarketitem"
+        | "summonunit" | "sellunit" | "sacrificeunit" | "convertunittoitem" | "movestoragefromto"
+        | "moveunitbuilding" | "upgraderune"
+        | "amplifyrune" | "convertrune" | "confirmrune" | "equiprune" | "equiprunelist" | "unequiprune"
+        | "sellrune" | "sellrunecraftitem" | "upgradeartifact" | "convertartifact"
+        | "equipartifact" | "unequipartifact" | "updateartifactoccupation" | "sellartifact" | "sellartifacts"
+        | "upgraderelic" | "equiprelic" | "unequiprelic" | "sellrelic" | "breakdownrelic"
+    )
+}
+
+/* Ownership is not freshness: archives carry valid ids and this account's
+wizard id too. Only a continuous, recognised path from the response root may
+supply live records. An unknown wrapper cannot grant authority to its children. */
+fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_mail_ids: &[String]) -> LiveEntities {
+    struct Scope<'a> {
+        profile: &'a Value,
+        claimed_mail_ids: &'a [String],
+        shrine_move: bool,
+        live_request: bool,
+        battle_team: bool,
+    }
     fn visit(
         value: &Value,
+        path: &str,
         parent: &str,
         inside_unit: bool,
-        account_context: bool,
-        blocked_context: bool,
-        account_wizard_id: Option<&str>,
-        claimed_mail_ids: &[String],
-        found: &mut Vec<(Entity, Value, bool)>,
+        authorized: bool,
+        blocked: bool,
+        scope: &Scope<'_>,
+        found: &mut LiveEntities,
     ) {
         if let Value::Array(entries) = value {
             for entry in entries {
-                visit(
-                    entry,
-                    parent,
-                    inside_unit,
-                    account_context,
-                    blocked_context,
-                    account_wizard_id,
-                    claimed_mail_ids,
-                    found,
-                );
+                visit(entry, path, parent, inside_unit, authorized, blocked,
+                    scope, found);
             }
             return;
         }
-        let Some(map) = value.as_object() else {
-            return;
+        let Some(map) = value.as_object() else { return; };
+        let claimed_mail = !path.contains('.')
+            && claimed_mail_record(value, parent, scope.claimed_mail_ids);
+        let blocked = if claimed_mail { false } else {
+            blocked || non_account_container(parent)
+                || superseded_record(parent) || departed_record(parent)
         };
-        /* Inbox responses contain both the mail that was just opened and the
-        remaining inbox entries. Only the requested mail is account data;
-        the other entries are previews and must stay blocked. */
-        let claimed_mail = claimed_mail_record(value, parent, claimed_mail_ids);
-        let blocked_context = if claimed_mail {
-            false
-        } else {
-            blocked_context
-                || non_account_container(parent)
-                || superseded_record(parent)
-                || departed_record(parent)
-        };
-        let account_context = account_context || account_container(parent) || claimed_mail;
-        for entity in ENTITIES {
-            let account_identity = account_wizard_id.is_some_and(|wizard_id| {
-                identifier(value, "wizard_id").as_deref() == Some(wizard_id)
-            });
-            if !inside_unit
-                && valid_identifier(value, entity.identifier)
-                && candidate_at(value, entity, parent)
-                && !blocked_context
-                && (entity.direct.contains(&parent)
-                    || account_collection(parent, entity)
-                    || account_context
-                    || account_identity)
-            {
-                found.push((
-                    entity,
-                    value.clone(),
-                    entity.direct.contains(&parent)
-                        || account_collection(parent, entity)
-                        || account_context
-                        || account_identity,
-                ));
+        let authorized = authorized || claimed_mail;
+        let removal_path = path.is_empty()
+            || (scope.shrine_move && matches!(path, "result_from" | "result_to"));
+        if !blocked && !removal_path && !response_removals(value).is_empty() {
+            found.unresolved.get_or_insert_with(|| format!(
+                "Unrecognised account-removal path {path}. Live import is paused until this response is understood."
+            ));
+        }
+        let account_wizard_id = identifier(scope.profile, "wizard_id");
+        let belongs_elsewhere = account_wizard_id.as_ref().is_some_and(|account| {
+            identifier(value, "wizard_id").is_some_and(|wizard| wizard != *account)
+        });
+        if !inside_unit && !blocked && !belongs_elsewhere {
+            for entity in ENTITIES {
+                let named_record = entity.direct.contains(&parent) || account_collection(parent, entity);
+                if !valid_identifier(value, entity.identifier)
+                    || !(candidate_at(value, entity, parent) || named_record) {
+                    continue;
+                }
+                if authorized && (!path.is_empty() || scope.live_request) {
+                    if candidate_at(value, entity, parent) || known_account_entity(scope.profile, entity, value) {
+                        found.records.push((entity, value.clone()));
+                    } else {
+                        found.unresolved.get_or_insert_with(|| format!(
+                            "Incomplete new account record at {path} ({} {}). Live import is paused.",
+                            entity.collection, identifier(value, entity.identifier).unwrap_or_default()
+                        ));
+                    }
+                } else {
+                    found.unresolved.get_or_insert_with(|| format!(
+                        "Unrecognised account-data path {path} ({} {}). Live import is paused until this response is understood.",
+                        entity.collection, identifier(value, entity.identifier).unwrap_or_default()
+                    ));
+                }
+            }
+            if matches!(parent, "changed_item_list" | "item_list") {
+                if let Some((entity, item)) = changed_item_entity(value) {
+                    let foreign = account_wizard_id.as_ref().is_some_and(|account| {
+                        identifier(&item, "wizard_id").is_some_and(|wizard| wizard != *account)
+                    });
+                    if !foreign {
+                        if authorized {
+                            if candidate(&item, entity) || known_account_entity(scope.profile, entity, &item) {
+                                found.records.push((entity, item));
+                            } else {
+                                found.unresolved.get_or_insert_with(|| format!(
+                                    "Incomplete new reward at {path} ({} {}). Live import is paused.",
+                                    entity.collection, identifier(&item, entity.identifier).unwrap_or_default()
+                                ));
+                            }
+                        } else {
+                            found.unresolved.get_or_insert_with(|| format!(
+                                "Unrecognised reward path {path} ({} {}). Live import is paused.",
+                                entity.collection, identifier(&item, entity.identifier).unwrap_or_default()
+                            ));
+                        }
+                    }
+                }
             }
         }
-        if !inside_unit
-            && !blocked_context
-            && parent == "changed_item_list"
-            && changed_item_entity(value).is_some()
-        {
-            let (entity, item) = changed_item_entity(value).expect("checked above");
-            found.push((entity, item, true));
-        }
-        let is_unit =
-            identifier(value, "unit_id").is_some() && candidate_at(value, ENTITIES[0], parent);
+        let is_unit = valid_identifier(value, "unit_id") && candidate_at(value, ENTITIES[0], parent);
         for (key, entry) in map {
-            visit(
-                entry,
-                key,
-                inside_unit || is_unit,
-                account_context,
-                blocked_context,
-                account_wizard_id,
-                claimed_mail_ids,
-                found,
-            );
+            let child_path = if path.is_empty() { key.clone() } else { format!("{path}.{key}") };
+            let edge = account_container(key)
+                || ENTITIES.iter().any(|entity| entity.direct.contains(&key.as_str()) || account_collection(key, *entity))
+                || (path.is_empty() && scope.battle_team && key == "battle_team")
+                || (scope.shrine_move && (child_path == "result_from" || child_path == "result_from.add_unit_list"))
+                || (matches!(parent, "changed_item_list" | "item_list" | "changed_item") && key == "info");
+            let root_allowed = !path.is_empty() || scope.live_request
+                || (scope.battle_team && matches!(key.as_str(), "battle_team" | "unit_list" | "unit_info"));
+            visit(entry, &child_path, key, inside_unit || is_unit,
+                authorized && edge && root_allowed, blocked, scope, found);
         }
     }
-    visit(
-        value,
-        parent,
-        inside_unit,
-        account_context,
-        blocked_context,
-        account_wizard_id,
-        claimed_mail_ids,
-        &mut found,
-    );
+    let mut found = LiveEntities::default();
+    let shrine_move = request.get("command").and_then(Value::as_str)
+        .is_some_and(|command| command.eq_ignore_ascii_case("MoveStorageFromTo"));
+    let battle_team = request.get("command").and_then(Value::as_str)
+        .is_some_and(|command| command.eq_ignore_ascii_case("battleGuildRivalStart"));
+    let scope = Scope { profile, claimed_mail_ids, shrine_move,
+        live_request: account_mutation_command(request), battle_team };
+    visit(value, "", "", false, true, false, &scope, &mut found);
     found
 }
 
@@ -1533,14 +1595,14 @@ fn claimed_mail_record(value: &Value, parent: &str, claimed_mail_ids: &[String])
 
 fn account_collection(parent: &str, entity: Entity) -> bool {
     match entity.collection {
-        "unit_list" => matches!(parent, "unit_list" | "units"),
+        "unit_list" => matches!(parent, "unit_list" | "units" | "mob_list"),
         "runes" => matches!(parent, "runes" | "rune_list"),
         "artifacts" => matches!(parent, "artifacts" | "artifact_list"),
         "relics" => matches!(parent, "relics" | "relic_list"),
         "rune_craft_item_list" => {
             matches!(
                 parent,
-                "rune_craft_item_list" | "craft_item_list" | "crafts"
+                "rune_craft_item_list" | "craft_item_list" | "crafts" | "runecraft_list"
             )
         }
         "artifact_crafts" => matches!(parent, "artifact_crafts" | "artifact_craft_list"),
@@ -1598,6 +1660,16 @@ fn non_account_container(parent: &str) -> bool {
             | "shop_item_list"
             | "shop_info"
             | "reward_item_list"
+            // Opened guild-boss crates retain old item records, including sold gear.
+            | "clear_reward_crate_list"
+            | "user_reward_info"
+            // These are displayed teams and previews, not live monster records.
+            | "my_unit_deck_list"
+            | "rift_dungeon_unit_list"
+            | "unit_preview"
+            // These collections have their own location-aware readers.
+            | "unit_storage_normal_list"
+            | "unit_storage_list"
             | "pass_reward_rune_info"
             | "event_list"
             | "webevent_list"
@@ -1668,17 +1740,17 @@ fn known_account_entity(profile: &Value, entity: Entity, item: &Value) -> bool {
         .and_then(|id| item_from_account(profile, entity, &id))
         .is_some()
 }
-fn trusted_account_entity(profile: &Value, entity: Entity, item: &Value, trusted: bool) -> bool {
-    if !trusted || !valid_identifier(item, entity.identifier) || !candidate(item, entity) {
+fn new_account_entity(profile: &Value, entity: Entity, item: &Value) -> bool {
+    if !valid_identifier(item, entity.identifier) || !candidate(item, entity) {
         return false;
     }
     let Some(account_wizard_id) = identifier(profile, "wizard_id") else {
         return true;
     };
     /* A unit is the one entity that can look perfectly valid while describing
-    somebody else's battle roster. Equipment already proves ownership by
-    being in an account reward or carrying the wizard id; a new unit must
-    do the same. Known units still follow the merge path above, so partial
+    somebody else's battle roster. The proven live path is enough for gear
+    without a wizard id; a new unit must also name this account. Known units
+    still follow the merge path above, so partial
     updates to a monster already in the account remain valid. */
     if entity.collection == "unit_list"
         && identifier(item, "wizard_id").as_deref() != Some(account_wizard_id.as_str())
@@ -1879,7 +1951,7 @@ fn sync_equipment_copies(profile: &mut Value, entity: Entity, item: &Value) -> b
     }
     changed
 }
-fn remove_response_entities(profile: &mut Value, response: &Value) -> bool {
+fn response_removals(response: &Value) -> Vec<(Entity, Vec<String>)> {
     let removals = [
         (
             ENTITIES[0],
@@ -1911,14 +1983,19 @@ fn remove_response_entities(profile: &mut Value, response: &Value) -> bool {
             ["remove_artifact_craft_id_list", "remove_artifact_craft_ids"].as_slice(),
         ),
     ];
-    let mut changed = false;
+    let mut found = Vec::new();
     for (entity, fields) in removals {
-        let ids = identifiers_in_fields(response, entity.identifier, fields);
+        let mut ids = Vec::new();
+        for field in fields {
+            if let Some(value) = response.get(*field) {
+                collect_identifier_values(value, entity.identifier, &mut ids);
+            }
+        }
         if !ids.is_empty() {
-            changed |= remove_everywhere(profile, entity, &ids);
+            found.push((entity, unique(ids)));
         }
     }
-    changed
+    found
 }
 fn remove_everywhere(profile: &mut Value, entity: Entity, ids: &[String]) -> bool {
     let mut changed = false;
@@ -3360,33 +3437,30 @@ mod tests {
     }
 
     #[test]
-    fn accepts_a_new_account_item_even_when_a_future_wrapper_name_is_used() {
-        let mut store = ProfileStore::default();
-        store.accept_snapshot(json!({
-            "wizard_id": 7,
-            "unit_list": [],
-            "runes": [],
-            "artifacts": [],
-            "relics": []
-        }));
-        assert!(store.apply_update(
-            &json!({
-                "future_reward_wrapper": {
-                    "rune_id": 14,
-                    "set_id": 13,
-                    "slot_no": 1,
-                    "wizard_id": 7
-                }
-            }),
-            &json!({"command": "FutureRewardCommand"})
-        ));
-        assert_eq!(
-            store.read().unwrap().data["runes"]
-                .as_array()
-                .unwrap()
-                .len(),
-            1
-        );
+    fn an_unknown_owned_record_stops_import_instead_of_guessing_ownership() {
+        for populated in [false, true] {
+            let mut store = ProfileStore::default();
+            let rune = json!({"rune_id": 14, "set_id": 13, "slot_no": 1,
+                "wizard_id": 7, "upgrade_curr": 12});
+            let mut snapshot = json!({"wizard_id": 7, "unit_list": [], "runes": [],
+                "artifacts": [], "relics": []});
+            if populated { snapshot["runes"] = json!([rune.clone()]); }
+            assert!(store.accept_snapshot(snapshot));
+            let before = store.read().unwrap();
+            for wrapper in [
+                json!({"future_reward_wrapper": rune}),
+                json!({"future_history": {"reward": {"crate": {"runes": [rune.clone()]}}}}),
+                json!({"future_history": {"changed_item_list": [{"type": 8, "info": rune}]}}),
+            ] {
+                let request = json!({"command": "FutureRewardCommand"});
+                assert!(store.unmodeled_exchange(&wrapper, &request).unwrap().contains("future_"));
+                assert!(!store.apply_update(&wrapper, &request));
+                assert!(store.take_declined().1.is_some());
+                let after = store.read().unwrap();
+                assert_eq!(after.data, before.data);
+                assert_eq!(after.revision, before.revision);
+            }
+        }
     }
 
     #[test]
@@ -3580,6 +3654,195 @@ mod tests {
 mod phantom_rune_regression {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn provenance_is_required_for_every_entity_and_every_existing_record() {
+        let records = [
+            json!({"unit_id": 11, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 1}),
+            json!({"rune_id": 12, "wizard_id": 7, "set_id": 13, "slot_no": 1, "upgrade_curr": 0}),
+            json!({"rid": 13, "wizard_id": 7, "slot": 1, "sec_effects": [], "level": 0}),
+            json!({"rid": 14, "wizard_id": 7, "sec_effect": [14, 150, 2], "durability": 10}),
+            json!({"craft_item_id": 15, "wizard_id": 7, "craft_type": 6, "amount": 1}),
+            json!({"rid": 16, "wizard_id": 7, "master_id": 2, "quantity": 1}),
+            json!({"rid": 17, "wizard_id": 7, "item_master_id": 61, "item_master_type": 61, "item_quantity": 1}),
+        ];
+        for populated in [false, true] {
+            for (entity, record) in ENTITIES.iter().zip(&records) {
+                let mut store = ProfileStore::default();
+                let mut snapshot = json!({"wizard_id": 7, "unit_list": [], "runes": [],
+                    "artifacts": [], "relics": [], "rune_craft_item_list": [],
+                    "artifact_crafts": [], "inventory_info": []});
+                if populated {
+                    let mut current = record.clone();
+                    let field = match entity.collection {
+                        "unit_list" => "unit_level", "runes" => "upgrade_curr",
+                        "artifacts" => "level", "relics" => "durability",
+                        "rune_craft_item_list" => "amount", "artifact_crafts" => "quantity",
+                        _ => "item_quantity",
+                    };
+                    current[field] = json!(15);
+                    snapshot[entity.collection] = json!([current]);
+                }
+                assert!(store.accept_snapshot(snapshot));
+                let before = store.read().unwrap();
+                let mut payload = json!({});
+                payload[entity.collection] = json!([record]);
+                // Neither an unknown request nor an unknown ancestor may authorise the record.
+                for (command, response) in [
+                    ("FutureNotification", payload.clone()),
+                    ("ReceiveMail", json!({"future_archive": payload})),
+                    ("ReceiveMail", json!({"future_archive": {"reward": {"crate": payload}}})),
+                ] {
+                    let request = json!({"command": command});
+                    assert!(store.unmodeled_exchange(&response, &request).is_some(), "{} {command}", entity.collection);
+                    assert!(!store.apply_update(&response, &request));
+                    assert_eq!(store.read().unwrap().data, before.data);
+                    assert_eq!(store.read().unwrap().revision, before.revision);
+                }
+                // The same record is usable through the supported action's current reward.
+                assert!(store.unmodeled_exchange(&json!({"reward": {"crate": payload}}),
+                    &json!({"command": "ReceiveMail"})).is_none());
+                store.apply_update(&json!({"reward": {"crate": payload}}), &json!({"command": "ReceiveMail"}));
+                assert_eq!(collection(&store.read().unwrap().data, entity.collection).len(), 1);
+                assert_eq!(collection(&store.read().unwrap().data, entity.collection)[0], *record);
+            }
+        }
+    }
+
+    #[test]
+    fn a_familiar_reward_shape_does_not_authorise_an_unknown_command() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": []})));
+        for response in [
+            json!({"changed_item_list": [{"type": 8, "info": {"rune_id": 5, "wizard_id": 7, "set_id": 13}}]}),
+            json!({"reward": {"crate": {"runes": [{"rune_id": 5, "wizard_id": 7, "set_id": 13}]}}}),
+            json!({"reward": {"crate": {"runes": [{"rune_id": 5, "set_id": 13}]}}}),
+        ] {
+            let request = json!({"command": "GetNewRewardHistory"});
+            assert!(store.unmodeled_exchange(&response, &request).is_some());
+            assert!(!store.apply_update(&response, &request));
+            assert!(collection(&store.read().unwrap().data, "runes").is_empty());
+        }
+    }
+
+    #[test]
+    fn incomplete_rewards_are_reported_and_known_partial_updates_are_kept() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": [],
+            "rune_craft_item_list": [{"craft_item_id": 3, "craft_type": 6, "amount": 5}]})));
+        let request = json!({"command": "ReceiveMail"});
+        for response in [
+            json!({"changed_item_list": [{"type": 8, "info": {"rune_id": 5}}]}),
+            json!({"runes": [{"rune_id": 5}]}),
+        ] {
+            assert!(store.unmodeled_exchange(&response, &request).unwrap().contains("Incomplete"));
+            assert!(!store.apply_update(&response, &request));
+            assert!(collection(&store.read().unwrap().data, "runes").is_empty());
+        }
+        assert!(store.apply_update(&json!({"rune_craft_item_list": [{"craft_item_id": 3, "amount": 2}]}), &request));
+        assert_eq!(store.read().unwrap().data["rune_craft_item_list"][0]["amount"], 2);
+        assert_eq!(store.read().unwrap().data["rune_craft_item_list"][0]["craft_type"], 6);
+    }
+
+    #[test]
+    fn unknown_actions_cannot_spend_or_remove_current_inventory() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7,
+            "unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "building_id": 0}],
+            "runes": [{"rune_id": 5, "set_id": 13}],
+            "rune_craft_item_list": [{"craft_item_id": 3, "craft_type": 6, "amount": 5}]})));
+        let before = store.read().unwrap().data;
+        for request in [
+            json!({"command": "GetSellRuneHistory", "rune_id_list": [5]}),
+            json!({"command": "FutureAmplifyRune", "rune_id": 5, "craft_item_id": 3}),
+            json!({"command": "FutureSacrificeUnit", "source_unit_list": [1]}),
+            json!({"command": "FutureMoveUnit", "building_id": 99, "unit_id": 1}),
+        ] {
+            assert!(store.unmodeled_exchange(&json!({"ret_code": 0}), &request).is_some());
+            assert!(!store.apply_update(&json!({"ret_code": 0}), &request));
+            assert_eq!(store.read().unwrap().data, before);
+        }
+        assert!(store.apply_update(&json!({"ret_code": 0}),
+            &json!({"command": "SellRune", "rune_id_list": [5]})));
+        assert!(collection(&store.read().unwrap().data, "runes").is_empty());
+    }
+
+    #[test]
+    fn removals_need_a_current_response_path_too() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [],
+            "runes": [{"rune_id": 5, "set_id": 13}]})));
+        let response = json!({"future_history": {"remove_rune_id_list": [5]}});
+        let request = json!({"command": "ReceiveMail"});
+        assert!(store.unmodeled_exchange(&response, &request).unwrap().contains("removal path"));
+        assert!(!store.apply_update(&response, &request));
+        assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 1);
+        assert!(store.apply_update(&json!({
+            "user_reward_info": {"remove_rune_id_list": [5]},
+            "runes": [{"rune_id": 6, "wizard_id": 7, "set_id": 13}]
+        }), &request));
+        assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 2);
+        assert!(store.apply_update(&json!({"remove_rune_id_list": [5]}), &request));
+        assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 1);
+        assert_eq!(store.read().unwrap().data["runes"][0]["rune_id"], 6);
+    }
+
+    #[test]
+    fn guild_boss_crate_history_cannot_restore_sold_runes() {
+        for populated in [false, true] {
+            let mut store = ProfileStore::default();
+            let rune = |id| json!({
+                "rune_id": id, "wizard_id": 7, "set_id": 13, "slot_no": 1,
+                "upgrade_curr": 0, "occupied_id": 0, "occupied_type": 2,
+                "prefix_eff": [1, 288], "pri_eff": [3, 22],
+                "sec_eff": [[9, 4], [2, 6], [10, 7]]
+            });
+            let mut snapshot = json!({
+                "wizard_id": 7, "unit_list": [], "runes": [],
+                "artifacts": [], "relics": [], "rune_craft_item_list": []
+            });
+            if populated {
+                snapshot["runes"] = json!([rune(51), rune(54)]);
+            }
+            assert!(store.accept_snapshot(snapshot));
+            if populated {
+                assert!(store.apply_update(
+                    &json!({"ret_code": 0}),
+                    &json!({"command": "SellRune", "rune_id_list": [54]})
+                ));
+                assert!(store.apply_update(
+                    &json!({"ret_code": 0, "rune": {"rune_id": 51, "upgrade_curr": 15}}),
+                    &json!({"command": "UpgradeRune_v2", "rune_id": 51})
+                ));
+            }
+            let before = store.read().unwrap();
+            // The login omits these sold runes; the guild's crate history repeats them.
+            let history = json!({"ret_code": 0, "clear_reward_crate_list": [{
+                "boss_seq": 1, "open_crate_count": 12, "total_crate_count": 12,
+                "week_num": 1, "reward_crate_list": [{"crate_index": 11,
+                    "reward_list": [
+                        {"changed_item": {"type": 8, "info": rune(51)}, "item_master_type": 8},
+                        {"changed_item": {"type": 8, "info": rune(54)}, "item_master_type": 8}
+                    ]
+                }]
+            }]});
+            for (command, response) in [
+                ("GetGuildDataAll", json!({"ret_code": 0, "GetGuildBossClearRewardCrateList": history})),
+                ("GetGuildBossClearRewardCrateList", history),
+            ] {
+                assert!(!store.apply_update(&response, &json!({"command": command})));
+                let after = store.read().unwrap();
+                assert_eq!(after.data, before.data);
+                assert_eq!(after.revision, before.revision);
+            }
+            assert!(store.apply_update(
+                &json!({"ret_code": 0, "changed_item_list": [{"type": 8, "info": rune(55)}]}),
+                &json!({"command": "ReceiveGuildBossClearReward"})
+            ));
+            assert!(collection(&store.read().unwrap().data, "runes")
+                .iter().any(|item| identifier(item, "rune_id").as_deref() == Some("55")));
+        }
+    }
 
     #[test]
     fn arena_reward_notification_cannot_replay_old_inventory() {

@@ -18,6 +18,7 @@
     "verify:deck-presets": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-deck-presets.mjs",
     "bump:helper": "node scripts/bump-helper-version.mjs",
     "release:helper": "node scripts/release-helper.mjs",
+    "audit:helper-replay": "cargo run --quiet --manifest-path helper/src-tauri/Cargo.toml --example replay_profile --",
     "test:e2e": "playwright test",
     "verify:library-layout": "node scripts/verify-library-layout.mjs",
     "verify:engraved-conversion-stones": "node scripts/verify-engraved-conversion-stones.mjs",

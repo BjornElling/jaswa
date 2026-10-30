@@ -108,6 +108,7 @@ const notShipped = new Set([
   'helper/scripts/verify-command-contract.mjs',
   'helper/scripts/verify-dashboard-flow.mjs',
   'helper/scripts/verify-installer-upgrade.mjs',
+  'helper/src-tauri/examples/replay_profile.rs',
 ]);
 const shouldFingerprint = tracked.filter((file) => !notShipped.has(file));
 const fingerprinted = new Set(fingerprintedFiles);
