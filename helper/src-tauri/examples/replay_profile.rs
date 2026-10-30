@@ -1,5 +1,5 @@
 //! Replay a local capture through the same import boundary as the running helper.
-//! Reports counts and unresolved paths without printing account records or requests.
+//! Reports counts and missed changes without printing account records or requests.
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use jaswa_helper::profile::ProfileStore;
 use jaswa_helper::protocol::{decode_request, decode_response};
@@ -93,12 +93,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 return Err("Invalid report baseline".into());
             }
             let before = counts(&store.read().unwrap().data);
-            if let Some(reason) = store.unmodeled_exchange(&response, &request) {
-                return Err(reason.into());
-            }
             store.apply_update(&response, &request);
-            if let Some(reason) = store.take_declined().1 {
-                return Err(reason.into());
+            let missed = store.take_declined().missed;
+            if !missed.is_empty() {
+                return Err(missed.join("; ").into());
             }
             println!(
                 "Incident replay: {:?} -> {:?} (roster, runes, artifacts, relics, craft stacks)",
@@ -168,16 +166,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 counts(&store.read().unwrap().data)
             );
         } else if store.read().is_some() {
-            if let Some(reason) = store.unmodeled_exchange(response, request) {
-                gaps += 1;
-                println!("UNRESOLVED line {} {command}: {reason}", index + 1);
-                // Continue the audit to find every gap; the live service pauses at the first.
-                continue;
-            }
             store.apply_update(response, request);
-            if let Some(reason) = store.take_declined().1 {
+            let missed = store.take_declined().missed;
+            if !missed.is_empty() {
                 gaps += 1;
-                println!("REFUSED line {} {command}: {reason}", index + 1);
+                println!("MISSED line {} {command}: {}", index + 1, missed.join("; "));
             }
             exchanges += 1;
         }
@@ -186,10 +179,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("No login in capture; nothing was replayed".into());
     }
     println!(
-        "Replayed {exchanges} exchanges after {logins} login(s); {gaps} unresolved exchanges."
+        "Replayed {exchanges} exchanges after {logins} login(s); {gaps} exchanges with missed changes."
     );
     if gaps != 0 {
-        return Err("Capture contains unresolved account exchanges".into());
+        return Err("Capture contains account changes JASWA missed".into());
     }
     finish(&store, expected_runes, write_profile)
 }

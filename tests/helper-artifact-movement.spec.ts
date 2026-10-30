@@ -44,7 +44,7 @@ test('a compound artifact move preserves inventory and the next live update', as
   const identity = () => ({ instanceId: 'artifact-move-helper', sessionId: 1, revision: current + 1 });
   await page.route('http://127.0.0.1:37654/health**', (route) => route.fulfill({ headers, json: {
     ...identity(), running: true, version: '99.0.0', profileReady: current >= 0,
-    lastError: null, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
+    missedChanges: [], lastError: null, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
   } }));
   await page.route('http://127.0.0.1:37654/profile', (route) => route.fulfill({ headers, json: {
     ...profiles[current], ...identity(), updatedAt: new Date().toISOString(),

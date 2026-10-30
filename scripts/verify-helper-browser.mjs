@@ -41,7 +41,7 @@ try {
       revision,
       sessionId: 1,
       instanceId: instance,
-      lastError: mode === 'capture-error' ? 'Capture failed. Save an error report, then restart Summoners War.' : null,
+      missedChanges: [], lastError: mode === 'capture-error' ? 'Capture failed. Save an error report, then restart Summoners War.' : null,
     }
       : mode === 'broken-profile' ? { invalid: true }
       : { updatedAt: '2026-09-06T12:00:00Z', revision, sessionId: 1, instanceId: instance, source: 'game-start', data };

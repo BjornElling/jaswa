@@ -7,80 +7,126 @@ What the helper's live route reads from the game's traffic. The counts it must
 keep equal to the game's, the zero-stack rule and the ownership rule are
 [Import and Count Parity Contract](./IMPORT-PARITY-CONTRACT.md) §2–§3.
 
-JASWA accepts a live record only when both its request and its complete response
-path establish a current account change. An identifier, a valid record shape,
-or the account's `wizard_id` proves neither freshness nor acquisition: historical
-awards carry all three. This boundary applies to every entity, including updates
-to existing records, so history cannot restore sold gear or undo upgrades.
+JASWA applies a live record only when both its request and its path from the
+root of the response establish a current account change. An identifier, a valid
+record shape, or the account's `wizard_id` proves neither freshness nor
+acquisition: historical awards carry all three. This boundary applies to every
+entity, including updates to existing records, so history cannot restore sold
+gear or undo upgrades.
 
-## One live-account boundary
+## Two passes: what is read, and what is missed
 
-`ProfileStore::live_entities` in `helper/src-tauri/src/profile.rs` is the one
-reader used by the service's capture-gap check and by the update itself.
+`helper/src-tauri/src/profile/live.rs` reads every exchange twice, and the two
+passes never share a decision.
+
+- **`read`** follows only the paths an answer uses to state the account as it
+  now is. What it reaches is applied; nothing else is.
+- **`unread`** looks everywhere else for this account's records. It applies
+  none of them. Each one it finds is a **missed change**: named in the
+  diagnostic log, kept as error-report evidence, and listed in `/health` as
+  `missedChanges` until the next login replaces the account.
+
+A missed change never stops capture. Every change before and after it is
+applied as usual. Until October 30, 2026 the two passes were one, and anything
+the reader could not place refused the whole exchange and paused live import
+until the next login. A repurchase list, dungeon enemies, a bulk power-up, two
+conversion answers and a bundled gear answer did that in one day, each costing
+every change after it. `AGENTS.md` §0.1 asks that a gap fail *loudly*; it does
+not ask that it take the rest of the session with it.
+
+The historical-reward safeguard is the reading rule, not a refusal. A guild-boss
+crate archive or an Arena reward notification sits on no path `read` follows,
+so its old runes cannot come back however it is wrapped. The tests that hold
+this (`guild_boss_crate_history_cannot_restore_sold_runes`,
+`arena_reward_notification_cannot_replay_old_inventory`) are unchanged.
+
+### What `read` follows
 
 1. `account_request` separates mutation families, current-account queries,
    ordinary queries, historical notifications and unknown requests. Mutation
    families follow their operation, not a closed list of content names: a new
-   dungeon result or a namespaced claim uses the same boundary. Current-state
-   queries may update response values; they never execute request-side sales,
-   craft consumption or movement. A query naming a rune is not a sale.
-2. Authority follows a continuous recognised path from the response root:
-   direct entity fields or their `_list` arrays, current `changed_item_list` / `item_list`
-   records, or the legacy `reward.crate` form. An unknown ancestor breaks that
-   chain. A familiar collection or `reward` below it never restarts authority.
-3. Only the root mail entries identified by a successful `ReceiveMail` request
-   are opened. The other inbox entries remain previews. Shrine movement and
-   battle-team records and the root `upgrade_rune_list` in `UpgradeRuneList`
-   have explicit, narrow paths; the shrine collections keep
-   their own location-aware readers.
-4. Known archives, previews, opponent records and `before_*` records are excluded
-   at their boundary. The exclusions describe understood non-account data;
-   they are not the permission model for everything else.
-5. An incidental copy of an entity also present on an authoritative current
-   path is ignored. The current record wins regardless of JSON key order;
-   the copy cannot overwrite it, count twice or stop a valid update.
-   A monster-shaped object outside a recognised account field needs a
-   `wizard_id` before it is treated as a possible account record. Battle-local
-   `unit_id` values and monster species are also used for NPCs and prove no
-   ownership, even when a local id happens to match an owned monster. This
-   applies across content names and wave wrappers, rather than adding a dungeon
-   exception. Recognised account fields and owned records on unknown paths
-   remain subject to the checks above.
-   An otherwise plausible additional account record on an unknown request or path refuses the
-   exchange whole and opens the existing visible capture gap. It is neither
-   imported speculatively nor silently skipped. The diagnostic names its path
-   and entity identifier, and the raw exchange remains available for modelling.
-6. A direct record marked `confirmed_…` or `…_confirmed`, including its list
-   form, is the committed state and wins over other copies of that identifier
-   regardless of field order. The same request and continuous-path checks still
-   apply. `before_…` and `…_before` are history. An `…_after` candidate does not
-   gain authority from its name: when a confirmed record is present it is an
-   incidental copy, never a second update. Conflicting confirmed records refuse
-   the exchange rather than choosing by JSON key order.
-7. Gear actions share one boundary for direct and compound answers. A root
-   gear-operation envelope (for example `UpdateArtifactOccupation` inside
-   `UpdateUnitEquip`) is opened only for a gear-moving request and with its
-   own explicit successful `ret_code`. Failed children are ignored. An unknown
-   ancestor still breaks authority. `updated_` collections use the same entity
-   vocabulary as ordinary collections; they do not need per-command exceptions.
-   Monster replacement lists are merged before individual gear records, so
-   an item just removed from a monster returns to inventory. The returned
-   gear's `occupied_id` applies its actual placement, including displaced gear;
-   request-side identifiers are read only for the named gear type, since an
-   artifact and a relic can share a `rid`.
+   dungeon result or a namespaced claim uses the same boundary. Only mutations
+   and current-state reads have root paths. A query naming a rune is not a sale.
+2. From the root, a path continues through direct entity fields and their
+   `_list` and `updated_` forms, `changed_item_list` / `item_list` records, and
+   the `reward` / `crate` containers. Any other key ends the path, so a familiar
+   collection or `reward` inside an unfamiliar wrapper never restarts it.
+3. A few commands add one named root envelope each, written beside the rule in
+   `Scope::root_edge`: the attacking team of `battleGuildRivalStart`, the root
+   `upgrade_rune_list` of `UpgradeRuneList`, `result_from` of a Shrine move,
+   and a bundled gear operation (for example `UpdateArtifactOccupation` inside
+   `UpdateUnitEquip`) with its own successful `ret_code`. Only the mail entries
+   a successful `ReceiveMail` names are opened; the rest of the inbox stays a
+   preview.
+4. A record marked `confirmed_…` or `…_confirmed`, including its list form, is
+   the committed state and replaces every plain copy of its identifier,
+   whatever the JSON key order. Two confirmed records that disagree are a
+   contradiction: none of that answer is applied, and it is a missed change.
+5. A monster record needs this account's `wizard_id` to be new to the account;
+   battle-local `unit_id` values and species prove no ownership. A new record
+   that does not have the shape of its entity is not applied and is a missed
+   change.
 
-The same request gate covers sales, material consumption, gear movement and
-building moves. Removal lists are read at the current response root, with
-explicit `result_from` / `result_to` envelopes for Shrine moves. An unknown
-nested removal path opens a capture gap; archive removal lists are ignored.
-Recursively finding a `remove_*` field is no longer enough to delete an item.
+### What neither pass reads
 
-The request classification is stated once beside this reader. The concrete rune
-and artifact actions and legacy/current reward paths were also checked against
-[SWEX's live-sync implementation](https://github.com/Xzandro/sw-exporter/blob/master/app/plugins/live-sync.js),
-including `ConfirmRune` and `UpdateArtifactOccupation`. This is a bounded
-protocol contract, not a claim that every future game command is known.
+Some containers are understood and are not current state. `read` never enters
+them and `unread` does not report them (`understood_elsewhere`):
 
+- `before_…` / `…_before`: the record as it was before the action.
+  `UpgradeArtifact_v2` answers with `artifact` at level 15 and `before_artifact`
+  at 12; merged in key order the account kept 12.
+- `after_…` / `…_after`: a candidate the player may still decline. Repeat
+  Conversion answers each `ConvertArtifactByPiece` with `artifact_after` and
+  the spent material, and commits the player's choice in a separate
+  `ConfirmArtifactConversion` answering with `artifact` (captured October 30,
+  2026). `ConvertArtifactByCraft` answers with a `…_confirmed` record beside it.
+- `…_repurchase_list`: items already sold, offered back.
+- `clear_reward_crate_list`: opened guild-boss crates, including sold runes.
+- Opponent, helper, friend, NPC, defense, ranking and World Arena containers,
+  shop and market lists, previews, deck lists, and the Sealed Shrine lists,
+  which have location-aware readers of their own.
+
+`getServerArenaRewardInfoForNoti_v2` is ignored as a whole: repeating old
+awards is all it does. Every other command, queries included, is looked through
+by `unread`, because a query showing a rune the account does not have is
+evidence of a change JASWA missed.
+
+### What `unread` reports
+
+- A record of this account outside the read paths that would change it: new to
+  the account, or different from the account's copy. A copy identical to the
+  account's changes nothing and is not reported; a monster is compared without
+  its gear, since an answer may show it in a deck's gear.
+- A removal list anywhere but the root of a mutation or current-state read, or
+  a Shrine move's two envelopes.
+- An unknown command whose request acts on account items (a sale, conversion,
+  feeding, gear move or building move).
+
+Three answers that move monsters between places are set aside whole when they
+lack a half they need, because applying part of them would count a monster in
+two places or none: a Shrine move, `ConvertUnitToItem`, and a top-level
+Summoned list under a command not known to send one. So is an answer that would
+leave a rune or artifact on two monsters. These are missed changes too, and
+capture goes on.
+
+An unreadable answer to a mutation or current-state read is a missed change.
+An unreadable login is the one thing that stops capture: without it there is no
+account to update. The service uses the reader's request classification for
+this decision; auxiliary chat and service lookups are not account data.
+
+### Where a miss is said
+
+| Surface | What it shows |
+| --- | --- |
+| `/health` | `missedChanges`: `{command, reason}` per miss since the login, at most 50 |
+| Helper window | *Following your account, with a gap*, naming each command once |
+| JASWA, every page | *Live import has a gap* under the import badge, naming up to three commands |
+| Diagnostic log | `Missed part of <command>: <reason>` |
+| Error report | The first missed exchange and the account before it, for replay |
+
+The fix for a miss is a reader for its path, found in the saved report with
+`npm run audit:helper-replay`, never a wider rule that would also admit the
+archives above.
 ## Account data that is updated
 
 | Account data | Direct records | Reward records | Removal or movement |
@@ -129,8 +175,8 @@ it updates those stacks instead of replacing the tab. A stack left at quantity
 zero is removed.
 
 Any other side, a known side answered without the fields above, gear coming
-off with the seal, or sealing a monster that still carries gear opens a
-capture gap and pauses live import.
+off with the seal, or sealing a monster that still carries gear is set aside
+whole as a missed change. Capture goes on.
 
 ## What the diagnostic log says
 
@@ -211,11 +257,6 @@ model does not know this command yet" read differently.
 The raw traffic log remains the diagnostic record for a response shape that
 the current model cannot identify. It is never converted into a guessed item.
 
-An unreadable answer to a recognised account mutation or current-state read is
-a capture gap, even when it is not a login. The service uses the account
-reader's request classification for this decision. Auxiliary chat/service
-lookups remain separate; their different envelopes cannot invalidate an account.
-
 ## Verification
 
 `cargo test --manifest-path helper/src-tauri/Cargo.toml` covers all seven entity
@@ -224,20 +265,21 @@ containing familiar reward paths, genuine acquisitions, selective mail claims,
 failed actions and the observed guild-boss and Arena reward archives. It also
 covers empty/single/100-rune sales with repurchase history, artifact and craft
 sales, current-state reads, direct-record arrays, namespaced mutation families
-and incidental mirrors. A service-level encrypted exchange test confirms that
-a sale does not latch an incident and block the next reward.
+and incidental mirrors. Service-level encrypted exchange tests confirm that an
+unreadable answer to each kind of account command is a missed change, that the
+next reward still arrives after it, and that a login clears the list.
 
 `npm run audit:helper-replay -- <traffic.log-or-error-report.json> [expected-rune-count]`
 replays a personal capture through the actual Rust account model. A traffic log
 begins at a recorded login; an error report begins at its saved account and
 decodes the failed exchange with the helper's own protocol reader. The audit
-reports unresolved exchanges and final counts, and fails on gaps, an unexpected
+reports missed changes and final counts, and fails on a miss, an unexpected
 rune count, or a sold rune remaining after an incident replay. Earlier traffic
 is not replayed without a baseline. `--write-profile <path>` optionally saves
 the replayed snapshot locally. Raw requests and records are never printed.
 
 The October 30 capture's fresh login contains 1,661 runes. Replaying the guild
-metadata and subsequent live responses keeps 1,661, without unresolved paths;
+metadata and subsequent live responses keeps 1,661, without missed changes;
 the previous helper restored three archived runes and reported 1,664.
 This proves the captured session, not every unrecorded activity in the game.
 `npm run audit:import-parity` separately checks that the application's import
@@ -286,8 +328,24 @@ through browser polling. It checks the empty workspace, all four fixture
 artifacts before and after movement, unchanged row bounds and the next artifact
 reward. A local browser replay of the private report also renders all 804
 artifacts before and after the move, with every row's bounds unchanged. All
-seven saved error reports replay without unresolved exchanges; the sale report
+seven saved error reports replay without missed changes; the sale report
 still removes all 100 sold runes.
+
+The eighth report, from Repeat Conversion, stopped on
+`ConvertArtifactByPiece.artifact_after`, and the same session stopped on it
+again with the first of thirty conversions. It was the occasion for separating
+`read` from `unread` instead of adding an eighth path. Before the change, each of
+the seven earlier reports was replayed and its account saved; after it, every
+one replays to an account identical field for field, and none reports a miss.
+The eighth replays without a miss too. A traffic recording of the evening's
+Repeat Conversion (one login baseline, 69 exchanges, thirty
+`ConvertArtifactByPiece` / `ConfirmArtifactConversion` pairs) replays without a
+miss; the artifact ends equal to the last confirmation and the material
+quantity equal to the last conversion. The fixture
+`repeat_conversion_reads_the_confirmation_and_never_the_candidate` holds that
+shape for an engraved and an unengraved artifact, with zero, one and ten
+attempts, and `a_missed_change_is_named_and_never_stops_the_next_one` holds the
+structural promise itself.
 
 [SWEX review](./SWEX-REVIEW.md) records the external sources, existing safeguards
 and remaining evidence gaps. A logger displaying a reroll candidate is not proof

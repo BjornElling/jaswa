@@ -13,6 +13,8 @@ type Status = {
   lastError: string | null;
   source: string | null;
   updatedAt: string | null;
+  /** Changes the game made that the snapshot does not carry, since the last login. */
+  missedChanges: { command: string; reason: string }[];
 };
 
 type Traffic = {
@@ -34,7 +36,17 @@ function validDashboard(value: unknown): value is Dashboard {
     && [status.hasProfile, status.profileReady, status.restartRequired, status.gameStartedBeforeHelper, status.gameLoginPending, traffic.enabled, traffic.recorded, traffic.full].every((entry) => typeof entry === 'boolean')
     && [status.lastError, status.source, status.updatedAt, traffic.lastError].every(text)
     && (status.updateVersion === null || (typeof status.updateVersion === 'string' && /^\d+\.\d+\.\d+$/.test(status.updateVersion)))
+    && Array.isArray(status.missedChanges)
+    && status.missedChanges.every((miss: unknown) => Boolean(miss) && typeof miss === 'object'
+      && typeof (miss as { command?: unknown }).command === 'string'
+      && typeof (miss as { reason?: unknown }).reason === 'string')
     && Number.isSafeInteger(traffic.entries) && traffic.entries >= 0);
+}
+
+/** Each command once, in the order it was first missed; three named, the rest counted, as JASWA does. */
+function missedCommands(status: Pick<Status, 'missedChanges'>): string {
+  const commands = [...new Set(status.missedChanges.map((miss) => miss.command))];
+  return `${commands.slice(0, 3).join(', ')}${commands.length > 3 ? ` and ${commands.length - 3} more` : ''}`;
 }
 
 async function readStatus(): Promise<unknown> {
@@ -107,6 +119,16 @@ function reading(status: Status | null): Reading {
       label: 'Waiting',
       headline: 'Summoners War is connected',
       detail: 'The helper has not received an account login from this connection yet. It keeps waiting; if you are already in-game and this remains, save an error report.',
+    };
+  }
+  if (status.profileReady && status.missedChanges.length > 0) {
+    /* Capture goes on: a missed change costs itself, never the ones after it.
+       It is still a gap the user should know about, and only a login closes it. */
+    return {
+      state: 'warn',
+      label: 'Missed some',
+      headline: 'Following your account, with a gap',
+      detail: `The game sent changes the helper cannot read yet (${missedCommands(status)}). Everything else keeps arriving. Save an error report, then restart Summoners War when it suits you for a complete account.`,
     };
   }
   if (status.profileReady) {

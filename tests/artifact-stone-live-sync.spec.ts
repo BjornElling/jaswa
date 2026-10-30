@@ -16,7 +16,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
       const identity = { instanceId: 'artifact-stone-live', sessionId: 1, revision };
       const headers = { 'Access-Control-Allow-Origin': '*' };
       await route.fulfill({ headers, json: new URL(route.request().url()).pathname === '/health'
-        ? { ...identity, running: true, version: '99.0.0', profileReady: revision > 0, lastError: null,
+        ? { ...identity, running: true, version: '99.0.0', profileReady: revision > 0, missedChanges: [], lastError: null,
           restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false }
         : { ...identity, source: 'live', updatedAt: new Date().toISOString(), data: { ...account,
           artifact_crafts: [{ rid: 9, master_id: 101010005219, quantity: revision === 1 ? 1 : 0 }] } } });

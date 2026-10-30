@@ -3,6 +3,10 @@ use serde_json::{Map, Value};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
+mod live;
+use live::{AccountRequest, account_request};
+pub use live::requires_account_response;
+
 #[derive(Clone, Copy)]
 struct Entity {
     collection: &'static str,
@@ -63,7 +67,33 @@ pub struct Status {
     pub revision: u64,
     pub session_id: u64,
     pub instance_id: String,
+    pub missed_changes: Vec<MissedChange>,
 }
+
+/// A change the game made that this snapshot does not carry. It stands until
+/// the next login replaces the account, and never stops later changes arriving.
+#[derive(Clone, Serialize, PartialEq, Eq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MissedChange {
+    pub command: String,
+    pub reason: String,
+}
+
+/// What the last `apply_update` did not take as the account's.
+#[derive(Clone, Default)]
+pub struct Declined {
+    /// Monsters whose answer showed them in other gear; the account's was kept.
+    pub kept_gear: Vec<String>,
+    /// Changes the exchange made that were not applied, one sentence each.
+    pub missed: Vec<String>,
+    /// The published account as it stood before the exchange, kept only when
+    /// something was missed, so the miss can be replayed from an error report.
+    pub before: Option<Value>,
+}
+
+/* Enough to name every distinct command in a session; past it the list stops
+growing so a repeating miss cannot grow the status answer without bound. */
+const MISSED_CHANGES_KEPT: usize = 50;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -81,6 +111,7 @@ pub struct SwexExport {
     pub content: String,
 }
 
+#[derive(Clone)]
 pub struct ProfileStore {
     profile: Option<Value>,
     swex_snapshot: Option<Value>,
@@ -89,10 +120,8 @@ pub struct ProfileStore {
     revision: u64,
     session_id: u64,
     instance_id: String,
-    /* What the last `apply_update` declined, for the caller to log: monsters
-    whose answer showed them in a deck's gear, and an exchange refused whole. */
-    set_aside: Vec<String>,
-    refused: Option<String>,
+    missed_changes: Vec<MissedChange>,
+    declined: Declined,
 }
 
 impl Default for ProfileStore {
@@ -105,8 +134,8 @@ impl Default for ProfileStore {
             revision: 0,
             session_id: 0,
             instance_id: Uuid::new_v4().to_string(),
-            set_aside: Vec::new(),
-            refused: None,
+            missed_changes: Vec::new(),
+            declined: Declined::default(),
         }
     }
 }
@@ -117,6 +146,7 @@ impl ProfileStore {
         self.swex_snapshot = None;
         self.updated_at = None;
         self.source = None;
+        self.missed_changes.clear();
     }
 
     pub fn status(&self) -> Status {
@@ -127,7 +157,24 @@ impl ProfileStore {
             revision: self.revision,
             session_id: self.session_id,
             instance_id: self.instance_id.clone(),
+            missed_changes: self.missed_changes.clone(),
         }
+    }
+
+    /// Records a change the game made that the snapshot does not carry, for
+    /// an exchange the account reader never saw (an unreadable answer).
+    pub fn note_missed(&mut self, command: &str, reason: &str) {
+        if self.profile.is_some() && self.missed_changes.len() < MISSED_CHANGES_KEPT {
+            self.missed_changes.push(MissedChange { command: command.to_owned(), reason: reason.to_owned() });
+        }
+    }
+
+    fn miss(&mut self, command: &str, reason: String) {
+        if self.declined.before.is_none() {
+            self.declined.before = self.read().and_then(|profile| serde_json::to_value(profile).ok());
+        }
+        self.note_missed(command, &reason);
+        self.declined.missed.push(reason);
     }
 
     pub fn read(&self) -> Option<PublishedProfile> {
@@ -286,6 +333,7 @@ impl ProfileStore {
         );
         self.profile = Some(Value::Object(normalized));
         self.swex_snapshot = Some(snapshot);
+        self.missed_changes.clear();
         self.updated_at = Some(now());
         self.source = Some("game-start".into());
         self.session_id += 1;
@@ -293,51 +341,28 @@ impl ProfileStore {
         true
     }
 
-    /// Names an exchange the account model cannot apply faithfully, so the
-    /// caller can stop live import instead of letting the account drift.
-    pub fn unmodeled_exchange(&self, response: &Value, request: &Value) -> Option<String> {
-        if account_request(request) == AccountRequest::History {
-            return None;
-        }
-        unmodeled_shrine_move(self.profile.as_ref(), request, response)
-            .or_else(|| unmodeled_unit_conversion(self.profile.as_ref(), request, response))
-            .or_else(|| unmodeled_summoned_stacks(request, response))
-            .or_else(|| self.live_entities(response, request).unresolved)
+    /// What the last `apply_update` did not take as the account's.
+    pub fn take_declined(&mut self) -> Declined {
+        std::mem::take(&mut self.declined)
     }
 
-    fn live_entities(&self, response: &Value, request: &Value) -> LiveEntities {
-        if self.profile.is_none() || rta_command(request) || !successful_response(response) {
-            return LiveEntities::default();
-        }
-        let mut entities = response_entities(response, request, self.profile.as_ref().expect("checked above"), &mail_claim_ids(request));
-        let command = request.get("command").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase();
-        let action = gear_moving_command(&command) || command.contains("sell")
-            || command.contains("amplify") || command.contains("convert") || command.contains("sacrifice")
-            || request.get("building_id").is_some();
-        let named_items = ENTITIES.iter().any(|entity| !request_entity_identifiers(request, *entity).is_empty());
-        let kind = account_request(request);
-        if (kind == AccountRequest::Unknown && action && named_items)
-            || (!kind.reads_current() && kind != AccountRequest::History && !response_removals(response).is_empty())
-        {
-            entities.unresolved.get_or_insert_with(|| format!(
-                "Unrecognised account mutation {command}. Live import is paused until this request is understood."
-            ));
-        }
-        entities
+    /// What applying this exchange would miss, without applying it.
+    #[cfg(test)]
+    fn missed_by(&self, response: &Value, request: &Value) -> Option<String> {
+        let mut probe = self.clone();
+        probe.apply_update(response, request);
+        let missed = probe.take_declined().missed;
+        (!missed.is_empty()).then(|| missed.join("; "))
     }
 
-    /// What the last `apply_update` declined: the monsters whose gear it kept
-    /// as the account had it, and the reason it refused the exchange, if it did.
-    pub fn take_declined(&mut self) -> (Vec<String>, Option<String>) {
-        (std::mem::take(&mut self.set_aside), self.refused.take())
-    }
-
+    /// Applies what one exchange says about the account and reports, through
+    /// `take_declined`, what it carried that was not applied. Nothing here
+    /// stops the next exchange: a miss costs the change it names, never the
+    /// ones after it.
     pub fn apply_update(&mut self, response: &Value, request: &Value) -> bool {
-        let command = request
-            .get("command")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_ascii_lowercase();
+        self.declined = Declined::default();
+        let command_name = request.get("command").and_then(Value::as_str).unwrap_or("").to_owned();
+        let command = command_name.to_ascii_lowercase();
         if self.profile.is_none()
             || !response.is_object()
             || rta_command(request)
@@ -346,18 +371,29 @@ impl ProfileStore {
         {
             return false;
         }
-        self.set_aside.clear();
-        self.refused = None;
-        let mut profile = self.profile.clone().expect("checked above");
-        let mut changed = false;
-        let mutation = account_mutation_command(request);
-        let moves_gear = mutation && gear_moving_command(&command);
-        let entities = self.live_entities(response, request);
-        if let Some(reason) = entities.unresolved {
-            self.refused = Some(reason);
+        /* These three answers move monsters between places. Read in part they
+        would count a monster in two places or in none, so an answer missing
+        one of the halves they need is set aside whole. */
+        if let Some(reason) = unmodeled_shrine_move(self.profile.as_ref(), request, response)
+            .or_else(|| unmodeled_unit_conversion(self.profile.as_ref(), request, response))
+            .or_else(|| unmodeled_summoned_stacks(request, response))
+        {
+            self.miss(&command_name, reason);
             return false;
         }
-        let mut response_items = entities.records;
+        let reading = live::read(self.profile.as_ref().expect("checked above"), request, response);
+        if let Some(reason) = reading.contradiction {
+            self.miss(&command_name, format!("its answer holds {reason}, so none of it was applied"));
+            return false;
+        }
+        for reason in reading.missed {
+            self.miss(&command_name, reason);
+        }
+        let mut profile = self.profile.clone().expect("checked above");
+        let mut changed = false;
+        let mutation = account_request(request) == AccountRequest::Mutation;
+        let moves_gear = mutation && gear_moving_command(&command);
+        let mut response_items = reading.records;
         // A monster's replacement gear list may omit an item just taken off.
         // Read those lists first, so the item's own record can return to inventory.
         response_items.sort_by_key(|(entity, _)| entity.collection != "unit_list");
@@ -382,7 +418,7 @@ impl ProfileStore {
             let item = if entity.collection == "unit_list" && !moves_gear {
                 let (record, set_aside) = with_scenario_gear(&profile, item);
                 if set_aside {
-                    self.set_aside.extend(identifier(item, "unit_id"));
+                    self.declined.kept_gear.extend(identifier(item, "unit_id"));
                 }
                 scenario = record;
                 &scenario
@@ -612,12 +648,11 @@ impl ProfileStore {
         reads correctly yet: an account carrying one rune or artifact on two
         monsters is one JASWA must refuse, and every later revision would be
         refused with it. Keeping the account as it stood leaves live import
-        running; the caller names the exchange so the shape can be modelled. */
+        running, and the miss names the exchange so its shape can be modelled. */
         if changed && self.profile.as_ref().and_then(contradiction).is_none() {
             if let Some(reason) = contradiction(&profile) {
-                self.refused = Some(format!(
-                    "{} would have left the account with {reason}; the account was kept as it stood.",
-                    request.get("command").and_then(Value::as_str).unwrap_or("An exchange")
+                self.miss(&command_name, format!(
+                    "it would have left the account with {reason}, so the account was kept as it stood"
                 ));
                 return false;
             }
@@ -1424,456 +1459,6 @@ fn candidate(value: &Value, entity: Entity) -> bool {
         _ => false,
     }
 }
-fn candidate_at(value: &Value, entity: Entity, parent: &str) -> bool {
-    if candidate(value, entity) {
-        return true;
-    }
-    match entity.collection {
-        "artifacts" if direct_record_field(parent, entity) => {
-            ["upgrade_curr", "occupied_id", "level", "locked"]
-                .iter()
-                .any(|key| value.get(*key).is_some())
-        }
-        "relics" if direct_record_field(parent, entity) => [
-            "upgrade_curr",
-            "occupied_id",
-            "level",
-            "locked",
-            "durability",
-        ]
-        .iter()
-        .any(|key| value.get(*key).is_some()),
-        _ => false,
-    }
-}
-#[derive(Default)]
-struct LiveEntities {
-    records: Vec<(Entity, Value)>,
-    confirmed_records: Vec<(Entity, Value)>,
-    unresolved: Option<String>,
-    mirrors: Vec<(String, Entity, String)>,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum AccountRequest {
-    Mutation,
-    CurrentState,
-    Query,
-    History,
-    Unknown,
-}
-
-impl AccountRequest {
-    fn reads_current(self) -> bool {
-        matches!(self, Self::Mutation | Self::CurrentState)
-    }
-}
-
-/* The request establishes intent; the response path still has to establish
-what changed. Content names do not define new protocols: a dungeon result,
-claim or monster power-up uses the same current-record boundary throughout. */
-fn account_request(request: &Value) -> AccountRequest {
-    let command = request.get("command").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase();
-    let base = command.rsplit_once("_v")
-        .filter(|(_, suffix)| !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()))
-        .map_or(command.as_str(), |(base, _)| base);
-    if base == "getserverarenarewardinfofornoti" {
-        return AccountRequest::History;
-    }
-    if matches!(base, "getunitstoragelist" | "getunitinfo") || base.starts_with("getwizarddata") {
-        return AccountRequest::CurrentState;
-    }
-    let verbs = [
-        "receive", "claim", "pick", "buy", "repurchase", "summon", "sell",
-        "upgrade", "awaken", "evolve", "evolution", "fuse", "fusion", "sacrifice",
-        "convert", "amplify", "confirm", "craft", "create", "breakdown",
-        "disassemble", "equip", "unequip",
-    ];
-    if (base.starts_with("battle") && base.ends_with("result"))
-        || matches!(base, "arenabattleresult" | "moveunitbuilding" | "movestoragefromto"
-            | "dorandomwishitem" | "getupdateddataafterwebevent")
-        || (base.starts_with("update") && gear_moving_command(base))
-    {
-        AccountRequest::Mutation
-    } else {
-        // Namespaces such as collabo_ do not turn the same claim into a new protocol.
-        // The first operation wins: get_sell_history is a query, never a sale.
-        for part in base.split('_') {
-            if ["get", "check", "list", "query", "preview", "notify"].iter().any(|verb| part.starts_with(verb)) {
-                return AccountRequest::Query;
-            }
-            if verbs.iter().any(|verb| part.starts_with(verb)) {
-                return AccountRequest::Mutation;
-            }
-        }
-        AccountRequest::Unknown
-    }
-}
-
-fn account_mutation_command(request: &Value) -> bool {
-    account_request(request) == AccountRequest::Mutation
-}
-
-/// An unreadable answer to a known account operation is a capture gap, not
-/// auxiliary traffic. The service and the merger must use the same boundary.
-pub fn requires_account_response(request: &Value) -> bool {
-    account_request(request).reads_current()
-}
-
-/* Ownership is not freshness: archives carry valid ids and this account's
-wizard id too. Only a continuous, recognised path from the response root may
-supply live records. An unknown wrapper cannot grant authority to its children. */
-fn response_entities(value: &Value, request: &Value, profile: &Value, claimed_mail_ids: &[String]) -> LiveEntities {
-    struct Scope<'a> {
-        profile: &'a Value,
-        claimed_mail_ids: &'a [String],
-        shrine_move: bool,
-        live_request: bool,
-        battle_team: bool,
-        bulk_rune_upgrade: bool,
-        moves_gear: bool,
-    }
-    fn visit(
-        value: &Value,
-        path: &str,
-        parent: &str,
-        inside_unit: bool,
-        authorized: bool,
-        blocked: bool,
-        scope: &Scope<'_>,
-        found: &mut LiveEntities,
-    ) {
-        if let Value::Array(entries) = value {
-            for entry in entries {
-                visit(entry, path, parent, inside_unit, authorized, blocked,
-                    scope, found);
-            }
-            return;
-        }
-        let Some(map) = value.as_object() else { return; };
-        let claimed_mail = !path.contains('.')
-            && claimed_mail_record(value, parent, scope.claimed_mail_ids);
-        let blocked = if claimed_mail { false } else {
-            blocked || non_account_container(parent)
-                || superseded_record(parent) || departed_record(parent)
-        };
-        let authorized = authorized || claimed_mail;
-        let removal_path = path.is_empty()
-            || (scope.shrine_move && matches!(path, "result_from" | "result_to"));
-        if !blocked && !removal_path && !response_removals(value).is_empty() {
-            found.unresolved.get_or_insert_with(|| format!(
-                "Unrecognised account-removal path {path}. Live import is paused until this response is understood."
-            ));
-        }
-        let account_wizard_id = identifier(scope.profile, "wizard_id");
-        let belongs_elsewhere = account_wizard_id.as_ref().is_some_and(|account| {
-            identifier(value, "wizard_id").is_some_and(|wizard| wizard != *account)
-        });
-        if !inside_unit && !blocked && !belongs_elsewhere {
-            for entity in ENTITIES {
-                let named_record = direct_record_field(parent, entity) || account_collection(parent, entity);
-                if !valid_identifier(value, entity.identifier)
-                    || !(candidate_at(value, entity, parent) || named_record) {
-                    continue;
-                }
-                if authorized && (!path.is_empty() || scope.live_request) {
-                    if known_account_entity(scope.profile, entity, value)
-                        || new_account_entity(scope.profile, entity, value) {
-                        if confirmed_record_field(parent).is_some() {
-                            found.confirmed_records.push((entity, value.clone()));
-                        } else {
-                            found.records.push((entity, value.clone()));
-                        }
-                    } else {
-                        found.unresolved.get_or_insert_with(|| format!(
-                            "Incomplete new account record at {path} ({} {}). Live import is paused.",
-                            entity.collection, identifier(value, entity.identifier).unwrap_or_default()
-                        ));
-                    }
-                } else if named_record || entity.collection != "unit_list"
-                    || identifier(value, "wizard_id").is_some()
-                {
-                    // Combatants also carry unit_id and unit_master_id. Outside
-                    // an account field, shape alone cannot make an NPC ours.
-                    found.mirrors.push((path.to_owned(), entity,
-                        identifier(value, entity.identifier).unwrap_or_default()));
-                }
-            }
-            if matches!(parent, "changed_item_list" | "item_list") {
-                if let Some((entity, item)) = changed_item_entity(value) {
-                    let foreign = account_wizard_id.as_ref().is_some_and(|account| {
-                        identifier(&item, "wizard_id").is_some_and(|wizard| wizard != *account)
-                    });
-                    if !foreign {
-                        if authorized {
-                            if known_account_entity(scope.profile, entity, &item)
-                                || new_account_entity(scope.profile, entity, &item) {
-                                found.records.push((entity, item));
-                            } else {
-                                found.unresolved.get_or_insert_with(|| format!(
-                                    "Incomplete new reward at {path} ({} {}). Live import is paused.",
-                                    entity.collection, identifier(&item, entity.identifier).unwrap_or_default()
-                                ));
-                            }
-                        } else {
-                            found.mirrors.push((path.to_owned(), entity,
-                                identifier(&item, entity.identifier).unwrap_or_default()));
-                        }
-                    }
-                }
-            }
-        }
-        let is_unit = valid_identifier(value, "unit_id") && candidate_at(value, ENTITIES[0], parent);
-        for (key, entry) in map {
-            let child_path = if path.is_empty() { key.clone() } else { format!("{path}.{key}") };
-            // The game bundles gear operations under their command names.
-            // Their own result code governs the child, not the outer success.
-            let gear_operation = path.is_empty() && scope.moves_gear
-                && gear_moving_command(&key.to_ascii_lowercase())
-                && account_request(&serde_json::json!({"command": key})).reads_current()
-                && entry.get("ret_code").is_some();
-            let edge = gear_operation
-                || (scope.bulk_rune_upgrade && path.is_empty() && key == "upgrade_rune_list")
-                || account_container(key)
-                || ENTITIES.iter().any(|entity| direct_record_field(key, *entity) || account_collection(key, *entity))
-                || (path.is_empty() && scope.battle_team && key == "battle_team")
-                || (scope.shrine_move && (child_path == "result_from" || child_path == "result_from.add_unit_list"))
-                || (matches!(parent, "changed_item_list" | "item_list" | "changed_item") && key == "info");
-            let root_allowed = !path.is_empty() || scope.live_request
-                || (scope.battle_team && matches!(key.as_str(), "battle_team" | "unit_list" | "unit_info"));
-            visit(entry, &child_path, key, inside_unit || is_unit,
-                authorized && edge && root_allowed,
-                blocked || (gear_operation && !successful_response(entry)), scope, found);
-        }
-    }
-    let mut found = LiveEntities::default();
-    if account_request(request) == AccountRequest::History {
-        return found;
-    }
-    let shrine_move = request.get("command").and_then(Value::as_str)
-        .is_some_and(|command| command.eq_ignore_ascii_case("MoveStorageFromTo"));
-    let battle_team = request.get("command").and_then(Value::as_str)
-        .is_some_and(|command| command.eq_ignore_ascii_case("battleGuildRivalStart"));
-    let bulk_rune_upgrade = request.get("command").and_then(Value::as_str)
-        .is_some_and(|command| command.eq_ignore_ascii_case("UpgradeRuneList"));
-    let scope = Scope { profile, claimed_mail_ids, shrine_move,
-        live_request: account_request(request).reads_current(), battle_team, bulk_rune_upgrade,
-        moves_gear: account_mutation_command(request) && request.get("command")
-            .and_then(Value::as_str).is_some_and(|command| gear_moving_command(&command.to_ascii_lowercase())) };
-    visit(value, "", "", false, true, false, &scope, &mut found);
-    // A confirmed record is the committed state, not another candidate to
-    // merge in JSON order. Acquisition still needs the same request and path.
-    let confirmed = std::mem::take(&mut found.confirmed_records);
-    let mut positions: std::collections::HashMap<_, usize> = std::collections::HashMap::new();
-    let mut committed: Vec<(Entity, Value)> = Vec::new();
-    for (entity, item) in confirmed {
-        let key = (entity.collection, identifier(&item, entity.identifier));
-        if let Some(&index) = positions.get(&key) {
-            let existing = &mut committed[index].1;
-            let conflict = item.as_object().is_some_and(|fields| fields.iter()
-                .any(|(key, value)| existing.get(key).is_some_and(|current| current != value)));
-            if conflict {
-                found.unresolved.get_or_insert_with(|| format!(
-                    "Conflicting confirmed {} records. Live import is paused.", entity.collection));
-            } else {
-                *existing = merge_record(Some(existing), item);
-            }
-        } else {
-            positions.insert(key, committed.len());
-            committed.push((entity, item));
-        }
-    }
-    found.records.retain(|(entity, item)| !positions.contains_key(
-        &(entity.collection, identifier(item, entity.identifier))));
-    found.records.extend(committed);
-    // A second view of an authoritative record is not another acquisition.
-    // Its contents never win, even when it precedes the current record in JSON.
-    let current_ids: std::collections::HashSet<_> = found.records.iter()
-        .map(|(entity, item)| (entity.collection, identifier(item, entity.identifier))).collect();
-    for (path, entity, id) in std::mem::take(&mut found.mirrors) {
-        if !current_ids.contains(&(entity.collection, Some(id.clone()))) {
-            found.unresolved.get_or_insert_with(|| format!(
-                "Unrecognised account-data path {path} ({} {id}). Live import is paused until this response is understood.",
-                entity.collection
-            ));
-        }
-    }
-    found
-}
-
-fn mail_claim_ids(request: &Value) -> Vec<String> {
-    let command = request
-        .get("command")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    if command != "receivemail" && command != "receivemail_v2" {
-        return Vec::new();
-    }
-    identifiers_in_fields(request, "mail_id", &["mail_id", "mail_id_list", "mail_ids"])
-}
-
-fn claimed_mail_record(value: &Value, parent: &str, claimed_mail_ids: &[String]) -> bool {
-    if claimed_mail_ids.is_empty() {
-        return false;
-    }
-    let parent = parent.to_ascii_lowercase();
-    if !matches!(
-        parent.as_str(),
-        "mail_list" | "mail_message_list" | "inventory_mail_info" | "mail_info_list"
-    ) {
-        return false;
-    }
-    identifier(value, "mail_id").is_some_and(|id| claimed_mail_ids.contains(&id))
-}
-
-fn confirmed_record_field(parent: &str) -> Option<&str> {
-    let parent = parent.strip_suffix("_list").unwrap_or(parent);
-    parent.strip_prefix("confirmed_").or_else(|| parent.strip_suffix("_confirmed"))
-}
-
-fn direct_record_field(parent: &str, entity: Entity) -> bool {
-    entity.direct.contains(&confirmed_record_field(parent).unwrap_or(parent))
-}
-
-fn account_collection(parent: &str, entity: Entity) -> bool {
-    let parent = parent.strip_prefix("updated_").unwrap_or(parent);
-    if parent.strip_suffix("_list").is_some_and(|name| direct_record_field(name, entity)) {
-        return true;
-    }
-    match entity.collection {
-        "unit_list" => matches!(parent, "unit_list" | "units" | "mob_list"),
-        "runes" => matches!(parent, "runes" | "rune_list"),
-        "artifacts" => matches!(parent, "artifacts" | "artifact_list"),
-        "relics" => matches!(parent, "relics" | "relic_list"),
-        "rune_craft_item_list" => {
-            matches!(
-                parent,
-                "rune_craft_item_list" | "craft_item_list" | "crafts" | "runecraft_list"
-            )
-        }
-        "artifact_crafts" => matches!(parent, "artifact_crafts" | "artifact_craft_list"),
-        "inventory_info" => matches!(parent, "inventory_info" | "inventory_item_list"),
-        _ => false,
-    }
-}
-
-fn account_container(parent: &str) -> bool {
-    matches!(
-        parent,
-        "changed_item_list" | "item_list" | "inventory_item_list" | "reward" | "crate"
-    )
-}
-
-/* The record as it was *before* the action the response is answering. It is
-this account's own record, which is exactly what makes it dangerous: it carries
-the same identifier, the same wizard id and a complete valid shape, so every
-ownership test passes and the merge writes it — after the new state, because the
-key sorts later. `UpgradeArtifact_v2` proved it: the response holds `artifact`
-at level 15 and `before_artifact` at level 12, and the account kept 12, so a
-refined artifact stayed marked unrefined however many times the snapshot
-refreshed. A "before" record is history, never account state. */
-fn superseded_record(parent: &str) -> bool {
-    let parent = parent.strip_suffix("_list").unwrap_or(parent);
-    parent.starts_with("before_") || parent.ends_with("_before")
-}
-
-/* A monster the game has just sealed into the Normal tab, answered in full so
-it can be filed there. Read as a roster record it put the monster straight back
-in the inventory it had left; `apply_shrine_move` files it instead. */
-fn departed_record(parent: &str) -> bool {
-    parent == "stored_unit_list"
-}
-
-/* These containers describe somebody else's account, a shop preview, or an
-unclaimed reward. Their nested records must never become owned inventory. */
-fn non_account_container(parent: &str) -> bool {
-    let parent = parent.to_ascii_lowercase();
-    if parent.starts_with("opp")
-        || parent.starts_with("enemy")
-        || parent.starts_with("helper")
-        || parent.starts_with("friend")
-        || parent.starts_with("npc")
-        || parent.starts_with("defense")
-        || parent.starts_with("temporary_defense")
-        || parent.contains("world_arena")
-        || parent.contains("ranking")
-    {
-        return true;
-    }
-    if parent.ends_with("_repurchase_list") {
-        return true;
-    }
-    matches!(
-        parent.as_str(),
-        "opp_unit_list"
-            | "market_list"
-            | "shop_item_list"
-            | "shop_info"
-            | "reward_item_list"
-            // Opened guild-boss crates retain old item records, including sold gear.
-            | "clear_reward_crate_list"
-            // These are displayed teams and previews, not live monster records.
-            | "my_unit_deck_list"
-            | "rift_dungeon_unit_list"
-            | "unit_preview"
-            // These collections have their own location-aware readers.
-            | "unit_storage_normal_list"
-            | "unit_storage_list"
-            | "pass_reward_rune_info"
-            | "event_list"
-            | "webevent_list"
-            | "mail_list"
-            | "mail_message_list"
-            | "mail_info_list"
-            | "inventory_mail_info"
-            | "npc_list"
-            | "arena_list"
-            | "world_ranking"
-            | "helper_list"
-            | "helper_info"
-            | "friend_list"
-            | "guild"
-            | "defense_deck_info"
-            | "server_arena_defense_deck_info"
-            | "temporary_defense_deck"
-            /* A saved deck names each monster by `unit_id` beside the runes it
-            carries in that deck. Read as a unit record it wrote the deck's
-            `rune_id_list` into the monster itself on every preset the player
-            saved; the deck is read whole in `apply_deck_list` instead. */
-            | "deck_info"
-            | "deck_list"
-            | "deck_recent_list"
-            | "equip"
-            | "world_arena_rune_equip_list"
-            | "world_arena_artifact_equip_list"
-    )
-}
-
-fn changed_item_entity(value: &Value) -> Option<(Entity, Value)> {
-    let info = value.get("info")?.clone();
-    let item_type = identifier(value, "type");
-    match item_type.as_deref() {
-        /* These are the stable item categories used by the game's V2 dungeon
-        reward payload. The shape fallback keeps relics and future equipment
-        categories readable without inventing a numeric type code. */
-        Some("8") if valid_identifier(&info, ENTITIES[1].identifier) => Some((ENTITIES[1], info)),
-        Some("73") if valid_identifier(&info, ENTITIES[2].identifier) => Some((ENTITIES[2], info)),
-        _ if valid_identifier(&info, ENTITIES[3].identifier)
-            && info.get("sec_effect").is_some()
-            && info.get("pri_effect").is_some() =>
-        {
-            Some((ENTITIES[3], info))
-        }
-        _ if valid_identifier(&info, ENTITIES[2].identifier)
-            && info.get("sec_effects").is_some()
-            && info.get("pri_effect").is_some() =>
-        {
-            Some((ENTITIES[2], info))
-        }
-        _ => None,
-    }
-}
 fn item_from_account<'a>(profile: &'a Value, entity: Entity, id: &str) -> Option<&'a Value> {
     collection(profile, entity.collection)
         .iter()
@@ -2470,9 +2055,9 @@ mod tests {
                     response[format!("updated_{}", entity.collection)] = json!(moved);
                     let response = if bundled { json!({"ret_code": 0, operation: response}) } else { response };
                     let request = json!({"command": if bundled { "UpdateUnitEquip" } else { operation }});
-                    assert!(store.unmodeled_exchange(&response, &request).is_none());
+                    assert!(store.missed_by(&response, &request).is_none());
                     assert_eq!(store.apply_update(&response, &request), count > 0);
-                    assert!(store.take_declined().1.is_none());
+                    assert!(store.take_declined().missed.is_empty());
                     let data = store.read().unwrap().data;
                     assert!(collection(&data["unit_list"][0], entity.collection).is_empty());
                     assert_eq!(collection(&data["unit_list"][1], entity.collection), moved);
@@ -2499,9 +2084,9 @@ mod tests {
                 {"unit_id": 1, "artifacts": [{"rid": 6, "slot": 1, "occupied_id": 1}]},
                 {"unit_id": 2, "artifacts": [{"rid": 5, "slot": 1, "occupied_id": 2}]}
             ]}, "EquipRuneList": {"ret_code": 1, "updated_runes": [{"rune_id": 999, "slot_no": 1}]}});
-        assert!(store.unmodeled_exchange(&response, &request).is_none());
+        assert!(store.missed_by(&response, &request).is_none());
         assert!(store.apply_update(&response, &request));
-        assert!(store.take_declined().1.is_none());
+        assert!(store.take_declined().missed.is_empty());
         let data = store.read().unwrap().data;
         assert_eq!(data["unit_list"][0]["artifacts"][0]["rid"], 6);
         assert_eq!(data["unit_list"][1]["artifacts"][0]["rid"], 5);
@@ -2509,14 +2094,14 @@ mod tests {
         assert!(collection(&data, "artifacts").is_empty());
         let failed = json!({"ret_code": 0, "UpdateArtifactOccupation": {"ret_code": 1,
             "updated_artifacts": [{"rid": 5, "slot": 1, "occupied_id": 1}]}});
-        assert!(store.unmodeled_exchange(&failed, &request).is_none());
+        assert!(store.missed_by(&failed, &request).is_none());
         assert!(!store.apply_update(&failed, &request));
         assert_eq!(store.read().unwrap().data, data);
         let removed = json!({"ret_code": 0, "UpdateArtifactOccupation": {"ret_code": 0,
             "updated_artifacts": [{"rid": 5, "slot": 0, "occupied_id": 0}],
             "updated_units": [{"unit_id": 2, "artifacts": []}]}});
         assert!(store.apply_update(&removed, &request));
-        assert!(store.take_declined().1.is_none());
+        assert!(store.take_declined().missed.is_empty());
         let data = store.read().unwrap().data;
         assert_eq!(data["artifacts"], json!([{"rid": 5, "slot": 0, "occupied_id": 0}]));
         assert!(collection(&data["unit_list"][1], "artifacts").is_empty());
@@ -2532,9 +2117,9 @@ mod tests {
             json!({"unknown": {"UpdateArtifactOccupation": operation}}),
             json!({"UpdateArtifactOccupation": {"updated_artifacts": [{"rid": 5, "slot": 1}]}}),
         ] {
-            assert!(store.unmodeled_exchange(&response, &json!({"command": "UpdateUnitEquip"})).is_some());
+            assert!(store.missed_by(&response, &json!({"command": "UpdateUnitEquip"})).is_some());
         }
-        assert!(store.unmodeled_exchange(&json!({"UpdateArtifactOccupation": operation}),
+        assert!(store.missed_by(&json!({"UpdateArtifactOccupation": operation}),
             &json!({"command": "GetMailList"})).is_some());
         assert!(!store.apply_update(&json!({"clear_reward_crate_list": [{"UpdateArtifactOccupation": operation}]}),
             &json!({"command": "UpdateUnitEquip"})));
@@ -2651,9 +2236,9 @@ mod tests {
             ]}}),
             &json!({"command": "battleGuildRivalStart"})
         ), "what the record says beyond its gear is still read");
-        let (set_aside, refused) = store.take_declined();
-        assert_eq!(set_aside, vec!["2".to_owned(), "1".to_owned()]);
-        assert_eq!(refused, None);
+        let declined = store.take_declined();
+        assert_eq!(declined.kept_gear, vec!["2".to_owned(), "1".to_owned()]);
+        assert!(declined.missed.is_empty());
         let data = store.read().unwrap().data;
         assert_eq!(data["unit_list"][0]["runes"], before["unit_list"][0]["runes"]);
         assert_eq!(data["unit_list"][0]["artifacts"], before["unit_list"][0]["artifacts"]);
@@ -2694,11 +2279,13 @@ mod tests {
             &json!({"ret_code": 0, "unit_info": {"unit_id": 2, "wizard_id": 7, "runes": [{"rune_id": 5, "occupied_id": 2, "slot_no": 1}]}}),
             &json!({"command": "EquipRune", "rune_id": 9, "unit_id": 2})
         ));
-        let (_, refused) = store.take_declined();
-        assert!(refused.is_some_and(|reason| reason.contains("EquipRune") && reason.contains("rune 5 on two monsters")));
+        let declined = store.take_declined();
+        assert!(declined.missed.iter().any(|reason| reason.contains("rune 5 on two monsters")));
+        assert_eq!(declined.before.unwrap()["data"], before.data, "the report keeps the account it can be replayed from");
         let after = store.read().unwrap();
         assert_eq!(after.data, before.data);
         assert_eq!(after.revision, before.revision);
+        assert_eq!(store.status().missed_changes[0].command, "EquipRune", "the miss stands on the status");
     }
 
     #[test]
@@ -2770,7 +2357,7 @@ mod tests {
             "stored_unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10615, "building_id": 0, "runes": [], "artifacts": []}],
             "unequip_artifact_list": [], "unequip_rune_list": [], "unit_id_list": [1]
         }});
-        assert_eq!(store.unmodeled_exchange(&seal, &seal_request), None);
+        assert_eq!(store.missed_by(&seal, &seal_request), None);
         assert!(store.apply_update(&seal, &seal_request));
         let data = &store.read().unwrap().data;
         assert_eq!(unit_ids(data, "unit_list"), vec!["2"]);
@@ -2781,7 +2368,7 @@ mod tests {
             "ret_code": 0,
             "add_unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10615, "building_id": 0, "runes": [], "artifacts": []}]
         }});
-        assert_eq!(store.unmodeled_exchange(&release, &release_request), None);
+        assert_eq!(store.missed_by(&release, &release_request), None);
         assert!(store.apply_update(&release, &release_request));
         let data = &store.read().unwrap().data;
         assert_eq!(unit_ids(data, "unit_list"), vec!["2", "1"]);
@@ -2797,7 +2384,7 @@ mod tests {
             "remove_unit_id_list": [2],
             "unit_storage_list": [{"class": 3, "quantity": 4, "unit_master_id": 22401}]
         }});
-        assert_eq!(store.unmodeled_exchange(&seal, &seal_request), None);
+        assert_eq!(store.missed_by(&seal, &seal_request), None);
         assert!(store.apply_update(&seal, &seal_request));
         let data = &store.read().unwrap().data;
         /* Gone from the roster, not filed as Storage. */
@@ -2811,7 +2398,7 @@ mod tests {
             "add_unit_list": [{"unit_id": 3, "wizard_id": 7, "unit_master_id": 22401, "building_id": 0, "runes": [], "artifacts": []}],
             "unit_storage_list": [{"class": 3, "quantity": 3, "unit_master_id": 22401}]
         }});
-        assert_eq!(store.unmodeled_exchange(&summon, &summon_request), None);
+        assert_eq!(store.missed_by(&summon, &summon_request), None);
         assert!(store.apply_update(&summon, &summon_request));
         let data = &store.read().unwrap().data;
         assert_eq!(unit_ids(data, "unit_list"), vec!["1", "3"]);
@@ -2838,22 +2425,22 @@ mod tests {
             json!({"command": "MoveStorageFromTo", "from": from, "to": to, "unit_id_list": [1]})
         };
         /* A side no captured exchange has used. */
-        assert!(store.unmodeled_exchange(&json!({"ret_code": 0}), &request(1, 2)).is_some());
-        assert!(store.unmodeled_exchange(&json!({"ret_code": 0}), &request(3, 4)).is_some());
+        assert!(store.missed_by(&json!({"ret_code": 0}), &request(1, 2)).is_some());
+        assert!(store.missed_by(&json!({"ret_code": 0}), &request(3, 4)).is_some());
         /* A known side answered in a shape it has not been seen to take. */
-        assert!(store.unmodeled_exchange(&json!({"ret_code": 0, "result_to": {}}), &request(1, 4)).is_some());
-        assert!(store.unmodeled_exchange(&json!({"ret_code": 0, "result_to": {}}), &request(1, 3)).is_some());
-        assert!(store.unmodeled_exchange(
+        assert!(store.missed_by(&json!({"ret_code": 0, "result_to": {}}), &request(1, 4)).is_some());
+        assert!(store.missed_by(&json!({"ret_code": 0, "result_to": {}}), &request(1, 3)).is_some());
+        assert!(store.missed_by(
             &json!({"ret_code": 0, "result_from": {"add_unit_list": [{"unit_id": 3, "unit_master_id": 22401}]}}),
             &request(3, 1)
         ).is_some());
         /* Equipment coming off with the seal. */
-        assert!(store.unmodeled_exchange(
+        assert!(store.missed_by(
             &json!({"ret_code": 0, "result_to": {"remove_unit_id_list": [1], "unequip_rune_list": [{"rune_id": 5}]}}),
             &request(1, 3)
         ).is_some());
         /* A failed move changes nothing and is not a gap. */
-        assert_eq!(store.unmodeled_exchange(&json!({"ret_code": 1}), &request(1, 2)), None);
+        assert_eq!(store.missed_by(&json!({"ret_code": 1}), &request(1, 2)), None);
     }
 
     #[test]
@@ -2864,7 +2451,7 @@ mod tests {
             "unit_list": [{"unit_id": 1, "wizard_id": 7, "runes": [{"rune_id": 5}]}],
             "runes": [{"rune_id": 5}]
         })));
-        assert!(store.unmodeled_exchange(
+        assert!(store.missed_by(
             &json!({"ret_code": 0, "result_to": {"remove_unit_id_list": [1], "unequip_rune_list": []}}),
             &json!({"command": "MoveStorageFromTo", "from": 1, "to": 3, "unit_id_list": [1]})
         ).is_some());
@@ -3023,7 +2610,7 @@ mod tests {
             "unit_storage_list": [],
             "inventory_item_list": []
         });
-        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert_eq!(store.missed_by(&response, &request), None);
         assert!(store.apply_update(&response, &request));
         let data = store.read().unwrap().data;
         assert_eq!(data["unit_storage_list"].as_array().unwrap().len(), 2);
@@ -3058,7 +2645,7 @@ mod tests {
                 "unit_storage_list": [{"unit_master_id": master, "quantity": quantity, "class": 3}]
             })
         };
-        assert_eq!(store.unmodeled_exchange(&answer(10101, 7), &feed(10101)), None);
+        assert_eq!(store.missed_by(&answer(10101, 7), &feed(10101)), None);
         assert!(store.apply_update(&answer(10101, 7), &feed(10101)));
         assert!(store.apply_update(&answer(10102, 0), &feed(10102)));
         let data = store.read().unwrap().data;
@@ -3070,13 +2657,16 @@ mod tests {
 
     /* What a list at the top of an answer means is shown by the game, one
     command at a time. A fed stack the answer leaves out, or a list under a
-    command never seen carrying one, stops live import instead. */
+    command never seen carrying one, sets the exchange aside as missed. */
     #[test]
-    fn an_unknown_summoned_list_stops_live_import() {
-        let store = ProfileStore::default();
+    fn an_unknown_summoned_list_is_missed_rather_than_guessed() {
+        let mut store = ProfileStore::default();
         let ok = json!({"ret_code": 0, "unit_storage_list": []});
+        let feed = json!({"command": "SacrificeUnit_V4", "source_storage_list": [{"unit_master_id": 10101, "quantity": 1}]});
+        assert_eq!(store.missed_by(&ok, &feed), None, "with no account there is nothing to miss");
+        assert!(store.accept_snapshot(json!({"unit_list": [], "runes": []})));
         assert!(store
-            .unmodeled_exchange(
+            .missed_by(
                 &ok,
                 &json!({
                     "command": "SacrificeUnit_V4",
@@ -3085,20 +2675,20 @@ mod tests {
             )
             .is_some());
         assert!(store
-            .unmodeled_exchange(
+            .missed_by(
                 &ok,
                 &json!({"command": "SacrificeUnit_V4", "source_storage_list": [{"quantity": 1}]})
             )
             .is_some());
         assert!(store
-            .unmodeled_exchange(&ok, &json!({"command": "ConvertUnitToItem", "unit_id_list": [{"unit_id": 1}]}))
+            .missed_by(&ok, &json!({"command": "ConvertUnitToItem", "unit_id_list": [{"unit_id": 1}]}))
             .is_some_and(|reason| reason.contains("Summoned")));
         assert_eq!(
-            store.unmodeled_exchange(&ok, &json!({"command": "getUnitStorageList"})),
+            store.missed_by(&ok, &json!({"command": "getUnitStorageList"})),
             None
         );
         assert_eq!(
-            store.unmodeled_exchange(&json!({"ret_code": 0}), &json!({"command": "SummonUnit"})),
+            store.missed_by(&json!({"ret_code": 0}), &json!({"command": "SummonUnit"})),
             None
         );
     }
@@ -3241,7 +2831,7 @@ mod tests {
             "unit_id_list": [{"unit_id": 1}, {"unit_id": 2}, {"unit_id": 4}]
         });
         let response = json!({"ret_code": 0, "inventory_item_list": []});
-        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert_eq!(store.missed_by(&response, &request), None);
         assert!(store.apply_update(&response, &request));
         let data = store.read().unwrap().data;
         let ids = |key: &str| {
@@ -3265,13 +2855,13 @@ mod tests {
         })));
         let ok = json!({"ret_code": 0});
         assert!(store
-            .unmodeled_exchange(&ok, &json!({"command": "ConvertUnitToItem", "item_id": 5}))
+            .missed_by(&ok, &json!({"command": "ConvertUnitToItem", "item_id": 5}))
             .is_some());
         assert!(store
-            .unmodeled_exchange(&ok, &json!({"command": "ConvertUnitToItem", "unit_id": 1}))
+            .missed_by(&ok, &json!({"command": "ConvertUnitToItem", "unit_id": 1}))
             .is_some());
         assert_eq!(
-            store.unmodeled_exchange(
+            store.missed_by(
                 &json!({"ret_code": 1}),
                 &json!({"command": "ConvertUnitToItem", "item_id": 5})
             ),
@@ -3687,25 +3277,31 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_owned_record_stops_import_instead_of_guessing_ownership() {
+    fn an_unknown_owned_record_is_missed_instead_of_guessing_ownership() {
         for populated in [false, true] {
             let mut store = ProfileStore::default();
+            let held = json!({"rune_id": 14, "set_id": 13, "slot_no": 1,
+                "wizard_id": 7, "upgrade_curr": 9});
             let rune = json!({"rune_id": 14, "set_id": 13, "slot_no": 1,
                 "wizard_id": 7, "upgrade_curr": 12});
             let mut snapshot = json!({"wizard_id": 7, "unit_list": [], "runes": [],
                 "artifacts": [], "relics": []});
-            if populated { snapshot["runes"] = json!([rune.clone()]); }
+            if populated { snapshot["runes"] = json!([held.clone()]); }
             assert!(store.accept_snapshot(snapshot));
             let before = store.read().unwrap();
+            if populated {
+                assert_eq!(store.missed_by(&json!({"future_reward_wrapper": held}), &json!({"command": "FutureRewardCommand"})), None,
+                    "a copy identical to the account's changes nothing and misses nothing");
+            }
             for wrapper in [
                 json!({"future_reward_wrapper": rune}),
                 json!({"future_history": {"reward": {"crate": {"runes": [rune.clone()]}}}}),
                 json!({"future_history": {"changed_item_list": [{"type": 8, "info": rune}]}}),
             ] {
                 let request = json!({"command": "FutureRewardCommand"});
-                assert!(store.unmodeled_exchange(&wrapper, &request).unwrap().contains("future_"));
+                assert!(store.missed_by(&wrapper, &request).unwrap().contains("future_"));
                 assert!(!store.apply_update(&wrapper, &request));
-                assert!(store.take_declined().1.is_some());
+                assert!(!store.take_declined().missed.is_empty());
                 let after = store.read().unwrap();
                 assert_eq!(after.data, before.data);
                 assert_eq!(after.revision, before.revision);
@@ -3911,18 +3507,18 @@ mod phantom_rune_regression {
         let request = json!({"command": "ConfirmArtifactConversion"});
         let response = json!({"ret_code": 0, "artifact_confirmed": {"rid": 1, "level": 15},
             "confirmed_artifact": {"rid": 1, "locked": 1}});
-        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert_eq!(store.missed_by(&response, &request), None);
         assert!(store.apply_update(&response, &request));
         assert_eq!(store.read().unwrap().data["artifacts"], json!([{"rid": 1, "slot": 1, "level": 15, "locked": 1}]));
         let before = store.read().unwrap();
         let missing_owner = json!({"unit": {"unit_id": 2, "unit_master_id": 10101}});
-        assert!(store.unmodeled_exchange(&missing_owner, &request).unwrap().contains("Incomplete"));
+        assert!(store.missed_by(&missing_owner, &request).unwrap().contains("incomplete"));
         assert!(!store.apply_update(&missing_owner, &request));
         assert_eq!(store.read().unwrap().data, before.data);
         for field in ["artifact", "artifact_confirmed", "confirmed_artifact"] {
             let mut response = json!({"ret_code": 0});
             response[field] = json!({"rid": 2, "level": 15});
-            assert!(store.unmodeled_exchange(&response, &request).unwrap().contains("Incomplete"));
+            assert!(store.missed_by(&response, &request).unwrap().contains("incomplete"));
             assert!(!store.apply_update(&response, &request));
             assert_eq!(store.read().unwrap().data, before.data);
             assert_eq!(store.read().unwrap().revision, before.revision);
@@ -3939,7 +3535,7 @@ mod phantom_rune_regression {
         let response = json!({"ret_code": 0, "rune_confirmed_list": current,
             "rune_before_list": candidates, "rune_after_list": candidates});
         let request = json!({"command": "ConfirmRune"});
-        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert_eq!(store.missed_by(&response, &request), None);
         assert!(store.apply_update(&response, &request));
         assert_eq!(store.read().unwrap().data["runes"], json!(current));
     }
@@ -3980,11 +3576,11 @@ mod phantom_rune_regression {
                         let name = if list { format!("{name}_list") } else { name };
                         response[name] = if list { json!([current.clone()]) } else { current.clone() };
                         let request = json!({"command": "ConvertArtifactByCraft"});
-                        assert_eq!(store.unmodeled_exchange(&response, &request), None, "{noun}");
+                        assert_eq!(store.missed_by(&response, &request), None, "{noun}");
                         assert!(store.apply_update(&response, &request), "{noun}");
                         assert_eq!(collection(&store.read().unwrap().data, entity.collection), &[current.clone()], "{noun}");
                         let before = store.read().unwrap().data;
-                        assert_eq!(store.unmodeled_exchange(&json!({"artifact_before": old}), &request), None);
+                        assert_eq!(store.missed_by(&json!({"artifact_before": old}), &request), None);
                         assert!(!store.apply_update(&json!({"artifact_before": old}), &request));
                         assert_eq!(store.read().unwrap().data, before);
                     }
@@ -4004,17 +3600,26 @@ mod phantom_rune_regression {
         for (command, response) in [
             ("ConvertArtifactByCraft", json!({"unknown_archive": {"artifact_confirmed": new}})),
             ("GetArtifactHistory", json!({"artifact_confirmed": new})),
-            ("ConvertArtifactByCraft", json!({"artifact_after": new})),
             ("ConvertArtifactByCraft", json!({"artifact_confirmed": new, "confirmed_artifact": old})),
-            ("ConvertArtifactByCraft", json!({"artifact_confirmed": new,
-                "artifact_after": {"rid": 2, "slot": 1, "level": 15}})),
         ] {
             let request = json!({"command": command});
-            assert!(store.unmodeled_exchange(&response, &request).is_some());
+            assert!(store.missed_by(&response, &request).is_some());
             assert!(!store.apply_update(&response, &request));
             assert_eq!(store.read().unwrap().data, before.data);
             assert_eq!(store.read().unwrap().revision, before.revision);
         }
+        /* A candidate is understood, not missed: the player may still decline
+        it, and the game commits it in a confirmation of its own. */
+        let request = json!({"command": "ConvertArtifactByPiece"});
+        let candidate = json!({"artifact_before": old, "artifact_after": new});
+        assert_eq!(store.missed_by(&candidate, &request), None);
+        assert!(!store.apply_update(&candidate, &request));
+        assert_eq!(store.read().unwrap().data, before.data);
+        let request = json!({"command": "ConvertArtifactByCraft"});
+        let committed = json!({"artifact_confirmed": new, "artifact_after": {"rid": 2, "slot": 1, "level": 15}});
+        assert_eq!(store.missed_by(&committed, &request), None);
+        assert!(store.apply_update(&committed, &request));
+        assert_eq!(store.read().unwrap().data["artifacts"], json!([new]), "only the committed record is read");
     }
 
     #[test]
@@ -4034,12 +3639,12 @@ mod phantom_rune_regression {
                     let mut response = json!({"ret_code": 0});
                     response[wrapper] = json!([[{"unit_id": 1, "unit_master_id": 999,
                         "unit_level": 50, "runes": [], "boss": 1}]]);
-                    assert_eq!(store.unmodeled_exchange(&response, &request), None);
+                    assert_eq!(store.missed_by(&response, &request), None);
                     store.apply_update(&response, &request);
                     assert_eq!(store.read().unwrap().data, before);
                     // An owned monster at an unknown path must still be diagnosed.
                     response[wrapper][0][0]["wizard_id"] = json!(7);
-                    assert!(store.unmodeled_exchange(&response, &request).is_some());
+                    assert!(store.missed_by(&response, &request).is_some());
                 }
             }
             let reward = json!({"changed_item_list": [{"type": 8,
@@ -4067,13 +3672,13 @@ mod phantom_rune_regression {
                     "rid": id + 1000, "wizard_id": 7, "delete_type": 1, "price": 100,
                     "essence_count": 0, "date_add": "2026-10-30 10:29:39", "rune": rune(*id)
                 })).collect::<Vec<_>>()});
-            assert_eq!(store.unmodeled_exchange(&response, &request), None);
+            assert_eq!(store.missed_by(&response, &request), None);
             assert_eq!(store.apply_update(&response, &request), count > 0);
             let data = store.read().unwrap().data;
             assert_eq!(collection(&data, "runes"), &[rune(count + 1)]);
             let reward = json!({"ret_code": 0, "changed_item_list": [{"type": 8, "info": rune(count + 2)}]});
             let request = json!({"command": "BattleDungeonResult_V2"});
-            assert_eq!(store.unmodeled_exchange(&reward, &request), None);
+            assert_eq!(store.missed_by(&reward, &request), None);
             assert!(store.apply_update(&reward, &request));
             assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 2);
         }
@@ -4101,7 +3706,7 @@ mod phantom_rune_regression {
             let mut store = ProfileStore::default();
             assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": []})));
             let request = json!({"command": command});
-            assert_eq!(store.unmodeled_exchange(&response, &request), None, "{command}");
+            assert_eq!(store.missed_by(&response, &request), None, "{command}");
             assert!(store.apply_update(&response, &request), "{command}");
             assert_eq!(collection(&store.read().unwrap().data, collection_name).len(), 1);
         }
@@ -4117,7 +3722,7 @@ mod phantom_rune_regression {
             let mut response = json!({"ret_code": 0});
             response[parent] = if parent.ends_with("list") { json!([unit]) } else { unit };
             let request = json!({"command": "SacrificeUnit_V4"});
-            assert_eq!(store.unmodeled_exchange(&response, &request), None, "{parent}");
+            assert_eq!(store.missed_by(&response, &request), None, "{parent}");
             assert!(store.apply_update(&response, &request), "{parent}");
             assert_eq!(store.read().unwrap().data["unit_list"][0]["unit_level"], 40);
         }
@@ -4134,7 +3739,7 @@ mod phantom_rune_regression {
         let response = json!({"ret_code": 0, "upgrade_rune_list": [rune(1, 9), rune(2, 9)],
             "upgrade_history_list": [{"rune_id": 1, "upgrade_history": {"primary": {"1": [100]}}}],
             "clear_reward_crate_list": [{"reward": {"crate": {"runes": [rune(3, 0)]}}}]} );
-        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert_eq!(store.missed_by(&response, &request), None);
         assert!(store.apply_update(&response, &request));
         let data = store.read().unwrap().data;
         assert_eq!(collection(&data, "runes"), &[rune(1, 9), rune(2, 9)]);
@@ -4144,7 +3749,7 @@ mod phantom_rune_regression {
             (json!({"command": "UpgradeRuneList"}), json!({"unknown": {"upgrade_rune_list": [rune(3, 0)]}})),
             (json!({"command": "GetRuneList"}), json!({"upgrade_rune_list": [rune(3, 0)]})),
         ] {
-            assert!(store.unmodeled_exchange(&response, &request).is_some());
+            assert!(store.missed_by(&response, &request).is_some());
             assert!(!store.apply_update(&response, &request));
             assert_eq!(collection(&store.read().unwrap().data, "runes"), &[rune(1, 9), rune(2, 9)]);
         }
@@ -4170,7 +3775,7 @@ mod phantom_rune_regression {
             let mut response = json!({"a_incidental_copy": stale, "z_incidental_copy": stale});
             response[entity.collection] = json!([record]);
             let request = json!({"command": "ReceiveMail"});
-            assert_eq!(store.unmodeled_exchange(&response, &request), None, "{}", entity.collection);
+            assert_eq!(store.missed_by(&response, &request), None, "{}", entity.collection);
             assert!(store.apply_update(&response, &request));
             assert_eq!(collection(&store.read().unwrap().data, entity.collection), &[record]);
         }
@@ -4184,7 +3789,7 @@ mod phantom_rune_regression {
         ], "runes": [{"rune_id": 5, "set_id": 13}]})));
         let request = json!({"command": "GetUnitInfo", "unit_id": 1, "building_id": 99});
         let response = json!({"unit_info_list": [{"unit_id": 1, "unit_level": 40}]});
-        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert_eq!(store.missed_by(&response, &request), None);
         assert!(store.apply_update(&response, &request));
         assert_eq!(store.read().unwrap().data["unit_list"][0]["unit_level"], 40);
         assert_eq!(store.read().unwrap().data["unit_list"][0]["building_id"], 0);
@@ -4206,7 +3811,7 @@ mod phantom_rune_regression {
         let response = json!({"artifact_info_list": [artifact(1)], "artifact_repurchase_list": [
             {"artifact": artifact(1)}, {"artifact": artifact(99)}
         ]});
-        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert_eq!(store.missed_by(&response, &request), None);
         assert!(store.apply_update(&response, &request));
         assert_eq!(collection(&store.read().unwrap().data, "artifacts"), &[artifact(2)]);
         assert_eq!(collection(&store.read().unwrap().data, "relics").len(), 1);
@@ -4215,7 +3820,7 @@ mod phantom_rune_regression {
         assert_eq!(store.read().unwrap().data["rune_craft_item_list"][0]["amount"], 3);
         let response = json!({"rune_repurchase_list": [{"rid": 11, "rune": rune}]});
         let request = json!({"command": "GetRuneRepurchaseList"});
-        assert_eq!(store.unmodeled_exchange(&response, &request), None);
+        assert_eq!(store.missed_by(&response, &request), None);
         assert!(!store.apply_update(&response, &request));
         assert!(collection(&store.read().unwrap().data, "runes").is_empty());
         assert!(store.apply_update(&json!({"rune": rune}),
@@ -4262,13 +3867,13 @@ mod phantom_rune_regression {
                     ("ReceiveMail", json!({"future_archive": {"reward": {"crate": payload}}})),
                 ] {
                     let request = json!({"command": command});
-                    assert!(store.unmodeled_exchange(&response, &request).is_some(), "{} {command}", entity.collection);
+                    assert!(store.missed_by(&response, &request).is_some(), "{} {command}", entity.collection);
                     assert!(!store.apply_update(&response, &request));
                     assert_eq!(store.read().unwrap().data, before.data);
                     assert_eq!(store.read().unwrap().revision, before.revision);
                 }
                 // The same record is usable through the supported action's current reward.
-                assert!(store.unmodeled_exchange(&json!({"reward": {"crate": payload}}),
+                assert!(store.missed_by(&json!({"reward": {"crate": payload}}),
                     &json!({"command": "ReceiveMail"})).is_none());
                 store.apply_update(&json!({"reward": {"crate": payload}}), &json!({"command": "ReceiveMail"}));
                 assert_eq!(collection(&store.read().unwrap().data, entity.collection).len(), 1);
@@ -4287,7 +3892,7 @@ mod phantom_rune_regression {
             json!({"reward": {"crate": {"runes": [{"rune_id": 5, "set_id": 13}]}}}),
         ] {
             let request = json!({"command": "GetNewRewardHistory"});
-            assert!(store.unmodeled_exchange(&response, &request).is_some());
+            assert!(store.missed_by(&response, &request).is_some());
             assert!(!store.apply_update(&response, &request));
             assert!(collection(&store.read().unwrap().data, "runes").is_empty());
         }
@@ -4303,7 +3908,7 @@ mod phantom_rune_regression {
             json!({"changed_item_list": [{"type": 8, "info": {"rune_id": 5}}]}),
             json!({"runes": [{"rune_id": 5}]}),
         ] {
-            assert!(store.unmodeled_exchange(&response, &request).unwrap().contains("Incomplete"));
+            assert!(store.missed_by(&response, &request).unwrap().contains("incomplete"));
             assert!(!store.apply_update(&response, &request));
             assert!(collection(&store.read().unwrap().data, "runes").is_empty());
         }
@@ -4326,12 +3931,12 @@ mod phantom_rune_regression {
             json!({"command": "FutureSacrificeUnit", "source_unit_list": [1]}),
             json!({"command": "FutureMoveUnit", "building_id": 99, "unit_id": 1}),
         ] {
-            assert!(store.unmodeled_exchange(&json!({"ret_code": 0}), &request).is_some());
+            assert!(store.missed_by(&json!({"ret_code": 0}), &request).is_some());
             assert!(!store.apply_update(&json!({"ret_code": 0}), &request));
             assert_eq!(store.read().unwrap().data, before);
         }
         let query = json!({"command": "GetSellRuneHistory", "rune_id_list": [5]});
-        assert_eq!(store.unmodeled_exchange(&json!({"ret_code": 0}), &query), None);
+        assert_eq!(store.missed_by(&json!({"ret_code": 0}), &query), None);
         assert!(!store.apply_update(&json!({"ret_code": 0}), &query));
         assert_eq!(store.read().unwrap().data, before);
         assert!(store.apply_update(&json!({"ret_code": 0}),
@@ -4346,7 +3951,7 @@ mod phantom_rune_regression {
             "runes": [{"rune_id": 5, "set_id": 13}]})));
         let response = json!({"future_history": {"remove_rune_id_list": [5]}});
         let request = json!({"command": "ReceiveMail"});
-        assert!(store.unmodeled_exchange(&response, &request).unwrap().contains("removal path"));
+        assert!(store.missed_by(&response, &request).unwrap().contains("removal list"));
         assert!(!store.apply_update(&response, &request));
         assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 1);
         assert!(store.apply_update(&json!({
@@ -4402,6 +4007,8 @@ mod phantom_rune_regression {
                 ("GetGuildDataAll", json!({"ret_code": 0, "GetGuildBossClearRewardCrateList": history})),
                 ("GetGuildBossClearRewardCrateList", history),
             ] {
+                assert_eq!(store.missed_by(&response, &json!({"command": command})), None,
+                    "an archive is understood, so every login does not cry wolf");
                 assert!(!store.apply_update(&response, &json!({"command": command})));
                 let after = store.read().unwrap();
                 assert_eq!(after.data, before.data);
@@ -4547,5 +4154,91 @@ mod phantom_rune_regression {
             "runes": [{"rune_id": 0, "set_id": 22}],
             "artifacts": [], "relics": [], "rune_craft_item_list": []
         })));
+    }
+
+    /* Repeat Conversion, as captured on October 30, 2026: each attempt answers
+    with the candidate and the spent material, and the player's choice comes
+    back in its own confirmation. The first attempt stopped live import for
+    the rest of the session; now the candidate is understood and the
+    confirmation is read. */
+    #[test]
+    fn repeat_conversion_reads_the_confirmation_and_never_the_candidate() {
+        let artifact = |effect: i64, owner: i64| json!({"rid": 1, "wizard_id": 7, "slot": 1, "level": 15,
+            "occupied_id": owner, "pri_effect": [100, 160, 0, 0, 0], "sec_effects": [[effect, 5, 0, 0, 0]]});
+        for engraved in [false, true] {
+            for attempts in [0, 1, 10] {
+                let owner = if engraved { 3 } else { 0 };
+                let mut snapshot = json!({"wizard_id": 7, "unit_list": [{"unit_id": 3, "wizard_id": 7,
+                    "runes": [], "artifacts": []}], "runes": [], "artifacts": [],
+                    "inventory_info": [{"rid": 9, "wizard_id": 7, "item_master_id": 1, "item_master_type": 61,
+                        "item_quantity": 20}]});
+                if engraved {
+                    snapshot["unit_list"][0]["artifacts"] = json!([artifact(204, owner)]);
+                } else {
+                    snapshot["artifacts"] = json!([artifact(204, owner)]);
+                }
+                let mut store = ProfileStore::default();
+                assert!(store.accept_snapshot(snapshot));
+                for attempt in 1..=attempts {
+                    let offered = artifact(200 + attempt, owner);
+                    let spent = json!([{"rid": 9, "wizard_id": 7, "item_master_id": 1, "item_master_type": 61,
+                        "item_quantity": 20 - attempt}]);
+                    let convert = json!({"command": "ConvertArtifactByPiece", "artifact_id": 1, "effect_id": 204});
+                    let answer = json!({"ret_code": 0, "artifact_before": artifact(204, owner),
+                        "artifact_after": offered, "inventory_info": spent, "converted_effect_id": 204});
+                    assert_eq!(store.missed_by(&answer, &convert), None);
+                    store.apply_update(&answer, &convert);
+                    let kept = if attempt == attempts { offered } else { artifact(204, owner) };
+                    let confirm = json!({"command": "ConfirmArtifactConversion", "artifact_id": 1,
+                        "before_after": if attempt == attempts { 2 } else { 1 }});
+                    let answer = json!({"ret_code": 0, "artifact": kept});
+                    assert_eq!(store.missed_by(&answer, &confirm), None);
+                    store.apply_update(&answer, &confirm);
+                }
+                let data = store.read().unwrap().data;
+                let expected = if attempts == 0 { artifact(204, owner) } else { artifact(200 + attempts, owner) };
+                let (held, other) = if engraved {
+                    (&data["unit_list"][0]["artifacts"], &data["artifacts"])
+                } else {
+                    (&data["artifacts"], &data["unit_list"][0]["artifacts"])
+                };
+                assert_eq!(*held, json!([expected]), "engraved {engraved}, {attempts} attempts");
+                assert_eq!(*other, json!([]), "the artifact stands in one place");
+                assert_eq!(data["inventory_info"][0]["item_quantity"], 20 - attempts);
+                assert!(store.status().missed_changes.is_empty());
+            }
+        }
+    }
+
+    /* The structural promise: a miss is said and costs only itself. A command
+    JASWA has never seen, carrying a rune it would otherwise lose without a
+    word, is named on the status; the dungeon reward after it still arrives;
+    and the next login, which carries the whole account, clears the list. */
+    #[test]
+    fn a_missed_change_is_named_and_never_stops_the_next_one() {
+        let rune = |id: i64| json!({"rune_id": id, "wizard_id": 7, "set_id": 13, "slot_no": 1});
+        for populated in [false, true] {
+            let login = json!({"wizard_id": 7, "unit_list": [], "runes": if populated { json!([rune(1)]) } else { json!([]) }});
+            let mut store = ProfileStore::default();
+            assert!(store.accept_snapshot(login.clone()));
+            let unknown = json!({"command": "FutureRuneGift"});
+            assert!(!store.apply_update(&json!({"ret_code": 0, "gift_box": {"rune": rune(5)}}), &unknown));
+            let declined = store.take_declined();
+            assert_eq!(declined.missed, vec!["1 rune record at gift_box.rune was not read".to_owned()]);
+            assert!(declined.before.is_some(), "the miss keeps the account it can be replayed from");
+            assert_eq!(store.status().missed_changes, vec![MissedChange {
+                command: "FutureRuneGift".into(), reason: "1 rune record at gift_box.rune was not read".into() }]);
+            assert!(store.apply_update(&json!({"ret_code": 0, "changed_item_list": [{"type": 8, "info": rune(6)}]}),
+                &json!({"command": "BattleDungeonResult_V2"})));
+            assert!(collection(&store.read().unwrap().data, "runes").iter().any(|item| item["rune_id"] == 6));
+            assert!(collection(&store.read().unwrap().data, "runes").iter().all(|item| item["rune_id"] != 5),
+                "a record off the read paths is reported, never applied");
+            for _ in 0..MISSED_CHANGES_KEPT + 10 {
+                store.apply_update(&json!({"ret_code": 0, "gift_box": {"rune": rune(5)}}), &unknown);
+            }
+            assert_eq!(store.status().missed_changes.len(), MISSED_CHANGES_KEPT);
+            assert!(store.accept_snapshot(login));
+            assert!(store.status().missed_changes.is_empty());
+        }
     }
 }

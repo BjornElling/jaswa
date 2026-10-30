@@ -12,7 +12,7 @@ async function serveHelper(page: Page) {
   const identity = { instanceId: 'test-helper', sessionId: 1, revision: 1 };
   const headers = { 'Access-Control-Allow-Origin': '*' };
   await page.route((url) => url.origin === 'http://127.0.0.1:37654' && url.pathname === '/health', (route) => route.fulfill({ headers, json: {
-    ...identity, running: true, profileReady: true, lastError: null,
+    ...identity, running: true, profileReady: true, missedChanges: [], lastError: null,
     restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
   } }));
   await page.route('http://127.0.0.1:37654/profile', (route) => route.fulfill({ headers, json: {

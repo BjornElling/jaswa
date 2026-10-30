@@ -351,8 +351,8 @@ fn recover_connections(shared: &Shared) {
 }
 
 fn recovery_result(shared: &Shared) -> Result<String, String> {
-    if shared.incidents.lock().expect("incident lock poisoned").active() {
-        return Err("Connections recovered, but account changes are missing or unreadable. Save an error report, then reopen Summoners War for a complete account. The last snapshot and error evidence were kept.".into());
+    if shared.incidents.lock().expect("incident lock poisoned").login_failed() {
+        return Err("Connections recovered, but the account login could not be read. Save an error report, then reopen Summoners War for a complete account. The error evidence was kept.".into());
     }
     if let Some(error) = diagnostics::last_error() {
         return Err(error);
@@ -408,12 +408,12 @@ fn status(shared: &Shared) -> Value {
         .lock()
         .expect("error lock poisoned")
         .clone();
-    let capture_gap = shared
+    let login_failed = shared
         .incidents
         .lock()
         .expect("incident lock poisoned")
-        .active();
-    let last_error = last_error.or_else(diagnostics::last_error).or_else(|| capture_gap.then(|| "An exchange could not be imported. Save an error report, then restart Summoners War to capture a fresh account. Live import is paused.".to_owned()));
+        .login_failed();
+    let last_error = last_error.or_else(diagnostics::last_error).or_else(|| login_failed.then(|| "The account login could not be read. Save an error report, then restart Summoners War to capture a fresh account.".to_owned()));
     let update_version = shared
         .newer_release
         .lock()
@@ -435,6 +435,7 @@ fn status(shared: &Shared) -> Value {
         "gameLoginPending": game_running && login_pending && !snapshot.has_profile,
         "restartRequired": game_started_before_helper && !snapshot.has_profile,
         "lastError": last_error,
+        "missedChanges": snapshot.missed_changes,
     })
 }
 
@@ -1265,19 +1266,21 @@ fn finish_exchange<S: Read + Write>(
 }
 
 fn capture(request: &[u8], response: &[u8], shared: &Shared) {
-    let fail = |reason: String| {
-        diagnostics::record("capture", &reason);
-        let profile = shared
-            .profile
-            .lock()
-            .expect("profile lock poisoned")
-            .read()
-            .and_then(|value| serde_json::to_value(value).ok());
+    let (wire_request, wire_response) = (request, response);
+    /* An answer to an account command that could not be read at all. The
+    account keeps every change before it and takes every change after it; the
+    miss is said on the status until the next login replaces the account. */
+    let missed = |command: &str, reason: String| {
+        diagnostics::record("capture", &format!("Missed {command}: {reason}"));
+        let mut profile = shared.profile.lock().expect("profile lock poisoned");
+        profile.note_missed(command, &reason);
+        let before = profile.read().and_then(|value| serde_json::to_value(value).ok());
+        drop(profile);
         shared
             .incidents
             .lock()
             .expect("incident lock poisoned")
-            .record(&reason, request, response, profile);
+            .record(&reason, request, response, before);
     };
     let Ok(request_text) = std::str::from_utf8(http_body(request)) else {
         diagnostics::record(
@@ -1312,6 +1315,18 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     let command_name = command.to_owned();
     let required_snapshot = is_snapshot_command(command);
     let required_account = required_snapshot || requires_account_response(&request);
+    let fail = |reason: String| {
+        if required_snapshot {
+            diagnostics::record("capture", &reason);
+            shared
+                .incidents
+                .lock()
+                .expect("incident lock poisoned")
+                .fail_login(&reason, wire_request, wire_response);
+        } else {
+            missed(&command_name, reason);
+        }
+    };
     let Ok(response_text) = std::str::from_utf8(http_body(response)) else {
         if required_account {
             fail(format!("The response to {command_name} was not text."));
@@ -1392,25 +1407,10 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         shared
             .game_started_before_helper
             .store(false, Ordering::Release);
-    } else if shared
-        .incidents
-        .lock()
-        .expect("incident lock poisoned")
-        .active()
-    {
-        diagnostics::record(
-            "capture",
-            &format!("Held back {command_name}: the capture gap stands until the next login"),
-        );
-    } else if let Some(reason) = profile.unmodeled_exchange(&response, &request) {
-        drop(profile);
-        fail(format!("{command_name}: {reason}"));
     } else {
         let changed = profile.apply_update(&response, &request);
-        let (set_aside, refused) = profile.take_declined();
-        let entry = if let Some(reason) = refused {
-            reason
-        } else if changed {
+        let declined = profile.take_declined();
+        let entry = if changed {
             format!(
                 "{command_name} changed the snapshot (revision {})",
                 profile.status().revision
@@ -1423,7 +1423,17 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
             did can be looked up rather than guessed at. */
             format!("{command_name} changed nothing in the snapshot")
         };
-        diagnostics::record("capture", &format!("{entry}{}", kept_gear_note(&set_aside)));
+        drop(profile);
+        diagnostics::record("capture", &format!("{entry}{}", kept_gear_note(&declined.kept_gear)));
+        if !declined.missed.is_empty() {
+            let reason = declined.missed.join("; ");
+            diagnostics::record("capture", &format!("Missed part of {command_name}: {reason}"));
+            shared
+                .incidents
+                .lock()
+                .expect("incident lock poisoned")
+                .record(&format!("{command_name}: {reason}"), wire_request, wire_response, declined.before);
+        }
     }
 }
 
@@ -1663,14 +1673,19 @@ mod tests {
 
         assert!(status(&shared)["profileReady"].as_bool().unwrap());
         assert!(status(&shared)["lastError"].is_null());
-        assert!(
-            !shared.incidents.lock().unwrap().active(),
-            "chat-service traffic must not turn a healthy account capture into an incident"
+        assert_eq!(status(&shared)["missedChanges"], json!([]));
+        assert_eq!(
+            shared.incidents.lock().unwrap().report()["failureCount"], 0,
+            "chat-service traffic is not an account change JASWA missed"
         );
     }
 
+    /* An answer to an account command that cannot be read at all is a change
+    JASWA missed: said on the status, kept as evidence, and never a reason to
+    stop the next change arriving. Stopping was the rule until October 30,
+    2026, and every unfamiliar answer cost the rest of the session. */
     #[test]
-    fn unreadable_account_updates_are_never_mistaken_for_auxiliary_traffic() {
+    fn unreadable_account_updates_are_said_and_never_stop_the_next_one() {
         for populated in [false, true] {
             for command in ["SellRune", "ConvertArtifactByCraft", "BattleDungeonResult_V2", "GetUnitInfo"] {
                 for response in [message("not an account envelope"),
@@ -1684,11 +1699,20 @@ mod tests {
                     let before = shared.profile.lock().unwrap().read().unwrap().data;
                     let request = message(&encoded(&json!({"command": command}), false));
                     capture(request.as_bytes(), response.as_bytes(), &shared);
-                    assert_eq!(status(&shared)["profileReady"], false, "{command}");
-                    assert!(shared.incidents.lock().unwrap().active(), "{command}");
+                    assert_eq!(status(&shared)["profileReady"], true, "{command}");
+                    assert!(status(&shared)["lastError"].is_null(), "{command}");
+                    assert_eq!(status(&shared)["missedChanges"][0]["command"], command);
+                    assert!(shared.incidents.lock().unwrap().report()["firstFailure"].is_object());
                     assert_eq!(shared.profile.lock().unwrap().read().unwrap().data, before);
+                    let reward = message(&encoded(&json!({"command": "BattleDungeonResult_V2"}), false));
+                    let rune = message(&encoded(&json!({"ret_code": 0,
+                        "changed_item_list": [{"type": 8, "info": {"rune_id": 2, "set_id": 13}}]}), true));
+                    capture(reward.as_bytes(), rune.as_bytes(), &shared);
+                    let after = shared.profile.lock().unwrap().read().unwrap().data;
+                    assert!(after["runes"].as_array().unwrap().iter().any(|rune| rune["rune_id"] == 2),
+                        "the next change still arrives after {command}");
                     capture(login.as_bytes(), account.as_bytes(), &shared);
-                    assert_eq!(status(&shared)["profileReady"], true, "a complete login repairs the gap");
+                    assert_eq!(status(&shared)["missedChanges"], json!([]), "a complete login replaces what was missed");
                 }
             }
         }
@@ -1707,7 +1731,7 @@ mod tests {
             let send = |request: Value, response: Value| {
                 capture(message(&encoded(&request, false)).as_bytes(),
                     message(&encoded(&response, true)).as_bytes(), &shared);
-                assert!(!shared.incidents.lock().unwrap().active());
+                assert_eq!(status(&shared)["missedChanges"], json!([]));
                 assert_eq!(status(&shared)["profileReady"], true);
             };
             send(json!({"command": "HubUserLogin"}), json!({"wizard_id": 7,
@@ -1734,7 +1758,7 @@ mod tests {
             let send = |request: Value, response: Value| {
                 capture(message(&encoded(&request, false)).as_bytes(),
                     message(&encoded(&response, true)).as_bytes(), &shared);
-                assert!(!shared.incidents.lock().unwrap().active());
+                assert_eq!(status(&shared)["missedChanges"], json!([]));
                 assert_eq!(status(&shared)["profileReady"], true);
             };
             let artifact = json!({"rid": 5, "slot": 1, "occupied_id": 1});
@@ -2164,8 +2188,11 @@ mod tests {
             shared.incidents.lock().unwrap().record("missing response", b"request", b"", Some(before.clone()));
             let evidence = shared.incidents.lock().unwrap().report();
             recover_connections(&shared);
-            assert!(recovery_result(&shared).unwrap_err().contains("account changes are missing"));
+            assert!(recovery_result(&shared).is_ok(), "a missed change is evidence, not a stop");
             assert_eq!(shared.incidents.lock().unwrap().report(), evidence);
+            shared.incidents.lock().unwrap().fail_login("unreadable login", b"request", b"");
+            recover_connections(&shared);
+            assert!(recovery_result(&shared).unwrap_err().contains("login could not be read"));
             assert_eq!(serde_json::to_value(shared.profile.lock().unwrap().read()).unwrap(), before);
         }
         let shared = shared_for_test();
@@ -2215,13 +2242,13 @@ mod tests {
     }
 
     #[test]
-    fn a_sale_archive_does_not_latch_a_gap_or_block_later_rewards() {
+    fn a_sale_with_repurchase_history_misses_nothing_and_later_rewards_arrive() {
         let shared = shared_for_test();
         *shared.game_running.lock().unwrap() = true;
         let send = |request: Value, response: Value| {
             capture(message(&encoded(&request, false)).as_bytes(),
                 message(&encoded(&response, true)).as_bytes(), &shared);
-            assert!(!shared.incidents.lock().unwrap().active());
+            assert_eq!(status(&shared)["missedChanges"], json!([]));
             assert_eq!(status(&shared)["lastError"], Value::Null);
             assert_eq!(status(&shared)["profileReady"], true);
         };

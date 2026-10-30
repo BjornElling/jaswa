@@ -638,6 +638,9 @@ label[for] {
    width, so a line it cannot fit has to fold inside the box rather than run out
    through the edge. The badge's third line is the slack that pays for it. */
 .import-confirmation p, .helper-update p { margin: 0; }
+/* A gap the user can close by restarting the game is something left to do,
+   not something wrong: import goes on beneath it. */
+.helper-update.missed-changes { --notice: var(--state-warn); }
 /* The card's one action, closing it on the same right edge as its text. */
 .helper-update-action { display: flex; justify-content: end; margin-top: var(--s2); }
 .corner-notice-title {
@@ -653,6 +656,8 @@ label[for] {
 .corner-notice-title svg { flex: 0 0 auto; }
 .corner-notice-detail {
   margin-top: var(--s1) !important;
+  /* A game command is one long word; it folds inside the card's width. */
+  overflow-wrap: anywhere;
   color: var(--text);
   font-family: var(--font-body);
   font-size: var(--type-label);

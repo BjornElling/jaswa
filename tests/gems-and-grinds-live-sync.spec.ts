@@ -21,7 +21,7 @@ async function liveHelper(page: Page) {
     const headers = { 'Access-Control-Allow-Origin': '*' };
     const identity = { instanceId: 'craft-live', sessionId: 1, revision };
     if (new URL(route.request().url()).pathname === '/health') {
-      await route.fulfill({ headers, json: { ...identity, running: true, version, profileReady: true, lastError: null,
+      await route.fulfill({ headers, json: { ...identity, running: true, version, profileReady: true, missedChanges: [], lastError: null,
         restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false } });
       return;
     }

@@ -76,7 +76,7 @@ try {
   const oldFetch = globalThis.fetch;
   globalThis.window = { setTimeout, clearTimeout };
   try {
-    const health = { running: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: 'one', sessionId: 1, revision: 1, lastError: 'Capture failed. Save an error report.' };
+    const health = { running: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: 'one', sessionId: 1, revision: 1, missedChanges: [], lastError: 'Capture failed. Save an error report.' };
     globalThis.fetch = async () => new Response(JSON.stringify(health));
     assert.match((await checkHelperConnection()).detail, /Capture failed/);
     globalThis.fetch = async () => new Response(JSON.stringify({

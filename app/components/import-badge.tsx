@@ -118,7 +118,7 @@ function placeNotice(notice: HTMLElement, badge: HTMLElement | null, gap: number
  * Both are overlays rather than lines in Game data. Neither may push the
  * choices the user was about to make down the page.
  */
-export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, confirmation, general }: {
+export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, missedCommands, confirmation, general }: {
   reload: boolean;
   reloadError: string | null;
   reloading: boolean;
@@ -131,9 +131,16 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
   helperUpdate: boolean;
   /** Why the helper's newest snapshot was refused while the shown import stands, or `null`. */
   importStopped: string | null;
+  /** Commands whose changes the helper could not read while import goes on; empty when none. */
+  missedCommands: string[];
   confirmation: ImportedGame | null;
   general: GeneralSettings;
 }) {
+  /* A stop outranks a gap: while nothing arrives, which changes were missed
+     before is the smaller news. Both use the one slot under the badge. */
+  const missed = importStopped === null && missedCommands.length > 0
+    ? `${missedCommands.slice(0, 3).join(', ')}${missedCommands.length > 3 ? ` and ${missedCommands.length - 3} more` : ''}`
+    : null;
   const stoppedNotice = useRef<HTMLElement | null>(null);
   const updateNotice = useRef<HTMLElement | null>(null);
   const reloadButton = useRef<HTMLButtonElement | null>(null);
@@ -178,7 +185,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       window.removeEventListener('resize', update);
       watcher.disconnect();
     };
-  }, [badge, badgeShown, helperUpdate, importStopped, toastShown, reload, reloadError]);
+  }, [badge, badgeShown, helperUpdate, importStopped, missed, toastShown, reload, reloadError]);
 
   return <>
     {reload && <Button ref={reloadButton} size="card" className="game-reload" busy={reloading}
@@ -187,6 +194,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       Reload game data
     </Button>}
     {importStopped !== null && <ImportStoppedNotice ref={stoppedNotice} reason={importStopped} />}
+    {missed !== null && <MissedChangesNotice ref={stoppedNotice} commands={missed} />}
     {helperUpdate && <HelperUpdateNotice ref={updateNotice} />}
     {reload && reloadError
       ? <aside ref={toast} className="import-confirmation import-failure" role="status" aria-label="Game data reload failed">
@@ -234,6 +242,26 @@ function ImportStoppedNotice({ reason, ref }: { reason: string; ref: Ref<HTMLEle
     <p className="corner-notice-detail">
       {reason}<br />
       Changes made in the game since then are not shown.
+    </p>
+  </aside>;
+}
+
+/* Stands on every page while the helper follows the game with a gap in it. The
+   import keeps moving, so this is a warning and not a stop; only a fresh login
+   carries the whole account again. */
+function MissedChangesNotice({ commands, ref }: { commands: string; ref: Ref<HTMLElement> }) {
+  return <aside ref={ref} className="helper-update missed-changes" role="status" aria-live="polite" aria-label="Some game changes were missed">
+    <p className="corner-notice-title">
+      <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+        <path d="M10 2.75 18 16.75H2z" opacity=".45" />
+        <path d="M10 8v3.75M10 14.25v.25" />
+      </svg>
+      Live import has a gap
+    </p>
+    <p className="corner-notice-detail">
+      The helper could not read {commands}.<br />
+      Everything else keeps arriving. Restart Summoners War for a complete import.
     </p>
   </aside>;
 }

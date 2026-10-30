@@ -103,7 +103,7 @@ export default function Home() {
   const [loadPreferencesPrompt, setLoadPreferencesPrompt] = useState(false);
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
-  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0 });
+  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedCommands: [] });
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
   const [overlay, setOverlay] = useState<OverlayTarget | null>(null);
   const [optimizerVisit, setOptimizerVisit] = useState(0);
@@ -193,7 +193,7 @@ export default function Home() {
         if (disposed) return;
         setHelperConnection(connection);
         if (!connection.profileReady) {
-          // A capture gap makes the helper withhold its snapshot entirely.
+          // An unreadable login or a lost connection makes the helper withhold its snapshot entirely.
           // The reader below never runs, so this refusal must be said here too.
           if (gameRef.current && preferences.directImportMode === 'live' && connection.state === 'unavailable') {
             setLiveImportStopped(connection.detail);
@@ -806,6 +806,7 @@ export default function Home() {
         reloading={reloadingHelper} onReload={() => void reloadHelper.current?.(true)}
         helperUpdate={helperUpdateDue}
         importStopped={game ? liveImportStopped : null}
+        missedCommands={game && preferences.importRoute === 'direct' && helperConnection.state === 'ready' ? helperConnection.missedCommands : []}
         confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} />
 
       {page === 'home' && <HomeSection

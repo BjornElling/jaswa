@@ -57,9 +57,11 @@ service traffic, but cannot guarantee JASWA's account stays complete.
 The review found JASWA previously made only login decoding failures visible;
 an unreadable known sale or conversion could be logged as auxiliary and leave
 the saved account stale. The service now uses the same request classification
-as the account reader. An unreadable known account operation opens a visible
-gap; auxiliary chat/service lookups remain non-blocking. Tests exercise both
-with empty and populated accounts and confirm that a fresh login repairs a gap.
+as the account reader. An unreadable known account operation is a missed
+change, named on every surface while capture goes on; auxiliary chat/service
+lookups are not account data. Tests exercise both with empty and populated
+accounts and confirm that the next change still arrives and a fresh login
+clears the list ([Live import coverage](./LIVE-IMPORT-COVERAGE.md)).
 
 ### A failed save must preserve the last complete export
 

@@ -20,7 +20,7 @@ async function serveHelper(page: Page, helper: Helper) {
     helper.announced = new URL(route.request().url()).searchParams.get('latest');
     return helper.reachable
       ? route.fulfill({ headers, json: {
-        ...identity, running: true, version: helper.version, profileReady: helper.profileReady, lastError: null,
+        ...identity, running: true, version: helper.version, profileReady: helper.profileReady, missedChanges: [], lastError: null,
         restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
       } })
       : route.abort();

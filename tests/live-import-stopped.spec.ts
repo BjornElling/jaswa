@@ -24,11 +24,13 @@ function withOneRuneTwice(): Account {
 
 test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
-async function serveHelper(page: Page, state: { revision: number; data: Account; error?: string | null }) {
+type Miss = { command: string; reason: string };
+
+async function serveHelper(page: Page, state: { revision: number; data: Account; error?: string | null; missed?: Miss[] }) {
   const headers = { 'Access-Control-Allow-Origin': '*' };
   const identity = () => ({ instanceId: 'test-helper', sessionId: 1, revision: state.revision });
   await page.route((url) => url.origin === 'http://127.0.0.1:37654' && url.pathname === '/health', (route) => route.fulfill({ headers, json: {
-    ...identity(), running: true, version: '99.0.0', profileReady: !state.error, lastError: state.error ?? null,
+    ...identity(), running: true, version: '99.0.0', profileReady: !state.error, missedChanges: state.missed ?? [], lastError: state.error ?? null,
     restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
   } }));
   await page.route('http://127.0.0.1:37654/profile', (route) => route.fulfill({ headers, json: {
@@ -41,8 +43,8 @@ const railButton = (page: Page, name: string) => page.getByRole('navigation').ge
 const pageBoxes = (page: Page) => page.locator('.workspace-page > *').evaluateAll((boxes) =>
   boxes.map((box) => { const { x, y, width, height } = box.getBoundingClientRect(); return { x, y, width, height }; }));
 
-test('a helper capture gap is visible over the current page and clears on same-revision recovery', async ({ page }, testInfo) => {
-  const reason = 'An exchange could not be imported. Live import is paused.';
+test('a helper-side stop is visible over the current page and clears on same-revision recovery', async ({ page }, testInfo) => {
+  const reason = 'The account login could not be read. Save an error report, then restart Summoners War to capture a fresh account.';
   const state = { revision: 1, data: account, error: reason as string | null };
   await serveHelper(page, state);
   await page.setViewportSize({ width: 1600, height: 1000 });
@@ -69,6 +71,78 @@ test('a helper capture gap is visible over the current page and clears on same-r
   state.error = null;
   await expect(stopped(page)).toHaveCount(0, { timeout: 8_000 });
   await page.screenshot({ path: testInfo.outputPath('helper-gap-recovered.png') });
+});
+
+/*
+ * A change the helper could not read no longer stops anything: the next one
+ * still arrives. It is still a gap the user is told about, on every page, until
+ * a login replaces the account — and a real stop, when there is one, outranks it.
+ */
+test('a missed change is said on every page while import keeps moving', async ({ page }, testInfo) => {
+  const state: { revision: number; data: Account; error?: string | null; missed?: Miss[] } = { revision: 1, data: account, missed: [] };
+  const miss = (command: string): Miss => ({ command, reason: '1 rune record at gift_box.rune was not read' });
+  const gap = page.getByRole('status', { name: 'Some game changes were missed' });
+  await serveHelper(page, { ...state, missed: [miss('FutureRuneGift')] });
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await expect(gap).toHaveCount(0, { timeout: 3_000 });
+  await page.screenshot({ path: testInfo.outputPath('missed-empty.png') });
+
+  await page.unrouteAll();
+  await serveHelper(page, state);
+  await page.locator('input[name="import-route"][value="direct"]').check();
+  const badge = page.getByRole('complementary', { name: 'Imported game data' });
+  await expect(badge).toBeVisible();
+  await railButton(page, 'Presets').click();
+  await expect(page.getByRole('status', { name: 'Game data loaded correctly' })).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.locator('.workspace-page > *').first()).toBeVisible();
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  const before = await pageBoxes(page);
+  await expect(gap).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('missed-before.png') });
+
+  state.missed = [miss('ConvertArtifactByPiece')];
+  await expect(gap).toBeVisible();
+  await expect(gap).toContainText('The helper could not read ConvertArtifactByPiece.');
+  await expect(gap).toContainText('Everything else keeps arriving.');
+  await expect(stopped(page)).toHaveCount(0);
+  expect(await pageBoxes(page)).toEqual(before);
+  const badgeBox = (await badge.boundingBox())!;
+  const gapBox = (await gap.boundingBox())!;
+  expect(gapBox.y).toBeGreaterThan(badgeBox.y + badgeBox.height);
+  expect(Math.abs(gapBox.width - badgeBox.width)).toBeLessThan(0.25);
+  await page.screenshot({ path: testInfo.outputPath('missed-one.png') });
+
+  /* Import goes on beneath the warning: a new revision still arrives. */
+  const counted = await badge.textContent();
+  const fewer = structuredClone(account);
+  fewer.unit_list[0].runes = fewer.unit_list[0].runes.slice(1);
+  state.data = fewer;
+  state.revision = 2;
+  await expect(badge).not.toHaveText(counted!, { timeout: 8_000 });
+  await expect(gap).toBeVisible();
+  await railButton(page, 'Speed Tuning').click();
+  await expect(gap).toBeVisible();
+
+  /* Everything filled in: forty long command names, each named once, three shown. */
+  state.missed = [miss('ConvertArtifactByPiece'), ...Array.from({ length: 40 }, (_, index) => miss(`FutureCommandWithAVeryLongNameThatNeverEnds${index}`)), miss('ConvertArtifactByPiece')];
+  await expect(gap).toContainText('and 38 more');
+  expect((await gap.textContent())!.split('ConvertArtifactByPiece').length).toBe(2);
+  expect(await gap.evaluate((card) => card.scrollWidth - card.clientWidth)).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: testInfo.outputPath('missed-many.png') });
+
+  /* A stop outranks a gap, in the same place. */
+  state.error = 'The account login could not be read. Save an error report, then restart Summoners War to capture a fresh account.';
+  await expect(stopped(page)).toBeVisible({ timeout: 8_000 });
+  await expect(gap).toHaveCount(0);
+  state.error = null;
+  await expect(stopped(page)).toHaveCount(0, { timeout: 8_000 });
+  await expect(gap).toBeVisible();
+
+  /* A login carries the whole account again and clears the list. */
+  state.missed = [];
+  await expect(gap).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('missed-cleared.png') });
 });
 
 test('a refused snapshot is said on every page, over it, and goes with the next readable one', async ({ page }, testInfo) => {

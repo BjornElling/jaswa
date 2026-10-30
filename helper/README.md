@@ -215,25 +215,32 @@ never retries a game command. The account, session, traffic recording, settings
 and incident evidence stay in memory, and Summoners War can stay open.
 
 Recovery cannot reconstruct a missing server response or interpret an unknown
-account update. Such a capture gap stays visible and still needs a fresh game
-login. A helper that started after the game also still needs that login. The
-button reports these cases instead of clearing the fault and serving stale data.
+account update, and it does not need to: a missed change never stops capture.
+A helper that started after the game still needs a fresh login, and the button
+says so instead of serving stale data.
+
+A change the helper cannot read — an unreadable answer to an account command,
+or an answer carrying this account's records where the reader does not look —
+is a **missed change**. It is never applied and never guessed at. Every change
+before and after it is captured as usual. `/health` lists each miss in
+`missedChanges` until the next login replaces the account; the helper window
+shows *Following your account, with a gap*, and JASWA shows *Live import has a
+gap* on every page, naming the commands. Save an error report to keep
+the exchange for modelling, and restart Summoners War when it suits you for a
+complete account. `docs/LIVE-IMPORT-COVERAGE.md` explains the reading rule.
 
 In JASWA, **Read on game start** also offers **Reload game data** below the
-account counts. It reads the helper's latest complete snapshot on demand and
-replaces local game-data plans, while keeping personalization. It cannot repair
-a capture gap: try **Restart helper** for connection faults; reopen the game
-when the helper reports missing or unreadable account changes.
-Home shows a short recovery message; Report Issue keeps the technical detail.
+account counts. It reads the helper's latest snapshot on demand and replaces
+local game-data plans, while keeping personalization. It cannot fill a missed
+change; only a game login can. Home shows a short recovery message; Report
+Issue keeps the technical detail.
 
-An unreadable answer to a known account mutation, account read or login pauses
-live import. Auxiliary gateway
-traffic, such as chat-service discovery, cannot invalidate a captured account.
-An unrelated successful command cannot repair a missing update: only a complete new login releases that capture gap.
-An invalid login discards the previous account. Infrastructure failures remain
-visible until connection recovery. An idle socket fault, before any request
-could reach the game server, does not open an account-data gap. `/health` exposes the reason and `/profile`
-refuses a snapshot that is not ready. JASWA keeps its last good saved import.
+Only an unreadable login stops capture, because without one there is no account
+to update. Auxiliary gateway traffic, such as chat-service discovery, is not
+account data and is never a missed change. An invalid login discards the
+previous account. Infrastructure failures remain visible until connection
+recovery. `/health` exposes the reason and `/profile` refuses a snapshot that
+is not ready. JASWA keeps its last good saved import.
 
 **Save error report** writes a uniquely named JSON file to Downloads. It begins
 with a plain-language finding and next step, then includes the full status,

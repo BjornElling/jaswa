@@ -13,7 +13,7 @@ const output = resolve(root, 'outputs/helper-hardening');
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 const initial = {
-  status: { version, updateVersion: null, hasProfile: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: null, updatedAt: null },
+  status: { version, updateVersion: null, hasProfile: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: null, updatedAt: null, missedChanges: [] },
   traffic: { enabled: false, entries: 0, recorded: false, full: false, lastError: null },
 };
 try {
@@ -137,7 +137,7 @@ try {
      status and the explanation beneath it was a constant. Each state now
      asserts its own explanation, so the two cannot drift apart again. */
   const state = async (status, title, detail) => {
-    await page.evaluate((value) => { window.dashboard.status = value; }, { version, updateVersion: null, updatedAt: '2026-09-06T12:00:00Z', ...status });
+    await page.evaluate((value) => { window.dashboard.status = value; }, { version, updateVersion: null, updatedAt: '2026-09-06T12:00:00Z', missedChanges: [], ...status });
     await headline(title).waitFor();
     await page.locator('.capture .detail').filter({ hasText: detail }).waitFor();
     const detailBox = await page.locator('.capture .detail').evaluate((node) => ({
@@ -198,6 +198,20 @@ try {
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live' },
     'Following your account', 'keeps up with what you do in the game');
   await page.screenshot({ path: resolve(output, 'helper-live.png'), fullPage: true });
+  /* A missed change is a gap to know about, never a stop: the card warns and
+     names the command, and capture goes on. One command, then the same one
+     repeated beside forty others, which the card names once each and trims. */
+  const missed = (command) => ({ command, reason: '1 rune record at gift_box.rune was not read' });
+  await state(
+    { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live', missedChanges: [missed('FutureRuneGift')] },
+    'Following your account, with a gap', '(FutureRuneGift). Everything else keeps arriving');
+  await page.screenshot({ path: resolve(output, 'helper-missed-one.png'), fullPage: true });
+  await state(
+    { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
+      missedChanges: [missed('FutureRuneGift'), ...Array.from({ length: 40 }, (_, index) => missed(`FutureCommandWithALongName${index}`)), missed('FutureRuneGift')] },
+    'Following your account, with a gap', 'FutureCommandWithALongName1 and 38 more). Everything else keeps arriving');
+  assert.equal((await page.locator('.capture .detail').textContent()).split('FutureRuneGift').length, 2, 'each command is named once');
+  await page.screenshot({ path: resolve(output, 'helper-missed-many.png'), fullPage: true });
   await state(
     { hasProfile: false, profileReady: false, restartRequired: true, gameStartedBeforeHelper: true, gameLoginPending: false, lastError: null, source: null },
     'Summoners War was already open', 'found Summoners War running as it started');
@@ -234,7 +248,7 @@ try {
   await page.screenshot({ path: resolve(output, 'helper-update-after.png'), fullPage: true });
 
   await page.evaluate((version) => {
-    window.dashboard.status = { version, updateVersion: '1234.5678.9012', hasProfile: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z' };
+    window.dashboard.status = { version, updateVersion: '1234.5678.9012', hasProfile: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z', missedChanges: [] };
     window.dashboard.traffic = { enabled: true, entries: 999999999, recorded: true, full: false, lastError: 'Disk write failed. '.repeat(60) };
   }, version);
   await headline('Capture stopped').waitFor();
