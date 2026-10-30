@@ -157,7 +157,8 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
                   update: <span className="helper-download-update">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
                       strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M8 11V2m-3 3 3-3 3 3M3 10v4h10v-4" />
+                      <circle cx="8" cy="8" r="6" />
+                      <path d="M8 7v4m0-7v.01" />
                     </svg>
                     New version · v{recommendedHelperVersion}
                   </span>,
