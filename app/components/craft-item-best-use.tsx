@@ -27,7 +27,7 @@ import type { RuneRole } from '../lib/rune-roles';
 import type { GeneralSettings, ItemGrade, RunePotentialSettings } from '../lib/types';
 import { referenceLines } from '../lib/rune-reference-stats';
 import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations } from '../lib/rune-craft-recommendations';
-import { craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftStatAlreadyChanged,
+import { craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
   extendCraftCalculation, heldCraftBenchmark, reconcileCraftCalculation,
   isHeldCraft, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
@@ -107,16 +107,16 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   profiles: MonsterPreferences; roles: readonly RuneRole[]; general: GeneralSettings;
   settings: RunePotentialSettings; hardwareAcceleration: boolean; onOpenRune: OpenRuneOverlay;
   calculation: CraftCalculation | null; onCalculated: (value: CraftCalculation | null) => void;
-  /** This view's waved-away suggestions, or `null` where the view offers no Ignore. */
-  ignores: readonly CraftIgnore[] | null;
-  /** Adds an entry, or with `null` clears this view's list. */
-  onIgnore?: (entry: CraftIgnore | null) => void;
+  /** The same waved-away suggestions in every Gems & Grinds view. */
+  ignores: readonly CraftIgnore[];
+  /** Adds an entry, or with `null` clears the shared list. */
+  onIgnore: (entry: CraftIgnore | null) => void;
 }) {
   const choices = modeChoices[mode];
   const [state, setState] = useSessionStorageState(choices.storageKey, defaultState, stateReaders[mode]);
   const kind = state.kinds.length === 1 ? state.kinds[0] : 'grindstone';
   const prefix = `craft-${mode}`;
-  const alreadyLabel = kind === 'grindstone' ? 'Stat already grinded' : "Stat already gem'ed";
+  const alreadyLabel = kind === 'grindstone' ? 'Stat already grinded' : "Can change gem'ed stat?";
   const format = (value: number) => formatNumber(value, general);
   const score = (value: number) => `${formatDecimal(value, general)} %`;
   const placements = usePresets();
@@ -238,7 +238,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
      brought up to date the one before it, so an update never empties the page. */
   const keepSet = keepers.state === 'ready' ? keepers.keep : keepers.state === 'pending' ? keepers.previous : null;
   const keepersSettled = keepers.state === 'off' || keepSet !== null;
-  const ignored = useMemo(() => new Set((ignores ?? []).map(craftIgnoreKey)), [ignores]);
+  const ignored = useMemo(() => new Set(ignores.map(craftIgnoreKey)), [ignores]);
   /* The box's best on each rune comes from the whole answer, so a filter that
      hides a held item cannot lower the bar a missing one has to clear. */
   const benchmark = useMemo<CraftBenchmark>(() => mode === 'missing' && result ? heldCraftBenchmark(result.candidates) : runeAsItStands,
@@ -250,7 +250,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && filterIncludes(state.grades, row.item.grade, choices.grades)
     && (!state.statId || String(row.item.statId) === state.statId)
     && (!state.set || row.rune.setName === state.set)
-    && filterIncludes(state.already, craftStatAlreadyChanged(row.rune, row.item) ? 'yes' : 'no', alreadyOptions)
+    && craftMatchesChangeFilter(row.rune, row.item, state.already)
     && filterPair(hasRunePlacement(placements.runes.get(row.rune.id) ?? emptyRunePlacement), state.showEngraved, state.showInventory)
     && (keepSet === null || keepSet.has(row.rune.id))
     && !ignored.has(craftIgnoreKey(ignoreOf(row)))) ?? [],
@@ -265,9 +265,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     return <article className="craft-recommendation" key={rune.id}>
       <div className="craft-recommendation-head">
         <h4 className="craft-recommendation-title" title={immemorialAlternative(row.item)}><CraftItemName item={row.item} /></h4>
-        {onIgnore && <InlineButton onClick={() => onIgnore(ignoreOf(row))}
+        <InlineButton onClick={() => onIgnore(ignoreOf(row))}
           aria-label={`Ignore ${row.item.statName} ${craftKindLabels[row.item.kind]} on this ${rune.setName} rune`}
-          title={`Stop suggesting ${row.item.statName} ${craftKindLabels[row.item.kind]}s for this rune here`}>Ignore</InlineButton>}
+          title={`Stop suggesting ${row.item.statName} ${craftKindLabels[row.item.kind]}s for this rune throughout Gems & Grinds`}>Ignore</InlineButton>
       </div>
       <header className="craft-rune-header">
         <RuneEmblem setName={rune.setName} slot={rune.slot} />
@@ -375,8 +375,8 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       ...Object.fromEntries(filterFields.map((field) => [field, defaultState[field]])) }))}
     aria-label={`Reset ${{ recommendations: 'recommendations', selected: 'best use', missing: "what's missing" }[mode]} filters`}>Reset filters</Button>
     {/* Kept mounted while there is nothing to reset, so the panel never changes height. */}
-    {onIgnore && <Button className="filter-reset" disabled={!ignores?.length} onClick={() => onIgnore(null)}
-      title={ignores?.length ? `Suggest again the ${format(ignores.length)} ignored here` : 'Nothing is ignored here'}>Reset ignored</Button>}
+    <Button className="filter-reset" disabled={!ignores.length} onClick={() => onIgnore(null)}
+      title={ignores.length ? `Suggest again the ${format(ignores.length)} ignored throughout Gems & Grinds` : 'Nothing is ignored in Gems & Grinds'}>Reset ignored</Button>
   </div>;
 
   return <div className="craft-best-use" data-mode={mode}>
@@ -424,7 +424,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       {choiceGroup('Location', 'location', ['showEngraved', 'showInventory'] as const, (key) => state[key], (key) => update(key, !state[key]),
         (key) => key === 'showEngraved' ? 'Engraved' : 'Inventory', undefined, 'Choose rune locations')}
       {choiceGroup(alreadyLabel, 'already', alreadyOptions, (value) => state.already.includes(value), (value) => toggle('already', value),
-        (value) => value === 'yes' ? 'Yes' : 'No')}
+        (value) => value === 'yes' ? 'Yes' : 'No', kind === 'gem'
+          ? (value) => value === 'yes' ? 'Allow changing an existing Gem to another stat' : 'Keep the existing Gem stat; a better same-stat Gem is still allowed'
+          : undefined)}
       {/* Rune Clean-up's calculated Keep, read past the sell safeguards: Power up,
           Re-app, Refine and a rune kept only by a safeguard all stay out. */}
       {mode === 'selected' && choiceGroup('Only keep-runes', 'keep', ['yes'] as const, () => state.keepOnly,

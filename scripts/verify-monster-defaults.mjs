@@ -25,7 +25,7 @@
  * Usage: node scripts/verify-monster-defaults.mjs
  */
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 /* The bands each panel was tuned to produce, as averages over every captured
    species. The window is wide enough that ordinary drift between recaptures

@@ -32,7 +32,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const fixture = fileURLToPath(new URL('../tests/fixtures/synthetic-account.json', import.meta.url));
 const exportPath = process.argv[2] ?? process.env.JASWA_IMPORT ?? fixture;

@@ -8,7 +8,7 @@
  * 10101 Fairy (Water) → 10111 Elucia → 10131 Elucia (2A).
  */
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 

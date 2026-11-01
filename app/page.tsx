@@ -33,7 +33,7 @@ import type { PresetWrites } from './components/presets-section';
 import { profilesIn, withProfile } from './lib/monster-preferences';
 import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
-import type { CraftIgnore, CraftIgnoreView } from './lib/craft-ignores';
+import type { CraftIgnore } from './lib/craft-ignores';
 import { withCraftIgnore } from './lib/craft-ignores';
 import { heldRuneLocks, lockedRuneIds, noRuneLocks, readRuneLocks, runeLockOf, runeLockScope, withRuneLock } from './lib/rune-locks';
 import type { RuneLock, RuneLocks } from './lib/rune-locks';
@@ -538,12 +538,10 @@ export default function Home() {
     });
   }
 
-  /* Gems & Grinds' one route to storage for Ignore and Reset ignored: `null`
-     clears the view's list, an entry adds to it. */
-  function updateCraftIgnores(view: CraftIgnoreView, entry: CraftIgnore | null) {
+  /* Every Gems & Grinds view writes the same choices; reset clears them all. */
+  function updateCraftIgnores(entry: CraftIgnore | null) {
     changePreferences((current) => ({ ...current, craftIgnores: entry === null
-      ? { ...current.craftIgnores, [view]: [] }
-      : withCraftIgnore(current.craftIgnores, view, entry) }));
+      ? [] : withCraftIgnore(current.craftIgnores, entry) }));
   }
 
   function updateHardwareAcceleration(enabled: boolean) {

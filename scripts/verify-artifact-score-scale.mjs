@@ -19,7 +19,7 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const BEST_LINE_CONTRIBUTIONS = 5;
 const ARTIFACT_MAIN_POINTS = 2;

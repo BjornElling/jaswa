@@ -13,7 +13,7 @@
  *   - `minRoll + maxRoll` agrees only where `minRoll` is half of `maxRoll`
  */
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 /* [property id, UI minimum, UI maximum] — both categories of the dialog. */
 const observed = [

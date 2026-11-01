@@ -37,7 +37,7 @@ reader, one choice at a time (`app/lib/preference-reading.ts`, AGENTS.md §0):
 | `general` | Formats and time zone | `readGeneralSettings` (`regional-settings.ts`) |
 | `monsterPreferences` | Each copy's profile, keyed by content-area — `scenario`, `content:<content id>` or `unassigned` (`monster-profile-scope.ts`) — then by `unit_id`: nickname, rune builds and slot mains, the switches that qualify them, leads in `scenario` alone (ATK, DEF, HP and CRI Rate, one saved answer each; another area's are its presets' leaders', never saved, and a stored one is dropped alone), the main stat wanted on all gear, the substats wanted in each artifact category and the relic uniques — each a preferred and an accepted band — and the stat ranges (`DECK-PRESETS.md` §4.1) | `readMonsterPreferences` (`monster-preferences.ts`) |
 | `runeHolds` | Runes the user made unsellable | `readRuneHolds` (`rune-holds.ts`) |
-| `craftIgnores` | Gems & Grinds suggestions waved away with Ignore, one list each for Best use and What's missing: a `rune_id`, an item kind and the item's stat | `readCraftIgnores` (`craft-ignores.ts`) |
+| `craftIgnores` | One shared list of Gems & Grinds suggestions waved away with Ignore: a `rune_id`, an item kind and the item's stat | `readCraftIgnores` (`craft-ignores.ts`) |
 | `runePotential` | Rune Clean-up settings, with its re-app and refine targets | `readSettings`; `readReappTargets` (`rune-reapp-targets.ts`) |
 | `runeRoles` | Rune Clean-up roles | `readRuneRoles` (`rune-roles.ts`) |
 | `artifacts` | Artifact Optimization settings: owned or Lv. 40 monsters only, how conversion stones are sourced, the assumed stone value, the acceptable-property factor | `readSettings` |
@@ -89,8 +89,8 @@ section:
 - **`presetWrites`** — Scenario's list, a game preset's order and the presets
   built in JASWA. A preset built in JASWA that fails its check is dropped alone.
 - **`updateCraftIgnores`** — Gems & Grinds' Ignore adds one entry to its
-  view's list, once; Reset ignored empties that view's list and leaves the
-  other's.
+  shared list, once; Reset ignored empties it for every view without changing
+  any other preference.
 - **`updateMonsterPreferences`** — a monster-overlay choice. A record that no
   longer states anything is removed rather than stored empty, so a count of
   records is a count of decisions — but an explicitly cleared rune list *is* a

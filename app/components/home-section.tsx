@@ -115,7 +115,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
         {game && <div className="loaded-data">
           <div className="loaded-data-text">
             <p className="eyebrow">Currently loaded</p>
-            <p className="meta-line">{game.fileName} · imported {formatDateTime(game.importedAt, general)}</p>
+            <p className="meta-line">{game.fileName} · imported {formatDateTime(game.importedAt, general, true)}</p>
           </div>
           <Button tone="danger" onClick={onRemove}>Remove game data</Button>
         </div>}

@@ -14,7 +14,7 @@
  * captured it.
  */
 import { readFile } from 'node:fs/promises';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const HELPER_PROFILE = 'http://127.0.0.1:37654/profile';
 

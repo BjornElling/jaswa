@@ -10,7 +10,7 @@
  * itself to the wrong runes — so the mapping is asserted rather than trusted.
  */
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const server = await createServer({
   configFile: false,

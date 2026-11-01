@@ -32,7 +32,7 @@ import { readRunes, runeStatIds, runeStatName } from '../lib/runes';
 import type { RuneRole } from '../lib/rune-roles';
 import type { ImportedGame, ItemGrade, Preferences } from '../lib/types';
 import { useSessionStorageState } from '../lib/session-storage-state';
-import type { CraftIgnore, CraftIgnoreView } from '../lib/craft-ignores';
+import type { CraftIgnore } from '../lib/craft-ignores';
 import type { OpenRuneOverlay } from './rune-link';
 
 const craftKinds: readonly CraftKind[] = ['gem', 'grindstone'];
@@ -128,7 +128,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
   roles: readonly RuneRole[];
   preferences: Preferences;
   onOpenRune: OpenRuneOverlay;
-  onIgnoreCraft: (view: CraftIgnoreView, entry: CraftIgnore | null) => void;
+  onIgnoreCraft: (entry: CraftIgnore | null) => void;
 }) {
   const craftCalculation = useSyncExternalStore(craftResultMemory.subscribe, craftResultMemory.getSnapshot, craftResultMemory.getSnapshot);
   const missingCalculation = useSyncExternalStore(missingCraftResultMemory.subscribe, missingCraftResultMemory.getSnapshot, missingCraftResultMemory.getSnapshot);
@@ -243,8 +243,8 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
     onOpenRune={onOpenRune}
     calculation={memory}
     onCalculated={mode === 'missing' ? missingCraftResultMemory.remember : craftResultMemory.remember}
-    ignores={mode === 'recommendations' ? null : preferences.craftIgnores[mode]}
-    onIgnore={mode === 'recommendations' ? undefined : (entry) => onIgnoreCraft(mode, entry)}
+    ignores={preferences.craftIgnores}
+    onIgnore={onIgnoreCraft}
   />;
 
   /* Recommendations leads: it is the question most visits come with — what to

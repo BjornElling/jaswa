@@ -1450,8 +1450,9 @@ label[for] {
 .craft-wanted-table col, .craft-wanted-table th:first-child { width: auto; }
 .craft-wanted-table th:not(:first-child), .craft-wanted-table td:not(:first-child) { width: 7ch; text-align: right; }
 .craft-wanted-table th:last-child, .craft-wanted-table td:last-child { width: 10ch; }
-/* An empty row is as tall as a filled one, so the box keeps its ten. */
-.craft-wanted-table td { height: calc(1lh + 2 * var(--s1)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Include the collapsed border in the empty row's budget too; otherwise each
+   removed item shortens the box by 1px and pulls the reset buttons upwards. */
+.craft-wanted-table td { height: calc(1lh + 2 * var(--s1) + 1px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .craft-wanted-table th { padding: 0 0 var(--s2); text-align: left; color: var(--text-muted); border-bottom: 1px solid var(--line); }
 .craft-wanted-table td { padding: var(--s1) 0; color: var(--text-strong); border-bottom: 1px solid var(--line); }
 .craft-best-use-results[data-kind="gem"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }

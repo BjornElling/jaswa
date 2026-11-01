@@ -203,11 +203,19 @@ function (`craftRecommendationRankings`) serves all three views; the box's views
 pass the rune as it stands as their bar. An account with runes and an empty box
 can still ask; one with no runes is told to import some.
 
-**Stat already grinded / Stat already gem'ed** reads the item's specific stat
-on the rune before spending anything: a positive existing Grindstone bonus for
-a stone, or an existing converted marker on that same stat for a Gem. A marker
-on a different stat does not match. Yes and No toggle independently; neither
-is chosen by default, and neither or both includes every state.
+**Stat already grinded** reads the item's specific stat on the rune before
+spending anything: Yes includes a positive existing Grindstone bonus and No
+includes none. A bonus on a different stat does not match.
+
+**Can change gem'ed stat?** controls whether suggestions may replace an existing
+Gem with a different stat. Yes permits every legal Gem application. No keeps
+the existing Gem stat but still permits a better Gem of that same stat, and
+does not restrict a rune's first Gem. The craft engine still rejects equal or
+lower same-stat base values. Both controls keep Yes and No independent, with
+neither chosen by default; neither or both leaves the answer unrestricted.
+They filter the complete answer without recalculating or changing the held-box
+benchmark, in Recommendations, Best use and What's missing. The saved choices
+keep their existing storage field so changing the wording preserves them.
 
 **Only keep-runes** (Best use only) has one choice, Yes. Chosen, it keeps the
 runes whose *calculated* Rune Clean-up verdict is Keep and drops every other
@@ -223,16 +231,23 @@ status line says so and the rankings wait rather than show an unnarrowed list;
 once an answer exists, a later update narrows by it until the new one is in. This is
 the one filter that may start a worker, and it is never the craft worker.
 
-**Ignore** sits in the top-right corner of every card in Best use and What's
-missing. It waves away the card's rune together with the item's kind and stat:
+**Ignore** sits in the top-right corner of every card in Recommendations,
+Best use and What's missing. It waves away the card's rune together with the item's kind and stat:
 ignoring a SPD Grind on a rune hides every SPD Grind on that rune, of any grade
-or set, while an ATK Grind or a SPD Gem on it is still suggested. Each view
-keeps its own list, so ignoring in one leaves the other alone. The lists are
+or set, while an ATK Grind or a SPD Gem on it is still suggested. Every view
+reads and writes one shared list, so ignoring in one hides it in all. The list is
 saved choices (`craftIgnores`, `craft-ignores.ts`) keyed by `rune_id`, so they
 outlast reloads, imports and live sync. **Reset ignored**, under Reset filters,
-empties the view's list; it stays in place, disabled, while the list is empty.
+empties the shared list from any view; it stays in place, disabled, while the list is empty.
+The reader retains valid entries from the developer's saved per-view choices
+when combining them, drops invalid entries individually and deduplicates them.
 Ignoring narrows what is shown like a filter: it never invalidates an answer,
 and What's missing's bar is still read from the whole answer.
+The filter runs on every rune/item pair before selecting the best suggestion
+for each rune. Ignoring its best improvement therefore promotes an improving
+alternative of another stat; it never removes the rune itself or its other
+Gem and Grindstone suggestions. If every improving alternative is ignored,
+there is no remaining suggestion to show until the list is reset.
 
 Assumed roll and Then grind it sit in the question panel as calculation
 assumptions. Changing them, the roles, scoring preferences or the account's

@@ -8,9 +8,9 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     watch: {
-      /* Rust build intermediates are not application source and Windows can
-         keep them locked while Cargo runs. Excluding them keeps HMR reliable. */
-      ignored: ['**/helper/src-tauri/target/**', '**/work/**'],
+      /* Checks and Playwright write traces and HTML snapshots while other
+         browsers are calculating. Generated files must never trigger HMR. */
+      ignored: ['**/helper/src-tauri/target/**', '**/helper/dist/**', '**/work/**', '**/outputs/**', '**/test-results/**'],
     },
   },
 });

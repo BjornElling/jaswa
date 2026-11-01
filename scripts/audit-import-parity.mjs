@@ -22,7 +22,7 @@ import { createInterface } from 'node:readline';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 function defaultTrafficLogPath() {
   if (process.platform === 'win32') {

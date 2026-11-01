@@ -5,7 +5,7 @@ import { defaultRuneRoles, createRuneRole } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { acceptedWorth, brokenWorth } from '../app/lib/rune-cleanup-advice.ts';
 import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope, neutralComparisonCredit } from '../app/lib/rune-cleanup-model.ts';
-import { recommendRuneCraft, craftRecommendationRankings, craftStatAlreadyChanged, heldCraftBenchmark, isHeldCraft,
+import { recommendRuneCraft, craftRecommendationRankings, craftMatchesChangeFilter, heldCraftBenchmark, isHeldCraft,
   wantedCraftItems, craftItemKey, craftRuneKey, reconcileCraftCalculation, craftExtensionRequests, extendCraftCalculation } from '../app/lib/rune-craft-recommendations.ts';
 import { craftScoreLayout as L } from '../app/lib/compute/webgpu/craft-score-layout.ts';
 import { readFileSync } from 'node:fs';
@@ -31,11 +31,16 @@ const items = [1, 2, 5, 6].flatMap((type) => [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12
   })));
 const noCraft = { gem: null, grind: null, gemGrade: 'Hero', grindGrade: 'Hero' };
 const marked = { subProperties: [{ statId: 8, value: 5, grind: 3, gemmed: true }, { statId: 2, value: 8, grind: 0, gemmed: false }] };
-for (const kind of ['gem', 'grindstone']) {
-  assert.equal(craftStatAlreadyChanged(marked, { kind, statId: 8 }), true);
-  assert.equal(craftStatAlreadyChanged(marked, { kind, statId: 2 }), false);
-  assert.equal(craftStatAlreadyChanged(marked, { kind, statId: 4 }), false, 'another stat\'s marker must not match');
-  assert.equal(craftStatAlreadyChanged({ subProperties: [] }, { kind, statId: 8 }), false);
+for (const selection of [[], ['yes'], ['no'], ['yes', 'no']]) {
+  const restricted = selection.length === 1 && selection[0] === 'no';
+  assert.equal(craftMatchesChangeFilter(marked, { kind: 'gem', statId: 8 }, selection), true,
+    'keeping a converted stat permits a better same-stat Gem');
+  assert.equal(craftMatchesChangeFilter(marked, { kind: 'gem', statId: 4 }, selection), !restricted,
+    'only No forbids replacing the converted stat');
+  assert.equal(craftMatchesChangeFilter({ subProperties: [] }, { kind: 'gem', statId: 8 }, selection), true,
+    'the first Gem has no converted stat to protect');
+  assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 8 }, selection), selection.length !== 1 || selection[0] === 'yes');
+  assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 2 }, selection), selection.length !== 1 || selection[0] === 'no');
 }
 const scope = newRuneAdviceScope();
 const families = roles.map((role) => ({ role, builds: roleBuilds(role) }));
@@ -75,6 +80,21 @@ for (const kind of ['gem', 'grindstone']) for (const grindAfter of [null, { grad
   const request = { runes, items: items.filter((item) => item.kind === kind), missing: [], roles, settings, base,
     roll: 'two-thirds', grindAfter, preferGpu: false };
   const calculation = await recommendRuneCraft(request);
+  // Ignore removes a rune/kind/stat, never the rune. Rank the retained pairs
+  // again so a less valuable, unignored stat can become that rune's best answer.
+  const alternatives = new Map();
+  for (const row of calculation.candidates.filter((row) => row.gain > 1e-10)) {
+    const group = alternatives.get(row.rune.id) ?? [];
+    group.push(row); alternatives.set(row.rune.id, group);
+  }
+  const multipleStats = [...alternatives.values()].find((group) => new Set(group.map((row) => row.item.statId)).size > 1);
+  assert.ok(multipleStats, `${kind}: the fixture must offer a second improving stat`);
+  const best = craftRecommendationRankings(multipleStats, 1).highestGain[0];
+  const retained = multipleStats.filter((row) => row.item.statId !== best.item.statId);
+  const next = craftRecommendationRankings(retained, 1).highestGain[0];
+  assert.equal(next.rune.id, best.rune.id, 'ignoring the best craft must keep the same rune eligible for its next improving stat');
+  assert.notEqual(next.item.statId, best.item.statId);
+  assert.ok(next.gain > 0 && next.gain <= best.gain);
   const actual = { ...craftRecommendationRankings(calculation.candidates, 10), backend: calculation.backend, comparisons: calculation.comparisons };
   const rows = [];
   for (const rune of runes) {

@@ -15,7 +15,7 @@
  * `acceptable`, and index order alone would recommend the weaker one.
  */
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const server = await createServer({
   configFile: false,

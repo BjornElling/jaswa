@@ -4,7 +4,7 @@
  * the planner keeps its own range model for suggesting future conversions.
  */
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const server = await createServer({ configFile: false, server: { middlewareMode: true } });
 

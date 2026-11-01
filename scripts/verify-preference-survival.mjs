@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 /*
  * A change to the preferences contract must never cost the user the choices it
@@ -39,7 +39,7 @@ try {
       'content:arena-attack': { 17: { unitId: '17', statCeilings: { spd: 180 } }, 18: { unitId: '18', alwaysCrits: true } },
     },
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true } },
-    craftIgnores: { selected: [{ runeId: '901', kind: 'grindstone', statId: 8 }], missing: [{ runeId: '902', kind: 'gem', statId: 4 }] },
+    craftIgnores: [{ runeId: '901', kind: 'grindstone', statId: 8 }, { runeId: '902', kind: 'gem', statId: 4 }],
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
     runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
@@ -199,11 +199,19 @@ try {
   assert.deepEqual(holds.runeHolds, { 901: { unsellable: true }, 902: { unsellable: true } }, 'an unreadable rune hold costs only that choice');
 
   /* An ignored craft suggestion that cannot be read, or is listed twice, costs only that entry. */
-  const ignores = readPreferences({ ...chosen, craftIgnores: {
-    selected: [...chosen.craftIgnores.selected, { runeId: '901', kind: 'grindstone', statId: 8 }, { runeId: '903', kind: 'relic', statId: 8 }, { runeId: '', kind: 'gem', statId: 8 }],
-    missing: 'unreadable',
+  const ignores = readPreferences({ ...chosen, craftIgnores: [
+    ...chosen.craftIgnores, { runeId: '901', kind: 'grindstone', statId: 8 },
+    { runeId: '903', kind: 'relic', statId: 8 }, { runeId: '', kind: 'gem', statId: 8 }, null,
+  ] }, null);
+  assert.deepEqual(ignores.craftIgnores, chosen.craftIgnores, 'an unreadable or repeated ignore costs only that entry');
+  const savedViews = readPreferences({ ...chosen, craftIgnores: {
+    selected: [chosen.craftIgnores[0], chosen.craftIgnores[1], { runeId: '', kind: 'gem', statId: 8 }],
+    missing: [chosen.craftIgnores[1]],
   } }, null);
-  assert.deepEqual(ignores.craftIgnores, { selected: chosen.craftIgnores.selected, missing: [] }, 'an unreadable ignore costs only that entry or that view');
+  assert.deepEqual(savedViews.craftIgnores, chosen.craftIgnores, 'all valid saved choices survive combining the lists');
+  assert.deepEqual(readPreferences({ ...chosen, craftIgnores: [] }, null).craftIgnores, [], 'reset stays empty');
+  assert.deepEqual(readPreferences({ ...chosen, craftIgnores: { selected: 'unreadable', missing: [chosen.craftIgnores[1]] } }, null).craftIgnores,
+    [chosen.craftIgnores[1]], 'one unreadable list cannot discard its neighbour');
 
   /* A priority entry that cannot be read costs that entry; the order of the rest stands. */
   const priority = readPreferences({ ...chosen, monsterPriority: ['18', 5, '', '17', '18'] }, null);

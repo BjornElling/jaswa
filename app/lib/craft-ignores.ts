@@ -3,9 +3,8 @@ import type { CraftKind } from './rune-craft-items';
 import { runeStatIds } from './runes';
 
 /**
- * **The craft suggestions the user has waved away**, one list per Gems & Grinds
- * view that offers Ignore — Best use and What's missing — so waving one away in
- * one view leaves the other as it was.
+ * **The craft suggestions the user has waved away**, shared by every
+ * Gems & Grinds view so one decision follows the user through the workspace.
  *
  * An entry is a rune, an item kind and the stat the item gives: ignoring a SPD
  * Grind on a rune hides every SPD Grind on that rune, of any grade or set, and
@@ -15,20 +14,17 @@ import { runeStatIds } from './runes';
  */
 export type CraftIgnore = { runeId: string; kind: CraftKind; statId: number };
 
-export type CraftIgnoreView = 'selected' | 'missing';
-export type CraftIgnores = Record<CraftIgnoreView, CraftIgnore[]>;
+export type CraftIgnores = CraftIgnore[];
 
-export const craftIgnoreViews: readonly CraftIgnoreView[] = ['selected', 'missing'];
-
-export const blankCraftIgnores = (): CraftIgnores => ({ selected: [], missing: [] });
+export const blankCraftIgnores = (): CraftIgnores => [];
 
 /** One text per entry, for a `Set` lookup and a duplicate check. */
 export const craftIgnoreKey = ({ runeId, kind, statId }: CraftIgnore): string => `${runeId}:${kind}:${statId}`;
 
-export function withCraftIgnore(ignores: CraftIgnores, view: CraftIgnoreView, entry: CraftIgnore): CraftIgnores {
+export function withCraftIgnore(ignores: CraftIgnores, entry: CraftIgnore): CraftIgnores {
   const key = craftIgnoreKey(entry);
-  if (ignores[view].some((held) => craftIgnoreKey(held) === key)) return ignores;
-  return { ...ignores, [view]: [...ignores[view], entry] };
+  if (ignores.some((held) => craftIgnoreKey(held) === key)) return ignores;
+  return [...ignores, entry];
 }
 
 const isCraftIgnore = (value: unknown): value is CraftIgnore => isRecord(value)
@@ -37,18 +33,17 @@ const isCraftIgnore = (value: unknown): value is CraftIgnore => isRecord(value)
   && typeof value.statId === 'number' && runeStatIds.includes(value.statId);
 
 /**
- * The stored lists, entry by entry (`preference-reading.ts`): an entry the
+ * The stored choices, entry by entry (`preference-reading.ts`): an entry the
  * contract cannot read, or one already listed, is dropped alone.
  */
 export function readCraftIgnores(value: unknown): CraftIgnores {
-  const read = blankCraftIgnores();
-  if (!isRecord(value)) return read;
-  for (const view of craftIgnoreViews) {
-    const stored = value[view];
-    if (!Array.isArray(stored)) continue;
-    for (const entry of stored) {
-      if (isCraftIgnore(entry)) read[view] = withCraftIgnore(read, view, { runeId: entry.runeId, kind: entry.kind, statId: entry.statId })[view];
-    }
+  let read = blankCraftIgnores();
+  // The developer's saved choices survive the removal of per-view lists (§0).
+  // Their entries already satisfy this contract; no field is repaired or guessed.
+  const stored = Array.isArray(value) ? value : isRecord(value)
+    ? [value.selected, value.missing].flatMap((entries) => Array.isArray(entries) ? entries : []) : [];
+  for (const entry of stored) {
+    if (isCraftIgnore(entry)) read = withCraftIgnore(read, { runeId: entry.runeId, kind: entry.kind, statId: entry.statId });
   }
   return read;
 }

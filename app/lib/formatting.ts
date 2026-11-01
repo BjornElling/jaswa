@@ -23,7 +23,7 @@ export function craftItemCount(value: unknown): number {
 /* An unparseable timestamp makes Intl throw a RangeError. Stored import data
    is user-editable, so one bad date must degrade to one line of copy rather
    than take down the workspace. */
-export function formatDateTime(value: string | undefined, settings: GeneralSettings): string {
+export function formatDateTime(value: string | undefined, settings: GeneralSettings, useToday = false): string {
   if (!value) return 'Never';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return 'an unknown time';
@@ -33,15 +33,31 @@ export function formatDateTime(value: string | undefined, settings: GeneralSetti
     hour12: formattingHour12(settings),
   };
   const zone = formattingTimeZone(settings);
+  const render = (formatter: Intl.DateTimeFormat) => {
+    if (!useToday) return formatter.format(parsed);
+    // Compare calendar days in the same zone as the printed time, including
+    // around midnight when the computer and the chosen zone disagree.
+    const day = new Intl.DateTimeFormat('en', {
+      timeZone: formatter.resolvedOptions().timeZone, year: 'numeric', month: 'numeric', day: 'numeric',
+    });
+    if (day.format(parsed) !== day.format(new Date())) return formatter.format(parsed);
+    const parts = formatter.formatToParts(parsed);
+    const isDate = (part: Intl.DateTimeFormatPart) => ['day', 'month', 'year', 'era', 'weekday'].includes(part.type);
+    const first = parts.findIndex(isDate);
+    const last = parts.findLastIndex(isDate);
+    // Retain the locale's separator and every time part exactly as printed.
+    return parts.slice(0, first).map((part) => part.value).join('') + 'today'
+      + parts.slice(last + 1).map((part) => part.value).join('');
+  };
   try {
-    return new Intl.DateTimeFormat(dateLocale(settings), { ...options, timeZone: zone }).format(parsed);
+    return render(new Intl.DateTimeFormat(dateLocale(settings), { ...options, timeZone: zone }));
   } catch {
     /* The zone is the one part of this that a hand-edited .sw file can make
        unusable — a name valid in the browser that wrote the file need not
        exist in the one reading it. The time is still worth showing, so it is
        written in the computer's own zone rather than lost with the setting. */
     try {
-      return new Intl.DateTimeFormat(dateLocale(settings), options).format(parsed);
+      return render(new Intl.DateTimeFormat(dateLocale(settings), options));
     } catch {
       return 'an unknown time';
     }

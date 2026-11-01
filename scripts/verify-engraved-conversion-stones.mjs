@@ -11,7 +11,7 @@
  * property/class pairs while inventing ids such as -487.
  */
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const server = await createServer({
   configFile: false,

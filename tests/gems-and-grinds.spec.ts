@@ -160,7 +160,7 @@ test('a changed filter contract preserves every valid independent choice', async
   await expect(panel.getByRole('group', { name: 'Choose rune locations' }).getByRole('button', { name: 'Engraved' })).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('Already grinded and gemmed filter the item stat before craft, instantly in both views', async ({ page }) => {
+test('Grind state and permission to change a Gem stat filter instantly in both views', async ({ page }, testInfo) => {
   let craftWorkers = 0;
   page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
   await openWorkspace(page);
@@ -170,6 +170,7 @@ test('Already grinded and gemmed filter the item stat before craft, instantly in
   account.runes.push(
     { ...unfinished, rune_id: 202, sec_eff: [[2, 8, 0, 0], [8, 5, 0, 2]] },
     { ...finished, rune_id: 203, sec_eff: [[2, 8, 0, 0], [8, 5, 1, 0], [9, 6, 0, 0], [10, 5, 0, 0]] },
+    { ...finished, rune_id: 204, sec_eff: [[2, 8, 1, 0], [6, 8, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0]] },
   );
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'marked-craft-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
@@ -194,10 +195,25 @@ test('Already grinded and gemmed filter the item stat before craft, instantly in
     await expect(highest).toHaveCount(2);
     await alreadyGround.getByRole('button', { name: 'No', exact: true }).click();
     await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
-    const alreadyGemmed = panel.getByRole('group', { name: "Stat already gem'ed", exact: true });
-    await alreadyGemmed.getByRole('button', { name: 'Yes', exact: true }).click();
-    await expect(highest).toHaveCount(1);
+    const canChange = panel.getByRole('group', { name: "Can change gem'ed stat?", exact: true });
+    const controlBoxes = () => panel.locator('.craft-question, .craft-best-use-filters, .craft-best-use-filters .filter-group').evaluateAll((nodes) => nodes.map((node) => {
+      const { x, y, width, height } = node.getBoundingClientRect(); return { x, y, width, height };
+    }));
+    const bounds = await controlBoxes();
+    const unrestricted = await highest.count();
+    await expect(highest.locator('tbody td:first-child .rune-sub-gem')).toHaveCount(2);
+    await page.screenshot({ path: testInfo.outputPath(`${mode}-gem-change-allowed.png`), fullPage: true });
+    await canChange.getByRole('button', { name: 'No', exact: true }).click();
+    await expect(highest).toHaveCount(unrestricted - 1);
     await expect(highest.locator('tbody td:first-child .rune-sub-gem')).toHaveCount(1);
+    await expect(highest.locator('tbody td:first-child .rune-sub').filter({ has: page.locator('.rune-sub-gem') })).toContainText('SPD');
+    expect(await controlBoxes()).toEqual(bounds);
+    await page.screenshot({ path: testInfo.outputPath(`${mode}-gem-same-stat-only.png`), fullPage: true });
+    await canChange.getByRole('button', { name: 'Yes', exact: true }).click();
+    await expect(highest).toHaveCount(unrestricted);
+    await canChange.getByRole('button', { name: 'No', exact: true }).click();
+    await expect(highest).toHaveCount(unrestricted);
+    expect(await controlBoxes()).toEqual(bounds);
     expect(craftWorkers).toBe(1);
   }
 });
@@ -308,74 +324,108 @@ test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a s
   expect(adviceWorkers).toBe(0);
 });
 
-test('Ignore hides one rune and item stat in its own view, survives a reload, and Reset ignored brings it back', async ({ page }, testInfo) => {
+test('one Ignore list follows every Gems & Grinds view, survives reload and resets from any view', async ({ page }, testInfo) => {
+  let craftWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
   await openWorkspace(page);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await importCraftAccount(page);
-  await page.evaluate(async () => {
-    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
-    const { savePreferences } = await import(storagePath);
-    const { blankPreferences } = await import(importsPath);
-    await savePreferences(blankPreferences());
-  });
-  await page.reload();
-  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
-  await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
-  const panel = page.locator('[data-mode="selected"]');
-  const cards = panel.locator('.craft-recommendation');
-  /* A card is its rune and what the item does to it: `Violent rune, slot 2 +12 · SPD Gem`. */
-  const suggestions = () => cards.evaluateAll((elements) => elements.map((element) => {
+  const views = [
+    { title: 'Recommendations', mode: 'recommendations' },
+    { title: 'Best use for this', mode: 'selected' },
+    { title: "What's missing", mode: 'missing' },
+  ];
+  const panels = views.map(({ mode }) => page.locator(`[data-mode="${mode}"]`));
+  const suggestions = (panel: typeof panels[number]) => panel.locator('.craft-recommendation').evaluateAll((elements) => elements.map((element) => {
     const level = element.querySelector('.craft-rune-facts div:last-child dd')?.textContent;
-    const what = element.querySelector('.craft-recommendation-title')?.textContent?.split(' · ')[1];
-    return `${element.querySelector('.rune-link')?.getAttribute('aria-label')} ${level} · ${what}`;
+    const what = element.querySelector('.craft-recommendation-title')?.textContent?.split(' \u00b7 ')[1];
+    return `${element.querySelector('.rune-link')?.getAttribute('aria-label')} ${level} \u00b7 ${what}`;
   }));
-  const resetIgnored = panel.getByRole('button', { name: 'Reset ignored' });
-  const boxes = () => panel.locator('.filter-group, .craft-view-actions').evaluateAll((elements) => elements.map((element) => {
-    const origin = element.closest('.craft-best-use')!.getBoundingClientRect();
-    const { x, y, width, height } = element.getBoundingClientRect();
-    return { x: x - origin.x, y: y - origin.y, width, height };
-  }));
-  const calculate = async () => {
-    await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
-    await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
-    await expect(cards.first()).toBeVisible();
+  const reset = (panel: typeof panels[number]) => panel.getByRole('button', { name: 'Reset ignored' });
+  const prepare = async () => {
+    for (const { title } of views) {
+      const summary = page.locator('summary').filter({ hasText: title });
+      if (!(await summary.evaluate((node) => node.parentElement?.hasAttribute('open')))) await summary.click();
+    }
+    for (const panel of panels) {
+      await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+      await expect(panel.locator('.craft-recommendation').first()).toBeVisible();
+    }
   };
-  await calculate();
-  await expect(resetIgnored).toBeDisabled();
-  const before = await boxes();
-  const all = await suggestions();
-  const first = cards.first();
-  const ignoredOne = (await suggestions())[0];
-  const head = await first.locator('.craft-recommendation-head').boundingBox();
-  const corner = await first.getByRole('button', { name: /^Ignore / }).boundingBox();
-  expect(corner!.x + corner!.width).toBeCloseTo(head!.x + head!.width, 0);
-  expect(corner!.y).toBeCloseTo(head!.y, 0);
-  await page.screenshot({ path: testInfo.outputPath('craft-ignore-before.png'), fullPage: true });
-  await first.getByRole('button', { name: /^Ignore / }).click();
-  await expect.poll(suggestions).not.toContain(ignoredOne);
-  expect((await suggestions()).every((entry) => all.includes(entry))).toBe(true);
-  await expect(resetIgnored).toBeEnabled();
-  expect(await boxes()).toEqual(before);
-  await page.screenshot({ path: testInfo.outputPath('craft-ignore-after.png'), fullPage: true });
+  await prepare();
+  for (const panel of panels) await expect(reset(panel)).toBeDisabled();
+  const sets = await Promise.all(panels.map(suggestions));
+  const common = sets[0].find((key) => sets.every((entries) => entries.includes(key)));
+  expect(common).toBeTruthy();
+  const key = common!;
+  for (const [index, panel] of panels.entries()) {
+    const controls = () => panel.locator('.filter-group, .craft-view-actions').evaluateAll((elements) => elements.map((element) => {
+      const origin = element.closest('.craft-best-use')!.getBoundingClientRect();
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { x: x - origin.x, y: y - origin.y, width, height };
+    }));
+    const bounds = await controls();
+    let workersBefore = craftWorkers;
+    const card = panel.locator('.craft-recommendation').nth((await suggestions(panel)).indexOf(key));
+    await page.screenshot({ path: testInfo.outputPath(`${views[index].mode}-ignore-before.png`), fullPage: true });
+    await card.getByRole('button', { name: /^Ignore / }).click();
+    for (const other of panels) {
+      await expect.poll(() => suggestions(other)).not.toContain(key);
+      await expect(reset(other)).toBeEnabled();
+    }
+    expect(await controls()).toEqual(bounds);
+    expect(craftWorkers).toBe(workersBefore);
+    await page.screenshot({ path: testInfo.outputPath(`${views[index].mode}-ignore-after.png`), fullPage: true });
+    if (index === 0) {
+      await page.reload();
+      for (const other of panels) await expect(reset(other)).toBeEnabled();
+      // An ignored-only result can be empty, so readiness is the summary, not a card.
+      for (const other of panels) {
+        await other.getByRole('button', { name: 'Calculate', exact: true }).click();
+        await expect(other.getByText(/build comparisons/)).toBeVisible();
+        await expect.poll(() => suggestions(other)).not.toContain(key);
+      }
+      workersBefore = craftWorkers;
+    }
+    await reset(panels[(index + 1) % panels.length]).click();
+    for (const other of panels) {
+      await expect(reset(other)).toBeDisabled();
+      await expect.poll(() => suggestions(other)).toContain(key);
+    }
+    expect(craftWorkers).toBe(workersBefore);
+  }
+});
 
-  /* A saved choice: a reload and a new calculation still leave it out. */
-  await page.reload();
-  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await calculate();
-  expect(await suggestions()).not.toContain(ignoredOne);
-
-  /* What's missing keeps its own list. */
-  await page.locator('summary').filter({ hasText: "What's missing" }).click();
-  await expect(page.locator('[data-mode="missing"]').getByRole('button', { name: 'Reset ignored' })).toBeDisabled();
-
-  await resetIgnored.click();
-  await expect(resetIgnored).toBeDisabled();
-  await expect.poll(suggestions).toContain(ignoredOne);
-  expect(await boxes()).toEqual(before);
-  /* Recommendations offers no Ignore. */
+test('ignoring the best Gem keeps the same rune eligible for another Gem stat and for Grinds', async ({ page }, testInfo) => {
+  let craftWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
+  await openWorkspace(page);
+  const account = JSON.parse(await readFile(craftAccount, 'utf8'));
+  // Both Gems improve this rune's score: SPD by 7.64 points, CRI Rate by 2.75.
+  account.runes.find((rune: { rune_id: number }) => rune.rune_id === 101).sec_eff =
+    [[2, 8, 0, 0], [8, 5, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0]];
+  account.rune_craft_item_list.push({ craft_item_id: 9007, craft_type: 1, craft_type_id: 130905, amount: 1 });
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'alternative-craft-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
   await page.locator('summary').filter({ hasText: 'Recommendations' }).click();
-  const recommendations = page.locator('[data-mode="recommendations"]');
-  await expect(recommendations.getByRole('button', { name: 'Reset ignored' })).toHaveCount(0);
+  const panel = page.locator('[data-mode="recommendations"]');
+  await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const sameRune = panel.locator('.craft-ranking').first().locator('.craft-recommendation')
+    .filter({ has: page.getByRole('button', { name: 'Violent rune, slot 2', exact: true }) })
+    .filter({ has: page.locator('.craft-rune-facts').getByText('+12', { exact: true }) });
+  await expect(sameRune.locator('.craft-recommendation-title')).toContainText('SPD Gem');
+  const workersBefore = craftWorkers;
+  await page.screenshot({ path: testInfo.outputPath('best-gem-before-ignore.png'), fullPage: true });
+  await sameRune.getByRole('button', { name: /^Ignore SPD Gem/ }).click();
+  await expect(sameRune.locator('.craft-recommendation-title')).toContainText('CRI Rate Gem');
+  await page.screenshot({ path: testInfo.outputPath('alternative-gem-after-ignore.png'), fullPage: true });
+  await panel.getByRole('button', { name: 'Grindstone', exact: true }).click();
+  await expect(sameRune.locator('.craft-recommendation-title')).toContainText('SPD Grind');
+  expect(craftWorkers).toBe(workersBefore);
 });
 
 test('a changed box keeps the answer: a gone stack drops out, a new one is judged alone', async ({ page }, testInfo) => {

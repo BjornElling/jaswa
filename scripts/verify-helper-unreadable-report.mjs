@@ -15,7 +15,7 @@
  * account of being broken every time they quit.
  */
 import assert from 'node:assert/strict';
-import { createServer } from 'vite';
+import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
