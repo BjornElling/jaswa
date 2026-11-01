@@ -127,6 +127,26 @@ this decision; auxiliary chat and service lookups are not account data.
 The fix for a miss is a reader for its path, found in the saved report with
 `npm run audit:helper-replay`, never a wider rule that would also admit the
 archives above.
+
+### Unresolved Raid response decoding
+
+A private report captured on November 1, 2026 reproduces a failure before the
+record reader: `BattleRiftOfWorldsRaidResult` cannot pass `decode_response`.
+The HTTP response is complete: its body is exactly the declared 1,768 bytes.
+It is valid base64, but decodes to 1,324 bytes, which is not a complete sequence
+of the 16-byte blocks the current AES-CBC decoder requires. The request decodes
+normally. The diagnostic log records the same failure on successive Raid
+results, interleaved with successful rune changes.
+
+This evidence rules out a truncated HTTP capture in that exchange; it does not
+establish the response's cipher or the reward records inside it. The downloaded
+report fails `audit:helper-replay` with the decryption error. Raid results remain
+a real import gap until their response encoding is understood and the captured
+exchange can be replayed successfully. Do not classify them as auxiliary
+traffic, suppress their gap, invent a reward from the request or report this
+case fixed by changing a record path. The private report and extracted account
+stay outside source control.
+
 ## Account data that is updated
 
 | Account data | Direct records | Reward records | Removal or movement |
