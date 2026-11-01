@@ -30,7 +30,8 @@ test('a compound artifact move preserves inventory and the next live update', as
   const profiles = events.map((_, index) => {
     const input = testInfo.outputPath(`capture-${index}.log`);
     const output = testInfo.outputPath(`profile-${index}.json`);
-    writeFileSync(input, events.slice(0, index + 1).map((event) => JSON.stringify(event)).join('\n'));
+    writeFileSync(input, [JSON.stringify({ event: 'capture-started', at: new Date().toISOString() }),
+      ...events.slice(0, index + 1).map((event) => JSON.stringify(event))].join('\n'));
     execFileSync('cargo', ['run', '--quiet', '--manifest-path', 'helper/src-tauri/Cargo.toml',
       '--example', 'replay_profile', '--', input, '--write-profile', output], { windowsHide: true, timeout: 90_000 });
     return JSON.parse(readFileSync(output, 'utf8'));

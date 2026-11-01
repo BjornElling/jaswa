@@ -966,6 +966,10 @@ fn record_uncertain_exchange(shared: &Shared, wire_request: &[u8], response: &[u
     let request = std::str::from_utf8(http_body(wire_request)).ok()
         .and_then(|text| decode_request(text).ok());
     let command = request.as_ref().and_then(|value| value.get("command")).and_then(Value::as_str);
+    if gateway {
+        shared.traffic.lock().expect("traffic lock poisoned")
+            .record_unreadable(command, request.as_ref(), error, wire_request, response);
+    }
     let login = gateway && command.is_some_and(is_snapshot_command);
     let mut store = shared.profile.lock().expect("profile lock poisoned");
     let before = store.read().and_then(|value| serde_json::to_value(value).ok());
@@ -1260,6 +1264,10 @@ fn finish_exchange<S: Read + Write>(
 
 fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     let (wire_request, wire_response) = (request, response);
+    let unreadable = |command: Option<&str>, decoded: Option<&Value>, reason: &str| {
+        shared.traffic.lock().expect("traffic lock poisoned")
+            .record_unreadable(command, decoded, reason, wire_request, wire_response);
+    };
     /* An answer to an account command that could not be read at all. The
     account keeps every change before it and takes every change after it; the
     miss is said on the status until the next login replaces the account. */
@@ -1276,6 +1284,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
             .record(&reason, request, response, before);
     };
     let Ok(request_text) = std::str::from_utf8(http_body(request)) else {
+        unreadable(None, None, "The gateway request body was not text.");
         diagnostics::record(
             "capture",
             "Skipped an auxiliary exchange whose request body was not text",
@@ -1285,6 +1294,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     let request = match decode_request(request_text) {
         Ok(request) => request,
         Err(error) => {
+            unreadable(None, None, &error);
             diagnostics::record(
                 "capture",
                 &format!(
@@ -1299,6 +1309,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         .and_then(Value::as_str)
         .filter(|command| !command.is_empty())
     else {
+        unreadable(None, Some(&request), "The gateway request had no command name.");
         diagnostics::record(
             "capture",
             "Skipped an auxiliary exchange without a command name",
@@ -1321,6 +1332,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         }
     };
     let Ok(response_text) = std::str::from_utf8(http_body(response)) else {
+        unreadable(Some(command), Some(&request), "The gateway response body was not text.");
         if required_account {
             fail(format!("The response to {command_name} was not text."));
         } else {
@@ -1334,6 +1346,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     let response = match decode_response(response_text) {
         Ok(response) => response,
         Err(error) => {
+            unreadable(Some(command), Some(&request), &error);
             if required_account {
                 fail(format!(
                     "Could not decode the response to {command_name}: {error}"
@@ -1353,6 +1366,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         }
     };
     if !response.is_object() {
+        unreadable(Some(command), Some(&request), "The gateway response was not an object.");
         if required_account {
             fail(format!("{command_name} has no response object."));
         } else {
@@ -2298,6 +2312,9 @@ mod tests {
     fn passive_relay_preserves_login_keys_opaque_raid_answers_and_later_updates() {
         use base64::{Engine as _, engine::general_purpose::STANDARD};
         let shared = Arc::new(shared_for_test());
+        let directory = tempfile::tempdir().unwrap();
+        *shared.traffic.lock().unwrap() = TrafficLog::new(Some(directory.path().to_owned()));
+        shared.traffic.lock().unwrap().set_enabled(true);
         *shared.game_running.lock().unwrap() = true;
         let login = json!({"command":"HubUserLogin", "sck":STANDARD.encode([17;256])});
         let snapshot = json!({"unit_list":[], "runes":[{"rune_id":5}],
@@ -2339,6 +2356,15 @@ mod tests {
         close_game(game,worker);
         finished_tx.send(()).unwrap();
         upstream.join().unwrap();
+        let traffic = fs::read_to_string(shared.traffic.lock().unwrap().file()).unwrap();
+        let entries = traffic.lines().map(|line| serde_json::from_str::<Value>(line).unwrap()).collect::<Vec<_>>();
+        assert_eq!(entries.len(),4);
+        assert_eq!(entries[0]["event"],"capture-started");
+        assert_eq!(entries[2]["command"],"BattleRiftOfWorldsRaidResult");
+        assert!(entries[2]["decodeError"].is_string());
+        assert_eq!(STANDARD.decode(entries[2]["requestBase64"].as_str().unwrap()).unwrap(),requests[1]);
+        assert_eq!(STANDARD.decode(entries[2]["responseBase64"].as_str().unwrap()).unwrap(),replies[1]);
+        assert_eq!(shared.traffic.lock().unwrap().status().entries,3);
         let profile = shared.profile.lock().unwrap();
         assert_eq!(profile.status().missed_changes.len(),1);
         assert_eq!(profile.status().missed_changes[0].command,"BattleRiftOfWorldsRaidResult");

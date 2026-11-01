@@ -31,7 +31,8 @@ test('the Rust sale response reaches Rune Clean-up and the next reward still arr
   for (let length = 1; length <= events.length; length += 1) {
     const input = testInfo.outputPath(`capture-${length}.log`);
     const output = testInfo.outputPath(`profile-${length}.json`);
-    writeFileSync(input, events.slice(0, length).map((event) => JSON.stringify(event)).join('\n'));
+    writeFileSync(input, [JSON.stringify({ event: 'capture-started', at: new Date().toISOString() }),
+      ...events.slice(0, length).map((event) => JSON.stringify(event))].join('\n'));
     execFileSync('cargo', ['run', '--quiet', '--manifest-path', 'helper/src-tauri/Cargo.toml',
       '--example', 'replay_profile', '--', input, '--write-profile', output], { windowsHide: true, timeout: 60_000 });
     profiles.push(JSON.parse(readFileSync(output, 'utf8')) as Profile);

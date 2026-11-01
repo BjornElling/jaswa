@@ -139,8 +139,12 @@ gateway exchange produced), `jaswa` (what the browser asked for) and `hosts`
 `jaswa`: a capture with no matching `jaswa` line means the browser never
 collected the snapshot.
 
-This is not the traffic log. That one is opt-in, bounded to 64 MiB and full of decoded
-account data, and it exists to inspect the protocol rather than the helper.
+This is not the traffic log. That one is opt-in, bounded to 64 MiB and contains
+decoded account data and the original wire bytes of unreadable exchanges. It
+exists to inspect the protocol rather than the helper. A `capture-started`
+entry marks the recording boundary, so replay can reject a file whose writer
+may have omitted undecodable replies. The limit covers all entries; a full or
+unwritable log never blocks forwarding or account updates.
 
 A snapshot JASWA cannot read is reported in JASWA itself, not only here: the
 direct route shows the same sentence the file route shows, once per rejected

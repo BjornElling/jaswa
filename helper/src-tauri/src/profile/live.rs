@@ -116,6 +116,7 @@ impl Scope<'_> {
             keeps the account's own. */
             "battleguildrivalstart" => return matches!(key, "battle_team" | "unit_list" | "unit_info"),
             "upgraderunelist" if key == "upgrade_rune_list" => return true,
+            "buyblackmarketitem" if key == "item_info" => return true,
             "movestoragefromto" if key == "result_from" => return true,
             _ => {}
         }
@@ -242,6 +243,20 @@ impl Found {
 }
 
 fn walk(value: &Value, path: &str, parent: &str, scope: &Scope<'_>, found: &mut Found) {
+    if scope.command == "buyblackmarketitem" && path == "item_info" {
+        if scope.foreign(value) { return; }
+        // A purchase must state the new stock total, even for a known item;
+        // merging an identifier alone would keep yesterday's quantity silently.
+        if !valid_identifier(value,"rid") || !valid_identifier(value,"item_master_id")
+            || !valid_identifier(value,"item_master_type")
+            || value.get("item_quantity").and_then(Value::as_u64).is_none()
+        {
+            found.missed.push("the purchased inventory record at item_info is incomplete".into());
+        } else {
+            found.take(scope,ENTITIES[6],value.clone(),path,false);
+        }
+        return;
+    }
     match value {
         Value::Array(entries) => {
             for entry in entries {

@@ -3918,6 +3918,35 @@ mod phantom_rune_regression {
     }
 
     #[test]
+    fn black_market_purchase_reads_the_committed_inventory_total() {
+        for populated in [false,true] {
+            let mut store=ProfileStore::default();
+            let inventory=if populated {json!([
+                {"rid":9,"wizard_id":7,"item_master_type":9,"item_master_id":2,"item_quantity":6},
+                {"rid":10,"wizard_id":7,"item_master_type":9,"item_master_id":3,"item_quantity":11}])} else {json!([])};
+            assert!(store.accept_snapshot(json!({"wizard_id":7,"unit_list":[],"runes":[],"inventory_info":inventory})));
+            let request=json!({"command":"BuyBlackMarketItem","item_master_type":9,"item_master_id":2,"amount":if populated {1}else{7}});
+            let item=json!({"rid":9,"wizard_id":7,"item_master_type":9,"item_master_id":2,"item_quantity":7});
+            assert!(store.apply_update(&json!({"ret_code":0,"item_info":item}),&request));
+            assert!(store.take_declined().missed.is_empty());
+            let data=store.read().unwrap().data;
+            assert_eq!(data["inventory_info"][0]["item_quantity"],7,"a returned total is never added to the old amount");
+            assert_eq!(data["inventory_info"].as_array().unwrap().len(),if populated {2}else{1});
+            if populated { assert_eq!(data["inventory_info"][1]["item_quantity"],11); }
+            assert!(!store.apply_update(&json!({"ret_code":1,"item_info":{"rid":9,"item_master_type":9,"item_master_id":2,"item_quantity":100}}),&request));
+            assert_eq!(store.read().unwrap().data,data);
+            for quantity in [None,Some(json!(-1)),Some(json!("7"))] {
+                let mut malformed=item.clone();
+                if let Some(quantity)=quantity { malformed["item_quantity"]=quantity; }
+                else { malformed.as_object_mut().unwrap().remove("item_quantity"); }
+                assert!(!store.apply_update(&json!({"ret_code":0,"item_info":malformed}),&request));
+                assert!(store.take_declined().missed.iter().any(|reason| reason.contains("item_info is incomplete")));
+                assert_eq!(store.read().unwrap().data,data);
+            }
+        }
+    }
+
+    #[test]
     fn unknown_actions_cannot_spend_or_remove_current_inventory() {
         let mut store = ProfileStore::default();
         assert!(store.accept_snapshot(json!({"wizard_id": 7,

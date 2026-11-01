@@ -1,4 +1,5 @@
 use crate::{config::data_directory, windows};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 use std::{fs, io, path::PathBuf};
 
@@ -73,7 +74,13 @@ impl TrafficLog {
             self.last_error = None;
             if let Err(error) = (|| -> io::Result<()> {
                 fs::create_dir_all(&self.directory)?;
-                fs::write(self.file(), "")
+                let start = format!("{}\n", json!({"event":"capture-started","at":now()}));
+                if start.len() as u64 > self.maximum_bytes {
+                    return Err(io::Error::other("The traffic limit cannot hold its capture boundary."));
+                }
+                fs::write(self.file(), &start)?;
+                self.bytes = start.len() as u64;
+                Ok(())
             })() {
                 self.enabled = false;
                 self.last_error = Some(error.to_string());
@@ -86,10 +93,27 @@ impl TrafficLog {
         if !self.enabled || self.bytes >= self.maximum_bytes {
             return;
         }
-        let line = format!(
-            "{}\n",
-            json!({"at": now(), "command": command.filter(|command| !command.is_empty()), "request": request, "response": response})
-        );
+        self.write_entry(json!({"at": now(), "command": command.filter(|command| !command.is_empty()), "request": request, "response": response}));
+    }
+
+    /// An unreadable exchange is still captured evidence. Omitting it made a
+    /// replay of the decoded log look complete while Raid rewards were missing.
+    pub fn record_unreadable(&mut self, command: Option<&str>, request: Option<&Value>, reason: &str, wire_request: &[u8], wire_response: &[u8]) {
+        if !self.enabled { return; }
+        let wire_bytes = (wire_request.len() as u64).div_ceil(3).saturating_mul(4)
+            .saturating_add((wire_response.len() as u64).div_ceil(3).saturating_mul(4));
+        if self.bytes.saturating_add(wire_bytes) > self.maximum_bytes {
+            self.full = true;
+            self.enabled = false;
+            return;
+        }
+        self.write_entry(json!({"at":now(),"command":command.filter(|command| !command.is_empty()),
+            "request":request,"decodeError":reason,
+            "requestBase64":STANDARD.encode(wire_request),"responseBase64":STANDARD.encode(wire_response)}));
+    }
+
+    fn write_entry(&mut self, entry: Value) {
+        let line = format!("{entry}\n");
         let bytes = self.bytes.saturating_add(line.len() as u64);
         if bytes > self.maximum_bytes {
             self.full = true;
@@ -151,6 +175,33 @@ fn now() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unreadable_exchanges_keep_the_exact_wire_and_obey_recording_and_size_limits() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut log = TrafficLog::new(Some(directory.path().to_owned()));
+        log.record_unreadable(None,None,"opaque",b"request",b"\xff\0");
+        assert!(!log.file().exists());
+        log.set_enabled(true);
+        log.record_unreadable(None,None,"opaque",b"request",b"\xff\0");
+        let written = fs::read_to_string(log.file()).unwrap();
+        let entries = written.lines().map(|line| serde_json::from_str::<Value>(line).unwrap()).collect::<Vec<_>>();
+        assert_eq!(entries[0]["event"],"capture-started");
+        assert_eq!(entries[1]["decodeError"],"opaque");
+        assert_eq!(STANDARD.decode(entries[1]["requestBase64"].as_str().unwrap()).unwrap(),b"request");
+        assert_eq!(STANDARD.decode(entries[1]["responseBase64"].as_str().unwrap()).unwrap(),b"\xff\0");
+        assert_eq!(log.status().entries,1);
+        log.set_enabled(false);
+        log.record_unreadable(None,None,"not recording",b"other",b"other");
+        assert_eq!(fs::read_to_string(log.file()).unwrap(),written);
+        let mut small = TrafficLog::limited(directory.path().join("bounded"),100);
+        small.set_enabled(true);
+        small.record_unreadable(None,None,"too big",&[0;1000],&[0;1000]);
+        assert!(small.status().full);
+        assert!(!small.status().enabled);
+        assert_eq!(small.status().entries,0);
+        assert!(fs::metadata(small.file()).unwrap().len()<=100);
+    }
 
     #[test]
     fn starts_a_fresh_local_log_and_preserves_a_finished_one() {
@@ -263,7 +314,7 @@ mod tests {
         log.record(Some(""), &json!({}), &json!({"unit_id": 1}));
         log.record(None, &json!({}), &json!({"unit_id": 2}));
         let written = fs::read_to_string(log.file()).unwrap();
-        assert_eq!(written.lines().count(), 2);
+        assert_eq!(written.lines().count(), 3);
         assert!(!written.contains("\"command\":\"\""));
         assert!(written.contains("\"command\":null"));
     }

@@ -162,10 +162,6 @@ than to its load address:
   AES-128-CBC, a zero IV and PKCS7 padding, then inflates zlib JSON. The same
   callback also accepts unmarked responses encrypted with the fixed gateway
   key, at `0x154ef70` and `0x154f098`.
-- Changing a login's encrypted body requires replacing `Content-Length` and
-  `SmonChecker`. The latter is uppercase SHA-1 of `60e2e90bb43b37fb`, the
-  encrypted body text and the decimal value of `SmonTmVal XOR 0x1c2f0688`,
-  concatenated in that order. This formula reproduces a captured checksum.
 
 The saved Raid reports contain neither the client's private AES key nor a
 plaintext Raid answer. An RSA-wrapped login key would not recover the AES key
@@ -213,6 +209,38 @@ game session. These observations are not a licence to treat unknown local
 bytes as inventory. The Raid gap remains unresolved under the passive-only
 boundary; local key substitution and fallback negotiation are not solutions
 JASWA may implement.
+
+Rift Beasts are a separate, readable path: `BattleRiftDungeonResult` carries
+craft records at `item_list[].info`, with the stack's new total `amount` rather
+than just the drop quantity. A real Fire Beast Repeat Battle capture contained
+all 30 results and 28 craft awards. Comparing their latest amounts with the
+helper's account found no disagreement; a stack sold through
+`SellRuneCraftItem_v2` remained at zero after `GetRuneCraftRepurchaseList`.
+The sale response states that zero; repurchase history must not restore it.
+
+A Repeat Battle's acquired-reward display is not itself a current-inventory
+source. Items can be spent or sold while the series runs, and the game keeps
+them in the display with a sold mark. Establish what messages opening the
+final summary or Record actually sends before giving any returned records
+inventory authority. A readable list of historical drops alone does not close
+the Raid gap and must not be added to the account a second time.
+
+The November 1 Steam test completed a separate 30-run Chaos Beast Level 5
+series. All 30 `BattleRiftOfWorldsRaidResult` responses were unreadable.
+Completion sent `battleScoutResume` with series status, without inventory.
+The user then opened Record: the traffic and diagnostic logs contained no
+new reward or inventory exchange. Ordinary heartbeats and a later
+`getInstanceList` were captured, so recording was still active. Neither
+completion nor Record supplied a readable replacement in this test.
+
+The same session exposed an independent readable purchase defect:
+`BuyBlackMarketItem.item_info` carries a committed generic inventory stack
+with `rid`, `item_master_type`, `item_master_id` and the new total
+`item_quantity`. Only that purchase's root path authorises the record; a
+generic `item_info` elsewhere is not inventory authority. A purchase without
+a valid quantity is rejected even for an existing stack, rather than silently
+keeping its old total. The captured purchase replays without a miss; this
+does not repair the separate encrypted Raid results.
 
 Connection recovery preserves established sockets, the account and missed
 changes. It cannot recover an earlier unreadable response and must not say a
@@ -380,12 +408,19 @@ next reward still arrives after it, and that a login clears the list.
 
 `npm run audit:helper-replay -- <traffic.log-or-error-report.json> [expected-rune-count]`
 replays a personal capture through the actual Rust account model. A traffic log
-begins at a recorded login; an error report begins at its saved account and
+must start with its `capture-started` recording boundary and contain a login.
+An error report begins at its saved account and
 decodes the failed exchange with the helper's own protocol reader. The audit
 reports missed changes and final counts, and fails on a miss, an unexpected
 rune count, or a sold rune remaining after an incident replay. Earlier traffic
 is not replayed without a baseline. `--write-profile <path>` optionally saves
 the replayed snapshot locally. Raw requests and records are never printed.
+Unreadable exchanges retain their original HTTP messages as `requestBase64`
+and `responseBase64`, beside `decodeError`, and are rechecked with the current
+decoder. A still-unreadable account reply fails replay; unreadable auxiliary
+traffic is explicitly counted as excluded. Missing boundaries and malformed
+entries fail instead of disappearing. The audit covers the recorded interval,
+not activity outside it or after recording stopped.
 
 The October 30 capture's fresh login contains 1,661 runes. Replaying the guild
 metadata and subsequent live responses keeps 1,661, without missed changes;
