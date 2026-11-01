@@ -339,12 +339,16 @@ fn recovery_result(shared: &Shared) -> Result<String, String> {
     if shared.incidents.lock().expect("incident lock poisoned").login_failed() {
         return Ok("Connections recovered, but the account login could not be read. Save an error report, then reopen Summoners War for a complete account. The error evidence was kept.".into());
     }
-    if !shared.profile.lock().expect("profile lock poisoned").status().has_profile {
+    let profile = shared.profile.lock().expect("profile lock poisoned").status();
+    if !profile.has_profile {
         return if shared.game_started_before_helper.load(Ordering::Acquire) {
             Ok("Connections recovered, but this game started before the helper. Reopen Summoners War to capture its account login.".into())
         } else {
             Ok("Helper connections recovered. Waiting for an account login from Summoners War.".into())
         };
+    }
+    if !profile.missed_changes.is_empty() {
+        return Ok("Connections recovered, but live import still has a gap. Reopen Summoners War for a complete account. Your account and error evidence were kept.".into());
     }
     Ok("Helper connections recovered. Your account and session were kept; Summoners War can stay open.".into())
 }
@@ -2179,21 +2183,34 @@ mod tests {
             let shared = shared_for_test();
             if populated {
                 *shared.game_running.lock().unwrap() = true;
-                shared.profile.lock().unwrap().accept_snapshot(json!({"wizard_id": 7,
-                    "unit_list": [{"unit_id": 8, "unit_master_id": 10101}],
-                    "runes": [{"rune_id": 4, "set_id": 13}]}));
+                assert!(shared.profile.lock().unwrap().accept_snapshot(json!({"wizard_id": 7,
+                    "unit_list": [{"unit_id": 8, "unit_master_id": 10101, "wizard_id": 7}],
+                    "runes": [{"rune_id": 4, "set_id": 13}]})));
             }
             let before = serde_json::to_value(shared.profile.lock().unwrap().read()).unwrap();
             *shared.last_error.lock().unwrap() = Some("Local API stopped".into());
             recover_connections(&shared);
             assert!(recovery_result(&shared).is_ok());
+            if populated {
+                assert!(recovery_result(&shared).unwrap().contains("can stay open"));
+            }
             assert_eq!(serde_json::to_value(shared.profile.lock().unwrap().read()).unwrap(), before);
             assert_eq!(shared.recovery.load(Ordering::Acquire), 1);
             assert!(shared.last_error.lock().unwrap().is_none());
             shared.incidents.lock().unwrap().record("missing response", b"request", b"", Some(before.clone()));
+            shared.profile.lock().unwrap().note_missed("BattleRiftOfWorldsRaidResult", "unreadable response");
             let evidence = shared.incidents.lock().unwrap().report();
+            let missed = shared.profile.lock().unwrap().status().missed_changes;
             recover_connections(&shared);
-            assert!(recovery_result(&shared).is_ok(), "a missed change is evidence, not a stop");
+            let message = recovery_result(&shared).expect("a missed change is evidence, not a stop");
+            if populated {
+                assert!(message.contains("still has a gap"));
+                assert!(message.contains("Reopen Summoners War"));
+                assert!(!message.contains("can stay open"));
+            } else {
+                assert!(message.contains("Waiting for an account login"));
+            }
+            assert_eq!(shared.profile.lock().unwrap().status().missed_changes, missed);
             assert_eq!(shared.incidents.lock().unwrap().report(), evidence);
             shared.incidents.lock().unwrap().fail_login("unreadable login", b"request", b"");
             recover_connections(&shared);

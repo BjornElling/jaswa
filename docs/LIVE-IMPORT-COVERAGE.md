@@ -128,24 +128,83 @@ The fix for a miss is a reader for its path, found in the saved report with
 `npm run audit:helper-replay`, never a wider rule that would also admit the
 archives above.
 
-### Unresolved Raid response decoding
+### Raid response-key negotiation
 
 A private report captured on November 1, 2026 reproduces a failure before the
 record reader: `BattleRiftOfWorldsRaidResult` cannot pass `decode_response`.
 The HTTP response is complete: its body is exactly the declared 1,768 bytes.
-It is valid base64, but decodes to 1,324 bytes, which is not a complete sequence
-of the 16-byte blocks the current AES-CBC decoder requires. The request decodes
-normally. The diagnostic log records the same failure on successive Raid
-results, interleaved with successful rune changes.
+Its first 16 ASCII characters are the marker `Vv2XRzS1O1AW8FuV`, followed by
+base64 ciphertext. Decoding the marker as part of the ciphertext produces the
+misleading 1,324-byte result, which is not aligned to AES's 16-byte blocks.
+Removing the marker fixes that alignment, but does not supply the key. The
+request decodes normally. Both saved reports show successive Raid failures
+interleaved with successful rune changes; replay fails without a browser or
+recommendation calculation running. A fresh Steam login followed by a 30-run
+R5 repeat reproduced the miss on each completed result, with no Gem or
+Grindstone operation since login. Simultaneous crafting is not needed to
+trigger the defect.
 
-This evidence rules out a truncated HTTP capture in that exchange; it does not
-establish the response's cipher or the reward records inside it. The downloaded
-report fails `audit:helper-replay` with the decryption error. Raid results remain
-a real import gap until their response encoding is understood and the captured
-exchange can be replayed successfully. Do not classify them as auxiliary
-traffic, suppress their gap, invent a reward from the request or report this
-case fixed by changing a record path. The private report and extracted account
-stay outside source control.
+Inspection of the current Android client (9.3.8, ARM64) establishes the transport
+contract. Offsets below are relative to its unpacked `libc2ssmon.so`, rather
+than to its load address:
+
+- `0x15331f0` generates a 16-character AES key using printable ASCII 33–126;
+  `0x15332dc` retrieves it from the client's private state.
+- `0x519c24` wraps that key using the server's public RSA key. The Java
+  `CommonSrc.RSAEncrypt` implementation uses `RSA/NONE/PKCS1Padding` and
+  base64. The login builder at `0x15227e8` writes this envelope as `sck`.
+- The response callback at `0x154ec48` recognises the marker, skips its 16
+  characters and decrypts the remaining base64 with the private response key,
+  AES-128-CBC, a zero IV and PKCS7 padding, then inflates zlib JSON. The same
+  callback also accepts unmarked responses encrypted with the fixed gateway
+  key, at `0x154ef70` and `0x154f098`.
+- Changing a login's encrypted body requires replacing `Content-Length` and
+  `SmonChecker`. The latter is uppercase SHA-1 of `60e2e90bb43b37fb`, the
+  encrypted body text and the decimal value of `SmonTmVal XOR 0x1c2f0688`,
+  concatenated in that order. This formula reproduces a captured checksum.
+
+The saved Raid reports contain neither the client's private AES key nor a
+plaintext Raid answer. An RSA-wrapped login key would not recover the AES key
+either. These reports cannot be retrospectively decoded with the fixed key;
+their reward contents remain unknown. Do not invent those contents, suppress
+the miss or reclassify Raid results as auxiliary traffic.
+
+The helper remains passive: it does not replace `sck`, negotiate its own key
+or translate replies. A fresh Steam login captured the same 256-byte RSA
+envelope in `sck`, and its readable response supplied the full craft inventory.
+The import-parity audit passed against that actual login capture. Local key
+negotiation is not necessary for a complete import at login, whose snapshot
+already contains the owned grindstones. For live awards after that login, a readable Raid result
+or another authoritative current inventory response is necessary. An unreadable
+result cannot be reconstructed from a battle-start request or a rune change.
+
+SWEX does not provide a different passive decoder for this envelope. Its
+[current decoder](https://github.com/Xzandro/sw-exporter/blob/eb7f8c09b976d7b76c51ebb30765bfdf381c3888/app/proxy/smon_decryptor.js)
+uses fixed-key AES-CBC and zlib, and its
+[proxy](https://github.com/Xzandro/sw-exporter/blob/eb7f8c09b976d7b76c51ebb30765bfdf381c3888/app/proxy/SWProxy.js)
+catches a decoding failure and emits no command. Its
+[LiveSync plugin](https://github.com/Xzandro/sw-exporter/blob/eb7f8c09b976d7b76c51ebb30765bfdf381c3888/app/plugins/live-sync.js)
+reads Raid crafts from `BattleRiftOfWorldsRaidResult` itself. The installed
+SWEX 1.0.0 decoder was also run against both private reports: each request
+decoded, and each response failed with `WRONG_FINAL_BLOCK_LENGTH`. Its fixed
+key equals JASWA's. Silently following SWEX's failure handling would hide the
+gap rather than recover the inventory.
+
+The saved readable traffic contains 82 `battleRiftOfWorldsRaidCreateSingle`
+answers and 5 `battleScoutResume` answers: these carry battle progress, not
+owned craft records. Its 247 `AmplifyRune_v2` and 37 `ConvertRune_v2` answers
+restate only the consumed craft stack, so cannot recover awards to other
+stacks. The client also names `GetRuneCraftItemList`, but opening the craft
+inventory in the recorded Steam session sent no inventory request. A capture
+of that command is still needed to establish its response path, completeness
+and trigger before making it an authoritative replacement.
+
+Connection recovery preserves established sockets, the account and missed
+changes. It cannot recover an earlier unreadable response and must not say a
+gapped account is complete. A fresh readable login repairs the snapshot; the
+transport defect must also be fixed to prevent the next Raid result from
+opening another gap. Private reports and extracted game binaries stay outside
+source control.
 
 ## Account data that is updated
 

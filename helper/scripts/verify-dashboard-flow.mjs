@@ -52,6 +52,9 @@ try {
         if (command === 'save_error_report') return 'Saved a private error report. Send it to the developer.';
         if (command === 'restart_helper') {
           if (window.recoveryFailure) throw window.recoveryFailure;
+          if (window.dashboard.status.hasProfile && window.dashboard.status.missedChanges.length) {
+            return 'Connections recovered, but live import still has a gap. Reopen Summoners War for a complete account. Your account and error evidence were kept.';
+          }
           return window.dashboard.status.hasProfile
             ? 'Helper connections recovered. Your account and session were kept; Summoners War can stay open.'
             : 'Helper connections recovered. Waiting for an account login from Summoners War.';
@@ -218,6 +221,14 @@ try {
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live', missedChanges: [missed('FutureRuneGift')] },
     'Following your account, with a gap', '(FutureRuneGift). Everything else keeps arriving');
   await page.screenshot({ path: resolve(output, 'helper-missed-one.png'), fullPage: true });
+  const gapped = await page.evaluate(() => structuredClone(window.dashboard));
+  const gapBoxes = await boxes();
+  await page.getByRole('button', { name: 'Restart helper' }).click();
+  await page.locator('.activity-text').filter({ hasText: 'live import still has a gap' }).waitFor();
+  await headline('Following your account, with a gap').waitFor();
+  assert.deepEqual(await page.evaluate(() => window.dashboard), gapped);
+  assert.deepEqual(await boxes(), gapBoxes);
+  await page.screenshot({ path: resolve(output, 'helper-missed-after-recovery.png'), fullPage: true });
   await state(
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
       missedChanges: [missed('FutureRuneGift'), ...Array.from({ length: 40 }, (_, index) => missed(`FutureCommandWithALongName${index}`)), missed('FutureRuneGift')] },
