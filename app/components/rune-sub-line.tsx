@@ -16,7 +16,7 @@ import type { RuneSubProperty } from '../lib/runes';
  * meaning "you can act on this".
  *
  * The ordinary figure is the total the game shows, grindstone included. A craft
- * result can show the Gem's base figure, its mark, then an arrow to that total.
+ * result can show the base figure, its Gem mark when present, then an arrow to that total.
  * Only the ground total takes the game's gold. The grindstone's
  * share is not printed — the colour is the signal — but it is not lost either:
  * it is in the line's title for a pointer and in its text for a screen reader,
@@ -28,14 +28,14 @@ export function RuneSubLine({ property, format = String, as: Element = 'span', c
   /** `li` where the caller lists the lines. */
   as?: 'span' | 'li';
   className?: string;
-  /** A craft result can show the Gem first, then the total with its Grindstone. */
+  /** A craft result shows the value before grinds, then the total with its Grindstone. */
   showGrindStep?: boolean;
   /** Further marks after the gem mark, such as the simulator's roll count. */
   children?: ReactNode;
 }) {
   const name = runeLineStat(property.statId) ?? `Stat ${property.statId}`;
   const ground = property.grind > 0;
-  const stepped = showGrindStep && property.gemmed && ground;
+  const stepped = showGrindStep && ground;
   const totalFigure = runeLineFigure(property.statId, runeSubValue(property), format);
   const figure = stepped ? runeLineFigure(property.statId, property.value, format) : totalFigure;
   const grindFigure = runeLineFigure(property.statId, property.grind, format);

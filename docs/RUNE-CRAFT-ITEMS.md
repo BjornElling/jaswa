@@ -304,7 +304,9 @@ rankings against the processor on this machine's card at localhost:3000.
 Cards lead with the item being spent, followed by the rune's emblem, facts and
 labelled Location. The main property uses body emphasis; role and score use
 ordinary body text. Innate and the After label share one row above the compact
-four-line sub-property reading. A gemmed After line with
-a stone shows its Gem value and mark, then an arrow to the total including the
-stone. Only Best role and before/after Score remain in the evaluation. Rank
+four-line sub-property reading. Every After line with a stone shows its value
+before grinds, then an arrow to the total including the stone. A converted
+line keeps its Gem mark after the base value. This applies to natural and
+converted properties, for recommended Grindstones and Gems alike, in all three
+views. Only Best role and before/after Score remain in the evaluation. Rank
 headings stand alone; explanatory prose belongs in this contract.

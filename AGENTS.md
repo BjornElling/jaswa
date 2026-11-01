@@ -87,6 +87,21 @@ capture is a skip, not a pass.
 
 ---
 
+## 0.2 Passive reading — an inviolable boundary
+
+**JASWA only reads game data passively. It never sends its own data back to
+the game or its servers. This principle has no exceptions.**
+
+`docs/PASSIVE-GAME-DATA-CONTRACT.md` is binding throughout the application,
+helper, diagnostic tools and future features. A transparent relay carries only
+the original messages, unchanged. Never create game requests, retry a game
+operation, alter login fields or checksums, negotiate a substitute key, rewrite
+a response, or automate game input to obtain data. An import defect must be
+solved inside this boundary; parity never authorises crossing it. Keep an
+unreadable change visible until a passive source establishes the actual data.
+
+---
+
 ## 1. Source control
 
 **Commit to `main`. This project does not use branches.**

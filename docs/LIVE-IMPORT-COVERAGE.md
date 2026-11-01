@@ -130,6 +130,10 @@ archives above.
 
 ### Raid response-key negotiation
 
+`PASSIVE-GAME-DATA-CONTRACT.md` is binding: substitute response keys, login
+fallback rewrites and translated replies are forbidden. Investigation and
+recovery must read existing game data without changing game messages.
+
 A private report captured on November 1, 2026 reproduces a failure before the
 record reader: `BattleRiftOfWorldsRaidResult` cannot pass `decode_response`.
 The HTTP response is complete: its body is exactly the declared 1,768 bytes.
@@ -198,6 +202,17 @@ stacks. The client also names `GetRuneCraftItemList`, but opening the craft
 inventory in the recorded Steam session sent no inventory request. A capture
 of that command is still needed to establish its response path, completeness
 and trigger before making it an authoritative replacement.
+
+Read-only inspection also found the Steam client's local `app.conf`,
+`preparehub.dat` and `localvalue.dat`. They are not gateway JSON exports:
+`app.conf` contains a binary store with some JSON values, while the latter
+two contain encoded data terminated as C strings and do not decode with the
+gateway key. No readable current craft inventory or private response key was
+established from these files. The cached `localvalue.dat` predates the fresh
+game session. These observations are not a licence to treat unknown local
+bytes as inventory. The Raid gap remains unresolved under the passive-only
+boundary; local key substitution and fallback negotiation are not solutions
+JASWA may implement.
 
 Connection recovery preserves established sockets, the account and missed
 changes. It cannot recover an earlier unreadable response and must not say a

@@ -2294,6 +2294,58 @@ mod tests {
         worker.join().unwrap();
     }
 
+    #[test]
+    fn passive_relay_preserves_login_keys_opaque_raid_answers_and_later_updates() {
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        let shared = Arc::new(shared_for_test());
+        *shared.game_running.lock().unwrap() = true;
+        let login = json!({"command":"HubUserLogin", "sck":STANDARD.encode([17;256])});
+        let snapshot = json!({"unit_list":[], "runes":[{"rune_id":5}],
+            "rune_craft_item_list":[{"craft_item_id":9,"craft_type":2,"amount":2}]});
+        let requests = [login, json!({"command":"BattleRiftOfWorldsRaidResult"}),
+            json!({"command":"AmplifyRune_v2","rune_id":5,"craft_item_id":9})]
+            .map(|value| {
+                let body = encoded(&value, false);
+                format!("POST {GATEWAY_PATH} HTTP/1.1\r\nHost: localhost\r\ncOnTeNt-LeNgTh: {}\r\nSmonChecker: original-checksum\r\nX-Game-Header:  keep this value\r\n\r\n{body}",body.len()).into_bytes()
+            });
+        let replies = [encoded(&snapshot, true), format!("Vv2XRzS1O1AW8FuV{}",STANDARD.encode([41;32])),
+            encoded(&json!({"ret_code":0,"rune":{"rune_id":5,"upgrade_curr":15}}),true)]
+            .map(|body| format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nX-Server-Header:  unchanged\r\n\r\n{body}",body.len()).into_bytes());
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let expected_requests = requests.clone();
+        let server_replies = replies.clone();
+        let (finished_tx,finished_rx) = std::sync::mpsc::channel();
+        let upstream = thread::spawn(move || {
+            for (expected, reply) in expected_requests.iter().zip(server_replies.iter()) {
+                let (socket,_) = listener.accept().unwrap();
+                socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                let mut connection = Connection::new(socket);
+                assert_eq!(connection.read_message().unwrap().unwrap(), *expected,
+                    "the game server must receive the original request, including sck and headers");
+                connection.write_message(reply).unwrap();
+            }
+            finished_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            listener.set_nonblocking(true).unwrap();
+            assert_eq!(listener.accept().unwrap_err().kind(),io::ErrorKind::WouldBlock,
+                "capture must not originate a refresh or retry");
+        });
+        let (mut game, worker) = local_game(&shared,address);
+        for (request,reply) in requests.iter().zip(replies.iter()) {
+            game.write_message(request).unwrap();
+            assert_eq!(game.read_message().unwrap().unwrap(), *reply,
+                "the game must receive the server's original bytes even when capture cannot read them");
+        }
+        close_game(game,worker);
+        finished_tx.send(()).unwrap();
+        upstream.join().unwrap();
+        let profile = shared.profile.lock().unwrap();
+        assert_eq!(profile.status().missed_changes.len(),1);
+        assert_eq!(profile.status().missed_changes[0].command,"BattleRiftOfWorldsRaidResult");
+        assert_eq!(profile.read().unwrap().data["runes"][0]["upgrade_curr"],15);
+        assert_eq!(profile.read().unwrap().data["rune_craft_item_list"][0]["amount"],1);
+    }
+
     fn local_api(shared: &Arc<Shared>, path: &str) -> (u16, Value) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let stream = TcpStream::connect(listener.local_addr().unwrap()).unwrap();

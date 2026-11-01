@@ -42,6 +42,41 @@ test('craft controls reserve their boxes and calculate three grind rankings', as
   await expect(panel.locator('.craft-recommendation')).toHaveCount(0);
 });
 
+for (const [mode, label, total] of [
+  ['recommendations', 'Recommendations', '+9'],
+  ['selected', 'Best use for this', '+9'],
+  ['missing', "What's missing", '+10'],
+] as const) test(`${label} shows the unground value and target total for a recommended Grindstone`, async ({ page }, testInfo) => {
+  await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const account = JSON.parse(await readFile(craftAccount, 'utf8'));
+  account.runes.find((rune: { rune_id: number }) => rune.rune_id === 102).sec_eff[1][3] = 2;
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'ground-craft-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('button', { name: 'Gems & Grinds' }).click();
+  await page.locator('summary').filter({ hasText: label }).click();
+  const panel = page.locator(`[data-mode="${mode}"]`);
+  if (mode === 'selected') await chooseItem(page, 'Violent', 'Grind', 'SPD');
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const card = panel.locator('.craft-recommendation').first();
+  const after = card.locator('.craft-recommendation-lines td:nth-child(2) .rune-sub').first();
+  await expect(after.locator('.rune-sub-value')).toHaveText('+5');
+  await expect(after.locator('.rune-sub-grind-step')).toContainText('→');
+  await expect(after.locator('.rune-sub-ground-figure')).toHaveText(total);
+  await expect(after.locator('.rune-sub-gem')).toHaveCount(0);
+  await expect(card.locator('.craft-recommendation-lines td:first-child [data-ground="true"] .rune-sub-value')).toHaveText('+7');
+  const boxes = () => panel.locator('.filter-group').evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect(); return { x, y, width, height };
+  }));
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('grind-base-and-target.png'), fullPage: true });
+  await panel.getByRole('combobox', { name: 'How well the roll is assumed to land' }).selectOption('maximum');
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('grind-roll-choice.png'), fullPage: true });
+});
+
 test('gems project a follow-up grind and keep only two result columns', async ({ page }, testInfo) => {
   await openWorkspace(page);
   await importCraftAccount(page);
