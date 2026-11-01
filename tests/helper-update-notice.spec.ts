@@ -9,7 +9,7 @@ const recommended = /recommendedHelperVersion = '(\d+\.\d+\.\d+)'/.exec(readFile
 test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
 /** `announced` is what JASWA last told the helper it ships, read off the poll. */
-type Helper = { reachable: boolean; version: string; profileReady: boolean; announced?: string | null; error?: string | null };
+type Helper = { reachable: boolean; version: string; profileReady: boolean; announced?: string | null; error?: string | null; missedLogin?: boolean };
 
 /* A helper whose answer the test can change between polls, so the warning is
    seen to arrive and to leave on the same page rather than on two loads. */
@@ -21,7 +21,7 @@ async function serveHelper(page: Page, helper: Helper) {
     return helper.reachable
       ? route.fulfill({ headers, json: {
         ...identity, running: true, version: helper.version, profileReady: helper.profileReady, missedChanges: [], lastError: helper.error ?? null,
-        restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
+        restartRequired: helper.missedLogin ?? false, gameStartedBeforeHelper: helper.missedLogin ?? false, gameLoginPending: false,
       } })
       : route.abort();
   });
@@ -55,6 +55,7 @@ test('with nothing imported, the warning takes the corner and leaves with the ro
      request of its own. */
   expect(helper.announced).toBe(recommended);
   await expect(notice(page)).toContainText('You should let it rest.');
+  await expectTone(notice(page), 'warn');
   const link = notice(page).getByRole('link', { name: 'Download update' });
   await expect(link).toHaveAttribute('href', `/JASWA-Helper-Setup-${recommended}.exe`);
   await expect(link).toHaveAttribute('download', `JASWA-Helper-Setup-${recommended}.exe`);
@@ -94,6 +95,9 @@ test('under the badge the warning comes first, the confirmation below it, all on
   await expect(confirmation).toBeVisible();
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 
+  await expectTone(badge, 'good');
+  await expectTone(confirmation, 'good');
+  await expectTone(notice(page), 'warn');
   const badgeBox = (await badge.boundingBox())!;
   const noticeBox = (await notice(page).boundingBox())!;
   const toastBox = (await confirmation.boundingBox())!;
@@ -195,3 +199,64 @@ test('the download row flags a new version and names a current helper without mo
   await page.getByRole('dialog').getByRole('button', { name: 'Switch mode' }).click();
   await expect(current).toBeHidden();
 });
+
+
+async function expectTone(card: ReturnType<Page['locator']>, tone: 'good' | 'warn' | 'bad') {
+  expect(await card.evaluate((element, name) => {
+    const style = getComputedStyle(element);
+    return style.getPropertyValue('--notice').trim() === style.getPropertyValue(`--state-${name}`).trim();
+  }, tone)).toBe(true);
+}
+
+for (const populated of [false, true]) {
+  test(`connection failures stay visible and recover with ${populated ? 'an imported account' : 'an empty workspace'}`, async ({ page }, testInfo) => {
+    const helper: Helper = { reachable: true, version: recommended, profileReady: populated };
+    await serveHelper(page, helper);
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.goto('/');
+    await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+    await importRoute(page, 'direct').check();
+    const badge = page.getByRole('complementary', { name: 'Imported game data' });
+    if (populated) await expect(badge).toBeVisible();
+    await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+    await expect(page.locator('.workspace-page > *').first()).toBeVisible();
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    const boxes = () => page.locator('.workspace-page > *').evaluateAll(elements => elements.map(element => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { x, y, width, height };
+    }));
+    const before = await boxes();
+    const connection = page.getByRole('status', { name: 'Helper connection failed' });
+    await expect(connection).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath('connection-before.png') });
+    helper.profileReady = false;
+    helper.missedLogin = true;
+    await expect(connection).toBeVisible();
+    await expect(connection).toContainText('Quit the game and open it again');
+    await expectTone(connection, 'bad');
+    expect(await boxes()).toEqual(before);
+    if (populated) {
+      const badgeBox = (await badge.boundingBox())!;
+      const errorBox = (await connection.boundingBox())!;
+      expect(errorBox.y).toBeGreaterThan(badgeBox.y + badgeBox.height);
+      expect(errorBox.width).toBeCloseTo(badgeBox.width, 0);
+    }
+    await page.screenshot({ path: testInfo.outputPath('connection-missed-login.png') });
+    helper.reachable = false;
+    await expect(connection).toContainText('Helper is not running');
+    await expectTone(connection, 'bad');
+    expect(await boxes()).toEqual(before);
+    await page.screenshot({ path: testInfo.outputPath('connection-unreachable.png') });
+    helper.reachable = true;
+    helper.missedLogin = false;
+    await expect(connection).toHaveCount(0);
+    expect(await boxes()).toEqual(before);
+    await page.screenshot({ path: testInfo.outputPath('connection-recovered.png') });
+    helper.missedLogin = true;
+    await expect(connection).toBeVisible();
+    await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
+    await importRoute(page, 'file').click();
+    if (populated) await page.getByRole('dialog').getByRole('button', { name: 'Switch mode' }).click();
+    await expect(connection).toHaveCount(0);
+  });
+}

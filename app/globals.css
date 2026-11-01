@@ -551,9 +551,9 @@ label[for] {
   pointer-events: none;
 }
 .import-badge.live {
-  border-color: var(--gold-edge);
+  border-color: color-mix(in srgb, var(--notice) 55%, var(--line-strong));
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--gold-deep) 62%, transparent), transparent 78%),
+    linear-gradient(180deg, color-mix(in srgb, var(--notice) 16%, transparent), transparent 78%),
     color-mix(in srgb, var(--raise) 90%, transparent);
 }
 .import-badge p { margin: 0; white-space: nowrap; font-family: var(--font-body); }
@@ -579,8 +579,8 @@ label[for] {
   padding-top: var(--s1);
   border-top: 1px solid var(--line);
 }
-.import-badge.live .import-badge-count + .import-badge-when { border-top-color: var(--gold-edge); }
-.import-badge.live .import-badge-when { color: var(--text-accent); }
+.import-badge.live .import-badge-count + .import-badge-when { border-top-color: color-mix(in srgb, var(--notice) 55%, var(--line-strong)); }
+.import-badge.live .import-badge-when { color: var(--notice); }
 
 /* Import success is fixed to the viewport rather than the page: the JSON
    target sits below the fold, so confirmation at the document's top would be
@@ -602,8 +602,11 @@ label[for] {
    as the helper is old. Its height is its own, since its sentence is longer
    than the badge's figures. And it takes clicks, because it holds the link to
    the installer. */
+/* Every corner card uses the same verdict palette: success, information, failure. */
+[data-notice-tone="good"] { --notice: var(--state-good); }
+[data-notice-tone="warn"] { --notice: var(--state-warn); }
+[data-notice-tone="bad"] { --notice: var(--state-bad); }
 .import-confirmation, .helper-update {
-  --notice: var(--state-good);
   position: fixed;
   top: var(--s4);
   right: var(--s4);
@@ -623,11 +626,10 @@ label[for] {
   pointer-events: none;
 }
 .import-confirmation { animation: import-confirmation-leave 400ms ease 3.6s forwards; }
-.import-confirmation.import-failure { --notice: var(--state-bad); animation: none; }
+.import-confirmation.import-failure { animation: none; }
 /* With no badge above it the warning opens the corner at the badge's own inset,
    at a width that holds its title on one line. */
 .helper-update {
-  --notice: var(--state-bad);
   position: absolute;
   right: var(--gutter);
   z-index: 20;
@@ -638,10 +640,6 @@ label[for] {
    width, so a line it cannot fit has to fold inside the box rather than run out
    through the edge. The badge's third line is the slack that pays for it. */
 .import-confirmation p, .helper-update p { margin: 0; }
-/* A gap the user can close by restarting the game is something left to do,
-   not something wrong: import goes on beneath it. */
-.helper-update.missed-changes,
-.helper-update.import-paused { --notice: var(--state-warn); }
 /* The card's one action, closing it on the same right edge as its text. */
 .helper-update-action { display: flex; justify-content: end; margin-top: var(--s2); }
 .corner-notice-title {

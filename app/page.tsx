@@ -801,7 +801,7 @@ export default function Home() {
         reloading={reloadingHelper} onReload={() => void reloadHelper.current?.(true)}
         helperUpdate={helperUpdateDue}
         importStopped={game ? liveImportStopped : null}
-        captureFailed={helperConnection.captureError !== null && helperConnection.captureError === liveImportStopped}
+        connectionError={preferences.importRoute === 'direct' && (helperConnection.state === 'unavailable' || helperConnection.restartRequired) ? helperStatusMessage(helperConnection) : null}
         missedCommands={game && preferences.importRoute === 'direct' && helperConnection.state === 'ready' ? helperConnection.missedCommands : []}
         confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} />
 

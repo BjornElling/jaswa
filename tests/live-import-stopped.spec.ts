@@ -169,7 +169,7 @@ test('a refused snapshot is said on every page, over it, and goes with the next 
   state.data = withOneRuneTwice();
   await expect(stopped(page)).toBeVisible();
   await expect(stopped(page)).toContainText('This file engraves one rune on two monsters.');
-  expect(await stopped(page).evaluate(card => getComputedStyle(card).getPropertyValue('--notice').trim() === getComputedStyle(card).getPropertyValue('--state-warn').trim())).toBe(true);
+  expect(await stopped(page).evaluate(card => getComputedStyle(card).getPropertyValue('--notice').trim() === getComputedStyle(card).getPropertyValue('--state-bad').trim())).toBe(true);
   await expect(stopped(page)).toContainText('Changes made in the game since then are not shown.');
   /* The import shown is still the last good one, and the page under the card did not move. */
   expect(await badge.textContent()).toBe(importedAt);

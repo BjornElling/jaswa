@@ -276,8 +276,18 @@ model does not know this command yet" read differently.
   stand in for that report. A healthy waiting state clears an earlier capture
   warning; recovery to the accepted session and revision needs no new import.
   A rejected account snapshot still names its validation failure on every page,
-  in yellow: red is reserved for the helper dashboard's own red capture state.
+  in red, as does a helper-side capture failure.
   An empty workspace does not claim to be showing stale account data.
+- **Connection failures have their own corner card on every page.** In direct
+  import mode, an unreachable helper, an invalid health response or a missed
+  login raises *Helper connection failed*, even before an account is imported.
+  A missed login tells the user to quit and reopen the game. Healthy waiting
+  clears the card; switching to file import hides it. A live-import stop takes
+  precedence so the same failure is never reported twice.
+- **Corner colours name the outcome consistently.** Imported data and successful
+  loads use green; information such as a helper update uses gold; failed
+  connections, refused snapshots, reload failures and missed game changes use
+  red. The existing verdict palette supplies all three tones.
 
 The raw traffic log remains the diagnostic record for a response shape that
 the current model cannot identify. It is never converted into a guessed item.

@@ -14,14 +14,14 @@ export function ImportBadge({ game, general, ref }: {
   ref?: Ref<HTMLElement>;
 }) {
   const counts = useMemo(() => accountCounts(game.data), [game]);
-  return <aside ref={ref} className="import-badge live" aria-label="Imported game data">
+  return <aside ref={ref} className="import-badge live" data-notice-tone="good" aria-label="Imported game data">
     <p className="import-badge-count">
       {formatNumber(counts.monsters, general)} monsters · {formatNumber(counts.runes, general)} runes
     </p>
     <p className="import-badge-count secondary">
       {formatNumber(counts.gemsAndGrinds, general)} gems &amp; grinds · {formatNumber(counts.artifacts, general)} artifacts · {formatNumber(counts.relics, general)} relics
     </p>
-    <p className="import-badge-when">imported {formatDateTime(game.importedAt, general)}</p>
+    <p className="import-badge-when">imported {formatDateTime(game.importedAt, general, true)}</p>
   </aside>;
 }
 
@@ -118,7 +118,7 @@ function placeNotice(notice: HTMLElement, badge: HTMLElement | null, gap: number
  * Both are overlays rather than lines in Game data. Neither may push the
  * choices the user was about to make down the page.
  */
-export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, captureFailed, missedCommands, confirmation, general }: {
+export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, connectionError, missedCommands, confirmation, general }: {
   reload: boolean;
   reloadError: string | null;
   reloading: boolean;
@@ -131,8 +131,8 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
   helperUpdate: boolean;
   /** Why the helper's newest snapshot was refused while the shown import stands, or `null`. */
   importStopped: string | null;
-  /** Red is reserved for the same capture fault the helper itself reports. */
-  captureFailed: boolean;
+  /** A failed helper connection or missed login, even before the first import. */
+  connectionError: string | null;
   /** Commands whose changes the helper could not read while import goes on; empty when none. */
   missedCommands: string[];
   confirmation: ImportedGame | null;
@@ -140,7 +140,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
 }) {
   /* A stop outranks a gap: while nothing arrives, which changes were missed
      before is the smaller news. Both use the one slot under the badge. */
-  const missed = importStopped === null && missedCommands.length > 0
+  const missed = importStopped === null && connectionError === null && missedCommands.length > 0
     ? `${missedCommands.slice(0, 3).join(', ')}${missedCommands.length > 3 ? ` and ${missedCommands.length - 3} more` : ''}`
     : null;
   const stoppedNotice = useRef<HTMLElement | null>(null);
@@ -187,7 +187,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       window.removeEventListener('resize', update);
       watcher.disconnect();
     };
-  }, [badge, badgeShown, helperUpdate, importStopped, missed, toastShown, reload, reloadError]);
+  }, [badge, badgeShown, helperUpdate, importStopped, connectionError, missed, toastShown, reload, reloadError]);
 
   return <>
     {reload && <Button ref={reloadButton} size="card" className="game-reload" busy={reloading}
@@ -195,11 +195,15 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       title="Read the helper's latest game data. Replaces changes planned in JASWA.">
       Reload game data
     </Button>}
-    {importStopped !== null && <ImportStoppedNotice ref={stoppedNotice} reason={importStopped} failed={captureFailed} />}
+    {importStopped !== null && <ImportStoppedNotice ref={stoppedNotice} reason={importStopped} />}
+    {importStopped === null && connectionError !== null && <aside ref={stoppedNotice} className="helper-update" data-notice-tone="bad" role="status" aria-live="polite" aria-label="Helper connection failed">
+      <p className="corner-notice-title">Helper connection failed</p>
+      <p className="corner-notice-detail">{connectionError}</p>
+    </aside>}
     {missed !== null && <MissedChangesNotice ref={stoppedNotice} commands={missed} />}
     {helperUpdate && <HelperUpdateNotice ref={updateNotice} />}
     {reload && reloadError
-      ? <aside ref={toast} className="import-confirmation import-failure" role="status" aria-label="Game data reload failed">
+      ? <aside ref={toast} className="import-confirmation import-failure" data-notice-tone="bad" role="status" aria-label="Game data reload failed">
         <p className="corner-notice-title">Game data reload failed</p>
         <p className="corner-notice-detail">{reloadError}</p>
       </aside>
@@ -211,7 +215,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
    old until it is replaced, so this stands for as long as the helper says so,
    and goes as soon as the helper, or the route, stops saying it. */
 function HelperUpdateNotice({ ref }: { ref: Ref<HTMLElement> }) {
-  return <aside ref={ref} className="helper-update" role="status" aria-live="polite" aria-label="Helper update available">
+  return <aside ref={ref} className="helper-update" data-notice-tone="warn" role="status" aria-live="polite" aria-label="Helper update available">
     <p className="corner-notice-title">
       <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -231,8 +235,8 @@ function HelperUpdateNotice({ ref }: { ref: Ref<HTMLElement> }) {
 /* Stands on every page while the helper's newest game data is refused: the badge
    above it keeps the time of the import still shown, and this says why that
    time has stopped moving. */
-function ImportStoppedNotice({ reason, failed, ref }: { reason: string; failed: boolean; ref: Ref<HTMLElement> }) {
-  return <aside ref={ref} className={`helper-update${failed ? '' : ' import-paused'}`} role="status" aria-live="polite" aria-label="Live import stopped">
+function ImportStoppedNotice({ reason, ref }: { reason: string; ref: Ref<HTMLElement> }) {
+  return <aside ref={ref} className="helper-update" data-notice-tone="bad" role="status" aria-live="polite" aria-label="Live import stopped">
     <p className="corner-notice-title">
       <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -252,7 +256,7 @@ function ImportStoppedNotice({ reason, failed, ref }: { reason: string; failed: 
    import keeps moving, so this is a warning and not a stop; only a fresh login
    carries the whole account again. */
 function MissedChangesNotice({ commands, ref }: { commands: string; ref: Ref<HTMLElement> }) {
-  return <aside ref={ref} className="helper-update missed-changes" role="status" aria-live="polite" aria-label="Some game changes were missed">
+  return <aside ref={ref} className="helper-update missed-changes" data-notice-tone="bad" role="status" aria-live="polite" aria-label="Some game changes were missed">
     <p className="corner-notice-title">
       <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -270,7 +274,7 @@ function MissedChangesNotice({ commands, ref }: { commands: string; ref: Ref<HTM
 
 function ImportConfirmation({ game, general, ref }: { game: ImportedGame; general: GeneralSettings; ref: Ref<HTMLElement> }) {
   const counts = useMemo(() => accountCounts(game.data), [game]);
-  return <aside ref={ref} className="import-confirmation" role="status" aria-live="polite"
+  return <aside ref={ref} className="import-confirmation" data-notice-tone="good" role="status" aria-live="polite"
     aria-label="Game data loaded correctly">
     <p className="corner-notice-title">
       <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
