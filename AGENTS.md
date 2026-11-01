@@ -99,6 +99,8 @@ operation, alter login fields or checksums, negotiate a substitute key, rewrite
 a response, or automate game input to obtain data. An import defect must be
 solved inside this boundary; parity never authorises crossing it. Keep an
 unreadable change visible until a passive source establishes the actual data.
+Read ordinary game messages and exports only; do not read the game process's
+memory or request elevated access to obtain its private keys.
 
 ---
 

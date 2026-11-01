@@ -24,6 +24,8 @@ server's original response even when JASWA cannot understand it.
 No JASWA feature or diagnostic tool writes game state, patches game files or
 memory, injects code into the game, or automates game input to force a read.
 The user may operate the game normally while a passive capture records it.
+Reading the game process's memory is also outside JASWA's data sources. Never
+scan it for session keys or request elevated process access for that purpose.
 JASWA's local browser API serves the browser, not the game; the existing
 temporary redirect and certificate are capture infrastructure, not permission
 to send authored game messages.
