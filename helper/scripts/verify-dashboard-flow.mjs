@@ -160,6 +160,18 @@ try {
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'game-start' },
     'Account captured', 'read your account when the game logged in');
   await page.screenshot({ path: resolve(output, 'helper-captured.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Close helper' }).click();
+  assert.equal(await page.evaluate(() => window.commands.at(-1)), 'plugin:window|close');
+  const destination = page.getByRole('switch', { name: 'Minimise to' });
+  const destinationBox = await destination.boundingBox();
+  const destinationTextBox = await page.locator('#minimize-destination').boundingBox();
+  await page.screenshot({ path: resolve(output, 'helper-captured-tray.png'), fullPage: true });
+  await destination.click();
+  assert.deepEqual(await destination.boundingBox(), destinationBox);
+  assert.deepEqual(await page.locator('#minimize-destination').boundingBox(), destinationTextBox);
+  assert.deepEqual(await boxes(), before);
+  await page.screenshot({ path: resolve(output, 'helper-captured-taskbar.png'), fullPage: true });
+  await destination.click();
   const captured = await page.evaluate(() => structuredClone(window.dashboard));
   await page.getByRole('button', { name: 'Restart helper' }).click();
   await page.locator('.activity-text').filter({ hasText: 'Your account and session were kept' }).waitFor();
@@ -270,13 +282,24 @@ try {
   await page.screenshot({ path: resolve(output, 'helper-status-failure.png'), fullPage: true });
 
   /* Both destinations persist without moving the surrounding controls. */
-  const setting = page.getByLabel('Minimise to');
-  assert.equal(await setting.inputValue(), 'tray');
+  const setting = page.getByRole('switch', { name: 'Minimise to' });
+  assert.equal(await setting.getAttribute('aria-checked'), 'true');
+  assert.equal(await page.locator('#minimize-destination').textContent(), 'System tray');
   const settingsBox = await setting.boundingBox();
+  assert.equal(settingsBox.height, 20);
+  assert.equal(settingsBox.width, 36);
+  const look = () => setting.evaluate((node) => ({ background: getComputedStyle(node).backgroundColor, edge: getComputedStyle(node).boxShadow }));
+  await page.mouse.move(0, 0);
+  const resting = await look();
+  await page.locator('#minimize-destination').hover();
+  assert.deepEqual(await look(), resting, 'hovering the separate text must not light the track');
+  await setting.hover();
+  assert.equal((await look()).background, resting.background);
+  assert.notEqual((await look()).edge, resting.edge, 'only the track edge lights on hover');
   await page.screenshot({ path: resolve(output, 'helper-tray-setting.png'), fullPage: true });
   await page.getByRole('button', { name: 'Minimise' }).click();
-  assert.equal(await page.evaluate(() => window.commands.at(-1)), 'plugin:window|close');
-  await setting.selectOption('taskbar');
+  assert.equal(await page.evaluate(() => window.commands.at(-1)), 'plugin:window|hide');
+  await setting.click();
   assert.deepEqual(await setting.boundingBox(), settingsBox);
   assert.deepEqual(await boxes(), before);
   await page.getByRole('button', { name: 'Minimise' }).click();
@@ -284,12 +307,15 @@ try {
   await page.screenshot({ path: resolve(output, 'helper-taskbar-setting.png'), fullPage: true });
   await page.reload();
   await headline('Waiting for Summoners War').waitFor();
-  assert.equal(await setting.inputValue(), 'taskbar');
-  await setting.selectOption('tray');
+  assert.equal(await setting.getAttribute('aria-checked'), 'false');
+  assert.equal(await page.locator('#minimize-destination').textContent(), 'Taskbar');
+  await setting.focus();
+  await page.keyboard.press('Space');
   await page.reload();
   await headline('Waiting for Summoners War').waitFor();
-  assert.equal(await setting.inputValue(), 'tray');
-  await page.getByRole('button', { name: 'Close to the system tray' }).click();
+  assert.equal(await setting.getAttribute('aria-checked'), 'true');
+  assert.equal(await page.locator('#minimize-destination').textContent(), 'System tray');
+  await page.getByRole('button', { name: 'Close helper' }).click();
   assert.equal(await page.evaluate(() => window.commands.at(-1)), 'plugin:window|close');
 
   assert.deepEqual(errors, []);

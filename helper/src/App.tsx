@@ -206,16 +206,15 @@ function Wordmark() {
 
    Losing the system bar means re-supplying what it did. Dragging is the
    webview's `data-tauri-drag-region`, and minimise and close are ordinary
-   buttons calling the window commands — minimise follows the saved choice, and close hides rather than quits,
-   matching the `CloseRequested` handler the decorated window had, so the
-   helper keeps capturing from the tray.
+   buttons calling the window commands. Minimise follows the saved choice;
+   close asks the native handler to quit, with consent while capturing.
 
    The commands go through `invoke` rather than `getCurrentWindow()`, which
    reads a `currentWindow` off Tauri's injected metadata. The whole window is
    already reachable by name, and depending on that metadata would make the
    frame the one part of the dashboard the release check cannot drive — it
    stubs `invoke`, not the runtime's internals. */
-function caption(command: 'minimize' | 'close') {
+function caption(command: 'minimize' | 'hide' | 'close') {
   return invoke(`plugin:window|${command}`, { label: 'main' });
 }
 
@@ -232,10 +231,10 @@ function TitleBar({ version, update, minimizeTo }: { version: string | null; upd
         <span className="version-mark" data-lit={Boolean(update)} aria-hidden="true" />v{version ?? '—'}
       </span>
       <div className="titlebar-controls">
-        <button type="button" className="caption" aria-label="Minimise" onClick={() => void caption(minimizeTo === 'tray' ? 'close' : 'minimize')}>
+        <button type="button" className="caption" aria-label="Minimise" onClick={() => void caption(minimizeTo === 'tray' ? 'hide' : 'minimize')}>
           <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M0 5h10" /></svg>
         </button>
-        <button type="button" className="caption caption-close" aria-label="Close to the system tray" onClick={() => void caption('close')}>
+        <button type="button" className="caption caption-close" aria-label="Close helper" onClick={() => void caption('close')}>
           <svg viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M0 0l10 10M10 0L0 10" /></svg>
         </button>
       </div>
@@ -436,17 +435,19 @@ export function App() {
       </section>
 
       <section className="settings" aria-label="Settings">
-        <label htmlFor="minimize-to">Minimise to</label>
-        <select id="minimize-to" value={minimizeTo} onChange={(event) => {
-          const value = event.target.value === 'taskbar' ? 'taskbar' : 'tray';
+        <span id="minimize-label">Minimise to</span>
+        <button type="button" className="destination-toggle" role="switch"
+          aria-labelledby="minimize-label" aria-describedby="minimize-destination"
+          aria-checked={minimizeTo === 'tray'} onClick={() => {
+          const value = minimizeTo === 'tray' ? 'taskbar' : 'tray';
           try {
             localStorage.setItem('jaswa-helper-minimize-to', value);
             setMinimizeTo(value);
           } catch { note('Could not save the minimise setting. Please try again.', { tone: 'error', answer: true }); }
         }}>
-          <option value="tray">System tray</option>
-          <option value="taskbar">Taskbar</option>
-        </select>
+          <span aria-hidden="true" />
+        </button>
+        <span id="minimize-destination">{minimizeTo === 'tray' ? 'System tray' : 'Taskbar'}</span>
       </section>
 
       <section className="activity" aria-label="Activity">

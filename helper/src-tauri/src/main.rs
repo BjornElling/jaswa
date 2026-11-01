@@ -396,7 +396,7 @@ fn main() {
                     OPEN_TRAFFIC => tray_result(open_traffic_log(app.state()).map(|()| None)),
                     RESTART => tray_result(restart_helper(app.state()).map(Some)),
                     UPDATE => tray_result(download_update(app.state()).map(Some)),
-                    QUIT => app.exit(0),
+                    QUIT => request_quit(app),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -417,20 +417,33 @@ fn main() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                let _ = window.hide();
+                request_quit(window.app_handle());
             }
         })
         .build(tauri::generate_context!())
         .expect("valid JASWA Helper application")
         .run(|app, event| {
             if matches!(event, RunEvent::Exit) {
-                // Quitting from the tray removes the redirect; being killed from
+                // Quitting removes the redirect; being killed from
                 // Task Manager does not, and the absence of this line is how the
                 // log says which of the two happened.
                 diagnostics::record("helper", "Helper exiting — removing the local redirect");
                 app.state::<HelperState>().service.stop();
             }
         });
+}
+
+// All exit controls consult live service state, never the dashboard's last poll.
+fn request_quit(app: &tauri::AppHandle) {
+    if quit_approved(app.state::<HelperState>().service.is_receiving_game_input(), || {
+        windows::confirm_action("Close JASWA Helper? Summoners War is connected. Closing stops account capture and live updates. You may need to restart the game to reconnect to the helper.")
+    }) {
+        app.exit(0);
+    }
+}
+
+fn quit_approved(receiving: bool, confirm: impl FnOnce() -> bool) -> bool {
+    !receiving || confirm()
 }
 
 fn tray_result(result: Result<Option<String>, String>) {
@@ -476,6 +489,13 @@ fn certificate_installation_approved() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quitting_requires_consent_only_during_game_input() {
+        assert!(quit_approved(false, || panic!("Idle exit must not ask")));
+        assert!(!quit_approved(true, || false));
+        assert!(quit_approved(true, || true));
+    }
 
     #[test]
     fn tray_reads_empty_and_populated_dashboard_states() {

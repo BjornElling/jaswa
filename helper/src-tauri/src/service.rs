@@ -307,6 +307,9 @@ impl Service {
     pub fn traffic(&self) -> std::sync::MutexGuard<'_, TrafficLog> {
         self.shared.traffic.lock().expect("traffic lock poisoned")
     }
+    pub fn is_receiving_game_input(&self) -> bool {
+        receiving_game_input(&self.shared)
+    }
     pub fn status(&self) -> Value {
         status(&self.shared)
     }
@@ -365,6 +368,14 @@ pub fn cleanup(remove_certificate: bool) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+// A quiet interval between commands is still a live session. A socket also
+// counts before the watchdog has had time to observe the game's process.
+fn receiving_game_input(shared: &Shared) -> bool {
+    shared.open_connections.load(Ordering::Acquire) > 0
+        || (*shared.game_running.lock().expect("game state lock poisoned")
+            && shared.game_started_at.lock().expect("game start lock poisoned").is_some())
 }
 
 fn status(shared: &Shared) -> Value {
@@ -2143,6 +2154,23 @@ mod tests {
             api_connections: AtomicUsize::new(0),
             newer_release: Mutex::new(None),
         }
+    }
+
+    #[test]
+    fn exit_guard_covers_connections_quiet_sessions_and_capture_errors() {
+        let shared = shared_for_test();
+        assert!(!receiving_game_input(&shared));
+        shared.open_connections.store(1, Ordering::Release);
+        assert!(receiving_game_input(&shared));
+        shared.open_connections.store(0, Ordering::Release);
+        *shared.game_running.lock().unwrap() = true;
+        assert!(!receiving_game_input(&shared), "a pre-existing game has not connected");
+        *shared.game_started_at.lock().unwrap() = Some(Instant::now());
+        assert!(receiving_game_input(&shared));
+        *shared.last_error.lock().unwrap() = Some("Capture failed".into());
+        assert!(receiving_game_input(&shared));
+        *shared.game_running.lock().unwrap() = false;
+        assert!(!receiving_game_input(&shared));
     }
 
     #[test]

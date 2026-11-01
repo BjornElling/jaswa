@@ -113,9 +113,12 @@ tray icon and start the replacement promptly.
 
 The helper's **Minimise to** setting defaults to **System tray**, hiding the
 window while capture continues. Click its notification-area icon to reopen it.
-Choose **Taskbar** to use Windows' usual minimised window instead. The choice is
+Use the gold toggle to choose **Taskbar** for Windows' usual minimised window
+instead. The current destination appears to its right. The choice is
 stored in the helper's local WebView profile and survives a restart or upgrade.
-Close always hides the window to the system tray; use the tray menu to quit. Right-click the tray icon to open the helper's actions without reopening its window. Check marks identify active traffic recording and an available update; actions without the data they need are disabled. Saving a private report and starting a traffic recording ask for the same confirmation as the dashboard.
+Close exits the helper and removes its local redirect. While the game is
+connected, Close, Alt+F4 and the tray menu's Quit ask for confirmation; declining
+keeps capture running. Minimising never asks or stops capture. Right-click the tray icon to open the helper's actions without reopening its window. Check marks identify active traffic recording and an available update; actions without the data they need are disabled. Saving a private report and starting a traffic recording ask for the same confirmation as the dashboard.
 
 ## The diagnostic log
 
