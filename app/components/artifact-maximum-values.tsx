@@ -2,6 +2,7 @@ import { filterIncludes } from '../lib/filter-selection';
 import { Fragment, useMemo, useState } from 'react';
 import { Button, FilterButton } from './button';
 import { CalculationStatus } from './calculation-status';
+import { SettledCalculation } from './settled-calculation';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -499,9 +500,11 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
     {/* In the on-change mode the recalculation is already under way, so the
         notice reports it rather than asking for a button the user has told
         JASWA not to make them press. */}
-    {calculation && !currentCalculation && <p className="notice warning" role="status">{settings.recalculate === 'on-change'
+    <p className="notice warning" role="status" style={{ visibility: calculation && !currentCalculation ? 'visible' : 'hidden' }}
+      aria-hidden={!calculation || Boolean(currentCalculation)}>{settings.recalculate === 'on-change'
       ? 'Settings or imported data changed. Refreshing these recommendations…'
-      : 'Settings or imported data changed. Calculate again to refresh these recommendations.'}</p>}
+      : 'Settings or imported data changed. Calculate again to refresh these recommendations.'}</p>
+    <SettledCalculation current={Boolean(currentCalculation)} retain={Boolean(calculation) && settings.recalculate === 'on-change'}>
     {currentCalculation && <>
       {/* The slot figures have to add up on the page. Reporting "558 of 558
           filled" and then warning about 2 more slots left the user with three
@@ -570,5 +573,6 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
             : 'Every artifact matching these filters is already where it does most good.'}
       </p>}
     </>}
+    </SettledCalculation>
   </div>;
 }

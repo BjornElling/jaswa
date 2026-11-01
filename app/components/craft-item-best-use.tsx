@@ -154,12 +154,11 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     if (workerRequest.current !== request) return;
     worker.current?.terminate(); worker.current = null; workerRequest.current = null;
   }, [request]);
-  /* The remembered answer, brought up to the account as it is now: an item or rune
-     gone takes its rows with it at once, and what is new is judged alone (below) —
-     so neither a spent stone nor a live sync ever empties the page, and the reader
-     stays where they were. */
+  /* Reconciliation plans the next answer. It must not publish a partial one:
+     a changed rune can still lead the same ranking once its new answer is in. */
   const reconciled = useMemo(() => request && calculation?.key === calculationKey
     ? reconcileCraftCalculation(calculation, [...request.items, ...request.missing], request.runes) : null, [request, calculation, calculationKey]);
+  const extensions = useMemo(() => request && reconciled ? craftExtensionRequests(request, reconciled) : [], [request, reconciled]);
   function clear() { worker.current?.terminate(); worker.current = null; workerRequest.current = null; setWork(null); onCalculated(null); }
   /**
    * Asks the worker each of `asks` in turn on behalf of `request`, whose status it
@@ -204,18 +203,24 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
      failed extension is reported rather than retried in a loop. */
   useEffect(() => {
     if (!request || !calculation || !reconciled || work?.request === request) return;
-    const asks = craftExtensionRequests(request, reconciled);
-    if (!asks.length) return;
-    const { addedItems, addedRunes } = reconciled;
+    const asks = extensions;
+    /* Removals and quantity-only changes need no worker, but must retire the
+       old snapshot too: a later addition must not bring a sold rune back. */
+    const items = [...request.items, ...request.missing];
+    const same = (left: readonly string[], right: readonly string[]) => left.length === right.length && left.every((key, at) => key === right[at]);
+    if (!asks.length && same(calculation.items, items.map(craftItemKey)) && same(calculation.runes, request.runes.map(craftRuneKey))
+      && reconciled.result.candidates.length === calculation.result.candidates.length
+      && reconciled.result.candidates.every((row, at) => row === calculation.result.candidates[at])) return;
     let current = true;
     /* Started from a microtask, as the worker's own answers are, so the effect never sets state as it runs. */
     void Promise.resolve().then(() => {
       if (!current) return;
-      run(request, asks, (results) => extendCraftCalculation(calculation, results, addedItems, addedRunes));
+      if (asks.length) run(request, asks, (results) => extendCraftCalculation(calculation, results, items, request.runes));
+      else onCalculated(extendCraftCalculation(calculation, [], items, request.runes));
     });
     return () => { current = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` is redeclared every render; the answer it extends is in the list.
-  }, [request, calculation, reconciled, work?.request]);
+  }, [request, calculation, reconciled, extensions, work?.request]);
   const update = <K extends keyof State,>(key: K, value: State[K]) => setState((previous) => ({ ...previous, [key]: value }));
   const toggle = <K extends 'lineages' | 'grades' | 'already',>(key: K, value: State[K][number]) => setState((previous) => {
     const chosen = previous[key] as readonly string[];
@@ -228,7 +233,10 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       <div className="filter-group-controls">{values.map((value) => <FilterButton key={value} active={isActive(value)}
         title={title?.(value)} onClick={() => onToggle(value)}>{display(value)}</FilterButton>)}</div>
     </div>;
-  const result = reconciled?.result;
+  /* Keep one complete answer on screen until every extension has finished,
+     including on failure. Clear and a different calculation question still
+     discard it explicitly. */
+  const result = reconciled ? extensions.length ? calculation?.result : reconciled.result : undefined;
   const adviceInputs = useMemo(() => ({ data: { unit_list: monsters } as GameRecord, settings, roles }), [monsters, settings, roles]);
   /* Asked only once there is an answer to narrow, so the filter alone never
      starts Rune Clean-up's worker on an empty page. */

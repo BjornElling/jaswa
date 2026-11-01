@@ -258,23 +258,31 @@ question.
 on that rune and that item alone, so the remembered answer is keyed by
 everything but the items and runes, and lists the items and runes it has judged
 (`craftItemKey`: the item without its amount; `craftRuneKey`: the whole rune).
-`reconcileCraftCalculation` brings it up to the account as it is: a stack that
-has left the box, and a rune gone or changed, takes its rows with it at once,
-and they are gone, not greyed; a stack whose amount merely changed keeps its
-rows under its new size. What is new — an item held, or in What's missing newly
+`reconcileCraftCalculation` prepares the next answer: a stack that has left the
+box, and a rune gone or changed, takes its old rows with it; a stack whose
+amount merely changed keeps its rows under its new size. What is new — an item held, or in What's missing newly
 absent; a rune new or changed — is calculated alone, without pressing
 Calculate: every item on each new rune, and each new item on the runes already
 judged (`craftExtensionRequests`), folded in by `extendCraftCalculation`. The
 extended answer is exactly a fresh calculation's, which
-`verify:craft-recommendations` holds. A failed extension is reported in the
-status line and not retried until the account changes again.
+`verify:craft-recommendations` holds. All three views keep the previous complete
+answer on screen until every extension is finished, then publish the complete
+replacement together. A changed rune never disappears between those answers.
+Removals and quantity-only changes publish immediately when no calculation is
+needed. Every published answer retires obsolete rune and item keys, so repeated
+syncs retain only the current account. A failed extension keeps the previous
+answer, reports the failure in the status line and is not retried until the
+account changes again. Clear results explicitly discards the answer.
 
 So a live sync, which replaces the whole import whenever the game changes,
 never empties either view, and a reader scrolled down the rankings stays where
 they are. Only keep-runes holds the same line: while Rune Clean-up judges a
 new or changed rune, the rankings go on narrowing by its previous answer rather
 than wait empty. `gems-and-grinds-live-sync.spec.ts` drives both views through a
-live sync with the page scrolled down and fails on any scroll. Calculation is
+live sync with the page scrolled down and fails on any scroll. It also holds
+worker requests while a leading SPD rune changes in all three views, checks its
+contents and bounds throughout the wait, and checks removal only after a
+maximum grind has been calculated. Calculation is
 explicit, cancellable, and runs in a dedicated worker. Session filters are
 read one choice at a time; adding Rune set does not discard the other choices.
 

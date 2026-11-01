@@ -221,14 +221,28 @@ const secondRequest = { ...emptyRequest, runes: secondRunes, items: secondBox, r
 const asks = craftExtensionRequests(secondRequest, reconciled);
 assert.equal(asks.length, 2, 'new runes and new items are two questions');
 const answers = await Promise.all(asks.map((ask) => recommendRuneCraft(ask)));
-const extended = reconcileCraftCalculation(extendCraftCalculation(remembered, answers, reconciled.addedItems, reconciled.addedRunes),
-  secondBox, secondRunes);
+const published = extendCraftCalculation(remembered, answers, secondBox, secondRunes);
+const extended = reconcileCraftCalculation(published, secondBox, secondRunes);
 assert.equal(extended.addedItems.length + extended.addedRunes.length, 0, 'an extended answer has judged the whole account');
 const fresh = await recommendRuneCraft(secondRequest);
+assert.equal(sorted(published.result.candidates), sorted(fresh.candidates), 'the published snapshot itself must be complete');
+assert.deepEqual(published.items, secondBox.map(craftItemKey), 'obsolete item keys must be retired');
+assert.deepEqual(published.runes, secondRunes.map(craftRuneKey), 'obsolete rune keys must be retired');
 assert.equal(sorted(extended.result.candidates), sorted(fresh.candidates), 'an extended answer differs from a fresh one');
 assert.ok(extended.result.candidates.some((row) => row.item.amount === 7), 'a spent-down stack keeps its rows under its new size');
 assert.ok(!extended.result.candidates.some((row) => firstBox.slice(0, 2).includes(row.item)), 'a stack gone left a row behind');
 assert.ok(!extended.result.candidates.some((row) => firstRunes.slice(0, 2).includes(row.rune) || row.rune === powered),
   'a rune gone or changed left a row behind');
+/* Returning to a previous rune or box must ask again: the old snapshot was
+   retired, so an old key cannot suppress a necessary extension. */
+const returning = reconcileCraftCalculation(published, firstBox, firstRunes);
+const returningAnswers = await Promise.all(craftExtensionRequests({ ...secondRequest, items: firstBox, runes: firstRunes }, returning)
+  .map((ask) => recommendRuneCraft(ask)));
+const returned = extendCraftCalculation(published, returningAnswers, firstBox, firstRunes);
+assert.equal(sorted(returned.result.candidates), sorted(firstAnswer.candidates), 'a returning account differs from a fresh answer');
+const cleared = extendCraftCalculation(returned, [], [], []);
+assert.deepEqual(cleared.items, []);
+assert.deepEqual(cleared.runes, []);
+assert.deepEqual(cleared.result.candidates, [], 'an empty account must publish an empty answer');
 console.log(`PASS: What's missing judged ${missing.length} absent items on ${runes.length} runes in ${Math.round(missingMs)} ms without moving a held answer.`);
 console.log(`PASS: ${comparisons.toLocaleString('en-US')} craft/build comparisons agree with exhaustive role readings; every optimizer variant, stat-specific ranking and empty case holds.`);

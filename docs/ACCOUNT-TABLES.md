@@ -147,7 +147,13 @@ exactly one of two values:
   remains the way to a fresh one. A whole-library calculation is work the user
   asked for.
 - **On change** — the calculation re-runs itself; the notice reports the
-  refresh under way.
+  refresh under way. The complete previous result remains in place until its
+  replacement is ready, including the records and conversion inventory that
+  produced it. Never combine old scores with newly imported records or hide
+  rows during the wait. The notice reserves its space in every state. Choosing
+  another monster or artifact, clearing results and a failed calculation still
+  discard that result. All three artifact recommendation views share
+  `SettledCalculation` for this pending presentation.
 
 The mode is not scoring input: `scoringSettings()` excludes it from the key a
 view compares its held result against, and lists its fields so a new setting

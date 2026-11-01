@@ -2,6 +2,7 @@ import { filterIncludes } from '../lib/filter-selection';
 import { type ReactNode, useMemo, useState } from 'react';
 import { Button, FilterButton } from './button';
 import { CalculationStatus } from './calculation-status';
+import { SettledCalculation } from './settled-calculation';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { UnrefinedArtifactMark } from './unrefined-artifact-mark';
@@ -384,10 +385,13 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
 
     {/* As in the other two views (`ACCOUNT-TABLES.md` §7): a held result that no longer answers
         the current settings says so instead of disappearing. */}
-    {calculation && !currentCalculation && <p className="notice warning" role="status">{settings.recalculate === 'on-change'
+    <p className="notice warning" role="status" style={{ visibility: calculation && !currentCalculation ? 'visible' : 'hidden' }}
+      aria-hidden={!calculation || Boolean(currentCalculation)}>{settings.recalculate === 'on-change'
       ? 'Settings or imported data changed. Refreshing these results…'
-      : 'Settings or imported data changed. Calculate again to refresh these results.'}</p>}
+      : 'Settings or imported data changed. Calculate again to refresh these results.'}</p>
 
+    <SettledCalculation key={filters.selectedArtifactId} current={Boolean(currentCalculation)}
+      retain={Boolean(calculation) && settings.recalculate === 'on-change'}>
     {currentCalculation && selectedArtifact && <>
       <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
         backend={currentCalculation.backend} general={general} />
@@ -428,5 +432,6 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
         </ResultCard>
       </div>
     </>}
+    </SettledCalculation>
   </div>;
 }

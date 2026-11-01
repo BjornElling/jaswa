@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, FilterButton } from './button';
 import { CalculationStatus } from './calculation-status';
+import { SettledCalculation } from './settled-calculation';
 import { ConversionList } from './conversion-list';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
 import { Dropdown } from './dropdown';
@@ -556,9 +557,12 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
     {/* Without this the results simply vanished on a settings change and the
         page looked as though nothing had ever been calculated. `ACCOUNT-TABLES.md` §7: a result
         that stops being current says so. */}
-    {calculation && !currentCalculation && <p className="notice warning" role="status">{settings.recalculate === 'on-change'
+    <p className="notice warning" role="status" style={{ visibility: calculation && !currentCalculation ? 'visible' : 'hidden' }}
+      aria-hidden={!calculation || Boolean(currentCalculation)}>{settings.recalculate === 'on-change'
       ? 'Settings or imported data changed. Refreshing these results…'
-      : 'Settings or imported data changed. Calculate again to refresh these results.'}</p>}
+      : 'Settings or imported data changed. Calculate again to refresh these results.'}</p>
+    <SettledCalculation key={filters.selectedUnitId} current={Boolean(currentCalculation)}
+      retain={Boolean(calculation) && settings.recalculate === 'on-change'}>
 
     {currentCalculation && selectedMonster && context && <>
       <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
@@ -587,5 +591,6 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
           })}
       </div>
     </>}
+    </SettledCalculation>
   </div>;
 }

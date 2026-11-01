@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { holdWorkerRequests } from './hold-worker-requests';
 
 for (const recalculate of ['manual', 'on-change'] as const) {
   test(`a spent last artifact stone invalidates an unchanged roll (${recalculate})`, async ({ page }, testInfo) => {
+    const workers = await holdWorkerRequests(page);
     const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8'));
     account.unit_list = [{ unit_id: 1, unit_master_id: 10131, attribute: 1, class: 6, unit_level: 40 }];
     account.unit_list.push({ ...account.unit_list[0], unit_id: 2 }, { ...account.unit_list[0], unit_id: 3 });
@@ -76,6 +78,9 @@ for (const recalculate of ['manual', 'on-change'] as const) {
     await page.screenshot({ path: testInfo.outputPath('conversion-no.png'), fullPage: true });
     await conversion.getByRole('button', { name: 'No', exact: true }).click();
     await expect(rows).toHaveCount(3);
+    const tableContents = await table.textContent();
+    const tableBounds = await table.boundingBox();
+    if (recalculate === 'on-change') await workers.hold();
     revision = 2;
     await expect.poll(async () => page.evaluate(async () => {
       const path = '/app/lib/browser-storage.ts';
@@ -86,10 +91,51 @@ for (const recalculate of ['manual', 'on-change'] as const) {
       await expect(page.getByText('Settings or imported data changed. Calculate again to refresh these recommendations.')).toBeVisible();
       await expect(table).toHaveCount(0);
       await calculate.click();
+    } else {
+      await expect(page.getByText('Settings or imported data changed. Refreshing these recommendations…')).toBeVisible();
+      expect(await table.textContent()).toBe(tableContents);
+      expect(await table.boundingBox()).toEqual(tableBounds);
+      await page.screenshot({ path: testInfo.outputPath('during-refresh.png'), fullPage: true });
+      await workers.release();
     }
     await expect(table).toContainText('No conversion');
     await expect(table).not.toContainText('Improve roll in');
     expect(await calculate.boundingBox()).toEqual(before);
     await page.screenshot({ path: testInfo.outputPath('after-spending.png'), fullPage: true });
+    if (recalculate === 'on-change') {
+      /* The other two readers must retain their own complete answer too, with
+         the same selected subject throughout the live update. */
+      for (const [title, panelClass, chooser, value, action, resultsClass] of [
+        ['Best monster for this artifact', '.best-monster-for-artifact', 'Choose an artifact for monster recommendations', '1001', 'Calculate monsters', '.best-monster-results'],
+        ['Best artifact for this monster', '.best-artifact-for-monster', 'Choose a monster for artifact recommendations', '1', 'Calculate artifacts', '.best-artifact-results'],
+      ]) {
+        await page.locator('summary').filter({ hasText: title }).click();
+        const panel = page.locator(panelClass);
+        const results = panel.locator(resultsClass);
+        await expect(results).toHaveCount(0);
+        await panel.getByRole('combobox', { name: chooser }).selectOption(value);
+        await panel.getByRole('button', { name: action, exact: true }).click();
+        await expect(results).toBeVisible();
+        const contents = await results.textContent();
+        const box = () => results.evaluate((element) => {
+          const { x, y, width, height } = element.getBoundingClientRect();
+          return { x: x + window.scrollX, y: y + window.scrollY, width, height };
+        });
+        const bounds = await box();
+        await page.screenshot({ path: testInfo.outputPath(`${value}-before-refresh.png`), fullPage: true });
+        await workers.hold();
+        account.artifacts[0].sec_effects[0][1] += 1;
+        revision += 1;
+        await expect(panel.getByText('Settings or imported data changed. Refreshing these results…')).toBeVisible();
+        expect(await results.textContent()).toBe(contents);
+        expect(await box()).toEqual(bounds);
+        await page.screenshot({ path: testInfo.outputPath(`${value}-during-refresh.png`), fullPage: true });
+        await workers.release();
+        await expect(panel.getByText('Settings or imported data changed. Refreshing these results…')).toBeHidden();
+        await expect(results).toBeVisible();
+        await page.screenshot({ path: testInfo.outputPath(`${value}-after-refresh.png`), fullPage: true });
+        await page.locator('summary').filter({ hasText: title }).click();
+      }
+    }
   });
 }

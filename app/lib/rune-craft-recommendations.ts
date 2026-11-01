@@ -209,15 +209,22 @@ export function craftExtensionRequests(request: CraftRecommendationRequest, reco
   return asks;
 }
 
-/** The answers to `craftExtensionRequests`, folded into the answer they extend. */
+/**
+ * Publish a complete answer for the current account after every extension is in.
+ * Retiring old keys here also prevents repeated syncs from retaining every
+ * earlier form of a rune, or treating a returning item as already calculated.
+ */
 export function extendCraftCalculation(calculation: CraftCalculation, added: readonly CraftRecommendations[],
   items: readonly CraftItem[], runes: readonly Rune[]): CraftCalculation {
+  const result = reconcileCraftCalculation({ ...calculation,
+    result: { ...calculation.result, candidates: [...calculation.result.candidates, ...added.flatMap((answer) => answer.candidates)] },
+  }, items, runes).result;
   return {
     key: calculation.key,
-    items: [...new Set([...calculation.items, ...items.map(craftItemKey)])],
-    runes: [...new Set([...calculation.runes, ...runes.map(craftRuneKey)])],
+    items: items.map(craftItemKey),
+    runes: runes.map(craftRuneKey),
     result: {
-      candidates: [...calculation.result.candidates, ...added.flatMap((answer) => answer.candidates)],
+      candidates: result.candidates,
       comparisons: added.reduce((total, answer) => total + answer.comparisons, calculation.result.comparisons),
       durationMs: added.reduce((total, answer) => total + answer.durationMs, calculation.result.durationMs),
       backend: combineCalculationBackends([calculation.result.backend, ...added.map((answer) => answer.backend)]),
