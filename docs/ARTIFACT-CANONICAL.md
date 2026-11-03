@@ -349,16 +349,16 @@ legacy id**; refusing one would refuse a legal artifact.
 | 207 | CRIT Rate Increasing Effect | v6.2.0 | no stone owned |
 | 211 | Damage Dealt by Reflect DMG | v6.2.0 | no stone owned |
 | 212 | Crushing Hit DMG | v6.2.0 | no stone owned |
-| 213 | Damage Received Under Inability Effects (−) | v6.2.0 | not yet read |
+| 213 | Damage Received Under Inability Effects (−) | v6.2.0 | ?–5 (Hero 2–5) |
 | 200 | ATK Increased Proportional to Lost HP | v8.0.0, removed | 9–20 |
 | 201 | DEF Increased Proportional to Lost HP | v8.0.0, removed | 9–20 |
 | 202 | SPD Increased Proportional to Lost HP | v8.0.0, removed | 9–20 |
 | 216 | HP when Revived | v8.0.0, removed | 4–9 |
-| 217 | Attack Bar when Revived | v8.0.0, removed | not yet read |
-| 204 | ATK Increasing Effect | v8.0.0, merged into 226 | not yet read |
+| 217 | Attack Bar when Revived | v8.0.0, removed | 4–9 (Legend 7–9) |
+| 204 | ATK Increasing Effect | v8.0.0, merged into 226 | ?–8 (Hero 4–8) |
 | 205 | DEF Increasing Effect | v8.0.0, merged into 226 | 2–6 |
 | 208 / 209 | Counterattack DMG / Co-op Attack DMG | v8.0.0, merged into 225 | 2–6 |
-| 402 / 403 | [Skill 3] / [Skill 4] CRIT DMG (Type) | v8.0.0, merged into 410 | not yet read |
+| 402 / 403 | [Skill 3] / [Skill 4] CRIT DMG (Type) | v8.0.0, merged into 410 | ?–9 (Hero 5–9) |
 
 *Evidence: v8.0.0's counts (five removed, six merged into three); Ellia's v6.2
 list; names from in-game panels on rids 319233427, 60850484, 60874386,
@@ -369,14 +369,21 @@ client's Special Conv. list states it on a Rare stone, which spans the full
 range (§15.12). It also anchors names: the game's "ATK+ / DEF+ / SPD+ prop.
 lost HP", "DEF UP effect", "Counterattack DMG", "Co-op attack DMG" and "HP when
 revived" sit at exactly the quantities the export gives 200, 201, 202, 205,
-208, 209 and 216 among the Fire attribute stones. *Not yet read* means the
-account holds a stone whose list has not been photographed; *no stone owned*
-means no list on this account can show it. *Evidence: the Special Conv. list
-of a Fire attribute artifact, 2026-11-04, against the export of 2026-11-03.*
+208, 209 and 216 among the Fire attribute stones; the stone tooltips' "ATK UP
+effect", "DMG taken w/ inability", "ATK Bar when revived", "[S3] CRIT DMG" and
+"[S4] CRIT DMG" do the same for 204, 213, 217, 402 and 403. A higher grade
+raises a stone's floor and never its ceiling (§15.12), so where only a Hero or
+Legend stone has been read the ceiling is known and the floor is written `?`,
+with the stone's own range beside it. *Not yet read* means the account holds a
+stone whose range has not been photographed; *no stone owned* means nothing on
+this account can show it. *Evidence: the Special Conv. list of a Fire
+attribute artifact and the stone tooltips of the Water, HP and Defense stones,
+2026-11-04, against the export of 2026-11-03.*
 
-Where §15.11 has the per-roll range, the stone agrees with §10's rule
-`minRoll – ceil(maxRoll × 1.5)` for 205, 208, 209 (2–4 → 2–6) and 216
-(4–6 → 4–9). It does **not** for 200–202: the observed 9–14 per roll would give
+Where §15.11 has the per-roll range, the stone's ceiling agrees with §10's
+rule `ceil(maxRoll × 1.5)`: 205, 208 and 209 (4 → 6), 216 and 402 (6 → 9) and
+204 (5 → 8, the same rounding as 226); where the floor is read too, it is
+`minRoll`. It does **not** for 200–202: the observed 9–14 per roll would give
 21, and the stone says 20. Either their per-roll ceiling is 13 or the rule
 differs for them; nothing owned settles which, so neither is assumed.
 
