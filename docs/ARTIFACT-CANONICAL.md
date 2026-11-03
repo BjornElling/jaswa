@@ -717,7 +717,11 @@ cannot answer from other preferences than the number beside them.
 Scores are computed, compared and stored as **whole percentage points**
 (`scorePercent`), not merely rounded for display. Two artifacts reading 88 %
 are equal in sorting, thresholds and recommendations; ties are broken by a
-stated rule — the artifact's own order — never by a hidden decimal.
+stated rule — the artifact's own order, `obtainedOrder` (§15.13) — never by a
+hidden decimal, and never by its position in the import. The import lists the
+inventory before the engraved, so a positional tiebreak flips as soon as one of
+two tied artifacts is engraved, and the plan recommends swapping them back
+forever.
 
 ### 17.2 A placement owns one artifact and one slot
 

@@ -330,7 +330,9 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
   );
   const selectedMonster = eligibleMonsters.find((monster) => monster.unitId === filters.selectedUnitId);
   const artifacts = useMemo(() => readArtifacts(data), [data]);
-  const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
+  /* Ties are settled by the artifact's own order (§17.1), not its position in
+     the import, which changes whenever the artifact is engraved or removed. */
+  const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact) => [artifact.id, artifact.obtainedOrder])), [artifacts]);
   const stones = useMemo(() => engravedStonesFor(data), [data]);
   const monstersByUnitId = useMemo(() => new Map(allMonsters.map((monster) => [monster.unitId, monster])), [allMonsters]);
   const subPropertyOptions = useMemo(() => {

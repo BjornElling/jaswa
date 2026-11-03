@@ -168,6 +168,8 @@ function allocateArtifacts(
     for (let artifactIndex = 0; artifactIndex < calculation.request.artifacts.length; artifactIndex += 1) {
       const artifact = calculation.request.artifacts[artifactIndex];
       const category: ArtifactCategory = artifact.category === 1 ? 'attribute' : 'type';
+      const order = artifactOrder.get(artifact.id);
+      if (order === undefined) throw new Error('Artifact allocation scored an artifact the import does not carry.');
       for (let monsterOrder = 0; monsterOrder < scopedMonsters.length; monsterOrder += 1) {
         const monster = scopedMonsters[monsterOrder];
         const monsterIndex = copyIndexes.get(monster.unitId) ?? speciesIndexes.get(monsterSpeciesId(monster.masterId));
@@ -176,7 +178,7 @@ function allocateArtifacts(
         if (value <= 0) continue;
         candidates.push({
           artifactId: artifact.id,
-          artifactOrder: artifactOrder.get(artifact.id) ?? artifactIndex,
+          artifactOrder: order,
           category,
           monsterId: monster.unitId,
           monsterOrder,
@@ -275,9 +277,11 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const [error, setError] = useState<string | undefined>();
   const artifacts = useMemo(() => readArtifacts(data), [data]);
-  /* Import order, kept only as the sort's stable tiebreak. It is never shown:
-     an artifact's position in the export means nothing to the user. */
-  const artifactOrder = useMemo(() => new Map(artifacts.map((artifact, index) => [artifact.id, index])), [artifacts]);
+  /* The tiebreak is the artifact's own order (§17.1), never its position in the
+     import: the import lists the inventory before the engraved, so engraving
+     one of two tied artifacts moved it behind the other, and the plan then
+     recommended swapping back — every time. `obtainedOrder` does not move. */
+  const artifactOrder = useMemo(() => new Map(artifacts.map((artifact) => [artifact.id, artifact.obtainedOrder])), [artifacts]);
   const stones = useMemo(() => engravedStonesFor(data), [data]);
   const copyNames = useMemo(() => monsterCopyNames(monsters, scenarioProfiles), [monsters, scenarioProfiles]);
   const ownedMonsters = useMemo(() => readOwnedMonsters(monsters, copyNames), [monsters, copyNames]);
@@ -475,8 +479,8 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
   const { sorted, sort, toggle: toggleSort } = useSortedRows(
     plannedRows, columns,
     { key: 'value', direction: 'descending' },
-    /* Scores tie constantly once they are whole points, so import order settles
-       equal rows rather than the sort's internals. */
+    /* Scores tie constantly once they are whole points, so the artifact's own
+       order settles equal rows rather than the sort's internals. */
     (left, right) => left.order - right.order,
   );
 

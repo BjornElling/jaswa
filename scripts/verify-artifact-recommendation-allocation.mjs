@@ -5,6 +5,7 @@
  * and an artifact cannot be recommended twice.
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createVerificationServer as createServer } from './verification-server.mjs';
 
 const server = await createServer({
@@ -70,7 +71,7 @@ try {
     ['other', 'thirty-seven'], ['talia', 'thirty-five'],
   ], 'a lower Talia score is legal only when the higher artifact is visibly locked to a stronger pair');
 
-  /* The score tie has one stated answer: artifact import order, then roster
+  /* The score tie has one stated answer: the artifact's own order, then roster
      order. Repeating the calculation must not depend on sort implementation. */
   const tieCandidates = [
     candidate('later', 'attribute', 'two', 80, 1, 1),
@@ -79,6 +80,20 @@ try {
   const tied = allocateArtifactPlacements(tieCandidates, slots);
   assert.deepEqual(tied.placements.map((placement) => placement.artifactId), ['first', 'later'],
     'equal scores must use the stated stable order');
+
+  /* The reported Iunu shape: two artifacts tie at 77 % for one slot. With the
+     import position as the tiebreak, engraving the inventory one moved it
+     behind the other (the import lists the inventory first), and the plan then
+     recommended swapping back — every time. The tiebreak must be a property of
+     the artifact, so both views that rank artifacts derive it from
+     `obtainedOrder` and never from an index into the import. */
+  for (const file of ['app/components/artifact-maximum-values.tsx', 'app/components/best-artifact-for-monster.tsx']) {
+    const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+    assert.match(source, /artifacts\.map\(\(artifact\) => \[artifact\.id, artifact\.obtainedOrder\]\)/,
+      `${file} must break score ties by the artifact's obtained order`);
+    assert.doesNotMatch(source, /artifacts\.map\(\(artifact, index\) => \[artifact\.id, index\]\)/,
+      `${file} must not break score ties by the artifact's position in the import`);
+  }
 
   /* A positive score can still leave a slot empty when every compatible
      artifact was correctly locked into an earlier, stronger pair. That is an
