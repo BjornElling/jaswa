@@ -40,6 +40,18 @@ const deviceOwners = new Set([
   join('app', 'lib', 'hardware-acceleration.ts'),
 ]);
 
+/**
+ * Workers with no card path at all, each with its reason. Rule 3 is about a fall back
+ * the user cannot see; a worker that only ever runs on the processor has none, and a
+ * `backend` it could only ever fill with one value would be the hard-coding rule 3
+ * forbids. Each belongs under "Everything else" in the contract's §5.
+ */
+const processorOnlyWorkers = new Map([
+  /* A piece of Rune Clean-up's slot calibration, counted on every core. The odds it
+     feeds are reported by the chance worker that answers them. */
+  [join(compute, 'rune-calibration-worker.ts'), 'Rune Clean-up slot calibration'],
+]);
+
 /** The one module allowed to decide whether the card is used at all. */
 const decisionOwner = join(compute, 'accelerated-calculation.ts');
 
@@ -85,6 +97,12 @@ for (const { name, source } of workers) {
     || /(if|while)\s*\([^)]*\bpreferWebGpu\b/.test(source)) {
     offences.push(`${name} branches on preferWebGpu instead of handing it to the rule`);
   }
+  if (processorOnlyWorkers.has(name)) {
+    if (/\bpreferWebGpu\b|\brunAccelerated\b/.test(source)) {
+      offences.push(`${name} is listed as processor-only but has started to reach for the card`);
+    }
+    continue;
+  }
   if (!/\bbackend\b/.test(source)) {
     offences.push(`${name} never reports which engine answered`);
   }
@@ -100,5 +118,5 @@ if (offences.length > 0) {
   process.exit(1);
 }
 
-console.log(`PASS: one module opens a device, one weighs the setting, and all ${workers.length}`
-  + ' workers report the engine that answered.');
+console.log(`PASS: one module opens a device, one weighs the setting, and all ${workers.length - processorOnlyWorkers.size}`
+  + ` workers with a card path report the engine that answered (${processorOnlyWorkers.size} processor-only).`);

@@ -158,8 +158,8 @@ export function conversionDescription(
     : convertedPropertyIndex === conversion.sourceIndex ? 'Re-convert to' : 'Convert to';
   /* The line the stone would be spent on leads the recommendation, so it is
      named as the subject of the sentence rather than as an object inside it.
-     Where the monster ranks several lines the same, all of them are named —
-     "Sub 1/2/4" — because the recommendation is indifferent between them and
+     Where converting any of several lines lands on the same score, all of them
+     are named — "Sub 1/2/4" — because the recommendation is indifferent between them and
      the user may have a reason of their own to keep one. The scorer's own
      choice is still in the list, so a single-line reading stays exact. */
   const sourceIndexes = conversion.equivalentSourceIndexes?.length

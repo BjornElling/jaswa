@@ -118,6 +118,7 @@ gates on a real card; the same harness would run them.
 | Rune Simulator experiment | Worker; processor, with each checkpoint's Clean-up odds on the card when allowed |
 | Rune Optimization search (`compute/rune-optimization-*`) | Up to eight workers; the tree on the processor, the tail's pairs on the card or processor (`RUNE-OPTIMIZATION.md` §7) |
 | Gems & Grinds Recommendations, Best use and What's missing | Dedicated worker; legal craft states on the processor, current-line role score matrix on the card or processor (`RUNE-CRAFT-ITEMS.md` §5) |
+| Rune Clean-up slot calibration (`compute/rune-calibration-*`) | Workers on every core; the processor only, so it reports no engine |
 | Everything else | The processor |
 
 Only work shaped for a card moves: the same short arithmetic many times, with no lane

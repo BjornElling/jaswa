@@ -273,9 +273,9 @@ try {
     2, 'an already converted slot remains the source, whatever the other lines are');
 
   // ---- The lines the recommendation is indifferent between -----------------
-  /* One line is converted, but the user chooses which when the monster ranks
-     several the same: replacing any of them costs it nothing it wanted. The
-     equivalents are reported beside the source, always including it. */
+  /* One line is converted, but the user chooses which when converting any of
+     several lands on the same score. The equivalents are reported beside the
+     source, always including it. */
   const equivalents = (fractions, bands, lineShares) => scoreArtifactOnMonster(
     withRolls(fractions), sourceMonster(bands, lineShares), request)?.conversion?.equivalentSourceIndexes;
 
@@ -284,10 +284,17 @@ try {
     'every unwanted line is offered, in numeric order, whatever it rolled');
   assert.deepEqual(
     equivalents([0.9, 0.9, 0.9, 0.9], [1, 2, 2, 1], [0.06, 0.2, 0.2, 0.06]), [0, 3],
-    'the band groups the lines, so two acceptables are offered together');
+    'two acceptables of equal roll land on one score and are offered together');
   assert.deepEqual(
     equivalents([0.2, 0.9, 0.9, 0.9], [0, 2, 2, 2], [0.01, 0.2, 0.2, 0.2]), [0],
     'a line alone in its band is offered alone');
+
+  /* A shared band is not indifference where the lines are wanted: each roll
+     is a different loss, so converting the strongest would land well short of
+     the score shown. This is the all-preferred artifact that read "Sub 1/2/3/4". */
+  assert.deepEqual(
+    equivalents([0.6, 0.9, 0.3, 1.0], [2, 2, 2, 2], [0.2, 0.2, 0.2, 0.2]), [2],
+    'preferred lines of different rolls are not offered together');
 
   /* The roll separates the lines the scorer converts but must not narrow what
      it offers: both are unwanted, so both remain the user's to choose. */

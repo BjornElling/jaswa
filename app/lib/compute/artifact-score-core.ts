@@ -62,47 +62,30 @@ function compareSacrifice(
 }
 
 /**
- * The preference band the monster puts one of the artifact's lines in: 2
- * preferred, 1 acceptable, 0 unwanted.
+ * The lines the recommendation is indifferent between: every sub property whose
+ * conversion to the same target lands on the same whole-point score as the
+ * chosen source's, in numeric order.
  *
- * An empty slot has no property to rank and is reported as unwanted, which is
- * what it is to the monster — nothing it wanted is there. That also groups the
- * empty slots with the unwanted lines below, which is right: both are lines the
- * user gives up without losing anything.
- */
-function preferenceBand(
-  artifact: PackedArtifactScoreInput,
-  monster: PackedMonsterScoreInput,
-  index: number,
-): number {
-  const propertyIndex = artifact.subPropertyIndexes[index];
-  if (propertyIndex < 0) return 0;
-  return monster.subPropertyPreferences[propertyIndex] ?? 0;
-}
-
-/**
- * The lines the recommendation is indifferent between: every sub property the
- * monster ranks in the same band as the chosen source, in numeric order. A
- * same-property target narrows that choice back to its own source at the point
- * the candidate is recorded.
- *
- * Band rather than contribution, because that is the question the user is
- * asking. Two unwanted lines contribute differently — the roll differs — but
- * the monster wants neither, so giving up either costs it nothing and the
- * choice between them belongs to the user, who may be keeping one for a monster
- * this plan has not reached yet. The scorer still converts the one line it
- * picked, and every figure reported is that line's.
+ * The test is the figure shown beside the recommendation, not the preference
+ * band. A band once stood in for it, and named all four lines of an artifact
+ * whose four lines were all preferred — while the score beside it held only for
+ * the weakest, so a stone spent on the strongest line would land well short of
+ * the figure promised. Unwanted lines and empty slots still group together, as
+ * they should: each contributes nothing, so giving up any of them yields the
+ * same score, and the choice between them belongs to the user, who may be
+ * keeping one for a monster this plan has not reached yet.
  */
 function equivalentSources(
   artifact: PackedArtifactScoreInput,
   monster: PackedMonsterScoreInput,
   sourceIndex: number,
+  value: number,
+  scoreWithout: (index: number) => number,
 ): number[] {
   /* The lock leaves no choice to offer: a further stone overwrites this slot
      and no other, however the rest are ranked (§10). */
   if (artifact.convertedPropertyIndex >= 0) return [sourceIndex];
-  const band = preferenceBand(artifact, monster, sourceIndex);
-  return [0, 1, 2, 3].filter((index) => preferenceBand(artifact, monster, index) === band);
+  return [0, 1, 2, 3].filter((index) => index === sourceIndex || scoreWithout(index) === value);
 }
 
 function candidateAllowed(
@@ -201,9 +184,6 @@ export function scoreArtifactOnMonster(
 
   for (const sourceIndex of sources) {
     if (sourceIndex < 0 || sourceIndex > 3) continue;
-    /* One list per source rather than per candidate: it depends only on the
-       line being given up, and every conversion from this source shares it. */
-    const equivalentSourceIndexes = equivalentSources(artifact, monster, sourceIndex);
     const withoutSource = weightedSubProperties
       - sourceContribution(artifact, monster, sourceIndex, request.acceptableWorth);
     for (let propertyIndex = 0; propertyIndex < scoredArtifactProperties.length; propertyIndex += 1) {
@@ -232,7 +212,12 @@ export function scoreArtifactOnMonster(
            that property; the other equivalent source lines would create a
            duplicate. */
         equivalentSourceIndexes: propertyIndex === artifact.subPropertyFamilyIndexes[sourceIndex]
-          ? [sourceIndex] : equivalentSourceIndexes,
+          ? [sourceIndex]
+          : equivalentSources(artifact, monster, sourceIndex, value, (index) => scorePercent(artifactScoreFromPoints(
+            mainPoints,
+            weightedSubProperties - sourceContribution(artifact, monster, index, request.acceptableWorth)
+              + convertedWeight * conversionPoints,
+            request.acceptableWorth))),
         propertyId: scoredArtifactProperties[propertyIndex].id,
         value,
         gain: value - currentPercent,

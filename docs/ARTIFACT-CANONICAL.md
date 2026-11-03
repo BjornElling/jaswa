@@ -768,11 +768,15 @@ monster, JASWA recommends it, worded *Re-convert to*.
 - **Only one source line is scored**: the line contributing least to this
   monster; equal contributions go to the lower roll points, then to stored
   order. A converted artifact's source is its locked line, whatever it holds.
-- **Every line in the chosen line's preference band is named**, in numeric
-  order (`Sub 1/2/4`), because a monster is indifferent between lines it ranks
-  alike and the user may be keeping one for a monster this plan has not
-  reached. An empty slot ranks as unwanted. A locked artifact names its locked
-  line alone.
+- **Every line whose conversion lands on the same score is named**, in numeric
+  order (`Sub 1/2/4`): converting any of them to that target gives the
+  whole-point score shown, so the monster is indifferent between them and the
+  user may be keeping one for a monster this plan has not reached. Unwanted
+  lines and empty slots contribute nothing and so always group together;
+  wanted lines group only where their rolls make no visible difference. A
+  shared preference band is not enough — four preferred lines of different
+  rolls are four different outcomes. A locked artifact names its locked line
+  alone.
 - **A same-property target on the source line** is a reroll, worded *Improve
   roll in*; it never creates a duplicate.
 - **Among targets of equal score**, the property more players engrave wins,
