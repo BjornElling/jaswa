@@ -46,7 +46,14 @@ export type CraftViewChoice = {
   showEngraved: boolean;
   showInventory: boolean;
   count: CraftSuggestionCount;
+  /** Grindstones only: *Stat already grinded*, an inclusive filter. */
   already: Array<typeof craftChangeOptions[number]>;
+  /**
+   * Gems only: *Can change gem'ed stat?*. A permission rather than an inclusive
+   * filter, so exactly one answer always stands: "neither" would read as "yes"
+   * and "both" as "yes" too, leaving No the only choice that meant anything.
+   */
+  gemChange: typeof craftChangeOptions[number];
   /** Best use only: the runes Rune Clean-up's calculation itself keeps. */
   keepOnly: boolean;
 };
@@ -57,11 +64,11 @@ export type CraftViewChoice = {
 export const defaultCraftViewChoice: CraftViewChoice = {
   kind: 'grindstone', lineages: [], grades: [], statId: '', selectedItemId: '', set: '',
   roll: 'average', grindAfter: true, grindGrade: 'Hero', showEngraved: false, showInventory: false,
-  count: 5, already: [], keepOnly: false,
+  count: 5, already: [], gemChange: 'yes', keepOnly: false,
 };
 
 /** Reset filters returns these and only these: the item kind, the chosen stack and the assumptions are the question, not a filter. */
-export const craftFilterFields = ['lineages', 'grades', 'statId', 'set', 'showEngraved', 'showInventory', 'count', 'already', 'keepOnly'] as const;
+export const craftFilterFields = ['lineages', 'grades', 'statId', 'set', 'showEngraved', 'showInventory', 'count', 'already', 'gemChange', 'keepOnly'] as const;
 
 export type CraftViewChoices = Record<CraftViewMode, CraftViewChoice>;
 
@@ -80,6 +87,6 @@ export function readCraftViewChoices(value: unknown): CraftViewChoices {
     statId: (value) => value === '' || runeStatIds.some((id) => String(id) === value),
     selectedItemId: isString, set: isString, roll: isOneOf(craftRollAssumptions), grindAfter: isBoolean,
     grindGrade: isOneOf(itemGrades), showEngraved: isBoolean, showInventory: isBoolean, count: isOneOf(craftSuggestionCounts),
-    already: isListOf(craftChangeOptions), keepOnly: isBoolean,
+    already: isListOf(craftChangeOptions), gemChange: isOneOf(craftChangeOptions), keepOnly: isBoolean,
   })])) as CraftViewChoices;
 }

@@ -227,11 +227,11 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && filterIncludes(state.grades, row.item.grade, choices.grades)
     && (!state.statId || String(row.item.statId) === state.statId)
     && (!state.set || row.rune.setName === state.set)
-    && craftMatchesChangeFilter(row.rune, row.item, state.already)
+    && craftMatchesChangeFilter(row.rune, row.item, { grinded: state.already, gemChange: state.gemChange })
     && filterPair(hasRunePlacement(placements.runes.get(row.rune.id) ?? emptyRunePlacement), state.showEngraved, state.showInventory)
     && (keepSet === null || keepSet.has(row.rune.id))
     && !ignored.has(craftIgnoreKey(ignoreOf(row)))) ?? [],
-  [result, kind, mode, selected, desirable, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices, keepSet, ignored]);
+  [result, kind, mode, selected, desirable, state.lineages, state.grades, state.statId, state.set, state.already, state.gemChange, state.showEngraved, state.showInventory, placements, choices, keepSet, ignored]);
   const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark), [visible, state.count, benchmark]);
   const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, wantedLength, benchmark) : [], [mode, visible, benchmark]);
   const empty = base === null ? 'A level 40 monster is needed to score runes.' : !roles.length ? 'Add a role in Rune Clean-up to judge these runes.'
@@ -392,7 +392,11 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           onChange={(event) => update('set', event.target.value)}>{sets.map((set) => <option key={set}>{set}</option>)}</Dropdown></div></div>
       {choiceGroup('Location', 'location', ['showEngraved', 'showInventory'] as const, (key) => state[key], (key) => update(key, !state[key]),
         (key) => key === 'showEngraved' ? 'Engraved' : 'Inventory', undefined, 'Choose rune locations')}
-      {choiceGroup(alreadyLabel, 'already', craftChangeOptions, (value) => state.already.includes(value), (value) => toggle('already', value),
+      {/* One group, two questions: the Grindstone's is an inclusive filter, the
+          Gem's a permission with exactly one answer always standing. */}
+      {choiceGroup(alreadyLabel, 'already', craftChangeOptions,
+        (value) => kind === 'gem' ? state.gemChange === value : state.already.includes(value),
+        (value) => kind === 'gem' ? update('gemChange', value) : toggle('already', value),
         (value) => value === 'yes' ? 'Yes' : 'No', kind === 'gem'
           ? (value) => value === 'yes' ? 'Allow changing an existing Gem to another stat' : 'Keep the existing Gem stat; a better same-stat Gem is still allowed'
           : undefined, alreadyLabel,

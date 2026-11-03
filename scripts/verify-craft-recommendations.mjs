@@ -32,16 +32,19 @@ const items = [1, 2, 5, 6].flatMap((type) => [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12
   })));
 const noCraft = { gem: null, grind: null, gemGrade: 'Hero', grindGrade: 'Hero' };
 const marked = { subProperties: [{ statId: 8, value: 5, grind: 3, gemmed: true }, { statId: 2, value: 8, grind: 0, gemmed: false }] };
-for (const selection of [[], ['yes'], ['no'], ['yes', 'no']]) {
-  const restricted = selection.length === 1 && selection[0] === 'no';
-  assert.equal(craftMatchesChangeFilter(marked, { kind: 'gem', statId: 8 }, selection), true,
+for (const gemChange of ['yes', 'no']) {
+  const choice = { grinded: [], gemChange };
+  assert.equal(craftMatchesChangeFilter(marked, { kind: 'gem', statId: 8 }, choice), true,
     'keeping a converted stat permits a better same-stat Gem');
-  assert.equal(craftMatchesChangeFilter(marked, { kind: 'gem', statId: 4 }, selection), !restricted,
+  assert.equal(craftMatchesChangeFilter(marked, { kind: 'gem', statId: 4 }, choice), gemChange === 'yes',
     'only No forbids replacing the converted stat');
-  assert.equal(craftMatchesChangeFilter({ subProperties: [] }, { kind: 'gem', statId: 8 }, selection), true,
+  assert.equal(craftMatchesChangeFilter({ subProperties: [] }, { kind: 'gem', statId: 8 }, choice), true,
     'the first Gem has no converted stat to protect');
-  assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 8 }, selection), selection.length !== 1 || selection[0] === 'yes');
-  assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 2 }, selection), selection.length !== 1 || selection[0] === 'no');
+}
+for (const grinded of [[], ['yes'], ['no'], ['yes', 'no']]) {
+  const choice = { grinded, gemChange: 'no' };
+  assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 8 }, choice), grinded.length !== 1 || grinded[0] === 'yes');
+  assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 2 }, choice), grinded.length !== 1 || grinded[0] === 'no');
 }
 const scope = newRuneAdviceScope();
 const families = roles.map((role) => ({ role, builds: roleBuilds(role) }));

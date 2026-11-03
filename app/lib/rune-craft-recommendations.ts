@@ -1,5 +1,5 @@
 import { craftItemApplications, lineageFits } from './rune-craft-end-state';
-import { filterIncludes, filterIsUnrestricted } from './filter-selection';
+import { filterIncludes } from './filter-selection';
 import type { CraftApplication, CraftCredit } from './rune-craft-end-state';
 import type { CraftItem, CraftRollAssumption } from './rune-craft-items';
 import { missingCraftItems } from './rune-craft-items';
@@ -282,15 +282,18 @@ export function extendCraftCalculation(calculation: CraftCalculation, added: rea
   };
 }
 
-/** Refusing a change of Gem stat still permits the first Gem and a better same-stat Gem. */
+/**
+ * A Grindstone answers *Stat already grinded* (`grinded`, inclusive); a Gem
+ * answers *Can change gem'ed stat?* (`gemChange`). Refusing a change of Gem stat
+ * still permits the first Gem and a better same-stat Gem.
+ */
 export function craftMatchesChangeFilter(rune: Pick<Rune, 'subProperties'>, item: Pick<CraftItem, 'kind' | 'statId'>,
-  selected: readonly ('yes' | 'no')[]): boolean {
-  const options = ['yes', 'no'] as const;
+  choice: { grinded: readonly ('yes' | 'no')[]; gemChange: 'yes' | 'no' }): boolean {
   if (item.kind === 'grindstone') {
     const property = rune.subProperties.find((line) => line.statId === item.statId);
-    return filterIncludes(selected, (property?.grind ?? 0) > 0 ? 'yes' : 'no', options);
+    return filterIncludes(choice.grinded, (property?.grind ?? 0) > 0 ? 'yes' : 'no', ['yes', 'no'] as const);
   }
-  return filterIsUnrestricted(selected, options) || selected.includes('yes')
+  return choice.gemChange === 'yes'
     || rune.subProperties.every((line) => !line.gemmed || line.statId === item.statId);
 }
 

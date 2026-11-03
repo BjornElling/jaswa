@@ -260,11 +260,17 @@ includes none. A bonus on a different stat does not match.
 Gem with a different stat. Yes permits every legal Gem application. No keeps
 the existing Gem stat but still permits a better Gem of that same stat, and
 does not restrict a rune's first Gem. The craft engine still rejects equal or
-lower same-stat base values. Both controls keep Yes and No independent, with
-neither chosen by default; neither or both leaves the answer unrestricted.
-They filter the complete answer without recalculating or changing the held-box
-benchmark, in Recommendations, Best use and What's missing. The saved choices
-keep their existing storage field so changing the wording preserves them.
+lower same-stat base values.
+
+The two read differently on purpose. *Stat already grinded* is an inclusive
+filter under `AGENTS.md` §2.2: Yes and No are independent, neither is chosen
+by default, and neither or both leaves the answer unrestricted. *Can change
+gem'ed stat?* is a permission, not a filter: exactly one of Yes and No is
+always chosen, Yes by default, and Reset filters returns it to Yes. As an
+inclusive group "neither" and "both" both meant Yes, so No was the only choice
+that said anything. The two are saved apart (`already` and `gemChange`).
+Both filter the complete answer without recalculating or changing the held-box
+benchmark, in Recommendations, Best use and What's missing.
 
 **Only keep-runes** (Best use only) has one choice, Yes. Chosen, it keeps the
 runes whose *calculated* Rune Clean-up verdict is Keep and drops every other
