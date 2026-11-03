@@ -2,6 +2,7 @@ import { craftItemApplications, lineageFits } from './rune-craft-end-state';
 import { filterIncludes, filterIsUnrestricted } from './filter-selection';
 import type { CraftApplication, CraftCredit } from './rune-craft-end-state';
 import type { CraftItem, CraftRollAssumption } from './rune-craft-items';
+import { missingCraftItems } from './rune-craft-items';
 import { newRuneAdviceScope, neutralComparisonCredit, prepareRuneCandidate, roleBuilds } from './rune-cleanup-model';
 import type { MatchRank } from './rune-cleanup-model';
 import { acceptedWorth, brokenWorth } from './rune-cleanup-advice';
@@ -93,6 +94,55 @@ export function heldCraftBenchmark(rows: readonly CraftRecommendation[]): CraftB
     score: (row) => Math.max(row.before.score, scores.get(scoreKey(row)) ?? -Infinity),
     stat: (row) => stats.get(statKey(row)) ?? -Infinity,
   };
+}
+
+/**
+ * The Gem stat each rune should take, read from the whole answer: every stat is
+ * compared as a Legend Gem under the same assumptions, so the box's own grades
+ * cannot tip the contest, and the stat or stats with the best score after win.
+ * A Gem is permanent and one per rune, so spending one on a lesser stat closes
+ * the rune to the right one; a Gem of any other stat is therefore never
+ * suggested, and a rune whose stat the box lacks gets no Gem at all
+ * (`RUNE-CRAFT-ITEMS.md` §5.1). A stat the user waved away on a rune is out of
+ * that rune's contest, so the next best stat stands in for it.
+ */
+export function desirableGemStats(rows: readonly CraftRecommendation[],
+  waived: (row: CraftRecommendation) => boolean = () => false): ReadonlyMap<string, ReadonlySet<number>> {
+  const best = new Map<string, Map<number, number>>();
+  for (const row of rows) {
+    if (row.item.kind !== 'gem' || row.item.grade !== 'Legend' || waived(row)) continue;
+    const stats = best.get(row.rune.id) ?? new Map<number, number>();
+    stats.set(row.item.statId, Math.max(stats.get(row.item.statId) ?? -Infinity, row.after.score));
+    best.set(row.rune.id, stats);
+  }
+  return new Map([...best].map(([rune, stats]) => {
+    const top = Math.max(...stats.values());
+    return [rune, new Set([...stats].filter(([, score]) => score === top).map(([stat]) => stat))];
+  }));
+}
+
+/** A Grindstone always passes; a Gem only with its rune's most desirable stat. */
+export function onDesirableGemStat(row: CraftRecommendation, desirable: ReadonlyMap<string, ReadonlySet<number>>): boolean {
+  return row.item.kind !== 'gem' || (desirable.get(row.rune.id)?.has(row.item.statId) ?? false);
+}
+
+/**
+ * A Legend Gem of every stat for every set and lineage the runes take, judged
+ * beside the box but never shown, so the stat contest of `desirableGemStats` has
+ * an entrant for every stat. Read from the runes alone and never from the box, so
+ * a stack spent or gained changes no reference and asks the worker for nothing.
+ *
+ * One list per rune list, the same objects for every view: the views share one
+ * remembered answer, and reconciling it against look-alike copies would have
+ * each view rewrite the other's rows in turn, without end.
+ */
+const gemReferenceMemory = new WeakMap<object, CraftItem[]>();
+export function gemStatReferences(runes: readonly Pick<Rune, 'setId' | 'ancient'>[]): CraftItem[] {
+  const known = gemReferenceMemory.get(runes);
+  if (known) return known;
+  const references = missingCraftItems([], runes).filter((item) => item.kind === 'gem' && item.grade === 'Legend');
+  gemReferenceMemory.set(runes, references);
+  return references;
 }
 
 /** A projection of the complete calculation. Filters and result count never change its scores. */

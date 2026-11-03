@@ -462,12 +462,15 @@ test('one Ignore list follows every Gems & Grinds view, survives reload and rese
   }
 });
 
-test('ignoring the best Gem keeps the same rune eligible for another Gem stat and for Grinds', async ({ page }, testInfo) => {
+/* RUNE-CRAFT-ITEMS.md §5.1: a Gem only with the rune's most desirable stat. With
+   SPD ignored, CRI Dmg wins this rune's contest; the box holds none, so the held
+   CRI Rate Gem is not suggested although it would raise the score. */
+test('ignoring the best Gem hands the rune to the next best stat, and without one held no Gem is suggested', async ({ page }, testInfo) => {
   let craftWorkers = 0;
   page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
   await openWorkspace(page);
   const account = JSON.parse(await readFile(craftAccount, 'utf8'));
-  // Both Gems improve this rune's score: SPD by 7.64 points, CRI Rate by 2.75.
+  // Both held Gems improve this rune's score, SPD the most and CRI Rate a little; CRI Dmg, not held, comes second.
   account.runes.find((rune: { rune_id: number }) => rune.rune_id === 101).sec_eff =
     [[2, 8, 0, 0], [8, 5, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0]];
   account.rune_craft_item_list.push({ craft_item_id: 9007, craft_type: 1, craft_type_id: 130905, amount: 1 });
@@ -483,12 +486,18 @@ test('ignoring the best Gem keeps the same rune eligible for another Gem stat an
   const sameRune = panel.locator('.craft-ranking').first().locator('.craft-recommendation')
     .filter({ has: page.getByRole('button', { name: 'Violent rune, slot 2', exact: true }) })
     .filter({ has: page.locator('.craft-rune-facts').getByText('+12', { exact: true }) });
+  const anywhere = panel.locator('.craft-recommendation')
+    .filter({ has: page.getByRole('button', { name: 'Violent rune, slot 2', exact: true }) })
+    .filter({ has: page.locator('.craft-rune-facts').getByText('+12', { exact: true }) });
   await expect(sameRune.locator('.craft-recommendation-title')).toContainText('SPD Gem');
+  /* The held CRI Rate Gem is never offered while SPD wins, in any ranking. */
+  await expect(panel.locator('.craft-recommendation-title').filter({ hasText: 'CRI Rate Gem' })).toHaveCount(0);
   const workersBefore = craftWorkers;
   await page.screenshot({ path: testInfo.outputPath('best-gem-before-ignore.png'), fullPage: true });
   await sameRune.getByRole('button', { name: /^Ignore SPD Gem/ }).click();
-  await expect(sameRune.locator('.craft-recommendation-title')).toContainText('CRI Rate Gem');
-  await page.screenshot({ path: testInfo.outputPath('alternative-gem-after-ignore.png'), fullPage: true });
+  await expect(anywhere).toHaveCount(0);
+  await expect(panel.locator('.craft-recommendation-title').filter({ hasText: 'CRI Rate Gem' })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('no-gem-after-ignore.png'), fullPage: true });
   await panel.getByRole('button', { name: 'Grindstone', exact: true }).click();
   await expect(sameRune.locator('.craft-recommendation-title')).toContainText('SPD Grind');
   expect(craftWorkers).toBe(workersBefore);

@@ -1,7 +1,7 @@
 # Rune craft items — what `rune_craft_item_list` holds
 
 **Status:** Binding for every reader of the export's rune craft items
-**Reviewed:** October 29, 2026
+**Reviewed:** November 3, 2026
 
 `RUNE-CANONICAL.md` §8 is the authority on what an Enchanted Gem and a
 Grindstone *do*, which runes each may go on, and the value tables JASWA reads.
@@ -175,6 +175,46 @@ Both use the same ruler; neither a filter nor the item moves it.
   Recommendations gives each stat its own ranking: HP + and SPD are different
   units. A genuine stat increase remains eligible even when no role values it.
 
+### 5.1 A Gem only with the rune's most desirable stat — a deliberate choice
+
+**An Enchanted Gem is suggested on a rune only when its stat is the stat that
+rune most wants. If the box holds no Gem of that stat, the rune gets no Gem
+suggestion at all, even where a Gem of another stat would raise its score.**
+This is a design decision, not a gap in the calculation.
+
+The reason is what a Gem is. A rune takes one, and the stat it puts there stays
+until another Gem replaces it. A Hero ATK % Gem spent today on a rune that
+wants SPD is a small gain now that closes the rune to the right stat, or costs
+a second Gem to undo. Waiting for the right stone is the better use of both.
+
+*Most desirable* is decided per rune by `desirableGemStats`, from the whole
+answer: every Gem stat the rune can legally take is judged as a **Legend** Gem
+of the rune's own set and lineage, under the view's Assumed roll and Then grind
+it, and the stat or stats with the highest best score after win. Comparing at
+one grade keeps the contest about the stat; the grade of the Gem actually held
+does not matter. A Hero Gem of the winning stat is suggested like a Legend one,
+as long as it raises the rune. To give every stat an entrant whatever the box
+holds, Recommendations and Best use judge the absent Legend Gems beside the
+box (`gemStatReferences`); they are never shown, as What's missing's absent
+items are never shown in the box's views.
+
+The rule covers every Gem view. In Recommendations and Best use a Gem of
+another stat is dropped before the rankings. In What's missing only absent Gems
+of the winning stat are listed, and the box's bar (`heldCraftBenchmark`) counts
+a held Gem only when it has that stat, because a held Gem of a lesser stat is
+never suggested and so has done nothing for the rune; *Most wanted* tallies the
+same rows. Filters do not enter the contest: *Can change gem'ed stat?*, Grade,
+Family, Stat and Location narrow what is shown afterwards, so a filter can hide
+the winning Gem but never promote a loser in its place. A stat the user has
+ignored on a rune is the one exception: Ignore says the user does not want that
+stat there, so it leaves that rune's contest and the next best stat stands in.
+
+Grindstones are deliberately outside the rule. A stone takes no place of its
+own: every grindable line can carry one, and a better stone later simply
+replaces it, so grinding a lesser line never closes the rune to a better one.
+Nor does the inventory's *Can improve*, which counts runes an item can
+mechanically raise rather than recommending anything.
+
 Ties use rune id, item id and target index. The calculation retains the best
 target for **every rune/item pair**, including pairs below the current shortlist.
 Score and gain share that best target because the pair's baseline is fixed.
@@ -254,7 +294,8 @@ Ignoring narrows what is shown like a filter: it never invalidates an answer,
 and What's missing's bar is still read from the whole answer.
 The filter runs on every rune/item pair before selecting the best suggestion
 for each rune. Ignoring its best improvement therefore promotes an improving
-alternative of another stat; it never removes the rune itself or its other
+alternative of another stat — for a Gem, the next most desirable stat of §5.1,
+and only if the box holds one; it never removes the rune itself or its other
 Gem and Grindstone suggestions. If every improving alternative is ignored,
 there is no remaining suggestion to show until the list is reset.
 

@@ -30,8 +30,8 @@ import type { GeneralSettings, ItemGrade, RunePotentialSettings } from '../lib/t
 import { referenceLines } from '../lib/rune-reference-stats';
 import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations } from '../lib/rune-craft-recommendations';
 import { craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
-  extendCraftCalculation, heldCraftBenchmark, reconcileCraftCalculation,
-  isHeldCraft, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
+  desirableGemStats, extendCraftCalculation, gemStatReferences, heldCraftBenchmark, reconcileCraftCalculation,
+  isHeldCraft, onDesirableGemStat, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
 import { useRuneKeepers } from './use-rune-keepers';
 import { craftIgnoreKey } from '../lib/craft-ignores';
@@ -95,7 +95,10 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     const lines = referenceLines({ unit_list: monsters });
     return lines ? new Map([...lines].map(([type, line]) => [type, line.stats])) : null;
   }, [monsters]);
-  const missing = useMemo(() => mode === 'missing' ? missingCraftItems(items, runes) : [], [mode, items, runes]);
+  /* What's missing judges every absent item; the box's views judge the absent
+     Legend Gems too, unseen, so every Gem stat has an entrant in its rune's contest. */
+  const missing = useMemo(() => mode === 'missing' ? missingCraftItems(items, runes)
+    : gemStatReferences(runes), [mode, items, runes]);
   const grindPossible = [...items, ...missing].some((item) => item.kind === 'gem' &&
     craftItemRange('grindstone', item.lineage, item.statId, state.grindGrade) !== undefined);
   const request = useMemo<CraftRecommendationRequest | null>(() => base ? {
@@ -206,12 +209,19 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   const keepSet = keepers.state === 'ready' ? keepers.keep : keepers.state === 'pending' ? keepers.previous : null;
   const keepersSettled = keepers.state === 'off' || keepSet !== null;
   const ignored = useMemo(() => new Set(ignores.map(craftIgnoreKey)), [ignores]);
+  const desirable = useMemo(() => result
+    ? desirableGemStats(result.candidates, (row) => ignored.has(craftIgnoreKey(ignoreOf(row)))) : new Map<string, ReadonlySet<number>>(),
+  [result, ignored]);
   /* The box's best on each rune comes from the whole answer, so a filter that
-     hides a held item cannot lower the bar a missing one has to clear. */
-  const benchmark = useMemo<CraftBenchmark>(() => mode === 'missing' && result ? heldCraftBenchmark(result.candidates) : runeAsItStands,
-    [mode, result]);
+     hides a held item cannot lower the bar a missing one has to clear. A held Gem
+     of a lesser stat is not part of it: it is never suggested, so the box cannot
+     count it as done. */
+  const benchmark = useMemo<CraftBenchmark>(() => mode === 'missing' && result
+    ? heldCraftBenchmark(result.candidates.filter((row) => onDesirableGemStat(row, desirable))) : runeAsItStands,
+  [mode, result, desirable]);
   const visible = useMemo(() => result?.candidates.filter((row) => row.item.kind === kind
     && isHeldCraft(row) === (mode !== 'missing')
+    && onDesirableGemStat(row, desirable)
     && (!selected || row.item.id === selected.id)
     && filterIncludes(state.lineages, row.item.lineage, choices.lineages)
     && filterIncludes(state.grades, row.item.grade, choices.grades)
@@ -221,7 +231,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && filterPair(hasRunePlacement(placements.runes.get(row.rune.id) ?? emptyRunePlacement), state.showEngraved, state.showInventory)
     && (keepSet === null || keepSet.has(row.rune.id))
     && !ignored.has(craftIgnoreKey(ignoreOf(row)))) ?? [],
-  [result, kind, mode, selected, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices, keepSet, ignored]);
+  [result, kind, mode, selected, desirable, state.lineages, state.grades, state.statId, state.set, state.already, state.showEngraved, state.showInventory, placements, choices, keepSet, ignored]);
   const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark), [visible, state.count, benchmark]);
   const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, wantedLength, benchmark) : [], [mode, visible, benchmark]);
   const empty = base === null ? 'A level 40 monster is needed to score runes.' : !roles.length ? 'Add a role in Rune Clean-up to judge these runes.'

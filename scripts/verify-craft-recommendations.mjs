@@ -6,7 +6,8 @@ import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { acceptedWorth, brokenWorth } from '../app/lib/rune-cleanup-advice.ts';
 import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope, neutralComparisonCredit } from '../app/lib/rune-cleanup-model.ts';
 import { recommendRuneCraft, craftRecommendationRankings, craftMatchesChangeFilter, heldCraftBenchmark, isHeldCraft,
-  wantedCraftItems, craftItemKey, craftRuneKey, reconcileCraftCalculation, craftExtensionRequests, extendCraftCalculation } from '../app/lib/rune-craft-recommendations.ts';
+  wantedCraftItems, craftItemKey, craftRuneKey, reconcileCraftCalculation, craftExtensionRequests, extendCraftCalculation,
+  desirableGemStats, onDesirableGemStat, gemStatReferences } from '../app/lib/rune-craft-recommendations.ts';
 import { craftScoreLayout as L } from '../app/lib/compute/webgpu/craft-score-layout.ts';
 import { readFileSync } from 'node:fs';
 
@@ -195,6 +196,52 @@ for (const kind of ['gem', 'grindstone']) {
     'every improvable rune names exactly one wanted item');
 }
 assert.deepEqual(wantedCraftItems([], 5, benchmark), []);
+
+/* A Gem only with its rune's most desirable stat (RUNE-CRAFT-ITEMS.md §5.1):
+   the contest is held at Legend, so the grade held never decides the stat. */
+assert.equal(desirableGemStats([]).size, 0);
+const desirable = desirableGemStats(whole.candidates);
+assert.ok(desirable.size > 0, 'no rune had a Gem stat contest');
+for (const [runeId, stats] of desirable) {
+  const legend = whole.candidates.filter((row) => row.rune.id === runeId && row.item.kind === 'gem' && row.item.grade === 'Legend');
+  const top = Math.max(...legend.map((row) => row.after.score));
+  for (const row of legend) assert.equal(stats.has(row.item.statId), row.after.score === top
+    || legend.some((other) => other.item.statId === row.item.statId && other.after.score === top));
+}
+assert.ok(whole.candidates.filter((row) => row.item.kind === 'grindstone').every((row) => onDesirableGemStat(row, desirable)));
+const legendGem = (statId) => readCraftItem({ craft_item_id: 9800 + statId, craft_type: 1, craft_type_id: 130000 + statId * 100 + 5, amount: 1 });
+const heroGem = (statId) => readCraftItem({ craft_item_id: 9700 + statId, craft_type: 1, craft_type_id: 130000 + statId * 100 + 4, amount: 1 });
+const standardRunes = runes.filter((rune) => !rune.ancient);
+let lesserLegendShown = false;
+for (const rune of standardRunes) {
+  const references = gemStatReferences([rune]);
+  const contest = await recommendRuneCraft({ ...emptyRequest, runes: [rune], items: [], missing: references, roles, roll: 'two-thirds' });
+  const wanted = [...(desirableGemStats(contest.candidates).get(rune.id) ?? [])];
+  const runnerUp = contest.candidates.filter((row) => !wanted.includes(row.item.statId))
+    .sort((a, b) => b.after.score - a.after.score)[0];
+  if (wanted.length !== 1 || !runnerUp) continue;
+  const box = [heroGem(wanted[0]), legendGem(runnerUp.item.statId)];
+  const asked = await recommendRuneCraft({ ...emptyRequest, runes: [rune], items: box,
+    missing: gemStatReferences([rune]), roles, roll: 'two-thirds' });
+  const chosen = desirableGemStats(asked.candidates);
+  assert.deepEqual([...chosen.get(rune.id)], wanted, 'holding other grades moved the stat contest');
+  const hero = asked.candidates.find((row) => row.item.id === box[0].id);
+  const lesser = asked.candidates.find((row) => row.item.id === box[1].id);
+  if (!hero || !lesser || hero.gain <= 0 || lesser.after.score <= hero.after.score) continue;
+  assert.equal(onDesirableGemStat(hero, chosen), true, 'a Hero Gem of the wanted stat was dropped');
+  assert.equal(onDesirableGemStat(lesser, chosen), false, 'a Legend Gem of a lesser stat was suggested');
+  const shown = craftRecommendationRankings(asked.candidates.filter((row) => isHeldCraft(row) && onDesirableGemStat(row, chosen)), 5);
+  assert.equal(shown.highestScore[0]?.item.id, box[0].id);
+  /* Ignoring the winning stat on the rune hands the contest to the next best. */
+  const waived = desirableGemStats(asked.candidates, (row) => row.item.statId === wanted[0]);
+  assert.equal(waived.get(rune.id)?.has(runnerUp.item.statId), true, 'ignoring the winner did not promote the next best stat');
+  /* No Gem of the wanted stat held: nothing for the rune at all. */
+  const without = asked.candidates.filter((row) => row.item.id !== box[0].id);
+  assert.equal(without.filter((row) => isHeldCraft(row) && onDesirableGemStat(row, chosen)).length, 0);
+  lesserLegendShown = true;
+  break;
+}
+assert.ok(lesserLegendShown, 'no rune where a Legend Gem of a lesser stat outscores a Hero Gem of the wanted one');
 
 /* A changed account is answered from what is already known — the box and the
    runes alike, as live sync changes both. A stack gone takes its rows, a stack
