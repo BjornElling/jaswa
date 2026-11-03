@@ -343,50 +343,59 @@ The game keeps retired properties on the artifacts that already carry them, and
 stones naming them "remain usable" (v8.0.0). **The reader accepts every
 legacy id**; refusing one would refuse a legal artifact.
 
-| Id | Property | Retired | A stone converts to |
-| ---: | --- | --- | --- |
-| 203 | SPD Under Inability Effects | v6.2.0 | ?–9 (Hero 5–9) |
-| 207 | CRIT Rate Increasing Effect | v6.2.0 | no stone owned |
-| 211 | Damage Dealt by Reflect DMG | v6.2.0 | no stone owned |
-| 212 | Crushing Hit DMG | v6.2.0 | no stone owned |
-| 213 | Damage Received Under Inability Effects (−) | v6.2.0 | ?–5 (Hero 2–5) |
-| 200 | ATK Increased Proportional to Lost HP | v8.0.0, removed | 9–20 |
-| 201 | DEF Increased Proportional to Lost HP | v8.0.0, removed | 9–20 |
-| 202 | SPD Increased Proportional to Lost HP | v8.0.0, removed | 9–20 |
-| 216 | HP when Revived | v8.0.0, removed | 4–9 |
-| 217 | Attack Bar when Revived | v8.0.0, removed | 4–9 (Legend 7–9) |
-| 204 | ATK Increasing Effect | v8.0.0, merged into 226 | ?–8 (Hero 4–8) |
-| 205 | DEF Increasing Effect | v8.0.0, merged into 226 | 2–6 |
-| 208 / 209 | Counterattack DMG / Co-op Attack DMG | v8.0.0, merged into 225 | 2–6 |
-| 402 / 403 | [Skill 3] / [Skill 4] CRIT DMG (Type) | v8.0.0, merged into 410 | ?–9 (Hero 5–9) |
+| Id | Property | Retired | Stone, read in game | Ellia, per roll | Ellia by §10's rule |
+| ---: | --- | --- | --- | --- | --- |
+| 203 | SPD Under Inability Effects | v6.2.0 | ?–9 (Hero 5–9) | 3–6 | 3–9 |
+| 207 | CRIT Rate Increasing Effect | v6.2.0 | no stone owned | 3–6 | 3–9 |
+| 211 | Damage Dealt by Reflect DMG | v6.2.0 | no stone owned | 1–3 | 1–5 |
+| 212 | Crushing Hit DMG | v6.2.0 | no stone owned | 2–4 | 2–6 |
+| 213 | Damage Received Under Inability Effects (−) | v6.2.0 | ?–5 (Hero 2–5) | 1–3 | 1–5 |
+| 200 | ATK Increased Proportional to Lost HP | v8.0.0, removed | 9–20 | 8–12 | 8–18 ✗ |
+| 201 | DEF Increased Proportional to Lost HP | v8.0.0, removed | 9–20 | 8–12 | 8–18 ✗ |
+| 202 | SPD Increased Proportional to Lost HP | v8.0.0, removed | 9–20 | 8–12 | 8–18 ✗ |
+| 216 | HP when Revived | v8.0.0, removed | 4–9 | 4–6 | 4–9 |
+| 217 | Attack Bar when Revived | v8.0.0, removed | 4–9 (Legend 7–9) | 4–6 | 4–9 |
+| 204 | ATK Increasing Effect | v8.0.0, merged into 226 | ?–8 (Hero 4–8) | 3–5 | 3–8 |
+| 205 | DEF Increasing Effect | v8.0.0, merged into 226 | 2–6 | 2–4 | 2–6 |
+| 208 / 209 | Counterattack DMG / Co-op Attack DMG | v8.0.0, merged into 225 | 2–6 | 2–4 | 2–6 |
+| 402 / 403 | [Skill 3] / [Skill 4] CRIT DMG (Type) | v8.0.0, merged into 410 | ?–9 (Hero 5–9) | 4–6 | 4–9 |
 
 *Evidence: v8.0.0's counts (five removed, six merged into three); Ellia's v6.2
 list; names from in-game panels on rids 319233427, 60850484, 60874386,
 52204289 and 147366072. 212 is the one name no owned artifact anchors.*
 
-**A stone converts to** is the whole range a legacy stone grants, as the
-client's Special Conv. list states it on a Rare stone, which spans the full
-range (§15.12). It also anchors names: the game's "ATK+ / DEF+ / SPD+ prop.
-lost HP", "DEF UP effect", "Counterattack DMG", "Co-op attack DMG" and "HP when
+**Stone, read in game** is the range a legacy stone grants as the client
+states it. A Rare stone spans the whole range; a higher grade raises the floor
+and never the ceiling (§15.12), so where only a Hero or Legend stone has been
+read the ceiling is known, the floor is written `?`, and the stone's own range
+stands beside it. *No stone owned* means nothing on this account can show it.
+Every name is anchored: the Special Conv. list's "ATK+ / DEF+ / SPD+ prop. lost
+HP", "DEF UP effect", "Counterattack DMG", "Co-op attack DMG" and "HP when
 revived" sit at exactly the quantities the export gives 200, 201, 202, 205,
-208, 209 and 216 among the Fire attribute stones; the stone tooltips' "SPD w/
-inability", "ATK UP effect", "DMG taken w/ inability", "ATK Bar when revived",
-"[S3] CRIT DMG" and "[S4] CRIT DMG" do the same for 203, 204, 213, 217, 402
-and 403. A higher grade
-raises a stone's floor and never its ceiling (§15.12), so where only a Hero or
-Legend stone has been read the ceiling is known and the floor is written `?`,
-with the stone's own range beside it. *Not yet read* means the account holds a
-stone whose range has not been photographed; *no stone owned* means nothing on
-this account can show it. *Evidence: the Special Conv. list of a Fire
-attribute artifact and the stone tooltips of the Water, Wind, HP and Defense stones,
-2026-11-04, against the export of 2026-11-03.*
+208, 209 and 216 among the Fire attribute stones, and the stone tooltips' "SPD
+w/ inability", "ATK UP effect", "DMG taken w/ inability", "ATK Bar when
+revived", "[S3] CRIT DMG" and "[S4] CRIT DMG" do the same for 203, 204, 213,
+217, 402 and 403. *Evidence: the Special Conv. list of a Fire attribute
+artifact and the tooltips of Water, Wind, HP and Defense stones, 2026-11-04,
+against the export of 2026-11-03.*
 
-Where §15.11 has the per-roll range, the stone's ceiling agrees with §10's
-rule `ceil(maxRoll × 1.5)`: 205, 208 and 209 (4 → 6), 216 and 402 (6 → 9) and
-204 (5 → 8, the same rounding as 226); where the floor is read too, it is
-`minRoll`. It does **not** for 200–202: the observed 9–14 per roll would give
-21, and the stone says 20. Either their per-roll ceiling is 13 or the rule
-differs for them; nothing owned settles which, so neither is assumed.
+**Ellia, per roll** is Ellia's artifact page (elliabot.neocities.org, read
+2026-11-04): the post-v6.2.0 table for 200–202, 204, 205, 208, 209, 216 and
+217, and its "prior to game version 6.2.0" list for the five properties
+retired then. **Ellia by §10's rule** turns that into a conversion range,
+`minRoll – ceil(maxRoll × 1.5)`. Of the eleven rows with a stone read in game,
+it reproduces eight exactly, full ranges and ceilings alike; the other three
+are 200–202, below. The floors it gives
+behind a `?` (3, 1, 3 and 4) are therefore the expected Rare-stone floors,
+and 207, 211 and 212 are the expected ranges of stones nobody here owns — both
+derived, not read. Spokland's table (summonerswar.spokland.com) carries the
+v6.0 launch values (Life Drain 1–3, where today's is 5–8) and is not a source
+for any of this.
+
+**200–202 is the one disagreement, three ways.** The stone says 9–20; Ellia's
+8–12 would give 8–18; and single unpowered lines on this account reach 14
+(§15.11), which would give 21. Neither source matches the game, so no
+per-roll range is taken from either, and none is assumed.
 
 These ranges are recorded, not stored in the vocabulary: `minRoll`/`maxRoll`
 stay `null` for every legacy property, for the reason below.
