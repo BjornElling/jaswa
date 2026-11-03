@@ -343,25 +343,45 @@ The game keeps retired properties on the artifacts that already carry them, and
 stones naming them "remain usable" (v8.0.0). **The reader accepts every
 legacy id**; refusing one would refuse a legal artifact.
 
-| Id | Property | Retired |
-| ---: | --- | --- |
-| 203 | SPD Under Inability Effects | v6.2.0 |
-| 207 | CRIT Rate Increasing Effect | v6.2.0 |
-| 211 | Damage Dealt by Reflect DMG | v6.2.0 |
-| 212 | Crushing Hit DMG | v6.2.0 |
-| 213 | Damage Received Under Inability Effects (−) | v6.2.0 |
-| 200 | ATK Increased Proportional to Lost HP | v8.0.0, removed |
-| 201 | DEF Increased Proportional to Lost HP | v8.0.0, removed |
-| 202 | SPD Increased Proportional to Lost HP | v8.0.0, removed |
-| 216 | HP when Revived | v8.0.0, removed |
-| 217 | Attack Bar when Revived | v8.0.0, removed |
-| 204 / 205 | ATK / DEF Increasing Effect | v8.0.0, merged into 226 |
-| 208 / 209 | Counterattack DMG / Co-op Attack DMG | v8.0.0, merged into 225 |
-| 402 / 403 | [Skill 3] / [Skill 4] CRIT DMG (Type) | v8.0.0, merged into 410 |
+| Id | Property | Retired | A stone converts to |
+| ---: | --- | --- | --- |
+| 203 | SPD Under Inability Effects | v6.2.0 | not yet read |
+| 207 | CRIT Rate Increasing Effect | v6.2.0 | no stone owned |
+| 211 | Damage Dealt by Reflect DMG | v6.2.0 | no stone owned |
+| 212 | Crushing Hit DMG | v6.2.0 | no stone owned |
+| 213 | Damage Received Under Inability Effects (−) | v6.2.0 | not yet read |
+| 200 | ATK Increased Proportional to Lost HP | v8.0.0, removed | 9–20 |
+| 201 | DEF Increased Proportional to Lost HP | v8.0.0, removed | 9–20 |
+| 202 | SPD Increased Proportional to Lost HP | v8.0.0, removed | 9–20 |
+| 216 | HP when Revived | v8.0.0, removed | 4–9 |
+| 217 | Attack Bar when Revived | v8.0.0, removed | not yet read |
+| 204 | ATK Increasing Effect | v8.0.0, merged into 226 | not yet read |
+| 205 | DEF Increasing Effect | v8.0.0, merged into 226 | 2–6 |
+| 208 / 209 | Counterattack DMG / Co-op Attack DMG | v8.0.0, merged into 225 | 2–6 |
+| 402 / 403 | [Skill 3] / [Skill 4] CRIT DMG (Type) | v8.0.0, merged into 410 | not yet read |
 
 *Evidence: v8.0.0's counts (five removed, six merged into three); Ellia's v6.2
 list; names from in-game panels on rids 319233427, 60850484, 60874386,
 52204289 and 147366072. 212 is the one name no owned artifact anchors.*
+
+**A stone converts to** is the whole range a legacy stone grants, as the
+client's Special Conv. list states it on a Rare stone, which spans the full
+range (§15.12). It also anchors names: the game's "ATK+ / DEF+ / SPD+ prop.
+lost HP", "DEF UP effect", "Counterattack DMG", "Co-op attack DMG" and "HP when
+revived" sit at exactly the quantities the export gives 200, 201, 202, 205,
+208, 209 and 216 among the Fire attribute stones. *Not yet read* means the
+account holds a stone whose list has not been photographed; *no stone owned*
+means no list on this account can show it. *Evidence: the Special Conv. list
+of a Fire attribute artifact, 2026-11-04, against the export of 2026-11-03.*
+
+Where §15.11 has the per-roll range, the stone agrees with §10's rule
+`minRoll – ceil(maxRoll × 1.5)` for 205, 208, 209 (2–4 → 2–6) and 216
+(4–6 → 4–9). It does **not** for 200–202: the observed 9–14 per roll would give
+21, and the stone says 20. Either their per-roll ceiling is 13 or the rule
+differs for them; nothing owned settles which, so neither is assumed.
+
+These ranges are recorded, not stored in the vocabulary: `minRoll`/`maxRoll`
+stay `null` for every legacy property, for the reason below.
 
 Every legacy id is `availability: 'both'` except 402/403, because the few
 observed lines are too thin to narrow a category.
@@ -599,9 +619,10 @@ not `rune_craft_item_list` (whose types 5 and 6 are Gems and Grindstones,
   malformed.
 - **A stone binds one engrave class.** A Water stone converts a Water attribute
   artifact and nothing else. **No stone applies to an Intangible** (§10.1).
-- **A stone naming a legacy property** (174 of the account's stones, all 216
-  or 217) is read with `valued: false`, counted and shown as *not valued*;
-  nothing spends it. `engravedConversionStoneCounts` returns `{valued,
+- **A stone naming a legacy property** is read with `valued: false`, counted
+  and shown as *not valued*; nothing spends it. The export of 2026-11-03 holds
+  such stones for 13 of the 16 legacy ids, every one but 207, 211 and 212
+  (§12 gives the ranges read so far). `engravedConversionStoneCounts` returns `{valued,
   notValued}`, or `undefined` when the import carried no `artifact_crafts`.
   *Evidence: v8.0.0 ("Engraved Conversion Stones that include the
   sub-properties that will no longer appear … remain usable"); export
