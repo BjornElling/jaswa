@@ -106,6 +106,8 @@ test('a missed change is said on every page while import keeps moving', async ({
   await expect(gap).toBeVisible();
   await expect(gap).toContainText('The helper could not read ConvertArtifactByPiece.');
   await expect(gap).toContainText('Everything else keeps arriving.');
+  /* A gap is a warning, never the red of a stop. */
+  await expect(gap).toHaveAttribute('data-notice-tone', 'warn');
   await expect(stopped(page)).toHaveCount(0);
   expect(await pageBoxes(page)).toEqual(before);
   const badgeBox = (await badge.boundingBox())!;
@@ -127,7 +129,7 @@ test('a missed change is said on every page while import keeps moving', async ({
   await page.screenshot({ path: testInfo.outputPath('missed-raid.png') });
   state.missed = [miss('BattleRiftOfWorldsRaidResult'), miss('ConvertArtifactByPiece')];
   await expect(gap).toContainText('The helper could not read ConvertArtifactByPiece. Rift Raid rewards are encrypted on purpose');
-  await expect(gap).toHaveAttribute('data-notice-tone', 'bad');
+  await expect(gap).toHaveAttribute('data-notice-tone', 'warn');
   await expect(gap).not.toContainText('BattleRiftOfWorldsRaidResult');
   await page.screenshot({ path: testInfo.outputPath('missed-raid-and-one.png') });
   state.missed = [miss('ConvertArtifactByPiece')];

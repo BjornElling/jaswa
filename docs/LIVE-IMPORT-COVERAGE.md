@@ -129,13 +129,23 @@ visibility. Its cause is the game's per-session response key (below), which no
 reader can reach passively, so the helper window and JASWA name it *Rift Raid
 rewards*, say the game's developer encrypts them on purpose — a deliberate
 technical limit no update can get around — and ask for a game restart after
-the runs rather than an error report. JASWA's card turns yellow rather than
-red, since nothing went wrong. It is still a gap on both surfaces; any
+the runs rather than an error report. It is still a gap on both surfaces; any
 other miss beside it is named and reported as usual.
+
+JASWA's gap card is yellow for every miss, Raid or not. Import goes on and a
+restart closes the gap, so it is something left to do rather than something
+broken; red is kept for a stopped import or a lost helper, where nothing
+arrives any more.
 
 The fix for a miss is a reader for its path, found in the saved report with
 `npm run audit:helper-replay`, never a wider rule that would also admit the
-archives above.
+archives above. Often the path is already read and the command is not yet
+known as one that changes the account: `combineSelectRuneCraft` (materials
+combined into Gems or Grindstones of a chosen set) answered with its new
+stones under `reward.crate.changestones` and the materials' remaining stack in
+`item_list`, both readable, and was missed until `combine` joined the
+reader's account-changing verbs. The answer lists a stack once per stone it
+made, each copy already at the new total.
 
 ### Raid response-key negotiation
 

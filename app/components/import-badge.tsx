@@ -262,9 +262,10 @@ function ImportStoppedNotice({ reason, ref }: { reason: string; ref: Ref<HTMLEle
    game's limit rather than listed as a command JASWA has yet to learn. */
 function MissedChangesNotice({ commands, raid, ref }: { commands: string; raid: boolean; ref: Ref<HTMLElement> }) {
   const raidLimit = 'Rift Raid rewards are encrypted on purpose by the game’s developer';
-  /* Red says something went wrong; a Raid-only gap is nothing wrong, only a
-     restart left to do, which is what yellow says. */
-  return <aside ref={ref} className="helper-update missed-changes" data-notice-tone={commands ? 'bad' : 'warn'} role="status" aria-live="polite" aria-label="Some game changes were missed">
+  /* Yellow, whatever was missed: import goes on and a restart closes the gap,
+     which is something left to do, not something broken. Red belongs to a
+     stopped import or a lost helper, where nothing arrives any more. */
+  return <aside ref={ref} className="helper-update missed-changes" data-notice-tone="warn" role="status" aria-live="polite" aria-label="Some game changes were missed">
     <p className="corner-notice-title">
       <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">

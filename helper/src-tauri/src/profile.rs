@@ -3220,6 +3220,46 @@ mod tests {
         );
     }
 
+    /* The answer repeats a stack once per stone the combine made, each copy
+    already at the new total, and states the materials' remaining quantity. */
+    #[test]
+    fn combining_materials_into_grindstones_is_read() {
+        let mut store = ProfileStore::default();
+        store.accept_snapshot(json!({
+            "wizard_id": 7,
+            "unit_list": [],
+            "runes": [],
+            "artifacts": [],
+            "relics": [],
+            "rune_craft_item_list": [{"craft_item_id": 20, "craft_type": 2, "craft_type_id": 190304, "amount": 8}],
+            "artifact_crafts": [],
+            "inventory_info": [{"rid": 30, "item_master_id": 10002, "item_master_type": 29, "item_quantity": 14, "wizard_id": 7}]
+        }));
+
+        assert!(store.apply_update(
+            &json!({
+                "command": "combineSelectRuneCraft",
+                "ret_code": 0,
+                "item_list": [{"rid": 30, "item_master_id": 10002, "item_master_type": 29, "item_quantity": 5, "wizard_id": 7}],
+                "reward": {"crate": {"changestones": [
+                    {"craft_item_id": 21, "craft_type": 2, "craft_type_id": 190804, "amount": 2, "wizard_id": 7},
+                    {"craft_item_id": 20, "craft_type": 2, "craft_type_id": 190304, "amount": 10, "wizard_id": 7},
+                    {"craft_item_id": 21, "craft_type": 2, "craft_type_id": 190804, "amount": 2, "wizard_id": 7},
+                    {"craft_item_id": 20, "craft_type": 2, "craft_type_id": 190304, "amount": 10, "wizard_id": 7}
+                ]}}
+            }),
+            &json!({"command": "combineSelectRuneCraft", "item_id": 1300023, "set_id": 19, "combine_count": 4})
+        ));
+
+        assert!(store.status().missed_changes.is_empty());
+        let data = &store.read().unwrap().data;
+        let stacks = data["rune_craft_item_list"].as_array().unwrap();
+        assert_eq!(stacks.len(), 2);
+        assert_eq!(stacks.iter().find(|stack| stack["craft_item_id"] == 20).unwrap()["amount"], 10);
+        assert_eq!(stacks.iter().find(|stack| stack["craft_item_id"] == 21).unwrap()["amount"], 2);
+        assert_eq!(data["inventory_info"][0]["item_quantity"], 5);
+    }
+
     #[test]
     fn imports_only_the_mail_that_receive_mail_claimed() {
         let mut store = ProfileStore::default();

@@ -57,6 +57,10 @@ pub(super) fn account_request(request: &Value) -> AccountRequest {
         "upgrade", "awaken", "evolve", "evolution", "fuse", "fusion", "sacrifice",
         "convert", "amplify", "confirm", "craft", "create", "breakdown",
         "disassemble", "equip", "unequip",
+        /* Turning crafting materials into Gems or Grindstones of a chosen set
+        (`combineSelectRuneCraft`): the materials' remaining stack arrives in
+        `item_list`, the new stones in `reward.crate.changestones`. */
+        "combine",
     ];
     if (base.starts_with("battle") && base.ends_with("result"))
         || matches!(base, "arenabattleresult" | "moveunitbuilding" | "movestoragefromto"
