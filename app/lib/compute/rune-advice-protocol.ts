@@ -13,6 +13,7 @@ import type { ReferenceStats } from '../rune-reference-stats';
 import type { RunePotentialSettings } from '../types';
 import type { RuneAdvice } from '../rune-cleanup-advice';
 import type { CalculationBackend } from './calculation-summary';
+import type { CalibrationPopulation } from './rune-calibration-protocol';
 
 export type RuneAdviceRequest = {
   runes: readonly Rune[];
@@ -36,13 +37,16 @@ export type RuneAdviceWorkerRequest = {
   type: 'calculate';
   requestId: number;
   request: RuneAdviceRequest;
+  /** The calibration populations already counted on the main thread's pool, which
+      the worker adopts instead of counting them again (`rune-calibration-client.ts`). */
+  populations: readonly CalibrationPopulation[];
 };
 
 export type RuneAdviceWorkerResponse =
   /** `fraction` is how far through the calibration is; `null` says it is over. */
   | { type: 'calibration'; requestId: number; fraction: number | null }
   | { type: 'progress'; requestId: number; fraction: number }
-  | { type: 'result'; requestId: number; advice: Map<string, RuneAdvice>; durationMs: number; backend: CalculationBackend }
+  | { type: 'result'; requestId: number; advice: Map<string, RuneAdvice>; backend: CalculationBackend }
   | { type: 'error'; requestId: number; message: string };
 
 /**

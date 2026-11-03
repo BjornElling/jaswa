@@ -341,7 +341,7 @@ label[for] {
 .best-artifact-entry .artifact-subs li, .math-copy > p,
 .math-example p, .math-table, .rune-simulator-stats-table td,
 .rune-simulator-stats-table tbody th, .rune-simulator-stats-table tfoot th,
-.rune-overlay-innate, .rune-overlay-subs, .rune-overlay-evaluation-facts,
+.rune-overlay-innate, .rune-overlay-busy, .rune-overlay-subs, .rune-overlay-evaluation-facts,
 .rune-overlay-readings, .rune-overlay-readings tbody th,
 .rune-build-card-innate, .rune-build-card-subs, .rune-build-change-list, .rune-build-change-none,
 .rune-build-missing, .rune-build-card-where-value, .rune-optimization-choose,
@@ -5551,6 +5551,28 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 /* A step below a figure: at 32px the main line out-shouted the rune's own name
    and the sub properties that actually decide its fate. */
 .rune-overlay-main { font-size: var(--type-display); font-variant-numeric: tabular-nums; }
+/* The main line shares its row with the busy mark at the far end, at body size, so
+   the box keeps the main line's height whether or not anything is being worked out. */
+.rune-overlay-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+}
+/* Gold because the user asked the machine for this answer and it is still on its way.
+   Hidden by opacity rather than removed, so it never takes or gives back room. */
+.rune-overlay-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  flex: none;
+  color: var(--text-accent);
+  opacity: 0;
+}
+.rune-overlay-busy[data-busy] { opacity: 1; }
+.busy-spinner { width: 1em; height: 1em; flex: none; }
+.rune-overlay-busy[data-busy] .busy-spinner { animation: busy-spin .9s linear infinite; }
+@keyframes busy-spin { to { transform: rotate(360deg); } }
 /* Four rows of one fixed height whether or not a line is there yet, so a
    rune with two sub properties draws the same box as one with four. The head
    row fills the clear line above them rather than adding one. The sub

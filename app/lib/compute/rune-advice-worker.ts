@@ -14,10 +14,11 @@
  * that failed its agreement check — is something the status line then says out loud,
  * rather than a hidden decision behind a figure that looks the same either way.
  *
- * It measures its own elapsed time, because that is the figure the page prints and
- * the main thread can no longer see where the work started and stopped.
+ * The calibration behind the quality floors usually arrives with the request, counted
+ * on the main thread's pool (`rune-calibration-client.ts`), and is adopted rather than
+ * counted again. Where it does not, `runeAdvice` counts it here, to the same numbers.
  */
-import { runeAdvice } from '../rune-cleanup-advice';
+import { adoptCalibrationPopulation, runeAdvice } from '../rune-cleanup-advice';
 import { countRuneChances } from './rune-chance-engine';
 import { combineCalculationBackends } from './calculation-summary';
 import type { CalculationBackend } from './calculation-summary';
@@ -27,8 +28,8 @@ self.onmessage = async (event: MessageEvent<RuneAdviceWorkerRequest>) => {
   const message = event.data;
   if (message.type !== 'calculate') return;
   try {
-    const startedAt = performance.now();
     const { runes, roles, settings, base, preferWebGpu, explain } = message.request;
+    for (const population of message.populations) adoptCalibrationPopulation(roles, base, population.stars, population.pieces);
     const engines: CalculationBackend[] = [];
     let reportedPercent = -1;
     const onProgress = (fraction: number) => {
@@ -53,7 +54,7 @@ self.onmessage = async (event: MessageEvent<RuneAdviceWorkerRequest>) => {
       return answer.shares;
     }, { explain, onProgress, onCalibration });
     const response: RuneAdviceWorkerResponse = {
-      type: 'result', requestId: message.requestId, advice, durationMs: performance.now() - startedAt,
+      type: 'result', requestId: message.requestId, advice,
       /* One batch today, so one engine. It is still read through
          `combineCalculationBackends`, so a future calculation that counts in several
          passes reports `mixed` honestly rather than reporting its last pass. */

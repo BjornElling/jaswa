@@ -122,7 +122,141 @@ type CheckpointScores = readonly (readonly [number, number, number])[];
 type FunnelScores = readonly CheckpointScores[];
 const balancePopulations = new Map<string, FunnelScores[][]>();
 type BalancedFloors = { ordinary: readonly number[]; fourPiece: readonly number[] };
-const balancedFloors = new Map<string, Map<string, BalancedFloors>>();
+
+/** The three points a sample rune must survive, in the order its scores are kept. */
+const calibrationCheckpoints = [0, 9, 12] as const;
+export type CalibrationCheckpoint = typeof calibrationCheckpoints[number];
+
+function rememberPopulation(key: string, scores: FunnelScores[][]): void {
+  balancePopulations.set(key, scores);
+  while (balancePopulations.size > 4) balancePopulations.delete(balancePopulations.keys().next().value!);
+}
+
+/**
+ * What a calibration population is named by: the roles, the reference lines and the
+ * star class, and nothing about the policy or the runes asked about. The worker that
+ * counts a piece of it and the worker that reads it both name it this way.
+ */
+export function calibrationPopulationKey(
+  roles: readonly RuneRole[], base: ReadonlyMap<string, ReferenceStats>, stars: number,
+): string {
+  return JSON.stringify([roles, [...base], stars]);
+}
+
+/**
+ * **One slot at one checkpoint of the calibration**: every sample rune's best reading
+ * at every chance policy, by rank. It is the whole of the calibration's cost, and each
+ * piece depends on nothing but its own inputs and a fixed seed, so the eighteen pieces
+ * of a star class can be counted on as many processor cores as there are and give the
+ * numbers one core would give.
+ */
+function checkpointScores(
+  roles: readonly RuneRole[], builds: ReadonlyMap<string, readonly Build[]>,
+  base: ReadonlyMap<string, ReferenceStats>, stars: number, slot: number, level: CalibrationCheckpoint,
+  scope: ReturnType<typeof newRuneAdviceScope>, onSampleRune?: () => void,
+): CheckpointScores[] {
+  const policies = chanceThresholds;
+  return ordinarySample(slot, stars, balanceSampleRunes, level, 'drop', 10_000).map((rune) => {
+    const scores = policies.map(() => [0, 0, 0] as [number, number, number]);
+    let runs: ReturnType<typeof playForward> | null = null;
+    for (const role of roles) {
+      const line = base.get(role.type);
+      if (!line) continue;
+      for (const build of builds.get(role.id) ?? []) {
+        const candidate = prepareRuneCandidate(
+          rune, role, build, line, floorCalibrationCredit, floorCalibrationCredit, scope);
+        if (!candidate) continue;
+        const rank = candidate.rank === 'preferred' ? 0 : candidate.rank === 'acceptable' ? 1 : 2;
+        if (level === lastSubPropertyLevel) {
+          for (const scoresAtPolicy of scores) scoresAtPolicy[rank] = Math.max(scoresAtPolicy[rank], candidateMaxValue(candidate));
+          continue;
+        }
+        runs ??= playForward(candidate.future, balanceRuns);
+        const outcomes = new Float64Array(balanceRuns);
+        for (let at = 0; at < balanceRuns; at += 1) outcomes[at] = runScore(runs, candidate.scoring, at);
+        outcomes.sort();
+        policies.forEach((bar, at) => {
+          const value = (outcomes[balanceRuns - Math.max(1, Math.ceil(bar * balanceRuns))] ?? 0) / candidate.ceiling;
+          scores[at][rank] = Math.max(scores[at][rank], value);
+        });
+      }
+    }
+    onSampleRune?.();
+    return scores;
+  });
+}
+
+/** One piece of a calibration, as a calibration worker is asked for it. */
+export type CalibrationPiece = { slot: number; level: CalibrationCheckpoint };
+
+/** Every piece of one star class's calibration, the costly ones first, so a pool of
+    workers finishes them together rather than waiting on one that started last. */
+export const calibrationPieces: readonly CalibrationPiece[] = [
+  ...calibrationCheckpoints.filter((level) => level !== lastSubPropertyLevel),
+  lastSubPropertyLevel as CalibrationCheckpoint,
+].flatMap((level) => [1, 2, 3, 4, 5, 6].map((slot) => ({ slot, level })));
+
+/** How many numbers one counted piece is, packed: sample, policy, rank. */
+const pieceLength = () => balanceSampleRunes * chanceThresholds.length * 3;
+
+/** How many sample runes one star class's calibration judges, for a progress fraction. */
+export const calibrationSampleCount = () => calibrationPieces.length * balanceSampleRunes;
+
+/* A worker counts many pieces of one population; its pricing is shared between them. */
+const pieceScopes = new Map<string, { scope: ReturnType<typeof newRuneAdviceScope>; builds: Map<string, Build[]> }>();
+
+/**
+ * Count one piece, packed for the trip back across the thread boundary. Exactly the
+ * arithmetic the in-process calibration does: it is the same function.
+ */
+export function countCalibrationPiece(
+  roles: readonly RuneRole[], base: ReadonlyMap<string, ReferenceStats>, stars: number,
+  piece: CalibrationPiece, onSampleRune?: () => void,
+): Float64Array {
+  const key = calibrationPopulationKey(roles, base, stars);
+  let shared = pieceScopes.get(key);
+  if (!shared) {
+    shared = { scope: newRuneAdviceScope(), builds: new Map(roles.map((role) => [role.id, roleBuilds(role)])) };
+    pieceScopes.set(key, shared);
+    while (pieceScopes.size > 2) pieceScopes.delete(pieceScopes.keys().next().value!);
+  }
+  const scores = checkpointScores(roles, shared.builds, base, stars, piece.slot, piece.level, shared.scope, onSampleRune);
+  const packed = new Float64Array(pieceLength());
+  let at = 0;
+  for (const sample of scores) for (const policy of sample) for (const value of policy) packed[at++] = value;
+  return packed;
+}
+
+/**
+ * Hand a population counted elsewhere to this thread's calibration, so asking about
+ * one rune does not count it a second time. `pieces` follows `calibrationPieces`.
+ * A packing of the wrong shape is refused rather than read.
+ */
+export function adoptCalibrationPopulation(
+  roles: readonly RuneRole[], base: ReadonlyMap<string, ReferenceStats>, stars: number,
+  pieces: readonly Float64Array[],
+): void {
+  const length = pieceLength();
+  if (pieces.length !== calibrationPieces.length || pieces.some((piece) => piece.length !== length)) {
+    throw new Error('A calibration population arrived in the wrong shape.');
+  }
+  const key = calibrationPopulationKey(roles, base, stars);
+  if (balancePopulations.has(key)) return;
+  const policyCount = chanceThresholds.length;
+  const unpack = (packed: Float64Array): CheckpointScores[] =>
+    Array.from({ length: balanceSampleRunes }, (_, sample) => Array.from({ length: policyCount }, (_, policy) => {
+      const at = (sample * policyCount + policy) * 3;
+      return [packed[at], packed[at + 1], packed[at + 2]] as const;
+    }));
+  const scores = [1, 2, 3, 4, 5, 6].map((slot) => {
+    const checkpoints = calibrationCheckpoints.map((level) =>
+      unpack(pieces[calibrationPieces.findIndex((piece) => piece.slot === slot && piece.level === level)]));
+    return Array.from({ length: balanceSampleRunes }, (_, at) => checkpoints.map((checkpoint) => checkpoint[at]));
+  });
+  rememberPopulation(key, scores);
+}
+type FloorGrid = (quality: number, policy: number, accepted: number, broken: number) => BalancedFloors | undefined;
+const balancedFloors = new Map<string, FloorGrid>();
 
 class RuneFloorCalibration {
   private readonly floors = new Map<number, BalancedFloors>();
@@ -160,6 +294,13 @@ class RuneFloorCalibration {
   prepare(stars: readonly number[], onCalibration?: (fraction: number | null) => void): void {
     const missing = stars.filter((grade) => !this.floors.has(grade));
     if (!missing.length) return;
+    /* A population counted elsewhere and adopted leaves only its floors to read, which
+       is no sample counted; reporting it would send the line back to `0 %` after the
+       pool had already said `100 %`. */
+    if (missing.every((grade) => balancePopulations.has(calibrationPopulationKey(this.roles, this.base, grade)))) {
+      for (const grade of missing) this.balanceOf(grade);
+      return;
+    }
     /* Counted in sample runes judged, which is nearly all of the work. It says how
        far through the calibration is, not how long is left: a population already
        in the cache is skipped in one jump. */
@@ -181,114 +322,109 @@ class RuneFloorCalibration {
     const known = this.floors.get(stars);
     if (known) return known;
     const policies = chanceThresholds;
-    const key = JSON.stringify([this.roles, [...this.base], stars]);
+    const key = calibrationPopulationKey(this.roles, this.base, stars);
     let scores = balancePopulations.get(key);
     if (!scores) {
       scores = [1, 2, 3, 4, 5, 6].map((slot) => {
-        const checkpoints = ([0, 9, 12] as const).map((level) =>
-          ordinarySample(slot, stars, balanceSampleRunes, level, 'drop', 10_000).map((rune) => {
-            const scores = policies.map(() => [0, 0, 0] as [number, number, number]);
-            let runs: ReturnType<typeof playForward> | null = null;
-            for (const role of this.roles) {
-              const base = this.base.get(role.type);
-              if (!base) continue;
-              for (const build of this.builds.get(role.id) ?? []) {
-                const candidate = prepareRuneCandidate(
-                  rune, role, build, base, floorCalibrationCredit, floorCalibrationCredit, this.scope);
-                if (!candidate) continue;
-                const rank = candidate.rank === 'preferred' ? 0 : candidate.rank === 'acceptable' ? 1 : 2;
-                if (level === lastSubPropertyLevel) {
-                  for (const scoresAtPolicy of scores) scoresAtPolicy[rank] = Math.max(scoresAtPolicy[rank], candidateMaxValue(candidate));
-                  continue;
-                }
-                runs ??= playForward(candidate.future, balanceRuns);
-                const outcomes = new Float64Array(balanceRuns);
-                for (let at = 0; at < balanceRuns; at += 1) outcomes[at] = runScore(runs, candidate.scoring, at);
-                outcomes.sort();
-                policies.forEach((bar, at) => {
-                  const value = (outcomes[balanceRuns - Math.max(1, Math.ceil(bar * balanceRuns))] ?? 0) / candidate.ceiling;
-                  scores[at][rank] = Math.max(scores[at][rank], value);
-                });
-              }
-            }
-            onSampleRune?.();
-            return scores;
-          }));
+        const checkpoints = calibrationCheckpoints.map((level) =>
+          checkpointScores(this.roles, this.builds, this.base, stars, slot, level, this.scope, onSampleRune));
         return Array.from({ length: balanceSampleRunes }, (_, at) => checkpoints.map((checkpoint) => checkpoint[at]));
       });
-      balancePopulations.set(key, scores);
-      while (balancePopulations.size > 4) balancePopulations.delete(balancePopulations.keys().next().value!);
+      rememberPopulation(key, scores);
     }
     const fourPiece = [1, 2, 3, 4, 5, 6].map((slot) =>
       ordinarySample(slot, stars, balanceSampleRunes, 0, 'drop', 10_000).map((rune) =>
         isFourPieceSet(rune.setName)));
-    let grid = balancedFloors.get(key);
-    if (!grid) {
-      grid = new Map();
-      const gridKey = (quality: number, policy: number, accepted: number, broken: number) =>
-        `${quality}|${policy}|${accepted}|${broken}`;
+    let cellOf = balancedFloors.get(key);
+    if (!cellOf) {
+      const grid = new Map<string, BalancedFloors>();
+      /* What each sample rune is worth, and that worth in order, depends on the
+         policy and the two discounts but not on the quality anchor, so it is worked
+         out once for the five anchors that read it. */
+      const population = scores;
+      const readings = new Map<string, { values: number[][]; ordered: number[][]; fourOrdered?: number[][] }>();
+      const readingOf = (policy: number, acceptedAt: number, brokenAt: number) => {
+        const readingKey = `${policy}|${acceptedAt}|${brokenAt}`;
+        let found = readings.get(readingKey);
+        if (!found) {
+          const accepted = acceptedWorth[acceptedAt];
+          const broken = brokenWorth[brokenAt];
+          const values = population.map((slot) => slot.map((checkpoints) => {
+            const value = Math.min(...checkpoints.map((checkpoint) => {
+              const [preferred, acceptable, unwanted] = checkpoint[policy];
+              return Math.max(preferred, acceptable * accepted, unwanted * broken);
+            }));
+            return value;
+          }));
+          found = { values, ordered: values.map((slot) => [...slot].sort((a, b) => b - a)) };
+          readings.set(readingKey, found);
+        }
+        return found;
+      };
       /* Each setting inherits its immediate less demanding neighbours, then
          tightens the overrepresented slots. This preserves both slot balance
-         and the promise that a stricter choice never re-admits a rune. */
-      for (const [quality, anchor] of qualityThresholds.entries()) {
-        for (const [policy] of policies.entries()) {
-          for (const [acceptedAt, accepted] of acceptedWorth.entries()) {
-            for (const [brokenAt, broken] of brokenWorth.entries()) {
-              const neighbours = [
-                grid.get(gridKey(quality - 1, policy, acceptedAt, brokenAt)),
-                grid.get(gridKey(quality, policy - 1, acceptedAt, brokenAt)),
-                grid.get(gridKey(quality, policy, acceptedAt - 1, brokenAt)),
-                grid.get(gridKey(quality, policy, acceptedAt, brokenAt - 1)),
-              ];
-              const floors = [0, 1, 2, 3, 4, 5].map((at) =>
-                Math.max(anchor, ...neighbours.map((previous) => previous?.ordinary[at] ?? 0)));
-              const values = scores.map((slot) => slot.map((checkpoints) => {
-                const value = Math.min(...checkpoints.map((checkpoint) => {
-                  const [preferred, acceptable, unwanted] = checkpoint[policy];
-                  return Math.max(preferred, acceptable * accepted, unwanted * broken);
-                }));
-                return value;
-              }));
-              const observedTarget = Math.min(...values.map((slot, at) => slot.filter((value) => value >= floors[at]).length));
-              const target = Math.max(1, observedTarget);
-              /* A zero in a small sample does not establish a zero population.
-                 Keep a one-observation tail allowance, while still tightening
-                 slots with a clearly larger surviving tail. */
-              values.forEach((slot, at) => {
-                const ordered = [...slot].sort((a, b) => b - a);
-                const excluded = ordered[target];
-                if (excluded !== undefined) floors[at] = Math.max(floors[at], excluded + Number.EPSILON);
-              });
-              const preferredFloor = [...floors];
-              const lower = floors.map((_, at) =>
-                Math.max(anchor, ...neighbours.map((previous) => previous?.fourPiece[at] ?? 0)));
-              const regularCounts = values.map((slot, at) => slot.filter((value, index) =>
-                !fourPiece[at][index] && value >= floors[at]).length);
-              const baselineCounts = values.map((slot, at) => slot.filter((value) => value >= floors[at]).length);
-              const capacities = values.map((slot, at) => regularCounts[at] + slot.filter((value, index) =>
-                fourPiece[at][index] && value >= lower[at]).length);
-              const preferredTarget = Math.min(...capacities,
-                Math.floor(2 * baselineCounts.reduce((sum, count) => sum + count, 0) / 6));
-              /* Four-piece preference changes only four-piece candidates. Fit its
-                 larger retained population separately, so turning it on cannot
-                 move the floor of a two-piece rune or break the slot balance. */
-              if (preferredTarget >= 1 && preferredTarget >= Math.max(...baselineCounts)) {
-                values.forEach((slot, at) => {
-                  const wanted = preferredTarget - regularCounts[at];
-                  const ordered = slot.filter((_, index) => fourPiece[at][index]).sort((a, b) => b - a);
-                  if (wanted > 0) preferredFloor[at] = Math.min(floors[at],
-                    Math.max(lower[at], (ordered[wanted] ?? anchor) + Number.EPSILON));
-                });
-              }
-              grid.set(gridKey(quality, policy, acceptedAt, brokenAt), { ordinary: floors, fourPiece: preferredFloor });
-            }
-          }
+         and the promise that a stricter choice never re-admits a rune.
+
+         A setting reads only the settings below it, so only those are worked out,
+         when first asked for: the default policy needs 81 of the 625, and the
+         overlay's worker would otherwise spend a third of a second on the rest. */
+      const cell = (quality: number, policy: number, acceptedAt: number, brokenAt: number): BalancedFloors | undefined => {
+        if (quality < 0 || policy < 0 || acceptedAt < 0 || brokenAt < 0) return undefined;
+        const cellKey = `${quality}|${policy}|${acceptedAt}|${brokenAt}`;
+        const known = grid.get(cellKey);
+        if (known) return known;
+        const anchor = qualityThresholds[quality];
+        const neighbours = [
+          cell(quality - 1, policy, acceptedAt, brokenAt),
+          cell(quality, policy - 1, acceptedAt, brokenAt),
+          cell(quality, policy, acceptedAt - 1, brokenAt),
+          cell(quality, policy, acceptedAt, brokenAt - 1),
+        ];
+        const floors = [0, 1, 2, 3, 4, 5].map((at) =>
+          Math.max(anchor, ...neighbours.map((previous) => previous?.ordinary[at] ?? 0)));
+        const reading = readingOf(policy, acceptedAt, brokenAt);
+        const { values } = reading;
+        const observedTarget = Math.min(...values.map((slot, at) => slot.filter((value) => value >= floors[at]).length));
+        const target = Math.max(1, observedTarget);
+        /* A zero in a small sample does not establish a zero population.
+           Keep a one-observation tail allowance, while still tightening
+           slots with a clearly larger surviving tail. */
+        reading.ordered.forEach((ordered, at) => {
+          const excluded = ordered[target];
+          if (excluded !== undefined) floors[at] = Math.max(floors[at], excluded + Number.EPSILON);
+        });
+        const preferredFloor = [...floors];
+        const lower = floors.map((_, at) =>
+          Math.max(anchor, ...neighbours.map((previous) => previous?.fourPiece[at] ?? 0)));
+        const regularCounts = values.map((slot, at) => slot.filter((value, index) =>
+          !fourPiece[at][index] && value >= floors[at]).length);
+        const baselineCounts = values.map((slot, at) => slot.filter((value) => value >= floors[at]).length);
+        const capacities = values.map((slot, at) => regularCounts[at] + slot.filter((value, index) =>
+          fourPiece[at][index] && value >= lower[at]).length);
+        const preferredTarget = Math.min(...capacities,
+          Math.floor(2 * baselineCounts.reduce((sum, count) => sum + count, 0) / 6));
+        /* Four-piece preference changes only four-piece candidates. Fit its
+           larger retained population separately, so turning it on cannot
+           move the floor of a two-piece rune or break the slot balance. */
+        if (preferredTarget >= 1 && preferredTarget >= Math.max(...baselineCounts)) {
+          reading.fourOrdered ??= values.map((slot, at) =>
+            slot.filter((_, index) => fourPiece[at][index]).sort((a, b) => b - a));
+          reading.fourOrdered.forEach((ordered, at) => {
+            const wanted = preferredTarget - regularCounts[at];
+            if (wanted > 0) preferredFloor[at] = Math.min(floors[at],
+              Math.max(lower[at], (ordered[wanted] ?? anchor) + Number.EPSILON));
+          });
         }
-      }
-      balancedFloors.set(key, grid);
+        const found = { ordinary: floors, fourPiece: preferredFloor };
+        grid.set(cellKey, found);
+        return found;
+      };
+      cellOf = cell;
+      balancedFloors.set(key, cellOf);
       while (balancedFloors.size > 4) balancedFloors.delete(balancedFloors.keys().next().value!);
     }
-    const floors = grid.get(`${qualityThresholds.indexOf(this.qualityBar)}|${policies.indexOf(this.chanceBar)}|${acceptedWorth.indexOf(this.accepted)}|${brokenWorth.indexOf(this.broken)}`)
+    const floors = cellOf(qualityThresholds.indexOf(this.qualityBar), policies.indexOf(this.chanceBar),
+      acceptedWorth.indexOf(this.accepted), brokenWorth.indexOf(this.broken))
       ?? { ordinary: [1, 2, 3, 4, 5, 6].map(() => this.qualityBar), fourPiece: [1, 2, 3, 4, 5, 6].map(() => this.qualityBar) };
     this.floors.set(stars, floors);
     return floors;

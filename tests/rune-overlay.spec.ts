@@ -317,3 +317,29 @@ test('while an overlay is up the page behind it neither scrolls nor keeps it ope
   expect(page.url()).toBe(url);
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
 });
+
+test('the main line says the overlay is still calculating, and saying it moves nothing', async ({ page }) => {
+  const links = await openCleanup(page);
+  await links.first().click();
+  const overlay = page.getByRole('dialog');
+  const busy = overlay.locator('.rune-overlay-busy');
+  const main = overlay.locator('.rune-overlay-main');
+  const stats = overlay.locator('.rune-overlay-stats');
+  /* The table's answers carry no per-role readings, so the overlay always asks once more. */
+  await expect(busy).toHaveAttribute('data-busy', 'true');
+  await expect(busy).toHaveText('Calculating…');
+  await expect(busy.locator('svg.busy-spinner')).toHaveCount(1);
+  const before = { main: await main.boundingBox(), stats: await stats.boundingBox() };
+  /* Gold, at the body size rather than the main line's. */
+  const look = await busy.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { color: style.color, size: style.fontSize, mainSize: getComputedStyle(element.previousElementSibling!).fontSize };
+  });
+  expect(look.color).toBe('rgb(217, 173, 82)');
+  expect(look.size).not.toBe(look.mainSize);
+
+  await expect(busy).not.toHaveAttribute('data-busy', /.*/);
+  await expect(busy).toHaveCSS('opacity', '0');
+  await expect(busy).toHaveAttribute('aria-hidden', 'true');
+  expect({ main: await main.boundingBox(), stats: await stats.boundingBox() }).toEqual(before);
+});

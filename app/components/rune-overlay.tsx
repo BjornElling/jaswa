@@ -182,8 +182,8 @@ function Evaluation({ rune, roles, explained, quality }: {
   const advice = explained.state === 'ready' ? explained.advice : undefined;
   const readings = new Map((advice?.readings ?? []).map((reading) => [reading.roleId, reading]));
   const chosen = advice?.role ?? null;
-  const placeholder = explained.state === 'pending' ? 'Calculating'
-    : explained.state === 'unavailable' ? explained.reason : '—';
+  /* While the answer is on its way the main line says so; here it is simply not known yet. */
+  const placeholder = explained.state === 'unavailable' ? explained.reason : '—';
   /* A rune at +12 has no odds left to quote; the Rune Clean-up table prints a dash there too. */
   const oddsLeft = rune.level < lastSubPropertyLevel;
   const facts = [
@@ -307,6 +307,17 @@ function CraftCell({ gemStatId, gemRoll, grind, statId, format }: {
   </span>;
 }
 
+/** A gold turning arc and the word, for as long as the worker is still answering. */
+function BusyMark({ busy }: { busy: boolean }) {
+  return <span className="rune-overlay-busy" data-busy={busy || undefined} aria-hidden={!busy || undefined}>
+    <svg className="busy-spinner" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"
+      strokeLinecap="round" aria-hidden="true">
+      <path d="M8 2a6 6 0 1 1-6 6" />
+    </svg>
+    Calculating…
+  </span>;
+}
+
 export function RuneOverlay({ rune, game, profiles, general, settings, roles, hardwareAcceleration, hold, onHold, locked, canLock, onLock, onClose }: {
   rune: Rune;
   game: GameRecord | undefined;
@@ -380,8 +391,14 @@ export function RuneOverlay({ rune, game, profiles, general, settings, roles, ha
         than paragraphs: `.dialog p` outranks the type voices. */}
     <div className="overlay-body rune-overlay-body">
       <div className="rune-overlay-stats">
-        <div className="rune-overlay-main" aria-label="Main property">
-          {runeLineStat(rune.mainStatId) ?? `Stat ${rune.mainStatId}`} {rune.mainValue > 0 ? runeLineFigure(rune.mainStatId, rune.mainValue, figure) : '—'}
+        {/* The main line's far end says when the advice is still being worked out.
+            It is always there and only shown or hidden, so its arrival and its
+            departure move nothing (`AGENTS.md` §2). */}
+        <div className="rune-overlay-main-row">
+          <div className="rune-overlay-main" aria-label="Main property">
+            {runeLineStat(rune.mainStatId) ?? `Stat ${rune.mainStatId}`} {rune.mainValue > 0 ? runeLineFigure(rune.mainStatId, rune.mainValue, figure) : '—'}
+          </div>
+          <BusyMark busy={explained.state === 'pending'} />
         </div>
 
         <div className="rune-overlay-innate" aria-label="Innate property">

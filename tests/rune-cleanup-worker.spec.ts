@@ -60,9 +60,16 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
     window.Worker = class extends OriginalWorker {
       constructor(url: string | URL, options?: WorkerOptions) {
         super(url, options);
+        /* The calibration is counted on the shared pool, and the advice worker only
+           judges; one that still calibrated on its own would report `calibration`. */
+        if (String(url).includes('rune-calibration-worker')) {
+          this.addEventListener('message', (event: MessageEvent<{ type: string }>) => {
+            counter.calculationPhases.push(event.data.type === 'result' ? 'calibrated' : 'calibrating');
+          });
+        }
         if (!String(url).includes('rune-advice-worker')) return;
         this.addEventListener('message', (event: MessageEvent<{ type: string; fraction?: number | null }>) => {
-          if (event.data.type === 'calibration') counter.calculationPhases.push(event.data.fraction === null ? 'calibrated' : 'calibrating');
+          if (event.data.type === 'calibration') counter.calculationPhases.push('advice-worker-calibrating');
           if (event.data.type === 'progress') counter.calculationPhases.push('calculating');
         });
       }
@@ -133,11 +140,13 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
   const frames = await page.evaluate(() => (window as unknown as { jaswaFrames: number }).jaswaFrames);
   expect(frames).toBeGreaterThan(10);
   const phases = await page.evaluate(() => (window as unknown as { calculationPhases: string[] }).calculationPhases);
-  /* Calibration reports its way through, ends once, and only then does the calculation count. */
-  const end = phases.indexOf('calibrated');
-  expect(end).toBeGreaterThan(1);
-  expect(phases.slice(0, end).every((phase) => phase === 'calibrating')).toBe(true);
-  expect(phases.slice(end + 1).every((phase) => phase === 'calculating')).toBe(true);
+  /* Calibration reports its way through on the pool, and only once it is over does
+     the calculation count; the advice worker adopts it rather than calibrating again. */
+  const firstCount = phases.indexOf('calculating');
+  expect(phases.filter((phase) => phase === 'calibrating').length).toBeGreaterThan(1);
+  expect(firstCount).toBeGreaterThan(phases.lastIndexOf('calibrated'));
+  expect(phases).not.toContain('advice-worker-calibrating');
+  expect(phases.slice(firstCount).every((phase) => phase === 'calculating')).toBe(true);
   await page.evaluate(() => { (window as unknown as { calculationPhases: string[] }).calculationPhases = []; });
   await cleanup.getByRole('button', { name: 'Recalculate', exact: true }).click();
   await expect(progress).toContainText(/Calculating… \d+ %/);
@@ -220,6 +229,9 @@ test('a refresh reuses an idle worker and cannot cancel a concurrent whole calcu
     return { initial: initial.status, warm: warm.status, ...parallel,
       borrowed: (await borrowed).status, replacement: (await replacement).status, constructed };
   });
+  /* One advice worker: every request waits a tick for the shared calibration before it
+     reaches a worker, so the two cancelled here never reached one, and cancelling them
+     had no work in flight to throw away — nothing was terminated, nothing rebuilt. */
   expect(outcomes).toEqual({ initial: 'done', warm: 'done', whole: 'done', refresh: 'superseded',
-    borrowed: 'superseded', replacement: 'done', constructed: 3 });
+    borrowed: 'superseded', replacement: 'done', constructed: 1 });
 });

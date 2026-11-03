@@ -19,8 +19,11 @@
  * refresh borrows the table's warm worker while it is idle, and has its own
  * worker when the table is already calculating.
  */
+import { referenceStars } from '../rune-cleanup-model';
+import { leaseCalibration } from './rune-calibration-client';
+import type { CalibrationPopulation } from './rune-calibration-protocol';
 import type {
-  RuneAdviceOutcome, RuneAdviceRequest, RuneAdviceWorkerResponse,
+  RuneAdviceOutcome, RuneAdviceRequest, RuneAdviceWorkerRequest, RuneAdviceWorkerResponse,
 } from './rune-advice-protocol';
 
 export type RuneAdviceChannel = {
@@ -64,10 +67,16 @@ export function runeAdviceChannel(): RuneAdviceChannel {
     return worker;
   }
 
+  /* Requests the worker has actually been sent. One still waiting on the shared
+     calibration has not reached it, and cancelling that one leaves the warm worker be. */
+  const posted = new Set<number>();
+
   function cancel(): void {
     if (waiting.size === 0) return;
-    worker?.terminate();
-    worker = undefined;
+    if (posted.size > 0) {
+      worker?.terminate();
+      worker = undefined;
+    }
     const pending = [...waiting.values()];
     waiting.clear();
     for (const settle of pending) settle({ status: 'superseded' });
@@ -75,17 +84,50 @@ export function runeAdviceChannel(): RuneAdviceChannel {
 
   function calculate(request: RuneAdviceRequest, onProgress?: (fraction: number) => void,
     onCalibration?: (fraction: number | null) => void): Promise<RuneAdviceOutcome> {
-    if (waiting.size > 0) cancel();
     const requestId = nextRequestId;
     nextRequestId += 1;
+    const startedAt = performance.now();
+    /* The calibration first, on the shared pool; every grade the runes are read in.
+       Leased before the superseded request lets go of its own, so opening a second
+       rune of the same grade mid-count carries the count on rather than restarting it. */
+    const grades = [...new Set(request.runes.map(referenceStars))];
+    const fractions = new Map<number, number>();
+    let calibrating = false;
+    const leases = grades.map((stars) => leaseCalibration(request.roles, request.base, stars, (fraction) => {
+      if (!waiting.has(requestId)) return;
+      fractions.set(stars, fraction);
+      calibrating = true;
+      onCalibration?.([...fractions.values()].reduce((sum, value) => sum + value, 0) / grades.length);
+    }));
+    if (waiting.size > 0) cancel();
     return new Promise<RuneAdviceOutcome>((resolve) => {
-      const currentWorker = adviceWorker();
+      let detach = () => {};
       const settle = (outcome: RuneAdviceOutcome) => {
-        currentWorker.removeEventListener('message', onMessage);
-        currentWorker.removeEventListener('error', onError);
+        detach();
+        for (const lease of leases) lease.release();
         waiting.delete(requestId);
+        posted.delete(requestId);
         resolve(outcome);
       };
+      waiting.set(requestId, settle);
+      void Promise.all(leases.map((lease) => lease.ready)).then((populations) => {
+        if (!waiting.has(requestId)) return;
+        if (calibrating) onCalibration?.(null);
+        send(requestId, request, populations.filter((population) => population !== null), settle, onProgress, onCalibration,
+          (undo) => { detach = undo; }, startedAt);
+      });
+    });
+  }
+
+  function send(requestId: number, request: RuneAdviceRequest, populations: CalibrationPopulation[],
+    settle: (outcome: RuneAdviceOutcome) => void, onProgress: ((fraction: number) => void) | undefined,
+    onCalibration: ((fraction: number | null) => void) | undefined, onDetach: (undo: () => void) => void,
+    startedAt: number): void {
+      const currentWorker = adviceWorker();
+      onDetach(() => {
+        currentWorker.removeEventListener('message', onMessage);
+        currentWorker.removeEventListener('error', onError);
+      });
       const onMessage = (event: MessageEvent<RuneAdviceWorkerResponse>) => {
         if (event.data.requestId !== requestId) return;
         if (event.data.type === 'calibration') {
@@ -98,22 +140,23 @@ export function runeAdviceChannel(): RuneAdviceChannel {
         }
         settle(event.data.type === 'error'
           ? { status: 'failed', message: event.data.message }
-          : { status: 'done', advice: event.data.advice, durationMs: event.data.durationMs, backend: event.data.backend });
+          /* Timed from the request, so the shared calibration it waited for is counted too. */
+          : { status: 'done', advice: event.data.advice, durationMs: performance.now() - startedAt, backend: event.data.backend });
       };
       const onError = () => {
         currentWorker.terminate();
         if (worker === currentWorker) worker = undefined;
         settle({ status: 'failed', message: 'JASWA could not start its rune calculation.' });
       };
-      waiting.set(requestId, settle);
       currentWorker.addEventListener('message', onMessage);
       currentWorker.addEventListener('error', onError, { once: true });
+      posted.add(requestId);
       try {
-        currentWorker.postMessage({ type: 'calculate', requestId, request });
+        const message: RuneAdviceWorkerRequest = { type: 'calculate', requestId, request, populations };
+        currentWorker.postMessage(message);
       } catch {
         onError();
       }
-    });
   }
 
   return { calculate, cancel, isBusy: () => waiting.size > 0 };

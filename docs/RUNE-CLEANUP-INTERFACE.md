@@ -45,8 +45,14 @@ order stays significant because it breaks ties; every used role and reference st
 significant because they shape the shared calibration. Incremental replacement makes no
 approximation and draws no different sample.
 
-An idle advice worker stays available across navigation, keeping the engine's bounded
-calibration cache. An incremental refresh borrows the table's worker when it is idle;
+The slot calibration is counted once per session and shared: a pool of calibration
+workers, one per processor core but one, counts its eighteen pieces (six slots at three
+checkpoints) side by side, and the main thread keeps the last four counted populations
+(`rune-calibration-client.ts`). Every advice channel — the table, a refresh, the rune
+overlay — adopts that copy instead of counting its own, so opening a rune after
+Calculate costs the rune and not another calibration. A count is abandoned only when
+nobody waits for it any more. An idle advice worker stays available across navigation,
+keeping the floors it has read. An incremental refresh borrows the table's worker when it is idle;
 concurrent work uses a separate channel. Cancelling a refresh cannot cancel a whole
 calculation, and a whole calculation superseding a borrowed refresh clears that refresh's
 cancellation. Automatic standards updates report progress in the controls' reserved line
@@ -168,5 +174,9 @@ through the work is, not how long is left. Calibration (`RUNE-CLEANUP-MATH.md` Â
 reported separately: every star class present is calibrated before rune progress starts,
 so a later class cannot send the line back, and the line reads `Calibratingâ€¦ X %` above
 `Only needed once.`, the percentage counting the sample runes judged. A warm calculation
-skips it. The cache belongs to the worker and its calculation inputs, so changing those
-inputs or restarting the worker may require calibration again.
+skips it. The counted population belongs to the session and its calculation inputs, so
+changing those inputs or reloading the page requires calibration again.
+
+**The rune overlay** says it is still working at the far end of the main property's
+line: a gold turning arc and `Calculating…` at body size. The mark is always laid out and
+only shown or hidden, so its coming and going moves nothing.

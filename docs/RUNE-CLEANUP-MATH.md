@@ -570,7 +570,12 @@ the inherited floors. Only four-piece floors can soften; two-piece runes keep th
 
 The calibration depends on the roles, the reference lines and the policy, never on the
 runes asked about, so the engine keeps the last four calibrations by the content of those
-inputs. There is no serialized population to go stale: `ordinarySample` calls the
+inputs. Its population is eighteen independent pieces — each slot at `+0`, `+9` and
+`+12` — each a function of those inputs and a fixed seed, so the page counts them on
+several cores at once and hands the result to every worker that asks
+(`countCalibrationPiece`, `adoptCalibrationPopulation`); the numbers are the ones one core
+would count. The floor grid is worked out lazily: a setting reads only the settings
+below it, so only those cells are computed. There is no serialized population to go stale: `ordinarySample` calls the
 generator in `rune-generation.ts`, which Rune Simulator also uses, so a corrected rule
 reaches the next calculation's population automatically.
 
