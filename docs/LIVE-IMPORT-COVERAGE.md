@@ -152,8 +152,11 @@ is written to the diagnostic log and kept off the status. A command joins only
 when both halves are established: its misses are `encrypted`, and nothing its
 answer can carry is read by JASWA. An `unread` miss never qualifies, however
 little its command matters, because a readable answer is a reader to write.
-The list is empty: the only encrypted answer seen, the Raid result, carries
-craft items.
+The Raid result never joins: it carries craft items.
+
+| Command | Why its sealed answer changes nothing JASWA reads |
+| --- | --- |
+| `BattleGuildSiegeResult` | Ends one Siege Battle attack. A Siege fight drops no runes, artifacts, relics, crafts or monsters and gives no experience. Siege rewards arrive later through `GetGuildSiegeRewardCrateList` and `receiveGuildSiegeHonorReward`, both readable; attack decks are saved by `setDeckList`. SWEX's live sync does not read it either. Seen sealed on two attacks, November 3, 2026, between readable Siege queries |
 
 `sellSummonPieces` was the first case this rule decided (November 3, 2026). It
 looked like a gap to wave away, since JASWA does nothing with summoning pieces,

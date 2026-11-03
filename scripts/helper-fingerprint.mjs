@@ -56,6 +56,7 @@ export const fingerprintedFiles = [
   'helper/src-tauri/windows/hooks.nsh',
   'helper/src-tauri/src/config.rs',
   'helper/src-tauri/src/diagnostics.rs',
+  'helper/src-tauri/src/game_session.rs',
   'helper/src-tauri/src/incidents.rs',
   'helper/src-tauri/src/lib.rs',
   'helper/src-tauri/src/main.rs',

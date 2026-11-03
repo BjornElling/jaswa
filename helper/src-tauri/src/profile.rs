@@ -97,9 +97,14 @@ when both halves are established: the miss was `Encrypted` (never merely
 unread, which is a reader to write), and nothing its answer can carry —
 monsters, runes, artifacts, relics, craft items, decks — is read by JASWA.
 Such a miss is written to the diagnostic log and kept off the status, since
-no gap a user could see follows from it. Empty: every encrypted answer seen
-so far (Rift Raid results) carries craft items. */
-const IRRELEVANT_ENCRYPTED_COMMANDS: &[&str] = &[];
+no gap a user could see follows from it. Rift Raid results never qualify:
+they carry craft items.
+
+`BattleGuildSiegeResult` ends one Siege Battle attack (seen sealed twice on
+November 3, 2026). A Siege fight drops no gear, crafts or monsters and gives
+no experience; Siege rewards arrive later through the readable crate and
+honour answers, and the attack decks are saved by `setDeckList`. */
+const IRRELEVANT_ENCRYPTED_COMMANDS: &[&str] = &["BattleGuildSiegeResult"];
 
 /// What the last `apply_update` did not take as the account's.
 #[derive(Clone, Default)]
@@ -4373,5 +4378,22 @@ mod phantom_rune_regression {
             assert!(store.accept_snapshot(login));
             assert!(store.status().missed_changes.is_empty());
         }
+    }
+
+    /* Only a sealed answer of a listed command is kept off the status. The same
+    command unread is a reader to write, and a sealed Raid result carries craft
+    items, so both are still said. */
+    #[test]
+    fn only_a_sealed_answer_that_changes_nothing_modelled_stays_unsaid() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": []})));
+        store.note_missed("BattleGuildSiegeResult", "sealed", MissCause::Encrypted);
+        assert!(store.status().missed_changes.is_empty());
+        store.note_missed("BattleGuildSiegeResult", "unread", MissCause::Unread);
+        store.note_missed("BattleRiftOfWorldsRaidResult", "sealed", MissCause::Encrypted);
+        assert_eq!(store.status().missed_changes, vec![
+            MissedChange { command: "BattleGuildSiegeResult".into(), reason: "unread".into(), cause: MissCause::Unread },
+            MissedChange { command: "BattleRiftOfWorldsRaidResult".into(), reason: "sealed".into(), cause: MissCause::Encrypted },
+        ]);
     }
 }
