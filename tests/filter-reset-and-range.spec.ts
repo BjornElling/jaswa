@@ -190,19 +190,19 @@ test('Reset filters restores the recommendation panel’s defaults', async ({ pa
 
   await page.locator('summary').filter({ hasText: 'This is the way' }).click();
   const panel = page.locator('.artifact-recommendation-filters');
-  const matching = panel.locator('.artifact-recommendation-filter-matching').getByRole('button', { name: 'Hide' });
+  const engraved = panel.locator('.artifact-recommendation-filter-planned-location').getByRole('button', { name: 'Engraved' });
   const attribute = panel.locator('.artifact-recommendation-filter-type').getByRole('button').first();
 
   /* One default that starts on and one that starts off, so the reset is shown
      to restore a value rather than merely clearing everything. */
-  await expect(matching).toHaveAttribute('aria-pressed', 'true');
-  await matching.click();
+  await expect(engraved).toHaveAttribute('aria-pressed', 'true');
+  await engraved.click();
   await attribute.click();
-  await expect(matching).toHaveAttribute('aria-pressed', 'false');
+  await expect(engraved).toHaveAttribute('aria-pressed', 'false');
   await expect(attribute).toHaveAttribute('aria-pressed', 'true');
 
   await page.getByRole('button', { name: 'Reset recommendation filters' }).click();
-  await expect(matching).toHaveAttribute('aria-pressed', 'true');
+  await expect(engraved).toHaveAttribute('aria-pressed', 'true');
   await expect(attribute).toHaveAttribute('aria-pressed', 'false');
 });
 

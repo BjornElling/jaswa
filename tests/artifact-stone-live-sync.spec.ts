@@ -47,7 +47,6 @@ for (const recalculate of ['manual', 'on-change'] as const) {
     revision = 1;
     await expect(page.getByRole('complementary', { name: 'Imported game data' })).toContainText('3 artifacts');
     await calculate.click();
-    await page.getByRole('group', { name: 'Already matching', exact: true }).getByRole('button', { name: 'Hide' }).click();
     await page.getByRole('group', { name: 'Location after', exact: true }).getByRole('button', { name: 'Engraved' }).click();
     const table = page.locator('.artifact-recommendation-table');
     const rows = table.locator('tbody tr');
@@ -77,6 +76,40 @@ for (const recalculate of ['manual', 'on-change'] as const) {
     expect(await calculate.boundingBox()).toEqual(before);
     await page.screenshot({ path: testInfo.outputPath('conversion-no.png'), fullPage: true });
     await conversion.getByRole('button', { name: 'No', exact: true }).click();
+    await expect(rows).toHaveCount(3);
+    /* Already matching asks Yes or No like Conversion, the switch between
+       them says how the two combine, and no choice moves another. */
+    const matching = page.getByRole('group', { name: 'Already matching', exact: true });
+    const join = page.getByRole('group', { name: 'Join Conversion and Already matching', exact: true });
+    const joiner = (await join.boundingBox())!;
+    await expect(join.getByRole('button', { name: 'And', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(joiner.x).toBeGreaterThan(filterBox!.x + filterBox!.width - 1);
+    expect(joiner.x + joiner.width).toBeLessThan(matchingBox!.x + 1);
+    const keepRows = await rows.filter({ has: page.getByRole('cell', { name: 'Keep', exact: true }) }).count();
+    await matching.getByRole('button', { name: 'Yes', exact: true }).click();
+    await expect(rows).toHaveCount(keepRows);
+    expect(await conversion.boundingBox()).toEqual(filterBox);
+    expect(await matching.boundingBox()).toEqual(matchingBox);
+    await matching.getByRole('button', { name: 'Yes', exact: true }).click();
+    await matching.getByRole('button', { name: 'No', exact: true }).click();
+    await expect(rows).toHaveCount(3 - keepRows);
+    await matching.getByRole('button', { name: 'No', exact: true }).click();
+    await expect(rows).toHaveCount(3);
+    /* Or joins only what narrows: Conversion / Yes alone still shows its one
+       row, and adding Already matching / Yes adds the Keep rows to it. */
+    await join.getByRole('button', { name: 'Or', exact: true }).click();
+    expect(await join.boundingBox()).toEqual(joiner);
+    await conversion.getByRole('button', { name: 'Yes', exact: true }).click();
+    await expect(rows).toHaveCount(1);
+    await matching.getByRole('button', { name: 'Yes', exact: true }).click();
+    const converted = rows.filter({ hasText: 'Improve roll in' });
+    const convertedKeep = await converted.filter({ has: page.getByRole('cell', { name: 'Keep', exact: true }) }).count();
+    await expect(rows).toHaveCount(1 + keepRows - convertedKeep);
+    expect(await conversion.boundingBox()).toEqual(filterBox);
+    expect(await matching.boundingBox()).toEqual(matchingBox);
+    await conversion.getByRole('button', { name: 'Yes', exact: true }).click();
+    await matching.getByRole('button', { name: 'Yes', exact: true }).click();
+    await join.getByRole('button', { name: 'And', exact: true }).click();
     await expect(rows).toHaveCount(3);
     const tableContents = await table.textContent();
     const tableBounds = await table.boundingBox();

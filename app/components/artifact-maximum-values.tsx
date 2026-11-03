@@ -1,4 +1,4 @@
-import { filterIncludes } from '../lib/filter-selection';
+import { filterIncludes, filterIsUnrestricted } from '../lib/filter-selection';
 import { Fragment, useMemo, useState } from 'react';
 import { Button, FilterButton } from './button';
 import { CalculationStatus } from './calculation-status';
@@ -52,10 +52,9 @@ const artifactLocations = ['inventory', 'engraved'] as const;
 const conversionFilters = ['yes', 'no'] as const;
 
 type ArtifactLocation = typeof artifactLocations[number];
-/* The one option under "Already matching". It is a list like every other
-   filter group so it toggles, labels and clears by the same code, rather than
-   a lone boolean with its own handling. */
-const matchingFilters = ['hide'] as const;
+/* Whether the plan puts the artifact where it already is. Yes and No, like
+   Conversion beside it, so the two read as one question in two parts. */
+const matchingFilters = ['yes', 'no'] as const;
 type MatchingFilter = typeof matchingFilters[number];
 type ArtifactFilters = {
   categories: ArtifactCategory[];
@@ -70,18 +69,20 @@ type ArtifactFilters = {
   plannedLocations: ArtifactLocation[];
   matching: MatchingFilter[];
   conversions: (typeof conversionFilters[number])[];
+  /** How Conversion and Already matching combine. */
+  adviceJoin: 'and' | 'or';
 };
 type OwnedMonster = { unitId: string; masterId: string; name: string };
 type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScoreResult };
 type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
-type UnscoredSlot = { monster: OwnedMonster; category: ArtifactCategory; status: 'missing' | 'empty' };
-type Calculation = { inputKey: string; backend: CalculationBackend; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
-/* The view opens on the work the plan asks for: the artifacts it would engrave,
-   minus the ones already on the monster it names. Everything else — the pieces
-   to sell, and the placements that are already right — stays one click away in
-   the panel rather than filling the first screen with rows carrying no action.
-   Both are ordinary filters, so toggling them off returns the complete plan. */
-const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: ['engraved'], matching: ['hide'], conversions: [] };
+type MonsterSlot = { monster: OwnedMonster; category: ArtifactCategory };
+type UnscoredSlot = MonsterSlot & { status: 'missing' | 'empty' };
+type Calculation = { inputKey: string; backend: CalculationBackend; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: readonly MonsterSlot[]; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
+/* The view opens on the artifacts the plan would engrave. The pieces to sell
+   stay one click away in the panel rather than filling the first screen with
+   rows carrying no action. It is an ordinary filter, so toggling it off
+   returns the complete plan. */
+const defaultFilters: ArtifactFilters = { categories: [], restrictions: [], grades: [], mainProperties: [], subPropertyId: '', locations: [], plannedLocations: ['engraved'], matching: [], conversions: [], adviceJoin: 'and' };
 
 /* `names` is read off the whole roster, never off `monsters`: numbering a
    filtered subset would call the second Lushen "Lushen" whenever the first was
@@ -142,7 +143,7 @@ function allocateArtifacts(
   categories: readonly CategoryCalculation[],
   scopedMonsters: readonly OwnedMonster[],
   artifactOrder: ReadonlyMap<string, number>,
-): { allocations: Map<string, Allocation>; unfilledSlots: number; slotCount: number } {
+): { allocations: Map<string, Allocation>; unfilledSlots: MonsterSlot[]; slotCount: number } {
   const candidates: Array<{
     artifactId: string;
     artifactOrder: number;
@@ -206,7 +207,13 @@ function allocateArtifacts(
     if (!candidate) throw new Error('Artifact allocation lost a selected score pair.');
     allocations.set(placement.artifactId, candidate.allocation);
   }
-  return { allocations, unfilledSlots: selected.unfilledSlots.length, slotCount: slots.length };
+  const monsterById = new Map(scopedMonsters.map((monster) => [monster.unitId, monster]));
+  const unfilledSlots = selected.unfilledSlots.map(({ monsterId, category }) => {
+    const monster = monsterById.get(monsterId);
+    if (!monster) throw new Error('Artifact allocation left a slot for a monster outside the scope.');
+    return { monster, category };
+  });
+  return { allocations, unfilledSlots, slotCount: slots.length };
 }
 
 function unscoredArtifactSlots(monsters: readonly OwnedMonster[]): UnscoredSlot[] {
@@ -223,7 +230,7 @@ function countedSlots(count: number, general: GeneralSettings): string {
   return `${formatNumber(count, general)} ${count === 1 ? 'slot' : 'slots'}`;
 }
 
-function describeUnscoredMonsters(slots: readonly UnscoredSlot[]): string {
+function describeMonsterSlots(slots: readonly MonsterSlot[]): string {
   const categoriesByMonster = new Map<string, { name: string; categories: ArtifactCategory[] }>();
   for (const slot of slots) {
     const current = categoriesByMonster.get(slot.monster.unitId) ?? { name: slot.monster.name, categories: [] };
@@ -233,6 +240,18 @@ function describeUnscoredMonsters(slots: readonly UnscoredSlot[]): string {
   return [...categoriesByMonster.values()]
     .map(({ name, categories }) => `${name} (${categories.map((category) => artifactCategoryLabel(category)).join(' and ')})`)
     .join(', ');
+}
+
+/* Short enough to read at a glance. Five names still fit on a line or two;
+   beyond that the list stops helping and the count says enough on its own.
+   Names only: a copy name already carries its own parenthesis, and a second
+   one for the slot type read as clutter. */
+function describeUnfilledSlots(slots: readonly MonsterSlot[], general: GeneralSettings): string {
+  const names = [...new Map(slots.map((slot) => [slot.monster.unitId, slot.monster.name])).values()];
+  const counted = `${formatNumber(names.length, general)} ${names.length === 1 ? 'monster' : 'monsters'}`;
+  return names.length <= 5
+    ? `No suitable artifacts were left for ${counted}: ${names.join(', ')}.`
+    : `No suitable artifacts were left for ${counted}.`;
 }
 
 /* Scores arrive as whole percentage points (§17.1), so nothing is rounded here:
@@ -383,10 +402,18 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
     const plannedLocation: ArtifactLocation = row.allocation ? 'engraved' : 'inventory';
     const alreadyMatching = row.allocation !== undefined
       && row.artifact.occupiedId === row.allocation.monster.unitId;
-    return filterIncludes(filters.plannedLocations, plannedLocation, artifactLocations)
-      && filterIncludes(filters.conversions, row.allocation?.conversions.length ? 'yes' : 'no', conversionFilters)
-      && !(filters.matching.includes('hide') && alreadyMatching);
-  }), [rows, filters.plannedLocations, filters.conversions, filters.matching]);
+    /* Or joins only the groups that narrow. An unset group means "every row",
+       so letting it take part in an Or would make the other group's choice
+       do nothing at all. */
+    const advice = [
+      { selected: filters.conversions, value: row.allocation?.conversions.length ? 'yes' : 'no', options: conversionFilters },
+      { selected: filters.matching, value: alreadyMatching ? 'yes' : 'no', options: matchingFilters },
+    ].filter((group) => !filterIsUnrestricted<string>(group.selected, group.options))
+      .map((group) => filterIncludes<string>(group.selected, group.value, group.options));
+    const adviceIncludes = !advice.length
+      || (filters.adviceJoin === 'and' ? advice.every(Boolean) : advice.some(Boolean));
+    return filterIncludes(filters.plannedLocations, plannedLocation, artifactLocations) && adviceIncludes;
+  }), [rows, filters.plannedLocations, filters.conversions, filters.matching, filters.adviceJoin]);
 
   /* Every slot in the scope, split into the three states it can be in. They
      are derived from one total here rather than reported independently, which
@@ -395,9 +422,10 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
      get the number a user would arrive at by counting monsters. */
   const awaitingSlots = currentCalculation?.unscoredSlots.length ?? 0;
   const totalSlots = (currentCalculation?.slotCount ?? 0) + awaitingSlots;
-  const filledSlots = (currentCalculation?.slotCount ?? 0) - (currentCalculation?.unfilledSlots ?? 0);
+  const unfilledSlots = currentCalculation?.unfilledSlots.length ?? 0;
+  const filledSlots = (currentCalculation?.slotCount ?? 0) - unfilledSlots;
   const slotRemainder = [
-    ...(currentCalculation?.unfilledSlots ? [`${formatNumber(currentCalculation.unfilledSlots, general)} unfilled`] : []),
+    ...(unfilledSlots ? [`${formatNumber(unfilledSlots, general)} unfilled`] : []),
     ...(awaitingSlots ? [`${formatNumber(awaitingSlots, general)} awaiting preferences`] : []),
   ];
 
@@ -477,12 +505,20 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
           as one filter shown twice. */}
       {buttonGroup('Location before', 'locations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Engraved', 'artifact-recommendation-filter-location')}
       {buttonGroup('Location after', 'plannedLocations', artifactLocations, (location) => location === 'inventory' ? 'Inventory' : 'Engraved', 'artifact-recommendation-filter-planned-location')}
-      {buttonGroup('Conversion', 'conversions', conversionFilters, (value) => value === 'yes' ? 'Yes' : 'No', 'artifact-recommendation-filter-conversion')}
-      {/* On by default (`defaultFilters`): a row where the plan agrees with
-          reality is still part of the plan, but it asks nothing of the user, so
-          the view opens on the work list and the button restores the whole
-          allocation. */}
-      {buttonGroup('Already matching', 'matching', matchingFilters, () => 'Hide', 'artifact-recommendation-filter-matching')}
+      {/* The one place two groups are joined in words, and the one place the
+          join is the user's to choose. Both are Yes/No questions about the
+          same advice, so "conversions or already placed" is a list worth
+          asking for; everywhere else the groups narrow with And. */}
+      <div className="artifact-recommendation-filter-advice">
+        {buttonGroup('Conversion', 'conversions', conversionFilters, (value) => value === 'yes' ? 'Yes' : 'No', 'artifact-recommendation-filter-conversion')}
+        <div className="filter-group artifact-recommendation-filter-join" role="group" aria-label="Join Conversion and Already matching">
+          <span className="filter-label" aria-hidden="true">And/Or</span>
+          <div className="filter-group-controls">{(['and', 'or'] as const).map((join) => <FilterButton key={join}
+            active={filters.adviceJoin === join}
+            onClick={() => setFilters((current) => ({ ...current, adviceJoin: join }))}>{join === 'and' ? 'And' : 'Or'}</FilterButton>)}</div>
+        </div>
+        {buttonGroup('Already matching', 'matching', matchingFilters, (value) => value === 'yes' ? 'Yes' : 'No', 'artifact-recommendation-filter-matching')}
+      </div>
       <div className="filter-panel-actions artifact-recommendation-actions">
         <Button tone="primary" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
           onClick={() => void calculate()}>Calculate recommendations</Button>
@@ -519,14 +555,12 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
       <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
         backend={currentCalculation.backend} general={general}
         detail={<>{formatNumber(filledSlots, general)} of {formatNumber(totalSlots, general)} slots filled{slotRemainder.length > 0 && <> ({slotRemainder.join(', ')})</>}</>} />
-      {/* Not "no artifact scores above 0 % here", which is what the old wording
-          was read as and is almost never true: the artifacts that would suit
-          this slot exist, and the ranked pass gave every one of them to a
-          monster that scores at least as well. Saying where they went makes the
-          empty slot the plan's answer rather than a fault in it. */}
-      {currentCalculation.unfilledSlots > 0 && <p className="notice warning" role="status">The plan leaves {countedSlots(currentCalculation.unfilledSlots, general)} empty: every artifact that scores above 0 % there was claimed by a monster it suits at least as well. JASWA never fills a slot with a zero-score match.</p>}
-      {missingPreferenceSlots.length > 0 && <p className="notice warning" role="status">Artifact preferences are not yet recorded for {describeUnscoredMonsters(missingPreferenceSlots)}. That leaves {countedSlots(missingPreferenceSlots.length, general)} awaiting data, and out of the scoring.</p>}
-      {emptyPreferenceSlots.length > 0 && <p className="notice warning" role="status">No preferred or acceptable artifact properties are recorded for {describeUnscoredMonsters(emptyPreferenceSlots)}. That leaves {countedSlots(emptyPreferenceSlots.length, general)} awaiting preferences, and out of the scoring.</p>}
+      {/* "Left", not "found": the artifacts that would suit these slots
+          usually exist, and the ranked pass gave them to monsters they suit
+          at least as well. */}
+      {unfilledSlots > 0 && <p className="notice warning" role="status">{describeUnfilledSlots(currentCalculation.unfilledSlots, general)}</p>}
+      {missingPreferenceSlots.length > 0 && <p className="notice warning" role="status">Artifact preferences are not yet recorded for {describeMonsterSlots(missingPreferenceSlots)}. That leaves {countedSlots(missingPreferenceSlots.length, general)} awaiting data, and out of the scoring.</p>}
+      {emptyPreferenceSlots.length > 0 && <p className="notice warning" role="status">No preferred or acceptable artifact properties are recorded for {describeMonsterSlots(emptyPreferenceSlots)}. That leaves {countedSlots(emptyPreferenceSlots.length, general)} awaiting preferences, and out of the scoring.</p>}
       {settings.conversionStoneMode === 'owned' && currentCalculation.ownedConversionCount === 0 && <p className="notice warning">This import has no readable engraved conversion stones, so the results keep every artifact as it is.</p>}
       {sorted.length ? <div className="artifact-recommendation-table-wrap"><table className="artifact-recommendation-table">
         <SortableHeader columns={columns} sort={sort} onToggle={toggleSort} />

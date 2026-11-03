@@ -116,19 +116,26 @@ exclude something must not surface as a total the user cannot verify.
 **Location before** reads the import; **Location after** reads the allocation —
 engraved if a monster was allocated the artifact, inventory if the advice is
 *Sell*. They partition the rows independently, so `after: Engraved` yields as
-many rows as the summary's filled slots once **Already matching** is off.
-**Already matching / Hide** removes the *Keep* rows.
+many rows as the summary's filled slots while **Already matching** is unset.
 
-**Conversion / Yes** shows rows with recommended conversions. **No** shows rows
-with no recommendation, including Intangible artifacts, which cannot be
-converted. No selection or both options shows all rows. This filter reads the
-complete plan and never changes its scores or allocation.
+**Conversion** and **Already matching** sit side by side, joined by an
+**And/Or** switch — the one place in the program two groups are joined in
+words, and the one join the user chooses, because both ask Yes or No about the
+same advice and "converted or already placed" is a list worth asking for. *And*
+is the default. *Or* joins only the groups that narrow: an unset group means
+every row, so letting it take part would make the other group's choice do
+nothing. **Conversion / Yes** shows rows with recommended conversions; **No**
+shows rows with none, including Intangible artifacts, which cannot be
+converted. **Already matching / Yes** shows the *Keep* rows, the artifacts
+already on their recommended monster; **No** shows every other row. Both start
+unset, and each follows §0's rule: no selection or both options shows all
+rows.
 
-**The view opens on the work list**: `Location after: Engraved` and `Already
-matching: Hide` start pressed, leaving the artifacts the plan would engrave and
-that are not yet there. It is a default, not a restriction: one click restores
-each, and the allocation is still computed over the whole library. These filters
-read the advice, so they narrow rows and never change it.
+**The view opens on the plan's engravings**: `Location after: Engraved` starts
+pressed, leaving the artifacts the plan would engrave. It is a default, not a
+restriction: one click restores the sell rows, and the allocation is still
+computed over the whole library. These filters read the advice, so they narrow
+rows and never change it.
 `verify:recommendation-filters` drives them on a real import.
 
 ## 7. A stale result says so, and the user chooses who refreshes it

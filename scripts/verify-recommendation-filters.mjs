@@ -5,12 +5,13 @@
  * Four properties, each of which the user can verify by eye and would
  * therefore notice breaking:
  *
- * - The view opens on the work list — the artifacts the plan would engrave, minus
- *   those already on the monster it names — and that opening is exactly its two
- *   default filters applied to the complete plan, not a separate reading of it.
+ * - The view opens on the artifacts the plan would engrave, and that opening is
+ *   exactly its default filter applied to the complete plan, not a separate
+ *   reading of it.
  * - Location before reads the import; Location after reads the plan. Each
  *   partitions the rows, so the two halves sum to the whole.
- * - Already matching / Hide removes exactly the Keep rows, and restores them.
+ * - Already matching / Yes shows exactly the Keep rows and No the rest, and
+ *   it combines with Conversion by the And/Or switch between them.
  * - An Intangible row names the §10.1 rule in the conversion column, in gold,
  *   rather than reporting a judgement JASWA never made.
  * - The slot figures reconcile: filled plus the named remainder is the total.
@@ -75,24 +76,23 @@ try {
   await page.getByRole('button', { name: /Calculate recommendations/ }).click();
   await page.locator('.artifact-recommendation-table').waitFor({ timeout: 180000 });
 
-  /* The view opens on the work list: "Location after / Engraved" and
-     "Already matching / Hide" are on by default, because a row the plan would
-     sell or has already placed asks nothing of the user. Assert that first —
-     it is what a user sees on arriving — then clear both to measure the
-     filters against the complete plan. */
+  /* The view opens on the plan's engravings: "Location after / Engraved" is
+     on by default, because a row the plan would sell asks nothing of the
+     user. Assert that first — it is what a user sees on arriving — then clear
+     it to measure the filters against the complete plan. */
   const opening = await rowCount();
   const openingSell = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Sell').length);
-  const openingKeep = await (await columnCells('Plan'))
-    .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Keep').length);
   assert.equal(openingSell, 0, 'The view does not open on the plan’s engraved rows.');
-  assert.equal(openingKeep, 0, 'The view opens showing rows already on their recommended monster.');
+  for (const name of ['Yes', 'No']) {
+    assert.equal(await group('Already matching').getByRole('button', { name, exact: true }).getAttribute('aria-pressed'), 'false',
+      `Already matching / ${name} starts pressed.`);
+  }
 
   await setFilter('Location after', 'Engraved', false);
-  await setFilter('Already matching', 'Hide', false);
   const all = await rowCount();
   assert.ok(all > opening,
-    `Clearing the opening filters must restore rows: ${opening} of ${all}.`);
+    `Clearing the opening filter must restore rows: ${opening} of ${all}.`);
 
   /* "Location after" splits the rows in two: a row is either allocated to a
      monster (engraved) or it is not (inventory, the Sell advice). */
@@ -112,28 +112,66 @@ try {
     `Location after does not partition the rows: ${plannedEngraved} + ${plannedInventory} != ${all}.`);
   await setFilter('Location after', 'Inventory', false);
 
-  /* "Already matching / Hide" removes exactly the Keep rows — the ones whose
-     current monster is the one the plan names. */
+  /* "Already matching" splits the rows in two: Yes is exactly the Keep rows —
+     the ones whose current monster is the one the plan names — and No the
+     rest. */
   const keepRows = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Keep').length);
-  await setFilter('Already matching', 'Hide', true);
-  const hidden = await rowCount();
-  assert.equal(hidden, all - keepRows,
-    `Already matching / Hide removed ${all - hidden} rows, expected the ${keepRows} Keep rows.`);
+  await setFilter('Already matching', 'Yes', true);
+  const matchingYes = await rowCount();
+  assert.equal(matchingYes, keepRows,
+    `Already matching / Yes shows ${matchingYes} rows, expected the ${keepRows} Keep rows.`);
+  await setFilter('Already matching', 'Yes', false);
+  await setFilter('Already matching', 'No', true);
+  const matchingNo = await rowCount();
   const keepLeft = await (await columnCells('Plan'))
     .evaluateAll((cells) => cells.filter((cell) => cell.textContent.trim() === 'Keep').length);
-  assert.equal(keepLeft, 0, 'Already matching / Hide left a row that is already on its recommended monster.');
-  await setFilter('Already matching', 'Hide', false);
-  assert.equal(await rowCount(), all, 'Turning Already matching off did not restore every row.');
+  assert.equal(keepLeft, 0, 'Already matching / No left a row that is already on its recommended monster.');
+  assert.equal(matchingYes + matchingNo, all,
+    `Already matching does not partition the rows: ${matchingYes} + ${matchingNo} != ${all}.`);
+  await setFilter('Already matching', 'No', false);
+  assert.equal(await rowCount(), all, 'Clearing Already matching did not restore every row.');
 
-  /* The opening view is exactly the two filters applied together, which is
+  /* "And": the two advice questions narrow together. Each Conversion answer
+     with each matching answer is a quarter of the plan, and the four
+     quarters add up to the whole — an OR would count rows twice. */
+  let quarters = 0;
+  for (const conversion of ['Yes', 'No']) {
+    for (const matched of ['Yes', 'No']) {
+      await setFilter('Conversion', conversion, true);
+      await setFilter('Already matching', matched, true);
+      quarters += await rowCount();
+      await setFilter('Conversion', conversion, false);
+      await setFilter('Already matching', matched, false);
+    }
+  }
+  assert.equal(quarters, all, `Conversion And Already matching does not partition the rows: ${quarters} != ${all}.`);
+
+  /* "Or": the union, counted by inclusion and exclusion from the And reading
+     of the same pair. A group left unset takes no part, so Conversion / Yes
+     alone reads the same under either join. */
+  await setFilter('Conversion', 'Yes', true);
+  const conversionYes = await rowCount();
+  await setFilter('Already matching', 'Yes', true);
+  const bothYes = await rowCount();
+  await setFilter('Conversion', 'Yes', false);
+  const matchedYes = await rowCount();
+  const join = page.getByRole('group', { name: 'Join Conversion and Already matching', exact: true });
+  await join.getByRole('button', { name: 'Or', exact: true }).click();
+  assert.equal(await rowCount(), matchedYes, 'Or let an unset Conversion group show every row.');
+  await setFilter('Conversion', 'Yes', true);
+  assert.equal(await rowCount(), conversionYes + matchedYes - bothYes,
+    'Conversion Or Already matching is not the union of the two.');
+  await setFilter('Conversion', 'Yes', false);
+  await setFilter('Already matching', 'Yes', false);
+  await join.getByRole('button', { name: 'And', exact: true }).click();
+
+  /* The opening view is exactly the default filter applied by hand, which is
      what makes it a view of the plan rather than a separate reading of it. */
   await setFilter('Location after', 'Engraved', true);
-  await setFilter('Already matching', 'Hide', true);
   assert.equal(await rowCount(), opening,
-    'Applying both opening filters by hand does not reproduce the opening view.');
+    'Applying the opening filter by hand does not reproduce the opening view.');
   await setFilter('Location after', 'Engraved', false);
-  await setFilter('Already matching', 'Hide', false);
 
   /* "Location before" keeps its old meaning: the imported location. */
   await setFilter('Location before', 'Inventory', true);
@@ -190,7 +228,7 @@ try {
   assert.equal(number(slots[1]) + remainder, number(slots[2]),
     `The slot figures do not add up: ${slots[0]}`);
 
-  console.log(`Verified the view opens on ${opening} rows of work, Location after partitions ${all} rows into ${plannedEngraved} engraved and ${plannedInventory} inventory, Already matching hides the ${keepRows} Keep rows, Location before still reads the import, ${goldMarks.length} of ${intangibleRows} Intangible rows name the rule in gold, and "${slots[0]}" reconciles.`);
+  console.log(`Verified the view opens on ${opening} rows of work, Location after partitions ${all} rows into ${plannedEngraved} engraved and ${plannedInventory} inventory, Already matching splits off the ${keepRows} Keep rows and combines with Conversion by And and by Or, Location before still reads the import, ${goldMarks.length} of ${intangibleRows} Intangible rows name the rule in gold, and "${slots[0]}" reconciles.`);
 } finally {
   await browser.close();
 }

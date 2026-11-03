@@ -3094,7 +3094,7 @@ label[for] {
   grid-template-areas:
     "type     restriction restriction .        calculate"
     "quality  main        substat     obtained calculate"
-    "location planned     conversion  matching calculate";
+    "location planned     advice      advice   calculate";
   align-items: start;
 }
 .artifact-recommendation-filter-type { grid-area: type; }
@@ -3113,8 +3113,26 @@ label[for] {
 .artifact-recommendation-filter-main { grid-area: main; }
 .artifact-recommendation-filter-location { grid-area: location; }
 .artifact-recommendation-filter-planned-location { grid-area: planned; }
-.artifact-recommendation-filter-matching { grid-area: matching; }
-.artifact-recommendation-filter-conversion { grid-area: conversion; }
+/* Conversion and Already matching, joined by an And/Or switch in one cell:
+   the only two groups in the program that read as one sentence, and the only
+   join the user chooses. The switch and Already matching drop their own rules
+   so the rule left of Conversion opens the whole sentence. */
+.artifact-recommendation-filter-advice {
+  grid-area: advice;
+  display: flex;
+  align-items: start;
+  /* Wider than a group's own indent, so three groups without rules between
+     them still read as three. */
+  gap: var(--s6);
+}
+/* The switch names the join, not a group, so its label centres over the two
+   words it chooses between. */
+.artifact-recommendation-filter-join { align-items: center; }
+.artifact-recommendation-filter-advice > .artifact-recommendation-filter-join,
+.artifact-recommendation-filter-advice > .artifact-recommendation-filter-matching {
+  padding-left: 0;
+  border-left: 0;
+}
 /* Sized to the longest option the list can hold — the legacy "ATK Increased
    Proportional to Lost HP" family, which needs about 270px including the
    padding and the chevron's reserved space. Anything narrower clips a name
@@ -3280,8 +3298,8 @@ label[for] {
     grid-template-areas:
       "type      restriction restriction"
       "quality   main        substat"
-      "location  planned     conversion"
-      "matching  matching    matching"
+      "location  planned     planned"
+      "advice    advice      advice"
       "obtained  obtained    obtained"
       "calculate calculate   calculate";
   }
@@ -3297,7 +3315,7 @@ label[for] {
 @media (min-width: 1921px) and (max-width: 960px) {
   /* Matches .filter-panel.is-stacked; spelled out because this panel also
      needs its own area names for the action. */
-  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "obtained" "location" "planned" "conversion" "matching" "calculate"; align-items: stretch; }
+  .artifact-recommendation-filters { grid-template-columns: minmax(0, 1fr); grid-template-areas: "type" "restriction" "quality" "main" "substat" "obtained" "location" "planned" "advice" "calculate"; align-items: stretch; }
   /* Stacked, the strong rule no longer separates two columns, so ordering
      stretches like every other block and keeps its label alignment. */
   .artifact-recommendation-filter-obtained { justify-self: stretch; }
