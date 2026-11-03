@@ -1,6 +1,7 @@
 use crate::{
     config::{GATEWAYS, HELPER_PORT, HOSTS_MARKER, allowed_origin, data_directory},
     diagnostics,
+    game_session::{Change, GameSession},
     incidents::Incidents,
     profile::{MissCause, ProfileStore, requires_account_response},
     protocol::{decode_request, decode_response, session_encrypted},
@@ -29,14 +30,7 @@ use std::{
 
 const GATEWAY_PATH: &str = "/api/gateway_c2.php";
 const MAXIMUM_INTERCEPTED_BODY_BYTES: usize = 16 * 1024 * 1024;
-/// How long a closed, silent gateway still counts as the game reaching the
-/// redirect. Ordinary play goes quiet for minutes at a time — the game hangs up
-/// its keep-alive socket and opens a new one for its next command — so this
-/// window ends only the *connection* evidence, never the game session itself.
-const GAME_QUIET_GRACE: Duration = Duration::from_secs(60);
-/// A gateway socket opens before the game sends its login. The watchdog must
-/// never mistake that normal startup interval for a helper that missed login.
-const LOGIN_CAPTURE_GRACE: Duration = Duration::from_secs(45);
+/// Also how quickly a closed game is noticed: one tick after its process goes.
 const WATCHDOG_INTERVAL: Duration = Duration::from_secs(3);
 
 pub struct Service {
@@ -49,25 +43,16 @@ struct Shared {
     recovery: AtomicUsize,
     profile: Mutex<ProfileStore>,
     traffic: Mutex<TrafficLog>,
-    game_running: Mutex<bool>,
-    /// A gateway connection stayed up past the normal login window without an
-    /// account snapshot. This is useful evidence to report, but not proof the
-    /// helper started late: the game may have reconnected long after startup.
-    waiting_for_login: Mutex<bool>,
-    /// Set only by the process-list observation immediately before the helper
-    /// installs its redirect. It identifies the one case where the login
-    /// exchange cannot have passed through this helper.
-    game_started_before_helper: AtomicBool,
-    /// The first gateway contact in this game session. It gives login capture
-    /// a bounded startup window without guessing from one open socket.
-    game_started_at: Mutex<Option<Instant>>,
-    /// Number of gateway connections the game currently holds open. A live
-    /// connection is the plainest evidence the game is running and reaching the
-    /// redirect, and needs no scan of the system's other processes.
+    /// Whether the game is running, and everything that lasts only as long as
+    /// it does. The one answer every reader takes (`game_session.rs`). Lock it
+    /// before `profile` whenever both are held.
+    session: Mutex<GameSession>,
+    /// Number of gateway connections the game currently holds open: evidence
+    /// for the session, and what the exit guard protects.
     open_connections: AtomicUsize,
-    /// When the game last connected or sent anything, so a brief reconnect does
-    /// not read as the game having closed.
-    last_contact: Mutex<Option<Instant>>,
+    /// A fault in the helper itself — a listener that stopped, a redirect that
+    /// was changed. Unlike a session's fault it outlives the game, because the
+    /// next launch would meet it too; only Restart helper clears it.
     last_error: Mutex<Option<String>>,
     incidents: Mutex<Incidents>,
     api_connections: AtomicUsize,
@@ -199,12 +184,8 @@ impl Service {
             recovery: AtomicUsize::new(0),
             profile: Mutex::new(ProfileStore::default()),
             traffic: Mutex::new(TrafficLog::new(None)),
-            game_running: Mutex::new(false),
-            waiting_for_login: Mutex::new(false),
-            game_started_before_helper: AtomicBool::new(false),
-            game_started_at: Mutex::new(None),
+            session: Mutex::new(GameSession::default()),
             open_connections: AtomicUsize::new(0),
-            last_contact: Mutex::new(None),
             last_error: Mutex::new(None),
             incidents: Mutex::new(Incidents::default()),
             api_connections: AtomicUsize::new(0),
@@ -226,9 +207,7 @@ impl Service {
         }
         match crate::windows::summoners_war_is_running() {
             Ok(true) => {
-                shared
-                    .game_started_before_helper
-                    .store(true, Ordering::Release);
+                shared.session.lock().expect("session lock poisoned").helper_started(true);
                 diagnostics::record(
                     "game",
                     "Summoners War was already running when the helper installed its redirect. Restarting the game lets the helper capture its login.",
@@ -326,6 +305,7 @@ fn recover_connections(shared: &Shared) {
     // Clear the old fault before waking workers, so a new fault cannot be
     // erased by the recovery that exposed it.
     *shared.last_error.lock().expect("error lock poisoned") = None;
+    shared.session.lock().expect("session lock poisoned").clear_fault();
     // A reading socket may already carry part of the next request. Closing it
     // loses that request and makes the game reconnect unnecessarily. Recovery
     // wakes paused listeners without disturbing any established game socket.
@@ -333,7 +313,11 @@ fn recover_connections(shared: &Shared) {
 }
 
 fn recovery_result(shared: &Shared) -> Result<String, String> {
-    if let Some(error) = shared.last_error.lock().expect("error lock poisoned").clone().or_else(diagnostics::last_error) {
+    let (session_fault, predates_helper) = {
+        let session = shared.session.lock().expect("session lock poisoned");
+        (session.fault().map(str::to_owned), session.predates_helper())
+    };
+    if let Some(error) = shared.last_error.lock().expect("error lock poisoned").clone().or_else(diagnostics::last_error).or(session_fault) {
         return Err(error);
     }
     if shared.incidents.lock().expect("incident lock poisoned").login_failed() {
@@ -341,7 +325,7 @@ fn recovery_result(shared: &Shared) -> Result<String, String> {
     }
     let profile = shared.profile.lock().expect("profile lock poisoned").status();
     if !profile.has_profile {
-        return if shared.game_started_before_helper.load(Ordering::Acquire) {
+        return if predates_helper {
             Ok("Connections recovered, but this game started before the helper. Reopen Summoners War to capture its account login.".into())
         } else {
             Ok("Helper connections recovered. Waiting for an account login from Summoners War.".into())
@@ -378,25 +362,27 @@ pub fn cleanup(remove_certificate: bool) -> Result<(), String> {
 // counts before the watchdog has had time to observe the game's process.
 fn receiving_game_input(shared: &Shared) -> bool {
     shared.open_connections.load(Ordering::Acquire) > 0
-        || (*shared.game_running.lock().expect("game state lock poisoned")
-            && shared.game_started_at.lock().expect("game start lock poisoned").is_some())
+        || shared.session.lock().expect("session lock poisoned").connected_this_session()
 }
 
 fn status(shared: &Shared) -> Value {
+    /* The session is read before the snapshot, the order the watchdog ends
+    them in, so a status can never show a game that is gone together with the
+    snapshot it left — only, for one tick, the reverse. */
+    let (game_running, login_pending, game_started_before_helper, session_fault) = {
+        let session = shared.session.lock().expect("session lock poisoned");
+        (
+            session.running(),
+            session.waiting_for_login(),
+            session.predates_helper(),
+            session.fault().map(str::to_owned),
+        )
+    };
     let snapshot = shared
         .profile
         .lock()
         .expect("profile lock poisoned")
         .status();
-    let game_running = *shared
-        .game_running
-        .lock()
-        .expect("game state lock poisoned");
-    let login_pending = *shared
-        .waiting_for_login
-        .lock()
-        .expect("game state lock poisoned");
-    let game_started_before_helper = shared.game_started_before_helper.load(Ordering::Acquire);
     let last_error = shared
         .last_error
         .lock()
@@ -407,7 +393,10 @@ fn status(shared: &Shared) -> Value {
         .lock()
         .expect("incident lock poisoned")
         .login_failed();
-    let last_error = last_error.or_else(diagnostics::last_error).or_else(|| login_failed.then(|| "The account login could not be read. Save an error report, then restart Summoners War to capture a fresh account.".to_owned()));
+    let last_error = last_error
+        .or_else(diagnostics::last_error)
+        .or(session_fault)
+        .or_else(|| login_failed.then(|| "The account login could not be read. Save an error report, then restart Summoners War to capture a fresh account.".to_owned()));
     let update_version = shared
         .newer_release
         .lock()
@@ -424,6 +413,7 @@ fn status(shared: &Shared) -> Value {
         "revision": snapshot.revision,
         "sessionId": snapshot.session_id,
         "instanceId": snapshot.instance_id,
+        "gameRunning": game_running,
         "profileReady": snapshot.has_profile && game_running && last_error.is_none(),
         "gameStartedBeforeHelper": game_started_before_helper && !snapshot.has_profile,
         "gameLoginPending": game_running && login_pending && !snapshot.has_profile,
@@ -590,165 +580,75 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
 }
 
 /// Watches two things the helper cannot serve fresh data without: that the game
-/// still holds a live connection to the redirect, and that the redirect itself
-/// is still in place. The second is the failure that leaves the dashboard
-/// "connected" while the account quietly ages — antivirus reverting the hosts
-/// file — so the watchdog restores it and says what happened.
+/// is still running, and that the redirect itself is still in place. The second
+/// is the failure that leaves the dashboard "connected" while the account
+/// quietly ages — antivirus reverting the hosts file — so the watchdog says
+/// what happened.
 fn start_watchdog(shared: Arc<Shared>) {
     thread::spawn(move || {
         while shared.running.load(Ordering::Acquire) {
             ensure_hosts_redirect(&shared);
-
-            let reaching_redirect = game_reaching_redirect(&shared);
-            let predates_helper = shared.game_started_before_helper.load(Ordering::Acquire);
-            let session_under_way = shared
-                .game_started_at
-                .lock()
-                .expect("game start lock poisoned")
-                .is_some();
-            /* The process list answers the one question live gateway traffic
-            cannot: whether a quiet game is still open. It is read only when
-            that cheaper evidence is missing and there is a session for it to
-            decide about, so neither active play nor an idle helper pays for
-            it. */
-            let process_alive = if predates_helper || (!reaching_redirect && session_under_way) {
-                crate::windows::summoners_war_is_running().ok()
-            } else {
-                None
-            };
-
-            /* The initial observation is the evidence for this warning. Once
-            that same process has gone, discard it; subsequent game starts
-            are normal starts behind the redirect and must never inherit the
-            warning. */
-            if predates_helper && process_alive == Some(false) {
-                shared
-                    .game_started_before_helper
-                    .store(false, Ordering::Release);
-                diagnostics::record(
-                    "game",
-                    "The Summoners War session that predated the helper has closed. The next launch can be captured normally.",
-                );
-            }
-
-            let running = game_is_running(reaching_redirect, process_alive);
-            let has_profile = shared
-                .profile
-                .lock()
-                .expect("profile lock poisoned")
-                .status()
-                .has_profile;
-
-            let mut prior = shared
-                .game_running
-                .lock()
-                .expect("game state lock poisoned");
-            let mut login_pending = shared
-                .waiting_for_login
-                .lock()
-                .expect("game state lock poisoned");
-            if login_capture_overdue(&shared, reaching_redirect, has_profile) {
-                // A game can reconnect long after its original login, so this
-                // cannot diagnose a late helper. It only says that the current
-                // connection has not yet supplied the account snapshot.
-                if !*login_pending {
-                    diagnostics::record(
-                        "game",
-                        "Summoners War is connected, but no account login arrived within 45 seconds. Continuing to wait; this does not establish that the helper started after the game.",
-                    );
-                }
-                *login_pending = true;
-            }
-            if *prior && !running {
-                // The game has gone: its snapshot belongs to a session that is
-                // over, so drop it rather than keep serving a stale account.
-                shared
-                    .profile
-                    .lock()
-                    .expect("profile lock poisoned")
-                    .clear();
-                *login_pending = false;
-                *shared
-                    .game_started_at
-                    .lock()
-                    .expect("game start lock poisoned") = None;
-                diagnostics::record(
-                    "game",
-                    if has_profile {
-                        "Summoners War closed — the captured snapshot was dropped, so JASWA keeps the last import it saved"
-                    } else {
-                        "Summoners War closed"
-                    },
-                );
-            }
-            *prior = running;
-            drop(login_pending);
-            drop(prior);
+            observe_game(&shared, crate::windows::summoners_war_is_running().ok(), Instant::now());
             thread::sleep(WATCHDOG_INTERVAL);
         }
     });
 }
 
-/// Whether the game is currently reaching the redirect: it holds a gateway
-/// connection open, or used one within the grace window. The grace covers a
-/// brief reconnect so a dropped-and-remade connection reads as one session.
-fn game_reaching_redirect(shared: &Shared) -> bool {
-    if shared.open_connections.load(Ordering::Acquire) > 0 {
-        return true;
-    }
-    shared
-        .last_contact
+/// One reading of the game's evidence, and everything that follows from it.
+/// The session decides; this only carries out what it decided.
+fn observe_game(shared: &Shared, process: Option<bool>, now: Instant) {
+    let has_profile = shared
+        .profile
         .lock()
-        .expect("contact lock poisoned")
-        .is_some_and(|at| at.elapsed() < GAME_QUIET_GRACE)
-}
-
-/// Whether the game session is still open.
-///
-/// Live gateway traffic settles it outright. But the game talks to the gateway
-/// only when it has something to ask, and normal play — a long battle, a
-/// dungeon run, a menu — leaves it silent with no socket open for minutes.
-/// Reading that silence as the game closing dropped the account snapshot in the
-/// middle of a session, and nothing could bring it back: the login exchange
-/// that carries the account is sent once per launch, so every later reconnect
-/// arrived with no account to capture and the helper waited forever. The
-/// process list is what actually distinguishes a quiet game from a closed one,
-/// so it decides here; when it cannot be read, the connection evidence stands
-/// alone as before.
-fn game_is_running(reaching_redirect: bool, process_alive: Option<bool>) -> bool {
-    reaching_redirect || process_alive.unwrap_or(false)
-}
-
-fn mark_contact(shared: &Shared) {
-    *shared.last_contact.lock().expect("contact lock poisoned") = Some(Instant::now());
-}
-
-/// Records the first gateway contact of a game session, which is also the one
-/// point where announcing the connection is meaningful: the game reopens its
-/// socket constantly during play, and a line per reconnect would read as the
-/// game restarting over and over.
-fn mark_game_start(shared: &Shared) {
-    let mut started = shared
-        .game_started_at
-        .lock()
-        .expect("game start lock poisoned");
-    if started.is_none() {
-        *started = Some(Instant::now());
-        diagnostics::record("game", "Summoners War connected to the local redirect");
+        .expect("profile lock poisoned")
+        .status()
+        .has_profile;
+    let mut session = shared.session.lock().expect("session lock poisoned");
+    match session.observe(
+        process,
+        shared.open_connections.load(Ordering::Acquire),
+        has_profile,
+        now,
+    ) {
+        Change::None => {}
+        // A game can reconnect long after its original login, so this cannot
+        // diagnose a late helper. It only says that the current connection has
+        // not yet supplied the account snapshot.
+        Change::LoginOverdue => diagnostics::record(
+            "game",
+            "Summoners War is connected, but no account login arrived within 45 seconds. Continuing to wait; this does not establish that the helper started after the game.",
+        ),
+        Change::Ended { had_predated_helper } => {
+            /* Everything the game's session owned goes with it, here and only
+            here: the snapshot and its gaps, and a login that failed. Each
+            belongs to a login the next launch replaces, so keeping one would
+            report a closed game's trouble against the next. The evidence an
+            error report is made of stays until something new happens. The
+            session lock is held across this, so no status can read the game
+            as gone while its snapshot is still served. */
+            shared
+                .profile
+                .lock()
+                .expect("profile lock poisoned")
+                .clear();
+            shared
+                .incidents
+                .lock()
+                .expect("incident lock poisoned")
+                .recover();
+            drop(session);
+            diagnostics::record(
+                "game",
+                if had_predated_helper {
+                    "The Summoners War session that predated the helper has closed. The next launch can be captured normally."
+                } else if has_profile {
+                    "Summoners War closed — its snapshot, gaps and errors were dropped, so JASWA keeps the last import it saved"
+                } else {
+                    "Summoners War closed"
+                },
+            );
+        }
     }
-}
-
-/// A connection that has been reaching the redirect past the startup window
-/// without supplying an account. Only live connection evidence counts: a quiet
-/// game that the process list says is still open has nothing to send.
-fn login_capture_overdue(shared: &Shared, reaching_redirect: bool, has_profile: bool) -> bool {
-    reaching_redirect
-        && !has_profile
-        && shared
-            .game_started_at
-            .lock()
-            .expect("game start lock poisoned")
-            .is_some_and(|started| started.elapsed() >= LOGIN_CAPTURE_GRACE)
 }
 
 /// Observe external changes without fighting the user's security software.
@@ -786,24 +686,34 @@ fn start_bridge(
             match listener.accept() {
                 Ok((stream, _)) => {
                     // A connection on the gateway port is the game reaching the
-                    // redirect: the freshest sign it is running.
-                    mark_contact(&shared);
-                    mark_game_start(&shared);
+                    // redirect: the freshest sign it is running. The game
+                    // reopens its socket constantly during play, so only the
+                    // first connection of a session is announced; a line per
+                    // reconnect read as the game restarting over and over.
+                    let (generation, first) = shared
+                        .session
+                        .lock()
+                        .expect("session lock poisoned")
+                        .connected(Instant::now());
+                    if first {
+                        diagnostics::record("game", "Summoners War connected to the local redirect");
+                    }
+                    let fail = |message: String| {
+                        shared.session.lock().expect("session lock poisoned").fail(generation, message);
+                    };
                     if let Err(error) = stream.set_nonblocking(false) {
-                        *shared.last_error.lock().expect("error lock poisoned") = Some(format!(
-                            "Gateway bridge for {hostname} could not prepare a connection: {error}"
-                        ));
+                        fail(format!("Gateway bridge for {hostname} could not prepare a connection: {error}"));
                         continue;
                     }
                     if shared.open_connections.fetch_add(1, Ordering::AcqRel) >= 32 {
                         shared.open_connections.fetch_sub(1, Ordering::AcqRel);
-                        *shared.last_error.lock().expect("error lock poisoned") = Some("Too many local gateway connections. Restart the helper and save an error report if this repeats.".into());
+                        fail("Too many local gateway connections. Restart the helper and save an error report if this repeats.".into());
                         continue;
                     }
                     let shared = Arc::clone(&shared);
                     let server = Arc::clone(&server);
                     let upstream = upstream.clone();
-                    thread::spawn(move || relay(stream, server, hostname, &upstream, shared));
+                    thread::spawn(move || relay(stream, server, hostname, &upstream, shared, generation));
                 }
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                     thread::sleep(Duration::from_millis(50))
@@ -825,16 +735,20 @@ fn relay(
     hostname: &str,
     upstream: &str,
     shared: Arc<Shared>,
+    generation: u64,
 ) {
-    relay_with_connector(socket, server, hostname, upstream, shared, connect_upstream);
+    relay_with_connector(socket, server, hostname, upstream, shared, generation, connect_upstream);
 }
 
+/// `generation` is the game session the connection was opened in. A failure is
+/// that session's, and ends with it.
 fn relay_with_connector<S: Read + Write>(
     socket: TcpStream,
     server: Arc<ServerConfig>,
     hostname: &str,
     upstream: &str,
     shared: Arc<Shared>,
+    generation: u64,
     mut connect: impl FnMut(&str, &str, &RootCertStore, &ServerName<'static>) -> Result<Connection<S>, String>,
 ) {
     let mut last_request = Vec::new();
@@ -874,7 +788,11 @@ fn relay_with_connector<S: Read + Write>(
             };
             // Every exchange on a live connection renews the contact time, so a
             // long, idle-but-open session is never mistaken for the game closing.
-            mark_contact(&shared);
+            shared
+                .session
+                .lock()
+                .expect("session lock poisoned")
+                .contact(generation, Instant::now());
             let captures_gateway = String::from_utf8_lossy(&request)
                 .lines()
                 .next()
@@ -951,7 +869,10 @@ fn relay_with_connector<S: Read + Write>(
         if uncertain_exchange {
             record_uncertain_exchange(&shared, &last_request, &last_response, &error);
         }
-        *shared.last_error.lock().expect("error lock poisoned") = Some(format!(
+        /* The game's own failure, not the helper's: it ends with the session,
+        so a game closed mid-exchange does not leave "Capture stopped" behind
+        for the next launch to inherit. */
+        shared.session.lock().expect("session lock poisoned").fail(generation, format!(
             "Gateway exchange failed: {error}. Save an error report, then try Restart helper. A missing game response still needs a fresh login."
         ));
     }
@@ -1408,13 +1329,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
             ),
         );
         drop(profile);
-        *shared
-            .waiting_for_login
-            .lock()
-            .expect("game state lock poisoned") = false;
-        shared
-            .game_started_before_helper
-            .store(false, Ordering::Release);
+        shared.session.lock().expect("session lock poisoned").logged_in();
     } else {
         let changed = profile.apply_update(&response, &request);
         let declined = profile.take_declined();
@@ -1667,7 +1582,7 @@ mod tests {
     #[test]
     fn an_unreadable_auxiliary_exchange_cannot_stop_a_captured_account() {
         let shared = shared_for_test();
-        *shared.game_running.lock().unwrap() = true;
+        start_game(&shared);
         let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
         let account = message(&encoded(
             &json!({"ret_code": 0, "unit_list": [], "runes": []}),
@@ -1699,7 +1614,7 @@ mod tests {
                 for response in [message("not an account envelope"),
                     message(&encoded(&json!([1, 2]), true))] {
                     let shared = shared_for_test();
-                    *shared.game_running.lock().unwrap() = true;
+                    start_game(&shared);
                     let runes = if populated { json!([{"rune_id": 1, "set_id": 13}]) } else { json!([]) };
                     let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
                     let account = message(&encoded(&json!({"wizard_id": 7, "unit_list": [], "runes": runes}), true));
@@ -1730,7 +1645,7 @@ mod tests {
     fn a_confirmed_artifact_conversion_keeps_later_rewards_arriving() {
         for populated in [false, true] {
             let shared = shared_for_test();
-            *shared.game_running.lock().unwrap() = true;
+            start_game(&shared);
             let before = json!({"rid": 1, "slot": 1, "level": 15,
                 "sec_effects": [[404, 4, 0, 0, 0]]});
             let after = json!({"rid": 1, "slot": 1, "level": 15,
@@ -1762,7 +1677,7 @@ mod tests {
     fn compound_gear_changes_keep_later_rewards_arriving() {
         for populated in [false, true] {
             let shared = shared_for_test();
-            *shared.game_running.lock().unwrap() = true;
+            start_game(&shared);
             let send = |request: Value, response: Value| {
                 capture(message(&encoded(&request, false)).as_bytes(),
                     message(&encoded(&response, true)).as_bytes(), &shared);
@@ -2162,17 +2077,18 @@ mod tests {
             recovery: AtomicUsize::new(0),
             profile: Mutex::new(ProfileStore::default()),
             traffic: Mutex::new(TrafficLog::new(None)),
-            game_running: Mutex::new(false),
-            waiting_for_login: Mutex::new(false),
-            game_started_before_helper: AtomicBool::new(false),
-            game_started_at: Mutex::new(None),
+            session: Mutex::new(GameSession::default()),
             open_connections: AtomicUsize::new(0),
-            last_contact: Mutex::new(None),
             last_error: Mutex::new(None),
             incidents: Mutex::new(Incidents::default()),
             api_connections: AtomicUsize::new(0),
             newer_release: Mutex::new(None),
         }
+    }
+
+    /// The game a test plays in: one that has connected to the redirect.
+    fn start_game(shared: &Shared) -> u64 {
+        shared.session.lock().unwrap().connected(Instant::now()).0
     }
 
     #[test]
@@ -2182,13 +2098,13 @@ mod tests {
         shared.open_connections.store(1, Ordering::Release);
         assert!(receiving_game_input(&shared));
         shared.open_connections.store(0, Ordering::Release);
-        *shared.game_running.lock().unwrap() = true;
+        shared.session.lock().unwrap().helper_started(true);
         assert!(!receiving_game_input(&shared), "a pre-existing game has not connected");
-        *shared.game_started_at.lock().unwrap() = Some(Instant::now());
+        let generation = start_game(&shared);
         assert!(receiving_game_input(&shared));
-        *shared.last_error.lock().unwrap() = Some("Capture failed".into());
+        shared.session.lock().unwrap().fail(generation, "Capture failed".into());
         assert!(receiving_game_input(&shared));
-        *shared.game_running.lock().unwrap() = false;
+        observe_game(&shared, Some(false), Instant::now());
         assert!(!receiving_game_input(&shared));
     }
 
@@ -2197,7 +2113,7 @@ mod tests {
         for populated in [false, true] {
             let shared = shared_for_test();
             if populated {
-                *shared.game_running.lock().unwrap() = true;
+                start_game(&shared);
                 assert!(shared.profile.lock().unwrap().accept_snapshot(json!({"wizard_id": 7,
                     "unit_list": [{"unit_id": 8, "unit_master_id": 10101, "wizard_id": 7}],
                     "runes": [{"rune_id": 4, "set_id": 13}]})));
@@ -2233,7 +2149,7 @@ mod tests {
             assert_eq!(serde_json::to_value(shared.profile.lock().unwrap().read()).unwrap(), before);
         }
         let shared = shared_for_test();
-        shared.game_started_before_helper.store(true, Ordering::Release);
+        shared.session.lock().unwrap().helper_started(true);
         recover_connections(&shared);
         assert!(recovery_result(&shared).unwrap().contains("started before the helper"));
     }
@@ -2286,8 +2202,9 @@ mod tests {
         let (incoming, _) = listener.accept().unwrap();
         shared.open_connections.fetch_add(1, Ordering::AcqRel);
         let state = Arc::clone(shared);
+        let generation = start_game(shared);
         let worker = thread::spawn(move || relay_with_connector(incoming, Arc::new(server),
-            "localhost", "local-test", state, move |_, _, _, _| {
+            "localhost", "local-test", state, generation, move |_, _, _, _| {
                 let stream = TcpStream::connect_timeout(&upstream, Duration::from_secs(2)).map_err(|e| e.to_string())?;
                 stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
                 Ok(Connection::new(stream))
@@ -2316,7 +2233,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         *shared.traffic.lock().unwrap() = TrafficLog::new(Some(directory.path().to_owned()));
         shared.traffic.lock().unwrap().set_enabled(true);
-        *shared.game_running.lock().unwrap() = true;
+        start_game(&shared);
         let login = json!({"command":"HubUserLogin", "sck":STANDARD.encode([17;256])});
         let snapshot = json!({"unit_list":[], "runes":[{"rune_id":5}],
             "rune_craft_item_list":[{"craft_item_id":9,"craft_type":2,"amount":2}]});
@@ -2394,7 +2311,7 @@ mod tests {
     fn restart_preserves_tls_partial_requests_active_exchanges_and_imports_after_invalid_input() {
         for count in [0, 100] {
             let shared = Arc::new(shared_for_test());
-            *shared.game_running.lock().unwrap() = true;
+            start_game(&shared);
             let service = test_service(&shared);
             let upstream = TcpListener::bind("127.0.0.1:0").unwrap();
             let address = upstream.local_addr().unwrap();
@@ -2475,7 +2392,7 @@ mod tests {
     fn real_upstream_disconnects_and_invalid_http_recover_without_replaying_mutations() {
         for failure in ["refused", "closed", "truncated", "invalid-request"] {
             let shared = Arc::new(shared_for_test());
-            *shared.game_running.lock().unwrap() = true;
+            start_game(&shared);
             shared.profile.lock().unwrap().accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": []}));
             let service = test_service(&shared);
             let before = status(&shared);
@@ -2573,7 +2490,7 @@ mod tests {
     #[test]
     fn a_sale_with_repurchase_history_misses_nothing_and_later_rewards_arrive() {
         let shared = shared_for_test();
-        *shared.game_running.lock().unwrap() = true;
+        start_game(&shared);
         let send = |request: Value, response: Value| {
             capture(message(&encoded(&request, false)).as_bytes(),
                 message(&encoded(&response, true)).as_bytes(), &shared);
@@ -2596,146 +2513,80 @@ mod tests {
         assert_eq!(status(&shared)["revision"], 3);
     }
 
-    /// A game that has never connected is not running — the state the helper
-    /// starts in and returns to after the game closes.
-    #[test]
-    fn a_game_that_never_connected_is_not_running() {
-        let shared = shared_for_test();
-        assert!(!game_reaching_redirect(&shared));
-        assert!(!game_is_running(
-            game_reaching_redirect(&shared),
-            Some(false)
-        ));
-    }
-
     #[test]
     fn tells_jaswa_when_the_game_predated_the_helper() {
         let shared = shared_for_test();
-        shared
-            .game_started_before_helper
-            .store(true, Ordering::Release);
+        shared.session.lock().unwrap().helper_started(true);
 
         let report = status(&shared);
+        assert_eq!(report["gameRunning"], true);
         assert_eq!(report["gameStartedBeforeHelper"], true);
         assert_eq!(report["restartRequired"], true);
         assert_eq!(report["profileReady"], false);
 
         /* A normal later launch has no startup marker, so this warning cannot
         reappear merely because the helper sees the game's process again. */
-        shared
-            .game_started_before_helper
-            .store(false, Ordering::Release);
-        assert_eq!(status(&shared)["restartRequired"], false);
+        observe_game(&shared, Some(false), Instant::now());
+        observe_game(&shared, Some(true), Instant::now());
+        let report = status(&shared);
+        assert_eq!(report["gameRunning"], true);
+        assert_eq!(report["restartRequired"], false);
     }
 
-    /// An open gateway connection is the plain signal the game is running, and
-    /// needs no scan of the system's process list.
+    /// The defect this whole arrangement exists for: the user closed the game
+    /// and both the helper and JASWA went on showing its gap and its broken
+    /// exchange. Everything the session owned ends on the first tick that
+    /// finds the game gone; a fault in the helper itself does not, because the
+    /// next launch would meet it too.
     #[test]
-    fn an_open_connection_means_the_game_is_running() {
-        let shared = shared_for_test();
-        shared.open_connections.fetch_add(1, Ordering::AcqRel);
-        assert!(game_reaching_redirect(&shared));
-        assert!(game_is_running(true, None));
-        shared.open_connections.fetch_sub(1, Ordering::AcqRel);
-    }
+    fn a_closed_game_takes_its_snapshot_gaps_and_errors_with_it() {
+        for populated in [false, true] {
+            let shared = shared_for_test();
+            let generation = start_game(&shared);
+            observe_game(&shared, Some(true), Instant::now());
+            if populated {
+                let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
+                let account = message(&encoded(&json!({"wizard_id": 7, "unit_list": [], "runes": []}), true));
+                capture(login.as_bytes(), account.as_bytes(), &shared);
+                shared.profile.lock().unwrap().note_missed("sellSummonPieces", "unread", MissCause::Unread);
+                assert_eq!(status(&shared)["missedChanges"][0]["command"], "sellSummonPieces");
+            }
+            shared.session.lock().unwrap().fail(generation, "Gateway exchange failed: reset".into());
+            shared.incidents.lock().unwrap().fail_login("unreadable login", b"request", b"");
+            assert!(status(&shared)["lastError"].is_string());
 
-    /// A connection that has just closed still counts within the grace window,
-    /// so a brief reconnect is not read as the game closing and does not drop
-    /// the captured account.
-    #[test]
-    fn a_recent_connection_survives_the_grace_window() {
-        let shared = shared_for_test();
-        mark_contact(&shared);
-        assert!(
-            game_reaching_redirect(&shared),
-            "just-closed connection still counts"
-        );
-
-        if let Some(stale) = Instant::now().checked_sub(GAME_QUIET_GRACE + Duration::from_secs(5)) {
-            *shared.last_contact.lock().unwrap() = Some(stale);
+            observe_game(&shared, Some(false), Instant::now());
+            let report = status(&shared);
+            assert_eq!(report["gameRunning"], false);
+            assert_eq!(report["hasProfile"], false);
+            assert_eq!(report["profileReady"], false);
+            assert_eq!(report["missedChanges"], json!([]));
+            assert_eq!(report["lastError"], Value::Null, "{report}");
+            assert_eq!(report["gameLoginPending"], false);
             assert!(
-                !game_reaching_redirect(&shared),
-                "a game silent past the grace window has no live connection"
+                shared.incidents.lock().unwrap().report()["firstFailure"].is_object(),
+                "the evidence stays for an error report"
             );
+
+            *shared.last_error.lock().unwrap() = Some("Local API stopped".into());
+            start_game(&shared);
+            observe_game(&shared, Some(true), Instant::now());
+            observe_game(&shared, Some(false), Instant::now());
+            assert_eq!(status(&shared)["lastError"], "Local API stopped");
         }
     }
 
-    /// The failure this guards: ordinary play goes quiet for minutes with no
-    /// gateway socket at all, and the login that carries the account is sent
-    /// once per launch. Dropping the snapshot on that silence left the helper
-    /// waiting for a login the running game would never send again.
+    /// A quiet game has no socket open for minutes; the process list says it
+    /// is still there, so its snapshot is still served.
     #[test]
     fn a_quiet_but_running_game_keeps_its_snapshot() {
         let shared = shared_for_test();
-        *shared.game_running.lock().unwrap() = true;
+        start_game(&shared);
         let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
-        let account = message(&encoded(
-            &json!({"ret_code": 0, "unit_list": [], "runes": []}),
-            true,
-        ));
+        let account = message(&encoded(&json!({"ret_code": 0, "unit_list": [], "runes": []}), true));
         capture(login.as_bytes(), account.as_bytes(), &shared);
-        if let Some(stale) = Instant::now().checked_sub(GAME_QUIET_GRACE + Duration::from_secs(5)) {
-            *shared.last_contact.lock().unwrap() = Some(stale);
-        }
-
-        assert!(
-            game_is_running(game_reaching_redirect(&shared), Some(true)),
-            "the process list, not gateway silence, says whether the game closed"
-        );
-        assert!(
-            !game_is_running(game_reaching_redirect(&shared), Some(false)),
-            "a game whose process is gone has genuinely closed"
-        );
-        assert!(
-            !game_is_running(game_reaching_redirect(&shared), None),
-            "an unreadable process list falls back to the connection evidence"
-        );
-        assert!(status(&shared)["profileReady"].as_bool().unwrap());
-    }
-
-    /// A quiet game has nothing to send, so its silence must not be reported as
-    /// a login the helper is still missing.
-    #[test]
-    fn a_quiet_game_is_not_reported_as_a_pending_login() {
-        let shared = shared_for_test();
-        mark_game_start(&shared);
-        *shared.game_started_at.lock().unwrap() =
-            Instant::now().checked_sub(LOGIN_CAPTURE_GRACE + Duration::from_secs(1));
-        assert!(
-            !login_capture_overdue(&shared, false, false),
-            "no live connection means no connection to blame for a missing login"
-        );
-    }
-
-    #[test]
-    fn a_new_game_connection_gets_time_to_send_its_login() {
-        let shared = shared_for_test();
-        shared.open_connections.fetch_add(1, Ordering::AcqRel);
-        mark_game_start(&shared);
-        assert!(
-            !login_capture_overdue(&shared, true, false),
-            "an open connection alone is normal game startup, not proof of a missed login"
-        );
-        *shared.game_started_at.lock().unwrap() =
-            Instant::now().checked_sub(LOGIN_CAPTURE_GRACE + Duration::from_secs(1));
-        assert!(
-            login_capture_overdue(&shared, true, false),
-            "only a full startup window without a snapshot asks for a restart"
-        );
-    }
-
-    /// The game reopens its gateway socket constantly during play. One line per
-    /// reconnect read as the game restarting over and over.
-    #[test]
-    fn the_redirect_connection_is_announced_once_per_session() {
-        let shared = shared_for_test();
-        mark_game_start(&shared);
-        let first = *shared.game_started_at.lock().unwrap();
-        mark_game_start(&shared);
-        assert_eq!(
-            first,
-            *shared.game_started_at.lock().unwrap(),
-            "a reconnect joins the session already under way"
-        );
+        observe_game(&shared, Some(true), Instant::now() + Duration::from_secs(600));
+        assert_eq!(status(&shared)["profileReady"], true);
+        assert_eq!(status(&shared)["gameRunning"], true);
     }
 }

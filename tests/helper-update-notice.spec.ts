@@ -21,7 +21,7 @@ async function serveHelper(page: Page, helper: Helper) {
     return helper.reachable
       ? route.fulfill({ headers, json: {
         ...identity, running: true, version: helper.version, profileReady: helper.profileReady, missedChanges: [], lastError: helper.error ?? null,
-        restartRequired: helper.missedLogin ?? false, gameStartedBeforeHelper: helper.missedLogin ?? false, gameLoginPending: false,
+        restartRequired: helper.missedLogin ?? false, gameStartedBeforeHelper: helper.missedLogin ?? false, gameLoginPending: false, gameRunning: true,
       } })
       : route.abort();
   });
@@ -152,7 +152,7 @@ test('a readable old version survives an unrecognised health response', async ({
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await importRoute(page, 'direct').check();
   await expect(notice(page)).toBeVisible();
-  await expect(page.getByRole('status', { name: 'Helper program connection' })).toContainText('could not load game data');
+  await expect(page.getByRole('status', { name: 'Helper program connection' })).toContainText('older than JASWA. Update it');
 });
 
 

@@ -211,6 +211,36 @@ file, flushed and closed before replacing the destination. A write or replace
 failure keeps any previous export intact and removes the incomplete staging
 file. A locked destination reports the error rather than claiming a saved file.
 
+## The game session
+
+Whether Summoners War is running is decided in one place,
+`src-tauri/src/game_session.rs`, and everything that depends on it reads that
+answer: `/health` reports it as `gameRunning`, the helper window and JASWA
+read it from there, and the exit guard asks the same session.
+
+- **A gateway connection starts a session at once.** A socket on the redirect
+  is the game.
+- **Once the process list has shown `SummonersWar.exe`, it alone says the game
+  has closed**, on the watchdog's next tick, three seconds at most. A quiet
+  game with no socket open for minutes is still running as long as its process
+  is. Only when the process list cannot vouch for the game — it cannot be read,
+  or never showed the game in this session — does a sixty-second grace after
+  the last exchange decide.
+- **When the game closes, everything its session owned ends with it:** the
+  snapshot and its missed changes, a failed exchange, an unreadable login, a
+  login still awaited and the warning about a game that predates the helper.
+  Each belonged to a login the next launch replaces. JASWA keeps the last
+  import it saved, and its notices clear on the next poll because the
+  helper's answer no longer carries them. The evidence for an error report
+  stays until something new happens.
+- **A fault in the helper itself does not end with the game**: a listener
+  that stopped, a hosts redirect another program changed, a diagnostic log
+  that cannot be written. The next launch would meet it too, so it stands
+  until **Restart helper**.
+- **Work begun in one session cannot write into the next.** A connection
+  carries the session it opened in, so a failure from the closing game's last
+  socket is dropped with that session.
+
 ## Failure handling and private reports
 
 **Restart helper**, below **Log all traffic** and in the tray menu, recovers

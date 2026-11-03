@@ -43,7 +43,7 @@ test('the Rust sale response reaches Rune Clean-up and the next reward still arr
   const headers = { 'Access-Control-Allow-Origin': '*' };
   await page.route('http://127.0.0.1:37654/health**', (route) => route.fulfill({ headers, json: {
     ...identity(), running: true, version: '99.0.0', profileReady: state.profile !== null,
-    missedChanges: [], lastError: null, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
+    missedChanges: [], lastError: null, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, gameRunning: true,
   } }));
   await page.route('http://127.0.0.1:37654/profile', (route) => route.fulfill({ headers, json: {
     ...state.profile, ...identity(), updatedAt: new Date().toISOString(),

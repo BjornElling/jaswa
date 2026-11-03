@@ -13,7 +13,7 @@ const output = resolve(root, 'outputs/helper-hardening');
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 const initial = {
-  status: { version, updateVersion: null, hasProfile: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: null, updatedAt: null, missedChanges: [] },
+  status: { version, updateVersion: null, hasProfile: false, gameRunning: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: null, updatedAt: null, missedChanges: [] },
   traffic: { enabled: false, entries: 0, recorded: false, full: false, lastError: null },
 };
 try {
@@ -140,7 +140,7 @@ try {
      status and the explanation beneath it was a constant. Each state now
      asserts its own explanation, so the two cannot drift apart again. */
   const state = async (status, title, detail) => {
-    await page.evaluate((value) => { window.dashboard.status = value; }, { version, updateVersion: null, updatedAt: '2026-09-06T12:00:00Z', missedChanges: [], ...status });
+    await page.evaluate((value) => { window.dashboard.status = value; }, { version, updateVersion: null, updatedAt: '2026-09-06T12:00:00Z', missedChanges: [], gameRunning: true, ...status });
     await headline(title).waitFor();
     await page.locator('.capture .detail').filter({ hasText: detail }).waitFor();
     const detailBox = await page.locator('.capture .detail').evaluate((node) => ({
@@ -269,8 +269,14 @@ try {
     'Summoners War is connected', 'has not received an account login');
   await page.screenshot({ path: resolve(output, 'helper-login-pending.png'), fullPage: true });
   await state(
-    { hasProfile: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live' },
-    'Summoners War is not running', 'Open the game to capture a fresh one');
+    { hasProfile: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: null },
+    'Summoners War is running', 'Waiting for the login that carries your account');
+  await page.screenshot({ path: resolve(output, 'helper-game-starting.png'), fullPage: true });
+  /* A closed game leaves nothing behind: the helper ends its snapshot, gaps
+     and errors with it, so the card is back to plain waiting. */
+  await state(
+    { hasProfile: false, gameRunning: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: null },
+    'Waiting for Summoners War', 'Open Summoners War on Steam');
   await page.screenshot({ path: resolve(output, 'helper-game-closed.png'), fullPage: true });
 
   /* JASWA announced a newer helper. The control that was already in the
@@ -296,7 +302,7 @@ try {
   await page.screenshot({ path: resolve(output, 'helper-update-after.png'), fullPage: true });
 
   await page.evaluate((version) => {
-    window.dashboard.status = { version, updateVersion: '1234.5678.9012', hasProfile: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z', missedChanges: [] };
+    window.dashboard.status = { version, updateVersion: '1234.5678.9012', hasProfile: true, gameRunning: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: 'Capture failed. '.repeat(60), source: 'live', updatedAt: '2026-09-06T12:00:00Z', missedChanges: [] };
     window.dashboard.traffic = { enabled: true, entries: 999999999, recorded: true, full: false, lastError: 'Disk write failed. '.repeat(60) };
   }, version);
   await headline('Capture stopped').waitFor();

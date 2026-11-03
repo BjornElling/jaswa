@@ -428,6 +428,12 @@ model does not know this command yet" read differently.
   warning; recovery to the accepted session and revision needs no new import.
   A rejected account snapshot still names its validation failure on every page,
   in red, as does a helper-side capture failure.
+- **A closed game takes its notices with it.** The helper alone decides whether
+  Summoners War is running (`gameRunning`, `helper/README.md` *The game
+  session*), and when it closes, the helper ends the snapshot, its gaps and
+  the errors of that session together. JASWA keeps no copy of its own, so its
+  *Live import has a gap* and red cards clear on the next poll. A helper too
+  old to read is told to update, not to restart the game.
   An empty workspace does not claim to be showing stale account data.
 - **Connection failures have their own corner card on every page.** In direct
   import mode, an unreachable helper, an invalid health response or a missed

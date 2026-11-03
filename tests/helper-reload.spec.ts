@@ -17,7 +17,7 @@ test('on-demand reload keeps the corner cards aligned and preserves the selected
     if (new URL(route.request().url()).pathname === '/health') {
       await route.fulfill({ headers, json: { ...identity(), running: true, version, profileReady: ready,
         missedChanges: [], lastError: ready ? null : 'Gateway exchange failed: GetDailyQuests_v2 via private-host:443, 30841 ms: TimedOut '.repeat(20),
-        restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false } });
+        restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, gameRunning: true } });
     } else {
       reads += 1;
       await pending.delay;

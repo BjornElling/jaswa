@@ -20,7 +20,7 @@ import { createVerificationServer as createServer } from './verification-server.
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { classifyHelperProfile, checkHelperConnection, readHelperProfile } = await server.ssrLoadModule('/app/lib/helper-client.ts');
+  const { classifyHelperProfile, checkHelperConnection, helperStatusMessage, readHelperProfile } = await server.ssrLoadModule('/app/lib/helper-client.ts');
 
   /** A minimal account the reader accepts, so a test can spoil one field at a time. */
   const account = (artifacts) => ({
@@ -76,7 +76,7 @@ try {
   const oldFetch = globalThis.fetch;
   globalThis.window = { setTimeout, clearTimeout };
   try {
-    const health = { running: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: 'one', sessionId: 1, revision: 1, missedChanges: [], lastError: 'Capture failed. Save an error report.' };
+    const health = { running: true, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, gameRunning: true, instanceId: 'one', sessionId: 1, revision: 1, missedChanges: [], lastError: 'Capture failed. Save an error report.' };
     globalThis.fetch = async () => new Response(JSON.stringify(health));
     assert.match((await checkHelperConnection()).detail, /Capture failed/);
     assert.equal((await checkHelperConnection()).captureError, health.lastError);
@@ -97,6 +97,25 @@ try {
     assert.equal(pendingLogin.restartRequired, false);
     assert.match(pendingLogin.detail, /seen a Summoners War connection but no account login yet/,
       'a delayed connection never claims that the helper started too late');
+    /* Whether the game runs is the helper's answer, read as it gives it. */
+    const quiet = { ...health, lastError: null };
+    globalThis.fetch = async () => new Response(JSON.stringify(quiet));
+    assert.match((await checkHelperConnection()).detail, /Summoners War is running/);
+    assert.equal((await checkHelperConnection()).gameRunning, true);
+    globalThis.fetch = async () => new Response(JSON.stringify({ ...quiet, gameRunning: false }));
+    assert.match((await checkHelperConnection()).detail, /waiting in ambush/);
+    assert.equal((await checkHelperConnection()).gameRunning, false);
+    /* An older helper that lacks a field of today's status is cured by the
+       update, so that is what it says — never "restart it and the game". */
+    const { gameRunning: _absent, ...older } = quiet;
+    globalThis.fetch = async () => new Response(JSON.stringify({ ...older, version: '1.0.0' }));
+    const outdated = await checkHelperConnection();
+    assert.equal(outdated.state, 'unavailable');
+    assert.equal(outdated.updateAvailable, true);
+    assert.match(helperStatusMessage(outdated), /older than JASWA. Update it/);
+    globalThis.fetch = async () => new Response(JSON.stringify(older));
+    assert.match(helperStatusMessage(await checkHelperConnection()), /could not load game data/,
+      'a status nobody can place is still a report to save');
     globalThis.fetch = async () => new Response('{invalid');
     /* A helper that cannot be reached still has to say so in a sentence the user
        can act on, and carry the raw reason an error report is made of. */

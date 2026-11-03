@@ -10,6 +10,8 @@ export type HelperConnection = {
   captureError: string | null;
   version: string | null;
   updateAvailable: boolean;
+  /** The helper's own answer to whether Summoners War is running; `false` until a helper says otherwise. */
+  gameRunning: boolean;
   profileReady: boolean;
   restartRequired: boolean;
   gameStartedBeforeHelper: boolean;
@@ -73,10 +75,15 @@ export function missedChangesNotice(misses: readonly HelperMiss[]): { gap: strin
     next: 'Everything else keeps arriving. Restart Summoners War for a complete import.' };
 }
 
+/* The opening words of the one refusal an update cures, so the Home card and
+   the corner notice can tell it from a helper that is broken. */
+const outdatedHelper = 'This helper is older than JASWA';
+
 /** Keep socket evidence in diagnostics; the Home card needs a next step. */
 export function helperStatusMessage(connection: HelperConnection): string {
   if (connection.state !== 'unavailable') return connection.detail;
   if (connection.detail.startsWith('Helper is not running.')) return 'Helper is not running. Open it and try again.';
+  if (connection.detail.startsWith(outdatedHelper)) return 'This helper is older than JASWA. Update it, then start it again.';
   if (connection.detail.startsWith('Gateway exchange failed:')) return 'Connection to the game was interrupted. Try Restart helper. Check its status for any missing game data.';
   return 'The helper could not load game data. Save an error report in the helper, then restart it and the game.';
 }
@@ -105,41 +112,54 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+/** No helper heard from yet: every fact unknown, so every fact off. */
+export const silentHelper: HelperConnection = { state: 'checking', captureError: null, detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, gameRunning: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedChanges: [] };
+
 export async function checkHelperConnection(): Promise<HelperConnection> {
   try {
     /* The poll carries the helper this build ships, which is how the helper's
        own window learns an update exists without a request of its own. */
     const response = await localFetch(`/health?latest=${recommendedHelperVersion}`);
-    if (!response.ok) return { state: 'unavailable', captureError: null, detail: `The helper goblin answered, but only in grunts (HTTP ${response.status}). Open the helper and save an error report.`, version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedChanges: [] };
+    if (!response.ok) return { ...silentHelper, state: 'unavailable', detail: `The helper goblin answered, but only in grunts (HTTP ${response.status}). Open the helper and save an error report.` };
     const value = await response.json() as unknown;
     const reportedVersion = isRecord(value) && value.running === true && isHelperVersion(value.version) ? value.version : null;
     const knownUpdate = reportedVersion !== null && helperUpdateAvailable(reportedVersion);
-    if (!isRecord(value) || value.running !== true || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 0 || typeof value.restartRequired !== 'boolean' || typeof value.gameStartedBeforeHelper !== 'boolean' || typeof value.gameLoginPending !== 'boolean' || (value.version !== undefined && !isHelperVersion(value.version))) return { state: 'unavailable', captureError: null, detail: 'The helper goblin said something, but not in any known language. Open the helper and save an error report.', version: reportedVersion, updateAvailable: knownUpdate, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedChanges: [] };
+    /* Returned, not thrown: the catch below is for a helper that could not be
+       reached at all, and its "helper is not running" reading is wrong for a
+       helper that answered with a status JASWA cannot read. An older helper
+       is the usual reason, and then the cure is the update rather than an
+       error report — the status that stood beside a gap on November 3 said
+       "restart it and the game", which no restart could mend. */
+    const unreadable = (version: string | null, updateAvailable: boolean): HelperConnection => ({ ...silentHelper, state: 'unavailable', version, updateAvailable,
+      detail: updateAvailable && version !== null
+        ? `${outdatedHelper} and speaks an older dialect. Update it from the corner card, then start it again.`
+        : 'The helper goblin said something, but not in any known language. Open the helper and save an error report.' });
+    if (!isRecord(value) || value.running !== true || typeof value.instanceId !== 'string' || value.instanceId.length === 0 || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.sessionId !== 'number' || !Number.isSafeInteger(value.sessionId) || value.sessionId < 0 || typeof value.restartRequired !== 'boolean' || typeof value.gameStartedBeforeHelper !== 'boolean' || typeof value.gameLoginPending !== 'boolean' || typeof value.gameRunning !== 'boolean' || (value.version !== undefined && !isHelperVersion(value.version))) return unreadable(reportedVersion, knownUpdate);
     /* Helpers from before version reporting can still be useful, but they are
        precisely the ones JASWA must flag: a missing version is an unknown
        compatibility risk, not proof that the helper is current. */
     const version = typeof value.version === 'string' ? value.version : null;
     const updateAvailable = helperUpdateAvailable(version);
-    /* Returned, not thrown: the catch below is for a helper that could not be
-       reached at all, and its "helper is not running" reading is wrong for a
-       helper that answered with a status JASWA cannot read. */
     const missedChanges = readMissedChanges(value.missedChanges);
-    if (typeof value.profileReady !== 'boolean' || (value.lastError !== null && typeof value.lastError !== 'string') || missedChanges === null) return { state: 'unavailable', captureError: null, detail: 'The helper goblin said something, but not in any known language. Open the helper and save an error report.', version, updateAvailable, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedChanges: [] };
-    if (typeof value.lastError === 'string' && value.lastError) return { state: 'unavailable', captureError: value.lastError, detail: value.lastError, version, updateAvailable, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId, missedChanges };
-    return value.profileReady === true
-      ? { state: 'ready', captureError: null, detail: 'Mindflayer is active and successfully sucking your brain.', version, updateAvailable, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId, missedChanges }
-      : value.gameStartedBeforeHelper
-        ? { state: 'checking', captureError: null, detail: 'Summoners War was already running when the helper started, so it missed the account login. Quit the game and open it again — the next launch is captured normally.', version, updateAvailable, profileReady: false, restartRequired: true, gameStartedBeforeHelper: true, gameLoginPending: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId, missedChanges }
-        : value.gameLoginPending
-          ? { state: 'checking', captureError: null, detail: 'The helper has seen a Summoners War connection but no account login yet. It keeps waiting; if you are already in-game and this remains, save an error report.', version, updateAvailable, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: true, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId, missedChanges }
-          : { state: 'checking', captureError: null, detail: 'Helper goblin is awake and waiting in ambush for you to run Summoners War.', version, updateAvailable, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId, missedChanges };
+    if (typeof value.profileReady !== 'boolean' || (value.lastError !== null && typeof value.lastError !== 'string') || missedChanges === null) return unreadable(version, updateAvailable);
+    /* Whether the game runs is the helper's to say (helper/src-tauri/src/game_session.rs):
+       when it closes, the helper ends the snapshot, its gaps and its errors
+       together, and every notice here reads them off this one answer. */
+    const session = { version, updateAvailable, gameRunning: value.gameRunning, instanceId: value.instanceId, revision: value.revision, sessionId: value.sessionId, missedChanges };
+    if (typeof value.lastError === 'string' && value.lastError) return { ...silentHelper, ...session, state: 'unavailable', captureError: value.lastError, detail: value.lastError };
+    if (value.profileReady === true) return { ...silentHelper, ...session, state: 'ready', profileReady: true, detail: 'Mindflayer is active and successfully sucking your brain.' };
+    if (value.gameStartedBeforeHelper) return { ...silentHelper, ...session, restartRequired: true, gameStartedBeforeHelper: true, detail: 'Summoners War was already running when the helper started, so it missed the account login. Quit the game and open it again — the next launch is captured normally.' };
+    if (value.gameLoginPending) return { ...silentHelper, ...session, gameLoginPending: true, detail: 'The helper has seen a Summoners War connection but no account login yet. It keeps waiting; if you are already in-game and this remains, save an error report.' };
+    return { ...silentHelper, ...session, detail: value.gameRunning
+      ? 'Summoners War is running. The helper goblin waits for the login that carries your account.'
+      : 'Helper goblin is awake and waiting in ambush for you to run Summoners War.' };
   } catch (error) {
     /* The raw reason still has to reach the user — it is what an error report is
        made of — but as a parenthetical, not as the whole sentence. A bare
        "TypeError: Failed to fetch" tells nobody that the fix is to start the
        helper. */
     const reason = error instanceof Error ? error.message : String(error);
-    return { state: 'unavailable', captureError: null, detail: `Helper is not running. We wants it, we needs it. Must have the precious! (${reason})`, version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedChanges: [] };
+    return { ...silentHelper, state: 'unavailable', detail: `Helper is not running. We wants it, we needs it. Must have the precious! (${reason})` };
   }
 }
 

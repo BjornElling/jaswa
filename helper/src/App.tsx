@@ -6,6 +6,8 @@ type Status = {
   /** A newer helper the JASWA page has announced, or `null` when none is known. */
   updateVersion: string | null;
   hasProfile: boolean;
+  /** The helper's one answer to whether Summoners War is running (game_session.rs). */
+  gameRunning: boolean;
   profileReady: boolean;
   restartRequired: boolean;
   gameStartedBeforeHelper: boolean;
@@ -34,7 +36,7 @@ function validDashboard(value: unknown): value is Dashboard {
   const text = (entry: unknown) => entry === null || typeof entry === 'string';
   return Boolean(status && traffic
     && typeof status.version === 'string' && status.version.length > 0
-    && [status.hasProfile, status.profileReady, status.restartRequired, status.gameStartedBeforeHelper, status.gameLoginPending, traffic.enabled, traffic.recorded, traffic.full].every((entry) => typeof entry === 'boolean')
+    && [status.hasProfile, status.gameRunning, status.profileReady, status.restartRequired, status.gameStartedBeforeHelper, status.gameLoginPending, traffic.enabled, traffic.recorded, traffic.full].every((entry) => typeof entry === 'boolean')
     && [status.lastError, status.source, status.updatedAt, traffic.lastError].every(text)
     && (status.updateVersion === null || (typeof status.updateVersion === 'string' && /^\d+\.\d+\.\d+$/.test(status.updateVersion)))
     && Array.isArray(status.missedChanges)
@@ -174,14 +176,16 @@ function reading(status: Status | null): Reading {
         detail: 'The helper read your account when the game logged in, and will follow along as you play. Open JASWA whenever you like.',
       };
   }
-  if (status.hasProfile) {
-    /* A snapshot with no game behind it. The watchdog clears the snapshot when
-       the game goes, so this is the brief window between the two. */
+  if (status.gameRunning) {
+    /* The game is open and its login has not passed yet — the ordinary first
+       seconds of a launch. A closed game needs no state of its own: the helper
+       ends its snapshot, gaps and errors together with it, so what is left is
+       plain waiting. */
     return {
-      state: 'warn',
-      label: 'Game closed',
-      headline: 'Summoners War is not running',
-      detail: 'A snapshot is still in hand from the last session. Open the game to capture a fresh one.',
+      state: 'idle',
+      label: 'Waiting',
+      headline: 'Summoners War is running',
+      detail: 'Waiting for the login that carries your account. It passes through as the game loads.',
     };
   }
   return {

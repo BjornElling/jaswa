@@ -31,7 +31,7 @@ async function serveHelper(page: Page, state: { revision: number; data: Account;
   const identity = () => ({ instanceId: 'test-helper', sessionId: 1, revision: state.revision });
   await page.route((url) => url.origin === 'http://127.0.0.1:37654' && url.pathname === '/health', (route) => route.fulfill({ headers, json: {
     ...identity(), running: true, version: '99.0.0', profileReady: (state.ready ?? true) && !state.error, missedChanges: state.missed ?? [], lastError: state.error ?? null,
-    restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false,
+    restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, gameRunning: state.ready ?? true,
   } }));
   await page.route('http://127.0.0.1:37654/profile', (route) => route.fulfill({ headers, json: {
     ...identity(), updatedAt: new Date().toISOString(), source: 'live', data: state.data,
@@ -257,7 +257,7 @@ test('routine waiting and API failures never impersonate a red capture state', a
         instanceId: 'test-helper', sessionId: 1, revision: 1, running: true, version: '99.0.0',
         profileReady: false, lastError: null, missedChanges: [],
         restartRequired: failure === 'startup', gameStartedBeforeHelper: failure === 'startup',
-        gameLoginPending: failure === 'waiting',
+        gameLoginPending: failure === 'waiting', gameRunning: failure !== 'connectionrefused',
       } });
     });
     await page.waitForTimeout(4500);

@@ -38,6 +38,7 @@ try {
       restartRequired: mode === 'game-already-running',
       gameStartedBeforeHelper: mode === 'game-already-running',
       gameLoginPending: mode === 'game-login-pending',
+      gameRunning: true,
       revision,
       sessionId: 1,
       instanceId: instance,
