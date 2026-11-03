@@ -526,7 +526,7 @@ export function ordinaryBox(family: OrdinaryFamily): OrdinaryBox {
      assume exactly as it does for a real rune. */
   const lineUp: EndStateLine[] = [0, 1, 2, 3].map(() => ({ statId: 0, value: 0, grind: 0, gemmed: false }));
   const lineValues = new Float64Array(4);
-  const report: CraftReport = { replaced: -1, option: -1 };
+  const report: CraftReport = { replaced: -1, statId: -1 };
   /* An interval's midpoint is a game number rather than a role's opinion, so it is
      the same in every build of the family. */
   const [firstBuild] = builds;

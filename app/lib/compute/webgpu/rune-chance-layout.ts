@@ -43,7 +43,7 @@ export const poolEntryStride = 3;
 export const poolStatAt = 0;
 export const poolInitialMinimumAt = 1;
 export const poolInitialMaximumAt = 2;
-/** Effect id, what it is worth with its stone, and the bare roll. */
+/** Effect id, what it is worth with its stone on the reference rune, and the bare roll there. */
 export const gemEntryStride = 3;
 export const gemStatAt = 0;
 export const gemValueAt = 1;
@@ -79,12 +79,18 @@ export const runeStride = 64;
 export const scoringPricesAt = 0;
 /** The Grindstone credited to each effect id, indexed the same way. */
 export const scoringGrindAt = statIdBound;
-export const scoringPrefixAt = statIdBound * 2;
-export const scoringGemCountAt = statIdBound * 2 + 1;
-export const scoringGemsAt = statIdBound * 2 + 2;
+/** What the credited Gem rolls on each effect id, `-1` where none exists. */
+export const scoringGemRollsAt = statIdBound * 2;
+/** The reference rune's Grindstone on each effect id (`gemChoiceCredit`). */
+export const scoringChoiceGrindAt = statIdBound * 3;
+export const scoringPrefixAt = statIdBound * 4;
+/** How many reference Gems follow; `0` where the credit carries no Gem at all. */
+export const scoringGemCountAt = statIdBound * 4 + 1;
+/** The legal Gems on the reference, best first: what the placement is chosen from. */
+export const scoringGemsAt = statIdBound * 4 + 2;
 
-/** 13 + 13 + 2 + 11×3 = 61, rounded up to 64 for the same reason. */
-export const scoringStride = 64;
+/** 4×13 + 2 + 11×3 = 87, rounded up to 128 for the same reason. */
+export const scoringStride = 128;
 
 /* -------------------------------------------------------------- the job record */
 
@@ -140,6 +146,8 @@ export const runeChanceConstants: Readonly<Record<string, number>> = {
   RUNE_LINES_AT: runeLinesAt,
   RUNE_POOL_AT: runePoolAt,
   SCORING_GRIND_AT: scoringGrindAt,
+  SCORING_GEM_ROLLS_AT: scoringGemRollsAt,
+  SCORING_CHOICE_GRIND_AT: scoringChoiceGrindAt,
   SCORING_PREFIX_AT: scoringPrefixAt,
   SCORING_GEM_COUNT_AT: scoringGemCountAt,
   SCORING_GEMS_AT: scoringGemsAt,

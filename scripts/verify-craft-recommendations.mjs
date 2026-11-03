@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { readCraftItem, missingCraftItems, missingCraftGrades, missingCraftLineages } from '../app/lib/rune-craft-items.ts';
-import { craftItemApplications, craftVariants, heldCraftHalf, lineageFits, craftedScore } from '../app/lib/rune-craft-end-state.ts';
+import { craftItemApplications, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, gemChoiceCredit,
+  gemOptions } from '../app/lib/rune-craft-end-state.ts';
 import { defaultRuneRoles, createRuneRole } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { acceptedWorth, brokenWorth } from '../app/lib/rune-cleanup-advice.ts';
 import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope, neutralComparisonCredit } from '../app/lib/rune-cleanup-model.ts';
 import { recommendRuneCraft, craftRecommendationRankings, craftMatchesChangeFilter, heldCraftBenchmark, isHeldCraft,
   wantedCraftItems, craftItemKey, craftRuneKey, reconcileCraftCalculation, craftExtensionRequests, extendCraftCalculation,
-  desirableGemStats, onDesirableGemStat, gemStatReferences } from '../app/lib/rune-craft-recommendations.ts';
+  desirableGemStats, onDesirableGemStat } from '../app/lib/rune-craft-recommendations.ts';
 import { craftScoreLayout as L } from '../app/lib/compute/webgpu/craft-score-layout.ts';
 import { readFileSync } from 'node:fs';
 
@@ -65,9 +66,14 @@ function evaluate(rune) {
 }
 const tie = (a, b) => a.rune.id.localeCompare(b.rune.id) || a.item.id.localeCompare(b.item.id)
   || a.application.target.index - b.application.target.index;
+/* The engine and this oracle price a rune in different orders of arithmetic, so two
+   runes worth the same can differ in the last bit; within a billionth they are a tie. */
 function rank(rows, metric, count) {
   const seen = new Set();
-  return [...rows].sort((a, b) => metric(b) - metric(a) || tie(a, b)).filter((row) => {
+  return [...rows].sort((a, b) => {
+    const difference = metric(b) - metric(a);
+    return Math.abs(difference) > 1e-9 ? difference : tie(a, b);
+  }).filter((row) => {
     if (seen.has(row.rune.id)) return false; seen.add(row.rune.id); return true;
   }).slice(0, count);
 }
@@ -200,51 +206,58 @@ for (const kind of ['gem', 'grindstone']) {
 }
 assert.deepEqual(wantedCraftItems([], 5, benchmark), []);
 
-/* A Gem only with its rune's most desirable stat (RUNE-CRAFT-ITEMS.md §5.1):
-   the contest is held at Legend, so the grade held never decides the stat. */
+/* A Gem only with the stat the placement rule chooses (RUNE-CRAFT-ITEMS.md §5.1).
+   The oracle asks `craftedScore` itself, on the reference rune, in every role
+   reading Gems & Grinds judges a rune in, and keeps the reading worth most: the
+   rule Rune Clean-up applies, so the two views cannot name different stats. */
 assert.equal(desirableGemStats([]).size, 0);
+const referencePlan = craftPlan('standard', gemChoiceCredit);
+const referenceBare = craftPlan('standard', { ...gemChoiceCredit, gem: null });
+function ruleStat(rune) {
+  let best = null;
+  for (const { role, builds } of families) for (const build of builds) {
+    const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, neutralComparisonCredit, scope);
+    if (!candidate) continue;
+    const discount = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable'
+      ? acceptedWorth[settings.acceptedRunes - 1] : brokenWorth[settings.brokenRunes - 1];
+    if (discount === 0) continue;
+    const { prices, prefixScore } = candidate.scoring;
+    const onScale = (score) => Math.min(rune.ancient ? Number.MAX_VALUE : 100, score / candidate.ceiling * 100) * discount;
+    const report = { replaced: -1, statId: -1 };
+    const options = gemOptions(referencePlan, prices, rune.slot, rune.mainStatId, rune.prefixStatId);
+    const gemmed = onScale(craftedScore(referencePlan, options, prices, rune.subProperties, prefixScore, undefined, report));
+    const bare = onScale(craftedScore(referenceBare, options, prices, rune.subProperties, prefixScore));
+    if (report.statId < 0 || gemmed <= bare) continue;
+    if (!best || gemmed > best.score + 1e-9) best = { score: gemmed, stats: new Set([report.statId]) };
+    else if (Math.abs(gemmed - best.score) <= 1e-9) best.stats.add(report.statId);
+  }
+  return best?.stats ?? new Set();
+}
 const desirable = desirableGemStats(whole.candidates);
-assert.ok(desirable.size > 0, 'no rune had a Gem stat contest');
+let judged = 0;
 for (const [runeId, stats] of desirable) {
-  const legend = whole.candidates.filter((row) => row.rune.id === runeId && row.item.kind === 'gem' && row.item.grade === 'Legend');
-  const top = Math.max(...legend.map((row) => row.after.score));
-  for (const row of legend) assert.equal(stats.has(row.item.statId), row.after.score === top
-    || legend.some((other) => other.item.statId === row.item.statId && other.after.score === top));
+  const rune = runes.find((entry) => entry.id === runeId);
+  if (rune.level < 12) { assert.equal(stats.size, 0, 'a Gem stat was chosen below +12'); continue; }
+  const expected = ruleStat(rune);
+  assert.ok([...stats].every((stat) => expected.has(stat)) && (stats.size > 0) === (expected.size > 0),
+    `${runeId}: Gems & Grinds chose ${[...stats]}, the placement rule ${[...expected]}`);
+  judged += stats.size > 0 ? 1 : 0;
 }
+assert.ok(judged > 10, 'too few runes had a Gem stat to compare');
 assert.ok(whole.candidates.filter((row) => row.item.kind === 'grindstone').every((row) => onDesirableGemStat(row, desirable)));
-const legendGem = (statId) => readCraftItem({ craft_item_id: 9800 + statId, craft_type: 1, craft_type_id: 130000 + statId * 100 + 5, amount: 1 });
-const heroGem = (statId) => readCraftItem({ craft_item_id: 9700 + statId, craft_type: 1, craft_type_id: 130000 + statId * 100 + 4, amount: 1 });
-const standardRunes = runes.filter((rune) => !rune.ancient);
-let lesserLegendShown = false;
-for (const rune of standardRunes) {
-  const references = gemStatReferences([rune]);
-  const contest = await recommendRuneCraft({ ...emptyRequest, runes: [rune], items: [], missing: references, roles, roll: 'two-thirds' });
-  const wanted = [...(desirableGemStats(contest.candidates).get(rune.id) ?? [])];
-  const runnerUp = contest.candidates.filter((row) => !wanted.includes(row.item.statId))
-    .sort((a, b) => b.after.score - a.after.score)[0];
-  if (wanted.length !== 1 || !runnerUp) continue;
-  const box = [heroGem(wanted[0]), legendGem(runnerUp.item.statId)];
-  const asked = await recommendRuneCraft({ ...emptyRequest, runes: [rune], items: box,
-    missing: gemStatReferences([rune]), roles, roll: 'two-thirds' });
-  const chosen = desirableGemStats(asked.candidates);
-  assert.deepEqual([...chosen.get(rune.id)], wanted, 'holding other grades moved the stat contest');
-  const hero = asked.candidates.find((row) => row.item.id === box[0].id);
-  const lesser = asked.candidates.find((row) => row.item.id === box[1].id);
-  if (!hero || !lesser || hero.gain <= 0 || lesser.after.score <= hero.after.score) continue;
-  assert.equal(onDesirableGemStat(hero, chosen), true, 'a Hero Gem of the wanted stat was dropped');
-  assert.equal(onDesirableGemStat(lesser, chosen), false, 'a Legend Gem of a lesser stat was suggested');
-  const shown = craftRecommendationRankings(asked.candidates.filter((row) => isHeldCraft(row) && onDesirableGemStat(row, chosen)), 5);
-  assert.equal(shown.highestScore[0]?.item.id, box[0].id);
-  /* Ignoring the winning stat on the rune hands the contest to the next best. */
-  const waived = desirableGemStats(asked.candidates, (row) => row.item.statId === wanted[0]);
-  assert.equal(waived.get(rune.id)?.has(runnerUp.item.statId), true, 'ignoring the winner did not promote the next best stat');
-  /* No Gem of the wanted stat held: nothing for the rune at all. */
-  const without = asked.candidates.filter((row) => row.item.id !== box[0].id);
-  assert.equal(without.filter((row) => isHeldCraft(row) && onDesirableGemStat(row, chosen)).length, 0);
-  lesserLegendShown = true;
-  break;
+/* Neither the page's roll, the grind after, nor the box decides the stat. */
+const choiceOf = (answer) => JSON.stringify([...new Map(answer.candidates.map((row) => [row.rune.id, row.gemChoice])).entries()].sort());
+const otherAsk = await recommendRuneCraft({ ...emptyRequest, runes, items: box, missing, roles, roll: 'minimum', grindAfter: { grade: 'Hero' } });
+assert.equal(choiceOf(otherAsk), choiceOf(whole), 'the roll or the grind after moved the Gem stat');
+/* Ignoring the chosen stat on a rune hands the choice to the next stat in the rule's order. */
+const ranked = whole.candidates.find((row) => row.gemChoice.length > 1 && row.gemChoice[0].score > row.gemChoice[1].score);
+assert.ok(ranked, 'no rune ranks two Gem stats');
+const waived = desirableGemStats(whole.candidates, (runeId, statId) => runeId === ranked.rune.id && statId === ranked.gemChoice[0].statId);
+assert.equal(waived.get(ranked.rune.id)?.has(ranked.gemChoice[1].statId), true, 'ignoring the chosen stat did not promote the next one');
+/* A held Gem of any other stat is never suggested. */
+for (const row of whole.candidates) if (row.item.kind === 'gem') {
+  assert.equal(onDesirableGemStat(row, desirable), desirable.get(row.rune.id)?.has(row.item.statId) ?? false);
 }
-assert.ok(lesserLegendShown, 'no rune where a Legend Gem of a lesser stat outscores a Hero Gem of the wanted one');
 
 /* A changed account is answered from what is already known — the box and the
    runes alike, as live sync changes both. A stack gone takes its rows, a stack

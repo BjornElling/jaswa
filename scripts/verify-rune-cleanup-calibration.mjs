@@ -225,43 +225,65 @@ function verifyProbability(credit, label) {
  * gains the most, and the two differ whenever the weakest line's best legal Gem is
  * barred by an effect id one of the other lines is holding. Nothing caught it,
  * because the only simulation in this file passed a neutral credit.
+ *
+ * Which line and which stat is then chosen on a fixed reference rune, not at the
+ * credit (`RUNE-CLEANUP-MATH.md` §6.1): every grindable line raised by an average
+ * Legend Grindstone where that raises it, each Gem an average Legend Gem ground
+ * likewise, ordinary tables. The pair that gains most there is valued at the credit,
+ * and kept only where it is legal and gains there too.
  */
 function independentEndState(rune, credit, valuation) {
   const lineage = rune.ancient ? 'ancient' : 'standard';
-  const grindOf = (statId) => {
-    if (credit.grind === null || !grindableInScript.includes(statId)) return 0;
-    const range = craftValueRange('grindstone', lineage, statId, credit.grindGrade);
-    return range ? craftRollValue(range, credit.grind) : 0;
+  const stoneOf = (assumption, tables, grade) => (statId) => {
+    if (assumption === null || !grindableInScript.includes(statId)) return 0;
+    const range = craftValueRange('grindstone', tables, statId, grade);
+    return range ? craftRollValue(range, assumption) : 0;
   };
-  const gemOf = (statId) => {
-    if (credit.gem === null) return null;
-    const range = craftValueRange('gem', lineage, statId, credit.gemGrade);
-    return range ? craftRollValue(range, credit.gem) : null;
+  const gemFrom = (assumption, tables, grade) => (statId) => {
+    if (assumption === null) return null;
+    const range = craftValueRange('gem', tables, statId, grade);
+    return range ? craftRollValue(range, assumption) : null;
   };
+  const grindOf = stoneOf(credit.grind, lineage, credit.grindGrade);
+  const gemOf = gemFrom(credit.gem, lineage, credit.gemGrade);
+  const referenceGrind = stoneOf('average', 'standard', 'Legend');
+  const referenceGem = gemFrom('average', 'standard', 'Legend');
   const lines = rune.subProperties;
-  const worth = (statId, roll, ownGrind) => valuation.value(statId, roll + Math.max(ownGrind, grindOf(statId)));
+  const worthWith = (stone) => (statId, roll, ownGrind) => valuation.value(statId, roll + Math.max(ownGrind, stone(statId)));
+  const worth = worthWith(grindOf);
+  const referenceWorth = worthWith(referenceGrind);
   const held = lines.map((line) => worth(line.statId, line.value, line.grind));
   const prefix = rune.prefixStatId === null ? 0 : valuation.value(rune.prefixStatId, rune.prefixValue);
   const plain = prefix + held.reduce((sum, value) => sum + value, 0);
+  if (credit.gem === null) return plain;
 
   /* One converted line at a time, and a later Gem may only replace that one. */
   const converted = lines.findIndex((line) => line.gemmed);
-  let best = plain;
+  let chosen = null;
+  let chosenGain = 0;
   for (let at = 0; at < lines.length; at += 1) {
     if (converted !== -1 && at !== converted) continue;
     for (const statId of runeStatIds) {
       if (statId === rune.mainStatId || statId === rune.prefixStatId) continue;
       if (!slotAllowsSubStat(rune.slot, statId)) continue;
       if (lines.some((line, index) => index !== at && line.statId === statId)) continue;
-      const roll = gemOf(statId);
+      const roll = referenceGem(statId);
       if (roll === null) continue;
+      /* A same-stat Gem must raise the base value. */
+      if (statId === lines[at].statId && roll <= lines[at].value) continue;
       /* The replaced line loses its rolls. It keeps its own stone only where the
          effect id is unchanged, and the new line may then be ground like any other. */
       const kept = statId === lines[at].statId ? lines[at].grind : 0;
-      best = Math.max(best, plain - held[at] + worth(statId, roll, kept));
+      const gain = referenceWorth(statId, roll, kept) - referenceWorth(lines[at].statId, lines[at].value, lines[at].grind);
+      if (gain > chosenGain) { chosenGain = gain; chosen = { at, statId, kept }; }
     }
   }
-  return best;
+  if (!chosen) return plain;
+  const roll = gemOf(chosen.statId);
+  if (roll === null) return plain;
+  if (chosen.statId === lines[chosen.at].statId && roll <= lines[chosen.at].value) return plain;
+  const gain = worth(chosen.statId, roll, chosen.kept) - held[chosen.at];
+  return gain > 0 ? plain + gain : plain;
 }
 
 function verifyCraftEndState() {

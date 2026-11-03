@@ -155,7 +155,8 @@ test('both craft views share a complete calculation and filter beyond its initia
   await expect(best.locator('.craft-recommendation').first()).toBeVisible();
   expect(craftWorkers).toBe(1);
   await best.getByRole('combobox', { name: 'Filter candidate runes by set' }).selectOption('');
-  await chooseItem(page, 'Fatal', 'Gem', 'SPD', 'Legend');
+  /* The Fatal rune's Gem is CRI Rate, in place of its Resistance (RUNE-CRAFT-ITEMS.md §5.1). */
+  await chooseItem(page, 'Fatal', 'Gem', 'CRI Rate', 'Hero');
   await expect(best.locator('.craft-ranking').first().locator('.craft-recommendation')).toHaveCount(1);
   await expect(best.locator('.craft-recommendation').first()).toContainText('Fatal');
   const location = best.getByRole('group', { name: 'Choose rune locations' });
@@ -474,9 +475,9 @@ test('one Ignore list follows every Gems & Grinds view, survives reload and rese
   }
 });
 
-/* RUNE-CRAFT-ITEMS.md §5.1: a Gem only with the rune's most desirable stat. With
-   SPD ignored, CRI Dmg wins this rune's contest; the box holds none, so the held
-   CRI Rate Gem is not suggested although it would raise the score. */
+/* RUNE-CRAFT-ITEMS.md §5.1: a Gem only with the stat the placement rule chooses.
+   With SPD ignored, CRI Dmg is next in the rule's order; the box holds none, so the
+   held CRI Rate Gem is not suggested although it would raise the score. */
 test('ignoring the best Gem hands the rune to the next best stat, and without one held no Gem is suggested', async ({ page }, testInfo) => {
   let craftWorkers = 0;
   page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
@@ -502,13 +503,12 @@ test('ignoring the best Gem hands the rune to the next best stat, and without on
     .filter({ has: page.getByRole('button', { name: 'Violent rune, slot 2', exact: true }) })
     .filter({ has: page.locator('.craft-rune-facts').getByText('+12', { exact: true }) });
   await expect(sameRune.locator('.craft-recommendation-title')).toContainText('SPD Gem');
-  /* The held CRI Rate Gem is never offered while SPD wins, in any ranking. */
-  await expect(panel.locator('.craft-recommendation-title').filter({ hasText: 'CRI Rate Gem' })).toHaveCount(0);
+  /* The held CRI Rate Gem is never offered this rune while SPD wins, in any ranking. */
+  await expect(anywhere.locator('.craft-recommendation-title').filter({ hasText: 'CRI Rate Gem' })).toHaveCount(0);
   const workersBefore = craftWorkers;
   await page.screenshot({ path: testInfo.outputPath('best-gem-before-ignore.png'), fullPage: true });
   await sameRune.getByRole('button', { name: /^Ignore SPD Gem/ }).click();
   await expect(anywhere).toHaveCount(0);
-  await expect(panel.locator('.craft-recommendation-title').filter({ hasText: 'CRI Rate Gem' })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('no-gem-after-ignore.png'), fullPage: true });
   await panel.getByRole('button', { name: 'Grindstone', exact: true }).click();
   await expect(sameRune.locator('.craft-recommendation-title')).toContainText('SPD Grind');
@@ -790,9 +790,9 @@ test('the box opens by item, set, Ancient, stat and quality, while a chosen sort
   await expect(rows.locator('td:nth-child(2)'))
     .toContainText(['Fatal', 'Immemorial', 'Rage', 'Violent', 'Violent', 'Violent', 'Violent', 'Violent']);
   await expect(rows.locator('td:nth-child(4)'))
-    .toHaveText(['Legend', 'Legend', 'Legend', 'Legend', 'Hero', 'Legend', 'Hero', 'Hero']);
+    .toHaveText(['Hero', 'Legend', 'Legend', 'Legend', 'Hero', 'Legend', 'Hero', 'Hero']);
   await expect(rows.locator('td:nth-child(3)'))
-    .toHaveText(['SPD', 'Resistance', 'SPD', 'SPD', 'ATK %', 'SPD', 'SPD', 'SPD']);
+    .toHaveText(['CRI Rate', 'Resistance', 'SPD', 'SPD', 'ATK %', 'SPD', 'SPD', 'SPD']);
   await expect(rows.nth(3).locator('td').nth(1).getByTitle('Ancient')).toHaveText('A');
   await expect(rows.nth(4).locator('td').nth(1).getByTitle('Ancient')).toHaveCount(0);
 

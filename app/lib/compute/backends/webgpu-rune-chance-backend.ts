@@ -27,7 +27,7 @@ import {
   countJobs, endStateScoring, playForward, runeFuture, runScore,
 } from '../../rune-power-up-outcomes';
 import type { CountingJob, EndStateScoring, RuneFuture } from '../../rune-power-up-outcomes';
-import { craftPlan } from '../../rune-craft-end-state';
+import { craftPlan, gemChoiceCredit } from '../../rune-craft-end-state';
 import { allStatIds } from '../../rune-properties';
 import type { Rune, RuneSubProperty } from '../../runes';
 import type { Valuation } from '../../rune-substat-weights';
@@ -38,8 +38,8 @@ import {
   lineUpgradeMinimumAt, lineValueAt, maxLines, maxPool, poolInitialMaximumAt,
   poolInitialMinimumAt, poolStatAt, poolEntryStride, runeAdditionsAt, runeGemmedAt,
   runeHeldCountAt, runeLinesAt, runeMainAt, runePoolAt, runePoolCountAt, runePrefixAt,
-  runeSeedAt, runeSlotAt, runeStride, runeUpgradesAt, scoringGemCountAt, scoringGemsAt,
-  scoringGrindAt, scoringPrefixAt, scoringPricesAt, scoringStride,
+  runeSeedAt, runeSlotAt, runeStride, runeUpgradesAt, scoringChoiceGrindAt, scoringGemCountAt,
+  scoringGemRollsAt, scoringGemsAt, scoringGrindAt, scoringPrefixAt, scoringPricesAt, scoringStride,
 } from '../webgpu/rune-chance-layout';
 import type { GpuContext } from '../gpu/gpu-context';
 
@@ -90,18 +90,26 @@ function packRune(into: Int32Array, at: number, future: RuneFuture): void {
   }
 }
 
+/* The placement is chosen on the reference rune and valued at the credit, as
+   `craftedScore` does: the card is handed the reference's list and stones to choose
+   with, and the credit's roll per id to value the choice. */
 function packScoring(into: Float32Array, at: number, scoring: EndStateScoring): void {
+  const reference = craftPlan('standard', gemChoiceCredit);
   for (const statId of allStatIds) {
     into[at + scoringPricesAt + statId] = scoring.prices[statId];
     into[at + scoringGrindAt + statId] = scoring.plan.grind[statId];
+    into[at + scoringGemRollsAt + statId] = scoring.plan.hasGem ? scoring.plan.gem[statId] : -1;
+    into[at + scoringChoiceGrindAt + statId] = reference.grind[statId];
   }
   into[at + scoringPrefixAt] = scoring.prefixScore;
-  into[at + scoringGemCountAt] = scoring.options.statIds.length;
-  for (let index = 0; index < scoring.options.statIds.length; index += 1) {
+  const { choice } = scoring.options;
+  const count = scoring.plan.hasGem ? choice.statIds.length : 0;
+  into[at + scoringGemCountAt] = count;
+  for (let index = 0; index < count; index += 1) {
     const base = at + scoringGemsAt + index * gemEntryStride;
-    into[base + gemStatAt] = scoring.options.statIds[index];
-    into[base + gemValueAt] = scoring.options.values[index];
-    into[base + gemRollAt] = scoring.options.rolls[index];
+    into[base + gemStatAt] = choice.statIds[index];
+    into[base + gemValueAt] = choice.values[index];
+    into[base + gemRollAt] = choice.rolls[index];
   }
 }
 

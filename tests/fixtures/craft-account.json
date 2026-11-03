@@ -82,7 +82,7 @@
  "rune_craft_item_list": [
   { "craft_item_id": 9001, "craft_type": 1, "craft_type_id": 130805, "amount": 3, "sell_value": 37000 },
   { "craft_item_id": 9002, "craft_type": 2, "craft_type_id": 130804, "amount": 2, "sell_value": 25000 },
-  { "craft_item_id": 9003, "craft_type": 1, "craft_type_id": 80805, "amount": 1, "sell_value": 37000 },
+  { "craft_item_id": 9003, "craft_type": 1, "craft_type_id": 80904, "amount": 1, "sell_value": 37000 },
   { "craft_item_id": 9004, "craft_type": 5, "craft_type_id": 130815, "amount": 1, "sell_value": 44400 },
   { "craft_item_id": 9005, "craft_type": 3, "craft_type_id": 991105, "amount": 1, "sell_value": 37000 },
   { "craft_item_id": 9006, "craft_type": 1, "craft_type_id": 50805, "amount": 1, "sell_value": 37000 }

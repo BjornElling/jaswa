@@ -141,7 +141,7 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
       lines[heldCount + step] = Line(statId, roll, 0);
     }
 
-    // The end state: every line with its stone, and then the one Gem where it helps.
+    // The end state: every line with its stone at the credit.
     var total = prefixScore;
     for (var at: u32 = 0u; at < lineCount; at = at + 1u) {
       let statId = u32(lines[at].statId);
@@ -150,23 +150,32 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
       lineValue[at] = ground * scorings[scoringAt + SCORING_PRICES_AT + statId];
       total = total + lineValue[at];
     }
+    // Then the one Gem: placed where it gains most on the reference rune, every line
+    // ground by the reference stone, and valued at the credit only once it is placed.
     if (gemCount > 0u) {
       var bestGain = 0.0;
+      var chosenAt = -1;
+      var chosenStat = -1;
       for (var at: u32 = 0u; at < lineCount; at = at + 1u) {
         // One converted line at a time, and a later Gem may only replace that one.
         if (gemmedAt >= 0 && i32(at) != gemmedAt) { continue; }
+        let lineStat = u32(lines[at].statId);
+        let lineStone = scorings[scoringAt + SCORING_CHOICE_GRIND_AT + lineStat];
+        let choiceLine = (f32(lines[at].value) + max(f32(lines[at].grind), lineStone))
+          * scorings[scoringAt + SCORING_PRICES_AT + lineStat];
         var best = -1.0e30;
+        var bestStat = -1;
         var foundOther = false;
         for (var index: u32 = 0u; index < gemCount; index = index + 1u) {
           let entry = scoringAt + SCORING_GEMS_AT + index * GEM_STRIDE;
           let statId = i32(scorings[entry + GEM_STAT_AT]);
           if (statId == lines[at].statId) {
             // Re-rolling the line's own id keeps whatever stone is already there,
-            // which a credited one can only improve.
-            let stone = scorings[scoringAt + SCORING_GRIND_AT + u32(statId)];
+            // which the reference one can only improve.
+            let stone = scorings[scoringAt + SCORING_CHOICE_GRIND_AT + u32(statId)];
             let ground = scorings[entry + GEM_ROLL_AT] + max(f32(lines[at].grind), stone);
             let same = ground * scorings[scoringAt + SCORING_PRICES_AT + u32(statId)];
-            if (same > best) { best = same; }
+            if (same > best) { best = same; bestStat = statId; }
             if (foundOther) { break; }
             continue;
           }
@@ -176,14 +185,26 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
             if (other != at && lines[other].statId == statId) { blocked = true; }
           }
           if (blocked) { continue; }
-          if (scorings[entry + GEM_VALUE_AT] > best) { best = scorings[entry + GEM_VALUE_AT]; }
+          if (scorings[entry + GEM_VALUE_AT] > best) { best = scorings[entry + GEM_VALUE_AT]; bestStat = statId; }
           foundOther = true;
         }
         if (best <= -1.0e29) { continue; }
-        let gain = best - lineValue[at];
-        if (gain > bestGain) { bestGain = gain; }
+        let gain = best - choiceLine;
+        if (gain > bestGain) { bestGain = gain; chosenAt = i32(at); chosenStat = bestStat; }
       }
-      total = total + bestGain;
+      if (chosenAt >= 0) {
+        let chosen = lines[u32(chosenAt)];
+        let roll = scorings[scoringAt + SCORING_GEM_ROLLS_AT + u32(chosenStat)];
+        // The credited Gem must exist, and a same-id Gem must raise the base value.
+        if (roll >= 0.0 && (chosenStat != chosen.statId || roll > f32(chosen.value))) {
+          var kept = 0.0;
+          if (chosenStat == chosen.statId) { kept = f32(chosen.grind); }
+          let stone = scorings[scoringAt + SCORING_GRIND_AT + u32(chosenStat)];
+          let gemValue = (roll + max(kept, stone)) * scorings[scoringAt + SCORING_PRICES_AT + u32(chosenStat)];
+          let gain = gemValue - lineValue[u32(chosenAt)];
+          if (gain > 0.0) { total = total + gain; }
+        }
+      }
     }
     if (total >= wanted) { hits = hits + 1u; }
     run = run + WORKGROUP_SIZE;

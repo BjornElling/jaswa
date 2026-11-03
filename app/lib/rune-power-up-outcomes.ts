@@ -64,7 +64,7 @@
 import { runeRarityOrder, slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
 import { addedSubPropertyRange, allStatIds, remainingEvents, subPropertyRange } from './rune-properties';
-import { craftedScore, gemOptions, grindCredit, groundValue, priceList } from './rune-craft-end-state';
+import { craftedScore, craftedScoreCeiling, gemOptions, grindCredit, groundValue, priceList } from './rune-craft-end-state';
 import type { CraftPlan, EndStateLine, GemOptions, PriceList } from './rune-craft-end-state';
 import type { Valuation } from './rune-substat-weights';
 
@@ -289,22 +289,42 @@ function lineUpBuffer(size: number): EndStateLine[] {
 }
 
 /**
- * **The best end state the rune can still reach.**
+ * **The best end state the rune can still reach**, every remaining roll at its
+ * maximum: the Max value a view prints.
  *
  * Two facts make this an enumeration of a few hundred arrangements rather than a
  * search over thousands:
  *
  * - **Every improvement concentrates on one line.** A line-up's value is linear in
- *   how the improvements are split, and the Gem's gain is a maximum of linear terms
- *   and therefore convex, so the sum is maximised at a corner of the split — all of
- *   them on one line. Which line that is depends on what the Gem then does, so all of
- *   them are offered.
+ *   how the improvements are split, and a Gem placed where it gains most is a maximum
+ *   of linear terms and therefore convex, so the sum is maximised at a corner of the
+ *   split — all of them on one line. Which line that is depends on what the Gem then
+ *   does, so all of them are offered. The Gem's placement is chosen on the reference
+ *   rune rather than at the credit, so for `craftedScore` this is the maxima corner by
+ *   definition, not a proven maximum over every run; `reachableCeiling` is the bound.
  * - **The order additions arrive in cannot matter**, because no improvement follows
  *   them. So the subsets are enumerated, not the orderings.
  *
  * Every roll takes its interval's maximum, and `craftedScore` settles the Gem.
  */
 export function bestEndState(future: RuneFuture, scoring: EndStateScoring): number {
+  return endStateAtMaxima(future, scoring, craftedScore);
+}
+
+/**
+ * **No run of the rune ends above this**, which is what lets a chance be ruled out
+ * without counting. It is `bestEndState` with the Gem wherever it gains most at the
+ * credit (`craftedScoreCeiling`): the placement a Gem actually takes is chosen on the
+ * reference rune and is one of those, so the convexity argument above holds for this
+ * reading and only bounds the other. A bound, never a figure a view prints.
+ */
+export function reachableCeiling(future: RuneFuture, scoring: EndStateScoring): number {
+  return endStateAtMaxima(future, scoring, craftedScoreCeiling);
+}
+
+function endStateAtMaxima(future: RuneFuture, scoring: EndStateScoring,
+  score: (plan: CraftPlan, options: GemOptions, prices: PriceList, lines: readonly EndStateLine[],
+    prefixScore: number, lineValues?: Float64Array) => number): number {
   const { held, pool, upgrades, additions } = future;
   const lineCount = held.length + additions;
   if (lineCount === 0) return scoring.prefixScore;
@@ -335,14 +355,14 @@ export function bestEndState(future: RuneFuture, scoring: EndStateScoring): numb
     }
     /* No improvements left, or no line to put them on: one arrangement. */
     if (upgrades === 0 || held.length === 0) {
-      best = Math.max(best, craftedScore(scoring.plan, scoring.options, scoring.prices,
+      best = Math.max(best, score(scoring.plan, scoring.options, scoring.prices,
         lines, scoring.prefixScore, scratchValues));
       return;
     }
     for (let sink = 0; sink < held.length; sink += 1) {
       const gain = future.heldUpgrade[sink].maximum * upgrades;
       lines[sink].value = held[sink].value + gain;
-      best = Math.max(best, craftedScore(scoring.plan, scoring.options, scoring.prices,
+      best = Math.max(best, score(scoring.plan, scoring.options, scoring.prices,
         lines, scoring.prefixScore, scratchValues));
       lines[sink].value = held[sink].value;
     }
@@ -606,7 +626,7 @@ export function chanceStep(future: RuneFuture, scoring: EndStateScoring, wanted:
   if (future.upgrades === 0 && future.additions === 0) {
     return { settled: bestEndState(future, scoring) >= wanted ? 1 : 0, job: null };
   }
-  if (bestEndState(future, scoring) < wanted) return { settled: 0, job: null };
+  if (reachableCeiling(future, scoring) < wanted) return { settled: 0, job: null };
   if (leastEndState(future, scoring) >= wanted) return { settled: 1, job: null };
   return { settled: null, job: { future, scoring, wanted, runs: chanceRuns } };
 }

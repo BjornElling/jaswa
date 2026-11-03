@@ -35,9 +35,24 @@
  * 4. **A Gemmed line may then be ground**, where its new id is grindable. So an
  *    enchanted value that can be ground is always counted as ground.
  *
+ * ## Which line, and which stat
+ *
+ * **The placement is chosen on one fixed reference rune, never on the settings.**
+ * Every grindable line is ground by an average Legend Grindstone where that raises
+ * it, the Gem is an average Legend Gem, ground likewise, and the `(line, stat)` pair
+ * that gains most on that rune is the one a Gem takes (`gemChoiceCredit`). Only then
+ * is the placement valued at the credit the caller assumes.
+ *
+ * Two readings of this question used to stand side by side, and they disagreed. Rune
+ * Clean-up ground every line first and put the Gem where it gained most at its own
+ * credit; Gems & Grinds measured against the rune as it stands, so an SPD Gem on an
+ * SPD line was paid for the stone that line could take anyway, and won. A fixed
+ * reference is what makes the choice one answer in every view: it moves with the rune
+ * and the role, and with nothing a slider or a held item says.
+ *
  * And the rule that follows from all four: **a Gem is never forced.** The end state
- * is whichever of "no Gem" and the best legal placement scores higher, so considering
- * a craft item can only ever raise a rune, never lower it.
+ * is whichever of "no Gem" and the chosen placement scores higher at the credit, so
+ * considering a craft item can only ever raise a rune, never lower it.
  */
 import { craftRollValue, craftValueRange, grindableStatIds } from './rune-craft-items';
 import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption, CraftValueRange } from './rune-craft-items';
@@ -60,6 +75,15 @@ export type CraftCredit = {
   gemGrade: ItemGrade;
   grind: CraftRollAssumption | null;
   grindGrade: ItemGrade;
+};
+
+/**
+ * The reference a Gem's placement is chosen on: an average Legend Gem, and an
+ * average Legend Grindstone on every grindable line. Ordinary Legend, never Ancient,
+ * so the choice does not turn on which items a box holds or on the rune's lineage.
+ */
+export const gemChoiceCredit: CraftCredit = {
+  gem: 'average', gemGrade: 'Legend', grind: 'average', grindGrade: 'Legend',
 };
 
 export const creditKey = (credit: CraftCredit): string =>
@@ -204,7 +228,7 @@ export const groundValue = (plan: CraftPlan, statId: number, roll: number, exist
  * eleven ids per line per sample — which is the innermost loop of the whole chance
  * calculation.
  */
-export type GemOptions = {
+export type GemList = {
   /** Legal effect ids, best-valued first. Empty where no Gem is credited. */
   readonly statIds: Int32Array;
   /** What each of those is worth in this role's units, its Grindstone included. */
@@ -215,10 +239,25 @@ export type GemOptions = {
   readonly indexByStat: Int32Array;
 };
 
-const emptyGemOptions: GemOptions = {
+/**
+ * The legal Gems twice over: priced at the caller's credit, and priced on the
+ * reference the placement is chosen on (`gemChoiceCredit`). The ids are the same;
+ * only the order and the values differ.
+ */
+export type GemOptions = GemList & {
+  /** The same legal ids on the reference, best first: what `craftedScore` chooses from. */
+  readonly choice: GemList;
+};
+
+const emptyGemList: GemList = {
   statIds: new Int32Array(0), values: new Float64Array(0), rolls: new Float64Array(0),
   indexByStat: new Int32Array(statIdBound).fill(-1),
 };
+const emptyGemOptions: GemOptions = { ...emptyGemList, choice: emptyGemList };
+
+/** The reference's own plan, whose grind table is what "every line ground" means. */
+let referencePlan: CraftPlan | null = null;
+const choicePlan = (): CraftPlan => referencePlan ??= craftPlan('standard', gemChoiceCredit);
 
 /**
  * The legal Gems for one rune in one role, best first.
@@ -251,6 +290,13 @@ const rememberedGems = new WeakMap<PriceList, WeakMap<CraftPlan, Map<number, Gem
 function legalGems(
   plan: CraftPlan, prices: PriceList, slot: number, mainStatId: number, prefixStatId: number | null,
 ): GemOptions {
+  return { ...gemList(plan, prices, slot, mainStatId, prefixStatId),
+    choice: gemList(choicePlan(), prices, slot, mainStatId, prefixStatId) };
+}
+
+function gemList(
+  plan: CraftPlan, prices: PriceList, slot: number, mainStatId: number, prefixStatId: number | null,
+): GemList {
   const legal: Array<{ statId: number; value: number; roll: number }> = [];
   for (const statId of allStatIds) {
     if (statId === mainStatId || statId === prefixStatId || !slotAllowsSubStat(slot, statId)) continue;
@@ -288,41 +334,26 @@ export type EndStateLine = {
 export const canGemReplaceValue = (line: Pick<EndStateLine, 'statId' | 'value'>, statId: number, roll: number): boolean =>
   statId !== line.statId || roll > line.value;
 
-/**
- * **The best legal end state of a finished line-up, in this role's units.**
- *
- * Rule 4 in one expression: score the lines as they stand, then offer every legal
- * `(line, Gem)` pair and keep the best — or none, where none of them gains anything.
- *
- * `lineValues` is filled with each line's own scored contribution when it is passed,
- * so a caller that needs the breakdown does not price the lines twice. `report` is
- * for the one caller that needs to know *which* line the Gem took — the ordinary box,
- * whose spread has to drop the line that stopped varying. Both are out parameters
- * rather than a returned record because this is the innermost operation of the chance
- * calculation, run a few hundred million times on a real box, and an object per call
- * was measurable.
- */
-export function craftedScore(
-  plan: CraftPlan, options: GemOptions, prices: PriceList,
-  lines: readonly EndStateLine[], prefixScore: number,
-  lineValues: Float64Array = new Float64Array(lines.length),
-  report?: CraftReport,
-): number {
-  if (report) { report.replaced = -1; report.option = -1; }
-  let plain = prefixScore;
-  for (let at = 0; at < lines.length; at += 1) {
-    const line = lines[at];
-    const value = groundValue(plan, line.statId, line.value, line.grind) * prices[line.statId];
-    lineValues[at] = value;
-    plain += value;
-  }
-  if (!plan.hasGem || lines.length === 0 || options.statIds.length === 0) return plain;
+/* Where `placement` leaves its answer. Out values rather than a returned record,
+   because this is the innermost operation of the chance calculation, run a few
+   hundred million times on a real box, and an object per call was measurable. */
+let placedAt = -1;
+let placedStat = -1;
+let placedGain = 0;
+let choiceValues = new Float64Array(8);
 
+/**
+ * The legal `(line, Gem)` pair that gains most over `lineValues` when every Gem is
+ * priced from `list` on `plan`, or none where none gains anything.
+ */
+function placement(
+  plan: CraftPlan, list: GemList, prices: PriceList, lines: readonly EndStateLine[], lineValues: Float64Array,
+): void {
+  placedAt = -1; placedStat = -1; placedGain = 0;
   /* Rule 2: one converted line at a time, and a later Gem may only replace it. */
   let onlyAt = -1;
   for (let at = 0; at < lines.length; at += 1) if (lines[at].gemmed) { onlyAt = at; break; }
 
-  let bestGain = 0;
   for (let at = 0; at < lines.length; at += 1) {
     if (onlyAt !== -1 && at !== onlyAt) continue;
     const line = lines[at];
@@ -336,21 +367,21 @@ export function craftedScore(
     let bestOption = -1;
     /* The first legal other id already wins the sorted list. Looking up the
        same-id exception directly avoids scanning the remainder in every future. */
-    for (let index = 0; index < options.statIds.length; index += 1) {
-      const statId = options.statIds[index];
+    for (let index = 0; index < list.statIds.length; index += 1) {
+      const statId = list.statIds[index];
       if (statId === line.statId) continue;
       let blocked = false;
       for (let other = 0; other < lines.length && !blocked; other += 1) {
         if (other !== at && lines[other].statId === statId) blocked = true;
       }
       if (blocked) continue;
-      best = options.values[index];
+      best = list.values[index];
       bestOption = index;
       break;
     }
-    const sameIndex = options.indexByStat[line.statId];
+    const sameIndex = list.indexByStat[line.statId];
     if (sameIndex >= 0) {
-      const same = groundValue(plan, line.statId, options.rolls[sameIndex], line.grind) * prices[line.statId];
+      const same = groundValue(plan, line.statId, list.rolls[sameIndex], line.grind) * prices[line.statId];
       if (same > best || (same === best && sameIndex < bestOption)) {
         best = same;
         bestOption = sameIndex;
@@ -358,19 +389,97 @@ export function craftedScore(
     }
     if (best === -Infinity) continue;
     const gain = best - lineValues[at];
-    if (gain > bestGain) {
-      bestGain = gain;
-      if (report) { report.replaced = at; report.option = bestOption; }
+    if (gain > placedGain) {
+      placedGain = gain;
+      placedAt = at;
+      placedStat = list.statIds[bestOption];
     }
   }
-  return plain + bestGain;
+}
+
+/** Rule 1 on every line at `plan`'s credit, into `lineValues`; returns their sum with the prefix. */
+function plainScore(plan: CraftPlan, prices: PriceList, lines: readonly EndStateLine[],
+  prefixScore: number, lineValues: Float64Array): number {
+  let plain = prefixScore;
+  for (let at = 0; at < lines.length; at += 1) {
+    const line = lines[at];
+    const value = groundValue(plan, line.statId, line.value, line.grind) * prices[line.statId];
+    lineValues[at] = value;
+    plain += value;
+  }
+  return plain;
 }
 
 /**
- * Which line the Gem took and what it put there: `replaced` indexes the lines,
- * `option` indexes `GemOptions`, and both are `-1` where no Gem gains anything.
+ * **The end state of a finished line-up, in this role's units.**
+ *
+ * Rule 4 in one expression: score the lines as they stand at the credit, choose the
+ * Gem's placement on the reference rune (`gemChoiceCredit`), and add what that
+ * placement gains at the credit — or nothing, where it gains nothing there, or where
+ * the credited Gem of that stat could not legally take the line.
+ *
+ * `lineValues` is filled with each line's own scored contribution when it is passed,
+ * so a caller that needs the breakdown does not price the lines twice. `report` is
+ * for the callers that need to know *which* line the Gem took — the ordinary box,
+ * whose spread has to drop the line that stopped varying, and `craftedLines`.
  */
-export type CraftReport = { replaced: number; option: number };
+export function craftedScore(
+  plan: CraftPlan, options: GemOptions, prices: PriceList,
+  lines: readonly EndStateLine[], prefixScore: number,
+  lineValues: Float64Array = new Float64Array(lines.length),
+  report?: CraftReport,
+): number {
+  if (report) { report.replaced = -1; report.statId = -1; }
+  if (!plan.hasGem || lines.length === 0 || options.choice.statIds.length === 0) {
+    return plainScore(plan, prices, lines, prefixScore, lineValues);
+  }
+  /* Both line-ups in one pass: this is the innermost loop of the chance calculation. */
+  const reference = choicePlan();
+  if (choiceValues.length < lines.length) choiceValues = new Float64Array(lines.length);
+  let plain = prefixScore;
+  for (let at = 0; at < lines.length; at += 1) {
+    const { statId, value, grind } = lines[at];
+    const price = prices[statId];
+    lineValues[at] = (value + Math.max(grind, grindCredit(plan, statId))) * price;
+    choiceValues[at] = (value + Math.max(grind, grindCredit(reference, statId))) * price;
+    plain += lineValues[at];
+  }
+  placement(reference, options.choice, prices, lines, choiceValues);
+  if (placedAt < 0) return plain;
+
+  const line = lines[placedAt];
+  const roll = gemCredit(plan, placedStat);
+  if (roll === null || !canGemReplaceValue(line, placedStat, roll)) return plain;
+  /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
+  const kept = placedStat === line.statId ? line.grind : 0;
+  const gain = (roll + Math.max(kept, grindCredit(plan, placedStat))) * prices[placedStat] - lineValues[placedAt];
+  if (gain <= 0) return plain;
+  if (report) { report.replaced = placedAt; report.statId = placedStat; }
+  return plain + gain;
+}
+
+/**
+ * **A ceiling on `craftedScore`**: the line-up with the Gem wherever it gains most *at
+ * the credit*. The chosen placement is one of the legal ones, so no end state is
+ * worth more than this; it is what a chance can be ruled out against without
+ * counting runs, and never a figure a view prints.
+ */
+export function craftedScoreCeiling(
+  plan: CraftPlan, options: GemOptions, prices: PriceList,
+  lines: readonly EndStateLine[], prefixScore: number,
+  lineValues: Float64Array = new Float64Array(lines.length),
+): number {
+  const plain = plainScore(plan, prices, lines, prefixScore, lineValues);
+  if (!plan.hasGem || lines.length === 0 || options.statIds.length === 0) return plain;
+  placement(plan, options, prices, lines, lineValues);
+  return plain + placedGain;
+}
+
+/**
+ * Which line the Gem took and what it put there: `replaced` indexes the lines and
+ * `statId` is the Gem's, both `-1` where no Gem gains anything.
+ */
+export type CraftReport = { replaced: number; statId: number };
 
 /**
  * **The finished line-up `craftedScore` scored**, as the lines a player would hold
@@ -381,8 +490,9 @@ export type CraftReport = { replaced: number; option: number };
  * Simulator used to: it gemmed a random line into a random id and ground one random
  * line, and so showed a rune that a DEF % line had been swapped for CRI Rate beside a
  * fresh Resistance, three stones left unspent, and a verdict that had assumed none of
- * that. Rule 1 grinds *every* grindable line, and the Gem goes where it gains most —
- * which is the weakest line only when nothing blocks the best id from taking it.
+ * that. Rule 1 grinds *every* grindable line, and the Gem goes where it gains most on
+ * the reference rune — which is the weakest line only when nothing blocks the best id
+ * from taking it.
  */
 const groundLine = (plan: CraftPlan, line: EndStateLine): EndStateLine =>
   ({ ...line, grind: Math.max(line.grind, grindCredit(plan, line.statId)) });
@@ -400,15 +510,44 @@ export function craftedLines(
   plan: CraftPlan, options: GemOptions, prices: PriceList,
   lines: readonly EndStateLine[], prefixScore: number,
 ): EndStateLine[] {
-  const report: CraftReport = { replaced: -1, option: -1 };
+  const report: CraftReport = { replaced: -1, statId: -1 };
   craftedScore(plan, options, prices, lines, prefixScore, undefined, report);
   return lines.map((line, at) => {
     if (at !== report.replaced) return groundLine(plan, line);
-    const statId = options.statIds[report.option];
+    const statId = report.statId;
     /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
     const kept = statId === line.statId ? line.grind : 0;
-    return { statId, value: options.rolls[report.option], gemmed: true, grind: Math.max(kept, grindCredit(plan, statId)) };
+    return { statId, value: gemCredit(plan, statId) ?? 0, gemmed: true, grind: Math.max(kept, grindCredit(plan, statId)) };
   });
+}
+
+/**
+ * **The placement rule asked per stat**, for a view that scores a rune in units of its
+ * own: every legal Gem on this finished rune as the reference line-up it would leave
+ * (`gemChoiceCredit`), beside the reference line-up with no Gem. Priced in one role,
+ * the best of these that beats `base` is the placement `craftedScore` chooses in that
+ * role; Gems & Grinds reads them across every role it judges a rune in. `null` below
+ * `+12`, where no Gem may go on yet.
+ */
+export function gemChoiceLineUps(rune: Pick<Rune, 'slot' | 'mainStatId' | 'prefixStatId' | 'subProperties' | 'level'>):
+  { base: EndStateLine[]; gems: Array<{ statId: number; lines: EndStateLine[] }> } | null {
+  const lines = rune.subProperties;
+  if (rune.level < gemMinimumLevel || lines.length === 0) return null;
+  const reference = choicePlan();
+  const base = groundLines(reference, lines);
+  const gems: Array<{ statId: number; lines: EndStateLine[] }> = [];
+  for (let at = 0; at < lines.length; at += 1) {
+    for (const statId of allStatIds) {
+      if (!legalGemTarget(rune.slot, rune.mainStatId, rune.prefixStatId, lines, at, statId)) continue;
+      const roll = gemCredit(reference, statId);
+      if (roll === null || !canGemReplaceValue(lines[at], statId, roll)) continue;
+      /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
+      const kept = statId === lines[at].statId ? lines[at].grind : 0;
+      const gemmed: EndStateLine = { statId, value: roll, gemmed: true, grind: Math.max(kept, grindCredit(reference, statId)) };
+      gems.push({ statId, lines: base.map((line, index) => index === at ? gemmed : line) });
+    }
+  }
+  return { base, gems };
 }
 
 /*

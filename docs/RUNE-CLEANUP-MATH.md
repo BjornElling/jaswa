@@ -307,8 +307,8 @@ user which build they intend — a role-model decision, not made here.
 - **A Gem's new line is worth its roll plus the credited Grindstone** wherever the new
   id is grindable. `gemOptions` prices every Gem that way, and `craftedLines` hands the
   same end state to whatever acts on the verdict.
-- **A Gem is never forced.** The end state is the better of "no Gem" and the best legal
-  placement, so considering a craft item can only raise a rune.
+- **A Gem is never forced.** The end state is the better of "no Gem" and the chosen
+  placement (§6.1) at the credit, so considering a craft item can only raise a rune.
 - **A Gem is spent at `+12`, after every power-up.** The chance plays the remaining
   events out first and crafts what it actually got (§9.2).
 - **Lineage is legality, not reference.** A candidate's own craft tables follow its
@@ -316,14 +316,32 @@ user which build they intend — a role-model decision, not made here.
   lineage and always uses `neutralComparisonCredit` (Hero items at three quarters). The
   user's credit moves only the candidate (§9.2).
 
-### 6.1 Which line the Gem replaces
+### 6.1 Which line the Gem replaces, and with which stat
 
-**Every line is offered every legal Gem, and the best pair is kept.** Which Gem is
-legal depends on which line is replaced — a Gem may not duplicate one of the *other*
-lines, so removing the SPD line is what makes a SPD Gem legal — so "offer the weakest
-line the best Gem" is a different and wrong rule. The projection, the ceiling, the box,
-the odds and the craft planner all read the one function. `verify:rune-cleanup-calibration`
-checks it against §8 written out afresh (§10).
+**Every line is offered every legal Gem, and the pair that gains most on a fixed
+reference rune is kept.** Which Gem is legal depends on which line is replaced — a Gem
+may not duplicate one of the *other* lines, so removing the SPD line is what makes a SPD
+Gem legal — so "offer the weakest line the best Gem" is a different and wrong rule.
+
+The reference is the rune's lines with every grindable line raised by an average Legend
+Grindstone where that raises it, and each candidate Gem an average Legend Gem, ground
+likewise (`gemChoiceCredit`; ordinary Legend, never Ancient). The pair is chosen in the
+role's own prices on that rune and only then valued at the user's credit; where the
+credited Gem of that stat could not legally take the line, or gains nothing there, the
+rune keeps no Gem. So which stat a rune should be gemmed with moves with the rune and
+the role, and with no slider: Rune Clean-up, the rune overlay and Gems & Grinds name the
+same stat (`RUNE-CRAFT-ITEMS.md` §5.1). Choosing at the credit instead was tried and
+removed: Gems & Grinds measured against the rune as it stands and credited an SPD Gem
+with the stone its line could take anyway, so the two views named different stats for
+one rune.
+
+The projection, the ceiling, the box, the odds and the craft planner all read the one
+function, `craftedScore`, and the graphics card makes the same choice from the same
+packed reference. One reading stands apart, and only as a bound: `craftedScoreCeiling`
+puts the Gem wherever it gains most *at the credit*. The chosen placement is one of
+those, so no end state is worth more, and `reachableCeiling` uses it to rule a chance out
+without counting (§7, step 2). It is never a figure a view prints.
+`verify:rune-cleanup-calibration` checks the rule against §8 written out afresh (§10).
 
 ## 7. Chance: a certain no, a certain yes, or a count
 
@@ -336,7 +354,8 @@ three steps, and the first two are exact:
    nothing to project. Its chance is `1` or `0`.
 2. **A rune whose best possible end state misses the bar** cannot reach it, and one
    whose **worst possible end state clears it** cannot miss. Both bounds are computed,
-   not sampled.
+   not sampled; the first reads the Gem at its most favourable placement (§6.1), so it
+   bounds the chosen one.
 3. **Everything else is played forward and counted.** The rune is taken through its
    remaining events `chanceRuns` (4,096) times by the game's own loop, each run is
    priced and crafted (§6), and the answer is the share that cleared the bar.
@@ -510,8 +529,9 @@ correction, and never translates them into a top percentile.
 
 **Every rune — below, at and above `+12` — is judged on one question: what its Max value
 will be at `+15` with the active items credited.** Every grindable line carries the
-credited Grindstone, the Gem goes where §6.1 says it gains most (and nowhere, if no
-placement beats the line it would replace), and a Gemmed line is ground too. The perfect
+credited Grindstone, the Gem goes where §6.1's reference rune says it gains most (and
+nowhere, if at the credit it would not beat the line it replaces), and a Gemmed line is
+ground too. The perfect
 rune and the ordinary box stay on `neutralComparisonCredit`, so a craft slider moves the
 candidate's projection without moving the ruler under every other rune. A more generous
 credit can only make a rune easier to keep, a less generous one only harder.
@@ -570,8 +590,8 @@ the inherited floors. Only four-piece floors can soften; two-piece runes keep th
 
 The calibration depends on the roles, the reference lines and the policy, never on the
 runes asked about, so the engine keeps the last four calibrations by the content of those
-inputs. Its population is eighteen independent pieces � each slot at `+0`, `+9` and
-`+12` � each a function of those inputs and a fixed seed, so the page counts them on
+inputs. Its population is eighteen independent pieces — each slot at `+0`, `+9` and
+`+12` — each a function of those inputs and a fixed seed, so the page counts them on
 several cores at once and hands the result to every worker that asks
 (`countCalibrationPiece`, `adoptCalibrationPopulation`); the numbers are the ones one core
 would count. The floor grid is worked out lazily: a setting reads only the settings

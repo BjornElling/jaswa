@@ -187,27 +187,36 @@ until another Gem replaces it. A Hero ATK % Gem spent today on a rune that
 wants SPD is a small gain now that closes the rune to the right stat, or costs
 a second Gem to undo. Waiting for the right stone is the better use of both.
 
-*Most desirable* is decided per rune by `desirableGemStats`, from the whole
-answer: every Gem stat the rune can legally take is judged as a **Legend** Gem
-of the rune's own set and lineage, under the view's Assumed roll and Then grind
-it, and the stat or stats with the highest best score after win. Comparing at
-one grade keeps the contest about the stat; the grade of the Gem actually held
-does not matter. A Hero Gem of the winning stat is suggested like a Legend one,
-as long as it raises the rune. To give every stat an entrant whatever the box
-holds, Recommendations and Best use judge the absent Legend Gems beside the
-box (`gemStatReferences`); they are never shown, as What's missing's absent
-items are never shown in the box's views.
+*Most desirable* is the Gem placement rule of `RUNE-CLEANUP-MATH.md` §6.1 —
+the one rule Rune Clean-up and the rune overlay apply too, so every view names
+the same stat. It is judged on a **reference rune**: the rune's lines as they
+stand, each grindable line raised by an average Legend Grindstone where that
+raises it, and each candidate Gem an average Legend Gem, ground likewise. Every
+legal `(line, stat)` pair is priced so in every role reading the rune is judged
+in (`gemChoiceLineUps`), and the stat whose best reference end state is worth
+most — and beats the same reading's reference rune without a Gem — is the one
+the rune wants. The ranking travels on every row of the rune (`gemChoice`), and
+`desirableGemStats` reads its top. Neither the grade held, the Assumed roll nor
+Then grind it enters it: those decide what a Gem is shown to gain, not which
+stat it should be. A Hero Gem of the chosen stat is suggested like a Legend
+one, as long as it raises the rune.
+
+Measuring against the rune as it stands was tried and removed. It paid a Gem
+for the stone its line could take anyway, so an SPD Gem on an SPD line won
+from the Grindstone the line was still missing, while Rune Clean-up — which
+grinds every line first — chose another stat for the same rune.
 
 The rule covers every Gem view. In Recommendations and Best use a Gem of
 another stat is dropped before the rankings. In What's missing only absent Gems
 of the winning stat are listed, and the box's bar (`heldCraftBenchmark`) counts
 a held Gem only when it has that stat, because a held Gem of a lesser stat is
 never suggested and so has done nothing for the rune; *Most wanted* tallies the
-same rows. Filters do not enter the contest: *Can change gem'ed stat?*, Grade,
+same rows. Filters do not enter the choice: *Can change gem'ed stat?*, Grade,
 Family, Stat and Location narrow what is shown afterwards, so a filter can hide
-the winning Gem but never promote a loser in its place. A stat the user has
+the chosen Gem but never promote another stat in its place. A stat the user has
 ignored on a rune is the one exception: Ignore says the user does not want that
-stat there, so it leaves that rune's contest and the next best stat stands in.
+stat there, so it leaves that rune's choice and the next stat in the rule's
+order stands in.
 
 Grindstones are deliberately outside the rule. A stone takes no place of its
 own: every grindable line can carry one, and a better stone later simply

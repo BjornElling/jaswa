@@ -30,7 +30,7 @@ import type { GeneralSettings, ItemGrade, RunePotentialSettings } from '../lib/t
 import { referenceLines } from '../lib/rune-reference-stats';
 import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations } from '../lib/rune-craft-recommendations';
 import { craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
-  desirableGemStats, extendCraftCalculation, gemStatReferences, heldCraftBenchmark, reconcileCraftCalculation,
+  desirableGemStats, extendCraftCalculation, heldCraftBenchmark, reconcileCraftCalculation,
   isHeldCraft, onDesirableGemStat, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
 import { useRuneKeepers } from './use-rune-keepers';
@@ -51,6 +51,8 @@ function CraftItemName({ item }: { item: CraftItem }) {
 /* Most wanted's own length, apart from the rankings': its box keeps this many
    rows whatever the answer, so the column beside it never changes height. */
 const wantedLength = 10;
+/* One empty list for every render, so the request a view asks with stays the same object. */
+const noItems: readonly CraftItem[] = [];
 const ignoreOf = (row: CraftRecommendation): CraftIgnore => ({ runeId: row.rune.id, kind: row.item.kind, statId: row.item.statId });
 
 /* An Immemorial item rolls what the set's own item rolls, so What's missing
@@ -95,10 +97,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     const lines = referenceLines({ unit_list: monsters });
     return lines ? new Map([...lines].map(([type, line]) => [type, line.stats])) : null;
   }, [monsters]);
-  /* What's missing judges every absent item; the box's views judge the absent
-     Legend Gems too, unseen, so every Gem stat has an entrant in its rune's contest. */
-  const missing = useMemo(() => mode === 'missing' ? missingCraftItems(items, runes)
-    : gemStatReferences(runes), [mode, items, runes]);
+  /* What's missing judges every absent item. Which Gem stat a rune should take is
+     the placement rule's, carried on every row, so no view needs unseen entrants. */
+  const missing = useMemo(() => mode === 'missing' ? missingCraftItems(items, runes) : noItems, [mode, items, runes]);
   const grindPossible = [...items, ...missing].some((item) => item.kind === 'gem' &&
     craftItemRange('grindstone', item.lineage, item.statId, state.grindGrade) !== undefined);
   const request = useMemo<CraftRecommendationRequest | null>(() => base ? {
@@ -210,7 +211,8 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   const keepersSettled = keepers.state === 'off' || keepSet !== null;
   const ignored = useMemo(() => new Set(ignores.map(craftIgnoreKey)), [ignores]);
   const desirable = useMemo(() => result
-    ? desirableGemStats(result.candidates, (row) => ignored.has(craftIgnoreKey(ignoreOf(row)))) : new Map<string, ReadonlySet<number>>(),
+    ? desirableGemStats(result.candidates, (runeId, statId) => ignored.has(craftIgnoreKey({ runeId, kind: 'gem', statId })))
+    : new Map<string, ReadonlySet<number>>(),
   [result, ignored]);
   /* The box's best on each rune comes from the whole answer, so a filter that
      hides a held item cannot lower the bar a missing one has to clear. A held Gem

@@ -1,8 +1,7 @@
-import { craftItemApplications, lineageFits } from './rune-craft-end-state';
+import { craftItemApplications, gemChoiceLineUps, lineageFits } from './rune-craft-end-state';
 import { filterIncludes } from './filter-selection';
-import type { CraftApplication, CraftCredit } from './rune-craft-end-state';
+import type { CraftApplication, CraftCredit, EndStateLine } from './rune-craft-end-state';
 import type { CraftItem, CraftRollAssumption } from './rune-craft-items';
-import { missingCraftItems } from './rune-craft-items';
 import { newRuneAdviceScope, neutralComparisonCredit, prepareRuneCandidate, roleBuilds } from './rune-cleanup-model';
 import type { MatchRank } from './rune-cleanup-model';
 import { acceptedWorth, brokenWorth } from './rune-cleanup-advice';
@@ -26,9 +25,17 @@ export type CraftRecommendationRequest = {
   roll: CraftRollAssumption; grindAfter: { grade: ItemGrade } | null; preferGpu: boolean;
 };
 export type CraftEvaluation = { score: number; role: string; rank: MatchRank };
+/** One Gem stat as the placement rule ranks it on one rune: its best score on the reference rune. */
+export type GemStatChoice = { statId: number; score: number };
 export type CraftRecommendation = {
   rune: Rune; item: CraftItem; application: CraftApplication;
   before: CraftEvaluation; after: CraftEvaluation; gain: number; stat: number;
+  /**
+   * The Gem stats the placement rule would put on this rune, best first, each only
+   * where it beats the rune without a Gem. Read from the rune and its roles alone, so
+   * every row of a rune carries the same list whatever item it is about.
+   */
+  gemChoice: readonly GemStatChoice[];
 };
 export type CraftRankings = {
   highestScore: CraftRecommendation[]; highestGain: CraftRecommendation[];
@@ -43,7 +50,7 @@ type State = { values: number[]; evaluation: CraftEvaluation | null; recommendat
 const noCraft: CraftCredit = { gem: null, grind: null, gemGrade: 'Hero', grindGrade: 'Hero' };
 
 /** Rank only visible lines, on Clean-up's fixed ruler, without hypothetical power-ups or extra craft. */
-function valuesOf(rune: Rune, lines = rune.subProperties): number[] {
+function valuesOf(rune: Rune, lines: readonly EndStateLine[] = rune.subProperties): number[] {
   const values = Array<number>(craftScoreLayout.stats).fill(0);
   if (rune.prefixStatId !== null) values[rune.prefixStatId] += rune.prefixValue;
   for (const line of lines) values[line.statId] += runeSubValue(line);
@@ -51,10 +58,17 @@ function valuesOf(rune: Rune, lines = rune.subProperties): number[] {
 }
 const tie = (a: CraftRecommendation, b: CraftRecommendation) => a.rune.id.localeCompare(b.rune.id)
   || a.item.id.localeCompare(b.item.id) || a.application.target.index - b.application.target.index;
+/* Two runes worth the same can differ in the last bit of their arithmetic; within a
+   billionth of a percentage point they are a tie, settled by identity, so the order on
+   screen never turns on rounding the figure itself cannot show. */
+const tolerance = 1e-9;
 export function rankCraftRecommendations(rows: readonly CraftRecommendation[], count: number,
   metric: (row: CraftRecommendation) => number): CraftRecommendation[] {
   const distinct = new Map<string, CraftRecommendation>();
-  const compare = (a: CraftRecommendation, b: CraftRecommendation) => metric(b) - metric(a) || tie(a, b);
+  const compare = (a: CraftRecommendation, b: CraftRecommendation) => {
+    const difference = metric(b) - metric(a);
+    return Math.abs(difference) > tolerance ? difference : tie(a, b);
+  };
   for (const row of rows) {
     const previous = distinct.get(row.rune.id);
     if (!previous || compare(row, previous) < 0) distinct.set(row.rune.id, row);
@@ -97,52 +111,51 @@ export function heldCraftBenchmark(rows: readonly CraftRecommendation[]): CraftB
 }
 
 /**
- * The Gem stat each rune should take, read from the whole answer: every stat is
- * compared as a Legend Gem under the same assumptions, so the box's own grades
- * cannot tip the contest, and the stat or stats with the best score after win.
- * A Gem is permanent and one per rune, so spending one on a lesser stat closes
- * the rune to the right one; a Gem of any other stat is therefore never
- * suggested, and a rune whose stat the box lacks gets no Gem at all
- * (`RUNE-CRAFT-ITEMS.md` §5.1). A stat the user waved away on a rune is out of
- * that rune's contest, so the next best stat stands in for it.
+ * The Gem stat each rune should take: the placement rule's own answer
+ * (`gemChoiceLineUps`, the rule `craftedScore` applies), read off the rows, so
+ * neither the box's grades nor the page's roll can tip it. A Gem is permanent and
+ * one per rune, so spending one on a lesser stat closes the rune to the right one;
+ * a Gem of any other stat is therefore never suggested, and a rune whose stat the
+ * box lacks gets no Gem at all (`RUNE-CRAFT-ITEMS.md` §5.1). A stat the user waved
+ * away on a rune is out of that rune's choice, so the next best stat stands in.
  */
 export function desirableGemStats(rows: readonly CraftRecommendation[],
-  waived: (row: CraftRecommendation) => boolean = () => false): ReadonlyMap<string, ReadonlySet<number>> {
-  const best = new Map<string, Map<number, number>>();
+  waived: (runeId: string, statId: number) => boolean = () => false): ReadonlyMap<string, ReadonlySet<number>> {
+  const desirable = new Map<string, ReadonlySet<number>>();
   for (const row of rows) {
-    if (row.item.kind !== 'gem' || row.item.grade !== 'Legend' || waived(row)) continue;
-    const stats = best.get(row.rune.id) ?? new Map<number, number>();
-    stats.set(row.item.statId, Math.max(stats.get(row.item.statId) ?? -Infinity, row.after.score));
-    best.set(row.rune.id, stats);
+    if (desirable.has(row.rune.id)) continue;
+    const open = row.gemChoice.filter((choice) => !waived(row.rune.id, choice.statId));
+    const top = open.length ? open[0].score : -Infinity;
+    desirable.set(row.rune.id, new Set(open.filter((choice) => choice.score === top).map((choice) => choice.statId)));
   }
-  return new Map([...best].map(([rune, stats]) => {
-    const top = Math.max(...stats.values());
-    return [rune, new Set([...stats].filter(([, score]) => score === top).map(([stat]) => stat))];
-  }));
+  return desirable;
+}
+
+/**
+ * The placement rule on one rune, ranked per stat across every role reading the rune
+ * is judged in: the best reference end state each stat reaches, where it beats the
+ * same reading's reference rune without a Gem. Within one reading the best of these
+ * is the stat `craftedScore` places; across readings it is the stat of the role the
+ * fully ground rune serves best.
+ */
+function gemChoiceOf(rune: Rune, readings: readonly Reading[]): GemStatChoice[] {
+  const lineUps = gemChoiceLineUps(rune);
+  if (!lineUps || !readings.length) return [];
+  const best = new Map<number, number>();
+  for (const reading of readings) {
+    const base = craftScore({ ...reading, values: valuesOf(rune, lineUps.base) });
+    for (const gem of lineUps.gems) {
+      const score = craftScore({ ...reading, values: valuesOf(rune, gem.lines) });
+      if (score > base && score > (best.get(gem.statId) ?? -Infinity)) best.set(gem.statId, score);
+    }
+  }
+  return [...best].map(([statId, score]) => ({ statId, score }))
+    .sort((left, right) => right.score - left.score || left.statId - right.statId);
 }
 
 /** A Grindstone always passes; a Gem only with its rune's most desirable stat. */
 export function onDesirableGemStat(row: CraftRecommendation, desirable: ReadonlyMap<string, ReadonlySet<number>>): boolean {
   return row.item.kind !== 'gem' || (desirable.get(row.rune.id)?.has(row.item.statId) ?? false);
-}
-
-/**
- * A Legend Gem of every stat for every set and lineage the runes take, judged
- * beside the box but never shown, so the stat contest of `desirableGemStats` has
- * an entrant for every stat. Read from the runes alone and never from the box, so
- * a stack spent or gained changes no reference and asks the worker for nothing.
- *
- * One list per rune list, the same objects for every view: the views share one
- * remembered answer, and reconciling it against look-alike copies would have
- * each view rewrite the other's rows in turn, without end.
- */
-const gemReferenceMemory = new WeakMap<object, CraftItem[]>();
-export function gemStatReferences(runes: readonly Pick<Rune, 'setId' | 'ancient'>[]): CraftItem[] {
-  const known = gemReferenceMemory.get(runes);
-  if (known) return known;
-  const references = missingCraftItems([], runes).filter((item) => item.kind === 'gem' && item.grade === 'Legend');
-  gemReferenceMemory.set(runes, references);
-  return references;
 }
 
 /** A projection of the complete calculation. Filters and result count never change its scores. */
@@ -346,7 +359,7 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest,
       }
     }
     scope.futures.clear();
-    return { rune, states, readings };
+    return { rune, states, readings, gemChoice: gemChoiceOf(rune, readings) };
   }
   // Combine small rune matrices before dispatch: thousands of tiny readbacks cost
   // more than their arithmetic. Both the retained plans and the score buffer stay bounded.
@@ -374,14 +387,14 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest,
       if (jobs.length === 16384) await flush();
     }
     await flush();
-    for (const { rune, states } of plans) {
+    for (const { rune, states, gemChoice } of plans) {
       const before = states[0].evaluation;
       if (before) {
         const rows: CraftRecommendation[] = states.flatMap((state) => {
           if (!state.recommendation || !state.evaluation) return [];
           const { item, application } = state.recommendation;
           return [{ rune, item, application, before, after: state.evaluation,
-            gain: state.evaluation.score - before.score, stat: runeSubValue(application.result) }];
+            gain: state.evaluation.score - before.score, stat: runeSubValue(application.result), gemChoice }];
         });
         // A pair's baseline is fixed, so its best target wins score and gain alike.
         // Retain every pair, not just today's top N: tomorrow's filter may need any of them.
