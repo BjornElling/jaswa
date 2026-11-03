@@ -43,10 +43,27 @@ function validDashboard(value: unknown): value is Dashboard {
     && Number.isSafeInteger(traffic.entries) && traffic.entries >= 0);
 }
 
+/* Rift Raid results are encrypted with a key the game makes for each session
+   and never sends readably (docs/LIVE-IMPORT-COVERAGE.md, "Raid response-key
+   negotiation"). Passive reading cannot reach it, so this one gap is the game's
+   design rather than a reader still to write: the window says so instead of
+   asking for another error report about it. It stays a gap all the same. */
+const RAID_RESULT = 'BattleRiftOfWorldsRaidResult';
+const RAID_LIMIT = 'Rift Raid rewards are encrypted on purpose by the game’s developer';
+
 /** Each command once, in the order it was first missed; three named, the rest counted, as JASWA does. */
-function missedCommands(status: Pick<Status, 'missedChanges'>): string {
-  const commands = [...new Set(status.missedChanges.map((miss) => miss.command))];
+function missedCommands(commands: string[]): string {
   return `${commands.slice(0, 3).join(', ')}${commands.length > 3 ? ` and ${commands.length - 3} more` : ''}`;
+}
+
+function gapDetail(status: Pick<Status, 'missedChanges'>): string {
+  const commands = [...new Set(status.missedChanges.map((miss) => miss.command))];
+  const others = commands.filter((command) => command !== RAID_RESULT);
+  if (others.length === 0) {
+    return `${RAID_LIMIT} — a deliberate technical limit no helper update can get around. Everything else keeps arriving; restart Summoners War after your runs to load them.`;
+  }
+  const raid = others.length < commands.length ? ` ${RAID_LIMIT}.` : '';
+  return `The game sent changes the helper cannot read yet (${missedCommands(others)}).${raid} Everything else keeps arriving. Save an error report, then restart Summoners War when it suits you for a complete account.`;
 }
 
 async function readStatus(): Promise<unknown> {
@@ -128,7 +145,7 @@ function reading(status: Status | null): Reading {
       state: 'warn',
       label: 'Missed some',
       headline: 'Following your account, with a gap',
-      detail: `The game sent changes the helper cannot read yet (${missedCommands(status)}). Everything else keeps arriving. Save an error report, then restart Summoners War when it suits you for a complete account.`,
+      detail: gapDetail(status),
     };
   }
   if (status.profileReady) {

@@ -114,6 +114,25 @@ test('a missed change is said on every page while import keeps moving', async ({
   expect(Math.abs(gapBox.width - badgeBox.width)).toBeLessThan(0.25);
   await page.screenshot({ path: testInfo.outputPath('missed-one.png') });
 
+  /* Rift Raid rewards are the game's own limit: said as such, not as a command
+     JASWA has yet to learn, and still a gap. Beside another miss, that one is
+     named and the Raid limit is one sentence after it. */
+  state.missed = [miss('BattleRiftOfWorldsRaidResult'), miss('BattleRiftOfWorldsRaidResult')];
+  await expect(gap).toContainText('a deliberate technical limit no JASWA update can get around');
+  await expect(gap).toContainText('Restart Summoners War after your runs to load them.');
+  await expect(gap).not.toContainText('BattleRiftOfWorldsRaidResult');
+  await expect(gap).toHaveAttribute('data-notice-tone', 'warn');
+  expect(await pageBoxes(page)).toEqual(before);
+  expect(await gap.evaluate((card) => card.scrollWidth - card.clientWidth)).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: testInfo.outputPath('missed-raid.png') });
+  state.missed = [miss('BattleRiftOfWorldsRaidResult'), miss('ConvertArtifactByPiece')];
+  await expect(gap).toContainText('The helper could not read ConvertArtifactByPiece. Rift Raid rewards are encrypted on purpose');
+  await expect(gap).toHaveAttribute('data-notice-tone', 'bad');
+  await expect(gap).not.toContainText('BattleRiftOfWorldsRaidResult');
+  await page.screenshot({ path: testInfo.outputPath('missed-raid-and-one.png') });
+  state.missed = [miss('ConvertArtifactByPiece')];
+  await expect(gap).not.toContainText('Rift Raid');
+
   /* Import goes on beneath the warning: a new revision still arrives. */
   const counted = await badge.textContent();
   const fewer = structuredClone(account);

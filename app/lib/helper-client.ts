@@ -21,6 +21,12 @@ export type HelperConnection = {
   missedCommands: string[];
 };
 
+/* The Rift Raid result, encrypted with a key the game makes for each session
+   and never sends readably (docs/LIVE-IMPORT-COVERAGE.md). Passive reading
+   cannot reach that key, so this miss is the game's limit, not a reader to
+   write, and the gap notice explains it as such. */
+export const raidResultCommand = 'BattleRiftOfWorldsRaidResult';
+
 /* The helper's own list, one entry per miss; a command named once is enough
    to know which part of the game to go and model. `null` when the list is not
    the shape the helper sends. */

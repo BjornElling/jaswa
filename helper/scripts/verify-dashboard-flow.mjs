@@ -235,6 +235,22 @@ try {
     'Following your account, with a gap', 'FutureCommandWithALongName1 and 38 more). Everything else keeps arriving');
   assert.equal((await page.locator('.capture .detail').textContent()).split('FutureRuneGift').length, 2, 'each command is named once');
   await page.screenshot({ path: resolve(output, 'helper-missed-many.png'), fullPage: true });
+  /* Rift Raid rewards are the game's own limit: the card says so, asks for no
+     error report about them, and still reads as a gap. Beside an unknown miss,
+     only the unknown one is named and asks for a report. */
+  await state(
+    { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
+      missedChanges: [missed('BattleRiftOfWorldsRaidResult'), missed('BattleRiftOfWorldsRaidResult')] },
+    'Following your account, with a gap', 'a deliberate technical limit no helper update can get around');
+  const raidDetail = await page.locator('.capture .detail').textContent();
+  assert.ok(!raidDetail.includes('BattleRiftOfWorldsRaidResult') && !raidDetail.includes('error report'), raidDetail);
+  assert.deepEqual(await boxes(), before);
+  await page.screenshot({ path: resolve(output, 'helper-missed-raid.png'), fullPage: true });
+  await state(
+    { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
+      missedChanges: [missed('BattleRiftOfWorldsRaidResult'), missed('FutureRuneGift')] },
+    'Following your account, with a gap', '(FutureRuneGift). Rift Raid rewards are encrypted on purpose');
+  await page.screenshot({ path: resolve(output, 'helper-missed-raid-and-one.png'), fullPage: true });
   await state(
     { hasProfile: false, profileReady: false, restartRequired: true, gameStartedBeforeHelper: true, gameLoginPending: false, lastError: null, source: null },
     'Summoners War was already open', 'found Summoners War running as it started');

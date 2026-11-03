@@ -4,6 +4,7 @@ import { accountCounts } from '../lib/account-counts';
 import type { GeneralSettings, ImportedGame } from '../lib/types';
 import { formatDateTime, formatNumber } from '../lib/formatting';
 import { recommendedHelperVersion } from '../lib/helper-version';
+import { raidResultCommand } from '../lib/helper-client';
 import { HelperDownload } from './helper-download';
 import { Button } from './button';
 
@@ -140,8 +141,9 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
 }) {
   /* A stop outranks a gap: while nothing arrives, which changes were missed
      before is the smaller news. Both use the one slot under the badge. */
+  const unread = missedCommands.filter((command) => command !== raidResultCommand);
   const missed = importStopped === null && connectionError === null && missedCommands.length > 0
-    ? `${missedCommands.slice(0, 3).join(', ')}${missedCommands.length > 3 ? ` and ${missedCommands.length - 3} more` : ''}`
+    ? { commands: `${unread.slice(0, 3).join(', ')}${unread.length > 3 ? ` and ${unread.length - 3} more` : ''}`, raid: unread.length < missedCommands.length }
     : null;
   const stoppedNotice = useRef<HTMLElement | null>(null);
   const updateNotice = useRef<HTMLElement | null>(null);
@@ -200,7 +202,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       <p className="corner-notice-title">Helper connection failed</p>
       <p className="corner-notice-detail">{connectionError}</p>
     </aside>}
-    {missed !== null && <MissedChangesNotice ref={stoppedNotice} commands={missed} />}
+    {missed !== null && <MissedChangesNotice ref={stoppedNotice} commands={missed.commands} raid={missed.raid} />}
     {helperUpdate && <HelperUpdateNotice ref={updateNotice} />}
     {reload && reloadError
       ? <aside ref={toast} className="import-confirmation import-failure" data-notice-tone="bad" role="status" aria-label="Game data reload failed">
@@ -254,9 +256,14 @@ function ImportStoppedNotice({ reason, ref }: { reason: string; ref: Ref<HTMLEle
 
 /* Stands on every page while the helper follows the game with a gap in it. The
    import keeps moving, so this is a warning and not a stop; only a fresh login
-   carries the whole account again. */
-function MissedChangesNotice({ commands, ref }: { commands: string; ref: Ref<HTMLElement> }) {
-  return <aside ref={ref} className="helper-update missed-changes" data-notice-tone="bad" role="status" aria-live="polite" aria-label="Some game changes were missed">
+   carries the whole account again. Rift Raid rewards are the one gap no reader
+   can close — the game encrypts them on purpose — so they are explained as the
+   game's limit rather than listed as a command JASWA has yet to learn. */
+function MissedChangesNotice({ commands, raid, ref }: { commands: string; raid: boolean; ref: Ref<HTMLElement> }) {
+  const raidLimit = 'Rift Raid rewards are encrypted on purpose by the game’s developer';
+  /* Red says something went wrong; a Raid-only gap is nothing wrong, only a
+     restart left to do, which is what yellow says. */
+  return <aside ref={ref} className="helper-update missed-changes" data-notice-tone={commands ? 'bad' : 'warn'} role="status" aria-live="polite" aria-label="Some game changes were missed">
     <p className="corner-notice-title">
       <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor"
         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
@@ -265,10 +272,15 @@ function MissedChangesNotice({ commands, ref }: { commands: string; ref: Ref<HTM
       </svg>
       Live import has a gap
     </p>
-    <p className="corner-notice-detail">
-      The helper could not read {commands}.<br />
-      Everything else keeps arriving. Restart Summoners War for a complete import.
-    </p>
+    {commands
+      ? <p className="corner-notice-detail">
+        The helper could not read {commands}.{raid && ` ${raidLimit}.`}<br />
+        Everything else keeps arriving. Restart Summoners War for a complete import.
+      </p>
+      : <p className="corner-notice-detail">
+        {raidLimit} — a deliberate technical limit no JASWA update can get around.<br />
+        Everything else keeps arriving. Restart Summoners War after your runs to load them.
+      </p>}
   </aside>;
 }
 

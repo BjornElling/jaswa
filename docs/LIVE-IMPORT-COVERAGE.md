@@ -124,6 +124,15 @@ this decision; auxiliary chat and service lookups are not account data.
 | Diagnostic log | `Missed part of <command>: <reason>` |
 | Error report | The first missed exchange and the account before it, for replay |
 
+A missed `BattleRiftOfWorldsRaidResult` is the exception in wording, not in
+visibility. Its cause is the game's per-session response key (below), which no
+reader can reach passively, so the helper window and JASWA name it *Rift Raid
+rewards*, say the game's developer encrypts them on purpose — a deliberate
+technical limit no update can get around — and ask for a game restart after
+the runs rather than an error report. JASWA's card turns yellow rather than
+red, since nothing went wrong. It is still a gap on both surfaces; any
+other miss beside it is named and reported as usual.
+
 The fix for a miss is a reader for its path, found in the saved report with
 `npm run audit:helper-replay`, never a wider rule that would also admit the
 archives above.
