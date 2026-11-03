@@ -17,8 +17,10 @@ export const artifactConvertedPropertyAt = 3;
 export const artifactSubPropertyIndexesAt = 4;
 export const artifactSubPropertyRollPointsAt =
   artifactSubPropertyIndexesAt + artifactSubPropertyCount;
-export const artifactStride =
+export const artifactSubPropertyFamiliesAt =
   artifactSubPropertyRollPointsAt + artifactSubPropertyCount;
+export const artifactStride =
+  artifactSubPropertyFamiliesAt + artifactSubPropertyCount;
 
 export const monsterElementAt = 0;
 export const monsterArchetypeAt = 1;

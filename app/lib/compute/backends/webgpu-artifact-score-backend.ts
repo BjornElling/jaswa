@@ -19,7 +19,7 @@ import { artifactScoreShader } from '../webgpu/artifact-score-shader';
 import {
   artifactCategoryAt, artifactConvertedPropertyAt, artifactMainPropertyAt,
   artifactRestrictionAt, artifactScoreLanes, artifactStride,
-  artifactSubPropertyIndexesAt, artifactSubPropertyRollPointsAt,
+  artifactSubPropertyFamiliesAt, artifactSubPropertyIndexesAt, artifactSubPropertyRollPointsAt,
   artifactSubPropertyCount, engraveClassRows, monsterArchetypeAt,
   monsterElementAt, monsterMainPreferencesAt, monsterMainPropertyCount, monsterStride,
   monsterSubPropertyPreferencesAt,
@@ -45,6 +45,7 @@ function packed(request: ArtifactScoreRequest) {
     for (let line = 0; line < artifactSubPropertyCount; line += 1) {
       artifacts[at + artifactSubPropertyIndexesAt + line] = artifact.subPropertyIndexes[line];
       artifacts[at + artifactSubPropertyRollPointsAt + line] = artifact.subPropertyRollPoints[line];
+      artifacts[at + artifactSubPropertyFamiliesAt + line] = artifact.subPropertyFamilyIndexes[line];
     }
   }
   const monsters = new Float32Array(request.monsters.length * monsterStride);
@@ -145,10 +146,11 @@ function agreementRequest(): ArtifactScoreRequest {
     category: 1 | 2, restriction: number, mainProperty: 0 | 1 | 2, convertedPropertyIndex: number,
     subPropertyIndexes: readonly [number, number, number, number],
     subPropertyRollPoints: readonly [number, number, number, number],
+    subPropertyFamilyIndexes: readonly [number, number, number, number] = subPropertyIndexes,
   ): PackedArtifactScoreInput => ({
-    id: `agreement-${category}-${restriction}-${mainProperty}`,
+    id: `agreement-${category}-${restriction}-${mainProperty}-${convertedPropertyIndex}`,
     category, restriction, mainProperty, convertedPropertyIndex,
-    subPropertyIndexes, subPropertyRollPoints,
+    subPropertyIndexes, subPropertyFamilyIndexes, subPropertyRollPoints,
   });
   const monster = (id: string, element: number, archetype: number): PackedMonsterScoreInput => ({
     id, name: id, element, archetype,
@@ -164,6 +166,9 @@ function agreementRequest(): ArtifactScoreRequest {
       artifact(1, 2, 1, 0, [0, 5, 7, 9], [4, 2.5, 1, 0]),
       artifact(2, 1, 2, -1, [1, 2, 3, 4], [4.5, 4, 3.5, 2.5]),
       artifact(2, 3, 0, -1, [1, 2, 3, 4], [6, 1, 1, 1]),
+      /* A merged legacy line on sub 1: it scores nothing, yet it occupies
+         index 7 — a preferred target the card must refuse as the CPU does. */
+      artifact(1, 1, 0, 3, [-1, 5, 2, 9], [0, 3, 1.5, 0.5], [7, 5, 2, 9]),
     ],
     /* Element 1 is Water and 2 Fire; archetype 1 is Attack and 3 HP — the
        export's codes, which the names say so a reader need not decode them. */

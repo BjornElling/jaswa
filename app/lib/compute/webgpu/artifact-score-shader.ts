@@ -8,7 +8,7 @@ import { gpuIndexPreamble } from '../gpu/gpu-context';
 import {
   artifactCategoryAt, artifactConvertedPropertyAt, artifactMainPropertyAt,
   artifactRestrictionAt, artifactScoreLanes, artifactStride,
-  artifactSubPropertyCount, artifactSubPropertyIndexesAt,
+  artifactSubPropertyCount, artifactSubPropertyFamiliesAt, artifactSubPropertyIndexesAt,
   artifactSubPropertyRollPointsAt,
   monsterArchetypeAt, monsterElementAt, monsterMainPreferencesAt, monsterStride,
   monsterSubPropertyPreferencesAt,
@@ -32,6 +32,9 @@ const ARTIFACT_MAIN_AT: u32 = ${artifactMainPropertyAt}u;
 const ARTIFACT_CONVERTED_AT: u32 = ${artifactConvertedPropertyAt}u;
 const ARTIFACT_INDEXES_AT: u32 = ${artifactSubPropertyIndexesAt}u;
 const ARTIFACT_ROLL_POINTS_AT: u32 = ${artifactSubPropertyRollPointsAt}u;
+// The property each line occupies for the no-duplicates rule: its own, or a
+// merged legacy line's successor. Read by the conversion search only.
+const ARTIFACT_FAMILIES_AT: u32 = ${artifactSubPropertyFamiliesAt}u;
 const ARTIFACT_SUB_PROPERTY_COUNT: u32 = ${artifactSubPropertyCount}u;
 const MONSTER_ELEMENT_AT: u32 = ${monsterElementAt}u;
 const MONSTER_ARCHETYPE_AT: u32 = ${monsterArchetypeAt}u;
@@ -196,9 +199,9 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     if (parameters.conversionMode == 2u && !ownsProperty(restriction, candidate)) { continue; }
     var exists = false;
     for (var line: u32 = 0u; line < ARTIFACT_SUB_PROPERTY_COUNT; line = line + 1u) {
-      if (i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + line])) { exists = true; }
+      if (i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_FAMILIES_AT + line])) { exists = true; }
     }
-    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + source]);
+    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_FAMILIES_AT + source]);
     if (exists && !isSourceProperty) { continue; }
     let band = i32(monsters[monsterOffset + MONSTER_SUB_PREFERENCES_AT + candidate]);
     if (band != 2) { continue; }
@@ -212,9 +215,9 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
     if (parameters.conversionMode == 2u && !ownsProperty(restriction, candidate)) { continue; }
     var exists = false;
     for (var line: u32 = 0u; line < ARTIFACT_SUB_PROPERTY_COUNT; line = line + 1u) {
-      if (i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + line])) { exists = true; }
+      if (i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_FAMILIES_AT + line])) { exists = true; }
     }
-    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_INDEXES_AT + source]);
+    let isSourceProperty = i32(candidate) == i32(artifacts[artifactOffset + ARTIFACT_FAMILIES_AT + source]);
     if (exists && !isSourceProperty) { continue; }
     let band = i32(monsters[monsterOffset + MONSTER_SUB_PREFERENCES_AT + candidate]);
     // A preferred target is always chosen ahead of an acceptable target.

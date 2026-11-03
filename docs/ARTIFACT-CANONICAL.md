@@ -127,6 +127,21 @@ sum to `natural_rank − 1` on every finished record: 334 Rare, 747 Hero,
 *Evidence: the account export (2026-08-30): four tuples on all 1,785 records;
 no `3xx` on a Type artifact and no `4xx` on an Attribute one.*
 
+**A legacy property v8.0.0 merged counts as its successor** for the no-twice rule:
+204 and 205 as 226, 208 and 209 as 225, 402 and 403 as 410 (`mergedInto`).
+An artifact carrying one cannot be converted to the successor on any other
+line, while the legacy line itself may be. Its predecessors stay distinct
+from each other: a 205 stone remains usable beside 204. The packed scorer
+carries this as `subPropertyFamilyIndexes`, apart from the score's
+`subPropertyIndexes`, because a merged legacy line still weighs nothing.
+
+*Evidence for the merge rule: the client's Special Conv. list, 2026-11-04, on a
+Werner (Fire) Attribute artifact carrying ATK Increasing Effect +8 % on line 1
+and the conversion lock on line 4 — it disables the ATK/DEF UP Effect stone and
+offers the DEF UP effect (205) stone. Only 204 → 226 is observed; the other
+pairs are the same v8 merge (§5.1, §5.3) and follow by the same rule. Applying
+it to them can only withhold a proposal, never invent one.*
+
 ---
 
 ## 5. The current property pool

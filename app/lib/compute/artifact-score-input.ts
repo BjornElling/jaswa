@@ -14,7 +14,7 @@ import { monsterSpeciesPresentation } from '../monster-catalog';
 import { monsterSpeciesId } from '../monster-identity';
 import { labelledMonsterName, monsterCopyNames } from '../monster-names';
 import { elementName } from '../rune-sets';
-import { artifactPropertyIndex, categoryCode, scoredArtifactProperties } from './artifact-score-schema';
+import { artifactPropertyFamilyIndex, artifactPropertyIndex, categoryCode, scoredArtifactProperties } from './artifact-score-schema';
 import { artifactFitsClassCodes, artifactScoreRow, intangibleRestrictionCode } from './artifact-score-protocol';
 import type { ArtifactScoreRequest, PackedArtifactScoreInput, PackedMonsterScoreInput } from './artifact-score-protocol';
 import type { ArtifactSettings } from '../types';
@@ -87,6 +87,7 @@ function rollPoints(subProperty: ArtifactSubProperty): number {
 
 function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
   const indexes = artifact.subProperties.map((subProperty) => artifactPropertyIndex.get(subProperty.definition.id) ?? -1);
+  const families = artifact.subProperties.map((subProperty) => artifactPropertyFamilyIndex.get(subProperty.definition.id) ?? -1);
   const points = artifact.subProperties.map(rollPoints);
   return {
     id: artifact.id,
@@ -95,6 +96,7 @@ function packArtifact(artifact: Artifact): PackedArtifactScoreInput {
     mainProperty: mainPropertyIndexes[artifact.mainProperty],
     convertedPropertyIndex: artifact.convertedPropertyIndex ?? -1,
     subPropertyIndexes: [indexes[0], indexes[1], indexes[2], indexes[3]],
+    subPropertyFamilyIndexes: [families[0], families[1], families[2], families[3]],
     subPropertyRollPoints: [points[0], points[1], points[2], points[3]],
   };
 }

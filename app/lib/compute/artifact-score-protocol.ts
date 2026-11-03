@@ -51,6 +51,12 @@ export type PackedArtifactScoreInput = {
   convertedPropertyIndex: number;
   /** Four indexes into `scoredArtifactProperties`, or -1 for legacy lines. */
   subPropertyIndexes: readonly [number, number, number, number];
+  /**
+   * The scored property each line occupies for the no-duplicates rule
+   * (`artifactPropertyFamilyIndex`): the line's own index, a merged legacy
+   * line's successor, or -1. A conversion reads this, never the score.
+   */
+  subPropertyFamilyIndexes: readonly [number, number, number, number];
   /** Each line's value in max-roll points: one maximum natural roll is one point. */
   subPropertyRollPoints: readonly [number, number, number, number];
 };

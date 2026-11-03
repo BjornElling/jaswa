@@ -126,7 +126,7 @@ try {
 
   const artifact = {
     id: 'a', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
-    subPropertyIndexes: [0, 1, 2, 3], subPropertyRollPoints: [1, 1, 1, 1],
+    subPropertyIndexes: [0, 1, 2, 3], subPropertyFamilyIndexes: [0, 1, 2, 3], subPropertyRollPoints: [1, 1, 1, 1],
   };
   const monster = {
     id: 'm', name: 'M', element: 4, archetype: 4,
@@ -194,7 +194,8 @@ try {
     id: 'a', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
     /* Keep the source rolls below a perfect conversion so these fixtures test
        source choice rather than manufacture an impossible improvement. */
-    subPropertyIndexes: [0, 1, 2, 3], subPropertyRollPoints: fractions.map((fraction) => fraction * 1.5),
+    subPropertyIndexes: [0, 1, 2, 3], subPropertyFamilyIndexes: [0, 1, 2, 3],
+    subPropertyRollPoints: fractions.map((fraction) => fraction * 1.5),
   });
   const samePropertyMonster = {
     id: 'm', name: 'M', element: 4, archetype: 4, mainPreferences: [2, 0, 0],
@@ -299,6 +300,7 @@ try {
   const withEmptyLine = {
     ...withRolls([0.9, 0.9, 0.9, 0.9]),
     subPropertyIndexes: [0, 1, 2, -1],
+    subPropertyFamilyIndexes: [0, 1, 2, -1],
   };
   assert.deepEqual(
     scoreArtifactOnMonster(withEmptyLine, sourceMonster([0, 2, 2, 0], [0.01, 0.2, 0.2, 0.01]), request)?.conversion?.equivalentSourceIndexes,
@@ -328,6 +330,7 @@ try {
   const reported = {
     id: '1553', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
     subPropertyIndexes: [line(218), line(405), line(214), line(221)],
+    subPropertyFamilyIndexes: [line(218), line(405), line(214), line(221)],
     subPropertyRollPoints: [4.25, 3, 3.335, 4.5],
   };
   const trianaMonster = {
@@ -346,6 +349,39 @@ try {
     'Triana must be recommended [Skill 1] Accuracy, the better supported of the two acceptables');
   assert.equal(recommended.conversion.sourceIndex, 0,
     'the unwanted line must remain the one converted away');
+
+  // ---- §4: a merged legacy line closes its successor ----------------------
+  /* The Werner artifact from the report: legacy ATK Increasing Effect (204) on
+     sub 1 and the lock on sub 4. JASWA proposed re-converting sub 4 to ATK/DEF
+     UP Effect (226), and the game's Special Conv. list refuses that stone,
+     because v8 merged 204 into 226 and an artifact holds no property twice. */
+  const { artifactPropertyFamilyIndex } = await server.ssrLoadModule('/app/lib/compute/artifact-score-schema.ts');
+  const family = (id) => artifactPropertyFamilyIndex.get(id) ?? -1;
+  for (const [legacy, successor] of [[204, 226], [205, 226], [208, 225], [209, 225], [402, 410], [403, 410]]) {
+    assert.equal(family(legacy), line(successor), `legacy ${legacy} occupies its successor ${successor}`);
+    assert.equal(line(legacy), -1, `legacy ${legacy} still weighs nothing in a score`);
+  }
+  assert.equal(family(203), -1, 'a legacy property v8 merged into nothing occupies no current property');
+  const wernerLines = [204, 224, 219, 222];
+  const werner = {
+    id: 'werner', category: 1, restriction: 2, mainProperty: 1, convertedPropertyIndex: 3,
+    subPropertyIndexes: wernerLines.map(line), subPropertyFamilyIndexes: wernerLines.map(family),
+    subPropertyRollPoints: [0, 2, 2, 1],
+  };
+  const wernerMonster = {
+    id: 'w', name: 'Werner', element: 2, archetype: 1, mainPreferences: [0, 2, 0],
+    subPropertyPreferences: scoredArtifactProperties.map((property) => (property.id === 226 ? 2 : 0)),
+    subPropertyShares: new Array(scoredArtifactProperties.length).fill(0),
+  };
+  assert.ok(!(scoreArtifactOnMonster(werner, wernerMonster, request)?.conversions ?? [])
+    .some((conversion) => conversion.propertyId === 226),
+  'ATK/DEF UP Effect is never offered beside ATK Increasing Effect');
+  /* The legacy line itself may still become its successor: that leaves one copy. */
+  const onLegacyLine = scoreArtifactOnMonster({ ...werner, convertedPropertyIndex: 0 }, wernerMonster, request);
+  assert.equal(onLegacyLine?.conversion?.propertyId, 226, 'the merged legacy line may be converted to its successor');
+  assert.deepEqual(onLegacyLine?.conversion?.equivalentSourceIndexes, [0], 'and only that line');
+  assert.ok(artifactScoreShader.includes('ARTIFACT_FAMILIES_AT + line])) { exists = true; }'),
+    'the GPU scorer must test duplicates on the families the CPU tests');
 
   // ---- §17.4: re-conversion improves the whole artifact -------------------
   /* Line 0 is the converted slot and holds a property the monster does not want.
@@ -369,7 +405,7 @@ try {
   lowGainPreferences[bombDamageIndex] = 1;
   const lowGainArtifact = {
     id: 'threshold', category: 2, restriction: 4, mainProperty: 0, convertedPropertyIndex: -1,
-    subPropertyIndexes: [-1, -1, -1, -1], subPropertyRollPoints: [0, 0, 0, 0],
+    subPropertyIndexes: [-1, -1, -1, -1], subPropertyFamilyIndexes: [-1, -1, -1, -1], subPropertyRollPoints: [0, 0, 0, 0],
   };
   const lowGainMonster = {
     id: 'threshold', name: 'Threshold', element: 4, archetype: 4,

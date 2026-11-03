@@ -116,9 +116,11 @@ function candidateAllowed(
   if (availability !== 0 && availability !== artifact.category) return false;
   /* A conversion may reroll the source line into the same property. It still
      leaves the artifact with one copy of that property; other properties
-     already present remain unavailable targets. */
-  if (artifact.subPropertyIndexes.includes(propertyIndex)
-    && artifact.subPropertyIndexes[sourceIndex] !== propertyIndex) return false;
+     already present remain unavailable targets. A legacy line v8 merged counts
+     as its successor here, as the game counts it: ATK Increasing Effect on one
+     line closes ATK/DEF UP Effect to every other (§4). */
+  if (artifact.subPropertyFamilyIndexes.includes(propertyIndex)
+    && artifact.subPropertyFamilyIndexes[sourceIndex] !== propertyIndex) return false;
   return mode !== 2 || owned.has(propertyIndex);
 }
 
@@ -229,7 +231,7 @@ export function scoreArtifactOnMonster(
         /* A same-property reroll is only valid on the line that already holds
            that property; the other equivalent source lines would create a
            duplicate. */
-        equivalentSourceIndexes: propertyIndex === artifact.subPropertyIndexes[sourceIndex]
+        equivalentSourceIndexes: propertyIndex === artifact.subPropertyFamilyIndexes[sourceIndex]
           ? [sourceIndex] : equivalentSourceIndexes,
         propertyId: scoredArtifactProperties[propertyIndex].id,
         value,

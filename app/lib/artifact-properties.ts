@@ -31,6 +31,12 @@ export type ArtifactPropertyDefinition = {
   status: 'current' | 'legacy';
   minRoll: number | null;
   maxRoll: number | null;
+  /**
+   * The current property v8.0.0 merged this legacy one into. The game counts a
+   * line of either as the same property, so an artifact holding the legacy line
+   * cannot be converted to its successor (`ARTIFACT-CANONICAL.md` §4).
+   */
+  mergedInto?: number;
 };
 
 /* Grades carry the contribution count as data (`ARTIFACT-CANONICAL.md` §3), so
@@ -250,23 +256,26 @@ export const artifactProperties: readonly ArtifactPropertyDefinition[] = [
   { id: 201, name: 'DEF Increased Proportional to Lost HP', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 202, name: 'SPD Increased Proportional to Lost HP', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 203, name: 'SPD Under Inability Effects', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 204, name: 'ATK Increasing Effect', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 205, name: 'DEF Increasing Effect', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
+  /* 204 and 205 are what v8 merged into 226, and the game still counts each
+     as 226: the Special Conv. list refuses an ATK/DEF UP Effect stone on an
+     artifact carrying 204 while it offers a 205 stone there (§4). */
+  { id: 204, name: 'ATK Increasing Effect', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null, mergedInto: 226 },
+  { id: 205, name: 'DEF Increasing Effect', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null, mergedInto: 226 },
   { id: 207, name: 'CRIT Rate Increasing Effect', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   /* 208 and 209 are the pre-v8 halves of what §5.1 records as a merge, both
      confirmed on artifact panels: "Counterattack DMG" and "Co-op attack DMG",
      which v8 combined into 225 "Counterattack/Co-op Attack DMG". Each half is
      named after the side of that survivor it became — the same shape, and the
      same reason they are legacy, as 402/403 → 410. */
-  { id: 208, name: 'Counterattack DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 209, name: 'Co-op Attack DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
+  { id: 208, name: 'Counterattack DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null, mergedInto: 225 },
+  { id: 209, name: 'Co-op Attack DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null, mergedInto: 225 },
   { id: 211, name: 'Damage Dealt by Reflect DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 212, name: 'Crushing Hit DMG', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 213, name: 'Damage Received Under Inability Effects', valueSign: '−', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 216, name: 'HP when Revived', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
   { id: 217, name: 'Attack Bar when Revived', availability: 'both', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 402, name: '[Skill 3] CRIT DMG', availability: 'type', status: 'legacy', minRoll: null, maxRoll: null },
-  { id: 403, name: '[Skill 4] CRIT DMG', availability: 'type', status: 'legacy', minRoll: null, maxRoll: null },
+  { id: 402, name: '[Skill 3] CRIT DMG', availability: 'type', status: 'legacy', minRoll: null, maxRoll: null, mergedInto: 410 },
+  { id: 403, name: '[Skill 4] CRIT DMG', availability: 'type', status: 'legacy', minRoll: null, maxRoll: null, mergedInto: 410 },
 ];
 
 const propertiesById = new Map(artifactProperties.map((property) => [property.id, property]));
