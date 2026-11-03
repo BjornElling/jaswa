@@ -1,7 +1,8 @@
 import { filterIncludes, filterPair } from '../lib/filter-selection';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
-import { Button, FilterButton, InlineButton } from './button';
+import { Button, FilterButton, InlineButton, LabelSwap } from './button';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { EngravedPlace } from './engraved-place';
@@ -17,9 +18,10 @@ import { emptyRunePlacement, hasRunePlacement } from '../lib/rune-placement';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import { craftKindLabels, craftLineageLabels, craftRollLabels, craftRollAssumptions,
-  defaultCraftRollAssumption, craftSetLabel, itemGrades, missingCraftGrades, missingCraftItems,
-  missingCraftLineages } from '../lib/rune-craft-items';
-import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption } from '../lib/rune-craft-items';
+  craftSetLabel, itemGrades, missingCraftItems } from '../lib/rune-craft-items';
+import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
+import { craftChangeOptions, craftFilterFields, craftKinds, craftSuggestionCounts, craftViewOffers, defaultCraftViewChoice } from '../lib/craft-view-choices';
+import type { CraftViewChoice, CraftViewMode } from '../lib/craft-view-choices';
 import { craftItemRange } from '../lib/rune-craft-end-state';
 import { runeStatIds, runeStatName, runeLineStat, runeLineFigure } from '../lib/runes';
 import type { Rune } from '../lib/runes';
@@ -31,56 +33,11 @@ import { craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecomme
   extendCraftCalculation, heldCraftBenchmark, reconcileCraftCalculation,
   isHeldCraft, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
-import { useSessionStorageState } from '../lib/session-storage-state';
 import { useRuneKeepers } from './use-rune-keepers';
 import { craftIgnoreKey } from '../lib/craft-ignores';
 import type { CraftIgnore } from '../lib/craft-ignores';
-import { readSettings, isBoolean, isOneOf, isWholeNumberIn } from '../lib/preference-reading';
 
-/**
- * The three questions Gems & Grinds asks of one engine:
- * - `recommendations`: where the box's items do the most good;
- * - `selected`: where one chosen stack does the most good;
- * - `missing`: which items the box lacks would beat the best it can already do.
- */
-export type CraftViewMode = 'recommendations' | 'selected' | 'missing';
-
-const craftKinds: readonly CraftKind[] = ['gem', 'grindstone'];
-const craftLineages: readonly CraftLineage[] = ['standard', 'immemorial', 'ancient'];
-const alreadyOptions = ['yes', 'no'] as const;
-
-/* What's missing names an item by its set, never Immemorial, and asks only
-   about the grades worth chasing (`missingCraftItems`), so its two groups offer
-   only those choices. */
-const modeChoices: Record<CraftViewMode, { lineages: readonly CraftLineage[]; grades: readonly ItemGrade[]; storageKey: string }> = {
-  recommendations: { lineages: craftLineages, grades: itemGrades, storageKey: 'jaswa.filters.craft-recommendations' },
-  selected: { lineages: craftLineages, grades: itemGrades, storageKey: 'jaswa.filters.craft-best-use' },
-  missing: { lineages: missingCraftLineages, grades: missingCraftGrades, storageKey: 'jaswa.filters.craft-missing' },
-};
-
-const defaultState = {
-  kinds: ['grindstone'] as CraftKind[], lineages: [] as CraftLineage[], grades: [] as ItemGrade[],
-  statId: '', selectedItemId: '', set: '', roll: defaultCraftRollAssumption,
-  grindAfter: false, grindGrade: 'Legend' as ItemGrade, showEngraved: true, showInventory: true, count: 5,
-  already: [] as Array<typeof alreadyOptions[number]>,
-  /** Best use only: the runes Rune Clean-up's calculation itself keeps. */
-  keepOnly: false,
-};
-type State = typeof defaultState;
-/** Reset filters returns these and only these: the item kind, the chosen stack and the assumptions are the question, not a filter. */
-const filterFields = ['lineages', 'grades', 'statId', 'set', 'showEngraved', 'showInventory', 'count', 'already', 'keepOnly'] as const;
-const isString = (value: unknown) => typeof value === 'string';
-const isListOf = <T,>(choices: readonly T[]) => (value: unknown) => Array.isArray(value) && value.every(isOneOf(choices));
-const stateReaders = Object.fromEntries((Object.keys(modeChoices) as CraftViewMode[]).map((mode) => [mode, {
-  read: (value: unknown): State => readSettings(value, defaultState, {
-    kinds: (value) => Array.isArray(value) && value.length === 1 && isOneOf(craftKinds)(value[0]),
-    lineages: isListOf(modeChoices[mode].lineages), grades: isListOf(modeChoices[mode].grades),
-    statId: (value) => value === '' || runeStatIds.some((id) => String(id) === value),
-    selectedItemId: isString, set: isString, roll: isOneOf(craftRollAssumptions), grindAfter: isBoolean,
-    grindGrade: isOneOf(itemGrades), showEngraved: isBoolean, showInventory: isBoolean, count: isWholeNumberIn(1, 10),
-    already: isListOf(alreadyOptions), keepOnly: isBoolean,
-  }),
-}])) as Record<CraftViewMode, { read: (value: unknown) => State }>;
+type State = CraftViewChoice;
 
 /** `Legend Violent · SPD Grind`, with the Ancient mark drawn rather than spelled. */
 function CraftItemName({ item }: { item: CraftItem }) {
@@ -101,7 +58,7 @@ const ignoreOf = (row: CraftRecommendation): CraftIgnore => ({ runeId: row.rune.
 const immemorialAlternative = (item: CraftItem) => item.amount === 0 && item.lineage === 'standard'
   ? `An Immemorial ${item.statName} ${craftKindLabels[item.kind]} of this grade fits too` : undefined;
 
-export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles, general, settings, hardwareAcceleration, onOpenRune, calculation, onCalculated, ignores, onIgnore }: {
+export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles, general, settings, hardwareAcceleration, onOpenRune, calculation, onCalculated, ignores, onIgnore, choice: state, onChoiceChange: setState }: {
   mode: CraftViewMode;
   items: readonly CraftItem[]; runes: readonly Rune[]; monsters: readonly GameRecord[];
   profiles: MonsterPreferences; roles: readonly RuneRole[]; general: GeneralSettings;
@@ -111,10 +68,12 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   ignores: readonly CraftIgnore[];
   /** Adds an entry, or with `null` clears the shared list. */
   onIgnore: (entry: CraftIgnore | null) => void;
+  /** This view's question and filters, saved with the preferences so they outlast a restart. */
+  choice: CraftViewChoice;
+  onChoiceChange: (update: (current: CraftViewChoice) => CraftViewChoice) => void;
 }) {
-  const choices = modeChoices[mode];
-  const [state, setState] = useSessionStorageState(choices.storageKey, defaultState, stateReaders[mode]);
-  const kind = state.kinds.length === 1 ? state.kinds[0] : 'grindstone';
+  const choices = craftViewOffers[mode];
+  const kind = state.kind;
   const prefix = `craft-${mode}`;
   const alreadyLabel = kind === 'grindstone' ? 'Stat already grinded' : "Can change gem'ed stat?";
   const format = (value: number) => formatNumber(value, general);
@@ -227,9 +186,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     return { ...previous, [key]: chosen.includes(value) ? chosen.filter((entry) => entry !== value) : [...chosen, value] };
   });
   const choiceGroup = <T extends string,>(label: string, area: string, values: readonly T[], isActive: (value: T) => boolean,
-    onToggle: (value: T) => void, display: (value: T) => string, title?: (value: T) => string, accessibleLabel = label) =>
+    onToggle: (value: T) => void, display: (value: T) => string, title?: (value: T) => string, accessibleLabel = label, shownLabel: ReactNode = label) =>
     <div className={`filter-group craft-view-${area}`} role="group" aria-label={accessibleLabel}>
-      <span className="filter-label">{label}</span>
+      <span className="filter-label">{shownLabel}</span>
       <div className="filter-group-controls">{values.map((value) => <FilterButton key={value} active={isActive(value)}
         title={title?.(value)} onClick={() => onToggle(value)}>{display(value)}</FilterButton>)}</div>
     </div>;
@@ -324,24 +283,17 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     </section>;
   }
 
-  /* What's missing tries the side column first: the buttons, their report and
-     Most wanted in a column of their own, so none of them waits on where the
-     question's controls happen to end. The other views follow once it is agreed. */
-  const sideColumn = mode === 'missing';
+  /* The buttons that ask, in Rune Optimization's order: Clear results, Calculate, and its stop as a mark beside it rather than a second button of its weight. */
   const actions = <div className="craft-calculation-actions">
-    {sideColumn && <Button disabled={!current && !result} onClick={clear}>Clear results</Button>}
+    <Button disabled={!current && !result} onClick={clear}>Clear results</Button>
     <Button tone="primary" size="prominent" className="craft-calculate" busy={current?.busy} busyLabel="Calculating…" disabled={Boolean(empty) || current?.busy}
       onClick={calculate}>Calculate</Button>
-    {!sideColumn && <Button disabled={!current && !result} onClick={clear}>Clear results</Button>}
-    {sideColumn
-      /* Rune Optimization's stop: a mark beside the button it stops, not a second button of its weight. */
-      ? <Button tone="danger" size="prominent" className="craft-cancel" disabled={!current?.busy}
-        aria-label="Cancel the calculation" title="Cancel the calculation" onClick={clear}>
-        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-          <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-      </Button>
-      : <Button disabled={!current?.busy} onClick={clear}>Cancel</Button>}
+    <Button tone="danger" size="prominent" className="craft-cancel" disabled={!current?.busy}
+      aria-label="Cancel the calculation" title="Cancel the calculation" onClick={clear}>
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    </Button>
   </div>;
   const status = <div className="craft-calculation-status">
     {current?.busy || current?.error || !result
@@ -352,7 +304,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           : keepers.calibration !== null
             ? `Calibrating Rune Clean-up… ${format(Math.round(keepers.calibration * 100))} % · only needed once`
             : `Asking Rune Clean-up which runes it keeps… ${format(Math.floor(keepers.progress * 100))} %`}</p>
-        : <CalculationStatus twoLines={sideColumn} durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />}
+        : <CalculationStatus twoLines durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />}
   </div>;
   /* Kept in the column before there is an answer, quiet until there is one, so
      the column has its shape from the start. */
@@ -380,7 +332,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   </section>;
   const resets = <div className="filter-panel-actions craft-view-actions">
     <Button className="filter-reset" onClick={() => setState((previous) => ({ ...previous,
-      ...Object.fromEntries(filterFields.map((field) => [field, defaultState[field]])) }))}
+      ...Object.fromEntries(craftFilterFields.map((field) => [field, defaultCraftViewChoice[field]])) }))}
     aria-label={`Reset ${{ recommendations: 'recommendations', selected: 'best use', missing: "what's missing" }[mode]} filters`}>Reset filters</Button>
     {/* Kept mounted while there is nothing to reset, so the panel never changes height. */}
     <Button className="filter-reset" disabled={!ignores.length} onClick={() => onIgnore(null)}
@@ -390,10 +342,10 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   return <div className="craft-best-use" data-mode={mode}>
     <div className="craft-controls">
     {/* The question: which kind of item, which stack where there is one to
-        choose, what each roll is assumed to give, and the button that asks it.
-        Everything in the panel below only narrows the answer. */}
+        choose and what each roll is assumed to give. Everything in the panel
+        below only narrows the answer. */}
     <div className="filter-panel craft-question">
-      {choiceGroup('Item', 'kind', craftKinds, (value) => kind === value, (value) => update('kinds', [value]),
+      {choiceGroup('Item', 'kind', craftKinds, (value) => kind === value, (value) => update('kind', value),
         (value) => value === 'gem' ? 'Enchanted gem' : 'Grindstone')}
       {mode === 'selected' && <div className="filter-group craft-view-select">
         <label className="filter-label" htmlFor={`${prefix}-item`}>Craft item</label><div className="filter-group-controls">
@@ -410,11 +362,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           title={grindPossible ? 'Grind the gemmed property at the assumed grade and roll' : 'The offered item stats cannot be ground'} onClick={() => update('grindAfter', !state.grindAfter)}>Yes</FilterButton>
           <Dropdown value={state.grindGrade} disabled={!state.grindAfter || !grindPossible} aria-label="Grade of the grindstone to assume"
             onChange={(event) => update('grindGrade', event.target.value as ItemGrade)}>{itemGrades.map((grade) => <option key={grade}>{grade}</option>)}</Dropdown></div></div>
-      {!sideColumn && actions}
-      {!sideColumn && status}
     </div>
-    {/* Two rows with one subject each — the item, then the rune it goes on —
-        and the length of every ranking with the way back beside them. */}
     <div className="filter-panel craft-best-use-filters">
       {choiceGroup('Family', 'lineage', choices.lineages, (value) => state.lineages.includes(value), (value) => toggle('lineages', value),
         (value) => craftLineageLabels[value])}
@@ -423,29 +371,33 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       <div className="filter-group craft-view-stat"><label className="filter-label" htmlFor={`${prefix}-stat`}>Stat</label><div className="filter-group-controls">
         <Dropdown id={`${prefix}-stat`} value={state.statId} placeholder="Any stat" aria-label="Narrow the list to one stat" onChange={(event) => update('statId', event.target.value)}>
           {runeStatIds.map((id) => <option key={id} value={id}>{runeStatName(id)}</option>)}</Dropdown></div></div>
-      <div className="filter-group craft-view-count"><span className="filter-label">Suggestions per list</span><div className="filter-group-controls">
-        <ValueSlider minimum={1} maximum={10} value={state.count} label="Number of runes listed in each ranking" valueText={(value) => `${value} runes in each ranking`}
-          onChange={(count) => update('count', count)} /></div></div>
+      {/* The slider runs over the stops, not the counts, so each stop is one step of the hand. */}
+      <div className="filter-group craft-view-count"><span className="filter-label">No. of suggestions</span><div className="filter-group-controls">
+        <ValueSlider minimum={0} maximum={craftSuggestionCounts.length - 1} value={Math.max(0, craftSuggestionCounts.indexOf(state.count))}
+          label="Number of runes listed in each ranking" valueText={(at) => `${craftSuggestionCounts[at]} runes in each ranking`}
+          valueLabel={(at) => String(craftSuggestionCounts[at])}
+          onChange={(at) => update('count', craftSuggestionCounts[at] ?? defaultCraftViewChoice.count)} /></div></div>
       <div className="filter-group craft-view-set"><label className="filter-label" htmlFor={`${prefix}-set`}>Rune set</label><div className="filter-group-controls">
         <Dropdown id={`${prefix}-set`} value={state.set ?? ''} placeholder="Any rune set" aria-label="Filter candidate runes by set"
           onChange={(event) => update('set', event.target.value)}>{sets.map((set) => <option key={set}>{set}</option>)}</Dropdown></div></div>
       {choiceGroup('Location', 'location', ['showEngraved', 'showInventory'] as const, (key) => state[key], (key) => update(key, !state[key]),
         (key) => key === 'showEngraved' ? 'Engraved' : 'Inventory', undefined, 'Choose rune locations')}
-      {choiceGroup(alreadyLabel, 'already', alreadyOptions, (value) => state.already.includes(value), (value) => toggle('already', value),
+      {choiceGroup(alreadyLabel, 'already', craftChangeOptions, (value) => state.already.includes(value), (value) => toggle('already', value),
         (value) => value === 'yes' ? 'Yes' : 'No', kind === 'gem'
           ? (value) => value === 'yes' ? 'Allow changing an existing Gem to another stat' : 'Keep the existing Gem stat; a better same-stat Gem is still allowed'
-          : undefined)}
+          : undefined, alreadyLabel,
+        /* Both wordings keep their room, so switching the item kind cannot move the groups beside this one. */
+        <LabelSwap faces={{ grindstone: 'Stat already grinded', gem: "Can change gem'ed stat?" }} showing={kind} />)}
       {/* Rune Clean-up's calculated Keep, read past the sell safeguards: Power up,
           Re-app, Refine and a rune kept only by a safeguard all stay out. */}
       {mode === 'selected' && choiceGroup('Only keep-runes', 'keep', ['yes'] as const, () => state.keepOnly,
         () => update('keepOnly', !state.keepOnly), () => 'Yes', () => 'Only runes whose calculated Rune Clean-up verdict is Keep')}
-      {!sideColumn && resets}
     </div>
     </div>
-    {sideColumn && <aside className="craft-side">
+    <aside className="craft-side">
       <div className="craft-side-actions">{actions}{status}{resets}</div>
-      {wantedBox}
-    </aside>}
+      {mode === 'missing' && wantedBox}
+    </aside>
     {result && keepersSettled && <div className="craft-best-use-results" data-kind={kind}>
       {ranking('Highest score', rankings.highestScore)}{ranking('Highest gain', rankings.highestGain)}
       {kind === 'grindstone' && <div className="craft-stat-rankings">{rankings.highestStat.size ? [...rankings.highestStat].sort(([a], [b]) => a - b).map(([stat, rows]) =>

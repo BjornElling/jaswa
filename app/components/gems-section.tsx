@@ -3,7 +3,7 @@ import { useMemo, useSyncExternalStore } from 'react';
 import { AncientName } from './ancient-mark';
 import { FilterButton } from './button';
 import { CraftItemBestUse } from './craft-item-best-use';
-import type { CraftViewMode } from './craft-item-best-use';
+import type { CraftViewChoice, CraftViewMode } from '../lib/craft-view-choices';
 import { craftResultMemory, missingCraftResultMemory } from '../lib/compute/craft-result-memory';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { Dropdown } from './dropdown';
@@ -123,12 +123,13 @@ const craftColumns: readonly SortableColumn<CraftRow>[] = (() => {
   ];
 })();
 
-export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraft }: {
+export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraft, onCraftViewChange }: {
   game: ImportedGame | null;
   roles: readonly RuneRole[];
   preferences: Preferences;
   onOpenRune: OpenRuneOverlay;
   onIgnoreCraft: (entry: CraftIgnore | null) => void;
+  onCraftViewChange: (mode: CraftViewMode, update: (current: CraftViewChoice) => CraftViewChoice) => void;
 }) {
   const craftCalculation = useSyncExternalStore(craftResultMemory.subscribe, craftResultMemory.getSnapshot, craftResultMemory.getSnapshot);
   const missingCalculation = useSyncExternalStore(missingCraftResultMemory.subscribe, missingCraftResultMemory.getSnapshot, missingCraftResultMemory.getSnapshot);
@@ -245,6 +246,8 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
     onCalculated={mode === 'missing' ? missingCraftResultMemory.remember : craftResultMemory.remember}
     ignores={preferences.craftIgnores}
     onIgnore={onIgnoreCraft}
+    choice={preferences.craftViews[mode]}
+    onChoiceChange={(update) => onCraftViewChange(mode, update)}
   />;
 
   /* Recommendations leads: it is the question most visits come with — what to

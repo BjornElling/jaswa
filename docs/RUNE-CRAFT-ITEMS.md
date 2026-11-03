@@ -110,26 +110,35 @@ in that order; the box alone opens by itself. All three craft views are one
 component, `craft-item-best-use.tsx`, with one mode each, and read
 `rune-craft-recommendations.ts`.
 
-Every view has two panels. The question panel holds the item kind, the stack
-(Best use only), Assumed roll, Then grind it, and Calculate, Clear results and
-Cancel with the calculation status beneath them. The filter panel runs one
-subject per row — the item (Family, Grade, Stat), then the rune it goes on
-(Rune set, Location, Stat already grinded / gem'ed, and in Best use Only
-keep-runes) — with the ranking length and Reset filters in the last column.
-The other views leave Only keep-runes' cell empty, so no group moves between
-views.
+Every view is laid out in columns of one height. First the controls, as one
+surface: the question — the item kind, the stack (Best use only), Assumed roll
+and Then grind it — and beneath it, with no rule between them, the filters in
+two rows: Family, Grade, Location and (Best use only) Only keep-runes; then
+Rune set, Stat, Stat already grinded / Can change gem'ed stat? and
+*No. of suggestions*, the ranking length. Item and Family share a first track
+as wide as Rune set's field, and every other track is as wide as its widest
+group, so no gap opens between columns. The other views leave Only
+keep-runes' cell empty, so no group moves between views; the grinded / gem'ed
+group keeps room for both its wordings, so switching the item kind moves
+nothing. Where the controls share the row with Most wanted, or the screen is
+narrower, the filters take three tracks and the ranking length a row of its
+own.
 
-What's missing is laid out in three columns of one height, and the other views
-are to follow once it is settled. The controls come first: the two panels as
-one surface with a rule between them, the filters in three columns — Family,
-Grade, Location; Rune set, Stat, Stat already grinded / gem'ed — and
-*Suggestions per list*, the ranking length, on a row of its own. Then a column
-for Clear results, Calculate, the cancelling ✕ (Rune Optimization's stop), the
-status beneath them and Reset filters and Reset ignored at its foot. Last, at
-the far edge, *Most wanted* in a box of the Statistics kind: ten rows always,
-whatever the ranking length, in the caption size so the box stays narrow.
-Reset filters returns the filter panel
-only; the item kind, the chosen stack and the assumptions are the question.
+Then a column of its own for Clear results, Calculate, the cancelling ✕
+(Rune Optimization's stop), the calculation status beneath them, and Reset
+filters and Reset ignored at its foot. In What's missing, *Most wanted* follows
+at the far edge in a box of the Statistics kind: ten rows always, whatever the
+ranking length, in the caption size so the box stays narrow.
+
+*No. of suggestions* runs over the stops 1, 5, 10, 25, 50 and 100: one step of
+the hand should matter, and the difference between 60 and 65 runes does not.
+A view opens on Grindstone, an Average roll, a Hero grind after a Gem, no
+Location chosen (every rune, under the inclusive-filter rule) and five
+suggestions. Each view's question and filters are saved choices
+(`craftViews`, `craft-view-choices.ts`), so they outlast a reload and a
+restart; the three views keep theirs apart. Reset filters returns the filter
+panel only; the item kind, the chosen stack and the assumptions are the
+question.
 
 Recommendations and Best use read `rune-craft-recommendations.ts`. Every calculation reads
 all held Gems, all held Grindstones and all runes, independently of the filters.

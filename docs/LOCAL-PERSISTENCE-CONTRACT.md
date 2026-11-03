@@ -38,6 +38,7 @@ reader, one choice at a time (`app/lib/preference-reading.ts`, AGENTS.md §0):
 | `monsterPreferences` | Each copy's profile, keyed by content-area — `scenario`, `content:<content id>` or `unassigned` (`monster-profile-scope.ts`) — then by `unit_id`: nickname, rune builds and slot mains, the switches that qualify them, leads in `scenario` alone (ATK, DEF, HP and CRI Rate, one saved answer each; another area's are its presets' leaders', never saved, and a stored one is dropped alone), the main stat wanted on all gear, the substats wanted in each artifact category and the relic uniques — each a preferred and an accepted band — and the stat ranges (`DECK-PRESETS.md` §4.1) | `readMonsterPreferences` (`monster-preferences.ts`) |
 | `runeHolds` | Runes the user made unsellable | `readRuneHolds` (`rune-holds.ts`) |
 | `craftIgnores` | One shared list of Gems & Grinds suggestions waved away with Ignore: a `rune_id`, an item kind and the item's stat | `readCraftIgnores` (`craft-ignores.ts`) |
+| `craftViews` | Per Gems & Grinds view — Recommendations, Best use and What's missing — the question (item kind, chosen stack, assumed roll, the grind after a Gem and its grade) and the filters | `readCraftViewChoices` (`craft-view-choices.ts`) |
 | `runePotential` | Rune Clean-up settings, with its re-app and refine targets | `readSettings`; `readReappTargets` (`rune-reapp-targets.ts`) |
 | `runeRoles` | Rune Clean-up roles | `readRuneRoles` (`rune-roles.ts`) |
 | `artifacts` | Artifact Optimization settings: owned or Lv. 40 monsters only, how conversion stones are sourced, the assumed stone value, the acceptable-property factor | `readSettings` |
@@ -59,8 +60,8 @@ table filters are stored in `sessionStorage`. They survive page navigation and
 reloads in the same tab, but are not part of the durable workspace and are not
 shared with another tab. Invalid stored values are ignored and the interface
 returns to its current default; a fresh tab starts on Home with all disclosure
-bars closed. Recommendations, Best use and What's missing read their filter fields through
-`readSettings`, so one invalid or newly added choice does not reset the others.
+bars closed. Gems & Grinds' views are not session state: their choices are
+the durable `craftViews` section.
 
 ## What is not a saved choice
 
@@ -88,6 +89,8 @@ section:
   preset no longer holds is left out and one it gained since is read last.
 - **`presetWrites`** — Scenario's list, a game preset's order and the presets
   built in JASWA. A preset built in JASWA that fails its check is dropped alone.
+- **`updateCraftView`** — one Gems & Grinds view's question or filter; the
+  other views' choices are left as they are.
 - **`updateCraftIgnores`** — Gems & Grinds' Ignore adds one entry to its
   shared list, once; Reset ignored empties it for every view without changing
   any other preference.

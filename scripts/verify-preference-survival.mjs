@@ -40,6 +40,10 @@ try {
     },
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true } },
     craftIgnores: [{ runeId: '901', kind: 'grindstone', statId: 8 }, { runeId: '902', kind: 'gem', statId: 4 }],
+    craftViews: { ...blank.craftViews,
+      recommendations: { ...blank.craftViews.recommendations, kind: 'gem', roll: 'maximum', grindAfter: false, count: 25, showEngraved: true, set: 'Violent' },
+      missing: { ...blank.craftViews.missing, grades: ['Legend'], already: ['no'], count: 100 },
+    },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
     runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
@@ -212,6 +216,18 @@ try {
   assert.deepEqual(readPreferences({ ...chosen, craftIgnores: [] }, null).craftIgnores, [], 'reset stays empty');
   assert.deepEqual(readPreferences({ ...chosen, craftIgnores: { selected: 'unreadable', missing: [chosen.craftIgnores[1]] } }, null).craftIgnores,
     [chosen.craftIgnores[1]], 'one unreadable list cannot discard its neighbour');
+
+  /* A Gems & Grinds view loses only the choice it cannot read: a count off the
+     slider's stops, a grade the view does not offer, a whole view that is not a record. */
+  const views = readPreferences({ ...chosen, craftViews: {
+    recommendations: { ...chosen.craftViews.recommendations, count: 7 },
+    selected: 'unreadable',
+    missing: { ...chosen.craftViews.missing, grades: ['Normal'] },
+  } }, null).craftViews;
+  assert.deepEqual(views.recommendations, { ...chosen.craftViews.recommendations, count: blank.craftViews.recommendations.count },
+    'a count off the stops costs only the count');
+  assert.deepEqual(views.selected, blank.craftViews.selected, 'an unreadable view starts from its defaults');
+  assert.deepEqual(views.missing, { ...chosen.craftViews.missing, grades: [] }, "a grade What's missing does not offer costs only the grades");
 
   /* A priority entry that cannot be read costs that entry; the order of the rest stands. */
   const priority = readPreferences({ ...chosen, monsterPriority: ['18', 5, '', '17', '18'] }, null);

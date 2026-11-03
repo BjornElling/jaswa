@@ -35,6 +35,7 @@ import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
 import type { CraftIgnore } from './lib/craft-ignores';
 import { withCraftIgnore } from './lib/craft-ignores';
+import type { CraftViewChoice, CraftViewMode } from './lib/craft-view-choices';
 import { heldRuneLocks, lockedRuneIds, noRuneLocks, readRuneLocks, runeLockOf, runeLockScope, withRuneLock } from './lib/rune-locks';
 import type { RuneLock, RuneLocks } from './lib/rune-locks';
 import type { MonsterReference, OpenMonsterOverlay } from './components/monster-link';
@@ -544,6 +545,11 @@ export default function Home() {
       ? [] : withCraftIgnore(current.craftIgnores, entry) }));
   }
 
+  /* Each view keeps its own question and filters; a change to one never touches another. */
+  function updateCraftView(mode: CraftViewMode, update: (current: CraftViewChoice) => CraftViewChoice) {
+    changePreferences((current) => ({ ...current, craftViews: { ...current.craftViews, [mode]: update(current.craftViews[mode]) } }));
+  }
+
   function updateHardwareAcceleration(enabled: boolean) {
     changePreferences((current) => ({ ...current, hardwareAcceleration: enabled }));
   }
@@ -894,6 +900,7 @@ export default function Home() {
         preferences={preferences}
         onOpenRune={openRuneOverlay}
         onIgnoreCraft={updateCraftIgnores}
+        onCraftViewChange={updateCraftView}
       /></Suspense>}
 
       {page === 'speed' && <Suspense fallback={<WorkspaceLoading />}><SpeedTuningSection

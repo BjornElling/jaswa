@@ -189,7 +189,8 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       window.removeEventListener('resize', update);
       watcher.disconnect();
     };
-  }, [badge, badgeShown, helperUpdate, importStopped, connectionError, missed, toastShown, reload, reloadError]);
+  /* The notice's wording, not the object rebuilt on every render, is what can move the cards. */
+  }, [badge, badgeShown, helperUpdate, importStopped, connectionError, missed?.commands, missed?.raid, toastShown, reload, reloadError]);
 
   return <>
     {reload && <Button ref={reloadButton} size="card" className="game-reload" busy={reloading}
