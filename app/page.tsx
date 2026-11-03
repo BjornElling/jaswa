@@ -104,7 +104,7 @@ export default function Home() {
   const [loadPreferencesPrompt, setLoadPreferencesPrompt] = useState(false);
   const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
   const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
-  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ captureError: null, state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedCommands: [] });
+  const [helperConnection, setHelperConnection] = useState<HelperConnection>({ captureError: null, state: 'checking', detail: 'Run the helper. Then roll for initiative.', version: null, updateAvailable: false, profileReady: false, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, instanceId: '', revision: 0, sessionId: 0, missedChanges: [] });
   const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
   const [overlay, setOverlay] = useState<OverlayTarget | null>(null);
   const [optimizerVisit, setOptimizerVisit] = useState(0);
@@ -808,7 +808,7 @@ export default function Home() {
         helperUpdate={helperUpdateDue}
         importStopped={game ? liveImportStopped : null}
         connectionError={preferences.importRoute === 'direct' && (helperConnection.state === 'unavailable' || helperConnection.restartRequired) ? helperStatusMessage(helperConnection) : null}
-        missedCommands={game && preferences.importRoute === 'direct' && helperConnection.state === 'ready' ? helperConnection.missedCommands : []}
+        missedChanges={game && preferences.importRoute === 'direct' && helperConnection.state === 'ready' ? helperConnection.missedChanges : []}
         confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} />
 
       {page === 'home' && <HomeSection

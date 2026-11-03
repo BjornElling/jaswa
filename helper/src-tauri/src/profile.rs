@@ -77,7 +77,29 @@ pub struct Status {
 pub struct MissedChange {
     pub command: String,
     pub reason: String,
+    pub cause: MissCause,
 }
+
+/// Why a change was missed, because the two ask different things of the user.
+#[derive(Clone, Copy, Serialize, PartialEq, Eq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum MissCause {
+    /// Sealed with the game's per-session key (`protocol::session_encrypted`):
+    /// no helper update can read it, only a fresh login restates the account.
+    Encrypted,
+    /// Anything else: readable in principle, so a reader is still to be written
+    /// and an error report is what lets someone write it.
+    Unread,
+}
+
+/* Encrypted answers proven to change nothing JASWA models. A command joins only
+when both halves are established: the miss was `Encrypted` (never merely
+unread, which is a reader to write), and nothing its answer can carry —
+monsters, runes, artifacts, relics, craft items, decks — is read by JASWA.
+Such a miss is written to the diagnostic log and kept off the status, since
+no gap a user could see follows from it. Empty: every encrypted answer seen
+so far (Rift Raid results) carries craft items. */
+const IRRELEVANT_ENCRYPTED_COMMANDS: &[&str] = &[];
 
 /// What the last `apply_update` did not take as the account's.
 #[derive(Clone, Default)]
@@ -163,9 +185,12 @@ impl ProfileStore {
 
     /// Records a change the game made that the snapshot does not carry, for
     /// an exchange the account reader never saw (an unreadable answer).
-    pub fn note_missed(&mut self, command: &str, reason: &str) {
+    pub fn note_missed(&mut self, command: &str, reason: &str, cause: MissCause) {
+        if cause == MissCause::Encrypted && IRRELEVANT_ENCRYPTED_COMMANDS.contains(&command) {
+            return;
+        }
         if self.profile.is_some() && self.missed_changes.len() < MISSED_CHANGES_KEPT {
-            self.missed_changes.push(MissedChange { command: command.to_owned(), reason: reason.to_owned() });
+            self.missed_changes.push(MissedChange { command: command.to_owned(), reason: reason.to_owned(), cause });
         }
     }
 
@@ -173,7 +198,7 @@ impl ProfileStore {
         if self.declined.before.is_none() {
             self.declined.before = self.read().and_then(|profile| serde_json::to_value(profile).ok());
         }
-        self.note_missed(command, &reason);
+        self.note_missed(command, &reason, MissCause::Unread);
         self.declined.missed.push(reason);
     }
 
@@ -3986,6 +4011,44 @@ mod phantom_rune_regression {
         }
     }
 
+    /* A sale of summoning pieces answers with the stack it sold from, at its new
+    total; read as a miss (November 3, 2026), it opened a gap on every page for
+    a stack the account already listed. Selling the last piece leaves a zero
+    remainder, never a lower stack kept from before. */
+    #[test]
+    fn selling_summoning_pieces_reads_the_remaining_stack() {
+        for populated in [false, true] {
+            let mut store = ProfileStore::default();
+            let mut inventory = vec![json!({"rid":20,"wizard_id":7,"item_master_type":1,"item_master_id":14102,"item_quantity":50})];
+            if populated {
+                inventory.push(json!({"rid":21,"wizard_id":7,"item_master_type":1,"item_master_id":14103,"item_quantity":12}));
+            }
+            assert!(store.accept_snapshot(json!({"wizard_id":7,"unit_list":[],"runes":[],"inventory_info":inventory})));
+            let request = json!({"command":"sellSummonPieces","item_master_type":1,"item_master_id":14102,"sell_count":20});
+            for remaining in [30, 0] {
+                let item = json!({"rid":20,"wizard_id":7,"item_master_type":1,"item_master_id":14102,"item_quantity":remaining});
+                assert!(store.apply_update(&json!({"ret_code":0,"item_info":item}), &request));
+                assert!(store.take_declined().missed.is_empty());
+                assert!(store.status().missed_changes.is_empty(), "a read sale is no gap");
+                let data = store.read().unwrap().data;
+                let stacks = data["inventory_info"].as_array().unwrap();
+                assert_eq!(stacks.len(), if populated { 2 } else { 1 });
+                assert_eq!(stacks.iter().find(|stack| stack["rid"] == 20).unwrap()["item_quantity"], remaining);
+                if populated { assert_eq!(stacks.iter().find(|stack| stack["rid"] == 21).unwrap()["item_quantity"], 12); }
+            }
+            let data = store.read().unwrap().data;
+            let mut malformed = json!({"rid":20,"wizard_id":7,"item_master_type":1,"item_master_id":14102});
+            assert!(!store.apply_update(&json!({"ret_code":0,"item_info":malformed.clone()}), &request));
+            assert!(store.take_declined().missed.iter().any(|reason| reason.contains("item_info is incomplete")),
+                "a sale that does not state the new total is said, not guessed");
+            assert_eq!(store.read().unwrap().data, data);
+            malformed["item_quantity"] = json!(5);
+            malformed["wizard_id"] = json!(8);
+            assert!(!store.apply_update(&json!({"ret_code":0,"item_info":malformed}), &request));
+            assert_eq!(store.read().unwrap().data, data, "another account's stack is never read");
+        }
+    }
+
     #[test]
     fn unknown_actions_cannot_spend_or_remove_current_inventory() {
         let mut store = ProfileStore::default();
@@ -4296,7 +4359,8 @@ mod phantom_rune_regression {
             assert_eq!(declined.missed, vec!["1 rune record at gift_box.rune was not read".to_owned()]);
             assert!(declined.before.is_some(), "the miss keeps the account it can be replayed from");
             assert_eq!(store.status().missed_changes, vec![MissedChange {
-                command: "FutureRuneGift".into(), reason: "1 rune record at gift_box.rune was not read".into() }]);
+                command: "FutureRuneGift".into(), reason: "1 rune record at gift_box.rune was not read".into(),
+                cause: MissCause::Unread }]);
             assert!(store.apply_update(&json!({"ret_code": 0, "changed_item_list": [{"type": 8, "info": rune(6)}]}),
                 &json!({"command": "BattleDungeonResult_V2"})));
             assert!(collection(&store.read().unwrap().data, "runes").iter().any(|item| item["rune_id"] == 6));

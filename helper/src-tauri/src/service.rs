@@ -2,8 +2,8 @@ use crate::{
     config::{GATEWAYS, HELPER_PORT, HOSTS_MARKER, allowed_origin, data_directory},
     diagnostics,
     incidents::Incidents,
-    profile::{ProfileStore, requires_account_response},
-    protocol::{decode_request, decode_response},
+    profile::{MissCause, ProfileStore, requires_account_response},
+    protocol::{decode_request, decode_response, session_encrypted},
     traffic::TrafficLog,
 };
 use rcgen::{
@@ -976,7 +976,7 @@ fn record_uncertain_exchange(shared: &Shared, wire_request: &[u8], response: &[u
     if login {
         store.clear();
     } else if gateway && request.as_ref().is_some_and(requires_account_response) {
-        if let Some(command) = command { store.note_missed(command, error); }
+        if let Some(command) = command { store.note_missed(command, error, MissCause::Unread); }
     }
     drop(store);
     let mut incidents = shared.incidents.lock().expect("incident lock poisoned");
@@ -1271,10 +1271,10 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     /* An answer to an account command that could not be read at all. The
     account keeps every change before it and takes every change after it; the
     miss is said on the status until the next login replaces the account. */
-    let missed = |command: &str, reason: String| {
+    let missed = |command: &str, reason: String, cause: MissCause| {
         diagnostics::record("capture", &format!("Missed {command}: {reason}"));
         let mut profile = shared.profile.lock().expect("profile lock poisoned");
-        profile.note_missed(command, &reason);
+        profile.note_missed(command, &reason, cause);
         let before = profile.read().and_then(|value| serde_json::to_value(value).ok());
         drop(profile);
         shared
@@ -1319,7 +1319,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     let command_name = command.to_owned();
     let required_snapshot = is_snapshot_command(command);
     let required_account = required_snapshot || requires_account_response(&request);
-    let fail = |reason: String| {
+    let fail = |reason: String, cause: MissCause| {
         if required_snapshot {
             diagnostics::record("capture", &reason);
             shared
@@ -1328,13 +1328,13 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
                 .expect("incident lock poisoned")
                 .fail_login(&reason, wire_request, wire_response);
         } else {
-            missed(&command_name, reason);
+            missed(&command_name, reason, cause);
         }
     };
     let Ok(response_text) = std::str::from_utf8(http_body(response)) else {
         unreadable(Some(command), Some(&request), "The gateway response body was not text.");
         if required_account {
-            fail(format!("The response to {command_name} was not text."));
+            fail(format!("The response to {command_name} was not text."), MissCause::Unread);
         } else {
             diagnostics::record(
                 "capture",
@@ -1348,9 +1348,10 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         Err(error) => {
             unreadable(Some(command), Some(&request), &error);
             if required_account {
+                let cause = if session_encrypted(response_text) { MissCause::Encrypted } else { MissCause::Unread };
                 fail(format!(
                     "Could not decode the response to {command_name}: {error}"
-                ));
+                ), cause);
             } else {
                 // The game routes chat and service lookups through this gateway
                 // too. They are not account data, so their separate envelope
@@ -1368,7 +1369,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     if !response.is_object() {
         unreadable(Some(command), Some(&request), "The gateway response was not an object.");
         if required_account {
-            fail(format!("{command_name} has no response object."));
+            fail(format!("{command_name} has no response object."), MissCause::Unread);
         } else {
             diagnostics::record(
                 "capture",
@@ -1390,7 +1391,7 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
             drop(profile);
             fail(format!(
                 "{command_name} did not contain a valid account snapshot. The old account was discarded."
-            ));
+            ), MissCause::Unread);
             return;
         }
         shared
@@ -2212,7 +2213,7 @@ mod tests {
             assert_eq!(shared.recovery.load(Ordering::Acquire), 1);
             assert!(shared.last_error.lock().unwrap().is_none());
             shared.incidents.lock().unwrap().record("missing response", b"request", b"", Some(before.clone()));
-            shared.profile.lock().unwrap().note_missed("BattleRiftOfWorldsRaidResult", "unreadable response");
+            shared.profile.lock().unwrap().note_missed("BattleRiftOfWorldsRaidResult", "unreadable response", MissCause::Encrypted);
             let evidence = shared.incidents.lock().unwrap().report();
             let missed = shared.profile.lock().unwrap().status().missed_changes;
             recover_connections(&shared);
@@ -2368,6 +2369,8 @@ mod tests {
         let profile = shared.profile.lock().unwrap();
         assert_eq!(profile.status().missed_changes.len(),1);
         assert_eq!(profile.status().missed_changes[0].command,"BattleRiftOfWorldsRaidResult");
+        assert_eq!(profile.status().missed_changes[0].cause,MissCause::Encrypted,
+            "a session-key answer is the game's encryption, not a reader still to write");
         assert_eq!(profile.read().unwrap().data["runes"][0]["upgrade_curr"],15);
         assert_eq!(profile.read().unwrap().data["rune_craft_item_list"][0]["amount"],1);
     }

@@ -14,7 +14,8 @@ type Status = {
   source: string | null;
   updatedAt: string | null;
   /** Changes the game made that the snapshot does not carry, since the last login. */
-  missedChanges: { command: string; reason: string }[];
+  /** `encrypted` carried the game's per-session-key marker; `unread` is a reader still to write. */
+  missedChanges: { command: string; reason: string; cause: 'encrypted' | 'unread' }[];
 };
 
 type Traffic = {
@@ -39,31 +40,36 @@ function validDashboard(value: unknown): value is Dashboard {
     && Array.isArray(status.missedChanges)
     && status.missedChanges.every((miss: unknown) => Boolean(miss) && typeof miss === 'object'
       && typeof (miss as { command?: unknown }).command === 'string'
-      && typeof (miss as { reason?: unknown }).reason === 'string')
+      && typeof (miss as { reason?: unknown }).reason === 'string'
+      && ['encrypted', 'unread'].includes((miss as { cause?: unknown }).cause as string))
     && Number.isSafeInteger(traffic.entries) && traffic.entries >= 0);
 }
 
-/* Rift Raid results are encrypted with a key the game makes for each session
-   and never sends readably (docs/LIVE-IMPORT-COVERAGE.md, "Raid response-key
-   negotiation"). Passive reading cannot reach it, so this one gap is the game's
-   design rather than a reader still to write: the window says so instead of
-   asking for another error report about it. It stays a gap all the same. */
+/* An encrypted miss carried the game's per-session-key marker, whose key never
+   crosses the wire readably (docs/LIVE-IMPORT-COVERAGE.md, "Raid response-key
+   negotiation"): the game's design, not a reader still to write, so the window
+   says so instead of asking for an error report about it. An unread miss is
+   the opposite, and the report is what lets it be fixed. Each sentence names
+   only its own kind, so one never reads as the explanation of the other. The
+   Rift Raid result is the one encrypted answer seen so far, and the user knows
+   it as rewards rather than as a command name. */
 const RAID_RESULT = 'BattleRiftOfWorldsRaidResult';
-const RAID_LIMIT = 'Rift Raid rewards are encrypted on purpose by the game’s developer';
 
 /** Each command once, in the order it was first missed; three named, the rest counted, as JASWA does. */
-function missedCommands(commands: string[]): string {
-  return `${commands.slice(0, 3).join(', ')}${commands.length > 3 ? ` and ${commands.length - 3} more` : ''}`;
+function nameSome(names: string[]): string {
+  return `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}`;
 }
 
 function gapDetail(status: Pick<Status, 'missedChanges'>): string {
-  const commands = [...new Set(status.missedChanges.map((miss) => miss.command))];
-  const others = commands.filter((command) => command !== RAID_RESULT);
-  if (others.length === 0) {
-    return `${RAID_LIMIT} — a deliberate technical limit no helper update can get around. Everything else keeps arriving; restart Summoners War after your runs to load them.`;
+  const of = (cause: 'encrypted' | 'unread') =>
+    [...new Set(status.missedChanges.filter((miss) => miss.cause === cause).map((miss) => miss.command))];
+  const unread = of('unread');
+  const sealed = nameSome(of('encrypted').map((command) => command === RAID_RESULT ? 'Rift Raid rewards' : `${command} answers`));
+  if (unread.length === 0) {
+    return `${sealed} are encrypted on purpose by the game’s developer — a deliberate limit no helper update can get around. Everything else keeps arriving; restart Summoners War after your runs to load them.`;
   }
-  const raid = others.length < commands.length ? ` ${RAID_LIMIT}.` : '';
-  return `The game sent changes the helper cannot read yet (${missedCommands(others)}).${raid} Everything else keeps arriving. Save an error report, then restart Summoners War when it suits you for a complete account.`;
+  const also = sealed ? ` ${sealed} were missed too: the game’s developer encrypts them on purpose.` : '';
+  return `The game sent changes the helper cannot read yet (${nameSome(unread)}).${also} Everything else keeps arriving. Save an error report, then restart Summoners War when it suits you for a complete account.`;
 }
 
 async function readStatus(): Promise<unknown> {

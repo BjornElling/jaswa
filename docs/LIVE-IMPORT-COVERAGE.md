@@ -54,6 +54,7 @@ this (`guild_boss_crate_history_cannot_restore_sold_runes`,
 3. A few commands add one named root envelope each, written beside the rule in
    `Scope::root_edge`: the attacking team of `battleGuildRivalStart`, the root
    `upgrade_rune_list` of `UpgradeRuneList`, `result_from` of a Shrine move,
+   `item_info` of `BuyBlackMarketItem` and `sellSummonPieces`,
    and a bundled gear operation (for example `UpdateArtifactOccupation` inside
    `UpdateUnitEquip`) with its own successful `ret_code`. Only the mail entries
    a successful `ReceiveMail` names are opened; the rest of the inbox stays a
@@ -118,19 +119,48 @@ this decision; auxiliary chat and service lookups are not account data.
 
 | Surface | What it shows |
 | --- | --- |
-| `/health` | `missedChanges`: `{command, reason}` per miss since the login, at most 50 |
+| `/health` | `missedChanges`: `{command, reason, cause}` per miss since the login, at most 50 |
 | Helper window | *Following your account, with a gap*, naming each command once |
 | JASWA, every page | *Live import has a gap* under the import badge, naming up to three commands |
 | Diagnostic log | `Missed part of <command>: <reason>` |
 | Error report | The first missed exchange and the account before it, for replay |
 
-A missed `BattleRiftOfWorldsRaidResult` is the exception in wording, not in
-visibility. Its cause is the game's per-session response key (below), which no
-reader can reach passively, so the helper window and JASWA name it *Rift Raid
-rewards*, say the game's developer encrypts them on purpose — a deliberate
-technical limit no update can get around — and ask for a game restart after
-the runs rather than an error report. It is still a gap on both surfaces; any
-other miss beside it is named and reported as usual.
+### Encrypted or unread
+
+Every miss carries a `cause`, and the two ask opposite things of the user.
+
+- **`encrypted`** is proven, never supposed: the answer could not be decoded
+  *and* carries the game's per-session-key marker over whole AES blocks
+  (`protocol::session_encrypted`). That key never crosses the wire readably
+  (below), so no reader can open the answer passively. The surfaces call it the
+  game developer's deliberate limit, ask for a game restart rather than an
+  error report, and name a Raid result *Rift Raid rewards*.
+- **`unread`** is every other miss: a record off the read paths, an answer
+  that is not text, JSON or an object, or a broken envelope without the
+  marker. It is a reader JASWA still has to write, and the surfaces say a JASWA
+  update can fix it and ask for an error report.
+
+The cause, not the command name, decides. A Raid result that failed without
+the marker is `unread`, and another command sealed with the session key is
+`encrypted` under its own name. When both kinds stand, each sentence names only
+its own commands: one sentence once followed the other's, and read as if a
+sale of summoning pieces were a Rift Raid reward.
+
+**An encrypted miss that changes nothing JASWA models may be left unsaid.**
+`IRRELEVANT_ENCRYPTED_COMMANDS` in `profile.rs` lists such commands; one on it
+is written to the diagnostic log and kept off the status. A command joins only
+when both halves are established: its misses are `encrypted`, and nothing its
+answer can carry is read by JASWA. An `unread` miss never qualifies, however
+little its command matters, because a readable answer is a reader to write.
+The list is empty: the only encrypted answer seen, the Raid result, carries
+craft items.
+
+`sellSummonPieces` was the first case this rule decided (November 3, 2026). It
+looked like a gap to wave away, since JASWA does nothing with summoning pieces,
+but its miss was `unread` — *1 inventory record at item_info was not read* — so
+it was read instead: like `BuyBlackMarketItem`, its root `item_info` is the one
+inventory stack it changed, at its new total, and a record without a valid
+`item_quantity` stays a miss.
 
 JASWA's gap card is yellow for every miss, Raid or not. Import goes on and a
 restart closes the gap, so it is something left to do rather than something

@@ -24,7 +24,7 @@ function withOneRuneTwice(): Account {
 
 test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
-type Miss = { command: string; reason: string };
+type Miss = { command: string; reason: string; cause: 'encrypted' | 'unread' };
 
 async function serveHelper(page: Page, state: { revision: number; data: Account; error?: string | null; missed?: Miss[]; ready?: boolean }) {
   const headers = { 'Access-Control-Allow-Origin': '*' };
@@ -81,7 +81,8 @@ test('a helper-side stop is visible over the current page and clears on same-rev
  */
 test('a missed change is said on every page while import keeps moving', async ({ page }, testInfo) => {
   const state: { revision: number; data: Account; error?: string | null; missed?: Miss[] } = { revision: 1, data: account, missed: [] };
-  const miss = (command: string): Miss => ({ command, reason: '1 rune record at gift_box.rune was not read' });
+  const miss = (command: string, cause: Miss['cause'] = 'unread'): Miss => ({ command, reason: '1 rune record at gift_box.rune was not read', cause });
+  const sealed = (command: string) => miss(command, 'encrypted');
   const gap = page.getByRole('status', { name: 'Some game changes were missed' });
   await serveHelper(page, { ...state, missed: [miss('FutureRuneGift')] });
   await page.goto('/');
@@ -104,7 +105,7 @@ test('a missed change is said on every page while import keeps moving', async ({
 
   state.missed = [miss('ConvertArtifactByPiece')];
   await expect(gap).toBeVisible();
-  await expect(gap).toContainText('The helper could not read ConvertArtifactByPiece.');
+  await expect(gap).toContainText('The helper cannot read ConvertArtifactByPiece yet — a JASWA update can fix that.');
   await expect(gap).toContainText('Everything else keeps arriving.');
   /* A gap is a warning, never the red of a stop. */
   await expect(gap).toHaveAttribute('data-notice-tone', 'warn');
@@ -116,22 +117,30 @@ test('a missed change is said on every page while import keeps moving', async ({
   expect(Math.abs(gapBox.width - badgeBox.width)).toBeLessThan(0.25);
   await page.screenshot({ path: testInfo.outputPath('missed-one.png') });
 
-  /* Rift Raid rewards are the game's own limit: said as such, not as a command
-     JASWA has yet to learn, and still a gap. Beside another miss, that one is
-     named and the Raid limit is one sentence after it. */
-  state.missed = [miss('BattleRiftOfWorldsRaidResult'), miss('BattleRiftOfWorldsRaidResult')];
-  await expect(gap).toContainText('a deliberate technical limit no JASWA update can get around');
+  /* An encrypted miss is the game's own limit: said as such, not as a command
+     JASWA has yet to learn, and still a gap. Beside an unread miss each sentence
+     names only its own kind — the Raid sentence once read as the reason a sale
+     of summoning pieces was missed. */
+  state.missed = [sealed('BattleRiftOfWorldsRaidResult'), sealed('BattleRiftOfWorldsRaidResult')];
+  await expect(gap).toContainText('Rift Raid rewards are encrypted on purpose by the game’s developer — a deliberate limit no JASWA update can get around.');
   await expect(gap).toContainText('Restart Summoners War after your runs to load them.');
   await expect(gap).not.toContainText('BattleRiftOfWorldsRaidResult');
   await expect(gap).toHaveAttribute('data-notice-tone', 'warn');
   expect(await pageBoxes(page)).toEqual(before);
   expect(await gap.evaluate((card) => card.scrollWidth - card.clientWidth)).toBeLessThanOrEqual(0);
   await page.screenshot({ path: testInfo.outputPath('missed-raid.png') });
-  state.missed = [miss('BattleRiftOfWorldsRaidResult'), miss('ConvertArtifactByPiece')];
-  await expect(gap).toContainText('The helper could not read ConvertArtifactByPiece. Rift Raid rewards are encrypted on purpose');
+  state.missed = [sealed('BattleRiftOfWorldsRaidResult'), miss('sellSummonPieces')];
+  await expect(gap).toContainText('The helper cannot read sellSummonPieces yet — a JASWA update can fix that. Rift Raid rewards were missed too: the game’s developer encrypts them on purpose.');
+  await expect(gap).toContainText('Restart Summoners War for a complete import.');
   await expect(gap).toHaveAttribute('data-notice-tone', 'warn');
   await expect(gap).not.toContainText('BattleRiftOfWorldsRaidResult');
+  expect(await gap.evaluate((card) => card.scrollWidth - card.clientWidth)).toBeLessThanOrEqual(0);
   await page.screenshot({ path: testInfo.outputPath('missed-raid-and-one.png') });
+  /* The cause decides, not the command: an unread Raid result is a reader to
+     fix, and another sealed answer is the game's limit under its own name. */
+  state.missed = [miss('BattleRiftOfWorldsRaidResult'), sealed('FutureSealedAnswer')];
+  await expect(gap).toContainText('The helper cannot read BattleRiftOfWorldsRaidResult yet');
+  await expect(gap).toContainText('FutureSealedAnswer answers were missed too');
   state.missed = [miss('ConvertArtifactByPiece')];
   await expect(gap).not.toContainText('Rift Raid');
 

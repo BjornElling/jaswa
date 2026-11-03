@@ -216,7 +216,7 @@ try {
   /* A missed change is a gap to know about, never a stop: the card warns and
      names the command, and capture goes on. One command, then the same one
      repeated beside forty others, which the card names once each and trims. */
-  const missed = (command) => ({ command, reason: '1 rune record at gift_box.rune was not read' });
+  const missed = (command, cause = 'unread') => ({ command, reason: '1 rune record at gift_box.rune was not read', cause });
   await state(
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live', missedChanges: [missed('FutureRuneGift')] },
     'Following your account, with a gap', '(FutureRuneGift). Everything else keeps arriving');
@@ -235,22 +235,31 @@ try {
     'Following your account, with a gap', 'FutureCommandWithALongName1 and 38 more). Everything else keeps arriving');
   assert.equal((await page.locator('.capture .detail').textContent()).split('FutureRuneGift').length, 2, 'each command is named once');
   await page.screenshot({ path: resolve(output, 'helper-missed-many.png'), fullPage: true });
-  /* Rift Raid rewards are the game's own limit: the card says so, asks for no
-     error report about them, and still reads as a gap. Beside an unknown miss,
-     only the unknown one is named and asks for a report. */
+  /* An encrypted miss is the game's own limit: the card says so, asks for no
+     error report about it, and still reads as a gap. Beside an unread miss,
+     each sentence names only its own kind, so the Raid sentence can never read
+     as the reason the other command was missed. */
+  const encrypted = (command) => missed(command, 'encrypted');
   await state(
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
-      missedChanges: [missed('BattleRiftOfWorldsRaidResult'), missed('BattleRiftOfWorldsRaidResult')] },
-    'Following your account, with a gap', 'a deliberate technical limit no helper update can get around');
+      missedChanges: [encrypted('BattleRiftOfWorldsRaidResult'), encrypted('BattleRiftOfWorldsRaidResult')] },
+    'Following your account, with a gap', 'Rift Raid rewards are encrypted on purpose by the game’s developer — a deliberate limit no helper update can get around');
   const raidDetail = await page.locator('.capture .detail').textContent();
   assert.ok(!raidDetail.includes('BattleRiftOfWorldsRaidResult') && !raidDetail.includes('error report'), raidDetail);
   assert.deepEqual(await boxes(), before);
   await page.screenshot({ path: resolve(output, 'helper-missed-raid.png'), fullPage: true });
   await state(
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
-      missedChanges: [missed('BattleRiftOfWorldsRaidResult'), missed('FutureRuneGift')] },
-    'Following your account, with a gap', '(FutureRuneGift). Rift Raid rewards are encrypted on purpose');
+      missedChanges: [encrypted('BattleRiftOfWorldsRaidResult'), missed('sellSummonPieces')] },
+    'Following your account, with a gap', '(sellSummonPieces). Rift Raid rewards were missed too: the game’s developer encrypts them on purpose.');
   await page.screenshot({ path: resolve(output, 'helper-missed-raid-and-one.png'), fullPage: true });
+  /* The cause, not the command, decides: a Raid result the helper merely failed
+     to read is a reader to fix, and another command sealed with the session key
+     is the game's limit under its own name. */
+  await state(
+    { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
+      missedChanges: [missed('BattleRiftOfWorldsRaidResult'), encrypted('FutureSealedAnswer')] },
+    'Following your account, with a gap', '(BattleRiftOfWorldsRaidResult). FutureSealedAnswer answers were missed too');
   await state(
     { hasProfile: false, profileReady: false, restartRequired: true, gameStartedBeforeHelper: true, gameLoginPending: false, lastError: null, source: null },
     'Summoners War was already open', 'found Summoners War running as it started');

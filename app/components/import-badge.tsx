@@ -4,7 +4,8 @@ import { accountCounts } from '../lib/account-counts';
 import type { GeneralSettings, ImportedGame } from '../lib/types';
 import { formatDateTime, formatNumber } from '../lib/formatting';
 import { recommendedHelperVersion } from '../lib/helper-version';
-import { raidResultCommand } from '../lib/helper-client';
+import { missedChangesNotice } from '../lib/helper-client';
+import type { HelperMiss } from '../lib/helper-client';
 import { HelperDownload } from './helper-download';
 import { Button } from './button';
 
@@ -119,7 +120,7 @@ function placeNotice(notice: HTMLElement, badge: HTMLElement | null, gap: number
  * Both are overlays rather than lines in Game data. Neither may push the
  * choices the user was about to make down the page.
  */
-export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, connectionError, missedCommands, confirmation, general }: {
+export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, connectionError, missedChanges, confirmation, general }: {
   reload: boolean;
   reloadError: string | null;
   reloading: boolean;
@@ -134,17 +135,14 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
   importStopped: string | null;
   /** A failed helper connection or missed login, even before the first import. */
   connectionError: string | null;
-  /** Commands whose changes the helper could not read while import goes on; empty when none. */
-  missedCommands: string[];
+  /** Changes the helper could not read while import goes on; empty when none. */
+  missedChanges: readonly HelperMiss[];
   confirmation: ImportedGame | null;
   general: GeneralSettings;
 }) {
   /* A stop outranks a gap: while nothing arrives, which changes were missed
      before is the smaller news. Both use the one slot under the badge. */
-  const unread = missedCommands.filter((command) => command !== raidResultCommand);
-  const missed = importStopped === null && connectionError === null && missedCommands.length > 0
-    ? { commands: `${unread.slice(0, 3).join(', ')}${unread.length > 3 ? ` and ${unread.length - 3} more` : ''}`, raid: unread.length < missedCommands.length }
-    : null;
+  const missed = importStopped === null && connectionError === null ? missedChangesNotice(missedChanges) : null;
   const stoppedNotice = useRef<HTMLElement | null>(null);
   const updateNotice = useRef<HTMLElement | null>(null);
   const reloadButton = useRef<HTMLButtonElement | null>(null);
@@ -190,7 +188,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       watcher.disconnect();
     };
   /* The notice's wording, not the object rebuilt on every render, is what can move the cards. */
-  }, [badge, badgeShown, helperUpdate, importStopped, connectionError, missed?.commands, missed?.raid, toastShown, reload, reloadError]);
+  }, [badge, badgeShown, helperUpdate, importStopped, connectionError, missed?.gap, missed?.next, toastShown, reload, reloadError]);
 
   return <>
     {reload && <Button ref={reloadButton} size="card" className="game-reload" busy={reloading}
@@ -203,7 +201,7 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       <p className="corner-notice-title">Helper connection failed</p>
       <p className="corner-notice-detail">{connectionError}</p>
     </aside>}
-    {missed !== null && <MissedChangesNotice ref={stoppedNotice} commands={missed.commands} raid={missed.raid} />}
+    {missed !== null && <MissedChangesNotice ref={stoppedNotice} gap={missed.gap} next={missed.next} />}
     {helperUpdate && <HelperUpdateNotice ref={updateNotice} />}
     {reload && reloadError
       ? <aside ref={toast} className="import-confirmation import-failure" data-notice-tone="bad" role="status" aria-label="Game data reload failed">
@@ -257,11 +255,8 @@ function ImportStoppedNotice({ reason, ref }: { reason: string; ref: Ref<HTMLEle
 
 /* Stands on every page while the helper follows the game with a gap in it. The
    import keeps moving, so this is a warning and not a stop; only a fresh login
-   carries the whole account again. Rift Raid rewards are the one gap no reader
-   can close — the game encrypts them on purpose — so they are explained as the
-   game's limit rather than listed as a command JASWA has yet to learn. */
-function MissedChangesNotice({ commands, raid, ref }: { commands: string; raid: boolean; ref: Ref<HTMLElement> }) {
-  const raidLimit = 'Rift Raid rewards are encrypted on purpose by the game’s developer';
+   carries the whole account again. What it says is `missedChangesNotice`'s. */
+function MissedChangesNotice({ gap, next, ref }: { gap: string; next: string; ref: Ref<HTMLElement> }) {
   /* Yellow, whatever was missed: import goes on and a restart closes the gap,
      which is something left to do, not something broken. Red belongs to a
      stopped import or a lost helper, where nothing arrives any more. */
@@ -274,15 +269,7 @@ function MissedChangesNotice({ commands, raid, ref }: { commands: string; raid: 
       </svg>
       Live import has a gap
     </p>
-    {commands
-      ? <p className="corner-notice-detail">
-        The helper could not read {commands}.{raid && ` ${raidLimit}.`}<br />
-        Everything else keeps arriving. Restart Summoners War for a complete import.
-      </p>
-      : <p className="corner-notice-detail">
-        {raidLimit} — a deliberate technical limit no JASWA update can get around.<br />
-        Everything else keeps arriving. Restart Summoners War after your runs to load them.
-      </p>}
+    <p className="corner-notice-detail">{gap}<br />{next}</p>
   </aside>;
 }
 

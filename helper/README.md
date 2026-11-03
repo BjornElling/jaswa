@@ -238,10 +238,12 @@ before and after it is captured as usual. `/health` lists each miss in
 shows *Following your account, with a gap*, and JASWA shows *Live import has a
 gap* on every page, naming the commands. Save an error report to keep
 the exchange for modelling, and restart Summoners War when it suits you for a
-complete account. Rift Raid rewards are the one miss explained instead of
-named: the game encrypts them with a per-session key on purpose, so both
-surfaces say that no update can read them live and that a game restart after
-the runs loads them. `docs/LIVE-IMPORT-COVERAGE.md` explains the reading rule.
+complete account. Each miss carries a `cause`: `encrypted` when the answer is
+sealed with the game's per-session key (proven by its marker), `unread`
+otherwise. An encrypted miss is explained instead of reported — no update can
+read it live, and a game restart after the runs loads it; a Raid result is
+named *Rift Raid rewards*. `docs/LIVE-IMPORT-COVERAGE.md` explains the reading
+rule and the two causes.
 
 In JASWA, **Read on game start** also offers **Reload game data** below the
 account counts. It reads the helper's latest snapshot on demand and replaces
