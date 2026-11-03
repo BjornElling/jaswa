@@ -345,7 +345,7 @@ legacy id**; refusing one would refuse a legal artifact.
 
 | Id | Property | Retired | A stone converts to |
 | ---: | --- | --- | --- |
-| 203 | SPD Under Inability Effects | v6.2.0 | not yet read |
+| 203 | SPD Under Inability Effects | v6.2.0 | ?–9 (Hero 5–9) |
 | 207 | CRIT Rate Increasing Effect | v6.2.0 | no stone owned |
 | 211 | Damage Dealt by Reflect DMG | v6.2.0 | no stone owned |
 | 212 | Crushing Hit DMG | v6.2.0 | no stone owned |
@@ -369,15 +369,16 @@ client's Special Conv. list states it on a Rare stone, which spans the full
 range (§15.12). It also anchors names: the game's "ATK+ / DEF+ / SPD+ prop.
 lost HP", "DEF UP effect", "Counterattack DMG", "Co-op attack DMG" and "HP when
 revived" sit at exactly the quantities the export gives 200, 201, 202, 205,
-208, 209 and 216 among the Fire attribute stones; the stone tooltips' "ATK UP
-effect", "DMG taken w/ inability", "ATK Bar when revived", "[S3] CRIT DMG" and
-"[S4] CRIT DMG" do the same for 204, 213, 217, 402 and 403. A higher grade
+208, 209 and 216 among the Fire attribute stones; the stone tooltips' "SPD w/
+inability", "ATK UP effect", "DMG taken w/ inability", "ATK Bar when revived",
+"[S3] CRIT DMG" and "[S4] CRIT DMG" do the same for 203, 204, 213, 217, 402
+and 403. A higher grade
 raises a stone's floor and never its ceiling (§15.12), so where only a Hero or
 Legend stone has been read the ceiling is known and the floor is written `?`,
 with the stone's own range beside it. *Not yet read* means the account holds a
 stone whose range has not been photographed; *no stone owned* means nothing on
 this account can show it. *Evidence: the Special Conv. list of a Fire
-attribute artifact and the stone tooltips of the Water, HP and Defense stones,
+attribute artifact and the stone tooltips of the Water, Wind, HP and Defense stones,
 2026-11-04, against the export of 2026-11-03.*
 
 Where §15.11 has the per-roll range, the stone's ceiling agrees with §10's
