@@ -40,7 +40,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
     }, recalculate);
     await page.reload();
     await page.getByRole('button', { name: 'Artifact Optimization', exact: true }).click();
-    await page.getByText('This is the way', { exact: true }).click();
+    await page.getByText('Recommendations', { exact: true }).click();
     const calculate = page.getByRole('button', { name: 'Calculate recommendations', exact: true });
     await expect(page.getByText('Import your game data first, then ask every artifact where it can shine.')).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('empty.png'), fullPage: true });

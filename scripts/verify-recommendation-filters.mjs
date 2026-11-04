@@ -12,7 +12,7 @@
  *   partitions the rows, so the two halves sum to the whole.
  * - Already matching / Yes shows exactly the Keep rows and No the rest, and
  *   it combines with Conversion by the And/Or switch between them.
- * - An Intangible row names the §10.1 rule in the conversion column, in gold,
+ * - An Intangible row names the §10.1 rule in the conversion column, in plain text,
  *   rather than reporting a judgement JASWA never made.
  * - The slot figures reconcile: filled plus the named remainder is the total.
  *   This one existed as a bug — the summary reported "558 of 558 filled" while
@@ -72,7 +72,7 @@ try {
   if (await replaceImport.isVisible().catch(() => false)) await replaceImport.click();
 
   await page.getByRole('button', { name: 'Artifact Optimization', exact: true }).click();
-  await page.getByText('This is the way', { exact: true }).click();
+  await page.getByText('Recommendations', { exact: true }).click();
   await page.getByRole('button', { name: /Calculate recommendations/ }).click();
   await page.locator('.artifact-recommendation-table').waitFor({ timeout: 180000 });
 
@@ -193,26 +193,24 @@ try {
   const unexplained = intangibleConversions.filter((text) => text !== 'Intangible' && text !== '—');
   assert.deepEqual(unexplained, [],
     'an Intangible row must read "Intangible", or a dash where the plan sells it.');
-  const goldMarks = await page.locator('.artifact-conversion-intangible').evaluateAll(
+  const intangibleMarks = await page.locator('.artifact-conversion-intangible').evaluateAll(
     (marks) => marks.map((mark) => getComputedStyle(mark).color));
-  /* Probed from `--text-accent`, which is the token the mark is actually
-     painted with. It read `--gold` until this check was fixed — a name the
-     stylesheet has never defined, so the probe silently inherited the body's
-     own colour and held the mark to that instead. The assertion then failed on
-     a mark that was the right gold all along. A probe naming a token that does
-     not exist cannot fail loudly on its own, so it is worth stating: this is
-     the one variable, and it is the one the rule reads. */
-  const gold = await page.evaluate(() => {
+  /* Probed from `--text`, the token the mark is painted with: plain text,
+     because gold means "you can act on this" and an Intangible offers nothing
+     to act on. A probe naming a token that does not exist would silently
+     inherit the body's colour and could not fail loudly, so the one variable
+     is named here. */
+  const plain = await page.evaluate(() => {
     const probe = document.createElement('span');
-    probe.style.color = 'var(--text-accent)';
+    probe.style.color = 'var(--text)';
     document.body.append(probe);
     const colour = getComputedStyle(probe).color;
     probe.remove();
     return colour;
   });
-  assert.ok(goldMarks.length > 0, 'at least one Intangible row must name the rule');
-  assert.deepEqual([...new Set(goldMarks)], [gold],
-    `the Intangible reading must be gold (${gold}).`);
+  assert.ok(intangibleMarks.length > 0, 'at least one Intangible row must name the rule');
+  assert.deepEqual([...new Set(intangibleMarks)], [plain],
+    `the Intangible reading must be plain text (${plain}).`);
   await setFilter('Restriction', 'Intangible', false);
 
   /* The slot figures reconcile: filled + the named remainder = the total. */
@@ -228,7 +226,7 @@ try {
   assert.equal(number(slots[1]) + remainder, number(slots[2]),
     `The slot figures do not add up: ${slots[0]}`);
 
-  console.log(`Verified the view opens on ${opening} rows of work, Location after partitions ${all} rows into ${plannedEngraved} engraved and ${plannedInventory} inventory, Already matching splits off the ${keepRows} Keep rows and combines with Conversion by And and by Or, Location before still reads the import, ${goldMarks.length} of ${intangibleRows} Intangible rows name the rule in gold, and "${slots[0]}" reconciles.`);
+  console.log(`Verified the view opens on ${opening} rows of work, Location after partitions ${all} rows into ${plannedEngraved} engraved and ${plannedInventory} inventory, Already matching splits off the ${keepRows} Keep rows and combines with Conversion by And and by Or, Location before still reads the import, ${intangibleMarks.length} of ${intangibleRows} Intangible rows name the rule in plain text, and "${slots[0]}" reconciles.`);
 } finally {
   await browser.close();
 }

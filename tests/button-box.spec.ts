@@ -20,7 +20,7 @@ async function importAccount(page: Page, file: string) {
 async function openArtifactOptimization(page: Page) {
   await page.getByRole('button', { name: 'Artifact Optimization' }).click();
   await expect(page.getByRole('heading', { name: 'Artifact Optimization' })).toBeVisible();
-  for (const section of ['This is the way', 'Best monster for this artifact', 'Best artifact for this monster']) {
+  for (const section of ['Recommendations', 'Best monster for this artifact', 'Best artifact for this monster']) {
     await page.locator('summary').filter({ hasText: section }).click();
   }
 }

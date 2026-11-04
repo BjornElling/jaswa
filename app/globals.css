@@ -6656,13 +6656,12 @@ th.align-center .rank-heading { justify-content: center; }
 /* The substat the recommendation acts on opens the line, so it is set as a
    label rather than as running text. */
 .artifact-conversion-option-source { font-weight: 600; }
-/* An Intangible cannot be converted at all (§10.1). It is gold rather than
-   muted because it is a settled fact about the artifact, the same reading the
-   recommendation table gives its other empty conversion cells — a dimmed word
-   would suggest a value that failed to arrive. It carries the colour itself
-   rather than borrowing the table's class, so the two focused artifact views
-   read the same as the recommendation table. */
-.artifact-conversion-intangible { color: var(--text-accent); }
+/* An Intangible cannot be converted at all (§10.1). It is plain text rather
+   than gold, because there is nothing to act on — gold says "you can act on
+   this" — and rather than muted, because a dimmed word would suggest a value
+   that failed to arrive. It carries the colour itself, so the two focused
+   artifact views read the same as the recommendation table. */
+.artifact-conversion-intangible { color: var(--text); }
 .artifact-conversion-option-action,
 .artifact-conversion-option-stone { color: var(--text); }
 

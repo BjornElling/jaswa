@@ -27,9 +27,8 @@ export function ConversionList({ conversions, artifact, stones, mode, emptyClass
      that simply has none worth taking: the game forbids converting it at all
      (§10.1), so "No conversion" read as a judgement JASWA had made about this
      piece rather than a rule it could never escape. Naming the reason answers
-     the question the empty cell otherwise raises, and it is set in the same
-     gold as the other empty readings — it reports a settled state, not a
-     missing one. */
+     the question the empty cell otherwise raises. It is plain text: a settled
+     state with nothing to act on, so it takes neither gold nor a muted tone. */
   if (artifact?.intangible) return <span className="artifact-conversion-intangible">Intangible</span>;
   if (!conversions.length) return <span className={emptyClassName ?? 'muted'}>No conversion</span>;
   return <ExpandableList className="artifact-conversion-list" listClassName="artifact-conversion-options" items={conversions}

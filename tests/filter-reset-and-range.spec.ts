@@ -188,7 +188,7 @@ test('Reset filters restores the recommendation panel’s defaults', async ({ pa
   await importAccount(page, artifactAccount);
   await page.getByRole('button', { name: 'Artifact Optimization' }).click();
 
-  await page.locator('summary').filter({ hasText: 'This is the way' }).click();
+  await page.locator('summary').filter({ hasText: 'Recommendations' }).click();
   const panel = page.locator('.artifact-recommendation-filters');
   const engraved = panel.locator('.artifact-recommendation-filter-planned-location').getByRole('button', { name: 'Engraved' });
   const attribute = panel.locator('.artifact-recommendation-filter-type').getByRole('button').first();
