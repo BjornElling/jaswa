@@ -25,7 +25,7 @@ export type OpenSpeedTeamOverlay = (presetId: string, opener: HTMLElement | null
  * Optimization used to send the user to Speed Tuning first, which lost the
  * page they were working on for the sake of a dialog that needs none of it.
  */
-export function PresetSpeedTeamOverlay({ presetId, game, monsters, preferences, presets, canChangePresets, onWrite, onLead, onClose, onOpenMonster }: {
+export function PresetSpeedTeamOverlay({ presetId, game, monsters, preferences, presets, canChangePresets, onWrite, onLead, onClose, onOpenMonster, onEditPreset }: {
   presetId: string;
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
@@ -38,6 +38,8 @@ export function PresetSpeedTeamOverlay({ presetId, game, monsters, preferences, 
   onLead: (presetId: string, unitId: string | null) => void;
   onClose: () => void;
   onOpenMonster: OpenMonsterOverlay;
+  /** Goes to Presets with the preset chosen. */
+  onEditPreset: (presetId: string) => void;
 }) {
   const preset = presets.find((entry) => entry.id === presetId);
   const tuning = preferences.speedTuning.presets;
@@ -62,7 +64,7 @@ export function PresetSpeedTeamOverlay({ presetId, game, monsters, preferences, 
       if (saved.leaderUnitId !== team.leaderUnitId) onLead(saved.id, saved.leaderUnitId);
       onClose();
     }}
-    onClose={onClose} onOpenMonster={onOpenMonster} />;
+    onClose={onClose} onOpenMonster={onOpenMonster} onEditPreset={() => onEditPreset(preset.id)} />;
 }
 
 /* A preset built here is always the user's; the game's only while live sync

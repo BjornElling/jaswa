@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button } from './button';
 import { Overlay, OverlayAction } from './overlay';
+import { PencilIcon } from './pencil-icon';
 import { SpeedTeamEditor } from './speed-team-editor';
 import { SpeedTurnOrderDialog } from './speed-turn-order-dialog';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -27,7 +28,7 @@ function TicksIcon() {
  * every keystroke behind the overlay would be the page moving while the reader
  * looks at something else.
  */
-export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, general, leading, onSave, onClose, onOpenMonster }: {
+export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, general, leading, onSave, onClose, onOpenMonster, onEditPreset }: {
   initial: SpeedTeam;
   /** The preset's name. */
   title: string;
@@ -41,6 +42,8 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
   onSave: (team: SpeedTeam) => void;
   onClose: () => void;
   onOpenMonster: OpenMonsterOverlay;
+  /** Goes to Presets with this preset chosen, leaving the overlay. */
+  onEditPreset: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
   const [dirty, setDirty] = useState(false);
@@ -114,14 +117,20 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
       </header>
 
       <div className="overlay-body">
-        {dungeon !== null && <div className="speed-dungeon-choice">
-          <dl className="speed-dungeon-facts" data-shown="true">
+        {/* The way to the preset itself sits at the far edge of the area's facts,
+            in the quiet box, as it is a way out rather than this panel's work. It
+            waits while a draft is unsaved, since leaving would drop it. */}
+        <div className="speed-dungeon-choice">
+          {dungeon !== null ? <dl className="speed-dungeon-facts" data-shown="true">
             <dt className="type-caption">Fastest enemy</dt>
             <dd>{formatNumber(fastestEnemySpeed(dungeon), general)} combat speed</dd>
             <dt className="type-caption">Acc needed</dt>
             <dd>{usefulAccuracy(dungeon)}%</dd>
-          </dl>
-        </div>}
+          </dl> : <span aria-hidden="true" />}
+          <Button size="compact" className="speed-edit-preset" disabled={dirty} onClick={onEditPreset}>
+            <PencilIcon /><span>Edit preset</span>
+          </Button>
+        </div>
         <SpeedTeamEditor reading={reading} title={title} names={names} general={general}
           turnOrderAction={<Button ref={turnOrderOpener} tone="important" size="prominent" className="speed-ticks-button"
             disabled={reading.members.length === 0} onClick={() => setShowTurnOrder(true)}>

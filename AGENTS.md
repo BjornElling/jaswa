@@ -209,8 +209,8 @@ was not the target of the click is a bug.
 **A button that opens an overlay opens it over the current page.** It never
 goes to the page the overlay is about and opens it there. Presets' *Speed
 tuning* once did, and the user lost the page they were working on for a dialog
-that needed none of it. Only a control naming a *page* — the rail, *Optimize* —
-changes the page, and leaving a page closes what was opened over it.
+that needed none of it. Only a control naming a *page* — the rail, *Optimize*, a
+team's *Edit preset* — changes the page, and leaving a page closes what was opened over it.
 
 - An overlay more than one page opens is mounted once, in `app/page.tsx`, and
   reached through one opener (`openMonsterOverlay`, `openRuneOverlay`,

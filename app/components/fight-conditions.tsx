@@ -1,5 +1,7 @@
 import { Fragment } from 'react';
 import type { AreaFacts } from '../lib/area-facts';
+import type { ArtifactSkillAccuracy } from '../lib/artifact-skill-accuracy';
+import { artifactCategoryLabels } from '../lib/artifact-properties';
 import type { FigureMark } from '../lib/figure-marks';
 import { leadMaximum, readLeadField } from '../lib/monster-preferences';
 import type { Leads, LeadStat } from '../lib/monster-stats';
@@ -10,6 +12,7 @@ import type { TeamLead, TeamLeadReading } from '../lib/team-leads';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { formatNumber } from '../lib/formatting';
 import type { GeneralSettings } from '../lib/types';
+import { ArtifactGlyph } from './artifact-glyph';
 import { FigureMarks } from './figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 
@@ -30,11 +33,13 @@ const leadRows: ReadonlyArray<{ stat: LeadStat; label: string }> = [
 ];
 
 /** Scenario's leads, typed: one field a stat, empty for none and `0` for a stated zero. */
-export function LeadFields({ values, onChange, reading, names }: {
+export function LeadFields({ values, onChange, reading, names, artifactAccuracy, general }: {
   values: Leads;
   onChange: (stat: LeadStat, value: number | undefined) => void;
   reading: TeamLeadReading;
   names: Record<string, string>;
+  artifactAccuracy: readonly ArtifactSkillAccuracy[];
+  general: GeneralSettings;
 }) {
   return <div className="overlay-leads-fields" role="group" aria-label="Leads and bonuses">
     <div className="overlay-lead-grid">
@@ -49,7 +54,28 @@ export function LeadFields({ values, onChange, reading, names }: {
     {reading.leads.some((lead) => lead.automatic !== undefined) && <AutomaticBonusRows
       leads={reading.leads.filter((lead) => lead.automatic !== undefined)} names={names}
       listLabel="Automatic passive stat bonuses" className="overlay-lead-bonus-list" />}
+    {artifactAccuracy.length > 0 && <ul className="overlay-team-leads overlay-lead-bonus-list" aria-label="Artifact skill accuracy">
+      {artifactAccuracy.map((line) => <ArtifactAccuracyRow key={`${line.artifactId}-${line.skill}`} line={line} general={general} />)}
+    </ul>}
   </div>;
+}
+
+/**
+ * A skill's Accuracy from an engraved artifact, in a lead's columns with the
+ * artifact's mark where a face would be. Shown and never counted: it reaches one
+ * skill as it is used, not the monster's ACC (`artifact-skill-accuracy.ts`).
+ */
+function ArtifactAccuracyRow({ line, general }: { line: ArtifactSkillAccuracy; general: GeneralSettings }) {
+  const value = `+${formatNumber(line.valueHundredths / 100, general)}%`;
+  const reading = `[Skill ${line.skill}] Accuracy ${value} from the ${artifactCategoryLabels[line.category].toLowerCase()} artifact. `
+    + `Shown only: it counts when Skill ${line.skill} is used, so no ACC figure includes it.`;
+  return <li className="overlay-team-lead" data-source="artifact" title={reading}
+    aria-label={`${statLabels.acc} on Skill ${line.skill}, ${value}. ${reading}`}>
+    <ArtifactGlyph category={line.category} />
+    <span className="overlay-team-lead-stat">{statLabels.acc} (S{line.skill})</span>
+    <span className="overlay-team-lead-value">{value}</span>
+    <span aria-hidden="true" />
+  </li>;
 }
 
 function AutomaticBonusRow({ lead, names }: { lead: TeamLead; names: Record<string, string> }) {
@@ -101,9 +127,11 @@ function unreachedReading(lead: TeamLead, counting: TeamLead | undefined, names:
  * its red mark says where it would count. Read only: the leader is chosen with
  * the crown on Presets, or in the game.
  */
-export function TeamLeads({ reading, names }: {
+export function TeamLeads({ reading, names, artifactAccuracy, general }: {
   reading: TeamLeadReading;
   names: Record<string, string>;
+  artifactAccuracy: readonly ArtifactSkillAccuracy[];
+  general: GeneralSettings;
 }) {
   const actualLeads = reading.leads.filter((lead) => lead.automatic === undefined);
   return <div className="overlay-team-bonuses overlay-leads-fields" role="group" aria-label="Leads and bonuses">
@@ -137,6 +165,7 @@ export function TeamLeads({ reading, names }: {
           <FigureMarks marks={marks} reserve={1} />
         </li>;
       })}
+      {artifactAccuracy.map((line) => <ArtifactAccuracyRow key={`${line.artifactId}-${line.skill}`} line={line} general={general} />)}
     </ul>
   </div>;
 }

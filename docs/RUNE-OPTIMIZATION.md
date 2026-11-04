@@ -194,6 +194,16 @@ the same monsters counts instead. A preset with no leader says *No leader in thi
 import no longer holds, or one with no leader skill, keeps a line saying so. The block
 keeps the box Scenario's fields take, so changing area moves nothing beside it.
 
+**Skill Accuracy from an artifact is shown, never counted.** Where the copy's artifacts in
+the chosen context (Scenario or the preset) carry `[Skill 1]`–`[Skill 3] Accuracy`, the
+monster overlay and Rune Optimization add one line per such line under the leads, in the
+leads' columns: the artifact's mark where a face stands, *ACC (S2)*, and the figure
+(`+6%`). The line raises one skill's Accuracy as that skill is used, not the monster's
+ACC, so it enters no ACC figure, range, shortfall, Accuracy goal or build search:
+counting it would credit every skill with what only one receives.
+`artifactSkillAccuracy` (`artifact-skill-accuracy.ts`) reads it apart from
+`TeamLeadReading.bonuses`, which every calculation reads, so the two cannot meet.
+
 **Scenario is no team and has no leader**, so there the copy states up to four leads by
 hand — *CRI Rate*, *ATK*, *DEF* and *HP* — each a whole percentage, CRI Rate in points. A
 blank lead means none; an explicit zero is kept as the user's choice. Only Scenario's

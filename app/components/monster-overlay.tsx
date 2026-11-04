@@ -28,6 +28,7 @@ import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
 import { AreaLines, LeadFields, TeamLeads } from './fight-conditions';
 import { areaFacts } from '../lib/area-facts';
 import { readArtifacts } from '../lib/artifacts';
+import { artifactSkillAccuracy } from '../lib/artifact-skill-accuracy';
 import type { ArtifactCategory, ArtifactMainProperty } from '../lib/artifact-properties';
 import { artifactCategoryLabels, artifactMainPropertyOrder, artifactPropertiesFor } from '../lib/artifact-properties';
 import { formatNumber } from '../lib/formatting';
@@ -319,6 +320,9 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
       ? readRelics(game).filter((relic) => relicIds.has(relic.id)) : [] };
   }, [game, monster, preset]);
 
+  /* Named under the leads and never counted into ACC (`artifact-skill-accuracy.ts`). */
+  const artifactAccuracy = useMemo(() => artifactSkillAccuracy(Object.values(engraved.artifacts)), [engraved]);
+
   /* Read from the copy's own record, where the export keeps what a monster
      has engraved, through the one rune reader every page uses. */
   const engravedRunes = useMemo(() => (Array.isArray(monster?.runes) ? monster.runes : [])
@@ -589,9 +593,10 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
             <Section title="Leads and bonuses">
               {team.leads.scenario
                 ? <LeadFields values={statedLeads(draft)} reading={team.leads} names={leaderNames}
+                  artifactAccuracy={artifactAccuracy} general={general}
                   onChange={(stat, value) => change((state) => ({ ...state, [leadFieldOf[stat]]: value }))}
                 />
-                : <TeamLeads reading={team.leads} names={leaderNames} />}
+                : <TeamLeads reading={team.leads} names={leaderNames} artifactAccuracy={artifactAccuracy} general={general} />}
             </Section>
             {/* Named for the Build for menu's area, since the area is what sets both figures. */}
             <Section title={area.heading} clip>

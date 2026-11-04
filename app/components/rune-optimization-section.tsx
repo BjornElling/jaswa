@@ -31,6 +31,10 @@ import { cancelRuneOptimization, optimizeRuneBuilds, stopRuneOptimization } from
 import type { RuneOptimizationAnswer, RuneOptimizationPhase } from '../lib/compute/rune-optimization-protocol';
 import { formatNumber } from '../lib/formatting';
 import type { GeneralSettings } from '../lib/types';
+import { readArtifact } from '../lib/artifacts';
+import type { Artifact } from '../lib/artifacts';
+import { artifactSkillAccuracy } from '../lib/artifact-skill-accuracy';
+import { canEngraveArtifacts } from '../lib/monster-engrave-eligibility';
 import type { GameRecord } from '../lib/game-data';
 import { runeSlotKeys } from '../lib/monster-defaults';
 import type { RuneSlotKey } from '../lib/monster-defaults';
@@ -258,6 +262,16 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const team = useMemo(() => preset && selected ? teamBonusesFor(preset, presets, selected.unitId, items, roster) : noTeamBonuses,
     [preset, presets, selected, items, roster]);
   const { teammateSets } = team;
+  /* The preset's artifacts on the chosen monster, for *Leads and bonuses* to name
+     their skill Accuracy. Shown only: no figure or search below reads it
+     (`artifact-skill-accuracy.ts`). */
+  const artifactAccuracy = useMemo(() => {
+    const monster = selected ? roster.get(selected.unitId) : undefined;
+    if (!preset || !selected || !monster || !canEngraveArtifacts(monster)) return [];
+    return artifactSkillAccuracy((preset.artifactsOf.get(selected.unitId) ?? [])
+      .map((id) => readArtifact(items.artifacts.get(id)))
+      .filter((artifact): artifact is Artifact => artifact !== null));
+  }, [preset, selected, items, roster]);
   const leaderNames = useMemo(() => Object.fromEntries(Object.entries(names).map(([id, entry]) => [id, entry.name])), [names]);
   const profile = useMemo(() => (selected
     ? profileRequirements(selected.unitId, selected.masterId, profiles[selected.unitId], team)
@@ -680,13 +694,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               <span className="filter-label">Leads and bonuses</span>
               {team.leads.scenario
                 ? <LeadFields values={withoutAutomaticLeads(requirements.leads ?? {}, team.leads.bonuses)} reading={team.leads} names={leaderNames}
+                  artifactAccuracy={artifactAccuracy} general={general}
                   onChange={(stat, value) => change((state) => {
                   const leads = withoutAutomaticLeads(state.leads ?? {}, team.leads.bonuses);
                   if (value === undefined) delete leads[stat];
                   else leads[stat] = value;
                   return { ...state, leads: withAutomaticLeads(leads, team.leads.bonuses) };
                 })} />
-                : <TeamLeads reading={team.leads} names={leaderNames} />}
+                : <TeamLeads reading={team.leads} names={leaderNames} artifactAccuracy={artifactAccuracy} general={general} />}
               <Provenance />
             </div>
             <div className="filter-group rune-optimization-area">

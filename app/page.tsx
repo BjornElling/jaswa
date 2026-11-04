@@ -470,7 +470,8 @@ export default function Home() {
 
   /* A team opens over the page that asked for it, never by going to Speed
      Tuning first: every button that opens an overlay opens it where the user
-     is. Only the rail and Optimize change the page, and both close it. */
+     is. Only the rail, Optimize and a team's Edit preset change the page, and
+     each closes it. */
   const openSpeedTeam: OpenSpeedTeamOverlay = (presetId, opener) => {
     speedTeamOpener.current = opener;
     setSpeedTeam(presetId);  };
@@ -735,6 +736,13 @@ export default function Home() {
     setPage('optimizer');
   }
 
+  /* A control naming a page: it leaves the team for Presets, with its preset chosen. */
+  function editPreset(presetId: string) {
+    setSelectedPreset(presetId);
+    closeEveryOverlay();
+    setPage('presets');
+  }
+
   function writeRoles(change: (current: RuneRole[]) => RuneRole[]) {
     changePreferences((current) => ({ ...current, runeRoles: change(current.runeRoles) }));
   }
@@ -992,6 +1000,7 @@ export default function Home() {
       onLead={(presetId, unitId) => void leadPreset(presetId, unitId)}
       onClose={closeSpeedTeam}
       onOpenMonster={openMonsterOverlay}
+      onEditPreset={editPreset}
     /></Suspense>}
 
     {overlay?.kind === 'monster' && <Suspense fallback={null}><MonsterOverlay

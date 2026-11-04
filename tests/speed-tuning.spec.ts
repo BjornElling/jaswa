@@ -326,6 +326,13 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
 
   /* The dungeon's facts and every stage's row are there before anything moves. */
   await expect(card.locator('.speed-dungeon-facts')).toContainText(/Fastest enemy\d+ combat speedAcc needed\d+%/);
+  /* The way to the preset stands at the right of the facts, on their row. */
+  const editPreset = card.getByRole('button', { name: 'Edit preset', exact: true });
+  await expect(editPreset).toBeEnabled();
+  const [factsBox, editBox] = await Promise.all([box(card.locator('.speed-dungeon-facts')), box(editPreset)]);
+  expect(editBox.x).toBeGreaterThan(factsBox.x + factsBox.width);
+  expect(editBox.y + editBox.height / 2).toBeGreaterThan(factsBox.y);
+  expect(editBox.y + editBox.height / 2).toBeLessThan(factsBox.y + factsBox.height);
   const enemyTurns = card.getByRole('region', { name: 'Enemy cut in' });
   await expect(enemyTurns.locator('tbody tr')).toHaveCount(4);
   await expect(card.locator('.speed-slot')).toHaveCount(5);
@@ -363,6 +370,9 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(card.locator('.speed-order')).toHaveText(['1', '2', '3', '4', '5']);
   await expect(card.locator('.speed-combat')).toHaveText(['170', '119', '115', '114', '112']);
   await expect(card.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+  /* Leaving would drop the draft, so the way to the preset waits for Save, in the same box. */
+  await expect(editPreset).toBeDisabled();
+  expect(await box(editPreset)).toEqual(editBox);
   /* No line sums the team up: each slot says its own verdict. Every first turn
      is where it was placed, but stage 2's enemy getting in before the last
      three is a fault of its own: red, and leading their lines. */

@@ -5897,6 +5897,8 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 .overlay-team-lead { display: grid; grid-template-columns: var(--team-lead-columns); align-items: center; gap: var(--s3); color: var(--text-muted); }
 /* The leader's face, inside the line's own height. */
 .overlay-team-lead .monster-portrait { width: var(--glyph-small); height: var(--glyph-small); }
+/* An artifact's Accuracy line takes the artifact's mark where a face stands, at a face's size. */
+.overlay-team-lead .artifact-glyph { width: var(--glyph-small); height: var(--glyph-small); }
 .overlay-team-lead-value { padding-inline: var(--s3); text-align: right; color: var(--text-strong); font-variant-numeric: tabular-nums; }
 .overlay-team-lead[data-state='unreached'] :is(.overlay-team-lead-stat, .overlay-team-lead-value) {
   color: var(--text-muted);
@@ -7114,6 +7116,7 @@ th.align-center .rank-heading { justify-content: center; }
   display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: center;
   padding: var(--s4) 0; margin-bottom: var(--s3);
 }
+.speed-edit-preset { justify-self: end; gap: var(--s2); }
 .speed-dungeon-pick { display: flex; align-items: center; gap: var(--s3); }
 .speed-dungeon-choice .filter-label { margin: 0; align-self: center; }
 .speed-dungeon-select { width: 24ch; }
