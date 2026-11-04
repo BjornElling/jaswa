@@ -90,6 +90,16 @@ runes in it. The opposite reading would make a rune the role wants report "No ro
 use it" because of a slot it does not mention — the invisible failure `AGENTS.md` §0.1
 forbids.
 
+**A reading's rank is the worse of the rune's set and the build it is read in**, and a
+build ranks as its weakest stated slot among 2, 4 and 6 — not the rune's own slot alone.
+A slot-5 rune read in a build with DEF % in slots 4 and 6 is an acceptable reading when
+the role only accepts DEF % there, and carries the accepted discount (§9) like any other.
+Judging the rune's own slot alone once let a Gem win by moving a rune from the preferred
+build into a merely accepted one, undiscounted. Another slot left blank is no preference
+and does not lower the rank; the rune's own slot left blank still reads as broken.
+Readings of equal rank compete freely, so a Gem may move a rune between two preferred
+builds, or between two accepted ones.
+
 ## 4. What one sub property is worth
 
 A stated target is a **weight**, never a relevance switch: a 215 SPD target and a 25
@@ -584,9 +594,14 @@ A zero count in a small sample does not establish a zero population: the fit kee
 one-observation tail allowance rather than emptying every slot. A structurally unusable
 slot remains a genuine limit; balancing cannot invent a useful stat or weaken the minimum.
 
-*Keep twice as many 4-set runes* has its own fit against the same funnel: its target is
-twice the ordinary survivor count, capped by each slot's qualifying four-piece runes and
-the inherited floors. Only four-piece floors can soften; two-piece runes keep their own.
+*Keep twice as many 4-set runes* has its own fit against the same funnel, **slot by
+slot**: each slot's target is twice the four-piece runes that slot keeps without the
+setting, capped by its own qualifying four-piece runes and the inherited floors. Only
+four-piece floors can soften; two-piece runes keep their own. Every count here is of the
+calibration's generated sample, never of the user's runes. One shared target, the
+smallest slot's reach, could never be met: the slot the balance is fitted to sits at
+the anchor and has no four-piece runes to spare below it, so the setting kept no more
+runes than it did switched off.
 
 The calibration depends on the roles, the reference lines and the policy, never on the
 runes asked about, so the engine keeps the last four calibrations by the content of those

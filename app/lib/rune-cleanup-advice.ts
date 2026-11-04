@@ -399,19 +399,26 @@ class RuneFloorCalibration {
         const regularCounts = values.map((slot, at) => slot.filter((value, index) =>
           !fourPiece[at][index] && value >= floors[at]).length);
         const baselineCounts = values.map((slot, at) => slot.filter((value) => value >= floors[at]).length);
-        const capacities = values.map((slot, at) => regularCounts[at] + slot.filter((value, index) =>
+        /* The most sample runes a slot can keep with its four-piece floor at `lower`.
+           A count of the calibration's own generated drops, never of the user's runes. */
+        const reachable = values.map((slot, at) => regularCounts[at] + slot.filter((value, index) =>
           fourPiece[at][index] && value >= lower[at]).length);
-        const preferredTarget = Math.min(...capacities,
-          Math.floor(2 * baselineCounts.reduce((sum, count) => sum + count, 0) / 6));
-        /* Four-piece preference changes only four-piece candidates. Fit its
-           larger retained population separately, so turning it on cannot
-           move the floor of a two-piece rune or break the slot balance. */
-        if (preferredTarget >= 1 && preferredTarget >= Math.max(...baselineCounts)) {
+        /* Four-piece preference changes only four-piece candidates: two-piece runes
+           keep `floors`. Each slot is fitted on its own, to twice the four-piece runes
+           it keeps without the setting, as the setting's name says, or as many as its
+           qualifying four-piece runes allow. One target for all six, the smallest
+           slot's supply, used to stand here, and it could never be met: the slot the
+           balance is fitted to is the one sitting at the anchor, so it has no
+           four-piece runes to spare below its floor, and the setting kept no more
+           runes than it did switched off — 59 against 58 on the neutrality fixture. */
+        const targets = reachable.map((most, at) =>
+          Math.min(most, regularCounts[at] + 2 * (baselineCounts[at] - regularCounts[at])));
+        if (targets.some((target, at) => target > baselineCounts[at])) {
           reading.fourOrdered ??= values.map((slot, at) =>
             slot.filter((_, index) => fourPiece[at][index]).sort((a, b) => b - a));
           reading.fourOrdered.forEach((ordered, at) => {
-            const wanted = preferredTarget - regularCounts[at];
-            if (wanted > 0) preferredFloor[at] = Math.min(floors[at],
+            const wanted = targets[at] - regularCounts[at];
+            if (targets[at] > baselineCounts[at] && wanted > 0) preferredFloor[at] = Math.min(floors[at],
               Math.max(lower[at], (ordered[wanted] ?? anchor) + Number.EPSILON));
           });
         }

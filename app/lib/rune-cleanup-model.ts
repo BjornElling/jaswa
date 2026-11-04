@@ -153,7 +153,7 @@ export type RuneOutcome = {
   maxValue: number;
   /** `0`–`1`: the chance the rune reaches the final +15 projection; RNG ends at +12. */
   chance: number;
-  /** How the rune's own set and main stat answer the role. */
+  /** How the rune's set and the build it is read in answer the role. */
   rank: MatchRank;
 };
 
@@ -831,6 +831,7 @@ export type RuneCandidate = {
   readonly credit: CraftCredit;
   readonly plan: CraftPlan;
   readonly lineage: CraftLineage;
+  /** The rune's set against the role, and the build it is read in (`buildRank`). */
   readonly rank: MatchRank;
   readonly scope: RuneAdviceScope;
 };
@@ -968,15 +969,35 @@ export function prepareRuneCandidate(
      member of it the rune is. The factor this replaced read a perfect five-star rune
      at two thirds of a perfect six-star one, which is the star table talking. */
   const setRank = runeSetMatchRank(role.sets, rune.setName);
-  const mainRank: MatchRank = rune.slot === 2 || rune.slot === 4 || rune.slot === 6
-    ? build.ranks[rune.slot as 2 | 4 | 6] : 'preferred';
 
   return {
     rune, valuation, weights, ceiling, build, main, stars,
     get best() { return best ??= bestEndState(future, scoring); },
     future, scoring, credit, plan,
-    lineage, rank: worseRank(setRank, mainRank), scope,
+    lineage, rank: worseRank(setRank, buildRank(build, rune.slot)), scope,
   };
+}
+
+/**
+ * **How far the build a rune is read in answers the role: its weakest stated slot.**
+ *
+ * It used to be the rune's own slot alone, which left a slot-5 rune "preferred" in
+ * every build. A rune whose best reading needed DEF % in slots 4 and 6 — mains the
+ * HP tank only accepts — was therefore compared undiscounted with its reading in the
+ * preferred HP % build, and a Gem that won only by moving the rune into the merely
+ * accepted build was recommended as if it improved the rune. The accepted discount
+ * exists to make a lesser build earn its place; it has to see the whole build.
+ *
+ * Another slot left blank is no preference, not a lesser one (§3), so it does not
+ * count against the rune; its own slot left blank still reads as broken, as before.
+ */
+function buildRank(build: Build, slot: number): MatchRank {
+  let rank: MatchRank = 'preferred';
+  for (const at of [2, 4, 6] as const) {
+    if (at !== slot && build.mains[at] === 0) continue;
+    rank = worseRank(rank, build.ranks[at]);
+  }
+  return rank;
 }
 
 /**
@@ -1046,18 +1067,16 @@ function buildAccepts(build: Build, slot: number, main: number): boolean {
 export function slotMainFamily(
   role: RuneRole, builds: readonly Build[], slot: number, main: number, stars: number,
   base: ReferenceStats, credit: CraftCredit, scope: RuneAdviceScope,
-): OrdinaryFamily & { rank: MatchRank } {
+): OrdinaryFamily {
   const valuations: Valuation[] = [];
-  let rank: MatchRank = 'preferred';
   for (const build of builds) {
     if (!buildAccepts(build, slot, main)) continue;
     const priced = buildPricing(role, build, base, credit, stars, scope);
     if (!priced) continue;
     if (cachedCeiling(priced.valuation, slot, main, credit, stars, scope) <= 0) continue;
     valuations.push(priced.valuation);
-    if (slot === 2 || slot === 4 || slot === 6) rank = build.ranks[slot];
   }
-  return { slot, main, stars, credit, valuations, scope, rank };
+  return { slot, main, stars, credit, valuations, scope };
 }
 
 /**

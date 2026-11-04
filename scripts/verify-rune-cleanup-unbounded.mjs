@@ -22,7 +22,9 @@ function forbid(key, pattern, message) {
 }
 
 forbid('advice', /\bruneShare\b/u, 'rune advice must not read a role quantity field.');
-forbid('advice', /\b(?:quota|capacity|eligibleFor|assignments|allocationOrder)\b/iu,
+/* Plurals and inflections too: `capacities` slipped past `capacity` for a variable
+   that only counted the calibration sample, and the name still read as a quota. */
+forbid('advice', /\b(?:quota\w*|capacit\w*|eligibleFor|assignments?|allocationOrder)\b/iu,
   'rune advice must not contain a finite role assignment path.');
 forbid('advice', /Outside requested role capacity/u,
   'rune advice must not sell a rune for a requested role amount.');

@@ -81,9 +81,12 @@ const referenceStats = new Map([
   ['HP type', { hp: 11836, atk: 653, def: 592, spd: 104, criRate: 16, criDmg: 50, res: 18, acc: 4 }],
   ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
 ]);
-/* Both craft sliders up, at a grade a real account holds plenty of. */
+/* Both craft sliders up, at a grade a real account holds plenty of. The quality
+   floor is one stop below the default because this box is fresh random runes, and
+   at the default it keeps too few of them for a spread to be measured at all
+   (the population check at the end). */
 const settings = {
-  powerUpPolicy: 3, runeQuality: 3, gemRoll: 'three-quarters', grindstoneRoll: 'three-quarters',
+  powerUpPolicy: 3, runeQuality: 2, gemRoll: 'three-quarters', grindstoneRoll: 'three-quarters',
   gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
   intangibleRunes: 1, keepMoreForLargerSets: false,
 };
@@ -279,9 +282,17 @@ check(twinAdvice.get('twin-a').chance === twinAdvice.get('twin-b').chance,
 check(twinAdvice.get('twin-a').verdict === twinAdvice.get('twin-b').verdict,
   'two identical runes were given different verdicts');
 
-const retainedAtFifteen = tallies.map((tally) => tally['+15'].retained);
-const share = Math.min(...retainedAtFifteen) / runeCount;
-check(share > 0.02 && share < 0.6,
+/* The spread checks above can only fail where enough runes sit on a counted chance
+   to move by more than the allowance. A fixed share used to stand in for that, and
+   was met by chance: 8 runes of 300 cleared it while the 1,500-rune box failed it,
+   and 5 runes against an allowance of 6 is a box no spread can fail in. So the bar is
+   the allowance itself, measured where the odds are counted rather than certain. */
+const counted = Math.min(...tallies.map((tally) => tally['+0'].retained));
+check(counted > 2 * spreadAllowance,
+  `only ${counted} runes were retained on a counted chance at +0, too few for a spread of`
+  + ` ${spreadAllowance} to mean anything`);
+const share = Math.max(...tallies.map((tally) => tally['+15'].retained)) / runeCount;
+check(share < 0.6,
   `the box retained ${(share * 100).toFixed(1)} % at +15, which is not a population anyone`
   + ' would have to make decisions about');
 
