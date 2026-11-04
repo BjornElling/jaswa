@@ -41,8 +41,6 @@ export type CraftViewChoice = {
   selectedItemId: string;
   set: string;
   roll: CraftRollAssumption;
-  grindAfter: boolean;
-  grindGrade: ItemGrade;
   showEngraved: boolean;
   showInventory: boolean;
   count: CraftSuggestionCount;
@@ -58,12 +56,12 @@ export type CraftViewChoice = {
   keepOnly: boolean;
 };
 
-/* The middle of the roll and a Hero stone after a Gem: what a player can
-   count on landing rather than what they would hope for. Neither Location
-   chosen means every rune, the inclusive filters' one rule. */
+/* The middle of the roll: what a player can count on landing rather than what
+   they would hope for. Neither Location chosen means every rune, the inclusive
+   filters' one rule. */
 export const defaultCraftViewChoice: CraftViewChoice = {
   kind: 'grindstone', lineages: [], grades: [], statId: '', selectedItemId: '', set: '',
-  roll: 'average', grindAfter: true, grindGrade: 'Hero', showEngraved: false, showInventory: false,
+  roll: 'average', showEngraved: false, showInventory: false,
   count: 5, already: [], gemChange: 'yes', keepOnly: false,
 };
 
@@ -85,8 +83,8 @@ export function readCraftViewChoices(value: unknown): CraftViewChoices {
     kind: isOneOf(craftKinds),
     lineages: isListOf(craftViewOffers[mode].lineages), grades: isListOf(craftViewOffers[mode].grades),
     statId: (value) => value === '' || runeStatIds.some((id) => String(id) === value),
-    selectedItemId: isString, set: isString, roll: isOneOf(craftRollAssumptions), grindAfter: isBoolean,
-    grindGrade: isOneOf(itemGrades), showEngraved: isBoolean, showInventory: isBoolean, count: isOneOf(craftSuggestionCounts),
+    selectedItemId: isString, set: isString, roll: isOneOf(craftRollAssumptions),
+    showEngraved: isBoolean, showInventory: isBoolean, count: isOneOf(craftSuggestionCounts),
     already: isListOf(craftChangeOptions), gemChange: isOneOf(craftChangeOptions), keepOnly: isBoolean,
   })])) as CraftViewChoices;
 }

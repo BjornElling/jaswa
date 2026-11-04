@@ -115,9 +115,12 @@ whole number (`figureOf`).
 Gems & Grinds judges current sub properties and the innate against every allowed
 build of every role. The weights, main-stat matching and fixed neutral perfect-rune
 ceiling come from `prepareRuneCandidate` in `rune-cleanup-model.ts`. It credits no
-future power-up rolls and no further craft beyond the named item and optional
-follow-up Grindstone. The main property selects the ruler; it is not part of the
-scored budget. Accepted and broken readings take the same discounts as Clean-up.
+future power-up rolls. A Grindstone is judged on the rune as it stands; a Gem on the
+placement rule's reference lines, every grindable line carrying an average Legend
+Grindstone before and after alike, so the gain is the Gem's own
+(`craftComparison`, `RUNE-CRAFT-ITEMS.md` §5). The main property selects the ruler;
+it is not part of the scored budget. Accepted and broken readings take the same
+discounts as Clean-up.
 
 Score is the best current reading in percentage points of that fixed ruler,
 before and after separately. Gain is their difference, so a change of best role

@@ -26,9 +26,8 @@ test('craft controls reserve their boxes and calculate three grind rankings', as
   await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath('craft-controls-gem.png'), fullPage: true });
   expect(await boxes()).toEqual(before);
-  await expect(panel.getByRole('group', { name: 'Grind the gemmed property afterwards' })).toBeVisible();
   await panel.getByRole('button', { name: 'Grindstone', exact: true }).click();
-  await expect(panel.getByText('Then grind it', { exact: true })).toBeHidden();
+  expect(await boxes()).toEqual(before);
   await chooseItem(page, 'Violent', 'Grind', 'SPD');
   expect(await filters.boundingBox()).toEqual(bounds);
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
@@ -77,18 +76,15 @@ for (const [mode, label, total] of [
   await page.screenshot({ path: testInfo.outputPath('grind-roll-choice.png'), fullPage: true });
 });
 
-test('gems project a follow-up grind and keep only two result columns', async ({ page }, testInfo) => {
+test('gems are read on Legend-ground lines and keep only two result columns', async ({ page }, testInfo) => {
   await openWorkspace(page);
   await importCraftAccount(page);
   await page.locator('summary').filter({ hasText: 'Best use for this' }).click();
   const panel = page.locator('.craft-best-use');
   await chooseItem(page, 'Violent', 'Gem', 'SPD', 'Legend');
-  /* A Gem is ground at Hero by default; this test asks first without it, then with a Legend stone. */
-  const grind = panel.getByRole('group', { name: 'Grind the gemmed property afterwards' });
-  await expect(grind.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(grind.getByRole('combobox', { name: 'Grade of the grindstone to assume' })).toHaveValue('Hero');
-  await grind.getByRole('combobox', { name: 'Grade of the grindstone to assume' }).selectOption('Legend');
-  await grind.getByRole('button', { name: 'Yes' }).click();
+  /* One premise and no control for it: every grindable line carries an average Legend
+     stone before and after the Gem (RUNE-CRAFT-ITEMS.md §5). */
+  await expect(panel.getByRole('group', { name: /grind/i })).toHaveCount(0);
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(panel.locator('.craft-ranking')).toHaveCount(2);
   const card = panel.locator('.craft-recommendation').first();
@@ -103,11 +99,6 @@ test('gems project a follow-up grind and keep only two result columns', async ({
     return [main ? parseFloat(getComputedStyle(main).fontSize) : 0, sub ? parseFloat(getComputedStyle(sub).fontSize) : 0];
   });
   expect(sizes[0]).toBe(sizes[1]);
-  const before = await card.textContent();
-  await page.screenshot({ path: testInfo.outputPath('craft-gem-before-grind.png'), fullPage: true });
-  await panel.getByRole('group', { name: 'Grind the gemmed property afterwards' }).getByRole('button', { name: 'Yes' }).click();
-  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
-  await expect(card).not.toHaveText(before!);
   await expect(card.locator('.rune-sub-grind-step')).toContainText('→');
   await expect(card.locator('.rune-sub-ground-figure')).toHaveText('+14');
   await expect(panel.getByText('Selected item', { exact: true })).toHaveCount(0);
@@ -174,7 +165,6 @@ test('both craft views share a complete calculation and filter beyond its initia
   await expect(recommendations.locator('.craft-ranking').first().locator('.craft-recommendation')).toHaveCount(1);
   expect(craftWorkers).toBe(1);
   await expect(best.locator('.craft-best-use-filters').getByText('Assumed roll', { exact: true })).toHaveCount(0);
-  await expect(best.locator('.craft-best-use-filters').getByText('Then grind it', { exact: true })).toHaveCount(0);
   await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds', exact: true }).click();
   await expect(recommendations.locator('.craft-recommendation').first()).toContainText('Fatal');
@@ -202,17 +192,14 @@ test('a changed filter contract preserves every valid independent choice, and th
   await expect(panel.getByRole('group', { name: 'Family', exact: true }).getByRole('button', { name: 'Ancient' })).toHaveAttribute('aria-pressed', 'true');
   await expect(panel.getByRole('combobox', { name: 'How well the roll is assumed to land' })).toHaveValue('maximum');
   await expect(panel.getByRole('combobox', { name: 'Narrow the list to one stat' })).toHaveValue('8');
-  await expect(panel.getByRole('combobox', { name: 'Grade of the grindstone to assume' })).toHaveValue('Legend');
   await expect(panel.getByRole('combobox', { name: 'Filter candidate runes by set' })).toHaveValue('');
   await expect(panel.getByRole('slider', { name: 'Number of runes listed in each ranking' })).toHaveAttribute('aria-valuetext', '5 runes in each ranking');
   await expect(panel.getByRole('group', { name: 'Choose rune locations' }).getByRole('button', { name: 'Engraved' })).toHaveAttribute('aria-pressed', 'true');
-  /* An unreadable view starts from the defaults: Average, a Hero grind after a Gem, no Location chosen. */
+  /* An unreadable view starts from the defaults: Average, no Location chosen. */
   await page.locator('summary').filter({ hasText: "What's missing" }).click();
   const missing = page.locator('[data-mode="missing"]');
   await expect(missing.getByRole('combobox', { name: 'How well the roll is assumed to land' })).toHaveValue('average');
   await missing.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
-  await expect(missing.getByRole('combobox', { name: 'Grade of the grindstone to assume' })).toHaveValue('Hero');
-  await expect(missing.getByRole('group', { name: 'Grind the gemmed property afterwards' }).getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'true');
   for (const name of ['Engraved', 'Inventory']) {
     await expect(missing.getByRole('group', { name: 'Choose rune locations' }).getByRole('button', { name })).toHaveAttribute('aria-pressed', 'false');
   }

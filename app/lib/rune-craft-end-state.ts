@@ -730,32 +730,53 @@ export type CraftApplication = {
 };
 
 /**
- * One item, every legal target. Follow-up stones touch only its gemmed line.
+ * **One item on one rune: the rune before it and every legal way to spend it, read
+ * on one premise.** Before and after leave this function together so that nothing
+ * can price them on different terms.
  *
- * Whether the box holds the item is not asked here: What's missing judges the
- * items an account lacks by exactly the rules that place the ones it has.
+ * They once were. A Gem's line was ground by an assumed follow-up Grindstone while
+ * the rune it was measured against stood unground, so the gain paid the Gem for a
+ * stone the replaced line could have taken just as well: a Bruiser's ATK 8 % line
+ * lost to HP +385 ground to +755, although ATK ground by the same stone was worth
+ * more, and the Gem was put on the wrong line besides.
+ *
+ * **A Gem is read on the placement rule's reference rune** (`gemChoiceCredit`):
+ * every grindable line, before and after alike, carries an average Legend
+ * Grindstone where that raises it, and a line already ground higher keeps its own.
+ * The gain is then the Gem's alone, and it is measured on exactly the line-ups that
+ * chose the Gem's stat (`gemChoiceLineUps`); only the Gem's own roll is the item's.
+ * **A Grindstone is read on the rune as it stands**, because the stone is the thing
+ * being judged and crediting one beforehand would judge it against itself.
+ *
+ * `premise` names the baseline, so a caller judging many items on one rune prices
+ * each baseline once. Whether the box holds the item is not asked here: What's
+ * missing judges the items an account lacks by exactly the rules that place the
+ * ones it has.
  */
-export function craftItemApplications(item: CraftItem, rune: Rune, options: {
-  roll: CraftRollAssumption; grindAfter: { grade: ItemGrade } | null;
-}): CraftApplication[] {
-  if (!lineageFits(item, rune)) return [];
-  const held = craftHalfOf(item.kind, [{ item, stock: 0 }], options.roll);
+export type CraftComparison = {
+  premise: CraftKind;
+  baseline: readonly EndStateLine[];
+  applications: CraftApplication[];
+};
+
+export function craftComparison(item: CraftItem, rune: Rune, roll: CraftRollAssumption): CraftComparison {
+  const stones = item.kind === 'gem' ? choicePlan() : null;
+  const premise = (lines: readonly EndStateLine[]) => stones ? groundLines(stones, lines) : lines;
+  const baseline = premise(rune.subProperties);
+  if (!lineageFits(item, rune)) return { premise: item.kind, baseline, applications: [] };
+  const held = craftHalfOf(item.kind, [{ item, stock: 0 }], roll);
   const variants = craftVariants({
     gem: item.kind === 'gem' ? held : null,
     grind: item.kind === 'grindstone' ? held : null,
   }, rune.slot, rune.mainStatId, rune.prefixStatId, rune.subProperties,
   rune.level >= gemMinimumLevel, () => true, true);
-  return variants.filter((variant) => variant.stock.includes(0)).map((variant) => {
+  const applications = variants.filter((variant) => variant.stock.includes(0)).map((variant) => {
     const index = item.kind === 'gem' ? variant.gemmedAt
       : variant.lines.findIndex((line, at) => line.grind !== rune.subProperties[at].grind);
-    let lines = variant.lines;
-    if (item.kind === 'gem' && options.grindAfter) {
-      const grind = assumedCraftHalf('grindstone', item.lineage, options.grindAfter.grade, options.roll);
-      lines = craftVariants({ gem: null, grind }, rune.slot, rune.mainStatId, rune.prefixStatId,
-        lines, false, (statId) => statId === item.statId, true)[0].lines;
-    }
+    const lines = premise(variant.lines);
     return { target: { index, property: rune.subProperties[index] }, result: lines[index], lines };
   });
+  return { premise: item.kind, baseline, applications };
 }
 
 /**

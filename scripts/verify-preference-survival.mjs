@@ -41,7 +41,7 @@ try {
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true } },
     craftIgnores: [{ runeId: '901', kind: 'grindstone', statId: 8 }, { runeId: '902', kind: 'gem', statId: 4 }],
     craftViews: { ...blank.craftViews,
-      recommendations: { ...blank.craftViews.recommendations, kind: 'gem', roll: 'maximum', grindAfter: false, count: 25, showEngraved: true, set: 'Violent' },
+      recommendations: { ...blank.craftViews.recommendations, kind: 'gem', roll: 'maximum', count: 25, showEngraved: true, set: 'Violent' },
       missing: { ...blank.craftViews.missing, grades: ['Legend'], already: ['no'], count: 100 },
     },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },

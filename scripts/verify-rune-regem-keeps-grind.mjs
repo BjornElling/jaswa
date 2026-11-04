@@ -12,15 +12,17 @@ import assert from 'node:assert/strict';
 import { assumedCraftHalf, heldCraftHalf, craftedLines, craftedScore, craftPlan, craftVariants, gemOptions, priceList }
   from '../app/lib/rune-craft-end-state.ts';
 import { craftValueRange } from '../app/lib/rune-craft-items.ts';
-import { craftItemApplications, craftItemFit } from '../app/lib/rune-craft-end-state.ts';
-const craftCandidate = (item, rune, options) => craftItemApplications(item, rune, options)[0] ?? null;
+import { craftComparison, craftItemFit } from '../app/lib/rune-craft-end-state.ts';
+const craftCandidate = (item, rune, roll) => craftComparison(item, rune, roll).applications[0] ?? null;
 
 const ATK_PERCENT = 4;
 const HP_PERCENT = 2;
 const SPD = 8;
 const credit = { gem: 'maximum', gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 const gemRoll = craftValueRange('gem', 'standard', ATK_PERCENT, 'Hero').maximum;
-const stone = 7;
+/* A Legend stone's ceiling: Gems & Grinds reads a Gem on lines ground by an average
+   Legend stone, so only a stone at least that high can show it was kept. */
+const stone = craftValueRange('grindstone', 'standard', ATK_PERCENT, 'Legend').maximum;
 
 const line = (statId, value, gemmed = false, grind = 0) => ({ statId, value, gemmed, grind });
 const rune = (subProperties) => ({
@@ -52,7 +54,7 @@ for (const [label, first] of [
 
   const item = { id: 'gem', kind: 'gem', lineage: 'standard', setId: 13, setName: 'Violent', statId: ATK_PERCENT,
     statName: 'ATK %', grade: 'Hero', amount: 1, range: craftValueRange('gem', 'standard', ATK_PERCENT, 'Hero') };
-  const candidate = craftCandidate(item, rune(lines), { grindAfter: null, roll: 'maximum' });
+  const candidate = craftCandidate(item, rune(lines), 'maximum');
   assert.equal(candidate.target.index, 0);
   assert.deepEqual(candidate.result, line(ATK_PERCENT, gemRoll, true, stone), `${label}: Gems & Grinds dropped the stone`);
   checks += 3;
@@ -105,7 +107,7 @@ for (const gemmed of [false, true]) for (const grind of [0, 5]) {
         }
         checks += 1;
       }
-      const candidate = craftCandidate(item, rune(lines), { grindAfter: null, roll });
+      const candidate = craftCandidate(item, rune(lines), roll);
       if (candidate) assert.ok(candidate.result.value > value, 'the craft planner offered a non-improving same-stat Gem');
       const prices = priceList(valuing(SPD));
       const localPlan = craftPlan('standard', { ...credit, gem: roll });

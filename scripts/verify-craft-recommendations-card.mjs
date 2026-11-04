@@ -27,7 +27,7 @@ try {
     const results = [];
     for (const kind of ['gem', 'grindstone']) {
       const request = { runes, items: items.filter((item) => item.kind === kind), missing: [], roles: defaultRuneRoles(),
-        settings: defaultRunePotentialSettings, base, roll: 'two-thirds', grindAfter: { grade: 'Legend' } };
+        settings: defaultRunePotentialSettings, base, roll: 'two-thirds' };
       const cpu = await recommendRuneCraft({ ...request, preferGpu: false });
       const gpu = await recommendRuneCraft({ ...request, preferGpu: true });
       const reading = (result) => JSON.stringify(result.candidates);

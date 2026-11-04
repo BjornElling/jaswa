@@ -128,9 +128,8 @@ for (const [title, mode] of [['Best use for this', 'selected'], ["What's missing
     const panel = page.locator(`[data-mode="${mode}"]`);
     const cards = panel.locator('.craft-recommendation');
     await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
-    /* The assumptions this account's ranking was written for: a two-thirds roll and no grind afterwards. */
+    /* The assumption this account's ranking was written for: a two-thirds roll. */
     await panel.getByRole('combobox', { name: 'How well the roll is assumed to land' }).selectOption('two-thirds');
-    await panel.getByRole('group', { name: 'Grind the gemmed property afterwards' }).getByRole('button', { name: 'Yes' }).click();
     await panel.getByRole('slider', { name: 'Number of runes listed in each ranking' }).fill('2');
     await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
     await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');

@@ -111,8 +111,8 @@ component, `craft-item-best-use.tsx`, with one mode each, and read
 `rune-craft-recommendations.ts`.
 
 Every view is laid out in columns of one height. First the controls, as one
-surface: the question — the item kind, the stack (Best use only), Assumed roll
-and Then grind it — and beneath it, with no rule between them, the filters in
+surface: the question — the item kind, the stack (Best use only) and Assumed
+roll — and beneath it, with no rule between them, the filters in
 two rows: Family, Grade, Location and (Best use only) Only keep-runes; then
 Rune set, Stat, Stat already grinded / Can change gem'ed stat? and
 *No. of suggestions*, the ranking length. Item and Family share a first track
@@ -132,8 +132,7 @@ ranking length, in the caption size so the box stays narrow.
 
 *No. of suggestions* runs over the stops 1, 5, 10, 25, 50 and 100: one step of
 the hand should matter, and the difference between 60 and 65 runes does not.
-A view opens on Grindstone, an Average roll, a Hero grind after a Gem, no
-Location chosen (every rune, under the inclusive-filter rule) and five
+A view opens on Grindstone, an Average roll, no Location chosen (every rune, under the inclusive-filter rule) and five
 suggestions. Each view's question and filters are saved choices
 (`craftViews`, `craft-view-choices.ts`), so they outlast a reload and a
 restart; the three views keep theirs apart. Reset filters returns the filter
@@ -145,12 +144,11 @@ all held Gems, all held Grindstones and all runes, independently of the filters.
 Best use narrows that complete answer to one stack; Recommendations narrows it
 by the selected categories. With no item chosen, Best use includes every item
 of the displayed kind, following the universal inclusive-filter rule.
-A suggestion spends one item independently, with an optional assumed follow-up
-Grindstone on the gemmed property only. Suggestions are alternatives, not a
+A suggestion spends one item independently. Suggestions are alternatives, not a
 stock allocation across several runes. Stock depth does not multiply a rune's
 score or produce duplicate entries for the same rune in one ranking.
 
-`craftItemApplications` in `rune-craft-end-state.ts` enumerates every legal target
+`craftComparison` in `rune-craft-end-state.ts` enumerates every legal target
 through `craftVariants`, the same end-state enumeration Rune Optimization uses.
 It includes a converted line's same-stat re-Gem and retained stone, rejects a
 non-improving assumed same-stat roll, respects level, slot, innate, duplicate,
@@ -158,10 +156,29 @@ lineage and set restrictions, and excludes a stone whose assumed roll cannot
 beat the current bonus. The inventory's *Can improve* remains a potential count
 at the item's maximum, independent of the assumed-roll rankings.
 
+**Before and after stand on one premise, and come from one function.**
+`craftComparison` returns the rune before the item together with every way to
+spend it, so no caller can read the two on different terms:
+
+- **A Gem** is judged on the placement rule's reference lines (§5.1): every
+  grindable line carries an average Legend Grindstone where that raises it — before
+  the Gem and after it alike — and a line already ground higher keeps its own. The
+  gain is therefore the Gem's alone, read on exactly the line-ups that chose its
+  stat; only the Gem's own roll is the item's, at the Assumed roll.
+- **A Grindstone** is judged on the rune as it stands, because the stone is what is
+  being judged.
+
+There is no control for the premise. *Then grind it* once ground the Gem's own line
+by an assumed stone while the rune it was measured against stood unground, so a Gem
+won on a stone its replaced line could have taken too: on a Bruiser SPD rune, an
+HP + Gem took ATK 8 % because HP +385 ground to +755 beat the bare ATK line, though
+the same stone on ATK was worth more — and the Gem's right line was CRI Dmg.
+`verify:craft-recommendations` holds that rune.
+
 Each before and after line-up meets every allowed build of every role. The
 valuation and fixed neutral ceiling are Clean-up's `prepareRuneCandidate`
-reading, with the same accepted/broken discounts. The score prices the current
-sub properties and innate only: no imagined power-ups and no additional craft.
+reading, with the same accepted/broken discounts. The score prices the sub
+properties and innate as the premise leaves them: no imagined power-ups.
 The best reading is chosen separately before and after; its role may change.
 This current-line reading is distinct from Clean-up's future-value verdict.
 Both use the same ruler; neither a filter nor the item moves it.
@@ -196,9 +213,10 @@ legal `(line, stat)` pair is priced so in every role reading the rune is judged
 in (`gemChoiceLineUps`), and the stat whose best reference end state is worth
 most — and beats the same reading's reference rune without a Gem — is the one
 the rune wants. The ranking travels on every row of the rune (`gemChoice`), and
-`desirableGemStats` reads its top. Neither the grade held, the Assumed roll nor
-Then grind it enters it: those decide what a Gem is shown to gain, not which
-stat it should be. A Hero Gem of the chosen stat is suggested like a Legend
+`desirableGemStats` reads its top. Neither the grade held nor the Assumed roll
+enters it: those decide what a Gem is shown to gain, not which stat it should be.
+The gain itself is read on the same reference lines (§5), so the line a Gem is
+shown on and the stat it was chosen for cannot disagree about the stones. A Hero Gem of the chosen stat is suggested like a Legend
 one, as long as it raises the rune.
 
 Measuring against the rune as it stands was tried and removed. It paid a Gem
@@ -249,8 +267,8 @@ fits too. Whether an item is held is not a placement rule, so
 `craftItemApplications` judges an absent item exactly as a held one.
 
 Only absent items are shown, and each must clear a bar: the best the box's own
-items of the same kind reach on that rune, or the rune as it stands where none
-does (`heldCraftBenchmark`). The bar is read from the whole answer, so a filter
+items of the same kind reach on that rune, or the rune before the item — on the
+same premise (§5) — where none does (`heldCraftBenchmark`). The bar is read from the whole answer, so a filter
 cannot lower it. Highest score and Highest gain list the runes an absent item
 lifts past that bar, Highest gain by the distance past it; Highest stat lists
 stones whose final value beats the best held stone of that stat. Each card adds
@@ -258,7 +276,7 @@ stones whose final value beats the best held stone of that stat. Each card adds
 the one absent item that lifts it furthest past the box, and items are ordered
 by how many runes named them, then by their largest gain. The same ranking
 function (`craftRecommendationRankings`) serves all three views; the box's views
-pass the rune as it stands as their bar. An account with runes and an empty box
+pass the rune before the item as their bar. An account with runes and an empty box
 can still ask; one with no runes is told to import some.
 
 **Stat already grinded** reads the item's specific stat on the rune before
@@ -314,8 +332,7 @@ and only if the box holds one; it never removes the rune itself or its other
 Gem and Grindstone suggestions. If every improving alternative is ignored,
 there is no remaining suggestion to show until the list is reset.
 
-Assumed roll and Then grind it sit in the question panel as calculation
-assumptions. Changing them, the roles, scoring preferences or the account's
+Assumed roll sits in the question panel as a calculation assumption. Changing them, the roles, scoring preferences or the account's
 Lv. 40 monsters requires a new calculation and cancels work answering the old
 question.
 

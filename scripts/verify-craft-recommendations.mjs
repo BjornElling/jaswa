@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readCraftItem, missingCraftItems, missingCraftGrades, missingCraftLineages } from '../app/lib/rune-craft-items.ts';
-import { craftItemApplications, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, gemChoiceCredit,
+import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, gemChoiceCredit,
   gemOptions } from '../app/lib/rune-craft-end-state.ts';
 import { defaultRuneRoles, createRuneRole } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
@@ -85,10 +85,16 @@ function compare(actual, expected) {
     assert.ok(row.item.kind === 'grindstone' || row.rune.level >= 12);
   });
 }
+/* The premise, written out afresh rather than read from the engine: a Gem is judged on
+   lines every one of which carries an average Legend stone where that raises it, before
+   and after alike; a Grindstone on the rune as it stands. */
+const legendStones = craftPlan('standard', { ...gemChoiceCredit, gem: null });
+const premised = (kind, lines) => kind === 'gem'
+  ? lines.map((line) => ({ ...line, grind: Math.max(line.grind, legendStones.grind[line.statId]) })) : lines;
 let comparisons = 0;
-for (const kind of ['gem', 'grindstone']) for (const grindAfter of [null, { grade: 'Legend' }]) {
+for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'maximum']) {
   const request = { runes, items: items.filter((item) => item.kind === kind), missing: [], roles, settings, base,
-    roll: 'two-thirds', grindAfter, preferGpu: false };
+    roll, preferGpu: false };
   const calculation = await recommendRuneCraft(request);
   // Ignore removes a rune/kind/stat, never the rune. Rank the retained pairs
   // again so a less valuable, unignored stat can become that rune's best answer.
@@ -108,17 +114,17 @@ for (const kind of ['gem', 'grindstone']) for (const grindAfter of [null, { grad
   const actual = { ...craftRecommendationRankings(calculation.candidates, 10), backend: calculation.backend, comparisons: calculation.comparisons };
   const rows = [];
   for (const rune of runes) {
-    const before = evaluate(rune);
+    const before = evaluate({ ...rune, subProperties: premised(kind, rune.subProperties) });
     if (!before) continue;
     for (const item of request.items.filter((item) => lineageFits(item, rune))) {
-      const applications = craftItemApplications(item, rune, request);
-      if (!grindAfter) {
-        const half = heldCraftHalf(kind, [{ item, stock: 0 }], request.roll);
-        const variants = craftVariants({ gem: kind === 'gem' ? half : null, grind: kind === 'grindstone' ? half : null },
-          rune.slot, rune.mainStatId, rune.prefixStatId, rune.subProperties, rune.level >= 12, () => true, true)
-          .filter((variant) => variant.stock.includes(0));
-        assert.deepEqual(applications.map((app) => app.lines), variants.map((variant) => variant.lines));
-      }
+      const comparison = craftComparison(item, rune, request.roll);
+      assert.deepEqual(comparison.baseline, premised(kind, rune.subProperties), 'the baseline left the premise');
+      const applications = comparison.applications;
+      const half = heldCraftHalf(kind, [{ item, stock: 0 }], request.roll);
+      const variants = craftVariants({ gem: kind === 'gem' ? half : null, grind: kind === 'grindstone' ? half : null },
+        rune.slot, rune.mainStatId, rune.prefixStatId, rune.subProperties, rune.level >= 12, () => true, true)
+        .filter((variant) => variant.stock.includes(0));
+      assert.deepEqual(applications.map((app) => app.lines), variants.map((variant) => premised(kind, variant.lines)));
       for (const application of applications) {
         const after = evaluate({ ...rune, subProperties: application.lines });
         if (!after) continue;
@@ -146,12 +152,31 @@ for (const kind of ['gem', 'grindstone']) for (const grindAfter of [null, { grad
   assert.equal(actual.backend, 'cpu');
   comparisons += actual.comparisons;
 }
-const emptyRequest = { runes: [], items: [], missing: [], roles: [], settings, base, roll: 'maximum', grindAfter: null, preferGpu: false };
+const emptyRequest = { runes: [], items: [], missing: [], roles: [], settings, base, roll: 'maximum', preferGpu: false };
 assert.equal((await recommendRuneCraft(emptyRequest)).candidates.length, 0);
 assert.equal((await recommendRuneCraft({ ...emptyRequest, runes, items })).candidates.length, 0);
 const nonImproving = { ...runes[0], subProperties: [{ statId: 8, value: 30, grind: 5, gemmed: false }] };
-assert.equal(craftItemApplications(items.find((item) => item.kind === 'grindstone' && item.statId === 8 && item.lineage === 'standard'),
-  nonImproving, emptyRequest).length, 0);
+assert.equal(craftComparison(items.find((item) => item.kind === 'grindstone' && item.statId === 8 && item.lineage === 'standard'),
+  nonImproving, emptyRequest.roll).applications.length, 0);
+
+/* The case that exposed the unequal premise: a Bruiser SPD rune with ATK 8 %. ATK
+   ground by the same stone outweighs HP + ground, so an HP + Gem must not take the ATK
+   line, and every Gem gain must be the Gem's own — never a stone the replaced line
+   could have taken too. */
+{
+  const bruiser = roles.find((role) => role.id === 'bruiser');
+  const blade = { id: 'bruiser-blade', setId: 4, setName: 'Blade', slot: 2, stars: 6, ancient: false, rarity: 'Hero',
+    level: 12, mainStatId: 8, mainValue: 31, prefixStatId: null, prefixValue: 0, occupiedId: null, obtainedOrder: 0,
+    subProperties: [{ statId: 9, value: 6, grind: 0, gemmed: false }, { statId: 10, value: 11, grind: 0, gemmed: false },
+      { statId: 2, value: 21, grind: 0, gemmed: false }, { statId: 4, value: 8, grind: 0, gemmed: false }] };
+  const hpGem = readCraftItem({ craft_item_id: 9950, craft_type: 1, craft_type_id: 40104, amount: 1 });
+  assert.equal(hpGem.kind === 'gem' && hpGem.statId === 1 && hpGem.setId === 4 && hpGem.grade === 'Hero', true,
+    'the fixture item is not a Hero Blade HP + Gem');
+  const bruiserBase = new Map([['No type', { hp: 10435, atk: 718, def: 611, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }]]);
+  const answer = await recommendRuneCraft({ ...emptyRequest, runes: [blade], items: [hpGem], roles: [bruiser], base: bruiserBase, roll: 'average' });
+  assert.deepEqual(answer.candidates.map((row) => row.application.target.index), [1],
+    'the HP + Gem belongs on the CRI Dmg line; on ATK % it only won the stone ATK could have had');
+}
 // Stat ranks must not accidentally become a third score ranking.
 const hpRole = { ...createRuneRole('HP and SPD'), targets: { hp: 50000, spd: 180 },
   sets: { preferred: ['Violent'], acceptable: [] } };

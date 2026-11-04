@@ -18,15 +18,14 @@ import { emptyRunePlacement, hasRunePlacement } from '../lib/rune-placement';
 import { usePresets } from '../lib/presets-context';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import { craftKindLabels, craftLineageLabels, craftRollLabels, craftRollAssumptions,
-  craftSetLabel, itemGrades, missingCraftItems } from '../lib/rune-craft-items';
+  craftSetLabel, missingCraftItems } from '../lib/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
 import { craftChangeOptions, craftFilterFields, craftKinds, craftSuggestionCounts, craftViewOffers, defaultCraftViewChoice } from '../lib/craft-view-choices';
 import type { CraftViewChoice, CraftViewMode } from '../lib/craft-view-choices';
-import { craftItemRange } from '../lib/rune-craft-end-state';
 import { runeStatIds, runeStatName, runeLineStat, runeLineFigure } from '../lib/runes';
 import type { Rune } from '../lib/runes';
 import type { RuneRole } from '../lib/rune-roles';
-import type { GeneralSettings, ItemGrade, RunePotentialSettings } from '../lib/types';
+import type { GeneralSettings, RunePotentialSettings } from '../lib/types';
 import { referenceLines } from '../lib/rune-reference-stats';
 import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations } from '../lib/rune-craft-recommendations';
 import { craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
@@ -100,13 +99,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   /* What's missing judges every absent item. Which Gem stat a rune should take is
      the placement rule's, carried on every row, so no view needs unseen entrants. */
   const missing = useMemo(() => mode === 'missing' ? missingCraftItems(items, runes) : noItems, [mode, items, runes]);
-  const grindPossible = [...items, ...missing].some((item) => item.kind === 'gem' &&
-    craftItemRange('grindstone', item.lineage, item.statId, state.grindGrade) !== undefined);
   const request = useMemo<CraftRecommendationRequest | null>(() => base ? {
-    items, missing, runes, roles, base, settings, roll: state.roll,
-    grindAfter: state.grindAfter ? { grade: state.grindGrade } : null,
-    preferGpu: hardwareAcceleration,
-  } : null, [base, items, missing, runes, roles, settings, state.roll, state.grindAfter, state.grindGrade, hardwareAcceleration]);
+    items, missing, runes, roles, base, settings, roll: state.roll, preferGpu: hardwareAcceleration,
+  } : null, [base, items, missing, runes, roles, settings, state.roll, hardwareAcceleration]);
   const calculationKey = useMemo(() => request ? craftCalculationKey(request) : '', [request]);
   const worker = useRef<Worker | null>(null);
   const workerRequest = useRef<CraftRecommendationRequest | null>(null);
@@ -369,11 +364,6 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       <div className="filter-group craft-view-roll"><label className="filter-label" htmlFor={`${prefix}-roll`}>Assumed roll</label><div className="filter-group-controls">
         <Dropdown id={`${prefix}-roll`} value={state.roll} aria-label="How well the roll is assumed to land" onChange={(event) => update('roll', event.target.value as CraftRollAssumption)}>
           {craftRollAssumptions.map((roll) => <option key={roll} value={roll}>{craftRollLabels[roll]}</option>)}</Dropdown></div></div>
-      <div className="filter-group craft-view-grind" role="group" aria-label="Grind the gemmed property afterwards" style={{ visibility: kind === 'gem' ? undefined : 'hidden' }}>
-        <span className="filter-label">Then grind it</span><div className="filter-group-controls"><FilterButton active={state.grindAfter} disabled={!grindPossible}
-          title={grindPossible ? 'Grind the gemmed property at the assumed grade and roll' : 'The offered item stats cannot be ground'} onClick={() => update('grindAfter', !state.grindAfter)}>Yes</FilterButton>
-          <Dropdown value={state.grindGrade} disabled={!state.grindAfter || !grindPossible} aria-label="Grade of the grindstone to assume"
-            onChange={(event) => update('grindGrade', event.target.value as ItemGrade)}>{itemGrades.map((grade) => <option key={grade}>{grade}</option>)}</Dropdown></div></div>
     </div>
     <div className="filter-panel craft-best-use-filters">
       {choiceGroup('Family', 'lineage', choices.lineages, (value) => state.lineages.includes(value), (value) => toggle('lineages', value),

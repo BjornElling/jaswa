@@ -1343,8 +1343,8 @@ label[for] {
    their widest group and no wider: tracks sharing the panel's width opened gaps
    that belonged to no control. Every view shares these areas, so a group never
    changes place between them; Only keep-runes is Best use's own and the others
-   leave its cell empty. The follow-up grind keeps its track when hidden, so
-   changing the item kind moves nothing. */
+   leave its cell empty. The question asks the same things of a Gem and of a
+   Grindstone, so changing the item kind moves nothing. */
 .craft-best-use { display: grid; gap: var(--s4); grid-template-columns: minmax(0, 1fr) max-content; align-items: stretch; }
 .craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr) max-content 44ch; }
 /* One surface: the filters continue the question's rows at the question's own
@@ -1356,21 +1356,19 @@ label[for] {
 }
 .craft-controls .craft-best-use-filters { padding-top: 0; }
 .craft-question {
-  grid-template-columns: var(--craft-lead) 16ch max-content;
-  grid-template-areas: "kind roll grind";
+  grid-template-columns: var(--craft-lead) 16ch;
+  grid-template-areas: "kind roll";
   justify-content: start;
 }
 .craft-best-use[data-mode="selected"] .craft-question {
-  grid-template-columns: var(--craft-lead) minmax(24ch, 48ch) 16ch max-content;
-  grid-template-areas: "kind item roll grind";
+  grid-template-columns: var(--craft-lead) minmax(24ch, 48ch) 16ch;
+  grid-template-areas: "kind item roll";
 }
 .craft-view-kind { grid-area: kind; }
 .craft-view-select { grid-area: item; }
 .craft-view-roll { grid-area: roll; }
-.craft-view-grind { grid-area: grind; }
 .craft-question .filter-group-controls { width: 100%; }
 .craft-view-select .jaswa-select, .craft-view-roll .jaswa-select { width: 100%; min-width: 0; }
-.craft-view-grind .jaswa-select { width: 12ch; min-width: 0; }
 .craft-best-use-filters {
   grid-template-columns: var(--craft-lead) repeat(3, max-content);
   grid-template-areas:
@@ -1419,9 +1417,9 @@ label[for] {
 @media (max-width: 1000px) {
   .craft-best-use, .craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr); }
   .craft-question, .craft-best-use[data-mode="selected"] .craft-question {
-    grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "kind item" "roll grind";
+    grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "kind item" "roll .";
   }
-  .craft-best-use:not([data-mode="selected"]) .craft-question { grid-template-areas: "kind roll" "grind grind"; }
+  .craft-best-use:not([data-mode="selected"]) .craft-question { grid-template-areas: "kind roll"; }
   .craft-best-use-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas: "family grade" "location keep" "set stat" "already count";
