@@ -468,6 +468,20 @@ parts an agent must not quietly break:
   nothing failing. `npm run verify:rune-craft-single-source` is the check, and it
   reads source text rather than behaviour, because two implementations that
   happen to agree today are still two implementations.
+  **And one assumption about them:** every rune judgement credits an average
+  Legend Gem and an average Legend Grindstone (`canonicalCraftCredit`) — Rune
+  Clean-up's projection, its ruler and calibration, the Gem's placement, and Gems
+  & Grinds' reading of a Gem, before and after alike (`craftComparison`). It is not
+  a setting, and the ruler is not a parameter. Rune Optimization's own Gem and
+  Grindstone choices are a different question — what to spend on one monster —
+  and stay its own.
+- **100 % is a mark, never a ceiling.** A perfect-rune or benchmark score of 100 %
+  is a reference point. No rune, artifact or relic score is capped at it, and
+  anything that would lift a score past it is still recommended. Only shares and
+  probabilities stay inside 0–1, and the game's own limits — CRI Rate, RES and
+  ACC at 100 % — remain game mechanics. `verify:rune-substat-weights` holds that
+  a rune's score keeps rising past 100 %, and `verify:craft-recommendations`
+  that no craft score is clamped.
 - **The graphics card is asked through one door.**
   `docs/HARDWARE-ACCELERATION.md` is binding. A calculation states how the
   processor does it and how the card does it; it does not decide *whether* to use

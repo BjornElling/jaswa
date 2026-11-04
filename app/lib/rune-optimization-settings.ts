@@ -12,11 +12,12 @@ import type { ItemGrade } from './types';
  * These settings belong to the calculation and hold for every monster: which craft
  * items may be counted, where runes may be taken from, and how hard to look.
  *
- * **Deliberately not Rune Clean-up's craft settings.** Clean-up asks what a rune
- * could become if the player chose to invest in it; the optimizer asks what build a
- * monster can take, and a player who lets Clean-up assume Legend Gems to decide
- * what to keep has not thereby said they will spend them on this monster tonight.
- * One set of switches answering both questions would make each wrong for the other.
+ * **Deliberately not Rune Clean-up's craft credit.** Clean-up asks what a rune
+ * could become if the player chose to invest in it, always with the canonical average
+ * Legend items; the optimizer asks what build a monster can take, and that Clean-up
+ * assumes Legend Gems to decide what to keep does not say the player will spend them
+ * on this monster tonight. One assumption answering both questions would make each
+ * wrong for the other.
  */
 
 /**

@@ -19,13 +19,9 @@ for (const update of [
   { neverSellPotentialValue: false }, { potentialValueMinimum: 0 }, { neverSellEngravedPlacements: false },
 ]) assert.equal(runeCalculationKey({ ...inputs, settings: { ...inputs.settings, ...update } }), key);
 for (const update of [
-  { powerUpPolicy: 1 }, { runeQuality: 1 }, { gemRoll: null }, { gemGrade: 'Legend' },
-  { grindstoneRoll: null }, { grindstoneGrade: 'Legend' }, { acceptedRunes: 1 },
-  { brokenRunes: 1 }, { intangibleRunes: 5 }, { keepMoreForLargerSets: false },
+  { powerUpPolicy: 1 }, { runeQuality: 1 }, { acceptedRunes: 1 },
+  { brokenRunes: 1 }, { intangibleRunes: 5 },
 ]) assert.notEqual(runeCalculationKey({ ...inputs, settings: { ...inputs.settings, ...update } }), key);
-const noCraft = { ...inputs, settings: { ...inputs.settings, gemRoll: null, grindstoneRoll: null } };
-assert.equal(runeCalculationKey(noCraft), runeCalculationKey({ ...noCraft,
-  settings: { ...noCraft.settings, gemGrade: 'Legend', grindstoneGrade: 'Legend' } }));
 assert.notEqual(runeCalculationKey({ ...inputs, roles: [...inputs.roles].reverse() }), key);
 const usedType = inputs.roles[0].type;
 assert.notEqual(runeCalculationKey({ ...inputs,
@@ -41,12 +37,7 @@ for (const setName of ['Energy', 'Violent', 'Intangible']) {
   const before = runeCalculationKeyForRune(inputs, body);
   const intangible = runeCalculationKeyForRune({ ...inputs,
     settings: { ...inputs.settings, intangibleRunes: 5 } }, body);
-  const four = runeCalculationKeyForRune({ ...inputs,
-    settings: { ...inputs.settings, keepMoreForLargerSets: false } }, body);
   assert.equal(before === intangible, setName !== 'Intangible');
-  /* Keep more for larger sets reaches a four-set and nothing else: Intangible has its
-     own slider and is not a four-set, which the user decided in October 2026. */
-  assert.equal(before === four, setName !== 'Violent');
 }
 
 // Projection must equal asking the real engine again, including blank and zero safeguards.

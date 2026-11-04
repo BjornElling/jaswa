@@ -201,15 +201,6 @@ export const craftRollDescriptions: Readonly<Record<CraftRollAssumption, string>
   maximum: 'the best its grade allows',
 };
 
-/**
- * The Rune Clean-up stops, in the order used by its sliders. `null` is no item at
- * all. The setting stores the assumption rather than the stop's position, so a
- * stop added to the ladder cannot quietly change what a saved choice means.
- */
-export const craftSettingAssumptions: readonly (CraftRollAssumption | null)[] = [
-  null, 'one-third', 'average', 'two-thirds', 'three-quarters', 'maximum',
-];
-
 /** Round a craft value to a whole number without biasing negative halves inward. */
 export function roundAwayFromZero(value: number): number {
   return value < 0 ? -Math.round(-value) : Math.round(value);

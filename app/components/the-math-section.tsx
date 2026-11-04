@@ -266,7 +266,7 @@ export function TheMathSection() {
           Watch what the artifacts did: they found 200 of the 514 ATK the build was short of, which moved ATK from 0.66 to 0.40 &mdash; from above CRI Dmg to below it. Naming an artifact stat in a role is not decoration.
         </p>
         <p>
-          <b className="type-body-emphasis">Grindstones come off the same way.</b> JASWA reads the finished build as holding just enough lines of a stat to meet what is missing &mdash; each worth an ordinary line&rsquo;s rolls plus its stone, and never more lines than the six slots may legally hold. With Hero stones at three quarters, Fast DD&rsquo;s 18.3 SPD rolls put SPD on all six runes and the six stones find 4.0 of them; its 4.9 ATK rolls take about three lines, whose stones find 1.7; its 1.9 DEF rolls take one line. CRI Rate, CRI Dmg and Accuracy take no stone at all, so they now weigh more against SPD: CRI Rate rises from 0.66 to 0.84, ATK falls from 0.40 to 0.34.
+          <b className="type-body-emphasis">Grindstones come off the same way.</b> JASWA reads the finished build as holding just enough lines of a stat to meet what is missing &mdash; each worth an ordinary line&rsquo;s rolls plus its stone, and never more lines than the six slots may legally hold. With the average Legend stones every rune judgement assumes, Fast DD&rsquo;s 18.3 SPD rolls put SPD on all six runes and the six stones find 5.0 of them; its 4.9 ATK rolls take about three lines, whose stones find 1.9; its 1.9 DEF rolls take one line. CRI Rate, CRI Dmg and Accuracy take no stone at all, so they now weigh more against SPD: CRI Rate rises from 0.66 to 0.90, ATK falls from 0.40 to 0.33.
         </p>
         <p>
           One consequence worth spelling out: <b className="type-body-emphasis">a target the build already meets asks the runes for nothing</b>. No-spd bruiser wants 100 SPD and the reference monster already has 104, so SPD lines earn No-spd bruiser nothing at all.
@@ -486,12 +486,15 @@ export function TheMathSection() {
           Two things stay six-star on purpose. What the role still needs is worked out for a finished six-star build, main stats at <span className="math-relic-level">+15</span> included, because that is the build the runes are being collected for. And the conversion of a flat line into a share of the monster&rsquo;s base is the same at every star class; only the size of a maximum roll changes.
         </p>
         <p>
-          Ancient runes are six-star runes measured against the <i>ordinary</i> six-star reference. They use their higher verified <i>initial</i> substat interval in the Max-value and Chance projections; their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, reference box and denominator follow the ordinary rules, and they take Ancient craft items only. The projection finishes at <span className="math-relic-level">+15</span>; +12→+15 raises only the main stat. Because the denominator stays ordinary, a maximum Ancient result may exceed 100 %.
+          Ancient runes are six-star runes measured against the <i>ordinary</i> six-star reference. They use their higher verified <i>initial</i> substat interval in the Max-value and Chance projections; their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, reference box and denominator follow the ordinary rules, and they take Ancient craft items only. The projection finishes at <span className="math-relic-level">+15</span>; +12→+15 raises only the main stat. Because the denominator stays ordinary, a maximum Ancient result reads above 100 %.
         </p>
 
         <h3 className="type-heading">Gems and Grindstones</h3>
         <p>
-          Your Gem and Grindstone settings price the rune’s completed future, including at +0 and +9. The perfect ordinary reference stays fixed at Hero items credited at three quarters, so increasing the craft credit improves the rune without moving its ruler. Grinding a line to no more than its credited stone changes nothing. The reference reads 100 %; stronger craft credit or an Ancient rune’s higher initial interval can exceed it.
+          Every rune judgement assumes one Gem and one Grindstone, and neither is a setting: an <b className="type-body-emphasis">average Legend Gem and an average Legend Grindstone</b>. They price the rune’s completed future, including at +0 and +9, they price the perfect ordinary reference it is measured against, and Gems &amp; Grinds reads a Gem on lines ground by the same stone. Grinding a line to no more than that stone changes nothing.
+        </p>
+        <p>
+          The reference reads 100 %, and <b className="type-body-emphasis">100 % is a mark, not a ceiling</b>. A rune ground past the reference stone, or an Ancient rune’s higher initial interval, reads above it, and anything that would lift it further is still recommended.
         </p>
         <p>
           A Grindstone is credited on every grindable line, including ones the rune has yet to gain, as <b className="type-body-emphasis">the better of what is already there and what the stone would give</b> — never added on top, which would pay the rune twice for one line.
@@ -514,7 +517,7 @@ export function TheMathSection() {
           Each rune follows the same selling funnel: judge at +0, power survivors to +9, sell again, then power survivors to +12 and keep only passing runes. The final percentage divides +12 survivors by <b className="type-body-emphasis">all original drops</b>. Floors are fitted across every combination of quality, policy, Accepted and Broken; a stricter choice inherits its less demanding neighbours before overrepresented slots are tightened.
         </p>
         <p>
-          The same floor applies at every checkpoint. Four-piece preference changes only four-piece candidates; Intangible preference changes only Intangible candidates. At the highest quality levels, survivors can be too rare for this fixed sample to establish slot evenness. The quality minimum stays in place, with a one-observation tail allowance in the fit, rather than filling a slot with poor runes.
+          The same floor applies at every checkpoint. Intangible preference changes only Intangible candidates; no setting favours a set for its size. At the highest quality levels, survivors can be too rare for this fixed sample to establish slot evenness. The quality minimum stays in place, with a one-observation tail allowance in the fit, rather than filling a slot with poor runes.
         </p>
 
         <h3 className="type-heading">The number the column prints</h3>

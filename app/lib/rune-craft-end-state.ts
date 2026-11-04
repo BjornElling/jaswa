@@ -20,8 +20,8 @@
  * 1. **A Grindstone sits on top of one sub property**, and only on one of the seven
  *    grindable effect ids (§8). Never on the main property, and never on the innate,
  *    which takes neither craft item (§4). It is credited as `max(the stone already
- *    there, the one the settings assume)` rather than added to it: a rune ground
- *    three quarters of the way is worth what an unground one is, because the stone
+ *    there, the credited one)` rather than added to it: a rune ground as far as the
+ *    credited stone is worth what an unground one is, because the stone
  *    can always be topped up, and adding them would pay the rune twice for one line.
  * 2. **A Gem replaces one sub property**, and the rune must be at `+12` for it. The
  *    replaced line loses every roll it collected. A rune may carry one converted line
@@ -40,8 +40,9 @@
  * **The placement is chosen on one fixed reference rune, never on the settings.**
  * Every grindable line is ground by an average Legend Grindstone where that raises
  * it, the Gem is an average Legend Gem, ground likewise, and the `(line, stat)` pair
- * that gains most on that rune is the one a Gem takes (`gemChoiceCredit`). Only then
- * is the placement valued at the credit the caller assumes.
+ * that gains most on that rune is the one a Gem takes (`canonicalCraftCredit`). Only
+ * then is the placement valued at the credit the caller assumes — for Rune Clean-up
+ * that is the same credit, for Gems & Grinds a held item's own roll.
  *
  * Two readings of this question used to stand side by side, and they disagreed. Rune
  * Clean-up ground every line first and put the Gem where it gained most at its own
@@ -63,12 +64,13 @@ import type { ItemGrade } from './types';
 import type { Valuation } from './rune-substat-weights';
 
 /**
- * The Gem and the Grindstone the Clean-up policy assumes are available.
+ * A Gem and a Grindstone assumed to be available, rather than items the account is
+ * known to hold.
  *
  * One Gem, because a rune carries one converted line at a time; a Grindstone for
  * every grindable line, because a line holds one stone and nothing stops a player
- * spending one on each. Both are *assumptions about the player's stock*, not items
- * the account is known to hold.
+ * spending one on each. `null` credits none of that kind: Gems & Grinds and Rune
+ * Optimization read a rune's current lines that way and add the items they judge.
  */
 export type CraftCredit = {
   gem: CraftRollAssumption | null;
@@ -78,13 +80,27 @@ export type CraftCredit = {
 };
 
 /**
- * The reference a Gem's placement is chosen on: an average Legend Gem, and an
- * average Legend Grindstone on every grindable line. Ordinary Legend, never Ancient,
- * so the choice does not turn on which items a box holds or on the rune's lineage.
+ * **The one assumption about Gems and Grindstones every rune judgement makes:** an
+ * average Legend Gem, and an average Legend Grindstone on every grindable line.
+ *
+ * Rune Clean-up projects a rune with it, its ruler — the weights, the perfect rune,
+ * the box of ordinary runes and the floor calibration — is priced with it, the Gem's
+ * placement is chosen on it, and Gems & Grinds reads a Gem on lines ground by it. It
+ * is not a setting. Clean-up once carried its own Gem and Grindstone sliders beside a
+ * Hero-three-quarters ruler and this Legend reference, so one rune was read under
+ * three assumptions at once, and two views could disagree about the same craft for
+ * no reason a player could see.
+ *
+ * The grade and the roll are the assumption; the items themselves follow the rune's
+ * lineage where a lineage is a legality rule (`craftPlan`). The placement reference
+ * alone is ordinary Legend whatever the rune, so the choice never turns on lineage.
  */
-export const gemChoiceCredit: CraftCredit = {
+export const canonicalCraftCredit: CraftCredit = {
   gem: 'average', gemGrade: 'Legend', grind: 'average', grindGrade: 'Legend',
 };
+
+/** Credits nothing: a rune's lines exactly as they stand. */
+export const noCraftCredit: CraftCredit = { gem: null, gemGrade: 'Legend', grind: null, grindGrade: 'Legend' };
 
 export const creditKey = (credit: CraftCredit): string =>
   `${credit.gem ?? '-'}/${credit.gemGrade}/${credit.grind ?? '-'}/${credit.grindGrade}`;
@@ -157,7 +173,7 @@ export function craftItemRoll(
  * What the credited items would put on each effect id — the whole of rules 1 and 3's
  * value half, worked out once per lineage and credit rather than per line of per rune.
  *
- * `grind` is `0` wherever no stone exists, which is both "the settings credit none"
+ * `grind` is `0` wherever no stone exists, which is both "the credit names none"
  * and "this id cannot be ground", because the two have the same arithmetic.
  * `gem` is `-1` where no Gem exists, which is not the same as `0`: a Gem that rolls
  * nothing would still replace the line.
@@ -241,7 +257,7 @@ export type GemList = {
 
 /**
  * The legal Gems twice over: priced at the caller's credit, and priced on the
- * reference the placement is chosen on (`gemChoiceCredit`). The ids are the same;
+ * reference the placement is chosen on (`canonicalCraftCredit`). The ids are the same;
  * only the order and the values differ.
  */
 export type GemOptions = GemList & {
@@ -257,7 +273,7 @@ const emptyGemOptions: GemOptions = { ...emptyGemList, choice: emptyGemList };
 
 /** The reference's own plan, whose grind table is what "every line ground" means. */
 let referencePlan: CraftPlan | null = null;
-const choicePlan = (): CraftPlan => referencePlan ??= craftPlan('standard', gemChoiceCredit);
+const choicePlan = (): CraftPlan => referencePlan ??= craftPlan('standard', canonicalCraftCredit);
 
 /**
  * The legal Gems for one rune in one role, best first.
@@ -414,7 +430,7 @@ function plainScore(plan: CraftPlan, prices: PriceList, lines: readonly EndState
  * **The end state of a finished line-up, in this role's units.**
  *
  * Rule 4 in one expression: score the lines as they stand at the credit, choose the
- * Gem's placement on the reference rune (`gemChoiceCredit`), and add what that
+ * Gem's placement on the reference rune (`canonicalCraftCredit`), and add what that
  * placement gains at the credit — or nothing, where it gains nothing there, or where
  * the credited Gem of that stat could not legally take the line.
  *
@@ -524,7 +540,7 @@ export function craftedLines(
 /**
  * **The placement rule asked per stat**, for a view that scores a rune in units of its
  * own: every legal Gem on this finished rune as the reference line-up it would leave
- * (`gemChoiceCredit`), beside the reference line-up with no Gem. Priced in one role,
+ * (`canonicalCraftCredit`), beside the reference line-up with no Gem. Priced in one role,
  * the best of these that beats `base` is the placement `craftedScore` chooses in that
  * role; Gems & Grinds reads them across every role it judges a rune in. `null` below
  * `+12`, where no Gem may go on yet.
@@ -740,7 +756,7 @@ export type CraftApplication = {
  * lost to HP +385 ground to +755, although ATK ground by the same stone was worth
  * more, and the Gem was put on the wrong line besides.
  *
- * **A Gem is read on the placement rule's reference rune** (`gemChoiceCredit`):
+ * **A Gem is read on the placement rule's reference rune** (`canonicalCraftCredit`):
  * every grindable line, before and after alike, carries an average Legend
  * Grindstone where that raises it, and a line already ground higher keeps its own.
  * The gain is then the Gem's alone, and it is measured on exactly the line-ups that

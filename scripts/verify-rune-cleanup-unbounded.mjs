@@ -33,8 +33,12 @@ forbid('roles', /\b(?:runeShare|roleRuneShare|defaultRuneShare)\b/u,
 forbid('section', /\b(?:runeShare|roleRuneShare|runeShareLabel|role-rune-share)\b/u,
   'the rune role editor must not expose a desired quantity control.');
 
+/* *Keep twice as many 4-set runes* was removed in November 2026: fitted slot by slot it
+   could not keep the slots level, and fitted to keep them level it kept nothing. */
+forbid('advice', /keepMoreForLargerSets|fourPiece/u,
+  'the 4-set retention preference was removed and must not return to the calculation.');
+
 for (const required of [
-  ['advice', /keepMoreForLargerSets/u, 'the 4-set retention preference must remain in the calculation.'],
   ['advice', /intangibleRunes/u, 'the Intangible retention preference must remain in the calculation.'],
   ['advice', /qualityBar\s*\+\s*\(calibratedFloor\s*-\s*qualityBar\)\s*\/\s*retentionMultiplier/u,
     'set preferences must soften slot correction without undercutting the quality minimum.'],
@@ -47,4 +51,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('PASS: Rune Clean-up has no finite role quota and retains both relative set preferences.');
+console.log('PASS: Rune Clean-up has no finite role quota, keeps the Intangible preference and no 4-set preference.');

@@ -44,7 +44,7 @@ try {
       recommendations: { ...blank.craftViews.recommendations, kind: 'gem', roll: 'maximum', count: 25, showEngraved: true, set: 'Violent' },
       missing: { ...blank.craftViews.missing, grades: ['Legend'], already: ['no'], count: 100 },
     },
-    runePotential: { ...blank.runePotential, powerUpPolicy: 2, gemGrade: 'Legend', keepMoreForLargerSets: true },
+    runePotential: { ...blank.runePotential, powerUpPolicy: 2, intangibleRunes: 4 },
     runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
     speedTuning: {

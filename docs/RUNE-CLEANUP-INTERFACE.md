@@ -25,7 +25,7 @@ account clears the calculated session; preferences stay saved.
 | Rune sold or removed | Keep its previous row marked Sold until Recalculate removes it. |
 | Scenario or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
 | Holds, rune locks, or any *Never sell ifâ€¦* safeguard or threshold | Apply the current protection immediately to the held advice. |
-| *Power-up policy*, *Rune quality floor*, *Accepted runes*, *Broken runes*, *Intangible runes*, *Keep twice as many 4-set runes*, assumed Gem/Grindstone roll or active grade | Keep the row order and replace the affected answers automatically. The Intangible and four-set settings rejudge only their own runes; the others rejudge every row. |
+| *Power-up policy*, *Rune quality floor*, *Accepted runes*, *Broken runes*, *Intangible runes* | Keep the row order and replace the affected answers automatically. The Intangible setting rejudges only Intangible runes; the others rejudge every row. |
 | Role added, removed, reordered or edited â€” targets, type, artifacts, sets, slot choices | Keep the row order and rejudge every row automatically, because the shared slot calibration can change. |
 | Reference averages change | Rejudge the list when a reference family a role uses changes. The averages depend on the level-40 roster, family classification and base stats, so a new, removed, awakened or levelled monster may change them even if no rune changed. Equal averages remain valid. |
 | Display formatting, hardware acceleration, craft inventory, buildings, artifacts or relics | Nothing to rejudge: formatting is read live, acceleration chooses an engine, and Clean-up uses assumed craft credit and roster base stats rather than owned items or a monster's engraved gear. |
@@ -48,8 +48,8 @@ approximation and draws no different sample.
 The slot calibration is counted once per session and shared: a pool of calibration
 workers, one per processor core but one, counts its eighteen pieces (six slots at three
 checkpoints) side by side, and the main thread keeps the last four counted populations
-(`rune-calibration-client.ts`). Every advice channel — the table, a refresh, the rune
-overlay — adopts that copy instead of counting its own, so opening a rune after
+(`rune-calibration-client.ts`). Every advice channel â€” the table, a refresh, the rune
+overlay â€” adopts that copy instead of counting its own, so opening a rune after
 Calculate costs the rune and not another calibration. A count is abandoned only when
 nobody waits for it any more. An idle advice worker stays available across navigation,
 keeping the floors it has read. An incremental refresh borrows the table's worker when it is idle;
@@ -178,5 +178,5 @@ skips it. The counted population belongs to the session and its calculation inpu
 changing those inputs or reloading the page requires calibration again.
 
 **The rune overlay** says it is still working at the far end of the main property's
-line: a gold turning arc and `Calculating…` at body size. The mark is always laid out and
+line: a gold turning arc and `Calculatingâ€¦` at body size. The mark is always laid out and
 only shown or hidden, so its coming and going moves nothing.

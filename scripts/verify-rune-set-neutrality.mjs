@@ -27,7 +27,6 @@ import {
 } from '../app/lib/rune-properties.ts';
 import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { roleRuneSetNameList } from '../app/lib/rune-sets.ts';
-import { isFourPieceSet } from '../app/lib/rune-calculation-inputs.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));
@@ -124,9 +123,7 @@ const bodies = Array.from({ length: runeCount }, (_, id) =>
 const everySet = { preferred: roleRuneSetNameList, acceptable: [] };
 const openRoles = defaultRuneRoles().map((role) => ({ ...role, sets: everySet }));
 const settings = {
-  powerUpPolicy: 3, runeQuality: 2, gemRoll: 'three-quarters', grindstoneRoll: 'three-quarters', gemGrade: 'Hero',
-  grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3, intangibleRunes: 1,
-  keepMoreForLargerSets: false,
+  powerUpPolicy: 3, runeQuality: 2, acceptedRunes: 3, brokenRunes: 3, intangibleRunes: 1,
 };
 
 /* Intangible is not a role option, but it is still a preferred set match for
@@ -192,27 +189,13 @@ const countKept = (answers, setName) => mixed
 check(countKept(intangibleMixed, 'Intangible') > countKept(intangibleMixed, 'Violent'),
   'the Intangible slider must prefer Intangible runes over otherwise identical normal runes.');
 
-/* Violent and Despair are four-piece sets, and Intangible is not one for this
-   setting (`RUNE-CLEANUP-MATH.md` §9), so the two groups are named by the game's own
-   set sizes. The helper was once a no-op that passed here by one rune because the
-   "two-piece" group held two four-piece sets; its effect is now held both ways. */
+/* No setting favours a set by its size any more, so a four-piece set and a two-piece
+   set holding the same rune bodies keep exactly as many. */
 const plainMixed = await runeAdvice(mixed, openRoles, settings, referenceStats);
-const fourSetMixed = await runeAdvice(mixed, openRoles, { ...settings, keepMoreForLargerSets: true }, referenceStats);
 const kept = (answers, group) => group.reduce((sum, setName) => sum + countKept(answers, setName), 0);
-const fourPieceSets = ['Violent', 'Despair', 'Swift', 'Rage', 'Fatal'];
-const twoPieceSets = ['Energy', 'Guard', 'Blade', 'Focus', 'Endure'];
-check(isFourPieceSet('Violent') && !isFourPieceSet('Energy') && !isFourPieceSet('Intangible'),
-  'the four-piece and two-piece groups no longer match the game\'s set sizes.');
-const fourSetKept = kept(fourSetMixed, fourPieceSets);
-const fourSetPlain = kept(plainMixed, fourPieceSets);
-check(fourSetKept > fourSetPlain,
-  `the 4-set helper must keep more 4-set runes than it does switched off (${fourSetKept} against ${fourSetPlain}).`);
-check(fourSetKept <= 2 * fourSetPlain,
-  `the 4-set helper must keep at most twice as many 4-set runes (${fourSetKept} against ${fourSetPlain}).`);
-check(kept(fourSetMixed, twoPieceSets) === kept(plainMixed, twoPieceSets),
-  'the 4-set helper must not move a 2-set rune\'s verdict.');
-console.log(`4-set helper: four-piece runes kept ${fourSetPlain} -> ${fourSetKept},`
-  + ` two-piece ${kept(plainMixed, twoPieceSets)} -> ${kept(fourSetMixed, twoPieceSets)}.`);
+check(kept(plainMixed, ['Violent', 'Despair', 'Swift', 'Rage', 'Fatal'])
+  === kept(plainMixed, ['Energy', 'Guard', 'Blade', 'Focus', 'Endure']),
+  'four-piece and two-piece sets with identical bodies kept different numbers of runes.');
 
 /* ------------------------------------- 3. neutral is not the same as blind */
 

@@ -10,7 +10,7 @@ import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  neutralComparisonCredit, newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds,
+  newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 
 const base = new Map([
@@ -39,7 +39,7 @@ function hasCandidateAtRank(rune, wantedRank) {
   return builds.some(([role, roleBuildsForRune]) => {
     const line = base.get(role.type);
     return line !== undefined && roleBuildsForRune.some((build) =>
-      prepareRuneCandidate(rune, role, build, line, noCraft, neutralComparisonCredit, scope)?.rank === wantedRank);
+      prepareRuneCandidate(rune, role, build, line, noCraft, scope)?.rank === wantedRank);
   });
 }
 
@@ -106,21 +106,6 @@ await assertOnlyGetsStricter(
   'Power-up policy',
   { ...defaultRunePotentialSettings, powerUpPolicy: 3 },
   { ...defaultRunePotentialSettings, powerUpPolicy: 4 },
-);
-await assertOnlyGetsStricter(
-  'Enchanted gems',
-  { ...defaultRunePotentialSettings, gemRoll: 'maximum' },
-  { ...defaultRunePotentialSettings, gemRoll: null },
-);
-await assertOnlyGetsStricter(
-  'Grindstones',
-  { ...defaultRunePotentialSettings, grindstoneRoll: 'maximum' },
-  { ...defaultRunePotentialSettings, grindstoneRoll: null },
-);
-await assertOnlyGetsStricter(
-  'Four-set preference',
-  { ...defaultRunePotentialSettings, keepMoreForLargerSets: true },
-  { ...defaultRunePotentialSettings, keepMoreForLargerSets: false },
 );
 await assertOnlyGetsStricter(
   'Intangible',

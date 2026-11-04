@@ -6,18 +6,18 @@ const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.me
 test('simulates random runes through +0, +9, +12 and +15, spending no craft without a role',async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  /* No Gem or Grindstone setting is left to change: Rune Settings offers none. */
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
   await page.locator('details').filter({ hasText: 'Settings' }).locator('summary').click();
-  await page.locator('#enchanted-gems').fill('6');
-  await page.locator('#grindstones').fill('5');
+  await expect(page.locator('#enchanted-gems, #grindstones')).toHaveCount(0);
 
   /* The simulator is a Rune Clean-up tool, judged by the Clean-up engine beside it. */
   const runes = page.locator('.rail-group').filter({ has: page.locator('.rail-heading', { hasText: 'Rune Clean-up' }) });
   await runes.getByRole('button', { name: 'Rune Simulator', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Rune Simulator', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Nothing generated yet.', exact: true })).toBeVisible();
-  await expect(page.getByText('Best · Hero', { exact: true })).toBeVisible();
-  await expect(page.getByText('¾ · Hero', { exact: true })).toBeVisible();
+  /* The one canonical credit, the same in every rune judgement. */
+  await expect(page.getByText('Average · Legend', { exact: true })).toHaveCount(2);
   await expect(page.getByLabel('Rune set', { exact: true })).toHaveValue('');
   await expect(page.getByLabel('Main stat')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Enchanted Gem' })).toHaveCount(0);

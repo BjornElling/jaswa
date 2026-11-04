@@ -50,14 +50,16 @@ for (const grade of Object.keys(expectedEvents)) {
     })),
     occupiedId: null, obtainedOrder: 1,
   };
-  /* The rationals are worked out against a bare ruler — the one-stat ceiling is five
-     SPD rolls and nothing else — so the ruler is stated bare rather than the product's. */
-  const candidate = prepareRuneCandidate(rune, role, build, base, credit, credit);
+  /* The rune is read bare, and the bar is stated in SPD — 7.5 points, a quarter of
+     five maximum rolls — then put on the candidate's own scale, whatever the canonical
+     ruler's perfect rune carries. The rationals depend on the SPD and nothing else. */
+  const candidate = prepareRuneCandidate(rune, role, build, base, credit);
   assert.ok(candidate, `${grade} fixture should be judgeable`);
-  /* The starting SPD line is 4/6 max-roll units. Reaching 25 % of this
-     one-stat ceiling therefore requires at least one later SPD improvement.
-     Additions are worth zero in this fixture. */
-  const answer = candidateChance(candidate, 0.25);
+  /* The starting SPD line is 4 points. Reaching 7.5 therefore requires at least one
+     later SPD improvement; an added SPD line rolls at most 6. Additions are worth zero
+     otherwise in this fixture. */
+  const bar = candidate.valuation.value(8, 7.5) / candidate.ceiling;
+  const answer = candidateChance(candidate, bar);
   /* Two of the five are certainties and stay exact: a Normal rune has no improvement
      to give its SPD line and can never reach the bar, and a Magic rune's one
      improvement has nowhere else to go. The engine settles those on the reachable
@@ -78,7 +80,7 @@ for (const grade of Object.keys(expectedEvents)) {
   /* The same rune must always print the same number. The draws are a hash of the rune
      itself, so this holds across calls, across the order runes are judged in, and
      between one calculation of a box and the next. */
-  assert.equal(candidateChance(candidate, 0.25), answer, `${grade} chance is not repeatable`);
+  assert.equal(candidateChance(candidate, bar), answer, `${grade} chance is not repeatable`);
 }
 
 console.log(`PASS: level-0 probability follows each grade's event order, exactly at the`

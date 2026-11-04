@@ -8,7 +8,7 @@
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { ordinarySample } from '../app/lib/rune-cleanup-model.ts';
-import { runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/lib/rune-cleanup-advice.ts';
+import { calculatedRuneVerdict, runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/lib/rune-cleanup-advice.ts';
 import { countJobs } from '../app/lib/rune-power-up-outcomes.ts';
 
 const base = new Map([
@@ -37,25 +37,25 @@ const scenarios = [
   { powerUpPolicy: 1, runeQuality: 5, acceptedRunes: 5, brokenRunes: 5, offset: 60_000 },
   { powerUpPolicy: 3, runeQuality: 5, acceptedRunes: 3, brokenRunes: 3, offset: 60_000 },
   { powerUpPolicy: 3, runeQuality: 4, acceptedRunes: 3, brokenRunes: 3, offset: 60_000 },
-  /* The balance is measured on the shipped set weights, so the preference turned
-     off must hold as well. */
-  { powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3, offset: 50_000, keepMoreForLargerSets: false },
-  { powerUpPolicy: 5, runeQuality: 1, acceptedRunes: 5, brokenRunes: 5, offset: 50_000, keepMoreForLargerSets: false },
 ];
 let failures = 0;
-for (const { powerUpPolicy, runeQuality, acceptedRunes, brokenRunes, offset, keepMoreForLargerSets = true } of scenarios) {
+for (const { powerUpPolicy, runeQuality, acceptedRunes, brokenRunes, offset } of scenarios) {
   const runes = [1, 2, 3, 4, 5, 6].flatMap((slot) => ordinarySample(slot, 6, perSlot, 0, 'drop', offset));
   const eligible = [1, 2, 3, 4, 5, 6].map(() => perSlot);
-  const settings = {
-    ...defaultRunePotentialSettings, powerUpPolicy, runeQuality, acceptedRunes, brokenRunes, keepMoreForLargerSets,
-  };
+  const settings = { ...defaultRunePotentialSettings, powerUpPolicy, runeQuality, acceptedRunes, brokenRunes };
   const checkpoints = [runes, ...[9, 12].map((level) => [1, 2, 3, 4, 5, 6].flatMap((slot) => ordinarySample(slot, 6, perSlot, level, 'drop', offset)))];
   const result = await runeAdvice(checkpoints.flat(), roles, settings, base,
     (jobs) => countJobs(jobs.map((job) => ({ ...job, runs: 512 }))));
+  /* The calculation's own verdict, past the sell safeguards. Pre-grind SPD, potential
+     value and the rest protect a rune for what it holds, whatever its slot, so they
+     are not the calibration's to balance; counting them here once failed a policy the
+     calibration balanced exactly (5 / 6 / 5 / 6 / 6 / 5 in its own population) on 54
+     runes the defaults protected. */
+  const verdict = (id) => { const answer = result.get(id); return answer ? calculatedRuneVerdict(answer) : undefined; };
   const counts = [1, 2, 3, 4, 5, 6].map((slot) => runes.filter((rune, index) => rune.slot === slot
-    && result.get(rune.id)?.verdict === 'power-up'
-    && result.get(checkpoints[1][index]?.id)?.verdict === 'power-up'
-    && result.get(checkpoints[2][index]?.id)?.verdict === 'keep').length);
+    && verdict(rune.id) === 'power-up'
+    && verdict(checkpoints[1][index]?.id) === 'power-up'
+    && verdict(checkpoints[2][index]?.id) === 'keep').length);
   const rate = counts.reduce((sum, count) => sum + count, 0) / eligible.reduce((sum, count) => sum + count, 0);
   const chi = counts.reduce((sum, count, at) => {
     const expected = eligible[at] * rate;
@@ -64,8 +64,7 @@ for (const { powerUpPolicy, runeQuality, acceptedRunes, brokenRunes, offset, kee
   }, 0);
   const total = counts.reduce((sum, count) => sum + count, 0);
   const rates = counts.map((count, at) => count / eligible[at]);
-  const label = `policy ${powerUpPolicy}, floor ${runeQuality}, accepted ${acceptedRunes}, broken ${brokenRunes},`
-    + ` 4-sets ${keepMoreForLargerSets ? 'kept more' : 'even'}, seed ${offset}`;
+  const label = `policy ${powerUpPolicy}, floor ${runeQuality}, accepted ${acceptedRunes}, broken ${brokenRunes}, seed ${offset}`;
   console.log(`${label}: ${rates.map((value) => (100 * value).toFixed(1)).join(' / ')} %; ${total} kept; chi2 ${chi.toFixed(1)}`);
   const scarce = total < 30;
   const oddRate = [0, 2, 4].reduce((sum, at) => sum + counts[at], 0)

@@ -84,7 +84,7 @@ For the first implementation, retain the canonical generator's assumptions:
 | Types | Uniform legal selection without replacement |
 | Values and upgrade targets | Uniform within the canonical legal choices |
 | Lineage | Ordinary reference; actual Ancient candidate retains Ancient legality |
-| Craft credit | Fixed `neutralComparisonCredit`, including for all references |
+| Craft credit | Fixed `canonicalCraftCredit`, including for all references |
 | Sets | Neutral set identity; preference affects retention, not the ruler |
 | Roles and reference monster bases | The user's current roles and roster reference averages |
 
@@ -500,9 +500,8 @@ Add `rune-quality-distribution.ts` owning `T`, inclusive survival queries and
 quantile boundaries. Use one distribution per slot and reference star class.
 Cache by mathematical content: model parameters, roles' valuation/build content,
 reference averages, ceilings and fixed comparison credit. Exclude imported rune
-inventory, filters, placement, chance policy, tail multipliers, safeguards,
-active candidate craft credit and hardware preference. Those do not change the
-neutral ruler. Deduplicate identical valuations/builds before computation.
+inventory, filters, placement, chance policy, tail multipliers, safeguards and
+hardware preference. Those do not change the neutral ruler. Deduplicate identical valuations/builds before computation.
 
 ### Step 4: replace gate semantics in one place
 
@@ -568,8 +567,8 @@ checkpoint survival percentages; they are correlated.
 ### Step 7: benchmark before replacing the current engine
 
 Measure cold/warm reference queries and candidate throughput on this machine for
-the shipped roles, one-stat roles, duplicate roles, broad multi-main roles, all
-craft settings, all supported stars, ordinary/Ancient and all observed levels.
+the shipped roles, one-stat roles, duplicate roles, broad multi-main roles, the
+canonical craft credit and none, all supported stars, ordinary/Ancient and all observed levels.
 Record state counts, unresolved mass, runtime, cancellation delay and memory.
 Use the real account locally when available, but never transmit it. Do not claim
 an implementation is optimal from state-count compression alone.

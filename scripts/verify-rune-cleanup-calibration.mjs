@@ -18,7 +18,7 @@ import {
 import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
 import { craftRollValue, craftValueRange } from '../app/lib/rune-craft-items.ts';
 import {
-  chanceRuns, judgeAgainstBuild, neutralComparisonCredit, prepareRuneCandidate, roleBuilds,
+  chanceRuns, judgeAgainstBuild, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
@@ -61,16 +61,16 @@ const referenceStats = new Map([
   ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
 ]);
 const settings = {
-  powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null,
-  gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
-  intangibleRunes: 1, keepMoreForLargerSets: false,
+  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3,
+  intangibleRunes: 1,
 };
 const noCraft = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 /* The chance oracle is run twice: once with the substat RNG on its own, and once
    with both craft items credited, so the Gem decision is inside the probability
    rather than beside it. It used to run only the first, which left every path
-   through `rune-craft-end-state.ts` unchecked by any simulation. */
-const fullCraft = { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' };
+   through `rune-craft-end-state.ts` unchecked by any simulation. The credited run is
+   the product's one canonical credit, written out here rather than imported. */
+const fullCraft = { gem: 'average', gemGrade: 'Legend', grind: 'average', grindGrade: 'Legend' };
 
 function initialRank(random, slot) {
   const value = random();
@@ -224,7 +224,7 @@ function verifyProbability(credit, label) {
  * neither what §8 permits nor what a player does: a player replaces whichever line
  * gains the most, and the two differ whenever the weakest line's best legal Gem is
  * barred by an effect id one of the other lines is holding. Nothing caught it,
- * because the only simulation in this file passed a neutral credit.
+ * because the only simulation in this file passed no credit.
  *
  * Which line and which stat is then chosen on a fixed reference rune, not at the
  * credit (`RUNE-CLEANUP-MATH.md` §6.1): every grindable line raised by an average
@@ -294,6 +294,7 @@ function verifyCraftEndState() {
     { gem: null, gemGrade: 'Hero', grind: 'maximum', grindGrade: 'Legend' },
     { gem: 'maximum', gemGrade: 'Legend', grind: null, grindGrade: 'Hero' },
     { gem: 'average', gemGrade: 'Normal', grind: 'maximum', grindGrade: 'Legend' },
+    { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' },
     fullCraft,
   ];
   let compared = 0;
@@ -319,7 +320,7 @@ function verifyCraftEndState() {
     });
     if (!build || !base) continue;
     for (const credit of credits) {
-      const candidate = prepareRuneCandidate(rune, role, build, base, credit, neutralComparisonCredit);
+      const candidate = prepareRuneCandidate(rune, role, build, base, credit);
       if (!candidate) continue;
       const expected = independentEndState(rune, credit, candidate.valuation);
       const difference = Math.abs(candidate.best - expected);
@@ -371,11 +372,9 @@ async function verifyVariants() {
 async function verifyMixedBox() {
   const random = makeRandom(seed);
   const source = Array.from({ length: runeCount }, (_, id) => freshRune(random, 'mixed-' + id));
-  /* The real Max-value floor can legitimately reject an entire small bare-rune
-     sample. Use the shipped craft credit for this non-vacuous population check;
-     the separate probability oracle still covers both bare and crafted runes. */
-  const retained = await policy(source, defaultRuneRoles(), random, { ...settings,
-    gemRoll: fullCraft.gem, grindstoneRoll: fullCraft.grind });
+  /* The page always credits the canonical Gem and Grindstone; the separate
+     probability oracle covers both bare and crafted runes. */
+  const retained = await policy(source, defaultRuneRoles(), random, settings);
   const rate = retained.length / source.length;
   console.log('Mixed box: ' + retained.length.toLocaleString('en') + ' / ' + source.length.toLocaleString('en')
     + ' retained (' + percent(retained.length, source.length) + ').');

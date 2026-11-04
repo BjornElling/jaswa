@@ -11,7 +11,6 @@
  * it likely enough to get there.
  */
 import { gemMinimumLevel, runeMaximumLevel } from './runes';
-import { isFourPieceSet } from './rune-calculation-inputs';
 import { emptyRunePlacement, hasRunePlacementOutsideScenario } from './rune-placement';
 import type { RunePlacementSummary } from './rune-placement';
 import type { Rune } from './runes';
@@ -20,24 +19,23 @@ import type { RunePotentialSettings } from './types';
 import type { ReferenceStats } from './rune-reference-stats';
 import {
   candidateChanceAsk, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
-  neutralComparisonCredit, newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, referenceStars,
+  newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, referenceStars,
   runeRuns, slotMainFamily, standingIn,
 } from './rune-cleanup-model';
 import type {
-  Build, ChanceAsk, CountingJob, CraftCredit, MatchRank, OrdinaryBox, RuneCandidate,
+  Build, ChanceAsk, CountingJob, MatchRank, OrdinaryBox, RuneCandidate,
 } from './rune-cleanup-model';
 import { countJobs, playForward, runScore } from './rune-power-up-outcomes';
 import type { RuneFuture, RuneRuns } from './rune-power-up-outcomes';
 import type { Valuation } from './rune-substat-weights';
 import { lastSubPropertyLevel } from './rune-properties';
-import { craftedLines, groundLines } from './rune-craft-end-state';
+import { canonicalCraftCredit, craftedLines, groundLines } from './rune-craft-end-state';
 import { holdsBestLineTypes, isRerollTarget } from './rune-reapp-targets';
 import type { EndStateLine } from './rune-craft-end-state';
 
-/* Slot balance is a yardstick, not another user preference. Keeping it at the
-   model's one ruler means craft settings can only make a candidate stronger or
-   weaker; they cannot move the floor underneath every other rune. */
-const floorCalibrationCredit: CraftCredit = neutralComparisonCredit;
+/* Every rune — the account's, the calibration's sample and the simulator's — is
+   projected with the one canonical Gem and Grindstone. It is not a setting. */
+const credit = canonicalCraftCredit;
 /**
  * Who answers the odds.
  *
@@ -121,7 +119,8 @@ const balanceRuns = 128;
 type CheckpointScores = readonly (readonly [number, number, number])[];
 type FunnelScores = readonly CheckpointScores[];
 const balancePopulations = new Map<string, FunnelScores[][]>();
-type BalancedFloors = { ordinary: readonly number[]; fourPiece: readonly number[] };
+/** One calibrated Max-value floor per slot. */
+type BalancedFloors = readonly number[];
 
 /** The three points a sample rune must survive, in the order its scores are kept. */
 const calibrationCheckpoints = [0, 9, 12] as const;
@@ -163,8 +162,7 @@ function checkpointScores(
       const line = base.get(role.type);
       if (!line) continue;
       for (const build of builds.get(role.id) ?? []) {
-        const candidate = prepareRuneCandidate(
-          rune, role, build, line, floorCalibrationCredit, floorCalibrationCredit, scope);
+        const candidate = prepareRuneCandidate(rune, role, build, line, credit, scope);
         if (!candidate) continue;
         const rank = candidate.rank === 'preferred' ? 0 : candidate.rank === 'acceptable' ? 1 : 2;
         if (level === lastSubPropertyLevel) {
@@ -314,8 +312,8 @@ class RuneFloorCalibration {
     }
   }
 
-  floorFor(slot: number, stars: number, fourPiece = false): number {
-    return this.balanceOf(stars)[fourPiece ? 'fourPiece' : 'ordinary'][slot - 1] ?? this.qualityBar;
+  floorFor(slot: number, stars: number): number {
+    return this.balanceOf(stars)[slot - 1] ?? this.qualityBar;
   }
 
   private balanceOf(stars: number, onSampleRune?: () => void): BalancedFloors {
@@ -332,9 +330,6 @@ class RuneFloorCalibration {
       });
       rememberPopulation(key, scores);
     }
-    const fourPiece = [1, 2, 3, 4, 5, 6].map((slot) =>
-      ordinarySample(slot, stars, balanceSampleRunes, 0, 'drop', 10_000).map((rune) =>
-        isFourPieceSet(rune.setName)));
     let cellOf = balancedFloors.get(key);
     if (!cellOf) {
       const grid = new Map<string, BalancedFloors>();
@@ -342,7 +337,7 @@ class RuneFloorCalibration {
          policy and the two discounts but not on the quality anchor, so it is worked
          out once for the five anchors that read it. */
       const population = scores;
-      const readings = new Map<string, { values: number[][]; ordered: number[][]; fourOrdered?: number[][] }>();
+      const readings = new Map<string, { values: number[][]; ordered: number[][] }>();
       const readingOf = (policy: number, acceptedAt: number, brokenAt: number) => {
         const readingKey = `${policy}|${acceptedAt}|${brokenAt}`;
         let found = readings.get(readingKey);
@@ -381,7 +376,7 @@ class RuneFloorCalibration {
           cell(quality, policy, acceptedAt, brokenAt - 1),
         ];
         const floors = [0, 1, 2, 3, 4, 5].map((at) =>
-          Math.max(anchor, ...neighbours.map((previous) => previous?.ordinary[at] ?? 0)));
+          Math.max(anchor, ...neighbours.map((previous) => previous?.[at] ?? 0)));
         const reading = readingOf(policy, acceptedAt, brokenAt);
         const { values } = reading;
         const observedTarget = Math.min(...values.map((slot, at) => slot.filter((value) => value >= floors[at]).length));
@@ -393,38 +388,8 @@ class RuneFloorCalibration {
           const excluded = ordered[target];
           if (excluded !== undefined) floors[at] = Math.max(floors[at], excluded + Number.EPSILON);
         });
-        const preferredFloor = [...floors];
-        const lower = floors.map((_, at) =>
-          Math.max(anchor, ...neighbours.map((previous) => previous?.fourPiece[at] ?? 0)));
-        const regularCounts = values.map((slot, at) => slot.filter((value, index) =>
-          !fourPiece[at][index] && value >= floors[at]).length);
-        const baselineCounts = values.map((slot, at) => slot.filter((value) => value >= floors[at]).length);
-        /* The most sample runes a slot can keep with its four-piece floor at `lower`.
-           A count of the calibration's own generated drops, never of the user's runes. */
-        const reachable = values.map((slot, at) => regularCounts[at] + slot.filter((value, index) =>
-          fourPiece[at][index] && value >= lower[at]).length);
-        /* Four-piece preference changes only four-piece candidates: two-piece runes
-           keep `floors`. Each slot is fitted on its own, to twice the four-piece runes
-           it keeps without the setting, as the setting's name says, or as many as its
-           qualifying four-piece runes allow. One target for all six, the smallest
-           slot's supply, used to stand here, and it could never be met: the slot the
-           balance is fitted to is the one sitting at the anchor, so it has no
-           four-piece runes to spare below its floor, and the setting kept no more
-           runes than it did switched off — 59 against 58 on the neutrality fixture. */
-        const targets = reachable.map((most, at) =>
-          Math.min(most, regularCounts[at] + 2 * (baselineCounts[at] - regularCounts[at])));
-        if (targets.some((target, at) => target > baselineCounts[at])) {
-          reading.fourOrdered ??= values.map((slot, at) =>
-            slot.filter((_, index) => fourPiece[at][index]).sort((a, b) => b - a));
-          reading.fourOrdered.forEach((ordered, at) => {
-            const wanted = targets[at] - regularCounts[at];
-            if (targets[at] > baselineCounts[at] && wanted > 0) preferredFloor[at] = Math.min(floors[at],
-              Math.max(lower[at], (ordered[wanted] ?? anchor) + Number.EPSILON));
-          });
-        }
-        const found = { ordinary: floors, fourPiece: preferredFloor };
-        grid.set(cellKey, found);
-        return found;
+        grid.set(cellKey, floors);
+        return floors;
       };
       cellOf = cell;
       balancedFloors.set(key, cellOf);
@@ -432,7 +397,7 @@ class RuneFloorCalibration {
     }
     const floors = cellOf(qualityThresholds.indexOf(this.qualityBar), policies.indexOf(this.chanceBar),
       acceptedWorth.indexOf(this.accepted), brokenWorth.indexOf(this.broken))
-      ?? { ordinary: [1, 2, 3, 4, 5, 6].map(() => this.qualityBar), fourPiece: [1, 2, 3, 4, 5, 6].map(() => this.qualityBar) };
+      ?? [1, 2, 3, 4, 5, 6].map(() => this.qualityBar);
     this.floors.set(stars, floors);
     return floors;
   }
@@ -650,22 +615,12 @@ export function runeChanceText(chance: number): string {
  */
 /** Every number the sliders stand for, read once, for every caller alike. */
 function policyOf(settings: RunePotentialSettings) {
-  /* Every field comes from the settings, so the active credit belongs to the policy
-     and not to the rune. Every imported star class enters the same engine: Ancient
-     roll intervals are a candidate-only input to Max value and Chance, while the
-     common ruler stays on the fixed neutral credit. Craft legality remains
-     Ancient-specific. */
-  const credit: CraftCredit = {
-    gem: settings.gemRoll, gemGrade: settings.gemGrade,
-    grind: settings.grindstoneRoll, grindGrade: settings.grindstoneGrade,
-  };
   return {
     qualityBar: qualityThresholds[settings.runeQuality - 1] ?? qualityThresholds[2],
     chanceBar: chanceThresholds[settings.powerUpPolicy - 1] ?? chanceThresholds[2],
     accepted: acceptedWorth[settings.acceptedRunes - 1] ?? acceptedWorth[2],
     broken: brokenWorth[settings.brokenRunes - 1] ?? brokenWorth[2],
     intangible: intangibleFactors[settings.intangibleRunes - 1] ?? 1,
-    credit,
   };
 }
 
@@ -675,7 +630,7 @@ export function slotFloorMaxValues(
   base: ReadonlyMap<string, ReferenceStats>, stars = 6,
 ): readonly number[] {
   const balance = calibrationFor(roles, settings, base);
-  return [1, 2, 3, 4, 5, 6].map((slot) => balance.floorFor(slot, stars, settings.keepMoreForLargerSets));
+  return [1, 2, 3, 4, 5, 6].map((slot) => balance.floorFor(slot, stars));
 }
 
 /**
@@ -686,7 +641,7 @@ export function slotFloorMaxValues(
  * seconds, so asking about one rune used to cost as much as asking about the box.
  * The key is the inputs' content rather than their identity, because the worker
  * receives a new copy of every object with each message. Craft credit is not in it:
- * the calibration always reads the fixed `floorCalibrationCredit`.
+ * there is only the canonical one.
  */
 const calibrations = new Map<string, RuneFloorCalibration>();
 const calibrationsKept = 4;
@@ -724,7 +679,7 @@ export async function runeAdvice(
     onCalibration?: (fraction: number | null) => void;
   } = {},
 ): Promise<Map<string, RuneAdvice>> {
-  const { qualityBar, chanceBar, accepted, broken, intangible, credit } = policyOf(settings);
+  const { qualityBar, chanceBar, accepted, broken, intangible } = policyOf(settings);
   const worthOf = (rank: MatchRank) => (rank === 'preferred' ? 1 : rank === 'acceptable' ? accepted : broken);
   /* Builds are the same for every rune, so they are enumerated once. About sixty
      across the shipped roles; a role with three choices in every slot would
@@ -783,15 +738,15 @@ export async function runeAdvice(
           const wanted = build.mains[rune.slot];
           if (wanted !== rune.mainStatId && wanted !== 0) continue;
         }
-        const candidate = prepareRuneCandidate(rune, role, build, line, credit, floorCalibrationCredit, scope);
+        const candidate = prepareRuneCandidate(rune, role, build, line, credit, scope);
         if (candidate) family.push(candidate);
       }
       if (family.length === 0) continue;
       const roleBuildList = builds.get(role.id) ?? [];
       const box = ordinaryBox(slotMainFamily(
-        role, roleBuildList, rune.slot, family[0].main, stars, line, floorCalibrationCredit, scope,
+        role, roleBuildList, rune.slot, family[0].main, stars, line, scope,
       ));
-      const calibratedFloor = floorCalibration.floorFor(rune.slot, stars, settings.keepMoreForLargerSets && isFourPieceSet(rune.setName));
+      const calibratedFloor = floorCalibration.floorFor(rune.slot, stars);
       for (const candidate of family) {
         const worth = worthOf(candidate.rank);
         /* Two figures, and they are not interchangeable. `maxValue` is what the row
@@ -846,7 +801,7 @@ export async function runeAdvice(
       return ledger.add(candidateChanceAsk(candidate.prepared, threshold));
     };
     /* Set preferences soften only the extra slot correction. The chosen quality
-       anchor remains a minimum, even for Intangible and four-piece sets. */
+       anchor remains a minimum, even for Intangible. */
     for (const candidate of contenders) {
       const passesValue = candidate.maxValue >= candidate.floor;
       steps.push({ candidate, passesValue, asks: [askOf(candidate)] });

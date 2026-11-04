@@ -3,7 +3,8 @@ import {
   candidateChance, candidateMaxValue, chanceRuns, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
 
-const credit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
+/* The product's one canonical credit, the same as the ruler's. */
+const credit = { gem: 'average', gemGrade: 'Legend', grind: 'average', grindGrade: 'Legend' };
 const base = { hp: 0, atk: 0, def: 0, spd: 0, criRate: 0, criDmg: 0, res: 0, acc: 0 };
 const role = {
   id: 'ancient-rolls', name: 'Ancient rolls', type: 'No type',
@@ -33,10 +34,9 @@ function rune(ancient, firstValue, rarity = 'Legend') {
   };
 }
 
-/* Read on a bare ruler, where a perfect ordinary line is exactly 100 %. */
-const ruler = credit;
-const ordinary = prepareRuneCandidate(rune(false, 6), role, build, base, credit, ruler);
-const ancient = prepareRuneCandidate(rune(true, 7), role, build, base, credit, ruler);
+/* Read the way the page reads it, where a perfect ordinary line is exactly 100 %. */
+const ordinary = prepareRuneCandidate(rune(false, 6), role, build, base, credit);
+const ancient = prepareRuneCandidate(rune(true, 7), role, build, base, credit);
 assert.ok(ordinary);
 assert.ok(ancient);
 assert.equal(candidateMaxValue(ordinary), 1, 'an ordinary max roll stays at 100 %');
@@ -79,8 +79,12 @@ assert.ok(ancientChance > 0.05 && ancientChance < 0.95,
 const everything = { ...role, id: 'ancient-added', targets: { hp: 1, atk: 1, spd: 1, criRate: 1, criDmg: 1, res: 1, acc: 1 } };
 const everyBuild = roleBuilds(everything)[0];
 const magic = (ancient) => ({ ...rune(ancient, 6, 'Magic'), subProperties: [rune(ancient, 6).subProperties[0]] });
-const ordinaryMagic = prepareRuneCandidate(magic(false), everything, everyBuild, base, credit, ruler);
-const ancientMagic = prepareRuneCandidate(magic(true), everything, everyBuild, base, credit, ruler);
+/* Read bare: an Ancient rune takes Ancient craft items, which is a legality rule of
+   its own and would move the two apart for a reason that has nothing to do with
+   which table an added line rolls from. */
+const bare = { gem: null, gemGrade: 'Legend', grind: null, grindGrade: 'Legend' };
+const ordinaryMagic = prepareRuneCandidate(magic(false), everything, everyBuild, base, bare);
+const ancientMagic = prepareRuneCandidate(magic(true), everything, everyBuild, base, bare);
 assert.ok(ordinaryMagic);
 assert.ok(ancientMagic);
 assert.ok(Math.abs(candidateMaxValue(ancientMagic) - candidateMaxValue(ordinaryMagic)) < 1e-12,

@@ -179,9 +179,8 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
     const request: import('../app/lib/compute/rune-advice-protocol').RuneAdviceRequest = {
       runes: [], roles: [], base: new Map(), preferWebGpu: false,
       settings: {
-        powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null,
-        gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
-        intangibleRunes: 1, keepMoreForLargerSets: false,
+        powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3,
+        intangibleRunes: 1,
         neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
         neverSellPotentialValue: false, potentialValueMinimum: null,
         neverSellEngravedPlacements: false,

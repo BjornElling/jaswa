@@ -5,7 +5,7 @@ import { defaultRunePotentialSettings, blankPreferences, readPreferences } from 
 import { readFileSync } from 'node:fs';
 import { defaultReappTargets } from '../app/lib/rune-reapp-targets.ts';
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { neutralComparisonCredit, prepareRuneCandidate, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
+import { prepareRuneCandidate, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
 import { maximumRoll, subPropertyTargetStat } from '../app/lib/rune-properties.ts';
 import { maxRollScale } from '../app/lib/rune-substat-weights.ts';
 import { runeStatName } from '../app/lib/runes.ts';
@@ -284,7 +284,7 @@ const speedRune = (statIds) => ({ ...rune, id: 'refine-probe', slot: 2, mainStat
 const legal = [1, 2, 3, 4, 5, 6, 9, 10, 11, 12];
 function ranked(role) {
   const build = roleBuilds(role).find((entry) => entry.mains[2] === 8);
-  const candidate = prepareRuneCandidate(speedRune([4, 9, 10, 3]), role, build, fixtureBase.get(role.type), defaultCraftCredit, neutralComparisonCredit);
+  const candidate = prepareRuneCandidate(speedRune([4, 9, 10, 3]), role, build, fixtureBase.get(role.type), defaultCraftCredit);
   // First what the build still lacks, then the size of a max roll for a stat the role names.
   const named = new Set(candidate.weights.rows.map((row) => row.stat));
   const base = fixtureBase.get(role.type);

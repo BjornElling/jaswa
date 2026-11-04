@@ -6,12 +6,12 @@
  * 1. **A credited Gem or Grindstone is never forced.** It must never turn a legal end
  *    state into a worse score, or make a fixed score less likely to be reached.
  * 2. **One standard for every rune** (`RUNE-CLEANUP-MATH.md` §9.2). A stone the player
- *    has actually spent, no larger than the one the settings credit, changes nothing
+ *    has actually spent, no larger than the canonical one, changes nothing
  *    at all; a larger one can only raise the rune.
  *
- * The policy now compares the candidate's active projection against a fixed neutral
- * denominator and ordinary box, so using more credit can only help a recommendation;
- * the preference monotonicity sweep checks that complete policy separately.
+ * The policy compares the candidate's projection against a ruler no caller chooses,
+ * so using more credit can only help a recommendation; the preference monotonicity
+ * sweep checks that complete policy separately.
  *
  * This sweep deliberately exercises more than the rune that exposed either defect:
  * every slot, ordinary and Ancient lineages, several star classes and starting
@@ -22,9 +22,9 @@ import assert from 'node:assert/strict';
 import { defaultRuneRoles, withRefreshedMetrics } from '../app/lib/rune-roles.ts';
 import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
 import {
-  candidateChance, candidateMaxValue, neutralComparisonCredit, prepareRuneCandidate, roleBuilds,
+  candidateChance, candidateMaxValue, prepareRuneCandidate, roleBuilds,
 } from '../app/lib/rune-cleanup-model.ts';
-import { craftPlan, grindCredit } from '../app/lib/rune-craft-end-state.ts';
+import { canonicalCraftCredit, craftPlan, grindCredit } from '../app/lib/rune-craft-end-state.ts';
 import {
   addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
@@ -43,11 +43,10 @@ const baseByType = new Map([
 
 const grades = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
 const assumptions = ['minimum', 'one-third', 'average', 'two-thirds', 'three-quarters', 'maximum'];
-const hero = { gemGrade: 'Hero', grindstoneGrade: 'Hero' };
+const hero = { gemGrade: 'Hero', grindGrade: 'Hero' };
 const neutral = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
-/* Every candidate is read on the product's one ruler, so a credit can only move the
-   rune against it: the promises are about the rune, on the scale the page reads. */
-const ruler = neutralComparisonCredit;
+/* Every candidate is read on the product's one ruler, which no caller chooses, so a
+   credit can only move the rune against it: the promises are about the rune. */
 const credits = [
   neutral,
   { gem: 'minimum', ...hero, grind: null },
@@ -171,11 +170,11 @@ for (const rune of runes) {
       return expectedMain === rune.mainStatId;
     });
     if (!build) continue;
-    const neutralCandidate = prepareRuneCandidate(rune, role, build, base, neutral, ruler);
+    const neutralCandidate = prepareRuneCandidate(rune, role, build, base, neutral);
     if (!neutralCandidate) continue;
     const neutralRaw = neutralCandidate.best;
     for (const credit of credits) {
-      const candidate = prepareRuneCandidate(rune, role, build, base, credit, ruler);
+      const candidate = prepareRuneCandidate(rune, role, build, base, credit);
       assert.ok(candidate, `${rune.id}/${role.id} must remain judgeable with craft credit`);
       assert.ok(candidate.best + eps >= neutralRaw,
         `${rune.id}/${role.id}: raw best score fell after craft credit`);
@@ -230,10 +229,10 @@ const pvp = withRefreshedMetrics({
 const pvpBuild = pvp && roleBuilds(pvp)[4];
 const pvpBase = pvp && baseByType.get(pvp.type);
 assert.ok(pvp && pvpBuild && pvpBase);
-const toleranceNeutralCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, pvpBase, neutral, ruler);
+const toleranceNeutralCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, pvpBase, neutral);
 const toleranceCraftCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, pvpBase, {
   gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
-}, ruler);
+});
 assert.ok(toleranceNeutralCandidate && toleranceCraftCandidate);
 const toleranceBar = 0.7 * toleranceNeutralCandidate.ceiling;
 assert.ok(candidateChance(toleranceCraftCandidate, atScore(toleranceCraftCandidate, toleranceBar)) + eps
@@ -292,9 +291,8 @@ assert.equal(candidateChance(toleranceCraftCandidate, craftedBar), withCraft,
  * Past it the rune may only rise.
  */
 const policySettings = {
-  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2, gemRoll: 'three-quarters',
-  grindstoneRoll: 'three-quarters', intangibleRunes: 1, keepMoreForLargerSets: false,
-  gemGrade: 'Hero', grindstoneGrade: 'Hero',
+  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2,
+  intangibleRunes: 1,
 };
 const shield = {
   id: 'ground-shield', setId: 16, setName: 'Shield', slot: 3, stars: 6, ancient: false,
@@ -307,9 +305,8 @@ const shield = {
   ],
   occupiedId: null, obtainedOrder: 1001,
 };
-const creditedPlan = craftPlan('standard', {
-  gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
-});
+/* The page credits the canonical stone; grinding to it must move nothing. */
+const creditedPlan = craftPlan('standard', canonicalCraftCredit);
 const groundTo = (rune, extra) => ({
   ...rune, id: `${rune.id}-ground-${extra}`,
   subProperties: rune.subProperties.map((line) => {
@@ -388,7 +385,7 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
     { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' },
   ]) {
     const candidate = prepareRuneCandidate(fixture.rune, fixture.role, fixture.build,
-      fixture.base, credit, ruler);
+      fixture.base, credit);
     assert.ok(candidate);
     const expected = candidateChance(candidate, 0.7);
     const randomTrial = makeRandom(0xabc00000 + fixtureIndex * 97 + (credit.grind ? 1 : 0));
@@ -397,7 +394,7 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
     for (let trial = 0; trial < trials; trial += 1) {
       const finalRune = powerUp(randomTrial, cloneRune(fixture.rune), 12);
       const finalCandidate = prepareRuneCandidate(finalRune, fixture.role, fixture.build,
-        fixture.base, credit, ruler);
+        fixture.base, credit);
       if (finalCandidate && candidateMaxValue(finalCandidate) + eps >= 0.7) hits += 1;
     }
     const observed = hits / trials;

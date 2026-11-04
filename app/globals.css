@@ -2039,15 +2039,6 @@ label[for] {
    the box above to be its own question, still clearly inside the column. */
 .aside-detached { margin-top: var(--s5); }
 
-/* The grade you own of each item, stacked in the aside beside the two sliders
-   that count them — one select per slider, in the same left-to-right order the
-   tracks read. */
-.grade-fields { display: grid; gap: var(--s4); }
-@media (min-width: 1921px) and (max-width: 1280px) {
-  /* stacked under the sliders, the two selects have the width to sit abreast */
-  .grade-fields { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-}
-
 .slider-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

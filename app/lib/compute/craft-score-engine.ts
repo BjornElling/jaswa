@@ -3,11 +3,13 @@ import type { AcceleratedCalculation } from './accelerated-calculation';
 import type { GpuContext } from './gpu/gpu-context';
 import { craftScoreLayout as L, craftScoreTolerance } from './webgpu/craft-score-layout';
 
-export type CraftScoreJob = { values: readonly number[]; prices: readonly number[]; cap: number; discount: number };
+export type CraftScoreJob = { values: readonly number[]; prices: readonly number[]; discount: number };
+/* No cap: 100 is the perfect ordinary rune, a reference point a rune may pass, and a
+   Gem that lifts a rune further is still a Gem worth suggesting. */
 export function craftScore(job: CraftScoreJob): number {
   let sum = 0;
   for (let at = 0; at < L.stats; at += 1) sum += job.values[at] * job.prices[at];
-  return Math.min(job.cap, sum) * job.discount;
+  return sum * job.discount;
 }
 const shader = `
 @group(0) @binding(0) var<storage, read> jobs: array<f32>;
@@ -21,7 +23,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>, @builtin(num_workgroups) g
   for (var stat = 0u; stat < ${L.stats}u; stat++) {
     sum += jobs[base + ${L.values}u + stat] * jobs[base + ${L.prices}u + stat];
   }
-  scores[at] = min(jobs[base + ${L.cap}u], sum) * jobs[base + ${L.discount}u];
+  scores[at] = sum * jobs[base + ${L.discount}u];
 }`;
 
 async function onGpu(jobs: readonly CraftScoreJob[], context: GpuContext): Promise<Float64Array> {
@@ -30,7 +32,6 @@ async function onGpu(jobs: readonly CraftScoreJob[], context: GpuContext): Promi
     const base = at * L.stride;
     packed.set(job.values, base + L.values);
     packed.set(job.prices, base + L.prices);
-    packed[base + L.cap] = job.cap;
     packed[base + L.discount] = job.discount;
   });
   const output = await context.run({ shader: 'craft-score', code: shader,
@@ -45,7 +46,7 @@ export async function craftScoreAgreement(context: GpuContext): Promise<boolean>
   const jobs = Array.from({ length: L.workgroup + 7 }, (_, index) => ({
     values: Array.from({ length: L.stats }, (_, stat) => (index + stat) * 3.25),
     prices: Array.from({ length: L.stats }, (_, stat) => stat / 317),
-    cap: index % 2 ? 100 : 1000, discount: index % 3 ? 0.85 : 1,
+    discount: index % 3 ? 0.85 : 1,
   }));
   const results = await onGpu(jobs, context);
   return jobs.every((job, at) => Math.abs(craftScore(job) - results[at]) <= craftScoreTolerance);

@@ -1,8 +1,8 @@
-import { craftComparison, gemChoiceLineUps, lineageFits } from './rune-craft-end-state';
+import { craftComparison, gemChoiceLineUps, lineageFits, noCraftCredit } from './rune-craft-end-state';
 import { filterIncludes } from './filter-selection';
-import type { CraftApplication, CraftCredit, EndStateLine } from './rune-craft-end-state';
+import type { CraftApplication, EndStateLine } from './rune-craft-end-state';
 import type { CraftItem, CraftRollAssumption } from './rune-craft-items';
-import { newRuneAdviceScope, neutralComparisonCredit, prepareRuneCandidate, roleBuilds } from './rune-cleanup-model';
+import { newRuneAdviceScope, prepareRuneCandidate, roleBuilds } from './rune-cleanup-model';
 import type { MatchRank } from './rune-cleanup-model';
 import { acceptedWorth, brokenWorth } from './rune-cleanup-advice';
 import type { ReferenceStats } from './rune-reference-stats';
@@ -45,10 +45,9 @@ export type CraftRecommendations = {
   candidates: readonly CraftRecommendation[]; backend: CalculationBackend;
   comparisons: number; durationMs: number;
 };
-type Reading = { prices: number[]; cap: number; discount: number; role: string; rank: MatchRank };
+type Reading = { prices: number[]; discount: number; role: string; rank: MatchRank };
 type State = { values: number[]; evaluation: CraftEvaluation | null;
   recommendation?: { item: CraftItem; application: CraftApplication; baseline: State } };
-const noCraft: CraftCredit = { gem: null, grind: null, gemGrade: 'Hero', grindGrade: 'Hero' };
 
 /** Rank only visible lines, on Clean-up's fixed ruler, without hypothetical power-ups: the craft is whatever `craftComparison` put in the lines. */
 function valuesOf(rune: Rune, lines: readonly EndStateLine[] = rune.subProperties): number[] {
@@ -363,13 +362,13 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest,
         const base = request.base.get(role.type);
         if (!base) continue;
         for (const build of builds) {
-          const candidate = prepareRuneCandidate(rune, role, build, base, noCraft, neutralComparisonCredit, scope);
+          const candidate = prepareRuneCandidate(rune, role, build, base, noCraftCredit, scope);
           if (!candidate) continue;
           const discount = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable'
             ? acceptedWorth[request.settings.acceptedRunes - 1] : brokenWorth[request.settings.brokenRunes - 1];
           if (discount === 0) continue;
           readings.push({ prices: Array.from({ length: craftScoreLayout.stats }, (_, stat) => candidate.valuation.value(stat, 1) / candidate.ceiling * 100),
-            cap: rune.ancient ? Number.MAX_VALUE : 100, discount, role: role.name, rank: candidate.rank });
+            discount, role: role.name, rank: candidate.rank });
         }
       }
     }

@@ -68,8 +68,7 @@ const defOnly = withRefreshedMetrics({ ...roles[0], id: 'def-only', name: 'DEF o
     slot6: { preferred: ['Def%'], acceptable: [] },
   } });
 const barred = ordinarySample(1, 6, 24, 12, 'drop');
-assert.ok([...(await runeAdvice(barred, [defOnly], { ...qualitySettings,
-  gemRoll: null, grindstoneRoll: null }, base)).values()].every((row) => row.verdict === 'sell'));
+assert.ok([...(await runeAdvice(barred, [defOnly], qualitySettings, base)).values()].every((row) => row.verdict === 'sell'));
 /* A beginner's reference is evidence about the common scale, not a separate
    scoring path. Finished Hero and Rare runes must remain usable at the first stop. */
 const beginnerBase = new Map([...base,

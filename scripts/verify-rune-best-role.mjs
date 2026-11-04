@@ -30,7 +30,7 @@ import {
   newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, runeRuns,
   slotMainFamily, standingIn,
 } from '../app/lib/rune-cleanup-model.ts';
-import { craftedScore } from '../app/lib/rune-craft-end-state.ts';
+import { canonicalCraftCredit, craftedScore } from '../app/lib/rune-craft-end-state.ts';
 
 const base = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
@@ -40,9 +40,8 @@ const base = new Map([
   ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
 ]);
 const roles = defaultRuneRoles();
-const neutral = { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' };
 
-/* Intangible and the 4-set preference widen a rune's own retention share, which the
+/* The Intangible preference widens a rune's own retention share, which the
    readings below do not rebuild, so the population leaves them out; the choice being
    checked is the same for every set. */
 const runes = [1, 2, 3, 4, 5, 6].flatMap((slot) => [0, 6, 9, 12].flatMap((level) =>
@@ -57,10 +56,7 @@ const check = (ok, message) => {
 
 /** Every reading the engine weighs for one rune, rebuilt as `runeAdvice` builds them. */
 function readingsOf(rune, settings, shares, scope) {
-  const credit = {
-    gem: settings.gemRoll, gemGrade: settings.gemGrade,
-    grind: settings.grindstoneRoll, grindGrade: settings.grindstoneGrade,
-  };
+  const credit = canonicalCraftCredit;
   const accepted = acceptedWorth[settings.acceptedRunes - 1];
   const broken = brokenWorth[settings.brokenRunes - 1];
   const worthOf = (rank) => (rank === 'preferred' ? 1 : rank === 'acceptable' ? accepted : broken);
@@ -72,10 +68,10 @@ function readingsOf(rune, settings, shares, scope) {
     const family = builds
       .filter((build) => ![2, 4, 6].includes(rune.slot)
         || build.mains[rune.slot] === rune.mainStatId || build.mains[rune.slot] === 0)
-      .map((build) => prepareRuneCandidate(rune, role, build, line, credit, neutral, scope))
+      .map((build) => prepareRuneCandidate(rune, role, build, line, credit, scope))
       .filter(Boolean);
     if (family.length === 0) continue;
-    const box = ordinaryBox(slotMainFamily(role, builds, rune.slot, family[0].main, 6, line, neutral, scope));
+    const box = ordinaryBox(slotMainFamily(role, builds, rune.slot, family[0].main, 6, line, scope));
     const floor = shares[rune.slot - 1];
     for (const candidate of family) {
       const worth = worthOf(candidate.rank);
@@ -136,8 +132,8 @@ function exactExpectation(candidate) {
    reading, so it exercises the fallback; the lenient one gives many runes several
    passing readings, so it exercises the choice between them. */
 const scenarios = [
-  ['default', { ...defaultRunePotentialSettings, keepMoreForLargerSets: false }],
-  ['lenient', { ...defaultRunePotentialSettings, keepMoreForLargerSets: false, runeQuality: 1, powerUpPolicy: 1 }],
+  ['default', defaultRunePotentialSettings],
+  ['lenient', { ...defaultRunePotentialSettings, runeQuality: 1, powerUpPolicy: 1 }],
 ];
 let exactChecked = 0;
 let choseAmongPassing = 0;

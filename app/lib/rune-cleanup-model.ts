@@ -54,7 +54,7 @@ import {
 import type { BuildMains, SubstatWeightScope, SubstatWeights } from './rune-substat-weights';
 import type { Valuation } from './rune-substat-weights';
 import {
-  craftPlan, craftedScore, creditKey, gemOptions, grindCredit, priceList,
+  canonicalCraftCredit, craftPlan, craftedScore, creditKey, gemOptions, grindCredit, priceList,
 } from './rune-craft-end-state';
 import type {
   CraftCredit, CraftPlan, CraftReport, EndStateLine, GemOptions, PriceList,
@@ -160,8 +160,9 @@ export type RuneOutcome = {
 /* ------------------------------------------------------------- the ceiling */
 
 /**
- * The best score any legal rune in this slot could reach — the denominator that
- * makes a perfect rune read 100 %.
+ * The best score an ordinary rune in this slot reaches — the denominator that makes a
+ * perfect ordinary rune read 100 %. It is a reference point and not a limit: an
+ * Ancient rune, or a line already ground past the canonical stone, reads above it.
  *
  * A perfect rune is a concrete arrangement, not a formula: **four sub properties at
  * their maximum, the most valuable of them carrying all four later upgrades as well,
@@ -191,8 +192,9 @@ export type RuneOutcome = {
  * **That includes the craft tables, and it used not to.** An Ancient candidate was
  * given an *Ancient* perfect rune to divide by, so its stronger Ancient Gem and stone
  * paid for its own denominator and cancelled most of what they had just earned it. On
- * a Legend Ancient slot-2 rune at `+15` with Hero items at three quarters the bar
- * stood 4.1 % higher and the rune read 71.5 % where the ordinary bar says 74.5 %.
+ * a Legend Ancient slot-2 rune at `+15`, then credited with Hero items at three
+ * quarters, the bar stood 4.1 % higher and the rune read 71.5 % where the ordinary bar
+ * says 74.5 %.
  * §6's "Ancient runes use Ancient craft tables" is a rule about what a *rune* may be
  * spent on; the reference is the ordinary six-star rune of §5, whole, which is why
  * this takes no lineage.
@@ -406,10 +408,8 @@ function valuationNumber(valuation: Valuation): number {
  * makes this an exact mean rather than a simulation. Ancient is not in it for the
  * reason it is not in the ceiling: the reference box stays ordinary, so an Ancient
  * rune's higher initial interval moves the rune and never the bar. Craft is in it
- * at the credit the family carries, and the engine always hands it
- * `neutralComparisonCredit`: the bar is one fixed ruler, so turning a craft slider
- * up moves the rune against it and never the ruler itself (`RUNE-CLEANUP-MATH.md`
- * §9.2).
+ * at `canonicalCraftCredit`, the one assumption every rune is also projected with
+ * (`RUNE-CLEANUP-MATH.md` §9.2).
  *
  * **§4.2 leaves the innate out and this must put it back.** There it cancels: every
  * target's ratio moves by about the same factor and the normalisation removes it.
@@ -617,7 +617,7 @@ export function ordinaryBox(family: OrdinaryFamily): OrdinaryBox {
   if (running > 0) for (let at = 0; at <= boxResolution; at += 1) below[at] /= running;
 
   const box: OrdinaryBox = {
-    value: Math.min(1, Math.max(0, mean / weight)),
+    value: Math.max(0, mean / weight),
     below: running > 0 ? below : [],
   };
   scope.ordinary.set(key, box);
@@ -896,32 +896,26 @@ function remembered<T>(tree: Remembered, path: readonly unknown[], make: () => T
 }
 
 /**
- * **The one ruler every rune is read against: Hero items at three quarters.**
- *
- * The weights, the perfect rune and the ordinary box are all priced with this, never
- * with the user's own craft settings. Those settings change what a *rune* may become
- * and so move it against the ruler; were they also to move the ruler, every other
- * rune's reading would move with it, and a slider turned up could leave a rune
- * reading lower than before (`RUNE-CLEANUP-MATH.md` §9.2).
+ * **The one ruler every rune is read against** — the weights, the perfect rune and the
+ * ordinary box — priced with `canonicalCraftCredit` and with nothing a caller passes.
+ * It is not a parameter, because a ruler a caller may choose is a ruler two callers
+ * can choose differently.
  */
-export const neutralComparisonCredit: CraftCredit = {
-  gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
-};
+const rulerCredit = canonicalCraftCredit;
 
 /**
  * The deterministic half: everything that does not depend on the threshold.
  *
- * `credit` is the candidate's own craft: it changes the projected end state.
- * `comparisonCredit` is the ruler's, and it is asked for rather than defaulted:
- * a default of `credit` once let every direct caller — the checks among them — read
- * runes against a ruler that moved with the slider, which the product never does.
- * Clean-up passes `neutralComparisonCredit`.
+ * `credit` is the candidate's own craft: what the rune's end state is projected with.
+ * Rune Clean-up passes `canonicalCraftCredit`; Gems & Grinds and Rune Optimization
+ * pass `noCraftCredit`, because they price the lines in front of them and add the
+ * items they judge themselves. The ruler is the same for all three.
  */
 export function prepareRuneCandidate(
   rune: Rune, role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit,
-  comparisonCredit: CraftCredit,
   scope: RuneAdviceScope = newRuneAdviceScope(),
 ): RuneCandidate | null {
+  const comparisonCredit = rulerCredit;
   /* A rune whose main property is not the one this build asks for is not a rune
      this build can use at all — it is a different build's rune. */
   if (mainOfSlot(build, rune.slot) !== rune.mainStatId && build.mains[rune.slot as 2 | 4 | 6] !== 0) return null;
@@ -1006,7 +1000,7 @@ function buildRank(build: Build, slot: number): MatchRank {
  * box is five-star runes, so its Max value, its standing and its chance all answer
  * "how good a five-star rune is this". An Ancient rune is a six-star rune measured
  * against the ordinary six-star reference (§5), which is why its higher initial
- * interval can read above 100 %.
+ * interval reads above 100 % — as any rune may.
  */
 export const referenceStars = (rune: Rune): number => (rune.ancient ? 6 : rune.stars);
 
@@ -1066,8 +1060,9 @@ function buildAccepts(build: Build, slot: number, main: number): boolean {
  */
 export function slotMainFamily(
   role: RuneRole, builds: readonly Build[], slot: number, main: number, stars: number,
-  base: ReferenceStats, credit: CraftCredit, scope: RuneAdviceScope,
+  base: ReferenceStats, scope: RuneAdviceScope,
 ): OrdinaryFamily {
+  const credit = rulerCredit;
   const valuations: Valuation[] = [];
   for (const build of builds) {
     if (!buildAccepts(build, slot, main)) continue;
@@ -1080,18 +1075,12 @@ export function slotMainFamily(
 }
 
 /**
- * **One standard for every rune: its `+15` projection with the active items spent,
- * against the fixed neutral ruler used by the Clean-up engine.** A Gem or Grindstone
- * changes the candidate's end state and its chance of reaching that ruler; it does
- * not move the perfect denominator or ordinary box. `RUNE-CLEANUP-MATH.md` §9.2.
+ * **One standard for every rune: its `+15` projection with the canonical items spent,
+ * against the ruler priced with the same items.** Uncapped (`onScale`).
+ * `RUNE-CLEANUP-MATH.md` §9.2.
  */
 export function candidateMaxValue(candidate: RuneCandidate): number {
-  /* Ordinary runes cannot exceed their ordinary perfect-rune denominator. An
-     Ancient rune may: its verified initial rolls are deliberately measured against
-     that same ordinary denominator, so a maximum Ancient roll remains visible as
-     more than 100 % instead of being flattened away. */
-  const ratio = candidate.best / candidate.ceiling;
-  return candidate.rune.ancient ? ratio : Math.min(1, ratio);
+  return onScale(candidate, candidate.best);
 }
 
 /**
@@ -1124,10 +1113,14 @@ export function candidateExpectedBound(candidate: RuneCandidate): number {
   return Math.min(candidateMaxValue(candidate), onScale(candidate, bound));
 }
 
-const onScale = (candidate: RuneCandidate, score: number): number => {
-  const ratio = score / candidate.ceiling;
-  return candidate.rune.ancient ? ratio : Math.min(1, ratio);
-};
+/**
+ * **The perfect rune is a reference point, never a ceiling.** 100 % says "as good as
+ * the best ordinary rune of this class"; a rune that reads more — an Ancient rune's
+ * higher initial rolls, a stone already ground past the canonical one — reads more,
+ * and keeps every recommendation that would lift it further. A cap here once made
+ * every rune above the mark look alike and left nothing to recommend for them.
+ */
+const onScale = (candidate: RuneCandidate, score: number): number => score / candidate.ceiling;
 
 /**
  * **The runs a rune's expected Gem is averaged over: the first 256 of the ones its
@@ -1254,7 +1247,7 @@ export type { CountingJob } from './rune-power-up-outcomes';
  * calls it directly, and that script is the independent gate on everything in this
  * file. An oracle rewritten in the same commit as the model it checks has stopped
  * being independent, so this signature stays. It reads against the product's own
- * ruler, `neutralComparisonCredit`, so the oracle checks the reading the page prints.
+ * ruler, so the oracle checks the reading the page prints.
  */
 export function judgeAgainstBuild(
   rune: Rune, role: RuneRole, build: Build, base: ReferenceStats,
@@ -1264,7 +1257,7 @@ export function judgeAgainstBuild(
      says it will be used, which is what makes checking every build affordable. */
   withChance = true,
 ): RuneOutcome | null {
-  const candidate = prepareRuneCandidate(rune, role, build, base, credit, neutralComparisonCredit);
+  const candidate = prepareRuneCandidate(rune, role, build, base, credit);
   if (!candidate) return null;
   return {
     maxValue: candidateMaxValue(candidate),

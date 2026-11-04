@@ -13,19 +13,20 @@
  */
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import {
-  roleBuilds, prepareRuneCandidate, candidateMaxValue, neutralComparisonCredit,
+  roleBuilds, prepareRuneCandidate, candidateMaxValue, newRuneAdviceScope,
 } from '../app/lib/rune-cleanup-model.ts';
 import { newSubstatWeightScope, substatWeights } from '../app/lib/rune-substat-weights.ts';
 import { maximumRoll, slotMainProperties, subPropertyTargetStat } from '../app/lib/rune-properties.ts';
 import { runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+import { canonicalCraftCredit, noCraftCredit } from '../app/lib/rune-craft-end-state.ts';
 
 const base = { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 };
 const supportBase = { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 };
-const noCraft = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
-/* The scale's own arithmetic — a perfect rune is exactly 100 %, one max roll is worth
-   the same share at every star class — is read on a bare ruler, where it is exact.
-   Craft is read on the product's fixed ruler, in section 6. */
-const bareRuler = noCraft;
+const noCraft = noCraftCredit;
+/* The ruler is the product's one canonical credit and no caller can choose another,
+   so the scale is read the way the page reads it: the rune crafted with that credit
+   too. A rune read bare is read against the same ruler and simply reads lower. */
+const canonical = canonicalCraftCredit;
 
 let failures = 0;
 function check(condition, message) {
@@ -214,58 +215,59 @@ function verifyMetTargetsAskForNothing() {
 /* --------------------------------------------- 3. the rune the denominator means */
 
 /**
- * The perfect rune, built to the definition: four sub properties at their maximum,
- * the most valuable of them carrying all four later upgrades as well, and an innate
- * property at the maximum of the next most valuable effect id. It must read exactly
- * 100 %, whatever the role is asking for — that is what makes the number readable
- * without a hidden per-slot or per-role multiplier.
+ * The perfect rune, found by brute force rather than rebuilt: every maximal ordinary
+ * rune of the slot — any four legal lines at their maximum, any one of them carrying
+ * all four later upgrades, any innate or none — read the way the page reads a rune,
+ * with the canonical Gem and Grindstone. The best of them must read exactly 100 %:
+ * not less, or the denominator describes a rune no player can hold; not more, or it is
+ * not the best one. That is what makes the number readable without a hidden per-slot
+ * or per-role multiplier.
  */
 function verifyThePerfectRuneReadsFull() {
+  let searched = 0;
   for (const entry of roles) {
     for (const build of roleBuilds(entry)) {
       for (const stars of [4, 5, 6]) for (const slot of [1, 2, 3, 4, 5, 6]) {
         const main = slot === 1 ? 3 : slot === 3 ? 5 : slot === 5 ? 1 : build.mains[slot];
         if (main === 0 || !slotMainProperties[slot].includes(main)) continue;
         const line = entry.type === 'Support type' ? supportBase : base;
-        const weights = substatWeights({ targets: entry.targets, mains: mainsOf(build), artifacts: entry.artifacts, base: line, credit: noCraft });
+        const weights = substatWeights({ targets: entry.targets, mains: mainsOf(build), artifacts: entry.artifacts, base: line, credit: canonical });
         if (weights.weights.size === 0) continue;
+        const legal = runeStatIds.filter((statId) => statId !== main && slotAllowsSubStat(slot, statId)
+          && (weights.weights.get(subPropertyTargetStat[statId]) ?? 0) > 0);
+        if (legal.length < 4) continue;
 
-        const ranked = runeStatIds
-          .filter((statId) => statId !== main && slotAllowsSubStat(slot, statId))
-          .map((statId) => ({ statId, worth: (weights.weights.get(subPropertyTargetStat[statId]) ?? 0) * rollWorth(statId, line, stars) }))
-          .filter((option) => option.worth > 0)
-          .sort((left, right) => right.worth - left.worth);
-        if (ranked.length < 5) continue;
-
-        const rune = {
-          id: 'perfect', setId: 13, setName: 'Violent', slot, stars, ancient: false,
-          rarity: 'Legend', level: 12, mainStatId: main, mainValue: 0,
-          prefixStatId: ranked[4].statId, prefixValue: maximumRoll(ranked[4].statId, stars),
-          subProperties: [
-            { statId: ranked[0].statId, value: maximumRoll(ranked[0].statId, stars) * 5, gemmed: false, grind: 0 },
-            ...ranked.slice(1, 4).map((option) => ({
-              statId: option.statId, value: maximumRoll(option.statId, stars), gemmed: false, grind: 0,
+        let best = -Infinity;
+        const scope = newRuneAdviceScope();
+        for (const four of subsets(legal, 4)) for (const sink of four) for (const innate of [null, ...legal.filter((id) => !four.includes(id))]) {
+          const rune = {
+            id: 'perfect', setId: 13, setName: 'Violent', slot, stars, ancient: false,
+            rarity: 'Legend', level: 12, mainStatId: main, mainValue: 0,
+            prefixStatId: innate, prefixValue: innate === null ? 0 : maximumRoll(innate, stars),
+            subProperties: four.map((statId) => ({
+              statId, value: maximumRoll(statId, stars) * (statId === sink ? 5 : 1), gemmed: false, grind: 0,
             })),
-          ],
-          occupiedId: null, obtainedOrder: 1,
-        };
-        const candidate = prepareRuneCandidate(rune, entry, build, line, noCraft, bareRuler);
-        check(candidate !== null, `${entry.name} slot ${slot}: the perfect rune was not judged at all.`);
-        if (!candidate) continue;
-        check(close(candidateMaxValue(candidate), 1, 1e-9),
-          `${entry.name} slot ${slot} ${stars}★: the perfect rune reads ${(candidateMaxValue(candidate) * 100).toFixed(3)} %, not 100 %.`);
+            occupiedId: null, obtainedOrder: 1,
+          };
+          const candidate = prepareRuneCandidate(rune, entry, build, line, canonical, scope);
+          if (candidate) best = Math.max(best, candidateMaxValue(candidate));
+        }
+        searched += 1;
+        check(close(best, 1, 1e-9),
+          `${entry.name} slot ${slot} ${stars}★: the best maximal rune reads ${(best * 100).toFixed(3)} %, not 100 %.`);
       }
     }
   }
-  console.log('The perfect rune of every star class reads 100 % in every slot of every shipped role build.');
+  console.log(`The best maximal rune reads exactly 100 % in all ${searched} slot, star class and build cases searched.`);
 }
 
-/** One max roll of an effect id, in max rolls of its own star class against this base line. */
-function rollWorth(statId, line, stars) {
-  const stat = subPropertyTargetStat[statId];
-  const percentId = { hp: 2, atk: 4, def: 6 }[stat];
-  if (percentId === undefined) return 1;
-  return statId === percentId ? 1 : maximumRoll(statId, stars) * 100 / line[stat] / maximumRoll(percentId, stars);
+function subsets(items, count) {
+  if (count === 0) return [[]];
+  const out = [];
+  items.forEach((item, at) => {
+    for (const rest of subsets(items.slice(at + 1), count - 1)) out.push([item, ...rest]);
+  });
+  return out;
 }
 
 /* ------------------------------------------------ 4. surplus is never penalised */
@@ -290,15 +292,20 @@ function verifySurplusKeepsPaying() {
     ],
     occupiedId: null, obtainedOrder: 1,
   });
+  /* Strictly rising, past 100 % too: the perfect rune is a reference point and never a
+     ceiling, so no amount of SPD may flatten the score. +60 is more than any rune can
+     roll; it is here only to carry the line well past the perfect rune. */
   let previous = -1;
-  for (const spdValue of [4, 8, 12, 18, 24, 30]) {
-    const candidate = prepareRuneCandidate(make(spdValue), fastDd, build, base, noCraft, bareRuler);
+  let passed = false;
+  for (const spdValue of [4, 8, 12, 18, 24, 30, 60]) {
+    const candidate = prepareRuneCandidate(make(spdValue), fastDd, build, base, canonical);
     const value = candidateMaxValue(candidate);
-    check(value >= previous, `a rune with SPD +${spdValue} scored below one with less; surplus was penalised.`);
-    check(value <= 1 + 1e-9, `a rune with SPD +${spdValue} scored above the perfect rune.`);
+    check(value > previous, `a rune with SPD +${spdValue} did not score above one with less; surplus was flattened.`);
+    passed ||= value > 1;
     previous = value;
   }
-  console.log('Surplus keeps paying: SPD +4 through +30 is monotone and never passes 100 %.');
+  check(passed, 'no SPD value carried the rune past the perfect rune, so the absence of a cap went untested.');
+  console.log('Surplus keeps paying: SPD +4 through +60 rises strictly, past 100 % as well.');
 }
 
 /* -------------------------------------------- 5. lower stars, unfinished runes */
@@ -325,31 +332,22 @@ function verifyEachStarClassIsItsOwnScale() {
     ],
     occupiedId: null, obtainedOrder: 1,
   });
-  const values = [4, 5, 6].map((stars) =>
-    candidateMaxValue(prepareRuneCandidate(make(stars, 12), fastDd, build, base, noCraft, bareRuler)));
-  check(values.every((value) => close(value, values[2], 0.005)),
-    `the same arrangement at its own class's maxima should read alike at every star class, not ${values.map((v) => v.toFixed(3)).join(' / ')}.`);
-  console.log(`The same maximal arrangement at 4★ / 5★ / 6★ reads ${values.map((value) => (value * 100).toFixed(1) + ' %').join(' / ')}.`);
-
+  /* Each class's perfect rune reading 100 % is section 3's search, which covers 4★,
+     5★ and 6★; here only the pricing of one line. */
   /* And a five-star line is priced in five-star rolls: SPD +5 on a five-star rune is
-     one whole max roll, exactly as SPD +6 is on a six-star one. */
-  const one = (stars, value) => {
-    const rune = make(stars, 12);
-    rune.subProperties = [{ statId: 8, value, gemmed: false, grind: 0 },
-      ...rune.subProperties.slice(1).map((line) => ({ ...line, value: 0 }))];
-    rune.prefixStatId = null;
-    rune.prefixValue = 0;
-    return candidateMaxValue(prepareRuneCandidate(rune, fastDd, build, base, noCraft, bareRuler));
-  };
-  check(close(one(5, maximumRoll(8, 5)), one(6, maximumRoll(8, 6)), 1e-9),
-    'one maximum SPD roll should be worth the same share of its own class\'s perfect rune at five and six stars.');
+     one whole max roll, exactly as SPD +6 is on a six-star one. Read off the price,
+     because the perfect rune of each class carries the same canonical stones, which are
+     worth more of a smaller class's rolls. */
+  const price = (stars) => prepareRuneCandidate(make(stars, 12), fastDd, build, base, canonical).valuation;
+  check(close(price(5).value(8, maximumRoll(8, 5)), price(6).value(8, maximumRoll(8, 6)), 1e-9),
+    'one maximum SPD roll should be priced alike at five and six stars.');
 
   /* An unfinished rune is scored on what it can still become, so the same lines at
      +0 must reach the same ceiling they reach at +12 — every remaining upgrade is
      still available to land where it is worth most. */
   const fresh = make(6, 0);
   fresh.subProperties = fresh.subProperties.slice(0, 4).map((line) => ({ ...line, value: maximumRoll(line.statId) }));
-  const potential = candidateMaxValue(prepareRuneCandidate(fresh, fastDd, build, base, noCraft, bareRuler));
+  const potential = candidateMaxValue(prepareRuneCandidate(fresh, fastDd, build, base, canonical));
   check(potential > 0.9, `a +0 rune with four maximum lines should still project near the ceiling, not ${(potential * 100).toFixed(1)} %.`);
   console.log(`A +0 Legend rune with four maximum lines projects to ${(potential * 100).toFixed(1)} %.`);
 }
@@ -357,9 +355,8 @@ function verifyEachStarClassIsItsOwnScale() {
 /* ------------------------------------------------------------ 6. craft credit */
 
 /** Read on the product's fixed ruler, credited craft lifts the rune and never the
-    perfect rune: each richer credit reads at least as high, and an ordinary rune
-    still never reads past 100 %. The ruler used to move with the credit here, which
-    tested a reading the page never prints. */
+    perfect rune: each richer credit reads at least as high. The ruler used to move
+    with the credit here, which tested a reading the page never prints. */
 function verifyCraftCreditMovesOnlyTheRune() {
   const fastDd = role('fast-dd');
   const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
@@ -381,9 +378,8 @@ function verifyCraftCreditMovesOnlyTheRune() {
     { gem: null, gemGrade: 'Hero', grind: 'maximum', grindGrade: 'Legend' },
     { gem: 'maximum', gemGrade: 'Legend', grind: 'maximum', grindGrade: 'Legend' },
   ]) {
-    const value = candidateMaxValue(prepareRuneCandidate(rune, fastDd, build, base, credit, neutralComparisonCredit));
-    check(value > 0 && value <= 1 + 1e-9,
-      `a credited ${credit.gem ? 'Gem and ' : ''}Grindstone put the rune at ${(value * 100).toFixed(2)} %.`);
+    const value = candidateMaxValue(prepareRuneCandidate(rune, fastDd, build, base, credit));
+    check(value > 0, `a credited ${credit.gem ? 'Gem and ' : ''}Grindstone put the rune at ${(value * 100).toFixed(2)} %.`);
     check(value + 1e-12 >= previous,
       `a richer credit (gem ${String(credit.gem)}, grind ${String(credit.grind)}) read the rune lower on the fixed ruler.`);
     previous = value;

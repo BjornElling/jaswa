@@ -27,7 +27,7 @@ import {
   countJobs, endStateScoring, playForward, runeFuture, runScore,
 } from '../../rune-power-up-outcomes';
 import type { CountingJob, EndStateScoring, RuneFuture } from '../../rune-power-up-outcomes';
-import { craftPlan, gemChoiceCredit } from '../../rune-craft-end-state';
+import { craftPlan, canonicalCraftCredit } from '../../rune-craft-end-state';
 import { allStatIds } from '../../rune-properties';
 import type { Rune, RuneSubProperty } from '../../runes';
 import type { Valuation } from '../../rune-substat-weights';
@@ -94,7 +94,7 @@ function packRune(into: Int32Array, at: number, future: RuneFuture): void {
    `craftedScore` does: the card is handed the reference's list and stones to choose
    with, and the credit's roll per id to value the choice. */
 function packScoring(into: Float32Array, at: number, scoring: EndStateScoring): void {
-  const reference = craftPlan('standard', gemChoiceCredit);
+  const reference = craftPlan('standard', canonicalCraftCredit);
   for (const statId of allStatIds) {
     into[at + scoringPricesAt + statId] = scoring.prices[statId];
     into[at + scoringGrindAt + statId] = scoring.plan.grind[statId];

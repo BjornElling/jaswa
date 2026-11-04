@@ -6,14 +6,13 @@ import { Dropdown } from './dropdown';
 import { CheckboxRow } from './form-controls';
 import { ChoiceEditor, ChoiceLegend } from './choice-editor';
 import { PencilIcon } from './pencil-icon';
-import { craftSettingAssumptions, itemGrades } from '../lib/rune-craft-items';
 import {
   createRuneRole, roleNameMaximum, roleStatTargetKeys, roleTargetColumns,
   roleTargetMaximum, roleTypes, runeMainStatsBySlot,
   withRefreshedMetrics,
 } from '../lib/rune-roles';
 import type { RoleChoice, RoleStatTargets, RoleType, RuneMainStat, RuneRole } from '../lib/rune-roles';
-import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../lib/types';
+import type { GeneralSettings, ImportedGame, RunePotentialSettings } from '../lib/types';
 import type { MonsterPreferences } from '../lib/monster-preferences';
 import type { RuneHolds } from '../lib/rune-holds';
 import { roleRuneSetNameList } from '../lib/rune-sets';
@@ -69,16 +68,6 @@ const potentialStepLabels = {
     'My precious…!!! (×5)',
   ],
 } as const;
-
-/* One line per stop of `craftSettingAssumptions`, in its order. */
-const craftRollStepLabels = [
-  'None — takes each rune as it stands today',
-  'One third — a modest roll, below the middle',
-  'Average — an ordinary roll, nothing special',
-  'Two thirds — a decent roll, a little better than the middle',
-  'Three quarters — a good roll, short of perfect',
-  'Maximum — the best the grade allows',
-] as const;
 
 /** The standards and roles that the Clean-up workspace reads. Kept as their
  * own workspace so changing what a rune is judged against is not hidden below
@@ -227,46 +216,6 @@ export function RuneSetupSection({ game, settings, roles, general, hardwareAccel
                 description="How badly do you want them?"
                 stepLabels={potentialStepLabels.intangibleRunes}
                 onChange={(value) => void onUpdate({ intangibleRunes: value })} />
-
-            <div className="stack tight">
-              <p className="field-legend">4-sets vs. 2-sets</p>
-              <CheckboxRow label="Keep twice as many 4-set runes" checked={settings.keepMoreForLargerSets}
-                onChange={(checked) => void onUpdate({ keepMoreForLargerSets: checked })} />
-            </div>
-          </aside>
-        </div>
-
-        <div className="bar-divide" />
-
-        <div className="settings-layout">
-          <div className="slider-grid">
-            <PotentialSlider id="enchanted-gems" label="Enchanted gems" value={craftSettingAssumptions.indexOf(settings.gemRoll) + 1}
-              description="Credit every rune with this much of a gem, before you spend one."
-              stepLabels={craftRollStepLabels}
-              onChange={(value) => void onUpdate({ gemRoll: craftSettingAssumptions[value - 1] ?? null })} />
-            <PotentialSlider id="grindstones" label="Grindstones" value={craftSettingAssumptions.indexOf(settings.grindstoneRoll) + 1}
-              description="Credit every rune with this much of a grindstone, before you spend one."
-              stepLabels={craftRollStepLabels}
-              onChange={(value) => void onUpdate({ grindstoneRoll: craftSettingAssumptions[value - 1] ?? null })} />
-          </div>
-
-          <div className="settings-rule" role="presentation" />
-
-          <aside className="settings-aside">
-            <div className="grade-fields">
-              <label className="field"><span>Gem grade</span>
-                <Dropdown value={settings.gemGrade}
-                  onChange={(event) => void onUpdate({ gemGrade: event.target.value as ItemGrade })}>
-                  {itemGrades.map((grade) => <option key={grade}>{grade}</option>)}
-                </Dropdown>
-              </label>
-              <label className="field"><span>Grindstone grade</span>
-                <Dropdown value={settings.grindstoneGrade}
-                  onChange={(event) => void onUpdate({ grindstoneGrade: event.target.value as ItemGrade })}>
-                  {itemGrades.map((grade) => <option key={grade}>{grade}</option>)}
-                </Dropdown>
-              </label>
-            </div>
           </aside>
         </div>
       </div>

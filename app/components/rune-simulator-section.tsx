@@ -28,6 +28,7 @@ import type { RuneRole } from '../lib/rune-roles';
 import { referenceLines, noReferenceLineMessage } from '../lib/rune-reference-stats';
 import { craftRollDescriptions, craftRollLabels } from '../lib/rune-craft-items';
 import type { CraftRollAssumption } from '../lib/rune-craft-items';
+import { canonicalCraftCredit } from '../lib/rune-craft-end-state';
 import { columnClasses, runeSimulatorTableColumns } from '../lib/table-layouts';
 import { RuneLink } from './rune-link';
 import type { OpenRuneOverlay } from './rune-link';
@@ -226,7 +227,7 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
 
       <KeeperStatistics run={run} />
 
-      <CraftSettingsReadout settings={settings} />
+      <CraftSettingsReadout />
     </form>
 
     {message && <p className="calculation-status" data-failed role="alert">{message}</p>}
@@ -286,19 +287,21 @@ function craftSettingNote(assumption: CraftRollAssumption | null): string {
     : `Rolls at ${craftRollDescriptions[assumption]}; rounded away from zero.`;
 }
 
-function CraftSettingsReadout({ settings }: { settings: RunePotentialSettings }) {
-  return <div className="rune-simulator-craft-readout" aria-label="Rune Clean-up craft settings">
+/* The one credit every rune judgement makes; there is nothing to set, only to show. */
+function CraftSettingsReadout() {
+  const credit = canonicalCraftCredit;
+  return <div className="rune-simulator-craft-readout" aria-label="Rune Clean-up craft credit">
     <div className="rune-simulator-readout">
       <span className="filter-label">Enchanted Gem</span>
-      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.gemRoll, settings.gemGrade)}</output>
-      <span className="type-caption">Locked to Rune Clean-up Settings</span>
-      <span className="type-caption">{craftSettingNote(settings.gemRoll)}</span>
+      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(credit.gem, credit.gemGrade)}</output>
+      <span className="type-caption">The same in every rune judgement</span>
+      <span className="type-caption">{craftSettingNote(credit.gem)}</span>
     </div>
     <div className="rune-simulator-readout">
       <span className="filter-label">Grindstone</span>
-      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(settings.grindstoneRoll, settings.grindstoneGrade)}</output>
-      <span className="type-caption">Locked to Rune Clean-up Settings</span>
-      <span className="type-caption">{craftSettingNote(settings.grindstoneRoll)}</span>
+      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(credit.grind, credit.grindGrade)}</output>
+      <span className="type-caption">The same in every rune judgement</span>
+      <span className="type-caption">{craftSettingNote(credit.grind)}</span>
     </div>
     <p className="rune-simulator-craft-note type-caption">
       The resulting whole-number craft value appears beside each enchanted or ground substat below.

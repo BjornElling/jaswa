@@ -113,7 +113,7 @@ whole number (`figureOf`).
 ## 5. Gems & Grinds craft score
 
 Gems & Grinds judges current sub properties and the innate against every allowed
-build of every role. The weights, main-stat matching and fixed neutral perfect-rune
+build of every role. The weights, main-stat matching and fixed canonical perfect-rune
 ceiling come from `prepareRuneCandidate` in `rune-cleanup-model.ts`. It credits no
 future power-up rolls. A Grindstone is judged on the rune as it stands; a Gem on the
 placement rule's reference lines, every grindable line carrying an average Legend

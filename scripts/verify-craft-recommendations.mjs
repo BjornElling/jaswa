@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { readCraftItem, missingCraftItems, missingCraftGrades, missingCraftLineages } from '../app/lib/rune-craft-items.ts';
-import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, gemChoiceCredit,
+import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, canonicalCraftCredit,
   gemOptions } from '../app/lib/rune-craft-end-state.ts';
 import { defaultRuneRoles, createRuneRole } from '../app/lib/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
 import { acceptedWorth, brokenWorth } from '../app/lib/rune-cleanup-advice.ts';
-import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope, neutralComparisonCredit } from '../app/lib/rune-cleanup-model.ts';
+import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope } from '../app/lib/rune-cleanup-model.ts';
 import { recommendRuneCraft, craftRecommendationRankings, craftMatchesChangeFilter, heldCraftBenchmark, isHeldCraft,
   wantedCraftItems, craftItemKey, craftRuneKey, reconcileCraftCalculation, craftExtensionRequests, extendCraftCalculation,
   desirableGemStats, onDesirableGemStat } from '../app/lib/rune-craft-recommendations.ts';
@@ -14,9 +14,10 @@ import { readFileSync } from 'node:fs';
 
 const source = readFileSync('app/lib/compute/craft-score-engine.ts', 'utf8');
 assert.equal(L.prices, L.values + L.stats);
-assert.equal(L.cap, L.prices + L.stats);
+assert.equal(L.discount, L.prices + L.stats);
 assert.equal(L.discount + 1, L.stride);
-for (const key of ['stats', 'values', 'prices', 'cap', 'discount', 'stride', 'workgroup']) {
+assert.ok(!('cap' in L) && !source.includes('min('), 'a craft score must never be capped');
+for (const key of ['stats', 'values', 'prices', 'discount', 'stride', 'workgroup']) {
   assert.ok(source.includes(`\${L.${key}}`), `shader no longer reads the shared ${key}`);
 }
 const base = new Map(['Attack type', 'Support type', 'Defence type', 'HP type', 'No type'].map((type) =>
@@ -52,14 +53,14 @@ const families = roles.map((role) => ({ role, builds: roleBuilds(role) }));
 function evaluate(rune) {
   let best = null;
   for (const { role, builds } of families) for (const build of builds) {
-    const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, neutralComparisonCredit, scope);
+    const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);
     if (!candidate) continue;
     const discount = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable'
       ? acceptedWorth[settings.acceptedRunes - 1] : brokenWorth[settings.brokenRunes - 1];
     if (discount === 0) continue;
     const { plan, options, prices, prefixScore } = candidate.scoring;
     const raw = craftedScore(plan, options, prices, rune.subProperties, prefixScore) / candidate.ceiling * 100;
-    const score = Math.min(rune.ancient ? Infinity : 100, raw) * discount;
+    const score = raw * discount;
     if (!best || score > best.score) best = { score, role: role.name, rank: candidate.rank };
   }
   return best;
@@ -88,7 +89,7 @@ function compare(actual, expected) {
 /* The premise, written out afresh rather than read from the engine: a Gem is judged on
    lines every one of which carries an average Legend stone where that raises it, before
    and after alike; a Grindstone on the rune as it stands. */
-const legendStones = craftPlan('standard', { ...gemChoiceCredit, gem: null });
+const legendStones = craftPlan('standard', { ...canonicalCraftCredit, gem: null });
 const premised = (kind, lines) => kind === 'gem'
   ? lines.map((line) => ({ ...line, grind: Math.max(line.grind, legendStones.grind[line.statId]) })) : lines;
 let comparisons = 0;
@@ -236,18 +237,18 @@ assert.deepEqual(wantedCraftItems([], 5, benchmark), []);
    reading Gems & Grinds judges a rune in, and keeps the reading worth most: the
    rule Rune Clean-up applies, so the two views cannot name different stats. */
 assert.equal(desirableGemStats([]).size, 0);
-const referencePlan = craftPlan('standard', gemChoiceCredit);
-const referenceBare = craftPlan('standard', { ...gemChoiceCredit, gem: null });
+const referencePlan = craftPlan('standard', canonicalCraftCredit);
+const referenceBare = craftPlan('standard', { ...canonicalCraftCredit, gem: null });
 function ruleStat(rune) {
   let best = null;
   for (const { role, builds } of families) for (const build of builds) {
-    const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, neutralComparisonCredit, scope);
+    const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);
     if (!candidate) continue;
     const discount = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable'
       ? acceptedWorth[settings.acceptedRunes - 1] : brokenWorth[settings.brokenRunes - 1];
     if (discount === 0) continue;
     const { prices, prefixScore } = candidate.scoring;
-    const onScale = (score) => Math.min(rune.ancient ? Number.MAX_VALUE : 100, score / candidate.ceiling * 100) * discount;
+    const onScale = (score) => score / candidate.ceiling * 100 * discount;
     const report = { replaced: -1, statId: -1 };
     const options = gemOptions(referencePlan, prices, rune.slot, rune.mainStatId, rune.prefixStatId);
     const gemmed = onScale(craftedScore(referencePlan, options, prices, rune.subProperties, prefixScore, undefined, report));

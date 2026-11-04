@@ -1,5 +1,5 @@
 import type {
-  ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame, ItemGrade,
+  ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, DirectImportMode, HelperSession, ImportReport, ImportRoute, ImportedGame,
   Preferences, RunePotentialSettings,
 } from './types';
 import { readMonsterPreferences } from './monster-preferences';
@@ -12,7 +12,7 @@ import { readOwnPresets, runeSlots } from './presets';
 import { readArtifact } from './artifacts';
 import { readRelic, relicEngravingProblem } from './relics';
 import { isReadableEngravedConversionStone } from './artifact-conversion-stones';
-import { craftRollAssumptions, craftSettingAssumptions, defaultCraftRollAssumption, itemGrades, readCraftItem } from './rune-craft-items';
+import { craftRollAssumptions, readCraftItem } from './rune-craft-items';
 import { readRune } from './runes';
 import { readDeckPresets } from './deck-presets';
 import { intangibleSetId } from './monster-stats';
@@ -32,22 +32,15 @@ const expectedSections = [
 ] as const;
 const excludedKeys = new Set(['session_key', 'session_key_node']);
 
-/* Every scale but the two craft rolls is 1-based: the value is the slider's
-   stop, counted from the left. The craft rolls store the roll itself
-   (`craftSettingAssumptions`). The starting point is the middle of every ladder, plus a mild taste
-   for Intangible runes (×1½) and twice as many 4-set runes kept. */
+/* Every scale is 1-based: the value is the slider's stop, counted from the left.
+   The starting point is the middle of every ladder, plus a mild taste for
+   Intangible runes (×1½). */
 export const defaultRunePotentialSettings: RunePotentialSettings = {
   powerUpPolicy: 3,
   runeQuality: 3,
-  /* Two thirds, the program's one default for a craft roll (`rune-craft-items.ts`). */
-  gemRoll: defaultCraftRollAssumption,
-  grindstoneRoll: defaultCraftRollAssumption,
-  gemGrade: 'Hero',
-  grindstoneGrade: 'Hero',
   acceptedRunes: 3,
   brokenRunes: 3,
   intangibleRunes: 2,
-  keepMoreForLargerSets: true,
   neverSellPreGrindSpeed: true,
   preGrindSpeedMinimum: 20,
   neverSellPotentialValue: true,
@@ -151,14 +144,9 @@ type RerollTargetKeys = 'reappTargets' | 'refineTargets';
 const runePotentialSettingChecks: FieldChecks<Omit<RunePotentialSettings, RerollTargetKeys>> = {
   powerUpPolicy: isWholeNumberIn(1, 5),
   runeQuality: isWholeNumberIn(1, 5),
-  gemRoll: isOneOf(craftSettingAssumptions),
-  grindstoneRoll: isOneOf(craftSettingAssumptions),
-  gemGrade: isOneOf<ItemGrade>(itemGrades),
-  grindstoneGrade: isOneOf<ItemGrade>(itemGrades),
   acceptedRunes: isWholeNumberIn(1, 5),
   brokenRunes: isWholeNumberIn(1, 5),
   intangibleRunes: isWholeNumberIn(1, 5),
-  keepMoreForLargerSets: isBoolean,
   neverSellPreGrindSpeed: isBoolean,
   preGrindSpeedMinimum: (value) => value === null || isWholeNumberIn(0, 99)(value),
   neverSellPotentialValue: isBoolean,

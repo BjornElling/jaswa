@@ -176,7 +176,7 @@ the same stone on ATK was worth more — and the Gem's right line was CRI Dmg.
 `verify:craft-recommendations` holds that rune.
 
 Each before and after line-up meets every allowed build of every role. The
-valuation and fixed neutral ceiling are Clean-up's `prepareRuneCandidate`
+valuation and fixed canonical ceiling are Clean-up's `prepareRuneCandidate`
 reading, with the same accepted/broken discounts. The score prices the sub
 properties and innate as the premise leaves them: no imagined power-ups.
 The best reading is chosen separately before and after; its role may change.

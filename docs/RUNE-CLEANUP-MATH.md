@@ -194,17 +194,17 @@ credited here**: it goes to whichever line the weights price highest, so crediti
 would make the weights depend on themselves. It lives in the ceiling and the
 candidate's end state.
 
-Fast DD's example (§4.4), with Hero stones at three quarters:
+Fast DD's example (§4.4), with the canonical average Legend stones:
 
 | Target | Rolls needed | Lines | Stones find | Weight without | Weight with |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| SPD | 18.33 | 6.00 (every slot) | 4.00 | 1.000 | 1.000 |
-| CRI Rate | 12.00 | — | 0 | 0.655 | 0.837 |
-| CRI Dmg | 6.43 | — | 0 | 0.440 | 0.562 |
-| ATK | 4.86 | 3.33 | 1.66 | 0.402 | 0.339 |
-| Accuracy | 2.63 | — | 0 | 0.159 | 0.203 |
-| HP | 3.72 | 2.04 | 1.30 | 0.155 | 0.129 |
-| DEF | 1.89 | 1.05 | 0.64 | 0.100 | 0.085 |
+| SPD | 18.33 | 6.00 (every slot) | 5.00 | 1.000 | 1.000 |
+| CRI Rate | 12.00 | — | 0 | 0.655 | 0.900 |
+| CRI Dmg | 6.43 | — | 0 | 0.440 | 0.604 |
+| ATK | 4.86 | 3.03 | 1.94 | 0.402 | 0.332 |
+| Accuracy | 2.63 | — | 0 | 0.159 | 0.219 |
+| HP | 3.72 | 1.84 | 1.53 | 0.155 | 0.125 |
+| DEF | 1.89 | 0.95 | 0.75 | 0.100 | 0.083 |
 
 The stats no stone can touch weigh more against the ones it can.
 
@@ -221,9 +221,9 @@ weights that do not depend on the candidate's set at all.
 A set still decides a great deal through the role's preferred/acceptable/broken rank.
 **Intangible is a permanent exception**: its set side is always `preferred` for every
 role, it is not offered in the role set choices, and no setting can downgrade it. The
-rune's main-stat rank remains a separate judgement. The two retention settings
-(*Intangible runes* and *Keep twice as many 4-set runes*, §9) widen the share of their
-own runes that passes the gates; they never change a score.
+rune's main-stat rank remains a separate judgement. The retention setting *Intangible
+runes* (§9) widens the share of its own runes that passes the gates; it never changes a
+score.
 
 **The way back.** If the requirement should count set bonuses, a role must state the
 set *combination* its builds use (the build vocabulary of `RUNE-OPTIMIZATION.md` §2.1.1 and
@@ -276,9 +276,16 @@ Max value = score / ceiling
 Both are in the candidate's own class's max rolls (§2), so a perfect four-, five- or
 six-star rune reads 100 %. There is no main-property factor: a main decides which build
 a rune belongs to, not how good a member of it the rune is, and the requirement already
-counts every main at its six-star `+15` (§4.1). An ordinary rune's Max value is capped
-at 100 %; an Ancient rune is measured against the ordinary six-star ceiling uncapped,
-so a higher Ancient born roll can print above 100 %.
+counts every main at its six-star `+15` (§4.1).
+
+**100 % is a reference point, never a ceiling.** No Max value, expectation or Gems &
+Grinds score is capped anywhere. A rune that reads more than the perfect ordinary rune —
+an Ancient rune's higher born rolls, a line already ground past the canonical stone —
+reads more, and keeps every recommendation that would lift it further. A cap made every
+rune above the mark look alike and left nothing to recommend for it.
+`verify:rune-substat-weights` holds both halves: the best maximal ordinary rune reads
+exactly 100 %, and a rising line keeps rising past it. Probabilities and shares — a
+Chance, a standing in the box — stay between 0 and 1, because they are not scores.
 
 **Max value is what the row prints, not what the gates read.** A ratio against the
 perfect rune of a slot describes one rune honestly but is not comparable between slots,
@@ -307,13 +314,14 @@ user which build they intend — a role-model decision, not made here.
 `npm run verify:rune-craft-single-source` keeps it that way. The game's rules are
 `RUNE-CANONICAL.md` §8; that module's header lists them as applied. What this model adds:
 
-- **The credit.** Each craft slider sets a point in the selected grade's legal range:
-  none, one third, average, two thirds, three quarters or maximum
-  (`craftSettingAssumptions`). Items are evaluated as legal actions on actual lines, so
-  an item helps only where the game would let it.
+- **One credit, and no setting.** Every rune judgement assumes an average Legend Gem and
+  an average Legend Grindstone (`canonicalCraftCredit`): the candidate's projection, the
+  ruler of §§4–5 and §9.1, the floor calibration, the Gem's placement (§6.1) and Gems &
+  Grinds' reading of a Gem (`RUNE-CRAFT-ITEMS.md` §5). Items are evaluated as legal
+  actions on actual lines, so an item helps only where the game would let it.
 - **A Grindstone is credited on every grindable line** the rune holds, as `max(the stone
-  already there, the one the settings assume)`, never added to it: a stone can always be
-  topped up, and adding would pay the rune twice for one line.
+  already there, the canonical one)`, never added to it: a stone can always be topped up,
+  and adding would pay the rune twice for one line.
 - **A Gem's new line is worth its roll plus the credited Grindstone** wherever the new
   id is grindable. `gemOptions` prices every Gem that way, and `craftedLines` hands the
   same end state to whatever acts on the verdict.
@@ -322,9 +330,16 @@ user which build they intend — a role-model decision, not made here.
 - **A Gem is spent at `+12`, after every power-up.** The chance plays the remaining
   events out first and crafts what it actually got (§9.2).
 - **Lineage is legality, not reference.** A candidate's own craft tables follow its
-  lineage. The ruler — the weights, the perfect rune and the ordinary box — takes no
-  lineage and always uses `neutralComparisonCredit` (Hero items at three quarters). The
-  user's credit moves only the candidate (§9.2).
+  lineage, so an Ancient rune takes Ancient Legend items. The ruler — the weights, the
+  perfect rune and the ordinary box — takes no lineage. It is priced inside
+  `prepareRuneCandidate` and is not a parameter, because a ruler a caller may choose is a
+  ruler two callers can choose differently.
+
+**Why one credit.** Rune Clean-up once read a rune under three assumptions at once: its
+own Gem and Grindstone sliders for the candidate, Hero items at three quarters for the
+ruler and the floor calibration, and average Legend items for the Gem's placement. Gems
+& Grinds read a fourth. Each was defensible alone; together they let two views disagree
+about one rune's craft for reasons no player could see.
 
 ### 6.1 Which line the Gem replaces, and with which stat
 
@@ -335,11 +350,12 @@ Gem legal — so "offer the weakest line the best Gem" is a different and wrong 
 
 The reference is the rune's lines with every grindable line raised by an average Legend
 Grindstone where that raises it, and each candidate Gem an average Legend Gem, ground
-likewise (`gemChoiceCredit`; ordinary Legend, never Ancient). The pair is chosen in the
-role's own prices on that rune and only then valued at the user's credit; where the
-credited Gem of that stat could not legally take the line, or gains nothing there, the
-rune keeps no Gem. So which stat a rune should be gemmed with moves with the rune and
-the role, and with no slider: Rune Clean-up, the rune overlay and Gems & Grinds name the
+likewise (`canonicalCraftCredit`; ordinary Legend, never Ancient). The pair is chosen in
+the role's own prices on that rune and only then valued at the candidate's credit — the
+same credit for Clean-up, a held item's roll for Gems & Grinds; where that Gem could not
+legally take the line, or gains nothing there, the rune keeps no Gem. So which stat a
+rune should be gemmed with moves with the rune and the role, and with nothing else:
+Rune Clean-up, the rune overlay and Gems & Grinds name the
 same stat (`RUNE-CRAFT-ITEMS.md` §5.1). Choosing at the credit instead was tried and
 removed: Gems & Grinds measured against the rune as it stands and credited an SPD Gem
 with the stone its line could take anyway, so the two views named different stats for
@@ -494,14 +510,18 @@ always come from that same reading. It is the single source for every Best role 
 in Rune Clean-up and Rune Simulator, and it can never displace another rune or make a
 passing rune **Sell**.
 
-**Retention settings.** *Intangible runes* (×1, ×1½, ×2, ×3½, ×5) divides an Intangible
+**Retention setting.** *Intangible runes* (×1, ×1½, ×2, ×3½, ×5) divides an Intangible
 rune's slot correction — the part of its floor above the chosen anchor — by its factor.
-*Keep twice as many 4-set runes* gives runes of a four-piece set their own calibrated
-floor (§9.4). **Intangible is not a four-piece set for this setting**
-(`isFourPieceSet` in `rune-calculation-inputs.ts`); its own slider is its retention
-control. Neither setting creates a role inventory, a quota or a one-rune-per-role
-assignment, and neither can undercut the quality minimum, so a verdict never depends on
-how many other runes match the same role.
+It creates no role inventory, quota or one-rune-per-role assignment, and cannot undercut
+the quality minimum, so a verdict never depends on how many other runes match the same
+role.
+
+*Keep twice as many 4-set runes* was removed in November 2026. Fitted slot by slot it
+could not keep the slots level: a slot whose floor sat on the quality anchor had no
+four-piece runes to spare below it while the other five did — at the most lenient policy
+325 / 274 / 306 / 270 / 321 / 246 of 600 against 246 apiece without it. Fitted to keep
+them level it lowered no slot's floor at any setting, because the most lenient
+calibration always has a slot on the anchor and every stricter one inherits from it.
 
 **Safeguards change the verdict only.** *Never sell if…* holds four safeguards: *Pre-grind
 SPD ≥* (default on, 20), *Potential value ≥* (default on, 90 %, and only where Chance is at
@@ -538,23 +558,21 @@ correction, and never translates them into a top percentile.
 ### 9.2 One standard for every rune
 
 **Every rune — below, at and above `+12` — is judged on one question: what its Max value
-will be at `+15` with the active items credited.** Every grindable line carries the
-credited Grindstone, the Gem goes where §6.1's reference rune says it gains most (and
-nowhere, if at the credit it would not beat the line it replaces), and a Gemmed line is
-ground too. The perfect
-rune and the ordinary box stay on `neutralComparisonCredit`, so a craft slider moves the
-candidate's projection without moving the ruler under every other rune. A more generous
-credit can only make a rune easier to keep, a less generous one only harder.
+will be at `+15` with the canonical items credited.** Every grindable line carries the
+canonical Grindstone, the Gem goes where §6.1's reference rune says it gains most (and
+nowhere, if it would not beat the line it replaces), and a Gemmed line is ground too.
+The perfect rune and the ordinary box are priced with the same credit, and no setting
+moves either: the ruler under every rune stands still.
 
 A stone already spent is part of the rune and meets the credit through §6's `max`: a
-rune ground to no more than the credit reads exactly as it did bare, and one ground past
-it can only rise.
+rune ground to no more than the canonical stone reads exactly as it did bare, and one
+ground past it can only rise — past 100 % where it gets there (§5).
 
 For a rune observed at level `l`, let `R_l(ω)` be one legal completion through `+12`.
 Every completion is crafted before it is valued:
 
 ```
-S_l(ω)    = score(best legal craft(R_l(ω), active credit)) / fixed neutral ceiling
+S_l(ω)    = score(best legal craft(R_l(ω), canonical credit)) / ceiling   (uncapped)
 Max value = max_ω S_l(ω)
 Chance    = P(S_l(ω) ≥ the reading's floor)
 ```
@@ -576,8 +594,8 @@ stays unusable.
 For every star class present in the calculation, the canonical generator supplies **600
 ordinary drops per slot** with the rarity mix of §1. `+0`, `+9` and `+12` are checkpoints
 of the same seeded bodies — **one population of 600 per slot at three checkpoints**. A
-`+0` or `+9` Sell cannot contribute to the final count. Every candidate is read on
-`neutralComparisonCredit`.
+`+0` or `+9` Sell cannot contribute to the final count. Every candidate is read with
+`canonicalCraftCredit`, as an account's own runes are.
 
 Each unfinished candidate is played forward **128 times** (`balanceRuns`), and those
 runs are read at every Power-up policy stop; a `+12` candidate is priced directly. For
@@ -594,14 +612,9 @@ A zero count in a small sample does not establish a zero population: the fit kee
 one-observation tail allowance rather than emptying every slot. A structurally unusable
 slot remains a genuine limit; balancing cannot invent a useful stat or weaken the minimum.
 
-*Keep twice as many 4-set runes* has its own fit against the same funnel, **slot by
-slot**: each slot's target is twice the four-piece runes that slot keeps without the
-setting, capped by its own qualifying four-piece runes and the inherited floors. Only
-four-piece floors can soften; two-piece runes keep their own. Every count here is of the
-calibration's generated sample, never of the user's runes. One shared target, the
-smallest slot's reach, could never be met: the slot the balance is fitted to sits at
-the anchor and has no four-piece runes to spare below it, so the setting kept no more
-runes than it did switched off.
+Every count here is of the calibration's generated sample, never of the user's runes, and
+it is the calculation's own verdict that is balanced: the sell safeguards (§9) protect a
+rune for what it holds, whatever its slot.
 
 The calibration depends on the roles, the reference lines and the policy, never on the
 runes asked about, so the engine keeps the last four calibrations by the content of those
@@ -640,7 +653,9 @@ says **Keep** or **Power up**. `npm run verify:rune-best-role` holds it.
 Max value is the best case — every improvement on one line at its maximum — and naming
 by it flatters the role that prices one stat alone. Chance is a tail against a bar and
 rewards a wide distribution over a useful one. So the choice reads the **expectation at
-`+15`**, after the same accepted/broken discount as Max value and capped at Max value.
+`+15`**, after the same accepted/broken discount as Max value and never above the rune's
+own Max value — no expectation can beat the best case. That bound is the rune's own, not
+100 %.
 
 **How the expectation is computed.** Without the Gem, an end state is linear in every
 roll, so its expectation is exact (`expectedPlainScore`): each improvement lands on each
@@ -659,28 +674,28 @@ depends on enumeration order.
 
 | Check | Holds |
 | --- | --- |
-| `verify:rune-substat-weights` | §§4–5 deterministically: a target is a weight, mains, artifacts and credited stones come off the requirement while a rune's set does not, a met target asks nothing, surplus is never penalised, each star class is priced in its own rolls, a richer candidate credit moves only the rune and never reads lower, and the §5 rune reads exactly 100 % in every star class, slot and build of every shipped role. |
+| `verify:rune-substat-weights` | §§4–5 deterministically: a target is a weight, mains, artifacts and credited stones come off the requirement while a rune's set does not, a met target asks nothing, surplus keeps paying past 100 %, each star class is priced in its own rolls, a richer candidate credit moves only the rune and never reads lower, and an exhaustive search finds the best maximal ordinary rune at exactly 100 % in every star class, slot and build of every shipped role. |
 | `verify:rune-set-neutrality` | §4.3, paired: identical rune bodies under every set label give identical answers, and a role that does rank sets is still obeyed. |
 | `verify:rune-slot-neutrality` | The Max-value anchors, the mixed-rarity population, checkpoint identity, empty inputs and honest rejection of unusable mains (§9.1). |
-| `verify:rune-slot-policy-matrix` | 43 independent `+0 → +9 → +12` funnels against all original drops; Pearson's χ² only where at least 30 survive (otherwise "balance unmeasured"); all 625 slider combinations structurally for minimum quality and monotone floors (§9.4). It does not establish statistical equality for every combination or for edited roles. |
+| `verify:rune-slot-policy-matrix` | 41 independent `+0 → +9 → +12` funnels against all original drops, counted by the calculation's own verdict past the sell safeguards; Pearson's χ² only where at least 30 survive (otherwise "balance unmeasured"); all 625 slider combinations structurally for minimum quality and monotone floors (§9.4). It does not establish statistical equality for every combination or for edited roles. |
 | `verify:rune-future-craft` | §9.2 on nine Rare/Hero/Legend checkpoints: a legal SPD Gem and its stone, a stone on a hidden SPD line weighted by its reveal probability, and no Gem bonus for a rune already better than the Gem. |
-| `verify:rune-cleanup-calibration` | An independent generator and the game's addition/upgrade loop with its own PRNG; the chance twice, with no craft and with both items credited; and §6 against `RUNE-CANONICAL.md` §8 written out afresh, over every synthetic finished rune at five credits. `:large` is the 1,000-rune statistical run. |
+| `verify:rune-cleanup-calibration` | An independent generator and the game's addition/upgrade loop with its own PRNG; the chance twice, with no craft and with the canonical items credited; and §6 against `RUNE-CANONICAL.md` §8 written out afresh, over every synthetic finished rune at six credits. `:large` is the 1,000-rune statistical run. |
 | `verify:rune-cleanup-probability` | The event order of §7.1 on hand-calculable fixtures with one valuable stat: a line still to come never receives an earlier improvement. |
 | `verify:rune-cleanup-ancient` | §7.4. |
-| `verify:rune-cleanup-craft-monotonic` | A more generous credit never makes a rune harder to keep (§9.2). |
-| `verify:rune-cleanup-preference-monotonic` | The same for the whole recommendation funnel. |
+| `verify:rune-cleanup-craft-monotonic` | A more generous credit never lowers what a rune can reach or its odds, and a stone spent up to the canonical one moves no row (§9.2). |
+| `verify:rune-cleanup-preference-monotonic` | A more lenient slider never sells a rune a stricter one keeps, over the whole recommendation funnel. |
 | `verify:rune-chance-stability` | §7.3: the box holds still across a sixty-fourfold resolution sweep, and two copies of one rune get one answer. |
 | `verify:rune-best-role` | §9.6. |
 | `verify:rune-craft-single-source` | Source text: only `rune-craft-items.ts` and `rune-craft-end-state.ts` read the §8 tables; the shader is the one sanctioned second implementation. |
 | `verify:rune-chance-layout` | The chance shader's offsets all come from `rune-chance-layout.ts` (§10.1). |
 | `verify:rune-cleanup-equivalence` | Whether this build says what the last one did (below). |
 
-Every direct call of `prepareRuneCandidate` passes the ruler explicitly; the checks pass
-`neutralComparisonCredit` wherever they model the product, and a bare ruler only where
-their exact arithmetic needs it, with a comment saying so.
+No caller of `prepareRuneCandidate` passes a ruler: it is the canonical one inside the
+model. A check that needs exact arithmetic states its bar in the stat's own units and
+puts it on the candidate's scale, rather than choosing a different ruler.
 
 **The equivalence gate.** `npm run verify:rune-cleanup-equivalence` records every public
-field of every row over a fixed generated population and eight settings and role
+field of every row over a fixed generated population and six settings and role
 scenarios, and diffs them against a baseline. Every field is exact, including `reason`,
 which carries the printed Chance; `chance` alone may take `--chance-tolerance`, which
 defaults to zero. Its baseline lives in `work/`, which is not committed: capture one with

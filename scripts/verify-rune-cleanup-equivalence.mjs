@@ -234,9 +234,8 @@ function namedFixtures(random) {
 // ---------------------------------------------------------------------------
 
 const baseSettings = {
-  powerUpPolicy: 3, runeQuality: 3, gemRoll: null, grindstoneRoll: null,
-  gemGrade: 'Hero', grindstoneGrade: 'Hero', acceptedRunes: 3, brokenRunes: 3,
-  intangibleRunes: 1, keepMoreForLargerSets: false,
+  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3,
+  intangibleRunes: 1,
   // This gate holds the calculation itself; safeguard boundaries have their own check.
   neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
   neverSellPotentialValue: false, potentialValueMinimum: null,
@@ -292,8 +291,6 @@ function scenarios() {
   ];
   const all = [
     { name: 'defaults', settings: baseSettings, roles: shipped },
-    { name: 'max-craft', roles: shipped, settings: { ...baseSettings, gemRoll: 'maximum', grindstoneRoll: 'maximum', gemGrade: 'Legend', grindstoneGrade: 'Legend' } },
-    { name: 'half-craft', roles: shipped, settings: { ...baseSettings, gemRoll: 'average', grindstoneRoll: null, gemGrade: 'Rare', grindstoneGrade: 'Legend' } },
     { name: 'broken-rejected', roles: shipped, settings: { ...baseSettings, brokenRunes: 5 } },
     { name: 'strict', roles: shipped, settings: { ...baseSettings, runeQuality: 5, powerUpPolicy: 5, acceptedRunes: 5 } },
     { name: 'permissive', roles: shipped, settings: { ...baseSettings, runeQuality: 1, powerUpPolicy: 1, acceptedRunes: 1, brokenRunes: 1 } },

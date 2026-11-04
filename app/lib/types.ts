@@ -30,8 +30,8 @@ export type ImportedGame = {
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type ArtifactConversionStoneMode = 'none' | 'owned' | 'theoretical';
-/** `null` for a craft roll is the slider's first stop: no item credited at all. */
-export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; gemRoll: CraftRollAssumption | null; grindstoneRoll: CraftRollAssumption | null; gemGrade: ItemGrade; grindstoneGrade: ItemGrade; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; keepMoreForLargerSets: boolean; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null; neverSellEngravedPlacements: boolean; neverSellReappTargets: boolean; reappTargets: ReappTargets; refineTargets: ReappTargets };
+/** No Gem or Grindstone setting: every rune is judged with `canonicalCraftCredit`. */
+export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null; neverSellEngravedPlacements: boolean; neverSellReappTargets: boolean; reappTargets: ReappTargets; refineTargets: ReappTargets };
 /**
  * How the companion program is allowed to feed JASWA once it is connected.
  *
