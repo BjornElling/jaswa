@@ -196,6 +196,7 @@ preset is never hidden for want of a name (AGENTS.md §0.1). Matched so far
 | 4, 5, 7, 8, 9, 10, 11 | Labyrinth Normal, Rescue, Speed Limit, Time Limit, Cooldown Time Up, Explode, Boss | `deck_seq` | captured as the developer saved one deck in each, October 30, 2026, each save matched to a screenshot of its menu entry |
 | 6 | Trial of Ascension | `deck_seq` | screen |
 | 19, 20, 21 | Dimension Raid phases 1, 2, 3 | `deck_seq` | screen |
+| 22 | Siege Battle | `deck_seq` | the developer, November 4, 2026: the account's ten three-monster Siege Battle attacks |
 | 23 | Temple of Chaos | `deck_seq` | the developer, October 10, 2026: the account's three Temple of Chaos teams |
 | 24 | Cairos Dungeon: the hundreds of `deck_seq` are 1 Giant's Keep, 2 Dragon's Lair, 3 Necropolis, 4 Spiritual Realm, 5 Steel Fortress, 6 Punisher's Crypt | `deck_seq` mod 100 | screen (screens of October 7, 2026) |
 | 25 | Rift of Worlds beasts: the hundreds of `deck_seq` are 1 Ice, 2 Fire, 3 Wind, 4 Light, 5 Dark Beast | `deck_seq` mod 100 | 5 Dark Beast captured as the developer saved its decks 1 and 2, October 29, 2026; 1–4 assumed (§7) |
@@ -516,8 +517,8 @@ and says so where it matters.
   own presets are alternatives (§4, *Pools*). Nor does Rift Raid any longer:
   it has decks 1, 2 and 3 only, and every battle fields all three (the
   developer, October 20, 2026; `RUNE-OPTIMIZATION.md` §2.2.3).
-- **Team sizes not seen on screen.** Siege Battle and World Guild Battle are
-  read as three, Monster Subjugation, the Towers and Spires as five,
+- **Team sizes not seen on screen.** World Guild Battle is read as three (Siege
+  Battle's three is the size of its saved decks), Monster Subjugation, the Towers and Spires as five,
   the Rift of Worlds beasts and Rift Raid as six, Dimension Raid as five.
   Dimension Hole's four, Temple of Chaos's five, Labyrinth Rescue's four and
   the other Labyrinth contents' five are from the screen.

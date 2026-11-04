@@ -230,9 +230,12 @@ const byHundreds: Readonly<Record<number, ByHundreds>> = {
    2026: its presets 1 and 2 on the game's screen are JASWA's decks 2-1 and 2-2.
    The seven Labyrinth types were captured as the player saved one deck in each
    on October 30, 2026, each save matched to a screenshot of that menu entry.
-   They do not follow the menu's order, so none of them is read from another. */
+   They do not follow the menu's order, so none of them is read from another.
+   `deck_type` 22, Siege Battle, was confirmed by the player on November 4,
+   2026: the account's ten three-monster decks of that type are its Siege
+   Battle attacks. */
 const confirmed: Readonly<Record<number, PresetContentId>> = {
-  1: 'arena-attack', 2: 'world-guild', 3: 'rift-raid', 6: 'trial-of-ascension',
+  1: 'arena-attack', 2: 'world-guild', 3: 'rift-raid', 6: 'trial-of-ascension', 22: 'siege',
   4: 'labyrinth-normal', 5: 'labyrinth-rescue', 7: 'labyrinth-speed-limit', 8: 'labyrinth-time-limit',
   9: 'labyrinth-cooldown', 10: 'labyrinth-explode', 11: 'labyrinth-boss',
   19: 'dimension-raid-1', 20: 'dimension-raid-2', 21: 'dimension-raid-3',
