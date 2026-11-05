@@ -19,8 +19,9 @@ import type { ImportedGame, Preferences } from '../lib/types';
 import { readRelics, relicEngravingCounts } from '../lib/relics';
 import {
   relicEngravingLimit, relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel,
-  relicPropertyLabel,
+  relicNextTierLevel, relicPropertyLabel,
 } from '../lib/relic-properties';
+import { relicReachChance } from '../lib/relic-power-up-model';
 import type { RelicMainProperty } from '../lib/relic-properties';
 import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder, resolveRelicSynergy } from '../lib/relic-synergy';
 import type { RelicSynergyBand, RelicSynergyChoices } from '../lib/relic-synergy';
@@ -146,8 +147,11 @@ function likelyEndText(row: RelicRow): string {
  */
 function likelyEndDetail(row: RelicRow): string {
   const { likeliest } = row.advice.landing;
+  /* The next multiple of three rather than +15: that is where the unique
+     property takes its big step, and +15 is a lottery whose odds say nothing. */
+  const tier = relicNextTierLevel(row.relic.level);
   return `Likeliest single end: +${likeliest.level}, ${relicChancePercent(likeliest.chance)} chance. `
-    + `Chance of reaching +${relicMaximumLevel}: ${relicChancePercent(row.advice.reachChance)}.`;
+    + `Chance of reaching +${tier}: ${relicChancePercent(relicReachChance(row.relic.level, row.relic.durability, tier))}.`;
 }
 
 export function RelicList({ game, monsters, preferences, onOpenMonster, onChangeRelicSynergy }: {

@@ -229,6 +229,14 @@ const thresholdTiers: Record<'atkDef' | 'hp' | 'spd', readonly number[]> = {
 /** The explicit interim model: each observed anchor holds for its three-level tier. */
 const relicThresholdTierSize = 3;
 
+/**
+ * The next level that opens a tier — a multiple of three, where the unique
+ * property takes its big step — above the one a relic has, capped at the top.
+ */
+export function relicNextTierLevel(level: number): number {
+  return Math.min((Math.floor(level / relicThresholdTierSize) + 1) * relicThresholdTierSize, relicMaximumLevel);
+}
+
 function thresholdTier(level: number): number {
   const tier = Math.floor(level / relicThresholdTierSize);
   return Math.min(Math.max(tier, 0), thresholdTiers.atkDef.length - 1);
