@@ -337,6 +337,12 @@ reads and writes one shared list, so ignoring in one hides it in all. The list i
 saved choices (`craftIgnores`, `craft-ignores.ts`) keyed by `rune_id`, so they
 outlast reloads, imports and live sync. **Reset ignored**, under Reset filters,
 empties the shared list from any view; it stays in place, disabled, while the list is empty.
+An ignore made long ago still decides what its rune is offered — a Gem of the
+next stat stands in for the ignored one — so every card whose rune has anything
+ignored carries a muted crossed-out eye beside Ignore, whose tooltip reads
+*Ignored* and then each ignored item, one per line (`SPD Gem`, `HP % Grind`). The
+mark's box is reserved on every card and only shown where it applies, so it
+moves nothing.
 The reader retains valid entries from the developer's saved per-view choices
 when combining them, drops invalid entries individually and deduplicates them.
 Ignoring narrows what is shown like a filter: it never invalidates an answer,

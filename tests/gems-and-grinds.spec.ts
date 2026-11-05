@@ -547,12 +547,29 @@ test('ignoring the best Gem hands the rune to the next best stat, and without on
   /* The held CRI Rate Gem is never offered this rune while SPD wins, in any ranking. */
   await expect(anywhere.locator('.craft-recommendation-title').filter({ hasText: / · CRI Rate$/ })).toHaveCount(0);
   const workersBefore = craftWorkers;
+  const ignoredMark = (card: typeof sameRune) => card.getByRole('img', { name: /^Ignored on this Violent rune/ });
+  /* Every card reserves the mark's box, shown or not, so its Ignore button sits
+     at one offset from the card's corner before and after. */
+  const buttonOffsets = () => panel.locator('.craft-recommendation').evaluateAll((cards) => cards.map((card) => {
+    const button = card.querySelector('.craft-recommendation-head .inline-button')!.getBoundingClientRect();
+    const own = card.getBoundingClientRect();
+    return `${Math.round(own.right - button.right)}:${Math.round(button.y - own.y)}:${Math.round(button.width)}`;
+  }));
+  const offsetBefore = new Set(await buttonOffsets());
+  expect(offsetBefore.size).toBe(1);
+  await expect(ignoredMark(anywhere)).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('best-gem-before-ignore.png'), fullPage: true });
   await sameRune.getByRole('button', { name: /^Ignore SPD Gem/ }).click();
   await expect(anywhere).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('no-gem-after-ignore.png'), fullPage: true });
   await panel.getByRole('button', { name: 'Grindstone', exact: true }).click();
   await expect(sameRune.locator('.craft-recommendation-title')).toHaveText(/ · SPD( \(\+ \d+\))?$/);
+  /* An Ignore made long ago still decides what the rune is offered, so the rune's
+     other cards carry a mark beside Ignore, naming what is waved away on hover. */
+  await expect(ignoredMark(sameRune)).toHaveAttribute('title', 'Ignored\nSPD Gem');
+  await expect(ignoredMark(sameRune)).toHaveAccessibleName('Ignored on this Violent rune: SPD Gem');
+  expect(new Set(await buttonOffsets())).toEqual(offsetBefore);
+  await sameRune.first().screenshot({ path: testInfo.outputPath('ignored-mark-on-grind-card.png') });
   expect(craftWorkers).toBe(workersBefore);
 });
 

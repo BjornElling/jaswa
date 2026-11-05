@@ -1488,6 +1488,12 @@ label[for] {
    wraps in its own track. */
 .craft-recommendation-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s3); align-items: start; }
 .craft-recommendation-title { margin: 0; color: var(--text-strong); overflow-wrap: anywhere; }
+/* Beside Ignore, a mark that something on this rune is already ignored; what,
+   is in its tooltip. The box is fixed and always present, only its opacity
+   changes, so the mark appearing moves nothing (AGENTS.md §2). */
+.craft-recommendation-aside { display: flex; align-items: center; gap: var(--s2); }
+.craft-ignored-mark { width: 24px; height: 24px; display: grid; place-items: center; color: var(--text-muted); opacity: 0; }
+.craft-ignored-mark[data-shown] { opacity: 1; cursor: help; }
 /* The count of further stones beside a card's named one: context, quieter than the name. */
 .craft-item-quiet { color: var(--text-muted); }
 .craft-rune-header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s3); align-items: center; }

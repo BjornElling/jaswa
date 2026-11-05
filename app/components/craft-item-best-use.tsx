@@ -50,13 +50,15 @@ function CraftItemName({ item }: { item: CraftItem }) {
   </>;
 }
 
-/** What Ignore on this card waves away: the rune, and the item's kind and stat, whatever its grade or set. */
 /* Most wanted's own length, apart from the rankings': its box keeps this many
    rows whatever the answer, so the column beside it never changes height. */
 const wantedLength = 10;
 /* One empty list for every render, so the request a view asks with stays the same object. */
 const noItems: readonly CraftItem[] = [];
+/** What Ignore on this card waves away: the rune, and the item's kind and stat, whatever its grade or set. */
 const ignoreOf = (row: CraftRecommendation): CraftIgnore => ({ runeId: row.rune.id, kind: row.item.kind, statId: row.item.statId });
+/** `SPD Gem`, `HP % Grind`: the stat named as a kind, so the two HP lines read apart. */
+const ignoredName = (entry: CraftIgnore) => `${runeStatName(entry.statId) ?? `Stat ${entry.statId}`} ${craftKindLabels[entry.kind]}`;
 
 /* An Immemorial item rolls what the set's own item rolls, so What's missing
    names the set's item and says on its title that either will do. */
@@ -209,6 +211,16 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   const keepSet = keepers.state === 'ready' ? keepers.keep : keepers.state === 'pending' ? keepers.previous : null;
   const keepersSettled = keepers.state === 'off' || keepSet !== null;
   const ignored = useMemo(() => new Set(ignores.map(craftIgnoreKey)), [ignores]);
+  /* An old Ignore changes which Gem a card names without saying so, which reads as
+     the overlay and the table disagreeing. Each card therefore lists what is waved
+     away on its rune: Gems before Grinds, each by stat. */
+  const ignoredByRune = useMemo(() => {
+    const byRune = new Map<string, CraftIgnore[]>();
+    for (const entry of ignores) byRune.set(entry.runeId, [...byRune.get(entry.runeId) ?? [], entry]);
+    for (const entries of byRune.values()) entries.sort((a, b) =>
+      Number(a.kind === 'grindstone') - Number(b.kind === 'grindstone') || a.statId - b.statId);
+    return byRune;
+  }, [ignores]);
   const desirable = useMemo(() => result
     ? desirableGemStats(result.candidates, (runeId, statId) => ignored.has(craftIgnoreKey({ runeId, kind: 'gem', statId })))
     : new Map<string, ReadonlySet<number>>(),
@@ -255,6 +267,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
        ranking, elsewhere the one that adds most on its own. */
     const lead = byStat ? row : spent.reduce((best, entry) => entry.gain > best.gain ? entry : best, spent[0]);
     const byLine = new Map(spent.map((entry) => [entry.application.target.index, entry]));
+    const ignoredOnRune = ignoredByRune.get(rune.id) ?? [];
     const afterCell = (at: number) => {
       const entry = byLine.get(at);
       return entry ? <RuneSubLine property={entry.application.result} format={format} showGrindStep /> : '—';
@@ -267,9 +280,25 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
             .map((entry) => `${entry.item.grade} ${entry.item.setName ?? craftLineageLabels.immemorial} ${entry.item.statName} ${craftKindLabels[entry.item.kind]}`).join(', ')}>
             {' '}(+ {format(spent.length - 1)})</span>}
         </h4>
-        <InlineButton onClick={() => onIgnore(ignoreOf(lead))}
-          aria-label={`Ignore ${lead.item.statName} ${craftKindLabels[lead.item.kind]} on this ${rune.setName} rune`}
-          title={`Stop suggesting ${lead.item.statName} ${craftKindLabels[lead.item.kind]}s for this rune throughout Gems & Grinds`}>Ignore</InlineButton>
+        <div className="craft-recommendation-aside">
+          {/* The mark's box is there on every card, shown or not, so a rune gaining
+              its first ignore moves neither the button nor the title (AGENTS.md §2). */}
+          <span className="craft-ignored-mark" role={ignoredOnRune.length ? 'img' : undefined}
+            aria-hidden={ignoredOnRune.length ? undefined : true}
+            aria-label={ignoredOnRune.length ? `Ignored on this ${rune.setName} rune: ${ignoredOnRune.map(ignoredName).join(', ')}` : undefined}
+            title={ignoredOnRune.length ? ['Ignored', ...ignoredOnRune.map(ignoredName)].join('\n') : undefined}
+            data-shown={ignoredOnRune.length > 0 || undefined}>
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4"
+              strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8Z" />
+              <circle cx="8" cy="8" r="2" />
+              <path d="M2.5 13.5l11-11" />
+            </svg>
+          </span>
+          <InlineButton onClick={() => onIgnore(ignoreOf(lead))}
+            aria-label={`Ignore ${lead.item.statName} ${craftKindLabels[lead.item.kind]} on this ${rune.setName} rune`}
+            title={`Stop suggesting ${lead.item.statName} ${craftKindLabels[lead.item.kind]}s for this rune throughout Gems & Grinds`}>Ignore</InlineButton>
+        </div>
       </div>
       <header className="craft-rune-header">
         <RuneEmblem setName={rune.setName} slot={rune.slot} />
