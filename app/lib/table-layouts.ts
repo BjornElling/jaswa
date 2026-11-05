@@ -224,14 +224,15 @@ export const relicTableColumns: readonly TableColumn[] = [
   /* Durability is three marks rather than a quantity, so it centres under its
      heading instead of taking the numeric column's right edge. */
   { key: 'durability', width: '10%', align: 'center' },
-  /* Where the relic ends up, beside the advice that reads it — which is what
-     makes the advice arguable rather than something to be taken on trust. */
-  { key: 'landing', width: '11%', align: 'right' },
   { key: 'engraved', width: '11%', align: 'right' },
-  /* A verdict and its compact explanation share this column. Its width is
-     reserved for the longest explanation, so a threshold move cannot crop it
+  /* The verdict alone, so the column a reader scans for Power up or Sell is
+     one word wide. */
+  { key: 'advice', width: '9%', align: 'left' },
+  /* Why, beside the verdict: the explanation, then where the relic is likely to
+     end — which is what makes the advice arguable rather than taken on trust.
+     Reserved for the longest explanation, so a threshold move cannot crop it
      or reflow the rest of the table. */
-  { key: 'advice', width: '15%', align: 'left' },
+  { key: 'reason', width: '17%', align: 'left' },
 ];
 
 /**

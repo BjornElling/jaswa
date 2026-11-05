@@ -26,11 +26,11 @@ import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder, resolveRel
 import type { RelicSynergyBand, RelicSynergyChoices } from '../lib/relic-synergy';
 import {
   defaultRelicInvestmentSelectivity, isRelicInvestmentSelectivity, relicAdvice, relicInvestmentSelectivityLabels,
-  relicVerdictLabels, relicVerdictOrder, relicMinimumSynergyBands,
+  relicVerdictLabels, relicVerdictOrder, relicMinimumSynergyBands, relicChancePercent,
 } from '../lib/relic-advice';
 import type { RelicInvestmentSelectivity, RelicVerdict } from '../lib/relic-advice';
 import {
-  compareRelicRows, defaultRelicSortDirections, relicEffectText, relicLevelState, relicSearchText,
+  compareRelicRows, defaultRelicSortDirections, relicEffectText, relicHasLikelyEnd, relicLevelState, relicSearchText,
 } from '../lib/relic-grid';
 import type { RelicRow, RelicSortKey } from '../lib/relic-grid';
 import { formatNumber } from '../lib/formatting';
@@ -121,11 +121,34 @@ const relicColumns: readonly SortableColumn<RelicRow>[] = (() => {
     column('synergy', 'Synergy'),
     column('level', 'Level'),
     column('durability', 'Durability'),
-    column('landing', <span className="table-heading-two-line" aria-label="Level it lands on or above half the time">Likely<br />end</span>),
     column('engraved', <span className="table-heading-two-line" aria-label="Monsters it is engraved on">Engraved<br />on #</span>),
     column('advice', 'Advice'),
+    column('reason', 'Reason', 'Why the advice says so, and where the relic likely ends'),
   ];
 })();
+
+/**
+ * The median landing level as a sentence: the chance of finishing there or
+ * higher. A median that is the level the relic already has would read as a
+ * certainty about nothing — every relic is sure to end at or above where it
+ * stands — so that case says the relic is likely to stay put instead.
+ */
+function likelyEndText(row: RelicRow): string {
+  const { level, chance } = row.advice.landing;
+  if (level <= row.relic.level) return `Likely to stay at +${row.relic.level}`;
+  return `${relicChancePercent(chance)} chance of +${level} or higher`;
+}
+
+/**
+ * The rest of the landing distribution, for the title. A relic level is a whole
+ * number in the game, so it is never printed as a mean or an expected gain —
+ * only as a level, with its chance in percent.
+ */
+function likelyEndDetail(row: RelicRow): string {
+  const { likeliest } = row.advice.landing;
+  return `Likeliest single end: +${likeliest.level}, ${relicChancePercent(likeliest.chance)} chance. `
+    + `Chance of reaching +${relicMaximumLevel}: ${relicChancePercent(row.advice.reachChance)}.`;
+}
 
 export function RelicList({ game, monsters, preferences, onOpenMonster, onChangeRelicSynergy }: {
   game: ImportedGame | null;
@@ -283,6 +306,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
               <ValueSlider minimum={1} maximum={5} value={selectivity}
                 label="Power-up threshold, very restrictive to naive"
                 valueLabel={(value) => relicInvestmentSelectivityLabels[value as RelicInvestmentSelectivity]}
+                valueAbove
                 valueText={(value) => `${relicInvestmentSelectivityLabels[value as RelicInvestmentSelectivity]}; `
                   + `${relicSynergyBandLabels[relicMinimumSynergyBands[value as RelicInvestmentSelectivity]]} synergy or better`}
                 onChange={(value) => setFilters((current) => ({
@@ -344,34 +368,27 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
               <td className={relicCell('durability')}>
                 <RelicDurabilityMark durability={row.relic.durability} />
               </td>
-              {/* The median of the landing distribution, with the size of its
-                  own tail under it: a median is a statement about a tail, and
-                  the tail is never exactly a half. The readings the verdict is
-                  actually made of travel in the title rather than in columns of
-                  their own — the advice cell prints the relevant chance. */}
-              <td className={relicCell('landing')}
-                title={`Expected to gain +${row.advice.expectedGain.toFixed(1)} more; `
-                  + `likeliest single outcome +${row.advice.landing.likeliest.level} at `
-                  + `${Math.round(row.advice.landing.likeliest.chance * 100)} %; `
-                  + `mean +${row.advice.expectedLevel.toFixed(1)}; `
-                  + `next-attempt score ${Math.round(row.advice.investmentScore)} %`}>
-                <span className="relic-landing-level">+{format(row.advice.landing.level)}</span>
-                <span className="relic-landing-chance">
-                  <span className="visually-hidden">at least </span>
-                  &ge;&thinsp;{format(Math.round(row.advice.landing.chance * 100))} %
-                </span>
-              </td>
               <td className={relicCell('engraved', row.engraved === 0 && 'muted')}>
                 {row.engraved === 0 ? '—' : format(row.engraved)}
               </td>
-              {/* A verdict without its one-line explanation asks the user to
-                  take the page on trust. Every row reserves the same second
-                  line, so changing the threshold does not move its neighbours. */}
               <td className={relicCell('advice')}>
                 <span className="relic-verdict" data-verdict={row.advice.verdict}>
                   {relicVerdictLabels[row.advice.verdict]}
                 </span>
+              </td>
+              {/* A verdict without its explanation asks the user to take the
+                  page on trust. The reason line is reserved in every row, so a
+                  threshold move that rewrites it moves nothing. Under it, the
+                  median of the landing distribution with the size of its own
+                  tail — a median is a statement about a tail, and the tail is
+                  never exactly a half. Whether that line is there follows the
+                  relic alone, never a control on the page. */}
+              <td className={relicCell('reason')}
+                title={relicHasLikelyEnd(row.levelState) ? likelyEndDetail(row) : undefined}>
                 <span className="relic-advice-reason">{row.advice.reason}</span>
+                {relicHasLikelyEnd(row.levelState) && <span className="relic-landing">
+                  {likelyEndText(row)}
+                </span>}
               </td>
             </tr>;
           }) : <tr>

@@ -744,7 +744,7 @@ export function TheMathSection() {
         <div className="math-table-scroll">
           <table className="math-table math-table-relics">
             <caption className="visually-hidden">Two relics compared for the same HP and DEF build at 250 display speed</caption>
-            <thead><tr><th scope="col" className="align-left">Relic</th><th scope="col">Main value</th><th scope="col">Unique value</th><th scope="col">Total</th></tr></thead>
+            <thead><tr><th scope="col" className="align-left">Relic</th><th scope="col">Main stat value</th><th scope="col">Substat value</th><th scope="col">Total</th></tr></thead>
             <tbody>
               <tr><th scope="row" className="align-left">HP · Nimble Timeless · <span className="math-relic-level">+12</span></th><td>9.375</td><td>1.500</td><td>10.875</td></tr>
               <tr><th scope="row" className="align-left">DEF · Nimble Primal · <span className="math-relic-level">+12</span></th><td>5.625</td><td>2.500</td><td>8.125</td></tr>
@@ -752,7 +752,7 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          The HP relic wins on this build. Change the runes and the answer can change too. Main value and Unique value in the recommendations table are these same points; their titles show the effect behind the number and the current relic’s points.
+          The HP relic wins on this build. Change the runes and the answer can change too. Main stat value and Substat value in the recommendations table are these same points; their titles show the effect behind the number and the current relic’s points.
         </p>
         <h3 className="type-heading">Bonuses that are not stats</h3>
         <p>
@@ -871,7 +871,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">What the column actually shows</h3>
         <p>
-          Every verdict prints the real game chance underneath it — <span className="math-table-rolled">Next +1: 60 %</span>, <span className="math-table-rolled">Beat +12: 4.8 %</span>, <span className="math-table-rolled">Sure +1: 100 %</span> — never the internal score. You get the chance of the thing you are about to do, not the arithmetic used to rank it. A relic rejected on its pairing says so by name: <span className="math-table-rolled">Weak fit: below threshold.</span>
+          Every verdict prints the real game chance beside it — <span className="math-table-rolled">60% chance of the next +1</span>, <span className="math-table-rolled">4.8% chance to pass the +12 copy</span>, <span className="math-table-rolled">The next +1 is certain.</span> — never the internal score. You get the chance of the thing you are about to do, not the arithmetic used to rank it. A relic rejected on its pairing says so by name: <span className="math-table-rolled">Poor fit, below the threshold.</span> Under it stands where the relic is likely to end: <span className="math-table-rolled">57% chance of +7 or higher</span>.
         </p>
       </div>
     </Disclosure>

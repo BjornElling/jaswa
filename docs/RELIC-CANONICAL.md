@@ -395,7 +395,11 @@ is in §3. Three consequences run the page:
 2. **`+15` is a lottery.** A fresh relic with three durability reaches it about
    once in 11,500 tries, so no verdict turns on `P`.
 3. **Stones buy far more on a low relic**: 7.2 expected levels from three
-   durability at `+0`, 0.65 at `+12`. The *Likely end* column shows it.
+   durability at `+0`, 0.65 at `+12`. The *Reason* column shows it under each
+   explanation, for every relic with durability left below `+15`: the median
+   landing level as `<tail> chance of +<level> or higher`, or `Likely to stay
+   at +<level>` where the median is the level it has. Advice holds the verdict
+   alone.
 
 ### 7.5 The thresholds: what a power-up moves
 
@@ -448,20 +452,20 @@ The rules keep stable numbers, and are listed in the order `decide()` asks
 them; rule 3 is asked before rule 2, and their conditions are disjoint:
 
 - **Rule 1 — the synergy gate, first, of every relic.** The slider names the weakest fit
-   the account holds (§9). A relic below it sells with `<Band> fit: below
-   threshold.` (e.g. `Poor fit: below threshold.`), whatever its level,
+   the account holds (§9). A relic below it sells with `<Band> fit, below the
+   threshold.` (e.g. `Poor fit, below the threshold.`), whatever its level,
    durability, duplicates or next attempt. Nothing outranks it: the gate asks
    whether the pair is worth owning, everything after asks whether it is worth
    stones.
 - **Rule 3 — a relic that cannot be powered up** (at `+15` or durability 0):
-   - with a full incumbent (rule 0 below): keeps, `Other copy is on 150.`;
-   - with any other incumbent: sells, `No power-up; +<level> kept.`;
-   - with none: keeps, `Cannot power up.`
+   - with a full incumbent (rule 0 below): keeps, `The other copy is on 150 monsters.`;
+   - with any other incumbent: sells, `No power-ups left; the +<level> copy stays.`;
+   - with none: keeps, `No power-ups left.`
 - **Rule 2 — the duplicate gate**, beside an incumbent that is not full, and it does not
-   read the slider. An incumbent at `+15` cannot be passed: sell, `Cannot beat
-   +15.` Otherwise the chance to pass it, `P(l, d, h + 1)`, is compared with a
+   read the slider. An incumbent at `+15` cannot be passed: sell, `The other copy
+   is +15 already.` Otherwise the chance to pass it, `P(l, d, h + 1)`, is compared with a
    threshold set by this relic's band (`relicOvertakeThresholds`); at or above
-   it powers up, below it sells, both reading `Beat +<h>: <chance>`.
+   it powers up, below it sells, both reading `<chance> chance to pass the +<h> copy`.
 
    | Fit | Passes at | A `+0`, 3-durability challenger tries against up to |
    | --- | ---: | --- |
@@ -476,10 +480,10 @@ them; rule 3 is asked before rule 2, and their conditions are disjoint:
    the certain levels, so a `+0` beside a `+12` copy is not powered up on a
    guaranteed level it has no use for.
 - **Rule 4 — certain levels power up**: below `+3` the attempt cannot fail, reading
-   `Sure +1: 100%`.
+   `The next +1 is certain.`
 - **Rule 5 — every other open relic** compares its investment score with the slider's
-   threshold: at or above it powers up, below it keeps, reading `Next +1:
-   <chance>`. This is the only rule the threshold decides.
+   threshold: at or above it powers up, below it keeps, reading `<chance> chance
+   of the next +1`. This is the only rule the threshold decides.
 
 **Rule 0, the capacity exception.** The duplicate rules rest on one copy
 already covering more monsters than an account fields. A copy engraved on its
@@ -672,14 +676,15 @@ non-finite or negative contribution, or a reduction of 100 % or more, throws.
 
 Each row is computed from the whole planned roster, every owned relic and the
 imported counts; search, element, type, storage and Hide filters then choose
-which rows show. A row hidden by a filter still competes for its place, so a
+which rows show. There is no level filter: every planned row is Lv. 40 already.
+*Include* opens with neither Inventory nor Storage chosen, which reads as both. A row hidden by a filter still competes for its place, so a
 filter can never change a row it leaves on screen. A monster's answer *does*
 depend on the rest of the roster: that is what sharing a limited relic means.
 
 ### 11.7 What the table shows
 
 *Current relic* is the monster's engraved relic. *Recommended relic* names one
-candidate, or *Same*. *Main value* and *Unique value* are the candidate's
+candidate, or *Same*. *Main stat value* and *Substat value* are the candidate's
 weighted contributions in points, two decimals, summing to the ranking score;
 their titles name the bonus, source value, total and the current relic's
 contribution. Advice is Engrave, Replace, Keep, No capacity or No

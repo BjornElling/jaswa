@@ -8,8 +8,8 @@ import type { RelicAdvice, RelicVerdict } from './relic-advice';
 import { relicVerdictLabels, relicVerdictOrder } from './relic-advice';
 
 export type RelicSortKey =
-  | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability' | 'landing'
-  | 'engraved' | 'advice';
+  | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability'
+  | 'engraved' | 'advice' | 'reason';
 
 /**
  * Whether a relic's level can still move, and why not when it cannot.
@@ -24,6 +24,15 @@ export type RelicLevelState = 'open' | 'spent' | 'maxed';
 export function relicLevelState(relic: Relic): RelicLevelState {
   if (relic.level >= relicMaximumLevel) return 'maxed';
   return relic.durability > 0 ? 'open' : 'spent';
+}
+
+/**
+ * Whether a likely end is worth printing. A relic with no durability left, or
+ * already at +15, ends where it stands, so the line would only repeat the
+ * Level column.
+ */
+export function relicHasLikelyEnd(state: RelicLevelState): boolean {
+  return state === 'open';
 }
 
 export type RelicRow = {
@@ -63,8 +72,8 @@ function verdictRank(verdict: RelicVerdict): number {
  */
 export const defaultRelicSortDirections: Record<RelicSortKey, boolean> = {
   index: true, unique: true, main: true,
-  synergy: false, level: false, durability: false, landing: false,
-  engraved: false, advice: true,
+  synergy: false, level: false, durability: false,
+  engraved: false, advice: true, reason: false,
 };
 
 const mainOrder = { HP: 0, ATK: 1, DEF: 2 } as const;
@@ -95,17 +104,19 @@ export function compareRelicRows(left: RelicRow, right: RelicRow, key: RelicSort
       return left.relic.level - right.relic.level;
     case 'durability':
       return left.relic.durability - right.relic.durability;
-    case 'landing':
-      /* By the level first, then by how far past a half its tail runs: two
-         relics that both land on +14 are not equally sure of it. */
-      return left.advice.landing.level - right.advice.landing.level
-        || left.advice.landing.chance - right.advice.landing.chance;
     case 'engraved':
       return left.engraved - right.engraved;
     case 'advice':
       /* Power up, Keep, Sell is the order the verdicts are declared in, and the
          ascending pass follows it. */
       return verdictRank(left.advice.verdict) - verdictRank(right.advice.verdict);
+    case 'reason':
+      /* The explanation is prose and orders nothing, so the column sorts by the
+         likely end beneath it: by the level first, then by how far past a half
+         its tail runs — two relics that both land on +14 are not equally sure
+         of it. */
+      return left.advice.landing.level - right.advice.landing.level
+        || left.advice.landing.chance - right.advice.landing.chance;
     default:
       return 0;
   }
@@ -113,9 +124,9 @@ export function compareRelicRows(left: RelicRow, right: RelicRow, key: RelicSort
 
 /**
  * What a row answers to in the search field: everything the row actually shows,
- * and nothing it does not. The advice reason moved into a title when the verdict
- * column lost its second line, and a search that matched text nobody can see
- * would return rows for no visible reason.
+ * and nothing it does not — a search that matched text nobody can see would
+ * return rows for no visible reason. The reason has its own column, so it is
+ * searched.
  */
 export function relicSearchText(row: RelicRow, format: (value: number) => string): string {
   return [
@@ -123,5 +134,6 @@ export function relicSearchText(row: RelicRow, format: (value: number) => string
     row.relic.mainProperty,
     relicEffectText(row.relic, format),
     relicVerdictLabels[row.advice.verdict],
+    row.advice.reason,
   ].join(' ').toLowerCase();
 }

@@ -1099,23 +1099,6 @@ label[for] {
 .relic-durability .relic-pip-left { fill: var(--text-strong); stroke: var(--text-strong); }
 .relic-durability .relic-pip-spent { stroke: var(--text-muted); }
 
-/* The likeliest landing level over its own probability. Two lines, so the
-   level keeps the table's figure size and the confidence reads as the footnote
-   it is — never the other way round. */
-.relic-landing-level { display: block; font-variant-numeric: tabular-nums; }
-.relic-landing-chance {
-  display: block;
-  font-size: var(--type-body);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  /* A median is a tail, so the figure is written as a bound rather than as a
-     second probability that could be mistaken for the column beside it. It is
-     also short enough to stay inside a fixed column, which "or better" was
-     not. */
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .relic-grid td.relic-level { white-space: nowrap; }
 .relic-level-value { font-variant-numeric: tabular-nums; }
@@ -1127,8 +1110,12 @@ label[for] {
 .relic-verdict[data-verdict='sell'] { color: var(--state-bad); }
 /* Always present and one line high. A slider move can replace one explanation
    with another, but it cannot make the advice row change height under the
-   reader. The compact notation keeps the relevant game chance visible. */
-.relic-advice-reason {
+   reader. The compact notation keeps the relevant game chance visible. The
+   likely end under it, in the library, speaks in the same quiet voice; a median
+   is a tail, so its chance is written as a bound rather than as a second
+   probability that could be mistaken for a figure in its own right. */
+.relic-advice-reason,
+.relic-landing {
   display: block;
   min-height: 16px;
   overflow: hidden;
@@ -1317,12 +1304,13 @@ label[for] {
 .relic-verdict[data-verdict='none'] { color: var(--state-bad); }
 .relic-verdict[data-verdict='unrated'] { color: var(--state-warn); }
 
-/* Two rows: what the monster is, then what to leave out. Search and "Hide if"
-   start their rows and keep the same divider as every group. */
+/* Two rows: what the monster is, then what it is told to take and which
+   monsters count. Search and Family start their rows and keep the same divider
+   as every group; Family spans two tracks, where its six chips have room. */
 .relic-monster-filter-strip {
   grid-template-areas:
-    "search element type include"
-    "hide   .       .    .";
+    "search element type    ."
+    "family family  include hide";
 }
 .relic-monster-filter-strip > .filter-group,
 .relic-monster-filter-strip > .filter-group:nth-child(2n + 1),
@@ -1336,6 +1324,7 @@ label[for] {
 .relic-monster-filter-element { grid-area: element; }
 .relic-monster-filter-type { grid-area: type; }
 .relic-monster-filter-include { grid-area: include; }
+.relic-monster-filter-family { grid-area: family; }
 .relic-monster-filter-status { bottom: 0; height: auto; }
 /* "Same" stands where a two-line relic would, so it takes the dimmed half of
    the two-tone pair: the row has nothing to act on, and the cell should read
@@ -1351,9 +1340,10 @@ label[for] {
   .relic-monster-filter-strip {
     --filter-columns: 2;
     grid-template-areas:
-      "search element"
-      "type   include"
-      "hide   .";
+      "search  element"
+      "type    ."
+      "family  family"
+      "include hide";
   }
 }
 @media (max-width: 760px) {
@@ -1364,6 +1354,7 @@ label[for] {
       "search"
       "element"
       "type"
+      "family"
       "include"
       "hide";
   }
@@ -2238,6 +2229,10 @@ label[for] {
 .range-slider-single .range-slider-input { pointer-events: auto; }
 .range-slider-single .range-slider-values { height: var(--s4); }
 .range-slider-single .range-slider-value { top: 0; bottom: auto; }
+/* Over the rail, the row is the range slider's own, so a single and a range
+   standing side by side put their values and rails on the same two lines. */
+.range-slider-value-above .range-slider-values { height: var(--s5); }
+.range-slider-value-above .range-slider-value { top: auto; bottom: 0; }
 /* A named stop reads as words, which are far wider than the digit they replace
    and would hang off the row at either end of a short rail. The name therefore
    sits centred under the whole control rather than over its handle — it names

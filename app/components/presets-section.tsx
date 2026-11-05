@@ -20,6 +20,7 @@ import { sharedInPoolMarks } from '../lib/figure-marks';
 import { moveItem } from '../lib/list-order';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { artifactSlotCount, engravedCounts, monsterNameCollator } from '../lib/monster-grid';
+import { canEngraveRelics, relicMinimumMonsterLevel } from '../lib/monster-engrave-eligibility';
 import { runeSlotCount } from '../lib/rune-set-pairs';
 import { monsterCopyNames } from '../lib/monster-names';
 import { profilesIn } from '../lib/monster-preferences';
@@ -385,13 +386,17 @@ function Gear({ monster, preset, unitId }: { monster: GameRecord; preset: Preset
   const among = (ids: readonly string[] | undefined, listed: readonly string[]) => (ids ?? []).filter((id) => listed.includes(id)).length;
   const runeIds = preset.runesOf.get(unitId);
   const artifactIds = preset.artifactsOf.get(unitId);
+  /* Below Lv. 40 the missing relic is not one to go and engrave: the game
+     refuses it, and the levelling is the thing to do. Only the wording says so,
+     so the cell keeps its one mark and its size. */
+  const relicReading = engraved.relic ? 'Relic engraved'
+    : canEngraveRelics(monster) ? 'No relic' : `No relic: needs Lv. ${relicMinimumMonsterLevel}`;
   return <>
     <Engraved count={engraved.runes} sold={among(runeIds, preset.missingRuneIds)} shared={among(runeIds, preset.poolConflicts.runeIds)}
       of={runeSlotCount} what="runes" />
     <Engraved count={engraved.artifacts} sold={among(artifactIds, preset.missingArtifactIds)} shared={among(artifactIds, preset.poolConflicts.artifactIds)}
       of={artifactSlotCount} what="artifacts" />
-    <span className="monster-priority-gear" role="img" title={engraved.relic ? 'Relic engraved' : 'No relic'}
-      aria-label={engraved.relic ? 'Relic engraved' : 'No relic'}>
+    <span className="monster-priority-gear" role="img" title={relicReading} aria-label={relicReading}>
       <SpeedVerdictMark state={engraved.relic ? 'good' : 'bad'} small />
     </span>
   </>;

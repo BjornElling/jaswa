@@ -8,6 +8,7 @@ import type { PreferenceSource, ResolvedMonsterPreferences } from './monster-pre
 import { resolvedOptions } from './monster-preference-resolution';
 import type { MonsterStatTargets } from './monster-preferences';
 import type { Relic } from './relics';
+import { canEngraveRelics } from './monster-engrave-eligibility';
 import { runeSlotKeys } from './monster-defaults';
 import type { RuneSlotKey } from './monster-defaults';
 import { relicProperty, relicPropertyLabel } from './relic-properties';
@@ -305,7 +306,8 @@ export function monsterShortfalls(
   return [
     ...runeShortfalls(monster, resolved),
     ...artifactShortfalls(resolved, gear.artifacts ?? {}),
-    ...relicShortfalls(resolved, gear.relics ?? []),
+    /* Below Lv. 40 the game takes no relic, so no relic wish can be short. */
+    ...(canEngraveRelics(monster) ? relicShortfalls(resolved, gear.relics ?? []) : []),
     ...statShortfalls(monster, resolved),
   ];
 }

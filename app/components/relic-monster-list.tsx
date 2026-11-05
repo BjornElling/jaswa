@@ -34,13 +34,9 @@ import {
 } from '../lib/relic-monster-grid';
 import type { RelicMonsterRow, RelicMonsterSortKey } from '../lib/relic-monster-grid';
 import { formatDecimal, formatNumber } from '../lib/formatting';
+import { relicFamilies, relicFamilyByGrant } from '../lib/relic-properties';
 import { canEngraveRelics } from '../lib/monster-engrave-eligibility';
 import { useSessionStorageState } from '../lib/session-storage-state';
-
-/* The game caps monsters at 40 today, so a level below that is not maxed. A
-   floor rather than an exact match keeps the filter right if the cap rises —
-   the same reading the roster table uses. */
-const maxMonsterLevel = 40;
 
 /**
  * This table's filters and nothing else. Every one of them decides which rows
@@ -52,9 +48,14 @@ type RelicMonsterFilterState = {
   search: string;
   selectedElements: string[];
   selectedArchetypes: MonsterArchetype[];
+  /**
+   * The family of the *recommended* relic — the page's answer for the row, and
+   * on a Keep row the relic already engraved. A row with nothing recommended
+   * has no family to match, so any narrowing leaves it out.
+   */
+  selectedFamilies: string[];
   showInventory: boolean;
   showStorage: boolean;
-  showBelowMaxLevel: boolean;
   /**
    * Drops every monster already carrying a relic, whichever relic it is and
    * whatever the page thinks of it. Engraving a bare monster costs nothing but
@@ -74,16 +75,22 @@ type RelicMonsterFilterState = {
   hideAlreadyOptimal: boolean;
 };
 
+/* Include opens with neither location chosen, which the inclusive-filter rule
+   reads as both (`ACCOUNT-TABLES.md`): pressing one then narrows to it rather
+   than taking it away. There is no level control, because every row is Lv. 40
+   before a filter runs — the plan's scope admits nothing else. */
 const defaultRelicMonsterFilters: RelicMonsterFilterState = {
   search: '',
   selectedElements: [],
   selectedArchetypes: [],
-  showInventory: true,
-  showStorage: true,
-  showBelowMaxLevel: false,
+  selectedFamilies: [],
+  showInventory: false,
+  showStorage: false,
   hideAlreadyEngraved: false,
   hideAlreadyOptimal: false,
 };
+
+const familyNames = relicFamilies.map((entry) => entry.family);
 
 function isRelicMonsterFilterState(value: unknown): value is RelicMonsterFilterState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -93,9 +100,10 @@ function isRelicMonsterFilterState(value: unknown): value is RelicMonsterFilterS
     && candidate.selectedElements.every((entry) => typeof entry === 'string' && elementNameList.includes(entry))
     && Array.isArray(candidate.selectedArchetypes)
     && candidate.selectedArchetypes.every((entry) => monsterFilterArchetypes.includes(entry as MonsterArchetype))
+    && Array.isArray(candidate.selectedFamilies)
+    && candidate.selectedFamilies.every((entry) => typeof entry === 'string' && familyNames.includes(entry))
     && typeof candidate.showInventory === 'boolean'
     && typeof candidate.showStorage === 'boolean'
-    && typeof candidate.showBelowMaxLevel === 'boolean'
     && typeof candidate.hideAlreadyEngraved === 'boolean'
     && typeof candidate.hideAlreadyOptimal === 'boolean';
 }
@@ -129,9 +137,12 @@ const relicMonsterColumns: readonly SortableColumn<RelicMonsterRow>[] = (() => {
     column('level', 'LVL'),
     column('current', <span className="table-heading-two-line" aria-label="The relic engraved on this monster today">Current<br />relic</span>),
     column('recommended', <span className="table-heading-two-line" aria-label="The relic to engrave on this monster">Recommended<br />relic</span>),
-    /* The two score contributions describe the recommended relic, not its popularity. */
-    column('mainStat', <span className="table-heading-two-line" aria-label="The recommended main bonus in weighted score points">Main<br />value</span>),
-    column('uniqueStat', <span className="table-heading-two-line" aria-label="The recommended unique bonus in weighted score points">Unique<br />value</span>),
+    /* The two score contributions describe the recommended relic, not its popularity.
+       The unique half is headed *Substat* on purpose: the player already reads a
+       piece as a main stat and its substats everywhere else in the game, and
+       *Unique* named nothing they knew. */
+    column('mainStat', <span className="table-heading-two-line" aria-label="The recommended main bonus in weighted score points">Main stat<br />value</span>),
+    column('uniqueStat', <span className="table-heading-two-line" aria-label="The recommended unique bonus in weighted score points">Substat<br />value</span>),
     column('advice', 'Advice'),
   ];
 })();
@@ -183,7 +194,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
     [roster],
   );
   const {
-    search, selectedElements, selectedArchetypes, showInventory, showStorage, showBelowMaxLevel,
+    search, selectedElements, selectedArchetypes, selectedFamilies, showInventory, showStorage,
     hideAlreadyEngraved, hideAlreadyOptimal,
   } = filters;
 
@@ -301,14 +312,16 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
          one whose record merely mentions a relic the library rejected. */
       if (hideAlreadyEngraved && row.engraved.length) return false;
       if (!filterPair(row.inStorage, showStorage, showInventory)) return false;
-      if (!showBelowMaxLevel && (row.level === null || row.level < maxMonsterLevel)) return false;
       if (!filterIncludes(selectedElements, row.element, elementNameList)) return false;
       if (!filterIncludes(selectedArchetypes, row.archetype, monsterFilterArchetypes)) return false;
+      const recommended = row.recommendation.chosen?.relic;
+      if (!filterIncludes(selectedFamilies,
+        recommended ? relicFamilyByGrant[recommended.unique.definition.grants] : null, familyNames)) return false;
       if (!term) return true;
       return searchedMasterIds?.has(row.masterId) || relicMonsterSearchText(row).includes(term);
     });
-  }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes,
-    showInventory, showStorage, showBelowMaxLevel, hideAlreadyEngraved, hideAlreadyOptimal]);
+  }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes, selectedFamilies,
+    showInventory, showStorage, hideAlreadyEngraved, hideAlreadyOptimal]);
 
   /* The page exists to answer "what should be engraved on this monster", so it opens
      on the rows that want something done rather than on the import's own order:
@@ -334,6 +347,15 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
       selectedArchetypes: current.selectedArchetypes.includes(archetype)
         ? current.selectedArchetypes.filter((entry) => entry !== archetype)
         : [...current.selectedArchetypes, archetype],
+    }));
+  }
+
+  function toggleFamily(family: string) {
+    setFilters((current) => ({
+      ...current,
+      selectedFamilies: current.selectedFamilies.includes(family)
+        ? current.selectedFamilies.filter((entry) => entry !== family)
+        : [...current.selectedFamilies, family],
     }));
   }
 
@@ -391,6 +413,17 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
             >{monsterArchetypeLabels[archetype]}</FilterButton>)}
           </div>
         </div>
+        <div className="filter-group relic-monster-filter-family" role="group" aria-label="Filter by recommended relic family">
+          <span className="filter-label">Family</span>
+          <div className="filter-group-controls">
+            {relicFamilies.map(({ family, grants }) => <FilterButton
+              key={family}
+              active={selectedFamilies.includes(family)}
+              onClick={() => toggleFamily(family)}
+              title={`Recommended relic grants ${grants}`}
+            >{family}</FilterButton>)}
+          </div>
+        </div>
         <div className="filter-group relic-monster-filter-include" role="group" aria-label="Choose which monsters to include">
           <span className="filter-label">Include</span>
           <div className="filter-group-controls">
@@ -402,9 +435,6 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
             <FilterButton active={showStorage}
               onClick={() => setFilters((current) => ({ ...current, showStorage: !current.showStorage }))}
             >Storage</FilterButton>
-            <FilterButton active={showBelowMaxLevel}
-              onClick={() => setFilters((current) => ({ ...current, showBelowMaxLevel: !current.showBelowMaxLevel }))}
-            >Lvl. &lt; {maxMonsterLevel}</FilterButton>
           </div>
         </div>
         {/* The group used to be named for the one control in it. It now holds

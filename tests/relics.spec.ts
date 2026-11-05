@@ -152,36 +152,37 @@ test('a finished relic is kept even though it can never reach +15', async ({ pag
      the durability is gone, and the relic is still one of the best on the
      account. Judging it on P alone would have sold it. */
   const spent = rowFor(page, 'per 125 SPD');
-  await expect(spent.locator('td').nth(5)).toContainText('+12');
-  await expect(spent.locator('td').nth(5)).toContainText('at least');
   await expect(spent).toContainText('Keep');
+  /* With no attempts left it ends where it stands, so no likely end repeats the level. */
+  await expect(reasonFor(page, 'per 125 SPD')).not.toContainText('chance of +');
 });
 
-test('the landing column names a level the relic can realistically reach', async ({ page }) => {
+test('the likely end names a level the relic can realistically reach', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   /* A fresh relic is certain to +3 and then fights a falling rate, so it lands
      around +7 — not at +15, which the published rates make a lottery. */
-  const fresh = rowFor(page, 'per 2,500 ATK');
-  await expect(fresh.locator('td').nth(5)).toContainText('+7');
-  const halfway = rowFor(page, 'per 2,000 ATK');
-  await expect(halfway.locator('td').nth(5)).toContainText('+7');
+  await expect(reasonFor(page, 'per 2,500 ATK').locator('.relic-landing')).toContainText('chance of +7 or higher');
+  await expect(reasonFor(page, 'per 2,000 ATK').locator('.relic-landing')).toContainText('chance of +7 or higher');
 });
 
-/** The advice cell, whose visible second line carries the chance or status. */
-const adviceFor = (page: Page, effect: string) => rowFor(page, effect).locator('td').nth(7);
+/** The verdict, then the reason beside it that carries the chance or status. */
+const adviceFor = (page: Page, effect: string) =>
+  rowFor(page, effect).locator('.relic-verdict, .relic-advice-reason');
+/** The reason column: the explanation, then the likely end where one is printed. */
+const reasonFor = (page: Page, effect: string) => rowFor(page, effect).locator('td').nth(7);
 
 test('the advice shows a verdict with its short chance', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
-  await expect(adviceFor(page, 'per 500 ATK')).toHaveText('KeepCannot power up.');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Power up', 'The next +1 is certain.']);
+  await expect(adviceFor(page, 'per 500 ATK')).toHaveText(['Keep', 'No power-ups left.']);
 });
 
 test('the visible advice shows the game chance, not the ranking conversion', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  await expect(adviceFor(page, 'per 150 SPD')).toHaveText('SellBeat +12: 4.8%');
+  await expect(adviceFor(page, 'per 150 SPD')).toHaveText(['Sell', '4.8% chance to pass the +12 copy']);
 });
 
 /* The duplicate gate answers a question the player has no taste about, so the
@@ -199,7 +200,7 @@ test('the duplicate gate ignores the slider at every stop', async ({ page }) => 
 
   for (const stop of ['1', '2', '3', '4', '5']) {
     await threshold.fill(stop);
-    await expect(advice).toHaveText('SellBeat +12: 4.8%');
+    await expect(advice).toHaveText(['Sell', '4.8% chance to pass the +12 copy']);
   }
 });
 
@@ -210,15 +211,15 @@ test('the score threshold gates the minimum synergy band without wasting a tier'
   const poor = rowFor(page, 'per 2,000 ATK');
   /* The default, Balanced, keeps Niche and better, so a Poor pair is sold. */
   await expect(threshold).toHaveValue('3');
-  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellPoor fit: below threshold.');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Sell', 'Poor fit, below the threshold.']);
   await threshold.fill('4');
   /* Poor is admitted at Optimistic, and this +5 → +6 success also improves its
      unique property. The hard gate still rejects it at the stricter settings;
      once admitted, JASWA must not stop one level before the tier it is buying. */
-  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('Power upNext +1: 60%');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Power up', '60% chance of the next +1']);
   await threshold.fill('1');
   await expect(poor).toContainText('Sell');
-  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellPoor fit: below threshold.');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Sell', 'Poor fit, below the threshold.']);
   await threshold.fill('5');
   await expect(poor).toContainText('Power up');
 });
@@ -235,7 +236,7 @@ test('changing the score threshold leaves the table geometry fixed', async ({ pa
   await page.screenshot({ path: testInfo.outputPath('relic-threshold-before.png') });
 
   await threshold.fill('5');
-  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('Power upNext +1: 60%');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Power up', '60% chance of the next +1']);
   await page.screenshot({ path: testInfo.outputPath('relic-threshold-after.png') });
 
   const after = await table.locator('tbody tr').evaluateAll((cells) => cells.map((cell) => {
@@ -251,7 +252,7 @@ test('a certain level powers up once the pair is one the setting keeps', async (
   const fresh = rowFor(page, 'per 2,500 ATK');
   await expect(fresh).toContainText('Niche');
   await expect(fresh).toContainText('Power up');
-  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Power up', 'The next +1 is certain.']);
 });
 
 /* The rule the gate's move exists for. A guaranteed level is guaranteed waste on
@@ -267,9 +268,9 @@ test('the synergy gate outranks the certain level below +3', async ({ page }) =>
   await expect(fresh).toContainText('Niche');
 
   await threshold.fill('2');
-  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('SellNiche fit: below threshold.');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Sell', 'Niche fit, below the threshold.']);
   await threshold.fill('3');
-  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Power up', 'The next +1 is certain.']);
 });
 
 /* Very restrictive keeps Excellent pairs alone — that is its promise — and Picky,
@@ -281,8 +282,8 @@ test('the two strictest stops keep Excellent, then Good as well', async ({ page 
   const good = rowFor(page, 'per 1,000 ATK');
   await expect(good).toContainText('Good');
   await threshold.fill('1');
-  await expect(adviceFor(page, 'per 1,000 ATK')).toHaveText('SellGood fit: below threshold.');
-  await expect(adviceFor(page, 'per 125 SPD')).toHaveText('KeepCannot power up.');
+  await expect(adviceFor(page, 'per 1,000 ATK')).toHaveText(['Sell', 'Good fit, below the threshold.']);
+  await expect(adviceFor(page, 'per 125 SPD')).toHaveText(['Keep', 'No power-ups left.']);
   await threshold.fill('2');
   await expect(good).not.toContainText('Sell');
 });
@@ -291,8 +292,8 @@ test('a relic engraved on monsters counts them, and one in the inventory says so
   await importAccount(page, relicAccount);
   await openRelics(page);
   const engraved = rowFor(page, 'per 125 SPD');
-  await expect(engraved.locator('td').nth(6)).toHaveText('2');
-  await expect(rowFor(page, 'per 150 SPD').locator('td').nth(6)).toHaveText('—');
+  await expect(engraved.locator('td').nth(5)).toHaveText('2');
+  await expect(rowFor(page, 'per 150 SPD').locator('td').nth(5)).toHaveText('—');
 });
 
 test('filters narrow the table and Reset puts every one of them back', async ({ page }) => {
@@ -318,7 +319,7 @@ test('the headings say what their column holds', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const heading = page.getByRole('table', { name: 'Relic library columns' });
-  await expect(heading.getByRole('button', { name: 'Level it lands on or above half the time' })).toBeVisible();
+  await expect(heading.getByRole('button', { name: 'Why the advice says so, and where the relic likely ends' })).toBeVisible();
   await expect(heading.getByRole('button', { name: 'Monsters it is engraved on' })).toBeVisible();
   await expect(heading.locator('th')).toHaveCount(8);
 });
@@ -393,7 +394,7 @@ test('a saved cell is the band the library judges by, and it survives a reload',
   await openRelics(page);
   const fresh = rowFor(page, 'per 2,500 ATK');
   await expect(fresh).toContainText('Niche');
-  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Power up', 'The next +1 is certain.']);
 
   await openEditor(page);
   await cell(page, 'Sharp Conquest, DEF main: Niche').click();
@@ -404,7 +405,7 @@ test('a saved cell is the band the library judges by, and it survives a reload',
   await expect(editor(page)).toBeHidden();
 
   await expect(fresh).toContainText('Poor');
-  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('SellPoor fit: below threshold.');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Sell', 'Poor fit, below the threshold.']);
   await page.getByRole('group', { name: 'Filter by synergy' }).getByRole('button', { name: 'Poor', exact: true }).click();
   await expect(rows(page)).toHaveCount(2);
 

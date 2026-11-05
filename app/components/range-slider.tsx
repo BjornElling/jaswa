@@ -148,9 +148,15 @@ export function RangeSlider({
  * rail rather than riding the handle: carried to the ends, a name long enough to
  * be worth showing hangs off the row it sits in, and shifting it back inside
  * would put it beside a handle it no longer points at.
+ *
+ * `valueAbove` puts the value over the rail instead, in the range slider's own
+ * row and following the handle, for a slider standing in one strip row with a
+ * two-handle range: there the two rails and their values have to sit at one
+ * height, and the gap that led to the default is the gap the range already
+ * opens.
  */
 export function ValueSlider({
-  minimum, maximum, value, step = 1, label, valueText, valueLabel, disabled, onChange,
+  minimum, maximum, value, step = 1, label, valueText, valueLabel, valueAbove = false, disabled, onChange,
 }: {
   minimum: number;
   maximum: number;
@@ -160,24 +166,38 @@ export function ValueSlider({
   valueText: (value: number) => string;
   /** The stop's name, shown under the rail in place of the number. */
   valueLabel?: (value: number) => string;
+  /** Over the rail, aligned with a two-handle range beside it. */
+  valueAbove?: boolean;
   disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   const span = maximum - minimum;
-  const position = handlePosition(span === 0 ? 0 : (value - minimum) / span);
-  return <div className="range-slider range-slider-single" data-disabled={disabled ? 'true' : undefined}>
+  const fraction = span === 0 ? 0 : (value - minimum) / span;
+  const position = handlePosition(fraction);
+  /* Above the rail a name rides its handle, as a range's figures do. Its anchor
+     slides from its left edge at the first stop to its right edge at the last,
+     so the name stays over the handle and never hangs past either end. */
+  const values = valueLabel && valueAbove
+    ? <div className="range-slider-values" aria-hidden="true">
+      <output className="range-slider-value"
+        style={{ left: position, transform: `translateX(-${fraction * 100}%)` }}>{valueLabel(value)}</output>
+    </div>
+    : valueLabel
+    ? <div className="range-slider-values range-slider-named" aria-hidden="true">
+      <output className="range-slider-value">{valueLabel(value)}</output>
+    </div>
+    : <div className="range-slider-values" aria-hidden="true">
+      <output className="range-slider-value" style={{ left: position }}>{value}</output>
+    </div>;
+  return <div className={`range-slider range-slider-single${valueAbove ? ' range-slider-value-above' : ''}`}
+    data-disabled={disabled ? 'true' : undefined}>
+    {valueAbove && values}
     <div className="range-slider-track">
       <input className="range-slider-input" type="range" min={minimum} max={maximum} step={step} value={value}
         disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label={label} aria-valuetext={valueText(value)} />
     </div>
-    {valueLabel
-      ? <div className="range-slider-values range-slider-named" aria-hidden="true">
-        <output className="range-slider-value">{valueLabel(value)}</output>
-      </div>
-      : <div className="range-slider-values" aria-hidden="true">
-        <output className="range-slider-value" style={{ left: position }}>{value}</output>
-      </div>}
+    {!valueAbove && values}
   </div>;
 }

@@ -43,6 +43,10 @@ export const relicFamilyByGrant: Readonly<Record<RelicGrant, string>> = {
   'Recovery & Shield': 'Restore',
 };
 
+/** The six families with what each grants, in the game's Select Unique Property order. */
+export const relicFamilies: readonly { family: string; grants: RelicGrant }[] =
+  (Object.entries(relicFamilyByGrant) as [RelicGrant, string][]).map(([grants, family]) => ({ family, grants }));
+
 /** The prefix, which is decided entirely by the stat the property reads. */
 const scalingBySource: Record<RelicSourceStat, string> = {
   HP: 'Hearty',

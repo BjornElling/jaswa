@@ -161,7 +161,7 @@ export type RelicVerdict = 'power-up' | 'keep' | 'sell';
 
 export type RelicAdvice = {
   verdict: RelicVerdict;
-  /** The short chance or status shown below the verdict in the table. */
+  /** The short chance or status the Reason column shows beside the verdict. */
   reason: string;
   /** `P(l, d)` — the chance this relic ever reaches `+15`. Near zero for most. */
   reachChance: number;
@@ -183,12 +183,14 @@ export type RelicAdvice = {
 
 const pairKey = (relic: Relic) => `${relic.mainProperty}:${relic.unique.definition.id}`;
 
-const percent = (fraction: number) => {
+/** A chance as the page prints it: whole percent from 10 % up, finer below. */
+export const relicChancePercent = (fraction: number) => {
   const value = fraction * 100;
   if (value >= 10 || Number.isInteger(value)) return `${Math.round(value)}%`;
   if (value >= 1) return `${value.toFixed(1).replace(/\.0$/, '')}%`;
   return `${value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`;
 };
+const percent = relicChancePercent;
 const investmentScore = (chance: number, weight: number, strengthGain: number) =>
   100 * chance * weight * strengthGain / relicOrdinaryLevelStrengthGain;
 
@@ -326,14 +328,14 @@ function decide({
   minimumBand: RelicSynergyBand;
 }): { verdict: RelicVerdict; reason: string } {
   if (relicSynergyBandOrder.indexOf(band) > relicSynergyBandOrder.indexOf(minimumBand)) {
-    return { verdict: 'sell', reason: `${relicSynergyBandLabels[band]} fit: below threshold.` };
+    return { verdict: 'sell', reason: `${relicSynergyBandLabels[band]} fit, below the threshold.` };
   }
   if (relic.level >= relicMaximumLevel || relic.durability === 0) {
     if (incumbent !== null && incumbentIsFull) {
-      return { verdict: 'keep', reason: `Other copy is on ${relicEngravingLimit}.` };
+      return { verdict: 'keep', reason: `The other copy is on ${relicEngravingLimit} monsters.` };
     }
-    if (incumbent !== null) return { verdict: 'sell', reason: `No power-up; +${incumbent.level} kept.` };
-    return { verdict: 'keep', reason: 'Cannot power up.' };
+    if (incumbent !== null) return { verdict: 'sell', reason: `No power-ups left; the +${incumbent.level} copy stays.` };
+    return { verdict: 'keep', reason: 'No power-ups left.' };
   }
   /* The duplicate gate, and it is asked before the certain level below. A `+0`
      challenger standing beside a `+12` copy would otherwise be powered up on the
@@ -343,8 +345,8 @@ function decide({
      relic can ever get past the copy beside it, and the answer does not move
      with the slider. */
   if (incumbent !== null && !incumbentIsFull) {
-    if (incumbent.level >= relicMaximumLevel) return { verdict: 'sell', reason: 'Cannot beat +15.' };
-    const working = `Beat +${incumbent.level}: ${percent(overtakeChance ?? 0)}`;
+    if (incumbent.level >= relicMaximumLevel) return { verdict: 'sell', reason: 'The other copy is +15 already.' };
+    const working = `${percent(overtakeChance ?? 0)} chance to pass the +${incumbent.level} copy`;
     if ((overtakeChance ?? 0) >= relicOvertakeThresholds[band]) {
       return { verdict: 'power-up', reason: working };
     }
@@ -357,9 +359,9 @@ function decide({
      A guaranteed level on a pair worth keeping is still the best stone an
      account can spend, which is why this outranks the score; it is not outside
      the economy. */
-  if (relic.level < 3) return { verdict: 'power-up', reason: `Sure +1: ${percent(chance)}` };
+  if (relic.level < 3) return { verdict: 'power-up', reason: 'The next +1 is certain.' };
 
-  const working = `Next +1: ${percent(chance)}`;
+  const working = `${percent(chance)} chance of the next +1`;
   if (score >= threshold) return { verdict: 'power-up', reason: working };
   return { verdict: 'keep', reason: working };
 }

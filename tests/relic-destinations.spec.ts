@@ -243,6 +243,13 @@ test('a monster below level 40 never enters the relic plan', async ({ page }) =>
   await openUseForMons(page);
   await expect(destinations(page)).toHaveCount(4);
   await expect(monsterRow(page, 'Cassie')).toHaveCount(0);
+  /* Every row is Lv. 40 already, so there is no level control to offer, and
+     Include opens with neither location chosen — which reads as both. */
+  const include = page.getByRole('group', { name: 'Choose which monsters to include' });
+  await expect(include.getByRole('button')).toHaveCount(2);
+  for (const button of await include.getByRole('button').all()) {
+    await expect(button).toHaveAttribute('aria-pressed', 'false');
+  }
 });
 
 test('the destination headings say what their column holds', async ({ page }) => {
