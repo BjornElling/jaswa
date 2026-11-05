@@ -175,6 +175,29 @@ export function craftRecommendationRankings(rows: readonly CraftRecommendation[]
   };
 }
 
+/**
+ * Every other line a Grindstone could lift on each rune, beside the one its card
+ * leads with: per rune, per sub line, the stone that scores highest there and
+ * clears the same bar the rankings ask (`craftRecommendationRankings`). Grinds on
+ * different lines do not exclude one another, so a card that named only one would
+ * hide stones the user could spend on the same rune. A Gem is left out: a rune
+ * takes one, so a second Gem is a replacement, never an addition.
+ */
+export function alsoGrindable(rows: readonly CraftRecommendation[],
+  benchmark: CraftBenchmark = runeAsItStands): ReadonlyMap<string, ReadonlyMap<number, CraftRecommendation>> {
+  const lines = new Map<string, Map<number, CraftRecommendation>>();
+  for (const row of rows) {
+    if (row.item.kind !== 'grindstone' || row.after.score - benchmark.score(row) <= 0) continue;
+    const own = lines.get(row.rune.id) ?? new Map<number, CraftRecommendation>();
+    const index = row.application.target.index;
+    const previous = own.get(index);
+    if (!previous || row.after.score - previous.after.score > tolerance
+      || (Math.abs(row.after.score - previous.after.score) <= tolerance && tie(row, previous) < 0)) own.set(index, row);
+    lines.set(row.rune.id, own);
+  }
+  return lines;
+}
+
 export type WantedCraftItem = { item: CraftItem; runes: number; topGain: number };
 
 /**

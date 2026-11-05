@@ -1466,6 +1466,9 @@ label[for] {
 .craft-recommendation-lines th { height: var(--s4); padding: 0; text-align: left; color: var(--text-muted); }
 .craft-recommendation-lines td { height: var(--s5); padding: 0; vertical-align: middle; }
 .craft-recommendation-lines .rune-sub { margin-right: 0; }
+/* Another stone's line beside the card's own: muted against the lead's strong
+   text, the game's grind gold kept on its total. */
+.craft-after-other .rune-sub-value { color: var(--text-muted); }
 .craft-evaluation { display: grid; gap: var(--s2); margin: 0; padding-top: var(--s3); border-top: 1px solid var(--line); }
 .craft-evaluation > div { display: grid; grid-template-columns: 8ch minmax(0, 1fr); gap: var(--s3); align-items: baseline; }
 @media (max-width: 1000px) {

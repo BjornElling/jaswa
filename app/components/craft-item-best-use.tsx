@@ -28,7 +28,7 @@ import type { RuneRole } from '../lib/rune-roles';
 import type { GeneralSettings, RunePotentialSettings } from '../lib/types';
 import { referenceLines } from '../lib/rune-reference-stats';
 import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations } from '../lib/rune-craft-recommendations';
-import { craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
+import { alsoGrindable, craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
   desirableGemStats, extendCraftCalculation, heldCraftBenchmark, reconcileCraftCalculation,
   isHeldCraft, onDesirableGemStat, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
@@ -230,12 +230,31 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && !ignored.has(craftIgnoreKey(ignoreOf(row)))) ?? [],
   [result, kind, mode, selected, desirable, state.lineages, state.grades, state.statId, state.set, state.already, state.gemChange, state.showEngraved, state.showInventory, placements, choices, keepSet, ignored]);
   const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark), [visible, state.count, benchmark]);
+  /* Read from the filtered rows, so a narrowed Family, Grade or Stat narrows the
+     other stones a card offers exactly as it narrows the card itself. */
+  const otherGrinds = useMemo(() => alsoGrindable(visible, benchmark), [visible, benchmark]);
   const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, wantedLength, benchmark) : [], [mode, visible, benchmark]);
   const empty = base === null ? 'A level 40 monster is needed to score runes.' : !roles.length ? 'Add a role in Rune Clean-up to judge these runes.'
     : mode === 'missing' ? (!runes.length ? 'Import runes to see what they are missing.' : null)
       : !items.length ? 'Import gems and grindstones to calculate.' : null;
   function runeCard(row: CraftRecommendation) {
     const rune = row.rune;
+    const lead = row.application.target.index;
+    const others = row.item.kind === 'grindstone' ? otherGrinds.get(rune.id) : undefined;
+    function afterCell(at: number) {
+      if (at === lead) return <RuneSubLine property={row.application.result} format={format} showGrindStep />;
+      const other = others?.get(at);
+      if (!other) return '—';
+      /* The card's score is the leading stone's alone; another stone's line is
+         muted beside it and names its own item and score, so the two never read
+         as one combined result. */
+      const named = `${other.item.grade} ${other.item.setName ?? craftLineageLabels.immemorial} ${other.item.statName} ${craftKindLabels[other.item.kind]}`;
+      return <span className="craft-after-other" title={`Also: ${named}, ${score(other.before.score)} → ${score(other.after.score)}`}>
+        <RuneSubLine property={other.application.result} format={format} showGrindStep>
+          <span className="visually-hidden">, also: {named}, {score(other.before.score)} to {score(other.after.score)}</span>
+        </RuneSubLine>
+      </span>;
+    }
     return <article className="craft-recommendation" key={rune.id}>
       <div className="craft-recommendation-head">
         <h4 className="craft-recommendation-title" title={immemorialAlternative(row.item)}><CraftItemName item={row.item} /></h4>
@@ -271,7 +290,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           <thead className="visually-hidden"><tr><th>Sub property</th><th>After</th></tr></thead>
           <tbody>{Array.from({ length: 4 }, (_, at) => <tr key={at}>
             <td>{rune.subProperties[at] ? <RuneSubLine property={rune.subProperties[at]} format={format} /> : '—'}</td>
-            <td>{at === row.application.target.index ? <RuneSubLine property={row.application.result} format={format} showGrindStep /> : '—'}</td>
+            <td>{afterCell(at)}</td>
           </tr>)}</tbody>
         </table>
       </div>
@@ -284,7 +303,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     </article>;
   }
   function ranking(title: string, rows: readonly CraftRecommendation[], suffix = '') {
-    return <section className="craft-ranking" aria-label={title + suffix}>
+    return <section className="craft-ranking" aria-label={suffix ? `${title} · ${suffix}` : title}>
       <h3>{title}{suffix && <span className="muted"> · {suffix}</span>}</h3>
       {rows.length ? rows.map(runeCard) : <p className="best-artifact-empty">No matching improvements.</p>}
     </section>;

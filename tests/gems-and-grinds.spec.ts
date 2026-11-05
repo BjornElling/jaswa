@@ -76,6 +76,48 @@ for (const [mode, label, total] of [
   await page.screenshot({ path: testInfo.outputPath('grind-roll-choice.png'), fullPage: true });
 });
 
+test('a card shows every line a Grindstone in the box can lift, not only its own', async ({ page }, testInfo) => {
+  await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const account = JSON.parse(await readFile(craftAccount, 'utf8'));
+  /* A Legend Violent ATK% stone beside the fixture's SPD one, and rune 102's HP%
+     line made ATK% (its main DEF%, which a sub may not repeat), so one rune holds
+     two stats the fixture's roles both value. */
+  const rune = account.runes.find((entry: { rune_id: number }) => entry.rune_id === 102);
+  rune.pri_eff[0] = 6;
+  rune.sec_eff[0][0] = 4;
+  account.rune_craft_item_list.push({ craft_item_id: 9010, craft_type: 2, craft_type_id: 130405, amount: 1, sell_value: 0 });
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'two-grind-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.getByRole('button', { name: 'Gems & Grinds' }).click();
+  await page.locator('summary').filter({ hasText: 'Recommendations' }).click();
+  const panel = page.locator('[data-mode="recommendations"]');
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  /* Highest stat leads with the ATK% stone on rune 102; its SPD line still takes the SPD stone. */
+  const ranking = panel.getByRole('region', { name: 'Highest stat · ATK %', exact: true });
+  const card = ranking.locator('.craft-recommendation').first();
+  await expect(card.locator('.craft-recommendation-title')).toContainText('ATK % Grind');
+  const lines = card.locator('.craft-recommendation-lines td:nth-child(2) .rune-sub');
+  await expect(lines).toHaveCount(2);
+  const stats = await lines.locator('.rune-sub-name').allTextContents();
+  expect(new Set(stats)).toEqual(new Set(['ATK', 'SPD']));
+  await expect(card.locator('.craft-after-other')).toHaveCount(1);
+  await expect(card.locator('.craft-after-other')).toHaveAttribute('title', /^Also: Hero Violent SPD Grind, /);
+  await expect(card.locator('.craft-after-other .rune-sub-name')).toHaveText('SPD');
+  const box = await card.boundingBox();
+  await page.screenshot({ path: testInfo.outputPath('two-grinds.png'), fullPage: true });
+
+  /* Narrowing the Stat filter narrows a card's other stones with it. */
+  await panel.getByRole('combobox', { name: 'Narrow the list to one stat' }).selectOption('4');
+  const narrowed = ranking.locator('.craft-recommendation').first();
+  await expect(narrowed.locator('.craft-after-other')).toHaveCount(0);
+  await expect(narrowed.locator('.craft-recommendation-lines td:nth-child(2) .rune-sub')).toHaveCount(1);
+  expect((await narrowed.boundingBox())?.height).toBe(box?.height);
+  await page.screenshot({ path: testInfo.outputPath('one-grind.png'), fullPage: true });
+});
+
 test('gems are read on Legend-ground lines and keep only two result columns', async ({ page }, testInfo) => {
   await openWorkspace(page);
   await importCraftAccount(page);
