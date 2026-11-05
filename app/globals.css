@@ -1142,13 +1142,16 @@ label[for] {
 .relic-filter-threshold { grid-area: risk; }
 .relic-filter-main { grid-area: main; }
 .relic-filter-synergy { grid-area: synergy; }
-/* A mark-only chip keeps the chip's own padding and spacing, like Durability's
-   digits beside it: the marks sit at the same inset, and a chosen one gets the
-   same full gold box rather than one shrunk to the glyph. */
-.relic-filter-synergy .filter-button {
+/* Synergy's marks and Durability's digits are both one glyph a chip, so both
+   take one square chip, the chip's own height on every side: a chosen one gets
+   the same gold box in either group, whichever glyph happens to be wider. */
+.relic-filter-synergy .filter-button,
+.relic-filter-durability .filter-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  aspect-ratio: 1;
+  padding-inline: 0;
 }
 /* The filter repeats the table's shapes but inherits the chip's colour. A
    band is a filter value here, not a verdict, so it does not carry the table's
