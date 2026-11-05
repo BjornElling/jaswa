@@ -103,7 +103,7 @@ SWCalc states no relic rule (checked 2026-10-19).
 ### 3.1 The engraving limit
 
 `relicEngravingLimit` (150) is the only place the number is written; the
-tagline, the plan, the reasons and the verifier read it. It moved once, from
+plan, the reasons, The Math and the verifier read it. It moved once, from
 100 at launch to 150 in v9.3.0, so a launch-announcement figure is a statement
 about a date — the power-up rates above all. Nothing in traffic can confirm it:
 the property list, names, rates and limit are client-side (§4.3).

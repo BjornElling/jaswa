@@ -49,11 +49,6 @@ test('the page keeps its two questions in two menus', async ({ page }) => {
   await expect(page.getByRole('table', { name: 'Relic library', exact: true })).toBeVisible();
 });
 
-test('the tagline states the engraving limit the plan actually obeys', async ({ page }) => {
-  await importAccount(page);
-  await expect(page.locator('.page-tagline')).toContainText('One relic rides 150 monsters');
-});
-
 test('every monster gets exactly one relic named', async ({ page }) => {
   await importAccount(page);
   await openUseForMons(page);

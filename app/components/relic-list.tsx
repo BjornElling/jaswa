@@ -18,7 +18,7 @@ import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readRelics, relicEngravingCounts } from '../lib/relics';
 import {
-  relicEngravingLimit, relicFamilies, relicFamilyByGrant, relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel,
+  relicFamilies, relicFamilyByGrant, relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel,
   relicNextTierLevel, relicPropertyLabel,
 } from '../lib/relic-properties';
 import { relicReachChance } from '../lib/relic-power-up-model';
@@ -269,8 +269,8 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
   return <WorkspacePage
     header={<PageHeader
       title="Relic Optimization"
-      tagline={`One relic rides ${relicEngravingLimit} monsters. Picking the wrong one is `
-        + `${relicEngravingLimit} small regrets.`} />}
+      tagline={"I'm only required to judge your relics. Silently judging your life choices "
+        + 'at the same time is voluntary.'} />}
   >
     <Disclosure title="Power up/Keep/Sell" sessionKey="relics.library" defaultOpen>
       {!relics.length ? noRelics : <div className="relic-library">
