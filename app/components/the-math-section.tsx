@@ -18,7 +18,7 @@ import {
 import type { RelicInvestmentSelectivity } from '../lib/relic-advice';
 import { relicSynergyBandLabels, relicSynergyBandOrder } from '../lib/relic-synergy';
 import { relicFinalLevelChances, relicLanding, relicReachChance } from '../lib/relic-power-up-model';
-import { relicMaximumDurability, relicMaximumLevel, relicPowerUpRates } from '../lib/relic-properties';
+import { relicEngravingLimit, relicMaximumDurability, relicMaximumLevel, relicPowerUpRates } from '../lib/relic-properties';
 
 /* Every figure this page states about the engine or the game is read from the
    module that owns it, so the explanation cannot go on describing a number the
@@ -763,7 +763,14 @@ export function TheMathSection() {
           Stat bonuses use base stats. A unique scales continuously: 200 SPD at 2 % per 125 SPD gives 3.2 %, not 2 %. It reads the imported stat sheet plus the relic’s main bonus, once, before its own bonus. These battle-order and scaling rules are model assumptions awaiting an in-game check. Leaders, towers, team bonuses and skill behaviour are not inferred, so the score is exact within this model, not a promise of exact battle performance. In particular, damage dealt uses ATK priority even for a monster whose skills scale with HP or DEF.
         </p>
         <p>
-          JASWA picks the highest score within your saved main and unique choices; cleared menus allow any. Equal value keeps the relic already engraved. A full relic cannot be engraved on another monster, so the next available one is named. Missing base stats, or no priorities from runes or statistics, get an explanation instead of an invented build. The Power up, Keep or Sell rules below keep their own account-wide model.
+          Missing base stats, or no priorities from runes or statistics, get an explanation instead of an invented build. The Power up, Keep or Sell rules below keep their own account-wide model.
+        </p>
+        <h3 className="type-heading">3. Share out the places</h3>
+        <p>
+          One relic rides at most {relicEngravingLimit} monsters, so the recommendations are worked out together, as one plan for the whole roster. No relic is ever recommended past that limit, and among all the plans that fit, JASWA picks the one with the <b className="type-body-emphasis">highest total score</b>. If more monsters want a relic than it has places, its {relicEngravingLimit} places go where they add the most, and the rest get their next best relic. A monster you have already engraved is in the running like any other, so it can be told to make way.
+        </p>
+        <p>
+          Your saved main and unique choices count before any score. A monster whose preferred choice a relic meets gets a place on it ahead of every monster that left the question open. Only when more monsters prefer it than it has places do those places go by score. Accepted choices are used only where nothing preferred is left. Cleared menus allow any relic, and when two plans are equal, the relic already engraved stays.
         </p>
       </div>
     </Disclosure>

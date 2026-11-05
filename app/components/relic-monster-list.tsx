@@ -221,9 +221,8 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
   }, [monsters, relicsById]);
 
   /* Every monster the account holds is answered here, whatever the filters above
-     are set to. Under §11.5's gate each answer is already independent of the
-     others, so the scope cannot change a row — but the counts it reads are
-     account-wide, and a relic hidden from the view still occupies its places. */
+     are set to: the plan shares each relic's places across the whole roster
+     (§11.5), so a row hidden from the view still competes for a place. */
   const allocation = useMemo(() => {
     const subjects: RelicAllocationSubject[] = monsters.map((monster, index) => {
       const unitId = String(monster.unit_id ?? `unknown-${index}`);

@@ -90,15 +90,11 @@ export function relicMonsterReason(row: {
     case 'no-relics': return 'Import relics to compare.';
     case 'preferences': return 'No owned relic matches your choices.';
   }
-  if (verdict === 'none') return 'Every fit relic is full.';
-  const chosen = recommendation.chosen;
-  if (!chosen) return '';
-  if (recommendation.limit === 'capacity') {
-    const displaceable = recommendation.displaceableMonsters;
-    return displaceable > 0
-      ? `Best one is full; ${displaceable} use it worse.`
-      : `Best one is at its ${relicEngravingLimit} limit.`;
-  }
+  if (verdict === 'none') return 'No fit relic has a place to spare.';
+  if (!recommendation.chosen) return '';
+  /* The plan shares every relic's places out across the roster (§11.5), so a
+     monster off its ideal is one the ideal's places do more for elsewhere. */
+  if (recommendation.limit === 'capacity') return `Best one’s ${relicEngravingLimit} places do more elsewhere.`;
   return '';
 }
 

@@ -17,6 +17,7 @@ import type { AutomaticStatLine, PassiveStatRule } from './passive-stat-bonuses'
 import { noTeamBonuses } from './team-leads';
 import type { TeamBonuses } from './team-leads';
 import type { RelicMainProperty } from './relic-properties';
+import { relicMonsterModel, relicUniqueAdvice } from './relic-monster-value';
 import type { RuneSlotMain } from './rune-slot-mains';
 
 /**
@@ -270,14 +271,17 @@ function resolveArtifactCategory(
 
 function resolveRelics(
   stated: MonsterCopyPreferences | undefined,
-  defaults: MonsterDefaults | undefined,
+  monster: GameRecord | undefined,
   advice: MainStatAdvice | undefined,
 ): ResolvedRelics {
-  const relicDefaults = defaults?.relics;
   /* The one main answer serves the relic as it serves both artifacts; where it
-     was never given, the model's answer for a relic stands in. */
+     was never given, the model's answer for a relic stands in. The unique comes
+     from the relic plan's own calculation, never from the population's panel
+     (`RELIC-CANONICAL.md` §11.9): a unique is worth what it adds on this copy's
+     sheet, so a species without a copy has no default for it. */
   const main = resolveBands(honouredMainStat(stated), modelDefaults(advice?.relic));
-  const unique = resolveBands(statedAnswer(stated?.relics?.unique), relicDefaults?.unique);
+  const unique = resolveBands(statedAnswer(stated?.relics?.unique),
+    monster === undefined ? undefined : relicUniqueAdvice(relicMonsterModel(monster), main.preferred[0]));
   return { main, unique, judged: answers(main) || answers(unique) };
 }
 
@@ -339,7 +343,7 @@ export function resolveMonsterPreferences(
       attribute: resolveArtifactCategory(stated, defaults, advice, 'attribute'),
       type: resolveArtifactCategory(stated, defaults, advice, 'type'),
     },
-    relics: resolveRelics(stated, defaults, advice),
+    relics: resolveRelics(stated, monster, advice),
     statTargets: resolveStatTargets(stated?.statTargets),
     statCeilings: resolveStatTargets(stated?.statCeilings),
     ...(stated?.runeSuggestionStat === undefined ? {} : { runeSuggestionStat: stated.runeSuggestionStat }),

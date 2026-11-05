@@ -544,8 +544,11 @@ engraves a relic on a monster below Lv. 40.*). Every relic on the account passes
 ## 11. *Use for mons* — value on the monster's own build
 
 `relic-monster-value.ts` and `relic-monster-fit.ts` answer which owned relic
-suits each monster. They use neither the population, nor synergy bands, nor the
-investment proxy; sections 5–9 still decide Power up, Keep or Sell.
+suits each monster, and they are the only place that answer is made: the plan's
+table, the monster overlay's relic defaults and its relic marks all read it
+(§11.9). They use neither the population, nor synergy bands, nor the
+investment proxy; sections 5–9 still decide Power up, Keep or Sell, which is a
+question about a relic's worth in stones rather than about where it rides.
 
 ### 11.1 The main-stat model supplies the priorities
 
@@ -617,18 +620,47 @@ non-finite or negative contribution, or a reduction of 100 % or more, throws.
 
 - A saved non-empty main or unique selection restricts that half; no
   selection — never made, or both bands emptied, which is not stored
-  (`ARTIFACT-CANONICAL.md` §19.4) — allows any. The statistics default never
-  enters the score. No owned relic matching: `No recommendation`, saying why.
-- Highest score wins; a tie keeps the relic already engraved, then acquisition
-  order. Tolerance is 1e-10 points, for floating point only.
-- The **150 limit** gates new engravings; a full relic stays available to a
-  monster already carrying it. Every matching relic full: `No capacity`. No
-  relics imported: an import instruction. Each monster's recommendation is an
-  **independent answer**, not a jointly feasible allocation: nothing reserves
-  places.
-- A blocked ideal counts the known monsters it is engraved on that would score
-  lower with it; this count alone reads the rest of the roster and never changes
-  the recommendation.
+  (`ARTIFACT-CANONICAL.md` §19.4) — allows any. A default never enters the
+  score. No owned relic matching: `No recommendation`, saying why.
+- **One plan for the roster.** Every recommendation is part of one allocation
+  (`allocateRelicEngravings`): each monster gets at most one relic, and no relic
+  is planned onto more than `relicEngravingLimit` monsters, so following every
+  recommendation never asks the game for a 151st engraving. Among the plans that
+  fit, the plan is the best by this order, each step deciding only ties of the
+  one before:
+  1. **Stated preferred answers claim places first.** A copy with a saved main
+     or unique answer that is left off every relic its preferred bands meet
+     counts as one miss, and the plan has the fewest misses there are. A stated
+     preferred answer is thereby honoured ahead of any score on another monster;
+     where more copies prefer a relic than it has places, the places go by score
+     among them.
+  2. A stated copy left with no relic it accepts at all — so an accepted relic
+     still beats none.
+  3. **The highest summed score.** A place goes where it adds the most, so a
+     relic wanted by more monsters than it has places goes to the ones that gain
+     most over their next best relic, not to the ones that merely gain most
+     from it.
+  4. The fewest monsters moved off the relic they carry; leaving one without a
+     relic counts double, so a free place with no gain still beats none.
+
+  Score is compared with a tolerance of 1e-9 points, for floating point only;
+  inside one monster's own ranking, 1e-10. Equal relics then go by the copy a
+  monster carries, then acquisition order.
+- **Every place is the plan's to share.** A monster already carrying a relic
+  holds its place only as long as the plan keeps it there: one that uses it worse
+  than another would is moved on, and its advice reads *Replace*. Places held by
+  monsters outside the plan — Material copies, copies nothing can score — stay
+  held, and only what is left is shared.
+- **How it is solved.** A minimum-cost assignment by successive shortest paths,
+  exact rather than greedy. Relics valued identically on every planned monster
+  are pooled into one class with their places summed. A monster whose best class
+  has a free place takes it; a full class sends the search through the monsters
+  already on it, each moving to its next best place at the difference of its two
+  costs. A cycle that improves itself would mean the plan was not optimal, and
+  throws.
+- A monster off its ideal reads *Best one’s 150 places do more elsewhere.*; one
+  the plan can give nothing reads `No capacity`, *No fit relic has a place to
+  spare.* No relics imported: an import instruction.
 - **Only Lv. 40 monsters that are not Material enter the plan**
   (`isRelicPlanMonster`). Leaving Material monsters out is **JASWA policy**, not
   a game rule: capacity is finite and fodder abounds. It picks the rows
@@ -638,9 +670,11 @@ non-finite or negative contribution, or a reduction of 100 % or more, throws.
 
 ### 11.6 Display filters never enter the calculation
 
-Each row is computed from the monster, every owned relic and the imported
-counts; search, element, type, storage and Hide filters then choose which rows
-show. A monster computed alone gets the same answer as in the full roster.
+Each row is computed from the whole planned roster, every owned relic and the
+imported counts; search, element, type, storage and Hide filters then choose
+which rows show. A row hidden by a filter still competes for its place, so a
+filter can never change a row it leaves on screen. A monster's answer *does*
+depend on the rest of the roster: that is what sharing a limited relic means.
 
 ### 11.7 What the table shows
 
@@ -658,5 +692,30 @@ leaves Material monsters out of the plan.*
 `verify:relic-monster-value` holds worked examples for priorities, flats,
 grinds, sets, source interactions, all sixteen effects and the indirect
 equivalences. `verify:relic-monster-plan` holds ties, small improvements,
-preferences, imported capacity, independence from the roster, and the import
-rules of §10. The Playwright suite drives empty and populated imports.
+preferences, imported capacity, the limit under 301 competing monsters, an
+exhaustive search the plan's total must equal, a stated preferred claim beating
+a higher score, a held place given to a newcomer who uses it better, and the
+import rules of §10. The Playwright suite drives empty and populated imports.
+
+### 11.9 One answer, every reader
+
+What a monster's relic should be is decided here and nowhere else:
+
+- **The plan** (§11.5) ranks and shares out owned relics.
+- **The overlay's main default** is the main-stat model's relic answer
+  (`MAIN-STAT-MODEL.md`), the same need §11.1 weights by.
+- **The overlay's unique default** is `relicUniqueAdvice`: each of the sixteen
+  properties valued by `relicMonsterValue` as a `+15` relic on the main the
+  overlay prefers (the user's, else the model's first), banded against the best property by the main-stat model's
+  cuts (80 % preferred, 50 % acceptable). It replaced the population's relic
+  panel, which named Nimble Primal on 974 of 1,017 species: the panel records
+  what the drop table handed out, not what a monster needs, and it disagreed
+  with the plan beside it. A species with no copy has no sheet to value a unique
+  on, and gets no unique default. The panel stays on the game statistics
+  overlay as reference (`ENGRAVING-STATISTICS.md` §10).
+- **The overlay's relic marks** (`monster-shortfall.ts`) compare the engraved
+  relic with those resolved bands, so they flag what the plan's calculation
+  flags.
+
+A default still never enters the plan's score: the plan already computes the
+calculation a default summarises, and only the user's own answers constrain it.

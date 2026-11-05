@@ -202,7 +202,7 @@ cut in one table and `classifyShare` is the one classifier.
 | Artifact main | 3 | ≥ 40 % | ≥ 10 % | reference only |
 | Artifact sub (overlay) | 23 | ≥ 6 % | — | 3.6 on average |
 | Relic main | 3 | ≥ 40 % | ≥ 10 % | reference only |
-| Relic unique | 16 | ≥ 15 % | ≥ 6.25 % | ~1.2 preferred |
+| Relic unique | 16 | ≥ 15 % | ≥ 6.25 % | reference only |
 
 - **Rune slot main** keeps the three-value cuts despite seven or eight values:
   a slot holds one rune, and at 40 % each slot averages almost exactly one
@@ -212,9 +212,10 @@ cut in one table and `classifyShare` is the one classifier.
   answer is about two preferred: 35 % yields 1.96 where 40 % gives 1.67 and
   30 % 2.30. It also absorbs the top-ten inflation of §1. A set the table gives
   no piece count throws rather than being guessed.
-- **Artifact and relic mains are not defaults.** Every gear main defaults to
-  the main-stat model (`MAIN-STAT-MODEL.md`); these shares stay on the game
-  statistics overlay as reference.
+- **Artifact and relic mains are not defaults, and nor are relic uniques.**
+  Every gear main defaults to the main-stat model (`MAIN-STAT-MODEL.md`) and a
+  relic unique to the relic plan's own calculation (`RELIC-CANONICAL.md`
+  §11.9); these shares stay on the game statistics overlay as reference.
 - **Artifact sub** has a separate, stricter scoring cut (10 % / 5 %,
   `ARTIFACT-CANONICAL.md` §19.3); the overlay's single 6 % band is what this
   table holds. A second overlay band would hold fourteen of twenty-three
@@ -224,16 +225,15 @@ cut in one table and `classifyShare` is the one classifier.
   scoring cut uses. Artifact's 10 % / 5 % was measured here and is too loose
   (3.24 acceptable per monster).
 
-**Why the relic panel is a fair default and an unfair judgement.** Relics are
-new and an account engraves what it happened to craft, so the panel's global
-level mostly records the drop table — which is why the synergy table is
-hand-written (`RELIC-CANONICAL.md` §5.2). But drops are monster-independent, so
-the *variation between monsters* is real signal, and a default exists to be
-overwritten. **The caveat stands**: the main half carries monster-specific
-signal (HP leads on 546 types, ATK on 422, DEF on 49), the unique half little —
-Nimble Primal leads on 974 of 1,017 captured relic panels. Accepting that
-default accepts population habit, not knowledge about the monster. A relic
-default never enters the relic plan's score (`RELIC-CANONICAL.md` §11.5).
+**Why the relic panel is reference and not a default.** Relics are new and an
+account engraves what it happened to craft, so the panel's global level mostly
+records the drop table — which is why the synergy table is hand-written
+(`RELIC-CANONICAL.md` §5.2). The main half carries monster-specific signal (HP
+leads on 546 types, ATK on 422, DEF on 49), the unique half little — Nimble
+Primal leads on 974 of 1,017 captured relic panels. A default built on it
+accepted population habit, not knowledge about the monster, and contradicted the
+relic plan beside it; since November 2026 both halves default from the plan's
+own calculation (`RELIC-CANONICAL.md` §11.9).
 
 ## 11. Where the panels are shown
 

@@ -1,8 +1,12 @@
 import type { GameRecord } from './game-data';
 import type { MainStatBasis } from './main-stat-model';
-import { copyMainStatNeed } from './main-stat-model';
+import { copyMainStatNeed, mainStatCuts } from './main-stat-model';
+import type { DefaultEntry } from './monster-defaults';
 import { calculateMonsterTotals, monsterBaseStats } from './monster-stats';
-import type { RelicMainProperty, RelicSourceStat } from './relic-properties';
+import {
+  relicMainPercent, relicMainPropertyOrder, relicMaximumLevel, relicProperties, relicThreshold, relicUniquePercent,
+} from './relic-properties';
+import type { RelicMainProperty, RelicPropertyDefinition, RelicSourceStat } from './relic-properties';
 import type { Relic } from './relics';
 
 export type RelicStatValues = Record<RelicSourceStat, number>;
@@ -114,4 +118,44 @@ export function relicMonsterValue(relic: Relic, model: RelicMonsterModel): Relic
     throw new Error(`Relic ${relic.id} produces an invalid stat contribution.`);
   }
   return { main, unique, score, mainGain, sourceValue, uniquePercent, uniqueGain, target };
+}
+
+/** A relic no account owns: the given pair at the top level, for asking what a property is worth. */
+function finishedRelic(main: RelicMainProperty, definition: RelicPropertyDefinition): Relic {
+  return {
+    id: `model-${main}-${definition.id}`, mainProperty: main, mainPercent: relicMainPercent(relicMaximumLevel),
+    unique: {
+      definition, threshold: relicThreshold(relicMaximumLevel, definition.per), percent: relicUniquePercent(definition),
+    },
+    level: relicMaximumLevel, durability: 0, locked: false, obtainedOrder: 0,
+  };
+}
+
+/**
+ * Which unique properties this copy should want, answered by the same
+ * calculation the relic plan ranks with (`RELIC-CANONICAL.md` §11.9).
+ *
+ * The population's relic panel used to stand in here, and it said Nimble Primal
+ * for 974 of 1,017 species: it records what the drop table handed out, not what
+ * a monster needs, and it disagreed with the plan beside it. Each property is
+ * valued as a finished relic on `main` — the main the copy's answer prefers,
+ * else the one its need weighs most — and banded against the best property with
+ * the main-stat model's own cuts, so a property and a main are judged on one scale.
+ */
+export function relicUniqueAdvice(
+  model: RelicMonsterModel, preferredMain?: RelicMainProperty,
+): Map<number, DefaultEntry> | undefined {
+  if (model.status !== 'ready') return undefined;
+  const main = preferredMain ?? relicMainPropertyOrder.reduce<RelicMainProperty>(
+    (best, stat) => (model.weights[stat] > model.weights[best] ? stat : best), relicMainPropertyOrder[0]);
+  const worth = relicProperties.map((definition) =>
+    [definition.id, relicMonsterValue(finishedRelic(main, definition), model)?.unique ?? 0] as const);
+  const best = worth.reduce((highest, [, value]) => Math.max(highest, value), 0);
+  const total = worth.reduce((sum, [, value]) => sum + value, 0);
+  if (!(best > 0) || !(total > 0)) return undefined;
+  return new Map(worth.map(([id, value]) => {
+    const ratio = value / best;
+    const band = ratio >= mainStatCuts.preferred ? 'preferred' : ratio >= mainStatCuts.acceptable ? 'acceptable' : 'unwanted';
+    return [id, { band, share: value / total }];
+  }));
 }
