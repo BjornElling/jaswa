@@ -192,6 +192,22 @@ Both use the same ruler; neither a filter nor the item moves it.
   Recommendations gives each stat its own ranking: HP + and SPD are different
   units. A genuine stat increase remains eligible even when no role values it.
 
+**A Grindstone card is the rune's whole plan** (`grindLines`, `grindPlan`).
+Grinds on different lines do not exclude one another, so in Recommendations and
+Best use a card takes every stone the rune should take — per sub line, the shown stone that
+scores highest there and raises the rune — every lifted line shown alike, and
+its score is the rune with all of them in, priced on the same role readings that
+priced each stone alone. The title names one stone and counts the rest, as in
+`Hero Fatal · SPD (+ 2)`: the stone that adds most on its own, or in a Highest
+stat ranking the card's own stone; Ignore waves away the named one. A card's
+title never says Gem or Grind, because the Item choice already does. Highest
+score and Highest gain rank runes by that plan; Highest stat still ranks by the
+one stat's final value, and its card shows the plan too. A filter narrows the
+plan as it narrows the cards. Showing the other stones toned down beside one leading stone, with the leading stone's score
+alone, was tried and removed: it read as though the rune should take one stone
+when it can take all of them. What's missing keeps one item per card, because
+it asks which single item the box lacks against the best single item it holds.
+
 ### 5.1 A Gem only with the rune's most desirable stat — a deliberate choice
 
 **An Enchanted Gem is suggested on a rune only when its stat is the stat that

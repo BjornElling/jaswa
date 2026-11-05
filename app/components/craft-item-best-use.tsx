@@ -28,7 +28,7 @@ import type { RuneRole } from '../lib/rune-roles';
 import type { GeneralSettings, RunePotentialSettings } from '../lib/types';
 import { referenceLines } from '../lib/rune-reference-stats';
 import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations } from '../lib/rune-craft-recommendations';
-import { alsoGrindable, craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
+import { grindLines, grindPlan, craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
   desirableGemStats, extendCraftCalculation, heldCraftBenchmark, reconcileCraftCalculation,
   isHeldCraft, onDesirableGemStat, runeAsItStands, wantedCraftItems } from '../lib/rune-craft-recommendations';
 import type { CraftRecommendationResponse } from '../lib/compute/craft-recommendation-protocol';
@@ -38,11 +38,15 @@ import type { CraftIgnore } from '../lib/craft-ignores';
 
 type State = CraftViewChoice;
 
-/** `Legend Violent · SPD Grind`, with the Ancient mark drawn rather than spelled. */
+/**
+ * `Legend Violent · SPD`, with the Ancient mark drawn rather than spelled. The
+ * kind is left out: the Item choice above already says which kind is listed, and
+ * the stat is what tells one item from the next.
+ */
 function CraftItemName({ item }: { item: CraftItem }) {
   return <>
     {item.grade} <AncientName name={item.setName ?? craftLineageLabels.immemorial} ancient={item.lineage === 'ancient'} />
-    {' · '}{item.statName} {craftKindLabels[item.kind]}
+    {' · '}{item.statName}
   </>;
 }
 
@@ -229,38 +233,43 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && (keepSet === null || keepSet.has(row.rune.id))
     && !ignored.has(craftIgnoreKey(ignoreOf(row)))) ?? [],
   [result, kind, mode, selected, desirable, state.lineages, state.grades, state.statId, state.set, state.already, state.gemChange, state.showEngraved, state.showInventory, placements, choices, keepSet, ignored]);
-  const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark), [visible, state.count, benchmark]);
-  /* Read from the filtered rows, so a narrowed Family, Grade or Stat narrows the
-     other stones a card offers exactly as it narrows the card itself. */
-  const otherGrinds = useMemo(() => alsoGrindable(visible, benchmark), [visible, benchmark]);
+  /* Read from the filtered rows, so a narrowed Family, Grade or Stat narrows a
+     rune's plan exactly as it narrows the cards. What's missing asks which one
+     item the box lacks, against the one best item it holds, so its cards stay
+     one item each. */
+  const lines = useMemo(() => mode === 'missing' ? undefined : grindLines(visible, benchmark), [mode, visible, benchmark]);
+  const rankings = useMemo(() => craftRecommendationRankings(visible, state.count, benchmark, lines), [visible, state.count, benchmark, lines]);
   const wanted = useMemo(() => mode === 'missing' ? wantedCraftItems(visible, wantedLength, benchmark) : [], [mode, visible, benchmark]);
   const empty = base === null ? 'A level 40 monster is needed to score runes.' : !roles.length ? 'Add a role in Rune Clean-up to judge these runes.'
     : mode === 'missing' ? (!runes.length ? 'Import runes to see what they are missing.' : null)
       : !items.length ? 'Import gems and grindstones to calculate.' : null;
-  function runeCard(row: CraftRecommendation) {
+  /** `byStat`: the card stands in a Highest stat ranking, so its own stone is what it is about. */
+  function runeCard(row: CraftRecommendation, byStat: boolean) {
     const rune = row.rune;
-    const lead = row.application.target.index;
-    const others = row.item.kind === 'grindstone' ? otherGrinds.get(rune.id) : undefined;
-    function afterCell(at: number) {
-      if (at === lead) return <RuneSubLine property={row.application.result} format={format} showGrindStep />;
-      const other = others?.get(at);
-      if (!other) return '—';
-      /* The card's score is the leading stone's alone; another stone's line is
-         muted beside it and names its own item and score, so the two never read
-         as one combined result. */
-      const named = `${other.item.grade} ${other.item.setName ?? craftLineageLabels.immemorial} ${other.item.statName} ${craftKindLabels[other.item.kind]}`;
-      return <span className="craft-after-other" title={`Also: ${named}, ${score(other.before.score)} → ${score(other.after.score)}`}>
-        <RuneSubLine property={other.application.result} format={format} showGrindStep>
-          <span className="visually-hidden">, also: {named}, {score(other.before.score)} to {score(other.after.score)}</span>
-        </RuneSubLine>
-      </span>;
-    }
+    /* Grinds on different lines are spent together, so a Grindstone card is the
+       rune's whole plan: every line lifted alike, and one score with all of them in. */
+    const plan = row.item.kind === 'grindstone' && lines ? grindPlan(row, lines) : undefined;
+    const spent = plan?.lines ?? [row];
+    const after = plan?.after ?? row.after;
+    /* The title names one stone and counts the rest: the card's own in a stat
+       ranking, elsewhere the one that adds most on its own. */
+    const lead = byStat ? row : spent.reduce((best, entry) => entry.gain > best.gain ? entry : best, spent[0]);
+    const byLine = new Map(spent.map((entry) => [entry.application.target.index, entry]));
+    const afterCell = (at: number) => {
+      const entry = byLine.get(at);
+      return entry ? <RuneSubLine property={entry.application.result} format={format} showGrindStep /> : '—';
+    };
     return <article className="craft-recommendation" key={rune.id}>
       <div className="craft-recommendation-head">
-        <h4 className="craft-recommendation-title" title={immemorialAlternative(row.item)}><CraftItemName item={row.item} /></h4>
-        <InlineButton onClick={() => onIgnore(ignoreOf(row))}
-          aria-label={`Ignore ${row.item.statName} ${craftKindLabels[row.item.kind]} on this ${rune.setName} rune`}
-          title={`Stop suggesting ${row.item.statName} ${craftKindLabels[row.item.kind]}s for this rune throughout Gems & Grinds`}>Ignore</InlineButton>
+        <h4 className="craft-recommendation-title" title={immemorialAlternative(lead.item)}>
+          <CraftItemName item={lead.item} />
+          {spent.length > 1 && <span className="craft-item-quiet" title={spent.filter((entry) => entry !== lead)
+            .map((entry) => `${entry.item.grade} ${entry.item.setName ?? craftLineageLabels.immemorial} ${entry.item.statName} ${craftKindLabels[entry.item.kind]}`).join(', ')}>
+            {' '}(+ {format(spent.length - 1)})</span>}
+        </h4>
+        <InlineButton onClick={() => onIgnore(ignoreOf(lead))}
+          aria-label={`Ignore ${lead.item.statName} ${craftKindLabels[lead.item.kind]} on this ${rune.setName} rune`}
+          title={`Stop suggesting ${lead.item.statName} ${craftKindLabels[lead.item.kind]}s for this rune throughout Gems & Grinds`}>Ignore</InlineButton>
       </div>
       <header className="craft-rune-header">
         <RuneEmblem setName={rune.setName} slot={rune.slot} />
@@ -295,8 +304,8 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
         </table>
       </div>
       <dl className="craft-evaluation">
-        <div><dt>Best role</dt><dd>{row.after.role}</dd></div>
-        <div><dt>Score</dt><dd className="craft-score-change"><span className="muted">{score(row.before.score)}</span> → {score(row.after.score)}</dd></div>
+        <div><dt>Best role</dt><dd>{after.role}</dd></div>
+        <div><dt>Score</dt><dd className="craft-score-change"><span className="muted">{score(row.before.score)}</span> → {score(after.score)}</dd></div>
         {/* The bar the missing item cleared: the best the box's own items reach on this rune. */}
         {mode === 'missing' && <div><dt>Your box</dt><dd>{score(benchmark.score(row))}</dd></div>}
       </dl>
@@ -305,7 +314,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   function ranking(title: string, rows: readonly CraftRecommendation[], suffix = '') {
     return <section className="craft-ranking" aria-label={suffix ? `${title} · ${suffix}` : title}>
       <h3>{title}{suffix && <span className="muted"> · {suffix}</span>}</h3>
-      {rows.length ? rows.map(runeCard) : <p className="best-artifact-empty">No matching improvements.</p>}
+      {rows.length ? rows.map((row) => runeCard(row, Boolean(suffix))) : <p className="best-artifact-empty">No matching improvements.</p>}
     </section>;
   }
 

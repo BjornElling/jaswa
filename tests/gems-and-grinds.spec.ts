@@ -84,7 +84,7 @@ for (const [mode, label, total] of [
   await page.screenshot({ path: testInfo.outputPath('grind-roll-choice.png'), fullPage: true });
 });
 
-test('a card shows every line a Grindstone in the box can lift, not only its own', async ({ page }, testInfo) => {
+test('a Grindstone card is the rune\'s whole plan: every stone alike, one score for all', async ({ page }, testInfo) => {
   await openWorkspace(page);
   await page.setViewportSize({ width: 1920, height: 1080 });
   const account = JSON.parse(await readFile(craftAccount, 'utf8'));
@@ -103,26 +103,30 @@ test('a card shows every line a Grindstone in the box can lift, not only its own
   await openSection(page, 'Recommendations');
   const panel = page.locator('[data-mode="recommendations"]');
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
-  /* Highest stat leads with the ATK% stone on rune 102; its SPD line still takes the SPD stone. */
+  /* Rune 102 takes the ATK% stone and the SPD stone together: in its stat's
+     ranking the title names the ATK% stone and counts the other. */
   const ranking = panel.getByRole('region', { name: 'Highest stat · ATK %', exact: true });
   const card = ranking.locator('.craft-recommendation').first();
-  await expect(card.locator('.craft-recommendation-title')).toContainText('ATK % Grind');
+  await expect(card.locator('.craft-recommendation-title')).toHaveText(/ · ATK % \(\+ 1\)$/);
+  await expect(card.locator('.craft-item-quiet')).toHaveText('(+ 1)');
   const lines = card.locator('.craft-recommendation-lines td:nth-child(2) .rune-sub');
   await expect(lines).toHaveCount(2);
   const stats = await lines.locator('.rune-sub-name').allTextContents();
   expect(new Set(stats)).toEqual(new Set(['ATK', 'SPD']));
-  await expect(card.locator('.craft-after-other')).toHaveCount(1);
-  await expect(card.locator('.craft-after-other')).toHaveAttribute('title', /^Also: Hero Violent SPD Grind, /);
-  await expect(card.locator('.craft-after-other .rune-sub-name')).toHaveText('SPD');
-  const box = await card.boundingBox();
+  /* Both lines read alike: neither is toned down against the other. */
+  const tones = await lines.locator('.rune-sub-value').evaluateAll((elements) => elements.map((element) => getComputedStyle(element).color));
+  expect(new Set(tones).size).toBe(1);
+  const both = await card.locator('.craft-score-change').textContent();
   await page.screenshot({ path: testInfo.outputPath('two-grinds.png'), fullPage: true });
 
-  /* Narrowing the Stat filter narrows a card's other stones with it. */
+  /* Narrowing the Stat filter narrows the plan with it, and its score with the plan. */
   await panel.getByRole('combobox', { name: 'Narrow the list to one stat' }).selectOption('4');
   const narrowed = ranking.locator('.craft-recommendation').first();
-  await expect(narrowed.locator('.craft-after-other')).toHaveCount(0);
+  await expect(narrowed.locator('.craft-recommendation-title')).toHaveText(/ · ATK %$/);
   await expect(narrowed.locator('.craft-recommendation-lines td:nth-child(2) .rune-sub')).toHaveCount(1);
-  expect((await narrowed.boundingBox())?.height).toBe(box?.height);
+  const one = await narrowed.locator('.craft-score-change').textContent();
+  const afterOf = (text: string | null) => Number((text ?? '').split('→')[1].replace(/[^\d,.]/g, '').replace(',', '.'));
+  expect(afterOf(both)).toBeGreaterThan(afterOf(one));
   await page.screenshot({ path: testInfo.outputPath('one-grind.png'), fullPage: true });
 });
 
@@ -539,16 +543,16 @@ test('ignoring the best Gem hands the rune to the next best stat, and without on
   const anywhere = panel.locator('.craft-recommendation')
     .filter({ has: page.getByRole('button', { name: 'Violent rune, slot 2', exact: true }) })
     .filter({ has: page.locator('.craft-rune-facts').getByText('+12', { exact: true }) });
-  await expect(sameRune.locator('.craft-recommendation-title')).toContainText('SPD Gem');
+  await expect(sameRune.locator('.craft-recommendation-title')).toHaveText(/ · SPD$/);
   /* The held CRI Rate Gem is never offered this rune while SPD wins, in any ranking. */
-  await expect(anywhere.locator('.craft-recommendation-title').filter({ hasText: 'CRI Rate Gem' })).toHaveCount(0);
+  await expect(anywhere.locator('.craft-recommendation-title').filter({ hasText: / · CRI Rate$/ })).toHaveCount(0);
   const workersBefore = craftWorkers;
   await page.screenshot({ path: testInfo.outputPath('best-gem-before-ignore.png'), fullPage: true });
   await sameRune.getByRole('button', { name: /^Ignore SPD Gem/ }).click();
   await expect(anywhere).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('no-gem-after-ignore.png'), fullPage: true });
   await panel.getByRole('button', { name: 'Grindstone', exact: true }).click();
-  await expect(sameRune.locator('.craft-recommendation-title')).toContainText('SPD Grind');
+  await expect(sameRune.locator('.craft-recommendation-title')).toHaveText(/ · SPD( \(\+ \d+\))?$/);
   expect(craftWorkers).toBe(workersBefore);
 });
 
@@ -739,7 +743,7 @@ test("What's missing lists only absent items that beat the box, without moving a
   await expect(wanted.locator('tbody tr').first()).toBeVisible();
   /* The box holds a Hero Violent SPD stone, so only the Legend one may be wanted. */
   for (const title of await panel.locator('.craft-recommendation-title').allTextContents()) {
-    expect(title).not.toBe('Hero Violent · SPD Grind');
+    expect(title).not.toBe('Hero Violent · SPD');
   }
   for (const card of await panel.locator('.craft-recommendation').all()) {
     await expect(card.locator('.craft-evaluation dt')).toHaveText(['Best role', 'Score', 'Your box']);

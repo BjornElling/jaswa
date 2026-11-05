@@ -36,6 +36,11 @@ export type CraftRecommendation = {
    * every row of a rune carries the same list whatever item it is about.
    */
   gemChoice: readonly GemStatChoice[];
+  /**
+   * Every role reading the rune was judged in, shared by all its rows, so a plan
+   * of several stones is priced on exactly the terms each stone was (`grindPlans`).
+   */
+  readings: readonly CraftReading[];
 };
 export type CraftRankings = {
   highestScore: CraftRecommendation[]; highestGain: CraftRecommendation[];
@@ -45,7 +50,8 @@ export type CraftRecommendations = {
   candidates: readonly CraftRecommendation[]; backend: CalculationBackend;
   comparisons: number; durationMs: number;
 };
-type Reading = { prices: number[]; discount: number; role: string; rank: MatchRank };
+export type CraftReading = { prices: number[]; discount: number; role: string; rank: MatchRank };
+type Reading = CraftReading;
 type State = { values: number[]; evaluation: CraftEvaluation | null;
   recommendation?: { item: CraftItem; application: CraftApplication; baseline: State } };
 
@@ -159,32 +165,52 @@ export function onDesirableGemStat(row: CraftRecommendation, desirable: Readonly
   return row.item.kind !== 'gem' || (desirable.get(row.rune.id)?.has(row.item.statId) ?? false);
 }
 
-/** A projection of the complete calculation. Filters and result count never change its scores. */
+/**
+ * A projection of the complete calculation. Filters and result count never change
+ * its scores. With `lines`, a Grindstone row is ranked by its plan (`grindPlan`),
+ * because that is the score its card shows; a rune's best row is then one whose
+ * plan is the rune's whole plan.
+ */
 export function craftRecommendationRankings(rows: readonly CraftRecommendation[], count: number,
-  benchmark: CraftBenchmark = runeAsItStands): CraftRankings {
-  const gain = (row: CraftRecommendation) => row.after.score - benchmark.score(row);
-  const positive = rows.filter((row) => gain(row) > 0);
+  benchmark: CraftBenchmark = runeAsItStands, lines?: CraftGrindLines): CraftRankings {
+  const planned = new Map<CraftRecommendation, number>();
+  const after = (row: CraftRecommendation) => {
+    if (!lines || row.item.kind !== 'grindstone') return row.after.score;
+    let score = planned.get(row);
+    if (score === undefined) { score = grindPlan(row, lines).after.score; planned.set(row, score); }
+    return score;
+  };
+  const gain = (row: CraftRecommendation) => after(row) - benchmark.score(row);
+  const positive = rows.filter((row) => row.after.score - benchmark.score(row) > 0);
   const byStat = new Map<number, CraftRecommendation[]>();
   for (const row of rows) if (row.item.kind === 'grindstone' && row.stat > benchmark.stat(row)) {
     const own = byStat.get(row.item.statId) ?? []; own.push(row); byStat.set(row.item.statId, own);
   }
   return {
-    highestScore: rankCraftRecommendations(positive, count, (row) => row.after.score),
+    highestScore: rankCraftRecommendations(positive, count, after),
     highestGain: rankCraftRecommendations(positive, count, gain),
     highestStat: new Map([...byStat].map(([stat, own]) => [stat, rankCraftRecommendations(own, count, (row) => row.stat)])),
   };
 }
 
 /**
- * Every other line a Grindstone could lift on each rune, beside the one its card
- * leads with: per rune, per sub line, the stone that scores highest there and
- * clears the same bar the rankings ask (`craftRecommendationRankings`). Grinds on
- * different lines do not exclude one another, so a card that named only one would
- * hide stones the user could spend on the same rune. A Gem is left out: a rune
- * takes one, so a second Gem is a replacement, never an addition.
+ * Every stone one rune should take, all spent together: per sub line, the stone
+ * that scores highest there, and the score of the rune with all of them in.
  */
-export function alsoGrindable(rows: readonly CraftRecommendation[],
-  benchmark: CraftBenchmark = runeAsItStands): ReadonlyMap<string, ReadonlyMap<number, CraftRecommendation>> {
+export type CraftGrindPlan = { lines: readonly CraftRecommendation[]; after: CraftEvaluation };
+
+/**
+ * The stones each rune should take, from the rows shown: per sub line, the stone
+ * that scores highest there and clears the same bar the rankings ask
+ * (`craftRecommendationRankings`). Grinds on different lines do not exclude one
+ * another, so the stones are judged together (`grindPlan`) — each line's own best
+ * is the largest figure its stat can take, which no other line's choice can make
+ * worse. A Gem is left out: a rune takes one, so a second Gem is a replacement,
+ * never an addition.
+ */
+export type CraftGrindLines = ReadonlyMap<string, ReadonlyMap<number, CraftRecommendation>>;
+export function grindLines(rows: readonly CraftRecommendation[],
+  benchmark: CraftBenchmark = runeAsItStands): CraftGrindLines {
   const lines = new Map<string, Map<number, CraftRecommendation>>();
   for (const row of rows) {
     if (row.item.kind !== 'grindstone' || row.after.score - benchmark.score(row) <= 0) continue;
@@ -196,6 +222,30 @@ export function alsoGrindable(rows: readonly CraftRecommendation[],
     lines.set(row.rune.id, own);
   }
   return lines;
+}
+
+/**
+ * The plan a card about `row` shows: the rune's chosen stones (`grindLines`) with
+ * `row`'s own stone always on its line, because Highest stat may rank a stone no
+ * role values, and its card must still be about that stone. It is priced on the
+ * readings every row of the rune carries, exactly as the worker priced each stone
+ * alone.
+ */
+export function grindPlan(row: CraftRecommendation, lines: CraftGrindLines): CraftGrindPlan {
+  const own = new Map(lines.get(row.rune.id));
+  own.set(row.application.target.index, row);
+  const chosen = [...own.values()].sort((a, b) => a.application.target.index - b.application.target.index);
+  /* One stone is the row itself, so a plan never differs from its stone by rounding. */
+  if (chosen.length === 1) return { lines: chosen, after: row.after };
+  const subs = [...row.rune.subProperties];
+  for (const entry of chosen) subs[entry.application.target.index] = entry.application.result;
+  const values = valuesOf(row.rune, subs);
+  let after = row.after;
+  for (const reading of row.readings) {
+    const score = craftScore({ ...reading, values });
+    if (score > after.score) after = { score, role: reading.role, rank: reading.rank };
+  }
+  return { lines: chosen, after };
 }
 
 export type WantedCraftItem = { item: CraftItem; runes: number; topGain: number };
@@ -424,13 +474,13 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest,
       if (jobs.length === 16384) await flush();
     }
     await flush();
-    for (const { rune, states, gemChoice } of plans) {
+    for (const { rune, states, readings, gemChoice } of plans) {
       const rows: CraftRecommendation[] = states.flatMap((state) => {
         const before = state.recommendation?.baseline.evaluation;
         if (!state.recommendation || !state.evaluation || !before) return [];
         const { item, application } = state.recommendation;
         return [{ rune, item, application, before, after: state.evaluation,
-          gain: state.evaluation.score - before.score, stat: runeSubValue(application.result), gemChoice }];
+          gain: state.evaluation.score - before.score, stat: runeSubValue(application.result), gemChoice, readings }];
       });
       // A pair's baseline is fixed, so its best target wins score and gain alike.
       // Retain every pair, not just today's top N: tomorrow's filter may need any of them.

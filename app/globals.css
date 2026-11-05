@@ -1485,6 +1485,8 @@ label[for] {
    wraps in its own track. */
 .craft-recommendation-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s3); align-items: start; }
 .craft-recommendation-title { margin: 0; color: var(--text-strong); overflow-wrap: anywhere; }
+/* The count of further stones beside a card's named one: context, quieter than the name. */
+.craft-item-quiet { color: var(--text-muted); }
 .craft-rune-header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s3); align-items: center; }
 .craft-rune-identity { display: grid; gap: var(--s2); min-width: 0; }
 .craft-rune-identity > .rune-link { justify-self: start; color: var(--text-strong); }
@@ -1500,9 +1502,6 @@ label[for] {
 .craft-recommendation-lines th { height: var(--s4); padding: 0; text-align: left; color: var(--text-muted); }
 .craft-recommendation-lines td { height: var(--s5); padding: 0; vertical-align: middle; }
 .craft-recommendation-lines .rune-sub { margin-right: 0; }
-/* Another stone's line beside the card's own: muted against the lead's strong
-   text, the game's grind gold kept on its total. */
-.craft-after-other .rune-sub-value { color: var(--text-muted); }
 .craft-evaluation { display: grid; gap: var(--s2); margin: 0; padding-top: var(--s3); border-top: 1px solid var(--line); }
 .craft-evaluation > div { display: grid; grid-template-columns: 8ch minmax(0, 1fr); gap: var(--s3); align-items: baseline; }
 @media (max-width: 1000px) {
