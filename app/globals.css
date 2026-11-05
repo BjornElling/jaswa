@@ -2369,8 +2369,10 @@ label[for] {
   pointer-events: none;
 }
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
-/* Profile actions stay with the monster selected above them. */
+/* Profile actions stay with the monster selected above them, and between them
+   span exactly its field: three buttons at full padding ran past its right edge. */
 .rune-optimization-profile-row { display: flex; align-items: center; gap: var(--s2); width: 48ch; max-width: 100%; margin-bottom: var(--s2); }
+.rune-optimization-profile-row > .button { flex: 1 1 auto; min-width: 0; padding: 0 var(--s2); justify-content: center; }
 .rune-optimization-open-profile { gap: var(--s2); }
 /* The preset leads the monster in the same voice and size: the context is
    chosen before the copy whose build it holds. */
@@ -2520,7 +2522,6 @@ label[for] {
    pushes the list's settings along by its own width only. */
 .rune-optimization-shortcuts { display: grid; gap: var(--s2); flex: none; }
 .rune-optimization-shortcuts > button { justify-content: center; }
-.rune-optimization-shortcuts .game-statistics-button-face { justify-content: center; }
 /* The options stand where Rank by's field stands, centred on its height. */
 .rune-optimization-count .radio-line-options { min-height: 36px; flex-wrap: nowrap; gap: var(--s6); }
 .rune-optimization-rank .jaswa-select { width: 32ch; }

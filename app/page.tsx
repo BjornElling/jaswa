@@ -470,7 +470,7 @@ export default function Home() {
 
   /* A team opens over the page that asked for it, never by going to Speed
      Tuning first: every button that opens an overlay opens it where the user
-     is. Only the rail, Optimize and a team's Edit preset change the page, and
+     is. Only the rail, Optimize, a team's Edit preset and Rune Optimization's Preset change the page, and
      each closes it. */
   const openSpeedTeam: OpenSpeedTeamOverlay = (presetId, opener) => {
     speedTeamOpener.current = opener;
@@ -951,6 +951,7 @@ export default function Home() {
         onOpenStatistics={openMonsterStatistics}
         onOpenRune={openRuneOverlay}
         onTuneSpeed={openSpeedTeam}
+        onEditPreset={editPreset}
       /></Suspense>}
     </section>
 

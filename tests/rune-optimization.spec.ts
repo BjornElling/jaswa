@@ -992,13 +992,27 @@ test('the page wears the house panels, and its controls say what they do', async
   /* Speed Tuning is the preset's, so Scenario offers none. */
   const speed = page.getByRole('button', { name: /^Speed tuning/ });
   await expect(speed).toBeDisabled();
-  /* Under Statistics, one width with it, ahead of Builds listed. */
+  /* Under Preset, one width with it, ahead of Builds listed. Scenario is a
+     page of Presets too, so Preset is there for it. */
+  const presetButton = page.getByRole('button', { name: 'Preset page for Scenario' });
+  await expect(presetButton).toBeEnabled();
   const speedBox = await box(speed);
-  const statisticsBox = await box(page.getByRole('button', { name: /^Statistics/ }));
-  expect(Math.abs(speedBox.x - statisticsBox.x)).toBeLessThan(1);
-  expect(Math.abs(speedBox.width - statisticsBox.width)).toBeLessThan(1);
-  expect(speedBox.y).toBeGreaterThanOrEqual(statisticsBox.y + statisticsBox.height);
+  const presetBox = await box(presetButton);
+  expect(Math.abs(speedBox.x - presetBox.x)).toBeLessThan(1);
+  expect(Math.abs(speedBox.width - presetBox.width)).toBeLessThan(1);
+  expect(speedBox.y).toBeGreaterThanOrEqual(presetBox.y + presetBox.height);
   expect(speedBox.x + speedBox.width).toBeLessThan(counts.x);
+  /* Statistics sits right of Reset to profile, on Open profile's line. */
+  const resetBox = await box(page.getByRole('button', { name: 'Reset to profile' }));
+  const statisticsBox = await box(page.getByRole('button', { name: /^Statistics/ }));
+  expect(statisticsBox.x).toBeGreaterThanOrEqual(resetBox.x + resetBox.width);
+  expect(Math.abs(statisticsBox.y - resetBox.y)).toBeLessThan(1);
+  expect(Math.abs(statisticsBox.height - resetBox.height)).toBeLessThan(1);
+  /* The three end where the monster field ends, and none clips its words. */
+  const field = await box(page.getByLabel('Monster', { exact: true }));
+  expect(Math.abs(statisticsBox.x + statisticsBox.width - (field.x + field.width))).toBeLessThan(1);
+  expect(await page.locator('.rune-optimization-profile-row > .button').evaluateAll((buttons) =>
+    buttons.every((button) => button.scrollWidth <= button.clientWidth))).toBe(true);
   const slots = await page.locator('.rune-optimization-slot').all();
   const slotBoxes = await Promise.all(slots.map(box));
   expect(slotBoxes).toHaveLength(3);
@@ -1033,6 +1047,13 @@ test('the page wears the house panels, and its controls say what they do', async
   expect(preset.y + preset.height).toBeLessThan(select.y);
   await expect(page.locator('.rune-optimization-monster-select .monster-portrait')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('optimization-layout-chosen.png'), fullPage: true });
+
+  /* Preset names a page: it leaves for Presets with the same preset open. */
+  await page.getByRole('button', { name: 'Preset page for Scenario' }).click();
+  await expect(page.getByRole('navigation').getByRole('button', { name: 'Presets', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: 'Find builds' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Priority', exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('optimization-preset-page.png'), fullPage: true });
 });
 
 test('the build menu cascades three deep, past the edge of its own line, without moving', async ({ page }, testInfo) => {

@@ -168,7 +168,7 @@ function Provenance({ children = '' }: { children?: ReactNode }) {
 }
 
 export function RuneOptimizationSection({ game, monsters, preferences, presets, presetId, onSelectPreset, onUpdate, canEngrave, onEngrave,
-  runeLocks, onLock, onOpenMonster, onOpenStatistics, onOpenRune, onTuneSpeed }: {
+  runeLocks, onLock, onOpenMonster, onOpenStatistics, onOpenRune, onTuneSpeed, onEditPreset }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
@@ -188,6 +188,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   onOpenRune: OpenRuneOverlay;
   /** Opens this preset's team over the page. */
   onTuneSpeed: OpenSpeedTeamOverlay;
+  /** Leaves for Presets with this preset chosen: a control naming a page (`AGENTS.md` §2.1). */
+  onEditPreset: (presetId: string) => void;
 }) {
   const settings = preferences.runeOptimization;
   const general = preferences.general;
@@ -528,6 +530,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               <PencilIcon /><span>Open profile</span>
             </Button>
             <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to profile</Button>
+            <GameStatisticsButton size="compact" masterId={selected?.masterId} name={selected?.name ?? ''} onOpen={onOpenStatistics} />
           </div>
         </div>
 
@@ -560,12 +563,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             </p>
           </div>
           <div className="rune-optimization-count-rank">
-            {/* The two ways out to an overlay, one above the other in the quiet
-                box, ahead of the list's own settings. Always there, and only
-                enabled once there is something to open: the game's statistics
-                need a monster, Speed Tuning a preset with a team. */}
+            {/* The two ways out to the preset, one above the other in the quiet
+                box, ahead of the list's own settings: its page, and its team in
+                an overlay. Always there, and only enabled once there is
+                something to open: a preset, and for Speed Tuning a team. */}
             <div className="rune-optimization-shortcuts">
-              <GameStatisticsButton inline masterId={selected?.masterId} name={selected?.name ?? ''} onOpen={onOpenStatistics} />
+              <InlineButton className="rune-optimization-preset" disabled={!preset}
+                aria-label={preset ? `Preset page for ${preset.name}` : 'Preset page'}
+                onClick={() => { if (preset) onEditPreset(preset.id); }}>Preset</InlineButton>
               <InlineButton className="rune-optimization-speed" disabled={!tunable} aria-haspopup="dialog"
                 aria-label={preset ? `Speed tuning for ${preset.name}` : 'Speed tuning'}
                 title={tunable ? undefined : 'Only a preset with monsters has a team to tune.'}

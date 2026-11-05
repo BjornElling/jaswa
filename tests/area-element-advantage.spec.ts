@@ -35,9 +35,9 @@ test("a monster beating Giant's Keep's element always has advantage there, held"
   await page.getByLabel('Monster', { exact: true }).selectOption('1');
   await panel.screenshot({ path: testInfo.outputPath('panel-chosen.png') });
 
-  /* Statistics above Speed tuning, the pair ahead of Builds listed. */
+  /* Preset above Speed tuning, the pair ahead of Builds listed. */
   const [statistics, speed, count] = await Promise.all([
-    panel.getByRole('button', { name: /^Statistics/ }).boundingBox(),
+    panel.getByRole('button', { name: /^Preset page/ }).boundingBox(),
     panel.getByRole('button', { name: /^Speed tuning/ }).boundingBox(),
     panel.locator('.rune-optimization-count').boundingBox(),
   ]);

@@ -829,8 +829,11 @@ needs a running dev server and a card, and is not part of `npm test`.
    a large field with its portrait. Switching preset keeps a member shared by both
    contexts; otherwise the monster choice is cleared. *Open profile* sits under it with
    *Reset to profile* to its right (disabled until a requirement differs from the
-   profile) and, at the field's right edge, a quiet *Speed tuning* that opens the chosen
-   preset's team over this page (disabled for Scenario and an empty preset). Beside it are
+   profile) and *Statistics* after that (the game's statistics for the chosen monster,
+   disabled until one is chosen). In the quiet box ahead of the list's settings sit
+   *Preset*, which leaves for Presets with the chosen preset (or Scenario) open, and
+   under it *Speed tuning*, which opens the chosen preset's team over this page
+   (disabled for Scenario and an empty preset). Beside them are
    the depth slider and *Builds listed*, read at the moment of searching; then *Find
    builds* and a square stop mark (*Stop the search*). The line under the depth gives a
    rough size of the search before it runs — the runes the filters admit, at most the
