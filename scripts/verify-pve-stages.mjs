@@ -9,8 +9,10 @@
  * hardest floor or drops a figure fails here before any page reads it.
  */
 import { hasMonsterCatalogEntry } from '../app/lib/monster-catalog.ts';
-import { fastestEnemyOn, hardestPveFloor, highestEnemyStatOn, highestEnemyStatInFinalWaveOn, highestResistanceOn, labyrinthEnemySpeedRanks, pveAreaOf, pveFloors } from '../app/lib/pve-stages.ts';
+import { fastestEnemyOn, hardestPveFloor, highestEnemyStatOn, highestEnemyStatInFinalWaveOn, highestResistanceOn, labyrinthEnemySpeedRanks, pveAreaElement, pveAreaOf, pveFloors } from '../app/lib/pve-stages.ts';
 import { accuracyCeilings } from '../app/lib/accuracy-ceiling.ts';
+import { areaElementAdvantage } from '../app/lib/element-advantage.ts';
+import { presetContents } from '../app/lib/preset-contents.ts';
 
 let checks = 0;
 function check(condition, message) {
@@ -136,5 +138,23 @@ check(accuracyCeilings('labyrinth-boss')[0]?.percent === 40 && fastestEnemyOn(ha
 check(labyrinthEnemySpeedRanks('labyrinth-boss').map((rank) => rank.speed).join() === '205,204,199',
   'the shared boss preset ranks three distinct captured speeds, grouping tied crystals and Minotauros');
 check(labyrinthEnemySpeedRanks('giants').length === 0, 'three ranked enemy speeds are exclusive to Labyrinth');
+
+/* The areas a preset can settle element advantage in: each Cairos dungeon is one
+   element, crystals and towers aside, on every floor and its Abyss. Hall of
+   Magic mixes four, and Dimension Hole areas mix theirs. */
+const areaElements = {
+  giants: 'Water', dragons: 'Fire', necropolis: 'Dark', spiritual: 'Wind', steel: 'Wind', punisher: 'Light',
+  magic: undefined, 'roaring-beasts': undefined, 'rift-raid': undefined, 'labyrinth-boss': undefined,
+};
+for (const [area, element] of Object.entries(areaElements)) {
+  check(pveAreaElement(area) === element, `${area} is ${element ?? 'no one element'}, not ${pveAreaElement(area)}`);
+}
+const content = (id) => presetContents.find((entry) => entry.id === id);
+check(areaElementAdvantage(content('giants'), 3)?.enemy === 'Water', "a Wind monster always has advantage in Giant's Keep");
+check(areaElementAdvantage(content('giants'), 2) === null, 'a Fire monster has none there');
+check(areaElementAdvantage(content('necropolis'), 4)?.enemy === 'Dark' && areaElementAdvantage(content('punisher'), 5)?.enemy === 'Light',
+  'Light and Dark each beat the other');
+check(areaElementAdvantage(content('arena-attack'), 1) === null && areaElementAdvantage(null, 1) === null,
+  'an area without one element, and Scenario, settle nothing');
 
 console.log(`PvE database holds: ${checks} checks.`);

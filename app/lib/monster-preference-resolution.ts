@@ -134,6 +134,7 @@ export type ResolvedMonsterPreferences = {
   runeSuggestionStat?: keyof MonsterStatTargets;
   /** Whether every figure is counted at a certain crit (`monster-stats.ts` `alwaysCritsFloor`). */
   alwaysCrits: boolean;
+  /** Stated by the profile, or a fact of the preset's area (`TeamBonuses.elementAdvantage`). */
   alwaysElementAdvantage: boolean;
   /**
    * What its leaders add, stat by stat; a stat none names gets nothing. Read off
@@ -308,6 +309,11 @@ export function fightLeads(team: TeamBonuses, stated: MonsterCopyPreferences | u
   return values;
 }
 
+/** Whether a copy fights with element advantage: always where its area settles it, else as its profile states. */
+export function fightElementAdvantage(team: TeamBonuses, stated: MonsterCopyPreferences | undefined): boolean {
+  return Boolean(team.elementAdvantage) || (stated?.alwaysElementAdvantage ?? false);
+}
+
 /**
  * What this owned copy wants, with every answer carrying where it came from.
  *
@@ -338,7 +344,7 @@ export function resolveMonsterPreferences(
     statCeilings: resolveStatTargets(stated?.statCeilings),
     ...(stated?.runeSuggestionStat === undefined ? {} : { runeSuggestionStat: stated.runeSuggestionStat }),
     alwaysCrits: stated?.alwaysCrits ?? false,
-    alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
+    alwaysElementAdvantage: fightElementAdvantage(team, stated),
     leads: fightLeads(team, stated),
     teammateSets: team.teammateSets,
     leadRules: team.leads.rules,

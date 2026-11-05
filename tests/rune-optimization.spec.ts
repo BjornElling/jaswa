@@ -992,9 +992,13 @@ test('the page wears the house panels, and its controls say what they do', async
   /* Speed Tuning is the preset's, so Scenario offers none. */
   const speed = page.getByRole('button', { name: /^Speed tuning/ });
   await expect(speed).toBeDisabled();
+  /* Under Statistics, one width with it, ahead of Builds listed. */
   const speedBox = await box(speed);
-  const field = await box(page.getByLabel('Monster', { exact: true }));
-  expect(Math.abs(speedBox.x + speedBox.width - (field.x + field.width))).toBeLessThan(1);
+  const statisticsBox = await box(page.getByRole('button', { name: /^Statistics/ }));
+  expect(Math.abs(speedBox.x - statisticsBox.x)).toBeLessThan(1);
+  expect(Math.abs(speedBox.width - statisticsBox.width)).toBeLessThan(1);
+  expect(speedBox.y).toBeGreaterThanOrEqual(statisticsBox.y + statisticsBox.height);
+  expect(speedBox.x + speedBox.width).toBeLessThan(counts.x);
   const slots = await page.locator('.rune-optimization-slot').all();
   const slotBoxes = await Promise.all(slots.map(box));
   expect(slotBoxes).toHaveLength(3);

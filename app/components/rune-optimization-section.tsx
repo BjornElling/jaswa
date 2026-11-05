@@ -50,6 +50,7 @@ import { AreaLines, LeadFields, TeamLeads } from './fight-conditions';
 import { areaFacts } from '../lib/area-facts';
 import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '../lib/presets';
 import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
+import { elementAdvantageHeld } from '../lib/element-advantage';
 import type { Preset } from '../lib/presets';
 import { readBuildingBonuses } from '../lib/account-buildings';
 import { runeLockOf, runeLockScope, runeLocksFor } from '../lib/rune-locks';
@@ -288,6 +289,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       ...draft,
       teammateSets,
       leads: team.leads.scenario ? draft.leads : team.leads.bonuses,
+      alwaysElementAdvantage: Boolean(team.elementAdvantage) || draft.alwaysElementAdvantage,
       leadRules: team.leads.rules,
       automaticLeadLines: team.leads.automaticLines,
       buildings,
@@ -502,13 +504,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             }}>
             {presets.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </Dropdown>
-          {/* The game's statistics are about the monster, so they are offered on
-              its name's own line, at the field's right edge. Always there, and
-              only enabled once a monster is chosen. */}
-          <div className="rune-optimization-monster-head">
-            <label className="filter-label" htmlFor="rune-optimization-monster">Monster</label>
-            <GameStatisticsButton inline masterId={selected?.masterId} name={selected?.name ?? ''} onOpen={onOpenStatistics} />
-          </div>
+          <label className="filter-label" htmlFor="rune-optimization-monster">Monster</label>
           {/* The portrait sits inside the field, at the start of the name it
               belongs to. Its box is there with no monster chosen too, so choosing
               one fills a space rather than pushing the name along (`AGENTS.md` §2). */}
@@ -532,13 +528,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               <PencilIcon /><span>Open profile</span>
             </Button>
             <Button size="compact" disabled={!edited} onClick={() => setConfirmingReset(true)}>Reset to profile</Button>
-            {/* The preset's team, not the monster's profile, so it stands apart at
-                the far edge, in the quiet box rows elsewhere use for the same way out.
-                Scenario is no team, and Speed Tuning has nothing of it to open. */}
-            <InlineButton className="rune-optimization-speed" disabled={!tunable} aria-haspopup="dialog"
-              aria-label={preset ? `Speed tuning for ${preset.name}` : 'Speed tuning'}
-              title={tunable ? undefined : 'Only a preset with monsters has a team to tune.'}
-              onClick={(event) => { if (tunable) onTuneSpeed(activePresetId, event.currentTarget); }}>Speed tuning</InlineButton>
           </div>
         </div>
 
@@ -571,6 +560,17 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             </p>
           </div>
           <div className="rune-optimization-count-rank">
+            {/* The two ways out to an overlay, one above the other in the quiet
+                box, ahead of the list's own settings. Always there, and only
+                enabled once there is something to open: the game's statistics
+                need a monster, Speed Tuning a preset with a team. */}
+            <div className="rune-optimization-shortcuts">
+              <GameStatisticsButton inline masterId={selected?.masterId} name={selected?.name ?? ''} onOpen={onOpenStatistics} />
+              <InlineButton className="rune-optimization-speed" disabled={!tunable} aria-haspopup="dialog"
+                aria-label={preset ? `Speed tuning for ${preset.name}` : 'Speed tuning'}
+                title={tunable ? undefined : 'Only a preset with monsters has a team to tune.'}
+                onClick={(event) => { if (tunable) onTuneSpeed(activePresetId, event.currentTarget); }}>Speed tuning</InlineButton>
+            </div>
             {/* Named above its options as Rank by is above its list, so the two
                 settings of one row read the same way. */}
             <div className="filter-group rune-optimization-count">
@@ -687,6 +687,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               <CheckboxRow label="Always crits" checked={requirements.alwaysCrits}
                 onChange={(checked) => change((state) => ({ ...state, alwaysCrits: checked }))} />
               <CheckboxRow label="Always element advantage" checked={requirements.alwaysElementAdvantage}
+                disabled={Boolean(team.elementAdvantage)} title={elementAdvantageHeld(team)}
                 onChange={(checked) => change((state) => ({ ...state, alwaysElementAdvantage: checked }))} />
               <Provenance />
             </div>

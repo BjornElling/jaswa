@@ -1,7 +1,7 @@
 # PvE database
 
 **Status:** Binding
-**Reviewed:** October 30, 2026
+**Reviewed:** November 5, 2026
 **Code:** `app/lib/pve-stages.ts`, `app/data/swarfarm-pve-stages.json`, `app/data/labyrinth-miniboss-stages.json`
 **Refresh:** `npm run refresh:pve-stages`
 **Check:** `npm run verify:pve-stages`
@@ -81,6 +81,33 @@ lacks a figure or names a monster Swarfarm does not list, so the database is
 never half known. The file keeps floors JASWA does not read yet (the
 elemental halls and the older Dimension Hole remains), so an area can be added
 later without a refresh.
+
+### 3.1 Elements
+
+`enemyElements` gives every enemy's element by monster id, as Swarfarm's
+monster list records it: `Water`, `Fire`, `Wind`, `Light`, `Dark`, or `Pure`
+for an enemy with none — the crystals and towers. It is never read off the
+id's last digit, which names no crystal's, tower's or Abyss boss's element and
+names the wrong one for four Dimension Hole enemies (47002–47005). The refresh
+stops on an element outside that list, and `pve-stages.ts` refuses an enemy
+without one.
+
+`pveAreaElement` is the one element every enemy of an area shares, on every
+floor and Abyss, its Pure enemies aside; none where two meet or an enemy's
+element is unknown. Read on November 5, 2026, every Cairos dungeon a preset
+fights in is one element:
+
+| Area | Element | Advantage |
+| --- | --- | --- |
+| Giant's Keep | Water | Wind |
+| Dragon's Lair | Fire | Water |
+| Necropolis | Dark | Light |
+| Spiritual Realm, Steel Fortress | Wind | Fire |
+| Punisher's Crypt | Light | Dark |
+
+The five elemental halls are one element too, but no preset fights there;
+Hall of Magic mixes four. `RUNE-OPTIMIZATION.md` §2.2.2 says what the element
+does to a preset's monsters.
 
 ## 4. Stated floors
 

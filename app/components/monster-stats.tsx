@@ -28,7 +28,7 @@ import {
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
 import { monsterCopyNames } from '../lib/monster-names';
 import { profilesIn } from '../lib/monster-preferences';
-import { fightLeads } from '../lib/monster-preference-resolution';
+import { fightElementAdvantage, fightLeads } from '../lib/monster-preference-resolution';
 import { readBuildingBonuses } from '../lib/account-buildings';
 import { accountItems, monsterInPreset, presetMenu } from '../lib/presets';
 import { rosterOf, teamBonusesFor } from '../lib/team-leads';
@@ -232,7 +232,7 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
       const team = teamBonusesFor(preset, presets, unitId, items, roster);
       const figures = monsterTargetFigures(monster, {
         alwaysCrits: stated?.alwaysCrits ?? false,
-        alwaysElementAdvantage: stated?.alwaysElementAdvantage ?? false,
+        alwaysElementAdvantage: fightElementAdvantage(team, stated),
         leads: fightLeads(team, stated),
         teammateSets: team.teammateSets,
         leadRules: team.leads.rules,

@@ -9,6 +9,8 @@
  * profile's *Leads and bonuses*, the composites on Monster Stats, Rune
  * Optimization, and the speed leads Speed Tuning counts.
  */
+import { areaElementAdvantage } from './element-advantage';
+import type { AreaElementAdvantage } from './element-advantage';
 import type { GameRecord } from './game-data';
 import type { Leads, LedStat, TeammateSets } from './monster-stats';
 import {
@@ -160,23 +162,31 @@ export function teamLeadsFor(preset: Preset, presets: readonly Preset[], unitId:
 
 /**
  * What a preset's team adds to one member's fight: its teammates' completed
- * team sets, and its lead reading. Scenario adds the profile's stated leads to
- * that reading; preset readings already contain the game's leaders.
+ * team sets, its lead reading, and element advantage where its area settles it.
+ * Scenario adds the profile's stated leads to that reading; preset readings
+ * already contain the game's leaders.
  */
 export type TeamBonuses = {
   teammateSets: TeammateSets;
   leads: TeamLeadReading;
+  /**
+   * Set where every enemy of the preset's area is one element this member beats
+   * (`element-advantage.ts`): advantage is then a fact of the area, not a choice
+   * of the profile's, so every reader counts it and no switch can turn it off.
+   */
+  elementAdvantage: AreaElementAdvantage | null;
 };
 
 export const noTeamBonuses: TeamBonuses = { teammateSets: {}, leads: {
   leads: [], bonuses: {}, rules: [], automaticLines: [], scenario: true,
-} };
+}, elementAdvantage: null };
 
 export function teamBonusesFor(preset: Preset, presets: readonly Preset[], unitId: string, items: AccountItems,
   roster: ReadonlyMap<string, GameRecord>): TeamBonuses {
   return {
     teammateSets: teammateSetsInPreset(preset, unitId, items),
     leads: teamLeadsFor(preset, presets, unitId, roster),
+    elementAdvantage: areaElementAdvantage(preset.content, roster.get(unitId)?.attribute),
   };
 }
 

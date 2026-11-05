@@ -164,6 +164,12 @@ DMG reads CRI Rate capped at 100 %, so nothing a rune adds to CRI Rate moves DMG
 reductions stop comparing CRI Rate for DMG, and a CRI Rate range is never asked. *Always
 element advantage* adds 15 points to the fight's CRI Rate, which a range sees.
 
+In a preset whose area is one element (`PVE-STAGES.md` §3.1), a monster whose element
+beats it has element advantage as a fact of the area, not a profile answer
+(`element-advantage.ts`, `TeamBonuses.elementAdvantage`): the switch is ticked and
+disabled here and in the profile, its title names the area and element, and Monster Stats
+counts it too. Nothing is stored, so the profile's own answer returns in every other area.
+
 ### 2.2.3 Leads
 
 **A preset's leads are its leaders', read and never typed** (`team-leads.ts`). The leader

@@ -69,6 +69,9 @@ export type PveFloor = {
 } & ({ waves: readonly (readonly PveEnemy[])[]; observedMaxima?: never }
   | { waves: readonly []; observedMaxima: PveObservedMaxima });
 
+/** An enemy's element as Swarfarm records it; `Pure` is an enemy with none — a crystal, a tower. */
+export type PveElement = 'Water' | 'Fire' | 'Wind' | 'Light' | 'Dark' | 'Pure';
+
 type SnapshotFloor = { floor: number; swarfarmLevel: number; teamSize: number; waves: number[][][] };
 type SnapshotDungeon = { name: string; category: string; swarfarmDungeon: number; floors: SnapshotFloor[] };
 
@@ -104,6 +107,20 @@ const snapshot = stagesData.dungeons as SnapshotDungeon[];
 const columns = ['monster', 'level', 'stars', 'speed', 'resistance', 'accuracy', 'hp', 'attack', 'defense', 'criRate', 'criDamageReduction'] as const;
 if (stagesData.enemyColumns.join() !== columns.join()) {
   throw new Error(`The PvE database's enemy columns are ${stagesData.enemyColumns.join(', ')}, not ${columns.join(', ')}.`);
+}
+
+/* Every Swarfarm enemy's element, by monster id. Read from Swarfarm's record and
+   never from the id's last digit, which names no crystal's, tower's or Abyss
+   boss's element and names the wrong one for four Dimension Hole enemies. */
+const pveElements = new Set<string>(['Water', 'Fire', 'Wind', 'Light', 'Dark', 'Pure']);
+const enemyElements = new Map<number, PveElement>(Object.entries(stagesData.enemyElements as Record<string, string>).map(([id, element]) => {
+  if (!pveElements.has(element)) throw new Error(`The PvE database gives enemy ${id} the element ${element}.`);
+  return [Number(id), element as PveElement];
+}));
+for (const dungeon of snapshot) {
+  for (const row of dungeon.floors.flatMap((floor) => floor.waves.flat())) {
+    if (!enemyElements.has(row[0])) throw new Error(`The PvE database names no element for ${dungeon.name}'s enemy ${row[0]}.`);
+  }
 }
 
 function swarfarmEnemy(row: readonly number[]): PveEnemy {
@@ -281,6 +298,22 @@ export function pveFloors(area: PveAreaId): readonly PveFloor[] {
 /** The hardest floor the database has for an area: what a team built for the area must face. */
 export function hardestPveFloor(area: PveAreaId): PveFloor | undefined {
   return pveFloors(area).at(-1);
+}
+
+/**
+ * The one element every enemy of an area shares, on every floor and in every
+ * wave, its elementless crystals and towers aside — or none where two elements
+ * meet, or where any enemy's element is unknown.
+ */
+export function pveAreaElement(area: PveAreaId): Exclude<PveElement, 'Pure'> | undefined {
+  const floors = pveFloors(area);
+  const found = new Set<PveElement>();
+  for (const enemy of floors.flatMap((floor) => floor.waves.flat())) {
+    const element = enemy.monster === null ? undefined : enemyElements.get(enemy.monster);
+    if (element === undefined) return undefined;
+    if (element !== 'Pure') found.add(element);
+  }
+  return found.size === 1 ? [...found][0] as Exclude<PveElement, 'Pure'> : undefined;
 }
 
 /** The fastest stated enemy speed on a floor, or none where its source is silent. */

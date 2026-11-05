@@ -2369,14 +2369,8 @@ label[for] {
   pointer-events: none;
 }
 .rune-optimization-monster-select .jaswa-select { height: 52px; padding-left: calc(36px + var(--s4)); }
-/* The field's name at its left edge and the game's statistics for the chosen
-   monster at its right, on one line the width of the field. */
-.rune-optimization-monster-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s2); width: 48ch; max-width: 100%; }
 /* Profile actions stay with the monster selected above them. */
 .rune-optimization-profile-row { display: flex; align-items: center; gap: var(--s2); width: 48ch; max-width: 100%; margin-bottom: var(--s2); }
-/* The team's way to Speed Tuning ends the row under the field's right edge,
-   apart from the two that act on the monster's profile. */
-.rune-optimization-speed { margin-left: auto; }
 .rune-optimization-open-profile { gap: var(--s2); }
 /* The preset leads the monster in the same voice and size: the context is
    chosen before the copy whose build it holds. */
@@ -2515,6 +2509,11 @@ label[for] {
 /* Both describe the answer list, so their compact controls share one row. */
 .rune-optimization-count-rank { display: flex; align-items: start; gap: var(--s7); }
 .rune-optimization-count-rank > .filter-group { min-width: 0; }
+/* Statistics above Speed tuning, one width, so the pair reads as a column and
+   pushes the list's settings along by its own width only. */
+.rune-optimization-shortcuts { display: grid; gap: var(--s2); flex: none; }
+.rune-optimization-shortcuts > button { justify-content: center; }
+.rune-optimization-shortcuts .game-statistics-button-face { justify-content: center; }
 /* The options stand where Rank by's field stands, centred on its height. */
 .rune-optimization-count .radio-line-options { min-height: 36px; flex-wrap: nowrap; gap: var(--s6); }
 .rune-optimization-rank .jaswa-select { width: 32ch; }
@@ -7403,6 +7402,8 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-optimization-change-limit { display: flex; align-items: center; gap: var(--s2); color: var(--text); }
 .rune-optimization-change-limit .stat-range-input { width: 6ch; height: calc(var(--s5) + var(--s1)); flex: none; }
 .rune-optimization-settings .checkbox-row[data-disabled] { color: var(--text-muted); cursor: not-allowed; }
+/* A switch the area holds keeps its place and its tick, and says why on hover. */
+.rune-optimization-fight .checkbox-row[data-disabled], .overlay-toggle[data-disabled] { cursor: not-allowed; }
 .rune-optimization-settings .checkbox-row input:disabled { opacity: .4; cursor: not-allowed; }
 
 /* An item's location: the word, and the count of places beside it in a box

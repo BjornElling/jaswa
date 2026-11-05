@@ -2,8 +2,8 @@ import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import type { ImportRoute } from '../lib/types';
 
-export function CheckboxRow({ label, checked, onChange, disabled = false }: { label: string; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) {
-  return <label className="checkbox-row" data-disabled={disabled || undefined}>
+export function CheckboxRow({ label, checked, onChange, disabled = false, title }: { label: string; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean; title?: string }) {
+  return <label className="checkbox-row" data-disabled={disabled || undefined} title={title}>
     <input type="checkbox" disabled={disabled} checked={checked} onChange={(event) => onChange(event.target.checked)} />
     {label}
   </label>;

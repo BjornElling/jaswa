@@ -109,6 +109,23 @@ function enemyRow(level, enemy, com2usIdBySwarfarmId) {
   return [monster, ...figures];
 }
 
+/* Every enemy's element, by the game's monster id. The id's last digit names
+   the element of a monster a player can own, but not of a crystal, a tower or an
+   Abyss boss — Swarfarm's own record is what does. `Pure` is Swarfarm's word for
+   an enemy with no element, which no element has advantage over. */
+const elements = new Set(['Water', 'Fire', 'Wind', 'Light', 'Dark', 'Pure']);
+
+function enemyElements(dungeons, elementByCom2usId) {
+  const ids = new Set(dungeons.flatMap((dungeon) => dungeon.floors.flatMap((floor) => floor.waves.flat().map(([monster]) => monster))));
+  return Object.fromEntries([...ids].sort((left, right) => left - right).map((id) => {
+    const element = elementByCom2usId.get(id);
+    if (!elements.has(element)) {
+      throw new Error(`Swarfarm gives enemy monster ${id} the element ${element}, which is none of ${[...elements].join(', ')}. The existing database was kept.`);
+    }
+    return [String(id), element];
+  }));
+}
+
 async function main() {
   const existing = await readExisting();
   if (!force && isFresh(existing)) {
@@ -117,7 +134,11 @@ async function main() {
   }
 
   const com2usIdBySwarfarmId = new Map();
-  await fetchAll('monsters/', (monster) => com2usIdBySwarfarmId.set(monster.id, monster.com2us_id));
+  const elementByCom2usId = new Map();
+  await fetchAll('monsters/', (monster) => {
+    com2usIdBySwarfarmId.set(monster.id, monster.com2us_id);
+    elementByCom2usId.set(monster.com2us_id, monster.element);
+  });
 
   const records = [];
   await fetchAll('dungeons/', (dungeon) => {
@@ -153,6 +174,7 @@ async function main() {
     minimumDelayMs,
     enemyColumns,
     dungeons: dungeons.sort((left, right) => left.swarfarmDungeon - right.swarfarmDungeon),
+    enemyElements: enemyElements(dungeons, elementByCom2usId),
   });
   console.log(`Wrote ${dungeons.length} areas to ${stagesPath}. Without enemies on Swarfarm: ${withoutEnemies.join(', ') || 'none'}.`);
 }

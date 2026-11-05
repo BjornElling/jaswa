@@ -25,6 +25,7 @@ import type { Artifact } from '../lib/artifacts';
 import { usePresets } from '../lib/presets-context';
 import { accountItems, scenarioPresetId, monsterInPreset } from '../lib/presets';
 import { noTeamBonuses, rosterOf, teamBonusesFor } from '../lib/team-leads';
+import { elementAdvantageHeld } from '../lib/element-advantage';
 import { AreaLines, LeadFields, TeamLeads } from './fight-conditions';
 import { areaFacts } from '../lib/area-facts';
 import { readArtifacts } from '../lib/artifacts';
@@ -425,9 +426,11 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   const format = (value: number) => formatNumber(value, general);
   const area = areaFacts(preset, general);
 
-  const toggle = (label: string, checked: boolean, onChange: (checked: boolean) => void) =>
-    <label className="overlay-toggle">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+  /* A switch the area decides is held, not hidden: it stays where it is, ticked
+     and disabled, and says why. */
+  const toggle = (label: string, checked: boolean, onChange: (checked: boolean) => void, heldBecause?: string) =>
+    <label className="overlay-toggle" title={heldBecause} data-disabled={heldBecause ? true : undefined}>
+      <input type="checkbox" checked={checked} disabled={heldBecause !== undefined} onChange={(event) => onChange(event.target.checked)} />
       <span>{label}</span>
     </label>;
 
@@ -587,7 +590,8 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
                 {toggle('Allow Intangible runes', resolved.runes.allowIntangible,
                   (checked) => change((state) => ({ ...state, allowIntangibleRunes: checked })))}
                 {toggle('Always element advantage', resolved.alwaysElementAdvantage,
-                  (checked) => change((state) => ({ ...state, alwaysElementAdvantage: checked })))}
+                  (checked) => change((state) => ({ ...state, alwaysElementAdvantage: checked })),
+                  elementAdvantageHeld(team))}
               </div>
             </Section>
             <Section title="Leads and bonuses">
