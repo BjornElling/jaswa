@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const cases = [
   { name: 'Stats', fixture: 'storage-location-account.json', nav: 'Monster Stats', group: 'Choose which monsters to include', table: 'Monster stats', first: 'Monsters outside Monster Storage', second: 'Storage' },
   { name: 'Artifacts', fixture: 'awakening-search-account.json', nav: 'Artifacts', group: 'Choose artifact locations', table: 'Artifact library', first: 'Engraved', second: 'Inventory' },
-  { name: 'Relics', fixture: 'relic-account.json', nav: 'Relic Optimization', group: 'Choose which relics to include', table: 'Relic library', first: 'Engraved', second: 'Inventory' },
+  { name: 'Relics', fixture: 'relic-account.json', nav: 'Relic Optimization', group: 'Filter by engraved', table: 'Relic library', first: 'Yes', second: 'No' },
 ];
 for (const entry of cases) test(`${entry.name}: no Location choice and both choices show the same rows`, async ({ page }, testInfo) => {
   await page.goto('/');

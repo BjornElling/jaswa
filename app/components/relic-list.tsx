@@ -331,15 +331,17 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
           </div>
           {toggleGroup('Durability', 'Filter by durability left', durabilityOptions, selectedDurability,
             'selectedDurability', (value) => String(value), 'relic-filter-durability')}
-          <div className="filter-group relic-filter-usage" role="group" aria-label="Choose which relics to include">
-            <span className="filter-label">Use</span>
+          {/* Engraved is a yes-or-no question about a relic, asked like the
+              groups beside it: the heading names it, the chips answer it. */}
+          <div className="filter-group relic-filter-usage" role="group" aria-label="Filter by engraved">
+            <span className="filter-label">Engraved</span>
             <div className="filter-group-controls">
               <FilterButton active={showEngraved}
                 onClick={() => setFilters((current) => ({ ...current, showEngraved: !current.showEngraved }))}
-              >Engraved</FilterButton>
+              >Yes</FilterButton>
               <FilterButton active={showInventory}
                 onClick={() => setFilters((current) => ({ ...current, showInventory: !current.showInventory }))}
-              >Inventory</FilterButton>
+              >No</FilterButton>
             </div>
           </div>
           <FilterSummary visible={visible.length} total={rows.length} noun="relics"
