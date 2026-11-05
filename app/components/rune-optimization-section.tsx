@@ -828,7 +828,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
 
 function OptimizationHeader() {
   return <PageHeader title="Rune Optimization"
-    tagline="Six slots, thousands of runes, one answer. Let your computer do the arithmetic so you can go back to pretending it was intuition." />;
+    tagline="Six slots, thousands of runes. Let your computer do the arithmetic so you can go back to pretending it was intuition." />;
 }
 
 function CraftSetting({ legend, name, use, grade, roll, onUse, onGrade, onRoll }: {
