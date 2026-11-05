@@ -2505,7 +2505,14 @@ label[for] {
 
 /* The depth carries a line of its own, so the build count stands clear of it
    rather than reading as a third line of the same group. */
-.rune-optimization-search { display: grid; gap: var(--s5); min-width: 0; padding-top: var(--s5); }
+/* One rule runs down the column's left edge, from Depth past Statistics and
+   Speed tuning, which start where Depth starts. A margin rather than a padding
+   above, so the rule begins at Depth's label as it did on Depth alone. */
+.rune-optimization-search {
+  display: grid; gap: var(--s5); min-width: 0; margin-top: var(--s5);
+  padding-left: var(--s4); border-left: 1px solid var(--line);
+}
+.rune-optimization-search > .rune-optimization-depth { padding-left: 0; border-left: 0; }
 /* Both describe the answer list, so their compact controls share one row. */
 .rune-optimization-count-rank { display: flex; align-items: start; gap: var(--s7); }
 .rune-optimization-count-rank > .filter-group { min-width: 0; }
