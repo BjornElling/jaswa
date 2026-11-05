@@ -19,6 +19,7 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "tests/**/*.ts",
+    "worker/**/*.ts",
     "vite.config.ts",
     "playwright.config.ts",
     "pwa-assets.config.ts"

@@ -140,7 +140,10 @@ function adapterName(info: GpuAdapterInfo | undefined): string {
 }
 
 export async function detectGraphicsCard(): Promise<AccelerationStatus> {
-  const gpu = (navigator as Navigator & { gpu?: Gpu }).gpu;
+  /* Read through the narrow local shape alone: the DOM library's own `GPU`
+     no longer declares `requestAdapterInfo()`, which older browsers still
+     need, so intersecting with it would hide the fallback below. */
+  const gpu = (navigator as unknown as { gpu?: Gpu }).gpu;
   /* Each detail says why, in one line. The consequence is the same in all three
      — the processor does the work — and saying so three times over would be
      three lines of the same sentence. */

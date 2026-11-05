@@ -8,7 +8,8 @@ use crate::{
     traffic::TrafficLog,
 };
 use rcgen::{
-    BasicConstraints, CertificateParams, DnType, GeneralSubtree, IsCa, KeyPair, NameConstraints,
+    BasicConstraints, CertificateParams, DnType, GeneralSubtree, IsCa, Issuer, KeyPair,
+    NameConstraints,
 };
 use rustls::{
     ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
@@ -1421,7 +1422,7 @@ fn certificate_config(directory: &Path, provision: bool) -> Result<Arc<ServerCon
         let leaf_params = CertificateParams::new(names).map_err(|error| error.to_string())?;
         let leaf_key = KeyPair::generate().map_err(|error| error.to_string())?;
         let leaf = leaf_params
-            .signed_by(&leaf_key, &ca, &ca_key)
+            .signed_by(&leaf_key, &Issuer::from_params(&ca_params, &ca_key))
             .map_err(|error| error.to_string())?;
         fs::write(&ca_path, ca.pem()).map_err(|error| error.to_string())?;
         fs::write(&leaf_path, leaf.pem()).map_err(|error| error.to_string())?;
@@ -1527,7 +1528,7 @@ mod tests {
 
     fn encoded(value: &Value, compressed: bool) -> String {
         use base64::{Engine as _, engine::general_purpose::STANDARD};
-        use cipher::{BlockEncryptMut, KeyIvInit, block_padding::Pkcs7};
+        use cipher::{BlockModeEncrypt, KeyIvInit, block_padding::Pkcs7};
         let mut plain = serde_json::to_vec(value).unwrap();
         if compressed {
             let mut encoder =
@@ -1539,7 +1540,7 @@ mod tests {
         plain.resize(length + 16, 0);
         let bytes = cbc::Encryptor::<aes::Aes128>::new_from_slices(b"Gr4S2eiNl7zq5MrU", &[0; 16])
             .unwrap()
-            .encrypt_padded_mut::<Pkcs7>(&mut plain, length)
+            .encrypt_padded::<Pkcs7>(&mut plain, length)
             .unwrap();
         STANDARD.encode(bytes)
     }
@@ -2189,7 +2190,7 @@ mod tests {
     fn local_game(shared: &Arc<Shared>, upstream: std::net::SocketAddr) -> (GameSocket, thread::JoinHandle<()>) {
         let identity = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
         let certificate = identity.cert.der().clone();
-        let key = rustls::pki_types::PrivatePkcs8KeyDer::from(identity.key_pair.serialize_der());
+        let key = rustls::pki_types::PrivatePkcs8KeyDer::from(identity.signing_key.serialize_der());
         let server = ServerConfig::builder().with_no_client_auth()
             .with_single_cert(vec![certificate.clone()], key.into()).unwrap();
         let mut roots = RootCertStore::empty();

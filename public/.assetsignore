@@ -3,3 +3,8 @@
 JASWA-Helper.exe
 JASWA-Helper-Setup.exe.blockmap
 win-unpacked.tmp/
+
+# The game's artwork is served from R2 by worker/index.ts, never uploaded as
+# assets, so a deploy from this machine behaves like one built from git.
+monster-images/
+rune-images/

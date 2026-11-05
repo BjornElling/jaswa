@@ -72,10 +72,10 @@ compatibility problem can look like bad game data.
 
 The helper's own window says it too. JASWA's status poll is
 `/health?latest=<recommendedHelperVersion>`, and a newer version from an
-allowed origin lights the mark beside the title bar's version, adds one
-Activity line naming both versions, and turns the last Troubleshooting cell
-into **Update to v…**, which opens `<origin>/JASWA-Helper-Setup-<version>.exe`
-in the browser. The helper asks no server of its own, so until JASWA has been
+allowed origin — `http://localhost:3000` or `https://jaswa.net` — lights the
+mark beside the title bar's version, adds one Activity line naming both
+versions, and turns the last Troubleshooting cell into **Update to v…**, which
+opens `<origin>/JASWA-Helper-Setup-<version>.exe` in the browser. The helper asks no server of its own, so until JASWA has been
 opened in this run that cell reads *No newer version*, never *up to date*.
 
 Because the per-user store follows whichever profile is active, the helper asks
@@ -187,7 +187,10 @@ The packager finds the x64 `signtool.exe` from an installed Windows SDK. Set
 The pre-bundle hook signs the compiled helper before NSIS embeds it; Tauri's
 `signCommand` signs the uninstaller and generated installer. The packager verifies
 both the helper and installer, then writes the installer to
-`public/JASWA-Helper-Setup-<version>.exe`. Never distribute a manually built, unsigned
+`public/JASWA-Helper-Setup-<version>.exe` and removes the previous release from
+`public/`. Commit the new installer: the published site is built from git, so
+an untracked installer is a download link to nothing
+(`docs/DEPLOYMENT-TARGET.md`). Never distribute a manually built, unsigned
 installer. A new signed release must also be scanned by Microsoft Defender and
 submitted to Microsoft as a false positive if Defender blocks it.
 

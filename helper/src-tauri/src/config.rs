@@ -34,8 +34,16 @@ pub const GATEWAYS: [(&str, &str, &str); 6] = [
     ),
 ];
 
+/// Where JASWA is published. The tray opens it when no local server answers.
+pub const PUBLISHED_ORIGIN: &str = "https://jaswa.net";
+/// The development server, which usually runs a newer JASWA than the published
+/// one — so the tray prefers it whenever it is up.
+pub const LOCAL_ORIGIN: &str = "http://localhost:3000";
+
+/// Both JASWAs read the snapshot at once: reading is all either can do, so a
+/// published tab and a local one never take anything from each other.
 pub fn allowed_origin(origin: &str) -> bool {
-    matches!(origin, "http://localhost:3000" | "http://127.0.0.1:3000")
+    matches!(origin, LOCAL_ORIGIN | "http://127.0.0.1:3000" | PUBLISHED_ORIGIN)
         || std::env::var("JASWA_ALLOWED_ORIGINS")
             .ok()
             .map(|origins| {
@@ -51,4 +59,21 @@ pub fn data_directory() -> std::path::PathBuf {
         .map(std::path::PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
         .join("JASWA Helper")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_local_and_the_published_jaswa_may_both_read_the_snapshot() {
+        for origin in [LOCAL_ORIGIN, "http://127.0.0.1:3000", PUBLISHED_ORIGIN] {
+            assert!(allowed_origin(origin), "{origin} must be allowed");
+        }
+        // Plain http would put the snapshot on an unencrypted page, and a
+        // look-alike host is someone else's page.
+        for origin in ["http://jaswa.net", "https://jaswa.net.example", "https://evil.example"] {
+            assert!(!allowed_origin(origin), "{origin} must be refused");
+        }
+    }
 }

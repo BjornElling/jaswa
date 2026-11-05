@@ -33,12 +33,22 @@ async function main() {
   await rm(publishedInstaller, { force: true });
   await rename(stagedInstaller, publishedInstaller);
 
-  /* Record what was actually shipped. The installer itself is a build artifact
-     and deliberately untracked, so the repository cannot hash it to notice
-     drift; this manifest is the tracked stand-in. `verify:helper-version` reads
-     it to tell "the helper changed and nobody bumped the version" apart from
-     "the version was bumped and nobody built the installer" — the two failures
-     that let the app recommend a version that was never released.
+  /* The published site is built from git, so the installer is tracked — and
+     only the current one. Nothing links an older release: the app offers the
+     version it recommends, and a running helper asks for the newest a page
+     announces. Keeping every release would grow each deploy by one more
+     copy of a program nobody can reach. */
+  for (const file of await readdir(publicDirectory)) {
+    if (/^JASWA-Helper-Setup-\d+\.\d+\.\d+\.exe$/.test(file) && file !== path.basename(publishedInstaller)) {
+      await rm(path.join(publicDirectory, file));
+    }
+  }
+
+  /* Record what was actually shipped. `verify:helper-version` reads this to
+     tell "the helper changed and nobody bumped the version" apart from "the
+     version was bumped and nobody built the installer" — the two failures that
+     let the app recommend a version that was never released — and checks the
+     tracked installer against the hash recorded here.
 
      The fingerprint comes from the same module the verifier uses, so the value
      written here and the value checked there cannot drift apart. */

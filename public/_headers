@@ -1,0 +1,14 @@
+# Read by Cloudflare's asset server for every static response on jaswa.net.
+# The development server ignores this file.
+
+/*
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# Vite names every file under assets/ by its content, so a changed file is a
+# new name and the old one may be cached for good.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

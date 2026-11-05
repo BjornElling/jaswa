@@ -22,6 +22,7 @@
  */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -146,6 +147,31 @@ if (!manifest) {
        different one — a bump with no change behind it. */
     fail(`The version says v${version} but the source is byte-for-byte the helper packaged as v${manifest.version}.\n  Either make the change v${version} is meant to carry, or return the five declarations to v${manifest.version}.`);
   }
+}
+
+/* ------------------------------------------------------ the published installer
+   jaswa.net is built from git, so an installer that is not tracked is a
+   download link to the application shell. Exactly one is tracked — the
+   recorded release — and it must be the very file that release recorded. */
+const trackedInstallers = (await run('git', ['ls-files', 'public'], { cwd: repositoryRoot })).stdout
+  .split('\n')
+  .map((line) => line.trim())
+  .filter((file) => /^public\/JASWA-Helper-Setup-\d+\.\d+\.\d+\.exe$/.test(file));
+const expectedInstaller = `public/JASWA-Helper-Setup-${version}.exe`;
+if (manifest && manifest.version === version) {
+  if (!trackedInstallers.includes(expectedInstaller)) {
+    fail(`${expectedInstaller} is not tracked, so the published site would serve the application shell in its place.\n  Commit it with the release.`);
+  } else {
+    const installer = await readFile(path.join(repositoryRoot, expectedInstaller));
+    const sha256 = createHash('sha256').update(installer).digest('hex');
+    if (sha256 !== manifest.installer?.sha256) {
+      fail(`${expectedInstaller} is not the installer recorded in helper/release.json (sha256 ${sha256.slice(0, 12)} against ${String(manifest.installer?.sha256).slice(0, 12)}).`);
+    }
+  }
+}
+const extraInstallers = trackedInstallers.filter((file) => file !== expectedInstaller);
+if (extraInstallers.length) {
+  fail(`Only the current installer is published, but git also tracks:\n${extraInstallers.map((file) => `    ${file}`).join('\n')}\n  Remove them with \`git rm\`.`);
 }
 
 if (failures.length) {

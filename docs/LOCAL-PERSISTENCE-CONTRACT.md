@@ -1,7 +1,7 @@
 # Local Persistence Contract
 
 **Status:** Binding product contract
-**Reviewed:** October 20, 2026
+**Reviewed:** November 5, 2026
 
 ## Promise
 
@@ -108,11 +108,12 @@ and validates every value read back. Components do not write to
 
 ## Origin
 
-Browser storage is isolated by origin, so the workspace is the one at
-`http://localhost:3000` (AGENTS.md §1.1): `npm run dev` uses a strict port and
-fails rather than move. `127.0.0.1`, another port, another browser profile, or
-private browsing is a different, empty workspace, as is clearing JASWA's site
-data. The `.sw` export is the user's portable, offline copy of preferences;
+Browser storage is isolated by origin, so there are two workspaces: the
+development one at `http://localhost:3000` (AGENTS.md §1.1) and the published
+one at `https://jaswa.net` (`DEPLOYMENT-TARGET.md`). Neither sees the other's
+preferences. `npm run dev` uses a strict port and fails rather than move.
+`127.0.0.1`, another port, another browser profile, or private browsing is a
+different, empty workspace, as is clearing JASWA's site data. The `.sw` export is the user's portable, offline copy of preferences;
 imports remain private to the browser unless the user exports their source
 JSON separately.
 

@@ -88,7 +88,28 @@ fn set_traffic_logging(enabled: bool, state: State<'_, HelperState>) {
 
 #[tauri::command]
 fn open_jaswa() -> Result<(), String> {
-    windows::open("http://localhost:3000")
+    windows::open(jaswa_address())
+}
+
+/// The local server when one is listening, the published site otherwise. The
+/// development server binds `localhost`, which Windows may resolve to either
+/// family, so both loopback addresses are tried; a short timeout keeps the
+/// tray from hanging on a closed port.
+fn jaswa_address() -> &'static str {
+    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
+    use std::time::Duration;
+    let local = [
+        SocketAddr::from((Ipv6Addr::LOCALHOST, 3000)),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 3000)),
+    ];
+    if local
+        .iter()
+        .any(|address| TcpStream::connect_timeout(address, Duration::from_millis(250)).is_ok())
+    {
+        config::LOCAL_ORIGIN
+    } else {
+        config::PUBLISHED_ORIGIN
+    }
 }
 
 /// The address comes from the service, never from the dashboard: the window

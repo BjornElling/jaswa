@@ -1,7 +1,7 @@
 use aes::Aes128;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use cbc::Decryptor;
-use cipher::{BlockDecryptMut, KeyIvInit, block_padding::Pkcs7};
+use cipher::{BlockModeDecrypt, KeyIvInit, block_padding::Pkcs7};
 use serde_json::Value;
 use std::io::Read;
 
@@ -17,7 +17,7 @@ pub fn decrypt_envelope(payload: &str) -> Result<Vec<u8>, String> {
         .map_err(|error| format!("The gateway envelope was not base64: {error}"))?;
     Decryptor::<Aes128>::new_from_slices(KEY, &[0; 16])
         .map_err(|_| "Could not create the gateway cipher.".to_owned())?
-        .decrypt_padded_mut::<Pkcs7>(&mut encrypted)
+        .decrypt_padded::<Pkcs7>(&mut encrypted)
         .map(|plain| plain.to_vec())
         .map_err(|_| "The gateway envelope could not be decrypted.".to_owned())
 }

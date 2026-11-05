@@ -1,7 +1,7 @@
 # Agent rules for JASWA
 
 **Status:** Binding project rules
-**Reviewed:** October 20, 2026
+**Reviewed:** November 5, 2026
 
 Rules an agent must follow when working in this repository. A rule here
 overrides an agent's own habits and defaults. Where a rule and a document in
@@ -161,10 +161,14 @@ comes first:
   result.
 - Do not use Sites, a hosted preview, deployment tooling, or any workflow that
   requests GitHub or hosting credentials merely to preview or verify JASWA.
-- Do not deploy, publish, save a hosted build, obtain hosting credentials,
-  or push to a hosting remote unless the user explicitly asks to publish or
-  deploy. `wrangler.jsonc` and `npm run deploy` (`docs/DEPLOYMENT-TARGET.md`)
-  being in the repository is not publication approval.
+- **JASWA is published at `https://jaswa.net`, and a push to `main` deploys
+  it** (`docs/DEPLOYMENT-TARGET.md`). So §1's "do not push unless asked" is
+  also "do not publish unless asked". Do not deploy, run `npm run deploy` or
+  `npm run upload:artwork`, change Cloudflare settings, or push unless the user
+  explicitly asks. `wrangler.jsonc` being in the repository is not publication
+  approval.
+- The published site is never where a change is verified. It may be probed
+  read-only to confirm that a requested deploy arrived.
 - Report which server was used: the user's already-running one, or one started
   for the check. If verification could not happen at all — Playwright would not
   launch, `npm run dev` would not come up — say so plainly rather than

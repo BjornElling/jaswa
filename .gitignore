@@ -14,7 +14,6 @@
 /public/.icon-ico/
 /public/JASWA-Helper.exe
 /public/JASWA-Helper-Setup.exe
-/public/JASWA-Helper-Setup-*.exe
 /.pnp
 .pnp.*
 .yarn/*
@@ -42,8 +41,9 @@ yarn-error.log*
 .env*
 
 # Monster artwork is fetched locally by `npm run fetch:monster-images` and is
-# deliberately never committed. The repository is public; the game's monster
-# images are not ours to redistribute.
+# deliberately never committed: the game's images are not ours to put in a
+# repository. The published site serves them from R2 instead
+# (docs/DEPLOYMENT-TARGET.md, `npm run upload:artwork`).
 /public/monster-images/
 # Rune artwork likewise, fetched by `npm run fetch:rune-images`.
 /public/rune-images/

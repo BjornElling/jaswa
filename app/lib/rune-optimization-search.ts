@@ -1299,7 +1299,7 @@ export async function searchRuneBuildsInPasses(
   let current: PassLimits = { blocks: Math.min(64, passLimits.blocks), pairs: Math.min(1 << 16, passLimits.pairs) };
   let answered = 0;
   let processorTook = false;
-  let settled = 0;
+  let settled: number;
 
   async function ask(from: number, to: number): Promise<void> {
     if (search.stopped) return;
