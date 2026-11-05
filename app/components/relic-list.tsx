@@ -1,5 +1,5 @@
 import { filterIncludes, filterPair } from '../lib/filter-selection';
-import { lazy, Suspense, useMemo } from 'react';
+import { lazy, Suspense, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FilterButton } from './button';
 import type { OpenMonsterOverlay } from './monster-link';
@@ -11,18 +11,19 @@ import { useSortedRows } from './use-sorted-rows';
 import type { SortableColumn } from './use-sorted-rows';
 import { ValueSlider, RangeSlider } from './range-slider';
 import { RelicDurabilityMark, RelicLevelMark, RelicSynergyFilterMark, RelicSynergyMark } from './relic-marks';
+import { RelicSynergyOverlay } from './relic-synergy-overlay';
 import { WorkspacePage } from './workspace-page';
 import { alignmentClass, relicTableColumns } from '../lib/table-layouts';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
-import { readRelics, relicEngravingCounts, relicPowerUpStoneCount } from '../lib/relics';
+import { readRelics, relicEngravingCounts } from '../lib/relics';
 import {
   relicEngravingLimit, relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel,
   relicPropertyLabel,
 } from '../lib/relic-properties';
 import type { RelicMainProperty } from '../lib/relic-properties';
-import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder } from '../lib/relic-synergy';
-import type { RelicSynergyBand } from '../lib/relic-synergy';
+import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder, resolveRelicSynergy } from '../lib/relic-synergy';
+import type { RelicSynergyBand, RelicSynergyChoices } from '../lib/relic-synergy';
 import {
   defaultRelicInvestmentSelectivity, isRelicInvestmentSelectivity, relicAdvice, relicInvestmentSelectivityLabels,
   relicVerdictLabels, relicVerdictOrder, relicMinimumSynergyBands,
@@ -126,11 +127,12 @@ const relicColumns: readonly SortableColumn<RelicRow>[] = (() => {
   ];
 })();
 
-export function RelicList({ game, monsters, preferences, onOpenMonster }: {
+export function RelicList({ game, monsters, preferences, onOpenMonster, onChangeRelicSynergy }: {
   game: ImportedGame | null;
   monsters: GameRecord[];
   preferences: Preferences;
   onOpenMonster: OpenMonsterOverlay;
+  onChangeRelicSynergy: (choices: RelicSynergyChoices) => void;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.relics', defaultRelicFilters, isRelicFilterState,
@@ -138,21 +140,27 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
   const { search, selectedMains, selectedBands, selectedVerdicts, selectedDurability,
     lowestLevel, highestLevel, showEngraved, showInventory, selectivity } = filters;
 
+  const [editingSynergy, setEditingSynergy] = useState(false);
+  const synergyOpener = useRef<HTMLButtonElement>(null);
+
+  /* The one synergy table this page reads — the shipped cells with the user's
+     own on top (`relic-synergy.ts`). The verdicts, the column and the filter all
+     take it from here, so an edit in the table reaches each of them at once. */
+  const synergy = useMemo(() => resolveRelicSynergy(preferences.relicSynergy), [preferences.relicSynergy]);
   const relics = useMemo(() => readRelics(game?.data), [game]);
   const engravings = useMemo(() => relicEngravingCounts(monsters), [monsters]);
-  const powerUpStones = useMemo(() => relicPowerUpStoneCount(game?.data), [game]);
   /* The counts reach the advice because a same-pair copy that has run out of
      places can no longer make a duplicate redundant (§8 rule 0's exception). */
   const advice = useMemo(
-    () => relicAdvice(relics, selectivity, undefined, engravings),
-    [relics, selectivity, engravings],
+    () => relicAdvice(relics, selectivity, synergy, undefined, engravings),
+    [relics, selectivity, synergy, engravings],
   );
   const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
 
   const rows = useMemo<RelicRow[]>(() => relics.map((relic, index) => ({
     relic,
     index,
-    synergy: relicSynergy(relic.mainProperty, relic.unique.definition.id),
+    synergy: relicSynergy(synergy, relic.mainProperty, relic.unique.definition.id),
     /* Every relic in this list was judged together, so the map always holds it;
        the fallback exists because a `Map` lookup is optional, not because a
        relic could be missing. */
@@ -164,7 +172,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
     },
     levelState: relicLevelState(relic),
     engraved: engravings.get(relic.id) ?? 0,
-  })), [relics, advice, engravings]);
+  })), [relics, synergy, advice, engravings]);
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -212,6 +220,11 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
       >{display(option)}</FilterButton>)}
     </div>
   </div>;
+
+  function closeSynergyEditor() {
+    setEditingSynergy(false);
+    synergyOpener.current?.focus();
+  }
 
   const noRelics = <section className="empty-state">
     <h2>{game
@@ -268,10 +281,10 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
             <span className="filter-label">Power-up threshold</span>
             <div className="filter-group-controls">
               <ValueSlider minimum={1} maximum={5} value={selectivity}
-                label="Power-up threshold, picky to burn it all"
+                label="Power-up threshold, very restrictive to naive"
                 valueLabel={(value) => relicInvestmentSelectivityLabels[value as RelicInvestmentSelectivity]}
                 valueText={(value) => `${relicInvestmentSelectivityLabels[value as RelicInvestmentSelectivity]}; `
-                  + `${relicMinimumSynergyBands[value as RelicInvestmentSelectivity]} synergy or better`}
+                  + `${relicSynergyBandLabels[relicMinimumSynergyBands[value as RelicInvestmentSelectivity]]} synergy or better`}
                 onChange={(value) => setFilters((current) => ({
                   ...current, selectivity: isRelicInvestmentSelectivity(value) ? value : current.selectivity,
                 }))} />
@@ -305,13 +318,8 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
           </div>
           <FilterSummary visible={visible.length} total={rows.length} noun="relics"
             onReset={() => setFilters(defaultRelicFilters)} className="relic-filter-status"
-            below={<aside className="relic-stone-balance"
-              aria-label={powerUpStones === undefined
-                ? 'Relic Power-up stones unavailable from this import'
-                : `Relic Power-up stones: ${format(powerUpStones)}`}>
-              <span className="relic-stone-balance-label">Power up stones</span>
-              <span className="relic-stone-balance-value">{powerUpStones === undefined ? '—' : format(powerUpStones)}</span>
-            </aside>} />
+            below={<button ref={synergyOpener} type="button" className="filter-reset relic-synergy-map"
+              aria-haspopup="dialog" onClick={() => setEditingSynergy(true)}>Synergy map</button>} />
         </>}
       >
         <tbody>
@@ -375,6 +383,8 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
       </DataTablePage>
       </div>}
     </Disclosure>
+
+    {editingSynergy && <RelicSynergyOverlay synergy={synergy} onSave={onChangeRelicSynergy} onClose={closeSynergyEditor} />}
 
     <Disclosure title="Use for mons" sessionKey="relics.monsters" deferContent>
       {!relics.length ? noRelics

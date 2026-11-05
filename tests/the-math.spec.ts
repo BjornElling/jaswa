@@ -47,14 +47,15 @@ test('Power up, Keep or Sell states the rules the verdicts actually follow', asy
   const tables = relicVerdicts.locator('.math-table-verdicts');
   await expect(tables).toHaveCount(2);
   await expect(tables.first().locator('tbody th')).toHaveText([
-    'Picky', 'Balanced', 'Optimistic', 'Wishful thinking', 'Burn it all',
+    'Very restrictive', 'Picky', 'Balanced', 'Optimistic', 'Naive',
   ]);
-  await expect(tables.first().locator('tbody tr').first()).toContainText('Strong and better');
-  await expect(tables.first().locator('tbody tr').nth(1)).toContainText('Neutral and better');
+  await expect(tables.first().locator('tbody tr').first()).toContainText('Excellent only');
+  await expect(tables.first().locator('tbody tr').nth(1)).toContainText('Good and better');
+  await expect(tables.first().locator('tbody tr').last()).toContainText('everything');
 
   /* The overtake gate's five thresholds, which do not move with the slider. */
   await expect(tables.nth(1).locator('tbody th')).toHaveText([
-    'Exceptional', 'Strong', 'Neutral', 'Weak', 'Poor',
+    'Excellent', 'Good', 'Niche', 'Poor', 'Trash',
   ]);
   await expect(tables.nth(1).locator('tbody tr').first()).toContainText('5 %');
   await expect(tables.nth(1).locator('tbody tr').last()).toContainText('70 %');

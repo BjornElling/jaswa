@@ -34,7 +34,7 @@ export type RelicSourceStat = 'HP' | 'ATK' | 'DEF' | 'SPD';
 export type RelicGrant = 'DMG dealt' | 'DMG taken' | 'ATK' | 'DEF' | 'MAX HP' | 'Recovery & Shield';
 
 /** The family a relic belongs to, which is decided entirely by what it grants. */
-const familyByGrant: Record<RelicGrant, string> = {
+export const relicFamilyByGrant: Readonly<Record<RelicGrant, string>> = {
   'DMG dealt': 'Conquest',
   'DMG taken': 'Resolute',
   ATK: 'Valiant',
@@ -81,7 +81,7 @@ export type RelicPropertyDefinition = {
  * corrects were spotted: they gave one name to two different properties.
  */
 function property(id: number, grants: RelicGrant, per: RelicSourceStat): RelicPropertyDefinition {
-  return { id, grants, per, name: `${scalingBySource[per]} ${familyByGrant[grants]}` };
+  return { id, grants, per, name: `${scalingBySource[per]} ${relicFamilyByGrant[grants]}` };
 }
 
 export const relicProperties: readonly RelicPropertyDefinition[] = [
@@ -160,10 +160,9 @@ export const relicMaximumDurability = 3;
  * monster, so recommending one is a private matter between that monster and that
  * item. A relic is shared, and shared a finite number of times: once this many
  * monsters carry it, the game refuses the next engraving until it is unengraved
- * from one of them. Within that limit each monster's recommendation is still an
- * independent answer (`RELIC-CANONICAL.md` §11.5), not a jointly feasible
- * allocation of the relic across the roster; the limit is what the engraving
- * count and the plan's capacity check hold it to.
+ * from one of them. The relic plan therefore shares each relic's places out
+ * across the whole roster as one allocation (`RELIC-CANONICAL.md` §11.5), so
+ * following every recommendation never asks the game for a 151st engraving.
  *
  * **It was 100 until August 27, 2026.** Com2uS raised it to 150 in v9.3.0, in
  * so many words, two weeks before this was written. The older figure is not a

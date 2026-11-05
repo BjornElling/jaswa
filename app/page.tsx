@@ -31,6 +31,7 @@ import { summarizeRunePlacement } from './lib/rune-placement';
 import type { OwnPreset } from './lib/presets';
 import type { PresetWrites } from './components/presets-section';
 import { profilesIn, withProfile } from './lib/monster-preferences';
+import type { RelicSynergyChoices } from './lib/relic-synergy';
 import type { RuneHold } from './lib/rune-holds';
 import { runeHoldVerdict } from './lib/rune-holds';
 import type { CraftIgnore } from './lib/craft-ignores';
@@ -640,6 +641,12 @@ export default function Home() {
     }));
   }
 
+  /* The synergy editor's one route to storage. It saves the cells that differ
+     from the shipped judgement, so Reset to defaults saves an empty record. */
+  function updateRelicSynergy(relicSynergy: RelicSynergyChoices) {
+    changePreferences((current) => ({ ...current, relicSynergy }));
+  }
+
   function updateArtifactSettings(update: Partial<ArtifactSettings>) {
     changePreferences((current) => ({
       ...current,
@@ -900,7 +907,8 @@ export default function Home() {
         onOpenRune={openRuneOverlay}
       /></Suspense>}
 
-      {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+      {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay}
+        onChangeRelicSynergy={updateRelicSynergy} /></Suspense>}
 
       {page === 'gems' && <Suspense fallback={<WorkspaceLoading />}><GemsSection
         game={game}

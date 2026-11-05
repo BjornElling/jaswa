@@ -1,15 +1,17 @@
 # Relics — what they are, and how JASWA judges them
 
 **Status:** Binding project rules for the Relics page and the *Use for mons* plan
-**Reviewed:** October 20, 2026
+**Reviewed:** November 5, 2026
 **Code:** `app/lib/relics.ts` (reader, counts), `app/lib/relic-properties.ts`
 (vocabulary and game constants), `app/lib/relic-power-up-model.ts` (every
-probability), `app/lib/relic-synergy.ts` (the 48 cells), `app/lib/relic-advice.ts`
+probability), `app/lib/relic-synergy.ts` (the 48 cells and the user's own),
+`app/lib/relic-advice.ts`
 (the verdict), `app/lib/relic-grid.ts`, `app/lib/relic-monster-value.ts`,
 `app/lib/relic-monster-fit.ts`, `app/lib/relic-monster-grid.ts`; the stat sheet
 `app/lib/monster-stats.ts`, the main-stat model `app/lib/main-stat-model.ts`,
 eligibility `app/lib/monster-engrave-eligibility.ts`; the pages
-`app/components/relic-list.tsx` and `app/components/relic-monster-list.tsx`
+`app/components/relic-list.tsx`, `app/components/relic-synergy-overlay.tsx` and
+`app/components/relic-monster-list.tsx`
 **Checks:** `verify:relic-synergy`, `verify:relic-maths`,
 `verify:relic-monster-value`, `verify:relic-monster-plan`
 
@@ -55,10 +57,9 @@ on `rid`, as for artifacts.
   walking the roster (`relicEngravingCounts`). A relic on nobody is absent from
   that map, never a `0` mistaken for "unknown".
 - **Relic Power-up Stones** are account inventory, not craft items:
-  `inventory_info[item_master_type = 6, item_master_id = 19].item_quantity`
-  (`relicPowerUpStoneCount`). A list without the record is an exact zero; an
-  import without `inventory_info`, or with a malformed or duplicated record,
-  is *unknown* and the page says so.
+  `inventory_info[item_master_type = 6, item_master_id = 19].item_quantity`.
+  JASWA does not read them: the balance once stood under Reset filters, and
+  that place went to the Synergy map (§5.3) in November 2026.
 
 ### 2.1 How a relic enters the stat sheet
 
@@ -153,6 +154,24 @@ rests on:
 5. **The panel's ordering rule**: within a family the sources run ATK, SPD, DEF,
    MAX HP with the granted stat omitted.
 
+### 4.1.1 The names on screen
+
+Five names are seen whole in the game's own title bar, in screenshots inside
+Com2uS's Steam notices (checked 2026-11-05), each with its effect line:
+*Sharp Conquest* (`DMG dealt +1% per 750 ATK`; dev note, v9.1.8), *Solid
+Conquest* (`per 1000 DEF`; v9.3.0), *Hearty Conquest* (`per 18000 MAX HP`;
+v9.3.2), *Nimble Valiant* (`ATK +2% per 150 SPD`; v9.2.0) and *Nimble Primal*
+(`MAX HP +2% per 200 SPD`; v9.3.2); a player's screenshot adds *Nimble
+Timeless*. Every one follows the stat-prefix rule, across three families and all
+four prefixes. The other ten rest on that rule.
+
+Seiishizo's community relic sheet calls the MAX HP per DEF property *Hearty
+Primal*. That is read as a slip, not as evidence that prefixes vary by family:
+the sheet's own *Scaling* column uses *Solid* for DEF in every other family, a
+Hearty Primal would read MAX HP to grant MAX HP, and every block of the sheet
+opens on a Hearty row. A screenshot of a DEF → MAX HP relic's title bar would
+settle it; until then JASWA keeps *Solid Primal*.
+
 ### 4.2 The two mappings this table corrects
 
 sw-forge lists ids 14 and 16 both as *Valiant*, which the naming rule forbids.
@@ -179,45 +198,54 @@ revised against a current specialist guide's matrix where its practical coverage
 consistently contradicted a mechanical reading; §4, not the guide, owns the
 names.
 
-The **48 cells in `relic-synergy.ts`** are written down; nothing derives or
-regenerates them, and each can be edited on its own line. `relicSynergy` throws
-on a pair it does not hold. `verify:relic-synergy` checks only that the table is
-whole: every property has all three mains, every value is a band, and no band
-is unused.
+The **48 shipped cells in `relic-synergy.ts`** are written down; nothing
+derives or regenerates them. They are starting values: the user may overrule
+any cell (§5.3), and **the table every reading uses is the shipped cells with
+the user's on top**, resolved once by `resolveRelicSynergy`. `relicSynergy`
+takes that resolved table as an argument and throws on a pair it does not hold,
+so no view can read a band without the user's choices.
+`verify:relic-synergy` checks that the shipped table is whole — every property
+has all three mains, every value is a band, no band is unused — that the user's
+cells are read one at a time, and that no module under `app/` writes synergy
+cells of its own.
 
 | Band | Meaning |
 | --- | --- |
-| Exceptional | high effect, very broad use; primary stone target |
-| Strong | clearly valuable, broad or exceptional for a substantial archetype |
-| Neutral | useful, situational, or behind the best alternatives |
-| Weak | plausible only for a narrow need |
-| Poor | very rarely a rational use of stones |
+| Excellent | high effect, very broad use; primary stone target |
+| Good | clearly valuable, broad or exceptional for a substantial archetype |
+| Niche | useful, situational, or behind the best alternatives |
+| Poor | plausible only for a narrow need |
+| Trash | very rarely a rational use of stones |
+
+The names are deliberately sceptical: a band is named for what it is worth as an
+account-wide investment, and the middle of the scale is *Niche*, not a neutral
+word that would read as a pass.
 
 ### 5.1 The whole table
 
 | id | Unique property | Grants | Reads | HP main | ATK main | DEF main |
 | ---: | --- | --- | --- | --- | --- | --- |
-| 1 | Sharp Conquest | DMG dealt | ATK | ★ Strong | ★★ Exceptional | ◇ Neutral |
-| 2 | Solid Conquest | DMG dealt | DEF | ✕✕ Poor | ✕✕ Poor | ◇ Neutral |
-| 3 | Hearty Conquest | DMG dealt | MAX HP | ★ Strong | ✕ Weak | ✕ Weak |
-| 4 | Sharp Resolute | DMG taken | ATK | ✕✕ Poor | ✕ Weak | ✕✕ Poor |
-| 5 | Solid Resolute | DMG taken | DEF | ✕✕ Poor | ✕✕ Poor | ✕ Weak |
-| 6 | Hearty Resolute | DMG taken | MAX HP | ★ Strong | ✕✕ Poor | ◇ Neutral |
-| 7 | Nimble Valiant | ATK | SPD | ★ Strong | ★★ Exceptional | ◇ Neutral |
-| 8 | Solid Valiant | ATK | DEF | ✕ Weak | ◇ Neutral | ◇ Neutral |
-| 9 | Hearty Valiant | ATK | MAX HP | ◇ Neutral | ◇ Neutral | ✕ Weak |
-| 10 | Sharp Timeless | DEF | ATK | ✕ Weak | ✕ Weak | ✕ Weak |
-| 11 | Nimble Timeless | DEF | SPD | ◇ Neutral | ✕ Weak | ★ Strong |
-| 12 | Hearty Timeless | DEF | MAX HP | ★ Strong | ✕ Weak | ★ Strong |
-| 13 | Sharp Primal | MAX HP | ATK | ◇ Neutral | ◇ Neutral | ✕ Weak |
-| 14 | Nimble Primal | MAX HP | SPD | ★★ Exceptional | ★ Strong | ★ Strong |
-| 15 | Solid Primal | MAX HP | DEF | ★ Strong | ✕ Weak | ★ Strong |
-| 16 | Hearty Restore | Recovery & Shield | MAX HP | ◇ Neutral | ✕✕ Poor | ✕✕ Poor |
+| 1 | Sharp Conquest | DMG dealt | ATK | ★ Good | ★★ Excellent | ◇ Niche |
+| 2 | Solid Conquest | DMG dealt | DEF | ✕✕ Trash | ✕✕ Trash | ◇ Niche |
+| 3 | Hearty Conquest | DMG dealt | MAX HP | ★ Good | ✕ Poor | ✕ Poor |
+| 4 | Sharp Resolute | DMG taken | ATK | ✕✕ Trash | ✕ Poor | ✕✕ Trash |
+| 5 | Solid Resolute | DMG taken | DEF | ✕✕ Trash | ✕✕ Trash | ✕ Poor |
+| 6 | Hearty Resolute | DMG taken | MAX HP | ★ Good | ✕✕ Trash | ◇ Niche |
+| 7 | Nimble Valiant | ATK | SPD | ★ Good | ★★ Excellent | ◇ Niche |
+| 8 | Solid Valiant | ATK | DEF | ✕ Poor | ◇ Niche | ◇ Niche |
+| 9 | Hearty Valiant | ATK | MAX HP | ◇ Niche | ◇ Niche | ✕ Poor |
+| 10 | Sharp Timeless | DEF | ATK | ✕ Poor | ✕ Poor | ✕ Poor |
+| 11 | Nimble Timeless | DEF | SPD | ◇ Niche | ✕ Poor | ★ Good |
+| 12 | Hearty Timeless | DEF | MAX HP | ★ Good | ✕ Poor | ★ Good |
+| 13 | Sharp Primal | MAX HP | ATK | ◇ Niche | ◇ Niche | ✕ Poor |
+| 14 | Nimble Primal | MAX HP | SPD | ★★ Excellent | ★ Good | ★ Good |
+| 15 | Solid Primal | MAX HP | DEF | ★ Good | ✕ Poor | ★ Good |
+| 16 | Hearty Restore | Recovery & Shield | MAX HP | ◇ Niche | ✕✕ Trash | ✕✕ Trash |
 
-3 Exceptional · 11 Strong · 12 Neutral · 13 Weak · 9 Poor.
+3 Excellent · 11 Good · 12 Niche · 13 Poor · 9 Trash.
 
-**How a band reads.** Exceptional two gold stars, Strong one gold star, Neutral
-a hollow diamond, Weak one red cross, Poor two. Gold at the top two bands is the
+**How a band reads.** Excellent two gold stars, Good one gold star, Niche
+a hollow diamond, Poor one red cross, Trash two. Gold at the top two bands is the
 `ARTIFACT-CANONICAL.md` §18 reasoning — there the grade *is* the invitation to
 act; the red is the verdict vocabulary (`--state-bad`). Degree is the number of
 marks, never a second shade, and the band's name is written beside them, so the
@@ -233,6 +261,33 @@ wrong one has only a pipeline to re-run. The same panel *is* a legitimate
 **per-monster starting value** in the overlay, because a distribution that
 varies between monsters cannot be describing the monster-independent drop table;
 that use, and its caveat, are in `ENGRAVING-STATISTICS.md` §10.
+
+### 5.3 The user's own cells
+
+The **Synergy map** button under Reset filters opens the whole table over the page
+(`relic-synergy-overlay.tsx`), family by family as the game's Select Unique
+Property panel lists them, HP, ATK and DEF side by side. A click steps a cell
+one band down — Trash wrapping round to Excellent — and Shift-click one band up. A
+cell that differs from the shipped one carries a gold dot, and its accessible
+name and title state the shipped band.
+
+The edits are a draft until **Save**, as in the monster profile: while the draft
+differs, Escape, the backdrop and the back button do not close the panel.
+**Reset to defaults**, a quiet worded button left of the band tally in the
+panel's head, puts the shipped cells into the draft; saving that stores no
+choices at all.
+
+What is saved is the `relicSynergy` preference
+(`LOCAL-PERSISTENCE-CONTRACT.md`): by property id and then main, **only the
+cells that differ from the shipped table**. Setting a cell back to its shipped
+band removes it, so the record counts decisions and a later change to the
+shipped judgement reaches every cell the user never overruled.
+`readRelicSynergyChoices` reads it one cell at a time; a cell with an unknown
+property, main or band is dropped alone and reads its shipped value.
+
+Everything that judges a relic reads the resolved table: the Synergy column and
+its sort, the Synergy filter, the gate, the duplicate thresholds and the
+investment weight (§8). *Use for mons* (§11) reads no synergy at all.
 
 ---
 
@@ -370,11 +425,11 @@ A relic's synergy band multiplies the strength its next attempt buys:
 
 | Fit | Weight (`relicSynergyWeights`) |
 | --- | ---: |
-| Exceptional | × 4 |
-| Strong | × 2 |
-| Neutral | × 1 |
-| Weak | × ½ |
-| Poor | × ¼ |
+| Excellent | × 4 |
+| Good | × 2 |
+| Niche | × 1 |
+| Poor | × ½ |
+| Trash | × ¼ |
 
 ```
 investment score = 100 × weight × p(l) × [S(l + 1) − S(l)] / [S(1) − S(0)]
@@ -394,7 +449,7 @@ them; rule 3 is asked before rule 2, and their conditions are disjoint:
 
 - **Rule 1 — the synergy gate, first, of every relic.** The slider names the weakest fit
    the account holds (§9). A relic below it sells with `<Band> fit: below
-   threshold.` (e.g. `Weak fit: below threshold.`), whatever its level,
+   threshold.` (e.g. `Poor fit: below threshold.`), whatever its level,
    durability, duplicates or next attempt. Nothing outranks it: the gate asks
    whether the pair is worth owning, everything after asks whether it is worth
    stones.
@@ -410,11 +465,11 @@ them; rule 3 is asked before rule 2, and their conditions are disjoint:
 
    | Fit | Passes at | A `+0`, 3-durability challenger tries against up to |
    | --- | ---: | --- |
-   | Exceptional | 5 % | `+9` (10.7 %; a `+10` is 4.3 %) |
-   | Strong | 15 % | `+8` (22.4 %; a `+9` is 10.7 %) |
-   | Neutral | 30 % | `+7` (39.9 %; a `+8` is 22.4 %) |
-   | Weak | 50 % | `+6` (61.3 %; a `+7` is 39.9 %) |
-   | Poor | 70 % | `+5` (82.3 %; a `+6` is 61.3 %) |
+   | Excellent | 5 % | `+9` (10.7 %; a `+10` is 4.3 %) |
+   | Good | 15 % | `+8` (22.4 %; a `+9` is 10.7 %) |
+   | Niche | 30 % | `+7` (39.9 %; a `+8` is 22.4 %) |
+   | Poor | 50 % | `+6` (61.3 %; a `+7` is 39.9 %) |
+   | Trash | 70 % | `+5` (82.3 %; a `+6` is 61.3 %) |
 
    A climbed challenger reaches further; a spent one less far. Against a `+12`
    even a fresh challenger passes 0.36 % of the time. The gate is asked before
@@ -445,18 +500,22 @@ and then refuse to spend on any of it.
 
 | Stop | Name | Score threshold (`relicInvestmentThresholds`) | Weakest fit kept (`relicMinimumSynergyBands`) |
 | ---: | --- | ---: | --- |
-| 1 | Picky | 120 | Strong |
-| 2 | Balanced | 80 | Neutral |
-| 3 | Optimistic | 50 | Weak |
-| 4 | Wishful thinking | 35 | Poor |
-| 5 | Burn it all | 20 | Poor |
+| 1 | Very restrictive | 180 | Excellent |
+| 2 | Picky | 120 | Good |
+| 3 | Balanced | 80 | Niche |
+| 4 | Optimistic | 50 | Poor |
+| 5 | Naive | 35 | Trash |
 
-- **The slider opens on stop 3, *Optimistic***
-  (`defaultRelicInvestmentSelectivity`); Reset returns it there. *Balanced* is
-  the ordinary judgement, with only one stop stricter.
-- The scale starts at Strong, not Exceptional, so the most cautious stop is not
-  the most destructive one. The two boldest stops share Poor and differ only in
-  threshold; *Burn it all* exists to give the scale an end.
+- **The slider opens on stop 3, *Balanced***
+  (`defaultRelicInvestmentSelectivity`), the ordinary judgement in the middle of
+  the scale; Reset returns it there.
+- **The scale sits one notch more sceptical than it did until November 2026**:
+  every stop moved one step stricter, a *Very restrictive* stop keeping Excellent
+  alone was added at the cautious end, and the old boldest stop (threshold 20)
+  was dropped. *Very restrictive* sells a large part of an ordinary library by
+  design; *Picky* is the cautious stop that keeps Good pairs too.
+- Every stop keeps exactly one band more than the stop before it, so no two
+  stops share a gate.
 - The slider sits in the filter strip because it changes verdicts, not rows.
 
 ## 10. Parity: what the importer enforces

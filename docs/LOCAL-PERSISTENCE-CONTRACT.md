@@ -47,6 +47,7 @@ reader, one choice at a time (`app/lib/preference-reading.ts`, AGENTS.md §0):
 | `presetPriority` | The order the user gave each game preset's monsters | `readPresetPriority` (`monster-priority.ts`) |
 | `presets` | The presets built in JASWA: a name, a content, the monsters, the leader and, once engraved, every member's runes and artifacts (`DECK-PRESETS.md` §4) | `readOwnPresets` (`presets.ts`) |
 | `runeOptimization` | Rune Optimization settings, among them whether held Immemorial Gems and Grindstones may be spent, whether a Gem may change a gemmed line's property, and whether a Gem may replace Speed | `readSettings` |
+| `relicSynergy` | The relic synergy cells the user overruled, by unique-property id and then main — only cells that differ from the shipped table (`RELIC-CANONICAL.md` §5.3) | `readRelicSynergyChoices` (`relic-synergy.ts`) |
 
 Two former keys are still read so the user's own choices survive their
 rename: `runePotentialPresets` holds the roles when no `runeRoles` key exists,
@@ -94,6 +95,9 @@ section:
 - **`updateCraftIgnores`** — Gems & Grinds' Ignore adds one entry to its
   shared list, once; Reset ignored empties it for every view without changing
   any other preference.
+- **`updateRelicSynergy`** — the synergy editor's Save. It stores the cells that
+  differ from the shipped table, so Reset to defaults followed by Save stores an
+  empty record.
 - **`updateMonsterPreferences`** — a monster-overlay choice. A record that no
   longer states anything is removed rather than stored empty, so a count of
   records is a count of decisions — but an explicitly cleared rune list *is* a

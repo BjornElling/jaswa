@@ -33,11 +33,11 @@ function Diamond() {
 
 /** How many marks a band draws, and which. The second slot is always present. */
 const bandMarks: Record<RelicSynergyBand, { mark: 'star' | 'cross' | 'diamond'; count: 1 | 2 }> = {
-  exceptional: { mark: 'star', count: 2 },
-  strong: { mark: 'star', count: 1 },
-  neutral: { mark: 'diamond', count: 1 },
-  weak: { mark: 'cross', count: 1 },
-  poor: { mark: 'cross', count: 2 },
+  excellent: { mark: 'star', count: 2 },
+  good: { mark: 'star', count: 1 },
+  niche: { mark: 'diamond', count: 1 },
+  poor: { mark: 'cross', count: 1 },
+  trash: { mark: 'cross', count: 2 },
 };
 
 function SynergyGlyph({ band, reserveSecondSlot = true }: {

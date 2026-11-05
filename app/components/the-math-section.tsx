@@ -74,8 +74,8 @@ const additionalDamageByAtk = exampleArtifactRows[0].maxRoll;
 /* The relic gates, as `relic-advice.ts` decides them. */
 const keepsLabel = (stop: RelicInvestmentSelectivity) => {
   const band = relicMinimumSynergyBands[stop];
-  return band === relicSynergyBandOrder[relicSynergyBandOrder.length - 1]
-    ? 'everything' : `${relicSynergyBandLabels[band]} and better`;
+  if (band === relicSynergyBandOrder[relicSynergyBandOrder.length - 1]) return 'everything';
+  return band === relicSynergyBandOrder[0] ? `${relicSynergyBandLabels[band]} only` : `${relicSynergyBandLabels[band]} and better`;
 };
 const freshPass = (incumbentLevel: number) => relicReachChance(0, relicMaximumDurability, incumbentLevel + 1);
 /** The highest copy a fresh relic still tries against at this overtake threshold. */
@@ -778,7 +778,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">1. Is this pairing worth owning at all?</h3>
         <p>
-          A relic’s main stat and unique property are rated from Exceptional down to Poor for account-wide investment. The <b className="type-body-emphasis">Power-up threshold</b> slider sets the weakest pairing you are willing to keep, and anything below it is sold.
+          A relic’s main stat and unique property are rated from Excellent down to Trash for account-wide investment, in one synergy table you can re-judge cell by cell from the page’s <b className="type-body-emphasis">Synergy map</b>. The <b className="type-body-emphasis">Power-up threshold</b> slider sets the weakest pairing you are willing to keep, and anything below it is sold.
         </p>
         <div className="math-table-scroll">
           <table className="math-table math-table-verdicts">
@@ -804,7 +804,7 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          <b className="type-body-emphasis">Balanced is the ordinary judgement</b>, and only one setting is stricter; the slider opens one stop bolder, on <b className="type-body-emphasis">{relicInvestmentSelectivityLabels[defaultRelicInvestmentSelectivity]}</b>. The two boldest keep every pairing in the game and differ only in how freely they spend, and <b className="type-body-emphasis">Burn it all</b> is there to give the scale an end rather than because anyone should sit on it.
+          The slider opens in the middle, on <b className="type-body-emphasis">{relicInvestmentSelectivityLabels[defaultRelicInvestmentSelectivity]}</b>, the ordinary judgement. Each step to the right keeps one more band and asks a little less of an attempt. The scale leans sceptical on purpose — stones are scarce and a relic rides 150 monsters — and <b className="type-body-emphasis">{relicInvestmentSelectivityLabels[relicInvestmentSelectivityLevels[relicInvestmentSelectivityLevels.length - 1]]}</b> keeps every pairing in the game, which is exactly what it sounds like.
         </p>
         <p>
           This question is asked <i>first</i>, and that matters more than it sounds. A relic below <span className="math-relic-level">+3</span> is guaranteed to gain a level — but a guaranteed level on a pairing you have already rejected is a guaranteed waste of stones, so the pairing is settled before the guarantee is allowed to argue for itself.
@@ -842,7 +842,7 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          In practice this sorts duplicates by how far the copy you own has already climbed. A fresh relic passes a <span className="math-relic-level">+5</span> {chance(freshPass(5))} of the time, a <span className="math-relic-level">+8</span> {chance(freshPass(8))}, a <span className="math-relic-level">+10</span> {chance(freshPass(10))} — and a <span className="math-relic-level">+12</span> just {chance(freshPass(12))}, or once in {Math.round(1 / freshPass(12) / 10) * 10} attempts. <b className="type-body-emphasis">Even Exceptional gives up there.</b> No pairing is good enough to make that a plan.
+          In practice this sorts duplicates by how far the copy you own has already climbed. A fresh relic passes a <span className="math-relic-level">+5</span> {chance(freshPass(5))} of the time, a <span className="math-relic-level">+8</span> {chance(freshPass(8))}, a <span className="math-relic-level">+10</span> {chance(freshPass(10))} — and a <span className="math-relic-level">+12</span> just {chance(freshPass(12))}, or once in {Math.round(1 / freshPass(12) / 10) * 10} attempts. <b className="type-body-emphasis">Even Excellent gives up there.</b> No pairing is good enough to make that a plan.
         </p>
         <p>
           One exception: if the copy you own is already engraved on its full 150 monsters, it cannot take a 151st, so the duplicate is not redundant at all — it is the only way to put that pairing on another monster. It is then judged on its own merits, exactly as if you owned no copy.

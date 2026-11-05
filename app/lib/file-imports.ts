@@ -11,6 +11,7 @@ import { readMonsterPriority, readPresetPriority } from './monster-priority';
 import { readOwnPresets, runeSlots } from './presets';
 import { readArtifact } from './artifacts';
 import { readRelic, relicEngravingProblem } from './relics';
+import { readRelicSynergyChoices } from './relic-synergy';
 import { isReadableEngravedConversionStone } from './artifact-conversion-stones';
 import { craftRollAssumptions, readCraftItem } from './rune-craft-items';
 import { readRune } from './runes';
@@ -119,6 +120,7 @@ export function blankPreferences(): Preferences {
     presets: [],
     presetPriority: {},
     runeOptimization: defaultRuneOptimizationSettings,
+    relicSynergy: {},
   };
 }
 
@@ -166,7 +168,7 @@ function readRunePotentialSettings(value: unknown, fallback: RunePotentialSettin
 const preferenceSections = [
   'updatedAt', 'hardwareAcceleration', 'importRoute', 'directImportMode', 'general',
   'monsterPreferences', 'runeHolds', 'craftIgnores', 'craftViews', 'runePotential', 'runeRoles', 'artifacts', 'speedTuning',
-  'monsterPriority', 'presets', 'presetPriority', 'runeOptimization',
+  'monsterPriority', 'presets', 'presetPriority', 'runeOptimization', 'relicSynergy',
 ] as const satisfies readonly (keyof Preferences)[];
 
 /* The roles were stored as `runePotentialPresets` while they were called
@@ -210,6 +212,7 @@ export function readPreferences(value: unknown, game: ImportedGame | null): Pref
     presets: readOwnPresets(stored.presets, game ? runeSlots(game.data) : undefined),
     presetPriority: readPresetPriority(stored.presetPriority),
     runeOptimization: readSettings(stored.runeOptimization, blank.runeOptimization, runeOptimizationSettingChecks),
+    relicSynergy: readRelicSynergyChoices(stored.relicSynergy),
   };
 }
 

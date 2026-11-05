@@ -61,6 +61,7 @@ try {
     ],
     presetPriority: { 'deck-1-4': ['18', '17'], 'deck-24-101': ['17'] },
     runeOptimization: { ...blank.runeOptimization, includeHigherPriority: true },
+    relicSynergy: { 2: { DEF: 'trash' }, 14: { ATK: 'excellent', DEF: 'niche' } },
   };
 
   assert.deepEqual(readPreferences(chosen, null), chosen, 'a complete stored document must read back unchanged');
@@ -251,6 +252,14 @@ try {
     const read = readPreferences({ ...chosen, runeOptimization: stored }, null).runeOptimization;
     for (const key of Object.keys(stored)) assert.equal(read[key], stored[key], 'a missing setting keeps all other choices');
   }
+
+  /* A synergy cell is one choice: one that cannot be read reads the shipped
+     band, and every other cell the user set stands. */
+  const synergy = readPreferences({ ...chosen, relicSynergy: {
+    ...chosen.relicSynergy, 2: { DEF: 'trash', HP: 'legendary' }, 3: 'nothing', 77: { HP: 'excellent' },
+  } }, null);
+  assert.deepEqual(synergy.relicSynergy, chosen.relicSynergy, 'an unreadable synergy cell costs only itself');
+  assert.deepEqual(readPreferences({ ...chosen, relicSynergy: [] }, null).relicSynergy, {}, 'a synergy record that is not one reads as the shipped table');
 
   /* A preset's speed tuning that fails costs that preset; inside one, a what-if
      or an order entry that fails costs only itself. */

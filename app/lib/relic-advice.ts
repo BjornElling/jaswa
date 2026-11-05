@@ -8,7 +8,7 @@ import {
 } from './relic-power-up-model';
 import type { RelicLanding, RelicSuccessRates } from './relic-power-up-model';
 import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder } from './relic-synergy';
-import type { RelicSynergyBand } from './relic-synergy';
+import type { RelicSynergyBand, RelicSynergyTable } from './relic-synergy';
 
 /**
  * What to do with each relic: the policy, and nothing but the policy.
@@ -32,11 +32,11 @@ import type { RelicSynergyBand } from './relic-synergy';
  * expected.
  */
 export const relicSynergyWeights: Record<RelicSynergyBand, number> = {
-  exceptional: 4,
-  strong: 2,
-  neutral: 1,
-  weak: 1 / 2,
-  poor: 1 / 4,
+  excellent: 4,
+  good: 2,
+  niche: 1,
+  poor: 1 / 2,
+  trash: 1 / 4,
 };
 
 /** The user's stone selectivity, `1` cautious to `5` bold. */
@@ -45,7 +45,7 @@ export type RelicInvestmentSelectivity = 1 | 2 | 3 | 4 | 5;
 export const relicInvestmentSelectivityLevels: readonly RelicInvestmentSelectivity[] = [1, 2, 3, 4, 5];
 
 /**
- * Where the slider opens: `3`, *Optimistic*. One constant, so the table's
+ * Where the slider opens: `3`, *Balanced*. One constant, so the table's
  * default and The Math's description of it cannot name two different stops.
  */
 export const defaultRelicInvestmentSelectivity: RelicInvestmentSelectivity = 3;
@@ -58,24 +58,23 @@ export const isRelicInvestmentSelectivity = (value: unknown): value is RelicInve
  * selective the player is about stones; it is not a measure of statistical
  * risk, which is already the game's success chance.
  *
- * It decides only among relics the synergy gate has already admitted, and at the
- * top two stops it is the whole difference between them: both keep every band,
- * so `Wishful thinking` and `Burn it all` are separated by how good an attempt
- * has to look before the stones are worth it.
+ * It decides only among relics the synergy gate has already admitted. Each
+ * stop keeps one band more than the stop before it and asks a little less of an
+ * attempt, so the two tables tighten together, one notch at a time.
  *
  * **These move with `relicMinimumSynergyBands`, never apart from it.** A stop
  * whose threshold outruns its own gate admits a band and then refuses to spend
- * on any of it — the setting says Weak is worth keeping and then advises against
- * every Weak power-up, which is a tier gated twice. The two tables were one stop
- * out of step when the gate moved down a band and left these behind, and a
- * middling Weak attempt scoring 75 sat just under a threshold of 80.
+ * on any of it — the setting says Poor is worth keeping and then advises against
+ * every Poor power-up, which is a tier gated twice. The two tables were once one
+ * stop out of step when the gate moved down a band and left these behind, and a
+ * middling Poor attempt scoring 75 sat just under a threshold of 80.
  */
 export const relicInvestmentThresholds: Record<RelicInvestmentSelectivity, number> = {
-  1: 120,
-  2: 80,
-  3: 50,
-  4: 35,
-  5: 20,
+  1: 180,
+  2: 120,
+  3: 80,
+  4: 50,
+  5: 35,
 };
 
 /**
@@ -91,40 +90,39 @@ export const relicInvestmentThresholds: Record<RelicInvestmentSelectivity, numbe
  * and the two tables are read together or not at all — a name one stop out of
  * step promises a fit the gate does not keep.
  *
- * **The slider opens on `3`, *Optimistic*** (`defaultRelicInvestmentSelectivity`).
- * The names are pitched around `2`, the ordinary judgement, which is
- * named for what it decides rather than for a temperament: only `1` is stricter
- * than it, and the three above it climb from optimistic to indefensible.
- * `5` keeps every relic in the game and spends stones on pairs nothing can
- * redeem; it earns its name and exists so the scale has an end, not because
- * anyone should sit on it.
+ * **The slider opens on `3`, *Balanced*** (`defaultRelicInvestmentSelectivity`),
+ * the ordinary judgement, in the middle of the scale. The whole scale sits one
+ * notch more sceptical than it once did: stones are scarce and a relic is a
+ * long commitment, so the middle keeps Niche and better rather than Poor, and
+ * the strictest stop keeps only Excellent pairs. `5` keeps every relic in the game
+ * and spends stones on pairs nothing can redeem; it is called *Naive* because
+ * that is what sitting on it is.
  */
 export const relicInvestmentSelectivityLabels: Record<RelicInvestmentSelectivity, string> = {
-  1: 'Picky',
-  2: 'Balanced',
-  3: 'Optimistic',
-  4: 'Wishful thinking',
-  5: 'Burn it all',
+  1: 'Very restrictive',
+  2: 'Picky',
+  3: 'Balanced',
+  4: 'Optimistic',
+  5: 'Naive',
 };
 
 /**
  * The weakest fit each stop is willing to keep. The gate in `decide` sells
  * anything below it, and this is the first question asked of every relic.
  *
- * **The scale starts at Strong, not Exceptional.** An Exceptional-only stop sold
- * all but a handful of relics in a real library — including Strong pairs a
- * cautious player plainly wants to keep — so the most cautious setting was also
- * the most destructive one, which is not what its name promises. Keeping it
- * would have cost a sixth stop to say something no player asked for. The two
- * boldest stops therefore share a band: past Weak the gate has nothing left to
- * reject, and `relicInvestmentThresholds` is what still separates them.
+ * **One band per stop.** *Very restrictive* keeps Excellent pairs alone and sells
+ * a large part of an ordinary library; that is what its name promises, and the
+ * stop beside it, *Picky*, is the cautious one that keeps the Good pairs too.
+ * Every stop keeps exactly one band more than the one before it, so no two
+ * stops share a gate and `relicInvestmentThresholds` never has to be the only
+ * thing telling them apart.
  */
 export const relicMinimumSynergyBands: Record<RelicInvestmentSelectivity, RelicSynergyBand> = {
-  1: 'strong',
-  2: 'neutral',
-  3: 'weak',
+  1: 'excellent',
+  2: 'good',
+  3: 'niche',
   4: 'poor',
-  5: 'poor',
+  5: 'trash',
 };
 
 /**
@@ -139,24 +137,24 @@ export const relicMinimumSynergyBands: Record<RelicInvestmentSelectivity, RelicS
  * slider move these would let a bold setting recommend stones on attempts that
  * are simply lost.
  *
- * Synergy sets the price of admission because it is what the attempt buys. An
- * Exceptional pair is worth a long shot; a Poor one is worth stones only when
+ * Synergy sets the price of admission because it is what the attempt buys. A
+ * Excellent pair is worth a long shot; a Trash one is worth stones only when
  * passing is close to certain. The figures are read against the real overtake
  * chances (`RELIC-CANONICAL.md` §8 rule 2), where a full-durability challenger passes
  * a `+5` incumbent 82 % of the time, a `+8` 22 %, a `+10` 4.3 % and a `+12`
  * 0.36 % — so these five thresholds sort duplicates by how high the incumbent
  * has climbed, which is the thing that actually decides the matter.
  *
- * **Exceptional is not exempt.** At 5 % a fresh challenger still tries against
+ * **Excellent is not exempt.** At 5 % a fresh challenger still tries against
  * an incumbent up to `+9` and gives up beyond it: against a `+12` it passes
  * about once in 280 attempts, and no pairing is good enough to make that a plan.
  */
 export const relicOvertakeThresholds: Record<RelicSynergyBand, number> = {
-  exceptional: 0.05,
-  strong: 0.15,
-  neutral: 0.30,
-  weak: 0.50,
-  poor: 0.70,
+  excellent: 0.05,
+  good: 0.15,
+  niche: 0.30,
+  poor: 0.50,
+  trash: 0.70,
 };
 
 export type RelicVerdict = 'power-up' | 'keep' | 'sell';
@@ -206,8 +204,8 @@ const investmentScore = (chance: number, weight: number, strengthGain: number) =
  * with stated relics and the wrong one for the page.
  */
 export function relicAdvice(
-  relics: readonly Relic[], selectivity: RelicInvestmentSelectivity, rates: RelicSuccessRates = relicPowerUpRates,
-  engravings?: ReadonlyMap<string, number>,
+  relics: readonly Relic[], selectivity: RelicInvestmentSelectivity, synergy: RelicSynergyTable,
+  rates: RelicSuccessRates = relicPowerUpRates, engravings?: ReadonlyMap<string, number>,
 ): Map<string, RelicAdvice> {
   const threshold = relicInvestmentThresholds[selectivity];
   const minimumBand = relicMinimumSynergyBands[selectivity];
@@ -220,8 +218,8 @@ export function relicAdvice(
   }
   const advice = new Map<string, RelicAdvice>();
   for (const relic of relics) {
-    const weight = relicSynergyWeights[relicSynergy(relic.mainProperty, relic.unique.definition.id)];
-    const band = relicSynergy(relic.mainProperty, relic.unique.definition.id);
+    const band = relicSynergy(synergy, relic.mainProperty, relic.unique.definition.id);
+    const weight = relicSynergyWeights[band];
     const reachChance = relicReachChance(relic.level, relic.durability, relicMaximumLevel, rates);
     const chances = relicFinalLevelChances(relic.level, relic.durability, rates);
     /* One same-level copy has to be the incumbent too: a relic covers 150

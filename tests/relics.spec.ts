@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/* Six relics chosen to reach every state the page can be in: an exceptional
+/* Six relics chosen to reach every state the page can be in: a strong
    pair and a poor one, a relic at the ceiling, a relic whose durability ran out
    below it, a neutral fit, and two copies of one pair so the duplicate rule has
    something to decide. */
@@ -75,15 +75,15 @@ test('the page claims nothing it cannot show', async ({ page }) => {
 test('the table opens on synergy, best fit first', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  /* The account has two exceptional pairs; its one weak pair closes the list. */
-  await expect(rows(page).first()).toContainText('Exceptional');
-  await expect(rows(page).last()).toContainText('Weak');
+  /* The account has three Excellent relics; its one Poor pair closes the list. */
+  await expect(rows(page).first()).toContainText('Excellent');
+  await expect(rows(page).last()).toContainText('Poor');
 });
 
 test('synergy marks grow outward from the band name', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const strong = rowFor(page, 'per 1,000 ATK').locator('.relic-synergy[data-band="strong"]');
+  const strong = rowFor(page, 'per 1,000 ATK').locator('.relic-synergy[data-band="good"]');
   const active = strong.locator('.relic-mark-slot:not(.relic-mark-spare)');
   const slots = strong.locator('.relic-mark-slots');
   const label = strong.locator('.relic-synergy-label');
@@ -103,21 +103,23 @@ test('synergy filters use neutral mark-only chips with accessible names', async 
   await importAccount(page, relicAccount);
   await openRelics(page);
   const group = page.getByRole('group', { name: 'Filter by synergy' });
-  const exceptional = group.getByRole('button', { name: 'Exceptional' });
-  await expect(exceptional).toHaveText('');
-  await expect(exceptional.locator('.relic-mark-star')).toHaveCount(2);
-  await expect(group.getByRole('button', { name: 'Neutral' })
+  const strongest = group.getByRole('button', { name: 'Excellent', exact: true });
+  await expect(strongest).toHaveText('');
+  await expect(strongest.locator('.relic-mark-star')).toHaveCount(2);
+  await expect(group.getByRole('button', { name: 'Niche', exact: true })
     .locator('.relic-mark-slot:not(.relic-mark-spare) .relic-mark-diamond')).toHaveCount(1);
-  await expect(group.getByRole('button', { name: 'Weak' })
+  await expect(group.getByRole('button', { name: 'Poor', exact: true })
     .locator('.relic-mark-slot:not(.relic-mark-spare) .relic-mark-cross')).toHaveCount(1);
-  const buttons = await group.getByRole('button').evaluateAll((entries) => entries.map((entry) => {
+  await expect(group.getByRole('button', { name: 'Trash', exact: true })
+    .locator('.relic-mark-slot:not(.relic-mark-spare) .relic-mark-cross')).toHaveCount(2);
+  const buttons = await group.locator('.filter-button').evaluateAll((entries) => entries.map((entry) => {
     const { x, width } = entry.getBoundingClientRect();
     return { x, width };
   }));
   expect(buttons[0].width).toBeGreaterThan(buttons[1].width);
   const gaps = buttons.slice(1).map((entry, index) => entry.x - (buttons[index].x + buttons[index].width));
   gaps.forEach((gap) => expect(gap).toBeCloseTo(gaps[0], 3));
-  const colours = await exceptional.locator('.relic-synergy-filter-mark').evaluate((mark) => [
+  const colours = await strongest.locator('.relic-synergy-filter-mark').evaluate((mark) => [
     getComputedStyle(mark).color,
     getComputedStyle(mark.parentElement as HTMLElement).color,
   ]);
@@ -183,17 +185,17 @@ test('the visible advice shows the game chance, not the ranking conversion', asy
 });
 
 /* The duplicate gate answers a question the player has no taste about, so the
-   slider must not move it. This challenger is Exceptional and has a 4.8 % chance
-   of passing the +12 beside it — just under the 5 % an Exceptional pair is
-   allowed — and no setting, not even Burn it all, buys stones for an attempt
+   slider must not move it. This challenger is Excellent and has a 4.8 % chance
+   of passing the +12 beside it — just under the 5 % an Excellent pair is
+   allowed — and no setting, not even Naive, buys stones for an attempt
    that cannot land. */
 test('the duplicate gate ignores the slider at every stop', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const challenger = rowFor(page, 'per 150 SPD');
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
   const advice = adviceFor(page, 'per 150 SPD');
-  await expect(challenger).toContainText('Exceptional');
+  await expect(challenger).toContainText('Excellent');
 
   for (const stop of ['1', '2', '3', '4', '5']) {
     await threshold.fill(stop);
@@ -201,37 +203,31 @@ test('the duplicate gate ignores the slider at every stop', async ({ page }) => 
   }
 });
 
-test('the filter strip shows the account’s Relic Power-up Stone balance', async ({ page }) => {
-  await importAccount(page, relicAccount);
-  await openRelics(page);
-  await expect(page.getByLabel('Relic Power-up stones: 37')).toHaveText('Power up stones37');
-});
-
 test('the score threshold gates the minimum synergy band without wasting a tier', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
-  const weak = rowFor(page, 'per 2,000 ATK');
-  await threshold.fill('2');
-  await expect(weak).toContainText('Sell');
-  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellWeak fit: below threshold.');
-  await threshold.fill('3');
-  /* Weak is admitted at Optimistic, and this +5 → +6 success also improves its
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
+  const poor = rowFor(page, 'per 2,000 ATK');
+  /* The default, Balanced, keeps Niche and better, so a Poor pair is sold. */
+  await expect(threshold).toHaveValue('3');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellPoor fit: below threshold.');
+  await threshold.fill('4');
+  /* Poor is admitted at Optimistic, and this +5 → +6 success also improves its
      unique property. The hard gate still rejects it at the stricter settings;
      once admitted, JASWA must not stop one level before the tier it is buying. */
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('Power upNext +1: 60%');
   await threshold.fill('1');
-  await expect(weak).toContainText('Sell');
-  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellWeak fit: below threshold.');
+  await expect(poor).toContainText('Sell');
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText('SellPoor fit: below threshold.');
   await threshold.fill('5');
-  await expect(weak).toContainText('Power up');
+  await expect(poor).toContainText('Power up');
 });
 
 test('changing the score threshold leaves the table geometry fixed', async ({ page }, testInfo) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const table = page.getByRole('table', { name: 'Relic library', exact: true });
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
   const before = await table.locator('tbody tr').evaluateAll((cells) => cells.map((cell) => {
     const { x, y, width, height } = cell.getBoundingClientRect();
     return { x, y, width, height };
@@ -253,40 +249,42 @@ test('a certain level powers up once the pair is one the setting keeps', async (
   await importAccount(page, relicAccount);
   await openRelics(page);
   const fresh = rowFor(page, 'per 2,500 ATK');
-  await expect(fresh).toContainText('Neutral');
+  await expect(fresh).toContainText('Niche');
   await expect(fresh).toContainText('Power up');
   await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
 });
 
 /* The rule the gate's move exists for. A guaranteed level is guaranteed waste on
    a pair the account has said it does not want, so the gate is asked first — the
-   same fresh Neutral relic that powers up at Balanced is sold at Picky, which
-   keeps only Strong and better, and its reason names the gate rather than
+   same fresh Niche relic that powers up at Balanced is sold at Picky, which
+   keeps only Good and better, and its reason names the gate rather than
    the certain level it would otherwise have taken. */
 test('the synergy gate outranks the certain level below +3', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
   const fresh = rowFor(page, 'per 2,500 ATK');
-  await expect(fresh).toContainText('Neutral');
+  await expect(fresh).toContainText('Niche');
 
-  await threshold.fill('1');
-  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('SellNeutral fit: below threshold.');
   await threshold.fill('2');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('SellNiche fit: below threshold.');
+  await threshold.fill('3');
   await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
 });
 
-/* The cautious stop keeps the pairs a cautious player wants. It sold everything
-   but Exceptional until the scale was moved down a band, which made it the most
-   destructive setting on the slider rather than the safest. */
-test('the strictest stop keeps a Strong pair rather than selling it', async ({ page }) => {
+/* Very restrictive keeps Excellent pairs alone — that is its promise — and Picky,
+   one stop over, is the cautious setting that keeps the Good ones too. */
+test('the two strictest stops keep Excellent, then Good as well', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
+  const good = rowFor(page, 'per 1,000 ATK');
+  await expect(good).toContainText('Good');
   await threshold.fill('1');
-  const strong = rowFor(page, 'per 1,000 ATK');
-  await expect(strong).toContainText('Strong');
-  await expect(strong).not.toContainText('Sell');
+  await expect(adviceFor(page, 'per 1,000 ATK')).toHaveText('SellGood fit: below threshold.');
+  await expect(adviceFor(page, 'per 125 SPD')).toHaveText('KeepCannot power up.');
+  await threshold.fill('2');
+  await expect(good).not.toContainText('Sell');
 });
 
 test('a relic engraved on monsters counts them, and one in the inventory says so', async ({ page }) => {
@@ -300,11 +298,11 @@ test('a relic engraved on monsters counts them, and one in the inventory says so
 test('filters narrow the table and Reset puts every one of them back', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, picky to burn it all' });
+  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
 
-  /* Balanced rejects the account's Weak pair, which is what gives the two filters
-     below something to narrow. The default stop keeps it. */
-  await threshold.fill('2');
+  /* Balanced, the default, rejects the account's Poor pair, which is what gives
+     the two filters below something to narrow. */
+  await threshold.fill('3');
   await page.getByRole('group', { name: 'Filter by advice' }).getByRole('button', { name: 'Sell' }).click();
   await expect(rows(page)).toHaveCount(2);
   await page.getByRole('group', { name: 'Filter by main stat' }).getByRole('button', { name: 'ATK' }).click();
@@ -331,9 +329,106 @@ test('a filter click never moves the columns under the user', async ({ page }) =
   const heading = page.getByRole('table', { name: 'Relic library columns' });
   const before = await heading.locator('th').evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width));
 
-  await page.getByRole('group', { name: 'Filter by synergy' }).getByRole('button', { name: 'EXC' }).click();
+  await page.getByRole('group', { name: 'Filter by synergy' }).getByRole('button', { name: 'Excellent', exact: true }).click();
   await expect(rows(page)).toHaveCount(3);
 
   const after = await heading.locator('th').evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width));
   expect(after).toEqual(before);
+});
+
+/* ------------------------------------------------------------- the editor */
+
+const editor = (page: Page) => page.getByRole('dialog', { name: 'Synergy map' });
+const cell = (page: Page, name: string) => editor(page).getByRole('button', { name, exact: true });
+
+async function openEditor(page: Page) {
+  await page.getByRole('button', { name: 'Synergy map', exact: true }).click();
+  await expect(editor(page)).toBeVisible();
+}
+
+test('the synergy map opens over the page with every pair in it', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  const opener = page.getByRole('button', { name: 'Synergy map', exact: true });
+  await expect(opener).toHaveAttribute('aria-haspopup', 'dialog');
+  await openEditor(page);
+  await expect(editor(page).locator('.relic-synergy-cell')).toHaveCount(48);
+  await expect(cell(page, 'Sharp Conquest, ATK main: Excellent')).toBeVisible();
+  await expect(cell(page, 'Solid Resolute, HP main: Trash')).toBeVisible();
+  /* Nothing has been changed, so there is nothing to reset or save. */
+  await expect(editor(page).getByRole('button', { name: 'Reset to defaults' })).toBeDisabled();
+  await expect(editor(page).getByRole('button', { name: 'Save synergy' })).toBeDisabled();
+  await expect(page.getByRole('table', { name: 'Relic library', exact: true })).toBeAttached();
+  await editor(page).getByRole('button', { name: 'Close' }).click();
+  await expect(editor(page)).toBeHidden();
+  await expect(opener).toBeFocused();
+});
+
+test('a click steps a cell down the scale, Shift steps it back, and the cell never moves', async ({ page }, testInfo) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  await openEditor(page);
+  const cells = editor(page).locator('.relic-synergy-cell');
+  const boxes = () => cells.evaluateAll((entries) => entries.map((entry) => {
+    const { x, y, width, height } = entry.getBoundingClientRect();
+    return { x, y, width, height };
+  }));
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('relic-synergy-before.png') });
+
+  await cell(page, 'Sharp Conquest, DEF main: Niche').click();
+  await expect(cell(page, 'Sharp Conquest, DEF main: Poor, default Niche')).toBeVisible();
+  await cell(page, 'Sharp Conquest, DEF main: Poor, default Niche').click();
+  await expect(cell(page, 'Sharp Conquest, DEF main: Trash, default Niche')).toBeVisible();
+  await cell(page, 'Sharp Conquest, DEF main: Trash, default Niche').click();
+  await expect(cell(page, 'Sharp Conquest, DEF main: Excellent, default Niche')).toBeVisible();
+  await cell(page, 'Sharp Conquest, DEF main: Excellent, default Niche').click({ modifiers: ['Shift'] });
+  await expect(cell(page, 'Sharp Conquest, DEF main: Trash, default Niche')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('relic-synergy-after.png') });
+  expect(await boxes()).toEqual(before);
+});
+
+test('a saved cell is the band the library judges by, and it survives a reload', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  const fresh = rowFor(page, 'per 2,500 ATK');
+  await expect(fresh).toContainText('Niche');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('Power upSure +1: 100%');
+
+  await openEditor(page);
+  await cell(page, 'Sharp Conquest, DEF main: Niche').click();
+  /* A draft holding edits does not go on a stray Escape. */
+  await page.keyboard.press('Escape');
+  await expect(editor(page)).toBeVisible();
+  await editor(page).getByRole('button', { name: 'Save synergy' }).click();
+  await expect(editor(page)).toBeHidden();
+
+  await expect(fresh).toContainText('Poor');
+  await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText('SellPoor fit: below threshold.');
+  await page.getByRole('group', { name: 'Filter by synergy' }).getByRole('button', { name: 'Poor', exact: true }).click();
+  await expect(rows(page)).toHaveCount(2);
+
+  await page.reload();
+  await openRelics(page);
+  await expect(rowFor(page, 'per 2,500 ATK')).toContainText('Poor');
+});
+
+test('Reset to defaults puts every shipped cell back once saved', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  await openEditor(page);
+  await cell(page, 'Sharp Conquest, DEF main: Niche').click();
+  await cell(page, 'Nimble Primal, HP main: Excellent').click();
+  await editor(page).getByRole('button', { name: 'Save synergy' }).click();
+  await expect(rowFor(page, 'per 150 SPD')).toContainText('Good');
+
+  await openEditor(page);
+  await expect(cell(page, 'Nimble Primal, HP main: Good, default Excellent')).toBeVisible();
+  await editor(page).getByRole('button', { name: 'Reset to defaults' }).click();
+  await expect(cell(page, 'Nimble Primal, HP main: Excellent')).toBeVisible();
+  await expect(cell(page, 'Sharp Conquest, DEF main: Niche')).toBeVisible();
+  await expect(editor(page).getByRole('button', { name: 'Reset to defaults' })).toBeDisabled();
+  await editor(page).getByRole('button', { name: 'Save synergy' }).click();
+  await expect(rowFor(page, 'per 150 SPD')).toContainText('Excellent');
+  await expect(rowFor(page, 'per 2,500 ATK')).toContainText('Niche');
 });

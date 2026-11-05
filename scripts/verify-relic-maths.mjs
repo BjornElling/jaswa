@@ -37,7 +37,7 @@ import {
   relicPowerUpRates, relicStrengthIndex, relicThreshold,
 } from '../app/lib/relic-properties.ts';
 import { relicProperties } from '../app/lib/relic-properties.ts';
-import { relicSynergy, relicSynergyBandOrder } from '../app/lib/relic-synergy.ts';
+import { defaultRelicSynergy, relicSynergy, relicSynergyBandOrder } from '../app/lib/relic-synergy.ts';
 import { relicSynergyWeights } from '../app/lib/relic-advice.ts';
 
 let failures = 0;
@@ -127,17 +127,17 @@ const relicAt = (level, id) => ({
   locked: false,
   obtainedOrder: Number(id),
 });
-const tierAdvice = relicAdvice([relicAt(7, '7'), relicAt(8, '8')], 1);
+const tierAdvice = relicAdvice([relicAt(7, '7'), relicAt(8, '8')], 1, defaultRelicSynergy);
 const beforeTier = tierAdvice.get('7')?.investmentScore ?? 0;
 const onTier = tierAdvice.get('8')?.investmentScore ?? 0;
 check(onTier > beforeTier,
-  `an Exceptional +8 → +9 tier scores ${Math.round(onTier)} % above the ${Math.round(beforeTier)} % +7 → +8 step despite its lower chance`);
+  `an Excellent +8 → +9 tier scores ${Math.round(onTier)} % above the ${Math.round(beforeTier)} % +7 → +8 step despite its lower chance`);
 
 const equalOlder = relicAt(9, '9');
 const equalNewer = relicAt(9, '10');
 equalOlder.durability = 0;
 equalNewer.durability = 0;
-const equalAdvice = relicAdvice([equalOlder, equalNewer], 5);
+const equalAdvice = relicAdvice([equalOlder, equalNewer], 5, defaultRelicSynergy);
 check(equalAdvice.get('9')?.verdict === 'keep' && equalAdvice.get('10')?.verdict === 'sell',
   'equal spent duplicates keep only the lower-rid incumbent');
 
@@ -166,7 +166,7 @@ check(overtakeOrder.every((value, at) => at === 0 || value > overtakeOrder[at - 
 const duplicateIncumbent = relicAt(12, '11');
 const duplicateChallenger = relicAt(0, '12');
 const verdicts = new Set([1, 2, 3, 4, 5].map((stop) =>
-  relicAdvice([duplicateIncumbent, duplicateChallenger], stop).get('12')?.verdict));
+  relicAdvice([duplicateIncumbent, duplicateChallenger], stop, defaultRelicSynergy).get('12')?.verdict));
 check(verdicts.size === 1 && verdicts.has('sell'),
   'a hopeless duplicate sells at every slider stop, the boldest included');
 
@@ -184,7 +184,7 @@ check(verdicts.size === 1 && verdicts.has('sell'),
 let orderingStable = true;
 for (const property of relicProperties) {
   for (const main of ['HP', 'ATK', 'DEF']) {
-    const weight = relicSynergyWeights[relicSynergy(main, property.id)];
+    const weight = relicSynergyWeights[relicSynergy(defaultRelicSynergy, main, property.id)];
     if (!(weight > 0)) throw new Error(`No synergy weight for ${main} on relic property ${property.id}.`);
     const at = (share) => [0, 3, 6, 9, 12].map((level) =>
       weight * (relicExpectedStrength(level, 3, property.per, relicPowerUpRates, share)
