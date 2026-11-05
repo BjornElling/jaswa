@@ -258,7 +258,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
   return <WorkspacePage
     header={<PageHeader
       title="Gems &amp; Grinds"
-      tagline="" />}
+      tagline="Cosmetic surgery for runes. One stat removed, three lifted, zero questions asked." />}
   >
     <Disclosure title="Recommendations" sessionKey="gems.recommendations" defaultOpen deferContent>
       {!items.length ? noItems : craftView('recommendations', craftCalculation)}
