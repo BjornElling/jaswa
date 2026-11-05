@@ -121,6 +121,12 @@ for (const [suffix, speed, resistance, accuracy, hp, defense] of [
   check(highestEnemyStatOn(floor, 'hp') === hp && highestEnemyStatOn(floor, 'defense') === defense
     && highestEnemyStatOn(floor, 'attack') === undefined, `${area} preserves known HP/DEF and unknown ATK`);
 }
+/* Rescue's decks hold four monsters; every other Labyrinth content five. A
+   floor states the team its enemies were read for, so it says the same. */
+for (const content of presetContents.filter((entry) => entry.id.startsWith('labyrinth-'))) {
+  check(content.teamSize === (content.id === 'labyrinth-rescue' ? 4 : 5), `${content.name} is a ${content.teamSize}-monster deck`);
+  check(pveFloors(content.id).every((floor) => floor.teamSize === content.teamSize), `${content.name}'s floors are read for its own team`);
+}
 const labBosses = pveFloors('labyrinth-boss');
 check(labBosses.map((floor) => floor.name).join() === 'Guilles Hell,Kotos Hell,Leos Hell,Hell', 'Labyrinth keeps each boss separate');
 for (const [index, speed] of [205, 204, 205].entries()) {

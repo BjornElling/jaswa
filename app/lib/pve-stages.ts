@@ -22,6 +22,7 @@
 import stagesData from '../data/swarfarm-pve-stages.json';
 import labyrinthMinibossData from '../data/labyrinth-miniboss-stages.json';
 import { monsterPresentation } from './monster-catalog';
+import { presetContent } from './preset-contents';
 
 /** An area JASWA can look enemies up for, including sampled Labyrinth stage types. */
 export type PveAreaId =
@@ -222,7 +223,7 @@ const statedFloors: readonly PveFloor[] = [{
      boss's Resistance; its estimated Accuracy is deliberately not used. */
   area: 'labyrinth-boss',
   name: 'Hell',
-  teamSize: 5,
+  teamSize: presetContent('labyrinth-boss').teamSize,
   waves: [[{
     monster: null, name: 'Tartarus', level: null, stars: null, speed: null, resistance: 55, accuracy: null,
     hp: null, attack: null, defense: null, criRate: null, criDamageReduction: null,
@@ -246,10 +247,12 @@ function labyrinthSampleFloors(): PveFloor[] {
     ['labyrinth-cooldown', 252, 42, 53_235, 2_128],
     ['labyrinth-time-limit', 268, 86, 102_855, 2_225],
   ] as const;
+  /* The team size is the deck's, never restated: a flat five here once gave
+     Rescue, whose decks hold four, a fifth monster. */
   return rows.map(([area, speed, resistance, hp, defense]) => ({
     area,
     name: area === 'labyrinth-time-limit' ? '20 waves' : 'Hell',
-    teamSize: 5,
+    teamSize: presetContent(area).teamSize,
     waves: [],
     observedMaxima: { speed, resistance, hp, defense, attack: null },
     source: {
