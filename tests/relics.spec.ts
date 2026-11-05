@@ -123,6 +123,28 @@ test('synergy filters use neutral mark-only chips with accessible names', async 
   expect(colours[0]).toBe(colours[1]);
 });
 
+test('Family narrows the library by what a relic grants, and its chips fit their group', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  const family = page.getByRole('group', { name: 'Filter by relic family' });
+  await expect(family.getByRole('button')).toHaveText(['Conquest', 'Resolute', 'Valiant', 'Timeless', 'Primal', 'Restore']);
+  /* Six words where a search field was: they must sit inside the group, not run
+     under the divider of the group beside it. */
+  const overflow = await family.evaluate((group) => {
+    const controls = group.querySelector('.filter-group-controls') as HTMLElement;
+    const last = controls.lastElementChild as HTMLElement;
+    return last.getBoundingClientRect().right - group.getBoundingClientRect().right;
+  });
+  expect(overflow).toBeLessThanOrEqual(0);
+  await family.getByRole('button', { name: 'Conquest', exact: true }).click();
+  /* Three Sharp Conquest relics in the fixture; the Primal and Timeless ones go. */
+  await expect(rows(page)).toHaveCount(3);
+  for (const text of await rows(page).allTextContents()) expect(text).toContain('Conquest');
+  await family.getByRole('button', { name: 'Conquest', exact: true }).click();
+  await expect(rows(page)).toHaveCount(6);
+  await expect(page.getByPlaceholder('Filter relics')).toHaveCount(0);
+});
+
 test('a level says why it is where it is', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);

@@ -1,11 +1,11 @@
 import {
-  relicMaximumLevel, relicPropertyLabel, relicPropertyReduces, relicSourceLabel,
+  relicMaximumLevel, relicPropertyReduces, relicSourceLabel,
 } from './relic-properties';
 import type { Relic } from './relics';
 import type { RelicSynergyBand } from './relic-synergy';
 import { compareRelicSynergy } from './relic-synergy';
 import type { RelicAdvice, RelicVerdict } from './relic-advice';
-import { relicVerdictLabels, relicVerdictOrder } from './relic-advice';
+import { relicVerdictOrder } from './relic-advice';
 
 export type RelicSortKey =
   | 'index' | 'unique' | 'main' | 'synergy' | 'level' | 'durability'
@@ -120,20 +120,4 @@ export function compareRelicRows(left: RelicRow, right: RelicRow, key: RelicSort
     default:
       return 0;
   }
-}
-
-/**
- * What a row answers to in the search field: everything the row actually shows,
- * and nothing it does not — a search that matched text nobody can see would
- * return rows for no visible reason. The reason has its own column, so it is
- * searched.
- */
-export function relicSearchText(row: RelicRow, format: (value: number) => string): string {
-  return [
-    relicPropertyLabel(row.relic.unique.definition),
-    row.relic.mainProperty,
-    relicEffectText(row.relic, format),
-    relicVerdictLabels[row.advice.verdict],
-    row.advice.reason,
-  ].join(' ').toLowerCase();
 }

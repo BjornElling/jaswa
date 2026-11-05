@@ -18,7 +18,7 @@ import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readRelics, relicEngravingCounts } from '../lib/relics';
 import {
-  relicEngravingLimit, relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel,
+  relicEngravingLimit, relicFamilies, relicFamilyByGrant, relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel,
   relicNextTierLevel, relicPropertyLabel,
 } from '../lib/relic-properties';
 import { relicReachChance } from '../lib/relic-power-up-model';
@@ -31,7 +31,7 @@ import {
 } from '../lib/relic-advice';
 import type { RelicInvestmentSelectivity, RelicVerdict } from '../lib/relic-advice';
 import {
-  compareRelicRows, defaultRelicSortDirections, relicEffectText, relicHasLikelyEnd, relicLevelState, relicSearchText,
+  compareRelicRows, defaultRelicSortDirections, relicEffectText, relicHasLikelyEnd, relicLevelState,
 } from '../lib/relic-grid';
 import type { RelicRow, RelicSortKey } from '../lib/relic-grid';
 import { formatNumber } from '../lib/formatting';
@@ -49,8 +49,11 @@ const RelicMonsterList = lazy(() => import('./relic-monster-list')
 
 const durabilityOptions = Array.from({ length: relicMaximumDurability + 1 }, (_, value) => value);
 
+const familyNames = relicFamilies.map((entry) => entry.family);
+
 type RelicFilterState = {
-  search: string;
+  /** The relic's unique-property family — what it grants, in the game's own word. */
+  selectedFamilies: string[];
   selectedMains: RelicMainProperty[];
   selectedBands: RelicSynergyBand[];
   selectedVerdicts: RelicVerdict[];
@@ -69,7 +72,7 @@ type RelicFilterState = {
 };
 
 const defaultRelicFilters: RelicFilterState = {
-  search: '',
+  selectedFamilies: [],
   selectedMains: [],
   selectedBands: [],
   selectedVerdicts: [],
@@ -86,7 +89,8 @@ function isRelicFilterState(value: unknown): value is RelicFilterState {
   const candidate = value as Record<string, unknown>;
   const level = (entry: unknown) => typeof entry === 'number' && Number.isInteger(entry)
     && entry >= 0 && entry <= relicMaximumLevel;
-  return typeof candidate.search === 'string'
+  return Array.isArray(candidate.selectedFamilies)
+    && candidate.selectedFamilies.every((entry) => typeof entry === 'string' && familyNames.includes(entry))
     && Array.isArray(candidate.selectedMains)
     && candidate.selectedMains.every((entry) => relicMainPropertyOrder.includes(entry as RelicMainProperty))
     && Array.isArray(candidate.selectedBands)
@@ -162,7 +166,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.relics', defaultRelicFilters, isRelicFilterState,
   );
-  const { search, selectedMains, selectedBands, selectedVerdicts, selectedDurability,
+  const { selectedFamilies, selectedMains, selectedBands, selectedVerdicts, selectedDurability,
     lowestLevel, highestLevel, showEngraved, showInventory, selectivity } = filters;
 
   const [editingSynergy, setEditingSynergy] = useState(false);
@@ -199,20 +203,17 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
     engraved: engravings.get(relic.id) ?? 0,
   })), [relics, synergy, advice, engravings]);
 
-  const visible = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (!filterPair(row.engraved > 0, showEngraved, showInventory)) return false;
-      if (!filterIncludes(selectedMains, row.relic.mainProperty, relicMainPropertyOrder)) return false;
-      if (!filterIncludes(selectedBands, row.synergy, relicSynergyBandOrder)) return false;
-      if (!filterIncludes(selectedVerdicts, row.advice.verdict, relicVerdictOrder)) return false;
-      if (!filterIncludes(selectedDurability, row.relic.durability, durabilityOptions)) return false;
-      if (row.relic.level < lowestLevel || row.relic.level > highestLevel) return false;
-      if (!term) return true;
-      return relicSearchText(row, format).includes(term);
-    });
-  }, [rows, search, selectedMains, selectedBands, selectedVerdicts, selectedDurability,
-    lowestLevel, highestLevel, showEngraved, showInventory, format]);
+  const visible = useMemo(() => rows.filter((row) => {
+    if (!filterPair(row.engraved > 0, showEngraved, showInventory)) return false;
+    if (!filterIncludes(selectedFamilies,
+      relicFamilyByGrant[row.relic.unique.definition.grants], familyNames)) return false;
+    if (!filterIncludes(selectedMains, row.relic.mainProperty, relicMainPropertyOrder)) return false;
+    if (!filterIncludes(selectedBands, row.synergy, relicSynergyBandOrder)) return false;
+    if (!filterIncludes(selectedVerdicts, row.advice.verdict, relicVerdictOrder)) return false;
+    if (!filterIncludes(selectedDurability, row.relic.durability, durabilityOptions)) return false;
+    return row.relic.level >= lowestLevel && row.relic.level <= highestLevel;
+  }), [rows, selectedFamilies, selectedMains, selectedBands, selectedVerdicts, selectedDurability,
+    lowestLevel, highestLevel, showEngraved, showInventory]);
 
   /* The page exists to answer "which of these is worth anything", so it opens
      on that answer rather than on the order the export happens to list them in. */
@@ -281,20 +282,8 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
         columnGroup={<TableColumnGroup columns={relicTableColumns} />}
         header={<SortableHeader columns={relicColumns} sort={sort} onToggle={toggle} />}
         filters={<>
-          <div className="filter-group relic-filter-search">
-            <span className="filter-label">Search</span>
-            <div className="filter-group-controls">
-              <div className="search-field">
-                <span aria-hidden="true">⌕</span>
-                <input value={search}
-                  onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-                  placeholder="Filter relics" aria-label="Filter relics by property, main stat or advice" />
-                <FilterButton
-                  onClick={() => setFilters((current) => ({ ...current, search: '' }))}
-                  hidden={!search} disabled={!search} aria-label="Clear filter">✕</FilterButton>
-              </div>
-            </div>
-          </div>
+          {toggleGroup('Family', 'Filter by relic family', familyNames, selectedFamilies,
+            'selectedFamilies', (family) => family, 'relic-filter-family')}
           {toggleGroup('Main stat', 'Filter by main stat', relicMainPropertyOrder, selectedMains,
             'selectedMains', (main) => main, 'relic-filter-main')}
           {toggleGroup('Synergy', 'Filter by synergy', relicSynergyBandOrder, selectedBands,

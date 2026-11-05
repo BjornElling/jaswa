@@ -1124,12 +1124,15 @@ label[for] {
   white-space: nowrap;
 }
 
-/* Two rows: what the relic is, then what can still happen to it. Search and the
-   score threshold start their rows and keep the same divider as every group. */
+/* What the relic is on the first row, with Family across two tracks, where its
+   six chips have room; then the threshold beside the advice it moves, and what
+   can still happen to the relic; then where it sits. Every group starting a row
+   keeps the same divider as the rest. */
 .relic-filter-strip {
   grid-template-areas:
-    "search main  synergy    advice"
-    "risk   level durability usage";
+    "family family main  synergy"
+    "risk   advice level durability"
+    "usage  .      .     .";
 }
 .relic-filter-strip > .filter-group,
 .relic-filter-strip > .filter-group:nth-child(2n + 1),
@@ -1138,7 +1141,7 @@ label[for] {
   padding-left: var(--s4);
   border-left: 1px solid var(--line);
 }
-.relic-filter-search { grid-area: search; }
+.relic-filter-family { grid-area: family; }
 .relic-filter-threshold { grid-area: risk; }
 .relic-filter-main { grid-area: main; }
 .relic-filter-synergy { grid-area: synergy; }
@@ -1176,7 +1179,7 @@ label[for] {
 @media (min-width: 1921px) and (max-width: 1700px) {
   .relic-filter-strip {
     grid-template-areas:
-      "search main       synergy"
+      "family main       synergy"
       "risk   level      advice"
       ".      durability usage";
   }
@@ -1184,7 +1187,7 @@ label[for] {
 @media (min-width: 1921px) and (max-width: 1120px) {
   .relic-filter-strip {
     grid-template-areas:
-      "search main"
+      "family main"
       "risk   synergy"
       ".      advice"
       ".      level"
@@ -1196,7 +1199,7 @@ label[for] {
   .relic-filter-strip {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "search"
+      "family"
       "risk"
       "main"
       "synergy"
@@ -1303,13 +1306,12 @@ label[for] {
 .relic-verdict[data-verdict='none'] { color: var(--state-bad); }
 .relic-verdict[data-verdict='unrated'] { color: var(--state-warn); }
 
-/* Two rows: what the monster is, then what it is told to take and which
-   monsters count. Search and Family start their rows and keep the same divider
-   as every group; Family spans two tracks, where its six chips have room. */
+/* Two rows: what the monster is, then which monsters count. Search and Include
+   start their rows and keep the same divider as every group. */
 .relic-monster-filter-strip {
   grid-template-areas:
-    "search element type    ."
-    "family family  include hide";
+    "search  element type ."
+    "include hide    .    .";
 }
 .relic-monster-filter-strip > .filter-group,
 .relic-monster-filter-strip > .filter-group:nth-child(2n + 1),
@@ -1323,7 +1325,6 @@ label[for] {
 .relic-monster-filter-element { grid-area: element; }
 .relic-monster-filter-type { grid-area: type; }
 .relic-monster-filter-include { grid-area: include; }
-.relic-monster-filter-family { grid-area: family; }
 .relic-monster-filter-status { bottom: 0; height: auto; }
 /* "Same" stands where a two-line relic would, so it takes the dimmed half of
    the two-tone pair: the row has nothing to act on, and the cell should read
@@ -1341,7 +1342,6 @@ label[for] {
     grid-template-areas:
       "search  element"
       "type    ."
-      "family  family"
       "include hide";
   }
 }
@@ -1353,7 +1353,6 @@ label[for] {
       "search"
       "element"
       "type"
-      "family"
       "include"
       "hide";
   }

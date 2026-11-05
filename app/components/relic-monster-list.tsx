@@ -34,7 +34,6 @@ import {
 } from '../lib/relic-monster-grid';
 import type { RelicMonsterRow, RelicMonsterSortKey } from '../lib/relic-monster-grid';
 import { formatDecimal, formatNumber } from '../lib/formatting';
-import { relicFamilies, relicFamilyByGrant } from '../lib/relic-properties';
 import { canEngraveRelics } from '../lib/monster-engrave-eligibility';
 import { useSessionStorageState } from '../lib/session-storage-state';
 
@@ -48,12 +47,6 @@ type RelicMonsterFilterState = {
   search: string;
   selectedElements: string[];
   selectedArchetypes: MonsterArchetype[];
-  /**
-   * The family of the *recommended* relic — the page's answer for the row, and
-   * on a Keep row the relic already engraved. A row with nothing recommended
-   * has no family to match, so any narrowing leaves it out.
-   */
-  selectedFamilies: string[];
   showInventory: boolean;
   showStorage: boolean;
   /**
@@ -83,14 +76,11 @@ const defaultRelicMonsterFilters: RelicMonsterFilterState = {
   search: '',
   selectedElements: [],
   selectedArchetypes: [],
-  selectedFamilies: [],
   showInventory: false,
   showStorage: false,
   hideAlreadyEngraved: false,
   hideAlreadyOptimal: false,
 };
-
-const familyNames = relicFamilies.map((entry) => entry.family);
 
 function isRelicMonsterFilterState(value: unknown): value is RelicMonsterFilterState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -100,8 +90,6 @@ function isRelicMonsterFilterState(value: unknown): value is RelicMonsterFilterS
     && candidate.selectedElements.every((entry) => typeof entry === 'string' && elementNameList.includes(entry))
     && Array.isArray(candidate.selectedArchetypes)
     && candidate.selectedArchetypes.every((entry) => monsterFilterArchetypes.includes(entry as MonsterArchetype))
-    && Array.isArray(candidate.selectedFamilies)
-    && candidate.selectedFamilies.every((entry) => typeof entry === 'string' && familyNames.includes(entry))
     && typeof candidate.showInventory === 'boolean'
     && typeof candidate.showStorage === 'boolean'
     && typeof candidate.hideAlreadyEngraved === 'boolean'
@@ -194,7 +182,7 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
     [roster],
   );
   const {
-    search, selectedElements, selectedArchetypes, selectedFamilies, showInventory, showStorage,
+    search, selectedElements, selectedArchetypes, showInventory, showStorage,
     hideAlreadyEngraved, hideAlreadyOptimal,
   } = filters;
 
@@ -314,13 +302,10 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
       if (!filterPair(row.inStorage, showStorage, showInventory)) return false;
       if (!filterIncludes(selectedElements, row.element, elementNameList)) return false;
       if (!filterIncludes(selectedArchetypes, row.archetype, monsterFilterArchetypes)) return false;
-      const recommended = row.recommendation.chosen?.relic;
-      if (!filterIncludes(selectedFamilies,
-        recommended ? relicFamilyByGrant[recommended.unique.definition.grants] : null, familyNames)) return false;
       if (!term) return true;
       return searchedMasterIds?.has(row.masterId) || relicMonsterSearchText(row).includes(term);
     });
-  }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes, selectedFamilies,
+  }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes,
     showInventory, showStorage, hideAlreadyEngraved, hideAlreadyOptimal]);
 
   /* The page exists to answer "what should be engraved on this monster", so it opens
@@ -347,15 +332,6 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
       selectedArchetypes: current.selectedArchetypes.includes(archetype)
         ? current.selectedArchetypes.filter((entry) => entry !== archetype)
         : [...current.selectedArchetypes, archetype],
-    }));
-  }
-
-  function toggleFamily(family: string) {
-    setFilters((current) => ({
-      ...current,
-      selectedFamilies: current.selectedFamilies.includes(family)
-        ? current.selectedFamilies.filter((entry) => entry !== family)
-        : [...current.selectedFamilies, family],
     }));
   }
 
@@ -411,17 +387,6 @@ export function RelicMonsterList({ relics, monsters: roster, preferences, onOpen
               active={selectedArchetypes.includes(archetype)}
               onClick={() => toggleArchetype(archetype)}
             >{monsterArchetypeLabels[archetype]}</FilterButton>)}
-          </div>
-        </div>
-        <div className="filter-group relic-monster-filter-family" role="group" aria-label="Filter by recommended relic family">
-          <span className="filter-label">Family</span>
-          <div className="filter-group-controls">
-            {relicFamilies.map(({ family, grants }) => <FilterButton
-              key={family}
-              active={selectedFamilies.includes(family)}
-              onClick={() => toggleFamily(family)}
-              title={`Recommended relic grants ${grants}`}
-            >{family}</FilterButton>)}
           </div>
         </div>
         <div className="filter-group relic-monster-filter-include" role="group" aria-label="Choose which monsters to include">
