@@ -13,7 +13,7 @@ import { ValueSlider, RangeSlider } from './range-slider';
 import { RelicDurabilityMark, RelicLevelMark, RelicSynergyFilterMark, RelicSynergyMark } from './relic-marks';
 import { RelicSynergyOverlay } from './relic-synergy-overlay';
 import { WorkspacePage } from './workspace-page';
-import { alignmentClass, relicTableColumns } from '../lib/table-layouts';
+import { columnClasses, relicTableColumns } from '../lib/table-layouts';
 import type { GameRecord } from '../lib/game-data';
 import type { ImportedGame, Preferences } from '../lib/types';
 import { readRelics, relicEngravingCounts } from '../lib/relics';
@@ -102,10 +102,7 @@ function isRelicFilterState(value: unknown): value is RelicFilterState {
     && isRelicInvestmentSelectivity(candidate.selectivity);
 }
 
-function relicCell(key: string, ...extra: Array<string | false | undefined>): string {
-  const align = relicTableColumns.find((column) => column.key === key)?.align;
-  return [alignmentClass(align), ...extra].filter(Boolean).join(' ');
-}
+const relicCell = columnClasses(relicTableColumns);
 
 const relicColumns: readonly SortableColumn<RelicRow>[] = (() => {
   const column = (key: RelicSortKey, label: SortableColumn<RelicRow>['label'], accessibleLabel?: string) => ({
@@ -113,6 +110,7 @@ const relicColumns: readonly SortableColumn<RelicRow>[] = (() => {
     label,
     accessibleLabel,
     align: relicTableColumns.find((entry) => entry.key === key)?.align,
+    gutter: relicTableColumns.find((entry) => entry.key === key)?.gutter,
     initialDirection: defaultRelicSortDirections[key] ? 'ascending' as const : 'descending' as const,
     compare: (left: RelicRow, right: RelicRow) => compareRelicRows(left, right, key) || left.index - right.index,
   });

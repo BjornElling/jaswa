@@ -1519,6 +1519,13 @@ label[for] {
    edge gutter instead, so the rule above still wins there. */
 .grid-table thead th.column-gutter-left:not(:first-child),
 .grid-table tbody td.column-gutter-left:not(:first-child) { padding-left: var(--seam); }
+.grid-table thead th.column-gutter-right:not(:last-child),
+.grid-table tbody td.column-gutter-right:not(:last-child) { padding-right: var(--seam); }
+/* The relic table's engraved count is a short figure between two wide groups,
+   and one seam still read as part of the verdict beside it; two set it apart.
+   It has to follow the rule above, which it would otherwise tie with and lose. */
+.relic-grid thead th.column-gutter-right:not(:last-child),
+.relic-grid tbody td.column-gutter-right:not(:last-child) { padding-right: calc(2 * var(--seam)); }
 
 .grid-table thead th {
   position: sticky; top: 0; z-index: 10;

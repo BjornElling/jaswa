@@ -17,8 +17,11 @@ export type ColumnAlignment = 'left' | 'right' | 'center';
  * It is declared on the column plan beside the width rather than written as a
  * CSS rule, for the same reason the widths are: a rule keyed on position would
  * follow the position and not the column when the plan is reordered.
+ *
+ * `right` opens the same seam after a column instead, for when the text that
+ * follows should stay where it is and the figures before it should give way.
  */
-export type ColumnGutter = 'left';
+export type ColumnGutter = 'left' | 'right';
 
 export type TableColumn = {
   key: string;
@@ -38,7 +41,9 @@ export function alignmentClass(align: ColumnAlignment | undefined): string {
 
 /** The gutter's class, on the same terms: one declaration, both halves. */
 export function gutterClass(gutter: ColumnGutter | undefined): string | undefined {
-  return gutter === 'left' ? 'column-gutter-left' : undefined;
+  if (gutter === 'left') return 'column-gutter-left';
+  if (gutter === 'right') return 'column-gutter-right';
+  return undefined;
 }
 
 /**
@@ -217,14 +222,19 @@ export const runeSimulatorTableColumns: readonly TableColumn[] = [
 ];
 
 export const relicTableColumns: readonly TableColumn[] = [
-  { key: 'unique', width: '23%', align: 'left' },
+  { key: 'unique', width: '20%', align: 'left' },
   { key: 'main', width: '7%', align: 'left' },
-  { key: 'synergy', width: '15%', align: 'left' },
+  /* One mark and the longest band name, `Excellent`, leave this a third empty. */
+  { key: 'synergy', width: '12%', align: 'left' },
   { key: 'level', width: '8%', align: 'right' },
   /* Durability is three marks rather than a quantity, so it centres under its
      heading instead of taking the numeric column's right edge. */
   { key: 'durability', width: '10%', align: 'center' },
-  { key: 'engraved', width: '11%', align: 'right' },
+  /* A count right against the verdict's left edge read as one block, so a
+     double seam opens after it (`.relic-grid` in `globals.css`): the count gives
+     way, and Advice and Reason stay put. Its width comes from Synergy and Unique
+     property, which both had room. */
+  { key: 'engraved', width: '17%', align: 'right', gutter: 'right' },
   /* The verdict alone, so the column a reader scans for Power up or Sell is
      one word wide. */
   { key: 'advice', width: '9%', align: 'left' },
