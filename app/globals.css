@@ -443,6 +443,13 @@ label[for] {
   position: sticky;
   top: 0;
   height: 100vh;
+  /* On a window shorter than the rail's own items, the overflow used to
+     spill out below the rail and lengthen the page: on a short page the
+     sticky rail was then pushed up past the top, and on a long one its last
+     items sat out of reach — so opening a disclosure made the rail jump.
+     The rail scrolls itself instead, and never sets the page's height. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* wordmark — the glyph keeps its square, the name sits beside it */
