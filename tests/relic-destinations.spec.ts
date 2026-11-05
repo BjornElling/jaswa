@@ -70,8 +70,8 @@ test('a monster with its best relic already engraved reads Keep and Same', async
   const elucia = monsterRow(page, 'Elucia');
   await expect(current(elucia)).toContainText('Nimble Primal');
   await expect(recommended(elucia)).toHaveText('Same');
-  await expect(mainStat(elucia)).toHaveText('9.38');
-  await expect(uniqueStat(elucia)).toHaveText('2.50');
+  await expect(mainStat(elucia)).toHaveText('11.54');
+  await expect(uniqueStat(elucia)).toHaveText('3.08');
   await expect(advice(elucia)).toHaveText('Keep');
 });
 

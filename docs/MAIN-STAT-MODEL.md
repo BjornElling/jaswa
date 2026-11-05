@@ -51,6 +51,18 @@ identical ranges. It is read from the first source that can say
 - **The fixed mains are excluded.** Slots 1, 3 and 5 always carry flat ATK, DEF
   and HP; counting them adds about the same quarter of base to all three and
   flattens every answer towards a tie.
+- **A chosen main counts twice** (`chosenMainWeight` = 2), in both sources. A
+  slot-2/4/6 main is the one line of a rune its owner picks; a sub, an innate, a
+  grind's target and a set's bonus come with whatever rolled, and count once.
+  Counted alike, a damage dealer whose subs happened to roll HP read as half a
+  tank: Shaina's ATK % slot-6 main and three ATK % subs came to 131 % against
+  111 % from five HP % subs, and the relic plan gave her an HP relic. At 2 that
+  build reads ATK 194 % against HP 111 %. Not more than 2, because a +15 main
+  already carries 63 %, about ten sub rolls' worth: doubling it makes the
+  choice decisive over incidental rolls without letting one main erase subs
+  collected on purpose. The runes source reads the mains as the build's lift with
+  them less its lift without them, so every other line is counted once, by the
+  one effect engine. **Modelled:** JASWA's judgement, not a game rule.
 - **The two sources differ in what they can see.** The statistics source counts
   no set bonus, no grind and no flat line: the panel reports sets only as a
   top-ten list of builds and no grinds at all, and a flat line needs a base the

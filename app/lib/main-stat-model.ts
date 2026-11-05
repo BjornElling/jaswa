@@ -2,6 +2,7 @@ import type { ArtifactMainProperty } from './artifact-properties';
 import { artifactMainPropertyOrder, artifactMainValue } from './artifact-properties';
 import type { GameRecord } from './game-data';
 import { monsterDefaults } from './monster-defaults';
+import type { RuneStatNeed } from './monster-defaults';
 import type { BandedChoices, MonsterCopyPreferences } from './monster-preferences';
 import { statedAnswer, statedBand } from './monster-preferences';
 import { effectSlot, monsterBaseStats, monsterEffects } from './monster-stats';
@@ -111,25 +112,56 @@ function mainAtMaximum(rune: RecordLike): RecordLike {
   return maximum > main[1] ? { ...rune, pri_eff: [main[0], maximum] } : rune;
 }
 
-/* Everything the six runes add, sets and grinds included, except the three fixed
-   mains. A flat line is a real part of the build and is counted against this
-   copy's own base. */
-function runeNeed(monster: GameRecord, base: BaseStats): Record<MainStat, number> | undefined {
-  if (!hasFullRuneBuild(monster)) return undefined;
-  const runes = records(monster.runes).map((rune) =>
-    (fixedMainSlots.has(Number(rune.slot_no)) ? { ...rune, pri_eff: undefined } : mainAtMaximum(rune)));
+/**
+ * How much more a slot-2/4/6 main counts towards the need than any other line.
+ *
+ * A main is the one line of a rune its owner picks, out of seven or eight, and
+ * keeps by engraving the rune; a sub line, an innate, a grind's target and a
+ * set's bonus come with whatever rolled. Counted alike, a damage dealer whose
+ * subs happened to roll HP read as half a tank: Shaina's ATK % slot-6 main and
+ * three ATK % subs came to 131 % against 111 % from five HP % subs, and the relic
+ * plan handed her an HP relic. At 2 the same build reads ATK 194 % against HP
+ * 111 %. 2 rather than more because a main already carries 63 % at +15, about
+ * ten sub rolls' worth, so doubling it makes the choice decisive over a stack of
+ * incidental rolls without letting one main erase a build whose subs were
+ * collected on purpose. **Modelled:** JASWA's judgement, not a game rule.
+ */
+export const chosenMainWeight = 2;
+
+function weighted({ mains, rest }: RuneStatNeed): Record<MainStat, number> | undefined {
+  const need = { HP: 0, ATK: 0, DEF: 0 };
+  for (const stat of artifactMainPropertyOrder) need[stat] = Math.max(0, chosenMainWeight * mains[stat] + rest[stat]);
+  return hasNeed(need) ? need : undefined;
+}
+
+function liftOf(runes: RecordLike[], base: BaseStats): Record<MainStat, number> {
   const effects = monsterEffects({ runes });
-  const need = {
+  return {
     HP: effects[effectSlot.hpPercent] + effects[effectSlot.teamHpPercent] + effects[effectSlot.hpFlat] / base.HP * 100,
     ATK: effects[effectSlot.atkPercent] + effects[effectSlot.teamAtkPercent] + effects[effectSlot.atkFlat] / base.ATK * 100,
     DEF: effects[effectSlot.defPercent] + effects[effectSlot.teamDefPercent] + effects[effectSlot.defFlat] / base.DEF * 100,
   };
-  for (const stat of artifactMainPropertyOrder) need[stat] = Math.max(0, need[stat]);
-  return hasNeed(need) ? need : undefined;
+}
+
+/* Everything the six runes add, sets and grinds included, except the three fixed
+   mains. A flat line is a real part of the build and is counted against this
+   copy's own base. The slot-2/4/6 mains are read as the difference between the
+   build with them and without them, so sets and every other line are counted
+   once, by the one effect engine. */
+function runeNeed(monster: GameRecord, base: BaseStats): Record<MainStat, number> | undefined {
+  if (!hasFullRuneBuild(monster)) return undefined;
+  const engraved = records(monster.runes);
+  const withMains = liftOf(engraved.map((rune) =>
+    (fixedMainSlots.has(Number(rune.slot_no)) ? { ...rune, pri_eff: undefined } : mainAtMaximum(rune))), base);
+  const rest = liftOf(engraved.map((rune) => ({ ...rune, pri_eff: undefined })), base);
+  const mains = { HP: 0, ATK: 0, DEF: 0 };
+  for (const stat of artifactMainPropertyOrder) mains[stat] = withMains[stat] - rest[stat];
+  return weighted({ mains, rest });
 }
 
 function statisticsNeed(masterId: unknown): Record<MainStat, number> | undefined {
-  return monsterDefaults(masterId)?.runes?.mainStatNeed;
+  const parts = monsterDefaults(masterId)?.runes?.mainStatNeed;
+  return parts === undefined ? undefined : weighted(parts);
 }
 
 /**

@@ -13,14 +13,17 @@ const sixRunes = (...named) => {
     .map((slot) => ({ set_id: 0, slot_no: slot, pri_eff: blankMains[slot] }));
   return [...placed, ...blanks];
 };
-const hpRune = { set_id: 13, pri_eff: [2, 100], prefix_eff: [6, 60], sec_eff: [[8, 100, 0, 0]] };
+/* The 100 % HP main counts twice (`chosenMainWeight`) and the 120 % DEF innate
+   once: a need of 200 % HP and 120 % DEF, which is the documented 100:60 and
+   its weights of 0.625 and 0.375. */
+const hpRune = { set_id: 13, pri_eff: [2, 100], prefix_eff: [6, 120], sec_eff: [[8, 100, 0, 0]] };
 const monster = { con: 800, atk: 800, def: 600, spd: 100, runes: sixRunes(hpRune) };
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-10, `${actual} differs from ${expected}`);
 const model = relicMonsterModel(monster);
 assert.equal(model.status, 'ready');
 assert.equal(model.basis, 'runes');
-near(model.need.HP, 100);
-near(model.need.DEF, 60);
+near(model.need.HP, 200);
+near(model.need.DEF, 120);
 near(model.weights.HP, 0.625);
 near(model.weights.DEF, 0.375);
 assert.equal(model.weights.ATK, 0);
@@ -50,8 +53,9 @@ const sets = relicMonsterModel({ ...monster, runes: sixRunes(
   { set_id: 1, pri_eff: [1, 1200], sec_eff: [[6, 10, 0, 5]] },
   { set_id: 1, pri_eff: [3, 80] },
 ) });
-near(sets.need.HP, 25);
-near(sets.need.ATK, 10);
+/* Energy's 15 % HP is a line; the two flat mains (10 % each) are chosen and count twice. */
+near(sets.need.HP, 35);
+near(sets.need.ATK, 20);
 near(sets.need.DEF, 15);
 
 /* Slots 1, 3 and 5 carry their flat main whatever the build is for, so the same

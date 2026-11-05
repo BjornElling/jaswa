@@ -732,7 +732,7 @@ export function TheMathSection() {
         </p>
         <h3 className="type-heading">1. Read the build</h3>
         <p>
-          If runes add 100 % HP and 60 % DEF, with no extra ATK, the weights are <b className="type-body-emphasis">62.5 % HP and 37.5 % DEF</b>: divide each increase by their total, 160 %. Flat stats, grinds and completed personal stat sets count too; the flat mains every slot 1, 3 and 5 rune carries do not, since they say nothing about the build. A monster without six runes is read from the game’s rune statistics for its species instead. Artifacts help size a relic’s effect, but do not set the priorities.
+          If runes add 100 % HP and 60 % DEF, with no extra ATK, the weights are <b className="type-body-emphasis">62.5 % HP and 37.5 % DEF</b>: divide each increase by their total, 160 %. Flat stats, grinds and completed personal stat sets count too; the flat mains every slot 1, 3 and 5 rune carries do not, since they say nothing about the build. A main stat on slot 2, 4 or 6 counts <b className="type-body-emphasis">twice</b>: it is the one line you picked, while subs, innates and set bonuses are what rolled. A 63 % ATK main and 68 % of ATK subs therefore read as 194 % ATK. A monster without six runes is read from the game’s rune statistics for its species instead. Artifacts help size a relic’s effect, but do not set the priorities.
         </p>
         <h3 className="type-heading">2. Add the two bonuses</h3>
         <p>

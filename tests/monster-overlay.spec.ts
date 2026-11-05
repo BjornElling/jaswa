@@ -403,13 +403,14 @@ test('a stated main the maths would not choose carries a yellow mark, and moves 
   await menu.getByRole('menuitem', { name: 'DEF', exact: true }).click();
   await expect(advice).toHaveCount(1);
   await expect(advice).toHaveAttribute('data-tone', 'yellow');
-  await expect(advice).toHaveAttribute('aria-label', 'Suggested mains from runes: artifacts ATK; relic ATK (also HP).');
+  await expect(advice).toHaveAttribute('aria-label', 'Suggested mains from runes: artifacts and relic ATK.');
   await gear.screenshot({ path: testInfo.outputPath('main-stat-advice-after.png') });
   /* The mark sits after a name in a fixed column: nothing around it moves. */
   expect(await boxes()).toEqual(before);
 
-  /* ATK preferred and HP accepted is the relic's answer exactly and the
-     artifacts' within one band, which is the owner's call to make. */
+  /* ATK preferred and HP accepted moves HP one band from the model's answer
+     for both pieces, which is the owner's call to make. The slot-2 ATK main
+     counts twice (`chosenMainWeight`), so the model itself names ATK alone. */
   await dialog.getByRole('button', { name: 'Remove DEF from Main stat, preferred' }).click();
   await preferred.click();
   await menu.getByRole('menuitem', { name: 'ATK', exact: true }).click();
@@ -437,7 +438,7 @@ test('an unfinished even-slot rune keeps its completed main in gear advice', asy
   await dialog.getByRole('button', { name: /^Main stat, preferred:/ }).click();
   await page.getByRole('menu', { name: 'Main stat, preferred' }).getByRole('menuitem', { name: 'DEF', exact: true }).click();
   const advice = dialog.getByRole('img', { name: /Suggested mains from/ });
-  await expect(advice).toHaveAttribute('aria-label', 'Suggested mains from runes: artifacts ATK; relic ATK (also HP).');
+  await expect(advice).toHaveAttribute('aria-label', 'Suggested mains from runes: artifacts and relic ATK.');
   await gear.screenshot({ path: testInfo.outputPath('unfinished-main-after.png') });
   expect(await boxes()).toEqual(before);
 });

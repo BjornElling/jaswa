@@ -109,10 +109,12 @@ export type RuneDefaults = {
   subObservations: number;
   /**
    * What the population's runes add to HP, ATK and DEF, in percent of base, for
-   * `main-stat-model.ts` to read when a copy says nothing of its own. Absent where
-   * the panel holds no percentage line at all.
+   * `main-stat-model.ts` to read when a copy says nothing of its own — the
+   * slot-2/4/6 mains and every other line apart, because the model weighs a
+   * chosen main above a rolled line and owns that weight. Absent where the panel
+   * holds no percentage line at all.
    */
-  mainStatNeed?: Record<ArtifactMainProperty, number>;
+  mainStatNeed?: RuneStatNeed;
 };
 
 export type ArtifactCategoryDefaults = {
@@ -366,6 +368,9 @@ function runeDefaults(panel: RunePanelStatistics | undefined): RuneDefaults | un
 
 const percentEffectIds: Record<ArtifactMainProperty, number> = { HP: 2, ATK: 4, DEF: 6 };
 
+/** A rune build's lift in percent of base: its slot-2/4/6 mains, and everything else. */
+export type RuneStatNeed = { mains: Record<ArtifactMainProperty, number>; rest: Record<ArtifactMainProperty, number> };
+
 /* A six-star sub line's expected worth at +12: its initial roll and, since four
    upgrades fall across four lines, one upgrade on average. Grinds are left out —
    the panel cannot say how many lines carry one. */
@@ -388,25 +393,27 @@ function expectedSubLine(effectId: number): number {
  * not have, and a copy falling back on this panel must read it as its species
  * does or it would disagree with its own species row for no reason.
  */
-function runeStatisticsNeed(panel: RunePanelStatistics): Record<ArtifactMainProperty, number> | undefined {
+function runeStatisticsNeed(panel: RunePanelStatistics): RuneStatNeed | undefined {
   const primary = panel.primaryEffect ?? [];
   const secondary = panel.secondaryEffect ?? [];
   const slotTotals = runeSlotKeys.map((key) => totalCount(primary.filter((row) => row.slotId === runeSlotNumbers[key])));
   const runesPerSlot = slotTotals.reduce((sum, total) => sum + total, 0) / slotTotals.length;
   if (!(runesPerSlot > 0)) return undefined;
 
-  const need = { HP: 0, ATK: 0, DEF: 0 } as Record<ArtifactMainProperty, number>;
+  const mains = { HP: 0, ATK: 0, DEF: 0 } as Record<ArtifactMainProperty, number>;
+  const rest = { HP: 0, ATK: 0, DEF: 0 } as Record<ArtifactMainProperty, number>;
   for (const stat of ['HP', 'ATK', 'DEF'] as const) {
     const effectId = percentEffectIds[stat];
     runeSlotKeys.forEach((key, at) => {
       if (slotTotals[at] <= 0) return;
       const count = totalCount(primary.filter((row) => row.slotId === runeSlotNumbers[key] && row.effectId === effectId));
-      need[stat] += count / slotTotals[at] * mainPropertyMaximum(6, effectId);
+      mains[stat] += count / slotTotals[at] * mainPropertyMaximum(6, effectId);
     });
     const lines = totalCount(secondary.filter((row) => row.effectId === effectId));
-    need[stat] += lines / runesPerSlot * expectedSubLine(effectId);
+    rest[stat] += lines / runesPerSlot * expectedSubLine(effectId);
   }
-  return need.HP + need.ATK + need.DEF > 0 ? need : undefined;
+  const total = (['HP', 'ATK', 'DEF'] as const).reduce((sum, stat) => sum + mains[stat] + rest[stat], 0);
+  return total > 0 ? { mains, rest } : undefined;
 }
 
 function artifactCategoryDefaults(

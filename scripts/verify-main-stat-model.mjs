@@ -29,7 +29,7 @@ const server = await createServer({ configFile: false, appType: 'custom', server
 try {
   const {
     copyMainStatAdvice, copyMainStatNeed, speciesMainStatAdvice, contradictsAdvice, copyArtifactMainBands,
-    honouredMainStat, mainStatStatement,
+    honouredMainStat, mainStatStatement, chosenMainWeight,
   } = await server.ssrLoadModule('/app/lib/main-stat-model.ts');
   const { defaultedMonsterSpeciesIds } = await server.ssrLoadModule('/app/lib/monster-defaults.ts');
 
@@ -47,12 +47,14 @@ try {
   const copy = (runes, extra = {}) => ({ ...even, runes, ...extra });
   const bands = (advice) => advice.bands;
 
-  /* The documented examples. */
+  /* The documented examples. A slot-2/4/6 main counts `chosenMainWeight` (2)
+     times, every other line once. */
+  assert.equal(chosenMainWeight, 2);
   const lopsided = copyMainStatAdvice(copy(build(
     { pri_eff: [2, 63], sec_eff: [[2, 17, 0, 0]] }, { pri_eff: [4, 10] }, { pri_eff: [6, 10] },
   )));
   assert.equal(lopsided.basis, 'runes');
-  assert.deepEqual(lopsided.need, { HP: 80, ATK: 10, DEF: 10 });
+  assert.deepEqual(lopsided.need, { HP: 143, ATK: 20, DEF: 20 });
   assert.deepEqual(bands(lopsided.relic), { HP: 'preferred', ATK: 'unwanted', DEF: 'unwanted' });
   assert.deepEqual(bands(lopsided.artifact), bands(lopsided.relic), 'With equal bases an artifact answers as a relic does');
 
@@ -71,9 +73,21 @@ try {
   const withFixed = copyMainStatNeed(copy(build({ pri_eff: [2, 40] }).map((rune) => ({
     ...rune, ...(rune.slot_no === 1 ? { pri_eff: [3, 160] } : rune.slot_no === 5 ? { pri_eff: [1, 2448] } : {}),
   }))));
-  assert.deepEqual(withFixed.need, { HP: 40, ATK: 0, DEF: 0 });
+  assert.deepEqual(withFixed.need, { HP: 80, ATK: 0, DEF: 0 });
   const guarded = copyMainStatNeed(copy(build({ pri_eff: [2, 40] }).map((rune) => ({ ...rune, set_id: rune.slot_no <= 2 ? 2 : 0 }))));
-  assert.deepEqual(guarded.need, { HP: 40, ATK: 0, DEF: 15 });
+  assert.deepEqual(guarded.need, { HP: 80, ATK: 0, DEF: 15 }, 'A set bonus is a line, not a chosen main');
+
+  /* A chosen main outweighs a stack of rolled lines: an ATK % slot-6 main and
+     three ATK % subs (131 % at face value) against five HP % subs (111 %) is
+     the build of a damage dealer, and reads as one. */
+  const dealer = copyMainStatAdvice(copy(build(
+    { pri_eff: [8, 42], sec_eff: [[2, 32, 0, 0], [6, 16, 0, 0]] },
+    { pri_eff: [10, 80], sec_eff: [[4, 22, 0, 0], [2, 13, 0, 0]] },
+    { pri_eff: [4, 63], sec_eff: [[2, 27, 0, 0], [6, 13, 0, 0], [4, 19, 0, 0]] },
+  ).map((rune) => (rune.slot_no === 3 ? { ...rune, sec_eff: [[2, 25, 0, 0], [6, 15, 0, 0]] }
+    : rune.slot_no === 5 ? { ...rune, sec_eff: [[2, 14, 0, 0], [4, 27, 0, 0]] } : rune))));
+  assert.deepEqual(dealer.need, { HP: 111, ATK: 194, DEF: 44 });
+  assert.deepEqual(bands(dealer.relic), { HP: 'acceptable', ATK: 'preferred', DEF: 'unwanted' });
 
   /* Only the deterministic remainder of an unfinished even-slot main is
      projected. Star class, including Ancient, decides its +15 value. */
@@ -82,7 +96,7 @@ try {
     { class: 5, upgrade_curr: 12, pri_eff: [4, 30] },
     { class: 16, upgrade_curr: 14, pri_eff: [5, 100] },
   ));
-  assert.deepEqual(copyMainStatNeed(partlyLeveled).need, { HP: 63, ATK: 61, DEF: 16 });
+  assert.deepEqual(copyMainStatNeed(partlyLeveled).need, { HP: 126, ATK: 112, DEF: 32 });
   assert.deepEqual(copyMainStatAdvice(partlyLeveled).relic.bands,
     { HP: 'preferred', ATK: 'preferred', DEF: 'unwanted' });
   const finished = copy(build(
