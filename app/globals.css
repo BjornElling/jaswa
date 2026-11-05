@@ -1142,17 +1142,18 @@ label[for] {
 .relic-filter-threshold { grid-area: risk; }
 .relic-filter-main { grid-area: main; }
 .relic-filter-synergy { grid-area: synergy; }
+/* A mark-only chip keeps the chip's own padding and spacing, like Durability's
+   digits beside it: the marks sit at the same inset, and a chosen one gets the
+   same full gold box rather than one shrunk to the glyph. */
 .relic-filter-synergy .filter-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
 }
-.relic-filter-synergy .filter-group-controls { gap: var(--s4); }
 /* The filter repeats the table's shapes but inherits the chip's colour. A
    band is a filter value here, not a verdict, so it does not carry the table's
    colour vocabulary. Every chip holds one mark of one size, so the chips
-   measure alike and the shared control gap is the gap between every mark. */
+   measure alike. */
 .relic-synergy-filter-mark { display: inline-flex; color: currentColor; }
 .relic-filter-advice { grid-area: advice; }
 .relic-filter-level { grid-area: level; }
