@@ -3,6 +3,14 @@ import type { Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { holdWorkerRequests } from './hold-worker-requests';
 
+/** Opens a section bar, leaving one that already stands open. Recommendations
+    opens by itself, so a click would close it. */
+async function openSection(page: Page, title: string) {
+  const summary = page.locator('summary').filter({ hasText: title });
+  if (!(await summary.evaluate((node) => node.parentElement?.hasAttribute('open')))) await summary.click();
+}
+
+
 /**
  * Live sync replaces the whole import every time the game changes. A reader
  * scrolled down Best use or What's missing must stay where they are: nothing in
@@ -56,7 +64,7 @@ for (const [title, mode] of [['Recommendations', 'recommendations'], ['Best use 
       rune.sec_eff = [[2, 8, 0, 0], [8, 30, 0, revision === 1 ? 1 : revision === 2 ? 2 : 5], [9, 6, 0, 0], [10, 5, 0, 0]];
     });
     await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
-    await page.locator('summary').filter({ hasText: title }).click();
+    await openSection(page, title);
     const panel = page.locator(`[data-mode="${mode}"]`);
     await panel.getByRole('combobox', { name: 'Narrow the list to one stat' }).selectOption('8');
     await page.screenshot({ path: testInfo.outputPath('before-calculation.png'), fullPage: true });
@@ -124,7 +132,7 @@ for (const [title, mode] of [['Best use for this', 'selected'], ["What's missing
     const helper = await liveHelper(page);
     if (mode === 'selected') await seedKeepers(page);
     await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
-    await page.locator('summary').filter({ hasText: title }).click();
+    await openSection(page, title);
     const panel = page.locator(`[data-mode="${mode}"]`);
     const cards = panel.locator('.craft-recommendation');
     await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();

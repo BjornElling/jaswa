@@ -251,19 +251,19 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
   />;
 
   /* Recommendations leads: it is the question most visits come with — what to
-     spend next — and the box beneath it is the inventory it answers from. The
-     box alone opens by itself, because it needs no calculation to say
-     something. Best use narrows the answer to one stack; What's missing turns
+     spend next — and the box beneath it is the inventory it answers from. So
+     Recommendations is the one that opens by itself, calculation and all: the
+     box is a lookup, the answer is what the visit is for. Best use narrows the answer to one stack; What's missing turns
      it round and asks what the box lacks. */
   return <WorkspacePage
     header={<PageHeader
       title="Gems &amp; Grinds"
       tagline="" />}
   >
-    <Disclosure title="Recommendations" sessionKey="gems.recommendations" deferContent>
+    <Disclosure title="Recommendations" sessionKey="gems.recommendations" defaultOpen deferContent>
       {!items.length ? noItems : craftView('recommendations', craftCalculation)}
     </Disclosure>
-    <Disclosure title="Your box" sessionKey="gems.box" defaultOpen>
+    <Disclosure title="Your box" sessionKey="gems.box">
       {!items.length ? noItems : <div className="craft-library">
         <DataTablePage
           filterClassName="craft-filter-strip"
