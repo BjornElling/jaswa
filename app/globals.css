@@ -1060,37 +1060,32 @@ label[for] {
 }
 .relic-grid td.relic-main { font-family: var(--font-body); font-variant-numeric: tabular-nums; }
 
-/* One mark's box, drawn or not. A slot keeps its width in every state, so a
-   band with one star measures the same as a band with two and the column
-   beside it cannot shift (rule 2). */
+/* One mark's box, drawn or not. Every band's mark and every level mark share
+   one 14px box, so a change of band or state cannot re-measure the column
+   beside it (rule 2). */
 .relic-mark-slots { display: inline-flex; align-items: center; gap: var(--s1); }
 .relic-mark-slot { display: inline-flex; width: 14px; height: 14px; }
-.relic-mark-spare { visibility: hidden; }
 .relic-mark { width: 14px; height: 14px; }
-.relic-mark-star { fill: currentColor; stroke: none; }
-.relic-mark-cross,
-.relic-mark-diamond,
+.relic-mark-synergy,
 .relic-mark-line {
   fill: none; stroke: currentColor; stroke-width: 1.6;
   stroke-linecap: round; stroke-linejoin: round;
 }
+.relic-mark-synergy[data-band='excellent'] { fill: currentColor; stroke: none; }
 
-/* The fit, in the same three-way vocabulary the rest of the app already reads:
-   the accent where the grade is itself the invitation to act — the artifact
-   score's exception, for the same reason — the verdict red where JASWA is
-   reporting that its own measurement came out against the relic, and the
-   established dim in between. Degree is carried by the number of marks, never
-   by a second shade, and the band's name is written beside them so the column
-   still reads with the colour taken away. */
+/* The fit is loudest at its two ends and quiet between them. Gold only on
+   Excellent, where the grade is itself the invitation to act — the artifact
+   score's exception, for the same reason. Red only on Trash, the verdict red
+   for a relic JASWA's own measurement came out against. Good takes the verdict
+   green as a stroked tick, which against the filled star is already the lighter
+   of the two, and Poor drops to the muted tone so red keeps one meaning. The
+   band's name is written beside the mark, so the column still reads with the
+   colour taken away. */
 .relic-synergy { display: inline-flex; align-items: center; gap: var(--s2); }
-/* The active mark belongs against the band name. A spare slot grows outward
-   to the left, so one-star and two-star labels share the same measure without
-   leaving a misleading gap before the text. */
-.relic-synergy .relic-mark-slots { flex-direction: row-reverse; }
-.relic-synergy[data-band='excellent'],
-.relic-synergy[data-band='good'] { color: var(--text-accent); }
+.relic-synergy[data-band='excellent'] { color: var(--text-accent); }
+.relic-synergy[data-band='good'] { color: var(--state-good); }
 .relic-synergy[data-band='niche'] { color: var(--text); }
-.relic-synergy[data-band='poor'],
+.relic-synergy[data-band='poor'] { color: var(--text-muted); }
 .relic-synergy[data-band='trash'] { color: var(--state-bad); }
 
 /* Durability is three pips and always three: the spent ones are the reason a
@@ -1155,10 +1150,9 @@ label[for] {
 .relic-filter-synergy .filter-group-controls { gap: var(--s4); }
 /* The filter repeats the table's shapes but inherits the chip's colour. A
    band is a filter value here, not a verdict, so it does not carry the table's
-   gold or red vocabulary. A chip is only as wide as its visible marks, so the
-   shared control gap is the actual gap between every adjacent mark. */
+   colour vocabulary. Every chip holds one mark of one size, so the chips
+   measure alike and the shared control gap is the gap between every mark. */
 .relic-synergy-filter-mark { display: inline-flex; color: currentColor; }
-.relic-synergy-filter-mark .relic-mark-slots { gap: var(--s1); }
 .relic-filter-advice { grid-area: advice; }
 .relic-filter-level { grid-area: level; }
 .relic-filter-durability { grid-area: durability; }

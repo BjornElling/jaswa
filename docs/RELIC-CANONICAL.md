@@ -225,31 +225,38 @@ word that would read as a pass.
 
 | id | Unique property | Grants | Reads | HP main | ATK main | DEF main |
 | ---: | --- | --- | --- | --- | --- | --- |
-| 1 | Sharp Conquest | DMG dealt | ATK | ★ Good | ★★ Excellent | ◇ Niche |
-| 2 | Solid Conquest | DMG dealt | DEF | ✕✕ Trash | ✕✕ Trash | ◇ Niche |
-| 3 | Hearty Conquest | DMG dealt | MAX HP | ★ Good | ✕ Poor | ✕ Poor |
-| 4 | Sharp Resolute | DMG taken | ATK | ✕✕ Trash | ✕ Poor | ✕✕ Trash |
-| 5 | Solid Resolute | DMG taken | DEF | ✕✕ Trash | ✕✕ Trash | ✕ Poor |
-| 6 | Hearty Resolute | DMG taken | MAX HP | ★ Good | ✕✕ Trash | ◇ Niche |
-| 7 | Nimble Valiant | ATK | SPD | ★ Good | ★★ Excellent | ◇ Niche |
-| 8 | Solid Valiant | ATK | DEF | ✕ Poor | ◇ Niche | ◇ Niche |
-| 9 | Hearty Valiant | ATK | MAX HP | ◇ Niche | ◇ Niche | ✕ Poor |
-| 10 | Sharp Timeless | DEF | ATK | ✕ Poor | ✕ Poor | ✕ Poor |
-| 11 | Nimble Timeless | DEF | SPD | ◇ Niche | ✕ Poor | ★ Good |
-| 12 | Hearty Timeless | DEF | MAX HP | ★ Good | ✕ Poor | ★ Good |
-| 13 | Sharp Primal | MAX HP | ATK | ◇ Niche | ◇ Niche | ✕ Poor |
-| 14 | Nimble Primal | MAX HP | SPD | ★★ Excellent | ★ Good | ★ Good |
-| 15 | Solid Primal | MAX HP | DEF | ★ Good | ✕ Poor | ★ Good |
-| 16 | Hearty Restore | Recovery & Shield | MAX HP | ◇ Niche | ✕✕ Trash | ✕✕ Trash |
+| 1 | Sharp Conquest | DMG dealt | ATK | ✓ Good | ★ Excellent | ◇ Niche |
+| 2 | Solid Conquest | DMG dealt | DEF | ✕ Trash | ✕ Trash | ◇ Niche |
+| 3 | Hearty Conquest | DMG dealt | MAX HP | ✓ Good | 👎 Poor | 👎 Poor |
+| 4 | Sharp Resolute | DMG taken | ATK | ✕ Trash | 👎 Poor | ✕ Trash |
+| 5 | Solid Resolute | DMG taken | DEF | ✕ Trash | ✕ Trash | 👎 Poor |
+| 6 | Hearty Resolute | DMG taken | MAX HP | ✓ Good | ✕ Trash | ◇ Niche |
+| 7 | Nimble Valiant | ATK | SPD | ✓ Good | ★ Excellent | ◇ Niche |
+| 8 | Solid Valiant | ATK | DEF | 👎 Poor | ◇ Niche | ◇ Niche |
+| 9 | Hearty Valiant | ATK | MAX HP | ◇ Niche | ◇ Niche | 👎 Poor |
+| 10 | Sharp Timeless | DEF | ATK | 👎 Poor | 👎 Poor | 👎 Poor |
+| 11 | Nimble Timeless | DEF | SPD | ◇ Niche | 👎 Poor | ✓ Good |
+| 12 | Hearty Timeless | DEF | MAX HP | ✓ Good | 👎 Poor | ✓ Good |
+| 13 | Sharp Primal | MAX HP | ATK | ◇ Niche | ◇ Niche | 👎 Poor |
+| 14 | Nimble Primal | MAX HP | SPD | ★ Excellent | ✓ Good | ✓ Good |
+| 15 | Solid Primal | MAX HP | DEF | ✓ Good | 👎 Poor | ✓ Good |
+| 16 | Hearty Restore | Recovery & Shield | MAX HP | ◇ Niche | ✕ Trash | ✕ Trash |
 
 3 Excellent · 11 Good · 12 Niche · 13 Poor · 9 Trash.
 
-**How a band reads.** Excellent two gold stars, Good one gold star, Niche
-a hollow diamond, Poor one red cross, Trash two. Gold at the top two bands is the
-`ARTIFACT-CANONICAL.md` §18 reasoning — there the grade *is* the invitation to
-act; the red is the verdict vocabulary (`--state-bad`). Degree is the number of
-marks, never a second shade, and the band's name is written beside them, so the
-column reads the same without colour.
+**How a band reads.** One mark per band, each its own shape: Excellent a
+filled gold star, Good a green tick, Niche a hollow diamond, Poor a muted thumb
+down, Trash a red cross. Every mark but the star is a stroke, so the top band
+carries the most ink. The scale is loudest at its two ends. Gold on Excellent
+alone is the `ARTIFACT-CANONICAL.md` §18 reasoning: there the grade *is* the
+invitation to act. Green and red are the verdict vocabulary (`--state-good`,
+`--state-bad`), and red is kept for Trash alone, so it means one thing. The
+band's name is written beside its mark, so the column reads the same without
+colour.
+
+Degree was once the number of marks, two gold stars against one and two crosses
+against one. It failed at a glance: a column of gold reads as gold before it
+reads as two, so Excellent drowned in Good.
 
 ### 5.2 Why the table is not measured from the player base
 

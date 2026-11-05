@@ -13,49 +13,35 @@ import type { RelicLevelState } from '../lib/relic-grid';
  * to say still reserves its space.
  */
 
-function Star() {
-  return <svg className="relic-mark relic-mark-star" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-    <path d="M8 1.6 10 6.2 15 6.6 11.2 9.9 12.4 14.8 8 12.2 3.6 14.8 4.8 9.9 1 6.6 6 6.2z" />
-  </svg>;
-}
-
-function Cross() {
-  return <svg className="relic-mark relic-mark-cross" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-    <path d="M4 4 12 12M12 4 4 12" />
-  </svg>;
-}
-
-function Diamond() {
-  return <svg className="relic-mark relic-mark-diamond" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-    <path d="M8 2.5 13.5 8 8 13.5 2.5 8z" />
-  </svg>;
-}
-
-/** How many marks a band draws, and which. The second slot is always present. */
-const bandMarks: Record<RelicSynergyBand, { mark: 'star' | 'cross' | 'diamond'; count: 1 | 2 }> = {
-  excellent: { mark: 'star', count: 2 },
-  good: { mark: 'star', count: 1 },
-  niche: { mark: 'diamond', count: 1 },
-  poor: { mark: 'cross', count: 1 },
-  trash: { mark: 'cross', count: 2 },
+/**
+ * One shape per band, and one mark only.
+ *
+ * Degree was once the number of marks — two gold stars against one — and a
+ * column of gold read as gold before it read as two, so Excellent drowned in
+ * Good. Each band now owns a shape. The star is the only filled one, so the top
+ * band carries the most ink without needing a second copy of itself.
+ */
+const bandPaths: Record<RelicSynergyBand, string> = {
+  excellent: 'M8 1.6 10 6.2 15 6.6 11.2 9.9 12.4 14.8 8 12.2 3.6 14.8 4.8 9.9 1 6.6 6 6.2z',
+  good: 'M3 8.6 6.4 12 13 4.4',
+  niche: 'M8 2.5 13.5 8 8 13.5 2.5 8z',
+  /* A thumb down: the hand as one outline, a long thumb and a short cuff
+     stroke. Finger lines are noise at 14px; without the cuff the hand reads
+     as a flag. */
+  poor: 'M3.6 1.8H10A1.2 1.2 0 0 1 11.2 3V7.6A1 1 0 0 1 10.2 8.6H8.6L8.2 13.2A1.3 1.3 0 0 1 5.6 13.2L5.7 8.6H3.1A1 1 0 0 1 2.1 7.4L2.4 2.9A1.2 1.2 0 0 1 3.6 1.8zM13.6 2V8.2',
+  trash: 'M4 4 12 12M12 4 4 12',
 };
 
-function SynergyGlyph({ band, reserveSecondSlot = true }: {
-  band: RelicSynergyBand;
-  reserveSecondSlot?: boolean;
-}) {
-  const { mark, count } = bandMarks[band];
-  const glyph = mark === 'star' ? <Star /> : mark === 'cross' ? <Cross /> : <Diamond />;
-  return <span className="relic-mark-slots" aria-hidden="true">
-    <span className="relic-mark-slot">{glyph}</span>
-    {(count === 2 || reserveSecondSlot) && <span
-      className={count === 2 ? 'relic-mark-slot' : 'relic-mark-slot relic-mark-spare'}
-    >{glyph}</span>}
+function SynergyGlyph({ band }: { band: RelicSynergyBand }) {
+  return <span className="relic-mark-slot" aria-hidden="true">
+    <svg className="relic-mark relic-mark-synergy" data-band={band} viewBox="0 0 16 16" focusable="false">
+      <path d={bandPaths[band]} />
+    </svg>
   </span>;
 }
 
 /**
- * A relic's fit, as two reserved slots and the band's name.
+ * A relic's fit, as the band's mark and its name.
  *
  * The name stays in the text beside the marks. Colour here says the same thing
  * the shape does, and `AGENTS.md` rule 5 is explicit that where colour names a
@@ -72,7 +58,7 @@ export function RelicSynergyMark({ band }: { band: RelicSynergyBand }) {
 /** The same mark vocabulary, without the table's band colour or text label. */
 export function RelicSynergyFilterMark({ band }: { band: RelicSynergyBand }) {
   return <span className="relic-synergy-filter-mark" data-band={band}>
-    <SynergyGlyph band={band} reserveSecondSlot={false} />
+    <SynergyGlyph band={band} />
   </span>;
 }
 

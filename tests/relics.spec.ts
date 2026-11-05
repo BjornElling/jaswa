@@ -80,23 +80,23 @@ test('the table opens on synergy, best fit first', async ({ page }) => {
   await expect(rows(page).last()).toContainText('Poor');
 });
 
-test('synergy marks grow outward from the band name', async ({ page }) => {
+test('every synergy band draws one mark in one box, before its name', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const strong = rowFor(page, 'per 1,000 ATK').locator('.relic-synergy[data-band="good"]');
-  const active = strong.locator('.relic-mark-slot:not(.relic-mark-spare)');
-  const slots = strong.locator('.relic-mark-slots');
-  const label = strong.locator('.relic-synergy-label');
-  const markBox = await active.boundingBox();
-  const slotBox = await slots.boundingBox();
-  const labelBox = await label.boundingBox();
-  expect(markBox).not.toBeNull();
-  expect(slotBox).not.toBeNull();
-  expect(labelBox).not.toBeNull();
-  /* The sole active mark must be the slot nearest the name, not the left slot
-     separated from it by the reserved spare. */
-  expect(Math.abs((markBox?.x ?? 0) + (markBox?.width ?? 0) - (slotBox?.x ?? 0) - (slotBox?.width ?? 0))).toBeLessThan(1);
-  expect((slotBox?.x ?? 0) + (slotBox?.width ?? 0)).toBeLessThan(labelBox?.x ?? 0);
+  /* One shape per band and one mark each: a band that drew two would be wider
+     than its neighbours and re-measure the column (rule 2). */
+  const marks = await page.locator('.relic-grid .relic-synergy').evaluateAll((entries) => entries.map((entry) => {
+    const svgs = entry.querySelectorAll('svg');
+    const label = entry.querySelector('.relic-synergy-label')?.getBoundingClientRect();
+    const box = svgs[0]?.parentElement?.getBoundingClientRect();
+    return { count: svgs.length, width: box?.width ?? 0, before: !!box && !!label && box.right < label.left };
+  }));
+  expect(marks.length).toBeGreaterThan(0);
+  for (const mark of marks) {
+    expect(mark.count).toBe(1);
+    expect(mark.width).toBeCloseTo(marks[0].width, 3);
+    expect(mark.before).toBe(true);
+  }
 });
 
 test('synergy filters use neutral mark-only chips with accessible names', async ({ page }) => {
@@ -105,18 +105,15 @@ test('synergy filters use neutral mark-only chips with accessible names', async 
   const group = page.getByRole('group', { name: 'Filter by synergy' });
   const strongest = group.getByRole('button', { name: 'Excellent', exact: true });
   await expect(strongest).toHaveText('');
-  await expect(strongest.locator('.relic-mark-star')).toHaveCount(2);
-  await expect(group.getByRole('button', { name: 'Niche', exact: true })
-    .locator('.relic-mark-slot:not(.relic-mark-spare) .relic-mark-diamond')).toHaveCount(1);
-  await expect(group.getByRole('button', { name: 'Poor', exact: true })
-    .locator('.relic-mark-slot:not(.relic-mark-spare) .relic-mark-cross')).toHaveCount(1);
-  await expect(group.getByRole('button', { name: 'Trash', exact: true })
-    .locator('.relic-mark-slot:not(.relic-mark-spare) .relic-mark-cross')).toHaveCount(2);
+  for (const band of ['Excellent', 'Good', 'Niche', 'Poor', 'Trash']) {
+    await expect(group.getByRole('button', { name: band, exact: true })
+      .locator(`.relic-mark-synergy[data-band="${band.toLowerCase()}"]`)).toHaveCount(1);
+  }
   const buttons = await group.locator('.filter-button').evaluateAll((entries) => entries.map((entry) => {
     const { x, width } = entry.getBoundingClientRect();
     return { x, width };
   }));
-  expect(buttons[0].width).toBeGreaterThan(buttons[1].width);
+  buttons.forEach((entry) => expect(entry.width).toBeCloseTo(buttons[0].width, 3));
   const gaps = buttons.slice(1).map((entry, index) => entry.x - (buttons[index].x + buttons[index].width));
   gaps.forEach((gap) => expect(gap).toBeCloseTo(gaps[0], 3));
   const colours = await strongest.locator('.relic-synergy-filter-mark').evaluate((mark) => [
