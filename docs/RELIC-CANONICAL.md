@@ -245,12 +245,13 @@ word that would read as a pass.
 3 Excellent · 11 Good · 12 Niche · 13 Poor · 9 Trash.
 
 **How a band reads.** One mark per band, each its own shape: Excellent a
-filled gold star, Good a green tick, Niche a hollow diamond, Poor a muted thumb
-down, Trash a red cross. Every mark but the star is a stroke, so the top band
-carries the most ink. The scale is loudest at its two ends. Gold on Excellent
-alone is the `ARTIFACT-CANONICAL.md` §18 reasoning: there the grade *is* the
-invitation to act. Green and red are the verdict vocabulary (`--state-good`,
-`--state-bad`), and red is kept for Trash alone, so it means one thing. The
+filled gold star, Good a green tick, Niche a hollow diamond, Poor a thumb down
+in the muted tone with a trace of red, Trash a red cross. Every mark but the
+star is a stroke, so the top band carries the most ink. The scale is loudest at
+its two ends. Gold on Excellent alone is the `ARTIFACT-CANONICAL.md` §18
+reasoning: there the grade *is* the invitation to act. Green and red are the
+verdict vocabulary (`--state-good`, `--state-bad`). The full red is kept for
+Trash, and Poor only leans towards it, so the two never read as one. The
 band's name is written beside its mark, so the column reads the same without
 colour.
 
@@ -491,6 +492,13 @@ them; rule 3 is asked before rule 2, and their conditions are disjoint:
 - **Rule 5 — every other open relic** compares its investment score with the slider's
    threshold: at or above it powers up, below it keeps, reading `<chance> chance
    of the next +1`. This is the only rule the threshold decides.
+
+**A Trash relic that sells says nothing more.** Whichever rule sold it, its
+reason reads `No further explanation needed.` and the likely end
+under it stays blank, its line kept so the row does not change height when
+the slider moves the relic in or out of the sale. No chance about a relic headed
+for the shop changes what to do with it. The rules themselves are unchanged:
+under *Naive* a Trash relic passes the gate and is judged like any other.
 
 **Rule 0, the capacity exception.** The duplicate rules rest on one copy
 already covering more monsters than an account fields. A copy engraved on its

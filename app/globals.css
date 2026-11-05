@@ -1078,14 +1078,15 @@ label[for] {
    score's exception, for the same reason. Red only on Trash, the verdict red
    for a relic JASWA's own measurement came out against. Good takes the verdict
    green as a stroked tick, which against the filled star is already the lighter
-   of the two, and Poor drops to the muted tone so red keeps one meaning. The
+   of the two. Poor is the muted tone with a trace of that red: it leans the way
+   Trash goes without claiming the full red, which stays Trash's alone. The
    band's name is written beside the mark, so the column still reads with the
    colour taken away. */
 .relic-synergy { display: inline-flex; align-items: center; gap: var(--s2); }
 .relic-synergy[data-band='excellent'] { color: var(--text-accent); }
 .relic-synergy[data-band='good'] { color: var(--state-good); }
 .relic-synergy[data-band='niche'] { color: var(--text); }
-.relic-synergy[data-band='poor'] { color: var(--text-muted); }
+.relic-synergy[data-band='poor'] { color: color-mix(in srgb, var(--state-bad) 40%, var(--text-muted)); }
 .relic-synergy[data-band='trash'] { color: var(--state-bad); }
 
 /* Durability is three pips and always three: the spent ones are the reason a

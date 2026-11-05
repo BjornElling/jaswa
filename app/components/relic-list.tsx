@@ -192,7 +192,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
        the fallback exists because a `Map` lookup is optional, not because a
        relic could be missing. */
     advice: advice.get(relic.id) ?? {
-      verdict: 'keep', reason: '', reachChance: 0, nextChance: 0, investmentScore: 0, expectedGain: 0,
+      verdict: 'keep', reason: '', selfEvident: false, reachChance: 0, nextChance: 0, investmentScore: 0, expectedGain: 0,
       expectedLevel: relic.level,
       landing: { level: relic.level, chance: 1, likeliest: { level: relic.level, chance: 1 } },
       supersededBy: null, overtakeChance: null,
@@ -386,12 +386,15 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
                   median of the landing distribution with the size of its own
                   tail — a median is a statement about a tail, and the tail is
                   never exactly a half. Whether that line is there follows the
-                  relic alone, never a control on the page. */}
+                  relic alone, never a control on the page. A Trash relic being
+                  sold keeps the line's box but draws nothing in it: the slider
+                  can move it in and out of the sale, and the row must not
+                  change height when it does. */}
               <td className={relicCell('reason')}
-                title={relicHasLikelyEnd(row.levelState) ? likelyEndDetail(row) : undefined}>
+                title={relicHasLikelyEnd(row.levelState) && !row.advice.selfEvident ? likelyEndDetail(row) : undefined}>
                 <span className="relic-advice-reason">{row.advice.reason}</span>
                 {relicHasLikelyEnd(row.levelState) && <span className="relic-landing">
-                  {likelyEndText(row)}
+                  {row.advice.selfEvident ? null : likelyEndText(row)}
                 </span>}
               </td>
             </tr>;

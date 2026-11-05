@@ -411,6 +411,27 @@ test('a saved cell is the band the library judges by, and it survives a reload',
   await expect(rowFor(page, 'per 2,500 ATK')).toContainText('Poor');
 });
 
+test('a Trash relic being sold needs no figures, and its row keeps its height', async ({ page }) => {
+  await importAccount(page, relicAccount);
+  await openRelics(page);
+  /* The fixture's one Poor pair, a +5 with attempts left, so its likely end
+     is printed until it turns Trash. */
+  const row = rowFor(page, 'per 2,000 ATK');
+  const reason = row.locator('td').last();
+  await expect(reason.locator('.relic-landing')).not.toHaveText('');
+  const height = (await row.boundingBox())?.height;
+
+  await openEditor(page);
+  await cell(page, 'Sharp Timeless, DEF main: Poor').click();
+  await editor(page).getByRole('button', { name: 'Save synergy' }).click();
+  await expect(editor(page)).toBeHidden();
+
+  await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Sell', 'No further explanation needed.']);
+  await expect(reason.locator('.relic-landing')).toHaveText('');
+  await expect(reason).not.toHaveAttribute('title');
+  expect((await row.boundingBox())?.height).toBe(height);
+});
+
 test('Reset to defaults puts every shipped cell back once saved', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);

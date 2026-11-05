@@ -163,6 +163,12 @@ export type RelicAdvice = {
   verdict: RelicVerdict;
   /** The short chance or status the Reason column shows beside the verdict. */
   reason: string;
+  /**
+   * A Trash relic the advice sells. Its reason is the verdict itself, so the page
+   * prints no chances beside it: no figure about a relic headed for the shop
+   * would change what to do with it.
+   */
+  selfEvident: boolean;
   /** `P(l, d)` — the chance this relic ever reaches `+15`. Near zero for most. */
   reachChance: number;
   /** Levels the relic is expected to gain before its durability runs out. */
@@ -180,6 +186,9 @@ export type RelicAdvice = {
   /** `P(l, d, incumbent's level + 1)`, or `null` when there is no incumbent. */
   overtakeChance: number | null;
 };
+
+/** Why a Trash relic is sold: it is Trash. */
+export const relicSelfEvidentReason = 'No further explanation needed.';
 
 const pairKey = (relic: Relic) => `${relic.mainProperty}:${relic.unique.definition.id}`;
 
@@ -251,11 +260,15 @@ export function relicAdvice(
        so. See the note on `decide`. */
     const incumbentIsFull = incumbent !== null
       && (engravings?.get(incumbent.id) ?? 0) >= relicEngravingLimit;
+    const decision = decide({
+      chance, score, overtakeChance, incumbent, incumbentIsFull,
+      relic, threshold, band, minimumBand,
+    });
+    const selfEvident = band === 'trash' && decision.verdict === 'sell';
     advice.set(relic.id, {
-      ...decide({
-        chance, score, overtakeChance, incumbent, incumbentIsFull,
-        relic, threshold, band, minimumBand,
-      }),
+      verdict: decision.verdict,
+      reason: selfEvident ? relicSelfEvidentReason : decision.reason,
+      selfEvident,
       reachChance,
       expectedGain: relicExpectedLevel(chances) - relic.level,
       nextChance: chance,
