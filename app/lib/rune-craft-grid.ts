@@ -44,10 +44,10 @@ const craftTieBreakOrder: readonly { key: CraftTieBreakKey; direction: 1 | -1 }[
 /** What an item is looking for, for the title on the count that reports it. */
 export function craftRequirementText(item: CraftItem): string {
   const scope = craftScopeWord(item);
-  const runes = scope ? `${scope} runes` : 'runes of any set';
+  const runes = scope ? `${scope} runes` : 'Non-Ancient runes';
   return item.kind === 'gem'
-    ? `This Gem can raise ${item.statName} on ${runes} at +${gemMinimumLevel} or higher. If a rune already has ${item.statName}, the Gem's best roll must exceed its current value.`
-    : `This Grindstone can raise ${item.statName} on ${runes} where its best grind exceeds the current bonus.`;
+    ? `${runes} at +${gemMinimumLevel} or higher where this Gem's best roll raises ${item.statName}`
+    : `${runes} where this Grindstone's best grind raises ${item.statName}`;
 }
 
 /** `7–10`, or the em dash where no verified range exists (Ancient items). */

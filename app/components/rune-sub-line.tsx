@@ -39,18 +39,20 @@ export function RuneSubLine({ property, format = String, as: Element = 'span', c
   const totalFigure = runeLineFigure(property.statId, runeSubValue(property), format);
   const figure = stepped ? runeLineFigure(property.statId, property.value, format) : totalFigure;
   const grindFigure = runeLineFigure(property.statId, property.grind, format);
+  /* The title says only what the line itself does not: the line is already in
+     view, so repeating it made the one fact worth hovering for hard to find. */
   const facts = [
-    ground ? `includes Grindstone ${grindFigure}` : undefined,
-    property.gemmed ? 'from an Enchanted Gem' : undefined,
+    property.gemmed ? 'From an Enchanted Gem' : undefined,
+    ground ? `Grindstone adds ${grindFigure}` : undefined,
   ].filter((fact): fact is string => fact !== undefined);
   return <Element className={className} data-ground={ground && !stepped ? 'true' : undefined}
-    title={facts.length > 0 ? `${name} ${stepped ? `${figure} → ${totalFigure}` : figure}, ${facts.join(', ')}` : undefined}>
+    title={facts.length > 0 ? facts.join('\n') : undefined}>
     <span className="rune-sub-name">{name}</span>
     <span className="rune-sub-value">{figure}</span>
     <span className="rune-sub-marks">
-      {property.gemmed && <CircularArrowsMark label={`${name} came from an Enchanted Gem`} className="rune-sub-gem" />}
+      {property.gemmed && <CircularArrowsMark label={`${name} from an Enchanted Gem`} className="rune-sub-gem" />}
       {stepped && <span className="rune-sub-grind-step">→ <span className="rune-sub-ground-figure">{totalFigure}</span></span>}
-      {ground && <span className="visually-hidden">, includes Grindstone {grindFigure}</span>}
+      {ground && <span className="visually-hidden">, Grindstone adds {grindFigure}</span>}
       {children}
     </span>
   </Element>;

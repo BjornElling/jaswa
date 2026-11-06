@@ -25,9 +25,17 @@ test('craft controls reserve their boxes and calculate three grind rankings', as
   await openSection(page, 'Best use for this');
   const panel = page.locator('[data-mode="selected"]');
   const filters = panel.locator('.craft-best-use-filters');
-  const bounds = await filters.boundingBox();
+  /* Measured on the page, not in the viewport: the controls sit at the
+     viewport's lower edge, and a click that scrolls them into view moved every
+     box at once, which read as a layout shift where there was none. */
+  const pageBox = () => filters.evaluate((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x: x + window.scrollX, y: y + window.scrollY, width, height };
+  });
+  const bounds = await pageBox();
   const boxes = () => panel.locator('.filter-group').evaluateAll((elements) => elements.map((element) => {
-    const { x, y, width, height } = element.getBoundingClientRect(); return { x, y, width, height };
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x: x + window.scrollX, y: y + window.scrollY, width, height };
   }));
   const before = await boxes();
   await page.screenshot({ path: testInfo.outputPath('craft-controls-before.png'), fullPage: true });
@@ -37,7 +45,7 @@ test('craft controls reserve their boxes and calculate three grind rankings', as
   await panel.getByRole('button', { name: 'Grindstone', exact: true }).click();
   expect(await boxes()).toEqual(before);
   await chooseItem(page, 'Violent', 'Grind', 'SPD');
-  expect(await filters.boundingBox()).toEqual(bounds);
+  expect(await pageBox()).toEqual(bounds);
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(panel.getByRole('heading', { name: /^Highest stat/ })).toBeVisible();
   await expect(panel.locator('.craft-ranking')).toHaveCount(3);
@@ -566,7 +574,7 @@ test('ignoring the best Gem hands the rune to the next best stat, and without on
   await expect(sameRune.locator('.craft-recommendation-title')).toHaveText(/ · SPD( \(\+ \d+\))?$/);
   /* An Ignore made long ago still decides what the rune is offered, so the rune's
      other cards carry a mark beside Ignore, naming what is waved away on hover. */
-  await expect(ignoredMark(sameRune)).toHaveAttribute('title', 'Ignored\nSPD Gem');
+  await expect(ignoredMark(sameRune)).toHaveAttribute('title', 'Ignored on this rune\nSPD Gem');
   await expect(ignoredMark(sameRune)).toHaveAccessibleName('Ignored on this Violent rune: SPD Gem');
   expect(new Set(await buttonOffsets())).toEqual(offsetBefore);
   await sameRune.first().screenshot({ path: testInfo.outputPath('ignored-mark-on-grind-card.png') });
@@ -860,8 +868,8 @@ test('the box opens by item, set, Ancient, stat and quality, while a chosen sort
     .toHaveText(['Hero', 'Legend', 'Legend', 'Legend', 'Hero', 'Legend', 'Hero', 'Hero']);
   await expect(rows.locator('td:nth-child(3)'))
     .toHaveText(['CRI Rate', 'Resistance', 'SPD', 'SPD', 'ATK %', 'SPD', 'SPD', 'SPD']);
-  await expect(rows.nth(3).locator('td').nth(1).getByTitle('Ancient')).toHaveText('A');
-  await expect(rows.nth(4).locator('td').nth(1).getByTitle('Ancient')).toHaveCount(0);
+  await expect(rows.nth(3).locator('td').nth(1).getByTitle('Ancient', { exact: true })).toHaveText('A');
+  await expect(rows.nth(4).locator('td').nth(1).getByTitle('Ancient', { exact: true })).toHaveCount(0);
 
   /* Quantity takes the lead when chosen; ties return to Gem/Grind, Set, Ancient,
      Stat and descending quality instead of falling back to import order. */
@@ -882,7 +890,7 @@ test('a same-stat gem remains usable when its best roll can raise the rune', asy
   const row = page.locator('.craft-grid tbody tr').filter({ hasText: 'Accuracy' });
   await expect(row).toHaveCount(1);
   await expect(row.locator('td').nth(6)).toHaveText('1');
-  await expect(row.locator('td').nth(6)).toHaveAttribute('title', /If a rune already has SPD, the Gem's best roll must exceed its current value/);
+  await expect(row.locator('td').nth(6)).toHaveAttribute('title', "Accuracy runes at +12 or higher where this Gem's best roll raises SPD");
   /* One Accuracy rune has a weak SPD line the Legend Gem could raise; the
      other is already at the Gem's ceiling and does not inflate the count. */
   await expect(row.locator('td')).toHaveCount(7);
@@ -917,12 +925,12 @@ test('the count covers each rune the item can improve, including engraved runes'
   /* Ancient items carry their own verified ranges, not a borrowed ordinary
      table. The row is found by the mark rather than by the word: the Set column
      names the set and the mark says Ancient, and there is no Family column. */
-  const ancient = rows.filter({ has: page.getByTitle('Ancient') });
+  const ancient = rows.filter({ has: page.getByTitle('Ancient', { exact: true }) });
   await expect(ancient).toHaveCount(1);
   const ancientSet = ancient.locator('td').nth(1);
   await expect(ancientSet).toContainText('Violent');
   await expect(ancientSet).not.toContainText('Ancient');
-  await expect(ancientSet.getByTitle('Ancient')).toHaveText('A');
+  await expect(ancientSet.getByTitle('Ancient', { exact: true })).toHaveText('A');
   await expect(ancient.locator('td').nth(4)).not.toHaveText('—');
 
   const tables = page.locator('.craft-grid');

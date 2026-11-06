@@ -280,8 +280,8 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
                   active={kinds.includes(kind)}
                   onClick={() => toggleValue(kind, 'kinds')}
                   title={kind === 'gem'
-                    ? "Replaces one sub property with this Gem's stat"
-                    : 'Adds a grind bonus to one existing sub property'}
+                    ? 'Replaces one sub property with a new stat'
+                    : 'Raises one existing sub property'}
                 >{craftKindLabels[kind]}</FilterButton>)}
               </div>
             </div>
@@ -337,11 +337,11 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
               <div className="filter-group-controls">
                 <FilterButton active={showUsable}
                   onClick={() => setFilters((current) => ({ ...current, showUsable: !current.showUsable }))}
-                  title="Items that could improve at least one rune you own"
+                  title="Items that can improve at least one of your runes"
                 >Usable</FilterButton>
                 <FilterButton active={showDead}
                   onClick={() => setFilters((current) => ({ ...current, showDead: !current.showDead }))}
-                  title="Items that cannot improve any rune you own"
+                  title="Items that cannot improve any of your runes"
                 >Dead stock</FilterButton>
               </div>
             </div>
@@ -382,7 +382,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
               <td className={craftCell('stat')}>{row.item.statName}</td>
               <td className={craftCell('grade')}>{row.item.grade}</td>
               <td className={craftCell('range', !row.item.range && 'muted')}
-                title={row.item.range ? undefined : 'This item has no legal roll range.'}>
+                title={row.item.range ? undefined : 'Roll range not known'}>
                 {craftRangeText(row.item, format)}
               </td>
               <td className={craftCell('quantity')}>{format(row.item.amount)}</td>

@@ -63,7 +63,7 @@ const ignoredName = (entry: CraftIgnore) => `${runeStatName(entry.statId) ?? `St
 /* An Immemorial item rolls what the set's own item rolls, so What's missing
    names the set's item and says on its title that either will do. */
 const immemorialAlternative = (item: CraftItem) => item.amount === 0 && item.lineage === 'standard'
-  ? `An Immemorial ${item.statName} ${craftKindLabels[item.kind]} of this grade fits too` : undefined;
+  ? `A ${item.grade} Immemorial ${item.statName} ${craftKindLabels[item.kind]} works too` : undefined;
 
 export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles, general, settings, hardwareAcceleration, onOpenRune, calculation, onCalculated, ignores, onIgnore, choice: state, onChoiceChange: setState }: {
   mode: CraftViewMode;
@@ -276,8 +276,8 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       <div className="craft-recommendation-head">
         <h4 className="craft-recommendation-title" title={immemorialAlternative(lead.item)}>
           <CraftItemName item={lead.item} />
-          {spent.length > 1 && <span className="craft-item-quiet" title={spent.filter((entry) => entry !== lead)
-            .map((entry) => `${entry.item.grade} ${entry.item.setName ?? craftLineageLabels.immemorial} ${entry.item.statName} ${craftKindLabels[entry.item.kind]}`).join(', ')}>
+          {spent.length > 1 && <span className="craft-item-quiet" title={['Also on this rune', ...spent.filter((entry) => entry !== lead)
+            .map((entry) => `${entry.item.grade} ${entry.item.setName ?? craftLineageLabels.immemorial} · ${entry.item.statName}`)].join('\n')}>
             {' '}(+ {format(spent.length - 1)})</span>}
         </h4>
         <div className="craft-recommendation-aside">
@@ -286,7 +286,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           <span className="craft-ignored-mark" role={ignoredOnRune.length ? 'img' : undefined}
             aria-hidden={ignoredOnRune.length ? undefined : true}
             aria-label={ignoredOnRune.length ? `Ignored on this ${rune.setName} rune: ${ignoredOnRune.map(ignoredName).join(', ')}` : undefined}
-            title={ignoredOnRune.length ? ['Ignored', ...ignoredOnRune.map(ignoredName)].join('\n') : undefined}
+            title={ignoredOnRune.length ? ['Ignored on this rune', ...ignoredOnRune.map(ignoredName)].join('\n') : undefined}
             data-shown={ignoredOnRune.length > 0 || undefined}>
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4"
               strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -297,7 +297,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           </span>
           <InlineButton onClick={() => onIgnore(ignoreOf(lead))}
             aria-label={`Ignore ${lead.item.statName} ${craftKindLabels[lead.item.kind]} on this ${rune.setName} rune`}
-            title={`Stop suggesting ${lead.item.statName} ${craftKindLabels[lead.item.kind]}s for this rune throughout Gems & Grinds`}>Ignore</InlineButton>
+            title={`Stop suggesting ${lead.item.statName} ${craftKindLabels[lead.item.kind]}s for this rune, in every view`}>Ignore</InlineButton>
         </div>
       </div>
       <header className="craft-rune-header">
@@ -381,8 +381,8 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     <table className="craft-wanted-table">
       <thead><tr>
         <th scope="col">Item</th>
-        <th scope="col" title="Runes on which this is the missing item that lifts them furthest past your box">Runes</th>
-        <th scope="col" title="The largest score gain over your box on one of those runes">Gain</th>
+        <th scope="col" title="Runes for which this is the best item you lack">Runes</th>
+        <th scope="col" title="Its largest gain on one of those runes, beyond your box's best">Gain</th>
       </tr></thead>
       <tbody>{Array.from({ length: wantedLength }, (_, at) => {
         const entry = answered ? wanted[at] : undefined;
@@ -400,7 +400,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     aria-label={`Reset ${{ recommendations: 'recommendations', selected: 'best use', missing: "what's missing" }[mode]} filters`}>Reset filters</Button>
     {/* Kept mounted while there is nothing to reset, so the panel never changes height. */}
     <Button className="filter-reset" disabled={!ignores.length} onClick={() => onIgnore(null)}
-      title={ignores.length ? `Suggest again the ${format(ignores.length)} ignored throughout Gems & Grinds` : 'Nothing is ignored in Gems & Grinds'}>Reset ignored</Button>
+      title={ignores.length ? `Bring back ${format(ignores.length)} ignored ${ignores.length === 1 ? 'suggestion' : 'suggestions'}` : 'Nothing is ignored'}>Reset ignored</Button>
   </div>;
 
   return <div className="craft-best-use" data-mode={mode}>
@@ -447,14 +447,14 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
         (value) => kind === 'gem' ? state.gemChange === value : state.already.includes(value),
         (value) => kind === 'gem' ? update('gemChange', value) : toggle('already', value),
         (value) => value === 'yes' ? 'Yes' : 'No', kind === 'gem'
-          ? (value) => value === 'yes' ? 'Allow changing an existing Gem to another stat' : 'Keep the existing Gem stat; a better same-stat Gem is still allowed'
+          ? (value) => value === 'yes' ? "A gem'ed stat may be swapped for another stat" : "Keep the gem'ed stat; only a higher roll of it"
           : undefined, alreadyLabel,
         /* Both wordings keep their room, so switching the item kind cannot move the groups beside this one. */
         <LabelSwap faces={{ grindstone: 'Stat already grinded', gem: "Can change gem'ed stat?" }} showing={kind} />)}
       {/* Rune Clean-up's calculated Keep, read past the sell safeguards: Power up,
           Re-app, Refine and a rune kept only by a safeguard all stay out. */}
       {mode === 'selected' && choiceGroup('Only keep-runes', 'keep', ['yes'] as const, () => state.keepOnly,
-        () => update('keepOnly', !state.keepOnly), () => 'Yes', () => 'Only runes whose calculated Rune Clean-up verdict is Keep')}
+        () => update('keepOnly', !state.keepOnly), () => 'Yes', () => 'Only runes Rune Clean-up says to keep')}
     </div>
     </div>
     <aside className="craft-side">

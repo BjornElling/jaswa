@@ -364,9 +364,9 @@ export const craftLineageLabels: Readonly<Record<CraftLineage, string>> = {
 
 /** What the item's lineage means for where it can go, for a control's title. */
 export const craftLineageNotes: Readonly<Record<CraftLineage, string>> = {
-  standard: 'Goes on runes of its own set only',
-  immemorial: 'Goes on a rune of any set',
-  ancient: 'Goes on Ancient runes only, and they take nothing else',
+  standard: 'Fits non-Ancient runes of its own set',
+  immemorial: 'Fits non-Ancient runes of any set',
+  ancient: 'Fits Ancient runes of its own set, the only item they take',
 };
 
 /**
