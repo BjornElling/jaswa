@@ -375,7 +375,8 @@ an import, and are checked one preset at a time on load.
   after them; one without a content stands with the presets not yet named.
 - *Add preset* sits at the right, starts the new preset in the chosen content
   under the name the game would give its next one, and is available as soon as
-  a content other than Scenario is chosen, and only while live sync is off.
+  a content other than Scenario is chosen. Live sync leaves it on: the new
+  preset lives in the preferences, which no sync overwrites.
 - While live sync is off, the game's presets are the user's to change too:
   a monster is added to the first empty position or taken out of its own,
   the crown names the leader, and *Delete preset* removes it. Each change is

@@ -195,30 +195,36 @@ function previousPlaceName(runeId: string, place: string | null, places: Places)
 /**
  * The card's Lock and Exclude, for this rune and this monster in the build's
  * preset (`rune-locks.ts`). One choice in two boxes: pressing the one that is on
- * takes it off, pressing the other replaces it. Both are always drawn, and only
- * disabled where no choice can be made, so the card keeps one shape. Each names
- * the move it makes (`runeLockLabels`), and holds both its wordings, since
- * pressing it moves the rune and with it the wording.
+ * takes it off, pressing the other replaces it. Both are always drawn, so the
+ * card keeps one shape. Each names the move it makes (`runeLockLabels`), and
+ * holds both its wordings, since pressing it moves the rune and with it the
+ * wording.
+ *
+ * Where JASWA may not move runes — Always synchronized, outside a preset built
+ * here — the choice still binds the search: Exclude leaves the rune where it is
+ * and says only Exclude, and Lock is off for a rune that would have to come here.
  */
-function LockChoices({ slot, lock, onMonster, disabled, onLock }: {
+function LockChoices({ slot, lock, onMonster, canMove, onLock }: {
   slot: number;
   lock: RuneLock | undefined;
   /** Whether the rune is on this monster in the build's preset now. */
   onMonster: boolean;
-  disabled: boolean;
+  canMove: boolean;
   onLock: (lock: RuneLock | null) => void;
 }) {
   const toggle = (choice: RuneLock) => onLock(lock === choice ? null : choice);
-  const label = (choice: RuneLock) => <LabelSwap faces={runeLockLabels[choice]} showing={onMonster ? 'onMonster' : 'elsewhere'} />;
-  /* Only Always synchronized turns these off. */
-  const title = disabled ? alwaysSynchronizedReason : undefined;
+  const label = (choice: RuneLock, onMonsterFace: boolean) => <LabelSwap faces={runeLockLabels[choice]}
+    showing={onMonsterFace ? 'onMonster' : 'elsewhere'} />;
+  const lockOff = !onMonster && !canMove;
   return <div className="rune-build-card-locks" role="group" aria-label={`Slot ${slot} rune for this monster`}>
-    <InlineButton pressed={lock === 'locked'} disabled={disabled} title={title} onClick={() => toggle('locked')}>{label('locked')}</InlineButton>
-    <InlineButton pressed={lock === 'excluded'} disabled={disabled} title={title} onClick={() => toggle('excluded')}>{label('excluded')}</InlineButton>
+    <InlineButton pressed={lock === 'locked'} disabled={lockOff} title={lockOff ? alwaysSynchronizedReason : undefined}
+      onClick={() => toggle('locked')}>{label('locked', onMonster)}</InlineButton>
+    {/* Taking the rune off is the move; without it the wording is the plain one. */}
+    <InlineButton pressed={lock === 'excluded'} onClick={() => toggle('excluded')}>{label('excluded', onMonster && canMove)}</InlineButton>
   </div>;
 }
 
-function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock, lockDisabled, onLock }: {
+function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock, canMove, onLock }: {
   picked: CurrentPick;
   rune: Rune | undefined;
   /** Where the rune sat when the import was loaded, where JASWA has moved it since; else `undefined`. */
@@ -227,7 +233,8 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
   format: (value: number) => string;
   onOpenRune: OpenRuneOverlay;
   lock: RuneLock | undefined;
-  lockDisabled: boolean;
+  /** Whether a choice may move the rune on or off this monster (`LockChoices`). */
+  canMove: boolean;
   onLock: (lock: RuneLock | null) => void;
 }) {
   if (!rune) {
@@ -297,14 +304,14 @@ function RuneCard({ picked, rune, loadedPlace, places, format, onOpenRune, lock,
           </span>
         </div>
       </div>
-      <LockChoices slot={picked.slot} lock={lock} onMonster={rune.occupiedId === places.thisMonster} disabled={lockDisabled} onLock={onLock} />
+      <LockChoices slot={picked.slot} lock={lock} onMonster={rune.occupiedId === places.thisMonster} canMove={canMove} onLock={onLock} />
     </div>
   </li>;
 }
 
 export function RuneBuildOverlay({
   index, buildName, moves, runes, followable, runesById, presetId, loadedPlacements, scenarioPlaces, poolPlaces, monster, engravedOn, general, canEngrave, onEngrave,
-  canLock, lockOf, onLock, onClose, onOpenRune, onOpenMonster,
+  lockOf, onLock, onClose, onOpenRune, onOpenMonster,
 }: {
   index: number;
   /** The preset the build is for. */
@@ -324,10 +331,9 @@ export function RuneBuildOverlay({
   monster: BuildMonster;
   engravedOn: (unitId: string) => EngravedOnMonster | undefined;
   general: GeneralSettings;
+  /** Whether JASWA may move runes in this preset: always in one built here, otherwise not under live sync. Lock and Exclude read it too. */
   canEngrave: boolean;
   onEngrave: (unitId: string, runeIds: readonly string[]) => Promise<void>;
-  /** Whether Lock and Exclude may change: not while JASWA is synchronized with the game. */
-  canLock: boolean;
   /** What the user has said about a rune for this monster in this preset. */
   lockOf: (runeId: string) => RuneLock | undefined;
   /** Sets or clears one rune's choice; a lock engraves the rune first. */
@@ -427,7 +433,7 @@ export function RuneBuildOverlay({
         <ol className="rune-build-runes" aria-label="Runes">
           {bySlot.map((picked) => <RuneCard key={picked.slot} picked={picked} rune={runesById.get(picked.runeId)}
             loadedPlace={loadedPlacements?.[picked.runeId]} places={places} format={format} onOpenRune={onOpenRune}
-            lock={lockOf(picked.runeId)} lockDisabled={!canLock}
+            lock={lockOf(picked.runeId)} canMove={canEngrave}
             onLock={(choice) => void lock(picked.runeId, choice)} />)}
         </ol>
         <div className="rune-build-centre">

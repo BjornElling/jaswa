@@ -20,11 +20,14 @@ import type { Preset } from './presets';
  *   carries takes it off first, so an exclusion never names a rune in use.
  *
  * Both belong to the import, not to the preferences: they are stored with the
- * game data (`ImportedGame.runeLocks`) and go with it, so a new file, a new
- * game session or a live sync starts with none — the game knows no such thing
- * and its data is the account as it now is. While the helper keeps JASWA
- * synchronized they are off altogether, since the next sync would undo the
- * engraving a lock makes.
+ * game data (`ImportedGame.runeLocks`) and go with it, so a new file or a
+ * session read on game start begins with none — the game knows no such thing
+ * and its data is the account as it now is. Under *Always synchronized* the
+ * import is replaced on every change in the game, and the choices carry from
+ * one revision of the same account to the next (`carriedRuneLocks`). There they
+ * still bind the search, and only the engraving that comes with them is off
+ * where the game owns the placement: a rune may be locked only where it already
+ * is, and excluding one the monster carries leaves it there.
  */
 export type RuneLock = 'locked' | 'excluded';
 
@@ -142,6 +145,19 @@ export function heldRuneLocks(locks: RuneLocks, presets: readonly Preset[]): Run
     }
   }
   return pruned(next);
+}
+
+/**
+ * The choices a live revision of the same account keeps: every one whose rune
+ * is still in the account, and of the locks those that still hold. A sold rune
+ * takes its exclusions with it rather than leaving them stored for good.
+ */
+export function carriedRuneLocks(locks: RuneLocks, runeIds: ReadonlySet<string>, presets: readonly Preset[]): RuneLocks {
+  const next = copied(locks);
+  for (const byUnit of Object.values(next)) for (const byRune of Object.values(byUnit)) {
+    for (const runeId of Object.keys(byRune)) if (!runeIds.has(runeId)) delete byRune[runeId];
+  }
+  return heldRuneLocks(pruned(next), presets);
 }
 
 const isIdentifier = (value: string) => value.length > 0 && value.length <= 64;

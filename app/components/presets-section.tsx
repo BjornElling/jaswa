@@ -65,15 +65,15 @@ export type PresetWrites = {
  * kept — until the next import states the game's own again. A preset built here
  * is the user's whole: a draft to build in the game once its runes are right.
  */
-export function PresetsSection({ game, monsters, preferences, presets, selectedId, canCreate, onSelect, onWrite, onOpenMonster, onOptimize, onTuneSpeed }: {
+export function PresetsSection({ game, monsters, preferences, presets, selectedId, canChangeGamePresets, onSelect, onWrite, onOpenMonster, onOptimize, onTuneSpeed }: {
   game: ImportedGame | null;
   monsters: readonly GameRecord[];
   preferences: Preferences;
   presets: readonly Preset[];
   /** `''` until the user has chosen. */
   selectedId: string;
-  /** Building a preset here is for a workspace the game does not overwrite. */
-  canCreate: boolean;
+  /** Whether the game's presets are the user's to change: not while live sync would put them back. A preset built here always is. */
+  canChangeGamePresets: boolean;
   onSelect: (presetId: string) => void;
   onWrite: PresetWrites;
   onOpenMonster: OpenMonsterOverlay;
@@ -110,10 +110,10 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
       return [unitId, { unitId, masterId: String(monster.unit_master_id ?? ''), name: names[unitId]?.name ?? unitId, record: monster }];
     })), [monsters, names]);
   /* The game's presets live in the import, which live sync would put back at once. */
-  const gameEditable = preset?.kind === 'game' && canCreate;
+  const gameEditable = preset?.kind === 'game' && canChangeGamePresets;
   /* Said on every control live sync turns off, and only on those: a control off
      for another reason — Scenario has no content, a preset is full — says nothing. */
-  const syncedGame = preset?.kind === 'game' && !canCreate ? alwaysSynchronizedReason : undefined;
+  const syncedGame = preset?.kind === 'game' && !canChangeGamePresets ? alwaysSynchronizedReason : undefined;
   /* A preset of a content takes no more than the content's team, and a game
      preset no more than its deck has positions for. */
   const full = own !== null ? own.content !== null && own.members.length >= presetContent(own.content).teamSize
@@ -266,10 +266,10 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
         <p className="monster-priority-about" title={warnings || undefined}>{warnings}</p>
         <div className="monster-priority-actions">
           {/* A preset is added to the content chosen, whether or not one of its
-              presets is: Scenario has no content to add to. */}
-          <Button ref={createButton} tone="important" disabled={!canCreate || onScenario}
-            onClick={() => setCreating(true)}
-            title={canCreate ? undefined : alwaysSynchronizedReason}>Add preset</Button>
+              presets is: Scenario has no content to add to. It lives in the
+              preferences, which no sync overwrites, so live sync leaves it on. */}
+          <Button ref={createButton} tone="important" disabled={onScenario}
+            onClick={() => setCreating(true)}>Add preset</Button>
           <Button tone="danger" disabled={!deletable} title={syncedGame} onClick={deletePreset}>Delete preset</Button>
           {/* One per preset, since it opens the whole team; always here and
               disabled where there is no team, so the panel keeps one shape. */}
@@ -282,7 +282,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
       <section className="panel monster-priority-list-panel" aria-labelledby="monster-priority-list-title" aria-disabled={preset === null || undefined}>
         <h3 id="monster-priority-list-title" className="type-heading">Priority</h3>
         <p className="monster-priority-note">
-          {canCreate ? '' : 'With Always synchronized on, the game decides the monsters and the leader. '}
+          {canChangeGamePresets ? '' : 'With Always synchronized on, the game decides the monsters and the leader of its own presets. '}
           The order decides who takes runes from whom in Rune Optimization: higher takes from lower.
         </p>
         {preset === null

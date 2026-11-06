@@ -14,7 +14,7 @@ in the current browser tab only and is cleared when that tab closes.
 
 | Record | Holds | Lives in |
 | --- | --- | --- |
-| The imported game | The prepared account collections the counts read (`IMPORT-PARITY-CONTRACT.md` §2); for each preset JASWA has engraved a build in, where each moved rune sat when the import was loaded (`loadedPlacements`, the build overlay's *Previously*); the runes locked to or excluded from monsters since (`runeLocks`, `rune-locks.ts`). Both go with the import, so the next one starts without | IndexedDB |
+| The imported game | The prepared account collections the counts read (`IMPORT-PARITY-CONTRACT.md` §2); for each preset JASWA has engraved a build in, where each moved rune sat when the import was loaded (`loadedPlacements`, the build overlay's *Previously*); the runes locked to or excluded from monsters since (`runeLocks`, `rune-locks.ts`). Both go with the import, so the next one starts without — except that under *Always synchronized* the locks carry from one revision of the same account to the next | IndexedDB |
 | The preferences | Every saved choice, by section below | IndexedDB, with a `localStorage` mirror |
 | The export folder | The chosen folder handle, where the browser supports it | IndexedDB |
 

@@ -25,7 +25,7 @@ export type ImportedGame = {
    * where the game says, and nothing has moved.
    */
   loadedPlacements?: Record<string, Record<string, string | null>>;
-  /** The runes locked to and excluded from monsters since this import (`rune-locks.ts`); absent on every fresh import. */
+  /** The runes locked to and excluded from monsters since this import (`rune-locks.ts`); absent on every fresh import except a live revision of the same account, which carries them. */
   runeLocks?: RuneLocks;
 };
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */

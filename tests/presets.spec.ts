@@ -529,7 +529,7 @@ test('a preset built here is created, filled, led and deleted without moving the
   expect((await stored(page)).presets).toEqual([]);
 });
 
-test('a preset cannot be added, deleted or led here while live sync owns the presets', async ({ page }) => {
+test('a game preset cannot be deleted, led or changed while live sync owns it, and one of JASWA\'s can still be added', async ({ page }) => {
   await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
   await freshWorkspace(page);
   await page.evaluate(() => {
@@ -543,16 +543,17 @@ test('a preset cannot be added, deleted or led here while live sync owns the pre
   await choosePreset(page, 'Arena Attack', 'Arena Attack 4');
   /* Every control live sync turns off gives the one same reason. */
   const reason = 'Always synchronized is on, so this comes from the game.';
+  /* A preset built here lives in the preferences, which no sync overwrites. */
   const create = page.getByRole('button', { name: 'Add preset' });
-  await expect(create).toBeDisabled();
-  await expect(create).toHaveAttribute('title', reason);
+  await expect(create).toBeEnabled();
+  await expect(create).not.toHaveAttribute('title', reason);
   await expect(page.getByRole('button', { name: 'Delete preset' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Delete preset' })).toHaveAttribute('title', reason);
   await expect(addMenu(page)).toBeDisabled();
   await expect(addMenu(page)).toHaveAttribute('title', reason);
   await expect(page.getByRole('button', { name: /from this preset$/ }).first()).toBeDisabled();
   await expect(page.getByRole('button', { name: /from this preset$/ }).first()).toHaveAttribute('title', reason);
-  await expect(page.locator('.monster-priority-note')).toHaveText(/^With Always synchronized on, the game decides the monsters and the leader\. /);
+  await expect(page.locator('.monster-priority-note')).toHaveText(/^With Always synchronized on, the game decides the monsters and the leader of its own presets\. /);
   /* The game's leader is shown, not offered. */
   await expect(page.locator('.monster-priority-entry').first().getByRole('img', { name: 'Leader' })).toBeVisible();
   await expect(page.locator('.monster-priority-entry').first().locator('.preset-leader')).toHaveAttribute('title', reason);
@@ -562,6 +563,22 @@ test('a preset cannot be added, deleted or led here while live sync owns the pre
   const leads = page.getByRole('dialog', { name: 'Arena Attack 4' }).getByRole('checkbox', { name: /leads Arena Attack 4$/ });
   await expect(leads.first()).toBeDisabled();
   await expect(leads.first()).toHaveAttribute('title', reason);
+  await page.keyboard.press('Escape');
+
+  /* A preset built here is the user's whole under live sync too: added, filled, led and deleted. */
+  await create.click();
+  const dialog = page.getByRole('dialog', { name: 'Add preset' });
+  await dialog.getByLabel('Name').fill('Live draft');
+  await dialog.getByRole('button', { name: 'Add preset' }).click();
+  await expect(chosenPreset(page)).toHaveText('Live draft');
+  await expect(addMenu(page)).toBeEnabled();
+  await expect(addMenu(page)).not.toHaveAttribute('title', reason);
+  await addMenu(page).selectOption('11');
+  await expect(page.locator('.monster-priority-entry')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /leads this preset$/ })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Delete preset' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Delete preset' }).click();
+  await expect(chosenPreset(page)).not.toHaveText('Live draft');
 });
 
 test('on Read on game start a game preset is the user\'s: led, added to, taken from and deleted', async ({ page }, testInfo) => {

@@ -239,18 +239,17 @@ function Evaluation({ rune, roles, explained, quality }: {
  * and files under Keep. Stored by `rune_id`, so no import and no live sync resets it.
  *
  * The lock is the one every Lock control sets (`rune-locks.ts`), here for the
- * rune's monster in Scenario, so a rune on no monster there cannot take one. Like
- * every lock it lasts until the next import and is off while synchronized.
+ * rune's monster in Scenario, so a rune on no monster there cannot take one. It
+ * moves nothing, so live sync leaves it on too.
  */
-function Instructions({ rune, hold, onHold, locked, canLock, onLock }: {
+function Instructions({ rune, hold, onHold, locked, onLock }: {
   rune: Rune;
   hold: RuneHold | undefined;
   onHold: (next: RuneHold) => void;
   locked: boolean;
-  canLock: boolean;
   onLock: (on: boolean) => Promise<void>;
 }) {
-  const lockable = canLock && canLockRune(rune);
+  const lockable = canLockRune(rune);
   /* The box shows the choice from the click on, while it is being saved. */
   const [saving, setSaving] = useState<boolean | null>(null);
   const change = (key: keyof RuneHold, on: boolean) => {
@@ -274,8 +273,7 @@ function Instructions({ rune, hold, onHold, locked, canLock, onLock }: {
         <span>Unsellable</span>
       </label>
       <label className="checkbox-row" data-disabled={!lockable || undefined}
-        title={!canLock ? 'Locks are off while JASWA is synchronized with the game'
-          : lockable ? 'Keeps it on its monster in Scenario until the next import' : 'Only a rune on a monster in Scenario can be locked to it'}>
+        title={lockable ? 'Keeps it on its monster in Scenario until the next import' : 'Only a rune on a monster in Scenario can be locked to it'}>
         <input type="checkbox" checked={saving ?? locked} disabled={!lockable} aria-busy={saving !== null || undefined} onChange={(event) => lock(event.target.checked)} />
         {/* It locks a rune to the monster it is on, which moves nothing. */}
         <span>{runeLockLabels.locked.onMonster}</span>
@@ -318,7 +316,7 @@ function BusyMark({ busy }: { busy: boolean }) {
   </span>;
 }
 
-export function RuneOverlay({ rune, game, profiles, general, settings, roles, hardwareAcceleration, hold, onHold, locked, canLock, onLock, onClose }: {
+export function RuneOverlay({ rune, game, profiles, general, settings, roles, hardwareAcceleration, hold, onHold, locked, onLock, onClose }: {
   rune: Rune;
   game: GameRecord | undefined;
   profiles: MonsterPreferences;
@@ -332,8 +330,6 @@ export function RuneOverlay({ rune, game, profiles, general, settings, roles, ha
   onHold?: (runeId: string, next: RuneHold) => void;
   /** Whether the rune is locked to its monster in Scenario (`rune-locks.ts`). */
   locked: boolean;
-  /** Whether locks may change: not while JASWA is synchronized with the game. */
-  canLock: boolean;
   onLock: (runeId: string, unitId: string, on: boolean) => Promise<void>;
   onClose: () => void;
 }) {
@@ -442,7 +438,7 @@ export function RuneOverlay({ rune, game, profiles, general, settings, roles, ha
       </div>
 
       {onHold && <Instructions rune={rune} hold={hold} onHold={(next) => onHold(rune.id, next)}
-        locked={locked} canLock={canLock} onLock={(on) => rune.occupiedId === null ? Promise.resolve() : onLock(rune.id, rune.occupiedId, on)} />}
+        locked={locked} onLock={(on) => rune.occupiedId === null ? Promise.resolve() : onLock(rune.id, rune.occupiedId, on)} />}
 
       <Evaluation rune={rune} roles={roles} explained={explained} quality={settings.runeQuality} />
     </div>

@@ -180,7 +180,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   /** Whether builds may be engraved in the game's presets and Scenario; a preset built in JASWA always may. */
   canEngrave: boolean;
   onEngrave: (presetId: string, unitId: string, runeIds: readonly string[]) => Promise<void>;
-  /** Every lock that holds, empty while synchronized (`rune-locks.ts`). */
+  /** Every lock that holds (`rune-locks.ts`). */
   runeLocks: RuneLocks;
   onLock: (presetId: string, unitId: string, runeId: string, lock: RuneLock | null) => Promise<void>;
   onOpenMonster: OpenMonsterOverlay;
@@ -819,7 +819,6 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       followable={buildFollowable(builds[chosenBuild])}
       runesById={runesById} presetId={activePresetId} loadedPlacements={game?.loadedPlacements?.[activePresetId]} scenarioPlaces={scenarioPlaces} poolPlaces={poolPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
-      canLock={canEngrave}
       lockOf={(runeId) => (preset ? runeLockOf(runeLocks, runeLockScope(preset), buildMonster.unitId, runeId) : undefined)}
       onLock={(runeId, lock) => onLock(activePresetId, buildMonster.unitId, runeId, lock)}
       onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}

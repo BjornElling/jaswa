@@ -305,7 +305,11 @@ Grindstones the settings allow. A rune enters its own slot's list when:
   exactly as engraved: no filter removes it, no craft item is counted on it, and the slot
   is not searched. Locks and exclusions bind one scope — Scenario or one preset — and no
   other; they live with the import, so a new import has
-  none, and they are off under *Always synchronized*. Locking a rune engraves it first.
+  none, while under *Always synchronized* they carry from one revision of the same
+  account to the next. Locking a rune engraves it first, and excluding one the monster
+  carries takes it off — except where JASWA may not engrave (§8):
+  there a rune is locked only where it already is, and an exclusion leaves the rune
+  where the game has it. The choice binds the search either way.
 - it is **withheld by nobody** — its own runes are withheld by nobody unless another deck
   of the pool holds one too: `withheldRunes` (`rune-sources.ts`) is the one rule of whose runes a monster
   may take, and the page hands its answer to the search as `RuneOptimizationInput.withheld`
@@ -879,6 +883,8 @@ needs a running dev server and a card, and is not part of `npm test`.
    is no separate plan or undo state. Gems, Grindstones and future power-ups remain
    modifications to perform in the game. Engraving in Scenario or a game preset is
    unavailable under *Always synchronized*; a preset built in JASWA may always be engraved.
+   Lock and Exclude stay available there: *Exclude* leaves a carried rune where the game
+   has it, and *Engrave and lock* is off for a rune not yet on the monster.
    A rune the current filters refuse, or a set combination they disallow, disables the
    action.
 5. **Following the table** — a change to the runes does not throw the table away. A sync

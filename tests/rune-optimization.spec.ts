@@ -331,9 +331,6 @@ test('live synchronization explains why engraving is unavailable', async ({ page
   await expect(engrave).toBeDisabled();
   await expect(engrave).toHaveAttribute('title', reason);
   await expect(detail.getByRole('img', { name: reason, exact: true })).toBeVisible();
-  const locks = detail.locator('.rune-build-card-locks button');
-  await expect(locks.first()).toBeDisabled();
-  await expect(locks.first()).toHaveAttribute('title', reason);
   await page.screenshot({ path: testInfo.outputPath('engrave-live-disabled.png') });
 });
 
@@ -826,7 +823,8 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
   await expect.poll(() => storedLocks(page)).toBeUndefined();
 });
 
-test('Lock and Exclude are off while JASWA is synchronized with the game', async ({ page }) => {
+test('while JASWA is synchronized with the game, Lock and Exclude still bind the search and move nothing', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
   await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
@@ -841,10 +839,72 @@ test('Lock and Exclude are off while JASWA is synchronized with the game', async
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
   await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
-  await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
-  const choices = page.getByRole('dialog', { name: 'Build 1' }).locator('.rune-build-card-locks button');
-  await expect(choices).toHaveCount(12);
-  for (const choice of await choices.all()) await expect(choice).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+
+  /* A build with a rune from the other monster and one this monster carries. */
+  const rows = await page.getByRole('table', { name: 'Rune builds' }).getByRole('button', { name: /^Show build \d+$/ }).count();
+  let chosen = 0;
+  for (let build = 1; build <= rows && chosen === 0; build += 1) {
+    await page.getByRole('button', { name: `Show build ${build}`, exact: true }).click();
+    const shown = page.getByRole('dialog', { name: `Build ${build}` });
+    const borrowed = await shown.getByRole('listitem').filter({ has: page.locator('.rune-build-card-where-value .monster-link') }).count();
+    const kept = await shown.locator('.rune-build-card')
+      .filter({ has: page.locator('.rune-build-card-where-value').getByText('This monster', { exact: true }) }).count();
+    if (borrowed > 0 && kept > 0) { chosen = build; break; }
+    await page.keyboard.press('Escape');
+  }
+  expect(chosen, 'no build both borrows a rune and keeps one').toBeGreaterThan(0);
+  const detail = page.getByRole('dialog', { name: `Build ${chosen}` });
+  const borrowedSlot = await detail.getByRole('listitem')
+    .filter({ has: page.locator('.rune-build-card-where-value .monster-link') }).first().getAttribute('aria-label') ?? '';
+  const keptSlot = await detail.locator('.rune-build-card')
+    .filter({ has: page.locator('.rune-build-card-where-value').getByText('This monster', { exact: true }) }).first().getAttribute('aria-label') ?? '';
+  const borrowed = detail.getByRole('listitem', { name: borrowedSlot, exact: true });
+  const kept = detail.getByRole('listitem', { name: keptSlot, exact: true });
+  const lockOf = (of: Locator) => of.locator('.rune-build-card-locks button').nth(0);
+  const excludeOf = (of: Locator) => of.locator('.rune-build-card-locks button').nth(1);
+  const cards = detail.locator('.rune-build-card');
+  const choices = detail.locator('.rune-build-card-locks button');
+  const boxes = async () => Promise.all([...await cards.all(), ...await choices.all()].map(box));
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('live-locks-empty.png') });
+
+  /* Only bringing a rune here is off; every other choice stands, worded without a move. */
+  const reason = 'Always synchronized is on, so this comes from the game.';
+  await expect(lockOf(borrowed)).toBeDisabled();
+  await expect(lockOf(borrowed)).toHaveAttribute('title', reason);
+  await expect(lockOf(borrowed)).toHaveAccessibleName('Engrave and lock');
+  await expect(excludeOf(borrowed)).toBeEnabled();
+  await expect(lockOf(kept)).toBeEnabled();
+  await expect(lockOf(kept)).toHaveAccessibleName('Lock');
+  await expect(excludeOf(kept)).toBeEnabled();
+  await expect(excludeOf(kept)).toHaveAccessibleName('Exclude');
+
+  /* Excluding the carried rune leaves it where the game has it, and nothing moves. */
+  await excludeOf(kept).click();
+  await expect(excludeOf(kept)).toHaveAttribute('aria-pressed', 'true');
+  await expect(kept.locator('.rune-build-card-where-value').first()).toHaveText('This monster');
+  await expect(detail.getByRole('region', { name: `${keptSlot} modifications` })).toContainText('Rune excluded from this monster');
+  await excludeOf(borrowed).click();
+  await expect(excludeOf(borrowed)).toHaveAttribute('aria-pressed', 'true');
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('live-locks-full.png') });
+  expect(await storedLocks(page)).toBeTruthy();
+
+  /* Searched again, no build uses either rune in its slot. */
+  await page.keyboard.press('Escape');
+  await rankUnranked(page);
+  await page.getByRole('button', { name: 'Find builds' }).click();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  const total = await page.getByRole('table', { name: 'Rune builds' }).getByRole('button', { name: /^Show build \d+$/ }).count();
+  for (let build = 1; build <= total; build += 1) {
+    await page.getByRole('button', { name: `Show build ${build}`, exact: true }).click();
+    const shown = page.getByRole('dialog', { name: `Build ${build}` });
+    for (const slot of [keptSlot, borrowedSlot]) {
+      await expect(excludeOf(shown.getByRole('listitem', { name: slot, exact: true }))).toHaveAttribute('aria-pressed', 'false');
+    }
+    await page.keyboard.press('Escape');
+  }
 });
 
 test('a monster that always crits is counted at a certain crit and shows its own CRI Rate', async ({ page }, testInfo) => {

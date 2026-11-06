@@ -37,7 +37,8 @@ import { runeHoldVerdict } from './lib/rune-holds';
 import type { CraftIgnore } from './lib/craft-ignores';
 import { withCraftIgnore } from './lib/craft-ignores';
 import type { CraftViewChoice, CraftViewMode } from './lib/craft-view-choices';
-import { heldRuneLocks, lockedRuneIds, noRuneLocks, readRuneLocks, runeLockOf, runeLockScope, withRuneLock } from './lib/rune-locks';
+import { carriedRuneLocks, heldRuneLocks, lockedRuneIds, noRuneLocks, readRuneLocks, runeLockOf, runeLockScope, withRuneLock } from './lib/rune-locks';
+import { alwaysSynchronizedReason } from './lib/always-synchronized';
 import type { RuneLock, RuneLocks } from './lib/rune-locks';
 import type { MonsterReference, OpenMonsterOverlay } from './components/monster-link';
 import type { OpenRuneOverlay, RuneOverlayTarget } from './components/rune-link';
@@ -87,6 +88,20 @@ function withoutPreset(preferences: Preferences, presetId: string): Preferences 
     presetPriority: rest(preferences.presetPriority),
     speedTuning: { ...preferences.speedTuning, presets: rest(preferences.speedTuning.presets) },
   };
+}
+
+/**
+ * Live sync replaces the import on every change in the game, and Lock and
+ * Exclude are the user's word to the search, not the game's to undo: within one
+ * account they carry to the next revision (`carriedRuneLocks`). Another account
+ * starts with none.
+ */
+function withLiveRuneLocks(next: ImportedGame, previous: ImportedGame | null, ownPresets: readonly OwnPreset[]): ImportedGame {
+  const account = previous?.data?.wizard_id;
+  if (!previous?.runeLocks || account === undefined || account === null || String(account) !== String(next.data?.wizard_id)) return next;
+  const runeIds = new Set(readRunes(next.data).map((rune) => rune.id));
+  const locks = carriedRuneLocks(previous.runeLocks, runeIds, readPresets(next.data, ownPresets));
+  return Object.keys(locks).length > 0 ? { ...next, runeLocks: locks } : next;
 }
 
 export default function Home() {
@@ -245,7 +260,9 @@ export default function Home() {
         const { profile } = result;
         const validation = validateGameFile(profile.data);
         if (!validation.valid) return;
-        if (!await applyImport(createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId }), force)) return;
+        const fresh = createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId });
+        const imported = preferences.directImportMode === 'live' ? withLiveRuneLocks(fresh, gameRef.current, preferencesRef.current.presets) : fresh;
+        if (!await applyImport(imported, force)) return;
         reportedHelperRejection.current = null;
         setLiveImportStopped(null);
         setHelperReloadError(null);
@@ -290,10 +307,11 @@ export default function Home() {
   }, [presets]);
   /* JASWA changes the account only while no live sync would put the game's own back. */
   const canEngrave = preferences.importRoute === 'file' || preferences.directImportMode === 'on-load';
-  /* The locks every page reads: none while synchronized, and only those that still
-     hold against the placement on screen (`heldRuneLocks`). */
-  const runeLocks = useMemo(() => (canEngrave && game?.runeLocks ? heldRuneLocks(game.runeLocks, presets) : noRuneLocks),
-    [canEngrave, game, presets]);
+  /* The locks every page reads: only those that still hold against the placement
+     on screen (`heldRuneLocks`). Live sync keeps them too — they shape the
+     search, and the game is never asked to obey them. */
+  const runeLocks = useMemo(() => (game?.runeLocks ? heldRuneLocks(game.runeLocks, presets) : noRuneLocks),
+    [game, presets]);
   const lockedRunes = useMemo(() => lockedRuneIds(runeLocks), [runeLocks]);
   const [selectedPreset, setSelectedPreset] = useSessionStorageState<string>(selectedPresetKey, '', isString);
 
@@ -405,16 +423,20 @@ export default function Home() {
    */
   async function lockRune(presetId: string, unitId: string, runeId: string, lock: RuneLock | null): Promise<void> {
     const preset = presets.find((entry) => entry.id === presetId);
-    if (!game || !preset || !canEngrave) throw new Error('Runes cannot be locked or excluded while JASWA is synchronized with the game.');
+    if (!game || !preset) throw new Error('This rune cannot be locked or excluded without an import.');
+    /* Under live sync only the engraving is off, and only where the game owns the
+       placement: the choice itself is the search's, so it stands either way. */
+    const mayEngrave = canEngrave || preset.kind === 'own';
+    const onMonster = preset.runeOwner.get(runeId) === unitId;
+    if (lock === 'locked' && !onMonster && !mayEngrave) throw new Error(alwaysSynchronizedReason);
     const slots = new Map(readRunes(game.data).map((rune) => [rune.id, rune.slot]));
     const slotOf = (id: string) => slots.get(id);
     try {
       let next = game;
       let ownPresets = preferences.presets;
       /* Locking a rune engraves it here; excluding one the monster carries takes it off (`runeLockLabels`). */
-      const onMonster = preset.runeOwner.get(runeId) === unitId;
       const runeIds = lock === 'locked' && !onMonster ? runesWithLocked(preset, unitId, runeId, slotOf)
-        : lock === 'excluded' && onMonster ? runesWithout(preset, unitId, runeId, slotOf) : null;
+        : lock === 'excluded' && onMonster && mayEngrave ? runesWithout(preset, unitId, runeId, slotOf) : null;
       if (runeIds !== null) {
         if (preset.kind === 'own') {
           const own = ownPresets.find((entry) => entry.id === presetId);
@@ -934,7 +956,7 @@ export default function Home() {
         preferences={preferences}
         presets={presets}
         selectedId={selectedPreset}
-        canCreate={canEngrave}
+        canChangeGamePresets={canEngrave}
         onSelect={setSelectedPreset}
         onWrite={presetWrites}
         onOpenMonster={openMonsterOverlay}
@@ -1044,7 +1066,6 @@ export default function Home() {
       onHold={overlay?.kind === 'rune' && overlay.target.kind === 'account' ? updateRuneHold : undefined}
       locked={overlayRune.occupiedId !== null
         && runeLockOf(runeLocks, scenarioPresetId, overlayRune.occupiedId, overlayRune.id) === 'locked'}
-      canLock={canEngrave}
       onLock={(runeId, unitId, on) => lockRune(scenarioPresetId, unitId, runeId, on ? 'locked' : null)}
       onClose={closeOverlay}
     /></Suspense>}
