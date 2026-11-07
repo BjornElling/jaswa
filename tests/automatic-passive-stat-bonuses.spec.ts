@@ -92,14 +92,14 @@ test('Shaina adds ACC to herself and each Boomerang Warrior in her preset only',
   const shainaSolo = dialog.getByRole('list', { name: 'Automatic passive stat bonuses' });
   await expect(shainaSolo.locator('.overlay-team-lead-stat')).toHaveText(['ACC']);
   await expect(shainaSolo.locator('.overlay-team-lead-value')).toHaveText(['+25']);
-  await expect(accuracy(dialog).locator('[title]')).toHaveAttribute('title', /Shaina passive: Adds \+25 ACC points/);
+  await expect(accuracy(dialog).locator('[title]')).toHaveAttribute('title', /Shaina passive: \+25 ACC/);
   await page.screenshot({ path: testInfo.outputPath('shaina-scenario-self.png') });
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
 
   dialog = await select(page, 'deck-1-2', '11');
   const shainaPresetRows = dialog.getByRole('list', { name: 'Leads and bonuses' }).locator('.overlay-team-lead');
   await expect(shainaPresetRows.locator('.overlay-team-lead-stat').filter({ hasText: 'ACC' })).toHaveCount(1);
-  await expect(accuracy(dialog).locator('[title]')).toHaveAttribute('title', /Shaina passive: Adds \+25 ACC points/);
+  await expect(accuracy(dialog).locator('[title]')).toHaveAttribute('title', /Shaina passive: \+25 ACC/);
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
 
   dialog = await select(page, 'deck-1-3', '12');
@@ -115,7 +115,7 @@ test('Shaina adds ACC to herself and each Boomerang Warrior in her preset only',
   expect(columns[1].y - columns[0].y).toBe(24);
   expect(columns[1].statX).toBe(columns[0].statX);
   expect(columns[1].valueX).toBe(columns[0].valueX);
-  await expect(accuracy(dialog).locator('[title]')).toHaveAttribute('title', /Shaina passive: Adds \+25 ACC points/);
+  await expect(accuracy(dialog).locator('[title]')).toHaveAttribute('title', /Shaina passive: \+25 ACC/);
   const oneWarrior = await accuracy(dialog).locator('[title] > [aria-hidden="true"]').textContent();
   expect(oneWarrior).toBe('(+25)');
   await page.screenshot({ path: testInfo.outputPath('shaina-one-boomerang.png') });
@@ -126,7 +126,7 @@ test('Shaina adds ACC to herself and each Boomerang Warrior in her preset only',
   await expect(twoWarriorRows.locator('.overlay-team-lead-stat')).toHaveText(['SPD', 'ACC']);
   await expect(twoWarriorRows.locator('.overlay-team-lead-value')).toHaveText(['28%', '+25']);
   expect(await accuracy(dialog).locator('[title] > [aria-hidden="true"]').textContent()).toBe('(+35)');
-  await expect(accuracy(dialog).locator('[title]')).toHaveAttribute('title', /Shaina passive: Adds \+25 ACC points/);
+  await expect(accuracy(dialog).locator('[title]')).toHaveAttribute('title', /Shaina passive: \+25 ACC/);
   await page.screenshot({ path: testInfo.outputPath('shaina-two-boomerangs-first.png') });
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
 

@@ -217,7 +217,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         const { used, uncounted } = monster.profile;
         const boostLabel = [
           used.length ? `${used.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')} — counted on every turn` : '',
-          uncounted.length ? `Not counted, because its size depends on the battle: ${uncounted.join(', ')}` : '',
+          uncounted.length ? `Not included in the calculations: ${uncounted.join(', ')}` : '',
         ].filter(Boolean).join('. ');
         const tiedWith = monster.verdict.kind === 'tie' ? monster.verdict.with
           : reading.members.find((other) => other.verdict.kind === 'tie' && other.verdict.with === monster.unitId)?.unitId ?? null;

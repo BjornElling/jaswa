@@ -217,7 +217,7 @@ profile holds them: a lead stored in another area's profile is dropped alone on 
 on saving and on *Copy from…* (`heldIn` in `monster-preferences.ts`).
 
 What the fight adds to a stat is named on hover over its addition (§2.2.1). Own and
-teammate sets are combined, for example “3 × Fight +24% of base ATK.”.
+teammate sets are combined, for example “3 × Fight +24%.”.
 
 ### 2.2.4 Automatic team-set bonuses
 

@@ -132,11 +132,11 @@ export function teamLeadsFor(preset: Preset, presets: readonly Preset[], unitId:
         value: addition.kind === 'basePercent' ? `+${addition.amount}%` : `+${addition.amount}`,
         contribution,
         description: source.scope === 'team'
-          ? 'Adds +25 ACC points to every Boomerang Warrior in this preset.'
-          : grantsShainaPassive(source.sourceMasterId) ? 'Adds +25 ACC points to Shaina herself.'
-          : addition.kind === 'basePercent' ? `Adds +${addition.amount}% of base ${addition.stat.toUpperCase()} at battle start.`
-            : addition.kind === 'flat' ? `Adds +${addition.amount} fixed ${addition.stat.toUpperCase()} to combat speed.`
-              : `Adds +${addition.amount} ${addition.stat.toUpperCase()} points.`,
+          ? '+25 ACC to every Boomerang Warrior in this preset.'
+          : grantsShainaPassive(source.sourceMasterId) ? '+25 ACC to Shaina.'
+          : addition.kind === 'basePercent' ? `+${addition.amount}% ${addition.stat.toUpperCase()} at battle start.`
+            : addition.kind === 'flat' ? `+${addition.amount} combat speed.`
+              : `+${addition.amount} ${addition.stat.toUpperCase()}.`,
       };
       automaticLines.push(line);
       bonuses[addition.stat] = (bonuses[addition.stat] ?? 0) + contribution;

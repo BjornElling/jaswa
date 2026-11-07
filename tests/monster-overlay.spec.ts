@@ -166,7 +166,7 @@ test('leads and element advantage reach the fight\'s stat, which a range names, 
   const effectiveBefore = await effective.locator('.overlay-stat-current').innerText();
   await dialog.getByRole('spinbutton', { name: 'HP, in percent' }).fill('24');
   expect(await hp.locator('.overlay-stat-current').evaluate((node) => node.firstChild?.textContent)).toEqual(shownHp);
-  await expect(hp.getByTitle('HP lead +24% of base HP.', { exact: true })).toHaveText(/\(\+[\d.,]+\)/);
+  await expect(hp.getByTitle('HP lead +24%.', { exact: true })).toHaveText(/\(\+[\d.,]+\)/);
   await expect(effective.locator('.overlay-stat-current')).not.toHaveText(effectiveBefore);
   await dialog.getByRole('spinbutton', { name: 'HP, in percent' }).fill('');
   /* Scenario is no team, so it has no Speed lead to state. */

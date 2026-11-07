@@ -50,7 +50,7 @@ test('a skill Accuracy line is named under the leads, in their columns, and coun
   await expect(leads.getByRole('listitem')).toHaveText(['ATK30%', 'ATK21%', 'HP33%', 'ACC (S2)+6%', 'ACC (S3)+5%']);
   /* The game's artwork where it was fetched, the drawn mark where it was not. */
   await expect(accuracyLines(fight).locator(':is(.artifact-emblem, .artifact-glyph)')).toHaveCount(2);
-  await expect(accuracyLines(fight).first()).toHaveAttribute('title', /Shown only/);
+  await expect(accuracyLines(fight).first()).toHaveAttribute('title', /Not included in the calculations/);
   /* One column line for faces, stats and figures alike. */
   const columns = await leads.getByRole('listitem').evaluateAll((lines) => lines.map((line) =>
     [...line.children].slice(0, 3).map((cell) => Math.round(cell.getBoundingClientRect().x))));

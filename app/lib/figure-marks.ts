@@ -30,24 +30,21 @@ const buildingNames: Readonly<Record<'hp' | 'atk' | 'def' | 'spd' | 'criDmg', st
   hp: 'Crystal Altar', atk: 'Ancient Sword', def: 'Guardstone', spd: 'Sky Tribe Totem', criDmg: 'Fallen Ancient Guardian',
 };
 
-/* The stats a source raises by a share of base; every other one by points. */
-const baseShareStats: ReadonlySet<StatFigure> = new Set(['hp', 'atk', 'def', 'spd']);
-
 /**
  * What the fight adds to one stat, as a page shows it after the panel's figure:
  * `amount` is the fight's figure less the panel's, and `raisedTo` the CRI Rate a
  * guaranteed crit lifts the fight's to, which is said instead of an amount. The
  * reading names every source — a lead, the team sets the copy and its teammates
- * complete, a building, the totem, element advantage — one sentence each, in
- * the share of base or the points the game states it in. A stat nothing reaches
- * has an amount of 0 and no reading.
+ * complete, a building, the totem, element advantage — one short sentence each.
+ * It does not say "of base": the tooltip hangs on the stat it raises, so the
+ * stat is already named, and the user reads the percentage as the game shows it.
+ * A stat nothing reaches has an amount of 0 and no reading.
  */
 export type FightAddition = { amount: number; raisedTo: number | null; reading: string };
 
 export function fightAddition(stat: StatFigure, display: number, figure: number, bonuses: CombatBonuses,
   ownSets: TeammateSets, element: string | undefined): FightAddition {
-  const share = baseShareStats.has(stat) ? ` of base ${statLabels[stat]}` : '';
-  const percent = (value: number) => `+${value}%${share}`;
+  const percent = (value: number) => `+${value}%`;
   const sets = teamSetBonuses.flatMap((set) => {
     const count = (ownSets[set.name] ?? 0) + (bonuses.teammateSets?.[set.name] ?? 0);
     return count > 0 && set.stat === stat ? [`${count} × ${set.name} ${percent(count * set.value)}`] : [];

@@ -67,8 +67,8 @@ export function LeadFields({ values, onChange, reading, names, artifactAccuracy,
  */
 function ArtifactAccuracyRow({ line, general }: { line: ArtifactSkillAccuracy; general: GeneralSettings }) {
   const value = `+${formatNumber(line.valueHundredths / 100, general)}%`;
-  const reading = `[Skill ${line.skill}] Accuracy ${value} from the ${artifactCategoryLabels[line.category].toLowerCase()} artifact. `
-    + `Shown only: it counts when Skill ${line.skill} is used, so no ACC figure includes it.`;
+  const reading = `Skill ${line.skill} Accuracy ${value} from the ${artifactCategoryLabels[line.category].toLowerCase()} artifact. `
+    + 'Not included in the calculations.';
   return <li className="overlay-team-lead" data-source="artifact" title={reading}
     aria-label={`${statLabels.acc} on Skill ${line.skill}, ${value}. ${reading}`}>
     <ArtifactEmblem category={line.category} grade={line.grade} element={line.element} archetype={line.archetype} />

@@ -45,7 +45,7 @@ test('team bonuses follow the chosen preset automatically, and only Scenario sta
   expect(number(full[9])).toBeGreaterThan(number(scenario[9]));
   expect(number(full[10])).toBeGreaterThan(number(scenario[10]));
   await page.getByRole('button', { name: 'Open profile', exact: true }).click();
-  await expect(dialog.getByTitle('3 × Fight +24% of base ATK.', { exact: true })).toBeVisible();
+  await expect(dialog.getByTitle('3 × Fight +24%.', { exact: true })).toBeVisible();
   await expect(dialog.getByTitle('1 × Accuracy +10%.', { exact: true })).toBeVisible();
   /* A preset's leads are its leader's, read rather than typed: this deck has none. */
   const leads = dialog.getByRole('list', { name: 'Leads and bonuses' });

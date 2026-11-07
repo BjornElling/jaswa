@@ -133,9 +133,9 @@ const totemBuildings = { ...noBuildingBonuses, spd: 15, atk: 20, elementAtk: { W
 const quick = monsterStatSheet({ ...monster, attribute: 1 }, { ...plain, leads: { spd: 24 }, buildings: totemBuildings });
 const quickSpd = fightAddition('spd', quick.display.spd, quick.figures.spd, { ...plain, leads: { spd: 24 }, buildings: totemBuildings }, {}, 'Water');
 assert.equal(quickSpd.amount, quick.figures.spd - quick.display.spd);
-assert.equal(quickSpd.reading, 'SPD lead +24% of base SPD. Sky Tribe Totem +15% of base SPD.');
+assert.equal(quickSpd.reading, 'SPD lead +24%. Sky Tribe Totem +15%.');
 assert.equal(fightAddition('atk', quick.display.atk, quick.figures.atk, { ...plain, buildings: totemBuildings }, { Fight: 1 }, 'Water').reading,
-  '1 × Fight +8% of base ATK. Ancient Sword +20% of base ATK. Water Sanctuary +21% of base ATK.');
+  '1 × Fight +8%. Ancient Sword +20%. Water Sanctuary +21%.');
 const lifted = fightAddition('criRate', 15, 100, { ...plain, alwaysCrits: true, alwaysElementAdvantage: true }, {}, undefined);
 assert.deepEqual(lifted, { amount: 85, raisedTo: 100, reading: 'Element advantage +15%. Always crits: at least 100%.' });
 assert.deepEqual(fightAddition('acc', 0, 0, plain, {}, undefined), { amount: 0, raisedTo: null, reading: '' });
