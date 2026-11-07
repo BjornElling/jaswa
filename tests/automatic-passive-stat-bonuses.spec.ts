@@ -5,10 +5,18 @@ import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/automatic-team-bonuses.json', import.meta.url));
 
-async function open(page: Page) {
+async function open(page: Page, withArtifact = false) {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   const source = JSON.parse(readFileSync(account, 'utf8'));
+  if (withArtifact) {
+    /* Six stars, and a type artifact with `[Skill 3] Accuracy`, so Scenario
+       holds both lists Leads and bonuses can add under its fields. */
+    source.unit_list[0].class = 6;
+    source.unit_list[0].artifacts = [{ rid: 7001, type: 2, attribute: 0, unit_style: 1, natural_rank: 5, level: 15, locked: 0,
+      pri_effect: [101, 160], occupied_id: 11,
+      sec_effects: [[409, 5, 0, 0, 0], [408, 6, 1, 0, 0], [219, 4, 1, 0, 0], [223, 16, 1, 0, 0]] }];
+  }
   source.unit_list[0].unit_master_id = 21912; // Shaina
   source.unit_list[1].unit_master_id = 22012; // Boomerang Warrior
   source.unit_list[2].unit_master_id = 14712; // Verdehile
@@ -36,6 +44,36 @@ async function select(page: Page, preset: string, unit: string) {
   await page.getByRole('button', { name: 'Open profile', exact: true }).click();
   return page.getByRole('dialog');
 }
+
+/* Every list in the block reads down one column under the typed leads: the
+   artifact's lines once sat beside Shaina's in the next lead's narrow cell, and
+   their figures spilled into the area block. */
+test("Scenario stacks Shaina's bonus and an artifact's Accuracy under the leads, inside the block", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await open(page, true);
+  await page.getByLabel('Preset', { exact: true }).selectOption('scenario');
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const fight = page.getByRole('region', { name: 'Requirements for this calculation' }).locator('.rune-optimization-fight');
+  const block = fight.getByRole('group', { name: 'Leads and bonuses' });
+  const passive = block.getByRole('list', { name: 'Automatic passive stat bonuses' }).locator('.overlay-team-lead');
+  const artifact = block.getByRole('list', { name: 'Artifact skill accuracy' }).locator('.overlay-team-lead');
+  await expect(passive).toHaveCount(1);
+  await expect(artifact).not.toHaveCount(0);
+  const boxes = await block.locator('.overlay-team-lead').evaluateAll((rows) => rows.map((row) => {
+    const box = row.getBoundingClientRect();
+    const value = row.querySelector('.overlay-team-lead-value')!.getBoundingClientRect();
+    return { x: box.x, top: box.y, bottom: box.bottom, statX: row.querySelector('.overlay-team-lead-stat')!.getBoundingClientRect().x, valueRight: value.right };
+  }));
+  const area = await fight.locator('.rune-optimization-area').evaluate((element) => element.getBoundingClientRect().x);
+  for (let at = 1; at < boxes.length; at += 1) {
+    /* Directly under the line before, whichever list it belongs to. */
+    expect(boxes[at].top).toBe(boxes[at - 1].bottom);
+    expect(boxes[at].statX).toBe(boxes[0].statX);
+    expect(boxes[at].valueRight).toBe(boxes[0].valueRight);
+  }
+  for (const box of boxes) expect(box.valueRight).toBeLessThan(area);
+  await page.screenshot({ path: testInfo.outputPath('scenario-passive-and-artifact.png') });
+});
 
 const accuracy = (dialog: Locator) => dialog.locator('.stat-range[data-figure="acc"] .overlay-stat-current');
 

@@ -8,3 +8,4 @@ win-unpacked.tmp/
 # assets, so a deploy from this machine behaves like one built from git.
 monster-images/
 rune-images/
+artifact-images/

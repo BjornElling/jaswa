@@ -3,7 +3,8 @@
  *
  * The images are never committed (.gitignore), so jaswa.net — built from git —
  * would otherwise have none; worker/index.ts serves them from the bucket
- * instead. Run this after `fetch:monster-images` or `fetch:rune-images` has
+ * instead. Run this after `fetch:monster-images`, `fetch:rune-images` or
+ * `fetch:artifact-images` has
  * brought in new artwork. Uploading a file that is already there replaces it
  * with the same bytes, so a full run is always safe.
  *
@@ -33,6 +34,7 @@ async function manifest(file) {
 const folders = [
   ['monster-images', await manifest('app/data/local-monster-images.ts')],
   ['rune-images', await manifest('app/data/local-rune-images.ts')],
+  ['artifact-images', await manifest('app/data/local-artifact-images.ts')],
 ];
 
 const entries = [];

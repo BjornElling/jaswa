@@ -12,7 +12,7 @@ import type { TeamLead, TeamLeadReading } from '../lib/team-leads';
 import { monsterPresentation } from '../lib/monster-catalog';
 import { formatNumber } from '../lib/formatting';
 import type { GeneralSettings } from '../lib/types';
-import { ArtifactGlyph } from './artifact-glyph';
+import { ArtifactEmblem } from './artifact-emblem';
 import { FigureMarks } from './figure-marks';
 import { MonsterPortrait } from './monster-portrait';
 
@@ -71,7 +71,7 @@ function ArtifactAccuracyRow({ line, general }: { line: ArtifactSkillAccuracy; g
     + `Shown only: it counts when Skill ${line.skill} is used, so no ACC figure includes it.`;
   return <li className="overlay-team-lead" data-source="artifact" title={reading}
     aria-label={`${statLabels.acc} on Skill ${line.skill}, ${value}. ${reading}`}>
-    <ArtifactGlyph category={line.category} />
+    <ArtifactEmblem category={line.category} grade={line.grade} element={line.element} archetype={line.archetype} />
     <span className="overlay-team-lead-stat">{statLabels.acc} (S{line.skill})</span>
     <span className="overlay-team-lead-value">{value}</span>
     <span aria-hidden="true" />
@@ -134,7 +134,7 @@ export function TeamLeads({ reading, names, artifactAccuracy, general }: {
   general: GeneralSettings;
 }) {
   const actualLeads = reading.leads.filter((lead) => lead.automatic === undefined);
-  return <div className="overlay-team-bonuses overlay-leads-fields" role="group" aria-label="Leads and bonuses">
+  return <div className="overlay-leads-fields" role="group" aria-label="Leads and bonuses">
     <ul className="overlay-team-leads" aria-label="Leads and bonuses">
       {actualLeads.length === 0 && !reading.scenario
         && <li className="overlay-team-lead overlay-team-lead-note"><span>No leader in this preset</span></li>}

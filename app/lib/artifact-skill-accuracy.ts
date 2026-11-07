@@ -1,5 +1,6 @@
 import type { Artifact } from './artifacts';
-import type { ArtifactCategory } from './artifact-properties';
+import type { ArtifactCategory, ArtifactGrade } from './artifact-properties';
+import type { MonsterArchetype } from './monster-catalog';
 
 /**
  * The Accuracy an engraved artifact adds to one skill — `[Skill 1] Accuracy`
@@ -16,6 +17,10 @@ import type { ArtifactCategory } from './artifact-properties';
 export type ArtifactSkillAccuracy = {
   artifactId: string;
   category: ArtifactCategory;
+  /* What the line's emblem draws: the artifact's grade and class. */
+  grade: ArtifactGrade;
+  element: string | null;
+  archetype: MonsterArchetype | null;
   skill: 1 | 2 | 3;
   /** Hundredths of a percentage point, as the artifact line carries it. */
   valueHundredths: number;
@@ -28,6 +33,7 @@ export function artifactSkillAccuracy(artifacts: readonly Artifact[]): ArtifactS
   return artifacts.flatMap((artifact) => artifact.subProperties.flatMap((line) => {
     const skill = skillOfProperty[line.definition.id];
     return skill === undefined ? []
-      : [{ artifactId: artifact.id, category: artifact.category, skill, valueHundredths: line.valueHundredths }];
+      : [{ artifactId: artifact.id, category: artifact.category, grade: artifact.grade, element: artifact.element,
+        archetype: artifact.archetype, skill, valueHundredths: line.valueHundredths }];
   })).sort((left, right) => left.skill - right.skill);
 }

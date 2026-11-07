@@ -5929,13 +5929,27 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   --lead-field: calc(3ch + 2 * var(--s3) + 2px);
   --lead-columns: 7ch var(--lead-field) var(--glyph-small);
   --lead-line: calc(7ch + var(--lead-field) + var(--glyph-small) + 2 * var(--s2));
+  /* One column, read down: the typed leads, then each list of lines. The block
+     once had the typed leads' two narrow columns, so every part had to claim
+     both, and the two lists Scenario adds did not: each sat in one lead's width
+     with its wider lines spilling over the other and into the next block. */
+  --team-lead-line: calc(2 * var(--glyph-small) + 12ch + 17ch + 3 * var(--s3));
+  /* One fixed width, the wider of the two forms, so Scenario's fields and a
+     preset's lines take the same box and switching between them moves nothing. */
   display: grid;
-  grid-template-columns: repeat(2, var(--lead-line));
-  grid-template-rows: auto auto;
+  grid-template-columns: max(2 * var(--lead-line) + var(--s5), var(--team-lead-line));
   justify-content: start;
-  gap: var(--s1) var(--s5);
+  align-content: start;
+  /* Lines abut whichever list they come from; only the fields stand apart. */
+  row-gap: 0;
+  /* The box three preset lead lines need, kept by Scenario's shorter fields too,
+     so switching between them moves nothing below. */
+  min-height: 76px;
 }
-.overlay-lead-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, var(--lead-line)); grid-template-rows: repeat(2, 36px); grid-auto-flow: column; gap: var(--s1) var(--s5); }
+/* A lead's field sits in a line beside its name, so it takes an inline field's
+   height, the one *Max changes* has, and its rows keep the toggles' 28px pitch
+   beside them. */
+.overlay-lead-grid { display: grid; grid-template-columns: repeat(2, var(--lead-line)); grid-template-rows: repeat(2, 28px); grid-auto-flow: column; gap: var(--s1) var(--s5); margin-bottom: var(--s1); }
 .overlay-lead { display: grid; grid-template-columns: var(--lead-columns); align-items: center; gap: var(--s2); color: var(--text-muted); }
 /* A preset's leads are read off its leaders, one line each in the box the typed
    leads take in Scenario, so changing area moves nothing beside the block: the
@@ -5952,7 +5966,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   padding: 0;
   list-style: none;
   display: grid;
-  grid-template-columns: calc(2 * var(--glyph-small) + 12ch + 17ch + 3 * var(--s3));
+  grid-template-columns: var(--team-lead-line);
   grid-template-rows: repeat(3, 24px);
   grid-auto-rows: 24px;
   grid-auto-flow: row;
@@ -5962,13 +5976,20 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   min-height: 76px;
   align-content: center;
 }
-.overlay-lead-bonus-list { grid-template-rows: auto; grid-auto-rows: 24px; height: auto; min-height: 24px; }
-.overlay-team-bonuses > .overlay-team-leads { grid-column: 1 / -1; grid-row: 1; }
+/* Every line the list holds is a lead line's 24px, its first included. */
+.overlay-lead-bonus-list { grid-template-rows: none; grid-auto-rows: 24px; height: auto; min-height: 0; }
 .overlay-team-lead { display: grid; grid-template-columns: var(--team-lead-columns); align-items: center; gap: var(--s3); color: var(--text-muted); }
 /* The leader's face, inside the line's own height. */
 .overlay-team-lead .monster-portrait { width: var(--glyph-small); height: var(--glyph-small); }
 /* An artifact's Accuracy line takes the artifact's mark where a face stands, at a face's size. */
-.overlay-team-lead .artifact-glyph { width: var(--glyph-small); height: var(--glyph-small); }
+.overlay-team-lead :is(.artifact-glyph, .artifact-emblem) { width: var(--glyph-small); height: var(--glyph-small); }
+/* An artifact as the game draws it: the grade's ground filling the square, the
+   frame over it, and the symbol at half the frame's size in its middle — the
+   proportions SWARFARM lays the same three images out in. */
+.artifact-emblem { display: grid; place-items: center; flex: none; overflow: hidden; border-radius: var(--radius-sm); }
+.artifact-emblem > img { grid-area: 1 / 1; display: block; }
+.artifact-emblem-ground, .artifact-emblem-frame { width: 100%; height: 100%; }
+.artifact-emblem-symbol { width: 50%; height: 50%; }
 .overlay-team-lead-value { padding-inline: var(--s3); text-align: right; color: var(--text-strong); font-variant-numeric: tabular-nums; }
 .overlay-team-lead[data-state='unreached'] :is(.overlay-team-lead-stat, .overlay-team-lead-value) {
   color: var(--text-muted);
@@ -6237,7 +6258,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    Each owns a fixed cell of its row, so checking one leaves its neighbours still. */
 .overlay-toggle { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
 .overlay-toggle input { border-color: var(--gold-edge); }
-.overlay-lead input { width: var(--lead-field); font-variant-numeric: tabular-nums; }
+.overlay-lead input { width: var(--lead-field); height: calc(var(--s5) + var(--s1)); font-variant-numeric: tabular-nums; }
 
 /* Three slots on one row, under the build: each names itself and opens its own
    mains. */

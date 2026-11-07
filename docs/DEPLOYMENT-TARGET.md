@@ -31,10 +31,11 @@ served by Cloudflare Workers Static Assets, with one exception:
   `public/_headers` adds HSTS, `nosniff`, a no-referrer policy and frame
   denial to every static response, and marks the content-named files under
   `/assets/` as cacheable for good.
-- **The game's artwork, from R2.** Monster and rune images are the game's and
-  are never committed (`.gitignore`), so a build from git has none. They live
-  in the R2 bucket `jaswa-artwork`, and `worker/index.ts` serves
-  `/monster-images/*` and `/rune-images/*` from it — the only requests that run
+- **The game's artwork, from R2.** Monster, rune and artifact images are the
+  game's and are never committed (`.gitignore`), so a build from git has none.
+  They live in the R2 bucket `jaswa-artwork`, and `worker/index.ts` serves
+  `/monster-images/*`, `/rune-images/*` and `/artifact-images/*` from it — the
+  only requests that run
   any code. A missing image is a 404, not the application shell.
   `public/.assetsignore` keeps the local copies out of a deploy made from this
   machine too, so both paths behave the same.
@@ -46,7 +47,8 @@ served by Cloudflare Workers Static Assets, with one exception:
 
 ## After fetching new artwork
 
-`npm run fetch:monster-images` and `fetch:rune-images` update the local
+`npm run fetch:monster-images`, `fetch:rune-images` and
+`fetch:artifact-images` update the local
 folders and the committed manifests together. The manifests reach the site
 with the next push; the images do not. Run **`npm run upload:artwork`** before
 that push, or the site will ask R2 for files it does not have. The script

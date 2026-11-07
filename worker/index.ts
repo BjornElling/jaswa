@@ -1,12 +1,12 @@
 /**
  * The published JASWA is static files, with one exception: the game's artwork.
  *
- * Monster and rune images are the game's, so they are never committed
+ * Monster, rune and artifact images are the game's, so they are never committed
  * (.gitignore), and a site built from git therefore has none. They live in an
  * R2 bucket instead, uploaded by `npm run upload:artwork`, and this Worker is
  * the one door to them. `run_worker_first` in wrangler.jsonc sends only those
- * two paths here; every other request is answered by the static assets without
- * running any code.
+ * three paths here; every other request is answered by the static assets
+ * without running any code.
  *
  * A missing image answers 404, never the application shell: the shell is what
  * the asset fallback returns for an unknown path, and an `<img>` handed HTML is
@@ -24,7 +24,7 @@ type Env = {
   ARTWORK: { get(key: string): Promise<R2Object | null> };
 };
 
-const artworkPath = /^\/(monster-images|rune-images)\/[A-Za-z0-9._-]+$/;
+const artworkPath = /^\/(monster-images|rune-images|artifact-images)\/[A-Za-z0-9._-]+$/;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
