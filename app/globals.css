@@ -396,7 +396,7 @@ label[for] {
 .role-type, .overlay-provenance, .game-statistics-part-title,
 .overlay-stat-current, .overlay-slot-name, .engraved-rune-level, .engraved-artifact-class,
 .speed-lane-turn text, .speed-lane-figure,
-.rune-optimization-provenance, .rune-build-card-grade, .rune-build-change-kind,
+.rune-optimization-provenance, .rune-optimization-build-mains, .rune-build-card-grade, .rune-build-change-kind,
 .speed-summary-state, .speed-leader-skill, .inline-button, .craft-wanted-table td {
   font-family: var(--font-body);
   font-size: var(--type-label);
@@ -2733,6 +2733,9 @@ label[for] {
    name and a mark share the column without either widening it. */
 .rune-optimization-build-name { display: flex; align-items: center; gap: var(--s1); min-width: 0; }
 .rune-optimization-build-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Slots 2, 4 and 6's mains, quieter than the sets they follow. They keep their
+   width and the set name gives way first: two rows of one build differ here. */
+.rune-optimization-build-mains { flex: none; color: var(--text-muted); white-space: nowrap; }
 /* A build the account has moved out from under: still there to read, in the dimmed
    ink of the house's two-tone device, with the mark saying why. A sold rune in
    Rune Clean-up is the same fact and wears the same ink, its verdict and gold

@@ -105,6 +105,11 @@ test('equal Gem plans preserve the rune for its strongest role', async ({ page }
   await expect(modifications).toContainText('CRI Dmg');
   await page.keyboard.press('Escape');
   expect(await box(requirements)).toEqual(before);
+  /* Slots 2, 4 and 6's mains follow the sets; the monster wears no rune, so `Now` names none. */
+  const table = page.getByRole('table', { name: 'Rune builds' });
+  await expect(table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 1', exact: true }) })
+    .locator('.rune-optimization-build-mains')).toHaveText('(Atk%/CtD%/Atk%)');
+  await expect(table.locator('.rune-optimization-current .rune-optimization-build-mains')).toHaveCount(0);
 });
 
 /* The fixture's profiles name no figure to rank by, and the page never picks one,
@@ -1247,7 +1252,7 @@ test('a lone four-set, a ceiling and a reset to the profile', async ({ page }, t
   expect(spdColumn).toBeGreaterThan(0);
   for (let at = 0; at < count; at += 1) {
     const cells = await rows.nth(at).getByRole('cell').allInnerTexts();
-    expect(cells[1]).toMatch(/^Violent\/[A-Z][a-z]+$/);
+    expect(cells[1]).toMatch(/^Violent\/[A-Z][a-z]+\s+\([^/()]+\/[^/()]+\/[^/()]+\)$/);
     expect(Number(cells[spdColumn].replace(/\D/g, ''))).toBeLessThanOrEqual(170);
   }
   await page.screenshot({ path: testInfo.outputPath('optimization-ceiling.png'), fullPage: true });

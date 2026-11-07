@@ -864,7 +864,10 @@ needs a running dev server and a card, and is not part of `npm test`.
    at its limit says so above the table. A change to the runes or locks since the search
    is not announced here: the rows it touches say so (item 5).
 4. **Builds** — the current build pinned first as `Now`, then the ranked builds, in the
-   order of the ranking figure, ties in the search's own order. The headers do not sort:
+   order of the ranking figure, ties in the search's own order. After each build's sets,
+   in quieter caption type, its slot 2, 4 and 6 mains in the slot main fields' words —
+   `Violent/Will (Spd/CtR%/Atk%)` — with `—` for a slot no rune fills; the set name
+   ellipsizes before the mains do. The headers do not sort:
    the search holds only the best builds by that one figure, so ordering by another column
    would rank a sample rather than the account. Another order is another search, and *Rank
    by* starts it: with a table on screen or a search running, choosing a figure searches

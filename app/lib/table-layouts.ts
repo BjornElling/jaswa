@@ -301,11 +301,15 @@ export const relicMonsterTableColumns: readonly TableColumn[] = [
  * the eleven read down the page as one grid and sorting one cannot widen another.
  */
 export const runeOptimizationTableColumns: readonly TableColumn[] = [
-  { key: 'index', width: '4%', align: 'left' },
-  { key: 'build', width: '13%', align: 'left' },
+  { key: 'index', width: '5%', align: 'left' },
+  /* Wide enough for three sets and the slot 2, 4 and 6 mains after them. The room
+     comes from the figures, whose headings and values need far less than an even
+     share; E.HP D's heading alone needs more, and gets it. */
+  { key: 'build', width: '19%', align: 'left' },
   { key: 'moves', width: '7%', align: 'right' },
-  ...['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc', 'dmg', 'ehp', 'ehpD']
-    .map((key): TableColumn => ({ key, width: `${76 / 11}%`, align: 'right' })),
+  ...['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc', 'dmg', 'ehp']
+    .map((key): TableColumn => ({ key, width: '6.2%', align: 'right' })),
+  { key: 'ehpD', width: '7%', align: 'right' },
 ];
 
 /**

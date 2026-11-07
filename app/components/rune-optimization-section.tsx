@@ -70,10 +70,10 @@ import {
 import type { CraftUse, RuneOptimizationSettings } from '../lib/rune-optimization-settings';
 import { roleTargetColumns } from '../lib/rune-roles';
 import { referenceLines } from '../lib/rune-reference-stats';
-import { runeSlotMainsBySlot } from '../lib/rune-slot-mains';
+import { runeSlotMainByEffect, runeSlotMainsBySlot } from '../lib/rune-slot-mains';
 import { activeRuneSets, elementName } from '../lib/rune-sets';
 import { runeBuildName } from '../lib/rune-set-pairs';
-import { readRunes } from '../lib/runes';
+import { readRune, readRunes } from '../lib/runes';
 import type { Rune } from '../lib/runes';
 import { useSessionStorageState } from '../lib/session-storage-state';
 import { runeOptimizationTableColumns, columnClasses, sortMarkSide } from '../lib/table-layouts';
@@ -141,13 +141,24 @@ type Calculation = {
   id: number;
 };
 
-type ResultRow = { index: number; build: CurrentBuild; name: string; issue: string };
+type ResultRow = { index: number; build: CurrentBuild; name: string; mains: string; issue: string };
 
 /** A build whose rune has left the account has no figure, and sorts below every build that has one. */
 const figureOf = (build: CurrentBuild, at: number) => build.figures?.[at] ?? -Infinity;
 
 function buildNameOf(setIds: readonly number[]): string {
   return runeBuildName(activeRuneSets({ runes: setIds.map((setId) => ({ set_id: setId })) }).map((set) => set.name));
+}
+
+/* A build's set name says nothing of slots 2, 4 and 6, and two builds of the same
+   sets differ there more than anywhere. The mains are named in the vocabulary of
+   the slot main fields above the table, so the two read alike; a slot no rune
+   fills reads `—`. */
+function slotMainsOf(runes: readonly { slot: number; mainStatId: number | undefined }[]): string {
+  return [2, 4, 6].map((slot) => {
+    const id = runes.find((rune) => rune.slot === slot)?.mainStatId;
+    return (id === undefined ? undefined : runeSlotMainByEffect(id)) ?? '—';
+  }).join('/');
 }
 
 const countWords: ReadonlyArray<readonly [number, string]> = [
@@ -410,6 +421,15 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const element = selected ? elementName(selected.record.attribute) : undefined;
   const ownSets = useMemo(() => completedTeamSets(selected?.record.runes as Record<string, unknown>[] ?? []), [selected]);
   const currentBuild = selected ? runeBuildName(activeRuneSets(selected.record).map((set) => set.name)) : '';
+  const currentMains = useMemo(() => {
+    const engraved = Array.isArray(selected?.record.runes) ? selected.record.runes as unknown[] : [];
+    const read = engraved.map(readRune).filter((rune): rune is Rune => rune !== null);
+    return read.length === 0 ? '' : slotMainsOf(read);
+  }, [selected]);
+  /* A rune's main never changes under a Gem or a Grindstone, so the rune as the
+     search read it names it even after it has left the account. */
+  const mainOf = useCallback((runeId: string) => (current?.runes.get(runeId) ?? runesById.get(runeId))?.mainStatId,
+    [current, runesById]);
 
   function change(update: (current: RequirementsDraft) => RequirementsDraft) {
     if (!requirements) return;
@@ -808,8 +828,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       </p>}
 
       {current && builds && selected && tableNowFigures && <Results key={current.id} answer={current.answer} builds={builds} rankBy={current.requirements.rankBy}
-        currentBuild={currentBuild} currentFigures={tableNowFigures} general={general}
-        describe={describeBuild}
+        currentBuild={currentBuild} currentMains={currentMains} currentFigures={tableNowFigures} general={general}
+        describe={describeBuild} mainOf={mainOf}
         chosen={chosenBuild} onChoose={openBuild} />}
     </div>
 
@@ -880,17 +900,24 @@ function FigureNow({ figure, sheet, bonuses, ownSets, element, general }: {
   </>;
 }
 
+function SlotMains({ mains }: { mains: string }) {
+  return <span className="rune-optimization-build-mains" title="Slot 2, 4 and 6 main stats">({mains})</span>;
+}
+
 /* The table reads every figure as the fight has it and nothing else: the line
    under the ranges says what the fight adds, the table compares the totals. */
-function Results({ answer, builds, rankBy, currentBuild, currentFigures, general, describe, chosen, onChoose }: {
+function Results({ answer, builds, rankBy, currentBuild, currentMains, currentFigures, general, describe, mainOf, chosen, onChoose }: {
   answer: RuneOptimizationAnswer;
   builds: readonly CurrentBuild[];
   rankBy: RankFigure;
   currentBuild: string;
+  /** Slots 2, 4 and 6's mains as engraved now; empty where no rune is. */
+  currentMains: string;
   currentFigures: readonly number[];
   general: Preferences['general'];
   /** What changed under a build since the search, in words; empty where nothing did. */
   describe: (build: CurrentBuild) => string;
+  mainOf: (runeId: string) => number | undefined;
   chosen: number | null;
   onChoose: (index: number, opener: HTMLElement) => void;
 }) {
@@ -904,8 +931,9 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
     const rank = figureIndex(rankBy);
     return builds.map((build, index) => ({
       index, build, name: buildNameOf(build.runes.map((rune) => rune.setId)), issue: describe(build),
+      mains: slotMainsOf(build.runes.map((rune) => ({ slot: rune.slot, mainStatId: mainOf(rune.runeId) }))),
     })).sort((left, right) => figureOf(right.build, rank) - figureOf(left.build, rank) || left.index - right.index);
-  }, [builds, describe, rankBy]);
+  }, [builds, describe, mainOf, rankBy]);
   const columns = useMemo(() => [
     { key: 'index', label: '#', align: 'left' as const },
     { key: 'build', label: 'Build', align: 'left' as const },
@@ -936,7 +964,12 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
       <tbody>
         <tr className="rune-optimization-current">
           <td className={cell('index')}>Now</td>
-          <td className={cell('build')}>{currentBuild || 'No runes engraved'}</td>
+          <td className={cell('build')}>
+            <span className="rune-optimization-build-name">
+              <span className="rune-optimization-build-text">{currentBuild || 'No runes engraved'}</span>
+              {currentMains && <SlotMains mains={currentMains} />}
+            </span>
+          </td>
           <td className={cell('moves')}>—</td>
           {monsterStatTargetKeys.map((key) => <td key={key} className={cell(key)}>
             {formatNumber(currentFigures[figureIndex(key)], general)}
@@ -967,6 +1000,7 @@ function Results({ answer, builds, rankBy, currentBuild, currentFigures, general
           <td className={cell('build')}>
             <span className="rune-optimization-build-name">
               <span className="rune-optimization-build-text">{row.name}</span>
+              <SlotMains mains={row.mains} />
               <FigureMarks marks={buildIssueMarks(row.issue)} reserve={1} />
             </span>
           </td>
