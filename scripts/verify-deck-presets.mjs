@@ -346,8 +346,12 @@ assert.equal(withheldRunes(find(pooled, 'deck-23-2'), '12', [], sources(true, tr
   'including higher-priority monsters opens the other teams too');
 assert.equal(withheldRunes(find(pooled, 'deck-23-2'), '12', [], sources(false, true), noRuneLocks)['5013'], '11',
   'only runes engraved nowhere: Include has nothing to decide');
-assert.equal(includeHigherPriorityApplies(find(pooled, 'deck-23-2'), sources(false, true)), false, 'so the page disables it');
-assert.equal(includeHigherPriorityApplies(find(pooled, 'scenario'), sources(true, true)), false, 'as in Scenario, which is no team');
+assert.equal(includeHigherPriorityApplies(sources(false, true)), false, 'so the page disables it');
+assert.equal(includeHigherPriorityApplies(sources(true, true)), true, 'and nowhere else, Scenario included');
+/* Scenario is no team but ranks by its own list, and the switch lifts that list as anywhere. */
+const scenarioPreset = { kind: 'scenario', runeOwner: new Map([['a', '1'], ['b', '2']]), poolRunes: new Map() };
+assert.deepEqual(withheldRunes(scenarioPreset, '2', ['1', '2'], sources(true, false), noRuneLocks), { a: '1' }, 'Scenario spares the copy above');
+assert.deepEqual(withheldRunes(scenarioPreset, '2', ['1', '2'], sources(true, true), noRuneLocks), {}, 'and Include lifts it there too');
 assert.equal(withheldRunes(find(pooled, 'deck-1-1'), '11', [], sources(true, false), noRuneLocks)['5013'], undefined, 'outside a pool nothing is held back');
 const lockedThere = { 'deck-23-1': { 11: { 5013: 'locked' } } };
 assert.equal(withheldRunes(find(pooled, 'deck-23-2'), '12', [], sources(true, true), lockedThere)['5013'], '11',

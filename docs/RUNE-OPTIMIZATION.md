@@ -328,9 +328,10 @@ Grindstones the settings allow. A rune enters its own slot's list when:
     slot as empty — nor kept in a found build, which is dimmed as engraved elsewhere. A
     Lock on this monster is the user's word and keeps it; engraving a build that keeps it
     takes it off the other deck;
-  - *Include* has nothing to decide while *Only runes not engraved in preset* is ticked,
-    nor in Scenario, which is no team; the page disables it there and keeps the stored
-    choice for when it applies again;
+  - *Include* has nothing to decide while *Only runes not engraved in preset* is ticked;
+    the page disables it there and keeps the stored choice for when it applies again.
+    Scenario is no team, but it ranks by its own priority list, so *Include* decides
+    there as in any preset;
 - its set can appear in a stated build, unless a build leaves slots free;
 - its main is one the slot accepts;
 - it is not Intangible, unless Intangible runes are allowed.

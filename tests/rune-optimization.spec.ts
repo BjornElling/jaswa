@@ -1407,6 +1407,8 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
   await maximum.fill('6');
   await settings.getByLabel('Just fill in empty slots').check();
+  /* Scenario ranks by its own priority list, so Include decides there too. */
+  await expect(settings.getByLabel('Include runes from higher-priority monsters')).toBeEnabled();
   await settings.getByLabel('Only runes not engraved in preset').check();
   await expect(settings.getByLabel('Include runes from higher-priority monsters')).toBeDisabled();
   await settings.getByLabel('Count unfinished runes at their +15 main stat').check();

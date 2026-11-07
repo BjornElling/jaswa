@@ -32,11 +32,13 @@ export type RuneSourceSettings = Pick<RuneOptimizationSettings, 'runesOnOtherMon
 
 /**
  * Whether *Include runes from higher-priority monsters* has anything to decide:
- * not in Scenario, which is no team, and not while only runes engraved on no
- * monster are taken. The page disables the switch exactly where this is false.
+ * not while only runes engraved on no monster are taken. Scenario is no team but
+ * has a priority list of its own, so the switch decides there as everywhere
+ * else; disabling it there once enforced that list with no way to lift it. The
+ * page disables the switch exactly where this is false.
  */
-export function includeHigherPriorityApplies(preset: Pick<Preset, 'kind'>, settings: Pick<RuneSourceSettings, 'runesOnOtherMonsters'>): boolean {
-  return preset.kind !== 'scenario' && settings.runesOnOtherMonsters;
+export function includeHigherPriorityApplies(settings: Pick<RuneSourceSettings, 'runesOnOtherMonsters'>): boolean {
+  return settings.runesOnOtherMonsters;
 }
 
 /**
@@ -48,7 +50,7 @@ export function withheldRunes(
   preset: Pick<Preset, 'kind' | 'runeOwner' | 'poolRunes'>, unitId: string, priority: MonsterPriority,
   settings: RuneSourceSettings, locks: RuneLocks,
 ): Record<string, string> {
-  const include = includeHigherPriorityApplies(preset, settings) && settings.includeHigherPriority;
+  const include = includeHigherPriorityApplies(settings) && settings.includeHigherPriority;
   const above = new Set(higherPriorityThan(priority, unitId));
   const withheld: Record<string, string> = {};
   for (const [runeId, owner] of preset.runeOwner) {

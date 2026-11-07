@@ -327,7 +327,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const withheld = useMemo(() => (preset && unitId !== ''
     ? withheldRunes(preset, unitId, priority, { runesOnOtherMonsters, includeHigherPriority }, runeLocks) : {}),
   [preset, unitId, priority, runesOnOtherMonsters, includeHigherPriority, runeLocks]);
-  const includeApplies = preset !== undefined && includeHigherPriorityApplies(preset, settings);
+  const includeApplies = preset !== undefined && includeHigherPriorityApplies(settings);
   /* Where another deck of the pool holds a rune, so a build taking it names that deck. */
   const poolPlaces = useMemo(() => {
     if (!preset || preset.poolRunes.size === 0) return undefined;
@@ -732,8 +732,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
             <CheckboxRow label="Just fill in empty slots" checked={settings.fillEmptySlotsOnly}
               onChange={(fillEmptySlotsOnly) => onUpdate({ fillEmptySlotsOnly })} />
-            {/* Nothing to include in Scenario, which is no team, nor while only free
-                runes are taken; the stored choice is kept for when it applies again. */}
+            {/* Nothing to include while only free runes are taken; the stored
+                choice is kept for when it applies again. */}
             <CheckboxRow label="Include runes from higher-priority monsters" checked={includeApplies && settings.includeHigherPriority}
               onChange={(include) => onUpdate({ includeHigherPriority: include })} disabled={!includeApplies} />
             <div className="rune-optimization-change-limit">
