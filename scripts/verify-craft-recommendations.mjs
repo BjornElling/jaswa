@@ -284,6 +284,31 @@ assert.equal(waived.get(ranked.rune.id)?.has(ranked.gemChoice[1].statId), true, 
 for (const row of whole.candidates) if (row.item.kind === 'gem') {
   assert.equal(onDesirableGemStat(row, desirable), desirable.get(row.rune.id)?.has(row.item.statId) ?? false);
 }
+/* Can change gem'ed stat? No narrows the choice before its top is read. The rune
+   that exposed it: an ancient Blade CRI Dmg rune with a CRI Rate 5 Gem, where the
+   placement rule wants SPD. Read after the top, the rule kept SPD, No refused it,
+   and the Ancient CRI Rate Gem that raises the rune was shown nowhere. */
+{
+  const gemmedBlade = { id: 'gemmed-blade', setId: 4, setName: 'Blade', slot: 4, stars: 6, ancient: true, rarity: 'Hero',
+    level: 15, mainStatId: 10, mainValue: 80, prefixStatId: null, prefixValue: 0, occupiedId: null, obtainedOrder: 0,
+    subProperties: [{ statId: 3, value: 39, gemmed: false, grind: 21 }, { statId: 9, value: 5, gemmed: true, grind: 0 },
+      { statId: 4, value: 20, gemmed: false, grind: 8 }, { statId: 2, value: 7, gemmed: false, grind: 5 }] };
+  const criGem = readCraftItem({ craft_item_id: 9951, craft_type: 5, craft_type_id: 40914, amount: 1 });
+  assert.equal(criGem.kind === 'gem' && criGem.statId === 9 && criGem.lineage === 'ancient' && criGem.grade === 'Hero', true,
+    'the fixture item is not an Ancient Hero Blade CRI Rate Gem');
+  const answer = await recommendRuneCraft({ ...emptyRequest, runes: [gemmedBlade], items: [criGem], roles, roll: 'average' });
+  const [row] = answer.candidates;
+  assert.ok(row && row.after.score > row.before.score, 'the Ancient CRI Rate Gem no longer raises the fixture rune');
+  assert.equal(row.gemChoice[0].statId, 8, 'the fixture rune no longer wants SPD first; it no longer tests the case');
+  assert.equal(onDesirableGemStat(row, desirableGemStats(answer.candidates, undefined, 'yes')), false,
+    'Yes keeps the placement rule: a Gem of a lesser stat is not suggested');
+  assert.equal(onDesirableGemStat(row, desirableGemStats(answer.candidates, undefined, 'no')), true,
+    'No must leave a better roll of the gem\'ed stat as the rune\'s choice');
+}
+/* No leaves a rune without a Gem to the placement rule alone: a first Gem is
+   never steered onto a line whose stat it repeats unless that is the best stat. */
+assert.ok(runes.every((rune) => rune.subProperties.every((line) => !line.gemmed)), 'the sample runes must carry no Gem');
+assert.deepEqual(desirableGemStats(whole.candidates, undefined, 'no'), desirable, 'No changed the Gem stat of a rune that carries no Gem');
 
 /* A changed account is answered from what is already known — the box and the
    runes alike, as live sync changes both. A stack gone takes its rows, a stack

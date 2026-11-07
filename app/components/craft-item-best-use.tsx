@@ -222,9 +222,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     return byRune;
   }, [ignores]);
   const desirable = useMemo(() => result
-    ? desirableGemStats(result.candidates, (runeId, statId) => ignored.has(craftIgnoreKey({ runeId, kind: 'gem', statId })))
+    ? desirableGemStats(result.candidates, (runeId, statId) => ignored.has(craftIgnoreKey({ runeId, kind: 'gem', statId })), state.gemChange)
     : new Map<string, ReadonlySet<number>>(),
-  [result, ignored]);
+  [result, ignored, state.gemChange]);
   /* The box's best on each rune comes from the whole answer, so a filter that
      hides a held item cannot lower the bar a missing one has to clear. A held Gem
      of a lesser stat is not part of it: it is never suggested, so the box cannot

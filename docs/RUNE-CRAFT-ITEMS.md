@@ -231,6 +231,11 @@ most — and beats the same reading's reference rune without a Gem — is the on
 the rune wants. The ranking travels on every row of the rune (`gemChoice`), and
 `desirableGemStats` reads its top. Neither the grade held nor the Assumed roll
 enters it: those decide what a Gem is shown to gain, not which stat it should be.
+*Can change gem'ed stat?* No does: it removes from the ranking every stat it
+refuses before the top is read (*Can change gem'ed stat?* below), so a rune that already carries a Gem wants a
+better roll of that stat. The reason above does not apply there — the user has
+already decided the stat stays — and read after the top, the two rules emptied
+the rune between them.
 The gain itself is read on the same reference lines (§5), so the line a Gem is
 shown on and the stat it was chosen for cannot disagree about the stones. A Hero Gem of the chosen stat is suggested like a Legend
 one, as long as it raises the rune.
@@ -305,6 +310,13 @@ the existing Gem stat but still permits a better Gem of that same stat, and
 does not restrict a rune's first Gem. The craft engine still rejects equal or
 lower same-stat base values.
 
+No is applied to the ranking of §5.1, not after it. On a rune with a Gem the
+game allows only the gemmed line to be replaced, so the permitted ranking holds
+the gemmed stat alone, and a better roll of it is the rune's choice even where
+the placement rule would rather have another stat. A rune with no Gem keeps the
+placement rule's own choice: No never steers a first Gem onto a line whose stat
+it repeats unless that is the stat worth most.
+
 The two read differently on purpose. *Stat already grinded* is an inclusive
 filter under `AGENTS.md` §2.2: Yes and No are independent, neither is chosen
 by default, and neither or both leaves the answer unrestricted. *Can change
@@ -312,8 +324,11 @@ gem'ed stat?* is a permission, not a filter: exactly one of Yes and No is
 always chosen, Yes by default, and Reset filters returns it to Yes. As an
 inclusive group "neither" and "both" both meant Yes, so No was the only choice
 that said anything. The two are saved apart (`already` and `gemChange`).
-Both filter the complete answer without recalculating or changing the held-box
-benchmark, in Recommendations, Best use and What's missing.
+Both filter the complete answer without recalculating, in Recommendations, Best
+use and What's missing. *Stat already grinded* never moves the held-box
+benchmark. *Can change gem'ed stat?* moves it only by deciding which Gem stat a
+rune wants: under No a held Gem of the gemmed stat is suggested, so the box
+counts it as done, and a missing item must beat it.
 
 **Only keep-runes** (Best use only) has one choice, Yes. Chosen, it keeps the
 runes whose *calculated* Rune Clean-up verdict is Keep and drops every other

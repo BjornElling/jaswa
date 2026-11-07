@@ -125,13 +125,22 @@ export function heldCraftBenchmark(rows: readonly CraftRecommendation[]): CraftB
  * a Gem of any other stat is therefore never suggested, and a rune whose stat the
  * box lacks gets no Gem at all (`RUNE-CRAFT-ITEMS.md` §5.1). A stat the user waved
  * away on a rune is out of that rune's choice, so the next best stat stands in.
+ *
+ * *Can change gem'ed stat?* No (`gemChange`) narrows the choice the same way, before
+ * the top is read: a rune that already carries a Gem then wants a better roll of
+ * that stat whenever one raises it. Read after the top instead, the two rules
+ * emptied such a rune between them — the placement rule kept only a different
+ * stat, and No refused it. A rune with no Gem is untouched: No permits every first
+ * Gem, so it still takes only the stat the placement rule chooses.
  */
 export function desirableGemStats(rows: readonly CraftRecommendation[],
-  waived: (runeId: string, statId: number) => boolean = () => false): ReadonlyMap<string, ReadonlySet<number>> {
+  waived: (runeId: string, statId: number) => boolean = () => false,
+  gemChange: 'yes' | 'no' = 'yes'): ReadonlyMap<string, ReadonlySet<number>> {
   const desirable = new Map<string, ReadonlySet<number>>();
   for (const row of rows) {
     if (desirable.has(row.rune.id)) continue;
-    const open = row.gemChoice.filter((choice) => !waived(row.rune.id, choice.statId));
+    const open = row.gemChoice.filter((choice) => !waived(row.rune.id, choice.statId)
+      && craftMatchesChangeFilter(row.rune, { kind: 'gem', statId: choice.statId }, { grinded: [], gemChange }));
     const top = open.length ? open[0].score : -Infinity;
     desirable.set(row.rune.id, new Set(open.filter((choice) => choice.score === top).map((choice) => choice.statId)));
   }
