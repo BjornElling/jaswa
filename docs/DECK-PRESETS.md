@@ -174,10 +174,16 @@ runes and artifacts the account no longer owns (rules 3 and 9).
 `app/lib/deck-presets.ts` reads the decks and refuses the import for a
 duplicate preset identity, an item twice in one deck, two runes in one slot of
 one monster, an `equip` entry for a monster outside the deck, and a deck that
-saves gear for some of its monsters but not all. A member the roster
-(`unit_list`) does not hold is a **missing member**, not a refusal: a sold
-monster, or one resting in the Normal Sealed Shrine (rule 10), whose `equip`
-entry stays readable.
+saves gear for some of its monsters but not all. A deck keeps naming a monster
+the account no longer holds anywhere — sold, or spent as material — but the
+game's screen shows that position **empty**: a Labyrinth Explode deck 2 whose
+only monster was gone is five empty slots in the game (the developer's
+screenshot, November 7, 2026). JASWA reads it the same way: the position is
+empty, and its leader skill and `equip` entry go with it, though the entry is
+still checked like any other. A deck whose every monster is gone is an empty
+deck slot, as in the game, and no preset. A member resting in the Normal Sealed Shrine
+(rule 10) is still held: it is a **missing member**, since no page reads it
+from there, not a refusal.
 
 **The numeric `deck_type` values are matched to contents from the game's own
 screen where it has shown them, and otherwise to the content they most likely
@@ -244,10 +250,12 @@ JASWA.
 - Item stats, grade, slot and craft state belong to the physical item and are
   never copied into a placement.
 - A placement naming an item the account no longer owns is kept and shown as
-  sold; it is never dropped and never repaired. A member the roster does not
-  hold is missing in a game deck and in a preset built in JASWA alike; the
-  Presets page names a Normal Sealed Shrine member by name and counts the rest
-  as *not in this import*.
+  sold; it is never dropped and never repaired. A monster, unlike an item,
+  leaves an empty position in a game deck when the account no longer holds it
+  (§3), because that is what the game shows. A member the roster does not
+  hold is otherwise missing in a game deck and in a preset built in JASWA
+  alike; the Presets page names a Normal Sealed Shrine member by name and
+  counts the rest as *not in this import*.
 - A preset that saved monsters only runs each member on its Scenario gear.
 
 Placement is resolved once, at the account boundary (`presets.ts`,
@@ -478,7 +486,8 @@ belongs to.
 `npm run verify:deck-presets` holds the model at the import boundary, in
 `readPresets` and in the pages' readings: an empty preset, a full preset, a
 rune shared by two presets with different monsters, a sold rune still named by
-a preset, a sold member with gear, a Normal Sealed Shrine member, a pool
+a preset, a sold member with gear read as an empty position, a deck of sold
+members only read as no preset, a Normal Sealed Shrine member, a pool
 overlap, World Guild Battle's teams as one pool, and an assumed deck that joins no pool. It measures a private traffic
 log without printing IDs:
 `node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-deck-presets.mjs <log-path>`.

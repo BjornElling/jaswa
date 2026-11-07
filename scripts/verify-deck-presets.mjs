@@ -81,18 +81,23 @@ assert.deepEqual(stale.missingRuneIds, ['999999999'], 'a sold rune stays visible
 assert.deepEqual(stale.missingArtifactIds, ['999999998'], 'a sold artifact stays visible in its deck');
 assert.deepEqual(stale.gear.get('1'), { runeIds: ['999999999'], artifactIds: ['999999998'] }, 'a sold item keeps its place in the gear');
 assert.equal(stale.runeOwnerById.get('999999999'), '1');
-/* A monster the account no longer holds is kept as a member and named missing; a deck saving gear need not carry it. */
+/* A monster the account no longer holds anywhere is an empty position, as the
+   game's screen shows it; a deck saving gear need not carry it. */
 const goneMonster = readDeckPresets(only(deck(1, 1, [1, 2, 77], [gear(1, [101]), gear(2, [])])))[0];
-assert.deepEqual(goneMonster.missingUnitIds, ['77']);
-assert.deepEqual(goneMonster.members, ['1', '2', '77']);
-/* A gone member whose engravings the deck still lists is one more missing
-   member, its gear kept readable — never a reason to refuse the account. */
-const goneWithGear = { ...only(deck(1, 1, [1, 77], [gear(1, [101]), gear(77, [104], [artifactId])])), artifacts: [] };
+assert.deepEqual(goneMonster.missingUnitIds, []);
+assert.deepEqual(goneMonster.members, ['1', '2']);
+/* Its engravings and its leader skill go with it — never a reason to refuse the account. */
+const goneWithGear = { ...only(deck(1, 1, [1, 77], [gear(1, [101]), gear(77, [104], [artifactId])], { leader_unit_id: 77 })), artifacts: [] };
 assert.equal(validateGameFile(goneWithGear).valid, true, `a sold member's engravings never fail the import: ${validateGameFile(goneWithGear).message}`);
 const goneGeared = readDeckPresets(goneWithGear)[0];
-assert.deepEqual(goneGeared.missingUnitIds, ['77']);
-assert.deepEqual(goneGeared.gear.get('77'), { runeIds: ['104'], artifactIds: [String(artifactId)] }, 'its engravings stay readable');
+assert.deepEqual(goneGeared.members, ['1']);
+assert.equal(goneGeared.gear.has('77'), false, 'a gone member engraves nothing');
+assert.equal(goneGeared.runeOwnerById.has('104'), false);
+assert.equal(goneGeared.leaderUnitId, null, 'a gone leader leads nothing');
 assert.equal(goneGeared.savesGear, true);
+/* A deck of gone monsters only is an empty deck in the game, and no preset. */
+assert.deepEqual(readDeckPresets(only(deck(10, 1, [1], null), deck(10, 2, [77], [gear(77, [])], { leader_unit_id: 77 })))
+  .map((read) => read.key), ['deck-10-1'], 'a deck holding only gone monsters is no preset');
 /* A Normal Sealed Shrine monster can stand in a saved deck, but no page reads
    it from there: it is missing, as it is from a preset built in JASWA. */
 const shrineMember = { ...only(deck(1, 1, [1, 88], [gear(1, [101]), gear(88, [])])), artifacts: [],
