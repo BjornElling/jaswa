@@ -1,4 +1,4 @@
-import { rankingValue } from '../lib/rune-optimization-ranking';
+import { compareRankedFigures } from '../lib/rune-optimization-ranking';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, InlineButton, LabelSwap } from './button';
@@ -145,8 +145,6 @@ type Calculation = {
 
 type ResultRow = { index: number; build: CurrentBuild; name: string; mains: string; issue: string };
 
-/** A build whose rune has left the account has no figure, and sorts below every build that has one. */
-const figureOf = (build: CurrentBuild, at: number) => build.figures?.[at] ?? -Infinity;
 
 function buildNameOf(setIds: readonly number[]): string {
   return runeBuildName(activeRuneSets({ runes: setIds.map((setId) => ({ set_id: setId })) }).map((set) => set.name));
@@ -934,19 +932,17 @@ function Results({ answer, builds, rankBy, currentBuild, currentMains, currentFi
   chosen: number | null;
   onChoose: (index: number, opener: HTMLElement) => void;
 }) {
-  /* The table is ordered by the figure it was searched for and by nothing else. The
-     search only ever holds the best builds by that one figure — every other build was
-     ruled out unseen — so re-sorting by another column would rank a sample, not the
-     account. A different order is a different search, which Rank by starts. A sync
-     can still move a build's figures, so the order is read from them, ties kept in
-     the search's own order. */
+  /* The table keeps the search's objectives after a sync changes its figures.
+     Another primary figure still needs another search: this table is a shortlist. */
   const rows = useMemo<ResultRow[]>(() => {
     const rank = figureIndex(rankBy);
     return builds.map((build, index) => ({
       index, build, name: buildNameOf(build.runes.map((rune) => rune.setId)), issue: describe(build),
       mains: slotMainsOf(build.runes.map((rune) => ({ slot: rune.slot, mainStatId: mainOf(rune.runeId) }))),
-    })).sort((left, right) => rankingValue(figureOf(right.build, rank), rank) - rankingValue(figureOf(left.build, rank), rank) || left.index - right.index);
-  }, [builds, describe, mainOf, rankBy]);
+    })).sort((left, right) => (left.build.figures && right.build.figures
+      ? compareRankedFigures(left.build.figures, right.build.figures, rank, answer.tieBreakers)
+      : Number(right.build.figures !== null) - Number(left.build.figures !== null)) || left.index - right.index);
+  }, [answer.tieBreakers, builds, describe, mainOf, rankBy]);
   const columns = useMemo(() => [
     { key: 'index', label: '#', align: 'left' as const },
     { key: 'build', label: 'Build', align: 'left' as const },

@@ -122,11 +122,12 @@ export function optimizeRuneBuilds(
           if (answers.some((answer) => answer === undefined)) return;
           const complete = answers as RuneOptimizationAnswer[];
           const rank = figureIndex(input.requirements.rankBy);
-          const merged = mergeBuildResults(complete, rank, input.settings.resultCount);
+          const merged = mergeBuildResults(complete, rank, input.settings.resultCount, prepared!.tieBreakers);
           settle({
             status: 'done',
             answer: {
               ...merged,
+              tieBreakers: prepared!.tieBreakers,
               report: complete[0].report,
               backend: combineCalculationBackends(complete.map((answer) => answer.backend)),
               /* The wall clock the user waited, not the sum of the workers' clocks. */

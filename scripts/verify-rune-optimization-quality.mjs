@@ -213,7 +213,7 @@ for (let at = 0; at < 16; at += 1) {
   spendingGuides += problem.guides.filter((guide) => guide.some((pick, slot) => problem.slots[slot][pick].stock.length > 0)).length;
   const reference = searchRuneBuilds({ ...problem, guides: [] });
   const seeded = searchRuneBuilds(problem);
-  const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, problem.resultCount);
+  const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, problem.resultCount, problem.tieBreakers);
   assert.ok(reference.complete && seeded.complete && split.complete, 'crafted seed agreement must finish');
   assert.deepEqual(seeded.builds, reference.builds, `crafted account ${at}: seeds changed the exact table`);
   assert.deepEqual(split.builds, reference.builds, `crafted account ${at}: splitting counted a guide twice or lost a build`);

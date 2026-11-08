@@ -20,7 +20,7 @@
    statistics dataset or the monster catalogue: the types below are erased, and
    the figure order comes from `monster-stats.ts` rather than from the
    preferences module that sits beside the dataset. */
-import { rankingCap, rankingValue } from './rune-optimization-ranking';
+import { rankingCap, rankingValue, requestedTieBreakers, targetPressure } from './rune-optimization-ranking';
 import type { GameRecord } from './game-data';
 import type { CombatBonuses } from './monster-stats';
 import type { RuneSlotKey } from './monster-defaults';
@@ -172,6 +172,8 @@ export type RuneOptimizationProblem = {
   /** The same, for the upper end of each range; `NaN` where no ceiling is set. */
   ceilings: Float64Array;
   rank: number;
+  /** Requested figures in descending selection pressure, after the primary rank. */
+  tieBreakers: readonly number[];
   /**
    * The accumulators the ranking figure, the targets and the ceilings read (§4.1). A set bonus on
    * any other accumulator moves no figure a decision reads, so the search's bound
@@ -714,6 +716,8 @@ export function prepareRuneOptimization(
 
   const rank = figureIndex(requirements.rankBy);
   const targets = targetFloors(requirements);
+  const requestedTargets = new Float64Array(targets);
+  const requestedFigures = targetFigureKeys.filter((key) => Number.isFinite(targets[figureIndex(key)]));
   const targetFigures = targetFigureKeys.filter((key) => Number.isFinite(targets[figureIndex(key)]));
   const ceilings = targetCeilings(requirements);
   const ceilingFigures = targetFigureKeys.filter((key) => Number.isFinite(ceilings[figureIndex(key)]));
@@ -722,7 +726,7 @@ export function prepareRuneOptimization(
   /* Only what the ranking figure, the targets and the ceilings read matters to any
      reduction. A rune's Accuracy is noise to a DMG build with no Accuracy floor, and
      a reduction that compared it would keep a hundred runes for their Accuracy alone. */
-  const relevant = [...new Set([requirements.rankBy, ...targetFigures, ...ceilingFigures]
+  const relevant = [...new Set([requirements.rankBy, ...requestedFigures, ...ceilingFigures]
     .flatMap((figure) => figureEffectSlots(figure, requirements.alwaysCrits)))];
   const relevantSlots = new Uint8Array(effectSlotCount);
   for (const slot of relevant) relevantSlots[slot] = 1;
@@ -814,13 +818,15 @@ export function prepareRuneOptimization(
     ceilingFigures.splice(0, ceilingFigures.length, ...targetFigureKeys.filter((key) => Number.isFinite(ceilings[figureIndex(key)])));
     pinned.clear();
     for (const figure of ceilingFigures) for (const stat of figureEffectSlots(figure, requirements.alwaysCrits)) pinned.add(stat);
-    relevant.splice(0, relevant.length, ...new Set([requirements.rankBy, ...targetFigures, ...ceilingFigures]
+    relevant.splice(0, relevant.length, ...new Set([requirements.rankBy, ...requestedFigures, ...ceilingFigures]
       .flatMap((figure) => figureEffectSlots(figure, requirements.alwaysCrits))));
   }
 
-  if (Number.isFinite(rankingCap(rank))) {
-    // More raw stat can tie at the useful limit; it cannot prove a better rank.
-    for (const stat of figureEffectSlots(requirements.rankBy, requirements.alwaysCrits)) pinned.add(stat);
+  // Saturation can turn a raw improvement into a tie decided by another figure.
+  for (const figure of [requirements.rankBy, ...requestedFigures]) {
+    if (Number.isFinite(rankingCap(figureIndex(figure)))) {
+      for (const stat of figureEffectSlots(figure, requirements.alwaysCrits)) pinned.add(stat);
+    }
   }
 
   const eligibleCounts = bySlot.map((slot) => slot.length);
@@ -840,7 +846,7 @@ export function prepareRuneOptimization(
     const ranged = rangeFeasibleCandidates({
       base, start, slots: bySlot, guides: [], builds,
       allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
-      targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock, timeLimitMs: 0,
+      targets, ceilings, rank, tieBreakers: [], relevant, resultCount: settings.resultCount, stock, timeLimitMs: 0,
       report: { runes: runesSeen.size, slots: [], keep: null },
     });
     const feasible = setFeasibleCandidates(ranged, {
@@ -877,6 +883,8 @@ export function prepareRuneOptimization(
       }
     }
   }
+  const beforeRuneFigures = figuresOf(base, start);
+  const tieBreakers = requestedTieBreakers(rank, requestedTargets, beforeRuneFigures, figuresOf(base, reference));
   const rankSlope = gradient(base, reference, rank, true);
   const targetSlopes = targetFigures.map((figure) => gradient(base, reference, figureIndex(figure)));
   /* All ceilings remain exact in range checks, dominance and finished-build
@@ -936,7 +944,7 @@ export function prepareRuneOptimization(
     for (const figure of targetFigures) {
       const at = figureIndex(figure);
       const slope = gradient(base, reference, at);
-      const pressure = Math.max(0, targets[at] - figuresOf(base, start)[at]) / Math.max(1, figures[at]);
+      const pressure = targetPressure(targets[at], beforeRuneFigures[at], figures[at]);
       for (let stat = 0; stat < effectSlotCount; stat += 1) {
         orderingSlope[stat] += rankScale * pressure * slope[stat] / Math.max(1, figures[at]);
       }
@@ -988,7 +996,7 @@ export function prepareRuneOptimization(
   const problem: RuneOptimizationProblem = {
     base, start, slots, builds, guides: [],
     allowBroken: requirements.allowBroken, setPieces: setPiecesById, allowIntangible: requirements.allowIntangible,
-    targets, ceilings, rank, relevant, resultCount: settings.resultCount, stock,
+    targets, ceilings, rank, tieBreakers, relevant, resultCount: settings.resultCount, stock,
     timeLimitMs: plan.seconds * 1000,
     maxChanges: settings.limitChanges ? settings.maxChanges : undefined,
     report: { runes: runesSeen.size, slots: reports, keep },

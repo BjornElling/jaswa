@@ -51,6 +51,7 @@
  *     scripts/verify-rune-optimization.mjs
  */
 import assert from 'node:assert/strict';
+import { compareRankedFigures, requestedTieBreakers } from '../app/lib/rune-optimization-ranking.ts';
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { defaultRuneOptimizationSettings } from '../app/lib/rune-optimization-settings.ts';
 import { gemRemovalPrices } from '../app/lib/rune-optimization-gem-preference.ts';
@@ -148,7 +149,10 @@ function noBroken(counts) {
     || (count + (completes === setId ? 1 : 0)) % runeSetPiecesById(setId) === 0);
 }
 
-function bruteForce(input) {
+function bruteForce(input, tieBreakers = prepareRuneOptimization(input).tieBreakers, includeTies = false) {
+  const compare = (a, b) => b.value - a.value
+    || tieBreakers.reduce((difference, at) => difference || rankValue(b.figures[at], at) - rankValue(a.figures[at], at), 0)
+    || a.moves - b.moves;
   const problem = prepareRuneOptimization(input, { reduce: false });
   const found = new Map();
   const chosen = [];
@@ -169,9 +173,9 @@ function bruteForce(input) {
       for (const [key, floor] of floorsOf(input)) if (compared(key) < floor) return;
       for (const [key, ceiling] of ceilingsOf(input)) if (compared(key) > ceiling) return;
       const identity = JSON.stringify(chosen.map((candidate) => candidate.runeId));
-      const build = { value: rankValue(values[rank], rank), moves: chosen.filter((candidate) => candidate.moves).length };
+      const build = { figures: values, value: rankValue(values[rank], rank), moves: chosen.filter((candidate) => candidate.moves).length };
       if (input.settings.limitChanges && build.moves > input.settings.maxChanges) return;
-      if (!found.has(identity) || build.value > found.get(identity).value) found.set(identity, build);
+      if (!found.has(identity) || compare(build, found.get(identity)) < 0) found.set(identity, build);
       return;
     }
     for (const candidate of problem.slots[slot]) {
@@ -181,8 +185,9 @@ function bruteForce(input) {
     }
   }
   walk(0);
-  return [...found.values()].sort((left, right) => right.value - left.value || left.moves - right.moves)
-    .slice(0, input.settings.resultCount);
+  return [...found.values()].sort(compare)
+    .slice(0, input.settings.resultCount).map(({ value, moves, figures: values }) => includeTies
+      ? { value, moves, ties: tieBreakers.map((at) => rankValue(values[at], at)) } : { value, moves });
 }
 
 const uniqueShort = new Int32Array(26); uniqueShort[1] = 1; uniqueShort[intangibleSetId] = 1;
@@ -275,12 +280,16 @@ for (let index = 0; index < scenarios; index += 1) {
     assert.deepEqual(reading(whole), reading(expanded), `scenario ${index}: matching differs from full craft combinations`);
     allocatedCases += 1;
   }
-  const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, problem.resultCount);
+  const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, problem.resultCount, problem.tieBreakers);
   let shared = -Infinity;
   const sharing = { sharedBar: () => shared, onBar: (value) => { shared = Math.max(shared, value); } };
-  const sharedSplit = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3, sharing)), problem.rank, problem.resultCount);
+  const sharedSplit = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3, sharing)), problem.rank, problem.resultCount, problem.tieBreakers);
   shared = -Infinity;
-  const sliced = mergeBuildResults(await Promise.all([0, 1, 2].map((part) => searchRuneBuildsInSlices(problem, part, 3, sharing))), problem.rank, problem.resultCount);
+  const sliced = mergeBuildResults(await Promise.all([0, 1, 2].map((part) => searchRuneBuildsInSlices(problem, part, 3, sharing))), problem.rank, problem.resultCount, problem.tieBreakers);
+  assert.deepEqual(whole.builds.map((build) => ({
+    value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves,
+    ties: problem.tieBreakers.map((at) => rankValue(build.figures[at], at)),
+  })), bruteForce(input, problem.tieBreakers, true), `scenario ${index}: requested secondary figures differ from brute force`);
   const expected = bruteForce(input);
   const reading = (table) => table.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves }));
   if (!input.settings.allowImmemorial) {
@@ -725,7 +734,7 @@ for (const [index, input] of craftedRangeScenarios().entries()) {
     }
     const copied = structuredClone(problem);
     assert.deepEqual(searchRuneBuilds(copied).builds, answer.builds, 'cloning hybrid recipes changed the answer');
-    const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, problem.resultCount);
+    const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, problem.resultCount, problem.tieBreakers);
     assert.deepEqual(split.builds, answer.builds, 'splitting hybrid recipes changed rows or tie order');
   }
 }
@@ -917,7 +926,7 @@ for (let index = 0; index < 36; index += 1) {
   const passed = await searchRuneBuildsInPasses(problem, everyPairCard(40), { blocks: 8, pairs: 500 });
   assert.deepEqual(passed.outcome.builds, whole.builds);
   const parts = [0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3));
-  assert.deepEqual(mergeBuildResults(parts, problem.rank, problem.resultCount).builds, whole.builds);
+  assert.deepEqual(mergeBuildResults(parts, problem.rank, problem.resultCount, problem.tieBreakers).builds, whole.builds);
 }
 console.log('PASS: 36 change-limited searches match exhaustive enumeration, split workers and card passes for limits 1–6.');
 
@@ -1030,7 +1039,7 @@ for (const [rankBy, field, cap] of [['acc', 'accuracy', 85], ['res', 'resist', 1
   assert.ok(answer.builds.some((build) => build.figures[problem.rank] > cap), 'raw surplus must remain visible and eligible');
   const reading = (result) => result.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves }));
   assert.deepEqual(reading(answer), bruteForce(input));
-  assert.deepEqual(mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, 5).builds, answer.builds);
+  assert.deepEqual(mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, 5, problem.tieBreakers).builds, answer.builds);
   input.requirements.targets = { [rankBy]: cap + 20 };
   const constrained = searchRuneBuilds(prepareRuneOptimization(input));
   assert.ok(constrained.builds.every((build) => build.figures[problem.rank] >= cap + 20));
@@ -1039,3 +1048,77 @@ for (const [rankBy, field, cap] of [['acc', 'accuracy', 85], ['res', 'resist', 1
   assert.equal(searchRuneBuilds(prepareRuneOptimization(input)).builds.length, 0, 'contradictory raw ranges stay impossible');
 }
 console.log('PASS: ACC 85, RES 100 and CRI Rate 100 stop earning rank; raw surplus, move ties, split tables and explicit ranges survive.');
+
+{
+  const targets = Float64Array.from([NaN, NaN, NaN, NaN, 100, NaN, 100, 85, NaN, 300000, NaN]);
+  const before = Float64Array.from([10000, 700, 500, 100, 15, 50, 15, 0, 700, 50000, 20000]);
+  const reference = Float64Array.from([30000, 1200, 1400, 251, 50, 80, 105, 90, 1400, 320000, 120000]);
+  const order = requestedTieBreakers(3, targets, before, reference);
+  assert.deepEqual(order, [4, 7, 6, 9], 'requested pressure must compare relative shortfalls, not raw stat units');
+  const left = Array.from(reference); const right = Array.from(reference);
+  left[4] = 100; left[6] = 101; left[7] = 85; left[9] = 330000;
+  right[4] = 140; right[6] = 130; right[7] = 120; right[9] = 310000;
+  assert.ok(compareRankedFigures(left, right, 3, order) < 0, 'all saturated percentage ties must reach E.HP');
+  left[6] = 99;
+  assert.ok(compareRankedFigures(left, right, 3, order) > 0, 'an unsaturated requested stat still ranks before E.HP');
+  left[3] += 1;
+  assert.ok(compareRankedFigures(left, right, 3, order) < 0, 'secondary objectives must never outweigh the primary');
+  assert.deepEqual(requestedTieBreakers(3, new Float64Array(11).fill(NaN), before, reference), []);
+  assert.equal(compareRankedFigures(reference, reference, 3, order), 0);
+  console.log('PASS: relative target pressure orders all requested figures; saturated ACC, RES and CRI Rate pass ties to E.HP.');
+}
+
+// Hold the first two figures equal without saturation, then exercise the rest of
+// the total order through real candidate reduction, retention and worker merging.
+for (const [name, tieBreakers, equalAttack, targets = { hp: 0, atk: 0, acc: 0 }] of [
+  ['no targets', [], false, {}],
+  ['only primary target', [], false, { spd: 0 }],
+  ['one equal secondary target', [0], false, { hp: 0 }],
+  ['ordinary tertiary', [0, 1], false],
+  ['identical tertiary', [0, 1], true],
+  ['saturated tertiary', [0, 7], false],
+  ['saturated tertiary continues to fourth figure', [0, 7, 1], false],
+]) for (const resultCount of [1, 4]) {
+  const input = scenarioGenerator(20261109, [2, 2]).scenario(0);
+  input.monster = { ...input.monster, accuracy: 85, artifacts: [], relics: [] };
+  input.locks = {}; input.withheld = {}; input.craftItems = [];
+  input.requirements = { ...input.requirements, rankBy: 'spd', builds: [], targets, ceilings: {},
+    allowBroken: true, allowIntangible: false, alwaysCrits: false, alwaysElementAdvantage: false,
+    leads: {}, teammateSets: {}, slotMains: { slot2: [], slot4: [], slot6: [] } };
+  input.settings = { ...input.settings, depth: 'complete', gems: 'none', grinds: 'none', resultCount, runesOnOtherMonsters: true };
+  const fixed = Array.from({ length: 6 }, (_, slot) => ({
+    ...input.runes.find((rune) => rune.slot === slot + 1), id: `fixed-${slot}`, slot: slot + 1,
+    setId: 15, mainStatId: 1, mainValue: 100, level: 15, prefixStatId: null, prefixValue: 0,
+    occupiedId: input.monster.unit_id.toString(), subProperties: [],
+  }));
+  input.runes = [...fixed, ...[0, 1, 2].map((at) => ({ ...fixed[0], id: `alternative-${at}`, occupiedId: null,
+    subProperties: [{ statId: 3, value: equalAttack ? 0 : [40, 40, 20][at], grind: 0, gemmed: false },
+      { statId: 12, value: [10, 20, 30][at], grind: 0, gemmed: false }],
+  }))];
+  const prepared = prepareRuneOptimization(input);
+  if (tieBreakers.length <= 1) assert.deepEqual(prepared.tieBreakers, tieBreakers, name + ': no unstated objective may be invented');
+  const problem = { ...prepared, tieBreakers };
+  const whole = searchRuneBuilds(problem);
+  const reading = (answer) => answer.builds.map((build) => ({
+    value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves,
+    ties: tieBreakers.map((at) => rankValue(build.figures[at], at)),
+  }));
+  assert.deepEqual(reading(whole), bruteForce(input, tieBreakers, true), name + ': retained rows differ from exhaustive enumeration');
+  assert.ok(whole.builds.every((build) => build.figures[3] === whole.builds[0].figures[3]
+    && build.figures[0] === whole.builds[0].figures[0]), name + ': SPD and HP must be exactly equal, not capped');
+  if (name.startsWith('saturated')) assert.ok(whole.builds.every((build) => build.figures[7] >= 85));
+  const expectMove = equalAttack || name === 'saturated tertiary' || tieBreakers.length <= 1 ? 0 : 1;
+  assert.equal(whole.builds[0].moves, expectMove, name + ': the wrong tier decided the first row');
+  if (resultCount === 4) {
+    assert.equal(whole.builds.length, 4);
+    if (!equalAttack && tieBreakers.includes(1)) {
+      assert.equal(whole.builds[0].figures[1], whole.builds[1].figures[1], 'identical ordinary tertiary values must reach the final tie order');
+      assert.ok(whole.builds[1].figures[1] > whole.builds[2].figures[1]);
+    }
+  }
+  const split = mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, resultCount, tieBreakers);
+  assert.deepEqual(split.builds, whole.builds, name + ': parallel workers changed tertiary ties');
+  const passed = await searchRuneBuildsInPasses(problem, everyPairCard(8), { blocks: 3, pairs: 16 });
+  assert.deepEqual(passed.outcome.builds, whole.builds, name + ': card passes changed tertiary ties');
+}
+console.log('PASS: no targets, only a primary target and one equal secondary fall back without inventing objectives; equal uncapped SPD and HP continue to ordinary, identical and saturated tertiary figures, then a fourth figure or move/pick ties; top-one retention, split workers and card passes agree with brute force.');

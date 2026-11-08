@@ -278,6 +278,20 @@ with the combat-stat gap. Icaru's known values are 2,501 DEF for a two-ally team
 
 ### 2.3 The figure to rank by
 
+**Equal primary figures use the requested floors as secondary objectives.** They are
+compared highest first, in descending selection pressure: the floor's positive shortfall
+before runes, divided by the admitted pool's reference figure. This is the same relative
+shortfall that already guides the search (§5); raw HP and RES numbers are never compared
+with one another. Equal pressures use the stat sheet's figure order. Unstated floors add
+no objective; an explicit zero remains a stated floor. A floor proven non-binding still
+names a wanted figure and stays in this order. CRI Rate and RES compare at most 100 %, ACC
+at most 85 %, using `rankingValue`; saturation passes the tie to the next requested figure.
+Ordinary equal values continue to the next figure just as saturated values do.
+An empty or exhausted target order ends at fewer moves, then candidate picks. Search
+retention, worker merging and the live table share this order; this is not a re-sort of
+an arbitrary sample. The primary bar remains inclusive so equal-primary builds survive
+for their secondary figures. No new preference or control is needed.
+
 The profile's *When met, sort by* names it, or the user chooses one in *Rank by* for this
 calculation. **Nothing else ever does.** A figure guessed from the monster's type would
 rank a search by a question nobody asked. Where neither names one, *Rank by* reads
@@ -290,18 +304,19 @@ maximum player RES is 100 %, and a resistance check retains its 15 % floor
 (`combat-stat-limits.ts`; [Accuracy and Resistance](https://summonerswar.fandom.com/wiki/Guide:Accuracy_and_Resistance)).
 The table, saved requirements and every range still read the actual combat figures.
 A build over the useful limit remains eligible; its surplus earns no advantage over
-one at the limit. Equal useful rank retains the usual fewer-moves and pick order,
-including between workers and when a synchronized table is read again. No secondary
-stat objective is invented. The shortlist's ranking gradient and whole-build guides
-use the same useful gain. Exact dominance holds the direct ranking accumulators equal
+one at the limit. Equal useful rank uses the requested target order above, then fewer
+moves and pick order, including between workers and when a synchronized table is read
+again. Only stated targets become secondary objectives. The shortlist's ranking gradient
+and whole-build guides use the same useful gain. Exact dominance holds the direct ranking accumulators equal
 for these three rankings, because a raw-stat increase can be only a tie at saturation.
 The card may still shortlist using raw figures: the processor confirms useful rank,
 and a raw figure below a useful-rank bar cannot have passed that bar after capping.
 
-For every other ranking, ACC and RES contribute only to their requested ranges;
-surplus never increases DMG or E.HP. A floor already guaranteed across the admitted
-pool is removed from the calculation's dependencies by `bindingRangeLimits`, while
-the user's saved choice survives. DMG already caps CRI Rate at 100 %. HP, ATK, DEF,
+For every other primary ranking, ACC and RES contribute to their requested ranges
+and secondary objectives; surplus never increases DMG or E.HP. A floor already
+guaranteed across the admitted pool is removed as a range check by
+`bindingRangeLimits`, while its secondary objective and the user's saved choice survive.
+DMG already caps CRI Rate at 100 %. HP, ATK, DEF,
 SPD, CRI Dmg and the three composites have no general useful-gain ceiling. Enemy
 and skill breakpoints are requirements, not universal stat caps: reaching Icaru's
 team-up threshold, for example, does not stop DEF from improving E.HP.
@@ -442,9 +457,9 @@ could bind at all; minima and unavoidable bonuses prove which floors could still
 ceiling at or above that upper envelope, or a floor at or below the lower envelope, is no
 longer read by the search. This proof uses the full admitted craft pool before the depth
 cut, never a heuristic shortlist. The original requirements stay intact on screen, in
-preferences and when results are re-read; only the calculation's internal limits and
-accumulators are simplified. `rune-optimization-ranges.ts` owns these dependencies and
-envelopes.
+preferences and when results are re-read; only the calculation's internal limits are
+simplified. Accumulators a requested secondary objective reads remain relevant even when
+its floor cannot fail. `rune-optimization-ranges.ts` owns these dependencies and envelopes.
 
 ### 4.2 Dominance
 
@@ -785,8 +800,8 @@ combinations, so a worker's bar is safe for every other part.
 The search stops at its depth's time limit and says so: the table is then the best it had
 found. It runs in one worker per spare processor core, up to eight, each taking every *n*-th
 candidate of the first slot with a choice in it, and their tables merge by one total order —
-ranking figure, then fewer runes moved, then the picks — so the split cannot change the
-answer.
+ranking figure, then requested targets in selection-pressure order, then fewer runes moved,
+then the picks — so the split cannot change the answer.
 
 Preparation's stages are shown before the search percentage; the depth's limit is the
 search time, preparation additional. Clock checks include tail pairs and blocks. *Stop the
@@ -902,8 +917,8 @@ needs a running dev server and a card, and is not part of `npm test`.
    at its limit says so above the table. A change to the runes or locks since the search
    is not announced here: the rows it touches say so (item 5).
 4. **Builds** — the current build pinned first as `Now`, then the ranked builds, in the
-   order of the ranking figure, ties in the search's own order. After each build's sets,
-   in quieter caption type, its slot 2, 4 and 6 mains in the slot main fields' words —
+   order of the ranking figure, then requested targets as described in §2.3. After each
+   build's sets, in quieter caption type, its slot 2, 4 and 6 mains in the slot main fields' words —
    `Violent/Will (Spd/CtR%/Atk%)` — with `—` for a slot no rune fills; the set name
    ellipsizes before the mains do. The headers do not sort:
    the search holds only the best builds by that one figure, so ordering by another column

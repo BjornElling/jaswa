@@ -72,7 +72,7 @@ self.onmessage = async (event: MessageEvent<RuneOptimizationWorkerRequest>) => {
     }));
     const response: RuneOptimizationWorkerResponse = {
       type: 'result', requestId,
-      answer: { ...outcome, builds, report: problem.report, backend, durationMs: performance.now() - startedAt },
+      answer: { ...outcome, builds, tieBreakers: problem.tieBreakers, report: problem.report, backend, durationMs: performance.now() - startedAt },
     };
     self.postMessage(response);
   } catch (error) {

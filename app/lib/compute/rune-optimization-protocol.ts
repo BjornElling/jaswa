@@ -42,6 +42,7 @@ export type OptimizedBuild = FoundBuild & { runes: PickedRune[] };
 
 export type RuneOptimizationAnswer = Omit<SearchOutcome, 'builds'> & {
   builds: OptimizedBuild[];
+  tieBreakers: RuneOptimizationProblem['tieBreakers'];
   report: RuneOptimizationProblem['report'];
   backend: CalculationBackend;
   durationMs: number;

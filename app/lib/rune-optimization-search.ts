@@ -28,7 +28,7 @@
  * `searchRuneBuildsInPasses` hands the tail to a card and checks every pair the card
  * sends back on the processor before it may enter the table.
  */
-import { rankingValue } from './rune-optimization-ranking';
+import { compareRankedFigures, rankingValue } from './rune-optimization-ranking';
 import {
   addSetBonuses, baseStatCount, capTotal, effectSlot, effectSlotCount, figureOf, figuresInto, intangibleCompletion, intangibleSetId,
   setIdBound, statSetBonuses, targetFigureCount, totalCount, totalsInto,
@@ -60,12 +60,12 @@ export type SearchOutcome = {
 
 /**
  * The order every table of builds is kept in: the ranking figure, highest first;
- * then fewer runes to move; then the picks themselves, so two workers — or two runs —
+ * then requested figures by selection pressure; then fewer runes to move; then the picks themselves, so two workers — or two runs —
  * order equal builds identically.
  */
-export function compareFoundBuilds(rank: number) {
+export function compareFoundBuilds(rank: number, tieBreakers: readonly number[]) {
   return (left: FoundBuild, right: FoundBuild): number => {
-    const figure = rankingValue(right.figures[rank], rank) - rankingValue(left.figures[rank], rank);
+    const figure = compareRankedFigures(left.figures, right.figures, rank, tieBreakers);
     if (figure !== 0) return figure;
     if (left.moves !== right.moves) return left.moves - right.moves;
     for (let at = 0; at < left.picks.length; at += 1) {
@@ -76,10 +76,10 @@ export function compareFoundBuilds(rank: number) {
 }
 
 export function mergeBuildResults<Build extends FoundBuild>(
-  outcomes: ReadonlyArray<Omit<SearchOutcome, 'builds'> & { builds: Build[] }>, rank: number, count: number,
+  outcomes: ReadonlyArray<Omit<SearchOutcome, 'builds'> & { builds: Build[] }>, rank: number, count: number, tieBreakers: readonly number[],
 ): Omit<SearchOutcome, 'builds'> & { builds: Build[] } {
   const seen = new Set<string>();
-  const builds = outcomes.flatMap((outcome) => outcome.builds).sort(compareFoundBuilds(rank))
+  const builds = outcomes.flatMap((outcome) => outcome.builds).sort(compareFoundBuilds(rank, tieBreakers))
     .filter((build) => { if (seen.has(build.identity)) return false; seen.add(build.identity); return true; }).slice(0, count);
   return {
     builds,
@@ -606,7 +606,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
 
   const table: FoundBuild[] = [];
   const seeded = new Set<string>();
-  const ordered = compareFoundBuilds(rank);
+  const ordered = compareFoundBuilds(rank, problem.tieBreakers);
   let bar = -Infinity;
   let combinations = 0;
   let nodes = 0;
