@@ -2735,7 +2735,14 @@ label[for] {
 .rune-optimization-build-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Slots 2, 4 and 6's mains, quieter than the sets they follow. They keep their
    width and the set name gives way first: two rows of one build differ here. */
-.rune-optimization-build-mains { flex: none; color: var(--text-muted); white-space: nowrap; }
+.rune-optimization-build-mains {
+  flex: none;
+  /* A clear step from the sets, so the two read as two facts: the row's gap plus
+     this lands on --s5. */
+  margin-left: calc(var(--s5) - var(--s1));
+  color: var(--text-muted);
+  white-space: nowrap;
+}
 /* A build the account has moved out from under: still there to read, in the dimmed
    ink of the house's two-tone device, with the mark saying why. A sold rune in
    Rune Clean-up is the same fact and wears the same ink, its verdict and gold

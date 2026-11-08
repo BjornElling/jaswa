@@ -305,10 +305,10 @@ export const runeOptimizationTableColumns: readonly TableColumn[] = [
   /* Wide enough for three sets and the slot 2, 4 and 6 mains after them. The room
      comes from the figures, whose headings and values need far less than an even
      share; E.HP D's heading alone needs more, and gets it. */
-  { key: 'build', width: '19%', align: 'left' },
+  { key: 'build', width: '21%', align: 'left' },
   { key: 'moves', width: '7%', align: 'right' },
   ...['hp', 'atk', 'def', 'spd', 'criRate', 'criDmg', 'res', 'acc', 'dmg', 'ehp']
-    .map((key): TableColumn => ({ key, width: '6.2%', align: 'right' })),
+    .map((key): TableColumn => ({ key, width: '6%', align: 'right' })),
   { key: 'ehpD', width: '7%', align: 'right' },
 ];
 
