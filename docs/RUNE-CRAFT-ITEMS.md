@@ -113,16 +113,20 @@ component, `craft-item-best-use.tsx`, with one mode each, and read
 Every view is laid out in columns of one height. First the controls, as one
 surface: the question — the item kind, the stack (Best use only) and Assumed
 roll — and beneath it, with no rule between them, the filters in
-two rows: Family, Grade, Location and (Best use only) Only keep-runes; then
-Rune set, Stat, Stat already grinded / Can change gem'ed stat? and
-*No. of suggestions*, the ranking length. Item and Family share a first track
-as wide as Rune set's field, and every other track is as wide as its widest
-group, so no gap opens between columns. The other views leave Only
-keep-runes' cell empty, so no group moves between views; the grinded / gem'ed
-group keeps room for both its wordings, so switching the item kind moves
-nothing. Where the controls share the row with Most wanted, or the screen is
-narrower, the filters take three tracks and the ranking length a row of its
-own.
+two rows: Family, Grade, Location and Level; then Rune set, Stat, Stat already
+grinded / Can change gem'ed stat? and *No. of suggestions*, the ranking length.
+Best use adds Only keep-runes on a row of its own beneath them. Item and Family
+share a first track as wide as Rune set's field, and every other track is as
+wide as its widest group, so no gap opens between columns. No group moves
+between views; the grinded / gem'ed group keeps room for both its wordings, so
+switching the item kind moves nothing. Where the controls share the row with
+Most wanted, or the screen is narrower, the filters fold into two tracks, Level
+still beside Location.
+
+*Level* is a two-handle range over the rune's power-up level, `+0` to `+15`,
+both ends included. It opens at `+12` to `+15`: from `+12` a rune has rolled
+every sub it will get and can take a Gem, so that is where a craft item is
+usually spent. It narrows the rankings and nothing else.
 
 Then a column of its own for Clear results, Calculate, the cancelling ✕
 (Rune Optimization's stop), the calculation status beneath them, and Reset
@@ -132,8 +136,8 @@ ranking length, in the caption size so the box stays narrow.
 
 *No. of suggestions* runs over the stops 1, 5, 10, 25, 50 and 100: one step of
 the hand should matter, and the difference between 60 and 65 runes does not.
-A view opens on Grindstone, an Average roll, no Location chosen (every rune, under the inclusive-filter rule) and five
-suggestions. Each view's question and filters are saved choices
+A view opens on Grindstone, an Average roll, no Location chosen (every rune, under the inclusive-filter rule), Level
+`+12` to `+15` and five suggestions. Each view's question and filters are saved choices
 (`craftViews`, `craft-view-choices.ts`), so they outlast a reload and a
 restart; the three views keep theirs apart. Reset filters returns the filter
 panel only; the item kind, the chosen stack and the assumptions are the
@@ -251,7 +255,7 @@ of the winning stat are listed, and the box's bar (`heldCraftBenchmark`) counts
 a held Gem only when it has that stat, because a held Gem of a lesser stat is
 never suggested and so has done nothing for the rune; *Most wanted* tallies the
 same rows. Filters do not enter the choice: *Can change gem'ed stat?*, Grade,
-Family, Stat and Location narrow what is shown afterwards, so a filter can hide
+Family, Stat, Location and Level narrow what is shown afterwards, so a filter can hide
 the chosen Gem but never promote another stat in its place. A stat the user has
 ignored on a rune is the one exception: Ignore says the user does not want that
 stat there, so it leaves that rune's choice and the next stat in the rule's
@@ -268,7 +272,7 @@ target for **every rune/item pair**, including pairs below the current shortlist
 Score and gain share that best target because the pair's baseline is fixed.
 Filtering and ranking are immediate projections of this complete answer; each
 displayed ranking includes a rune at most once. Item, kind, family, grade, rune
-set, stat, Location, already-crafted state, Only keep-runes and count never
+set, stat, Location, Level, already-crafted state, Only keep-runes and count never
 invalidate an answer or start the craft worker.
 The two disclosures share one answer through `compute/craft-result-memory.ts`,
 including after workspace navigation. Reset filters resets only filters.

@@ -1381,14 +1381,14 @@ label[for] {
    and the ways back, so none of them waits on where the controls end; in
    What's missing, Most wanted at the far edge.
    The filters run in two rows: the chips first — Family, Grade, Location and
-   Only keep-runes — then the fields — Rune set and Stat, followed by the two
-   that shape the answer rather than pick from it: whether a Gem may change a
-   stat, and how many suggestions each list holds. Their tracks are as wide as
-   their widest group and no wider: tracks sharing the panel's width opened gaps
-   that belonged to no control. Every view shares these areas, so a group never
-   changes place between them; Only keep-runes is Best use's own and the others
-   leave its cell empty. The question asks the same things of a Gem and of a
-   Grindstone, so changing the item kind moves nothing. */
+   the Level range beside it — then the fields — Rune set and Stat, followed by
+   the two that shape the answer rather than pick from it: whether a Gem may
+   change a stat, and how many suggestions each list holds. Their tracks are as
+   wide as their widest group and no wider: tracks sharing the panel's width
+   opened gaps that belonged to no control. Every view shares these areas, so a
+   group never changes place between them; Only keep-runes is Best use's own
+   and takes a row of its own there. The question asks the same things of a Gem
+   and of a Grindstone, so changing the item kind moves nothing. */
 .craft-best-use { display: grid; gap: var(--s4); grid-template-columns: minmax(0, 1fr) max-content; align-items: stretch; }
 .craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr) max-content 44ch; }
 /* One surface: the filters continue the question's rows at the question's own
@@ -1416,15 +1416,21 @@ label[for] {
 .craft-best-use-filters {
   grid-template-columns: var(--craft-lead) repeat(3, max-content);
   grid-template-areas:
-    "family grade location keep"
+    "family grade location level"
     "set    stat  already  count";
   justify-content: start;
 }
-/* Where the controls share the row with Most wanted, or the screen is narrower,
-   four tracks would run past the column: the list length takes a row of its own. */
+.craft-best-use[data-mode="selected"] .craft-best-use-filters {
+  grid-template-areas:
+    "family grade location level"
+    "set    stat  already  count"
+    "keep   .     .        .";
+}
+/* Where the controls share the row with Most wanted, four tracks would run past
+   the column: the filters fold into two, Level still beside Location. */
 .craft-best-use[data-mode="missing"] .craft-best-use-filters {
-  grid-template-columns: var(--craft-lead) repeat(2, max-content);
-  grid-template-areas: "family grade location" "set stat already" "count . .";
+  grid-template-columns: var(--craft-lead) max-content;
+  grid-template-areas: "family grade" "location level" "set stat" "already count";
 }
 .craft-view-lineage { grid-area: family; }
 .craft-view-grade { grid-area: grade; }
@@ -1432,6 +1438,7 @@ label[for] {
 .craft-view-count { grid-area: count; }
 .craft-view-set { grid-area: set; }
 .craft-view-location { grid-area: location; }
+.craft-view-level { grid-area: level; }
 .craft-view-already { grid-area: already; }
 .craft-view-keep { grid-area: keep; }
 /* The box's own measure (`.craft-filter-set`): a set or stat name needs no more. */
@@ -1451,9 +1458,10 @@ label[for] {
 .craft-calculation-status p { margin: 0; }
 .craft-side .craft-view-actions { align-self: end; gap: var(--s3); }
 @media (max-width: 1400px) {
-  .craft-best-use-filters {
-    grid-template-columns: var(--craft-lead) repeat(2, max-content);
-    grid-template-areas: "family grade location" "set stat keep" "already count .";
+  /* Most wanted moves below the controls, which take the full width again. */
+  .craft-best-use[data-mode="missing"] .craft-best-use-filters {
+    grid-template-columns: var(--craft-lead) repeat(3, max-content);
+    grid-template-areas: "family grade location level" "set stat already count";
   }
   .craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr) 44ch; }
   .craft-best-use[data-mode="missing"] .craft-controls { grid-column: 1 / -1; }
@@ -1464,9 +1472,12 @@ label[for] {
     grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "kind item" "roll .";
   }
   .craft-best-use:not([data-mode="selected"]) .craft-question { grid-template-areas: "kind roll"; }
-  .craft-best-use-filters {
+  .craft-best-use-filters, .craft-best-use[data-mode="missing"] .craft-best-use-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas: "family grade" "location keep" "set stat" "already count";
+    grid-template-areas: "family grade" "location level" "set stat" "already count";
+  }
+  .craft-best-use[data-mode="selected"] .craft-best-use-filters {
+    grid-template-areas: "family grade" "location level" "set stat" "already count" "keep .";
   }
 }
 .craft-best-use-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); align-items: start; }

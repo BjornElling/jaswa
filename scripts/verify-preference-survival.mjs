@@ -41,8 +41,9 @@ try {
     runeHolds: { 901: { unsellable: true }, 902: { unsellable: true } },
     craftIgnores: [{ runeId: '901', kind: 'grindstone', statId: 8 }, { runeId: '902', kind: 'gem', statId: 4 }],
     craftViews: { ...blank.craftViews,
-      recommendations: { ...blank.craftViews.recommendations, kind: 'gem', roll: 'maximum', count: 25, showEngraved: true, set: 'Violent' },
-      missing: { ...blank.craftViews.missing, grades: ['Legend'], already: ['no'], count: 100 },
+      recommendations: { ...blank.craftViews.recommendations, kind: 'gem', roll: 'maximum', count: 25, showEngraved: true, set: 'Violent',
+        level: { minimum: 3, maximum: 9 } },
+      missing: { ...blank.craftViews.missing, grades: ['Legend'], already: ['no'], count: 100, level: { minimum: 0, maximum: 15 } },
     },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, intangibleRunes: 4 },
     runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
@@ -229,6 +230,13 @@ try {
     'a count off the stops costs only the count');
   assert.deepEqual(views.selected, blank.craftViews.selected, 'an unreadable view starts from its defaults');
   assert.deepEqual(views.missing, { ...chosen.craftViews.missing, grades: [] }, "a grade What's missing does not offer costs only the grades");
+  /* Level is one choice: a range out of order or off the game's levels starts from +12 to +15 whole. */
+  for (const level of [{ minimum: 9, maximum: 3 }, { minimum: 0, maximum: 16 }, { minimum: 12 }]) {
+    const read = readPreferences({ ...chosen, craftViews: { ...chosen.craftViews,
+      recommendations: { ...chosen.craftViews.recommendations, level } } }, null).craftViews.recommendations;
+    assert.deepEqual(read, { ...chosen.craftViews.recommendations, level: blank.craftViews.recommendations.level },
+      `an unreadable level range ${JSON.stringify(level)} costs only the range`);
+  }
 
   /* A priority entry that cannot be read costs that entry; the order of the rest stands. */
   const priority = readPreferences({ ...chosen, monsterPriority: ['18', 5, '', '17', '18'] }, null);

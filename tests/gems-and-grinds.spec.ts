@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -10,6 +10,11 @@ async function openSection(page: Page, title: string) {
   if (!(await summary.evaluate((node) => node.parentElement?.hasAttribute('open')))) await summary.click();
 }
 
+/** Level opens at +12 to +15, and the fixture's +9 rune is there on purpose (a
+    Gem needs +12), so a flow that reads every rune asks for every level. */
+async function showEveryLevel(panel: Locator) {
+  await panel.getByRole('slider', { name: 'Lowest rune level' }).fill('0');
+}
 
 /**
  * Six craft stacks against four runes. Every row in the fixture exercises one
@@ -24,6 +29,7 @@ test('craft controls reserve their boxes and calculate three grind rankings', as
   await importCraftAccount(page);
   await openSection(page, 'Best use for this');
   const panel = page.locator('[data-mode="selected"]');
+  await showEveryLevel(panel);
   const filters = panel.locator('.craft-best-use-filters');
   /* Measured on the page, not in the viewport: the controls sit at the
      viewport's lower edge, and a click that scrolls them into view moved every
@@ -73,6 +79,7 @@ for (const [mode, label, total] of [
   await page.getByRole('button', { name: 'Gems & Grinds' }).click();
   await openSection(page, label);
   const panel = page.locator(`[data-mode="${mode}"]`);
+  await showEveryLevel(panel);
   if (mode === 'selected') await chooseItem(page, 'Violent', 'Grind', 'SPD');
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   const card = panel.locator('.craft-recommendation').first();
@@ -110,6 +117,7 @@ test('a Grindstone card is the rune\'s whole plan: every stone alike, one score 
   await page.getByRole('button', { name: 'Gems & Grinds' }).click();
   await openSection(page, 'Recommendations');
   const panel = page.locator('[data-mode="recommendations"]');
+  await showEveryLevel(panel);
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   /* Rune 102 takes the ATK% stone and the SPD stone together: in its stat's
      ranking the title names the ATK% stone and counts the other. */
@@ -182,6 +190,7 @@ test('Recommendations filters the complete held box without another calculation'
   await page.setViewportSize({ width: 1920, height: 1080 });
   await openSection(page, 'Recommendations');
   const panel = page.locator('[data-mode="recommendations"]');
+  await showEveryLevel(panel);
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(panel.locator('.craft-ranking')).toHaveCount(3);
   await expect(panel.locator('.craft-recommendation').first()).toBeVisible();
@@ -195,6 +204,51 @@ test('Recommendations filters the complete held box without another calculation'
   await expect(panel.locator('.craft-ranking')).toHaveCount(0);
 });
 
+test('Level opens at +12 to +15, narrows the runes listed without moving a control, and resets there', async ({ page }, testInfo) => {
+  let craftWorkers = 0;
+  page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
+  await openWorkspace(page);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await importCraftAccount(page);
+  const panel = page.locator('[data-mode="recommendations"]');
+  const group = panel.getByRole('group', { name: 'Filter by rune level' });
+  const lowest = group.getByRole('slider', { name: 'Lowest rune level' });
+  const highest = group.getByRole('slider', { name: 'Highest rune level' });
+  await expect(group.locator('.filter-label')).toHaveText('Level');
+  await expect(lowest).toHaveValue('12');
+  await expect(highest).toHaveValue('15');
+  await expect(lowest).toHaveAttribute('min', '0');
+  await expect(highest).toHaveAttribute('max', '15');
+  /* Right of Location, on its row. */
+  const location = await panel.getByRole('group', { name: 'Choose rune locations' }).boundingBox();
+  const level = await group.boundingBox();
+  expect(level!.x).toBeGreaterThan(location!.x + location!.width);
+  expect(level!.y).toBe(location!.y);
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  /* The fixture's one Grindstone suggestion is for its +9 rune, so the default
+     range lists nothing; readiness is the summary, not a card. */
+  await expect(panel.getByText(/build comparisons/)).toBeVisible();
+  const levels = () => panel.locator('.craft-rune-facts div:last-child dd').allTextContents();
+  expect(await levels()).not.toContain('+9');
+  const boxes = () => panel.locator('.filter-group').evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect(); return { x, y, width, height };
+  }));
+  const before = await boxes();
+  await page.screenshot({ path: testInfo.outputPath('craft-level-default.png'), fullPage: true });
+  await lowest.fill('0');
+  await expect.poll(levels).toContain('+9');
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('craft-level-every.png'), fullPage: true });
+  await highest.fill('9');
+  await expect.poll(levels).toEqual(expect.arrayContaining(['+9']));
+  expect(new Set(await levels())).toEqual(new Set(['+9']));
+  await panel.getByRole('button', { name: 'Reset recommendations filters' }).click();
+  await expect(lowest).toHaveValue('12');
+  await expect(highest).toHaveValue('15');
+  expect(await levels()).not.toContain('+9');
+  expect(craftWorkers).toBe(1);
+});
+
 test('both craft views share a complete calculation and filter beyond its initial shortlist', async ({ page }) => {
   let craftWorkers = 0;
   page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
@@ -202,6 +256,7 @@ test('both craft views share a complete calculation and filter beyond its initia
   await importCraftAccount(page);
   await openSection(page, 'Best use for this');
   const best = page.locator('[data-mode="selected"]');
+  await showEveryLevel(best);
   await best.getByRole('slider', { name: 'Number of runes listed in each ranking' }).fill('0');
   await best.getByRole('combobox', { name: 'Filter candidate runes by set' }).selectOption('Violent');
   await best.getByRole('button', { name: 'Calculate', exact: true }).click();
@@ -219,6 +274,7 @@ test('both craft views share a complete calculation and filter beyond its initia
   await expect(best.locator('.craft-recommendation').first()).toContainText('Fatal');
   await openSection(page, 'Recommendations');
   const recommendations = page.locator('[data-mode="recommendations"]');
+  await showEveryLevel(recommendations);
   await expect(recommendations.locator('.craft-recommendation').first()).toBeVisible();
   await recommendations.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
   await recommendations.getByRole('slider', { name: 'Number of runes listed in each ranking' }).fill('2');
@@ -296,6 +352,7 @@ test('Grind state and permission to change a Gem stat filter instantly in both v
   for (const [title, mode] of [['Best use for this', 'selected'], ['Recommendations', 'recommendations']]) {
     await openSection(page, title);
     const panel = page.locator(`[data-mode="${mode}"]`);
+    await showEveryLevel(panel);
     const highest = panel.locator('.craft-ranking').first().locator('.craft-recommendation');
     const alreadyGround = panel.getByRole('group', { name: 'Stat already grinded', exact: true });
     await expect(alreadyGround.getByRole('button', { name: 'Yes', exact: true })).toHaveAttribute('aria-pressed', 'false');
@@ -354,6 +411,7 @@ test('Only keep-runes asks Rune Clean-up and narrows Best use without moving a c
   await importCraftAccount(page);
   await openSection(page, 'Best use for this');
   const panel = page.locator('[data-mode="selected"]');
+  await showEveryLevel(panel);
   const keepOnly = panel.getByRole('group', { name: 'Only keep-runes', exact: true });
   await expect(keepOnly.getByRole('button')).toHaveText(['Yes']);
   await expect(keepOnly.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'false');
@@ -386,9 +444,10 @@ test('Only keep-runes asks Rune Clean-up and narrows Best use without moving a c
   await page.screenshot({ path: testInfo.outputPath('craft-keep-only-on.png'), fullPage: true });
   await panel.getByRole('button', { name: 'Reset best use filters' }).click();
   await expect(keepOnly.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'false');
+  await showEveryLevel(panel);
   await expect(cards).toHaveCount(all);
   expect(craftWorkers).toBe(1);
-  /* Best use's own: the other views keep the cell empty. */
+  /* Best use's own: the other views do not offer it. */
   await openSection(page, 'Recommendations');
   await expect(page.locator('[data-mode="recommendations"]').getByRole('group', { name: 'Only keep-runes' })).toHaveCount(0);
 });
@@ -476,6 +535,7 @@ test('one Ignore list follows every Gems & Grinds view, survives reload and rese
       if (!(await summary.evaluate((node) => node.parentElement?.hasAttribute('open')))) await summary.click();
     }
     for (const panel of panels) {
+      await showEveryLevel(panel);
       await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
       await expect(panel.locator('.craft-recommendation').first()).toBeVisible();
     }

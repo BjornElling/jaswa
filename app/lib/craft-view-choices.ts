@@ -54,19 +54,33 @@ export type CraftViewChoice = {
   gemChange: typeof craftChangeOptions[number];
   /** Best use only: the runes Rune Clean-up's calculation itself keeps. */
   keepOnly: boolean;
+  /** The power-up levels of the runes listed, both ends included. One choice, so its two ends can never be read apart. */
+  level: CraftLevelRange;
 };
+
+export type CraftLevelRange = { minimum: number; maximum: number };
+export const craftLowestRuneLevel = 0;
+export const craftHighestRuneLevel = 15;
+
+const isRuneLevel = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value)
+  && value >= craftLowestRuneLevel && value <= craftHighestRuneLevel;
+const isLevelRange = (value: unknown) => isRecord(value)
+  && isRuneLevel(value.minimum) && isRuneLevel(value.maximum)
+  && (value.minimum as number) <= (value.maximum as number);
 
 /* The middle of the roll: what a player can count on landing rather than what
    they would hope for. Neither Location chosen means every rune, the inclusive
-   filters' one rule. */
+   filters' one rule. Level starts at +12, where a rune has rolled all its subs
+   and is worth spending a craft item on. */
 export const defaultCraftViewChoice: CraftViewChoice = {
   kind: 'grindstone', lineages: [], grades: [], statId: '', selectedItemId: '', set: '',
   roll: 'average', showEngraved: false, showInventory: false,
   count: 5, already: [], gemChange: 'yes', keepOnly: false,
+  level: { minimum: 12, maximum: craftHighestRuneLevel },
 };
 
 /** Reset filters returns these and only these: the item kind, the chosen stack and the assumptions are the question, not a filter. */
-export const craftFilterFields = ['lineages', 'grades', 'statId', 'set', 'showEngraved', 'showInventory', 'count', 'already', 'gemChange', 'keepOnly'] as const;
+export const craftFilterFields = ['lineages', 'grades', 'statId', 'set', 'showEngraved', 'showInventory', 'level', 'count', 'already', 'gemChange', 'keepOnly'] as const;
 
 export type CraftViewChoices = Record<CraftViewMode, CraftViewChoice>;
 
@@ -86,5 +100,6 @@ export function readCraftViewChoices(value: unknown): CraftViewChoices {
     selectedItemId: isString, set: isString, roll: isOneOf(craftRollAssumptions),
     showEngraved: isBoolean, showInventory: isBoolean, count: isOneOf(craftSuggestionCounts),
     already: isListOf(craftChangeOptions), gemChange: isOneOf(craftChangeOptions), keepOnly: isBoolean,
+    level: isLevelRange,
   })])) as CraftViewChoices;
 }

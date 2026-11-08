@@ -6,7 +6,7 @@ import { Button, FilterButton, InlineButton, LabelSwap } from './button';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { EngravedPlace } from './engraved-place';
-import { ValueSlider } from './range-slider';
+import { RangeSlider, ValueSlider } from './range-slider';
 import { RuneLink } from './rune-link';
 import { RuneEmblem } from './rune-emblem';
 import type { OpenRuneOverlay } from './rune-link';
@@ -20,7 +20,8 @@ import type { MonsterPreferences } from '../lib/monster-preferences';
 import { craftKindLabels, craftLineageLabels, craftRollLabels, craftRollAssumptions,
   craftSetLabel, missingCraftItems } from '../lib/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../lib/rune-craft-items';
-import { craftChangeOptions, craftFilterFields, craftKinds, craftSuggestionCounts, craftViewOffers, defaultCraftViewChoice } from '../lib/craft-view-choices';
+import { craftChangeOptions, craftFilterFields, craftHighestRuneLevel, craftKinds, craftLowestRuneLevel, craftSuggestionCounts,
+  craftViewOffers, defaultCraftViewChoice } from '../lib/craft-view-choices';
 import type { CraftViewChoice, CraftViewMode } from '../lib/craft-view-choices';
 import { runeStatIds, runeStatName, runeLineStat, runeLineFigure } from '../lib/runes';
 import type { Rune } from '../lib/runes';
@@ -242,9 +243,10 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     && (!state.set || row.rune.setName === state.set)
     && craftMatchesChangeFilter(row.rune, row.item, { grinded: state.already, gemChange: state.gemChange })
     && filterPair(hasRunePlacement(placements.runes.get(row.rune.id) ?? emptyRunePlacement), state.showEngraved, state.showInventory)
+    && row.rune.level >= state.level.minimum && row.rune.level <= state.level.maximum
     && (keepSet === null || keepSet.has(row.rune.id))
     && !ignored.has(craftIgnoreKey(ignoreOf(row)))) ?? [],
-  [result, kind, mode, selected, desirable, state.lineages, state.grades, state.statId, state.set, state.already, state.gemChange, state.showEngraved, state.showInventory, placements, choices, keepSet, ignored]);
+  [result, kind, mode, selected, desirable, state.lineages, state.grades, state.statId, state.set, state.already, state.gemChange, state.showEngraved, state.showInventory, state.level, placements, choices, keepSet, ignored]);
   /* Read from the filtered rows, so a narrowed Family, Grade or Stat narrows a
      rune's plan exactly as it narrows the cards. What's missing asks which one
      item the box lacks, against the one best item it holds, so its cards stay
@@ -441,6 +443,16 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           onChange={(event) => update('set', event.target.value)}>{sets.map((set) => <option key={set}>{set}</option>)}</Dropdown></div></div>
       {choiceGroup('Location', 'location', ['showEngraved', 'showInventory'] as const, (key) => state[key], (key) => update(key, !state[key]),
         (key) => key === 'showEngraved' ? 'Engraved' : 'Inventory', undefined, 'Choose rune locations')}
+      <div className="filter-group craft-view-level" role="group" aria-label="Filter by rune level">
+        <span className="filter-label">Level</span>
+        <div className="filter-group-controls">
+          <RangeSlider minimum={craftLowestRuneLevel} maximum={craftHighestRuneLevel}
+            lowerValue={state.level.minimum} upperValue={state.level.maximum}
+            label="Rune level range" lowerLabel="Lowest rune level" upperLabel="Highest rune level"
+            valueText={(value, end) => `${end === 'lower' ? 'Lowest' : 'Highest'} level +${value}`}
+            onChange={(minimum, maximum) => update('level', { minimum, maximum })} />
+        </div>
+      </div>
       {/* One group, two questions: the Grindstone's is an inclusive filter, the
           Gem's a permission with exactly one answer always standing. */}
       {choiceGroup(alreadyLabel, 'already', craftChangeOptions,
