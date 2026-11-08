@@ -88,7 +88,7 @@ test('Location names the Scenario monster and counts each other preset and prote
   // The label remains an active checkbox target in both states.
   await page.locator('label[for="rune-engraving-protection"]').click();
   await expect(protection).toBeChecked();
-  await page.getByRole('button', { name: /^(Calculate|Recalculate)$/ }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Keep', 'Power up', 'Keep']);
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -104,7 +104,7 @@ test('Location names the Scenario monster and counts each other preset and prote
   await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(dialog).toBeHidden();
   await navigation.getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  await page.getByRole('button', { name: /^(Calculate|Recalculate)$/ }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(rows).toHaveCount(5);
   const named = cells.filter({ hasText: '(+ 2)' });
   await expect(named).toContainText(nickname);

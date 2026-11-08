@@ -629,7 +629,7 @@ test('Optimize opens Rune Optimization on that monster in that preset', async ({
   await preset.selectOption('deck-99-1');
   await expect(preset).toHaveValue('deck-99-1');
   await expect(monster).toHaveValue('');
-  await expect(page.getByRole('button', { name: 'Find builds' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
   await monster.selectOption('12');
   await preset.selectOption('deck-1-4');
   await expect(monster).toHaveValue('12');
@@ -652,7 +652,7 @@ test('preset comes first, and empty presets keep the search controls in place', 
   const preset = page.getByLabel('Preset', { exact: true });
   const monster = page.getByLabel('Monster', { exact: true });
   const rank = page.getByLabel('Rank by', { exact: true });
-  const find = page.getByRole('button', { name: 'Find builds' });
+  const find = page.getByRole('button', { name: 'Calculate', exact: true });
   const controls = [preset, monster, rank, find];
   const before = await Promise.all(controls.map(box));
   await page.screenshot({ path: testInfo.outputPath('preset-first-unselected.png'), fullPage: true });
@@ -852,7 +852,7 @@ async function find(page: Page) {
   /* The fixture's profiles name no figure to rank by, and the page never picks one. */
   const rank = page.getByLabel('Rank by', { exact: true });
   if (await rank.inputValue() === '') await rank.selectOption('spd');
-  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   return considered(page);
 }
@@ -1174,7 +1174,7 @@ test('a rune another team of a team pool holds is withheld until included, names
   if (await rank.inputValue() === '') await rank.selectOption('spd');
 
   /* Off, the other team's runes are not this team's to take: nothing fills a slot. */
-  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByText(/No rune can fill slot 1, 2, 3, 4, 5, 6/)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('team-pool-withheld.png'), fullPage: true });
 
@@ -1188,7 +1188,7 @@ test('a rune another team of a team pool holds is withheld until included, names
 
   /* Included, the six runes are offered, and each card names the team holding it. */
   await include.check();
-  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const detail = page.getByRole('dialog', { name: 'Build 1' });
   await expect(detail.locator('.rune-build-card')).toHaveCount(6);
@@ -1245,13 +1245,13 @@ test('a rune two teams of a pool both carry is kept by neither until included, a
   if (await rank.inputValue() === '') await rank.selectOption('spd');
 
   /* Carrying them here is no claim: the other team holds them just as much. */
-  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByText(/No rune can fill slot 1, 2, 3, 4, 5, 6/)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('team-overlap-withheld.png'), fullPage: true });
 
   /* Included, the build keeps them, names the other team, and is not yet engraved. */
   await include.check();
-  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await page.getByRole('button', { name: 'Show build 1', exact: true }).click();
   const detail = page.getByRole('dialog', { name: 'Build 1' });
   await expect(detail.locator('.rune-build-card')).toHaveCount(6);

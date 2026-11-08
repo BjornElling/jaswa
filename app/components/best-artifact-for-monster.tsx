@@ -1,8 +1,11 @@
 import { filterIncludes } from '../lib/filter-selection';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Button, FilterButton } from './button';
+import { FilterButton } from './button';
+import { CalculationActions, CalculationNote } from './calculation-actions';
 import { CalculationStatus } from './calculation-status';
+import { useCancellableRun } from './use-cancellable-run';
+import { isCalculationCancelled } from '../lib/compute/cancellable-worker';
 import { SettledCalculation } from './settled-calculation';
 import { ConversionList } from './conversion-list';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
@@ -373,6 +376,7 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
     settings: scoringSettings(settings),
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
+  const run = useCancellableRun(inputKey);
 
   const rows = useMemo<ResultRow[]>(() => {
     if (!currentCalculation || !selectedMonster) return [];
@@ -444,9 +448,11 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
       setState('error');
       return;
     }
+    const before = state;
+    const signal = run.start();
     setState('calculating');
     try {
-      const results = await Promise.all(requests.map((request) => calculateArtifactScores(request, hardwareAcceleration)));
+      const results = await Promise.all(requests.map((request) => calculateArtifactScores(request, hardwareAcceleration, signal)));
       setCalculation({
         inputKey,
         /* One monster in the request, so its maximum over the monsters *is* its
@@ -457,15 +463,22 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
         durationMs: results.reduce((total, result) => total + result.durationMs, 0),
       });
       setState('idle');
-    } catch {
+    } catch (failure) {
+      /* Cancelled: the answer from before Calculate stands, and so does its state. */
+      if (isCalculationCancelled(failure)) { setState(before === 'calculating' ? 'idle' : before); return; }
       setCalculation(undefined);
       setState('error');
     }
   }
 
+  function clear() {
+    setCalculation(undefined);
+    setState('idle');
+  }
+
   useAutoRecalculate({
     mode: settings.recalculate,
-    stale: calculation !== undefined && currentCalculation === undefined,
+    stale: calculation !== undefined && currentCalculation === undefined && !run.cancelledHere,
     calculating: state === 'calculating',
     calculate: () => void calculate(),
   });
@@ -496,14 +509,19 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
           </Dropdown>
         </div>
       </div>
-      <div className="filter-panel-actions best-artifact-actions">
-        <Button tone="primary" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
-          onClick={() => void calculate()} disabled={!selectedMonster}>Calculate artifacts</Button>
-        {/* The chooser belongs to the same state as the filters, so this one
-            reset restores every control in the panel to its default. */}
-        <button type="button" className="filter-reset" aria-label="Reset filters for this monster"
-          onClick={resetFilters}>Reset filters</button>
-      </div>
+      <CalculationActions className="best-artifact-actions" busy={state === 'calculating'} canCalculate={selectedMonster !== undefined}
+        calculateTitle="Choose a monster first." onCalculate={() => void calculate()} onCancel={run.cancel}
+        canClear={calculation !== undefined || state === 'error'} onClear={clear}
+        status={state === 'calculating' ? <CalculationNote tone="busy">Calculating…</CalculationNote>
+          : state === 'error' ? <CalculationNote tone="failed">JASWA could not calculate this monster’s artifact fits from the imported data.</CalculationNote>
+            : currentCalculation && selectedMonster
+              ? <CalculationStatus twoLines evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
+                backend={currentCalculation.backend} general={general} />
+              : <CalculationNote>{''}</CalculationNote>}
+        /* The chooser belongs to the same state as the filters, so this one
+           reset restores every control in the panel to its default. */
+        resets={<button type="button" className="filter-reset" aria-label="Reset filters for this monster"
+          onClick={resetFilters}>Reset filters</button>} />
     </div>
 
     <div className="filter-panel best-artifact-filters">
@@ -554,8 +572,6 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
       </div>
     </section>}
 
-    {state === 'error' && <p className="notice warning" role="status">JASWA could not calculate this monster’s artifact fits from the imported data.</p>}
-
     {/* Without this the results simply vanished on a settings change and the
         page looked as though nothing had ever been calculated. `ACCOUNT-TABLES.md` §7: a result
         that stops being current says so. */}
@@ -567,8 +583,6 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
       retain={Boolean(calculation) && settings.recalculate === 'on-change'}>
 
     {currentCalculation && selectedMonster && context && <>
-      <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
-        backend={currentCalculation.backend} general={general} />
       <div className="best-artifact-results">
         {categoryOrder.filter((category) => filterIncludes(filters.categories, category, categoryOrder))
           .map((category) => {

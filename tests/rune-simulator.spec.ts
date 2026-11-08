@@ -22,7 +22,7 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   await expect(page.getByLabel('Main stat')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Enchanted Gem' })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Grindstone' })).toHaveCount(0);
-  await expect(page.getByLabel('Runes kept at +15')).toContainText('Generate runes to count the keepers');
+  await expect(page.getByLabel('Runes kept at +15')).toContainText('Calculate to count the keepers');
   for (const gate of ['After +0', 'After +9', 'After +12']) {
     await expect(page.getByLabel(gate)).toHaveValue('recommendation');
   }
@@ -30,14 +30,14 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   await page.screenshot({ path: testInfo.outputPath('rune-simulator-empty.png') });
 
   /* The default sells by recommendation, which needs an account to judge with. */
-  await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Level a monster to');
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(page.locator('.rune-simulator-actions .calculation-note[data-failed]')).toContainText('Level a monster to');
   await expect(page.getByRole('heading', { name: 'Nothing generated yet.', exact: true })).toBeVisible();
 
   await page.getByLabel('After +0').selectOption('keep-all');
   await page.getByLabel('After +9').selectOption('keep-all');
   await page.getByLabel('After +12').selectOption('keep-all');
-  await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   const firstSet = page.locator('.rune-simulator-table tbody tr').first().locator('td').first();
   await expect(firstSet).toHaveText('No rune type');
   /* Without an import there is nothing to judge with: the table says so rather
@@ -63,7 +63,7 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   await page.getByLabel('After +0').selectOption('keep-all');
   await page.getByLabel('After +9').selectOption('keep-all');
   await page.getByLabel('After +12').selectOption('keep-all');
-  await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: '200 runes', exact: true })).toBeVisible();
   const rows = page.locator('.rune-simulator-table tbody tr');
@@ -109,7 +109,7 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by role a
   await page.getByLabel('After +0').selectOption('keep-all');
   await page.getByLabel('After +9').selectOption('keep-all');
   await page.getByLabel('After +12').selectOption('keep-all');
-  await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByRole('heading', { name: '120 runes', exact: true })).toBeVisible();
   const verdicts = page.locator('.rune-simulator-table tbody [data-verdict]');
   await expect(verdicts).toHaveCount(120);
@@ -145,7 +145,7 @@ test('reads every checkpoint with Rune Clean-up and counts the keepers by role a
   await page.getByLabel('After +0').selectOption('recommendation');
   await page.getByLabel('After +9').selectOption('recommendation');
   await page.getByLabel('After +12').selectOption('recommendation');
-  await page.getByRole('button', { name: 'Generate runes', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: '20 runes', exact: true })).toBeVisible();
   await expect(page.locator('.rune-simulator-table tbody tr')).toHaveCount(20);

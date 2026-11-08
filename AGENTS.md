@@ -381,6 +381,16 @@ parts an agent must not quietly break:
   wording in the layout so the control cannot resize under the click that
   started the work, which is rule 2 applied to a control's own label.
   `tests/button-box.spec.ts` holds both halves of that.
+- **Every calculating panel ends in one column:
+  `app/components/calculation-actions.tsx`.** At the panel's right edge,
+  *Clear results* and *Calculate* on top, the report under them (progress
+  in the accent, the last run's summary dimmed, a failure in red) and the
+  resets at the foot. *Calculate* is also the stop: while it works it reads
+  *Calculating…* and, under the pointer or keyboard focus, *Cancel
+  calculation* in red, and pressing it leaves the answer from before it
+  started (Rune Optimization keeps the builds it found). A panel never draws
+  a Calculate, a stop or a status line of its own, and a calculation it
+  starts runs through something it can cancel.
 - **An artifact's main stat is named, never quantified.** Every view says `HP`,
   `ATK` or `DEF` and stops there — no `+1,500`, no roll, no bar. The magnitude
   is fixed by grade and adds nothing to the judgement the user is making, so a

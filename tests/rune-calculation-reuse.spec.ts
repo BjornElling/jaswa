@@ -61,8 +61,8 @@ test('updates changed standards in place and recalculates only affected sets', a
   await expect(updating).toBeHidden();
   expect((await requests())[2].slice().sort()).toEqual(['101', '102', '103', '104']);
   const incremental = (await rows.allTextContents()).sort();
-  await page.getByRole('button', { name: 'Recalculate', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Recalculate', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeEnabled();
   expect((await rows.allTextContents()).sort()).toEqual(incremental);
 
   const count = (await requests()).length;

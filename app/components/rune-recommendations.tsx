@@ -5,9 +5,10 @@ import { AncientName } from './ancient-mark';
 import { EngravedPlace } from './engraved-place';
 import { FigureMarks } from './figure-marks';
 import { engravedSaleMarks } from '../lib/figure-marks';
+import { CalculationActions, CalculationNote } from './calculation-actions';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
-import { Button, FilterButton, LabelSwap } from './button';
+import { FilterButton, LabelSwap } from './button';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
 import { FilterSummary } from './filter-summary';
 import { QualityRule } from './quality-rule';
@@ -216,7 +217,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   /* How far through the calibration, or null when none is running. */
   const [calibration, setCalibration] = useState<number | null>(null);
   const [progressKey, setProgressKey] = useState<string | null>(null);
-  /* A failed input is retried only after another change or an explicit Recalculate. */
+  /* A failed input is retried only after another change or an explicit Calculate. */
   const [refreshFailedFor, setRefreshFailedFor] = useState<{ runes: readonly Rune[]; key: string } | null>(null);
   /* A failed calculation says so and leaves the previous table standing. Clearing
      it would read as "no runes qualify", which is a different and wrong answer. */
@@ -302,6 +303,20 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
       id: (previous?.id ?? 0) + 1, account, entries: heldRuneAdvice(runes, outcome.advice), roles, settings, base,
       durationMs: outcome.durationMs, backend: outcome.backend,
     }));
+  }
+
+  /* Stopping keeps the verdicts from before Calculate: the worker answers the
+     cancelled request `superseded`, which leaves the table alone. */
+  function cancel() {
+    cancelRuneAdvice();
+    setBusy(false);
+  }
+
+  function clear() {
+    cancelRuneAdviceRefresh();
+    setResult(null);
+    setFailure(null);
+    setRefreshFailedFor(null);
   }
 
   /* Role and reference changes can alter the shared calibration. Set-specific
@@ -650,20 +665,25 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               </div>
             </div>
           </div>
-          <div className="rune-filter-actions">
-            <FilterSummary visible={shownOwned} total={owned} noun="runes"
-              onReset={() => setFilters(defaultRuneFilters)} className="rune-filter-status" />
-            <Button tone="primary" onClick={calculate} busy={busy} disabled={!canCalculate}
-              title={canCalculate ? undefined : emptyState?.title}>
-              <LabelSwap showing={busy ? 'busy' : held ? 'again' : 'first'}
-                faces={{ first: 'Calculate', again: 'Recalculate', busy: 'Calculating' }} />
-            </Button>
-            <p className="calculation-progress rune-cleanup-progress" role="status"
-              aria-hidden={reportingProgress ? undefined : true} data-shown={reportingProgress ? 'true' : undefined}>
-              {calibration !== null ? `Calibrating… ${formatNumber(Math.round(calibration * 100), general)} %\nOnly needed once.`
-                : `Calculating… ${formatNumber(progressKey === standardsKey ? Math.round(progress * 100) : 0, general)} %`}
-            </p>
-          </div>
+          {/* A re-reading after a standards change reports its progress here
+              too, though it is not the button's own work and cannot be
+              cancelled from it. */}
+          <CalculationActions className="rune-filter-actions" busy={busy} canCalculate={canCalculate}
+            calculateTitle={emptyState?.title} onCalculate={() => void calculate()} onCancel={cancel}
+            canClear={held !== null || failure !== null} onClear={clear}
+            status={reportingProgress
+              ? <CalculationNote tone="busy">{calibration !== null
+                ? `Calibrating… ${formatNumber(Math.round(calibration * 100), general)} %\nOnly needed once.`
+                : `Calculating… ${formatNumber(progressKey === standardsKey ? Math.round(progress * 100) : 0, general)} %`}</CalculationNote>
+              : failure || (held && refreshFailed)
+                ? <CalculationNote tone="failed">{failure ?? 'JASWA could not update the rune verdicts. Calculate again to try again.'}</CalculationNote>
+                : held
+                  ? <CalculationStatus twoLines
+                    detail={<>{formatNumber(owned, general)} runes judged against {formatNumber(held.roles.length, general)} roles</>}
+                    durationMs={held.durationMs} backend={held.backend} general={general} />
+                  : <CalculationNote>{''}</CalculationNote>}
+            resets={<FilterSummary visible={shownOwned} total={owned} noun="runes"
+              onReset={() => setFilters(defaultRuneFilters)} className="rune-filter-status" />} />
         </>}
       >
         <tbody>
@@ -734,21 +754,11 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
         </tbody>
       </DataTablePage>
 
-    {failure || (held && refreshFailed)
-      ? <p className="calculation-status" role="status" data-failed="">
-        {failure ?? 'JASWA could not update the rune verdicts. Recalculate to try again.'}
-      </p>
-      : held && <CalculationStatus
-        detail={<>{formatNumber(owned, general)} runes judged against {formatNumber(held.roles.length, general)} roles</>}
-        durationMs={held.durationMs}
-        backend={held.backend}
-        general={general}
-      />}
     <div className="type-caption" role="status">
       <LabelSwap showing={!standardsChanged ? 'current' : refreshFailed ? 'failed'
         : !base || roles.length === 0 ? 'blocked' : 'changed'} faces={{
         current: '\u00a0',
-        failed: 'Standards changed. Recalculate to retry the update.',
+        failed: 'Standards changed. Calculate again to retry the update.',
         blocked: 'Standards changed. Add a role and an account reference to update the verdicts.',
         changed: 'Standards changed. Updating the affected rune verdicts…',
       }} />

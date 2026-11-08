@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, InlineButton, LabelSwap } from './button';
+import { CalculationActions, CalculationNote } from './calculation-actions';
 import { CalculationStatus } from './calculation-status';
 import { FigureMarks } from './figure-marks';
 import { buildIssueMarks, fightAddition } from '../lib/figure-marks';
@@ -377,7 +378,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const inputKey = keyOf(requirements);
   /* A table stays on screen while its monster is chosen, whatever is changed above
      it: it is still the answer to the question it was asked, read with that
-     question's own requirements, and the warning beside Find builds says the
+     question's own requirements, and the warning beside Calculate says the
      question on screen is now a different one. */
   const current = calculation !== undefined && calculation.unitId === unitId && calculation.presetId === activePresetId && selected ? calculation : undefined;
   const stale = current !== undefined && (current.inputKey !== inputKey || current.resultCount < resultCount);
@@ -489,6 +490,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     if (outcome.status === 'failed') { setError(outcome.message); setState('error'); return; }
     if (onScreen) trial.record(outcome.answer);
     setCalculation((previous) => ({ inputKey: keyOf(asked), answer: outcome.answer, ...searched, id: (previous?.id ?? 0) + 1 }));
+    setState('idle');
+  }
+
+  function clearResults() {
+    setCalculation(undefined);
+    setChosenBuild(null);
+    setError('');
     setState('idle');
   }
 
@@ -636,44 +644,27 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
           </div>
         </div>
 
-        <div className="rune-optimization-actions">
-          <div className="rune-optimization-action-row">
-            {/* The reason sits on a wrapper because a disabled button takes no
-                pointer, and in some browsers shows no title of its own. */}
-            <span className="rune-optimization-find-hold"
-              title={unranked ? 'No sort order yet. Choose a figure in Rank by.' : undefined}>
-              <Button tone="primary" size="prominent" className="rune-optimization-find" busy={state === 'calculating'} busyLabel="Searching…"
-                disabled={!input || (settings.limitChanges && settings.maxChanges === undefined)} onClick={() => void calculate()}>Find builds</Button>
-            </span>
-            {/* Stopping is a footnote to searching, so it is a mark beside the
-                button rather than a second button of the same weight. It is
-                there in every state, and can only be pressed while a search runs. */}
-            <Button tone="danger" size="prominent" className="rune-optimization-stop" disabled={state !== 'calculating'}
-              aria-label="Stop the search" title="Stop the search and keep found builds" onClick={() => stopRuneOptimization()}>
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-            </Button>
-          </div>
-          {/* Always in the panel and only shown when it applies, so nothing beside
-              it moves (`AGENTS.md` §2). */}
-          <p className="rune-optimization-stale" role="status" data-shown={warnStale ? 'true' : undefined}
-            aria-hidden={warnStale ? undefined : true}>
-            The requirements or settings have changed since these builds were found. You should rebuild.
-          </p>
-          {/* At the foot of the panel, under the button that started the work:
-              where the eye already is when the search is running. */}
-          <div className="rune-optimization-status">
-            {state === 'calculating'
-              ? <p className="calculation-status rune-optimization-searching" role="status">{searchPhaseWords[phase]} {phase === 'searching' ? `${formatNumber(Math.round(progress * 100), general)} %` : ''}</p>
-              : state === 'error'
-                ? <p className="calculation-status" role="status">{error}</p>
-                : current
+        {/* Cancelling a search keeps the builds it has found so far: a stopped
+            search has a real answer, unlike the other calculations, which have
+            only the one from before. */}
+        <CalculationActions className="rune-optimization-actions" busy={state === 'calculating'} canCalculate={input !== undefined}
+          calculateTitle={unranked ? 'No sort order yet. Choose a figure in Rank by.' : undefined}
+          onCalculate={() => void calculate()} onCancel={() => stopRuneOptimization()}
+          canClear={current !== undefined || state === 'error'} onClear={clearResults}
+          status={state === 'calculating'
+            ? <CalculationNote tone="busy">{searchPhaseWords[phase]} {phase === 'searching' ? `${formatNumber(Math.round(progress * 100), general)} %` : ''}</CalculationNote>
+            : state === 'error'
+              ? <CalculationNote tone="failed">{error}</CalculationNote>
+              : current
                 ? <CalculationStatus twoLines durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
                   detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`} />
-                : <p className="calculation-status" role="status">{selected ? 'Not calculated yet.' : ''}</p>}
-          </div>
-        </div>
+                : <CalculationNote>{selected ? 'Not calculated yet.' : ''}</CalculationNote>}
+          /* Always in the panel and only shown when it applies, so nothing beside
+             it moves (`AGENTS.md` §2). */
+          notice={<p className="rune-optimization-stale" role="status" data-shown={warnStale ? 'true' : undefined}
+            aria-hidden={warnStale ? undefined : true}>
+            The requirements or settings have changed since these builds were found. You should rebuild.
+          </p>} />
       </div>
 
       {selected && requirements && profile && <section className="panel rune-optimization-requirements"

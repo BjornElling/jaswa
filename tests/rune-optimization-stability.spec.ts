@@ -51,9 +51,9 @@ test('an open two-set search at depth 1 stops with its builds and leaves control
   const panel = page.locator('.rune-optimization-monster-panel');
   const before = await box(panel); const requiredBefore = await box(requirements);
   await page.screenshot({ path: testInfo.outputPath('open-sets-before.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Find builds' }).click();
-  await expect(page.locator('.rune-optimization-searching')).toContainText('Searching…');
-  await page.getByRole('button', { name: 'Stop the search', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(page.locator('.rune-optimization-actions .calculation-note[data-busy]')).toContainText('Searching…');
+  await page.getByRole('button', { name: 'Cancel calculation', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   await expect(page.getByText('The search was stopped.', { exact: false })).toBeVisible();
   expect(await box(panel)).toEqual(before);
@@ -77,7 +77,7 @@ test('worker allocation failures retry once and preserve the previous table', as
     };
   });
   await open(page);
-  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).toContainText('Processor');
   expect(await page.locator('html').getAttribute('data-worker-allocations')).toBe('3');
@@ -94,9 +94,9 @@ test('worker allocation failures retry once and preserve the previous table', as
       }
     };
   });
-  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'could not hand this account' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Find builds' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeEnabled();
   expect(await table.getByRole('row').count()).toBe(before.rows);
   expect(await box(table)).toEqual(before.table);
   expect(await box(panel)).toEqual(before.panel);
@@ -126,7 +126,7 @@ test('a time limit keeps guide builds and never calls the unfinished search impo
   });
   await open(page, true);
   await twoSets(page);
-  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   await expect(page.getByText('The search reached its time limit.', { exact: false })).toBeVisible();
   await expect(page.getByText('No build meets every requirement.', { exact: false })).toHaveCount(0);

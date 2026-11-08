@@ -22,7 +22,7 @@ account clears the calculated session; preferences stay saved.
 | Navigation, unchanged re-import, filters or sorting | Reuse the answers; filters and sorting only arrange what is shown. |
 | New rune | Judge that rune and add it above the held rows. No whole-list calculation. |
 | Level, stars, rarity, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Rejudge the affected rune under the current standards; keep its row in place. Until answered, show its previous rune and advice together. |
-| Rune sold or removed | Keep its previous row marked Sold until Recalculate removes it. |
+| Rune sold or removed | Keep its previous row marked Sold until Calculate removes it. |
 | Scenario or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
 | Holds, rune locks, or any *Never sell if…* safeguard or threshold | Apply the current protection immediately to the held advice. |
 | *Power-up policy*, *Rune quality floor*, *Accepted runes*, *Broken runes*, *Intangible runes* | Keep the row order and replace the affected answers automatically. The Intangible setting rejudges only Intangible runes; the others rejudge every row. |
@@ -35,7 +35,7 @@ the table or its controls. Standards are compared by mathematical content, not o
 identity. A batch commits only while its inputs are still current; superseded work is
 cancelled. Until it commits, previous rune bodies and answers stay together and the
 notice names the changed standards. A failed update keeps the notice and offers
-Recalculate; missing roles or references say what is needed. Sold rows are rejudged too
+Calculate again; missing roles or references say what is needed. Sold rows are rejudged too
 when their standards change. No update silently mixes two standards in the completed
 list.
 

@@ -13,7 +13,7 @@ test('an empty workspace keeps the calculation status hidden', async ({ page }, 
   const cleanup = page.locator('.workspace-page-content');
   await expect(cleanup.getByText('Nothing to judge until account data is imported.')).toBeVisible();
   await expect(cleanup.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
-  await expect(cleanup.locator('.rune-cleanup-progress')).toHaveAttribute('aria-hidden', 'true');
+  await expect(cleanup.locator('.rune-filter-actions .calculation-note[data-busy]')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('progress-no-import.png') });
 });
 
@@ -84,10 +84,12 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   const cleanup = page.locator('.workspace-page-content');
   await expect(cleanup.getByText('Nothing calculated yet.')).toBeVisible();
-  const progress = cleanup.locator('.rune-cleanup-progress');
-  await expect(progress).toHaveAttribute('aria-hidden', 'true');
+  /* The report slot under Calculate; progress is the note it holds while busy. */
+  const progress = cleanup.locator('.rune-filter-actions .calculation-actions-status');
+  const working = progress.locator('.calculation-note[data-busy]');
+  await expect(working).toHaveCount(0);
   const boxes = () => cleanup.locator('.rune-filter-strip').evaluate((strip) =>
-    Array.from(strip.querySelectorAll('.filter-group, .rune-filter-actions > .button, .rune-cleanup-progress')).map((control) => {
+    Array.from(strip.querySelectorAll('.filter-group, .rune-filter-actions .calculate-button, .rune-filter-actions .calculation-actions-status')).map((control) => {
       const { x, y, width, height } = control.getBoundingClientRect();
       return { x, y, width, height };
     }));
@@ -99,13 +101,13 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
     counter.jaswaFrames = 0;
     const tick = () => { counter.jaswaFrames += 1; requestAnimationFrame(tick); };
     requestAnimationFrame(tick);
-    const progress = document.querySelector('.rune-cleanup-progress')!;
+    const progress = document.querySelector('.rune-filter-actions .calculation-actions-status')!;
     /* Calibration counts its own way through before the calculation starts its own. */
     const percentages: number[] = [];
     const calibration: number[] = [];
     Object.assign(window, { jaswaProgress: percentages, jaswaCalibration: calibration });
     new MutationObserver(() => {
-      if (progress.getAttribute('data-shown') !== 'true') return;
+      if (!progress.querySelector('.calculation-note[data-busy]')) return;
       const [, phase, digits] = progress.textContent?.match(/(Calibrating|Calculating)…\s*(\d+)\s*%/) ?? [];
       const value = Number(digits);
       if (!Number.isFinite(value)) return;
@@ -113,8 +115,8 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
     }).observe(progress, { childList: true, subtree: true, characterData: true, attributes: true });
   });
   await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
-  await expect(progress).toHaveAttribute('data-shown', 'true');
-  await expect(progress).toHaveText(/^Calibrating… \d+ %\nOnly needed once\.$/);
+  await expect(working).toBeVisible();
+  await expect(working).toHaveText(/^Calibrating… \d+ %\nOnly needed once\.$/);
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('progress-calibrating.png') });
   await expect(progress).toContainText(/Calculating… \d+ %/);
@@ -122,7 +124,7 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
   await page.screenshot({ path: testInfo.outputPath('progress-running.png') });
   await expect(page.locator('.calculation-status'))
     .toContainText('3,001 runes judged against', { timeout: 120_000 });
-  await expect(progress).toHaveAttribute('aria-hidden', 'true');
+  await expect(working).toHaveCount(0);
   expect(await boxes()).toEqual(before);
   const { percentages, calibration } = await page.evaluate(() => {
     const seen = window as unknown as { jaswaProgress: number[]; jaswaCalibration: number[] };
@@ -148,11 +150,11 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
   expect(phases).not.toContain('advice-worker-calibrating');
   expect(phases.slice(firstCount).every((phase) => phase === 'calculating')).toBe(true);
   await page.evaluate(() => { (window as unknown as { calculationPhases: string[] }).calculationPhases = []; });
-  await cleanup.getByRole('button', { name: 'Recalculate', exact: true }).click();
+  await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(progress).toContainText(/Calculating… \d+ %/);
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('progress-warm.png') });
-  await expect(progress).toHaveAttribute('aria-hidden', 'true');
+  await expect(working).toHaveCount(0);
   const warmPhases = await page.evaluate(() => (window as unknown as { calculationPhases: string[] }).calculationPhases);
   expect(warmPhases.length).toBeGreaterThan(0);
   expect(warmPhases.every((phase) => phase === 'calculating')).toBe(true);
@@ -233,4 +235,81 @@ test('a refresh reuses an idle worker and cannot cancel a concurrent whole calcu
      had no work in flight to throw away — nothing was terminated, nothing rebuilt. */
   expect(outcomes).toEqual({ initial: 'done', warm: 'done', whole: 'done', refresh: 'superseded',
     borrowed: 'superseded', replacement: 'done', constructed: 1 });
+});
+
+/**
+ * Calculate is also the stop. While it works it names itself *Cancel
+ * calculation*, offers that wording under the pointer in one unchanged box, and
+ * pressing it leaves the answer from before it started — here a finished
+ * table, whose verdicts must survive the cancelled recalculation.
+ */
+test('Calculate cancels its own work and keeps the answer from before', async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(fixture);
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  const cleanup = page.locator('.workspace-page-content');
+  const calculate = cleanup.locator('.rune-filter-actions .calculate-button');
+  const box = () => calculate.evaluate((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect(); return { x, y, width, height };
+  });
+  await calculate.click();
+  const summary = cleanup.locator('.rune-filter-actions .calculation-status-line').first();
+  await expect(summary).toContainText('runes judged against', { timeout: 120_000 });
+  const answer = await cleanup.locator('.rune-filter-actions .calculation-actions-status').textContent();
+  const rows = await cleanup.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr').count();
+  const idle = await box();
+
+  /* Hold the worker's answer back, so the cancel is certain to land mid-flight. */
+  await page.evaluate(() => {
+    const original = Worker.prototype.postMessage;
+    Worker.prototype.postMessage = function (this: Worker, ...args: Parameters<Worker['postMessage']>) {
+      (window as unknown as { held: unknown[] }).held = [...((window as unknown as { held?: unknown[] }).held ?? []), args[0]];
+      void original;
+    } as Worker['postMessage'];
+  });
+  await calculate.click();
+  await expect(calculate).toHaveAttribute('aria-busy', 'true');
+  await expect(calculate).toHaveAccessibleName('Cancel calculation');
+  await page.mouse.move(0, 0);
+  await expect(calculate.locator('[data-face="busy"]')).toBeVisible();
+  await expect(calculate.locator('[data-face="cancel"]')).toBeHidden();
+  await calculate.hover();
+  await expect(calculate.locator('[data-face="cancel"]')).toBeVisible();
+  await expect(calculate.locator('[data-face="busy"]')).toBeHidden();
+  expect(await box()).toEqual(idle);
+  await calculate.click();
+  await expect(calculate).not.toHaveAttribute('aria-busy', 'true');
+  await expect(calculate).toHaveAccessibleName('Calculate');
+  expect(await box()).toEqual(idle);
+  await expect(cleanup.locator('.rune-filter-actions .calculation-actions-status')).toHaveText(answer ?? '');
+  await expect(cleanup.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr')).toHaveCount(rows);
+});
+
+/**
+ * The helper behind every cancellable worker. A worker cannot drop one request
+ * it is busy with, so a cancel replaces it — and the requests that were waiting
+ * beside the cancelled one must still be answered, by the new worker.
+ */
+test('cancelling one worker request answers the others from a fresh worker', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  const outcome = await page.evaluate(async () => {
+    const url: string = '/app/lib/compute/cancellable-worker.ts';
+    const { cancellableWorker, isCalculationCancelled } = await import(url) as typeof import('../app/lib/compute/cancellable-worker');
+    /* Answers every request after a pause, echoing its value back. */
+    const source = `onmessage = (event) => setTimeout(() => postMessage({ type: 'result', requestId: event.data.requestId, result: event.data.value }), 200);`;
+    let started = 0;
+    const ask = cancellableWorker<number>(() => {
+      started += 1;
+      return new Worker(URL.createObjectURL(new Blob([source], { type: 'text/javascript' })));
+    }, 'could not start');
+    const controller = new AbortController();
+    const cancelled = ask({ value: 1 }, controller.signal).then(() => 'answered', (error) => isCalculationCancelled(error) ? 'cancelled' : 'failed');
+    const kept = ask({ value: 2 });
+    controller.abort();
+    return { cancelled: await cancelled, kept: await kept, started };
+  });
+  expect(outcome).toEqual({ cancelled: 'cancelled', kept: 2, started: 2 });
 });

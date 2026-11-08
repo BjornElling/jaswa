@@ -73,7 +73,7 @@ try {
 
   await page.getByRole('button', { name: 'Artifact Optimization', exact: true }).click();
   await page.getByText('Recommendations', { exact: true }).click();
-  await page.getByRole('button', { name: /Calculate recommendations/ }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await page.locator('.artifact-recommendation-table').waitFor({ timeout: 180000 });
 
   /* The view opens on the plan's engravings: "Location after / Engraved" is
@@ -214,10 +214,9 @@ try {
   await setFilter('Restriction', 'Intangible', false);
 
   /* The slot figures reconcile: filled + the named remainder = the total. */
-  /* The slot figures moved into the shared `CalculationStatus` line, which every
-     page's calculation reports through; `.artifact-recommendation-meta` was the
-     box they used to have of their own. */
-  const meta = (await page.locator('.calculation-status').textContent()).replace(/\s+/g, ' ');
+  /* The slot figures are in the shared `CalculationStatus` line, in the panel's
+     calculation column; the other panels' columns have report lines of their own. */
+  const meta = (await page.locator('.artifact-recommendation-actions .calculation-status').textContent()).replace(/\s+/g, ' ');
   const slots = meta.match(/([\d.,]+) of ([\d.,]+) slots filled(?: \(([^)]+)\))?/);
   assert(slots, `The meta line no longer reports slots: ${meta}`);
   const number = (text) => Number(text.replace(/[.,](?=\d{3}\b)/g, ''));

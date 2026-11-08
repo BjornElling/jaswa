@@ -19,7 +19,7 @@ test('every rune is judged, and the filters only decide what is shown', async ({
 
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   const cleanup = page.locator('.workspace-page-content');
-  const calculate = cleanup.getByRole('button', { name: /^(Calculate|Recalculate)$/ });
+  const calculate = cleanup.getByRole('button', { name: 'Calculate', exact: true });
   const status = page.locator('.calculation-status');
   const rows = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr');
 

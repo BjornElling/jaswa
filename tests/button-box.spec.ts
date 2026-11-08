@@ -63,27 +63,32 @@ test('a control that changes its wording keeps one box', async ({ page }) => {
 /**
  * The mechanism above is only worth testing where it is actually used, so this
  * holds its adoption: a button that reports its own work says so by carrying
- * both wordings, never by rendering one wording at a time. Two of these three
- * did render one at a time, and shrank under the click that started the work.
+ * every wording, never by rendering one wording at a time. Two of these three
+ * once did render one at a time, and shrank under the click that started the
+ * work. Calculate also carries the cancel it offers under the pointer while busy.
  */
-test('every calculate button carries its working wording at rest', async ({ page }) => {
+test('every calculate button carries its working and cancel wordings at rest', async ({ page }) => {
   await importAccount(page, artifactAccount);
   await openArtifactOptimization(page);
 
-  const calculators = ['Calculate recommendations', 'Calculate monsters', 'Calculate artifacts'];
-  const heights: number[] = [];
-  for (const name of calculators) {
-    const button = page.getByRole('button', { name });
-    await expect(button).toBeVisible();
-    await expect(button.locator('.label-swap-face[data-showing="false"]')).toHaveText('Calculating…');
-    /* The computed height rather than the measured box: the workspace scales
-       itself to the window, so a box read at one viewport is that height times
+  const buttons = page.locator('.calculation-actions .calculate-button');
+  await expect(buttons).toHaveCount(3);
+  const sizes: string[] = [];
+  for (const button of await buttons.all()) {
+    await expect(button).toHaveAccessibleName('Calculate');
+    await expect(button.locator('.label-swap-face[data-showing="false"]')).toHaveText(['Calculating…', 'Cancel calculation']);
+    /* The computed size rather than the measured box: the workspace scales
+       itself to the window, so a box read at one viewport is that size times
        whatever zoom the canvas is under. The style is the decision; the box is
        the decision multiplied by the window. */
-    heights.push(Math.round(parseFloat(await button.evaluate((el) => getComputedStyle(el).height))));
+    sizes.push(await button.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return `${Math.round(parseFloat(style.width))}x${Math.round(parseFloat(style.height))}`;
+    }));
   }
 
-  /* One action, one weight: each of the three panels ends in its calculation,
-     so none of them is the quiet one. */
-  expect(heights).toEqual([44, 44, 44]);
+  /* One action, one weight and one box: each of the three panels ends in the
+     same calculation column, so none of them is the quiet one. */
+  expect(new Set(sizes).size).toBe(1);
+  expect(sizes[0]).toMatch(/x44$/);
 });

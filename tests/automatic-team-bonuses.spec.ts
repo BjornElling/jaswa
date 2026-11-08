@@ -140,7 +140,7 @@ test('Now, the profile and a zero-move result agree with automatic team bonuses'
   await page.locator('.rune-optimization-gems').getByRole('radio', { name: 'None', exact: true }).check();
   await page.locator('.rune-optimization-grinds').getByRole('radio', { name: 'None', exact: true }).check();
   await page.getByLabel('Rank by', { exact: true }).selectOption('dmg');
-  await page.getByRole('button', { name: 'Find builds', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   const rows = table.locator('tbody tr');

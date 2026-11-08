@@ -119,17 +119,17 @@ test('every calculation uses the same right-aligned status report', async ({ pag
   await openArtifactOptimization(page);
 
   const recommendations = page.locator('.artifact-recommendations');
-  await recommendations.getByRole('button', { name: 'Calculate recommendations' }).click();
+  await recommendations.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(recommendations.locator('.calculation-status')).toBeVisible();
 
   const bestMonster = page.locator('.best-monster-for-artifact');
   await page.getByRole('combobox', { name: 'Choose an artifact for monster recommendations' }).selectOption({ index: 1 });
-  await bestMonster.getByRole('button', { name: 'Calculate monsters' }).click();
+  await bestMonster.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(bestMonster.locator('.calculation-status')).toBeVisible();
 
   const bestArtifact = page.locator('.best-artifact-for-monster');
   await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
-  await bestArtifact.getByRole('button', { name: 'Calculate artifacts' }).click();
+  await bestArtifact.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(bestArtifact.locator('.calculation-status')).toBeVisible();
 
   const statuses = page.locator('.calculation-status');
@@ -138,7 +138,7 @@ test('every calculation uses the same right-aligned status report', async ({ pag
     text: element.textContent?.trim() ?? '',
     textAlign: getComputedStyle(element).textAlign,
   })));
-  expect(reports.every(({ text }) => /pairs checked · .* ms · (Graphics card|Processor)$/.test(text)))
+  expect(reports.every(({ text }) => /pairs checked.*\d ms · (Graphics card|Processor)$/.test(text)))
     .toBe(true);
   expect(reports.every(({ textAlign }) => textAlign === 'right')).toBe(true);
 });
@@ -149,7 +149,7 @@ test('artifact entries name an empty improvements result', async ({ page }, test
 
   const panel = page.locator('.best-artifact-for-monster');
   await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
-  await panel.getByRole('button', { name: 'Calculate artifacts' }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   const entries = panel.locator('.best-artifact-entry');
   await expect(entries.first()).toBeVisible();
 
@@ -178,7 +178,7 @@ test('current artifact conversions use the muted substat voice', async ({ page }
 
   const panel = page.locator('.best-artifact-for-monster');
   await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
-  await panel.getByRole('button', { name: 'Calculate artifacts' }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   const current = panel.locator('.best-artifact-current-slot').first();
   await expect(current.locator('.artifact-conversion-list')).toBeVisible();
 
@@ -203,7 +203,7 @@ test('artifact recommendation columns share their intended baselines', async ({ 
 
   const panel = page.locator('.best-artifact-for-monster');
   await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
-  await panel.getByRole('button', { name: 'Calculate artifacts' }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   const entry = panel.locator('.best-artifact-entry').first();
   await expect(entry.locator('.artifact-conversion-list')).toBeVisible();
 
@@ -263,7 +263,7 @@ test('expanding conversions keeps the toggle clear of the score and evenly space
 
   const panel = page.locator('.best-artifact-for-monster');
   await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
-  await panel.getByRole('button', { name: 'Calculate artifacts' }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   const entry = panel.locator('.best-artifact-entry').filter({ has: page.locator('.expandable-list-toggle') }).first();
   const toggle = entry.locator('.expandable-list-toggle');
   await expect(toggle).toBeVisible();

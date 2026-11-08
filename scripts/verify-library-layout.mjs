@@ -163,7 +163,7 @@ try {
      of the range — at 1600px a 1542px table sat in a 1301px wrap and scrolled
      sideways. The columns are shares of 100% now, and this holds them there. */
   await page.getByText('Recommendations', { exact: true }).click();
-  await page.getByRole('button', { name: /Calculate recommendations/ }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await page.locator('.artifact-recommendation-table').waitFor({ timeout: 180000 });
   for (const width of [2000, 1600, 1480, 1400, 1200, 1100]) {
     await page.setViewportSize({ width, height: 900 });

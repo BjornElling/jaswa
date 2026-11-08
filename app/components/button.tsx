@@ -30,10 +30,10 @@ export function LabelSwap({ faces, showing }: {
     {/* The wordings not showing are hidden twice over, and both halves are
         needed. `visibility` (in the stylesheet) keeps them measured but unseen;
         `aria-hidden` keeps them out of the control's accessible name, which
-        would otherwise read "Calculate artifacts Calculating…" — every wording
+        would otherwise read "Calculate Calculating…" — every wording
         at once, to anyone listening rather than looking. */}
     {Object.entries(faces).map(([face, label]) => <span key={face} className="label-swap-face"
-      data-showing={face === showing ? 'true' : 'false'}
+      data-face={face} data-showing={face === showing ? 'true' : 'false'}
       aria-hidden={face === showing ? undefined : true}>{label}</span>)}
   </span>;
 }
@@ -82,10 +82,16 @@ const sizeClass: Record<ButtonSize, string> = {
  * own state (`AGENTS.md` §5). It replaces the label rather than greying it out,
  * because "Engraved" is an answer and a dashed "Engrave on monster" would read
  * as a question nobody can ask.
+ *
+ * `onCancel` lets busy work be stopped from the button that started it. While
+ * busy the button stays pressable, names itself `cancelLabel`, and under the
+ * pointer or keyboard focus swaps its busy wording for that label in red, so
+ * the one control says both what is happening and how to stop it. The cancel
+ * wording is a stacked face like the others, so the swap cannot resize it.
  */
 export function Button({
   tone = 'quiet', size = 'regular', busy = false, busyLabel, done = false, doneLabel,
-  className, disabled, children, ...rest
+  onCancel, cancelLabel, className, disabled, children, onClick, ...rest
 }: NativeButtonProps & {
   tone?: ButtonTone;
   size?: ButtonSize;
@@ -98,16 +104,25 @@ export function Button({
   done?: boolean;
   /** What the button reads once `done`. Every wording stays in the layout. */
   doneLabel?: ReactNode;
+  /** Stops the button's own busy work; pressing the busy button calls it. */
+  onCancel?: () => void;
+  /** What the busy button offers under the pointer, and its name while busy. */
+  cancelLabel?: string;
 }) {
+  const cancellable = busy && onCancel !== undefined && cancelLabel !== undefined;
   const classes = ['button', toneClass[tone], sizeClass[size], className]
     .filter(Boolean).join(' ');
   const faces: Record<string, ReactNode> = { idle: children };
   if (busyLabel !== undefined) faces.busy = busyLabel;
+  if (cancelLabel !== undefined && onCancel !== undefined) faces.cancel = cancelLabel;
   if (doneLabel !== undefined) faces.done = doneLabel;
   const showing = done && doneLabel !== undefined ? 'done' : busy && busyLabel !== undefined ? 'busy' : 'idle';
 
   return <button type="button" {...rest} className={classes}
-    disabled={disabled || busy || done} aria-busy={busy || undefined}
+    disabled={disabled || (busy && !cancellable) || done} aria-busy={busy || undefined}
+    aria-label={cancellable ? cancelLabel : rest['aria-label']}
+    data-cancellable={cancellable ? 'true' : undefined}
+    onClick={cancellable ? () => onCancel() : onClick}
     data-done={done && doneLabel !== undefined ? 'true' : undefined}>
     {Object.keys(faces).length === 1 ? children : <LabelSwap showing={showing} faces={faces} />}
   </button>;

@@ -50,7 +50,7 @@ test('all ten depths keep their box, expose their value, and survive a reload', 
   }
   await page.getByLabel('HP: at least', { exact: true }).fill('999999999998');
   await page.getByLabel('Rank by', { exact: true }).selectOption('spd');
-  await page.getByRole('button', { name: 'Find builds' }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByRole('table', { name: 'Rune builds' })).toContainText('No build meets every requirement.');
   await page.screenshot({ path: testInfo.outputPath('depth-full-ranges.png'), fullPage: true });
 });
@@ -84,7 +84,7 @@ test('a huge impossible pool gets measured without a false time warning or movin
   await expect(warning).toHaveAttribute('title', /physical runes.*end states/);
   expect(await box(panel)).toEqual(panelBox);
   await page.screenshot({ path: testInfo.outputPath('depth-measured.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Find builds', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(warning).toContainText('Last run finished', { timeout: 30_000 });
   expect(await box(panel)).toEqual(panelBox);
   await page.getByRole('slider', { name: 'Depth', exact: true }).press('Home');
@@ -116,7 +116,7 @@ test('an unavailable trial leaves the real search usable and its boxes fixed', a
   const before = { panel: await box(panel), requirements: await box(requirements) };
   await expect(warning).toContainText('Search trial unavailable');
   await page.screenshot({ path: testInfo.outputPath('trial-unavailable.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Find builds', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(warning).toContainText('Last run finished');
   expect(await box(panel)).toEqual(before.panel);
   expect(await box(requirements)).toEqual(before.requirements);

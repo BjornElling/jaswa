@@ -11,7 +11,7 @@ import type { RankFigure, RuneOptimizationRequirements } from './rune-optimizati
  * The question as the page holds it, before it can be asked. The figure to rank by
  * is the one part with no answer to fall back on: the order of the table is the
  * user's decision, so where neither the profile nor the page names a figure it
- * stays unnamed and *Find builds* waits for one (§2.3).
+ * stays unnamed and *Calculate* waits for one (§2.3).
  */
 export type RequirementsDraft = Omit<RuneOptimizationRequirements, 'rankBy'> & { rankBy: RankFigure | undefined };
 

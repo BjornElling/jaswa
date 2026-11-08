@@ -56,7 +56,7 @@ test('craft controls reserve their boxes and calculate three grind rankings', as
   await expect(panel.getByRole('heading', { name: /^Highest stat/ })).toBeVisible();
   await expect(panel.locator('.craft-ranking')).toHaveCount(3);
   await expect(panel.locator('.craft-recommendation').first()).toContainText('SPD');
-  await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+  await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
   await page.screenshot({ path: testInfo.outputPath('craft-grind-results.png'), fullPage: true });
   await panel.getByRole('combobox', { name: 'Filter candidate runes by set' }).selectOption('Fatal');
   await expect(panel.locator('.craft-ranking')).toHaveCount(3);
@@ -427,7 +427,7 @@ test('Only keep-runes asks Rune Clean-up and narrows Best use without moving a c
   const all = await cards.count();
   await page.screenshot({ path: testInfo.outputPath('craft-keep-only-off.png'), fullPage: true });
   /* Every wording the status line passes through, so a silent wait cannot pass. */
-  await panel.locator('.craft-calculation-status').evaluate((status) => {
+  await panel.locator('.calculation-actions-status').evaluate((status) => {
     const seen: string[] = [];
     (window as unknown as { statusSeen: string[] }).statusSeen = seen;
     new MutationObserver(() => seen.push(status.textContent ?? '')).observe(status, { subtree: true, childList: true, characterData: true });
@@ -435,7 +435,7 @@ test('Only keep-runes asks Rune Clean-up and narrows Best use without moving a c
   await keepOnly.getByRole('button', { name: 'Yes' }).click();
   await expect(keepOnly.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'true');
   await expect(panel.locator('.craft-best-use-results')).toBeVisible();
-  await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+  await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
   const seen = await page.evaluate(() => (window as unknown as { statusSeen: string[] }).statusSeen);
   expect(seen.some((text) => /^Calibrating Rune Clean-up… \d+ % · only needed once$/.test(text)), seen.join(' | ')).toBe(true);
   expect(seen.some((text) => /^Asking Rune Clean-up which runes it keeps… \d+ %$/.test(text)), seen.join(' | ')).toBe(true);
@@ -682,7 +682,7 @@ test('a changed box keeps the answer: a gone stack drops out, a new one is judge
   await reimport('box-gained.json', [...withoutFatal, { craft_item_id: 9010, craft_type: 1, craft_type_id: 130804, amount: 1, sell_value: 25000 }]);
   await expect(titles.first()).toBeVisible();
   await expect.poll(() => craftWorkers).toBe(2);
-  await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+  await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
   await expect(titles.filter({ hasText: 'Fatal' })).toHaveCount(0);
   await panel.getByRole('group', { name: 'Grade', exact: true }).getByRole('button', { name: 'HER' }).click();
   await expect(titles.filter({ hasText: 'Hero Violent' }).first()).toBeVisible();
@@ -765,7 +765,7 @@ test('a full rune box, long role name and all filter choices fit, and cleared ro
   });
   await page.reload();
   await expect(panel.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
-  await expect(panel.locator('.craft-calculation-status')).toContainText('Add a role in Rune Clean-up');
+  await expect(panel.locator('.calculation-actions-status')).toContainText('Add a role in Rune Clean-up');
   await page.screenshot({ path: testInfo.outputPath('craft-no-roles.png'), fullPage: true });
 });
 

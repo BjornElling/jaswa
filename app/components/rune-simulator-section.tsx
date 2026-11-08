@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
-import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
-import { Button, FilterButton } from './button';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { FilterButton } from './button';
+import { CalculationActions, CalculationNote } from './calculation-actions';
 import { CalculationStatus } from './calculation-status';
+import { useCancellableRun } from './use-cancellable-run';
+import { isCalculationCancelled } from '../lib/compute/cancellable-worker';
 import { Dropdown } from './dropdown';
 import { PageHeader } from './page-chrome';
 import { QualityRule } from './quality-rule';
@@ -117,6 +120,8 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
   const [stage, setStage] = useState<SimulationStage>(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  /* No run starts itself, so there is no question to remember a cancel against. */
+  const cancellable = useCancellableRun('');
 
   const base = useMemo(() => {
     const lines = referenceLines(game?.data);
@@ -132,8 +137,12 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
     setMessage('');
   }
 
-  function generate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function clear() {
+    setRun(null);
+    setMessage('');
+  }
+
+  function generate() {
     if (count === null) {
       setMessage('Choose between 1 and 1,000 runes.');
       return;
@@ -146,6 +155,8 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
       setMessage('Add a Rune Clean-up role before using recommendation sell rules.');
       return;
     }
+    const before = message;
+    const signal = cancellable.start();
     setBusy(true);
     setMessage('');
     const judgedBy = roles.map(({ id, name }) => ({ id, name }));
@@ -156,11 +167,13 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
       try {
         const result = await calculateRuneSimulation(toConfig(form, count), {
           roles, settings, base, preferWebGpu: hardwareAcceleration,
-        });
+        }, signal);
         setRun({ result, roles: judgedBy });
         setStage(0);
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'The simulator could not generate these runes.');
+        /* Cancelled: the batch from before Generate stands, and so does its message. */
+        if (isCalculationCancelled(error)) setMessage(before);
+        else setMessage(error instanceof Error ? error.message : 'The simulator could not generate these runes.');
       } finally {
         setBusy(false);
       }
@@ -177,7 +190,7 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
       substats, power-ups, settings-driven craft actions and every sell decision between stages.
     </p>
 
-    <form className="filter-panel rune-simulator-filters" onSubmit={generate}>
+    <form className="filter-panel rune-simulator-filters" onSubmit={(event) => { event.preventDefault(); generate(); }}>
       <SimulatorSelect id="rune-simulator-set" label="Rune set" value={form.setName}
         className="rune-simulator-set"
         placeholder="None" onChange={(value) => setFormValue(setForm, 'setName', value)}>
@@ -197,13 +210,8 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
       </SimulatorSelect>
 
       {/* How many and go, on one line: the quantity is the last thing chosen before
-          generating, so the action sits beside it rather than at the foot of the panel. */}
+          generating, so the action column sits beside it. */}
       <div className="rune-simulator-run">
-        <button type="button" className="filter-reset rune-simulator-reset" onClick={reset}>Reset filters</button>
-        <Button type="submit" tone="primary" className="rune-simulator-generate"
-          disabled={count === null || busy} busy={busy} busyLabel="Generating runes">
-          Generate runes
-        </Button>
         <div className="filter-group rune-simulator-count">
           <label className="filter-label" htmlFor="rune-simulator-count">Quantity</label>
           <div className="filter-group-controls">
@@ -216,6 +224,15 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
           </div>
           <span id="rune-simulator-count-note" className="rune-simulator-note type-caption">1–1,000 copies</span>
         </div>
+        <CalculationActions className="rune-simulator-actions" busy={busy} canCalculate={count !== null}
+          calculateTitle="Choose between 1 and 1,000 runes." onCalculate={generate} onCancel={cancellable.cancel}
+          canClear={run !== null || message !== ''} onClear={clear}
+          status={busy ? <CalculationNote tone="busy">Calculating…</CalculationNote>
+            : message ? <CalculationNote tone="failed">{message}</CalculationNote>
+              : run ? <CalculationStatus twoLines durationMs={run.result.durationMs} backend={run.result.backend} general={general}
+                detail="Simulation and recommendation checks" />
+                : <CalculationNote>{''}</CalculationNote>}
+          resets={<button type="button" className="filter-reset" onClick={reset}>Reset filters</button>} />
       </div>
 
       <GateSelect id="rune-simulator-gate-zero" label="After +0" value={form.gateZero}
@@ -230,14 +247,12 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
       <CraftSettingsReadout />
     </form>
 
-    {message && <p className="calculation-status" data-failed role="alert">{message}</p>}
-
     {!run
       ? <section className="empty-state rune-simulator-empty">
         <h2>Nothing generated yet.</h2>
-        <p className="next-step">Choose the rune conditions above, then press Generate runes to watch the batch move through +0, +9, +12 and +15.</p>
+        <p className="next-step">Choose the rune conditions above, then press Calculate to watch the batch move through +0, +9, +12 and +15.</p>
       </section>
-      : <RuneSimulationResults result={run.result} stage={stage} onStageChange={setStage} general={general} onOpenRune={onOpenRune} />}
+      : <RuneSimulationResults result={run.result} stage={stage} onStageChange={setStage} onOpenRune={onOpenRune} />}
   </WorkspacePage>;
 }
 
@@ -271,7 +286,7 @@ function KeeperStatistics({ run }: { run: SimulationRun | null }) {
       </table>
       : <p className="rune-simulator-stats-note type-caption">
         {run === null
-          ? 'Generate runes to count the keepers, role by role and slot by slot.'
+          ? 'Calculate to count the keepers, role by role and slot by slot.'
           : 'Counting keepers needs an imported account with a level 40 monster and at least one Rune Clean-up role.'}
       </p>}
   </section>;
@@ -348,11 +363,10 @@ function PowerUpArrow() {
   </svg>;
 }
 
-function RuneSimulationResults({ result, stage, onStageChange, general, onOpenRune }: {
+function RuneSimulationResults({ result, stage, onStageChange, onOpenRune }: {
   result: RuneSimulationResult;
   stage: SimulationStage;
   onStageChange: (stage: SimulationStage) => void;
-  general: GeneralSettings;
   onOpenRune: OpenRuneOverlay;
 }) {
   const current = result.stages[stage];
@@ -372,8 +386,6 @@ function RuneSimulationResults({ result, stage, onStageChange, general, onOpenRu
           onClick={() => onStageChange(option)}>{stageLabel(option)}</FilterButton>)}
       </div>
     </header>
-    <CalculationStatus durationMs={result.durationMs} backend={result.backend} general={general}
-      detail="Simulation and recommendation checks" />
 
     {unjudged && <p className="rune-simulator-stage-summary type-caption">
       Best role, Max value, Chance and Action need an imported account with a level 40 monster and at least one Rune Clean-up role.

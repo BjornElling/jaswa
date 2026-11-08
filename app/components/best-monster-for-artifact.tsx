@@ -1,7 +1,10 @@
 import { filterIncludes } from '../lib/filter-selection';
 import { type ReactNode, useMemo, useState } from 'react';
-import { Button, FilterButton } from './button';
+import { FilterButton } from './button';
+import { CalculationActions, CalculationNote } from './calculation-actions';
 import { CalculationStatus } from './calculation-status';
+import { useCancellableRun } from './use-cancellable-run';
+import { isCalculationCancelled } from '../lib/compute/cancellable-worker';
 import { SettledCalculation } from './settled-calculation';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
@@ -189,6 +192,7 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
   const inputKey = JSON.stringify({ artifactInput, stones: settings.conversionStoneMode === 'owned' ? stones : [],
     monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), scenarioProfiles, selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
+  const run = useCancellableRun(inputKey);
   const owner = selectedArtifact?.occupiedId === null || selectedArtifact === undefined
     ? undefined : ownMonsters.find((monster) => monster.unitId === selectedArtifact.occupiedId);
   /* A copy that wants something its species does not is scored under its own
@@ -274,11 +278,13 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
       setState('error');
       return;
     }
+    const before = state;
+    const signal = run.start();
     setState('calculating');
     try {
       const [scopeResults, ownedResults] = await Promise.all([
-        Promise.all(scopeRequests.map((request) => calculateArtifactScores(request, hardwareAcceleration))),
-        Promise.all(ownedRequests.map((request) => calculateArtifactScores(request, hardwareAcceleration))),
+        Promise.all(scopeRequests.map((request) => calculateArtifactScores(request, hardwareAcceleration, signal))),
+        Promise.all(ownedRequests.map((request) => calculateArtifactScores(request, hardwareAcceleration, signal))),
       ]);
       setCalculation({
         inputKey,
@@ -289,15 +295,22 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
         durationMs: [...scopeResults, ...ownedResults].reduce((total, result) => total + result.durationMs, 0),
       });
       setState('idle');
-    } catch {
+    } catch (failure) {
+      /* Cancelled: the answer from before Calculate stands, and so does its state. */
+      if (isCalculationCancelled(failure)) { setState(before === 'calculating' ? 'idle' : before); return; }
       setCalculation(undefined);
       setState('error');
     }
   }
 
+  function clear() {
+    setCalculation(undefined);
+    setState('idle');
+  }
+
   useAutoRecalculate({
     mode: settings.recalculate,
-    stale: calculation !== undefined && currentCalculation === undefined,
+    stale: calculation !== undefined && currentCalculation === undefined && !run.cancelledHere,
     calculating: state === 'calculating',
     calculate: () => void calculate(),
   });
@@ -352,15 +365,20 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
           </Dropdown>
         </div>
       </div>
-      <div className="filter-panel-actions best-monster-actions">
-        <Button tone="primary" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
-          onClick={() => void calculate()} disabled={!selectedArtifact}>Calculate monsters</Button>
-        {/* The chosen artifact goes with the filters: it was picked out of the
-            narrowed list, so leaving it behind would name a piece the restored
-            list no longer points at. */}
-        <button type="button" className="filter-reset" aria-label="Reset artifact filters"
-          onClick={resetFilters}>Reset filters</button>
-      </div>
+      <CalculationActions className="best-monster-actions" busy={state === 'calculating'} canCalculate={selectedArtifact !== undefined}
+        calculateTitle="Choose an artifact first." onCalculate={() => void calculate()} onCancel={run.cancel}
+        canClear={calculation !== undefined || state === 'error'} onClear={clear}
+        status={state === 'calculating' ? <CalculationNote tone="busy">Calculating…</CalculationNote>
+          : state === 'error' ? <CalculationNote tone="failed">JASWA could not calculate monster fits for this artifact from the imported data.</CalculationNote>
+            : currentCalculation && selectedArtifact
+              ? <CalculationStatus twoLines evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
+                backend={currentCalculation.backend} general={general} />
+              : <CalculationNote>{''}</CalculationNote>}
+        /* The chosen artifact goes with the filters: it was picked out of the
+           narrowed list, so leaving it behind would name a piece the restored
+           list no longer points at. */
+        resets={<button type="button" className="filter-reset" aria-label="Reset artifact filters"
+          onClick={resetFilters}>Reset filters</button>} />
     </div>
 
     {selectedArtifact && <section className="best-monster-artifact-details" aria-labelledby="selected-artifact-title">
@@ -381,8 +399,6 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
       </ul>
     </section>}
 
-    {state === 'error' && <p className="notice warning" role="status">JASWA could not calculate monster fits for this artifact from the imported data.</p>}
-
     {/* As in the other two views (`ACCOUNT-TABLES.md` §7): a held result that no longer answers
         the current settings says so instead of disappearing. */}
     <p className="notice warning" role="status" style={{ visibility: calculation && !currentCalculation ? 'visible' : 'hidden' }}
@@ -393,8 +409,6 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
     <SettledCalculation key={filters.selectedArtifactId} current={Boolean(currentCalculation)}
       retain={Boolean(calculation) && settings.recalculate === 'on-change'}>
     {currentCalculation && selectedArtifact && <>
-      <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
-        backend={currentCalculation.backend} general={general} />
       <div className="best-monster-results">
         <ResultCard title="No artifact in this slot" description="The ten strongest eligible monsters with no artifact in this category engraved yet."
           empty={slotlessRows.length ? undefined : 'Every monster already has an artifact in this slot.'}>

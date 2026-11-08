@@ -41,7 +41,7 @@ function workedAccount(): RawAccount {
  */
 test('a sync updates Rune Clean-up rune by rune without moving the rows', async ({ page }, testInfo) => {
   /* Three calculations of every role on the processor: the whole one, the
-     re-reading, and Recalculate. */
+     re-reading, and Calculate. */
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.goto('/');
@@ -107,7 +107,7 @@ test('a sync updates Rune Clean-up rune by rune without moving the rows', async 
   expect(await levels.allTextContents()).not.toEqual(after);
 
   /* A new calculation answers the account as it is, and the sold rune is gone. */
-  await cleanup.getByRole('button', { name: 'Recalculate' }).click();
+  await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(rows).toHaveCount(4, { timeout: 60_000 });
   await expect(rows.filter({ hasText: 'Sold' })).toHaveCount(0);
 });

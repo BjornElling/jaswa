@@ -1,7 +1,10 @@
 import { filterIncludes, filterIsUnrestricted } from '../lib/filter-selection';
 import { Fragment, useMemo, useState } from 'react';
-import { Button, FilterButton } from './button';
+import { FilterButton } from './button';
+import { CalculationActions, CalculationNote } from './calculation-actions';
 import { CalculationStatus } from './calculation-status';
+import { useCancellableRun } from './use-cancellable-run';
+import { isCalculationCancelled } from '../lib/compute/cancellable-worker';
 import { SettledCalculation } from './settled-calculation';
 import { Dropdown } from './dropdown';
 import { ConvertedArtifactMark } from './converted-artifact-mark';
@@ -300,6 +303,7 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
     monsters: scopedMonsters.map((monster) => [monster.unitId, monster.masterId]), scenarioProfiles, settings: scoringSettings(settings),
   });
   const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
+  const run = useCancellableRun(inputKey);
   const visibleArtifacts = useMemo(() => artifacts.filter((artifact) => {
     const restriction = artifactEngraveClassLabel(artifact);
     return filterIncludes(filters.categories, artifact.category, categoryOrder)
@@ -333,10 +337,12 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
       setState('error');
       return;
     }
+    const before = { state, error };
+    const signal = run.start();
     setState('calculating');
     setError(undefined);
     try {
-      const results = await Promise.all(requests.map((request) => calculateArtifactScores(request, hardwareAcceleration)));
+      const results = await Promise.all(requests.map((request) => calculateArtifactScores(request, hardwareAcceleration, signal)));
       const categories = requests.map((request, index) => ({ request, result: results[index] }));
       setCalculation({
         inputKey,
@@ -349,7 +355,13 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
         unscoredSlots: unscoredArtifactSlots(scopedMonsters),
       });
       setState('idle');
-    } catch {
+    } catch (failure) {
+      /* Cancelled: the answer from before Calculate stands, and so does its state. */
+      if (isCalculationCancelled(failure)) {
+        setError(before.error);
+        setState(before.state === 'calculating' ? 'idle' : before.state);
+        return;
+      }
       setCalculation(undefined);
       setError('JASWA could not calculate artifact recommendations from this data.');
       setState('error');
@@ -358,7 +370,7 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
 
   useAutoRecalculate({
     mode: settings.recalculate,
-    stale: calculation !== undefined && currentCalculation === undefined,
+    stale: calculation !== undefined && currentCalculation === undefined && !run.cancelledHere,
     calculating: state === 'calculating',
     calculate: () => void calculate(),
   });
@@ -523,20 +535,24 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
         </div>
         {buttonGroup('Already matching', 'matching', matchingFilters, (value) => value === 'yes' ? 'Yes' : 'No', 'artifact-recommendation-filter-matching')}
       </div>
-      <div className="filter-panel-actions artifact-recommendation-actions">
-        <Button tone="primary" size="prominent" busy={state === 'calculating'} busyLabel="Calculating…"
-          onClick={() => void calculate()}>Calculate recommendations</Button>
-        <Button tone="danger" size="compact" className="artifact-recommendation-clear"
-          onClick={() => clear()} disabled={!calculation || state === 'calculating'}>Clear results</Button>
-        {/* Two different undos, and the panel keeps them apart: Clear results
-            discards the calculation, this one only puts the filters back. It
-            is always available, because narrowing the view is possible before
-            there is anything to narrow. */}
-        <button type="button" className="filter-reset" aria-label="Reset recommendation filters"
-          onClick={() => setFilters(defaultFilters)}>Reset filters</button>
-      </div>
+      <CalculationActions className="artifact-recommendation-actions" busy={state === 'calculating'} canCalculate
+        onCalculate={() => void calculate()} onCancel={run.cancel}
+        canClear={calculation !== undefined || state === 'error'} onClear={clear}
+        status={state === 'calculating' ? <CalculationNote tone="busy">Calculating…</CalculationNote>
+          : state === 'error' ? <CalculationNote tone="failed">{error}</CalculationNote>
+            : currentCalculation
+              /* The slot figures have to add up on the page: the total is every
+                 slot the scope has, and the parts not filled are named beside
+                 it, so filled + unfilled + awaiting always equals the total. */
+              ? <CalculationStatus twoLines evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
+                backend={currentCalculation.backend} general={general}
+                detail={<>{formatNumber(filledSlots, general)} of {formatNumber(totalSlots, general)} slots filled{slotRemainder.length > 0 && <> ({slotRemainder.join(', ')})</>}</>} />
+              : <CalculationNote>{''}</CalculationNote>}
+        /* Two different undos, kept apart: Clear results discards the
+           calculation, Reset filters only puts the filters back. */
+        resets={<button type="button" className="filter-reset" aria-label="Reset recommendation filters"
+          onClick={() => setFilters(defaultFilters)}>Reset filters</button>} />
     </div>
-    {state === 'error' && <p className="notice warning" role="status">{error}</p>}
     {/* In the on-change mode the recalculation is already under way, so the
         notice reports it rather than asking for a button the user has told
         JASWA not to make them press. */}
@@ -546,19 +562,6 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
       : 'Settings or imported data changed. Calculate again to refresh these recommendations.'}</p>
     <SettledCalculation current={Boolean(currentCalculation)} retain={Boolean(calculation) && settings.recalculate === 'on-change'}>
     {currentCalculation && <>
-      {/* The slot figures have to add up on the page. Reporting "558 of 558
-          filled" and then warning about 2 more slots left the user with three
-          numbers and no way to see how they relate: the 558 counted only the
-          scorable slots, so the unscored two were nowhere in the arithmetic.
-
-          The total is now every slot the scope has, and the parts that are not
-          filled are named beside it, so filled + unfilled + awaiting always
-          equals the total. Each part is only named when it is non-zero, so an
-          account with complete preferences still reads as a plain
-          "560 of 560 slots filled". */}
-      <CalculationStatus evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
-        backend={currentCalculation.backend} general={general}
-        detail={<>{formatNumber(filledSlots, general)} of {formatNumber(totalSlots, general)} slots filled{slotRemainder.length > 0 && <> ({slotRemainder.join(', ')})</>}</>} />
       {/* "Left", not "found": the artifacts that would suit these slots
           usually exist, and the ranked pass gave them to monsters they suit
           at least as well. */}

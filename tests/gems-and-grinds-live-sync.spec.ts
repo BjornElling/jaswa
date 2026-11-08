@@ -70,7 +70,7 @@ for (const [title, mode] of [['Recommendations', 'recommendations'], ['Best use 
     await page.screenshot({ path: testInfo.outputPath('before-calculation.png'), fullPage: true });
     await expect(panel.locator('.craft-recommendation')).toHaveCount(0);
     await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
-    await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+    await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
     const ranking = panel.locator('.craft-stat-rankings');
     const first = ranking.locator('.craft-recommendation').first();
     await expect(first.locator('.rune-sub').filter({ hasText: 'SPD' }).first()).toContainText('+31');
@@ -79,12 +79,12 @@ for (const [title, mode] of [['Recommendations', 'recommendations'], ['Best use 
     await page.screenshot({ path: testInfo.outputPath('before-sync.png'), fullPage: true });
     await workers.hold();
     helper.advance();
-    await expect(panel.locator('.craft-calculation-status')).toContainText('Calculating');
+    await expect(panel.locator('.calculation-actions-status')).toContainText('Calculating');
     await page.screenshot({ path: testInfo.outputPath('during-sync.png'), fullPage: true });
     expect(await ranking.textContent()).toBe(contents);
     expect(await ranking.boundingBox()).toEqual(bounds);
     await workers.release();
-    await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+    await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
     await expect(first.locator('.rune-sub').filter({ hasText: 'SPD' }).first()).toContainText('+32');
     expect(await ranking.boundingBox()).toEqual(bounds);
     await page.screenshot({ path: testInfo.outputPath('after-sync.png'), fullPage: true });
@@ -93,10 +93,10 @@ for (const [title, mode] of [['Recommendations', 'recommendations'], ['Best use 
     const updated = await ranking.textContent();
     await workers.hold();
     helper.advance();
-    await expect(panel.locator('.craft-calculation-status')).toContainText('Calculating');
+    await expect(panel.locator('.calculation-actions-status')).toContainText('Calculating');
     expect(await ranking.textContent()).toBe(updated);
     await workers.release();
-    await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+    await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
     await expect(ranking.getByRole('button', { name: 'Violent rune, slot 2', exact: true })).toHaveCount(0);
   });
 }
@@ -140,10 +140,10 @@ for (const [title, mode] of [['Best use for this', 'selected'], ["What's missing
     await panel.getByRole('combobox', { name: 'How well the roll is assumed to land' }).selectOption('two-thirds');
     await panel.getByRole('slider', { name: 'Number of runes listed in each ranking' }).fill('2');
     await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
-    await expect(panel.locator('.craft-calculation-status')).toContainText('Processor');
+    await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
     if (mode === 'selected') {
       await panel.getByRole('group', { name: 'Only keep-runes', exact: true }).getByRole('button', { name: 'Yes' }).click();
-      await expect(panel.locator('.craft-calculation-status')).toContainText('Processor', { timeout: 120_000 });
+      await expect(panel.locator('.calculation-actions-status')).toContainText('Processor', { timeout: 120_000 });
     }
     await expect(cards.first()).toBeVisible();
     await cards.last().scrollIntoViewIfNeeded();
@@ -153,7 +153,7 @@ for (const [title, mode] of [['Best use for this', 'selected'], ["What's missing
     await page.screenshot({ path: testInfo.outputPath(`${mode}-scrolled-before.png`) });
 
     await watchScroll(page);
-    const status = panel.locator('.craft-calculation-status');
+    const status = panel.locator('.calculation-actions-status');
     const answered = await status.textContent();
     helper.advance();
     /* The changed rune is judged again on its own, so the status reports a new answer. */

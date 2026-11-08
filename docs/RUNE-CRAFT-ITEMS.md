@@ -130,9 +130,12 @@ both ends included. It opens at `+12` to `+15`: from `+12` a rune has rolled
 every sub it will get and can take a Gem, so that is where a craft item is
 usually spent. It narrows the rankings and nothing else.
 
-Then a column of its own for Clear results, Calculate, the cancelling ✕
-(Rune Optimization's stop), the calculation status beneath them, and Reset
-filters and Reset ignored at its foot. In What's missing, *Most wanted* follows
+Then a column of its own, the shared calculation column every calculating
+panel ends in (`calculation-actions.tsx`): Clear results and Calculate, the
+calculation status beneath them, and Reset filters and Reset ignored at its
+foot. While it works, Calculate reads *Calculating…* and, under the pointer or
+keyboard focus, *Cancel calculation* in red; pressing it then stops the work
+and leaves the answer from before it started. In What's missing, *Most wanted* follows
 at the far edge in a box of the Statistics kind: ten rows always, whatever the
 ranking length, in the caption size so the box stays narrow.
 
@@ -397,7 +400,9 @@ Removals and quantity-only changes publish immediately when no calculation is
 needed. Every published answer retires obsolete rune and item keys, so repeated
 syncs retain only the current account. A failed extension keeps the previous
 answer, reports the failure in the status line and is not retried until the
-account changes again. Clear results explicitly discards the answer.
+account changes again. Clear results explicitly discards the answer; cancelling
+keeps it, and an extension the user cancelled is not started again until the
+question changes.
 
 So a live sync, which replaces the whole import whenever the game changes,
 never empties either view, and a reader scrolled down the rankings stays where

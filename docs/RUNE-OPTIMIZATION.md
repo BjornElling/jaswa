@@ -281,7 +281,7 @@ with the combat-stat gap. Icaru's known values are 2,501 DEF for a two-ally team
 The profile's *When met, sort by* names it, or the user chooses one in *Rank by* for this
 calculation. **Nothing else ever does.** A figure guessed from the monster's type would
 rank a search by a question nobody asked. Where neither names one, *Rank by* reads
-*Choose a figure*, its caption says the profile names none, and *Find builds* stays
+*Choose a figure*, its caption says the profile names none, and *Calculate* stays
 disabled with a hover saying the sort order is missing.
 
 ## 3. Candidates
@@ -533,7 +533,7 @@ Edits, account changes, hardware-setting changes and leaving the workspace cance
 and invalidate its evidence. Starting a calculation terminates the trial; its prepared pool,
 when available, is reused without changing any candidate or the normal time limit. A
 20-second watchdog bounds preparation and driver calls. A failed or expired trial says the
-time is unknown and never disables *Find builds*. No preference is added; all trial evidence
+time is unknown and never disables *Calculate*. No preference is added; all trial evidence
 stays in memory on this computer. The reading's tooltip records choices by slot, physical
 runes and end states, judged figures, ceilings and slots without a required set.
 
@@ -849,8 +849,11 @@ needs a running dev server and a card, and is not part of `npm test`.
    *Preset*, which leaves for Presets with the chosen preset (or Scenario) open, and
    under it *Speed tuning*, which opens the chosen preset's team over this page
    (disabled for Scenario and an empty preset). Beside them are
-   the depth slider and *Builds listed*, read at the moment of searching; then *Find
-   builds* and a square stop mark (*Stop the search*). The line under the depth gives a
+   the depth slider and *Builds listed*, read at the moment of searching; then the
+   shared calculation column (`calculation-actions.tsx`): *Clear results* and
+   *Calculate*, which while searching reads *Calculating…* and, under the pointer or
+   keyboard focus, *Cancel calculation* in red — pressing it then stops the search and
+   keeps the builds already found. The line under the depth gives a
    rough size of the search before it runs — the runes the filters admit, at most the
    depth's number per slot and set, multiplied across the slots — and the time limit as
    "up to"; it skips craft variants and exact reduction, so it is an order of magnitude,
@@ -868,9 +871,9 @@ needs a running dev server and a card, and is not part of `npm test`.
    Immemorial Gems and Grindstones*, *Allow changing a gemmed stat*), then Gems and
    Grindstones. Selection, adjustments and the Gems/Grinds settings are saved preferences
    and hold for every monster.
-3. **Status** — at the foot of the monster panel, under *Find builds*, dimmed: the search's
-   progress while it runs, then builds checked and runes considered on one line and time
-   and engine on the next. The stale warning sits between the two; a search that stopped
+3. **Status** — directly under *Calculate*, dimmed: the search's progress while it
+   runs, then builds checked and runes considered on one line and time and engine on
+   the next. The stale warning sits beneath it; a search that stopped
    at its limit says so above the table. A change to the runes or locks since the search
    is not announced here: the rows it touches say so (item 5).
 4. **Builds** — the current build pinned first as `Now`, then the ranked builds, in the
@@ -881,7 +884,7 @@ needs a running dev server and a card, and is not part of `npm test`.
    the search holds only the best builds by that one figure, so ordering by another column
    would rank a sample rather than the account. Another order is another search, and *Rank
    by* starts it: with a table on screen or a search running, choosing a figure searches
-   again at once. With no table it only sets the figure for *Find builds*. Choosing a row
+   again at once. With no table it only sets the figure for *Calculate*. Choosing a row
    opens the build in an overlay: its six runes in the game's rune circle — slot 1 at the
    top, the rest clockwise — each as it is in the account now, and beside the circle, slot
    by slot, the modifications the build assumes — which line a Gem replaces and with what,

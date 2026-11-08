@@ -36,13 +36,13 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   await page.screenshot({ path: testInfo.outputPath('calculated-before-navigation.png') });
   // Both clicks share a tick, so even a warm worker cannot finish before leaving.
   const home = await navigation.getByRole('button', { name: 'Home', exact: true }).elementHandle();
-  await page.getByRole('button', { name: 'Recalculate', exact: true }).evaluate((button, homeButton) => {
+  await page.getByRole('button', { name: 'Calculate', exact: true }).evaluate((button, homeButton) => {
     (button as HTMLButtonElement).click();
     (homeButton as HTMLButtonElement | null)?.click();
   }, home);
   for (const name of ['Home', 'Rune Settings', 'Monster Stats', 'Rune Optimization']) await visit(name);
   await visit('Rune Clean-up');
-  await expect(page.getByRole('button', { name: 'Recalculate', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeVisible();
   await expect(rows).toHaveCount(4);
   expect(await rows.allTextContents()).toEqual(before);
   await expect(page.locator('.calculation-status')).toHaveText(status ?? '');
@@ -89,7 +89,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   await visit('Rune Clean-up');
   await expect(warning).toBeHidden();
   await expect(rows).toHaveCount(4);
-  await page.getByRole('button', { name: 'Recalculate', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(warning).toBeHidden();
 
   raw.wizard_id = 987654;

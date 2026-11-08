@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
 import { Button, FilterButton, InlineButton, LabelSwap } from './button';
+import { CalculationActions, CalculationNote } from './calculation-actions';
 import { CalculationStatus } from './calculation-status';
 import { Dropdown } from './dropdown';
 import { EngravedPlace } from './engraved-place';
@@ -124,7 +125,13 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   const reconciled = useMemo(() => request && calculation?.key === calculationKey
     ? reconcileCraftCalculation(calculation, [...request.items, ...request.missing], request.runes) : null, [request, calculation, calculationKey]);
   const extensions = useMemo(() => request && reconciled ? craftExtensionRequests(request, reconciled) : [], [request, reconciled]);
-  function clear() { worker.current?.terminate(); worker.current = null; workerRequest.current = null; setWork(null); onCalculated(null); }
+  /* The question a cancel stopped, so the account-change extension below does
+     not start the very work the user just cancelled. */
+  const [stopped, setStopped] = useState<CraftRecommendationRequest | null>(null);
+  function stop() { worker.current?.terminate(); worker.current = null; workerRequest.current = null; setWork(null); }
+  function clear() { stop(); onCalculated(null); }
+  /* Leaves the stored answer alone: whatever stood before Calculate stands again. */
+  function cancel() { stop(); setStopped(request); }
   /**
    * Asks the worker each of `asks` in turn on behalf of `request`, whose status it
    * reports, and stores what `settle` makes of the answers once all are in.
@@ -167,7 +174,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   /* Only what the answer has never judged is asked, once per account state: a
      failed extension is reported rather than retried in a loop. */
   useEffect(() => {
-    if (!request || !calculation || !reconciled || work?.request === request) return;
+    if (!request || !calculation || !reconciled || work?.request === request || stopped === request) return;
     const asks = extensions;
     /* Removals and quantity-only changes need no worker, but must retire the
        old snapshot too: a later addition must not bring a sold rune back. */
@@ -185,7 +192,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     });
     return () => { current = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` is redeclared every render; the answer it extends is in the list.
-  }, [request, calculation, reconciled, extensions, work?.request]);
+  }, [request, calculation, reconciled, extensions, work?.request, stopped]);
   const update = <K extends keyof State,>(key: K, value: State[K]) => setState((previous) => ({ ...previous, [key]: value }));
   const toggle = <K extends 'lineages' | 'grades' | 'already',>(key: K, value: State[K][number]) => setState((previous) => {
     const chosen = previous[key] as readonly string[];
@@ -349,29 +356,16 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     </section>;
   }
 
-  /* The buttons that ask, in Rune Optimization's order: Clear results, Calculate, and its stop as a mark beside it rather than a second button of its weight. */
-  const actions = <div className="craft-calculation-actions">
-    <Button disabled={!current && !result} onClick={clear}>Clear results</Button>
-    <Button tone="primary" size="prominent" className="craft-calculate" busy={current?.busy} busyLabel="Calculating…" disabled={Boolean(empty) || current?.busy}
-      onClick={calculate}>Calculate</Button>
-    <Button tone="danger" size="prominent" className="craft-cancel" disabled={!current?.busy}
-      aria-label="Cancel the calculation" title="Cancel the calculation" onClick={clear}>
-      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-        <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
-    </Button>
-  </div>;
-  const status = <div className="craft-calculation-status">
-    {current?.busy || current?.error || !result
-      ? <p className={current?.busy ? 'calculation-status craft-calculating' : 'calculation-status'} role="status">{current?.busy ? `Calculating… ${Math.floor(current.progress * 100)} %` : current?.error ?? empty ?? ''}</p>
-      : keepers.state === 'pending' || keepers.state === 'failed'
-        ? <p className="calculation-status" role="status">{keepers.state === 'failed' ? keepers.message
-          /* Clean-up's own words for its two phases, so the wait reads the same on both pages. */
-          : keepers.calibration !== null
-            ? `Calibrating Rune Clean-up… ${format(Math.round(keepers.calibration * 100))} % · only needed once`
-            : `Asking Rune Clean-up which runes it keeps… ${format(Math.floor(keepers.progress * 100))} %`}</p>
-        : <CalculationStatus twoLines durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />}
-  </div>;
+  const status = current?.busy ? <CalculationNote tone="busy">{`Calculating… ${Math.floor(current.progress * 100)} %`}</CalculationNote>
+    : current?.error ? <CalculationNote tone="failed">{current.error}</CalculationNote>
+      : !result ? <CalculationNote>{empty ?? ''}</CalculationNote>
+        : keepers.state === 'failed' ? <CalculationNote tone="failed">{keepers.message}</CalculationNote>
+          : keepers.state === 'pending'
+            /* Clean-up's own words for its two phases, so the wait reads the same on both pages. */
+            ? <CalculationNote tone="busy">{keepers.calibration !== null
+              ? `Calibrating Rune Clean-up… ${format(Math.round(keepers.calibration * 100))} % · only needed once`
+              : `Asking Rune Clean-up which runes it keeps… ${format(Math.floor(keepers.progress * 100))} %`}</CalculationNote>
+            : <CalculationStatus twoLines durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />;
   /* Kept in the column before there is an answer, quiet until there is one, so
      the column has its shape from the start. */
   const answered = Boolean(result && keepersSettled);
@@ -396,14 +390,14 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
       })}</tbody>
     </table>
   </section>;
-  const resets = <div className="filter-panel-actions craft-view-actions">
+  const resets = <>
     <Button className="filter-reset" onClick={() => setState((previous) => ({ ...previous,
       ...Object.fromEntries(craftFilterFields.map((field) => [field, defaultCraftViewChoice[field]])) }))}
     aria-label={`Reset ${{ recommendations: 'recommendations', selected: 'best use', missing: "what's missing" }[mode]} filters`}>Reset filters</Button>
     {/* Kept mounted while there is nothing to reset, so the panel never changes height. */}
     <Button className="filter-reset" disabled={!ignores.length} onClick={() => onIgnore(null)}
       title={ignores.length ? `Bring back ${format(ignores.length)} ignored ${ignores.length === 1 ? 'suggestion' : 'suggestions'}` : 'Nothing is ignored'}>Reset ignored</Button>
-  </div>;
+  </>;
 
   return <div className="craft-best-use" data-mode={mode}>
     <div className="craft-controls">
@@ -470,7 +464,9 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     </div>
     </div>
     <aside className="craft-side">
-      <div className="craft-side-actions">{actions}{status}{resets}</div>
+      <CalculationActions className="craft-side-actions" busy={Boolean(current?.busy)} canCalculate={!empty}
+        onCalculate={calculate} onCancel={cancel} canClear={Boolean(current || result)} onClear={clear}
+        status={status} resets={resets} />
       {mode === 'missing' && wantedBox}
     </aside>
     {result && keepersSettled && <div className="craft-best-use-results" data-kind={kind}>

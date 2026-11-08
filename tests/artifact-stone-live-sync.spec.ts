@@ -43,7 +43,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
     await page.reload();
     await page.getByRole('button', { name: 'Artifact Optimization', exact: true }).click();
     await page.getByText('Recommendations', { exact: true }).click();
-    const calculate = page.getByRole('button', { name: 'Calculate recommendations', exact: true });
+    const calculate = page.getByRole('button', { name: 'Calculate', exact: true });
     await expect(page.getByText('Import your game data first, then ask every artifact where it can shine.')).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('empty.png'), fullPage: true });
     revision = 1;
@@ -141,8 +141,8 @@ for (const recalculate of ['manual', 'on-change'] as const) {
       /* The other two readers must retain their own complete answer too, with
          the same selected subject throughout the live update. */
       for (const [title, panelClass, chooser, value, action, resultsClass] of [
-        ['Best monster for this artifact', '.best-monster-for-artifact', 'Choose an artifact for monster recommendations', '1001', 'Calculate monsters', '.best-monster-results'],
-        ['Best artifact for this monster', '.best-artifact-for-monster', 'Choose a monster for artifact recommendations', '1', 'Calculate artifacts', '.best-artifact-results'],
+        ['Best monster for this artifact', '.best-monster-for-artifact', 'Choose an artifact for monster recommendations', '1001', 'Calculate', '.best-monster-results'],
+        ['Best artifact for this monster', '.best-artifact-for-monster', 'Choose a monster for artifact recommendations', '1', 'Calculate', '.best-artifact-results'],
       ]) {
         await page.locator('summary').filter({ hasText: title }).click();
         const panel = page.locator(panelClass);

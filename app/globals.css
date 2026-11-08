@@ -1453,18 +1453,7 @@ label[for] {
 .craft-best-use-filters .craft-view-set .jaswa-select { width: var(--craft-set-field); }
 .craft-best-use-results { grid-column: 1 / -1; }
 .craft-side { display: contents; }
-.craft-side-actions {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
-  gap: var(--s2);
-  justify-items: end;
-  padding: var(--s4);
-  background: var(--raise);
-}
-.craft-calculation-actions { display: flex; gap: var(--s2); align-items: center; }
-.craft-calculation-status { width: 100%; min-height: 2lh; }
-.craft-calculation-status p { margin: 0; }
-.craft-side .craft-view-actions { align-self: end; gap: var(--s3); }
+.craft-side-actions { padding: var(--s4); background: var(--raise); }
 /* The page scales with the window, and below 1800px the fifth track fits by a
    pixel or not at all: Only keep-runes takes a row of its own there. */
 @media (max-width: 1799px) {
@@ -2390,13 +2379,12 @@ label[for] {
 .best-artifact-actions { grid-area: calculate; justify-self: end; }
 /* Layout only — every shared measurement comes from .filter-panel. */
 .best-monster-filters {
-  grid-template-columns: max-content minmax(24ch, 1fr) max-content;
+  grid-template-columns: max-content minmax(24ch, 1fr) max-content max-content;
   grid-template-areas:
-    "type restriction restriction"
-    "quality substat main"
-    "location location location"
-    "artifact artifact artifact"
-    "calculate calculate calculate";
+    "type     restriction restriction calculate"
+    "quality  substat     main        calculate"
+    "location location    location    calculate"
+    "artifact artifact    artifact    calculate";
 }
 .best-monster-filter-type { grid-area: type; }
 .best-monster-filter-restriction { grid-area: restriction; }
@@ -2410,7 +2398,7 @@ label[for] {
 .best-monster-artifact-select .jaswa-select { width: 100%; min-width: 0; }
 .best-artifact-monster-select .filter-group-controls { width: 50%; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
-.best-monster-actions { grid-area: calculate; justify-self: start; }
+.best-monster-actions { grid-area: calculate; justify-self: end; }
 .calculation-status, .calculation-progress {
   margin: 0;
   color: var(--text);
@@ -2626,27 +2614,12 @@ label[for] {
 .rune-optimization-work-warning[data-tone='bad'] { color: var(--state-bad); }
 .rune-optimization-work-warning[data-tone='neutral'] { color: var(--text-muted); }
 
-/* A fixed measure, so the status line at its foot can change its wording — a
-   percentage, then a line of counts — without the columns beside it moving. */
-.rune-optimization-actions {
-  align-self: stretch;
-  width: 56ch;
-  display: grid;
-  grid-template-rows: auto auto 1fr;
-  gap: var(--s2);
-  justify-items: end;
-  padding-top: var(--s5);
-}
-.rune-optimization-action-row { display: flex; align-items: center; gap: var(--s2); }
-/* The page's conclusion: the filled button the other workspaces end on, given
-   the panel's full height of attention. */
-.rune-optimization-find, .craft-calculate { min-width: 20ch; }
-.rune-optimization-find-hold { display: flex; }
-/* A square the height of the button beside it, holding only its mark. Written
-   against the size it shares, which is declared further down, so that size's own
-   padding does not squeeze the mark to nothing. */
-.button.prominent.rune-optimization-stop, .button.prominent.craft-cancel { width: 44px; padding: 0; }
-.rune-optimization-stop svg, .craft-cancel svg { flex: none; }
+/* A fixed measure, so the report can change its wording — a percentage, then a
+   line of counts — without the columns beside it moving. */
+.rune-optimization-actions { width: 56ch; padding-top: var(--s5); }
+/* Three lines reserved — what was measured, a clause a sync may add to it, then
+   how it was done — so starting or finishing a search never moves the notice. */
+.rune-optimization-actions .calculation-actions-status { min-height: 3lh; }
 /* The table on screen answers a question that is no longer the one above it. A box
    of fixed measure, always in the panel and only made visible, so nothing beside
    it moves; the machine reporting on its own answer, so the verdict colour. */
@@ -2721,20 +2694,6 @@ label[for] {
 .rune-optimization-craft-choices { display: flex; gap: var(--s2); }
 .rune-optimization-craft-choices .jaswa-select { width: 16ch; }
 
-/* At the foot of the panel, three lines reserved — what was measured, a clause a
-   sync may add to it, then how it was done — so starting a search or finishing
-   one never changes the panel's height. */
-.rune-optimization-status { align-self: end; width: 100%; min-height: 3lh; }
-/* Dimmed: it reports on the answer below, and is read after it, not before. A
-   failure keeps its verdict red. */
-.rune-optimization-status .calculation-status, .craft-side .calculation-status { white-space: normal; }
-.rune-optimization-status .calculation-status:not([data-failed]),
-.craft-side .calculation-status:not([data-failed]) { color: var(--text-muted); }
-/* Except while the search runs: then the line is the work the user just asked for,
-   in the accent that marks what they are acting on. Colour only, so the line keeps
-   its width (`AGENTS.md` §2). */
-.rune-optimization-status .calculation-status.rune-optimization-searching,
-.craft-side .calculation-status.craft-calculating,
 .calculation-progress { color: var(--text-accent); }
 .rune-optimization-results { display: grid; gap: var(--s2); }
 .rune-optimization-results > h3 { margin: 0; }
@@ -3246,18 +3205,7 @@ label[for] {
   justify-self: start;
   border-left-color: var(--line-strong);
 }
-/* The panel's actions, centred against the three filter rows rather than hung
-   from their top. Everything else — the stacking and the gap that keeps
-   calculate clear of its undos — comes from .filter-panel-actions. */
-.artifact-recommendation-actions { grid-area: calculate; align-self: center; }
-/* Subordinate to the calculate button beside it: it starts quieter than a
-   resting button, so it reads as the undo next to the action rather than a
-   second thing to decide between. Everything else — its compact box, and the
-   red it turns on hover — it shares with every other destructive button. */
-.button.artifact-recommendation-clear:not(:disabled) {
-  color: var(--text-muted);
-  border-color: var(--line);
-}
+.artifact-recommendation-actions { grid-area: calculate; }
 .artifact-recommendation-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
 /* The table always fits its container: it is 100% wide and every column is a
    share of that, so there is no width at which it can overflow and no
@@ -3422,7 +3370,6 @@ label[for] {
      without shrinking the type. */
   .artifact-recommendation-filter-substat .jaswa-select { width: 100%; }
   .artifact-recommendation-actions { justify-self: stretch; justify-items: stretch; }
-  .button.artifact-recommendation-calculate { padding: 0 var(--s4); }
 }
 
 /* The chosen step names itself in the accent colour — this is the answer to
@@ -4514,6 +4461,49 @@ input[type='checkbox']:checked {
   color: var(--state-good);
   cursor: default;
 }
+/* Busy work that the same button can stop. At rest it wears the dimmed gold of
+   a busy primary; under the pointer or keyboard focus it turns a muted red and
+   offers to cancel, swapping one stacked face for another so nothing resizes. */
+.button.primary[data-cancellable='true'] {
+  background: var(--gold-deep);
+  border-color: var(--gold-edge);
+  color: var(--text-muted);
+}
+.button.primary[data-cancellable='true']:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--state-bad) 14%, var(--raise));
+  border-color: color-mix(in srgb, var(--state-bad) 55%, var(--line-strong));
+  color: color-mix(in srgb, var(--state-bad) 75%, var(--text));
+}
+.button[data-cancellable='true']:is(:hover, :focus-visible) .label-swap-face[data-face='busy'] { visibility: hidden; }
+.button[data-cancellable='true']:is(:hover, :focus-visible) .label-swap-face[data-face='cancel'] { visibility: visible; }
+
+/* `components/calculation-actions.tsx`: the column every calculating panel ends
+   in, at its right edge. Buttons on top, the report beneath them, the resets
+   pushed to the foot, all set against the right edge. */
+.calculation-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--s2);
+  align-self: stretch;
+}
+.calculation-actions-buttons { display: flex; gap: var(--s2); align-items: center; }
+.calculation-actions-calculate { display: flex; }
+.button.calculate-button { min-width: 20ch; }
+/* Two lines always reserved, so a report arriving or leaving never moves the
+   resets. Its width is the column's, never its own: `contain` keeps a long
+   report from widening the column and pushing the filters beside it (rule 2);
+   it wraps instead. */
+.calculation-actions-status { width: 100%; min-height: 2lh; contain: inline-size; }
+.calculation-actions-status p { margin: 0; }
+/* Dimmed: the report is about the answer below, read after it, not before. A
+   failure keeps its verdict red; progress takes the accent, because then the
+   line is the work the user just asked for. Colour only, so it keeps its width. */
+.calculation-actions-status .calculation-status { white-space: normal; color: var(--text-muted); }
+.calculation-actions-status .calculation-note { white-space: pre-line; }
+.calculation-actions-status .calculation-status[data-busy] { color: var(--text-accent); }
+.calculation-actions-status .calculation-status[data-failed] { color: var(--state-bad); }
+.calculation-actions-resets { margin-top: auto; gap: var(--s3); justify-items: end; }
 
 .button-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
 
@@ -6909,19 +6899,8 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-speed-minimum:disabled { opacity: .4; }
 .rune-speed-protection .checkbox-row { cursor: default; }
 .rune-speed-protection label[aria-disabled='false'] { cursor: pointer; }
-/* Status and calculation share a corner column, apart from the filters. */
-.rune-filter-actions {
-  display: flex; flex-direction: column; align-items: flex-end;
-  justify-content: space-between; align-self: stretch; gap: var(--s4); min-width: 0;
-  position: relative; padding-bottom: calc(2lh + var(--s2));
-}
-.rune-cleanup-progress {
-  /* Both calibration lines fit before work starts, so neither percentage nor the
-     switch from one to the other can move the button or its neighbouring filters. */
-  position: absolute; bottom: 0; right: 0; width: 100%; height: 2lh;
-  white-space: pre-line; opacity: 0;
-}
-.rune-cleanup-progress[data-shown='true'] { opacity: 1; }
+/* The calculation's corner column, apart from the filters. */
+.rune-filter-actions { min-width: 0; }
 .rune-filter-status { position: static; }
 .rune-filter-column:nth-child(4) { align-self: stretch; }
 .rune-filter-column .rune-filter-sort-by { margin-top: auto; }
@@ -6970,26 +6949,17 @@ th.align-center .rank-heading { justify-content: center; }
 .rune-simulator-gate-nine { grid-area: gate-nine; }
 .rune-simulator-gate-twelve { grid-area: gate-twelve; }
 
-/* Reset, Generate and Quantity share one line, at the height of the selects
-   beside them. The quantity group lends its three rows — label, field, note —
-   to the whole cluster through a subgrid, so the buttons sit on the field's line
-   rather than on the label's or the note's. */
+/* Quantity and the action column share the top right: the quantity is the last
+   thing chosen before generating, so it stands just left of Calculate. */
 .rune-simulator-run {
   grid-area: run;
   justify-self: end;
-  display: grid;
-  grid-template-columns: max-content max-content max-content;
-  grid-template-rows: auto auto auto;
-  column-gap: var(--s3);
-  row-gap: var(--s1);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s5);
 }
-.rune-simulator-reset,
-.rune-simulator-generate { grid-row: 2; align-self: center; }
-.rune-simulator-reset { height: 36px; padding: 0 var(--s4); }
 .rune-simulator-count {
-  grid-row: 1 / 4;
   display: grid;
-  grid-template-rows: subgrid;
   gap: var(--s1);
   text-align: right;
 }

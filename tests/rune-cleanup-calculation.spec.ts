@@ -36,7 +36,7 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
      label is always Processor here — but asserting that would make the check a
      statement about the test browser rather than about the page. */
   await expect(page.locator('.calculation-status'))
-    .toHaveText(/4 runes judged against [\d,]+ roles · [\d,]+ ms · (Graphics card|Processor)/);
+    .toHaveText(/4 runes judged against [\d,]+ roles\s*[\d,]+ ms · (Graphics card|Processor)/);
   const table = page.getByRole('table', { name: 'Rune verdicts' });
   await expect(table.locator('tbody tr')).toHaveCount(4);
   expect(await filterBoxes()).toEqual(beforeCalculation);
@@ -316,16 +316,20 @@ test('potential protection saves both choices and keeps independent filter colum
   const summary = await page.locator('.rune-filter-status').boundingBox();
   const strip = await page.locator('.rune-filter-strip').boundingBox();
   const stars = await page.locator('.rune-filter-stars').boundingBox();
-  expect(summary!.y).toBe(strip!.y);
-  expect(summary!.x + summary!.width).toBe(strip!.x + strip!.width);
+  /* The shared calculation column: Calculate at the top right, its report
+     under it, and the count with its reset at the foot. */
+  expect(summary!.x + summary!.width).toBeCloseTo(strip!.x + strip!.width, 1);
   expect(stars!.y).toBe(strip!.y);
   const ordering = await page.locator('.rune-filter-sort-by').boundingBox();
   expect(ordering!.x).toBe(protection!.x);
-  const calculateBox = await page.getByRole('button', { name: 'Recalculate', exact: true }).boundingBox();
+  const calculateBox = await page.getByRole('button', { name: 'Calculate', exact: true }).boundingBox();
   expect(calculateBox!.x + calculateBox!.width).toBeCloseTo(strip!.x + strip!.width, 1);
-  const progressBox = await page.locator('.rune-cleanup-progress').boundingBox();
+  expect(calculateBox!.y).toBeCloseTo(strip!.y, 1);
+  const progressBox = await page.locator('.rune-filter-actions .calculation-actions-status').boundingBox();
   expect(progressBox!.y).toBeGreaterThan(calculateBox!.y + calculateBox!.height);
-  expect(progressBox!.y + progressBox!.height).toBeCloseTo(strip!.y + strip!.height, 1);
+  expect(summary!.y).toBeGreaterThan(progressBox!.y + progressBox!.height);
+  const resets = await page.locator('.rune-filter-actions .calculation-actions-resets').boundingBox();
+  expect(resets!.y + resets!.height).toBeCloseTo(strip!.y + strip!.height, 1);
   expect(ordering!.y + ordering!.height).toBeCloseTo(strip!.y + strip!.height, 1);
   await expect(page.locator('.rune-filter-actions')).toHaveCSS('border-left-width', '0px');
   await minimum.fill('90');
