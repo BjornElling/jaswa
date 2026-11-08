@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, InlineButton, LabelSwap } from './button';
 import { CalculationStatus } from './calculation-status';
@@ -255,6 +255,9 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       return priorityDifference || monsterNameCollator.compare(left.name, right.name) || left.unitId.localeCompare(right.unitId);
     }),
   [monsters, names, preset, items, priorityIndex]);
+  /* Where the monsters off the priority list start; only a split with
+     monsters on both sides earns a separator. */
+  const unlistedFrom = options.findIndex((option) => !priorityIndex.has(option.unitId));
   const selected = options.find((option) => option.unitId === unitId);
   const buildMonster = useMemo(() => {
     if (!selected) return { unitId, masterId: '', name: '', initial: '?' };
@@ -541,7 +544,13 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               name={selected?.name ?? ''} decorative />
             <Dropdown id="rune-optimization-monster" value={selected ? unitId : ''} placeholder={options.length ? 'Choose a monster' : 'No monsters in this preset'} disabled={!options.length}
               onChange={(event) => chooseMonster(event.target.value)}>
-              {options.map((option) => <option key={option.unitId} value={option.unitId}>{option.name}</option>)}
+              {options.map((option, index) => <Fragment key={option.unitId}>
+                {/* The priority list ends here and the alphabetical rest begins.
+                    An `<hr>` in a select is a separator the browser will not
+                    let anyone choose or hover. */}
+                {index > 0 && index === unlistedFrom && <hr />}
+                <option value={option.unitId}>{option.name}</option>
+              </Fragment>)}
             </Dropdown>
           </div>
           {/* Both always on screen and only enabled when they have something to

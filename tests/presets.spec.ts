@@ -1020,6 +1020,42 @@ test('a Scenario monster off the priority list takes no engraved rune, and the s
   expect(await box(settings.getByRole('checkbox', { name: 'Include runes from higher-priority monsters', exact: true }))).toEqual(includeBox);
 });
 
+test('a rule in the Monster menu parts the priority list from the rest, only when both are there', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  const monster = page.getByLabel('Monster', { exact: true });
+  /* What the menu lists, in order, with the rule written as `—`. */
+  const menu = () => monster.evaluate((select) => [...select.children].map((child) =>
+    child.tagName === 'HR' ? '—' : (child as HTMLOptionElement).value));
+  /* The native popup is drawn outside the page, so the picture is of the same
+     menu laid open in the page. */
+  const picture = async (name: string) => {
+    await monster.evaluate((select) => { (select as HTMLSelectElement).size = 6; select.style.height = 'auto'; });
+    await monster.screenshot({ path: testInfo.outputPath(name) });
+    await monster.evaluate((select) => { (select as HTMLSelectElement).size = 0; select.style.height = ''; });
+  };
+
+  await openOptimization(page);
+  expect(await menu()).toEqual(['', '11', '12']);
+
+  await openPresets(page);
+  await contentChoice(page).selectOption('Scenario');
+  await addMenu(page).selectOption('11');
+  await openOptimization(page);
+  expect(await menu()).toEqual(['', '11', '—', '12']);
+  await picture('rule-between.png');
+  /* The rule can be neither chosen nor stepped onto. */
+  await monster.selectOption('12');
+  await monster.press('ArrowUp');
+  await expect(monster).toHaveValue('11');
+
+  await openPresets(page);
+  await addMenu(page).selectOption('12');
+  await openOptimization(page);
+  expect(await menu()).toEqual(['', '11', '12']);
+});
+
 test('a rune engraved on a monster in another preset is free here, and an engrave stays in its preset', async ({ page }, testInfo) => {
   test.slow();
   await page.setViewportSize({ width: 1920, height: 1080 });
