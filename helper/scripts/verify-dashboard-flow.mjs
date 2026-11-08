@@ -328,8 +328,8 @@ try {
   assert.equal(await setting.getAttribute('aria-checked'), 'true');
   assert.equal(await page.locator('#minimize-destination').textContent(), 'System tray');
   const settingsBox = await setting.boundingBox();
-  assert.equal(settingsBox.height, 20);
-  assert.equal(settingsBox.width, 36);
+  assert.equal(settingsBox.height, 16);
+  assert.equal(settingsBox.width, 28);
   const look = () => setting.evaluate((node) => ({ background: getComputedStyle(node).backgroundColor, edge: getComputedStyle(node).boxShadow }));
   await page.mouse.move(0, 0);
   const resting = await look();

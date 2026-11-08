@@ -462,7 +462,7 @@ export function App() {
       </section>
 
       <section className="settings" aria-label="Settings">
-        <span id="minimize-label">Minimise to</span>
+        <span id="minimize-label" className="eyebrow">Minimise to</span>
         <button type="button" className="destination-toggle" role="switch"
           aria-labelledby="minimize-label" aria-describedby="minimize-destination"
           aria-checked={minimizeTo === 'tray'} onClick={() => {
