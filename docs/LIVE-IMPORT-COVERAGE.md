@@ -412,6 +412,13 @@ model does not know this command yet" read differently.
 - **The rune and artifact inventories hold what no monster carries.** A record
   of gear a monster carries — a power-up answer, say — updates that monster's
   copy and is never added to the inventory as well.
+- **A monster's gear list read from a gear-moving answer takes each rune and
+  artifact in it off every other monster**, since one stands on one monster.
+  Moving Beth's runes onto Spectra through the game's rune management answered
+  with Spectra's list alone and never named Beth, so every moved rune stood on
+  both and the move was refused whole (November 8, 2026). A monster the same
+  answer also gives a list keeps it: two monsters in one answer claiming one
+  rune is an answer at odds with itself, and is refused below.
 - **An exchange that would leave a rune or artifact on two monsters is refused
   whole**, and the account is kept as it stood. JASWA's import refuses that
   account (`validateGameFile`), so serving it would stop live import until the

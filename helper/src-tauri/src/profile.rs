@@ -560,6 +560,20 @@ impl ProfileStore {
             changed |= apply_deck_list(&mut profile, response);
         }
         changed |= apply_defense_decks(&mut profile, response);
+        if moves_gear {
+            let answered = response_items
+                .iter()
+                .filter(|(entity, _)| entity.collection == "unit_list")
+                .map(|(_, unit)| unit)
+                .collect::<Vec<_>>();
+            let answered_ids = answered
+                .iter()
+                .filter_map(|unit| identifier(unit, "unit_id"))
+                .collect::<Vec<_>>();
+            for unit in answered {
+                changed |= take_gear_off_other_monsters(&mut profile, unit, &answered_ids);
+            }
+        }
         for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
             if moves_gear {
                 // Server records name the actual owner, including displaced
@@ -1350,6 +1364,55 @@ Guild Battle preset's runes — and read as the monster's own, those runes stood
 on two monsters at once and JASWA refused every revision after it. */
 fn gear_moving_command(command: &str) -> bool {
     command.contains("equip") || command.contains("occupation")
+}
+
+/* A rune or artifact stands on one monster. A gear-moving answer that gives a
+monster its new list has therefore taken each item in it off whichever monster
+carried it before — and the game's rune management, moving Beth's runes onto
+Spectra, answers with Spectra alone and never names Beth. Merged as it came,
+every one of those runes stood on both, the exchange was refused whole, and the
+move never reached JASWA (November 8, 2026). A monster the same answer also
+gives a list keeps that list: two of them claiming one rune is an answer at odds
+with itself, which the contradiction check refuses rather than this quietly
+dropping the rune from both. Relics are read into every preset and may stand on
+many monsters. */
+fn take_gear_off_other_monsters(profile: &mut Value, unit: &Value, answered: &[String]) -> bool {
+    let Some(unit_id) = identifier(unit, "unit_id") else {
+        return false;
+    };
+    let mut units = collection(profile, "unit_list").to_vec();
+    // An answer for a monster the account was not given never took anything.
+    if !units.iter().any(|current| identifier(current, "unit_id").as_deref() == Some(unit_id.as_str())) {
+        return false;
+    }
+    let mut changed = false;
+    for entity in [ENTITIES[1], ENTITIES[2]] {
+        let Some(carried) = unit.get(entity.collection).and_then(Value::as_array) else {
+            continue;
+        };
+        let ids = carried
+            .iter()
+            .filter_map(|item| identifier(item, entity.identifier))
+            .collect::<Vec<_>>();
+        if ids.is_empty() {
+            continue;
+        }
+        for other in &mut units {
+            if identifier(other, "unit_id").is_some_and(|id| id == unit_id || answered.contains(&id)) {
+                continue;
+            }
+            let current = collection(other, entity.collection).to_vec();
+            let next = remove_items(&current, &ids, entity.identifier);
+            if next != current {
+                set_collection(other, entity.collection, next);
+                changed = true;
+            }
+        }
+    }
+    if changed {
+        set_collection(profile, "unit_list", units);
+    }
+    changed
 }
 
 /* `unit` with its runes and artifacts left out where they differ from the gear
@@ -2306,7 +2369,10 @@ mod tests {
         let mut store = two_monsters_with_gear();
         let before = store.read().unwrap();
         assert!(!store.apply_update(
-            &json!({"ret_code": 0, "unit_info": {"unit_id": 2, "wizard_id": 7, "runes": [{"rune_id": 5, "occupied_id": 2, "slot_no": 1}]}}),
+            &json!({"ret_code": 0, "unit_list": [
+                {"unit_id": 1, "wizard_id": 7, "runes": [{"rune_id": 5, "occupied_id": 1, "slot_no": 1}]},
+                {"unit_id": 2, "wizard_id": 7, "runes": [{"rune_id": 5, "occupied_id": 2, "slot_no": 1}]}
+            ]}),
             &json!({"command": "EquipRune", "rune_id": 9, "unit_id": 2})
         ));
         let declined = store.take_declined();
@@ -3508,6 +3574,40 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    /* Beth's runes moved onto Spectra through the game's rune management: the
+    answer gives Spectra's new list and never names Beth. */
+    #[test]
+    fn rune_management_takes_gear_off_the_monster_that_carried_it() {
+        let rune = |id: u64, owner: u64| json!({"rune_id": id, "wizard_id": 7, "set_id": 1, "slot_no": id,
+            "occupied_type": 1, "occupied_id": owner});
+        for bundled in [false, true] {
+            let mut store = ProfileStore::default();
+            assert!(store.accept_snapshot(json!({
+                "wizard_id": 7,
+                "unit_list": [
+                    {"unit_id": 1, "wizard_id": 7, "unit_master_id": 17911, "runes": [rune(1, 1), rune(2, 1), rune(3, 1)],
+                        "artifacts": [{"rid": 8, "slot": 1, "occupied_id": 1}]},
+                    {"unit_id": 2, "wizard_id": 7, "unit_master_id": 11532, "runes": [], "artifacts": []}
+                ],
+                "runes": [], "artifacts": []
+            })));
+            let answer = json!({"ret_code": 0, "equip_rune_id_list": [1, 2], "unequip_rune_id_list": [],
+                "unit_info": {"unit_id": 2, "wizard_id": 7, "unit_master_id": 11532, "runes": [rune(1, 2), rune(2, 2)]}});
+            let (response, command) = if bundled {
+                (json!({"ret_code": 0, "EquipRuneList": answer}), "UpdateUnitEquip")
+            } else {
+                (answer, "EquipRuneList")
+            };
+            assert!(store.apply_update(&response, &json!({"command": command, "unit_id": 2})));
+            assert!(store.take_declined().missed.is_empty());
+            let data = store.read().unwrap().data;
+            assert_eq!(data["unit_list"][0]["runes"], json!([rune(3, 1)]), "Beth keeps only what did not move");
+            assert_eq!(data["unit_list"][0]["artifacts"][0]["rid"], 8, "an answer naming no artifact leaves Beth's");
+            assert_eq!(data["unit_list"][1]["runes"], json!([rune(1, 2), rune(2, 2)]));
+            assert_eq!(data["runes"], json!([]), "a rune moved between monsters never touches the inventory");
+        }
     }
 
     #[test]
