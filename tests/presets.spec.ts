@@ -1044,7 +1044,7 @@ test('a rule in the Monster menu parts the priority list from the rest, only whe
   await addMenu(page).selectOption('11');
   await openOptimization(page);
   expect(await menu()).toEqual(['', '11', '—', '12']);
-  /* A line of rules filling the field's text area and not running past it. */
+  /* A line of rules with the field's start inset at both ends. */
   const rule = await monster.evaluate((select) => {
     const option = select.querySelector('.select-rule')!;
     const style = getComputedStyle(select);
@@ -1054,7 +1054,7 @@ test('a rule in the Monster menu parts the priority list from the rest, only whe
     probe.textContent = option.textContent;
     const width = probe.getBoundingClientRect().width;
     probe.remove();
-    const room = select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const room = select.clientWidth - 2 * parseFloat(style.paddingLeft);
     return { text: option.textContent ?? '', disabled: (option as HTMLOptionElement).disabled, width, room };
   });
   expect(rule.text).toMatch(/^─+$/);

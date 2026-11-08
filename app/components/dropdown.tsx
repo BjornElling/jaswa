@@ -30,8 +30,8 @@ export function Dropdown({ className, placeholder, children, value, defaultValue
 const ruleGlyph = '─';
 
 /**
- * A line between two parts of a Dropdown's list, one row tall and running from
- * where the field's text starts to where it must end.
+ * A line between two parts of a Dropdown's list, one row tall, with the same
+ * space at either end as before the field's text.
  *
  * An `<hr>` was tried first. Chrome draws a select's list itself and ignores
  * every style on one: it came out as a faint hairline from edge to edge. An
@@ -51,7 +51,9 @@ export function SelectRule() {
       const style = getComputedStyle(select);
       context.font = style.font;
       const glyph = context.measureText(ruleGlyph).width;
-      const room = select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      // The list has no chevron, so the line keeps the field's start inset at
+      // both ends rather than the chevron's narrower gutter on the right.
+      const room = select.clientWidth - 2 * parseFloat(style.paddingLeft);
       setLength(glyph > 0 && room > 0 ? Math.floor(room / glyph) : 0);
     };
     measure();
