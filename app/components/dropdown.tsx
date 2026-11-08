@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { ComponentPropsWithoutRef } from 'react';
 
 export type DropdownProps = ComponentPropsWithoutRef<'select'> & {
@@ -24,4 +25,43 @@ export function Dropdown({ className, placeholder, children, value, defaultValue
     {placeholder !== undefined && <option value="">{placeholder}</option>}
     {children}
   </select>;
+}
+
+const ruleGlyph = '─';
+
+/**
+ * A line between two parts of a Dropdown's list, one row tall and running from
+ * where the field's text starts to where it must end.
+ *
+ * An `<hr>` was tried first. Chrome draws a select's list itself and ignores
+ * every style on one: it came out as a faint hairline from edge to edge. An
+ * option is the one thing in that list it does style, so the line is a disabled
+ * option written in box-drawing rules, measured to the field. Disabled keeps it
+ * out of choice and of arrow-key steps.
+ */
+export function SelectRule() {
+  const ref = useRef<HTMLOptionElement>(null);
+  const [length, setLength] = useState(0);
+
+  useLayoutEffect(() => {
+    const select = ref.current?.closest('select');
+    const context = document.createElement('canvas').getContext('2d');
+    if (!select || !context) return;
+    const measure = () => {
+      const style = getComputedStyle(select);
+      context.font = style.font;
+      const glyph = context.measureText(ruleGlyph).width;
+      const room = select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      setLength(glyph > 0 && room > 0 ? Math.floor(room / glyph) : 0);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(select);
+    // The field's face may arrive after the first measure, and the rule's
+    // glyph width with it.
+    void document.fonts.ready.then(measure);
+    return () => observer.disconnect();
+  }, []);
+
+  return <option ref={ref} className="select-rule" disabled aria-hidden="true">{ruleGlyph.repeat(length)}</option>;
 }

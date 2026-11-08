@@ -7,7 +7,7 @@ import { FigureMarks } from './figure-marks';
 import { buildIssueMarks, fightAddition } from '../lib/figure-marks';
 import { FightAdditionText } from './fight-addition';
 import { CheckboxRow, RadioLine } from './form-controls';
-import { Dropdown } from './dropdown';
+import { Dropdown, SelectRule } from './dropdown';
 import { MonsterPortrait } from './monster-portrait';
 import { GameStatisticsButton } from './game-statistics-button';
 import type { OpenMonsterStatistics } from './game-statistics-button';
@@ -553,10 +553,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             <Dropdown id="rune-optimization-monster" value={selected ? unitId : ''} placeholder={options.length ? 'Choose a monster' : 'No monsters in this preset'} disabled={!options.length}
               onChange={(event) => chooseMonster(event.target.value)}>
               {options.map((option, index) => <Fragment key={option.unitId}>
-                {/* The priority list ends here and the alphabetical rest begins.
-                    An `<hr>` in a select is a separator the browser will not
-                    let anyone choose or hover. */}
-                {index > 0 && index === unlistedFrom && <hr />}
+                {/* The priority list ends here and the alphabetical rest begins. */}
+                {index > 0 && index === unlistedFrom && <SelectRule />}
                 <option value={option.unitId}>{option.name}</option>
               </Fragment>)}
             </Dropdown>

@@ -332,7 +332,7 @@ label[for] {
 .token-choice-pill, .token-choice-more, .token-choice-option, .token-choice-empty,
 .token-choice-note,
 .artifact-subs li, .relic-effect, .best-monster-intangible,
-.calculation-status, .calculation-progress, .range-slider-values, .rune-optimization-depth-control output,
+.range-slider-values, .rune-optimization-depth-control output,
 .helper-current-version, .helper-download-status, .import-badge-count, .best-artifact-result table,
 .best-monster-table, .artifact-recommendation-table-wrap > .artifact-recommendation-table,
 .grid-table, .meta-line, .sample-value, .target dd, .relic-monster-none,
@@ -396,6 +396,9 @@ label[for] {
 .role-type, .overlay-provenance, .game-statistics-part-title,
 .overlay-stat-current, .overlay-slot-name, .engraved-rune-level, .engraved-artifact-class,
 .speed-lane-turn text, .speed-lane-figure,
+/* A calculation's report is about the answer, not the answer itself, so it
+   speaks at the size of the estimate above it rather than the figures below. */
+.calculation-status,
 .rune-optimization-provenance, .rune-optimization-build-mains, .rune-build-card-grade, .rune-build-change-kind,
 .speed-summary-state, .speed-leader-skill, .inline-button, .craft-wanted-table td {
   font-family: var(--font-body);
@@ -2399,11 +2402,9 @@ label[for] {
 .best-artifact-monster-select .filter-group-controls { width: 50%; }
 .best-artifact-monster-select .jaswa-select { width: 100%; min-width: 30ch; }
 .best-monster-actions { grid-area: calculate; justify-self: end; }
-.calculation-status, .calculation-progress {
+.calculation-status {
   margin: 0;
   color: var(--text);
-  font-family: var(--font-body);
-  font-size: var(--type-body);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -2602,8 +2603,11 @@ label[for] {
 .rune-optimization-shortcuts > button { justify-content: center; }
 /* The options stand where Rank by's field stands, centred on its height. */
 .rune-optimization-count .radio-line-options { min-height: 36px; flex-wrap: nowrap; gap: var(--s6); }
-.rune-optimization-rank .jaswa-select { width: 32ch; }
-.rune-optimization-rank .rune-optimization-provenance { width: 32ch; }
+/* Room for its longest wording, *Choose a monster*, and a little air: wider
+   only pushed the column into the actions beside it. */
+.rune-optimization-rank { width: 24ch; }
+.rune-optimization-rank .jaswa-select,
+.rune-optimization-rank .rune-optimization-provenance { width: 100%; }
 
 .rune-optimization-depth-control { display: grid; grid-template-columns: auto minmax(0, 1fr) 7ch; align-items: center; gap: var(--s3); }
 .rune-optimization-depth-control output { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -2614,9 +2618,9 @@ label[for] {
 .rune-optimization-work-warning[data-tone='bad'] { color: var(--state-bad); }
 .rune-optimization-work-warning[data-tone='neutral'] { color: var(--text-muted); }
 
-/* A fixed measure, so the report can change its wording — a percentage, then a
-   line of counts — without the columns beside it moving. */
-.rune-optimization-actions { width: 56ch; padding-top: var(--s5); }
+/* The column is as wide as its buttons and no wider, like every calculating
+   panel's; the report and the notice wrap inside it instead of widening it. */
+.rune-optimization-actions { padding-top: var(--s5); }
 /* Three lines reserved — what was measured, a clause a sync may add to it, then
    how it was done — so starting or finishing a search never moves the notice. */
 .rune-optimization-actions .calculation-actions-status { min-height: 3lh; }
@@ -2625,6 +2629,7 @@ label[for] {
    it moves; the machine reporting on its own answer, so the verdict colour. */
 .rune-optimization-stale {
   width: 100%;
+  contain: inline-size;
   min-height: 2lh;
   margin: 0;
   padding: var(--s1) var(--s3);
@@ -2694,7 +2699,6 @@ label[for] {
 .rune-optimization-craft-choices { display: flex; gap: var(--s2); }
 .rune-optimization-craft-choices .jaswa-select { width: 16ch; }
 
-.calculation-progress { color: var(--text-accent); }
 .rune-optimization-results { display: grid; gap: var(--s2); }
 .rune-optimization-results > h3 { margin: 0; }
 .rune-optimization-table { table-layout: fixed; }
@@ -4553,9 +4557,9 @@ input[type='checkbox']:checked {
 .jaswa-select[data-placeholder] { color: var(--text-muted); }
 .jaswa-select option { background: var(--raise); color: var(--text-strong); }
 .jaswa-select option:disabled { color: var(--text-muted); }
-/* A rule between two parts of a menu: drawn in the line colour, because the
-   browser's own grey all but vanishes on the dark list. */
-.jaswa-select hr { border: 0; border-top: 1px solid var(--line-strong); margin: var(--s1) 0; }
+/* `SelectRule`: a line between two parts of a menu, in the colour of the
+   options it parts, not the muted tone of a disabled one. */
+.jaswa-select option.select-rule { color: var(--text-strong); }
 /* Native select rendering can use the selected option's color instead of the
    control's inherited color, so the empty placeholder needs its own rule. */
 .jaswa-select[data-placeholder] option[value=''] { color: var(--text-muted); }

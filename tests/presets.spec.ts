@@ -934,7 +934,7 @@ test('Rune Optimization lists monsters by priority, then alphabetically', async 
   const monster = page.getByLabel('Monster', { exact: true });
   const options = async () => monster.locator('option').evaluateAll((elements) => elements
     .map((element) => element as HTMLOptionElement)
-    .filter((option) => option.value !== '')
+    .filter((option) => option.value !== '' && !option.classList.contains('select-rule'))
     .map((option) => ({ value: option.value, label: option.textContent?.trim() ?? '' })));
 
   /* With no Scenario priority set, the complete list stays alphabetical. */
@@ -1027,7 +1027,7 @@ test('a rule in the Monster menu parts the priority list from the rest, only whe
   const monster = page.getByLabel('Monster', { exact: true });
   /* What the menu lists, in order, with the rule written as `—`. */
   const menu = () => monster.evaluate((select) => [...select.children].map((child) =>
-    child.tagName === 'HR' ? '—' : (child as HTMLOptionElement).value));
+    child.classList.contains('select-rule') ? '—' : (child as HTMLOptionElement).value));
   /* The native popup is drawn outside the page, so the picture is of the same
      menu laid open in the page. */
   const picture = async (name: string) => {
@@ -1044,6 +1044,23 @@ test('a rule in the Monster menu parts the priority list from the rest, only whe
   await addMenu(page).selectOption('11');
   await openOptimization(page);
   expect(await menu()).toEqual(['', '11', '—', '12']);
+  /* A line of rules filling the field's text area and not running past it. */
+  const rule = await monster.evaluate((select) => {
+    const option = select.querySelector('.select-rule')!;
+    const style = getComputedStyle(select);
+    const probe = document.body.appendChild(document.createElement('span'));
+    probe.style.font = style.font;
+    probe.style.whiteSpace = 'pre';
+    probe.textContent = option.textContent;
+    const width = probe.getBoundingClientRect().width;
+    probe.remove();
+    const room = select.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    return { text: option.textContent ?? '', disabled: (option as HTMLOptionElement).disabled, width, room };
+  });
+  expect(rule.text).toMatch(/^─+$/);
+  expect(rule.disabled).toBe(true);
+  expect(rule.width).toBeLessThanOrEqual(rule.room);
+  expect(rule.width).toBeGreaterThan(rule.room * 0.9);
   await picture('rule-between.png');
   /* The rule can be neither chosen nor stepped onto. */
   await monster.selectOption('12');

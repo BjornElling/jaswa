@@ -134,13 +134,24 @@ test('every calculation uses the same right-aligned status report', async ({ pag
 
   const statuses = page.locator('.calculation-status');
   await expect(statuses).toHaveCount(3);
-  const reports = await statuses.evaluateAll((elements) => elements.map((element) => ({
-    text: element.textContent?.trim() ?? '',
-    textAlign: getComputedStyle(element).textAlign,
-  })));
+  const reports = await statuses.evaluateAll((elements) => {
+    // The report speaks in the caption voice, like the estimate above a
+    // calculation, so it is measured against a caption rather than a number.
+    const probe = document.body.appendChild(document.createElement('span'));
+    probe.className = 'type-caption';
+    const caption = getComputedStyle(probe);
+    const voice = `${caption.fontSize} ${caption.fontWeight}`;
+    probe.remove();
+    return elements.map((element) => ({
+      text: element.textContent?.trim() ?? '',
+      textAlign: getComputedStyle(element).textAlign,
+      captionVoice: `${getComputedStyle(element).fontSize} ${getComputedStyle(element).fontWeight}` === voice,
+    }));
+  });
   expect(reports.every(({ text }) => /pairs checked.*\d ms · (Graphics card|Processor)$/.test(text)))
     .toBe(true);
   expect(reports.every(({ textAlign }) => textAlign === 'right')).toBe(true);
+  expect(reports.every(({ captionVoice }) => captionVoice)).toBe(true);
 });
 
 test('artifact entries name an empty improvements result', async ({ page }, testInfo) => {
