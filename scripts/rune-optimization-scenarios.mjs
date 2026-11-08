@@ -20,12 +20,15 @@ import { withheldRunes } from '../app/lib/rune-sources.ts';
 /**
  * The runes the copy may not take, through the app's one rule: its team is the
  * copies the account's runes are engraved on, and every fourth account ranks
- * copy 2 above the copy searched for. `settings` asks the same team again under
- * other switches.
+ * copy 2 above the copy searched for. A team lists every member, so the copy
+ * searched for is on its list and the rest follow it. `settings` asks the same
+ * team again under other switches.
  */
 export function withheldIn(input, index, settings = input.settings) {
   const runeOwner = new Map(input.runes.filter((rune) => rune.occupiedId !== null).map((rune) => [rune.id, rune.occupiedId]));
-  return withheldRunes({ kind: 'game', runeOwner, poolRunes: new Map() }, input.unitId, index % 4 === 3 ? ['2', input.unitId] : [], settings, {});
+  const above = index % 4 === 3 ? ['2'] : [];
+  const rest = [...new Set(runeOwner.values())].filter((owner) => owner !== input.unitId && !above.includes(owner));
+  return withheldRunes({ kind: 'game', runeOwner, poolRunes: new Map() }, input.unitId, [...above, input.unitId, ...rest], settings, {});
 }
 
 /** Scarce grades expose craft choices that an independent per-rune guide can miss. */

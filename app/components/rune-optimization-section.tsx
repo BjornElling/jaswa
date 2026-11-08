@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Button, InlineButton } from './button';
+import { Button, InlineButton, LabelSwap } from './button';
 import { CalculationStatus } from './calculation-status';
 import { FigureMarks } from './figure-marks';
 import { buildIssueMarks, fightAddition } from '../lib/figure-marks';
@@ -319,10 +319,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
      owner does not carry here is unengraved in the game's preset list, however it
      came off — in JASWA or in the game. Only a monster outside the preset is named. */
   const scenarioPlaces = useMemo(() => {
-    if (!preset || preset.kind === 'scenario') return undefined;
+    const scenario = presets.find((entry) => entry.kind === 'scenario');
+    if (!preset || preset.kind === 'scenario' || !scenario) return undefined;
     const members = new Set(preset.members);
-    return new Map(accountRunes.map((rune) => [rune.id, rune.occupiedId !== null && members.has(rune.occupiedId) ? null : rune.occupiedId]));
-  }, [accountRunes, preset]);
+    return new Map(accountRunes.map((rune) => {
+      const owner = scenario.runeOwner.get(rune.id) ?? null;
+      return [rune.id, owner !== null && members.has(owner) ? null : owner];
+    }));
+  }, [accountRunes, preset, presets]);
   /* The preset's locks as this monster reads them: its team's locks and exclusions.
      What the pool's other decks hold is `withheld`'s to say. */
   const locks = useMemo(() => (preset && unitId !== '' ? runeLocksFor(runeLocks, runeLockScope(preset), unitId) : {}),
@@ -339,6 +343,8 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
     ? withheldRunes(preset, unitId, priority, { runesOnOtherMonsters, includeHigherPriority }, runeLocks) : {}),
   [preset, unitId, priority, runesOnOtherMonsters, includeHigherPriority, runeLocks]);
   const includeApplies = preset !== undefined && includeHigherPriorityApplies(settings);
+  const inScenario = preset?.kind === 'scenario';
+  const unlisted = inScenario && unitId !== '' && !priority.includes(unitId);
   /* Where another deck of the pool holds a rune, so a build taking it names that deck. */
   const poolPlaces = useMemo(() => {
     if (!preset || preset.poolRunes.size === 0) return undefined;
@@ -748,13 +754,21 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
           </div>
           <div className="filter-group rune-optimization-sources">
             <span className="filter-label">Selection</span>
-            <CheckboxRow label="Only runes not engraved in preset" checked={!settings.runesOnOtherMonsters}
+            {/* Scenario is no preset, so the switch names it. Both wordings hold
+                their room, so choosing another preset moves nothing. */}
+            <CheckboxRow label={<LabelSwap showing={inScenario ? 'scenario' : 'preset'} faces={{
+              preset: 'Only runes not engraved in preset', scenario: 'Only runes not already engraved in Scenario',
+            }} />} checked={!settings.runesOnOtherMonsters}
               onChange={(inventoryOnly) => onUpdate({ runesOnOtherMonsters: !inventoryOnly })} />
             <CheckboxRow label="Just fill in empty slots" checked={settings.fillEmptySlotsOnly}
               onChange={(fillEmptySlotsOnly) => onUpdate({ fillEmptySlotsOnly })} />
             {/* Nothing to include while only free runes are taken; the stored
-                choice is kept for when it applies again. */}
-            <CheckboxRow label="Include runes from higher-priority monsters" checked={includeApplies && settings.includeHigherPriority}
+                choice is kept for when it applies again. A monster off Scenario's
+                list outranks no one, so for it the switch opens every engraved
+                rune and says so. */}
+            <CheckboxRow label={<LabelSwap showing={unlisted ? 'unlisted' : 'ranked'} faces={{
+              ranked: 'Include runes from higher-priority monsters', unlisted: 'Include runes already engraved in Scenario',
+            }} />} checked={includeApplies && settings.includeHigherPriority}
               onChange={(include) => onUpdate({ includeHigherPriority: include })} disabled={!includeApplies} />
             <div className="rune-optimization-change-limit">
               <label className="checkbox-row">

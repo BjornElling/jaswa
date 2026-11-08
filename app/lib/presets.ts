@@ -414,9 +414,14 @@ export const selectedPresetKey = 'jaswa.presets.selected';
  * here it names its monster in the preset asked about, so a calculation for
  * one preset cannot mistake another preset's placement for its own. A deck of a
  * pool is read alone too; what the pool's other decks hold is `poolRunes`.
+ *
+ * Scenario is read the same way, from its monsters' lists, and not from the
+ * rune's own record: `runeOwner` is what `withheldRunes` decides by, so the
+ * place a build names and the rule that offered the rune read one source. The
+ * import refuses an account whose two halves disagree, so a rune comes back
+ * as it is wherever they agree.
  */
 export function runesInPreset<T extends { id: string; occupiedId: string | null }>(runes: readonly T[], preset: Preset): T[] {
-  if (preset.kind === 'scenario') return [...runes];
   return runes.map((rune) => {
     const owner = preset.runeOwner.get(rune.id) ?? null;
     return owner === rune.occupiedId ? rune : { ...rune, occupiedId: owner };

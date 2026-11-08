@@ -283,7 +283,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
         <h3 id="monster-priority-list-title" className="type-heading">Priority</h3>
         <p className="monster-priority-note">
           {canChangeGamePresets ? '' : 'With Always synchronized on, the game decides the monsters and the leader of its own presets. '}
-          The order decides who takes runes from whom in Rune Optimization: higher takes from lower.
+          The order decides who takes runes from whom in Rune Optimization: higher takes from lower, and in Scenario a monster off the list takes from no one.
         </p>
         {preset === null
           ? <p className="monster-priority-empty">No presets here yet.</p>

@@ -971,6 +971,55 @@ test('Rune Optimization lists monsters by priority, then alphabetically', async 
   await page.screenshot({ path: testInfo.outputPath('optimization-priority-preset-selected.png'), fullPage: true });
 });
 
+test('a Scenario monster off the priority list takes no engraved rune, and the switches name Scenario', async ({ page }, testInfo) => {
+  test.slow();
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await importAccount(page);
+  await openOptimization(page);
+  await expect(page.getByLabel('Preset', { exact: true })).toHaveValue('scenario');
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  const settings = page.getByRole('complementary', { name: 'Settings' });
+  const freeOnly = settings.getByRole('checkbox', { name: 'Only runes not already engraved in Scenario', exact: true });
+  const includeAll = settings.getByRole('checkbox', { name: 'Include runes already engraved in Scenario', exact: true });
+  await expect(freeOnly).not.toBeChecked();
+  await expect(includeAll).not.toBeChecked();
+  const freeBox = await box(freeOnly);
+  const includeBox = await box(includeAll);
+
+  /* 11 and 12 are both off Scenario's empty list: neither outranks the other, so
+     12's six runes stay where they are, exactly as with only free runes. */
+  const unlisted = await find(page);
+  await page.screenshot({ path: testInfo.outputPath('scenario-unlisted.png'), fullPage: true });
+  await freeOnly.check();
+  expect(await find(page)).toBe(unlisted);
+  await freeOnly.uncheck();
+  await includeAll.check();
+  expect(await find(page)).toBeGreaterThan(unlisted);
+  await includeAll.uncheck();
+
+  /* On the list, 11 outranks 12, which is off it: the switch is about priority again,
+     in the same box. */
+  await openPresets(page);
+  await contentChoice(page).selectOption('Scenario');
+  await addMenu(page).selectOption('11');
+  await expect(page.locator('.monster-priority-entry')).toHaveCount(1);
+  await openOptimization(page);
+  await expect(page.getByLabel('Monster', { exact: true })).toHaveValue('11');
+  const include = settings.getByRole('checkbox', { name: 'Include runes from higher-priority monsters', exact: true });
+  await expect(include).not.toBeChecked();
+  expect(await box(include)).toEqual(includeBox);
+  expect(await find(page)).toBeGreaterThan(unlisted);
+  await page.screenshot({ path: testInfo.outputPath('scenario-listed.png'), fullPage: true });
+
+  /* A game preset is a preset, and its switch says so, in the same box. */
+  await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-4');
+  const presetFreeOnly = settings.getByRole('checkbox', { name: 'Only runes not engraved in preset', exact: true });
+  await expect(presetFreeOnly).toBeVisible();
+  expect(await box(presetFreeOnly)).toEqual(freeBox);
+  expect(await box(settings.getByRole('checkbox', { name: 'Include runes from higher-priority monsters', exact: true }))).toEqual(includeBox);
+});
+
 test('a rune engraved on a monster in another preset is free here, and an engrave stays in its preset', async ({ page }, testInfo) => {
   test.slow();
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -981,7 +1030,7 @@ test('a rune engraved on a monster in another preset is free here, and an engrav
   /* Scenario: 12 carries six runes, and with only free runes allowed they are refused. */
   await expect(page.getByLabel('Preset', { exact: true })).toHaveValue('scenario');
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
-  await page.getByLabel('Only runes not engraved in preset').check();
+  await page.getByLabel('Only runes not already engraved in Scenario').check();
   const inScenario = await find(page);
 
   /* Giant's Keep 1 holds 11 alone: 12's Scenario runes are engraved in another context and cost this preset nothing. */

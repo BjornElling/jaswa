@@ -4387,7 +4387,7 @@ input[type='checkbox']:checked {
    `components/button.tsx` explains what this replaced. */
 .label-swap { display: inline-grid; align-items: center; justify-items: center; }
 .label-swap-face { grid-area: 1 / 1; }
-.filter-label .label-swap { justify-items: start; }
+.filter-label .label-swap, .checkbox-row .label-swap { justify-items: start; }
 /* `visibility` rather than `display`, which would take the box out of the flow
    and surrender the width this exists to hold. The matching `aria-hidden` is
    set in `components/button.tsx`. */

@@ -394,7 +394,9 @@ an import, and are checked one preset at a time on load.
   one taken out takes its gear there with it; its area profile stays.
 - The order of monsters within a preset is their priority for runes held by
   this team: a monster may take a rune from one below it, from one above it
-  only with *Include runes from higher-priority monsters*. Priority never
+  only with *Include runes from higher-priority monsters*. In Scenario, whose
+  list the user fills, a monster off the list outranks no one and takes no
+  engraved rune without that switch. Priority never
   reaches another team; a rune another deck of the pool holds is taken only
   with that same switch (`rune-sources.ts`).
 - Each monster has a shortcut to Rune Optimization in that preset. The preset

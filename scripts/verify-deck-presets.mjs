@@ -18,6 +18,7 @@ import { engraveImportedGame } from '../app/lib/engrave-rune-build.ts';
 import { addToGamePreset } from '../app/lib/game-preset-edits.ts';
 import { noRuneLocks } from '../app/lib/rune-locks.ts';
 import { includeHigherPriorityApplies, withheldRunes } from '../app/lib/rune-sources.ts';
+import { presetPriorityOf } from '../app/lib/monster-priority.ts';
 import { readRunes } from '../app/lib/runes.ts';
 import { deckContent, presetContent, presetContents } from '../app/lib/preset-contents.ts';
 import { battleLeaders, leadArea, teamLeadsFor } from '../app/lib/team-leads.ts';
@@ -366,7 +367,20 @@ const teamPreset = { kind: 'game', runeOwner: new Map([['a', '1'], ['b', '2'], [
 assert.deepEqual(withheldRunes(teamPreset, '2', ['1', '2', '3'], sources(true, false), noRuneLocks), { a: '1' }, 'the copy above is spared, the one below is not');
 assert.deepEqual(withheldRunes(teamPreset, '2', ['1', '2', '3'], sources(true, true), noRuneLocks), {}, 'included, nothing is spared');
 assert.deepEqual(withheldRunes(teamPreset, '2', ['1', '2', '3'], sources(false, true), noRuneLocks), { a: '1', c: '3' }, 'only free runes: every teammate\'s are kept');
-assert.deepEqual(withheldRunes(teamPreset, '3', ['1'], sources(true, false), noRuneLocks), { a: '1' }, 'a copy off the list ranks below every copy on it');
+assert.deepEqual(withheldRunes(teamPreset, '1', ['1'], sources(true, false), noRuneLocks), {}, 'a copy on the list takes from every copy off it');
+/* Off Scenario's list, a copy outranks no one: not those on it, not those off it. */
+const unlistedScenario = { kind: 'scenario', runeOwner: new Map([['a', '1'], ['b', '2'], ['c', '3']]), poolRunes: new Map() };
+assert.deepEqual(withheldRunes(unlistedScenario, '3', ['1'], sources(true, false), noRuneLocks), { a: '1', b: '2' },
+  'a copy off the list takes no engraved rune, from on the list or off it');
+assert.deepEqual(withheldRunes(unlistedScenario, '3', [], sources(true, false), noRuneLocks), { a: '1', b: '2' },
+  'and an empty list leaves every copy off it');
+assert.deepEqual(withheldRunes(unlistedScenario, '3', ['1'], sources(true, true), noRuneLocks), {}, 'Include opens every engraved rune to it');
+assert.deepEqual(withheldRunes(unlistedScenario, '3', ['1'], sources(false, true), noRuneLocks), { a: '1', b: '2' }, 'and only free runes keeps them all');
+assert.deepEqual(withheldRunes(unlistedScenario, '1', ['1'], sources(true, false), noRuneLocks), {}, 'while a copy on the list takes from those off it');
+/* Every other preset lists all its members, so only Scenario has a copy off the list. */
+for (const preset of pooled.filter((entry) => entry.kind !== 'scenario')) {
+  assert.deepEqual([...presetPriorityOf(preset, [], {})].sort(), [...preset.members].sort(), `${preset.name} ranks every member`);
+}
 
 /* An engrave that brings in another team's rune takes it off that team. */
 const poolBuild = ['5013', '5008', '5009', '5010', '5011', '5012'];
@@ -534,7 +548,8 @@ assert.deepEqual(teammateSetsInPreset(team('deck-1-2'), '11', teamItems), {});
 assert.deepEqual(teammateSetsInPreset(team('deck-1-3'), '11', teamItems), {});
 assert.deepEqual(teammateSetsInPreset(team('deck-24-101'), '11', teamItems), { Fight: 1, Determination: 1, Accuracy: 1 });
 assert.deepEqual(teammateSetsInPreset(team('deck-1-1'), 'not-a-member', teamItems), {});
-const teamWithheld = withheldRunes(team('deck-1-1'), '11', [], { runesOnOtherMonsters: true, includeHigherPriority: false }, noRuneLocks);
+const teamWithheld = withheldRunes(team('deck-1-1'), '11', presetPriorityOf(team('deck-1-1'), [], { 'deck-1-1': ['11'] }),
+  { runesOnOtherMonsters: true, includeHigherPriority: false }, noRuneLocks);
 for (const id of team('deck-1-1').runesOf.get('12')) assert.equal(teamWithheld[id], undefined, 'a same-team rune is available to priority rules');
 for (const id of team('deck-1-1').runesOf.get('11')) assert.equal(teamWithheld[id], undefined);
 const withoutSoldRune = { ...teamItems, runes: new Map(teamItems.runes) };

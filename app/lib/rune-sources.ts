@@ -1,4 +1,4 @@
-import { higherPriorityThan } from './monster-priority';
+import { outranks } from './monster-priority';
 import type { MonsterPriority } from './monster-priority';
 import type { Preset } from './presets';
 import { runeLockOf } from './rune-locks';
@@ -14,8 +14,9 @@ import type { RuneOptimizationSettings } from './rune-optimization-settings';
  *
  * - **Its own runes** are its own, unless another deck of its pool holds one too.
  * - **A rune on another monster of its team** may be taken from a monster below
- *   it on the team's priority list; from one above it only with *Include runes
- *   from higher-priority monsters*.
+ *   it on the team's priority list or off it; from one above it only with
+ *   *Include runes from higher-priority monsters*. A monster off the list —
+ *   only Scenario has one — takes no engraved rune without *Include*.
  * - **A rune another deck of its pool holds** — any other team of a team pool
  *   such as World Guild Battle, any deck of another phase of Dimension Raid — is
  *   never ranked against this team: it may be taken only with *Include runes
@@ -51,11 +52,10 @@ export function withheldRunes(
   settings: RuneSourceSettings, locks: RuneLocks,
 ): Record<string, string> {
   const include = includeHigherPriorityApplies(settings) && settings.includeHigherPriority;
-  const above = new Set(higherPriorityThan(priority, unitId));
   const withheld: Record<string, string> = {};
   for (const [runeId, owner] of preset.runeOwner) {
     if (owner === unitId) continue;
-    if (!settings.runesOnOtherMonsters || (!include && above.has(owner))) withheld[runeId] = owner;
+    if (!settings.runesOnOtherMonsters || (!include && !outranks(priority, unitId, owner))) withheld[runeId] = owner;
   }
   for (const [runeId, holders] of preset.poolRunes) {
     /* No exception for a rune this monster carries here too: the game let the

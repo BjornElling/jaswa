@@ -4,10 +4,13 @@
  * preset (`DECK-PRESETS.md` §1), so every preset has a list of its own.
  *
  * Only Rune Optimization reads it, and only while *Include runes from
- * higher-priority monsters* is off: a monster may then take a rune from a monster
- * of the same preset below it on the list, or from one not on it at all, but
- * never from one above it. A monster not on the list ranks below every monster
- * that is. `MonsterPriority` is Scenario's list.
+ * higher-priority monsters* is off: a monster on the list may then take a rune
+ * from one below it or from one not on it at all, never from one above it. A
+ * monster not on the list outranks no one, not even another monster off it, so
+ * it takes no engraved rune: the list is how the user says whose gear may be
+ * spent, and leaving a monster off it says nothing of the kind. Only Scenario can
+ * have such a monster, since every other preset lists all its members
+ * (`presetPriorityOf`). `MonsterPriority` is Scenario's list.
  *
  * The list holds copies by unit id, so a copy that leaves the account stays in it
  * until removed: it costs the search nothing, since no rune is engraved on it, and a
@@ -30,13 +33,12 @@ export function readMonsterPriority(value: unknown): string[] {
   });
 }
 
-/**
- * The copies whose runes `unitId` may not take: every one above it on the list,
- * and the whole list where it is not on it.
- */
-export function higherPriorityThan(priority: MonsterPriority, unitId: string): string[] {
-  const place = priority.indexOf(unitId);
-  return place === -1 ? [...priority] : priority.slice(0, place);
+/** Whether the list lets `taker` take `owner`'s runes: from one below it or off the list, and only from a place on it. */
+export function outranks(priority: MonsterPriority, taker: string, owner: string): boolean {
+  const place = priority.indexOf(taker);
+  if (place === -1) return false;
+  const other = priority.indexOf(owner);
+  return other === -1 || other > place;
 }
 
 /**

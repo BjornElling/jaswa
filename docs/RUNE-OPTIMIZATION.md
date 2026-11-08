@@ -319,7 +319,17 @@ Grindstones the settings allow. A rune enters its own slot's list when:
   - a rune on **another monster of the team** may be taken unless *Only runes not engraved
     in preset* is ticked, and from a monster **above this one on the preset's priority
     list** (`monster-priority.ts`, the *Presets* page) only with *Include runes from
-    higher-priority monsters*. A monster not on the list ranks below every monster on it;
+    higher-priority monsters*. A monster on the list takes from one below it and from one
+    off it. A monster **off the list outranks no one** — not even another monster off it —
+    so without *Include* it takes no engraved rune: leaving a monster off the list says
+    nothing about whose gear it may spend. Only Scenario can have such a monster, since
+    every other preset lists all its members (`presetPriorityOf`);
+  - in Scenario the two switches name Scenario rather than a preset: *Only runes not
+    already engraved in Scenario*, and, for a monster off the list, where *Include* opens
+    every engraved rune, *Include runes already engraved in Scenario*. Each row holds the
+    room of both wordings, so choosing another preset or monster moves nothing;
+  - the place a build names and this rule read one source, the preset's `runeOwner` —
+    in Scenario its monsters' lists — through `runesInPreset`;
   - a rune **another deck of the pool** holds is never ranked: it is taken only with
     *Include runes from higher-priority monsters*, never under *Only runes not engraved in
     preset*, and never while it is locked there. That goes for a rune this monster carries

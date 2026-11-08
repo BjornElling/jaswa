@@ -219,6 +219,8 @@ test('engraving a build moves its runes into the saved account and survives relo
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  /* 11 is off Scenario's empty list, so it borrows 12's runes only when included. */
+  await page.getByRole('checkbox', { name: 'Include runes already engraved in Scenario', exact: true }).check();
   await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
@@ -622,6 +624,8 @@ test('an open build names the rune a lock or a sale has taken from it, and keeps
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  /* 11 is off Scenario's empty list, so it borrows 12's runes only when included. */
+  await page.getByRole('checkbox', { name: 'Include runes already engraved in Scenario', exact: true }).check();
   await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   const table = page.getByRole('table', { name: 'Rune builds' });
@@ -712,6 +716,8 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  /* 11 is off Scenario's empty list, so it borrows 12's runes only when included. */
+  await page.getByRole('checkbox', { name: 'Include runes already engraved in Scenario', exact: true }).check();
   await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
@@ -842,6 +848,8 @@ test('while JASWA is synchronized with the game, Lock and Exclude still bind the
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  /* 11 is off Scenario's empty list, so it borrows 12's runes only when included. */
+  await page.getByRole('checkbox', { name: 'Include runes already engraved in Scenario', exact: true }).check();
   await rankUnranked(page);
   await page.getByRole('button', { name: 'Find builds' }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
@@ -1413,9 +1421,9 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await maximum.fill('6');
   await settings.getByLabel('Just fill in empty slots').check();
   /* Scenario ranks by its own priority list, so Include decides there too. */
-  await expect(settings.getByLabel('Include runes from higher-priority monsters')).toBeEnabled();
-  await settings.getByLabel('Only runes not engraved in preset').check();
-  await expect(settings.getByLabel('Include runes from higher-priority monsters')).toBeDisabled();
+  await expect(settings.getByLabel('Include runes already engraved in Scenario')).toBeEnabled();
+  await settings.getByLabel('Only runes not already engraved in Scenario').check();
+  await expect(settings.getByLabel('Include runes already engraved in Scenario')).toBeDisabled();
   await settings.getByLabel('Count unfinished runes at their +15 main stat').check();
   await settings.getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
   await settings.getByRole('radio', { name: 'Theoretical', exact: true }).last().check();
@@ -1438,9 +1446,9 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await page.reload();
   await expect(settings.getByLabel('Just fill in empty slots')).toBeChecked();
   await expect(settings.getByLabel('Slot 1/3/5 only counts at +12')).toBeChecked();
-  await expect(settings.getByLabel('Only runes not engraved in preset')).toBeChecked();
-  await expect(settings.getByLabel('Include runes from higher-priority monsters')).toBeDisabled();
-  await expect(settings.getByLabel('Include runes from higher-priority monsters')).not.toBeChecked();
+  await expect(settings.getByLabel('Only runes not already engraved in Scenario')).toBeChecked();
+  await expect(settings.getByLabel('Include runes already engraved in Scenario')).toBeDisabled();
+  await expect(settings.getByLabel('Include runes already engraved in Scenario')).not.toBeChecked();
   await expect(settings.getByLabel('Maximum changes')).toHaveValue('6');
   await expect(settings.getByLabel('Gems: grade')).toHaveValue('Legend');
   await maximum.fill('');
