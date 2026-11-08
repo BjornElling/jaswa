@@ -115,9 +115,11 @@ surface: the question — the item kind, the stack (Best use only) and Assumed
 roll — and beneath it, with no rule between them, the filters in
 two rows: Family, Grade, Location and Level; then Rune set, Stat, Stat already
 grinded / Can change gem'ed stat? and *No. of suggestions*, the ranking length.
-Best use adds Only keep-runes on a row of its own beneath them. Item and Family
-share a first track as wide as Rune set's field, and every other track is as
-wide as its widest group, so no gap opens between columns. No group moves
+Best use adds Only keep-runes after Level, or on a row of its own beneath them
+where the window is under 1800px wide. Item and Family share a first track as
+wide as Rune set's field, which ends where the word Ancient ends above it, and
+every other track is as wide as its widest group, so no gap opens between
+columns. No group moves
 between views; the grinded / gem'ed group keeps room for both its wordings, so
 switching the item kind moves nothing. Where the controls share the row with
 Most wanted, or the screen is narrower, the filters fold into two tracks, Level

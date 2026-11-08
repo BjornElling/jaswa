@@ -1387,7 +1387,8 @@ label[for] {
    wide as their widest group and no wider: tracks sharing the panel's width
    opened gaps that belonged to no control. Every view shares these areas, so a
    group never changes place between them; Only keep-runes is Best use's own
-   and takes a row of its own there. The question asks the same things of a Gem
+   and closes its first row, or takes a row of its own where the page is too
+   narrow for a fifth track. The question asks the same things of a Gem
    and of a Grindstone, so changing the item kind moves nothing. */
 .craft-best-use { display: grid; gap: var(--s4); grid-template-columns: minmax(0, 1fr) max-content; align-items: stretch; }
 .craft-best-use[data-mode="missing"] { grid-template-columns: minmax(0, 1fr) max-content 44ch; }
@@ -1395,7 +1396,11 @@ label[for] {
    spacing, with no rule between them, and Item and Family share a first track as
    wide as Rune set's field, so the two halves read as one column set. */
 .craft-controls {
-  --craft-lead: calc(260px + var(--s4) + 1px);
+  /* Rune set's field ends where the word Ancient ends above it: a set name
+     needs no more, and the 17px it gives back is what lets Only keep-runes
+     share the first row. */
+  --craft-set-field: 243px;
+  --craft-lead: calc(var(--craft-set-field) + var(--s4) + 1px);
   display: grid; align-content: start; background: var(--raise);
 }
 .craft-controls .craft-best-use-filters { padding-top: 0; }
@@ -1421,10 +1426,10 @@ label[for] {
   justify-content: start;
 }
 .craft-best-use[data-mode="selected"] .craft-best-use-filters {
+  grid-template-columns: var(--craft-lead) repeat(4, max-content);
   grid-template-areas:
-    "family grade location level"
-    "set    stat  already  count"
-    "keep   .     .        .";
+    "family grade location level keep"
+    "set    stat  already  count .";
 }
 /* Where the controls share the row with Most wanted, four tracks would run past
    the column: the filters fold into two, Level still beside Location. */
@@ -1445,6 +1450,7 @@ label[for] {
 .craft-view-keep { grid-area: keep; }
 /* The box's own measure (`.craft-filter-set`): a set or stat name needs no more. */
 .craft-best-use-filters .jaswa-select { width: 260px; max-width: 100%; }
+.craft-best-use-filters .craft-view-set .jaswa-select { width: var(--craft-set-field); }
 .craft-best-use-results { grid-column: 1 / -1; }
 .craft-side { display: contents; }
 .craft-side-actions {
@@ -1459,6 +1465,14 @@ label[for] {
 .craft-calculation-status { width: 100%; min-height: 2lh; }
 .craft-calculation-status p { margin: 0; }
 .craft-side .craft-view-actions { align-self: end; gap: var(--s3); }
+/* The page scales with the window, and below 1800px the fifth track fits by a
+   pixel or not at all: Only keep-runes takes a row of its own there. */
+@media (max-width: 1799px) {
+  .craft-best-use[data-mode="selected"] .craft-best-use-filters {
+    grid-template-columns: var(--craft-lead) repeat(3, max-content);
+    grid-template-areas: "family grade location level" "set stat already count" "keep . . .";
+  }
+}
 @media (max-width: 1400px) {
   /* Most wanted moves below the controls, which take the full width again. */
   .craft-best-use[data-mode="missing"] .craft-best-use-filters {
