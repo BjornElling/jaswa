@@ -455,6 +455,10 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
          Unlike fodder, a max-skilled row stays in — being finished does not make
          it needed. */
       if (notNeeded && (row.level === null || row.level >= storageMaximumLevel)) return false;
+      /* Both conditions ask what a Lv. 40 copy says about the rest of the
+         family, so the Lv. 40 copies are the evidence, not the answer: they
+         still count in the index below, but the rows shown are the others. */
+      if ((alreadyHaveLevel40 || familyFullySkilled) && row.level !== null && row.level >= storageMaximumLevel) return false;
       if (!monsterSelection.matches(row.masterId, {
         alreadyHaveLevel40,
         familyFullySkilled,

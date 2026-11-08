@@ -89,24 +89,33 @@ test('"Only show if" reads the whole account, not just the visible locations', a
      carrying the level the first condition asks about: the Inventory row is
      Lv. 25 and the shrine row has no level at all. Both conditions must
      therefore hold for those two as well — the question is what the account
-     owns, not what this row is. */
+     owns, not what this row is. The Lv. 40 copies themselves are the evidence,
+     so the table leaves them out. */
   await view.level40.click();
+  expect(await view.names()).toEqual(['Elucia (2A)', 'Fairy (Water)']);
   await view.familySkilled.click();
-  expect(await view.names()).toEqual(['Elucia', 'Elucia (2A)', 'Fairy (Water)', 'Iselia (2A)']);
+  expect(await view.names()).toEqual(['Elucia (2A)', 'Fairy (Water)']);
 
   /* Hiding the location that holds the only Lv. 40 copy must not withdraw the
      evidence: the rows that remain still belong to a monster the account owns
      at Lv. 40, fully skilled. Were either index built from the visible rows,
      these would empty out instead. */
   await view.location(/^Storage$/).uncheck();
-  expect(await view.names()).toEqual(['Elucia (2A)', 'Fairy (Water)', 'Iselia (2A)']);
+  expect(await view.names()).toEqual(['Elucia (2A)', 'Fairy (Water)']);
 
   await view.location('Sealed Shrine · Summoned').uncheck();
-  expect(await view.names()).toEqual(['Fairy (Water)', 'Iselia (2A)']);
+  expect(await view.names()).toEqual(['Fairy (Water)']);
 
   /* Down to one location, and the verdict still stands. */
   await view.location('Inventory').uncheck();
   expect(await view.names()).toEqual([]);
   await view.location('Inventory').check();
-  expect(await view.names()).toEqual(['Fairy (Water)', 'Iselia (2A)']);
+  expect(await view.names()).toEqual(['Fairy (Water)']);
+
+  /* Each condition alone hides the Lv. 40 copies too. */
+  await view.familySkilled.click();
+  expect(await view.names()).toEqual(['Fairy (Water)']);
+  await view.level40.click();
+  await view.familySkilled.click();
+  expect(await view.names()).toEqual(['Fairy (Water)']);
 });
