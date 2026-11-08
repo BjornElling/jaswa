@@ -83,7 +83,9 @@ for (const path of everyFile(join(root, 'app'))) {
   if (/\brequestAdapter\b|\brequestDevice\b/.test(source) && !deviceOwners.has(name)) {
     offences.push(`${name} asks the browser for a graphics device of its own`);
   }
-  if (name.endsWith('-worker.ts')) workers.push({ name, source });
+  /* The request client also ends in -worker.ts; it forwards results on the
+     page and owns no calculation or engine report. */
+  if (name.endsWith('-worker.ts') && name !== join(compute, 'cancellable-worker.ts')) workers.push({ name, source });
 }
 
 const rule = code(readFileSync(join(root, decisionOwner), 'utf8'));

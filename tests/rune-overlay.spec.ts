@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
+import { holdWorkerRequests } from './hold-worker-requests';
 
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
@@ -318,8 +319,12 @@ test('while an overlay is up the page behind it neither scrolls nor keeps it ope
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
 });
 
-test('the main line says the overlay is still calculating, and saying it moves nothing', async ({ page }) => {
+test('the main line says the overlay is still calculating, and saying it moves nothing', async ({ page }, testInfo) => {
+  const work = await holdWorkerRequests(page);
   const links = await openCleanup(page);
+  /* Hold the request until the pending state is measured; a warm worker can
+     otherwise finish between the click and the first browser assertion. */
+  await work.hold();
   await links.first().click();
   const overlay = page.getByRole('dialog');
   const busy = overlay.locator('.rune-overlay-busy');
@@ -337,9 +342,12 @@ test('the main line says the overlay is still calculating, and saying it moves n
   });
   expect(look.color).toBe('rgb(217, 173, 82)');
   expect(look.size).not.toBe(look.mainSize);
+  await page.screenshot({ path: testInfo.outputPath('rune-overlay-pending.png') });
 
+  await work.release();
   await expect(busy).not.toHaveAttribute('data-busy', /.*/);
   await expect(busy).toHaveCSS('opacity', '0');
   await expect(busy).toHaveAttribute('aria-hidden', 'true');
   expect({ main: await main.boundingBox(), stats: await stats.boundingBox() }).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('rune-overlay-settled.png') });
 });

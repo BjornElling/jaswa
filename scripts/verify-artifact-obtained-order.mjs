@@ -83,7 +83,8 @@ try {
   const logPath = process.env.JASWA_TRAFFIC_LOG ?? defaultTrafficLogPath();
   const snapshot = await readLatestSnapshot(logPath);
   if (!snapshot) {
-    console.log('Obtained ordering holds on synthetic records; no traffic-log snapshot to check against.');
+    console.log('Obtained ordering holds on synthetic records.');
+    console.log(`Skipped: no traffic-log login snapshot at ${logPath} — real artifact acquisition order went unchecked.`);
   } else {
     const records = [...new Map([
       ...(Array.isArray(snapshot.artifacts) ? snapshot.artifacts : []),

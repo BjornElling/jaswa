@@ -36,9 +36,9 @@ try {
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.setInputFiles('input[type=file][accept*="json"]', importPath);
-  await page.waitForTimeout(1200);
-  const replaceImport = page.getByRole('button', { name: /replace/i });
-  if (await replaceImport.isVisible().catch(() => false)) await replaceImport.click();
+  /* This browser starts empty; measure populated tables only after the import
+     commits, however long parsing takes while the other checks share the CPU. */
+  await page.locator('.import-badge').waitFor({ state: 'visible' });
 
   for (const width of [2000, 1400, 1100]) {
     await page.setViewportSize({ width, height: 900 });

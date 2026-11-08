@@ -52,6 +52,9 @@ test('a helper-side stop is visible over the current page and clears on same-rev
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[name="import-route"][value="direct"]').check();
   await railButton(page, 'Rune Clean-up').click();
+  /* The import badge can settle before this lazy workspace mounts. Measure
+     the requested page in both states, rather than its loading placeholder. */
+  await expect(page.getByRole('heading', { name: 'Rune Clean-up', exact: true })).toBeVisible();
   await expect(stopped(page)).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('helper-gap-empty.png') });
 

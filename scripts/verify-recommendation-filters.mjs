@@ -67,9 +67,9 @@ const columnCells = async (heading) => {
 try {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.setInputFiles('input[type=file][accept*="json"]', importPath);
-  await page.waitForTimeout(1200);
-  const replaceImport = page.getByRole('button', { name: /replace/i });
-  if (await replaceImport.isVisible().catch(() => false)) await replaceImport.click();
+  /* A new browser has no import to replace. The badge confirms parsing and
+     storage finished before the calculation is asked for. */
+  await page.locator('.import-badge').waitFor({ state: 'visible' });
 
   await page.getByRole('button', { name: 'Artifact Optimization', exact: true }).click();
   await page.getByText('Recommendations', { exact: true }).click();
