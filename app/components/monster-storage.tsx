@@ -1,3 +1,4 @@
+import { currentSkillUps, isMaxSkilled } from '../lib/monster-skill-ups';
 import { filterIncludes, filterIncludesAny } from '../lib/filter-selection';
 import { useMemo } from 'react';
 import { FilterButton } from './button';
@@ -246,24 +247,6 @@ function storageEntryElement(record: GameRecord, masterId: string): string | und
  */
 function sealedStackDefaults(location: StorageLocation): { level: number | null; skills: number | null } {
   return location === 'sealed-summoned' ? { level: 1, skills: 0 } : { level: null, skills: null };
-}
-
-function currentSkillUps(monster: GameRecord): number | null {
-  if (!Array.isArray(monster.skills)) return null;
-  let total = 0;
-  for (const skill of monster.skills) {
-    if (!Array.isArray(skill) || typeof skill[1] !== 'number' || !Number.isSafeInteger(skill[1]) || skill[1] < 1) return null;
-    total += skill[1] - 1;
-  }
-  return total;
-}
-
-function isMaxSkilled(monster: GameRecord): boolean {
-  const maximum = monsterSkillUpsToMax(monster.unit_master_id);
-  if (maximum === undefined) return false;
-  if (maximum === 0) return true;
-  const current = currentSkillUps(monster);
-  return current !== null && current >= maximum;
 }
 
 function displaySkillProgress(row: StorageMonsterRow): string {

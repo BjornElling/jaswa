@@ -1,5 +1,9 @@
+import { skillUpOptions, skillUpProgress } from '../lib/monster-skill-ups';
+import type { SkillUpProgress } from '../lib/monster-skill-ups';
 import { filterIncludes, filterPair } from '../lib/filter-selection';
 import { type ReactNode, useMemo } from 'react';
+import { isBoolean, readSettings } from '../lib/preference-reading';
+import { runeSlotCount } from '../lib/rune-set-pairs';
 import { FilterButton } from './button';
 import { PageHeader } from './page-chrome';
 import { DataTablePage, TableColumnGroup } from './data-table-page';
@@ -22,7 +26,7 @@ import { activeRuneSets, elementName, elementNameList } from '../lib/rune-sets';
 import type { Preferences } from '../lib/types';
 import {
   compareNumbersWithBlanks, compareTextWithBlanks, defaultMonsterSortDirections,
-  displayArtifactTypes, displayRelicType, engravedGearTypes, isStoredMonster,
+  artifactSlotCount, displayArtifactTypes, displayRelicType, engravedCounts, engravedGearTypes, isStoredMonster,
   monsterArchetypeLabels, monsterFilterArchetypes, numericOrNull,
 } from '../lib/monster-grid';
 import type { MonsterGridColumn, MonsterRow, SortKey } from '../lib/monster-grid';
@@ -40,7 +44,21 @@ import { useSessionStorageState } from '../lib/session-storage-state';
 import { alignmentClass, monsterTableColumns } from '../lib/table-layouts';
 import type { ColumnAlignment } from '../lib/table-layouts';
 
+const gearCoverageOptions = ['All', 'Partial', 'None'] as const;
+type GearCoverage = typeof gearCoverageOptions[number];
+const relicOptions = ['Yes', 'No'] as const;
+
+function gearCoverage(count: number, maximum: number): GearCoverage {
+  return count === 0 ? 'None' : count === maximum ? 'All' : 'Partial';
+}
+
+type MonsterStatsRow = MonsterRow & { engraved: ReturnType<typeof engravedCounts>; skillUps: SkillUpProgress | undefined };
+
 type MonsterFilterState = {
+  selectedSkillUps: SkillUpProgress[];
+  selectedRunes: GearCoverage[];
+  selectedArtifacts: GearCoverage[];
+  selectedRelic: Array<typeof relicOptions[number]>;
   search: string;
   selectedElements: string[];
   selectedArchetypes: MonsterArchetype[];
@@ -51,6 +69,10 @@ type MonsterFilterState = {
 };
 
 const defaultMonsterFilters: MonsterFilterState = {
+  selectedSkillUps: [],
+  selectedRunes: [],
+  selectedArtifacts: [],
+  selectedRelic: [],
   search: '',
   selectedElements: [],
   selectedArchetypes: [],
@@ -155,22 +177,19 @@ const monsterColumns = monsterSortableColumns(monsterStatColumns);
    it as a floor rather than an exact match keeps the filter right if the cap rises. */
 const maxMonsterLevel = 40;
 
-function isMonsterFilterState(value: unknown): value is MonsterFilterState {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const candidate = value as Record<string, unknown>;
-  return typeof candidate.search === 'string'
-    && Array.isArray(candidate.selectedElements)
-    && candidate.selectedElements.every((entry) => typeof entry === 'string' && monsterElementOptions.includes(entry))
-    && Array.isArray(candidate.selectedArchetypes)
-    && candidate.selectedArchetypes.every((entry) => monsterFilterArchetypes.includes(entry as MonsterArchetype))
-    && typeof candidate.showStorage === 'boolean'
-    /* A stored filter set from before Inventory replaced the fodder toggle has
-       no `showInventory`, so it fails here and the defaults are used. Carrying
-       it over as `false` would open the page with the roster hidden. */
-    && typeof candidate.showInventory === 'boolean'
-    && typeof candidate.showBelowMaxLevel === 'boolean'
-    && typeof candidate.showRainbowmons === 'boolean';
-}
+const monsterFilterReader = { read: (value: unknown): MonsterFilterState => readSettings(value, defaultMonsterFilters, {
+  search: (entry) => typeof entry === 'string',
+  selectedElements: (entry) => Array.isArray(entry) && entry.every((name) => monsterElementOptions.includes(name)),
+  selectedArchetypes: (entry) => Array.isArray(entry) && entry.every((name) => monsterFilterArchetypes.includes(name)),
+  selectedSkillUps: (entry) => Array.isArray(entry) && entry.every((name) => skillUpOptions.includes(name)),
+  selectedRunes: (entry) => Array.isArray(entry) && entry.every((name) => gearCoverageOptions.includes(name)),
+  selectedArtifacts: (entry) => Array.isArray(entry) && entry.every((name) => gearCoverageOptions.includes(name)),
+  selectedRelic: (entry) => Array.isArray(entry) && entry.every((name) => relicOptions.includes(name)),
+  showStorage: isBoolean,
+  showInventory: isBoolean,
+  showBelowMaxLevel: isBoolean,
+  showRainbowmons: isBoolean,
+}) };
 
 export function MonsterStats({ monsters, gameData, presets, preferences, onOpenMonster }: {
   monsters: GameRecord[];
@@ -182,10 +201,10 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
 }) {
   const rowOpener = useRowOpener();
   const [filters, setFilters] = useSessionStorageState(
-    'jaswa.filters.monsters', defaultMonsterFilters, isMonsterFilterState,
+    'jaswa.filters.monsters', defaultMonsterFilters, monsterFilterReader,
   );
   const {
-    search, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel, showRainbowmons,
+    search, selectedElements, selectedArchetypes, selectedRunes, selectedArtifacts, selectedRelic, selectedSkillUps, showStorage, showInventory, showBelowMaxLevel, showRainbowmons,
   } = filters;
   /* Which preset the table is read in, kept apart from the filters: Reset
      filters leaves it alone, because it is not a narrowing but what every
@@ -203,7 +222,7 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
      there and Scenario's relic, as the game reads it (`DECK-PRESETS.md` §1).
      Scenario holds the whole roster in the import's order; a preset its members
      in the order the preset keeps them, which is what the row number counts. */
-  const rows = useMemo<MonsterRow[]>(() => {
+  const rows = useMemo<MonsterStatsRow[]>(() => {
     if (!preset) return [];
     const byUnit = new Map(monsters.map((monster) => [String(monster.unit_id), monster]));
     const members = preset.members.map((unitId) => byUnit.get(unitId)).filter((monster): monster is GameRecord => monster !== undefined);
@@ -241,6 +260,8 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
       });
       return {
         unitId,
+        engraved: engravedCounts(monster),
+        skillUps: skillUpProgress(monster),
         masterId: String(monster.unit_master_id ?? `unknown-${index}`),
         ...copyNames[unitId],
         searchAliases: display.searchAliases,
@@ -320,11 +341,15 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
       if (!showRainbowmons && isRainbowmon(row.masterId)) return false;
       if (!filterIncludes(selectedElements, row.element, monsterElementOptions)) return false;
       if (!filterIncludes(selectedArchetypes, row.archetype, monsterFilterArchetypes)) return false;
+      if (!filterIncludes(selectedRunes, gearCoverage(row.engraved.runes, runeSlotCount), gearCoverageOptions)) return false;
+      if (!filterIncludes(selectedArtifacts, gearCoverage(row.engraved.artifacts, artifactSlotCount), gearCoverageOptions)) return false;
+      if (!filterIncludes(selectedRelic, row.engraved.relic ? 'Yes' : 'No', relicOptions)) return false;
+      if (!filterIncludes(selectedSkillUps, row.skillUps, skillUpOptions)) return false;
       if (searchedMasterIds === undefined) return true;
       return searchedMasterIds.has(row.masterId)
         || row.sets.some((set) => set.name.toLowerCase().includes(term));
     });
-  }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes, showStorage, showInventory, showBelowMaxLevel, showRainbowmons]);
+  }, [rows, search, searchedMasterIds, selectedElements, selectedArchetypes, selectedRunes, selectedArtifacts, selectedRelic, selectedSkillUps, showStorage, showInventory, showBelowMaxLevel, showRainbowmons]);
 
   const { sorted, sort, toggle } = useSortedRows(
     visible, monsterColumns, { key: 'index', direction: 'ascending' },
@@ -418,6 +443,21 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
           >Rainbowmon</FilterButton>
         </div>
       </div>
+      {([
+        { label: 'Runes', key: 'selectedRunes', options: gearCoverageOptions },
+        { label: 'Artifacts', key: 'selectedArtifacts', options: gearCoverageOptions },
+        { label: 'Relic', key: 'selectedRelic', options: relicOptions },
+        { label: 'Skill-ups', key: 'selectedSkillUps', options: skillUpOptions },
+      ] as const).map(({ label, key, options }) => <div className="filter-group" role="group" aria-label={`Filter by ${label.toLowerCase()}`} key={key}>
+        <span className="filter-label">{label}</span>
+        <div className="filter-group-controls">
+          {options.map((option) => <FilterButton key={option}
+            active={(filters[key] as readonly string[]).includes(option)}
+            onClick={() => setFilters((current) => ({ ...current, [key]: (current[key] as readonly string[]).includes(option)
+              ? current[key].filter((entry) => entry !== option) : [...current[key], option] }))}
+          >{option}</FilterButton>)}
+        </div>
+      </div>)}
       <FilterSummary visible={visible.length} total={rows.length} noun="monsters"
         onReset={() => setFilters(defaultMonsterFilters)} />
         </>}
