@@ -2592,8 +2592,11 @@ label[for] {
 .rune-optimization-search {
   display: grid; gap: var(--s5); min-width: 0; margin-top: var(--s5);
   padding-left: var(--s4); border-left: 1px solid var(--line);
+  justify-self: start;
 }
-.rune-optimization-search > .rune-optimization-depth { padding-left: 0; border-left: 0; }
+/* The column is as wide as the list's settings beneath and no wider: Depth
+   claims no width of its own, so its figure ends where Rank by ends. */
+.rune-optimization-search > .rune-optimization-depth { padding-left: 0; border-left: 0; contain: inline-size; }
 /* Both describe the answer list, so their compact controls share one row. */
 .rune-optimization-count-rank { display: flex; align-items: start; gap: var(--s7); }
 .rune-optimization-count-rank > .filter-group { min-width: 0; }

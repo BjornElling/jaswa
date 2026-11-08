@@ -62,7 +62,12 @@ pub(super) fn account_request(request: &Value) -> AccountRequest {
         `item_list`, the new stones in `reward.crate.changestones`. */
         "combine",
     ];
+    /* A battle's result is a battle's result whichever end of its name the word
+    stands at: the Dimensional Predator raid answers `battleResultDimensionHoleRaid`
+    with its Gem or Grindstone in the same `changed_item_list` a Rift Beast uses,
+    and was missed for want of this reading alone (November 8, 2026). */
     if (base.starts_with("battle") && base.ends_with("result"))
+        || base.starts_with("battleresult")
         || matches!(base, "arenabattleresult" | "moveunitbuilding" | "movestoragefromto"
             | "dorandomwishitem" | "getupdateddataafterwebevent")
         || (base.starts_with("update") && gear_moving_command(base))

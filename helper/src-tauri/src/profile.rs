@@ -3960,6 +3960,32 @@ mod phantom_rune_regression {
         }
     }
 
+    #[test]
+    fn a_result_named_first_is_still_a_battle_result() {
+        use super::*;
+        let request = json!({"command": "battleResultDimensionHoleRaid", "wizard_id": 7});
+        let stone = |amount| json!({"craft_item_id": 30, "craft_type": 6, "craft_type_id": 50514,
+            "amount": amount, "wizard_id": 7});
+        for held in [None, Some(1)] {
+            let mut store = ProfileStore::default();
+            let crafts = held.map_or(json!([]), |amount| json!([stone(amount)]));
+            assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": [],
+                "rune_craft_item_list": crafts})));
+            // The answer states the stack's new total, as a Rift Beast's does.
+            let answer = json!({"ret_code": 0, "changed_item_list": [{"type": 27, "info": stone(2),
+                "view": {"item_master_type": 27, "item_quantity": 1}}], "reward": {"mana": 100}});
+            assert_eq!(store.missed_by(&answer, &request), None);
+            assert!(store.apply_update(&answer, &request));
+            assert_eq!(store.read().unwrap().data["rune_craft_item_list"], json!([stone(2)]));
+            // A failed fight changed nothing.
+            let failed = json!({"ret_code": 1, "changed_item_list": [{"type": 27, "info": stone(9)}]});
+            store.apply_update(&failed, &request);
+            assert_eq!(store.read().unwrap().data["rune_craft_item_list"], json!([stone(2)]));
+        }
+        // The start of the same raid stays a start.
+        assert!(!requires_account_response(&json!({"command": "battleStartDimensionHoleRaid"})));
+    }
+
     use super::*;
     use serde_json::json;
 

@@ -178,7 +178,11 @@ combined into Gems or Grindstones of a chosen set) answered with its new
 stones under `reward.crate.changestones` and the materials' remaining stack in
 `item_list`, both readable, and was missed until `combine` joined the
 reader's account-changing verbs. The answer lists a stack once per stone it
-made, each copy already at the new total.
+made, each copy already at the new total. The Dimensional Predator raid was the
+same case (November 8, 2026): `battleResultDimensionHoleRaid` answers with its
+Gem or Grindstone in `changed_item_list[].info` at the stack's new total, as a
+Rift Beast does, but a battle counted as a result only when its name *ended*
+in `result`. A name that starts with `battleresult` is now one too.
 
 ### Raid response-key negotiation
 
