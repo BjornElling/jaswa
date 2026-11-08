@@ -1439,6 +1439,8 @@ label[for] {
 .craft-view-set { grid-area: set; }
 .craft-view-location { grid-area: location; }
 .craft-view-level { grid-area: level; }
+/* The measure of No. of suggestions' slider (`.range-slider-single`), so the two rails in the column read as one. */
+.craft-view-level .range-slider { width: 180px; }
 .craft-view-already { grid-area: already; }
 .craft-view-keep { grid-area: keep; }
 /* The box's own measure (`.craft-filter-set`): a set or stat name needs no more. */
