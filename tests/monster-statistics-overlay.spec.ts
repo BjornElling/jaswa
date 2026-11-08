@@ -34,7 +34,7 @@ async function importAccount(page: Page, account: unknown = source) {
 }
 
 async function openProfile(page: Page, index = 0) {
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await page.locator('.monster-link').nth(index).click();
   await expect(page.getByRole('dialog')).toHaveCount(1);
 }

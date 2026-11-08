@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const cases = [
-  { name: 'Stats', fixture: 'storage-location-account.json', nav: 'Monster Stats', group: 'Choose which monsters to include', table: 'Monster stats', first: 'Monsters outside Monster Storage', second: 'Storage' },
+  { name: 'Stats', fixture: 'storage-location-account.json', nav: 'Monster Overview', group: 'Choose which monsters to include', table: 'Monster stats', first: 'Monsters outside Monster Storage', second: 'Storage' },
   { name: 'Artifacts', fixture: 'awakening-search-account.json', nav: 'Artifacts', group: 'Choose artifact locations', table: 'Artifact library', first: 'Engraved', second: 'Inventory' },
   { name: 'Relics', fixture: 'relic-account.json', nav: 'Relic Optimization', group: 'Filter by engraved', table: 'Relic library', first: 'Yes', second: 'No' },
 ];
@@ -40,7 +40,7 @@ test('Numbers: clearing all four Location checkboxes includes every location', a
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(fileURLToPath(new URL('./fixtures/storage-location-account.json', import.meta.url)));
   await expect(page.locator('.import-badge')).toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
   const locations = page.getByRole('group', { name: 'Choose which locations to include' });
   const rows = page.getByRole('table', { name: 'Monster numbers', exact: true }).locator('tbody tr');
   await expect(rows).toHaveCount(4);

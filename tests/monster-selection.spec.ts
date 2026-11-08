@@ -7,8 +7,8 @@ test('filters Storage through awakened identities while keeping collaboration li
   await page.goto('/');
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(selectionAccount);
-  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
   await expect(page.getByText('Only show if', { exact: true })).toBeVisible();
 
   const storage = page.locator('.storage-grid tbody');

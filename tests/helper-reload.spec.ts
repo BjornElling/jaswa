@@ -84,11 +84,11 @@ test('on-demand reload keeps the corner cards aligned and preserves the selected
   await expect(page.locator('input[name="direct-import-mode"][value="on-load"]')).toBeChecked();
   await page.screenshot({ path: testInfo.outputPath('full-reloaded-confirmation.png') });
 
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await expect(reload).toBeVisible();
   await reload.click();
   await expect(confirmation).toBeVisible();
-  await expect(page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true })).toHaveAttribute('aria-current', 'page');
   await page.screenshot({ path: testInfo.outputPath('reload-on-monsters.png') });
   await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[name="import-route"][value="file"]').check();

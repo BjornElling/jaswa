@@ -40,7 +40,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
     (button as HTMLButtonElement).click();
     (homeButton as HTMLButtonElement | null)?.click();
   }, home);
-  for (const name of ['Home', 'Rune Settings', 'Monster Stats', 'Rune Optimization']) await visit(name);
+  for (const name of ['Home', 'Rune Settings', 'Monster Overview', 'Rune Optimization']) await visit(name);
   await visit('Rune Clean-up');
   await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeVisible();
   await expect(rows).toHaveCount(4);

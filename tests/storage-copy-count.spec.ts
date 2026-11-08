@@ -14,8 +14,8 @@ test('counts separate entries of one monster as copies of it', async ({ page }) 
   await page.goto('/');
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(duplicateCopies);
-  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
 
   const summary = page.locator('.storage-filter-strip .filter-summary');
   const storage = page.getByRole('table', { name: 'Monster numbers' });

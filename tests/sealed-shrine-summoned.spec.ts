@@ -8,8 +8,8 @@ test('shows summoned sealed-shrine stacks and filters them by grade and quantity
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(summonedShrineAccount);
   await expect(page.getByText('20 monsters · 0 runes', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
 
   const storage = page.getByRole('table', { name: 'Monster numbers' });
   await page.getByRole('checkbox', { name: 'Storage', exact: true }).uncheck();
@@ -40,8 +40,8 @@ test('a summoned stack shows the Lv. 1 and unskilled state sealing gives it', as
   await page.goto('/');
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(summonedShrineAccount);
-  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
 
   const firstRow = page.getByRole('table', { name: 'Monster numbers' }).locator('tbody tr').first();
   await expect(firstRow).toContainText('Sealed Shrine · Summoned');

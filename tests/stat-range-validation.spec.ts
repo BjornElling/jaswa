@@ -75,7 +75,7 @@ test('monster profile ranges mark both endpoints until the interval is repaired'
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await importAccount(page, profileAccount);
-  await page.getByRole('button', { name: 'Monster Stats', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Monster Overview', exact: true }).first().click();
   const monster = page.locator('.monster-link').first();
   await monster.scrollIntoViewIfNeeded();
   await monster.click();

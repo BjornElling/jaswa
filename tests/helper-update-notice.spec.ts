@@ -128,7 +128,7 @@ test('an update stays visible across pages and alongside a stopped import', asyn
   await expect(page.getByRole('complementary', { name: 'Imported game data' })).toBeVisible();
   await expect(notice(page)).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('before-navigation.png') });
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await expect(notice(page)).toBeVisible({ timeout: 5000 });
   helper.error = 'Gateway exchange failed: the connection was interrupted.';
   helper.profileReady = false;
@@ -218,7 +218,7 @@ for (const populated of [false, true]) {
     await importRoute(page, 'direct').check();
     const badge = page.getByRole('complementary', { name: 'Imported game data' });
     if (populated) await expect(badge).toBeVisible();
-    await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+    await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
     await expect(page.locator('.workspace-page > *').first()).toBeVisible();
     await page.evaluate(() => document.fonts.ready.then(() => undefined));
     const boxes = () => page.locator('.workspace-page > *').evaluateAll(elements => elements.map(element => {

@@ -94,7 +94,7 @@ test('Location names the Scenario monster and counts each other preset and prote
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await expect(protection).toBeChecked();
 
-  await navigation.getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await navigation.getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await page.locator('.monster-link').filter({ hasText: 'Elucia' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: 'Add a nickname' }).click();

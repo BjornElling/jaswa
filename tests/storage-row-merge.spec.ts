@@ -7,8 +7,8 @@ test('merges copies only when monster, grade, level and skills all match', async
   await page.goto('/');
   await page.getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(mergeRows);
-  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
 
   const rows = page.getByRole('table', { name: 'Monster numbers' }).locator('tbody tr');
   await expect(rows).toHaveCount(4);

@@ -87,7 +87,8 @@ is one element's chain, not the family: `Kyle` never answers `Todd`.
 
 The Monsters pages are **Stats** (the stat sheet) and **Numbers** (Inventory,
 Monster Storage and both Sealed Shrine tabs); Location keeps `Storage` as a
-value. Each keeps its own filters when navigation leaves and returns.
+value. The sidebar calls these pages **Overview** and **Usage**, respectively.
+Each keeps its own filters when navigation leaves and returns.
 
 - **Gear reads as one block** directly after Runes, left-aligned: the artifact
   `HP/ATK`/`DEF` codes and the relic are codes, not quantities. The

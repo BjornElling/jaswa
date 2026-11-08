@@ -44,7 +44,7 @@ test('opens on Scenario and reads a chosen preset from its own runes', async ({ 
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'preset-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(withDeck)),
   });
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
 
   const content = page.getByLabel('Content', { exact: true });

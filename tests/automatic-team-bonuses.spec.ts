@@ -59,7 +59,7 @@ test('team bonuses follow the chosen preset automatically, and only Scenario sta
   const fallback = await figures(page);
   expect(number(fallback[8])).toBeGreaterThan(number(scenario[8]));
   expect(number(fallback[8])).toBeLessThan(number(full[8]));
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await page.getByLabel('Content', { exact: true }).selectOption('Arena');
   const table = page.getByRole('table', { name: 'Monster stats' });
   await expect(table.getByRole('cell', { name: full[8].trim(), exact: true }).first()).toBeVisible();

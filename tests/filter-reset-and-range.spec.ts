@@ -49,8 +49,8 @@ async function dragHandle(page: Page, handle: Locator, track: Locator, fraction:
 }
 
 async function openStorage(page: Page) {
-  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
 }
 
 /* The two-handle range used to strand itself: with both handles clamped
@@ -117,7 +117,7 @@ test('a level handle dragged past its partner takes the other end', async ({ pag
 
 test('Reset filters puts one page’s filters back and leaves the other alone', async ({ page }) => {
   await importAccount(page, monsterAccount);
-  await page.getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
 
 
   const roster = page.locator('.filter-strip:not(.storage-filter-strip)');
@@ -136,18 +136,18 @@ test('Reset filters puts one page’s filters back and leaves the other alone', 
   await expect(rosterSummary).not.toHaveText(String(opening));
 
   /* Narrow Storage too, so the reset can be shown to belong to one page. */
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Inventory' }).uncheck();
   const storageNarrowed = await page.locator('.storage-filter-strip .filter-summary').textContent();
 
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await roster.getByRole('button', { name: 'Reset monsters filters' }).click();
 
   await expect(rosterSummary).toHaveText(String(opening));
   await expect(page.getByRole('textbox', { name: 'Filter monsters by name or set' })).toHaveValue('');
   await expect(roster.getByRole('button', { name: 'Storage', exact: true }))
     .toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
   await expect(page.locator('.storage-filter-strip .filter-summary')).toHaveText(String(storageNarrowed));
 
   /* Storage's own reset restores its own defaults, sliders included. */

@@ -1510,7 +1510,7 @@ test('two teams share one area profile while retaining their gear and surviving 
   await page.getByLabel('Preset', { exact: true }).selectOption('deck-1-4');
   await expect(spdAtMost(page)).toHaveValue('0');
 
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await choosePreset(page, 'Arena Attack', 'Arena Attack 5');
   await expect(page.getByRole('table', { name: 'Monster stats' }).locator('tbody tr')).toContainText('One arena profile');
   await page.getByRole('navigation').getByRole('button', { name: 'Speed Tuning', exact: true }).click();

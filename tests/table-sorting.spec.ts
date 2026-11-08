@@ -57,7 +57,7 @@ test('every column of every account table sorts, in both directions', async ({ p
   const tables: Array<{ open: () => Promise<void>; header: string; body: string }> = [
     {
       open: async () => {
-        await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+        await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
 
         await page.getByRole('button', { name: 'Lvl. < 40' }).click();
       },
@@ -66,7 +66,7 @@ test('every column of every account table sorts, in both directions', async ({ p
     },
     {
       open: async () => {
-        await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+        await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
       },
       header: headerTables.storage,
       body: 'Monster numbers',
@@ -110,15 +110,15 @@ test('every column of every account table sorts, in both directions', async ({ p
 
 test('the sort arrow sits on the outside of the heading text', async ({ page }) => {
   await importAccount(page);
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
 
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
 
   for (const label of [headerTables.roster, headerTables.storage]) {
-    await page.getByRole('navigation').getByRole('button', { name: label === headerTables.roster ? 'Monster Stats' : 'Monster Numbers', exact: true }).click();
+    await page.getByRole('navigation').getByRole('button', { name: label === headerTables.roster ? 'Monster Overview' : 'Monster Usage', exact: true }).click();
     const cells = await headings(page.getByRole('table', { name: label }));
     for (const cell of cells) {
       /* Left- and centre-aligned headings read label first, then the mark;

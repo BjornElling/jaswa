@@ -8,7 +8,8 @@ export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifa
    `name` is the whole thing said in one breath, for the places that meet the
    entry without that heading beside it: the button's accessible name, where a
    screen reader announces one control at a time, and a test or verify script
-   asking for a rail button by name. It matches the page's own heading. */
+   asking for a rail button by name. It includes the visible label so voice
+   controls can find the same entry. */
 export type NavigationItem = { id: Page; label: string; name: string; glyph: string };
 
 /* The rail groups by subject, so each entry only has to name what it does to
@@ -28,8 +29,8 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   {
     heading: 'Monsters',
     items: [
-      { id: 'monster-stats', label: 'Stats', name: 'Monster Stats', glyph: '♜' },
-      { id: 'monster-numbers', label: 'Numbers', name: 'Monster Numbers', glyph: '♜' },
+      { id: 'monster-stats', label: 'Overview', name: 'Monster Overview', glyph: '♜' },
+      { id: 'monster-numbers', label: 'Usage', name: 'Monster Usage', glyph: '♜' },
     ],
   },
   {

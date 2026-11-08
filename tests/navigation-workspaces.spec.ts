@@ -16,7 +16,7 @@ for (const populated of [false, true]) {
     const group = (heading: string) => rail.locator('.rail-group').filter({
       has: page.locator('.rail-heading', { hasText: heading }),
     });
-    await expect(group('Monsters').getByRole('button')).toHaveText(['♜Stats', '♜Numbers']);
+    await expect(group('Monsters').getByRole('button')).toHaveText(['♜Overview', '♜Usage']);
     await expect(group('Rune Optimization').getByRole('button')).toHaveText([
       '⇅Presets', '↝Speed tuning', '◈Optimization', '✦Gems & grinds',
     ]);
@@ -24,7 +24,7 @@ for (const populated of [false, true]) {
       '⚙Settings', '◌Clean-up', '↻Simulator',
     ]);
 
-    await rail.getByRole('button', { name: 'Monster Stats', exact: true }).click();
+    await rail.getByRole('button', { name: 'Monster Overview', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
     await expect(page.locator('summary')).toHaveCount(0);
     if (populated) await expect(page.getByRole('table', { name: 'Monster stats', exact: true })).toBeVisible();
@@ -32,7 +32,7 @@ for (const populated of [false, true]) {
     const before = await rail.getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().toJSON()));
     await page.screenshot({ path: testInfo.outputPath('stats-before.png') });
 
-    await rail.getByRole('button', { name: 'Monster Numbers', exact: true }).click();
+    await rail.getByRole('button', { name: 'Monster Usage', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Monster Numbers', exact: true })).toBeVisible();
     await expect(page.locator('summary')).toHaveCount(0);
     if (populated) await expect(page.getByRole('table', { name: 'Monster numbers', exact: true })).toBeVisible();

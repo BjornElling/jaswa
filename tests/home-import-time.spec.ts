@@ -23,7 +23,7 @@ test('Home and the corner badge call an import today only on its local calendar 
   const today = await boxes();
   await page.screenshot({ path: testInfo.outputPath('home-import-today.png') });
   await page.clock.setFixedTime(new Date('2026-11-02T12:04:00Z'));
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Stats', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await expect(meta).toHaveText('synthetic-account.json · imported 1. nov. 2026, 13.04');
   await expect(badgeTime).toHaveText('imported 1. nov. 2026, 13.04');
