@@ -6,6 +6,9 @@ test('a compound artifact move preserves inventory and the next live update', as
   test.setTimeout(180_000);
   const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8'));
   account.wizard_id = 7;
+  /* Every artifact in the inventory first, in id order, so this move starts from nothing engraved. */
+  account.artifacts = [...account.unit_list.flatMap((unit: { artifacts?: unknown[] }) => unit.artifacts ?? []), ...account.artifacts]
+    .sort((left: { rid: number }, right: { rid: number }) => left.rid - right.rid);
   for (const unit of account.unit_list) { unit.wizard_id = 7; unit.artifacts = []; }
   for (const artifact of account.artifacts) artifact.occupied_id = 0;
   const old = { ...account.artifacts.shift(), occupied_id: 1, slot: 1 };

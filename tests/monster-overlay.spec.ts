@@ -92,7 +92,8 @@ test('engraved relic mains appear in current stats, while a bare copy keeps its 
   await page.screenshot({ path: testInfo.outputPath('relic-stat-before.png') });
   await links.first().click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.locator('.stat-range[data-figure="hp"] .overlay-stat-current')).toContainText(/34[.,]390/);
+  /* The relic's main, and the HP +160 of the artifact the copy carries. */
+  await expect(dialog.locator('.stat-range[data-figure="hp"] .overlay-stat-current')).toContainText(/34[.,]550/);
   /* Every engraved card is one fixed shape, so a rune without an innate or with two
      sub properties draws the same box as a full one. */
   const sizes = async (selector: string) => (await dialog.locator(selector).evaluateAll((elements) =>
@@ -196,7 +197,7 @@ test('leads and element advantage reach the fight\'s stat, which a range names, 
   await expect(optimizationStats.locator('.stat-range[data-figure="criRate"] .overlay-stat-current')).toContainText('51');
   await expect(optimizationStats.getByTitle('Crit lead +33%. Element advantage +15%.', { exact: true })).toHaveText(/\(\+48\)/);
   /* DMG is dealt at 51 + 15 + 33 = 99 % crit: the advantage and the lead both count. */
-  await expect(optimizationStats.locator('.stat-range[data-figure="dmg"] .overlay-stat-current')).toContainText(/8[.,]183/);
+  await expect(optimizationStats.locator('.stat-range[data-figure="dmg"] .overlay-stat-current')).toContainText(/8[.,]589/);
 });
 
 test('Optimize opens this copy in Rune Optimization and keeps an unsaved choice', async ({ page }, testInfo) => {

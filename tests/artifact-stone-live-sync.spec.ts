@@ -8,11 +8,13 @@ for (const recalculate of ['manual', 'on-change'] as const) {
     const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8'));
     account.unit_list = [{ unit_id: 1, unit_master_id: 10131, attribute: 1, class: 6, unit_level: 40 }];
     account.unit_list.push({ ...account.unit_list[0], unit_id: 2 }, { ...account.unit_list[0], unit_id: 3 });
-    account.artifacts = [{ ...account.artifacts[0], occupied_id: 1,
-      sec_effects: [[219, 1, 0, 1, 0], [220, 4, 1, 0, 0], [223, 16, 1, 0, 0], [300, 6, 1, 0, 0]] }];
-    account.artifacts.push({ ...account.artifacts[0], rid: 1002, occupied_id: 0, pri_effect: [102, 100],
+    /* Engraved on the first copy, so it stands in that copy's list, as an export has it. */
+    const engraved = { ...account.artifacts[0], occupied_id: 1,
+      sec_effects: [[219, 1, 0, 1, 0], [220, 4, 1, 0, 0], [223, 16, 1, 0, 0], [300, 6, 1, 0, 0]] };
+    account.unit_list[0].artifacts = [engraved];
+    account.artifacts = [{ ...engraved, rid: 1002, occupied_id: 0, pri_effect: [102, 100],
       sec_effects: [[219, 12, 0, 1, 0], [220, 4, 1, 0, 0], [223, 16, 1, 0, 0], [300, 6, 1, 0, 0]] },
-    { ...account.artifacts[0], rid: 1003, occupied_id: 0, attribute: 98, pri_effect: [100, 1800] });
+    { ...engraved, rid: 1003, occupied_id: 0, attribute: 98, pri_effect: [100, 1800] }];
     let revision = 0;
     await page.route('http://127.0.0.1:37654/**', async (route) => {
       const identity = { instanceId: 'artifact-stone-live', sessionId: 1, revision };
@@ -157,7 +159,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
         const bounds = await box();
         await page.screenshot({ path: testInfo.outputPath(`${value}-before-refresh.png`), fullPage: true });
         await workers.hold();
-        account.artifacts[0].sec_effects[0][1] += 1;
+        engraved.sec_effects[0][1] += 1;
         revision += 1;
         await expect(panel.getByText('Settings or imported data changed. Refreshing these results…')).toBeVisible();
         expect(await results.textContent()).toBe(contents);

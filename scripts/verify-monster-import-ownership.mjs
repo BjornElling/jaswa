@@ -84,6 +84,24 @@ try {
   assert.equal(twice.valid, false, 'one rune under two Scenario monsters is refused');
   assert.match(twice.message, /one rune on two monsters/);
 
+  /* An item's own record and the monsters' lists say the same about where it
+     is: Scenario reads the lists, its location reads the record. A rune left
+     saying "engraved on Lyn" in the account list after Lyn's swap took it off
+     was labelled Lyn's and treated as free at once. */
+  const carried = { ...owned, runes: [engravedRune] };
+  assert.equal(validateGameFile({ ...account([carried]), runes: [engravedRune] }).valid, true,
+    'a prepared account repeats an engraved rune with the same placement');
+  const stale = validateGameFile({ ...account([owned]), runes: [engravedRune] });
+  assert.equal(stale.valid, false, 'a rune whose record names a monster that does not carry it is refused');
+  assert.match(stale.message, /rune on a monster that does not carry it/);
+  const both = validateGameFile({ ...account([carried]), runes: [{ ...engravedRune, occupied_type: 2, occupied_id: 0 }] });
+  assert.equal(both.valid, false, 'a rune in the inventory and on a monster is refused');
+  const artifact = { rid: 50, wizard_id: 7, occupied_id: 10, slot: 1, type: 1, attribute: 1, unit_style: 0, natural_rank: 5, rank: 5, level: 15,
+    pri_effect: [100, 1500, 0, 0, 0], sec_effects: [], locked: 0, source: 0, extra: [] };
+  const staleArtifact = validateGameFile({ ...account([owned]), artifacts: [artifact] });
+  assert.equal(staleArtifact.valid, false, 'an artifact whose record names a monster that does not carry it is refused');
+  assert.match(staleArtifact.message, /artifact on a monster that does not carry it/);
+
   /* A nested Summoned list is validated, published, counted and listed exactly
      as a root one, and a stack at zero is neither counted nor shown. */
   const { createImportedGame } = await server.ssrLoadModule('/app/lib/file-imports.ts');

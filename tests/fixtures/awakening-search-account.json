@@ -22,7 +22,17 @@
   "wizard_id": 7,
   "unit_list": [
     { "unit_id": 1, "wizard_id": 7, "unit_master_id": 24801, "attribute": 1, "unit_level": 30, "class": 4 },
-    { "unit_id": 2, "wizard_id": 7, "unit_master_id": 24811, "attribute": 1, "unit_level": 40, "class": 5 },
+    { "unit_id": 2, "wizard_id": 7, "unit_master_id": 24811, "attribute": 1, "unit_level": 40, "class": 5, "artifacts": [
+      {
+        "rid": 2002,
+        "type": 2,
+        "unit_style": 4,
+        "natural_rank": 5,
+        "pri_effect": [102, 100],
+        "sec_effects": [[400, 8, 1, 0, 0], [401, 8, 1, 0, 0], [404, 8, 1, 0, 0], [405, 8, 1, 0, 0]],
+        "occupied_id": 2
+      }
+    ] },
     { "unit_id": 3, "wizard_id": 7, "unit_master_id": 24802, "attribute": 2, "unit_level": 30, "class": 4 },
     { "unit_id": 4, "wizard_id": 7, "unit_master_id": 24812, "attribute": 2, "unit_level": 40, "class": 5 },
     { "unit_id": 5, "wizard_id": 7, "unit_master_id": 10101, "attribute": 1, "unit_level": 20, "class": 3 },
@@ -43,15 +53,6 @@
       "pri_effect": [101, 160],
       "sec_effects": [[219, 8, 1, 0, 0], [220, 4, 1, 0, 0], [223, 16, 1, 0, 0], [300, 6, 1, 0, 0]],
       "occupied_id": 0
-    },
-    {
-      "rid": 2002,
-      "type": 2,
-      "unit_style": 4,
-      "natural_rank": 5,
-      "pri_effect": [102, 100],
-      "sec_effects": [[400, 8, 1, 0, 0], [401, 8, 1, 0, 0], [404, 8, 1, 0, 0], [405, 8, 1, 0, 0]],
-      "occupied_id": 2
     }
   ],
   "relics": [],

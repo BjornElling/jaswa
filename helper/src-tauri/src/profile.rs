@@ -464,11 +464,16 @@ impl ProfileStore {
                 changed |= sync_equipment_copies(&mut profile, *entity, item);
                 continue;
             }
+            let carried = (entity.collection == "unit_list" && moves_gear)
+                .then(|| carried_gear(&profile, item));
             if merge_into(&mut profile, entity.collection, item, entity.identifier) {
                 changed = true;
                 if entity.collection == "unit_list" {
                     changed |= sync_unit_equipment(&mut profile, item);
                 }
+            }
+            if let Some(carried) = carried {
+                changed |= return_dropped_gear(&mut profile, item, carried);
             }
             if matches!(entity.collection, "runes" | "artifacts" | "relics") {
                 changed |= sync_equipment_copies(&mut profile, *entity, item);
@@ -1343,14 +1348,75 @@ fn remove_collection_items(
     set_collection(profile, collection_key, next);
     true
 }
+/* A monster's gear list says what it carries, so a rune or artifact in it is
+engraved and leaves the inventory collection. Writing it into the inventory
+instead — to be taken out again only when the request named it — left an
+inventory copy of nearly every rune the game's rune management engraved, since
+its request names none, and that copy went on saying "engraved on Lyn" after
+Lyn's next swap took the rune off. A relic is read into every preset and stands
+in the account collection wherever it is engraved. */
 fn sync_unit_equipment(profile: &mut Value, unit: &Value) -> bool {
     let mut changed = false;
-    for entity in [ENTITIES[1], ENTITIES[2], ENTITIES[3]] {
-        for item in collection(unit, entity.collection) {
-            if entity.collection != "relics" && engraved_outside_inventory(profile, entity, item) {
-                continue;
-            }
-            changed |= merge_into(profile, entity.collection, item, entity.identifier);
+    for entity in [ENTITIES[1], ENTITIES[2]] {
+        let ids = collection(unit, entity.collection)
+            .iter()
+            .filter_map(|item| identifier(item, entity.identifier))
+            .collect::<Vec<_>>();
+        changed |= remove_collection_items(profile, entity.collection, entity.identifier, &ids);
+    }
+    for item in collection(unit, ENTITIES[3].collection) {
+        changed |= merge_into(profile, ENTITIES[3].collection, item, ENTITIES[3].identifier);
+    }
+    changed
+}
+
+/* The runes and artifacts a monster carries before an answer replaces its list. */
+fn carried_gear(profile: &Value, unit: &Value) -> Vec<(Entity, Value)> {
+    let Some(id) = identifier(unit, "unit_id") else {
+        return Vec::new();
+    };
+    collection(profile, "unit_list")
+        .iter()
+        .find(|current| identifier(current, "unit_id").as_deref() == Some(id.as_str()))
+        .map(|held| {
+            [ENTITIES[1], ENTITIES[2]]
+                .into_iter()
+                .flat_map(|entity| collection(held, entity.collection).iter().map(move |item| (entity, item.clone())))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/* Gear a gear-moving answer took off a monster. The game's rune management
+answers with the monster's new list and names what came off only by id, so the
+rune's record exists nowhere but in the list it just left: dropped with that
+list, it vanished from the account. What left the list and stands on no monster
+is in the inventory, with its own record. Where a later record of the same
+answer engraves it elsewhere, that record takes it out again. */
+fn return_dropped_gear(profile: &mut Value, unit: &Value, carried: Vec<(Entity, Value)>) -> bool {
+    let mut changed = false;
+    for (entity, item) in carried {
+        let Some(kept) = unit.get(entity.collection).and_then(Value::as_array) else {
+            continue;
+        };
+        let Some(id) = identifier(&item, entity.identifier) else {
+            continue;
+        };
+        let still_carried = kept
+            .iter()
+            .any(|current| identifier(current, entity.identifier).as_deref() == Some(id.as_str()));
+        let engraved_elsewhere = collection(profile, "unit_list").iter().any(|other| {
+            collection(other, entity.collection)
+                .iter()
+                .any(|current| identifier(current, entity.identifier).as_deref() == Some(id.as_str()))
+        });
+        if !still_carried && !engraved_elsewhere {
+            changed |= merge_into(
+                profile,
+                entity.collection,
+                &set_equipment_occupation(item, None),
+                entity.identifier,
+            );
         }
     }
     changed
@@ -1466,10 +1532,27 @@ fn engraved_outside_inventory(profile: &Value, entity: Entity, item: &Value) -> 
             .any(|unit| holds(collection(unit, entity.collection)))
 }
 
-/* The contradiction JASWA's import refuses (`validateGameFile`): one rune or one
-artifact on two monsters. */
+/* The contradictions JASWA's import refuses (`validateGameFile`): one rune or
+one artifact on two monsters, or in the inventory while a monster carries it or
+while its own record says it is engraved. */
 fn contradiction(profile: &Value) -> Option<String> {
     for (entity, noun) in [(ENTITIES[1], "rune"), (ENTITIES[2], "artifact")] {
+        let engraved = collection(profile, "unit_list")
+            .iter()
+            .flat_map(|unit| collection(unit, entity.collection))
+            .filter_map(|item| identifier(item, entity.identifier))
+            .collect::<std::collections::HashSet<_>>();
+        for item in collection(profile, entity.collection) {
+            let Some(id) = identifier(item, entity.identifier) else {
+                continue;
+            };
+            if identifier(item, "occupied_id").is_some_and(|owner| owner != "0") {
+                return Some(format!("{noun} {id} in the inventory and engraved"));
+            }
+            if engraved.contains(&id) {
+                return Some(format!("{noun} {id} in the inventory and on a monster"));
+            }
+        }
         let mut seen = std::collections::HashSet::new();
         for unit in collection(profile, "unit_list") {
             for item in collection(unit, entity.collection) {
@@ -2965,8 +3048,11 @@ mod tests {
         );
     }
 
+    /* A copy of engraved gear in the inventory is not kept in step but taken out:
+    kept, it outlived the monster's next swap and named a monster that no longer
+    carried it. */
     #[test]
-    fn keeps_account_equipment_in_step_with_a_unit_update() {
+    fn a_unit_update_takes_its_gear_out_of_the_inventory() {
         let mut store = ProfileStore::default();
         assert!(store.accept_snapshot(json!({
             "unit_list": [{
@@ -2986,8 +3072,10 @@ mod tests {
             &json!({"command": "EquipRuneList"})
         ));
         let data = &store.read().unwrap().data;
-        assert_eq!(data["runes"][0]["upgrade_curr"], 12);
-        assert_eq!(data["artifacts"][0]["upgrade_curr"], 1);
+        assert_eq!(data["unit_list"][0]["runes"][0]["upgrade_curr"], 12);
+        assert_eq!(data["unit_list"][0]["artifacts"][0]["upgrade_curr"], 1);
+        assert_eq!(data["runes"], json!([]));
+        assert_eq!(data["artifacts"], json!([]));
     }
 
     /* `UpgradeArtifact_v2` answers with the artifact it just refined *and* the
@@ -3576,6 +3664,44 @@ mod tests {
         );
     }
 
+    /* The game's rune management answers with the monster's new runes and names
+    what came off by id alone. Read through the request, which names no rune, it
+    left an inventory copy of each rune it engraved, lost each rune it took off,
+    and — at the next swap — kept that copy saying the rune stood on a monster
+    whose list no longer held it. Rune Optimization then labelled an inventory
+    rune "Lyn #1" while its priority rule rightly treated it as free. */
+    #[test]
+    fn rune_management_moves_runes_between_a_monster_and_the_inventory() {
+        let rune = |id: u64, owner: u64| json!({"rune_id": id, "wizard_id": 7, "set_id": 1, "slot_no": 1,
+            "occupied_type": if owner == 0 { 2 } else { 1 }, "occupied_id": owner});
+        for bundled in [false, true] {
+            let mut store = ProfileStore::default();
+            assert!(store.accept_snapshot(json!({
+                "wizard_id": 7,
+                "unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "runes": [rune(6, 1)]}],
+                "runes": [rune(5, 0)]
+            })));
+            let apply = |store: &mut ProfileStore, on: u64, off: u64| {
+                let answer = json!({"ret_code": 0, "equip_rune_id_list": [on], "unequip_rune_id_list": [off],
+                    "unit_info": {"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "runes": [rune(on, 1)]}});
+                let (response, command) = if bundled {
+                    (json!({"ret_code": 0, "EquipRuneList": answer}), "UpdateUnitEquip")
+                } else {
+                    (answer, "EquipRuneList")
+                };
+                assert!(store.apply_update(&response, &json!({"command": command, "unit_id": 1})));
+                assert!(store.take_declined().missed.is_empty());
+                store.read().unwrap().data
+            };
+            let data = apply(&mut store, 5, 6);
+            assert_eq!(data["unit_list"][0]["runes"], json!([rune(5, 1)]));
+            assert_eq!(data["runes"], json!([rune(6, 0)]), "the rune taken off is in the inventory, and the one engraved is not");
+            let data = apply(&mut store, 6, 5);
+            assert_eq!(data["unit_list"][0]["runes"], json!([rune(6, 1)]));
+            assert_eq!(data["runes"], json!([rune(5, 0)]), "no copy goes on saying the rune is engraved");
+        }
+    }
+
     /* Beth's runes moved onto Spectra through the game's rune management: the
     answer gives Spectra's new list and never names Beth. */
     #[test]
@@ -3608,6 +3734,16 @@ mod tests {
             assert_eq!(data["unit_list"][1]["runes"], json!([rune(1, 2), rune(2, 2)]));
             assert_eq!(data["runes"], json!([]), "a rune moved between monsters never touches the inventory");
         }
+    }
+
+    #[test]
+    fn an_answer_leaving_an_engraved_rune_in_the_inventory_is_refused() {
+        let mut store = two_monsters_with_gear();
+        assert!(!store.apply_update(
+            &json!({"ret_code": 0, "rune": {"rune_id": 9, "wizard_id": 7, "occupied_id": 2, "slot_no": 3, "upgrade_curr": 12}}),
+            &json!({"command": "UpgradeRune", "rune_id": 9})
+        ));
+        assert!(store.take_declined().missed.iter().any(|reason| reason.contains("rune 9 in the inventory and engraved")));
     }
 
     #[test]

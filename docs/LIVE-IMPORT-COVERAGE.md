@@ -399,8 +399,8 @@ model does not know this command yet" read differently.
 - A relic is not treated like a rune or artifact: its inventory record remains
   in the root collection while individual monster copies are added or removed.
 - **Only a command that moves gear changes which runes and artifacts a monster
-  carries** — one whose name holds `equip` or `occupation`, and the request
-  says where each item went. Any other answer may show a monster in the gear of
+  carries** — one whose name holds `equip` or `occupation`, and its request or
+  the monsters' new gear lists in its answer say where each item went. Any other answer may show a monster in the gear of
   a deck or a battle: `battleGuildRivalStart` answers with the attacking team in
   its World Guild Battle preset's runes (October 28, 2026). Read as the
   monsters' own, 24 runes stood on two monsters at once and JASWA refused every
@@ -411,7 +411,18 @@ model does not know this command yet" read differently.
   every screen the game shows a team on.
 - **The rune and artifact inventories hold what no monster carries.** A record
   of gear a monster carries — a power-up answer, say — updates that monster's
-  copy and is never added to the inventory as well.
+  copy and is never added to the inventory as well. A monster's gear list read
+  from a gear-moving answer takes each item it names out of the inventory, and
+  each item that left the list and stands on no monster returns to the
+  inventory with its own record. The game's rune management answers
+  `EquipRuneList` with the monster's new runes and names what came off only by
+  id (`equip_rune_id_list`, `unequip_rune_id_list`), and its request names no
+  rune. Read through the request, it left an inventory copy of nearly every
+  rune it engraved, lost every rune it took off, and at the next swap kept the
+  copy saying "engraved on Lyn" for a rune Lyn no longer carried (November 8,
+  2026). Rune Optimization showed that inventory rune as Lyn's while its
+  priority rule rightly treated it as free. The account holding such a copy is
+  now a contradiction, below, and JASWA's import refuses it.
 - **A monster's gear list read from a gear-moving answer takes each rune and
   artifact in it off every other monster**, since one stands on one monster.
   Moving Beth's runes onto Spectra through the game's rune management answered
@@ -419,9 +430,10 @@ model does not know this command yet" read differently.
   both and the move was refused whole (November 8, 2026). A monster the same
   answer also gives a list keeps it: two monsters in one answer claiming one
   rune is an answer at odds with itself, and is refused below.
-- **An exchange that would leave a rune or artifact on two monsters is refused
-  whole**, and the account is kept as it stood. JASWA's import refuses that
-  account (`validateGameFile`), so serving it would stop live import until the
+- **An exchange that would leave a rune or artifact on two monsters, or in the
+  inventory while a monster carries it or while its own record says it is
+  engraved, is refused whole**, and the account is kept as it stood. JASWA's
+  import refuses that account (`validateGameFile`), so serving it would stop live import until the
   next login; refusing the one exchange keeps every later one arriving. The
   diagnostic log names the command, so its shape can be modelled.
 - **A refused snapshot is said on every page.** When JASWA cannot import the

@@ -1,7 +1,27 @@
 {
   "unit_list": [
-    { "unit_id": 1, "unit_master_id": 10131, "attribute": 1, "class": 6 },
-    { "unit_id": 2, "unit_master_id": 10132, "attribute": 2, "class": 6 }
+    { "unit_id": 1, "unit_master_id": 10131, "attribute": 1, "class": 6, "artifacts": [
+      {
+        "rid": 1002,
+        "type": 1,
+        "attribute": 1,
+        "natural_rank": 5,
+        "pri_effect": [101, 160],
+        "sec_effects": [[219, 8, 1, 0, 0], [220, 4, 1, 0, 0], [223, 16, 1, 0, 0], [300, 6, 1, 0, 0]],
+        "occupied_id": 1
+      }
+    ] },
+    { "unit_id": 2, "unit_master_id": 10132, "attribute": 2, "class": 6, "artifacts": [
+      {
+        "rid": 1004,
+        "type": 2,
+        "unit_style": 4,
+        "natural_rank": 5,
+        "pri_effect": [102, 100],
+        "sec_effects": [[400, 8, 1, 0, 0], [401, 8, 1, 0, 0], [404, 8, 1, 0, 0], [405, 8, 1, 0, 0]],
+        "occupied_id": 2
+      }
+    ] }
   ],
   "runes": [],
   "artifacts": [
@@ -15,15 +35,6 @@
       "occupied_id": 0
     },
     {
-      "rid": 1002,
-      "type": 1,
-      "attribute": 1,
-      "natural_rank": 5,
-      "pri_effect": [101, 160],
-      "sec_effects": [[219, 8, 1, 0, 0], [220, 4, 1, 0, 0], [223, 16, 1, 0, 0], [300, 6, 1, 0, 0]],
-      "occupied_id": 1
-    },
-    {
       "rid": 1003,
       "type": 1,
       "attribute": 1,
@@ -31,15 +42,6 @@
       "pri_effect": [100, 1800],
       "sec_effects": [[221, 50, 1, 0, 0], [222, 8, 1, 0, 0], [224, 4, 1, 0, 0], [301, 6, 1, 0, 0]],
       "occupied_id": 0
-    },
-    {
-      "rid": 1004,
-      "type": 2,
-      "unit_style": 4,
-      "natural_rank": 5,
-      "pri_effect": [102, 100],
-      "sec_effects": [[400, 8, 1, 0, 0], [401, 8, 1, 0, 0], [404, 8, 1, 0, 0], [405, 8, 1, 0, 0]],
-      "occupied_id": 2
     }
   ],
   "relics": [],

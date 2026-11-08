@@ -10,7 +10,8 @@ import { readFileSync } from 'node:fs';
 
 const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8'));
 const craft = JSON.parse(readFileSync(new URL('./fixtures/craft-account.json', import.meta.url), 'utf8'));
-const rune = craft.unit_list[0].runes[0];
+/* In the inventory: the decks engrave it, and Scenario has it on no monster of this account. */
+const rune = { ...craft.unit_list[0].runes[0], occupied_type: 2, occupied_id: 0 };
 
 type Deck = { deck_type: number; deck_seq: number; unit_id_list: unknown[]; equip: unknown };
 const engraved = (unitId: number, runeIds: number[] = [rune.rune_id]) => ({ unit_id: unitId, rune_id_list: runeIds, artifact_id_list: [] });

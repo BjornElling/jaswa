@@ -349,6 +349,26 @@ function engravesAnItemTwice(units: readonly GameRecord[], section: 'runes' | 'a
   return false;
 }
 
+/**
+ * Whether an item's own record in the account list and the monsters' gear lists
+ * disagree about where it is. Scenario reads the gear lists, a rune's location
+ * reads its record, so a disagreement showed an inventory rune as engraved on a
+ * monster that did not carry it while every rule treated it as free. A game
+ * export never disagrees; a prepared account repeats each engraved item in the
+ * account list with the same placement, which agrees.
+ */
+function misplacesAnItem(value: GameRecord, units: readonly GameRecord[], section: 'runes' | 'artifacts', identifier: string): boolean {
+  const carrier = new Map<string, string>();
+  for (const unit of units) {
+    for (const item of recordCollection(unit[section])) carrier.set(String(item[identifier]), String(unit.unit_id));
+  }
+  return recordCollection(value[section]).some((item) => {
+    const engraved = section === 'runes' ? item.occupied_type === 1 : Number(item.occupied_id) > 0;
+    const on = carrier.get(String(item[identifier]));
+    return engraved ? on !== String(item.occupied_id) : on !== undefined;
+  });
+}
+
 function validateAccountCollections(value: GameRecord): string | undefined {
   if (!isValidIdentifiedCollection(value.unit_list, 'unit_id', isValidUnitRecord)) {
     return 'This file contains a monster JASWA cannot read.';
@@ -420,6 +440,12 @@ function validateAccountCollections(value: GameRecord): string | undefined {
   }
   if (engravesAnItemTwice(units, 'artifacts', 'rid')) {
     return 'This file engraves one artifact on two monsters.';
+  }
+  if (misplacesAnItem(value, units, 'runes', 'rune_id')) {
+    return 'This file places a rune on a monster that does not carry it.';
+  }
+  if (misplacesAnItem(value, units, 'artifacts', 'rid')) {
+    return 'This file places an artifact on a monster that does not carry it.';
   }
 
   if (value.artifacts !== undefined && !isValidIdentifiedCollection(value.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
