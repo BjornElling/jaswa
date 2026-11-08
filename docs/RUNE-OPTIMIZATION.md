@@ -284,6 +284,31 @@ rank a search by a question nobody asked. Where neither names one, *Rank by* rea
 *Choose a figure*, its caption says the profile names none, and *Calculate* stays
 disabled with a hover saying the sort order is missing.
 
+**Rank useful gain, keep the actual sheet.** Direct CRI Rate and RES rankings stop
+earning rank at 100 %, and direct ACC at 85 % (`rune-optimization-ranking.ts`):
+maximum player RES is 100 %, and a resistance check retains its 15 % floor
+(`combat-stat-limits.ts`; [Accuracy and Resistance](https://summonerswar.fandom.com/wiki/Guide:Accuracy_and_Resistance)).
+The table, saved requirements and every range still read the actual combat figures.
+A build over the useful limit remains eligible; its surplus earns no advantage over
+one at the limit. Equal useful rank retains the usual fewer-moves and pick order,
+including between workers and when a synchronized table is read again. No secondary
+stat objective is invented. The shortlist's ranking gradient and whole-build guides
+use the same useful gain. Exact dominance holds the direct ranking accumulators equal
+for these three rankings, because a raw-stat increase can be only a tie at saturation.
+The card may still shortlist using raw figures: the processor confirms useful rank,
+and a raw figure below a useful-rank bar cannot have passed that bar after capping.
+
+For every other ranking, ACC and RES contribute only to their requested ranges;
+surplus never increases DMG or E.HP. A floor already guaranteed across the admitted
+pool is removed from the calculation's dependencies by `bindingRangeLimits`, while
+the user's saved choice survives. DMG already caps CRI Rate at 100 %. HP, ATK, DEF,
+SPD, CRI Dmg and the three composites have no general useful-gain ceiling. Enemy
+and skill breakpoints are requirements, not universal stat caps: reaching Icaru's
+team-up threshold, for example, does not stop DEF from improving E.HP.
+The area's Accuracy goal may be lower than 85 %; aim at that floor and rank another
+figure to improve that figure once sufficient ACC is secured. Direct ACC ranking
+uses the general 85 % limit and does not infer an enemy or a skill to rank against.
+
 ## 3. Candidates
 
 Every search is for one monster **in one preset** — Scenario or a saved preset

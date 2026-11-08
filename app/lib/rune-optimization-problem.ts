@@ -20,6 +20,7 @@
    statistics dataset or the monster catalogue: the types below are erased, and
    the figure order comes from `monster-stats.ts` rather than from the
    preferences module that sits beside the dataset. */
+import { rankingCap, rankingValue } from './rune-optimization-ranking';
 import type { GameRecord } from './game-data';
 import type { CombatBonuses } from './monster-stats';
 import type { RuneSlotKey } from './monster-defaults';
@@ -240,13 +241,17 @@ function figuresOf(base: Float64Array, effects: Float64Array, out: Float64Array 
    figure — so its precision is a matter of how well the cut aims, not of truth. */
 const gradientSteps = Float64Array.of(10, 1000, 10, 100, 10, 100, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
 
-function gradient(base: Float64Array, reference: Float64Array, figure: number): Float64Array {
-  const at = figuresOf(base, reference)[figure];
+function gradient(base: Float64Array, reference: Float64Array, figure: number, ranking = false): Float64Array {
+  const value = (effects: Float64Array) => {
+    const raw = figuresOf(base, effects)[figure];
+    return ranking ? rankingValue(raw, figure) : raw;
+  };
+  const at = value(reference);
   const slope = new Float64Array(effectSlotCount);
   const probe = new Float64Array(reference);
   for (let slot = 0; slot < effectSlotCount; slot += 1) {
     probe[slot] = reference[slot] + gradientSteps[slot];
-    slope[slot] = (figuresOf(base, probe)[figure] - at) / gradientSteps[slot];
+    slope[slot] = (value(probe) - at) / gradientSteps[slot];
     probe[slot] = reference[slot];
   }
   return slope;
@@ -813,6 +818,11 @@ export function prepareRuneOptimization(
       .flatMap((figure) => figureEffectSlots(figure, requirements.alwaysCrits))));
   }
 
+  if (Number.isFinite(rankingCap(rank))) {
+    // More raw stat can tie at the useful limit; it cannot prove a better rank.
+    for (const stat of figureEffectSlots(requirements.rankBy, requirements.alwaysCrits)) pinned.add(stat);
+  }
+
   const eligibleCounts = bySlot.map((slot) => slot.length);
   const craftPools = bySlot.map((slot) => slot);
   if (reduce) {
@@ -867,7 +877,7 @@ export function prepareRuneOptimization(
       }
     }
   }
-  const rankSlope = gradient(base, reference, rank);
+  const rankSlope = gradient(base, reference, rank, true);
   const targetSlopes = targetFigures.map((figure) => gradient(base, reference, figureIndex(figure)));
   /* All ceilings remain exact in range checks, dominance and finished-build
      judging. The heuristic cut gets dedicated low-contribution lanes only for
@@ -922,7 +932,7 @@ export function prepareRuneOptimization(
     // A demanding floor earns search attention too; units are normalized so an
     // HP point cannot drown out a speed point merely because its number is bigger.
     const figures = figuresOf(base, reference, new Float64Array(targetFigureCount));
-    const rankScale = Math.max(1, figures[rank]);
+    const rankScale = Math.max(1, rankingValue(figures[rank], rank));
     for (const figure of targetFigures) {
       const at = figureIndex(figure);
       const slope = gradient(base, reference, at);

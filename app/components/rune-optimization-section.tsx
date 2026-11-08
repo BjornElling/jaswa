@@ -1,3 +1,4 @@
+import { rankingValue } from '../lib/rune-optimization-ranking';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button, InlineButton, LabelSwap } from './button';
@@ -944,7 +945,7 @@ function Results({ answer, builds, rankBy, currentBuild, currentMains, currentFi
     return builds.map((build, index) => ({
       index, build, name: buildNameOf(build.runes.map((rune) => rune.setId)), issue: describe(build),
       mains: slotMainsOf(build.runes.map((rune) => ({ slot: rune.slot, mainStatId: mainOf(rune.runeId) }))),
-    })).sort((left, right) => figureOf(right.build, rank) - figureOf(left.build, rank) || left.index - right.index);
+    })).sort((left, right) => rankingValue(figureOf(right.build, rank), rank) - rankingValue(figureOf(left.build, rank), rank) || left.index - right.index);
   }, [builds, describe, mainOf, rankBy]);
   const columns = useMemo(() => [
     { key: 'index', label: '#', align: 'left' as const },

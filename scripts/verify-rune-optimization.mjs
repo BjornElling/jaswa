@@ -74,6 +74,7 @@ import { craftedRangeScenarios, scenarioGenerator, withheldIn } from './rune-opt
 
 const { scenario } = scenarioGenerator();
 const figures = monsterStatTargetKeys;
+const rankValue = (value, rank) => Math.min(value, ({ 4: 100, 6: 100, 7: 85 })[rank] ?? Infinity);
 
 const supportSlots = [[13, 15], [13, 15], [13], [15], [15], [15]].map((sets) => sets.map((setId) => ({ setId })));
 const support = remainingSetSupport(supportSlots, [0, 1, 2, 3, 4, 5]);
@@ -168,7 +169,7 @@ function bruteForce(input) {
       for (const [key, floor] of floorsOf(input)) if (compared(key) < floor) return;
       for (const [key, ceiling] of ceilingsOf(input)) if (compared(key) > ceiling) return;
       const identity = JSON.stringify(chosen.map((candidate) => candidate.runeId));
-      const build = { value: values[rank], moves: chosen.filter((candidate) => candidate.moves).length };
+      const build = { value: rankValue(values[rank], rank), moves: chosen.filter((candidate) => candidate.moves).length };
       if (input.settings.limitChanges && build.moves > input.settings.maxChanges) return;
       if (!found.has(identity) || build.value > found.get(identity).value) found.set(identity, build);
       return;
@@ -269,7 +270,7 @@ for (let index = 0; index < scenarios; index += 1) {
     `scenario ${index}: craft alternatives filled multiple physical build rows`);
   if (problem.craft) {
     const expanded = searchRuneBuilds(problem, 0, 1, { allocateCraft: false });
-    const reading = (answer) => answer.builds.map((build) => [build.figures[problem.rank], build.moves]);
+    const reading = (answer) => answer.builds.map((build) => [rankValue(build.figures[problem.rank], problem.rank), build.moves]);
     assert.ok(whole.complete && expanded.complete, `scenario ${index}: allocation agreement cannot be measured on a timeout`);
     assert.deepEqual(reading(whole), reading(expanded), `scenario ${index}: matching differs from full craft combinations`);
     allocatedCases += 1;
@@ -281,7 +282,7 @@ for (let index = 0; index < scenarios; index += 1) {
   shared = -Infinity;
   const sliced = mergeBuildResults(await Promise.all([0, 1, 2].map((part) => searchRuneBuildsInSlices(problem, part, 3, sharing))), problem.rank, problem.resultCount);
   const expected = bruteForce(input);
-  const reading = (table) => table.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves }));
+  const reading = (table) => table.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves }));
   if (!input.settings.allowImmemorial) {
     const immemorial = new Set(input.craftItems.flatMap((item, at) => (item.lineage === 'immemorial' ? [at] : [])));
     assert.ok(problem.slots.flat().every((candidate) => candidate.stock.every((entry) => !immemorial.has(entry))),
@@ -560,7 +561,7 @@ for (const bonuses of [
   const problem = prepareRuneOptimization(input);
   const result = searchRuneBuilds(problem);
   assert.ok(result.complete, 'the CRI Rate interval search timed out');
-  assert.deepEqual(result.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })),
+  assert.deepEqual(result.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves })),
     bruteForce(input), 'the 67–69 CRI Rate interval disagrees with the stat sheets');
   assert.ok(result.builds.every((build) => build.figures[criRate] >= 67 && build.figures[criRate] <= 69),
     'a crit lead or element advantage satisfied a CRI Rate range the copy\'s own CRI Rate does not');
@@ -574,7 +575,7 @@ for (const bonuses of [
   const exact = prepareRuneOptimization(input);
   const populated = searchRuneBuilds(exact);
   assert.ok(populated.builds.length > 0, 'the fight must not move a CRI Rate build outside its own interval');
-  assert.deepEqual(populated.builds.map((build) => ({ value: build.figures[exact.rank], moves: build.moves })),
+  assert.deepEqual(populated.builds.map((build) => ({ value: rankValue(build.figures[exact.rank], exact.rank), moves: build.moves })),
     bruteForce(input), 'the populated CRI Rate interval disagrees with the stat sheets');
   intervalTables += 1;
 }
@@ -601,7 +602,7 @@ for (const [index, { leads, capped, rankBy }] of [
   const problem = prepareRuneOptimization(input);
   const result = searchRuneBuilds(problem);
   assert.ok(result.complete && result.builds.length > 0, 'a led ceiling search found nothing');
-  assert.deepEqual(result.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })),
+  assert.deepEqual(result.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves })),
     bruteForce(input), `a ceiling on a led ${capped.join(' and ')} disagrees with the stat sheets`);
   intervalTables += 1;
 }for (let index = 0; index < figures.length; index += 1) {
@@ -627,7 +628,7 @@ for (const [index, { leads, capped, rankBy }] of [
     const problem = prepareRuneOptimization(input);
     const result = searchRuneBuilds(problem);
     assert.ok(result.complete, `interval ${figures[index]} timed out`);
-    assert.deepEqual(result.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })),
+    assert.deepEqual(result.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves })),
       bruteForce(input), `interval ${figures[index]} lost a build at a tight or contradictory endpoint`);
     intervalTables += 1;
   }
@@ -657,7 +658,7 @@ for (let index = 0; index < figures.length; index += 1) {
   const original = searchRuneBuilds(problem, 0, 1, { pruneCeilings: false });
   assert.ok(result.complete && original.complete, `tail interval ${figures[index]} timed out`);
   assert.deepEqual(result.builds, original.builds, `tail interval ${figures[index]} changed rows or ties`);
-  assert.deepEqual(result.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })),
+  assert.deepEqual(result.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves })),
     bruteForce(input), `tail interval ${figures[index]} differs from the actual stat sheets`);
   intervalTables += 1;
 }
@@ -706,7 +707,7 @@ for (const [index, input] of craftedRangeScenarios().entries()) {
     const problem = prepareRuneOptimization(input);
     const answer = searchRuneBuilds(problem);
     const expanded = searchRuneBuilds(problem, 0, 1, { allocateCraft: false });
-    const reading = (table) => table.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves }));
+    const reading = (table) => table.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves }));
     assert.ok(answer.complete && expanded.complete, `crafted range ${index}: both searches must finish`);
     assert.deepEqual(reading(answer), bruteForce(input), `crafted range ${index}: hybrid allocation lost an oracle row`);
     assert.deepEqual(reading(answer), reading(expanded), `crafted range ${index}: allocation changed the ranked scores`);
@@ -912,7 +913,7 @@ for (let index = 0; index < 36; index += 1) {
   const problem = prepareRuneOptimization(input);
   const whole = searchRuneBuilds(problem);
   const expected = bruteForce(input);
-  assert.deepEqual(whole.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })), expected);
+  assert.deepEqual(whole.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves })), expected);
   const passed = await searchRuneBuildsInPasses(problem, everyPairCard(40), { blocks: 8, pairs: 500 });
   assert.deepEqual(passed.outcome.builds, whole.builds);
   const parts = [0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3));
@@ -998,13 +999,43 @@ for (let index = 0; index < figures.length; index += 1) {
   const problem = prepareRuneOptimization(input);
   const answer = searchRuneBuilds(problem);
   assert.ok(answer.builds.length > 0);
-  assert.deepEqual(answer.builds.map((build) => ({ value: build.figures[problem.rank], moves: build.moves })), bruteForce(input));
+  assert.deepEqual(answer.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves })), bruteForce(input));
   const byId = new Map(input.runes.map((rune) => [rune.id, rune]));
   for (const build of answer.builds) assert.deepEqual(buildFigures(input.monster,
     build.picks.map((at, slot) => { const piece = problem.slots[slot][at]; return { rune: byId.get(piece.runeId), mainValue: piece.mainValue, lines: piece.lines }; }), input.requirements), build.figures);
   input.requirements.ceilings = Object.fromEntries(['hp', 'atk', 'def'].map((key, at) => [key, answer.builds[0].figures[at]]));
   const capped = prepareRuneOptimization(input);
-  assert.deepEqual(searchRuneBuilds(capped).builds.map((build) => ({ value: build.figures[capped.rank], moves: build.moves })), bruteForce(input),
+  assert.deepEqual(searchRuneBuilds(capped).builds.map((build) => ({ value: rankValue(build.figures[capped.rank], capped.rank), moves: build.moves })), bruteForce(input),
     'display ceilings must leave room for battle-only own and teammate set contributions');
 }
 console.log('PASS: own and teammate sets, all four leads and every ranking figure match brute force.');
+
+// Fully saturated stats must tie despite a larger raw sheet. Preserve the
+// already engraved combination, then enforce raw ranges independently.
+for (const [rankBy, field, cap] of [['acc', 'accuracy', 85], ['res', 'resist', 100], ['criRate', 'critical_rate', 100]]) {
+  const input = scenarioGenerator(20261108, [2, 2]).scenario(0);
+  input.monster = { ...input.monster, [field]: cap, artifacts: [], relics: [] };
+  input.locks = {}; input.withheld = {}; input.craftItems = [];
+  input.requirements = { ...input.requirements, rankBy, builds: [], targets: {}, ceilings: {},
+    allowBroken: true, allowIntangible: false, alwaysCrits: false, alwaysElementAdvantage: false,
+    leads: {}, slotMains: { slot2: [], slot4: [], slot6: [] } };
+  input.settings = { ...input.settings, gems: 'none', grinds: 'none', resultCount: 5, runesOnOtherMonsters: true };
+  input.runes = input.runes.map((rune, at) => ({ ...rune, setId: 15, mainStatId: 1, mainValue: 100,
+    prefixStatId: null, prefixValue: 0, occupiedId: at % 2 === 0 ? '1' : null,
+    subProperties: [{ statId: { acc: 12, res: 11, criRate: 9 }[rankBy], value: at % 2 === 0 ? 0 : 20, grind: 0, gemmed: false }] }));
+  const problem = prepareRuneOptimization(input);
+  const answer = searchRuneBuilds(problem);
+  assert.equal(answer.builds[0].moves, 0, rankBy + ': useless surplus must not displace an engraved build');
+  assert.equal(answer.builds[0].figures[problem.rank], cap);
+  assert.ok(answer.builds.some((build) => build.figures[problem.rank] > cap), 'raw surplus must remain visible and eligible');
+  const reading = (result) => result.builds.map((build) => ({ value: rankValue(build.figures[problem.rank], problem.rank), moves: build.moves }));
+  assert.deepEqual(reading(answer), bruteForce(input));
+  assert.deepEqual(mergeBuildResults([0, 1, 2].map((part) => searchRuneBuilds(problem, part, 3)), problem.rank, 5).builds, answer.builds);
+  input.requirements.targets = { [rankBy]: cap + 20 };
+  const constrained = searchRuneBuilds(prepareRuneOptimization(input));
+  assert.ok(constrained.builds.every((build) => build.figures[problem.rank] >= cap + 20));
+  assert.equal(constrained.builds[0].moves, 1, 'an explicit raw floor still applies above useful rank');
+  input.requirements.ceilings = { [rankBy]: cap };
+  assert.equal(searchRuneBuilds(prepareRuneOptimization(input)).builds.length, 0, 'contradictory raw ranges stay impossible');
+}
+console.log('PASS: ACC 85, RES 100 and CRI Rate 100 stop earning rank; raw surplus, move ties, split tables and explicit ranges survive.');

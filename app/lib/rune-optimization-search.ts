@@ -28,6 +28,7 @@
  * `searchRuneBuildsInPasses` hands the tail to a card and checks every pair the card
  * sends back on the processor before it may enter the table.
  */
+import { rankingValue } from './rune-optimization-ranking';
 import {
   addSetBonuses, baseStatCount, capTotal, effectSlot, effectSlotCount, figureOf, figuresInto, intangibleCompletion, intangibleSetId,
   setIdBound, statSetBonuses, targetFigureCount, totalCount, totalsInto,
@@ -64,7 +65,7 @@ export type SearchOutcome = {
  */
 export function compareFoundBuilds(rank: number) {
   return (left: FoundBuild, right: FoundBuild): number => {
-    const figure = right.figures[rank] - left.figures[rank];
+    const figure = rankingValue(right.figures[rank], rank) - rankingValue(left.figures[rank], rank);
     if (figure !== 0) return figure;
     if (left.moves !== right.moves) return left.moves - right.moves;
     for (let at = 0; at < left.picks.length; at += 1) {
@@ -633,7 +634,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
       const index = targetIndexes[at];
       if (figureOf(totals, index) < targets[index]) return false;
     }
-    const rankBound = figureOf(totals, rank);
+    const rankBound = rankingValue(figureOf(totals, rank), rank);
     return (Number.isFinite(ceilings[rank]) ? Math.min(rankBound, ceilings[rank]) : rankBound) >= bar;
   }
 
@@ -784,7 +785,7 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     // Many work plans improve the same physical row. Do not allocate items for
     // one whose optimistic figure is already strictly worse; ties still settle
     // through the ordinary total order after resolving its actual work.
-    if (allocation && previous >= 0 && figures[rank] < table[previous].figures[rank]) return;
+    if (allocation && previous >= 0 && rankingValue(figures[rank], rank) < rankingValue(table[previous].figures[rank], rank)) return;
     if (seeded.size > 0 || seed) {
       const key = bySlot.join(',');
       if (seeded.has(key)) return;
@@ -817,8 +818,8 @@ function createSearch(problem: RuneOptimizationProblem, part: number, parts: num
     while (at > 0 && ordered(found, table[at - 1]) < 0) at -= 1;
     table.splice(at, 0, found);
     if (table.length > capacity) table.pop();
-    if (table.length >= capacity && table[table.length - 1].figures[rank] > bar) {
-      bar = table[table.length - 1].figures[rank];
+    if (table.length >= capacity && rankingValue(table[table.length - 1].figures[rank], rank) > bar) {
+      bar = rankingValue(table[table.length - 1].figures[rank], rank);
       onBar?.(bar);
     }
   }

@@ -1,3 +1,4 @@
+import { rankingValue } from './rune-optimization-ranking';
 import {
   addSetBonuses, effectSlotCount, figuresInto, intangibleCompletion,
   intangibleSetId, targetFigureCount, totalCount, totalsInto,
@@ -100,7 +101,7 @@ export function complementaryCandidates(problem: RuneOptimizationProblem, craftP
     }
     addSetBonuses(counts, intangibleCompletion(counts), effects);
     totalsInto(problem.base, effects, totals); figuresInto(totals, figures);
-    return figures[problem.rank];
+    return rankingValue(figures[problem.rank], problem.rank);
   };
   const bar = independent.builds.reduce((best, build) => Math.max(best, rank(build)), -Infinity);
   // A supplementary lane must earn its extra tree choices with a stronger guide.
@@ -186,7 +187,7 @@ function guidedCandidates(problem: RuneOptimizationProblem, craftPools: Candidat
   };
   for (let stat = 0; stat < effectSlotCount; stat += 1) projected[stat] = problem.start[stat] + remaining[0][stat];
   read(projected);
-  const rankScale = Math.max(1, figures[problem.rank]);
+  const rankScale = Math.max(1, rankingValue(figures[problem.rank], problem.rank));
   const scales = Float64Array.from(figures, (value, at) => Math.max(1, Math.abs(value),
     Number.isFinite(problem.targets[at]) ? Math.abs(problem.targets[at]) : 0,
     Number.isFinite(problem.ceilings[at]) ? Math.abs(problem.ceilings[at]) : 0));
@@ -271,7 +272,7 @@ function guidedCandidates(problem: RuneOptimizationProblem, craftPools: Candidat
           if (figures[at] > problem.ceilings[at]) { deficit += (figures[at] - problem.ceilings[at]) / scales[at]; ceilingMiss = true; }
         }
         if (depth === 5 && deficit > 0) continue;
-        const rankValue = figures[problem.rank];
+        const rankValue = rankingValue(figures[problem.rank], problem.rank);
         // A beam position is scarce. An impossible prefix must not displace a
         // feasible complement just because its projected damage looks stronger.
         if (depth < 5 && floorMiss) {
@@ -323,7 +324,7 @@ function guidedCandidates(problem: RuneOptimizationProblem, craftPools: Candidat
     const effects = new Float64Array(best.effects);
     for (let stat = 0; stat < effectSlotCount; stat += 1) projected[stat] = effects[stat] + bonus[stat];
     read(projected);
-    let bestRank = figures[problem.rank];
+    let bestRank = rankingValue(figures[problem.rank], problem.rank);
     let examined = 0;
     // Two slots can trade speed for damage while neither replacement works alone.
     // Keeping their sets preserves the complete build, including its Intangible.
@@ -341,7 +342,7 @@ function guidedCandidates(problem: RuneOptimizationProblem, craftPools: Candidat
               examined += 1;
               for (let stat = 0; stat < effectSlotCount; stat += 1) projected[stat] = rest[stat] + a.effects[stat] + b.effects[stat];
               read(projected);
-              if (figures[problem.rank] <= bestRank || limits.some((at) => figures[at] < problem.targets[at] || figures[at] > problem.ceilings[at])) continue;
+              if (rankingValue(figures[problem.rank], problem.rank) <= bestRank || limits.some((at) => figures[at] < problem.targets[at] || figures[at] > problem.ceilings[at])) continue;
               const spent = new Int32Array(problem.stock.length);
               let available = true;
               for (let slot = 0; slot < 6 && available; slot += 1) {
@@ -351,7 +352,7 @@ function guidedCandidates(problem: RuneOptimizationProblem, craftPools: Candidat
                 }
               }
               if (!available) continue;
-              aBest = a; bBest = b; bestRank = figures[problem.rank]; improved = true;
+              aBest = a; bBest = b; bestRank = rankingValue(figures[problem.rank], problem.rank); improved = true;
             }
           }
           picks[first] = aBest; picks[second] = bBest;

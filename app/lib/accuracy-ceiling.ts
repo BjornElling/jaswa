@@ -1,20 +1,11 @@
 import type { PresetContentId } from './preset-contents';
 import { hardestPveFloor, highestResistanceOn, pveAreaOf } from './pve-stages';
 import type { DungeonId } from './speed-contents';
+import { percentStatCap, resistanceFloorPercent } from './combat-stat-limits';
+export { percentStatCap, resistanceFloorPercent } from './combat-stat-limits';
 
 /** One ceiling, in percent, and the part of the area it holds for where the area has several. */
 export type AccuracyCeiling = { part?: string; percent: number };
-
-/**
- * The chance a harmful effect is resisted never falls below 15 %, however far
- * Accuracy outruns Resistance (Fandom, *Guide: Accuracy and Resistance*: "the
- * Rate of Resistance cannot go below 15%"). Every reading of useful accuracy
- * takes the floor from here.
- */
-export const resistanceFloorPercent = 15;
-
-/** Resistance and Accuracy stop at 100 %, as CRI Rate does (`criticalRateCapPercent`). */
-export const percentStatCap = 100;
 
 /** The most Accuracy that still does anything against enemies whose highest Resistance is this. */
 function againstResistance(highest: number): number {
