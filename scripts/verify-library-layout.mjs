@@ -46,7 +46,13 @@ try {
        library must be able to take a click on one without its heading moving. */
     for (const [pageName, toggleName] of [['Monster Stats', 'Storage'], ['Artifacts', 'Engraved'], ['Gems & Grinds', 'Usable']]) {
       await railButton(pageName).click();
-      const tablePage = page.locator('.data-table-page').first();
+      /* Gems & Grinds keeps its table under Your box, closed until opened. */
+      if (pageName === 'Gems & Grinds') {
+        const box = page.locator('details.bar').filter({ has: page.locator('summary', { hasText: 'Your box' }) });
+        if (!await box.evaluate((details) => details.open)) await box.locator('summary').click();
+      }
+      /* Other pages keep their tables mounted and hidden, so the page shown is the visible one. */
+      const tablePage = page.locator('.data-table-page:visible').first();
       await tablePage.waitFor();
       await page.evaluate(() => window.scrollTo(0, 0));
 
