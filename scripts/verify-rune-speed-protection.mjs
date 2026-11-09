@@ -192,10 +192,11 @@ assert.equal(rerollRuleProblems({ ...openRule, slots: [2], mains: [...rerollMain
 assert.equal(isRerollTarget({ ...rune, slot: 2, mainStatId: 8 }, [{ ...openRule, slots: [2], mains: [...rerollMainOptions] }], 'reapp', false), true);
 assert.ok(rerollRuleProblems({ ...openRule, slots: [2], mains: [8, 10] }).length);
 assert.equal(rerollRuleProblems({ ...openRule, slots: [2, 4], mains: [8, 10] }).length, 0);
-const full = { ...openRule, name: 'A long custom rule '.repeat(30), kind: 'refine', sets: [...reappSetOptions],
+const full = { ...openRule, kind: 'refine', sets: [...reappSetOptions],
   slots: [1, 2, 3, 4, 5, 6], mains: [...rerollMainOptions], minimumRarity: 'Legend', innate: 'yes' };
 assert.equal(rerollRuleProblems(full).length, 0);
 assert.deepEqual(readRerollRules([full]), [full]);
+assert.deepEqual(readRerollRules([{ ...full, name: 'Former title', slots: [6, 2, 4] }]), [{ ...full, slots: [6, 2, 4] }]);
 assert.deepEqual(readRerollRules([]), []);
 assert.deepEqual(readRerollRules(undefined), defaultRerollRules());
 assert.equal(readRerollRules([full, full])[1].id === full.id, false);
@@ -225,7 +226,7 @@ assert.equal(split.length, 2);
 assert.deepEqual(split.map((rule) => rule.kind), ['reapp', 'refine']);
 assert.equal(new Set(split.map((rule) => rule.id)).size, 2);
 for (const rule of split) {
-  for (const field of ['name', 'sets', 'minimumRarity', 'mains', 'slots']) assert.deepEqual(rule[field], full[field]);
+  for (const field of ['sets', 'minimumRarity', 'mains', 'slots']) assert.deepEqual(rule[field], full[field]);
   assert.equal(rule.innate, 'yes');
 }
 assert.equal(readRerollRules([{ ...formerFields, requiresInnate: false }])[0].innate, 'both');

@@ -9,7 +9,10 @@ import type { RuneRarity } from '../lib/runes';
 
 const kindLabels = { reapp: 'Re-app', refine: 'Refine' };
 const innateLabels = { yes: 'Yes', both: 'Both', no: 'No' };
-const ruleName = (rule: RerollRule) => rule.name.trim() || 'Untitled rule';
+const ruleTitle = (rule: RerollRule) => {
+  const slots = reappSlots.filter((slot) => rule.slots.length === 0 || rule.slots.includes(slot));
+  return `${slots.length === 1 ? 'Slot' : 'Slots'} ${slots.join(', ')}`;
+};
 
 export function ReappTargetList({ rules, onChange }: {
   rules: readonly RerollRule[];
@@ -27,9 +30,9 @@ export function ReappTargetList({ rules, onChange }: {
     {(['reapp', 'refine'] as const).map((kind) => {
       const kindRules = rules.filter((rule) => rule.kind === kind);
       const label = kindLabels[kind];
-      return <section className="reroll-rule-column" aria-label={`${label} rules`} key={kind}>
+      return <section className="reroll-rule-column" aria-label={label} key={kind}>
         <header className="reroll-toolbar">
-          <h3 className="editor-block-title">{label} rules</h3>
+          <h3 className="editor-block-title">{label}</h3>
           <Button ref={(button) => { add.current[kind] = button; }} aria-haspopup="dialog"
             onClick={(event) => edit(newRerollRule(crypto.randomUUID(), kind), true, event.currentTarget)}>Add {label} rule</Button>
         </header>
@@ -37,16 +40,15 @@ export function ReappTargetList({ rules, onChange }: {
         <div className="role-list">
           {kindRules.map((rule) => <article key={rule.id} className="reapp-card">
             <header className="role-head">
-              <div className="role-title"><h4 className="reapp-name" title={ruleName(rule)}>{ruleName(rule)}</h4></div>
+              <div className="role-title"><h4 className="reapp-name" title={ruleTitle(rule)}>{ruleTitle(rule)}</h4></div>
               <div className="role-actions">
-                <Button size="compact" aria-label={`Edit ${ruleName(rule)}`} aria-haspopup="dialog"
+                <Button size="compact" aria-label={`Edit ${ruleTitle(rule)}`} aria-haspopup="dialog"
                   onClick={(event) => edit(rule, false, event.currentTarget)}>Edit</Button>
-                <Button size="compact" tone="danger" aria-label={`Delete ${ruleName(rule)}`}
+                <Button size="compact" tone="danger" aria-label={`Delete ${ruleTitle(rule)}`}
                   onClick={() => { onChange(rules.filter((entry) => entry.id !== rule.id)); add.current[kind]?.focus(); }}>Delete</Button>
               </div>
             </header>
             <div className="role-rows">
-              <RuleRow label="Slots">{rule.slots.length ? rule.slots.join(', ') : 'Any slot'}</RuleRow>
               <RuleRow label="Rune type">{rule.sets.length ? rule.sets.join(', ') : 'Any set'}</RuleRow>
               <RuleRow label="Min rarity">{rule.minimumRarity}</RuleRow>
               <RuleRow label="Innate required">{innateLabels[rule.innate]}</RuleRow>
@@ -84,7 +86,7 @@ function RuleEditor({ draft, isNew, onCancel, onSave }: {
   const form = useRef<HTMLFormElement>(null);
   const problems = rerollRuleProblems(rule);
   const update = (change: Partial<RerollRule>) => setRule((current) => ({ ...current, ...change }));
-  useEffect(() => { form.current?.querySelector<HTMLInputElement>('input')?.focus(); }, []);
+  useEffect(() => { form.current?.querySelector<HTMLButtonElement>('.reroll-slots-field button')?.focus(); }, []);
   useEffect(() => {
     function keyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') { event.preventDefault(); onCancel(); }
@@ -101,20 +103,19 @@ function RuleEditor({ draft, isNew, onCancel, onSave }: {
   function submit(event: FormEvent) { event.preventDefault(); if (!problems.length) onSave(rule); }
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
     <form ref={form} className="dialog editor reapp-editor" role="dialog" aria-modal="true" aria-labelledby="reroll-editor-title" onSubmit={submit}>
-      <header className="editor-head"><p className="eyebrow">{kindLabels[rule.kind]} rules</p><h2 id="reroll-editor-title">{isNew ? 'Add' : 'Edit'} {kindLabels[rule.kind]} rule</h2></header>
+      <header className="editor-head"><p className="eyebrow">{kindLabels[rule.kind]}</p><h2 id="reroll-editor-title">{isNew ? 'Add' : 'Edit'} {kindLabels[rule.kind]} rule</h2></header>
       <div className="editor-body reapp-editor-body">
-        <label className="field reroll-name-field"><span className="filter-label">Rule name</span><input aria-label="Rule name" value={rule.name} placeholder="Untitled rule" onChange={(event) => update({ name: event.target.value })} /></label>
         <div className="reroll-slots-field"><Choices label="Slots" options={reappSlots.map((slot) => ({ value: slot, label: String(slot) }))} chosen={rule.slots} onChange={(slots) => update({ slots })} /></div>
-        <TokenChoiceField label="Rune type" description="Rune type" empty="Any set"
-          options={reappSetOptions.map((name) => ({ value: name, label: name }))}
-          chosen={rule.sets} onChange={(sets) => update({ sets })} />
-        <TokenChoiceField label="Main stat" description="Main stat" empty="Any main"
+        <TokenChoiceField label="Main stat" description="Main stat" empty="Any main" className="reroll-main-field"
           options={rerollMainOptions.map((id) => ({ value: id, label: runeStatName(id) ?? String(id) }))}
           chosen={rule.mains} onChange={(mains) => update({ mains })} />
-        <label className="field"><span className="filter-label">Min rarity</span><Dropdown aria-label="Min rarity" value={rule.minimumRarity} onChange={(event) => update({ minimumRarity: event.target.value as RuneRarity })}>
+        <TokenChoiceField label="Rune type" description="Rune type" empty="Any set" className="reroll-set-field"
+          options={reappSetOptions.map((name) => ({ value: name, label: name }))}
+          chosen={rule.sets} onChange={(sets) => update({ sets })} />
+        <label className="field reroll-rarity-field"><span className="filter-label">Min rarity</span><Dropdown aria-label="Min rarity" value={rule.minimumRarity} onChange={(event) => update({ minimumRarity: event.target.value as RuneRarity })}>
           {runeRarities.map((rarity) => <option key={rarity}>{rarity}</option>)}
         </Dropdown></label>
-        <fieldset className="reroll-choices"><legend className="filter-label">Innate required</legend>
+        <fieldset className="reroll-choices reroll-innate-field"><legend className="filter-label">Innate required</legend>
           <div className="reroll-options">{innateRequirements.map((innate) => <FilterButton key={innate}
             active={rule.innate === innate} onClick={() => update({ innate })}>{innateLabels[innate]}</FilterButton>)}</div>
         </fieldset>

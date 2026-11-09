@@ -293,12 +293,12 @@ export function TokenChoiceLine<T extends string | number>({
     /* A line near the foot of a dialog opens upwards, inside its scrolling body. */
     const below = bottom - line.bottom;
     const above = line.top - top;
-    if (box.height <= below || above <= below) return;
-    element.dataset.above = '';
-    /* A box clips what overruns its top without letting it be scrolled to, so
-       an upward menu is held to the room it has and scrolls its own list. */
-    const room = above - 8;
-    if (box.height > room) element.style.maxHeight = `${room}px`;
+    const opensAbove = box.height > below && above > below;
+    if (opensAbove) element.dataset.above = '';
+    /* Either direction stays inside the editor; the menu scrolls its own list
+       instead of making the editor scroll to reach its last option. */
+    const room = Math.max(0, (opensAbove ? above : below) - 8);
+    if (box.height > room) element.style.maxHeight = `${room / scale}px`;
   }, [panel, visible]);
 
   /* Focus goes back to the line once the menu has closed, from an effect

@@ -101,23 +101,27 @@ Unsellable keep their own labels.
 
 ### 3.1 Re-app/refine targets
 
-Rune Settings holds two columns under **Re-app/refine target**: **Re-app rules** on the
-left and **Refine rules** on the right. Each has its own **Add Re-app rule** or
+Rune Settings holds two columns under **Re-app/refine target**: **Re-app** on the
+left and **Refine** on the right. Each has its own **Add Re-app rule** or
 **Add Refine rule** button and independent empty state. Add, edit or delete any number
-of named rules. The stone is decided when a rule is added; the editor has no Target
-control, and rules cannot be duplicated. Empty lists stay empty after reload. Names
-need not be unique; identifiers must be.
+of rules. The stone is decided when a rule is added; the editor has no Target
+control, and rules cannot be duplicated. Empty lists stay empty after reload. Slot headings need not be unique; identifiers must be.
 
-Each card holds five rows: **Slots**, **Rune type**, **Min rarity**, **Innate required**
+The slots are the card's derived heading, in ascending numerical order: **Slot 2** or
+**Slots 2, 4, 6**. No selected slots means all six, and the heading lists them. There is
+no manual name or repeated Slots row. The heading is vertically centred with Edit and
+Delete. Each card holds four rows: **Rune type**, **Min rarity**, **Innate required**
 and **Main stat**. These rows have the same fixed height and no horizontal dividers.
 Long values truncate on one line, with the complete text available on hover and to
 assistive technology. There is no Compatibility row. Each column keeps its own place
 when a rule is added to the other; narrow screens stack Re-app above Refine.
 
-The compact editor starts with the name and Slots, then Rune type beside Main stat,
-and Min rarity beside Innate required. Rune type and Main stat use the filters' shared
+The compact editor puts Slots beside Main stat, then Rune type across the full width.
+Min rarity and Innate required each take one third of the row below; the final third
+stays empty. Rune type and Main stat use the filters' shared
 multi-choice dropdown with removable pills and a counted overflow. Its menu stays
-inside the scrolling editor, so filling a line cannot scroll the fields sideways. **Innate required**
+inside the scrolling editor in either direction; its list scrolls to reach the last
+option without moving the fields. **Innate required**
 uses three exclusive filter buttons, in the order **Yes**, **Both**, **No**: Yes requires
 an innate, Both accepts either state, and No requires no innate. Both is the default for
 a new rule. The chosen button stays chosen when clicked again. There is no Enabled
@@ -144,8 +148,8 @@ for Violent, Legend and an innate, with SPD/ATK % in slot 2, CRI Dmg/HP % in slo
 HP %/ATK % in slot 6. Refine uses the same slots, mains and rarity, allows either innate
 state, and accepts Despair, Fight, Rage, Swift, Vampire, Violent and Will.
 
-Previously saved combined rules become one rule in each column, with the same name
-and conditions and distinct identifiers. A former innate requirement of true becomes
+Previously saved combined rules become one rule in each column, with the same
+conditions and distinct identifiers. A former innate requirement of true becomes
 Yes; false becomes Both, preserving its original meaning rather than forbidding innates.
 Rules previously switched off stay left out. Only the current rule shape is written.
 

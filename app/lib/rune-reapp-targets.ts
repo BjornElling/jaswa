@@ -104,7 +104,6 @@ export type InnateRequirement = typeof innateRequirements[number];
 
 export type RerollRule = Omit<ReappTarget, 'enabled' | 'requiresInnate'> & {
   id: string;
-  name: string;
   kind: RerollKind;
   innate: InnateRequirement;
   /** Empty means every slot, without selecting the controls for the user. */
@@ -114,7 +113,7 @@ export type RerollRule = Omit<ReappTarget, 'enabled' | 'requiresInnate'> & {
 export const rerollMainOptions = runeStatIds.filter((id) => reappSlots.some((slot) => slotMainProperties[slot].includes(id)));
 
 export function newRerollRule(id: string, kind: RerollKind = 'reapp'): RerollRule {
-  return { id, name: '', kind, slots: [], sets: [], minimumRarity: 'Legend', mains: [], innate: 'both' };
+  return { id, kind, slots: [], sets: [], minimumRarity: 'Legend', mains: [], innate: 'both' };
 }
 
 /** Keep impossible combinations visible instead of silently changing either choice. */
@@ -131,7 +130,7 @@ export function rerollRuleProblems(rule: RerollRule): string[] {
 
 function rulesFromSlots(targets: readonly ReappTarget[], kind: RerollKind): RerollRule[] {
   return targets.flatMap(({ enabled, requiresInnate, ...target }, at) => enabled ? [{
-    ...target, id: `${kind}-${at + 1}`, name: `${kind === 'reapp' ? 'Re-app' : 'Refine'} · Slot ${at + 1}`,
+    ...target, id: `${kind}-${at + 1}`,
     kind, slots: [at + 1], innate: requiresInnate ? 'yes' : 'both',
   }] : []);
 }
@@ -175,7 +174,6 @@ export function readRerollRules(value: unknown): RerollRule[] {
       : typeof entry.requiresInnate === 'boolean' ? entry.requiresInnate ? 'yes' : 'both' : blank.innate;
     return kinds.map((kind, at) => ({
       id: at === 0 ? id : uniqueId(`${id}:refine`),
-      name: typeof entry.name === 'string' ? entry.name : blank.name,
       kind, innate,
       slots: isListOf(entry.slots, reappSlots) ? entry.slots : blank.slots,
       sets: isListOf(entry.sets, reappSetOptions) ? entry.sets : blank.sets,
