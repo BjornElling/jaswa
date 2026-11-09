@@ -54,7 +54,9 @@ rename: `runePotentialPresets` holds the roles when no `runeRoles` key exists,
 and a monster profile area stored as `default` reads as `scenario` when no
 `scenario` area is stated. Neither is ever written. The former `reappTargets` and `refineTargets` slot choices
 are also read as individual reroll rules when no `rerollRules` list exists. Only
-`rerollRules` is written, and a deliberately empty list stays empty.
+`rerollRules` is written, and a deliberately empty list stays empty. Rules previously
+switched off are left out when read: removing Enabled must not activate them.
+Every remaining rule keeps its conditions, and no Enabled field is written.
 
 ## Session-scoped state
 

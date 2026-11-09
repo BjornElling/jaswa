@@ -367,7 +367,7 @@ label[for] {
 /* Controls name actions, but keep the same body family and measure. */
 .type-control, .button, .filter-reset, .text-link, .radio-line-legend,
 .role-row-label, .expandable-list-toggle, .notice-link,
-.field > span {
+.field > span:where(:not(.filter-label)) {
   font-family: var(--font-body);
   font-size: var(--type-body);
   font-weight: 600;
@@ -3817,26 +3817,25 @@ label[for] {
   .slot-group { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Reroll rules retain the role-card frame; choices never change the editor's tracks. */
+/* Reroll rules retain the role-card frame; the editor uses the filters' compact fields. */
 .reroll-rules { display: grid; gap: var(--s5); }
 .reroll-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--s5); }
-.reroll-toolbar .editor-note { margin: 0; }
-.reapp-card[data-enabled='false'] .reapp-name { color: var(--text-muted); }
+.reroll-toolbar .list-count { margin: 0; }
 .reapp-card .role-row { grid-template-columns: 160px minmax(0, 1fr); }
 .reapp-card .role-row-value { overflow-wrap: anywhere; }
-.dialog.editor.reapp-editor { width: min(1040px, 100%); }
-.reapp-editor-body { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: var(--s6); }
-.reapp-editor-column { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); align-content: start; min-width: 0; }
-.reapp-editor-column .editor-note { margin: 0; }
-.reapp-editor-pair { display: flex; flex-wrap: wrap; align-items: end; gap: var(--s4); }
-.reapp-grade { width: 160px; }
-.reapp-innate { width: 144px; }
-.reapp-editor-pair .jaswa-select { width: 100%; }
+.dialog.editor.reapp-editor { width: min(760px, 100%); }
+.reapp-editor-body { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: var(--s5) var(--s6); }
+.reroll-name-field, .reroll-validation { grid-column: 1 / -1; }
+.dialog .reapp-editor-body .field { min-width: 0; margin: 0; }
+.reapp-editor-body .field > .filter-label { display: block; margin-bottom: var(--s1); }
+.reapp-editor-body .filter-group { min-width: 0; padding-left: 0; border-left: 0; }
+.reapp-editor-body .field .jaswa-select { width: 100%; }
 .reroll-choices { min-width: 0; margin: 0; padding: 0; border: 0; }
-.reroll-options { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
-.reroll-validation { height: 112px; overflow-y: auto; }
-.reroll-validation[data-invalid='true'] { color: var(--state-bad); }
-@media (max-width: 720px) {
+.reroll-choices legend { padding: 0; }
+.reroll-options { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s2); }
+/* Errors occupy two lines even when empty, so fixing a choice never moves Save. */
+.reapp-editor-body .reroll-validation { height: 40px; margin: 0; overflow-y: auto; color: var(--state-bad); }
+@media (max-width: 560px) {
   .reapp-editor-body { grid-template-columns: minmax(0, 1fr); }
   .reapp-card .role-head { flex-wrap: wrap; }
   .reapp-card .role-row { grid-template-columns: 112px minmax(0, 1fr); }
@@ -4511,7 +4510,7 @@ input[type='checkbox']:checked {
 .field { display: block; }
 /* Field labels read as sentence-case text at body size rather than tiny
    caps — at 10px the uppercase tracking was costing legibility. */
-.field > span {
+.field > span:where(:not(.filter-label)) {
   display: block;
   color: var(--text); margin-bottom: var(--s2);
 }

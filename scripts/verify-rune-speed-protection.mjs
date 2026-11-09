@@ -148,7 +148,8 @@ const best = { ...original, bestLineTypes: true };
 const answer = (rules, candidate = rune, advice = best) => withRuneSellProtection(candidate, advice, { ...reappSettings, rerollRules: rules });
 assert.equal(answer([]).verdict, 'sell');
 assert.equal(answer([openRule]).verdict, 'reapp');
-assert.equal(answer([{ ...openRule, enabled: false }]).verdict, 'sell');
+assert.deepEqual(readRerollRules([{ ...openRule, enabled: false }]), []);
+assert.deepEqual(readRerollRules([{ ...openRule, enabled: true }]), [openRule]);
 assert.equal(answer([{ ...openRule, kind: 'refine' }]).verdict, 'refine');
 assert.equal(answer([{ ...openRule, kind: 'refine' }], rune, original).verdict, 'sell');
 assert.equal(answer([{ ...openRule, kind: 'both' }]).verdict, 'refine');
@@ -192,23 +193,26 @@ assert.deepEqual(readRerollRules([full]), [full]);
 assert.deepEqual(readRerollRules([]), []);
 assert.deepEqual(readRerollRules(undefined), defaultRerollRules());
 assert.equal(readRerollRules([full, full])[1].id === full.id, false);
-const damaged = readRerollRules([{ ...full, minimumRarity: 'Mythic', enabled: 'yes' }])[0];
-assert.deepEqual(damaged, { ...full, minimumRarity: 'Legend', enabled: true });
+const damaged = readRerollRules([{ ...full, minimumRarity: 'Mythic' }])[0];
+assert.deepEqual(damaged, { ...full, minimumRarity: 'Legend' });
 assert.deepEqual(readRerollRules([{ ...full, mains: [999] }])[0], { ...full, mains: [] });
 const saved = readPreferences({ ...blank, runePotential: { ...reappSettings, powerUpPolicy: 2, rerollRules: [full] } }, null);
 assert.deepEqual(saved.runePotential.rerollRules, [full]);
 assert.equal(saved.runePotential.powerUpPolicy, 2);
 assert.deepEqual(readPreferences({ ...blank, runePotential: { ...reappSettings, rerollRules: [] } }, null).runePotential.rerollRules, []);
-// Preserve the developer's saved slot choices, including disabled ones; never write the former fields.
+// Preserve active choices without enabling rules the user previously switched off.
 const oldReapp = defaultReappTargets().map((rule, at) => ({ ...rule, enabled: at % 2 === 0, sets: ['Will'], minimumRarity: 'Hero' }));
 const oldRefine = defaultReappTargets('refine').map((rule) => ({ ...rule, requiresInnate: true }));
 const retainedSlots = readPreferences({ runePotential: { reappTargets: oldReapp, refineTargets: oldRefine, powerUpPolicy: 2 } }, null).runePotential;
-assert.equal(retainedSlots.rerollRules.length, 12);
+const previouslyActive = [...oldReapp.map((rule, at) => ({ ...rule, kind: 'reapp', slots: [at + 1] })),
+  ...oldRefine.map((rule, at) => ({ ...rule, kind: 'refine', slots: [at + 1] }))].filter((rule) => rule.enabled);
+assert.equal(retainedSlots.rerollRules.length, previouslyActive.length);
 for (const [at, rule] of retainedSlots.rerollRules.entries()) {
-  const previous = at < 6 ? oldReapp[at] : oldRefine[at - 6];
-  for (const field of ['enabled', 'sets', 'minimumRarity', 'mains', 'requiresInnate']) assert.deepEqual(rule[field], previous[field]);
-  assert.deepEqual(rule.slots, [at % 6 + 1]);
+  for (const field of ['sets', 'minimumRarity', 'mains', 'requiresInnate', 'slots', 'kind']) assert.deepEqual(rule[field], previouslyActive[at][field]);
+  assert.equal('enabled' in rule, false);
 }
+const mixedRules = readPreferences({ runePotential: { rerollRules: [{ ...full, enabled: false }, { ...openRule, enabled: true }] } }, null).runePotential.rerollRules;
+assert.deepEqual(mixedRules, [openRule]);
 assert.equal('reappTargets' in retainedSlots, false);
 assert.equal('refineTargets' in retainedSlots, false);
 assert.equal(retainedSlots.powerUpPolicy, 2);

@@ -1,7 +1,7 @@
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { Button, FilterButton } from './button';
 import { Dropdown } from './dropdown';
-import { CheckboxRow } from './form-controls';
+import { TokenChoiceField } from './token-choice-field';
 import { newRerollRule, reappSetOptions, reappSlots, rerollMainOptions, rerollRuleProblems } from '../lib/rune-reapp-targets';
 import type { RerollRule } from '../lib/rune-reapp-targets';
 import { runeRarities, runeStatName } from '../lib/runes';
@@ -24,15 +24,15 @@ export function ReappTargetList({ rules, onChange }: {
   }
   return <div className="reroll-rules">
     <div className="reroll-toolbar">
-      <p className="editor-note">Match every condition in one rule. Any enabled rule is enough. Refine takes priority over Re-app.</p>
+      <p className="list-count"><b>{rules.length}</b> {rules.length === 1 ? 'rule' : 'rules'}</p>
       <Button ref={add} aria-haspopup="dialog" onClick={(event) => edit(newRerollRule(crypto.randomUUID()), true, event.currentTarget)}>Add rule</Button>
     </div>
     {rules.length === 0 && <p className="notice">No reroll rules. Add a rule to protect Re-app or Refine targets from sale.</p>}
     <div className="role-list">
-      {rules.map((rule) => <article key={rule.id} className="reapp-card" data-enabled={rule.enabled}>
+      {rules.map((rule) => <article key={rule.id} className="reapp-card">
         <header className="role-head">
           <div className="role-title"><h4 className="reapp-name" title={ruleName(rule)}>{ruleName(rule)}</h4>
-            <p className="role-type">{kindLabels[rule.kind]} · {rule.enabled ? 'Enabled' : 'Disabled'}</p>
+            <p className="role-type">{kindLabels[rule.kind]}</p>
           </div>
           <div className="role-actions">
             <Button size="compact" aria-label={`Edit ${ruleName(rule)}`} aria-haspopup="dialog"
@@ -68,7 +68,7 @@ function RuleRow({ label, children }: { label: string; children: ReactNode }) {
 function Choices<T extends string | number>({ label, options, chosen, onChange }: {
   label: string; options: readonly { value: T; label: string }[]; chosen: readonly T[]; onChange: (chosen: T[]) => void;
 }) {
-  return <fieldset className="reroll-choices"><legend className="field-legend">{label}</legend>
+  return <fieldset className="reroll-choices"><legend className="filter-label">{label}</legend>
     <div className="reroll-options">{options.map(({ value, label: text }) => <FilterButton key={value}
       active={chosen.includes(value)} onClick={() => onChange(chosen.includes(value) ? chosen.filter((entry) => entry !== value) : [...chosen, value])}>{text}</FilterButton>)}</div>
   </fieldset>;
@@ -100,34 +100,28 @@ function RuleEditor({ draft, isNew, onCancel, onSave }: {
     <form ref={form} className="dialog editor reapp-editor" role="dialog" aria-modal="true" aria-labelledby="reroll-editor-title" onSubmit={submit}>
       <header className="editor-head"><p className="eyebrow">Re-app/refine target</p><h2 id="reroll-editor-title">{isNew ? 'Add rule' : 'Edit rule'}</h2></header>
       <div className="editor-body reapp-editor-body">
-        <section className="reapp-editor-column" aria-label="Rule conditions">
-          <label className="field"><span>Rule name</span><input aria-label="Rule name" value={rule.name} placeholder="Untitled rule" onChange={(event) => update({ name: event.target.value })} /></label>
-          <div className="reapp-editor-pair">
-            <label className="field"><span>Target</span><Dropdown aria-label="Target" value={rule.kind} onChange={(event) => update({ kind: event.target.value as RerollRule['kind'] })}>
-              {Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </Dropdown></label>
-            <CheckboxRow label="Enabled" checked={rule.enabled} onChange={(enabled) => update({ enabled })} />
-          </div>
-          <Choices label="Slots" options={reappSlots.map((slot) => ({ value: slot, label: String(slot) }))} chosen={rule.slots} onChange={(slots) => update({ slots })} />
-          <Choices label="Main stat" options={rerollMainOptions.map((id) => ({ value: id, label: runeStatName(id) ?? String(id) }))} chosen={rule.mains} onChange={(mains) => update({ mains })} />
-          <div className="reroll-validation editor-note" role="status" aria-live="polite" data-invalid={problems.length > 0}>
-            {problems.length ? problems.join(' ') : 'Every selected slot can carry a chosen main stat. Within each group, any selected value matches; no selection means any value.'}
-          </div>
-        </section>
-        <section className="reapp-editor-column" aria-label="Rune conditions">
-          <Choices label="Rune type" options={reappSetOptions.map((name) => ({ value: name, label: name }))} chosen={rule.sets} onChange={(sets) => update({ sets })} />
-          <div className="reapp-editor-pair">
-            <label className="field reapp-grade"><span>Min rarity</span><Dropdown aria-label="Min rarity" value={rule.minimumRarity} onChange={(event) => update({ minimumRarity: event.target.value as RuneRarity })}>
-              {runeRarities.map((rarity) => <option key={rarity}>{rarity}</option>)}
-            </Dropdown></label>
-            <label className="field reapp-innate"><span>Innate</span><Dropdown aria-label="Innate" value={rule.requiresInnate ? 'yes' : 'any'} onChange={(event) => update({ requiresInnate: event.target.value === 'yes' })}>
-              <option value="any">Any</option><option value="yes">Required</option>
-            </Dropdown></label>
-          </div>
-          <p className="editor-note">Only runes the calculation would sell become targets. All four sub properties must be visible; power up to +12 before using a stone in the game.</p>
-          <p className="editor-note">Re-app changes sub-property types and values. Refine keeps the types and requires the four best types for at least one role build. Ancient or Gem-converted runes cannot be refined. Intangible runes take neither stone.</p>
-          <p className="editor-note">Re-app + Refine tries Refine first, then Re-app. Separate rules let you set different conditions for each stone.</p>
-        </section>
+        <label className="field reroll-name-field"><span className="filter-label">Rule name</span><input aria-label="Rule name" value={rule.name} placeholder="Untitled rule" onChange={(event) => update({ name: event.target.value })} /></label>
+        <Choices label="Target" options={[{ value: 'reapp', label: 'Re-app' }, { value: 'refine', label: 'Refine' }]}
+          chosen={rule.kind === 'both' ? ['reapp', 'refine'] : [rule.kind]}
+          onChange={(chosen) => {
+            if (chosen.length > 0) update({ kind: chosen.length === 2 ? 'both' : chosen[0] as RerollRule['kind'] });
+          }} />
+        <Choices label="Slots" options={reappSlots.map((slot) => ({ value: slot, label: String(slot) }))} chosen={rule.slots} onChange={(slots) => update({ slots })} />
+        <TokenChoiceField label="Rune type" description="Rune type" empty="Any set"
+          options={reappSetOptions.map((name) => ({ value: name, label: name }))}
+          chosen={rule.sets} onChange={(sets) => update({ sets })} />
+        <TokenChoiceField label="Main stat" description="Main stat" empty="Any main"
+          options={rerollMainOptions.map((id) => ({ value: id, label: runeStatName(id) ?? String(id) }))}
+          chosen={rule.mains} onChange={(mains) => update({ mains })} />
+        <label className="field"><span className="filter-label">Min rarity</span><Dropdown aria-label="Min rarity" value={rule.minimumRarity} onChange={(event) => update({ minimumRarity: event.target.value as RuneRarity })}>
+          {runeRarities.map((rarity) => <option key={rarity}>{rarity}</option>)}
+        </Dropdown></label>
+        <label className="field"><span className="filter-label">Innate</span><Dropdown aria-label="Innate" value={rule.requiresInnate ? 'yes' : 'any'} onChange={(event) => update({ requiresInnate: event.target.value === 'yes' })}>
+          <option value="any">Any</option><option value="yes">Required</option>
+        </Dropdown></label>
+        <div className="reroll-validation editor-note" role="status" aria-live="polite" data-invalid={problems.length > 0}>
+          {problems.join(' ')}
+        </div>
       </div>
       <div className="dialog-actions"><Button onClick={onCancel}>Cancel</Button><Button type="submit" tone="primary" disabled={problems.length > 0}>Save rule</Button></div>
     </form>

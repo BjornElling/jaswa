@@ -21,7 +21,7 @@
  * rune worth powering up or keeping. That is a fixed design decision.
  *
  * Rules are independent alternatives: all requirements within one rule must match,
- * and any enabled rule is enough. A rule may name both stones; refinement is
+ * and any rule is enough. A rule may name both stones; refinement is
  * always considered first, regardless of list order.
  */
 import { filterIncludes, filterIsUnrestricted } from './filter-selection';
@@ -99,7 +99,7 @@ export function rerollAllowed(rune: Rune, kind: RerollKind): boolean {
   return !rune.ancient && !rune.subProperties.some((line) => line.gemmed);
 }
 
-export type RerollRule = ReappTarget & {
+export type RerollRule = Omit<ReappTarget, 'enabled'> & {
   id: string;
   name: string;
   kind: RerollKind | 'both';
@@ -110,7 +110,7 @@ export type RerollRule = ReappTarget & {
 export const rerollMainOptions = runeStatIds.filter((id) => reappSlots.some((slot) => slotMainProperties[slot].includes(id)));
 
 export function newRerollRule(id: string): RerollRule {
-  return { id, name: '', kind: 'reapp', slots: [], enabled: true, sets: [], minimumRarity: 'Legend', mains: [], requiresInnate: false };
+  return { id, name: '', kind: 'reapp', slots: [], sets: [], minimumRarity: 'Legend', mains: [], requiresInnate: false };
 }
 
 /** Keep impossible combinations visible instead of silently changing either choice. */
@@ -120,21 +120,21 @@ export function rerollRuleProblems(rule: RerollRule): string[] {
   const blockedSlots = slots.filter((slot) => !rule.mains.some((main) => slotMainProperties[slot]?.includes(main)));
   const blockedMains = rule.mains.filter((main) => !slots.some((slot) => slotMainProperties[slot]?.includes(main)));
   const problems: string[] = [];
-  if (blockedSlots.length) problems.push(`Slots ${blockedSlots.join(', ')} cannot carry any chosen main stat. Change the slots or main stats.`);
-  if (blockedMains.length) problems.push('Some chosen main stats cannot occur in these slots. Change the slots or main stats.');
+  if (blockedSlots.length) problems.push(`Slots ${blockedSlots.join(', ')} cannot carry the chosen main stats.`);
+  if (blockedMains.length) problems.push('Some chosen main stats are unavailable in these slots.');
   return problems;
 }
 
 export function defaultRerollRules(): RerollRule[] {
   return (['reapp', 'refine'] as const).flatMap((kind) => defaultReappTargets(kind)
-    .flatMap((target, at) => target.enabled ? [{ ...target, id: `${kind}-${at + 1}`, name: `${kind === 'reapp' ? 'Re-app' : 'Refine'} · Slot ${at + 1}`, kind, slots: [at + 1] }] : []));
+    .flatMap(({ enabled, ...target }, at) => enabled ? [{ ...target, id: `${kind}-${at + 1}`, name: `${kind === 'reapp' ? 'Re-app' : 'Refine'} · Slot ${at + 1}`, kind, slots: [at + 1] }] : []));
 }
 
-/** Whether any enabled rule of this kind describes the rune. */
+/** Whether any rule of this kind describes the rune. */
 export function isRerollTarget(rune: Rune, rules: readonly RerollRule[], kind: RerollKind, bestLineTypes: boolean): boolean {
   if (!rerollAllowed(rune, kind) || !showsAllLines(rune)) return false;
   if (kind === 'refine' && !bestLineTypes) return false;
-  return rules.some((rule) => rule.enabled && (rule.kind === kind || rule.kind === 'both')
+  return rules.some((rule) => (rule.kind === kind || rule.kind === 'both')
     && rerollRuleProblems(rule).length === 0
     && filterIncludes(rule.slots, rune.slot, reappSlots)
     && filterIncludes(rule.sets, rune.setName, reappSetOptions)
@@ -148,7 +148,8 @@ export function readRerollRules(value: unknown): RerollRule[] {
   if (!Array.isArray(value)) return defaultRerollRules();
   const ids = new Set<string>();
   return value.flatMap((entry) => {
-    if (!isRecord(entry)) return [];
+    // Removing the switch must not activate a rule the user had switched off.
+    if (!isRecord(entry) || entry.enabled === false) return [];
     const id = typeof entry.id === 'string' && entry.id.trim() && !ids.has(entry.id) ? entry.id : crypto.randomUUID();
     ids.add(id);
     const blank = newRerollRule(id);
@@ -157,7 +158,6 @@ export function readRerollRules(value: unknown): RerollRule[] {
       name: typeof entry.name === 'string' ? entry.name : blank.name,
       kind: entry.kind === 'reapp' || entry.kind === 'refine' || entry.kind === 'both' ? entry.kind : blank.kind,
       slots: isListOf(entry.slots, reappSlots) ? entry.slots : blank.slots,
-      enabled: typeof entry.enabled === 'boolean' ? entry.enabled : blank.enabled,
       sets: isListOf(entry.sets, reappSetOptions) ? entry.sets : blank.sets,
       minimumRarity: runeRarities.includes(entry.minimumRarity as RuneRarity) ? entry.minimumRarity as RuneRarity : blank.minimumRarity,
       mains: isListOf(entry.mains, rerollMainOptions) ? entry.mains : blank.mains,
@@ -172,7 +172,7 @@ export function readStoredRerollRules(settings: unknown): RerollRule[] {
   if ('rerollRules' in settings) return readRerollRules(settings.rerollRules);
   if (!('reappTargets' in settings) && !('refineTargets' in settings)) return defaultRerollRules();
   return (['reapp', 'refine'] as const).flatMap((kind) => readReappTargets(settings[kind === 'reapp' ? 'reappTargets' : 'refineTargets'], kind)
-    .map((target, at) => ({ ...target, id: `${kind}-${at + 1}`, name: `${kind === 'reapp' ? 'Re-app' : 'Refine'} · Slot ${at + 1}`, kind, slots: [at + 1] })));
+    .flatMap(({ enabled, ...target }, at) => enabled ? [{ ...target, id: `${kind}-${at + 1}`, name: `${kind === 'reapp' ? 'Re-app' : 'Refine'} · Slot ${at + 1}`, kind, slots: [at + 1] }] : []));
 }
 
 /** What a build is, as far as ranking its line types goes. */

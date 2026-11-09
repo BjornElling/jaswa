@@ -9,10 +9,25 @@ async function openTargets(page: Page) {
   if (await disclosure.getAttribute('open') === null) await disclosure.locator('summary').click();
   return page.locator('.reapp-card');
 }
-const geometry = (page: Page) => page.getByRole('dialog').locator('input, .reroll-choices, .reapp-editor-pair, .dialog-actions').evaluateAll((nodes) => nodes.map((node) => {
+const geometry = (page: Page) => page.getByRole('dialog').locator('.reapp-editor-body > *, .dialog-actions').evaluateAll((nodes) => nodes.map((node) => {
   const { x, y, width, height } = node.getBoundingClientRect();
   return { x, y, width, height };
 }));
+
+async function choose(page: Page, label: string, value: string) {
+  await page.getByRole('dialog').getByRole('button', { name: new RegExp(`^${label}:`) }).click();
+  await page.getByRole('menu', { name: label, exact: true }).getByRole('menuitem', { name: value, exact: true }).click();
+}
+
+async function chooseRemaining(page: Page, label: string) {
+  while (true) {
+    await page.getByRole('dialog').getByRole('button', { name: new RegExp(`^${label}:`) }).click();
+    const menu = page.getByRole('menu', { name: label, exact: true });
+    const items = menu.getByRole('menuitem');
+    if (await items.count() === 0) { await page.keyboard.press('Escape'); return; }
+    await items.first().click();
+  }
+}
 
 test('rules handle empty and full input, incompatible mains, stable choices and persistence', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -35,10 +50,15 @@ test('rules handle empty and full input, incompatible mains, stable choices and 
   await cards.getByRole('button', { name: 'Edit Untitled rule', exact: true }).click();
   const edit = page.getByRole('dialog', { name: 'Edit rule' });
   const slots = edit.getByRole('group', { name: 'Slots', exact: true });
-  const mains = edit.getByRole('group', { name: 'Main stat', exact: true });
   await page.screenshot({ path: testInfo.outputPath('editor-before-choices.png') });
   const initial = await geometry(page);
-  await mains.getByRole('button', { name: 'ATK %', exact: true }).click();
+  await edit.getByRole('button', { name: /^Main stat:/ }).click();
+  await page.screenshot({ path: testInfo.outputPath('editor-main-menu.png') });
+  expect(await geometry(page)).toEqual(initial);
+  await page.keyboard.press('Escape');
+  await expect(edit).toBeVisible();
+  await expect(edit.getByRole('button', { name: /^Main stat:/ })).toBeFocused();
+  await choose(page, 'Main stat', 'ATK %');
   await slots.getByRole('button', { name: '1', exact: true }).click();
   await expect(edit.getByRole('status')).toContainText('cannot carry');
   await expect(edit.getByRole('button', { name: 'Save rule', exact: true })).toBeDisabled();
@@ -47,34 +67,48 @@ test('rules handle empty and full input, incompatible mains, stable choices and 
   await slots.getByRole('button', { name: '1', exact: true }).click();
   await slots.getByRole('button', { name: '2', exact: true }).click();
   await expect(edit.getByRole('button', { name: 'Save rule', exact: true })).toBeEnabled();
-  await mains.getByRole('button', { name: 'CRI Dmg', exact: true }).click();
+  await choose(page, 'Main stat', 'CRI Dmg');
   await expect(edit.getByRole('status')).toContainText('Some chosen main stats');
   await slots.getByRole('button', { name: '4', exact: true }).click();
   await expect(edit.getByRole('button', { name: 'Save rule', exact: true })).toBeEnabled();
   await edit.getByRole('textbox', { name: 'Rule name' }).fill('A very long rule name with room for every rune '.repeat(10));
-  await edit.getByRole('combobox', { name: 'Target', exact: true }).selectOption('both');
+  const target = edit.getByRole('group', { name: 'Target', exact: true });
+  const reapp = target.getByRole('button', { name: 'Re-app', exact: true });
+  const refine = target.getByRole('button', { name: 'Refine', exact: true });
+  await expect(reapp).toHaveAttribute('aria-pressed', 'true');
+  await expect(refine).toHaveAttribute('aria-pressed', 'false');
+  await reapp.click();
+  await expect(reapp).toHaveAttribute('aria-pressed', 'true');
+  await refine.click();
+  await reapp.click();
+  await expect(refine).toHaveAttribute('aria-pressed', 'true');
+  await expect(reapp).toHaveAttribute('aria-pressed', 'false');
+  await refine.click();
+  await expect(refine).toHaveAttribute('aria-pressed', 'true');
+  await reapp.click();
   await edit.getByRole('combobox', { name: 'Min rarity', exact: true }).selectOption('Normal');
   await edit.getByRole('combobox', { name: 'Innate', exact: true }).selectOption('yes');
-  for (const group of [slots, mains, edit.getByRole('group', { name: 'Rune type', exact: true })]) {
-    for (const button of await group.getByRole('button').all()) if (await button.getAttribute('aria-pressed') !== 'true') await button.click();
-  }
+  for (const button of await slots.getByRole('button').all()) if (await button.getAttribute('aria-pressed') !== 'true') await button.click();
+  await chooseRemaining(page, 'Main stat');
+  await chooseRemaining(page, 'Rune type');
   // The complete main group, like an empty group, permits any legal main in slot 2.
   for (const slot of [1, 3, 4, 5, 6]) await slots.getByRole('button', { name: String(slot), exact: true }).click();
   await expect(edit.getByRole('button', { name: 'Save rule', exact: true })).toBeEnabled();
   for (const slot of [1, 3, 4, 5, 6]) await slots.getByRole('button', { name: String(slot), exact: true }).click();
   const full = await geometry(page);
   expect(full).toEqual(initial);
-  await edit.getByRole('checkbox', { name: 'Enabled', exact: true }).uncheck();
-  expect(await geometry(page)).toEqual(full);
-  await page.screenshot({ path: testInfo.outputPath('editor-full-disabled.png') });
-  await edit.getByRole('checkbox', { name: 'Enabled', exact: true }).check();
+  await expect(edit.getByRole('checkbox')).toHaveCount(0);
+  await expect(edit.getByRole('status')).toBeEmpty();
+  await expect(edit.getByText('Only runes the calculation would sell', { exact: false })).toHaveCount(0);
+  await expect(edit.getByText('Every selected slot can carry', { exact: false })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('editor-full.png') });
   await edit.getByRole('button', { name: 'Save rule', exact: true }).click();
   await expect(cards).toHaveCount(1);
-  await expect(cards.locator('.role-type')).toHaveText('Re-app + Refine · Enabled');
+  await expect(cards.locator('.role-type')).toHaveText('Re-app + Refine');
   await page.screenshot({ path: testInfo.outputPath('rules-full.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.reload(); await openTargets(page);
-  await expect(cards.locator('.role-type')).toHaveText('Re-app + Refine · Enabled');
+  await expect(cards.locator('.role-type')).toHaveText('Re-app + Refine');
   await cards.getByRole('button', { name: /^Duplicate/ }).click();
   await page.getByRole('dialog').getByRole('textbox', { name: 'Rule name' }).fill('Second rule');
   await page.getByRole('dialog').getByRole('button', { name: 'Save rule', exact: true }).click();
@@ -96,7 +130,7 @@ test('a rule changes real clean-up advice and can be removed without recalculati
   const editor = page.getByRole('dialog');
   await editor.getByRole('textbox', { name: 'Rule name' }).fill('Fatal slot 4');
   await editor.getByRole('group', { name: 'Slots', exact: true }).getByRole('button', { name: '4', exact: true }).click();
-  await editor.getByRole('group', { name: 'Rune type', exact: true }).getByRole('button', { name: 'Fatal', exact: true }).click();
+  await choose(page, 'Rune type', 'Fatal');
   await editor.getByRole('button', { name: 'Save rule', exact: true }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();

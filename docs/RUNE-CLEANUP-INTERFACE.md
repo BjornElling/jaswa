@@ -102,13 +102,24 @@ Unsellable keep their own labels.
 ### 3.1 Re-app/refine targets
 
 Rune Settings holds a user-managed list under **Re-app/refine target**. Add, edit,
-duplicate, disable or delete any number of named rules. The empty list means no reroll
+duplicate or delete any number of named rules. The empty list means no reroll
 protection and stays empty after reload. Names need not be unique; identifiers must be.
 The cards retain the role-card frame and muted data of Rune Settings.
 
-Each rule chooses **Re-app**, **Refine** or **Re-app + Refine**, **Slots**, **Rune type**
+The compact editor starts with the name, then **Target** beside **Slots**, **Rune type**
+beside **Main stat**, and **Min rarity** beside **Innate**. Target uses the same filter
+buttons as Slots: Re-app starts selected; Refine can be added or chosen alone, and the
+last selected target cannot be removed. Rune type and Main stat use the filters' shared
+multi-choice dropdown with removable pills and a counted overflow. There is no Enabled
+switch. Every saved rule applies; delete one to stop applying it. Existing saved rules
+that were switched off are left out, so removing the switch never activates them.
+There is no explanatory copy or success message in the editor. Only an incompatible
+combination shows an error, in a reserved two-line area that keeps the fields and footer
+still.
+
+Each rule chooses **Re-app**, **Refine** or both, **Slots**, **Rune type**
 (sets; Intangible not offered), **Min rarity**, **Innate** (Any/Required) and **Main stat**.
-All conditions within one rule must hold; any enabled rule is enough. Empty inclusive
+All conditions within one rule must hold; any rule is enough. Empty inclusive
 groups mean any value, as does selecting every option. Any innate satisfies Required;
 Any allows a rune with or without one. Every main stat is named precisely, including
 flat versus percentage ATK, DEF and HP; odd slots retain their fixed flat main.
@@ -125,14 +136,14 @@ combinations remain visible for correction but cannot recommend a stone.
 A combined rule uses the same conditions for both stones, tries Refine first and falls
 back to Re-app when refinement does not apply. Separate rules are useful when the two
 stones need different sets, mains or innate requirements. Rule order never determines
-priority. All fields keep their place when the target or Enabled choice changes.
+priority. All fields keep their place when a target or dropdown selection changes.
 
 The shipped rules cover slots 2, 4 and 6 separately for each stone. Re-app asks for
 Violent, Legend and an innate, with SPD/ATK % in slot 2, CRI Dmg/HP % in slot 4 and
 HP %/ATK % in slot 6. Refine uses the same slots, mains and rarity, asks for no innate,
 and accepts Despair, Fight, Rage, Swift, Vampire, Violent and Will. Previously saved
-slot choices become individual rules, disabled choices included, so the developer's
-preferences survive the redesign. Only the rule list is written afterwards.
+active slot choices become individual rules, so the developer's
+choices survive the redesign without activating previously disabled targets. Only the rule list is written afterwards.
 
 No level is asked. A target needs a rune showing all four sub properties — a Legend from
 `+0`, any lesser rarity from `+12` — because both stones are judged by which four types
@@ -154,7 +165,7 @@ such a rune is never a refine target. The engine carries the answer out as
 
 **A reroll is offered only instead of a sale.** This is a fixed decision, not a setting:
 a target is asked only of a rune the engine would sell. A rune it would power up or keep
-keeps that advice whatever a target describes. Where an enabled rule describes a rune
+keeps that advice whatever a target describes. Where a rule describes a rune
 the engine would sell, the rune gets **Refine** or **Re-app** ahead of the other
 safeguards — Refine asked first, since a rune that already holds the four best types needs
 only better rolls. Neither is ever Sell, and neither changes a figure. The Advice filter
@@ -169,6 +180,13 @@ before this change from `ff75011` with `npm run verify:rune-cleanup-equivalence 
 The post-change comparison reports every public field identical, with zero tolerance.
 The local baseline remains in `work/rune-cleanup-equivalence-baseline.json`, as required
 by the equivalence gate; this record identifies the fresh capture used for the redesign.
+
+**Compact editor verification, November 9, 2026.** A fresh full baseline was captured
+from `970a281` before removing Enabled with
+`npm run verify:rune-cleanup-equivalence -- --write --baseline=work/reroll-editor-equivalence-baseline.json`.
+Its SHA-256 is `aab8df2a901ec0d850ff4464b3c7189a5d492125b1ea389b8ab086ca7502050e`:
+582 runes across six scenarios. The field comparison remains exact. The target rule
+checks separately cover loading active choices without bringing disabled choices back.
 
 ## 4. The Location cell
 
