@@ -6,7 +6,7 @@ import { readMonsterPreferences } from './monster-preferences';
 import { readRuneHolds } from './rune-holds';
 import { blankCraftIgnores, readCraftIgnores } from './craft-ignores';
 import { blankCraftViewChoices, readCraftViewChoices } from './craft-view-choices';
-import { defaultReappTargets, readReappTargets } from './rune-reapp-targets';
+import { defaultRerollRules, readStoredRerollRules } from './rune-reapp-targets';
 import { readMonsterPriority, readPresetPriority } from './monster-priority';
 import { readOwnPresets, runeSlots } from './presets';
 import { readArtifact } from './artifacts';
@@ -48,8 +48,7 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
   potentialValueMinimum: 90,
   neverSellEngravedPlacements: true,
   neverSellReappTargets: true,
-  reappTargets: defaultReappTargets('reapp'),
-  refineTargets: defaultReappTargets('refine'),
+  rerollRules: defaultRerollRules(),
 };
 
 /* Half credit is the honest midpoint of §19.6's question, and it reads as
@@ -139,10 +138,8 @@ const artifactSettingChecks: FieldChecks<ArtifactSettings> = {
   recalculate: isOneOf(artifactRecalculateModes),
 };
 
-/* The re-app and refine targets are six records each with fields of their own,
-   so they are read one field at a time by their own reader rather than kept or
-   lost whole here. `neverSellReappTargets` keeps its stored name and covers both. */
-type RerollTargetKeys = 'reappTargets' | 'refineTargets';
+/* Rules have a field-by-field reader of their own. */
+type RerollTargetKeys = 'rerollRules';
 const runePotentialSettingChecks: FieldChecks<Omit<RunePotentialSettings, RerollTargetKeys>> = {
   powerUpPolicy: isWholeNumberIn(1, 5),
   runeQuality: isWholeNumberIn(1, 5),
@@ -160,8 +157,7 @@ const runePotentialSettingChecks: FieldChecks<Omit<RunePotentialSettings, Reroll
 function readRunePotentialSettings(value: unknown, fallback: RunePotentialSettings): RunePotentialSettings {
   return {
     ...readSettings<Omit<RunePotentialSettings, RerollTargetKeys>>(value, fallback, runePotentialSettingChecks),
-    reappTargets: readReappTargets(isRecord(value) ? value.reappTargets : undefined, 'reapp'),
-    refineTargets: readReappTargets(isRecord(value) ? value.refineTargets : undefined, 'refine'),
+    rerollRules: readStoredRerollRules(value),
   };
 }
 

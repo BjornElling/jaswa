@@ -250,8 +250,8 @@ export function RuneSetupSection({ game, settings, roles, general, hardwareAccel
     </Disclosure>
 
     <Disclosure title="Re-app/refine target" sessionKey="rune-setup.reapp-targets">
-      <ReappTargetList reapp={settings.reappTargets} refine={settings.refineTargets}
-        onChange={(kind, targets) => void onUpdate(kind === 'reapp' ? { reappTargets: targets } : { refineTargets: targets })} />
+      <ReappTargetList rules={settings.rerollRules}
+        onChange={(rerollRules) => void onUpdate({ rerollRules })} />
     </Disclosure>
 
     {editing && <RoleEditor

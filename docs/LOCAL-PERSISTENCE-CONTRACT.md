@@ -39,7 +39,7 @@ reader, one choice at a time (`app/lib/preference-reading.ts`, AGENTS.md §0):
 | `runeHolds` | Runes the user made unsellable | `readRuneHolds` (`rune-holds.ts`) |
 | `craftIgnores` | One shared list of Gems & Grinds suggestions waved away with Ignore: a `rune_id`, an item kind and the item's stat | `readCraftIgnores` (`craft-ignores.ts`) |
 | `craftViews` | Per Gems & Grinds view — Recommendations, Best use and What's missing — the question (item kind, chosen stack, assumed roll) and the filters | `readCraftViewChoices` (`craft-view-choices.ts`) |
-| `runePotential` | Rune Clean-up settings, with its re-app and refine targets | `readSettings`; `readReappTargets` (`rune-reapp-targets.ts`) |
+| `runePotential` | Rune Clean-up settings, with its named reroll rules | `readSettings`; `readStoredRerollRules` (`rune-reapp-targets.ts`) |
 | `runeRoles` | Rune Clean-up roles | `readRuneRoles` (`rune-roles.ts`) |
 | `artifacts` | Artifact Optimization settings: owned or Lv. 40 monsters only, how conversion stones are sourced, the assumed stone value, the acceptable-property factor | `readSettings` |
 | `speedTuning` | Per preset: the turn order wanted, what-if display speeds by `unit_id`, *No speed tuning* | `readSpeedTuningPreferences` (`speed-tuning-preferences.ts`) |
@@ -52,7 +52,9 @@ reader, one choice at a time (`app/lib/preference-reading.ts`, AGENTS.md §0):
 Two former keys are still read so the user's own choices survive their
 rename: `runePotentialPresets` holds the roles when no `runeRoles` key exists,
 and a monster profile area stored as `default` reads as `scenario` when no
-`scenario` area is stated. Neither is ever written.
+`scenario` area is stated. Neither is ever written. The former `reappTargets` and `refineTargets` slot choices
+are also read as individual reroll rules when no `rerollRules` list exists. Only
+`rerollRules` is written, and a deliberately empty list stays empty.
 
 ## Session-scoped state
 

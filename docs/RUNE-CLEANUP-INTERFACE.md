@@ -101,18 +101,38 @@ Unsellable keep their own labels.
 
 ### 3.1 Re-app/refine targets
 
-Rune Settings holds, under **Re-app/refine target**, one card per slot, always six. Each
-card carries a re-app target on the left and a refine target on the right
-(`RUNE-CANONICAL.md` §9 says what the two stones do). Cards are edited, never added or
-deleted; the editor holds both halves side by side, each with its own *Disable* switch.
+Rune Settings holds a user-managed list under **Re-app/refine target**. Add, edit,
+duplicate, disable or delete any number of named rules. The empty list means no reroll
+protection and stays empty after reload. Names need not be unique; identifiers must be.
+The cards retain the role-card frame and muted data of Rune Settings.
 
-A target asks for a **Rune type** (sets; Intangible not offered), a **Min rarity**,
-**Must have innate** (Yes/No) and, on slots 2, 4 and 6 only, **Must have main stat** from
-the mains the slot can roll. An empty list asks nothing; Yes is met by any innate, No asks
-nothing. The shipped re-app targets enable slots 2, 4 and 6 and ask for Violent, Legend
-and an innate, with SPD/ATK % in slot 2, CRI Dmg/HP % in slot 4 and HP %/ATK % in slot 6.
-The shipped refine targets enable the same slots with the same mains and rarity, ask for
-no innate, and accept Despair, Fight, Rage, Swift, Vampire, Violent and Will.
+Each rule chooses **Re-app**, **Refine** or **Re-app + Refine**, **Slots**, **Rune type**
+(sets; Intangible not offered), **Min rarity**, **Innate** (Any/Required) and **Main stat**.
+All conditions within one rule must hold; any enabled rule is enough. Empty inclusive
+groups mean any value, as does selecting every option. Any innate satisfies Required;
+Any allows a rune with or without one. Every main stat is named precisely, including
+flat versus percentage ATK, DEF and HP; odd slots retain their fixed flat main.
+
+The editor keeps choices visible and never removes one to make another fit. Every
+selected slot must support at least one selected main, and every selected main must
+occur in at least one selected slot. No main selection and the complete main group both
+remove the main-stat requirement. With no selected slots, this checks all six.
+An incompatible combination explains the problem and blocks Save rule. Thus ATK %
+with slot 1 is invalid, flat ATK with slot 1 is valid, and SPD plus CRI Dmg across slots
+2 and 4 is valid: either main matches where the game permits it. Stored incompatible
+combinations remain visible for correction but cannot recommend a stone.
+
+A combined rule uses the same conditions for both stones, tries Refine first and falls
+back to Re-app when refinement does not apply. Separate rules are useful when the two
+stones need different sets, mains or innate requirements. Rule order never determines
+priority. All fields keep their place when the target or Enabled choice changes.
+
+The shipped rules cover slots 2, 4 and 6 separately for each stone. Re-app asks for
+Violent, Legend and an innate, with SPD/ATK % in slot 2, CRI Dmg/HP % in slot 4 and
+HP %/ATK % in slot 6. Refine uses the same slots, mains and rarity, asks for no innate,
+and accepts Despair, Fight, Rage, Swift, Vampire, Violent and Will. Previously saved
+slot choices become individual rules, disabled choices included, so the developer's
+preferences survive the redesign. Only the rule list is written afterwards.
 
 No level is asked. A target needs a rune showing all four sub properties — a Legend from
 `+0`, any lesser rarity from `+12` — because both stones are judged by which four types
@@ -134,13 +154,21 @@ such a rune is never a refine target. The engine carries the answer out as
 
 **A reroll is offered only instead of a sale.** This is a fixed decision, not a setting:
 a target is asked only of a rune the engine would sell. A rune it would power up or keep
-keeps that advice whatever a target describes. Where its slot's target describes a rune
+keeps that advice whatever a target describes. Where an enabled rule describes a rune
 the engine would sell, the rune gets **Refine** or **Re-app** ahead of the other
 safeguards — Refine asked first, since a rune that already holds the four best types needs
 only better rolls. Neither is ever Sell, and neither changes a figure. The Advice filter
 asks one question of both, **Re-app/refine**; the row still names the stone. Statistics
 counts either at `+12` as kept. `rune-reapp-targets.ts` owns the rule and reads each
 stored target field by field.
+
+**Redesign verification, November 9, 2026.** The full equivalence baseline was captured
+before this change from `ff75011` with `npm run verify:rune-cleanup-equivalence -- --write`:
+582 runes across six scenarios, SHA-256
+`aab8df2a901ec0d850ff4464b3c7189a5d492125b1ea389b8ab086ca7502050e`.
+The post-change comparison reports every public field identical, with zero tolerance.
+The local baseline remains in `work/rune-cleanup-equivalence-baseline.json`, as required
+by the equivalence gate; this record identifies the fresh capture used for the redesign.
 
 ## 4. The Location cell
 

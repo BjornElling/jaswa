@@ -300,7 +300,7 @@ label[for] {
 .route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
 .rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder,
 /* Heading — a named block inside a panel, one step below a title. */
-.type-heading, .field-legend, .slider-label, .editor-block-title, .reapp-column-title,
+.type-heading, .field-legend, .slider-label, .editor-block-title,
 .artifact-conversion-title, .artifact-scope-box h3, .artifact-scope-subheading,
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
@@ -3614,7 +3614,7 @@ label[for] {
   margin-right: var(--s2);
 }
 
-/* A re-app/refine slot wears the role card's frame under a name of its own, so
+/* A re-app/refine rule wears the role card's frame under a name of its own, so
    `.role-card` still means a role to every reader that counts or drags them. */
 .role-card, .reapp-card {
   border: 1px solid var(--line);
@@ -3817,36 +3817,30 @@ label[for] {
   .slot-group { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Re-app/refine targets borrow the role card, one slot per card with re-app
-   on the left and refine on the right. A switched-off target folds to its
-   heading and recedes; a slot with both off dims its name too. */
-.reapp-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s6); }
-.reapp-column { min-width: 0; }
-.reapp-column-head { display: flex; align-items: baseline; gap: var(--s3); }
-.reapp-column-title { margin: 0; color: var(--text-strong); }
-.reapp-column .role-type { margin: 0; }
-.reapp-column[data-enabled='false'] .reapp-column-title,
+/* Reroll rules retain the role-card frame; choices never change the editor's tracks. */
+.reroll-rules { display: grid; gap: var(--s5); }
+.reroll-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--s5); }
+.reroll-toolbar .editor-note { margin: 0; }
 .reapp-card[data-enabled='false'] .reapp-name { color: var(--text-muted); }
 .reapp-card .role-row { grid-template-columns: 160px minmax(0, 1fr); }
-/* The editor gives each side a column of its own, wide enough for the three
-   short dropdowns to share a line. */
+.reapp-card .role-row-value { overflow-wrap: anywhere; }
 .dialog.editor.reapp-editor { width: min(1040px, 100%); }
-.reapp-editor-body { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; column-gap: var(--s6); }
-/* One shrinkable track: an auto track grows to its widest pill row, which pushed
-   a column holding eight sets past its half of the dialog. */
+.reapp-editor-body { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: var(--s6); }
 .reapp-editor-column { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); align-content: start; min-width: 0; }
-.reapp-editor-column-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); }
-/* A way out, not a question: quieter than the fields below it, box and words alike. */
-.reapp-disable .checkbox-row { color: var(--text-muted); }
-.reapp-disable input[type='checkbox'] { border-color: var(--line-strong); }
-.reapp-disable input[type='checkbox']:not(:checked) { background: transparent; }
-@media (max-width: 720px) {
-  .reapp-columns, .reapp-editor-body { grid-template-columns: minmax(0, 1fr); }
-}
-.reapp-editor-pair { display: flex; flex-wrap: wrap; gap: var(--s4); }
+.reapp-editor-column .editor-note { margin: 0; }
+.reapp-editor-pair { display: flex; flex-wrap: wrap; align-items: end; gap: var(--s4); }
 .reapp-grade { width: 160px; }
 .reapp-innate { width: 144px; }
 .reapp-editor-pair .jaswa-select { width: 100%; }
+.reroll-choices { min-width: 0; margin: 0; padding: 0; border: 0; }
+.reroll-options { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
+.reroll-validation { height: 112px; overflow-y: auto; }
+.reroll-validation[data-invalid='true'] { color: var(--state-bad); }
+@media (max-width: 720px) {
+  .reapp-editor-body { grid-template-columns: minmax(0, 1fr); }
+  .reapp-card .role-head { flex-wrap: wrap; }
+  .reapp-card .role-row { grid-template-columns: 112px minmax(0, 1fr); }
+}
 
 .checkbox-row {
   display: flex; align-items: center; gap: var(--s3);

@@ -1056,11 +1056,11 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
      asked first: a rune that already holds the four best types needs only better
      rolls, which is what refinement gives without gambling the types. */
   if (settings.neverSellReappTargets && original.verdict === 'sell') {
-    for (const [kind, targets, reason] of [
-      ['refine', settings.refineTargets, 'Refine target'],
-      ['reapp', settings.reappTargets, 'Re-app target'],
+    for (const [kind, reason] of [
+      ['refine', 'Refine target'],
+      ['reapp', 'Re-app target'],
     ] as const) {
-      if (isRerollTarget(rune, targets, kind, advice.bestLineTypes)) {
+      if (isRerollTarget(rune, settings.rerollRules, kind, advice.bestLineTypes)) {
         return { ...advice, unprotectedAdvice: original, verdict: kind, reason };
       }
     }

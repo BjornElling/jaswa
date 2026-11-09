@@ -8,7 +8,7 @@ import type { CraftIgnores } from './craft-ignores';
 import type { CraftViewChoices } from './craft-view-choices';
 import type { RuneLocks } from './rune-locks';
 import type { RuneOptimizationSettings } from './rune-optimization-settings';
-import type { ReappTargets } from './rune-reapp-targets';
+import type { RerollRule } from './rune-reapp-targets';
 import type { RuneRole } from './rune-roles';
 import type { SpeedTuningPreferences } from './speed-tuning-preferences';
 
@@ -32,7 +32,7 @@ export type ImportedGame = {
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type ArtifactConversionStoneMode = 'none' | 'owned' | 'theoretical';
 /** No Gem or Grindstone setting: every rune is judged with `canonicalCraftCredit`. */
-export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null; neverSellEngravedPlacements: boolean; neverSellReappTargets: boolean; reappTargets: ReappTargets; refineTargets: ReappTargets };
+export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null; neverSellEngravedPlacements: boolean; neverSellReappTargets: boolean; rerollRules: readonly RerollRule[] };
 /**
  * How the companion program is allowed to feed JASWA once it is connected.
  *

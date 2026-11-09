@@ -3,7 +3,7 @@ import { readRunes } from '../app/lib/runes.ts';
 import { runeAdvice, withRuneSellProtection } from '../app/lib/rune-cleanup-advice.ts';
 import { defaultRunePotentialSettings, blankPreferences, readPreferences } from '../app/lib/file-imports.ts';
 import { readFileSync } from 'node:fs';
-import { defaultReappTargets } from '../app/lib/rune-reapp-targets.ts';
+import { defaultReappTargets, defaultRerollRules, newRerollRule, readRerollRules, rerollRuleProblems, isRerollTarget, rerollMainOptions, reappSetOptions } from '../app/lib/rune-reapp-targets.ts';
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { prepareRuneCandidate, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
 import { maximumRoll, subPropertyTargetStat } from '../app/lib/rune-properties.ts';
@@ -141,134 +141,78 @@ assert.equal(withRuneSellProtection(rune, original, engravingSettings, summarize
 assert.equal(withRuneSellProtection(rune, original, engravingSettings, summarizeRunePlacement(places.slice(1, 2))).reason, 'Preset engraving protected');
 console.log('PASS: any non-Scenario engraving protects a rune, Scenario alone does not, placement changes reverse protection, and saved choices survive independently.');
 
-/* Re-app targets: one per slot, matched field by field, and an advice of their own. */
-const reappSettings = { ...engravingSettings, neverSellEngravedPlacements: false };
-const openTarget = { enabled: true, sets: [], minimumRarity: 'Normal', mains: [], requiresInnate: false };
-const onlySlot = (target) => defaultReappTargets().map((entry, at) => (at === rune.slot - 1 ? target : { ...entry, enabled: false }));
-const reappWith = (target, candidate = rune) =>
-  withRuneSellProtection(candidate, original, { ...reappSettings, reappTargets: onlySlot(target) });
-// Nothing filled in: an enabled target with no requirement takes every rune of its slot the engine would sell.
-const open = reappWith(openTarget);
-assert.equal(open.verdict, 'reapp');
-assert.equal(open.reason, 'Re-app target');
-assert.equal(open.maxValue, original.maxValue);
-assert.equal(open.chance, original.chance);
-assert.equal(withRuneSellProtection(rune, open, { ...reappSettings, neverSellReappTargets: false, reappTargets: onlySlot(openTarget) }).verdict, 'sell');
-assert.equal(reappWith({ ...openTarget, enabled: false }).verdict, 'sell');
-// Each requirement on its own, both sides of it.
-const otherSet = rune.setName === 'Violent' ? 'Will' : 'Violent';
-assert.equal(reappWith({ ...openTarget, sets: [rune.setName] }).verdict, 'reapp');
-assert.equal(reappWith({ ...openTarget, sets: [otherSet] }).verdict, 'sell');
-assert.equal(reappWith({ ...openTarget, minimumRarity: rune.rarity }).verdict, 'reapp');
-assert.equal(reappWith({ ...openTarget, minimumRarity: 'Legend' }, { ...rune, rarity: 'Hero' }).verdict, 'sell');
-// No level is asked, only all four lines shown: a Legend from +0, a lesser rune once its fourth line is added.
-assert.equal(rune.subProperties.length, 4);
-assert.equal(reappWith(openTarget, { ...rune, level: 0, rarity: 'Legend' }).verdict, 'reapp');
-const threeLines = { ...rune, rarity: 'Hero', level: 9, subProperties: rune.subProperties.slice(0, 3) };
-assert.equal(reappWith(openTarget, threeLines).verdict, 'sell');
-assert.equal(reappWith(openTarget, { ...rune, rarity: 'Hero', level: 12 }).verdict, 'reapp');
-assert.equal(reappWith({ ...openTarget, mains: [rune.mainStatId] }).verdict, 'reapp');
-assert.equal(reappWith({ ...openTarget, mains: [rune.mainStatId === 8 ? 2 : 8] }).verdict, 'sell');
-// Yes asks for an innate, whichever one; No asks nothing, so runes with and without one pass.
-for (const prefixStatId of [1, 2, 8, 12]) {
-  assert.equal(reappWith({ ...openTarget, requiresInnate: true }, { ...rune, prefixStatId, prefixValue: 5 }).verdict, 'reapp');
-}
-assert.equal(reappWith({ ...openTarget, requiresInnate: true }, { ...rune, prefixStatId: null, prefixValue: 0 }).verdict, 'sell');
-// An empty list or No asks nothing: a rune with any innate, or none, and any main passes it.
-assert.equal(reappWith(openTarget, { ...rune, prefixStatId: null, prefixValue: 0 }).verdict, 'reapp');
-for (const prefixStatId of [1, 2, 8, 12]) {
-  assert.equal(reappWith(openTarget, { ...rune, prefixStatId, prefixValue: 5 }).verdict, 'reapp');
-}
-for (const mainStatId of [1, 2, 4, 8]) {
-  assert.equal(reappWith(openTarget, { ...rune, slot: 2, mainStatId }).verdict, 'sell'); // slot 2's target is off here
-}
-const slotTwoOpen = defaultReappTargets().map((entry, at) => (at === 1 ? openTarget : { ...entry, enabled: false }));
-for (const mainStatId of [1, 2, 4, 8]) {
-  assert.equal(withRuneSellProtection({ ...rune, slot: 2, mainStatId }, original,
-    { ...reappSettings, reappTargets: slotTwoOpen }).verdict, 'reapp');
-}
-// Another slot's target never reaches this rune.
-assert.equal(withRuneSellProtection({ ...rune, slot: rune.slot === 1 ? 2 : 1 }, original,
-  { ...reappSettings, reappTargets: onlySlot(openTarget) }).verdict, 'sell');
-// It outranks the other safeguards, and clears back to the engine's own answer.
-const speedToo = withRuneSellProtection(rune, original, { ...settings, reappTargets: onlySlot(openTarget) });
-assert.equal(speedToo.verdict, 'reapp');
-assert.equal(withRuneSellProtection(rune, speedToo, { ...settings, neverSellReappTargets: false }).reason, 'Pre-grind SPD protected');
-
-// The shipped six: slots 2, 4 and 6 on, Violent Legend with an innate.
-const shipped = defaultReappTargets();
-assert.deepEqual(shipped.map((target) => target.enabled), [false, true, false, true, false, true]);
-assert.deepEqual(shipped.map((target) => target.mains), [[], [8, 4], [], [10, 2], [], [2, 4]]);
-assert.ok(shipped.every((target) => target.requiresInnate === true));
-assert.ok(shipped.every((target) => target.sets.join() === 'Violent' && target.minimumRarity === 'Legend'));
-assert.ok(shipped.every((target) => !('minimumLevel' in target)));
-assert.equal(defaultRunePotentialSettings.neverSellReappTargets, true);
-
-// Everything filled in survives a reload as stated; one bad field costs only itself.
-const full = shipped.map((target, at) => ({ ...target, enabled: true, sets: ['Violent', 'Will', 'Swift'],
-  minimumRarity: 'Hero', requiresInnate: at % 2 === 0 }));
-assert.deepEqual(readPreferences({ ...blank, runePotential: { ...reappSettings, reappTargets: full } }, null).runePotential.reappTargets, full);
-const damaged = full.map((target) => ({ ...target }));
-damaged[1].mains = [10];            // not a slot-2 main
-damaged[2].minimumRarity = 'Mythic';
-damaged[0].minimumLevel = 12;      // a choice the contract no longer has, left out
-damaged[3].sets = ['Violent', 'Violent'];
-damaged[5].requiresInnate = 'no';   // a word, not the choice
-const reread = readPreferences({ ...blank, runePotential: { ...reappSettings, powerUpPolicy: 2, reappTargets: damaged } }, null).runePotential;
-assert.equal(reread.powerUpPolicy, 2);
-assert.deepEqual(reread.reappTargets[1], { ...full[1], mains: shipped[1].mains });
-assert.deepEqual(reread.reappTargets[2], { ...full[2], minimumRarity: 'Legend' });
-assert.deepEqual(reread.reappTargets[3], { ...full[3], sets: ['Violent'] });
-assert.deepEqual(reread.reappTargets[5], { ...full[5], requiresInnate: true });
-assert.deepEqual(reread.reappTargets[4], full[4]);
-assert.deepEqual(reread.reappTargets[0], full[0]);
-const missingReapp = { ...reappSettings, powerUpPolicy: 2 };
-delete missingReapp.neverSellReappTargets;
-delete missingReapp.reappTargets;
-const restored = readPreferences({ ...blank, runePotential: missingReapp }, null).runePotential;
-assert.equal(restored.powerUpPolicy, 2);
-assert.equal(restored.neverSellReappTargets, true);
-assert.deepEqual(restored.reappTargets, shipped);
-console.log('PASS: re-app targets match slot by slot, outrank the other safeguards, and survive a reload one field at a time.');
-
-/* Refine targets: the game's own exclusions, the four best line types of some build, and Refine first. */
-const shippedRefine = defaultReappTargets('refine');
-assert.deepEqual(defaultRunePotentialSettings.refineTargets, shippedRefine);
-// Re-app's slots, grade and mains, with no innate asked, over seven sets.
-assert.deepEqual(shippedRefine.map(({ enabled, minimumRarity, mains }) => ({ enabled, minimumRarity, mains })),
-  shipped.map(({ enabled, minimumRarity, mains }) => ({ enabled, minimumRarity, mains })));
-assert.ok(shippedRefine.every((target) => !target.requiresInnate));
-assert.deepEqual(shippedRefine[0].sets, ['Despair', 'Fight', 'Rage', 'Swift', 'Vampire', 'Violent', 'Will']);
-const withRefine = (target, extra = {}) => ({ ...reappSettings, reappTargets: onlySlot({ ...openTarget, enabled: false }),
-  refineTargets: onlySlot(target), ...extra });
+/* Rules are alternatives, conditions within one rule are intersections. */
+const reappSettings = { ...engravingSettings, neverSellEngravedPlacements: false, rerollRules: [] };
+const openRule = { ...newRerollRule('test'), minimumRarity: 'Normal' };
 const best = { ...original, bestLineTypes: true };
-assert.equal(withRuneSellProtection(rune, best, withRefine(openTarget)).verdict, 'refine');
-assert.equal(withRuneSellProtection(rune, best, withRefine(openTarget)).reason, 'Refine target');
-assert.equal(withRuneSellProtection(rune, original, withRefine(openTarget)).verdict, 'sell');
-assert.equal(withRuneSellProtection({ ...rune, ancient: true }, best, withRefine(openTarget)).verdict, 'sell');
-assert.equal(withRuneSellProtection({ ...rune, subProperties: rune.subProperties.map((line, at) => at === 0 ? { ...line, gemmed: true } : line) },
-  best, withRefine(openTarget)).verdict, 'sell');
-assert.equal(withRuneSellProtection({ ...rune, setName: 'Intangible' }, best, withRefine(openTarget)).verdict, 'sell');
-assert.equal(withRuneSellProtection({ ...rune, setName: 'Intangible' }, best, { ...reappSettings, reappTargets: onlySlot(openTarget) }).verdict, 'sell');
-// Below +12 is allowed on purpose: the rune is kept while it climbs to where the stone works.
-assert.equal(withRuneSellProtection({ ...rune, level: 0 }, best, withRefine(openTarget)).verdict, 'refine');
-assert.equal(withRuneSellProtection(threeLines, best, withRefine(openTarget)).verdict, 'sell');
-// A grindstone does not bar refinement; only a gem does.
-assert.equal(withRuneSellProtection({ ...rune, subProperties: rune.subProperties.map((line) => ({ ...line, grind: 3 })) },
-  best, withRefine(openTarget)).verdict, 'refine');
-// Both describe the rune: Refine is asked first, and Re-app answers where refinement does not.
-assert.equal(withRuneSellProtection(rune, best, withRefine(openTarget, { reappTargets: onlySlot(openTarget) })).verdict, 'refine');
-assert.equal(withRuneSellProtection(rune, original, withRefine(openTarget, { reappTargets: onlySlot(openTarget) })).verdict, 'reapp');
-assert.equal(withRuneSellProtection(rune, best, withRefine(openTarget, { neverSellReappTargets: false })).verdict, 'sell');
-// A design rule, not a preference: a stone is only ever offered instead of a sale.
-// A rune the engine would power up or keep is left as the engine said, by both kinds.
-for (const verdict of ['power-up', 'keep']) {
-  const worthKeeping = { ...best, verdict, reason: 'engine' };
-  const both = withRefine(openTarget, { reappTargets: onlySlot(openTarget) });
-  assert.equal(withRuneSellProtection(rune, worthKeeping, both).verdict, verdict);
-  assert.equal(withRuneSellProtection(rune, { ...worthKeeping, bestLineTypes: false }, both).verdict, verdict);
-  assert.equal(withRuneSellProtection(rune, worthKeeping, both).unprotectedAdvice, undefined);
+const answer = (rules, candidate = rune, advice = best) => withRuneSellProtection(candidate, advice, { ...reappSettings, rerollRules: rules });
+assert.equal(answer([]).verdict, 'sell');
+assert.equal(answer([openRule]).verdict, 'reapp');
+assert.equal(answer([{ ...openRule, enabled: false }]).verdict, 'sell');
+assert.equal(answer([{ ...openRule, kind: 'refine' }]).verdict, 'refine');
+assert.equal(answer([{ ...openRule, kind: 'refine' }], rune, original).verdict, 'sell');
+assert.equal(answer([{ ...openRule, kind: 'both' }]).verdict, 'refine');
+assert.equal(answer([{ ...openRule, kind: 'both' }], rune, original).verdict, 'reapp');
+assert.equal(answer([{ ...openRule, kind: 'both' }], { ...rune, ancient: true }).verdict, 'reapp');
+const gemmed = { ...rune, subProperties: rune.subProperties.map((line, at) => at === 0 ? { ...line, gemmed: true } : line) };
+assert.equal(answer([{ ...openRule, kind: 'both' }], gemmed).verdict, 'reapp');
+for (const kind of ['refine', 'both', 'reapp']) {
+  const rule = { ...openRule, kind };
+  assert.equal(answer([rule], { ...rune, setName: 'Intangible' }).verdict, 'sell');
+  assert.equal(answer([rule], { ...rune, subProperties: rune.subProperties.slice(0, 3) }).verdict, 'sell');
+  assert.equal(answer([rule], { ...rune, level: 0 }).verdict, kind === 'reapp' ? 'reapp' : 'refine');
+  for (const verdict of ['power-up', 'keep']) assert.equal(answer([rule], rune, { ...best, verdict }).verdict, verdict);
 }
+for (const rules of [[openRule, { ...openRule, id: 'other', kind: 'refine' }], [{ ...openRule, id: 'other', kind: 'refine' }, openRule]]) {
+  assert.equal(answer(rules).verdict, 'refine');
+  assert.equal(answer(rules, rune, original).verdict, 'reapp');
+}
+for (const [field, value] of [['sets', ['Will']], ['slots', [1]], ['minimumRarity', 'Legend'], ['requiresInnate', true]]) {
+  const candidate = { ...rune, rarity: 'Hero', prefixStatId: null };
+  assert.equal(answer([{ ...openRule, [field]: value }], candidate).verdict, 'sell');
+  assert.equal(answer([{ ...openRule, [field]: value }, { ...openRule, id: 'alternative' }], candidate).verdict, 'reapp');
+}
+// Every legal slot/main pair passes; impossible pairs remain visible and never match.
+const slotMains = { 1: [3], 2: [1, 2, 3, 4, 5, 6, 8], 3: [5], 4: [1, 2, 3, 4, 5, 6, 9, 10], 5: [1], 6: [1, 2, 3, 4, 5, 6, 11, 12] };
+for (const slot of [1, 2, 3, 4, 5, 6]) for (const main of rerollMainOptions) {
+  const rule = { ...openRule, slots: [slot], mains: [main] };
+  const legal = slotMains[slot].includes(main);
+  assert.equal(rerollRuleProblems(rule).length === 0, legal, `slot ${slot}, main ${main}`);
+  assert.equal(isRerollTarget({ ...rune, slot, mainStatId: main }, [rule], 'reapp', false), legal);
+}
+assert.ok(rerollRuleProblems({ ...openRule, slots: [], mains: [8] }).length);
+assert.equal(rerollRuleProblems({ ...openRule, slots: [2], mains: [...rerollMainOptions] }).length, 0);
+assert.equal(isRerollTarget({ ...rune, slot: 2, mainStatId: 8 }, [{ ...openRule, slots: [2], mains: [...rerollMainOptions] }], 'reapp', false), true);
+assert.ok(rerollRuleProblems({ ...openRule, slots: [2], mains: [8, 10] }).length);
+assert.equal(rerollRuleProblems({ ...openRule, slots: [2, 4], mains: [8, 10] }).length, 0);
+const full = { ...openRule, name: 'A long custom rule '.repeat(30), kind: 'both', sets: [...reappSetOptions],
+  slots: [1, 2, 3, 4, 5, 6], mains: [...rerollMainOptions], minimumRarity: 'Legend', requiresInnate: true };
+assert.equal(rerollRuleProblems(full).length, 0);
+assert.deepEqual(readRerollRules([full]), [full]);
+assert.deepEqual(readRerollRules([]), []);
+assert.deepEqual(readRerollRules(undefined), defaultRerollRules());
+assert.equal(readRerollRules([full, full])[1].id === full.id, false);
+const damaged = readRerollRules([{ ...full, minimumRarity: 'Mythic', enabled: 'yes' }])[0];
+assert.deepEqual(damaged, { ...full, minimumRarity: 'Legend', enabled: true });
+assert.deepEqual(readRerollRules([{ ...full, mains: [999] }])[0], { ...full, mains: [] });
+const saved = readPreferences({ ...blank, runePotential: { ...reappSettings, powerUpPolicy: 2, rerollRules: [full] } }, null);
+assert.deepEqual(saved.runePotential.rerollRules, [full]);
+assert.equal(saved.runePotential.powerUpPolicy, 2);
+assert.deepEqual(readPreferences({ ...blank, runePotential: { ...reappSettings, rerollRules: [] } }, null).runePotential.rerollRules, []);
+// Preserve the developer's saved slot choices, including disabled ones; never write the former fields.
+const oldReapp = defaultReappTargets().map((rule, at) => ({ ...rule, enabled: at % 2 === 0, sets: ['Will'], minimumRarity: 'Hero' }));
+const oldRefine = defaultReappTargets('refine').map((rule) => ({ ...rule, requiresInnate: true }));
+const retainedSlots = readPreferences({ runePotential: { reappTargets: oldReapp, refineTargets: oldRefine, powerUpPolicy: 2 } }, null).runePotential;
+assert.equal(retainedSlots.rerollRules.length, 12);
+for (const [at, rule] of retainedSlots.rerollRules.entries()) {
+  const previous = at < 6 ? oldReapp[at] : oldRefine[at - 6];
+  for (const field of ['enabled', 'sets', 'minimumRarity', 'mains', 'requiresInnate']) assert.deepEqual(rule[field], previous[field]);
+  assert.deepEqual(rule.slots, [at % 6 + 1]);
+}
+assert.equal('reappTargets' in retainedSlots, false);
+assert.equal('refineTargets' in retainedSlots, false);
+assert.equal(retainedSlots.powerUpPolicy, 2);
+console.log('PASS: arbitrary reroll rules, all slot/main pairs, alternatives, both stones, exclusions, priority and preference survival.');
 
 /* The four best types, read in the engine's own prices, for any build that takes the main. */
 /* A real level-40 line for every family: the fixture's own reference lines are all

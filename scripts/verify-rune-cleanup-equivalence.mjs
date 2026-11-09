@@ -240,7 +240,7 @@ const baseSettings = {
   neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,
   neverSellPotentialValue: false, potentialValueMinimum: null,
   neverSellEngravedPlacements: false,
-  neverSellReappTargets: false, reappTargets: [], refineTargets: [],
+  neverSellReappTargets: false, rerollRules: [],
 };
 
 const shipped = defaultRuneRoles();
