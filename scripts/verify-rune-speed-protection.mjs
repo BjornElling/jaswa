@@ -152,12 +152,18 @@ assert.deepEqual(readRerollRules([{ ...openRule, enabled: false }]), []);
 assert.deepEqual(readRerollRules([{ ...openRule, enabled: true }]), [openRule]);
 assert.equal(answer([{ ...openRule, kind: 'refine' }]).verdict, 'refine');
 assert.equal(answer([{ ...openRule, kind: 'refine' }], rune, original).verdict, 'sell');
-assert.equal(answer([{ ...openRule, kind: 'both' }]).verdict, 'refine');
-assert.equal(answer([{ ...openRule, kind: 'both' }], rune, original).verdict, 'reapp');
-assert.equal(answer([{ ...openRule, kind: 'both' }], { ...rune, ancient: true }).verdict, 'reapp');
+const bothRules = [openRule, { ...openRule, id: 'refine', kind: 'refine' }];
+assert.equal(answer(bothRules).verdict, 'refine');
+assert.equal(answer(bothRules, rune, original).verdict, 'reapp');
+assert.equal(answer(bothRules, { ...rune, ancient: true }).verdict, 'reapp');
 const gemmed = { ...rune, subProperties: rune.subProperties.map((line, at) => at === 0 ? { ...line, gemmed: true } : line) };
-assert.equal(answer([{ ...openRule, kind: 'both' }], gemmed).verdict, 'reapp');
-for (const kind of ['refine', 'both', 'reapp']) {
+assert.equal(answer(bothRules, gemmed).verdict, 'reapp');
+for (const kind of ['reapp', 'refine']) for (const innate of ['yes', 'both', 'no']) for (const prefixStatId of [null, 8]) {
+  const result = answer([{ ...openRule, kind, innate }], { ...rune, prefixStatId });
+  const matches = innate === 'both' || (prefixStatId !== null) === (innate === 'yes');
+  assert.equal(result.verdict, matches ? kind : 'sell', `${kind}, ${innate}, prefix ${prefixStatId}`);
+}
+for (const kind of ['refine', 'reapp']) {
   const rule = { ...openRule, kind };
   assert.equal(answer([rule], { ...rune, setName: 'Intangible' }).verdict, 'sell');
   assert.equal(answer([rule], { ...rune, subProperties: rune.subProperties.slice(0, 3) }).verdict, 'sell');
@@ -168,7 +174,7 @@ for (const rules of [[openRule, { ...openRule, id: 'other', kind: 'refine' }], [
   assert.equal(answer(rules).verdict, 'refine');
   assert.equal(answer(rules, rune, original).verdict, 'reapp');
 }
-for (const [field, value] of [['sets', ['Will']], ['slots', [1]], ['minimumRarity', 'Legend'], ['requiresInnate', true]]) {
+for (const [field, value] of [['sets', ['Will']], ['slots', [1]], ['minimumRarity', 'Legend'], ['innate', 'yes']]) {
   const candidate = { ...rune, rarity: 'Hero', prefixStatId: null };
   assert.equal(answer([{ ...openRule, [field]: value }], candidate).verdict, 'sell');
   assert.equal(answer([{ ...openRule, [field]: value }, { ...openRule, id: 'alternative' }], candidate).verdict, 'reapp');
@@ -186,8 +192,8 @@ assert.equal(rerollRuleProblems({ ...openRule, slots: [2], mains: [...rerollMain
 assert.equal(isRerollTarget({ ...rune, slot: 2, mainStatId: 8 }, [{ ...openRule, slots: [2], mains: [...rerollMainOptions] }], 'reapp', false), true);
 assert.ok(rerollRuleProblems({ ...openRule, slots: [2], mains: [8, 10] }).length);
 assert.equal(rerollRuleProblems({ ...openRule, slots: [2, 4], mains: [8, 10] }).length, 0);
-const full = { ...openRule, name: 'A long custom rule '.repeat(30), kind: 'both', sets: [...reappSetOptions],
-  slots: [1, 2, 3, 4, 5, 6], mains: [...rerollMainOptions], minimumRarity: 'Legend', requiresInnate: true };
+const full = { ...openRule, name: 'A long custom rule '.repeat(30), kind: 'refine', sets: [...reappSetOptions],
+  slots: [1, 2, 3, 4, 5, 6], mains: [...rerollMainOptions], minimumRarity: 'Legend', innate: 'yes' };
 assert.equal(rerollRuleProblems(full).length, 0);
 assert.deepEqual(readRerollRules([full]), [full]);
 assert.deepEqual(readRerollRules([]), []);
@@ -208,9 +214,23 @@ const previouslyActive = [...oldReapp.map((rule, at) => ({ ...rule, kind: 'reapp
   ...oldRefine.map((rule, at) => ({ ...rule, kind: 'refine', slots: [at + 1] }))].filter((rule) => rule.enabled);
 assert.equal(retainedSlots.rerollRules.length, previouslyActive.length);
 for (const [at, rule] of retainedSlots.rerollRules.entries()) {
-  for (const field of ['sets', 'minimumRarity', 'mains', 'requiresInnate', 'slots', 'kind']) assert.deepEqual(rule[field], previouslyActive[at][field]);
+  for (const field of ['sets', 'minimumRarity', 'mains', 'slots', 'kind']) assert.deepEqual(rule[field], previouslyActive[at][field]);
   assert.equal('enabled' in rule, false);
+  assert.equal('requiresInnate' in rule, false);
+  assert.equal(rule.innate, previouslyActive[at].requiresInnate ? 'yes' : 'both');
 }
+const { innate: _innate, ...formerFields } = full;
+const split = readRerollRules([{ ...formerFields, kind: 'both', requiresInnate: true }]);
+assert.equal(split.length, 2);
+assert.deepEqual(split.map((rule) => rule.kind), ['reapp', 'refine']);
+assert.equal(new Set(split.map((rule) => rule.id)).size, 2);
+for (const rule of split) {
+  for (const field of ['name', 'sets', 'minimumRarity', 'mains', 'slots']) assert.deepEqual(rule[field], full[field]);
+  assert.equal(rule.innate, 'yes');
+}
+assert.equal(readRerollRules([{ ...formerFields, requiresInnate: false }])[0].innate, 'both');
+assert.equal(readRerollRules([{ ...full, innate: 'invalid' }])[0].innate, 'both');
+assert.equal(newRerollRule('refine', 'refine').kind, 'refine');
 const mixedRules = readPreferences({ runePotential: { rerollRules: [{ ...full, enabled: false }, { ...openRule, enabled: true }] } }, null).runePotential.rerollRules;
 assert.deepEqual(mixedRules, [openRule]);
 assert.equal('reappTargets' in retainedSlots, false);

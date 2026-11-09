@@ -2,12 +2,13 @@ import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'rea
 import { Button, FilterButton } from './button';
 import { Dropdown } from './dropdown';
 import { TokenChoiceField } from './token-choice-field';
-import { newRerollRule, reappSetOptions, reappSlots, rerollMainOptions, rerollRuleProblems } from '../lib/rune-reapp-targets';
-import type { RerollRule } from '../lib/rune-reapp-targets';
+import { innateRequirements, newRerollRule, reappSetOptions, reappSlots, rerollMainOptions, rerollRuleProblems } from '../lib/rune-reapp-targets';
+import type { RerollRule, RerollKind } from '../lib/rune-reapp-targets';
 import { runeRarities, runeStatName } from '../lib/runes';
 import type { RuneRarity } from '../lib/runes';
 
-const kindLabels = { reapp: 'Re-app', refine: 'Refine', both: 'Re-app + Refine' };
+const kindLabels = { reapp: 'Re-app', refine: 'Refine' };
+const innateLabels = { yes: 'Yes', both: 'Both', no: 'No' };
 const ruleName = (rule: RerollRule) => rule.name.trim() || 'Untitled rule';
 
 export function ReappTargetList({ rules, onChange }: {
@@ -16,43 +17,45 @@ export function ReappTargetList({ rules, onChange }: {
 }) {
   const [editing, setEditing] = useState<{ draft: RerollRule; isNew: boolean } | null>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
-  const add = useRef<HTMLButtonElement>(null);
+  const add = useRef<Record<RerollKind, HTMLButtonElement | null>>({ reapp: null, refine: null });
   function close() { setEditing(null); opener.current?.focus(); }
   function edit(draft: RerollRule, isNew: boolean, button: HTMLButtonElement) {
     opener.current = button;
     setEditing({ draft, isNew });
   }
   return <div className="reroll-rules">
-    <div className="reroll-toolbar">
-      <p className="list-count"><b>{rules.length}</b> {rules.length === 1 ? 'rule' : 'rules'}</p>
-      <Button ref={add} aria-haspopup="dialog" onClick={(event) => edit(newRerollRule(crypto.randomUUID()), true, event.currentTarget)}>Add rule</Button>
-    </div>
-    {rules.length === 0 && <p className="notice">No reroll rules. Add a rule to protect Re-app or Refine targets from sale.</p>}
-    <div className="role-list">
-      {rules.map((rule) => <article key={rule.id} className="reapp-card">
-        <header className="role-head">
-          <div className="role-title"><h4 className="reapp-name" title={ruleName(rule)}>{ruleName(rule)}</h4>
-            <p className="role-type">{kindLabels[rule.kind]}</p>
-          </div>
-          <div className="role-actions">
-            <Button size="compact" aria-label={`Edit ${ruleName(rule)}`} aria-haspopup="dialog"
-              onClick={(event) => edit(rule, false, event.currentTarget)}>Edit</Button>
-            <Button size="compact" aria-label={`Duplicate ${ruleName(rule)}`} aria-haspopup="dialog"
-              onClick={(event) => edit({ ...rule, id: crypto.randomUUID(), name: `${ruleName(rule)} (copy)` }, true, event.currentTarget)}>Duplicate</Button>
-            <Button size="compact" tone="danger" aria-label={`Delete ${ruleName(rule)}`}
-              onClick={() => { onChange(rules.filter((entry) => entry.id !== rule.id)); add.current?.focus(); }}>Delete</Button>
-          </div>
+    {(['reapp', 'refine'] as const).map((kind) => {
+      const kindRules = rules.filter((rule) => rule.kind === kind);
+      const label = kindLabels[kind];
+      return <section className="reroll-rule-column" aria-label={`${label} rules`} key={kind}>
+        <header className="reroll-toolbar">
+          <h3 className="editor-block-title">{label} rules</h3>
+          <Button ref={(button) => { add.current[kind] = button; }} aria-haspopup="dialog"
+            onClick={(event) => edit(newRerollRule(crypto.randomUUID(), kind), true, event.currentTarget)}>Add {label} rule</Button>
         </header>
-        <div className="role-rows">
-          <RuleRow label="Slots">{rule.slots.length ? rule.slots.join(', ') : 'Any slot'}</RuleRow>
-          <RuleRow label="Rune type">{rule.sets.length ? rule.sets.join(', ') : 'Any set'}</RuleRow>
-          <RuleRow label="Min rarity">{rule.minimumRarity}</RuleRow>
-          <RuleRow label="Innate">{rule.requiresInnate ? 'Required' : 'Any'}</RuleRow>
-          <RuleRow label="Main stat">{rule.mains.length ? rule.mains.map(runeStatName).join(', ') : 'Any main'}</RuleRow>
-          <RuleRow label="Compatibility">{rerollRuleProblems(rule).length ? 'Edit this rule to resolve its slots and main stats.' : 'Valid slots and main stats'}</RuleRow>
+        {kindRules.length === 0 && <p className="notice">Add a {label} rule to start.</p>}
+        <div className="role-list">
+          {kindRules.map((rule) => <article key={rule.id} className="reapp-card">
+            <header className="role-head">
+              <div className="role-title"><h4 className="reapp-name" title={ruleName(rule)}>{ruleName(rule)}</h4></div>
+              <div className="role-actions">
+                <Button size="compact" aria-label={`Edit ${ruleName(rule)}`} aria-haspopup="dialog"
+                  onClick={(event) => edit(rule, false, event.currentTarget)}>Edit</Button>
+                <Button size="compact" tone="danger" aria-label={`Delete ${ruleName(rule)}`}
+                  onClick={() => { onChange(rules.filter((entry) => entry.id !== rule.id)); add.current[kind]?.focus(); }}>Delete</Button>
+              </div>
+            </header>
+            <div className="role-rows">
+              <RuleRow label="Slots">{rule.slots.length ? rule.slots.join(', ') : 'Any slot'}</RuleRow>
+              <RuleRow label="Rune type">{rule.sets.length ? rule.sets.join(', ') : 'Any set'}</RuleRow>
+              <RuleRow label="Min rarity">{rule.minimumRarity}</RuleRow>
+              <RuleRow label="Innate required">{innateLabels[rule.innate]}</RuleRow>
+              <RuleRow label="Main stat">{rule.mains.length ? rule.mains.map(runeStatName).join(', ') : 'Any main'}</RuleRow>
+            </div>
+          </article>)}
         </div>
-      </article>)}
-    </div>
+      </section>;
+    })}
     {editing && <RuleEditor key={editing.draft.id} {...editing} onCancel={close} onSave={(rule) => {
       onChange(editing.isNew ? [...rules, rule] : rules.map((entry) => entry.id === rule.id ? rule : entry));
       close();
@@ -61,7 +64,7 @@ export function ReappTargetList({ rules, onChange }: {
 }
 
 function RuleRow({ label, children }: { label: string; children: ReactNode }) {
-  return <div className="role-row"><span className="role-row-label">{label}</span><div className="role-row-value">{children}</div></div>;
+  return <div className="role-row"><span className="role-row-label">{label}</span><div className="role-row-value" title={String(children)}>{children}</div></div>;
 }
 
 /** Every option keeps its place while its appearance changes. */
@@ -98,15 +101,10 @@ function RuleEditor({ draft, isNew, onCancel, onSave }: {
   function submit(event: FormEvent) { event.preventDefault(); if (!problems.length) onSave(rule); }
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
     <form ref={form} className="dialog editor reapp-editor" role="dialog" aria-modal="true" aria-labelledby="reroll-editor-title" onSubmit={submit}>
-      <header className="editor-head"><p className="eyebrow">Re-app/refine target</p><h2 id="reroll-editor-title">{isNew ? 'Add rule' : 'Edit rule'}</h2></header>
+      <header className="editor-head"><p className="eyebrow">{kindLabels[rule.kind]} rules</p><h2 id="reroll-editor-title">{isNew ? 'Add' : 'Edit'} {kindLabels[rule.kind]} rule</h2></header>
       <div className="editor-body reapp-editor-body">
         <label className="field reroll-name-field"><span className="filter-label">Rule name</span><input aria-label="Rule name" value={rule.name} placeholder="Untitled rule" onChange={(event) => update({ name: event.target.value })} /></label>
-        <Choices label="Target" options={[{ value: 'reapp', label: 'Re-app' }, { value: 'refine', label: 'Refine' }]}
-          chosen={rule.kind === 'both' ? ['reapp', 'refine'] : [rule.kind]}
-          onChange={(chosen) => {
-            if (chosen.length > 0) update({ kind: chosen.length === 2 ? 'both' : chosen[0] as RerollRule['kind'] });
-          }} />
-        <Choices label="Slots" options={reappSlots.map((slot) => ({ value: slot, label: String(slot) }))} chosen={rule.slots} onChange={(slots) => update({ slots })} />
+        <div className="reroll-slots-field"><Choices label="Slots" options={reappSlots.map((slot) => ({ value: slot, label: String(slot) }))} chosen={rule.slots} onChange={(slots) => update({ slots })} /></div>
         <TokenChoiceField label="Rune type" description="Rune type" empty="Any set"
           options={reappSetOptions.map((name) => ({ value: name, label: name }))}
           chosen={rule.sets} onChange={(sets) => update({ sets })} />
@@ -116,9 +114,10 @@ function RuleEditor({ draft, isNew, onCancel, onSave }: {
         <label className="field"><span className="filter-label">Min rarity</span><Dropdown aria-label="Min rarity" value={rule.minimumRarity} onChange={(event) => update({ minimumRarity: event.target.value as RuneRarity })}>
           {runeRarities.map((rarity) => <option key={rarity}>{rarity}</option>)}
         </Dropdown></label>
-        <label className="field"><span className="filter-label">Innate</span><Dropdown aria-label="Innate" value={rule.requiresInnate ? 'yes' : 'any'} onChange={(event) => update({ requiresInnate: event.target.value === 'yes' })}>
-          <option value="any">Any</option><option value="yes">Required</option>
-        </Dropdown></label>
+        <fieldset className="reroll-choices"><legend className="filter-label">Innate required</legend>
+          <div className="reroll-options">{innateRequirements.map((innate) => <FilterButton key={innate}
+            active={rule.innate === innate} onClick={() => update({ innate })}>{innateLabels[innate]}</FilterButton>)}</div>
+        </fieldset>
         <div className="reroll-validation editor-note" role="status" aria-live="polite" data-invalid={problems.length > 0}>
           {problems.join(' ')}
         </div>

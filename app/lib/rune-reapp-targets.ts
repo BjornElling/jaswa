@@ -1,6 +1,6 @@
 /**
  * **Which runes are worth a reroll**, described by the user's rules for either
- * or both of the game's two stones (`RUNE-CANONICAL.md` §9).
+ * of the game's two stones (`RUNE-CANONICAL.md` §9).
  *
  * - **Reappraisal** rerolls all four sub properties and keeps the set, slot, main
  *   and innate. It needs +12, and an Intangible rune cannot be reappraised.
@@ -21,7 +21,7 @@
  * rune worth powering up or keeping. That is a fixed design decision.
  *
  * Rules are independent alternatives: all requirements within one rule must match,
- * and any rule is enough. A rule may name both stones; refinement is
+ * and any rule is enough. Each rule names one stone; refinement is
  * always considered first, regardless of list order.
  */
 import { filterIncludes, filterIsUnrestricted } from './filter-selection';
@@ -99,18 +99,22 @@ export function rerollAllowed(rune: Rune, kind: RerollKind): boolean {
   return !rune.ancient && !rune.subProperties.some((line) => line.gemmed);
 }
 
-export type RerollRule = Omit<ReappTarget, 'enabled'> & {
+export const innateRequirements = ['yes', 'both', 'no'] as const;
+export type InnateRequirement = typeof innateRequirements[number];
+
+export type RerollRule = Omit<ReappTarget, 'enabled' | 'requiresInnate'> & {
   id: string;
   name: string;
-  kind: RerollKind | 'both';
+  kind: RerollKind;
+  innate: InnateRequirement;
   /** Empty means every slot, without selecting the controls for the user. */
   slots: readonly number[];
 };
 
 export const rerollMainOptions = runeStatIds.filter((id) => reappSlots.some((slot) => slotMainProperties[slot].includes(id)));
 
-export function newRerollRule(id: string): RerollRule {
-  return { id, name: '', kind: 'reapp', slots: [], sets: [], minimumRarity: 'Legend', mains: [], requiresInnate: false };
+export function newRerollRule(id: string, kind: RerollKind = 'reapp'): RerollRule {
+  return { id, name: '', kind, slots: [], sets: [], minimumRarity: 'Legend', mains: [], innate: 'both' };
 }
 
 /** Keep impossible combinations visible instead of silently changing either choice. */
@@ -125,22 +129,28 @@ export function rerollRuleProblems(rule: RerollRule): string[] {
   return problems;
 }
 
+function rulesFromSlots(targets: readonly ReappTarget[], kind: RerollKind): RerollRule[] {
+  return targets.flatMap(({ enabled, requiresInnate, ...target }, at) => enabled ? [{
+    ...target, id: `${kind}-${at + 1}`, name: `${kind === 'reapp' ? 'Re-app' : 'Refine'} · Slot ${at + 1}`,
+    kind, slots: [at + 1], innate: requiresInnate ? 'yes' : 'both',
+  }] : []);
+}
+
 export function defaultRerollRules(): RerollRule[] {
-  return (['reapp', 'refine'] as const).flatMap((kind) => defaultReappTargets(kind)
-    .flatMap(({ enabled, ...target }, at) => enabled ? [{ ...target, id: `${kind}-${at + 1}`, name: `${kind === 'reapp' ? 'Re-app' : 'Refine'} · Slot ${at + 1}`, kind, slots: [at + 1] }] : []));
+  return (['reapp', 'refine'] as const).flatMap((kind) => rulesFromSlots(defaultReappTargets(kind), kind));
 }
 
 /** Whether any rule of this kind describes the rune. */
 export function isRerollTarget(rune: Rune, rules: readonly RerollRule[], kind: RerollKind, bestLineTypes: boolean): boolean {
   if (!rerollAllowed(rune, kind) || !showsAllLines(rune)) return false;
   if (kind === 'refine' && !bestLineTypes) return false;
-  return rules.some((rule) => (rule.kind === kind || rule.kind === 'both')
+  return rules.some((rule) => rule.kind === kind
     && rerollRuleProblems(rule).length === 0
     && filterIncludes(rule.slots, rune.slot, reappSlots)
     && filterIncludes(rule.sets, rune.setName, reappSetOptions)
     && runeRarityOrder(rune.rarity) >= runeRarityOrder(rule.minimumRarity)
     && filterIncludes(rule.mains, rune.mainStatId, rerollMainOptions)
-    && (!rule.requiresInnate || rune.prefixStatId !== null));
+    && (rule.innate === 'both' || (rune.prefixStatId !== null) === (rule.innate === 'yes')));
 }
 
 /** One damaged field costs only that field; an empty list remains deliberately empty. */
@@ -150,19 +160,28 @@ export function readRerollRules(value: unknown): RerollRule[] {
   return value.flatMap((entry) => {
     // Removing the switch must not activate a rule the user had switched off.
     if (!isRecord(entry) || entry.enabled === false) return [];
-    const id = typeof entry.id === 'string' && entry.id.trim() && !ids.has(entry.id) ? entry.id : crypto.randomUUID();
-    ids.add(id);
+    function uniqueId(preferred: unknown): string {
+      const id = typeof preferred === 'string' && preferred.trim() && !ids.has(preferred) ? preferred : crypto.randomUUID();
+      ids.add(id);
+      return id;
+    }
+    const id = uniqueId(entry.id);
     const blank = newRerollRule(id);
-    return [{
-      id,
+    // Both stones used to share one rule. Preserve each question as its own rule.
+    const kinds: readonly RerollKind[] = entry.kind === 'both' ? ['reapp', 'refine']
+      : [entry.kind === 'reapp' || entry.kind === 'refine' ? entry.kind : blank.kind];
+    const innate: InnateRequirement = 'innate' in entry
+      ? innateRequirements.includes(entry.innate as InnateRequirement) ? entry.innate as InnateRequirement : blank.innate
+      : typeof entry.requiresInnate === 'boolean' ? entry.requiresInnate ? 'yes' : 'both' : blank.innate;
+    return kinds.map((kind, at) => ({
+      id: at === 0 ? id : uniqueId(`${id}:refine`),
       name: typeof entry.name === 'string' ? entry.name : blank.name,
-      kind: entry.kind === 'reapp' || entry.kind === 'refine' || entry.kind === 'both' ? entry.kind : blank.kind,
+      kind, innate,
       slots: isListOf(entry.slots, reappSlots) ? entry.slots : blank.slots,
       sets: isListOf(entry.sets, reappSetOptions) ? entry.sets : blank.sets,
       minimumRarity: runeRarities.includes(entry.minimumRarity as RuneRarity) ? entry.minimumRarity as RuneRarity : blank.minimumRarity,
       mains: isListOf(entry.mains, rerollMainOptions) ? entry.mains : blank.mains,
-      requiresInnate: typeof entry.requiresInnate === 'boolean' ? entry.requiresInnate : blank.requiresInnate,
-    }];
+    }));
   });
 }
 
@@ -171,8 +190,9 @@ export function readStoredRerollRules(settings: unknown): RerollRule[] {
   if (!isRecord(settings)) return defaultRerollRules();
   if ('rerollRules' in settings) return readRerollRules(settings.rerollRules);
   if (!('reappTargets' in settings) && !('refineTargets' in settings)) return defaultRerollRules();
-  return (['reapp', 'refine'] as const).flatMap((kind) => readReappTargets(settings[kind === 'reapp' ? 'reappTargets' : 'refineTargets'], kind)
-    .flatMap(({ enabled, ...target }, at) => enabled ? [{ ...target, id: `${kind}-${at + 1}`, name: `${kind === 'reapp' ? 'Re-app' : 'Refine'} · Slot ${at + 1}`, kind, slots: [at + 1] }] : []));
+  return (['reapp', 'refine'] as const).flatMap((kind) => rulesFromSlots(
+    readReappTargets(settings[kind === 'reapp' ? 'reappTargets' : 'refineTargets'], kind), kind,
+  ));
 }
 
 /** What a build is, as far as ranking its line types goes. */

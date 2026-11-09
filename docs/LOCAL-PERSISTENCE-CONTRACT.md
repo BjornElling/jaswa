@@ -57,6 +57,10 @@ are also read as individual reroll rules when no `rerollRules` list exists. Only
 `rerollRules` is written, and a deliberately empty list stays empty. Rules previously
 switched off are left out when read: removing Enabled must not activate them.
 Every remaining rule keeps its conditions, and no Enabled field is written.
+Former combined rules are read as two independent rules with distinct identifiers,
+one per stone. A former boolean innate requirement of true becomes Yes; false becomes
+Both. The current `innate` choice is Yes, Both or No and is validated independently;
+only the current shape is written.
 
 ## Session-scoped state
 

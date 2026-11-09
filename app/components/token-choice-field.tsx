@@ -50,17 +50,24 @@ function Cross() {
 }
 
 /** The part of the window a box's scrolling ancestors leave visible. */
-function visibleBounds(element: HTMLElement): { top: number; bottom: number } {
+function visibleBounds(element: HTMLElement): { top: number; bottom: number; left: number; right: number } {
   let top = 0;
   let bottom = window.innerHeight;
+  let left = 0;
+  let right = window.innerWidth;
   for (let parent = element.parentElement; parent; parent = parent.parentElement) {
-    const overflow = getComputedStyle(parent).overflowY;
-    if (overflow === 'visible') continue;
+    const style = getComputedStyle(parent);
     const rect = parent.getBoundingClientRect();
-    top = Math.max(top, rect.top);
-    bottom = Math.min(bottom, rect.bottom);
+    if (style.overflowY !== 'visible') {
+      top = Math.max(top, rect.top);
+      bottom = Math.min(bottom, rect.bottom);
+    }
+    if (style.overflowX !== 'visible') {
+      left = Math.max(left, rect.left);
+      right = Math.min(right, rect.right);
+    }
   }
-  return { top, bottom };
+  return { top, bottom, left, right };
 }
 
 function Pill({ label, remove, describe }: { label: string; remove: () => void; describe: string }) {
@@ -273,17 +280,17 @@ export function TokenChoiceLine<T extends string | number>({
     delete element.dataset.above;
     element.style.removeProperty('max-height');
     const box = element.getBoundingClientRect();
-    const reach = Number.parseFloat(getComputedStyle(element).getPropertyValue('--menu-reach'));
-    const right = box.left + Math.max(box.width, Number.isFinite(reach) ? reach : 0);
-    const overrun = right - (window.innerWidth - 8);
-    if (overrun > 0) element.style.left = `${from.offsetLeft - overrun}px`;
-    /* A line near the bottom of what can be seen — the last field of a dialog —
-       opens its menu upwards instead, where there is more room above than below.
-       Judged against the box that would clip it, so the menu never grows a
-       scrollbar on the panel it sits in; nothing is reserved beneath the line. */
     const line = field.current?.getBoundingClientRect();
     if (!line) return;
-    const { top, bottom } = visibleBounds(field.current!);
+    const { top, bottom, left, right } = visibleBounds(field.current!);
+    const scale = element.offsetWidth > 0 ? box.width / element.offsetWidth : 1;
+    const reach = Number.parseFloat(getComputedStyle(element).getPropertyValue('--menu-reach'));
+    const width = Math.max(box.width, Number.isFinite(reach) ? reach * scale : 0);
+    /* A scrolling editor clips horizontally too. An off-edge menu made focus
+       scroll the editor sideways; clamp to that editor, in the canvas's units. */
+    const shift = Math.max(left + 8 - box.left, Math.min(0, right - 8 - box.left - width));
+    if (shift !== 0) element.style.left = `${from.offsetLeft + shift / scale}px`;
+    /* A line near the foot of a dialog opens upwards, inside its scrolling body. */
     const below = bottom - line.bottom;
     const above = line.top - top;
     if (box.height <= below || above <= below) return;

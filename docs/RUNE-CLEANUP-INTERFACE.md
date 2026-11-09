@@ -101,28 +101,33 @@ Unsellable keep their own labels.
 
 ### 3.1 Re-app/refine targets
 
-Rune Settings holds a user-managed list under **Re-app/refine target**. Add, edit,
-duplicate or delete any number of named rules. The empty list means no reroll
-protection and stays empty after reload. Names need not be unique; identifiers must be.
-The cards retain the role-card frame and muted data of Rune Settings.
+Rune Settings holds two columns under **Re-app/refine target**: **Re-app rules** on the
+left and **Refine rules** on the right. Each has its own **Add Re-app rule** or
+**Add Refine rule** button and independent empty state. Add, edit or delete any number
+of named rules. The stone is decided when a rule is added; the editor has no Target
+control, and rules cannot be duplicated. Empty lists stay empty after reload. Names
+need not be unique; identifiers must be.
 
-The compact editor starts with the name, then **Target** beside **Slots**, **Rune type**
-beside **Main stat**, and **Min rarity** beside **Innate**. Target uses the same filter
-buttons as Slots: Re-app starts selected; Refine can be added or chosen alone, and the
-last selected target cannot be removed. Rune type and Main stat use the filters' shared
-multi-choice dropdown with removable pills and a counted overflow. There is no Enabled
-switch. Every saved rule applies; delete one to stop applying it. Existing saved rules
-that were switched off are left out, so removing the switch never activates them.
-There is no explanatory copy or success message in the editor. Only an incompatible
-combination shows an error, in a reserved two-line area that keeps the fields and footer
-still.
+Each card holds five rows: **Slots**, **Rune type**, **Min rarity**, **Innate required**
+and **Main stat**. These rows have the same fixed height and no horizontal dividers.
+Long values truncate on one line, with the complete text available on hover and to
+assistive technology. There is no Compatibility row. Each column keeps its own place
+when a rule is added to the other; narrow screens stack Re-app above Refine.
 
-Each rule chooses **Re-app**, **Refine** or both, **Slots**, **Rune type**
-(sets; Intangible not offered), **Min rarity**, **Innate** (Any/Required) and **Main stat**.
-All conditions within one rule must hold; any rule is enough. Empty inclusive
-groups mean any value, as does selecting every option. Any innate satisfies Required;
-Any allows a rune with or without one. Every main stat is named precisely, including
-flat versus percentage ATK, DEF and HP; odd slots retain their fixed flat main.
+The compact editor starts with the name and Slots, then Rune type beside Main stat,
+and Min rarity beside Innate required. Rune type and Main stat use the filters' shared
+multi-choice dropdown with removable pills and a counted overflow. Its menu stays
+inside the scrolling editor, so filling a line cannot scroll the fields sideways. **Innate required**
+uses three exclusive filter buttons, in the order **Yes**, **Both**, **No**: Yes requires
+an innate, Both accepts either state, and No requires no innate. Both is the default for
+a new rule. The chosen button stays chosen when clicked again. There is no Enabled
+switch or explanatory copy. Only an incompatible combination shows an error, in a
+reserved two-line area that keeps the fields and footer still.
+
+All conditions within one rule must hold; any rule of that stone is enough. Empty
+inclusive groups mean any value, as does selecting every option. Intangible is not
+offered among rune sets. Every main stat is named precisely, including flat versus
+percentage ATK, DEF and HP; odd slots retain their fixed flat main.
 
 The editor keeps choices visible and never removes one to make another fit. Every
 selected slot must support at least one selected main, and every selected main must
@@ -131,19 +136,18 @@ remove the main-stat requirement. With no selected slots, this checks all six.
 An incompatible combination explains the problem and blocks Save rule. Thus ATK %
 with slot 1 is invalid, flat ATK with slot 1 is valid, and SPD plus CRI Dmg across slots
 2 and 4 is valid: either main matches where the game permits it. Stored incompatible
-combinations remain visible for correction but cannot recommend a stone.
+combinations remain available for correction in the editor but cannot recommend a stone.
 
-A combined rule uses the same conditions for both stones, tries Refine first and falls
-back to Re-app when refinement does not apply. Separate rules are useful when the two
-stones need different sets, mains or innate requirements. Rule order never determines
-priority. All fields keep their place when a target or dropdown selection changes.
+Refine is always considered before Re-app, independent of the ordering within each
+column. The shipped rules cover slots 2, 4 and 6 separately for each stone. Re-app asks
+for Violent, Legend and an innate, with SPD/ATK % in slot 2, CRI Dmg/HP % in slot 4 and
+HP %/ATK % in slot 6. Refine uses the same slots, mains and rarity, allows either innate
+state, and accepts Despair, Fight, Rage, Swift, Vampire, Violent and Will.
 
-The shipped rules cover slots 2, 4 and 6 separately for each stone. Re-app asks for
-Violent, Legend and an innate, with SPD/ATK % in slot 2, CRI Dmg/HP % in slot 4 and
-HP %/ATK % in slot 6. Refine uses the same slots, mains and rarity, asks for no innate,
-and accepts Despair, Fight, Rage, Swift, Vampire, Violent and Will. Previously saved
-active slot choices become individual rules, so the developer's
-choices survive the redesign without activating previously disabled targets. Only the rule list is written afterwards.
+Previously saved combined rules become one rule in each column, with the same name
+and conditions and distinct identifiers. A former innate requirement of true becomes
+Yes; false becomes Both, preserving its original meaning rather than forbidding innates.
+Rules previously switched off stay left out. Only the current rule shape is written.
 
 No level is asked. A target needs a rune showing all four sub properties — a Legend from
 `+0`, any lesser rarity from `+12` — because both stones are judged by which four types
@@ -187,6 +191,14 @@ from `970a281` before removing Enabled with
 Its SHA-256 is `aab8df2a901ec0d850ff4464b3c7189a5d492125b1ea389b8ab086ca7502050e`:
 582 runes across six scenarios. The field comparison remains exact. The target rule
 checks separately cover loading active choices without bringing disabled choices back.
+
+**Separate columns verification, November 9, 2026.** A fresh full baseline was captured
+from `127dc59` before this change with
+`npm run verify:rune-cleanup-equivalence -- --write --baseline=work/separate-reroll-rules-baseline.json`.
+Its SHA-256 is `aab8df2a901ec0d850ff4464b3c7189a5d492125b1ea389b8ab086ca7502050e`:
+582 runes across six scenarios. Scores remain exact. Separate target checks cover all
+three innate requirements on both stones, preservation of former choices and splitting
+a combined rule into two independent rules.
 
 ## 4. The Location cell
 
