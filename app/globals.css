@@ -3657,6 +3657,7 @@ label[for] {
 .icon-button.danger:hover:not(:disabled) { color: var(--state-bad); border-color: var(--state-bad); }
 .icon-button:disabled { opacity: .35; cursor: default; }
 .icon-button:focus-visible { color: var(--text-accent); }
+.reapp-title-separator { margin-inline: var(--s2); }
 /* A long name wraps rather than pushing the actions off the line, and stops at
    three lines so one role cannot take a screen to itself. */
 .role-name, .reapp-name {
@@ -6204,7 +6205,15 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   border-radius: var(--radius-sm);
   box-shadow: 0 18px 44px rgba(0, 0, 0, .55);
 }
-.token-choice-panel[data-above] { top: auto; bottom: calc(100% + var(--s1)); }
+/* Top-layer menus keep their field's DOM ancestry, but use screen space rather
+   than an editor's clipped body. Reset the browser's centered popover defaults. */
+.token-choice-panel[popover] {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  color: var(--text);
+}
 .token-choice-list { list-style: none; margin: 0; padding: var(--s1); display: grid; }
 .token-choice-option {
   width: 100%;
@@ -6254,7 +6263,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 /* Long enough for all twenty-two sets without a scrollbar on any ordinary
    screen; a short window still scrolls the column rather than losing the rest. */
-.rune-build-menu { display: flex; align-items: stretch; max-height: min(80vh, 600px); }
+.rune-build-menu { display: flex; align-items: stretch; max-height: min(80vh, 600px, var(--token-menu-room, 600px)); }
 /* A build names up to three sets, so its pill is given room for the longest,
    `Determination/Tolerance/Accuracy`, where a filter's single value needs 14ch. */
 .rune-build-field .token-choice-pill { max-width: 34ch; }

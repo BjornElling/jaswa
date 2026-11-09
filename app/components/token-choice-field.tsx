@@ -20,8 +20,8 @@ import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } f
  *
  * **The line's box never changes size** (`AGENTS.md` §2). It is one row high
  * whether it names nothing or everything: pills past the edge collapse into a
- * counted pill rather than wrapping the group taller, and the menu is absolutely
- * positioned, so opening it moves nothing behind it.
+ * counted pill rather than wrapping the group taller. The menu uses the browser's
+ * top layer, so opening it moves nothing and no scrolling ancestor clips it.
  */
 
 export type TokenChoiceOption<T> = {
@@ -47,27 +47,6 @@ function Cross() {
     <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.5"
       strokeLinecap="round" />
   </svg>;
-}
-
-/** The part of the window a box's scrolling ancestors leave visible. */
-function visibleBounds(element: HTMLElement): { top: number; bottom: number; left: number; right: number } {
-  let top = 0;
-  let bottom = window.innerHeight;
-  let left = 0;
-  let right = window.innerWidth;
-  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
-    const style = getComputedStyle(parent);
-    const rect = parent.getBoundingClientRect();
-    if (style.overflowY !== 'visible') {
-      top = Math.max(top, rect.top);
-      bottom = Math.min(bottom, rect.bottom);
-    }
-    if (style.overflowX !== 'visible') {
-      left = Math.max(left, rect.left);
-      right = Math.min(right, rect.right);
-    }
-  }
-  return { top, bottom, left, right };
 }
 
 function Pill({ label, remove, describe }: { label: string; remove: () => void; describe: string }) {
@@ -263,42 +242,54 @@ export function TokenChoiceLine<T extends string | number>({
     };
   }, [panel]);
 
-  /* The menu hangs from the gap after the last pill, which is where the pill it
-     adds will land, so it is placed at the empty run's own offset rather than at
-     the field's left edge. Near the right edge of the window that would put it
-     partly off screen, so it is then pulled back by however much it overruns —
-     the whole menu moves, rather than opening from somewhere nobody clicked. */
-  /* A menu that grows while open — a cascade opening its next column — states the
-     width it may grow to in `--menu-reach`, and is placed against that once. Placing
-     it again as it grew would slide the column under the pointer sideways the moment
-     the next one opened. */
+  /* Keep the menu in its field's DOM for inherited styles, outside-click handling
+     and dialog focus traps, but paint it in the top layer beyond scrolling editors.
+     Reserve a cascade's full reach before its next column opens, so it never slides
+     sideways under the pointer. Coordinates account for the canvas's shared zoom. */
   useLayoutEffect(() => {
     const element = menu.current;
     const from = panel === 'overflow' ? more.current : slot.current;
     if (!element || !from) return;
-    element.style.left = `${from.offsetLeft}px`;
-    delete element.dataset.above;
-    element.style.removeProperty('max-height');
-    const box = element.getBoundingClientRect();
-    const line = field.current?.getBoundingClientRect();
-    if (!line) return;
-    const { top, bottom, left, right } = visibleBounds(field.current!);
-    const scale = element.offsetWidth > 0 ? box.width / element.offsetWidth : 1;
-    const reach = Number.parseFloat(getComputedStyle(element).getPropertyValue('--menu-reach'));
-    const width = Math.max(box.width, Number.isFinite(reach) ? reach * scale : 0);
-    /* A scrolling editor clips horizontally too. An off-edge menu made focus
-       scroll the editor sideways; clamp to that editor, in the canvas's units. */
-    const shift = Math.max(left + 8 - box.left, Math.min(0, right - 8 - box.left - width));
-    if (shift !== 0) element.style.left = `${from.offsetLeft + shift / scale}px`;
-    /* A line near the foot of a dialog opens upwards, inside its scrolling body. */
-    const below = bottom - line.bottom;
-    const above = line.top - top;
-    const opensAbove = box.height > below && above > below;
-    if (opensAbove) element.dataset.above = '';
-    /* Either direction stays inside the editor; the menu scrolls its own list
-       instead of making the editor scroll to reach its last option. */
-    const room = Math.max(0, (opensAbove ? above : below) - 8);
-    if (box.height > room) element.style.maxHeight = `${room / scale}px`;
+    element.showPopover();
+    function place() {
+      if (!element || !from || !field.current) return;
+      element.style.removeProperty('max-height');
+      element.style.removeProperty('max-width');
+      element.style.removeProperty('--token-menu-room');
+      const box = element.getBoundingClientRect();
+      const anchor = from.getBoundingClientRect();
+      const row = line.current!.getBoundingClientRect();
+      const scale = element.offsetWidth > 0 ? box.width / element.offsetWidth : 1;
+      const inset = 8 * scale;
+      const separation = gap * scale;
+      const reach = Number.parseFloat(getComputedStyle(element).getPropertyValue('--menu-reach'));
+      const width = Math.max(box.width, Number.isFinite(reach) ? reach * scale : 0);
+      const left = Math.max(inset, Math.min(anchor.left, window.innerWidth - inset - width));
+      const below = window.innerHeight - inset - row.bottom - separation;
+      const above = row.top - inset - separation;
+      const opensAbove = box.height > below && above > below;
+      const room = Math.max(0, opensAbove ? above : below);
+      element.style.setProperty('--token-menu-room', `${room / scale}px`);
+      element.style.maxHeight = `${Math.min(box.height, room) / scale}px`;
+      element.style.maxWidth = `${Math.max(0, window.innerWidth - 2 * inset) / scale}px`;
+      element.style.left = `${left / scale}px`;
+      element.style.top = `${(opensAbove ? row.top - separation - Math.min(box.height, room) : row.bottom + separation) / scale}px`;
+    }
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(field.current!);
+    window.addEventListener('resize', place);
+    // Menu scrolling must not reposition the menu or reset its own scroll offset.
+    const onScroll = (event: Event) => {
+      if (!element.contains(event.target as Node)) place();
+    };
+    document.addEventListener('scroll', onScroll, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', place);
+      document.removeEventListener('scroll', onScroll, true);
+      if (element.matches(':popover-open')) element.hidePopover();
+    };
   }, [panel, visible]);
 
   /* Focus goes back to the line once the menu has closed, from an effect
@@ -347,11 +338,7 @@ export function TokenChoiceLine<T extends string | number>({
         </button>
       </span>
     </div>
-    {/* Outside the line, because the line clips what overruns it — that is
-        how the counted pill replaces a wrapped row — and a menu hung inside
-        it was clipped to nothing. It is placed against the slot instead, so
-        it still opens where the pill it adds will land. */}
-    {panel !== null && <div className="token-choice-panel" id={panelId} ref={menu}
+    {panel !== null && <div className="token-choice-panel" popover="manual" id={panelId} ref={menu}
       role={panel === 'add' ? menuRole : 'menu'} aria-label={panel === 'add' ? description : `${name}: the rest`}>
       {panel === 'add'
         ? renderMenu(close)

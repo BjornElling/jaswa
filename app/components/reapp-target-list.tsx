@@ -9,10 +9,22 @@ import type { RuneRarity } from '../lib/runes';
 
 const kindLabels = { reapp: 'Re-app', refine: 'Refine' };
 const innateLabels = { yes: 'Yes', both: 'Both', no: 'No' };
-const ruleTitle = (rule: RerollRule) => {
-  const slots = reappSlots.filter((slot) => rule.slots.length === 0 || rule.slots.includes(slot));
+const ruleSlots = (rule: RerollRule) => reappSlots.filter((slot) => rule.slots.length === 0 || rule.slots.includes(slot));
+const ruleSlotsTitle = (rule: RerollRule) => {
+  const slots = ruleSlots(rule);
   return `${slots.length === 1 ? 'Slot' : 'Slots'} ${slots.join(', ')}`;
 };
+const ruleMainsTitle = (rule: RerollRule) => rule.mains.map(runeStatName).join(', ');
+const ruleTitle = (rule: RerollRule) => [ruleSlotsTitle(rule), ruleMainsTitle(rule)].filter(Boolean).join(' — ');
+function compareRuleSlots(left: RerollRule, right: RerollRule) {
+  const a = ruleSlots(left);
+  const b = ruleSlots(right);
+  for (let index = 0; index < Math.min(a.length, b.length); index += 1) {
+    if (a[index] !== b[index]) return a[index] - b[index];
+  }
+  // Equal prefixes put the shorter answer first; equal answers keep the user's order.
+  return a.length - b.length;
+}
 
 export function ReappTargetList({ rules, onChange }: {
   rules: readonly RerollRule[];
@@ -28,7 +40,7 @@ export function ReappTargetList({ rules, onChange }: {
   }
   return <div className="reroll-rules">
     {(['reapp', 'refine'] as const).map((kind) => {
-      const kindRules = rules.filter((rule) => rule.kind === kind);
+      const kindRules = rules.filter((rule) => rule.kind === kind).sort(compareRuleSlots);
       const label = kindLabels[kind];
       return <section className="reroll-rule-column" aria-label={label} key={kind}>
         <header className="reroll-toolbar">
@@ -40,7 +52,9 @@ export function ReappTargetList({ rules, onChange }: {
         <div className="role-list">
           {kindRules.map((rule) => <article key={rule.id} className="reapp-card">
             <header className="role-head">
-              <div className="role-title"><h4 className="reapp-name" title={ruleTitle(rule)}>{ruleTitle(rule)}</h4></div>
+              <div className="role-title"><h4 className="reapp-name" title={ruleTitle(rule)}>
+                {ruleSlotsTitle(rule)}{rule.mains.length > 0 && <><span className="reapp-title-separator"> — </span>{ruleMainsTitle(rule)}</>}
+              </h4></div>
               <div className="role-actions">
                 <Button size="compact" aria-label={`Edit ${ruleTitle(rule)}`} aria-haspopup="dialog"
                   onClick={(event) => edit(rule, false, event.currentTarget)}>Edit</Button>
@@ -52,7 +66,6 @@ export function ReappTargetList({ rules, onChange }: {
               <RuleRow label="Rune type">{rule.sets.length ? rule.sets.join(', ') : 'Any set'}</RuleRow>
               <RuleRow label="Min rarity">{rule.minimumRarity}</RuleRow>
               <RuleRow label="Innate required">{innateLabels[rule.innate]}</RuleRow>
-              <RuleRow label="Main stat">{rule.mains.length ? rule.mains.map(runeStatName).join(', ') : 'Any main'}</RuleRow>
             </div>
           </article>)}
         </div>

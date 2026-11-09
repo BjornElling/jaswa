@@ -38,7 +38,10 @@ test('rules handle empty and full input, incompatible mains, stable choices and 
   await expect(cards).toHaveCount(6);
   await expect(page.getByRole('heading', { name: 'Re-app', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Refine', exact: true })).toBeVisible();
-  await expect(cards.locator('.reapp-name')).toHaveText(['Slot 2', 'Slot 4', 'Slot 6', 'Slot 2', 'Slot 4', 'Slot 6']);
+  await expect(cards.locator('.reapp-name')).toHaveText([
+    'Slot 2 — SPD, ATK %', 'Slot 4 — CRI Dmg, HP %', 'Slot 6 — HP %, ATK %',
+    'Slot 2 — SPD, ATK %', 'Slot 4 — CRI Dmg, HP %', 'Slot 6 — HP %, ATK %',
+  ]);
   const alignment = await cards.evaluateAll((nodes) => nodes.map((node) => {
     const title = node.querySelector('.reapp-name')!.getBoundingClientRect();
     const actions = node.querySelector('.role-actions')!.getBoundingClientRect();
@@ -52,7 +55,7 @@ test('rules handle empty and full input, incompatible mains, stable choices and 
   expect(columns[0].y).toBe(columns[1].y);
   expect(columns[0].width).toBe(columns[1].width);
   const rowHeights = await cards.locator('.role-row').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
-  expect(rowHeights).toHaveLength(24);
+  expect(rowHeights).toHaveLength(18);
   expect(new Set(rowHeights).size).toBe(1);
   await page.screenshot({ path: testInfo.outputPath('rules-default.png'), fullPage: true });
   while (await cards.count()) await cards.first().getByRole('button', { name: /^Delete/ }).click();
@@ -89,7 +92,7 @@ test('rules handle empty and full input, incompatible mains, stable choices and 
   await edit.getByRole('button', { name: /^Main stat:/ }).click();
   await page.screenshot({ path: testInfo.outputPath('editor-main-menu.png') });
   expect(await edit.getByRole('menu', { name: 'Main stat', exact: true }).evaluate((node) =>
-    node.getBoundingClientRect().bottom <= node.closest('.editor-body')!.getBoundingClientRect().bottom)).toBe(true);
+    node.matches(':popover-open') && node.getBoundingClientRect().bottom <= innerHeight)).toBe(true);
   expect(await geometry(page)).toEqual(initial);
   await edit.getByRole('menu', { name: 'Main stat', exact: true }).getByRole('menuitem', { name: 'Accuracy', exact: true }).click();
   expect(await geometry(page)).toEqual(initial);
@@ -173,6 +176,61 @@ test('rules handle empty and full input, incompatible mains, stable choices and 
   await expect(cards).toHaveCount(2);
 });
 
+for (const kind of ['Re-app', 'Refine']) {
+  test(`${kind} menus use screen space beyond the editor without moving its controls`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto('/');
+    await openTargets(page);
+    await page.getByRole('button', { name: `Add ${kind} rule`, exact: true }).click();
+    const editor = page.getByRole('dialog', { name: `Add ${kind} rule` });
+    const trigger = editor.getByRole('button', { name: /^Rune type:/ });
+    const initial = await geometry(page);
+    await page.screenshot({ path: testInfo.outputPath('menu-closed.png') });
+    await trigger.click();
+    const menu = editor.getByRole('menu', { name: 'Rune type', exact: true });
+    await expect(menu).toBeVisible();
+    expect(await menu.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const body = node.closest('.editor-body')!.getBoundingClientRect();
+      return node.matches(':popover-open') && box.bottom > body.bottom && box.height >= 250
+        && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth;
+    })).toBe(true);
+    expect(await geometry(page)).toEqual(initial);
+    await page.screenshot({ path: testInfo.outputPath('menu-open.png') });
+    await menu.getByRole('menuitem', { name: 'Will', exact: true }).click();
+    await expect(trigger).toBeFocused();
+    expect(await geometry(page)).toEqual(initial);
+    await trigger.click();
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeVisible();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await editor.getByRole('heading').click();
+    await expect(menu).toHaveCount(0);
+    // A shorter, zoomed canvas must use the room above and keep every option reachable.
+    await page.setViewportSize({ width: 1200, height: 600 });
+    await trigger.click();
+    await expect(menu).toBeVisible();
+    expect(await menu.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return box.top >= 0 && box.bottom <= innerHeight && box.right <= innerWidth;
+    })).toBe(true);
+    await menu.getByRole('menuitem', { name: 'Fight', exact: true }).click();
+    await trigger.click();
+    await page.setViewportSize({ width: 3440, height: 1392 });
+    await expect.poll(() => menu.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const line = node.closest('.token-choice')!.querySelector('.token-choice-line')!.getBoundingClientRect();
+      return Math.abs(box.top - line.bottom - 4) < 1 && box.bottom <= innerHeight;
+    })).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath('menu-wide-screen.png') });
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await expect(editor).toHaveCount(0);
+    await expect(page.locator('.token-choice-panel')).toHaveCount(0);
+  });
+}
+
 test('a rule changes real clean-up advice and can be removed without recalculating', async ({ page }, testInfo) => {
   await page.goto('/');
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
@@ -213,7 +271,7 @@ test('a rule changes real clean-up advice and can be removed without recalculati
 });
 
 
-test('slot headings sort the chosen slots and keep their meaning after reload', async ({ page }, testInfo) => {
+test('rule headings show sorted slots and chosen mains and survive reload', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
   await openTargets(page);
@@ -221,16 +279,53 @@ test('slot headings sort the chosen slots and keep their meaning after reload', 
   const editor = page.getByRole('dialog');
   const slots = editor.getByRole('group', { name: 'Slots', exact: true });
   for (const slot of [6, 2, 4]) await slots.getByRole('button', { name: String(slot), exact: true }).click();
+  await choose(page, 'Main stat', 'HP %');
   await page.screenshot({ path: testInfo.outputPath('slots-selected.png') });
   await editor.getByRole('button', { name: 'Save rule', exact: true }).click();
-  const card = page.getByRole('region', { name: 'Re-app', exact: true }).locator('.reapp-card').last();
-  await expect(card.locator('.reapp-name')).toHaveText('Slots 2, 4, 6');
-  await expect(card.locator('.role-row-label')).toHaveText(['Rune type', 'Min rarity', 'Innate required', 'Main stat']);
+  const card = page.getByRole('region', { name: 'Re-app', exact: true }).locator('.reapp-card')
+    .filter({ has: page.getByRole('heading', { name: 'Slots 2, 4, 6 — HP %', exact: true }) });
+  await expect(card.locator('.reapp-name')).toHaveText('Slots 2, 4, 6 — HP %');
+  await expect(card.locator('.role-row-label')).toHaveText(['Rune type', 'Min rarity', 'Innate required']);
   await page.screenshot({ path: testInfo.outputPath('slot-heading.png'), fullPage: true });
   await page.reload(); await openTargets(page);
-  await expect(card.locator('.reapp-name')).toHaveText('Slots 2, 4, 6');
-  await card.getByRole('button', { name: 'Edit Slots 2, 4, 6', exact: true }).click();
+  await expect(card.locator('.reapp-name')).toHaveText('Slots 2, 4, 6 — HP %');
+  await card.getByRole('button', { name: 'Edit Slots 2, 4, 6 — HP %', exact: true }).click();
+  await editor.getByRole('button', { name: 'Remove HP % from Main stat', exact: true }).click();
   for (const slot of [6, 2, 4]) await slots.getByRole('button', { name: String(slot), exact: true }).click();
   await editor.getByRole('button', { name: 'Save rule', exact: true }).click();
-  await expect(card.locator('.reapp-name')).toHaveText('Slots 1, 2, 3, 4, 5, 6');
+  await expect(page.getByRole('region', { name: 'Re-app', exact: true }).locator('.reapp-name').first()).toHaveText('Slots 1, 2, 3, 4, 5, 6');
+});
+
+test('both rule columns sort by successive slots, with shorter equal prefixes first', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  const cards = await openTargets(page);
+  while (await cards.count()) await cards.first().getByRole('button', { name: /^Delete/ }).click();
+  const input = [[6], [4, 2, 6], [4, 2], [2], [6, 1], [], [1], [3, 2]];
+  const expected = ['Slot 1', 'Slots 1, 2, 3, 4, 5, 6', 'Slots 1, 6', 'Slot 2', 'Slots 2, 3', 'Slots 2, 4', 'Slots 2, 4, 6', 'Slot 6'];
+  for (const kind of ['Re-app', 'Refine']) {
+    for (const selected of input) {
+      await page.getByRole('button', { name: `Add ${kind} rule`, exact: true }).click();
+      const editor = page.getByRole('dialog');
+      const slots = editor.getByRole('group', { name: 'Slots', exact: true });
+      for (const slot of selected) await slots.getByRole('button', { name: String(slot), exact: true }).click();
+      await editor.getByRole('button', { name: 'Save rule', exact: true }).click();
+    }
+    const column = page.getByRole('region', { name: kind, exact: true });
+    await expect(column.locator('.reapp-name')).toHaveText(expected);
+    // Editing a slot changes its position as well as its title.
+    await column.getByRole('button', { name: 'Edit Slot 6', exact: true }).click();
+    const editor = page.getByRole('dialog');
+    const slots = editor.getByRole('group', { name: 'Slots', exact: true });
+    await slots.getByRole('button', { name: '6', exact: true }).click();
+    await slots.getByRole('button', { name: '3', exact: true }).click();
+    await editor.getByRole('button', { name: 'Save rule', exact: true }).click();
+    await expect(column.locator('.reapp-name')).toHaveText([...expected.slice(0, -1), 'Slot 3']);
+  }
+  await page.screenshot({ path: testInfo.outputPath('sorted-rules.png'), fullPage: true });
+  await page.reload(); await openTargets(page);
+  for (const kind of ['Re-app', 'Refine']) {
+    await expect(page.getByRole('region', { name: kind, exact: true }).locator('.reapp-name'))
+      .toHaveText([...expected.slice(0, -1), 'Slot 3']);
+  }
 });

@@ -106,12 +106,18 @@ left and **Refine** on the right. Each has its own **Add Re-app rule** or
 **Add Refine rule** button and independent empty state. Add, edit or delete any number
 of rules. The stone is decided when a rule is added; the editor has no Target
 control, and rules cannot be duplicated. Empty lists stay empty after reload. Slot headings need not be unique; identifiers must be.
+Each column sorts automatically by its displayed slot list, comparing the first slot,
+then the second and so on. A shorter equal prefix comes first: **2**, **2, 4**,
+**2, 4, 6**. Identical slot lists keep their existing order. This order is derived
+for display and does not rewrite saved rules.
 
-The slots are the card's derived heading, in ascending numerical order: **Slot 2** or
-**Slots 2, 4, 6**. No selected slots means all six, and the heading lists them. There is
+The card's derived heading lists slots in ascending numerical order, followed by any
+chosen main stats with a generously spaced dash: **Slot 2 — SPD, ATK %** or
+**Slots 2, 4, 6 — HP %**. With no chosen main stats it names only the slots.
+No selected slots means all six, and the heading lists them. There is
 no manual name or repeated Slots row. The heading is vertically centred with Edit and
-Delete. Each card holds four rows: **Rune type**, **Min rarity**, **Innate required**
-and **Main stat**. These rows have the same fixed height and no horizontal dividers.
+Delete. Each card holds three rows: **Rune type**, **Min rarity** and **Innate required**.
+Main stats appear only in the heading. These rows have the same fixed height and no horizontal dividers.
 Long values truncate on one line, with the complete text available on hover and to
 assistive technology. There is no Compatibility row. Each column keeps its own place
 when a rule is added to the other; narrow screens stack Re-app above Refine.
@@ -119,9 +125,12 @@ when a rule is added to the other; narrow screens stack Re-app above Refine.
 The compact editor puts Slots beside Main stat, then Rune type across the full width.
 Min rarity and Innate required each take one third of the row below; the final third
 stays empty. Rune type and Main stat use the filters' shared
-multi-choice dropdown with removable pills and a counted overflow. Its menu stays
-inside the scrolling editor in either direction; its list scrolls to reach the last
-option without moving the fields. **Innate required**
+multi-choice dropdown with removable pills and a counted overflow. All menus of this
+type use the browser's top layer, beyond the editor's scrolling body and footer.
+They remain anchored to the field, open above when that offers more room, and stay
+within the screen when it resizes or an ancestor scrolls. The list scrolls to reach
+the last option without moving the fields. Escape dismisses the menu before the
+editor and returns focus to the field. **Innate required**
 uses three exclusive filter buttons, in the order **Yes**, **Both**, **No**: Yes requires
 an innate, Both accepts either state, and No requires no innate. Both is the default for
 a new rule. The chosen button stays chosen when clicked again. There is no Enabled
