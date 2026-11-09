@@ -3832,12 +3832,14 @@ label[for] {
 .dialog.editor.reapp-editor { width: min(760px, 100%); }
 .reapp-editor-body { grid-template-columns: repeat(6, minmax(0, 1fr)); align-content: start; gap: var(--s5) var(--s6); }
 .reroll-slots-field, .reroll-main-field { grid-column: span 3; }
-.reroll-set-field, .reroll-validation { grid-column: 1 / -1; }
+.reroll-set-field, .reroll-substats-field, .reroll-substat-minimum-field, .reroll-validation { grid-column: 1 / -1; }
 .reroll-rarity-field, .reroll-innate-field { grid-column: span 2; }
 .dialog .reapp-editor-body .field { min-width: 0; margin: 0; }
 .reapp-editor-body .field > .filter-label { display: block; margin-bottom: var(--s1); }
 .reapp-editor-body .filter-group { min-width: 0; padding-left: 0; border-left: 0; }
 .reapp-editor-body .field .jaswa-select { width: 100%; }
+.reapp-editor-body .reroll-substat-minimum-field { display: grid; grid-template-columns: minmax(0, 1fr) 120px; align-items: center; gap: var(--s4); }
+.reapp-editor-body .reroll-substat-minimum-field > .filter-label { margin-bottom: 0; }
 .reroll-choices { min-width: 0; margin: 0; padding: 0; border: 0; }
 .reroll-choices legend { padding: 0; }
 .reroll-options { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s2); }

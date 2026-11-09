@@ -30,7 +30,7 @@ import type { RuneFuture, RuneRuns } from './rune-power-up-outcomes';
 import type { Valuation } from './rune-substat-weights';
 import { lastSubPropertyLevel } from './rune-properties';
 import { canonicalCraftCredit, craftedLines, groundLines } from './rune-craft-end-state';
-import { holdsBestLineTypes, isRerollTarget } from './rune-reapp-targets';
+import { isRerollTarget } from './rune-reapp-targets';
 import type { EndStateLine } from './rune-craft-end-state';
 
 /* Every rune — the account's, the calibration's sample and the simulator's — is
@@ -417,7 +417,7 @@ type Contender = {
  */
 type Step = { candidate: Contender; passesValue: boolean; asks: number[] };
 
-type RunePlan = { rune: Rune; steps: Step[]; bestLineTypes: boolean };
+type RunePlan = { rune: Rune; steps: Step[] };
 
 type Answer = {
   value: number; maxValue: number; chance: number; share: number; floorMaxValue: number;
@@ -539,14 +539,6 @@ export type RuneAdvice = {
    * which asks about every rune at once, has no use for the other nine.
    */
   readings: RoleReading[] | null;
-  /**
-   * Whether some build of some role that takes this rune's main values its four sub
-   * property types above every other type it could carry (`holdsBestLineTypes`) —
-   * the half of a refine target only the engine can answer, because it needs each
-   * build's prices. Read from every build, not only the one the row names: a rune
-   * an attack build reads best may still be a support build's perfect refine.
-   */
-  bestLineTypes: boolean;
 };
 
 /**
@@ -807,10 +799,7 @@ export async function runeAdvice(
       steps.push({ candidate, passesValue, asks: [askOf(candidate)] });
     }
 
-    prepared.push({ rune, steps, bestLineTypes: candidates.some(({ role, prepared: candidate }) => {
-      const line = base.get(role.type);
-      return line !== undefined && holdsBestLineTypes(rune, candidate, line);
-    }) });
+    prepared.push({ rune, steps });
     onProgress?.(prepared.length / (2 * runes.length));
   }
 
@@ -862,7 +851,6 @@ export async function runeAdvice(
       craftedLines: chosen ? finishedLines(chosen.candidate) : null,
       buildMains: chosen ? chosen.candidate.build.mains : null,
       readings: explain ? roleReadings(roles, answersWithSteps, allowed, chanceBar, worthOf) : null,
-      bestLineTypes: plan.bestLineTypes,
     }, settings));
     onProgress?.((runes.length + advice.size) / (2 * runes.length));
   }
@@ -996,7 +984,7 @@ function decide({ rune, value, standing, chance, role, rank, cleared, brokenReje
   rune: Rune; value: number; standing: number; chance: number;
   role: RuneRole | null; rank: MatchRank;
   cleared: boolean; brokenRejected: boolean;
-}): Omit<RuneAdvice, 'craftedLines' | 'buildMains' | 'floorShare' | 'floorMaxValue' | 'readings' | 'bestLineTypes'> {
+}): Omit<RuneAdvice, 'craftedLines' | 'buildMains' | 'floorShare' | 'floorMaxValue' | 'readings'> {
   const base = { maxValue: value, standing, chance, role, rank };
   if (role === null) {
     return { ...base, verdict: 'sell', reason: 'No role can use it' };
@@ -1053,14 +1041,14 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
      only ever asked of a rune the engine would sell, so a rune worth powering up
      or keeping is never sent to a stone. Asked there, it names what to do rather
      than only forbidding the sale, so it outranks the other safeguards. Refine is
-     asked first: a rune that already holds the four best types needs only better
-     rolls, which is what refinement gives without gambling the types. */
+     asked first: the user's wanted types are already present, so refinement
+     improves their rolls without gambling the types. */
   if (settings.neverSellReappTargets && original.verdict === 'sell') {
     for (const [kind, reason] of [
       ['refine', 'Refine target'],
       ['reapp', 'Re-app target'],
     ] as const) {
-      if (isRerollTarget(rune, settings.rerollRules, kind, advice.bestLineTypes)) {
+      if (isRerollTarget(rune, settings.rerollRules, kind)) {
         return { ...advice, unprotectedAdvice: original, verdict: kind, reason };
       }
     }

@@ -483,7 +483,7 @@ test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a s
     const preferences = blankPreferences();
     const runes = readRunes(game.data);
     const advice = (verdict: string, unprotected?: string) => ({ verdict, reason: '', maxValue: 0, standing: 0, floorShare: 0,
-      floorMaxValue: 0, chance: 0, role: null, rank: 'broken', craftedLines: null, buildMains: null, readings: null, bestLineTypes: false,
+      floorMaxValue: 0, chance: 0, role: null, rank: 'broken', craftedLines: null, buildMains: null, readings: null,
       ...(unprotected ? { unprotectedAdvice: { verdict: unprotected, reason: '' } } : {}) });
     const verdicts: Record<string, ReturnType<typeof advice>> = {
       101: advice('keep'), 102: advice('power-up'), 103: advice('reapp', 'sell'), 104: advice('keep', 'sell'),

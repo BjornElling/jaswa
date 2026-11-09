@@ -61,7 +61,12 @@ Former combined rules are read as two independent rules with distinct identifier
 one per stone. A former boolean innate requirement of true becomes Yes; false becomes
 Both. The current `innate` choice is Yes, Both or No and is validated independently;
 only the current shape is written. Rule headings are derived from slots in ascending
-order; former manual names are left out, with every condition retained.
+order, followed by chosen main stats; former manual names are left out, with every
+condition retained. Refine alone stores `substats` and `minimumSubstats` (All or a
+positive integer). These are read independently: a missing or malformed list starts
+empty, a missing or malformed minimum starts at All, and every existing slot, main,
+set, rarity and innate choice survives. An incomplete or incompatible rule stays
+available to edit and cannot recommend refinement. Re-app stores neither field.
 
 ## Session-scoped state
 

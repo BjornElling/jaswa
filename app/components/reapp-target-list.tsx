@@ -4,11 +4,13 @@ import { Dropdown } from './dropdown';
 import { TokenChoiceField } from './token-choice-field';
 import { innateRequirements, newRerollRule, reappSetOptions, reappSlots, rerollMainOptions, rerollRuleProblems } from '../lib/rune-reapp-targets';
 import type { RerollRule, RerollKind } from '../lib/rune-reapp-targets';
-import { runeRarities, runeStatName } from '../lib/runes';
+import { runeRarities, runeStatIds, runeStatName } from '../lib/runes';
 import type { RuneRarity } from '../lib/runes';
 
 const kindLabels = { reapp: 'Re-app', refine: 'Refine' };
 const innateLabels = { yes: 'Yes', both: 'Both', no: 'No' };
+const alphabetical = (left: string, right: string) => left.localeCompare(right);
+const substatOptions = runeStatIds.map((id) => ({ value: id, label: runeStatName(id)! }));
 const ruleSlots = (rule: RerollRule) => reappSlots.filter((slot) => rule.slots.length === 0 || rule.slots.includes(slot));
 const ruleSlotsTitle = (rule: RerollRule) => {
   const slots = ruleSlots(rule);
@@ -63,9 +65,13 @@ export function ReappTargetList({ rules, onChange }: {
               </div>
             </header>
             <div className="role-rows">
-              <RuleRow label="Rune type">{rule.sets.length ? rule.sets.join(', ') : 'Any set'}</RuleRow>
+              <RuleRow label="Rune type">{rule.sets.length ? [...rule.sets].sort(alphabetical).join(', ') : 'Any set'}</RuleRow>
               <RuleRow label="Min rarity">{rule.minimumRarity}</RuleRow>
               <RuleRow label="Innate required">{innateLabels[rule.innate]}</RuleRow>
+              {rule.kind === 'refine' && <>
+                <RuleRow label="Substats">{rule.substats.length ? substatOptions.filter((option) => rule.substats.includes(option.value)).map((option) => option.label).join(', ') : 'Choose substats'}</RuleRow>
+                <RuleRow label="At least">{rule.minimumSubstats === 'all' ? 'All' : rule.minimumSubstats}</RuleRow>
+              </>}
             </div>
           </article>)}
         </div>
@@ -98,7 +104,7 @@ function RuleEditor({ draft, isNew, onCancel, onSave }: {
   const [rule, setRule] = useState(draft);
   const form = useRef<HTMLFormElement>(null);
   const problems = rerollRuleProblems(rule);
-  const update = (change: Partial<RerollRule>) => setRule((current) => ({ ...current, ...change }));
+  const update = (change: Partial<Omit<RerollRule, 'kind'>>) => setRule((current) => ({ ...current, ...change }));
   useEffect(() => { form.current?.querySelector<HTMLButtonElement>('.reroll-slots-field button')?.focus(); }, []);
   useEffect(() => {
     function keyDown(event: KeyboardEvent) {
@@ -125,6 +131,26 @@ function RuleEditor({ draft, isNew, onCancel, onSave }: {
         <TokenChoiceField label="Rune type" description="Rune type" empty="Any set" className="reroll-set-field"
           options={reappSetOptions.map((name) => ({ value: name, label: name }))}
           chosen={rule.sets} onChange={(sets) => update({ sets })} />
+        {rule.kind === 'refine' && <>
+          <TokenChoiceField label="Substats" description="Substats" empty="Choose substats" className="reroll-substats-field"
+            options={substatOptions}
+            chosen={rule.substats} onChange={(substats) => setRule((current) => current.kind === 'refine' ? { ...current, substats } : current)} />
+          <label className="field reroll-substat-minimum-field"><span className="filter-label">Of these rune must have at least</span>
+            <Dropdown aria-label="Of these rune must have at least" value={rule.minimumSubstats}
+              onChange={(event) => {
+                const value = event.target.value;
+                const minimumSubstats = value === 'all' ? 'all' : Number(value);
+                if (value !== 'all' && (!value || !Number.isFinite(minimumSubstats))) return;
+                setRule((current) => current.kind === 'refine' ? { ...current, minimumSubstats } : current);
+              }}>
+              <option value="all">All</option>
+              {Array.from({ length: Math.max(0, rule.substats.length - 1) }, (_, index) => rule.substats.length - 1 - index)
+                .map((count) => <option key={count} value={count}>{count}</option>)}
+              {rule.minimumSubstats !== 'all' && (rule.minimumSubstats >= rule.substats.length || rule.minimumSubstats < 1)
+                && <option value={rule.minimumSubstats} disabled>{rule.minimumSubstats} (unavailable)</option>}
+            </Dropdown>
+          </label>
+        </>}
         <label className="field reroll-rarity-field"><span className="filter-label">Min rarity</span><Dropdown aria-label="Min rarity" value={rule.minimumRarity} onChange={(event) => update({ minimumRarity: event.target.value as RuneRarity })}>
           {runeRarities.map((rarity) => <option key={rarity}>{rarity}</option>)}
         </Dropdown></label>

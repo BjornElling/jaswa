@@ -533,6 +533,8 @@ A reroll is offered **only instead of a sale**: a re-app or refine target is ask
 a rune the engine would sell, Refine before Re-app, and its advice outranks the other
 safeguards. `withRuneSellProtection` applies all four; `rune-reapp-targets.ts` owns the
 target rule. Their exact conditions and controls are `RUNE-CLEANUP-INTERFACE.md` §3.
+Refine counts the actual sub-property types specified by the user against that rule's
+minimum. It does not rank types through a role or build; main and innate never count.
 
 ### 9.1 A quality minimum and a complete selling funnel
 

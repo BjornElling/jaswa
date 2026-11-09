@@ -1,17 +1,11 @@
 import assert from 'node:assert/strict';
-import { readRunes } from '../app/lib/runes.ts';
+import { readRunes, runeStatIds, slotAllowsSubStat, slotMainProperties } from '../app/lib/runes.ts';
 import { runeAdvice, withRuneSellProtection } from '../app/lib/rune-cleanup-advice.ts';
 import { defaultRunePotentialSettings, blankPreferences, readPreferences } from '../app/lib/file-imports.ts';
 import { readFileSync } from 'node:fs';
 import { defaultReappTargets, defaultRerollRules, newRerollRule, readRerollRules, rerollRuleProblems, isRerollTarget, rerollMainOptions, reappSetOptions } from '../app/lib/rune-reapp-targets.ts';
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { prepareRuneCandidate, roleBuilds } from '../app/lib/rune-cleanup-model.ts';
-import { maximumRoll, subPropertyTargetStat } from '../app/lib/rune-properties.ts';
-import { maxRollScale } from '../app/lib/rune-substat-weights.ts';
-import { runeStatName } from '../app/lib/runes.ts';
 import { emptyRunePlacement, hasRunePlacementOutsideScenario, summarizeRunePlacement } from '../app/lib/rune-placement.ts';
 
-const defaultCraftCredit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 
 const account = JSON.parse(readFileSync(new URL('../tests/fixtures/craft-account.json', import.meta.url), 'utf8'));
 const rune = readRunes({ runes: account.unit_list[0].runes }).find((entry) => entry.id === '103');
@@ -144,35 +138,36 @@ console.log('PASS: any non-Scenario engraving protects a rune, Scenario alone do
 /* Rules are alternatives, conditions within one rule are intersections. */
 const reappSettings = { ...engravingSettings, neverSellEngravedPlacements: false, rerollRules: [] };
 const openRule = { ...newRerollRule('test'), minimumRarity: 'Normal' };
-const best = { ...original, bestLineTypes: true };
+const best = original;
+const refineConditions = { substats: [8, 9], minimumSubstats: 1 };
 const answer = (rules, candidate = rune, advice = best) => withRuneSellProtection(candidate, advice, { ...reappSettings, rerollRules: rules });
 assert.equal(answer([]).verdict, 'sell');
 assert.equal(answer([openRule]).verdict, 'reapp');
 assert.deepEqual(readRerollRules([{ ...openRule, enabled: false }]), []);
 assert.deepEqual(readRerollRules([{ ...openRule, enabled: true }]), [openRule]);
-assert.equal(answer([{ ...openRule, kind: 'refine' }]).verdict, 'refine');
-assert.equal(answer([{ ...openRule, kind: 'refine' }], rune, original).verdict, 'sell');
-const bothRules = [openRule, { ...openRule, id: 'refine', kind: 'refine' }];
+assert.equal(answer([{ ...openRule, kind: 'refine', ...refineConditions }]).verdict, 'refine');
+assert.equal(answer([{ ...openRule, kind: 'refine', ...refineConditions }], rune, original).verdict, 'refine');
+const bothRules = [openRule, { ...openRule, id: 'refine', kind: 'refine', ...refineConditions }];
 assert.equal(answer(bothRules).verdict, 'refine');
-assert.equal(answer(bothRules, rune, original).verdict, 'reapp');
+assert.equal(answer(bothRules, rune, original).verdict, 'refine');
 assert.equal(answer(bothRules, { ...rune, ancient: true }).verdict, 'reapp');
 const gemmed = { ...rune, subProperties: rune.subProperties.map((line, at) => at === 0 ? { ...line, gemmed: true } : line) };
 assert.equal(answer(bothRules, gemmed).verdict, 'reapp');
 for (const kind of ['reapp', 'refine']) for (const innate of ['yes', 'both', 'no']) for (const prefixStatId of [null, 8]) {
-  const result = answer([{ ...openRule, kind, innate }], { ...rune, prefixStatId });
+  const result = answer([{ ...openRule, ...refineConditions, kind, innate }], { ...rune, prefixStatId });
   const matches = innate === 'both' || (prefixStatId !== null) === (innate === 'yes');
   assert.equal(result.verdict, matches ? kind : 'sell', `${kind}, ${innate}, prefix ${prefixStatId}`);
 }
 for (const kind of ['refine', 'reapp']) {
-  const rule = { ...openRule, kind };
+  const rule = { ...openRule, ...refineConditions, kind };
   assert.equal(answer([rule], { ...rune, setName: 'Intangible' }).verdict, 'sell');
   assert.equal(answer([rule], { ...rune, subProperties: rune.subProperties.slice(0, 3) }).verdict, 'sell');
   assert.equal(answer([rule], { ...rune, level: 0 }).verdict, kind === 'reapp' ? 'reapp' : 'refine');
   for (const verdict of ['power-up', 'keep']) assert.equal(answer([rule], rune, { ...best, verdict }).verdict, verdict);
 }
-for (const rules of [[openRule, { ...openRule, id: 'other', kind: 'refine' }], [{ ...openRule, id: 'other', kind: 'refine' }, openRule]]) {
+for (const rules of [[openRule, { ...openRule, id: 'other', kind: 'refine', ...refineConditions }], [{ ...openRule, id: 'other', kind: 'refine', ...refineConditions }, openRule]]) {
   assert.equal(answer(rules).verdict, 'refine');
-  assert.equal(answer(rules, rune, original).verdict, 'reapp');
+  assert.equal(answer(rules, rune, original).verdict, 'refine');
 }
 for (const [field, value] of [['sets', ['Will']], ['slots', [1]], ['minimumRarity', 'Legend'], ['innate', 'yes']]) {
   const candidate = { ...rune, rarity: 'Hero', prefixStatId: null };
@@ -185,14 +180,14 @@ for (const slot of [1, 2, 3, 4, 5, 6]) for (const main of rerollMainOptions) {
   const rule = { ...openRule, slots: [slot], mains: [main] };
   const legal = slotMains[slot].includes(main);
   assert.equal(rerollRuleProblems(rule).length === 0, legal, `slot ${slot}, main ${main}`);
-  assert.equal(isRerollTarget({ ...rune, slot, mainStatId: main }, [rule], 'reapp', false), legal);
+  assert.equal(isRerollTarget({ ...rune, slot, mainStatId: main }, [rule], 'reapp'), legal);
 }
 assert.ok(rerollRuleProblems({ ...openRule, slots: [], mains: [8] }).length);
 assert.equal(rerollRuleProblems({ ...openRule, slots: [2], mains: [...rerollMainOptions] }).length, 0);
-assert.equal(isRerollTarget({ ...rune, slot: 2, mainStatId: 8 }, [{ ...openRule, slots: [2], mains: [...rerollMainOptions] }], 'reapp', false), true);
+assert.equal(isRerollTarget({ ...rune, slot: 2, mainStatId: 8 }, [{ ...openRule, slots: [2], mains: [...rerollMainOptions] }], 'reapp'), true);
 assert.ok(rerollRuleProblems({ ...openRule, slots: [2], mains: [8, 10] }).length);
 assert.equal(rerollRuleProblems({ ...openRule, slots: [2, 4], mains: [8, 10] }).length, 0);
-const full = { ...openRule, kind: 'refine', sets: [...reappSetOptions],
+const full = { ...openRule, kind: 'refine', ...refineConditions, sets: [...reappSetOptions],
   slots: [1, 2, 3, 4, 5, 6], mains: [...rerollMainOptions], minimumRarity: 'Legend', innate: 'yes' };
 assert.equal(rerollRuleProblems(full).length, 0);
 assert.deepEqual(readRerollRules([full]), [full]);
@@ -239,47 +234,57 @@ assert.equal('refineTargets' in retainedSlots, false);
 assert.equal(retainedSlots.powerUpPolicy, 2);
 console.log('PASS: arbitrary reroll rules, all slot/main pairs, alternatives, both stones, exclusions, priority and preference survival.');
 
-/* The four best types, read in the engine's own prices, for any build that takes the main. */
-/* A real level-40 line for every family: the fixture's own reference lines are all
-   zero, which prices every HP, ATK and DEF line at nothing. */
-const referenceLine = { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 };
-const fixtureBase = new Map(['Attack type', 'Support type', 'Defence type', 'HP type', 'No type'].map((type) => [type, referenceLine]));
-const roles = defaultRuneRoles();
-const fastDd = roles.find((role) => role.id === 'fast-dd');
-const support = roles.find((role) => role.id === 'support');
-const speedRune = (statIds) => ({ ...rune, id: 'refine-probe', slot: 2, mainStatId: 8, mainValue: 42, setName: 'Violent', setId: 13,
-  ancient: false, stars: 6, rarity: 'Legend', level: 12, prefixStatId: null, prefixValue: 0,
-  subProperties: statIds.map((statId) => ({ statId, value: 1, gemmed: false, grind: 0 })) });
-const legal = [1, 2, 3, 4, 5, 6, 9, 10, 11, 12];
-function ranked(role) {
-  const build = roleBuilds(role).find((entry) => entry.mains[2] === 8);
-  const candidate = prepareRuneCandidate(speedRune([4, 9, 10, 3]), role, build, fixtureBase.get(role.type), defaultCraftCredit);
-  // First what the build still lacks, then the size of a max roll for a stat the role names.
-  const named = new Set(candidate.weights.rows.map((row) => row.stat));
-  const base = fixtureBase.get(role.type);
-  const worth = (id) => [candidate.valuation.value(id, maximumRoll(id, 6)),
-    named.has(subPropertyTargetStat[id]) ? maximumRoll(id, 6) * maxRollScale(id, base, 6) : 0];
-  return [...legal].sort((left, right) => worth(right)[0] - worth(left)[0] || worth(right)[1] - worth(left)[1]);
+/* Construct actual four-line runes independently of the rule validator. A rule
+   for one slot/main must be achievable by one of these. This catches the
+   difference between a wanted pool
+   of six and a physically impossible demand for six lines. */
+function fours(values, start = 0, held = []) {
+  if (held.length === 4) return [held];
+  return values.slice(start).flatMap((value, offset) => fours(values, start + offset + 1, [...held, value]));
 }
-const attackRanked = ranked(fastDd);
-const attackFour = attackRanked.slice(0, 4);
-const supportFour = ranked(support).slice(0, 4);
-console.log(`Fast DD's four for a slot-2 SPD rune: ${attackFour.map(runeStatName).join(', ')}; Support's: ${supportFour.map(runeStatName).join(', ')}`);
-const engineSays = async (statIds, chosenRoles, prefixStatId = null) =>
-  (await runeAdvice([{ ...speedRune(statIds), prefixStatId, prefixValue: prefixStatId === null ? 0 : 1 }],
-    chosenRoles, defaultRunePotentialSettings, fixtureBase)).get('refine-probe').bestLineTypes;
-assert.equal(await engineSays(attackFour, [fastDd]), true);
-assert.equal(await engineSays(supportFour, [support]), true);
-// Either build is enough: the support rune is still a candidate beside the attack role.
-assert.equal(await engineSays(supportFour, [fastDd, support]), true);
-assert.equal(await engineSays(attackFour, [fastDd, support]), true);
-// One of the four swapped for the type the build wants least is no candidate.
-const swapped = [...attackFour.slice(0, 3), legal.find((id) => !attackFour.includes(id) && !supportFour.includes(id))];
-assert.equal(await engineSays(swapped, [fastDd]), false);
-// Three lines have not shown their fourth type yet.
-assert.equal(await engineSays(attackFour.slice(0, 3), [fastDd]), false);
-// The best four are counted after the main alone: an innate holding one of them
-// leaves the rune's lines short of the best four, while one outside them costs nothing.
-assert.equal(await engineSays([...attackFour.slice(0, 3), attackRanked[4]], [fastDd], attackFour[3]), false);
-assert.equal(await engineSays(attackFour, [fastDd], attackRanked.at(-1)), true);
-console.log('PASS: refine targets need the four best line types of some build and pass only runes the game lets through the stone.');
+const refineRule = { ...newRerollRule('manual', 'refine'), minimumRarity: 'Normal' };
+let checked = 0;
+for (const slot of [1, 2, 3, 4, 5, 6]) for (const main of slotMainProperties[slot]) {
+  const legal = runeStatIds.filter((stat) => stat !== main && slotAllowsSubStat(slot, stat));
+  const candidates = fours(legal);
+  for (const substats of [[], [main], [8, 9], [2, 4, 6, 8, 9, 10], legal]) {
+    for (const minimumSubstats of ['all', ...Array.from({ length: Math.max(0, substats.length - 1) }, (_, at) => at + 1)]) {
+      const rule = { ...refineRule, slots: [slot], mains: [main], substats, minimumSubstats };
+      const minimum = minimumSubstats === 'all' ? substats.length : minimumSubstats;
+      const possible = substats.length > 0
+        && candidates.some((lines) => lines.filter((stat) => substats.includes(stat)).length >= minimum);
+      assert.equal(rerollRuleProblems(rule).length === 0, possible, JSON.stringify(rule));
+      for (const lines of [candidates[0], candidates.at(-1)]) {
+        const candidate = { ...rune, slot, mainStatId: main, subProperties: lines.map((statId) => ({ statId, value: 1, grind: 0, gemmed: false })) };
+        assert.equal(isRerollTarget(candidate, [rule], 'refine'), possible && lines.filter((stat) => substats.includes(stat)).length >= minimum);
+      }
+      checked += 1;
+    }
+  }
+}
+const flexible = { ...refineRule, slots: [2], mains: [4, 8], substats: [4, 8], minimumSubstats: 1 };
+assert.equal(rerollRuleProblems(flexible).length, 0);
+assert.ok(rerollRuleProblems({ ...flexible, substats: [4], minimumSubstats: 'all' }).length, 'ATK % main cannot carry the sole requested ATK % substat');
+assert.ok(rerollRuleProblems({ ...flexible, minimumSubstats: 'all' }).length, 'every admitted main must be feasible');
+assert.ok(rerollRuleProblems({ ...flexible, minimumSubstats: 0 }).length);
+assert.ok(rerollRuleProblems({ ...flexible, minimumSubstats: 1.5 }).length);
+assert.ok(rerollRuleProblems({ ...flexible, minimumSubstats: 3 }).length);
+const innateOnly = { ...refineRule, slots: [4], mains: [10], substats: [9], minimumSubstats: 'all' };
+assert.equal(isRerollTarget({ ...rune, prefixStatId: 9 }, [innateOnly], 'refine'), false, 'an innate is not a substat');
+const heldRule = { ...refineRule, slots: [4], mains: [10], substats: [2, 4, 8, 11], minimumSubstats: 'all' };
+assert.equal(isRerollTarget(rune, [heldRule], 'refine'), true);
+assert.equal((await runeAdvice([rune], [], { ...reappSettings, rerollRules: [heldRule] }, new Map())).get(rune.id).verdict, 'refine', 'manual criteria need no role or build');
+assert.equal(answer([heldRule], { ...rune, subProperties: rune.subProperties.map((line, at) => at === 0 ? { ...line, statId: 9 } : line) }).verdict, 'sell');
+
+const missingNewFields = { ...heldRule };
+delete missingNewFields.substats; delete missingNewFields.minimumSubstats;
+assert.deepEqual(readRerollRules([missingNewFields]), [{ ...heldRule, substats: [], minimumSubstats: 'all' }]);
+assert.deepEqual(readRerollRules([{ ...heldRule, substats: [999] }]), [{ ...heldRule, substats: [] }]);
+assert.deepEqual(readRerollRules([{ ...heldRule, minimumSubstats: '3' }]), [{ ...heldRule, minimumSubstats: 'all' }]);
+assert.deepEqual(readRerollRules([{ ...heldRule, minimumSubstats: Number.NaN }]), [{ ...heldRule, minimumSubstats: 'all' }]);
+assert.deepEqual(readRerollRules([{ ...openRule, ...refineConditions }]), [openRule], 'Re-app stores no refinement criteria');
+const partialSurvival = readPreferences({ ...blank, runePotential: { ...reappSettings, powerUpPolicy: 2,
+  rerollRules: [missingNewFields, openRule] } }, null);
+assert.deepEqual(partialSurvival.runePotential.rerollRules, [{ ...heldRule, substats: [], minimumSubstats: 'all' }, openRule]);
+assert.equal(partialSurvival.runePotential.powerUpPolicy, 2);
+console.log(`PASS: ${checked} manual refine criteria checked against legal four-line runes, main/slot conflicts, innates, role independence and field-by-field preference survival.`);

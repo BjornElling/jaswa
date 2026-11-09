@@ -30,6 +30,12 @@ async function chooseRemaining(page: Page, label: string) {
   }
 }
 
+async function fillRefineSubstats(page: Page) {
+  await choose(page, 'Substats', 'SPD');
+  await choose(page, 'Substats', 'CRI Rate');
+  await page.getByRole('combobox', { name: 'Of these rune must have at least', exact: true }).selectOption('1');
+}
+
 test('rules handle empty and full input, incompatible mains, stable choices and persistence', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
@@ -55,7 +61,7 @@ test('rules handle empty and full input, incompatible mains, stable choices and 
   expect(columns[0].y).toBe(columns[1].y);
   expect(columns[0].width).toBe(columns[1].width);
   const rowHeights = await cards.locator('.role-row').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().height));
-  expect(rowHeights).toHaveLength(18);
+  expect(rowHeights).toHaveLength(24);
   expect(new Set(rowHeights).size).toBe(1);
   await page.screenshot({ path: testInfo.outputPath('rules-default.png'), fullPage: true });
   while (await cards.count()) await cards.first().getByRole('button', { name: /^Delete/ }).click();
@@ -159,6 +165,7 @@ test('rules handle empty and full input, incompatible mains, stable choices and 
   const rightBefore = await right.evaluate((node) => { const { x, y, width } = node.getBoundingClientRect(); return { x, y, width }; });
   await page.getByRole('button', { name: 'Add Refine rule', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Add Refine rule', exact: true })).toBeVisible();
+  await fillRefineSubstats(page);
   await page.getByRole('dialog').getByRole('button', { name: 'Save rule', exact: true }).click();
   await expect(cards).toHaveCount(2);
   await expect(right.locator('.reapp-card')).toHaveCount(1);
@@ -280,15 +287,18 @@ test('rule headings show sorted slots and chosen mains and survive reload', asyn
   const slots = editor.getByRole('group', { name: 'Slots', exact: true });
   for (const slot of [6, 2, 4]) await slots.getByRole('button', { name: String(slot), exact: true }).click();
   await choose(page, 'Main stat', 'HP %');
+  for (const name of ['Will', 'Blade', 'Violent']) await choose(page, 'Rune type', name);
   await page.screenshot({ path: testInfo.outputPath('slots-selected.png') });
   await editor.getByRole('button', { name: 'Save rule', exact: true }).click();
   const card = page.getByRole('region', { name: 'Re-app', exact: true }).locator('.reapp-card')
     .filter({ has: page.getByRole('heading', { name: 'Slots 2, 4, 6 — HP %', exact: true }) });
   await expect(card.locator('.reapp-name')).toHaveText('Slots 2, 4, 6 — HP %');
   await expect(card.locator('.role-row-label')).toHaveText(['Rune type', 'Min rarity', 'Innate required']);
+  await expect(card.locator('.role-row').filter({ hasText: /^Rune type/ }).locator('.role-row-value')).toHaveText('Blade, Violent, Will');
   await page.screenshot({ path: testInfo.outputPath('slot-heading.png'), fullPage: true });
   await page.reload(); await openTargets(page);
   await expect(card.locator('.reapp-name')).toHaveText('Slots 2, 4, 6 — HP %');
+  await expect(card.locator('.role-row').filter({ hasText: /^Rune type/ }).locator('.role-row-value')).toHaveText('Blade, Violent, Will');
   await card.getByRole('button', { name: 'Edit Slots 2, 4, 6 — HP %', exact: true }).click();
   await editor.getByRole('button', { name: 'Remove HP % from Main stat', exact: true }).click();
   for (const slot of [6, 2, 4]) await slots.getByRole('button', { name: String(slot), exact: true }).click();
@@ -309,6 +319,7 @@ test('both rule columns sort by successive slots, with shorter equal prefixes fi
       const editor = page.getByRole('dialog');
       const slots = editor.getByRole('group', { name: 'Slots', exact: true });
       for (const slot of selected) await slots.getByRole('button', { name: String(slot), exact: true }).click();
+      if (kind === 'Refine') await fillRefineSubstats(page);
       await editor.getByRole('button', { name: 'Save rule', exact: true }).click();
     }
     const column = page.getByRole('region', { name: kind, exact: true });
@@ -328,4 +339,108 @@ test('both rule columns sort by successive slots, with shorter equal prefixes fi
     await expect(page.getByRole('region', { name: kind, exact: true }).locator('.reapp-name'))
       .toHaveText([...expected.slice(0, -1), 'Slot 3']);
   }
+});
+
+test('Refine requires explicit substats, validates every main and keeps six choices on one line', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  await openTargets(page);
+  await page.getByRole('button', { name: 'Add Refine rule', exact: true }).click();
+  const editor = page.getByRole('dialog');
+  const save = editor.getByRole('button', { name: 'Save rule', exact: true });
+  const minimum = editor.getByRole('combobox', { name: 'Of these rune must have at least', exact: true });
+  const status = editor.getByRole('status');
+  const substats = editor.getByRole('group', { name: 'Substats', exact: true });
+  const initial = await geometry(page);
+  await expect(minimum).toHaveValue('all');
+  await expect(minimum.locator('option')).toHaveText(['All']);
+  await expect(save).toBeDisabled();
+  await expect(status).toContainText('Choose at least one substat');
+  await page.screenshot({ path: testInfo.outputPath('refine-empty.png') });
+  await editor.getByRole('group', { name: 'Slots', exact: true }).getByRole('button', { name: '2', exact: true }).click();
+  await choose(page, 'Main stat', 'ATK %');
+  await choose(page, 'Main stat', 'SPD');
+  await choose(page, 'Substats', 'ATK %');
+  await expect(save).toBeDisabled();
+  await expect(status).toContainText('slot 2 / ATK %');
+  await choose(page, 'Substats', 'SPD');
+  await expect(save).toBeDisabled();
+  await minimum.selectOption('1');
+  await expect(save).toBeEnabled();
+  for (const name of ['HP %', 'DEF %', 'CRI Rate', 'CRI Dmg']) await choose(page, 'Substats', name);
+  await expect(minimum.locator('option')).toHaveText(['All', '5', '4', '3', '2', '1']);
+  await expect(substats.locator('.token-choice-line .token-choice-pill')).toHaveCount(6);
+  await expect(substats.locator('.token-choice-line .token-choice-pill-label')).toHaveText(['HP %', 'ATK %', 'DEF %', 'SPD', 'CRI Rate', 'CRI Dmg']);
+  await expect(substats.locator('.token-choice-more')).toHaveCount(0);
+  await minimum.selectOption('all');
+  await expect(save).toBeDisabled();
+  await expect(status).toContainText('only four substats');
+  await minimum.selectOption('5');
+  await expect(save).toBeDisabled();
+  await minimum.selectOption('4');
+  await expect(save).toBeEnabled();
+  for (const name of ['Will', 'Blade', 'Violent']) await choose(page, 'Rune type', name);
+  await expect(editor.getByRole('group', { name: 'Rune type', exact: true }).locator('.token-choice-line .token-choice-pill-label')).toHaveText(['Blade', 'Violent', 'Will']);
+  expect(await geometry(page)).toEqual(initial);
+  await page.screenshot({ path: testInfo.outputPath('refine-six-substats.png') });
+  for (const name of ['HP %', 'DEF %', 'CRI Rate']) await editor.getByRole('button', { name: `Remove ${name} from Substats`, exact: true }).click();
+  await expect(minimum).toHaveValue('4');
+  await expect(save).toBeDisabled();
+  await expect(status).toContainText('minimum below the number');
+  expect(await geometry(page)).toEqual(initial);
+  await minimum.selectOption('1');
+  await expect(save).toBeEnabled();
+  // Every vocabulary filled still fits; a numerical minimum makes the pool achievable.
+  await chooseRemaining(page, 'Substats');
+  await chooseRemaining(page, 'Main stat');
+  const slots = editor.getByRole('group', { name: 'Slots', exact: true });
+  for (const slot of [1, 3, 4, 5, 6]) await slots.getByRole('button', { name: String(slot), exact: true }).click();
+  await chooseRemaining(page, 'Rune type');
+  await minimum.selectOption('4');
+  await editor.getByRole('group', { name: 'Innate required', exact: true }).getByRole('button', { name: 'Yes', exact: true }).click();
+  await editor.getByRole('combobox', { name: 'Min rarity', exact: true }).selectOption('Normal');
+  await expect(save).toBeEnabled();
+  await expect(status).toBeEmpty();
+  expect(await geometry(page)).toEqual(initial);
+  await page.screenshot({ path: testInfo.outputPath('refine-full.png') });
+  await save.click();
+  await page.reload(); await openTargets(page);
+  const card = page.getByRole('region', { name: 'Refine', exact: true }).locator('.reapp-card').first();
+  await expect(card.locator('.role-row-label')).toHaveText(['Rune type', 'Min rarity', 'Innate required', 'Substats', 'At least']);
+  await expect(card.locator('.role-row').filter({ hasText: /^At least/ }).locator('.role-row-value')).toHaveText('4');
+  await expect(card.locator('.role-row').filter({ hasText: /^Substats/ }).locator('.role-row-value'))
+    .toHaveText('HP +, HP %, ATK +, ATK %, DEF +, DEF %, SPD, CRI Rate, CRI Dmg, Resistance, Accuracy');
+  await card.getByRole('button', { name: /^Edit/ }).click();
+  await expect(minimum).toHaveValue('4');
+  await expect(substats.locator('.token-choice-add')).toHaveAttribute('aria-label', /HP \+, HP %, ATK \+, ATK %, DEF \+, DEF %, SPD, CRI Rate, CRI Dmg, Resistance, Accuracy/);
+  await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Add Re-app rule', exact: true }).click();
+  await expect(editor.getByRole('group', { name: 'Substats', exact: true })).toHaveCount(0);
+  await expect(editor.getByRole('combobox', { name: 'Of these rune must have at least', exact: true })).toHaveCount(0);
+  await expect(save).toBeEnabled();
+});
+
+test('manual Refine substats change the real verdict without recalculating', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('craft-account.json')).toBeVisible();
+  const cards = await openTargets(page);
+  while (await cards.count()) await cards.first().getByRole('button', { name: /^Delete/ }).click();
+  await page.getByRole('button', { name: 'Add Refine rule', exact: true }).click();
+  const editor = page.getByRole('dialog');
+  await editor.getByRole('group', { name: 'Slots', exact: true }).getByRole('button', { name: '4', exact: true }).click();
+  await choose(page, 'Main stat', 'CRI Dmg');
+  await choose(page, 'Substats', 'SPD');
+  await editor.getByRole('button', { name: 'Save rule', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const fatal = page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr').filter({ hasText: 'Fatal' }).locator('.rune-verdict');
+  await expect(fatal).toHaveText('Refine');
+  await openTargets(page);
+  await cards.getByRole('button', { name: /^Edit/ }).click();
+  await editor.getByRole('button', { name: 'Remove SPD from Substats', exact: true }).click();
+  await choose(page, 'Substats', 'CRI Rate');
+  await editor.getByRole('button', { name: 'Save rule', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await expect(fatal).not.toHaveText('Refine');
 });

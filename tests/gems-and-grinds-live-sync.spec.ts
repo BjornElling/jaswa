@@ -114,7 +114,7 @@ const seedKeepers = (page: Page) => page.evaluate(async () => {
   const preferences = blankPreferences();
   const runes = readRunes(game.data);
   const keep = { verdict: 'keep', reason: '', maxValue: 0, standing: 0, floorShare: 0, floorMaxValue: 0, chance: 0, role: null,
-    rank: 'broken', craftedLines: null, buildMains: null, readings: null, bestLineTypes: false };
+    rank: 'broken', craftedLines: null, buildMains: null, readings: null };
   rememberRuneAdvice({ data: { unit_list: game.data.unit_list }, settings: preferences.runePotential, roles: preferences.runeRoles },
     runes, new Map(runes.map((rune: { id: string }) => [rune.id, keep])));
 });

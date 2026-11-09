@@ -118,6 +118,10 @@ No selected slots means all six, and the heading lists them. There is
 no manual name or repeated Slots row. The heading is vertically centred with Edit and
 Delete. Each card holds three rows: **Rune type**, **Min rarity** and **Innate required**.
 Main stats appear only in the heading. These rows have the same fixed height and no horizontal dividers.
+Refine cards add **Substats** and **At least**, exposing the user's own criterion.
+Rune types read alphabetically in menus, chosen pills and cards, independent of
+selection order. Substats use the game's existing `runeStatIds` order on all three
+surfaces. Their stored selections are kept as chosen.
 Long values truncate on one line, with the complete text available on hover and to
 assistive technology. There is no Compatibility row. Each column keeps its own place
 when a rule is added to the other; narrow screens stack Re-app above Refine.
@@ -136,6 +140,28 @@ an innate, Both accepts either state, and No requires no innate. Both is the def
 a new rule. The chosen button stays chosen when clicked again. There is no Enabled
 switch or explanatory copy. Only an incompatible combination shows an error, in a
 reserved two-line area that keeps the fields and footer still.
+
+Only Refine adds a full-width **Substats** token field, with room for six selected
+types on one line, followed by **Of these rune must have at least** and a required
+single-choice dropdown. Its default is **All**, then the number of chosen substats
+minus one down to **1**, in descending order. A chosen pool is a requirement, not
+an inclusive filter: an empty pool blocks Save. All means every chosen type;
+choosing every type does not waive the requirement. Only the rune's four actual
+sub properties count, never its main, innate, projected Gem or Grindstone values.
+
+The validator checks every legal slot/main pair admitted by the rule. Each must
+allow at least the requested number of chosen substats after the game's main and
+slot exclusions. Thus ATK % or SPD mains with ATK % as the sole wanted substat is
+invalid; choosing ATK % and SPD with a minimum of one is valid. Slot 1 cannot ask
+for DEF % alone, slot 3 cannot ask for ATK % alone, and slot 5 cannot ask for flat
+HP alone. A wider pool may include a type that one main or slot cannot carry,
+provided enough other chosen types remain possible for every admitted pair.
+
+A minimum above four is impossible. A pool of six is valid with a reachable
+minimum of four or fewer, while All and five block Save. If removing types makes
+a numerical minimum unavailable, keep that choice visible as a disabled option,
+explain it in red and block Save until the user changes it. Never silently lower
+the threshold. Errors keep their reserved space and scroll if needed.
 
 All conditions within one rule must hold; any rule of that stone is enough. Empty
 inclusive groups mean any value, as does selecting every option. Intangible is not
@@ -156,6 +182,9 @@ column. The shipped rules cover slots 2, 4 and 6 separately for each stone. Re-a
 for Violent, Legend and an innate, with SPD/ATK % in slot 2, CRI Dmg/HP % in slot 4 and
 HP %/ATK % in slot 6. Refine uses the same slots, mains and rarity, allows either innate
 state, and accepts Despair, Fight, Rage, Swift, Vampire, Violent and Will.
+Its substats start empty with All: the user must state the criterion before a
+Refine rule can recommend a stone. Existing saved rules retain every other choice
+when these fields are absent; only the new fields start empty/All.
 
 Previously saved combined rules become one rule in each column, with the same
 conditions and distinct identifiers. A former innate requirement of true becomes
@@ -169,22 +198,18 @@ kept while it climbs there. An Intangible rune is never a target of either kind;
 Ancient rune and a rune with a Gem-converted line are never refine targets (a Grindstone
 does not bar refinement).
 
-**A refine target must also hold the four best line types of some build.** Every build of
-every role that takes the rune's main is asked. Each type the slot allows beside the main
-— the innate's type included — is ranked first by its price at one max roll in that
-build's valuation (`RUNE-CLEANUP-MATH.md` §4), then, among types priced alike, a stat the
-role names a target for by the size of a max roll on the reference line, and an unnamed
-stat last. The rune qualifies when no type it lacks ranks above its weakest line, so a tie
-for fourth admits either type; a rune with fewer than four lines does not qualify. An
-innate whose type is among the best four has taken a place no refinement gives back, so
-such a rune is never a refine target. The engine carries the answer out as
-`bestLineTypes` (`holdsBestLineTypes`), read from every build.
+**Refine uses the user's stated types and minimum, independently of roles or builds.**
+`isRerollTarget` reads the raw sub properties against that rule. There is no automatic
+best-types ranking, no hidden role-dependent gate and no inferred substitute for a
+missing user criterion. A malformed stored substat list resets only that list; a
+malformed minimum resets only that minimum to All. Valid but incompatible choices
+remain visible for correction and cannot recommend a stone.
 
 **A reroll is offered only instead of a sale.** This is a fixed decision, not a setting:
 a target is asked only of a rune the engine would sell. A rune it would power up or keep
 keeps that advice whatever a target describes. Where a rule describes a rune
 the engine would sell, the rune gets **Refine** or **Re-app** ahead of the other
-safeguards — Refine asked first, since a rune that already holds the four best types needs
+safeguards — Refine asked first, since a rune that already holds the user's wanted types needs
 only better rolls. Neither is ever Sell, and neither changes a figure. The Advice filter
 asks one question of both, **Re-app/refine**; the row still names the stone. Statistics
 counts either at `+12` as kept. `rune-reapp-targets.ts` owns the rule and reads each
@@ -212,6 +237,20 @@ Its SHA-256 is `aab8df2a901ec0d850ff4464b3c7189a5d492125b1ea389b8ab086ca7502050e
 582 runes across six scenarios. Scores remain exact. Separate target checks cover all
 three innate requirements on both stones, preservation of former choices and splitting
 a combined rule into two independent rules.
+
+**Manual Refine criteria verification, November 9, 2026.** Before removing the
+automatic type ranking, a fresh full equivalence baseline was captured from the
+engine at `1f03bcc` with `npm run verify:rune-cleanup-equivalence -- --write` and
+copied to `work/refine-substats-before.json`. Its SHA-256 is
+`aab8df2a901ec0d850ff4464b3c7189a5d492125b1ea389b8ab086ca7502050e`.
+The comparison with `--baseline=work/refine-substats-before.json` passes exactly
+for 582 runes across six scenarios, with zero tolerance. These scenarios disable
+reroll safeguards and hold the scoring arithmetic; the separate target checks
+verify 516 manual criteria against legal four-line runes, role independence,
+main/innate exclusions and preference survival. Browser coverage includes empty
+and full Refine input, six visible pills, changing an unavailable minimum,
+fixed field geometry, ordering, reloads and actual verdict changes without a
+new calculation.
 
 ## 4. The Location cell
 
