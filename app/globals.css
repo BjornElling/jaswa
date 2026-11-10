@@ -5948,6 +5948,12 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   align-items: center;
   min-width: 0;
 }
+/* The empty tie-break invites a choice with the shared gold edge and the
+   import target's thin ring. Neither changes the field's reserved box. */
+.overlay-sort-select[data-placeholder] {
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 1px var(--gold-edge);
+}
 
 /* The switches that qualify the answers, three headed blocks abreast: four
    toggles two by two, each owning a fixed cell so checking one moves nothing; the
