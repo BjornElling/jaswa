@@ -1,9 +1,9 @@
 {
-  "version": "1.0.56",
-  "fingerprint": "50c8727270fdbc44e29e8c2d3024e78a94ee980c5ff0a8c6eff04dc61aba17c4",
+  "version": "1.0.57",
+  "fingerprint": "ec5c4ef91f0b2e4544896e9b95bff361e8bac63a892151ecebc90ec4d263586f",
   "installer": {
-    "bytes": 1988672,
-    "sha256": "16a0580f22940162f974b739422c885a9684e4643b14446b48b95be956ca4c60"
+    "bytes": 1988296,
+    "sha256": "bc761c83d73e4775471edf67aaa623916af2e9ff5d0becde74cde0ebdbabaa98"
   },
-  "packagedAt": "2026-11-10T19:45:22.574Z"
+  "packagedAt": "2026-11-10T20:34:40.381Z"
 }

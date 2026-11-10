@@ -39,14 +39,18 @@ impl AccountRequest {
     }
 }
 
+fn command_base(command: &str) -> &str {
+    command.rsplit_once("_v")
+        .filter(|(_, suffix)| !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()))
+        .map_or(command, |(base, _)| base)
+}
+
 /* The request establishes intent; the response path still has to establish
 what changed. Content names do not define new protocols: a dungeon result,
 claim or monster power-up uses the same current-record boundary throughout. */
 pub(super) fn account_request(request: &Value) -> AccountRequest {
     let command = request.get("command").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase();
-    let base = command.rsplit_once("_v")
-        .filter(|(_, suffix)| !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()))
-        .map_or(command.as_str(), |(base, _)| base);
+    let base = command_base(&command);
     /* Dimension Arena owns a season-local inventory, including its defense
     deck and identifiers. Sharing a wizard id does not make it Scenario data.
     Classify the scope before the operation so summons, sales and gear moves
@@ -59,7 +63,8 @@ pub(super) fn account_request(request: &Value) -> AccountRequest {
     if base == "getserverarenarewardinfofornoti" {
         return AccountRequest::History;
     }
-    if matches!(base, "getunitstoragelist" | "getunitinfo") || base.starts_with("getwizarddata") {
+    if matches!(base, "getunitstoragelist" | "getunitinfo"
+        | "battleguildsiegestart" | "battleguildrivalstart") || base.starts_with("getwizarddata") {
         return AccountRequest::CurrentState;
     }
     let verbs = [
@@ -134,6 +139,8 @@ impl Scope<'_> {
             monsters are read; their gear is the preset's, and `apply_update`
             keeps the account's own. */
             "battleguildrivalstart" => return matches!(key, "battle_team" | "unit_list" | "unit_info"),
+            // Siege names its attacking monsters separately from its opponents.
+            "battleguildsiegestart" => return key == "guildsiege_my_unit_list",
             "upgraderunelist" if key == "upgrade_rune_list" => return true,
             "buyblackmarketitem" | "sellsummonpieces" if key == "item_info" => return true,
             "movestoragefromto" if key == "result_from" => return true,
@@ -180,7 +187,7 @@ pub(super) fn read(profile: &Value, request: &Value, response: &Value) -> Readin
     let scope = Scope {
         profile,
         wizard: identifier(profile, "wizard_id"),
-        command: request.get("command").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase(),
+        command: command_base(&request.get("command").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase()).to_owned(),
         kind: account_request(request),
         claimed_mail_ids: mail_claim_ids(request),
     };
@@ -531,6 +538,7 @@ fn understood_elsewhere(key: &str) -> bool {
             // Displayed teams and previews, not live monster records.
             | "my_unit_deck_list"
             | "rift_dungeon_unit_list"
+            | "guildsiege_opp_unit_list"
             | "unit_preview"
             | "pass_reward_rune_info"
             // A monster just sealed into the Normal tab; `apply_shrine_move` files it.

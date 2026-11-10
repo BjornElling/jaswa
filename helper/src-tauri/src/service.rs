@@ -1196,7 +1196,11 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
     let missed = |command: &str, reason: String, cause: MissCause| {
         diagnostics::record("capture", &format!("Missed {command}: {reason}"));
         let mut profile = shared.profile.lock().expect("profile lock poisoned");
-        profile.note_missed(command, &reason, cause);
+        // A sealed answer known to change no account data must not occupy the
+        // sole report slot and hide a later exchange whose reader needs fixing.
+        if !profile.note_missed(command, &reason, cause) {
+            return;
+        }
         let before = profile.read().and_then(|value| serde_json::to_value(value).ok());
         drop(profile);
         shared
@@ -1581,6 +1585,39 @@ mod tests {
     }
 
     #[test]
+    fn irrelevant_sealed_siege_results_cannot_hide_a_later_reader_defect() {
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        for populated in [false, true] {
+            let shared = shared_for_test();
+            start_game(&shared);
+            let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
+            let account = message(&encoded(&json!({"wizard_id": 7, "unit_list": [],
+                "runes": if populated { json!([{"rune_id": 5, "set_id": 13}]) } else { json!([]) }
+            }), true));
+            capture(login.as_bytes(), account.as_bytes(), &shared);
+            let request = message(&encoded(&json!({"command": "BattleGuildSiegeResult"}), false));
+            let sealed = message(&format!("Vv2XRzS1O1AW8FuV{}", STANDARD.encode([41; 16])));
+            capture(request.as_bytes(), sealed.as_bytes(), &shared);
+            assert_eq!(status(&shared)["missedChanges"], json!([]));
+            assert_eq!(shared.incidents.lock().unwrap().report()["failureCount"], 0);
+
+            let request = message(&encoded(&json!({"command": "FutureRuneGift"}), false));
+            let answer = message(&encoded(&json!({"ret_code": 0,
+                "gift_box": {"rune": {"rune_id": 6, "set_id": 13}}}), true));
+            capture(request.as_bytes(), answer.as_bytes(), &shared);
+            let report = shared.incidents.lock().unwrap().report();
+            assert_eq!(report["failureCount"], 1);
+            assert_eq!(report["firstFailure"]["requestBase64"], STANDARD.encode(request.as_bytes()));
+            let request = message(&encoded(&json!({"command": "BattleDungeonResult"}), false));
+            capture(request.as_bytes(), message(&encoded(&json!({"ret_code": 0,
+                "runes": [{"rune_id": 6, "set_id": 13}]}), true)).as_bytes(), &shared);
+            assert_eq!(shared.profile.lock().unwrap().read().unwrap().data["runes"].as_array().unwrap().len(),
+                if populated { 2 } else { 1 });
+            assert_eq!(status(&shared)["missedChanges"].as_array().unwrap().len(), 1);
+        }
+    }
+
+    #[test]
     fn dimension_arena_exchanges_do_not_claim_to_change_the_account() {
         for populated in [false, true] {
             let shared = shared_for_test();
@@ -1649,7 +1686,8 @@ mod tests {
     #[test]
     fn unreadable_account_updates_are_said_and_never_stop_the_next_one() {
         for populated in [false, true] {
-            for command in ["SellRune", "ConvertArtifactByCraft", "BattleDungeonResult_V2", "GetUnitInfo"] {
+            for command in ["SellRune", "ConvertArtifactByCraft", "BattleDungeonResult_V2", "GetUnitInfo",
+                "BattleGuildSiegeStart_v2", "battleGuildRivalStart_v2"] {
                 for response in [message("not an account envelope"),
                     message(&encoded(&json!([1, 2]), true))] {
                     let shared = shared_for_test();

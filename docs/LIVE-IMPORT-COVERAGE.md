@@ -52,13 +52,16 @@ this (`guild_boss_crate_history_cannot_restore_sold_runes`,
    the `reward` / `crate` containers. Any other key ends the path, so a familiar
    collection or `reward` inside an unfamiliar wrapper never restarts it.
 3. A few commands add one named root envelope each, written beside the rule in
-   `Scope::root_edge`: the attacking team of `battleGuildRivalStart`, the root
+   `Scope::root_edge`: the attacking team of `battleGuildRivalStart`, Siege's
+   `guildsiege_my_unit_list` in `BattleGuildSiegeStart_v2`, the root
    `upgrade_rune_list` of `UpgradeRuneList`, `result_from` of a Shrine move,
    `item_info` of `BuyBlackMarketItem` and `sellSummonPieces`,
    and a bundled gear operation (for example `UpdateArtifactOccupation` inside
    `UpdateUnitEquip`) with its own successful `ret_code`. Only the mail entries
    a successful `ReceiveMail` names are opened; the rest of the inbox stays a
    preview.
+   Numeric `_v…` suffixes identify the same operation in both request
+   classification and response paths; they never grant a new path by themselves.
 4. A record marked `confirmed_…` or `…_confirmed`, including its list form, is
    the committed state and replaces every plain copy of its identifier,
    whatever the JSON key order. Two confirmed records that disagree are a
@@ -492,6 +495,40 @@ model does not know this command yet" read differently.
 
 The raw traffic log remains the diagnostic record for a response shape that
 the current model cannot identify. It is never converted into a guessed item.
+
+### Siege attack teams and useful error evidence
+
+The November 10 Siege warning names one unread monster at
+`guildsiege_my_unit_list`. This is the attacking team, separately from
+`guildsiege_opp_unit_list`; the
+[SWGT personal logger](https://github.com/Cerusa/swgt-personal-swex-plugin/blob/5581abb5d0e55149089b5ab4c778cf21c84c83cc/SWGTPersonalLogger/index.js#L1007)
+also reads the former as the attacker's monster records and the latter as
+opponents. The reader now opens the attacking list only at the Siege start's
+root. Monsters keep their Scenario gear through the existing shared rule.
+The opposing list is understood as battle data and cannot introduce account
+records, even with colliding identifiers. Neither an unrelated command nor an
+archive gains authority from carrying the attacking field name.
+Both known guild attack-team starts are current-state reads for decoding
+failures too: an unreadable answer must be a visible gap, rather than being
+called auxiliary traffic. Their named root paths still limit what is read.
+
+The saved report exposed a second defect: an earlier sealed
+`BattleGuildSiegeResult`, already excluded from status as irrelevant, occupied
+the report's sole first-failure slot and hid the later readable Siege start.
+Such answers now remain in diagnostics and, when enabled, traffic recordings,
+but do not occupy that slot. Relevant encrypted misses and readable misses
+remain reportable. The saved report therefore establishes the missed path and
+the diagnostic defect, but does not permit an exact replay of the Siege start;
+its response was not retained by the previous helper.
+
+Rust fixtures cover empty, one and 100 attacking monsters, repeated reads,
+foreign owners, failed starts, opponents, archive wrappers, Scenario gear and
+numeric command suffixes (including World Guild Battle). Service fixtures
+check that an irrelevant sealed result leaves the error slot free for a later
+reader defect and that the next dungeon reward still arrives, with empty and
+populated inventories. Other battle starts do not gain general authority to
+read monsters or rewards; unknown shapes remain visible until passive evidence
+establishes their meaning.
 
 ## Verification
 

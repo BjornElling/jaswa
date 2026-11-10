@@ -190,13 +190,16 @@ impl ProfileStore {
 
     /// Records a change the game made that the snapshot does not carry, for
     /// an exchange the account reader never saw (an unreadable answer).
-    pub fn note_missed(&mut self, command: &str, reason: &str, cause: MissCause) {
+    /// Returns false for a proven irrelevant sealed answer, so it cannot
+    /// hide a later reader defect in the report's first-exchange slot.
+    pub fn note_missed(&mut self, command: &str, reason: &str, cause: MissCause) -> bool {
         if cause == MissCause::Encrypted && IRRELEVANT_ENCRYPTED_COMMANDS.contains(&command) {
-            return;
+            return false;
         }
         if self.profile.is_some() && self.missed_changes.len() < MISSED_CHANGES_KEPT {
             self.missed_changes.push(MissedChange { command: command.to_owned(), reason: reason.to_owned(), cause });
         }
+        true
     }
 
     fn miss(&mut self, command: &str, reason: String) {
@@ -2393,24 +2396,74 @@ mod tests {
     container's name is not what decides it, so the test does not depend on one. */
     #[test]
     fn a_monster_shown_in_a_decks_gear_keeps_the_gear_it_has() {
-        let mut store = two_monsters_with_gear();
-        let before = store.read().unwrap().data;
-        assert!(store.apply_update(
-            &json!({"ret_code": 0, "battle_team": {"unit_list": [
+        for (command, field) in [
+            ("battleGuildRivalStart", "battle_team"),
+            ("battleGuildRivalStart_v2", "battle_team"),
+            ("BattleGuildSiegeStart_v2", "guildsiege_my_unit_list"),
+        ] {
+            assert!(requires_account_response(&json!({"command": command})),
+                "a known team read must report an unreadable answer too");
+            let mut store = two_monsters_with_gear();
+            let before = store.read().unwrap().data;
+            let units = json!([
                 {"unit_id": 2, "wizard_id": 7, "unit_level": 40, "runes": [{"rune_id": 5, "occupied_id": 2, "slot_no": 1}, {"rune_id": 9, "occupied_id": 2, "slot_no": 3}]},
                 {"unit_id": 1, "wizard_id": 7, "unit_level": 40, "runes": [{"rune_id": 6, "occupied_id": 1, "slot_no": 2}], "artifacts": [], "skills": [[1, 2]]}
-            ]}}),
-            &json!({"command": "battleGuildRivalStart"})
-        ), "what the record says beyond its gear is still read");
-        let declined = store.take_declined();
-        assert_eq!(declined.kept_gear, vec!["2".to_owned(), "1".to_owned()]);
-        assert!(declined.missed.is_empty());
-        let data = store.read().unwrap().data;
-        assert_eq!(data["unit_list"][0]["runes"], before["unit_list"][0]["runes"]);
-        assert_eq!(data["unit_list"][0]["artifacts"], before["unit_list"][0]["artifacts"]);
-        assert_eq!(data["unit_list"][0]["skills"], json!([[1, 2]]));
-        assert_eq!(data["unit_list"][1]["runes"], json!([]));
-        assert_eq!(data["runes"], before["runes"], "the inventory is untouched");
+            ]);
+            let team = if field == "battle_team" { json!({"unit_list": units}) } else { units };
+            assert!(store.apply_update(
+                &json!({"ret_code": 0, field: team}),
+                &json!({"command": command})
+            ), "what the record says beyond its gear is still read");
+            let declined = store.take_declined();
+            assert_eq!(declined.kept_gear, vec!["2".to_owned(), "1".to_owned()]);
+            assert!(declined.missed.is_empty());
+            let data = store.read().unwrap().data;
+            assert_eq!(data["unit_list"][0]["runes"], before["unit_list"][0]["runes"]);
+            assert_eq!(data["unit_list"][0]["artifacts"], before["unit_list"][0]["artifacts"]);
+            assert_eq!(data["unit_list"][0]["skills"], json!([[1, 2]]));
+            assert_eq!(data["unit_list"][1]["runes"], json!([]));
+            assert_eq!(data["runes"], before["runes"], "the inventory is untouched");
+        }
+    }
+
+    #[test]
+    fn siege_reads_only_its_current_attacking_monsters() {
+        for count in [0, 1, 100] {
+            let mut store = ProfileStore::default();
+            let units = (1..=count).map(|id| json!({"unit_id": id, "wizard_id": 7,
+                "unit_master_id": 10101, "unit_level": 1, "runes": [], "artifacts": []})).collect::<Vec<_>>();
+            assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": units, "runes": []})));
+            let updated = units.iter().map(|unit| {
+                let mut unit = unit.clone();
+                unit["unit_level"] = json!(40);
+                unit
+            }).collect::<Vec<_>>();
+            let response = json!({"ret_code": 0, "guildsiege_my_unit_list": updated,
+                "guildsiege_opp_unit_list": [{"unit_info": {"unit_id": 1, "wizard_id": 7,
+                    "unit_master_id": 99999, "unit_level": 99}}]});
+            let request = json!({"command": "BattleGuildSiegeStart_v2"});
+            assert_eq!(store.apply_update(&response, &request), count > 0);
+            assert!(store.take_declined().missed.is_empty());
+            assert_eq!(store.read().unwrap().data["unit_list"], json!(updated));
+            assert!(!store.apply_update(&response, &request), "an identical team changes nothing");
+            assert!(store.take_declined().missed.is_empty());
+            let before = store.read().unwrap();
+            for answer in [json!({"ret_code": 1, "guildsiege_my_unit_list": units}),
+                json!({"ret_code": 0, "guildsiege_my_unit_list": [{"unit_id": 1,
+                    "wizard_id": 8, "unit_master_id": 99999, "unit_level": 99}]})] {
+                assert!(!store.apply_update(&answer, &request));
+                assert!(store.take_declined().missed.is_empty());
+                assert_eq!(store.read().unwrap().data, before.data);
+            }
+            if count > 0 {
+                let answer = json!({"ret_code": 0, "guildsiege_my_unit_list": units});
+                store.apply_update(&answer, &json!({"command": "GetGuildSiegeHistory"}));
+                assert!(!store.take_declined().missed.is_empty(), "the field alone grants no authority");
+                store.apply_update(&json!({"ret_code": 0, "archive": answer}), &request);
+                assert!(!store.take_declined().missed.is_empty(), "an archive cannot restart the path");
+                assert_eq!(store.read().unwrap().data, before.data);
+            }
+        }
     }
 
     #[test]
