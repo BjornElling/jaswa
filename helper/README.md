@@ -35,6 +35,12 @@ both from the repository root, then runs the verifier as its own definition of
 done. It refuses to start when the source is unchanged, so a bump with nothing
 behind it fails before the Rust build rather than after it.
 
+The release's final check uses `verify-helper-version.mjs --packaged` to
+inspect the files just built in `public/`, including their hash, before they
+are staged. The ordinary `npm run verify:helper-version` also requires Git to
+track exactly the recorded installer. Packaging can finish before a commit
+without weakening the publication check.
+
 Pass `-- --package-only` when the bump has already happened and only the
 installer is missing, and `-- minor`, `-- major` or `-- x.y.z` to raise
 something other than the patch digit. The two halves are still available on

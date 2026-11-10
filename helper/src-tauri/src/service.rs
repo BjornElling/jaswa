@@ -1581,6 +1581,44 @@ mod tests {
     }
 
     #[test]
+    fn dimension_arena_exchanges_do_not_claim_to_change_the_account() {
+        for populated in [false, true] {
+            let shared = shared_for_test();
+            start_game(&shared);
+            let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
+            let account = message(&encoded(&json!({"ret_code": 0, "wizard_id": 7,
+                "unit_list": [], "runes": if populated {json!([{"rune_id": 5, "set_id": 13}])} else {json!([])}
+            }), true));
+            capture(login.as_bytes(), account.as_bytes(), &shared);
+            let before = shared.profile.lock().unwrap().read().unwrap();
+            for command in ["dimensionarena_getSeasonInfo", "dimensionarena_summonUnit",
+                "dimensionarena_sellRune", "dimensionarena_equipRune", "dimensionarena_claimReward"] {
+                let request = message(&encoded(&json!({"command": command, "rune_id_list": [5]}), false));
+                for response in [message("not an account envelope"), message(&encoded(&json!({
+                    "ret_code": 0, "rune_list": [{"rune_id": 5, "wizard_id": 7, "set_id": 13}],
+                    "defense_deck_info": {"unit_id_list": [999, 999], "season_id": 202611}
+                }), true))] {
+                    capture(request.as_bytes(), response.as_bytes(), &shared);
+                    assert!(status(&shared)["profileReady"].as_bool().unwrap());
+                    assert!(status(&shared)["lastError"].is_null());
+                    assert_eq!(status(&shared)["missedChanges"], json!([]));
+                    let after = shared.profile.lock().unwrap().read().unwrap();
+                    assert_eq!(after.data, before.data);
+                    assert_eq!(after.revision, before.revision);
+                }
+            }
+            let request = message(&encoded(&json!({"command": "BattleDungeonResult"}), false));
+            let reward = message(&encoded(&json!({"ret_code": 0,
+                "runes": [{"rune_id": 6, "wizard_id": 7, "set_id": 13}]
+            }), true));
+            capture(request.as_bytes(), reward.as_bytes(), &shared);
+            assert_eq!(shared.profile.lock().unwrap().read().unwrap().data["runes"].as_array().unwrap().len(),
+                if populated {2} else {1});
+            assert_eq!(shared.incidents.lock().unwrap().report()["failureCount"], 0);
+        }
+    }
+
+    #[test]
     fn an_unreadable_auxiliary_exchange_cannot_stop_a_captured_account() {
         let shared = shared_for_test();
         start_game(&shared);

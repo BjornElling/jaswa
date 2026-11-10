@@ -477,9 +477,11 @@ never receives a fallback meaning: the record is rejected until the meaning is
 found (`AGENTS.md` §0.1). Revalidate the pool, the ranges and the merges on
 every game update.
 
-**Watch item.** Dimension Arena (announced for November 2026) brings monsters
-and artifacts that exist only inside it. If the export carries them, the import
-needs a decision under `AGENTS.md` §0.1 before they are counted.
+**Separate inventory.** Dimension Arena's seasonal records belong to none of
+JASWA's current workspaces. Its `dimensionarena_` exchanges are isolated before
+ordinary account reading, including the defense deck whose field name matches
+Arena's. Supporting the mode requires a separate model and interface, not
+merging its records into Scenario (`LIVE-IMPORT-COVERAGE.md`).
 
 ---
 

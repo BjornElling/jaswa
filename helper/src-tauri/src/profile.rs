@@ -395,7 +395,7 @@ impl ProfileStore {
         let command = command_name.to_ascii_lowercase();
         if self.profile.is_none()
             || !response.is_object()
-            || rta_command(request)
+            || account_request(request) == AccountRequest::SeparateInventory
             || !successful_response(response)
             || account_request(request) == AccountRequest::History
         {
@@ -1679,16 +1679,6 @@ fn successful_response(response: &Value) -> bool {
         })
         .unwrap_or(true)
 }
-fn rta_command(request: &Value) -> bool {
-    request
-        .get("command")
-        .and_then(Value::as_str)
-        .map(|command| {
-            let command = command.to_ascii_lowercase();
-            command.contains("rtpvp") || command.contains("world_arena")
-        })
-        .unwrap_or(false)
-}
 fn remove_items(items: &[Value], ids: &[String], key: &str) -> Vec<Value> {
     items
         .iter()
@@ -2465,6 +2455,56 @@ mod tests {
         assert_eq!(after.data, before.data);
         assert_eq!(after.revision, before.revision);
         assert_eq!(store.status().missed_changes[0].command, "EquipRune", "the miss stands on the status");
+    }
+
+    #[test]
+    fn separate_inventories_cannot_change_or_invalidate_the_account() {
+        for count in [0, 1, 100] {
+            let mut store = ProfileStore::default();
+            assert!(store.accept_snapshot(json!({
+                "wizard_id": 7,
+                "unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101,
+                    "unit_level": 1, "building_id": 0, "runes": [], "artifacts": []}],
+                "runes": [{"rune_id": 5, "wizard_id": 7, "set_id": 13, "upgrade_curr": 0}],
+                "artifacts": [], "relics": [], "rune_craft_item_list": [],
+                "defense_deck_info": {"unit_id_list": [1], "equip": []}
+            })));
+            let before = store.read().unwrap();
+            let units = (0..count).map(|index| json!({
+                "unit_id": index + 1, "wizard_id": 7, "unit_master_id": 10101,
+                "unit_level": 40, "season_id": 202611, "server_id": 2
+            })).collect::<Vec<_>>();
+            let runes = (0..count).map(|index| json!({
+                "rune_id": index + 5, "wizard_id": 7, "set_id": 13, "upgrade_curr": 15,
+                "season_id": 202611, "server_id": 2
+            })).collect::<Vec<_>>();
+            for command in [
+                "dimensionarena_getSeasonInfo", "DimensionArena_summonUnit",
+                "dimensionarena_sellRune", "dimensionarena_equipRune",
+                "dimensionarena_claimReward", "dimensionarena_futureOperation_v2",
+                "RTPvP_EquipRune", "world_arena_sellRune",
+            ] {
+                let request = json!({"command": command, "wizard_id": 7,
+                    "unit_id": 1, "rune_id_list": [5], "building_id": 99});
+                assert!(!requires_account_response(&request), "{command} is not an account operation");
+                assert!(!store.apply_update(&json!({
+                    "ret_code": 0, "wizard_id": 7, "unit_list": units, "rune_list": runes,
+                    "default_unit_list": units, "remove_rune_id_list": [5],
+                    "defense_deck_info": {"unit_id_list": [999, 999], "season_id": 202611}
+                }), &request));
+                assert!(store.take_declined().missed.is_empty(), "{command} is no missed account change");
+                let after = store.read().unwrap();
+                assert_eq!(after.data, before.data, "separate ids may collide, even under the same wizard");
+                assert_eq!(after.revision, before.revision);
+                assert!(store.status().missed_changes.is_empty());
+            }
+            let request = json!({"command": "battleResultDimensionHoleRaid"});
+            assert!(requires_account_response(&request), "Dimension Raid is ordinary account content");
+            assert!(store.apply_update(&json!({"runes": [{"rune_id": 6, "wizard_id": 7, "set_id": 13}]}), &request));
+            assert!(store.take_declined().missed.is_empty());
+            assert_eq!(collection(&store.read().unwrap().data, "runes").len(), 2,
+                "the next account reward still arrives");
+        }
     }
 
     #[test]

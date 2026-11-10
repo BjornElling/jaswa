@@ -19,11 +19,12 @@
  *   3. The five version strings disagree — the original check, kept.
  *
  * Usage: npm run verify:helper-version
+ *        node scripts/verify-helper-version.mjs --packaged (before staging)
  */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fingerprint, fingerprintedFiles, readManifest, repositoryRoot } from './helper-fingerprint.mjs';
@@ -153,14 +154,21 @@ if (!manifest) {
    jaswa.net is built from git, so an installer that is not tracked is a
    download link to the application shell. Exactly one is tracked — the
    recorded release — and it must be the very file that release recorded. */
-const trackedInstallers = (await run('git', ['ls-files', 'public'], { cwd: repositoryRoot })).stdout
-  .split('\n')
+/* Packaging precedes staging. Check the produced files there, and the Git
+   inventory in the normal pre-commit check; neither mode relaxes the hash or
+   the requirement that exactly one installer matches the release. */
+const packaged = process.argv.includes('--packaged');
+const installerFiles = packaged
+  ? (await readdir(path.join(repositoryRoot, 'public'))).map((file) => `public/${file}`)
+  : (await run('git', ['ls-files', 'public'], { cwd: repositoryRoot })).stdout.split('\n');
+const installers = installerFiles
   .map((line) => line.trim())
   .filter((file) => /^public\/JASWA-Helper-Setup-\d+\.\d+\.\d+\.exe$/.test(file));
 const expectedInstaller = `public/JASWA-Helper-Setup-${version}.exe`;
 if (manifest && manifest.version === version) {
-  if (!trackedInstallers.includes(expectedInstaller)) {
-    fail(`${expectedInstaller} is not tracked, so the published site would serve the application shell in its place.\n  Commit it with the release.`);
+  if (!installers.includes(expectedInstaller)) {
+    fail(packaged ? `${expectedInstaller} was not built in public/.`
+      : `${expectedInstaller} is not tracked, so the published site would serve the application shell in its place.\n  Commit it with the release.`);
   } else {
     const installer = await readFile(path.join(repositoryRoot, expectedInstaller));
     const sha256 = createHash('sha256').update(installer).digest('hex');
@@ -169,9 +177,9 @@ if (manifest && manifest.version === version) {
     }
   }
 }
-const extraInstallers = trackedInstallers.filter((file) => file !== expectedInstaller);
+const extraInstallers = installers.filter((file) => file !== expectedInstaller);
 if (extraInstallers.length) {
-  fail(`Only the current installer is published, but git also tracks:\n${extraInstallers.map((file) => `    ${file}`).join('\n')}\n  Remove them with \`git rm\`.`);
+  fail(`Only the current installer is published, but ${packaged ? 'public/ also contains' : 'git also tracks'}:\n${extraInstallers.map((file) => `    ${file}`).join('\n')}\n  ${packaged ? 'Remove the previous installers.' : 'Remove them with `git rm`.'}`);
 }
 
 if (failures.length) {

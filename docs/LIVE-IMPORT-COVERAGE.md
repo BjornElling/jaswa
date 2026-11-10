@@ -399,7 +399,17 @@ model does not know this command yet" read differently.
   containers are excluded. Mail becomes eligible only through the claim
   response, and only the `mail_id` named by `ReceiveMail` is opened; an inbox
   list is never treated as owned inventory merely because it carries item data.
-- RTA and World Arena commands remain completely outside the account sync.
+- RTA, World Arena and the `dimensionarena_` command namespace remain outside
+  ordinary account sync. One request-scope classification runs before operation
+  classification and is shared by the profile reader and unreadable-response
+  handling. A seasonal summon, sale, reward or gear move therefore cannot alter
+  Scenario, consume its items, replace its Arena defense or report a missed
+  ordinary account change. Unknown operations in that namespace stay isolated.
+  This is an inventory boundary, not support for Dimension Arena: its seasonal
+  monsters, runes and decks need their own model and interface before JASWA can
+  use them. A future Rune Exchange into the ordinary account also needs a
+  passively captured transfer contract; seasonal records are never promoted by
+  their shape or `wizard_id`.
 - A relic is not treated like a rune or artifact: its inventory record remains
   in the root collection while individual monster copies are added or removed.
 - **Only a command that moves gear changes which runes and artifacts a monster
@@ -446,6 +456,14 @@ model does not know this command yet" read differently.
   A readable snapshot or ordinary waiting after the game closes clears it.
   Said on Home alone, the refusal left every other page quietly showing an older
   import.
+- **Connection status and import acceptance are separate facts.** A readable
+  health answer followed by a refused account remains connected; the refusal
+  belongs to import status. A poll publishes its connection outcome only after
+  the profile request finishes, so an HTTP or envelope failure cannot alternate
+  with a provisional success on every poll. A rejected account is retained by
+  helper instance, game session and revision and is not downloaded again until
+  one changes or the user explicitly reloads. Transport and envelope failures
+  remain retryable, since they do not establish an immutable rejected snapshot.
 - **A helper-side refusal is said there too.** In live mode, an unavailable
   helper with an existing import raises the same notice only when its health
   answer reports `lastError`, the helper dashboard's red capture state.
@@ -476,6 +494,29 @@ The raw traffic log remains the diagnostic record for a response shape that
 the current model cannot identify. It is never converted into a guessed item.
 
 ## Verification
+
+The November 10 report's `dimensionarena_getSeasonInfo` contains 190 default
+monsters, 50 summoned monsters, 49 runes and a seasonal `defense_deck_info`.
+The latter shares the ordinary Arena field name and overwrote it, producing an
+invalid preset while the unfamiliar seasonal entities raised a false gap.
+The [official v9.3.9 announcement](https://steamcommunity.com/app/2426960/announcements/?l=english)
+establishes that these are a separate, resettable seasonal inventory. Replaying
+the incident now leaves the entire ordinary account and its revision unchanged,
+with no miss: 301 roster monsters, 1,249 runes, 620 artifacts and 8 relics.
+Fixtures cover empty/one/100 seasonal records, colliding identifiers, matching
+owners, reads, summons, sales, gear moves, rewards and unknown seasonal commands.
+Service fixtures cover readable and unreadable seasonal answers followed by a
+normal dungeon reward. Dimension Raid still reaches ordinary account sync.
+
+`tests/helper-poll-stability.spec.ts` reproduces the Connected/Unavailable loop
+using delayed profile responses and observes intermediate DOM changes across
+three polls. It checks empty and populated workspaces, unchanged layout,
+one read per rejected revision, manual retry and recovery on a new revision or
+game session. Delayed HTTP and invalid-envelope failures remain stable and
+recover at the same revision. A local browser replay of the private report
+also checks the real 1,811-monster account, its refused live snapshot and the
+next valid snapshot. The separately downloaded account export is valid: its
+original login envelope retained the ordinary defense.
 
 `cargo test --manifest-path helper/src-tauri/Cargo.toml` covers all seven entity
 types with empty and populated inventories, unknown commands, unknown ancestors

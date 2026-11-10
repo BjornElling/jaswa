@@ -54,5 +54,5 @@ if (!packageOnly) {
 await step(path.join(helper, 'scripts/package.cjs'), [], helper);
 /* The verifier is the definition of done, so the release runs it rather than
    trusting that the two steps above added up. */
-await step(path.join(repositoryRoot, 'scripts/verify-helper-version.mjs'), [], repositoryRoot);
+await step(path.join(repositoryRoot, 'scripts/verify-helper-version.mjs'), ['--packaged'], repositoryRoot);
 console.log('\nThe helper is released. Commit helper/release.json with the version bump it records.');

@@ -25,6 +25,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum AccountRequest {
+    SeparateInventory,
     Mutation,
     CurrentState,
     Query,
@@ -46,6 +47,15 @@ pub(super) fn account_request(request: &Value) -> AccountRequest {
     let base = command.rsplit_once("_v")
         .filter(|(_, suffix)| !suffix.is_empty() && suffix.bytes().all(|byte| byte.is_ascii_digit()))
         .map_or(command.as_str(), |(base, _)| base);
+    /* Dimension Arena owns a season-local inventory, including its defense
+    deck and identifiers. Sharing a wizard id does not make it Scenario data.
+    Classify the scope before the operation so summons, sales and gear moves
+    cannot reach any of the account readers, not just this season's query. */
+    if base.starts_with("dimensionarena_")
+        || base.contains("rtpvp") || base.contains("world_arena")
+    {
+        return AccountRequest::SeparateInventory;
+    }
     if base == "getserverarenarewardinfofornoti" {
         return AccountRequest::History;
     }

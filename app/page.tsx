@@ -198,6 +198,9 @@ export default function Home() {
     let disposed = false;
     let refreshing = false;
     let reloadPending = false;
+    // A rejected account is deterministic for one helper/session/revision.
+    // Keep its reason until a different snapshot or an explicit retry arrives.
+    let rejectedSnapshot: { key: string; reason: string } | null = null;
     async function refreshHelper(force = false) {
       if (force) { setReloadingHelper(true); setHelperReloadError(null); }
       if (refreshing) {
@@ -208,18 +211,26 @@ export default function Home() {
       try {
         const connection = await checkHelperConnection();
         if (disposed) return;
-        setHelperConnection(connection);
         if (!connection.profileReady) {
+          setHelperConnection(connection);
+          rejectedSnapshot = null;
           // Waiting, a closed game and a lost API connection are not capture failures.
           // Only the helper's own red state belongs in this notice.
           setLiveImportStopped(preferences.directImportMode === 'live' ? connection.captureError : null);
           if (force) setHelperReloadError(helperStatusMessage(connection));
           return;
         }
+        const snapshotKey = `${connection.instanceId}:${connection.sessionId}:${connection.revision}`;
+        if (!force && rejectedSnapshot?.key === snapshotKey) {
+          setHelperConnection(connection);
+          setLiveImportStopped(rejectedSnapshot.reason);
+          return;
+        }
         const needsImport = preferences.directImportMode === 'live'
           ? appliedHelperRevision.current !== connection.revision || appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`
           : appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`;
         if (!force && !needsImport) {
+          setHelperConnection(connection);
           // A healthy, already accepted revision can clear a connection failure
           // without re-importing it or hiding a different rejected revision.
           if (appliedHelperRevision.current === connection.revision
@@ -239,13 +250,17 @@ export default function Home() {
         if (result.state === 'unreadable') {
           if (force) setHelperReloadError('Game data could not be read. Check the helper on Home.');
           setLiveImportStopped(result.reason);
-          setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
+          // The connection succeeded. A refused account belongs to import
+          // status; turning it into a socket failure caused Home to oscillate
+          // between Connected and Unavailable at every health/profile pair.
+          setHelperConnection(connection);
           /* The helper is connected and sending, and JASWA cannot read what it
              sent. Say so in the same words the file route uses — but once per
              snapshot, because the poll would otherwise repeat it every two
              seconds, and never re-import the same rejected revision. */
           const { instanceId, sessionId, revision } = result.identity;
           const rejected = `${instanceId}:${sessionId}:${revision}`;
+          rejectedSnapshot = { key: rejected, reason: result.reason };
           if (!force && reportedHelperRejection.current !== rejected) {
             reportedHelperRejection.current = rejected;
             /* What the user loses differs, and guessing wrong is worse than
@@ -263,6 +278,8 @@ export default function Home() {
         const fresh = createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId });
         const imported = preferences.directImportMode === 'live' ? withLiveRuneLocks(fresh, gameRef.current, preferencesRef.current.presets) : fresh;
         if (!await applyImport(imported, force)) return;
+        setHelperConnection(connection);
+        rejectedSnapshot = null;
         reportedHelperRejection.current = null;
         setLiveImportStopped(null);
         setHelperReloadError(null);
