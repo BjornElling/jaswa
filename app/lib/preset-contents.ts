@@ -107,7 +107,7 @@ const contents: readonly PresetContent[] = [
   content('interserver-defense', 'Arena Interserver Defense', 'Arena', 'arena', 4, 'arena'),
   /* The Guild tab's menu has not been read off the screen; these are the guild
      contents of the capacity table, in its order. */
-  content('siege', 'Siege Battle', 'Guild', 'other', 3, 'guild'),
+  content('siege', 'Siege Battle', 'Guild', 'other', 3, 'siege'),
   /* v9.2.0 names the runes and artifacts of the Siege Battle defense decks as
      one pool and says nothing of their monsters, so only the gear is shared. */
   content('siege-defense', 'Siege Battle Defense', 'Guild', 'other', 3, 'guild', { id: 'siege-defense', monsters: false, oneDeckPerContent: false }),

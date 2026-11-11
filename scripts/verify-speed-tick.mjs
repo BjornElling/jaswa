@@ -280,6 +280,12 @@ for (const id of dungeonIds) {
     `${content.name}'s fastest enemy and useful accuracy follow its stages`);
 }
 check(speedContents.find((content) => content.id === 'arena')?.teamSize === 4, 'arena offence is four monsters');
+check(speedContent('siege').teamSize === 3 && speedContent('siege').area === 'guild' && speedContent('siege').tick === 'standard',
+  'a Siege Battle attack is three monsters, ticking at 7 % under guild leads');
+check(speedContents.filter((content) => content.opponent === 'worst-case').map((content) => content.id).join() === 'arena,siege',
+  'only the attacks on another player\'s team face the worst-case enemy');
+check(speedContents.every((content) => (content.opponent === 'stages') === (content.stages.length > 0)),
+  'a content faces stages exactly when it has them');
 /* The profile's Accuracy goal: a Cairos area reads its Speed Tuning floor, so
    the two can never name two figures for one dungeon; the rest are sourced. */
 for (const [contentId, dungeonId] of [['giants', 'giants'], ['dragons', 'dragons'], ['steel', 'steel'], ['punisher', 'punisher']]) {
@@ -395,12 +401,14 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
   for (const content of presetContents) {
     const read = speedContent(presetSpeedTeam({ ...preset, content }, undefined).content);
     check(read.teamSize === null || read.teamSize === content.teamSize, `${content.name}: its enemy data was read for its own team`);
-    check(read.stages.length > 0 || read.area === 'arena' || read.teamSize === null, `${content.name}: a content without enemies is read by area alone`);
+    check(read.opponent !== 'none' || read.teamSize === null, `${content.name}: a content without enemies is read by area alone`);
   }
   check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('temple-of-chaos') }, undefined).content).area === 'dungeon',
     'Temple of Chaos counts dungeon leads');
-  check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('siege') }, undefined).content).area === 'guild',
-    'Siege Battle counts guild leads');
+  const siege = speedContent(presetSpeedTeam({ ...preset, content: presetContent('siege') }, undefined).content);
+  check(siege.area === 'guild' && siege.opponent === 'worst-case', 'a Siege Battle attack counts guild leads and faces the worst-case enemy');
+  check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('siege-defense') }, undefined).content).opponent === 'none',
+    'a Siege Battle defense is tuned for its own order alone');
   for (const id of ['rift-raid', 'dimension-raid-1', 'dimension-raid-2', 'dimension-raid-3']) {
     const raid = speedContent(presetSpeedTeam({ ...preset, content: presetContent(id) }, undefined).content);
     check(raid.area === 'raid' && raid.tick === 'raid', `${presetContent(id).name} ticks and leads as a raid`);
@@ -432,6 +440,45 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
   check(alone.members[0].leaderPercent === 0 && led.members[0].leaderPercent === 19 && led.members[0].combatSpeed > alone.members[0].combatSpeed,
     'a Rift Raid deck counts the speed lead of another deck of its battle');
 }
+{
+  /* Arena and Siege Battle attacks are read by one worst case: the same team,
+     with no lead to tell the areas apart, meets the same enemy at the same tick
+     and is cut into before the same monsters. Its enemy is level with the
+     team's first mover. */
+  const monsters = new Map([
+    ['1', { unit_id: 1, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 42], sec_eff: [] }] }],
+    ['2', { unit_id: 2, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 10], sec_eff: [] }] }],
+    ['3', { unit_id: 3, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 30], sec_eff: [] }] }],
+  ]);
+  const team = (content) => ({ id: `worst-${content}`, content, members: [{ unitId: '1' }, { unitId: '2' }, { unitId: '3' }], leaderUnitId: null, otherLeaders: [] });
+  const siege = readSpeedTeam({ team: team('siege'), monsters, totemPercent: 15 });
+  const arena = readSpeedTeam({ team: team('arena'), monsters, totemPercent: 15 });
+  check(siege.enemies.length === 1 && siege.worstStage === 0 && siege.enemies[0].enemyNames.join() === 'Enemy',
+    'a Siege Battle attack meets one worst-case enemy');
+  check(siege.enemies[0].enemySpeed === siege.members[0].combatSpeed, 'the siege worst case is level with the team\'s first mover');
+  check(same(siege.enemies[0].cutsBefore, arena.enemies[0].cutsBefore) && siege.enemies[0].enemySpeed === arena.enemies[0].enemySpeed
+    && siege.enemies[0].firstEnemyTick === arena.enemies[0].firstEnemyTick, 'Arena and Siege Battle share the worst-case reading');
+  check(siege.enemies[0].cutsBefore.length > 0 && siege.members.some((member) => same(member.cutInAt, [1])) && !siege.perfect,
+    'a slow member is cut into by the siege worst case, and the team fails');
+  /* An interval keeps the enemy out. The first member's floor rises to where
+     it is still the opener: under it the third member opens, and a worst case
+     level with that one gets in before the first. The third member, behind the
+     slow second, can never keep the enemy out. With no speed tuning the enemy
+     plays no part, and the intervals are the order's alone. */
+  const ranged = readSpeedTeam({ team: team('siege'), monsters, totemPercent: 15, ranges: true });
+  const untuned = readSpeedTeam({ team: { ...team('siege'), noSpeedTuning: true }, monsters, totemPercent: 15, ranges: true });
+  const tuned = ranged.members[0].range;
+  const alone = untuned.members[0].range;
+  check(tuned !== null && alone !== null && tuned.minimum > alone.minimum && tuned.maximum === null,
+    'the enemy raises the floor of the first member\'s interval');
+  if (tuned !== null) {
+    const at = (value) => readSpeedTeam({ team: team('siege'), monsters, totemPercent: 15, whatIfs: new Map([['1', value]]) }).members[0].cutInAt;
+    check(at(tuned.minimum).length === 0 && at(tuned.minimum - 1).length > 0,
+      'at its interval\'s floor no enemy gets in before it, and one display speed under it one does');
+  }
+  check(ranged.members[2].range === null && untuned.members[2].range !== null,
+    'a member no display speed keeps the enemy out of has no interval, though its order alone has one');
+}
 
 /* 4. Every verdict and every interval the page prints is the truth. */
 let seed = 0x5eed;
@@ -456,7 +503,8 @@ const strictlyBefore = (first, earlier, later) => {
   return Boolean(a) && (!b || (a.at < b.at && !a.event.tiedWith.includes(later)));
 };
 for (let sample = 0; sample < 60; sample += 1) {
-  const area = sample % 2 === 0 ? 'giants' : 'arena';
+  /* Every fourth sample a siege attack, so each kind of opponent meets the interval check below. */
+  const area = ['giants', 'arena', 'giants', 'siege'][sample % 4];
   const size = speedContent(area).teamSize;
   const monsters = new Map();
   const members = [];
@@ -501,15 +549,22 @@ for (let sample = 0; sample < 60; sample += 1) {
     `sample ${sample}: a team is perfect only with every member in place and no enemy getting in`);
   /* Each interval's edges, for a third of the sweep: typed in, the member's
      first turn falls strictly between those of the members placed just above
-     and just below it, the others where they are; one display speed past
-     either edge, it does not. */
+     and just below it, the others where they are, and no enemy turn of the
+     drawn traces comes before it; one display speed past either edge, it does
+     not. */
   if (sample % 3 !== 0) continue;
   const fitsAt = (index, value) => {
     const typed = read(new Map([[members[index].unitId, value]]), false);
     const at = firstTurnsOf(typed);
     const self = members[index].unitId;
+    const cutIn = typed.enemies.some(({ trace }) => {
+      const firstEnemy = trace.events.findIndex((event) => event.side === 'enemy');
+      const own = trace.events.findIndex((event) => event.key === self);
+      return firstEnemy !== -1 && (own === -1 || firstEnemy < own);
+    });
     return (index === 0 || strictlyBefore(at, members[index - 1].unitId, self))
-      && (index === members.length - 1 || strictlyBefore(at, self, members[index + 1].unitId));
+      && (index === members.length - 1 || strictlyBefore(at, self, members[index + 1].unitId))
+      && !cutIn;
   };
   for (const [index, member] of reading.members.entries()) {
     const lowest = displaySpeed(member.baseSpeed, member.swift, 0);
@@ -526,7 +581,7 @@ for (let sample = 0; sample < 60; sample += 1) {
     check(fitsAt(index, top), `sample ${sample}: member ${index + 1} fits at ${top}, its range's ceiling`);
     if (range.minimum - 1 >= lowest) check(!fitsAt(index, range.minimum - 1), `sample ${sample}: member ${index + 1} does not fit at ${range.minimum - 1}, under its range`);
     if (range.maximum !== null) check(!fitsAt(index, range.maximum + 1), `sample ${sample}: member ${index + 1} does not fit at ${range.maximum + 1}, over its range`);
-    if (index === 0) check(range.maximum === null, `sample ${sample}: the first member has nobody above it, so its range is open`);
+    if (index === 0 && area !== 'giants') check(range.maximum === null, `sample ${sample}: the first member has nobody above it, and the worst case follows it, so its range is open`);
     rangesChecked += 1;
   }
   /* The page asks for no ranges and gets none. */

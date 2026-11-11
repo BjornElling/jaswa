@@ -216,9 +216,9 @@ Leo combat speed." On every tick, every other unit's combat speed — its buff
 included — is held to the slowest Leo's current combat speed.
 
 **Modelled:** a dungeon stage does not say which enemy is the boss, so in
-dungeons no enemy is capped — the pessimistic reading. Arena has no bosses,
-and the worst-case arena enemy is level with the team's first mover as the cap
-leaves it (§3.2, §6).
+dungeons no enemy is capped — the pessimistic reading. Another player's team
+has no bosses, and the worst-case enemy in Arena and Siege Battle is level with
+the team's first mover as the cap leaves it (§3.2, §6).
 
 ### 3.2 Ties
 
@@ -236,8 +236,8 @@ An exact tie on the bar is settled in this order:
    SPD instead of placement"). Start-of-battle passives such as Shumar's are not
    modelled.
 2. **At equal start speed, the user's team goes before the enemy.** The user's
-   team is the attacker everywhere Speed Tuning reads it — arena offence and
-   every dungeon. SWCalc's "picked first" names no side, so this rests on SWGT,
+   team is the attacker everywhere Speed Tuning reads it — arena offence,
+   Siege Battle attacks and every dungeon. SWCalc's "picked first" names no side, so this rests on SWGT,
    *How to use the Speed Tick Bracket Calculator* (swgt.io/faq/39, read October
    2, 2026): "same speed unit on offense and defense, offense will go first",
    and Ellia: "priority is given to the attacker". **Modelled** where Ellia
@@ -329,14 +329,24 @@ recipient's potency is known (`shortTurnEffect`).
 
 ## 6. What the team faces
 
-Only arena and the Cairos dungeons have enemies to cut in. Every other content
-is tuned for the team's own turn order, with no enemy guessed for it.
+Only the attacks on another player's team — Arena and Siege Battle — and the
+Cairos dungeons have enemies to cut in. Every other content is tuned for the
+team's own turn order, with no enemy guessed for it.
 
-**Arena offence (4 monsters).** The worst-case enemy is the fastest one that
-still cannot take the first turn: level with the team's first mover at equal
-start speed, since such a tie goes to the attacker (§3.2). Anything faster
-could win the opening; anything slower cuts in no earlier. The page reports
-after which of the team's turns it first moves.
+Which kind of opponent a content has is one field, `SpeedContent.opponent`
+(`speed-contents.ts`): `worst-case`, `stages` or `none`. The analysis and every
+view ask that field, never the area, so Arena and Siege Battle share every line
+of the worst-case reading and its wording.
+
+**Arena offence (4 monsters) and Siege Battle attacks (3 monsters).** The
+worst-case enemy is the fastest one that still cannot take the first turn:
+level with the team's first mover at equal start speed, since such a tie goes
+to the attacker (§3.2). Anything faster could win the opening; anything slower
+cuts in no earlier. The page reports after which of the team's turns it first
+moves. A siege attack is read in the guild area (§2.2), so a Guild lead counts
+there and an Arena lead does not. That the attacker also wins a tie in Siege
+Battle is **modelled**: SWGT's rule names offence and defense, not arena. The
+defense decks of either content are tuned for their own order alone.
 
 **Dungeons (5 monsters).** The hardest floor Swarfarm carries enemy data for:
 the Abyss Hard floor (Swarfarm files each Abyss as its own dungeon, Hard as
@@ -414,7 +424,7 @@ alike.
 - **Tie** — in its place only by an exact tie with a teammate at equal start
   speed (§3.2, step 3).
 - **Enemy cuts in** — an enemy turn comes before its first, on any stage (in
-  arena the worst-case enemy, §6).
+  arena and a Siege Battle attack the worst-case enemy, §6).
 
 Too fast, too slow and an enemy cutting in are red. A member in its place that
 an enemy cuts into leads its line with the enemy — `Enemy cuts in (stage 2) ·
@@ -435,34 +445,47 @@ turns are not counted in this reading.
 `moves 5th`, with every turn before it counted — enemy turns and a teammate's
 second turn alike. A member boosted into a second turn before the whole team
 has had a first names both: `moves 2nd and 4th`. The places are read on the
-worst stage, the one whose first enemy turn comes earliest (in arena the one
-worst-case enemy; with no enemies, the team alone), and the Ticks view opens on
+worst stage, the one whose first enemy turn comes earliest (in arena and
+siege the one worst-case enemy; with no enemies, the team alone), and the Ticks view opens on
 that stage, so every number on a verdict is a numbered disc there. The place
 judged is the rank among first turns, read on the team alone; the absolute
 place only says where on the field that turn falls.
 
-### 7.1 The interval — between the neighbours
+### 7.1 The interval — between the neighbours, ahead of the enemy
 
-**Binding rule (the user's, October 11, 2026): a member's interval is the
-display speeds at which its first turn comes strictly after that of the member
-placed just above it and strictly before that of the member placed just below
-it, every other member at the display speed it has now — its what-if where one
-is typed.** Both places that offer display speeds quote it: the overlay's
-*Interval* column, beside display speed, and the `needs … display speed` on the
-verdict line, which quotes it only where the current value lies outside it.
-They cannot disagree, because they are the same figure.
+**Binding rule (the user's, October 11, 2026, widened November 11, 2026): a
+member's interval is the display speeds at which its first turn comes strictly
+after that of the member placed just above it and strictly before that of the
+member placed just below it, with no enemy turn before it, every other member
+at the display speed it has now — its what-if where one is typed.** Both places
+that offer display speeds quote it: the overlay's *Interval* column, beside
+display speed, and the `needs … display speed` on the verdict line, which
+quotes it only where the current value lies outside it. They cannot disagree,
+because they are the same figure.
 
-The interval answers one question: where this monster fits between the two
-beside it, as they stand now. It is not the display speed the monster would
-need for the whole team to come right, and it does not look past its two
-neighbours; a neighbour out of its own place says so on its own line, with its
-own interval. Enemies play no part in it — an enemy that gets in is a fault of
-its own (§7) — and neither does any member but the two neighbours, except
+The interval answers one question: where this monster holds its place, as the
+team stands now. It is not the display speed the monster would need for the
+whole team to come right, and it does not look past its two neighbours and the
+enemy; a neighbour out of its own place, or cut into, says so on its own line,
+with its own interval. No member but the two neighbours plays a part, except
 through the clock: their boosts and buffs still move the bars.
 
+**The enemy is the one the reading meets.** `oppositionOf`
+(`speed-tuning-analysis.ts`) is the one place a team's enemies are set up — the
+worst case of Arena and Siege Battle, a floor's stages, or nobody — and both the
+reading (§6, §7.2) and the interval search ask it, at every display speed tried.
+The worst case follows the team's first mover, so a member that slows enough to
+hand another the opening meets an enemy level with that one. On a floor, a
+value fits only if no stage's enemy gets in before the member. With *No speed
+tuning* the team faces nobody, and the interval is the order's alone.
+
 A tie with either neighbour counts against a value: no order may hang on pick
-order the page cannot see. The first member has nobody above it, so its
-interval is open — `xx+`, faster always fits; the last has nobody below it.
+order the page cannot see. The first member has nobody above it, and the worst
+case is level with it, so against another player's team its interval is open —
+`xx+`, faster always fits; on a floor a fast enemy may close it from below. The
+last member has nobody below it. Without a booster, a worst case level with the
+opener gets in before every later member, so their intervals are mostly a dash:
+the page then says what the opening really is.
 
 Every display speed from bare runes up to the highest a what-if takes is run
 on the team's clock, so boosts, buffs, Leo's cap and rounding are answered by
@@ -471,15 +494,17 @@ can make a faster monster move later, so the values that fit may lie in more
 than one stretch; the stretch holding the member's current value is shown, or
 failing that the stretch nearest it. The interval is shown as `xx – yy`, `xx+`
 where the stretch reaches the highest display speed, or a dash where no display
-speed puts the member between its neighbours — for instance where the one
-above is slower than the one below.
+speed puts the member between its neighbours ahead of the enemy — for instance
+where the one above is slower than the one below.
 
 The verifier (`verify:speed-tick`) re-reads every sampled team off its own
 trace, apart from the module: each member is too fast or too slow exactly when
 its first turn ranks elsewhere than its place; and for a third of the sweep
 each interval is typed in across its width, both edges included, and one
-display speed past either edge must not fit, while a dash must not fit at a
-spread of values.
+display speed past either edge must not fit — between the neighbours on the
+team's trace and with no enemy turn before it on the drawn enemy traces —
+while a dash must not fit at a spread of values. The sweep covers a dungeon,
+Arena and Siege Battle.
 
 The interval is searched only in the overlay, which shows it; the page reads
 every team at once without it.
@@ -488,12 +513,12 @@ every team at once without it.
 
 **Enemy cuts in** — a member an enemy has a turn before is red (§7). It reads
 the same traces as the Enemy cut in table: `Enemy cuts in (stage 2)` in a
-dungeon, `Worst-case enemy cuts in` in arena.
+dungeon, `Worst-case enemy cuts in` in arena and Siege Battle.
 
 **Enemy can cut in** — on the team summary, an enemy turn comes before the
 team's last first turn, read off the very traces the Ticks view draws, boosts,
-buffs and Leo's cap included. It fails the team in arena and on any dungeon
-stage. A dungeon stage's enemies may be faster than any build; the page still
+buffs and Leo's cap included. It fails the team in arena, in a Siege Battle
+attack and on any dungeon stage. A dungeon stage's enemies may be faster than any build; the page still
 says so in red, because the order placed is then not the order the battle
 plays.
 

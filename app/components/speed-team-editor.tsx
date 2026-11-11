@@ -10,8 +10,8 @@ import { formatNumber } from '../lib/formatting';
 import { moveItem } from '../lib/list-order';
 import type { MonsterCopyName } from '../lib/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortAllyBoost, shortLeaderSkill, shortTurnEffect } from '../lib/speed-skills';
+import type { SpeedOpponent } from '../lib/speed-contents';
 import { leaderAreaReaches } from '../lib/speed-tick';
-import type { SpeedArea } from '../lib/speed-tick';
 import { displaySpeedIntervalText } from '../lib/speed-tuning-analysis';
 import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../lib/speed-tuning-analysis';
 import { whatIfDisplaySpeedMaximum } from '../lib/speed-tuning-preferences';
@@ -36,14 +36,15 @@ function movesText(positions: readonly number[]): string {
  * The one line under a member that says whether its first turn is the one its
  * place asks for, where to tune it, and last, which enemy gets in before it.
  * The fix quotes the Interval column's range and nothing else: the display
- * speeds that put it between the members placed just above and below it.
+ * speeds that put it between the members placed just above and below it, with
+ * no enemy turn before it.
  */
-function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, area: SpeedArea,
+function verdictText(member: MemberReading, names: Record<string, MonsterCopyName>, opponent: SpeedOpponent,
   enemiesKnown: boolean, general: GeneralSettings, tiedWith: string | null): string {
   const { verdict } = member;
   const stages = enemiesKnown ? member.cutInAt : [];
   const enemy = stages.length === 0 ? null
-    : area === 'arena' ? 'worst-case enemy cuts in'
+    : opponent === 'worst-case' ? 'worst-case enemy cuts in'
       : `enemy cuts in (stage${stages.length === 1 ? '' : 's'} ${stages.join(', ')})`;
   if (tiedWith !== null) return `Tied with ${names[tiedWith]?.name ?? 'a teammate'}. Position decides.${enemy === null ? '' : ` · ${enemy}`}`;
   const fix = member.inRange ? null : displaySpeedIntervalText(member.range, general);
@@ -150,9 +151,10 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
     onChange((current) => ({ ...current, members: moveItem(current.members, from, to) }));
   }
 
-  /* The enemy rows are the content's: one worst case in arena, a row per stage
-     in a Cairos dungeon, and none where the content has no enemy data. */
-  const enemyRows = content.area === 'arena' ? [null] : content.stages;
+  /* The enemy rows are the content's: one worst case against another player's
+     team, a row per stage in a Cairos dungeon, and none where the content has
+     no enemy data. */
+  const enemyRows = content.opponent === 'worst-case' ? [null] : content.stages;
 
   return <div className="speed-team-editor">
     {/* A filled slot is dragged by any part that is not a field; the arrows
@@ -221,7 +223,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         ].filter(Boolean).join('. ');
         const tiedWith = monster.verdict.kind === 'tie' ? monster.verdict.with
           : reading.members.find((other) => other.verdict.kind === 'tie' && other.verdict.with === monster.unitId)?.unitId ?? null;
-        const verdict = verdictText(monster, names, content.area, enemiesKnown, general, tiedWith);
+        const verdict = verdictText(monster, names, content.opponent, enemiesKnown, general, tiedWith);
         const range = rangeText(monster.range, general);
         const noRange = monster.range === null;
         const verdictTone = verdictState(monster, enemiesKnown);
@@ -265,7 +267,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
             </td>
             <td className="speed-figure" rowSpan={2}>{formatNumber(monster.importedDisplaySpeed, general)}</td>
             <td className="speed-figure speed-slot-range" rowSpan={2}
-              title={noRange ? `No display speed of ${name} moves it between the monsters placed beside it` : undefined}>{range}</td>
+              title={noRange ? `No display speed of ${name} moves it between the monsters placed beside it${reading.enemies.length > 0 ? ' ahead of the enemy' : ''}` : undefined}>{range}</td>
             <td className="speed-figure speed-what-if-cell" rowSpan={2}>
               <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
                 onChange={(value) => onWhatIf(member.unitId, value)} />
@@ -307,7 +309,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         <table className="speed-enemy-table">
           <colgroup><col className="speed-col-stage" /><col /><col className="speed-col-cut" /></colgroup>
           <thead><tr>
-            <th scope="col">{content.area === 'arena' ? 'Enemy' : 'Stage'}</th>
+            <th scope="col">{content.opponent === 'worst-case' ? 'Enemy' : 'Stage'}</th>
             <th scope="col">First enemy moves after</th>
             <th scope="col"><span className="visually-hidden">Cuts in</span></th>
           </tr></thead>

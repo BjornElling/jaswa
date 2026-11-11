@@ -16,7 +16,7 @@ function views(reading: TeamReading): View[] {
   const own: View = { id: 'team', label: 'Your team alone', trace: reading.trace, enemySpeeds: [], enemyNames: [] };
   const enemies = reading.enemies.map((enemy, at): View => ({
     id: `stage-${at}`,
-    label: reading.content.area === 'arena' ? 'Worst-case enemy' : `Stage ${at + 1}`,
+    label: reading.content.opponent === 'worst-case' ? 'Worst-case enemy' : `Stage ${at + 1}`,
     trace: enemy.trace,
     enemySpeeds: enemy.enemySpeeds,
     enemyNames: enemy.enemyNames,

@@ -380,8 +380,10 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(card.locator('.speed-verdict').first()).toHaveAttribute('data-state', 'good');
   await expect(card.locator('.speed-verdict[data-state="warn"]')).toHaveCount(0);
   await expect(card.locator('.speed-verdict[data-state="bad"]')).toHaveText([
-    /* Stage 2's three enemies move before the third member and are counted. */
-    'Enemy cuts in (stage 2) · moves 6th',
+    /* Stage 2's three enemies move before the third member and are counted.
+       Only the third can still get ahead of them between its neighbours, so
+       only it is told the display speed that does; the last two have none. */
+    'Enemy cuts in (stage 2) · moves 6th · needs exactly 103 display speed',
     'Enemy cuts in (stage 2) · moves 7th',
     'Enemy cuts in (stage 2) · moves 8th',
   ]);
@@ -429,7 +431,7 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
      enemy getting in comes last. */
   await expect(megan.locator('.speed-verdict')).toHaveText('Too slow · moves 8th · needs 105–154 display speed · enemy cuts in (stage 2)');
   await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'bad');
-  await expect(saved.locator('.speed-slot').nth(3).locator('.speed-verdict')).toHaveText('Too fast · moves 6th · enemy cuts in (stage 2)');
+  await expect(saved.locator('.speed-slot').nth(3).locator('.speed-verdict')).toHaveText('Too fast · moves 6th · needs exactly 103 display speed · enemy cuts in (stage 2)');
   await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(4);
   expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, startBox.height);
   await saved.screenshot({ path: testInfo.outputPath('speed-team-out-of-order.png') });
@@ -668,8 +670,9 @@ test('arena presets face a worst-case enemy', async ({ page }, testInfo) => {
   /* Fifth on the field: the worst-case enemy's turn comes before Megan's and is counted. */
   await expect(megan.locator('.speed-verdict')).toHaveText('Worst-case enemy cuts in · moves 5th');
   await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'bad');
-  /* Her range is the team's alone: behind Lushen #2, with nobody below her. */
-  await expect(megan.locator('.speed-slot-range')).toHaveText('97 – 103');
+  /* Behind Lushen #2 she is always behind the worst case too, which is level
+     with the opener: no display speed holds her place, so she has no range. */
+  await expect(megan.locator('.speed-slot-range')).toHaveText('—');
   const tiedBox = await box(card.locator('.speed-team-editor'));
   await card.screenshot({ path: testInfo.outputPath('speed-arena-tied.png') });
   const tiedWhatIf = card.getByLabel('What-if display speed for Lushen #2 in Arena Attack 1');
@@ -692,6 +695,39 @@ test('arena presets face a worst-case enemy', async ({ page }, testInfo) => {
     await expect(presetLine(arena, name).locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
   }
   await page.screenshot({ path: testInfo.outputPath('speed-arena.png'), fullPage: true });
+});
+
+test('a Siege Battle attack faces the same worst-case enemy as arena', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await freshWorkspace(page);
+  await importAccount(page, { ...withPresets, deck_list: [...withPresets.deck_list, deck(22, 1, [4, 5, 2])] }, 'speed-siege.json');
+  await openSpeedTuning(page);
+
+  const other = page.getByRole('region', { name: 'Other presets', exact: true });
+  const line = presetLine(other, 'Siege Battle 1');
+  await expect(line.locator('.speed-summary-state')).toHaveText('Tied · position decides · Enemy can cut in');
+  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
+  await page.screenshot({ path: testInfo.outputPath('speed-siege-page.png'), fullPage: true });
+
+  await line.click();
+  const card = page.getByRole('dialog', { name: 'Siege Battle 1' });
+  await expect(card.locator('.speed-slot')).toHaveCount(3);
+  const enemy = card.getByRole('region', { name: 'Enemy cut in' });
+  await expect(enemy.getByRole('columnheader', { name: 'Enemy', exact: true })).toBeVisible();
+  await expect(enemy.locator('tbody tr')).toHaveText(['Worst caseLushen #2']);
+  await expect(enemy.getByRole('img', { name: 'Can cut in before Megan (2A)' })).toBeVisible();
+  /* Level with the Lushens, the enemy waits out their tie as the attacker's and gets in before Megan. */
+  const megan = card.locator('.speed-slot').nth(2);
+  await expect(megan.locator('.speed-verdict')).toHaveText('Worst-case enemy cuts in · moves 4th');
+  await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'bad');
+  await card.screenshot({ path: testInfo.outputPath('speed-siege-team.png') });
+
+  /* The Ticks view opens on the same worst case. */
+  await card.getByRole('button', { name: 'Ticks' }).click();
+  const ticks = page.locator('.speed-turn-dialog');
+  await expect(ticks.getByRole('button', { name: 'Worst-case enemy' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(ticks.locator('.speed-lanes[data-active] .speed-lane-row[data-enemy] .speed-lane-name')).toHaveText(['Enemy']);
+  await page.screenshot({ path: testInfo.outputPath('speed-siege-ticks.png') });
 });
 
 test('a boost to one ally names who gets it: the lowest bar, as auto battle sends it', async ({ page }, testInfo) => {
@@ -799,12 +835,13 @@ test('each slot states the display speeds that hold it, and a what-if is selecte
 
   /* In order, every first turn is in its place; stage 2's enemy getting in
      before the last three is what is red. Each range puts its monster between
-     the ones placed beside it, at the display speeds they have now: the first
-     is open above, as nobody is placed before it, and Verdehile fits only at
-     99, between Veromos's 100 and Megan's 97. */
+     the ones placed beside it, at the display speeds they have now, with no
+     enemy turn before it: the first is open above, as nobody is placed before
+     it, but must open ahead of stage 2's fastest enemy; Veromos holds off stage
+     2 only at 103; Verdehile and Megan cannot between their neighbours. */
   await expect(draft.locator('.speed-verdict[data-state="bad"]')).toHaveCount(3);
   const ranges = draft.locator('.speed-slot-range');
-  await expect(ranges).toHaveText(['111+', '103 – 153', '100 – 103', '99 – 99', '97 – 98']);
+  await expect(ranges).toHaveText(['152+', '103 – 153', '103 – 103', '—', '—']);
 
   /* Out of order, both monsters out of their places are red: Verdehile, below,
      moving first, and Megan, above, moving after it. */

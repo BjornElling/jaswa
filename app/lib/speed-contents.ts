@@ -1,9 +1,10 @@
 /**
  * The places a team can be tuned for, and what the game puts against it there.
  *
- * Arena is tuned against a hypothetical enemy the page derives from the team
- * itself; a Cairos dungeon against the enemies of its hardest floor, read from
- * the PvE database (`pve-stages.ts`).
+ * The player-versus-player attacks — Arena and Siege Battle — are tuned against
+ * a hypothetical enemy the page derives from the team itself; a Cairos dungeon
+ * against the enemies of its hardest floor, read from the PvE database
+ * (`pve-stages.ts`).
  *
  * Every other content is tuned for its own turn order alone, and its area still
  * decides which leader skills count, so its combat speeds are the game's.
@@ -14,7 +15,17 @@ import type { SpeedArea, TickRule } from './speed-tick';
 export type DungeonId = 'giants' | 'dragons' | 'necropolis' | 'spiritual' | 'steel' | 'punisher' | 'magic';
 /** A content without enemy data, by area: the other dungeons, guild content, the raids, and a preset not yet named. */
 export type OpenContentId = 'other-dungeon' | 'guild' | 'raid' | 'unnamed';
-export type SpeedContentId = 'arena' | DungeonId | OpenContentId;
+export type SpeedContentId = 'arena' | 'siege' | DungeonId | OpenContentId;
+
+/**
+ * What is set against the team. `worst-case` is another player's team, whose
+ * speeds nobody knows in advance, so the page reads the fastest enemy that
+ * still cannot take the first turn (`SPEED-TICK-CANONICAL.md` §6); `stages` is
+ * a floor's known enemies; `none` is the team's own turn order alone. The one
+ * place a reader asks which kind of opponent a content has, so Arena and Siege
+ * Battle share every line of the worst-case reading and its wording.
+ */
+export type SpeedOpponent = 'worst-case' | 'stages' | 'none';
 
 /** One stage of a dungeon floor: its enemies' combat speeds, resistance percents and game monster ids, in one order. */
 export type DungeonStage = { fastest: number; speeds: readonly number[]; resists: readonly number[]; monsters: readonly number[] };
@@ -28,18 +39,19 @@ export type SpeedContent = {
   /** The team the enemy data was read for, `null` where there is none: the preset's content then decides. */
   teamSize: number | null;
   /**
-   * Whether anything is set against the team: arena's worst case, or a Cairos
-   * floor's stages. A team the user says is not speed tuned is read as facing
-   * nothing, wherever it fights.
+   * What is set against the team (`SpeedOpponent`). A team the user says is
+   * not speed tuned is read as facing nothing, wherever it fights.
    */
-  facesEnemies: boolean;
-  /** The floor the stages come from, as the game names it — `Abyss Hard`, `B10` — or `null` for arena. */
+  opponent: SpeedOpponent;
+  /** The floor the stages come from, as the game names it — `Abyss Hard`, `B10` — or `null` without stages. */
   floorName: string | null;
   stages: readonly DungeonStage[];
 };
 
-/* Arena offence: four monsters, in every arena the game runs. */
+/* Arena offence: four monsters, in every arena the game runs. Siege Battle
+   attacks with three. */
 const arenaTeamSize = 4;
+const siegeTeamSize = 3;
 
 const dungeonNames: Record<DungeonId, string> = {
   giants: "Giant's Keep",
@@ -76,20 +88,28 @@ function dungeonContent(id: DungeonId): SpeedContent {
     area: 'dungeon',
     tick: 'standard',
     teamSize: floor.teamSize,
-    facesEnemies: true,
+    opponent: 'stages',
     floorName: floor.name,
     stages,
   };
 }
 
+function openContent(id: OpenContentId, name: string, area: SpeedArea, tick: TickRule = 'standard'): SpeedContent {
+  return { id, name, area, tick, teamSize: null, opponent: 'none', floorName: null, stages: [] };
+}
+
 export const speedContents: readonly SpeedContent[] = [
-  { id: 'arena', name: 'Arena', area: 'arena', tick: 'standard', teamSize: arenaTeamSize, facesEnemies: true, floorName: null, stages: [] },
+  { id: 'arena', name: 'Arena', area: 'arena', tick: 'standard', teamSize: arenaTeamSize, opponent: 'worst-case', floorName: null, stages: [] },
+  /* A Siege Battle attack meets another guild's defense deck, as an arena
+     attack meets another player's: the same worst case, read in the guild
+     area, where Guild leads count and Arena leads do not. */
+  { id: 'siege', name: 'Siege Battle', area: 'guild', tick: 'standard', teamSize: siegeTeamSize, opponent: 'worst-case', floorName: null, stages: [] },
   ...dungeonIds.map(dungeonContent),
-  { id: 'other-dungeon', name: 'Dungeon', area: 'dungeon', tick: 'standard', teamSize: null, facesEnemies: false, floorName: null, stages: [] },
-  { id: 'guild', name: 'Guild', area: 'guild', tick: 'standard', teamSize: null, facesEnemies: false, floorName: null, stages: [] },
+  openContent('other-dungeon', 'Dungeon', 'dungeon'),
+  openContent('guild', 'Guild', 'guild'),
   /* Rift Raid and the Dimension Raid phases: a raid's tick and a raid's leads. */
-  { id: 'raid', name: 'Raid', area: 'raid', tick: 'raid', teamSize: null, facesEnemies: false, floorName: null, stages: [] },
-  { id: 'unnamed', name: 'Not yet named', area: 'unnamed', tick: 'standard', teamSize: null, facesEnemies: false, floorName: null, stages: [] },
+  openContent('raid', 'Raid', 'raid', 'raid'),
+  openContent('unnamed', 'Not yet named', 'unnamed'),
 ];
 
 export function speedContent(id: SpeedContentId): SpeedContent {

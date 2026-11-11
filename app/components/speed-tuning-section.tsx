@@ -113,11 +113,11 @@ function teamStatus(reading: TeamReading, noSpeedTuning: boolean): { text: strin
 
 /* Whether an enemy moves before the team's last monster has had its first
    turn, read off the same traces the Ticks view draws — boosts, buffs and
-   Leo's cap included. A dungeon names its stages; arena has the one worst case. */
+   Leo's cap included. A dungeon names its stages; arena and siege have the one worst case. */
 function cutInText(reading: TeamReading): string | null {
   const stages = reading.enemies.flatMap((enemy, at) => enemy.cutsBefore.length > 0 ? [at + 1] : []);
   if (stages.length === 0) return null;
-  return reading.content.area === 'arena' ? 'Enemy can cut in' : `Enemy can cut in (stage ${stages.join(', ')})`;
+  return reading.content.opponent === 'worst-case' ? 'Enemy can cut in' : `Enemy can cut in (stage ${stages.join(', ')})`;
 }
 
 /* The page's three columns: dungeons, arena, and everything else. A preset

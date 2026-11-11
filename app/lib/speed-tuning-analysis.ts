@@ -81,7 +81,7 @@ export type MemberReading = {
   verdict: MemberVerdict;
   /**
    * The stages, from 1, whose first enemy turn comes before this member's
-   * first — in arena `[1]` for the worst case. A fault beside the verdict,
+   * first — `[1]` for the worst case against another player. A fault beside the verdict,
    * read off the same traces as the Enemy cut in table: an enemy that gets in
    * puts the member out of the place the user gave it as surely as a teammate
    * does.
@@ -89,8 +89,8 @@ export type MemberReading = {
   cutInAt: readonly number[];
   /**
    * The display speeds that put its first turn between the members placed
-   * just above and just below it (`tuningRange`), or `null` where none will
-   * or none was asked for.
+   * just above and just below it with no enemy turn before it
+   * (`tuningRange`), or `null` where none will or none was asked for.
    */
   range: DisplaySpeedInterval | null;
   /** Whether the display speed it is read at is one of them. */
@@ -98,7 +98,7 @@ export type MemberReading = {
 };
 
 export type EnemyStageReading = {
-  /** The fastest enemy's combat speed or, in arena, the worst-case enemy's. */
+  /** The fastest enemy's combat speed or, against another player, the worst-case enemy's. */
   enemySpeed: number;
   /** The tick of the first enemy turn. */
   firstEnemyTick: number;
@@ -111,7 +111,7 @@ export type EnemyStageReading = {
   trace: BattleTrace;
   /** Every enemy on the stage, in the trace as `enemy-1`, `enemy-2` …, with their speeds. */
   enemySpeeds: readonly number[];
-  /** Their names, in the same order — `Golem (Water) #1` — or `Enemy` for arena's hypothetical one. */
+  /** Their names, in the same order — `Golem (Water) #1` — or `Enemy` for the hypothetical worst case. */
   enemyNames: readonly string[];
 };
 
@@ -126,7 +126,7 @@ export type TeamReading = {
   trace: BattleTrace;
   /** Every member in place, with no tie and no enemy getting in before it. */
   perfect: boolean;
-  /** Arena: one reading against the worst-case enemy. Dungeon: one per stage. */
+  /** Arena and Siege Battle: one reading against the worst-case enemy. Dungeon: one per stage. */
   enemies: EnemyStageReading[];
   /** The index in `enemies` of the stage whose first enemy turn comes earliest, which members' places are read from; `null` without enemies. */
   worstStage: number | null;
@@ -205,17 +205,80 @@ function unitsAt(candidates: readonly Candidate[], shown: readonly number[]): Ti
     runeSpeedForDisplay(candidate.base.baseSpeed, candidate.base.swift, shown[at])));
 }
 
+/** One line-up of enemies the team meets: their combat speeds and names, in one order. */
+type Opposition = { speeds: readonly number[]; names: readonly string[] };
+
+/*
+ * The enemies a team meets, as the team stands: the one place they are set up,
+ * so the reading of a team and the search for its intervals cannot meet two
+ * different enemies. Against another player's team — Arena and Siege Battle
+ * alike — that is the worst case: the fastest enemy that still cannot take the
+ * first turn, level with the team's first mover, since a tie goes to the
+ * attacker (`SPEED-TICK-CANONICAL.md` §3.2). Anything faster could win the
+ * opening outright; anything slower cuts in no earlier. Under Leo's cap the
+ * first mover goes at no more than Leo's own combat speed. It follows the team,
+ * so a search re-asks it at every display speed it tries. On a floor it is
+ * every stage's enemies.
+ */
+function oppositionOf(units: readonly TickUnit[], content: SpeedContent, trace: BattleTrace): Opposition[] {
+  if (units.length === 0) return [];
+  switch (content.opponent) {
+    case 'none': return [];
+    case 'worst-case': {
+      const opener = trace.events[0]?.key;
+      const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
+      const openingSpeed = Math.min(units.find((unit) => unit.key === opener)?.speed ?? 1, ...leoSpeeds);
+      return [{ speeds: [openingSpeed], names: ['Enemy'] }];
+    }
+    case 'stages': return content.stages.map((stage) => ({ speeds: stage.speeds, names: enemyNamesOf(stage) }));
+  }
+}
+
+/* Leo's cap spares a boss, and a dungeon stage does not say which of its
+   enemies is one, so on a stage every enemy is read as uncapped: the
+   pessimistic reading. Another player's team has no bosses. */
+function enemyUnits(opposition: Opposition, opponent: SpeedContent['opponent']): TickUnit[] {
+  return opposition.speeds.map((speed, at) => ({
+    key: `enemy-${at + 1}`, side: 'enemy', speed, effects: [], exemptFromCap: opponent === 'stages',
+  }));
+}
+
+/* The team's members whose first turn the first enemy turn comes before. Both
+   the reading's cut-in and the interval's ask this of the same clock. */
+function cutInto(events: readonly TurnEvent[], allyKeys: readonly string[]): string[] {
+  const firstEnemy = events.findIndex((event) => event.side === 'enemy');
+  if (firstEnemy === -1) return [];
+  const movedBefore = new Set(events.slice(0, firstEnemy).map((event) => event.key));
+  return allyKeys.filter((key) => !movedBefore.has(key));
+}
+
+/* Whether an enemy of any line-up gets a turn before `key`'s first. The clock
+   stops at the first of the two, as nothing after it changes the answer. */
+function enemyGetsInBefore(allies: readonly TickUnit[], oppositions: readonly Opposition[],
+  content: SpeedContent, key: string): boolean {
+  return oppositions.some((opposition) => {
+    const { events } = simulateBattle([...allies, ...enemyUnits(opposition, content.opponent)], {
+      done: (moved) => moved.some((event) => event.key === key || event.side === 'enemy'),
+      snapshots: false,
+      tick: content.tick,
+    });
+    return cutInto(events, [key]).length > 0;
+  });
+}
+
 /*
  * The display speeds at which the member at `index` has its first turn
  * strictly after the member placed just above it and strictly before the
- * member placed just below it, every other member at the display speed it is
- * read at — its what-if where one is typed. A tie with either neighbour counts
- * against it: no order may hang on pick order the page cannot see.
+ * member placed just below it, with no enemy turn before it, every other
+ * member at the display speed it is read at — its what-if where one is typed.
+ * A tie with either neighbour counts against it: no order may hang on pick
+ * order the page cannot see.
  *
- * The range answers one question, where this monster fits between the two
- * beside it as they stand now, and not where it would need to be for the whole
- * team to come right: a neighbour out of its own place says so on its own line.
- * Enemies play no part in it; an enemy that gets in is a fault of its own.
+ * The range answers one question, where this monster holds its place as the
+ * team stands now, and not where it would need to be for the whole team to come
+ * right: a neighbour out of its own place, or cut into, says so on its own line.
+ * The enemies are those `oppositionOf` sets against the team at each value, so
+ * a worst case that follows the first mover follows it here too.
  *
  * Every display speed from bare runes up is run on the clock, because a boost
  * aimed at the lowest bar can make a faster monster move later and leave the
@@ -223,17 +286,19 @@ function unitsAt(candidates: readonly Candidate[], shown: readonly number[]): Ti
  * member is read at is the answer, or failing that the stretch nearest it.
  * A stretch that reaches the highest display speed a what-if takes is open.
  */
-function tuningRange(candidates: readonly Candidate[], shown: readonly number[], index: number, tick: TickRule): DisplaySpeedInterval | null {
+function tuningRange(candidates: readonly Candidate[], shown: readonly number[], index: number, content: SpeedContent): DisplaySpeedInterval | null {
   const self = candidates[index].unitId;
   const above = candidates[index - 1]?.unitId;
   const below = candidates[index + 1]?.unitId;
   const config = [...shown];
   const fits = (value: number) => {
     config[index] = value;
-    const trace = teamTrace(unitsAt(candidates, config), tick, false);
+    const units = unitsAt(candidates, config);
+    const trace = teamTrace(units, content.tick, false);
     const first = firstTurns(trace.events);
     return (above === undefined || relation(first, trace.events, above, self) === 'before')
-      && (below === undefined || relation(first, trace.events, self, below) === 'before');
+      && (below === undefined || relation(first, trace.events, self, below) === 'before')
+      && !enemyGetsInBefore(units, oppositionOf(units, content, trace), content, self);
   };
 
   const lowest = displaySpeed(candidates[index].base.baseSpeed, candidates[index].base.swift, 0);
@@ -254,29 +319,22 @@ function tuningRange(candidates: readonly Candidate[], shown: readonly number[],
     nearest === null || distance(stretch) < distance(nearest) ? stretch : nearest, null);
 }
 
-/* Leo's cap spares a boss, and a dungeon stage does not say which of its
-   enemies is one, so in a dungeon every enemy is read as uncapped: the
-   pessimistic reading. Arena has no bosses. */
-function stageReading(allies: readonly TickUnit[], enemySpeeds: readonly number[], enemyNames: readonly string[],
-  area: SpeedContent['area'], tick: TickRule): EnemyStageReading {
-  const enemies: TickUnit[] = enemySpeeds.map((speed, at) => ({
-    key: `enemy-${at + 1}`, side: 'enemy', speed, effects: [], exemptFromCap: area === 'dungeon',
-  }));
+/* One line-up drawn in full: the trace the Ticks view shows, and what it says. */
+function stageReading(allies: readonly TickUnit[], opposition: Opposition, content: SpeedContent): EnemyStageReading {
   const allyKeys = allies.map((unit) => unit.key);
   const settled = (events: readonly TurnEvent[]) => everyoneMoved(allyKeys)(events) && events.some((event) => event.side === 'enemy');
-  const trace = simulateBattle([...allies, ...enemies], { done: drawnUntil(allyKeys, settled), tick });
+  const trace = simulateBattle([...allies, ...enemyUnits(opposition, content.opponent)], { done: drawnUntil(allyKeys, settled), tick: content.tick });
   const firstEnemy = trace.events.find((event) => event.side === 'enemy');
   const before = firstEnemy ? trace.events.slice(0, trace.events.indexOf(firstEnemy)) : trace.events;
   const last = before.at(-1);
-  const movedBefore = new Set(before.map((event) => event.key));
   return {
-    enemySpeed: Math.max(...enemySpeeds),
+    enemySpeed: Math.max(...opposition.speeds),
     firstEnemyTick: firstEnemy?.tick ?? Number.POSITIVE_INFINITY,
     follows: last ? { unitId: last.key, turn: before.filter((event) => event.key === last.key).length } : null,
-    cutsBefore: firstEnemy === undefined ? [] : allyKeys.filter((key) => !movedBefore.has(key)),
+    cutsBefore: cutInto(trace.events, allyKeys),
     trace,
-    enemySpeeds,
-    enemyNames,
+    enemySpeeds: opposition.speeds,
+    enemyNames: opposition.names,
   };
 }
 
@@ -319,30 +377,15 @@ export function enemyNamesOf(stage: DungeonStage): readonly string[] {
   return named;
 }
 
-/* The worst arena enemy is the fastest one that still cannot take the first
-   turn: level with the team's first mover, since a tie goes to the attacker
-   (`SPEED-TICK-CANONICAL.md` §3.2). Anything faster could win the opening
-   outright; anything slower cuts in no earlier. Under Leo's
-   cap the first mover goes at no more than Leo's own combat speed. */
-function worstArenaStage(units: readonly TickUnit[], trace: BattleTrace): EnemyStageReading {
-  const opener = trace.events[0]?.key;
-  const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
-  const openingSpeed = Math.min(units.find((unit) => unit.key === opener)?.speed ?? 1, ...leoSpeeds);
-  return stageReading(units, [openingSpeed], ['Enemy'], 'arena', 'standard');
-}
-
 /* How many turns come before a stage's first enemy turn: the fewer, the worse. */
 function firstEnemyAt(stage: EnemyStageReading): number {
   const at = stage.trace.events.findIndex((event) => event.side === 'enemy');
   return at === -1 ? Number.POSITIVE_INFINITY : at;
 }
 
-/** What the team faces: the worst-case enemy in arena, each stage in a dungeon. */
+/** What the team faces: the one worst-case enemy against another player's team, each stage on a floor. */
 function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: BattleTrace): EnemyStageReading[] {
-  if (units.length === 0 || !content.facesEnemies) return [];
-  return content.area === 'arena'
-    ? [worstArenaStage(units, trace)]
-    : content.stages.map((stage) => stageReading(units, stage.speeds, enemyNamesOf(stage), content.area, content.tick));
+  return oppositionOf(units, content, trace).map((opposition) => stageReading(units, opposition, content));
 }
 
 export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = false }: {
@@ -366,7 +409,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const content = speedContent(team.content);
   /* What the team is measured against: nothing at all where the user says it
      is not speed tuned, so its places, ranges and verdicts are its own order's. */
-  const faced: SpeedContent = team.noSpeedTuning ? { ...content, facesEnemies: false } : content;
+  const faced: SpeedContent = team.noSpeedTuning ? { ...content, opponent: 'none' } : content;
   const present = team.members.filter((member) => monsters.has(member.unitId));
   const missingUnitIds = team.members.filter((member) => !monsters.has(member.unitId)).map((member) => member.unitId);
   const leaderMonster = team.leaderUnitId === null ? undefined : monsters.get(team.leaderUnitId);
@@ -437,7 +480,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     const parts = monsterSpeedParts(monster);
     const shown = shownSpeeds[index];
     const verdict = verdicts[index];
-    const range = ranges ? tuningRange(candidates, shownSpeeds, index, content.tick) : null;
+    const range = ranges ? tuningRange(candidates, shownSpeeds, index, faced) : null;
     return {
       unitId: member.unitId,
       wantedPosition: index + 1,
