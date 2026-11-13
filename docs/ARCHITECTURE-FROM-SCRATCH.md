@@ -4,6 +4,7 @@
 **Date:** November 13, 2026
 **Scope:** Browser application, calculation workers, Windows helper, reference data, hosting and verification
 **Addendum:** §21 records an independent second assessment, compares it with §§1–20 and states the resulting recommendation
+**Final review:** §22 evaluates those amendments and states the consolidated recommendation; its qualifications supersede the corresponding proposals in §§6, 10.3 and 21
 
 ## 1. Assignment and answer
 
@@ -243,6 +244,10 @@ pipeline would add ceremony without an independent consumer. The helper keeps
 its own existing Rust/build boundary.
 
 ## 6. Proposed source tree
+
+The original tree below explains the responsibility boundaries. The compact
+tree in §21.5(2), qualified by §22.3, is the final recommended physical layout;
+the original remains here to explain the design's development.
 
 ```text
 app/
@@ -770,12 +775,14 @@ not permission to add general historical application formats or migrations.
 For account changes, wait for the IndexedDB transaction before publishing the
 new effective account. When a command changes account-local records and user
 presets together, commit their IndexedDB records in one transaction and publish
-one state transition. Coordinate the preferences mirror with a pending commit
+one state transition. One possible mirror protocol uses a pending commit
 record containing before/after preference values and a local commit token:
 recovery selects after only when that token is present in the committed
 workspace, otherwise before. The token identifies a write, not a data format.
-Keep this recovery protocol inside the repository adapter and test interrupted
-writes explicitly. Ordinary preference-only edits retain their simpler route.
+Keep recovery inside the repository adapter and test interrupted writes
+explicitly. §22.2 establishes the existing command that needs this guarantee
+and the conditions for choosing a simpler post-commit mirror instead of this
+pending-record design. Ordinary preference-only edits retain their simpler route.
 
 **Tradeoff:** cross-record atomicity and the synchronous mirror require careful
 recovery design. This is preferable to allowing a local engraving to survive
@@ -1314,9 +1321,9 @@ it in emphasis or in substance, as §21.5 explains.
 | --- | --- |
 | 65 files under `app/` name `GameRecord` or `ImportedGame` (whose `data` is `Record<string, unknown>`), 27 of them components | The raw export shape is the program's common language. Not every file reads raw fields — some pass the record on — but each is coupled to its shape. This is the largest single coupling in the code base |
 | Only `browser-storage.ts` and `session-storage-state.ts` touch `localStorage`, `indexedDB` or `sessionStorage` | Storage is already isolated. Moving it into an `adapters/` folder is mostly a rename, not a gain |
-| Six worker clients and eight worker entries. Two clients use `cancellable-worker.ts`; four (`rune-statistics-client.ts`, `rune-advice-client.ts`, `rune-calibration-client.ts`, `rune-optimization-client.ts`) each carry their own worker singleton, request IDs, cancellation and answer memory; two components (`craft-item-best-use.tsx`, `use-rune-optimization-work.ts`) construct workers themselves | The shared lifecycle exists but is optional, so each new calculation re-solves it. Components reaching for `new Worker` is a boundary the architecture should make impossible |
-| `swarfarm-monsters.json` is imported by both `monster-catalog.ts` and `rune-reference-stats.ts`; the three Swarfarm snapshots together hold about 47,000 lines and are imported statically | §13's rule that accessors are the only interpreters is already broken once, and reference data travels in its source shape rather than in the shape JASWA uses |
-| 76 `scripts/verify-*.mjs` checks; `test:domain` is one `&&` chain of about 80 commands; about 35 scripts start a Vite server or transform to load TypeScript (`scripts/verification-server.mjs`) | The project has built its own test runner out of scripts. `AGENTS.md` §7 has to warn that the chain stops at the first failure — a property no test runner has |
+| Six worker clients and eight worker entries. Two clients use `cancellable-worker.ts`; four (`rune-statistics-client.ts`, `rune-advice-client.ts`, `rune-calibration-client.ts`, `rune-optimization-client.ts`) maintain their own worker/channel or pool lifecycles, request routing and cancellation; two components (`craft-item-best-use.tsx`, `use-rune-optimization-work.ts`) construct workers themselves | The shared lifecycle exists but is optional. Preserve the deliberate channel/pool differences while sharing transport and lifecycle mechanisms (§22.4); components reaching for `new Worker` should become impossible |
+| `swarfarm-monsters.json` is imported by both `monster-catalog.ts` and `rune-reference-stats.ts`; the three Swarfarm snapshots together hold about 47,000 lines and are imported statically | Catalogue interpretation has two owners. Refresh scripts already trim source records; the remaining improvement is a validated domain shape and one accessor, not introducing compaction for the first time (§22.5) |
+| 76 `scripts/verify-*.mjs` checks; `test:domain` is one `&&` chain of about 80 commands; about 35 scripts start a Vite server or transform to load TypeScript (`scripts/verification-server.mjs`) | The project has built its own test runner out of scripts. `AGENTS.md` §7 has to warn that the chain stops at the first failure; a configured runner can report all test failures (§22.6) |
 | `eslint.config.mjs` holds one restricted-syntax rule (no raw `<select>`) and no import-boundary rule; single-source rules are checked by scripts that read source text | Ownership is enforced after the fact by bespoke scripts rather than at the moment code is written |
 | `helper/src-tauri/src/profile.rs` has 4,754 lines and `service.rs` 2,669 | The largest hand-written files in the repository are in the helper, which §14 discusses mostly at the level of process boundaries |
 | Five CSS modules beside 7,546 lines of global CSS | The direction in §12.2 has started; it has not yet become the norm |
@@ -1439,6 +1446,11 @@ interrupted-write test §16 already requires.
 
 ### 21.7 Synthesis: the most appropriate solution
 
+**Final-review qualification:** retain this assessment as the reasoning behind
+the amendments, but use §22 for the final decision. In particular, the
+cross-record case below has now been established in existing code; its
+atomicity guarantee cannot be deferred pending discovery of a use case.
+
 The proposal's target architecture is sound and should stand, with four
 amendments — a test runner and lint boundaries, the compact tree, compiled
 reference data, and one generic job client — and one deferral: the
@@ -1468,3 +1480,173 @@ The acceptance criteria in §20 stand. Two are added:
 11. One test command reports every failure and every skip in a single run.
 12. Reference snapshots reach runtime code only in their trimmed, typed form,
     through one accessor each.
+
+## 22. Final review and consolidated recommendation
+
+### 22.1 Verdict on the newer amendments
+
+The architecture is appropriate for JASWA. Keep the local-first product,
+typed ingestion, immutable observations with explicit local changes, pure
+domain owners and evolutionary implementation. The newer assessment improves
+the plan, subject to these specific qualifications:
+
+| Amendment in §21.5 | Final assessment |
+| --- | --- |
+| 1. Test runner and lint boundaries | Agree. Preserve independent oracles and verification isolation; a runner alone does not aggregate external scripts or browser tests (§22.6) |
+| 2. Compact source tree | Agree as the physical layout. Preserve the original dependency boundaries inside those folders (§22.3) |
+| 3. Compiled reference snapshots | Agree with one domain-owned snapshot/accessor per coherent dataset. Existing refreshes already compact data; do not duplicate a dataset for every caller or promise an unmeasured bundle saving (§22.5) |
+| 4. One generic job client | Agree on one runtime and lifecycle contract. Keep job-specific execution strategies and independent consumer cancellation (§22.4) |
+| 5. Defer cross-store recovery until the case is proven | Disagree with the deferral: Lock/Exclude in an own preset already crosses both durable records. Prefer the smallest proven mirror protocol, but establish atomicity before extracting those commands (§22.2) |
+
+This review checks the amendments against the current code and binding
+contracts. It does not implement the architecture, benchmark it or establish
+new game mechanics.
+
+### 22.2 Atomicity has an existing use case
+
+`app/page.tsx`'s `lockRune` is the missing evidence. Locking a rune not yet on
+a monster in an own preset, or excluding one currently on it, can call
+`engraveOwnPreset`, save the changed preset through `changePreferences`, and
+then save import-scoped `runeLocks` through `saveImportedGame`. An interrupted
+or failed second write can leave only the preset change committed. A whole
+build's ordinary engrave path need not change both records for this case to
+matter. The lifetimes in the persistence contract require both owners; moving
+locks into preferences just to avoid the transaction would change the product.
+
+Keep §10.3's requirement to commit the two IndexedDB records in one transaction
+and publish one workspace transition. They can remain two keys in the existing
+object store; a second store is unnecessary. Do not defer that guarantee until
+after the workspace command extraction.
+
+The second assessment is right that the pending before/after mirror protocol
+may be avoidable. Prefer an IndexedDB commit followed by mirror publication
+for these combined commands **if recovery proves it safe**. Ordinary
+preference-only choices retain their contractually required mirror-first
+route. All writes must share one ordering mechanism: a combined commit must
+neither overwrite a later preference click nor read a stale preference copy.
+
+The current `latestPreferences` comparison is insufficient proof: it uses
+millisecond wall-clock timestamps and gives the mirror an exact tie. After
+a combined IndexedDB commit and a crash before mirror publication, an older
+mirror can therefore win. Define an unambiguous local write order shared by
+both copies, independent of clock ties or clock changes, or retain the pending
+record. Such metadata identifies committed writes, never application formats.
+Changing mirror timing also requires an explicit update to the binding
+persistence contract when implemented.
+
+Before choosing the protocol, test abort before IndexedDB commit, termination
+after commit but before mirror update, mirror failure, identical timestamps,
+and an ordinary preference edit immediately before and after the combined
+command. Reload must reveal a complete committed placement/lock change, or
+the preceding state, while retaining every unrelated committed preference.
+The design choice is deferred until that proof; the requirement is settled now.
+
+### 22.3 Fewer folders must preserve ownership
+
+Use §21.5's compact tree. Expensive pure procedures fit inside their game
+subject, and browser execution adapters fit inside `platform/`. Cost alone
+does not justify a top-level `algorithms/` layer.
+
+The four dependency sentences are a useful overview, not the entire import
+policy. Keep rules below procedures within each domain; combat must not import
+optimization or main-stat advice back into its stat sheet. Reference accessors
+have no browser/network dependency. Shared UI may use domain value types and
+formatters, but neither storage nor workspace workflows. Feature screens
+cannot import another feature's internals. Only the composition root connects
+workspace ports to concrete platform adapters.
+
+Distinguish a job's pure domain input/result types from its workspace lifecycle
+and platform transport. Otherwise placing both worker and GPU plumbing under
+`platform/` can create a dependency cycle through `workspace`. The same public
+types must be usable by CPU tests and workers without importing the store.
+Enforce these boundaries through import rules and cycle checks, including
+relative paths and aliases; folder count is not the acceptance criterion.
+
+### 22.4 Share the job runtime without erasing execution strategies
+
+A typed descriptor and shared client are good defaults. They must not require
+every job to be one `key/run` function on one worker. The current calibration
+client leases shared work, the advice client isolates table and overlay
+channels, and optimization prepares once before partitioning a search and
+merging its answers. Those behaviours are requirements to preserve, not
+duplication to remove indiscriminately.
+
+Share worker construction, request routing, scheduling, failure cleanup and
+bounded memory. Keep preparation, partitioning, merging and stop checkpoints
+as explicit job-specific strategies over that runtime, with the search policy
+still owned by the rune domain. Add only the strategies existing jobs need.
+
+Keep three identities distinct: the semantic question key for reusable
+answers, the execution/request ID for messages, and the consumer's channel or
+lease. Latest-request-wins is per consumer. Two consumers may share identical
+work; cancelling or disposing one releases its interest, and only the final
+release may cancel the shared execution. A stopped partial optimization result
+must carry its completeness/stop information and cannot satisfy a later request
+for a completed answer merely because its input key matches.
+
+Port one ordinary job first, then prove shared calibration and Stop before
+calling the abstraction complete. Ban direct worker construction in features
+as each port lands; the final ban belongs at the platform boundary. This keeps
+the improvement incremental rather than demanding a speculative universal API.
+
+### 22.5 Tighten the reference boundary that already exists
+
+`refresh-swarfarm-monsters.mjs` already retains only `com2us_id`, `name`,
+`image_filename` and `archetype`. The speed and PvE refreshes also transform
+source records into compact snapshots. The stronger claim in §21.5(3) should
+therefore be read as completing that boundary: validate source vocabulary and
+identities during refresh, emit the declared runtime model, and expose it
+through one domain owner. A TypeScript assertion over JSON is not validation.
+
+`rune-reference-stats.ts` should ask the catalogue for archetype rather than
+interpret `swarfarm-monsters.json` independently. Share that normalized
+catalogue with other callers; emit separate projections only when their data
+and loading needs justify it. Keep source identity, retrieval time, unknowns
+and the evidence needed to explain a figure. Compilation must not silently
+replace missing facts with invented defaults.
+
+Test the compiler with sanitized source fixtures and compare its output with
+the existing accessors' answers before replacing them. Public refreshes stay
+deliberate maintenance actions, not a network prerequisite for build or test.
+Measure emitted asset size and loading before claiming a bundle improvement;
+JSON line count and static imports alone do not establish duplicated bytes.
+
+### 22.6 Verification and implementation order
+
+Adopt Vitest for pure/domain and application integration checks while keeping
+Playwright and the Rust tests in their own runtimes. Vitest supports Vite's
+transforms and [configurable failure continuation](https://vitest.dev/config/bail);
+the claim that no test runner can stop early is incorrect. Use an explicit
+non-watch verification command, preserve `verify:*` aliases and keep typecheck
+as a separate gate. A passing alias must prove that its intended tests were
+discovered, not silently accept an empty selection.
+
+Use a [dedicated test configuration](https://vitest.dev/config/) and preserve
+the isolated-cache/no-HMR guarantees in `VERIFICATION-ISOLATION.md`; sharing
+Vite's tooling does not justify sharing the live app's optimizer state. Port
+assertions and independent oracles unchanged before reorganizing the code they
+test. Import restrictions supplement structural/formula checks, not replace
+checks that detect independently restated rules.
+
+One top-level verification command must aggregate eligible domain, browser and
+external checks, with a nonzero result on failure and explicit skipped/not-run
+reasons. Replacing only `test:domain` while retaining an outer `&&` chain would
+still hide later suites. Private captures, real-card execution and Windows
+checks remain distinct and visible in that summary.
+
+Keep §21.7's evolutionary sequence with two adjustments:
+
+1. Establish the combined-write invariant and failure tests with the initial
+   integration harness; implement its repository protocol before extracting
+   Lock/Exclude into workspace commands. It does not depend on completing all
+   typed account consumers first.
+2. Treat the remaining steps as dependencies rather than a serial queue.
+   Reference ownership, individual job ports and focused workspace commands
+   can move independently. For each account collection, switch consumers to
+   one typed reader and remove the superseded raw reads; keep one authoritative
+   durable representation rather than two mutable models.
+
+The compact tree, validated reference boundary, shared execution runtime and
+test runner are the final target. §§20 and 21.7's additional acceptance criteria
+stand with the atomicity, dependency and reporting qualifications above. No
+larger rewrite, new service or additional architectural layer is needed.
