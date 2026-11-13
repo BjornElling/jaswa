@@ -1,3 +1,4 @@
+import { createRuneAdviceWorker } from '../../platform/feature-workers';
 /**
  * The main thread's one way to ask for a Rune Clean-up calculation.
  *
@@ -63,7 +64,7 @@ export function runeAdviceChannel(): RuneAdviceChannel {
 
   function adviceWorker(): Worker {
     if (worker) return worker;
-    worker = new Worker(new URL('./rune-advice-worker.ts', import.meta.url), { type: 'module' });
+    worker = createRuneAdviceWorker();
     return worker;
   }
 

@@ -1708,6 +1708,11 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   components. Their existing scheduling and cancellation remain in place. The
   affected populated flows passed their focused Playwright checks on the
   already-running localhost server; this does not complete the shared runtime.
+- The remaining calculation clients also construct workers through the platform
+  boundary, with a lint restriction on direct construction in those clients.
+  Focused browser tests passed for simulation, shared Clean-up work and stopping
+  an optimization search. These retain the existing per-job lifecycle policies;
+  consolidating those policies is still outstanding.
 - Workspace restoration now runs through `app/workspace/restore.ts`: account
   and preference reads settle independently, and read failures are surfaced.
   Unit tests cover an account-read failure with intact preferences. Empty and

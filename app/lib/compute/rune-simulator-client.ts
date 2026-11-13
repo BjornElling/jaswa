@@ -1,3 +1,4 @@
+import { createRuneSimulatorWorker } from '../../platform/feature-workers';
 /**
  * The page's one way to ask for a Rune Simulator run.
  *
@@ -11,7 +12,7 @@ import { cancellableWorker } from '../../platform/cancellable-worker';
 import type { RuneSimulationWorkerRequest } from './rune-simulator-protocol';
 
 const ask = cancellableWorker<RuneSimulationResult>(
-  () => new Worker(new URL('./rune-simulator-worker.ts', import.meta.url), { type: 'module' }),
+  () => createRuneSimulatorWorker(),
   'JASWA could not start its rune simulation worker.',
 );
 

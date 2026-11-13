@@ -1,3 +1,4 @@
+import { createRuneOptimizationWorker } from '../../platform/feature-workers';
 /**
  * The main thread's one way to ask for a Rune Optimization calculation.
  *
@@ -87,7 +88,7 @@ export function optimizeRuneBuilds(
     function startWorker(part: number, problem?: RuneOptimizationProblem) {
       if (settled) return;
       try {
-        const worker = new Worker(new URL('./rune-optimization-worker.ts', import.meta.url), { type: 'module' });
+        const worker = createRuneOptimizationWorker();
         workers.push(worker);
         worker.addEventListener('message', (event: MessageEvent<RuneOptimizationWorkerResponse>) => {
           if (settled || !workers.includes(worker)) return;

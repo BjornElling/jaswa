@@ -1,8 +1,9 @@
+import { createArtifactScoreWorker } from '../../platform/feature-workers';
 import { cancellableWorker } from '../../platform/cancellable-worker';
 import type { ArtifactScoreRequest, ArtifactScoreResult } from './artifact-score-protocol';
 
 const ask = cancellableWorker<ArtifactScoreResult>(
-  () => new Worker(new URL('./artifact-score-worker.ts', import.meta.url), { type: 'module' }),
+  () => createArtifactScoreWorker(),
   'JASWA could not start its artifact calculation worker.',
 );
 

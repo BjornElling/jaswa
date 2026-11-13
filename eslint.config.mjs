@@ -59,6 +59,13 @@ const eslintConfig = defineConfig([
       message: 'Create workers at the platform boundary.',
     }] },
   },
+  {
+    files: ['app/lib/compute/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-syntax': ['error', {
+      selector: "NewExpression[callee.name='Worker']",
+      message: 'Create workers at the platform boundary.',
+    }] },
+  },
 ]);
 
 export default eslintConfig;
