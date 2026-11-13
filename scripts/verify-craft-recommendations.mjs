@@ -3,7 +3,7 @@ import { readCraftItem, missingCraftItems, missingCraftGrades, missingCraftLinea
 import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, canonicalCraftCredit,
   gemOptions } from '../app/lib/rune-craft-end-state.ts';
 import { defaultRuneRoles, createRuneRole } from '../app/lib/rune-roles.ts';
-import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
+import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
 import { acceptedWorth, brokenWorth } from '../app/lib/rune-cleanup-advice.ts';
 import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope } from '../app/lib/rune-cleanup-model.ts';
 import { recommendRuneCraft, craftRecommendationRankings, craftMatchesChangeFilter, heldCraftBenchmark, isHeldCraft,

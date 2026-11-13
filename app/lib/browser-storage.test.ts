@@ -133,9 +133,20 @@ describe('preference storage', () => {
     await expect(savePreferences(before)).rejects.toBeInstanceOf(PreferenceStoreUnreadable);
   });
 
-  it('reports an unreadable pending recovery record rather than treating it as preferences', async () => {
+  it('falls back to the database copy when the pending recovery record is unreadable', async () => {
+    const stored = { ...blankPreferences(), hardwareAcceleration: false };
+    await savePreferences(stored);
     window.localStorage.setItem('jaswa-preferences', JSON.stringify({ __jaswaPendingCommit: { token: 'broken' } }));
-    await expect(loadPreferences()).rejects.toThrow('pending preference recovery record');
+    vi.resetModules();
+    const reloaded = await import('./browser-storage');
+    expect(await reloaded.loadPreferences()).toEqual(stored);
+    await expect(reloaded.savePreferences(blankPreferences())).resolves.toBeUndefined();
+  });
+
+  it('does not guess when the pending recovery record is unreadable and the database is too', async () => {
+    window.localStorage.setItem('jaswa-preferences', JSON.stringify({ __jaswaPendingCommit: { token: 'broken' } }));
+    vi.stubGlobal('indexedDB', { open: () => { throw new Error('unavailable'); } });
+    await expect(loadPreferences()).rejects.toThrow('unavailable');
     await expect(savePreferences(blankPreferences())).rejects.toBeInstanceOf(PreferenceStoreUnreadable);
   });
 

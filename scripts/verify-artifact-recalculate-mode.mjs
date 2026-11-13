@@ -8,7 +8,7 @@ const server = await createServer({
 });
 
 try {
-  const { readPreferences, defaultArtifactSettings } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { readPreferences, defaultArtifactSettings } = await server.ssrLoadModule('/app/ingest/preferences.ts');
   const { scoringSettings } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
 
   assert.equal(defaultArtifactSettings.recalculate, 'manual',

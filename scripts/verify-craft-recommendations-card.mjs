@@ -12,7 +12,7 @@ try {
     const { readCraftItem } = await import('/app/lib/rune-craft-items.ts');
     const { ordinarySample } = await import('/app/lib/rune-cleanup-model.ts');
     const { defaultRuneRoles } = await import('/app/lib/rune-roles.ts');
-    const { defaultRunePotentialSettings } = await import('/app/lib/file-imports.ts');
+    const { defaultRunePotentialSettings } = await import('/app/ingest/preferences.ts');
     const context = new GpuContext();
     if (!await context.ready()) throw new Error('No graphics card is available; shader verification was not done.');
     if (!await craftScoreAgreement(context)) throw new Error('The craft score agreement gate failed.');

@@ -293,7 +293,7 @@ test('a changed filter contract preserves every valid independent choice, and th
   await openWorkspace(page);
   await importCraftAccount(page);
   await page.evaluate(async () => {
-    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
     const { savePreferences } = await import(storagePath);
     const { blankPreferences } = await import(importsPath);
     await savePreferences({ ...blankPreferences(), craftViews: { selected: {
@@ -458,7 +458,7 @@ test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a s
   await openWorkspace(page);
   await importCraftAccount(page);
   await page.evaluate(async () => {
-    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
     const { savePreferences } = await import(storagePath);
     const { blankPreferences } = await import(importsPath);
     await savePreferences(blankPreferences());
@@ -468,7 +468,7 @@ test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a s
   /* Clean-up's answers, seeded as its table would leave them: the filter reads
      these rather than ask the worker, so each verdict is the one stated here. */
   await page.evaluate(async () => {
-    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
     /* The memory is module state, so it is reached through the very URL the app
        loaded — after an edit the dev server serves it with a timestamp query. */
     const importer = await (await fetch('/app/components/use-rune-keepers.ts')).text();
@@ -730,7 +730,7 @@ test('a full rune box, long role name and all filter choices fit, and cleared ro
   });
   await expect(page.locator('.import-badge')).toBeVisible();
   await page.evaluate(async () => {
-    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
     const { savePreferences } = await import(storagePath);
     const { blankPreferences } = await import(importsPath);
     const preferences = blankPreferences();
@@ -758,7 +758,7 @@ test('a full rune box, long role name and all filter choices fit, and cleared ro
   await page.keyboard.press('Escape');
   await expect(panel.locator('.rune-link').first()).toBeFocused();
   await page.evaluate(async () => {
-    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
     const { savePreferences } = await import(storagePath);
     const { blankPreferences } = await import(importsPath);
     await savePreferences({ ...blankPreferences(), runeRoles: [] });

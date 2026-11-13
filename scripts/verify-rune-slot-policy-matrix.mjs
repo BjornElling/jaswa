@@ -6,7 +6,7 @@
  * unmeasured. All 625 settings additionally hold floor and preference monotonicity.
  */
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
+import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
 import { ordinarySample } from '../app/lib/rune-cleanup-model.ts';
 import { calculatedRuneVerdict, runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/lib/rune-cleanup-advice.ts';
 import { countJobs } from '../app/lib/rune-power-up-outcomes.ts';

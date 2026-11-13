@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
+import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
 import { referenceLines } from '../app/lib/rune-reference-stats.ts';
 import { readRunes } from '../app/lib/runes.ts';

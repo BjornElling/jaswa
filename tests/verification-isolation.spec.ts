@@ -28,7 +28,7 @@ test('parallel module checks and generated HTML cannot reload a calculating brow
       expect(server.environments.client.depsOptimizer).toBeUndefined();
     }
     await Promise.all([
-      ...servers.map((server) => server.ssrLoadModule('/app/lib/file-imports.ts')),
+      ...servers.map((server) => server.ssrLoadModule('/app/ingest/preferences.ts')),
       writeFile(testInfo.outputPath('parallel-check.html'), '<!doctype html><title>Generated test artifact</title>'),
     ]);
     await expect(page.getByRole('table', { name: 'Rune verdicts' }).locator('.rune-verdict')).toHaveCount(4);

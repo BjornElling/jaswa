@@ -17,7 +17,7 @@ const server = await createServer({
 });
 
 try {
-  const { blankPreferences, readPreferences, defaultDirectImportMode } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { blankPreferences, readPreferences, defaultDirectImportMode } = await server.ssrLoadModule('/app/ingest/preferences.ts');
   const { withRefreshedMetrics } = await server.ssrLoadModule('/app/lib/rune-roles.ts');
   const { speedContents } = await server.ssrLoadModule('/app/lib/speed-contents.ts');
   const { monsterCopyNamesIn } = await server.ssrLoadModule('/app/lib/monster-names.ts');

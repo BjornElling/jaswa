@@ -142,13 +142,14 @@ function isPreferenceCopy(value: unknown): value is Record<string, unknown> {
 
 type PendingPreferenceCommit = { token: string; before: Record<string, unknown>; after: Record<string, unknown> };
 
-function readPendingPreferenceCommit(value: unknown): PendingPreferenceCommit | null {
-  if (!isPreferenceCopy(value) || !(pendingCommitKey in value)) return null;
+/* `undefined` means the mirror holds no pending record; `null` means it holds
+   one that cannot be read. The database is written in one transaction, so it
+   is itself a complete state; an unreadable record only costs the mirror. */
+function readPendingPreferenceCommit(value: unknown): PendingPreferenceCommit | null | undefined {
+  if (!isPreferenceCopy(value) || !(pendingCommitKey in value)) return undefined;
   const pending = value[pendingCommitKey];
   if (!isPreferenceCopy(pending) || typeof pending.token !== 'string' || pending.token.length === 0
-    || !isPreferenceCopy(pending.before) || !isPreferenceCopy(pending.after)) {
-    throw new Error('The pending preference recovery record is unreadable.');
-  }
+    || !isPreferenceCopy(pending.before) || !isPreferenceCopy(pending.after)) return null;
   return { token: pending.token, before: pending.before, after: pending.after };
 }
 
@@ -246,13 +247,13 @@ export async function loadPreferences(): Promise<unknown> {
   try {
     const { preferences: databaseCopy, commit } = await readPreferenceState();
     preferenceDatabaseRead = true;
-    const mirrorCopy = pending ? (commit === pending.token ? pending.after : pending.before) : mirror;
+    const mirrorCopy = pending ? (commit === pending.token ? pending.after : pending.before) : pending === null ? null : mirror;
     return preferencesWithoutWriteOrder(latestPreferences(databaseCopy, mirrorCopy));
   } catch (error) {
     preferenceDatabaseRead = false;
     /* The database decides whether the pair committed. Choosing either side
        without its marker could publish only half of the user's action. */
-    if (pending) throw error;
+    if (pending !== undefined) throw error;
     const recovered = latestPreferences(null, mirror);
     if (recovered === null) throw error;
     return preferencesWithoutWriteOrder(recovered);

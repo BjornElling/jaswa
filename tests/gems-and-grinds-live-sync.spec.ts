@@ -43,7 +43,7 @@ async function liveHelper(page: Page, change?: (data: typeof tall, revision: num
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.evaluate(async () => {
-    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
     const { savePreferences } = await import(storagePath);
     const { blankPreferences } = await import(importsPath);
     localStorage.clear(); sessionStorage.clear();
@@ -103,7 +103,7 @@ for (const [title, mode] of [['Recommendations', 'recommendations'], ['Best use 
 
 /* Every rune a calculated Keep, as Clean-up's table would leave it, so Only keep-runes shows the whole tall list. */
 const seedKeepers = (page: Page) => page.evaluate(async () => {
-  const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts', runesPath = '/app/lib/runes.ts';
+  const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts', runesPath = '/app/lib/runes.ts';
   const importer = await (await fetch('/app/components/use-rune-keepers.ts')).text();
   const memoryPath = /["'](\/app\/lib\/compute\/rune-advice-memory\.ts[^"']*)["']/.exec(importer)?.[1] ?? '/app/lib/compute/rune-advice-memory.ts';
   const { loadImportedGame } = await import(storagePath);

@@ -8,7 +8,7 @@ import { createVerificationServer as createServer } from './verification-server.
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { validateGameFile } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { validateGameFile } = await server.ssrLoadModule('/app/ingest/game-export.ts');
   const account = (unit_list) => ({
     wizard_id: 7,
     unit_list,
@@ -104,7 +104,7 @@ try {
 
   /* A nested Summoned list is validated, published, counted and listed exactly
      as a root one, and a stack at zero is neither counted nor shown. */
-  const { createImportedGame } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { createImportedGame } = await server.ssrLoadModule('/app/ingest/game-export.ts');
   const { accountCounts } = await server.ssrLoadModule('/app/lib/account-counts.ts');
   const { summonedShrineRecords } = await server.ssrLoadModule('/app/lib/sealed-shrine-storage.ts');
   const nested = (stacks) => ({ ...account([owned]), GetWizardDataPart1: { GetUnitStorageList: { unit_storage_list: stacks } } });

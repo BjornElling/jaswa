@@ -29,7 +29,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
     await page.goto('/');
     await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
     await page.evaluate(async (mode) => {
-      const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/lib/file-imports.ts';
+      const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
       const { savePreferences } = await import(storagePath);
       const { blankPreferences } = await import(importsPath);
       const preferences = blankPreferences();

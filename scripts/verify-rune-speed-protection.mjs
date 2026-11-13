@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readRunes, runeStatIds, slotAllowsSubStat, slotMainProperties } from '../app/lib/runes.ts';
 import { runeAdvice, withRuneSellProtection } from '../app/lib/rune-cleanup-advice.ts';
-import { defaultRunePotentialSettings, blankPreferences, readPreferences } from '../app/lib/file-imports.ts';
+import { defaultRunePotentialSettings, blankPreferences, readPreferences } from '../app/ingest/preferences.ts';
 import { readFileSync } from 'node:fs';
 import { defaultReappTargets, defaultRerollRules, newRerollRule, readRerollRules, rerollRuleProblems, isRerollTarget, rerollMainOptions, reappSetOptions } from '../app/lib/rune-reapp-targets.ts';
 import { emptyRunePlacement, hasRunePlacementOutsideScenario, summarizeRunePlacement } from '../app/lib/rune-placement.ts';

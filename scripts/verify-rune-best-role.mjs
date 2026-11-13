@@ -21,7 +21,7 @@
  */
 import assert from 'node:assert/strict';
 import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
+import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
 import {
   acceptedWorth, brokenWorth, chanceThresholds, runeAdvice, slotFloorMaxValues,
 } from '../app/lib/rune-cleanup-advice.ts';

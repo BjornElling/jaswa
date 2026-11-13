@@ -24,7 +24,7 @@ try {
     engravedConversionStoneCounts, isReadableEngravedConversionStone,
     readEngravedConversionStone, readEngravedConversionStones,
   } = await server.ssrLoadModule('/app/lib/artifact-conversion-stones.ts');
-  const { validateGameFile } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { validateGameFile } = await server.ssrLoadModule('/app/ingest/game-export.ts');
   const { ownedConversionPropertyIndexesFor } =
     await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
   const { artifactPropertyIndex } = await server.ssrLoadModule('/app/lib/compute/artifact-score-schema.ts');

@@ -187,7 +187,7 @@ try {
 
   const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
   const { artifactEngraveClass } = await server.ssrLoadModule('/app/lib/artifact-grid.ts');
-  const { createImportedGame, validateGameFile } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { createImportedGame, validateGameFile } = await server.ssrLoadModule('/app/ingest/game-export.ts');
   const { accountCounts } = await server.ssrLoadModule('/app/lib/account-counts.ts');
   const { readDeckPresets } = await server.ssrLoadModule('/app/lib/deck-presets.ts');
 
@@ -316,7 +316,7 @@ try {
      exists to prove are visible. `includeIntangibleArtifacts` did exactly that.
      The scope is widened to every captured monster because parity asks what
      JASWA *can* judge, not what this account happens to own. */
-  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/ingest/preferences.ts');
   const defaultSettings = { ...defaultArtifactSettings, onlyFactorInOwnedMonsters: false };
   const unscorable = [];
   for (const entry of accepted) {

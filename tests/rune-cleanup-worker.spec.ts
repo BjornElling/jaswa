@@ -213,9 +213,9 @@ test('a refresh reuses an idle worker and cannot cancel a concurrent whole calcu
       }
     };
     const clientUrl: string = '/app/lib/compute/rune-advice-client.ts';
-    const settingsUrl: string = '/app/lib/file-imports.ts';
+    const settingsUrl: string = '/app/ingest/preferences.ts';
     const client = await import(clientUrl) as typeof import('../app/lib/compute/rune-advice-client');
-    const { defaultRunePotentialSettings } = await import(settingsUrl) as typeof import('../app/lib/file-imports');
+    const { defaultRunePotentialSettings } = await import(settingsUrl) as typeof import('../app/ingest/preferences');
     const request = { runes: [], roles: [], base: new Map(), preferWebGpu: false, settings: defaultRunePotentialSettings };
     const initial = await client.calculateRuneAdvice(request);
     client.cancelRuneAdvice(); // There is no unfinished work to abandon.

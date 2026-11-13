@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readDeckPresets } from '../app/lib/deck-presets.ts';
-import { createImportedGame, validateGameFile } from '../app/lib/file-imports.ts';
+import { createImportedGame, validateGameFile } from '../app/ingest/game-export.ts';
 import {
   accountItems, engravings, monsterInPreset, presetMenu, readOwnPresets, readPresets, runeSlots, runesInPreset, teammateSetsInPreset,
 } from '../app/lib/presets.ts';

@@ -25,7 +25,7 @@ try {
   const { canEngraveArtifacts, canEngraveRelics } = await server.ssrLoadModule('/app/lib/monster-engrave-eligibility.ts');
   const { relicEngravingCounts } = await server.ssrLoadModule('/app/lib/relics.ts');
   const { buildArtifactScoreRequests } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
-  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/ingest/preferences.ts');
   const { recordedArtifactPreferenceMonsterIds } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
 
   const masterId = recordedArtifactPreferenceMonsterIds[0];

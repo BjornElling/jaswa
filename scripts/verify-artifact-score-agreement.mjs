@@ -51,7 +51,7 @@ try {
   const { artifactPairScore } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
   const { canEngraveArtifacts } = await server.ssrLoadModule('/app/lib/monster-engrave-eligibility.ts');
   const { monsterSpeciesId } = await server.ssrLoadModule('/app/lib/monster-species.ts');
-  const { createImportedGame } = await server.ssrLoadModule('/app/lib/file-imports.ts');
+  const { createImportedGame } = await server.ssrLoadModule('/app/ingest/game-export.ts');
   const { speciesMainStatAdvice } = await server.ssrLoadModule('/app/lib/main-stat-model.ts');
 
   /* The app never scores the raw export: the import merges the engraved pieces

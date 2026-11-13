@@ -1,0 +1,27 @@
+name: Validate JASWA
+
+# Validation only. Publication is Cloudflare Workers Builds watching `main`
+# (docs/DEPLOYMENT-TARGET.md); this workflow never deploys, so there is one
+# delivery path and one declared toolchain: the Node major in .node-version.
+# Checks that need a private export, a graphics card or Windows are not run
+# here and say so through their own skips.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test:unit

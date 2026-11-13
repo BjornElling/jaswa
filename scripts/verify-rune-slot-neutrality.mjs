@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import { defaultRuneRoles, withRefreshedMetrics } from '../app/lib/rune-roles.ts';
-import { defaultRunePotentialSettings } from '../app/lib/file-imports.ts';
+import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
 import { ordinarySample } from '../app/lib/rune-cleanup-model.ts';
 import { runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/lib/rune-cleanup-advice.ts';
 import { slotMainProperties } from '../app/lib/rune-properties.ts';
