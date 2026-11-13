@@ -539,7 +539,7 @@ and then refuse to spend on any of it.
 
 ## 10. Parity: what the importer enforces
 
-`file-imports.ts` validates relics **through `readRelic`**, the reader the page
+`app/ingest/game-export.ts` validates relics **through `readRelic`**, the reader the page
 uses, and refuses the whole file on any failure (`AGENTS.md` §0.1): a relic rides
 up to 150 monsters, so a half-read one would carry a wrong judgement across the
 roster. A relic is rejected unless:

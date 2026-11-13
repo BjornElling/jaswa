@@ -1659,9 +1659,8 @@ The earlier statements in this document that no rewrite is authorized and that
 implementation must be evolutionary are superseded by that instruction. The
 subject contracts and preservation of the owner's choices remain binding.
 
-**Status: started; the redesign is not complete.** The existing application,
-raw import model, persistence, workers, helper and presentation have not yet
-been replaced. The acceptance criteria in §20 are not yet met.
+**Status: started; the redesign is not complete.** The existing raw account model, persistence protocol, workers, helper and
+presentation have not yet been replaced. The acceptance criteria in §20 are not yet met.
 
 - Added `npm run verify:all` as an interim aggregate: it runs every existing
   domain alias independently, then the browser suite, and reports failures and
@@ -1684,7 +1683,9 @@ been replaced. The acceptance criteria in §20 are not yet met.
 - Preference decoding now lives in `app/ingest/preferences.ts` and browser
   preference-file I/O in `app/platform/preference-files.ts`. The former import
   module temporarily re-exports their public names for existing verification
-  scripts; account ingestion still needs its own typed boundary.
+  scripts. Game-export validation and preparation now live in
+  `app/ingest/game-export.ts`; their output is still raw-shaped and needs the
+  typed account boundary.
 - Added an IndexedDB test harness for ordered preference writes and mirror
   fallback. It does not yet test or implement cross-record atomicity.
 - Workspace restoration now runs through `app/workspace/restore.ts`: account

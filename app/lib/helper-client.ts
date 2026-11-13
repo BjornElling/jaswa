@@ -1,4 +1,4 @@
-import { validateGameFile } from './file-imports';
+import { validateGameFile } from '../ingest/game-export';
 import { helperUpdateAvailable, isHelperVersion, recommendedHelperVersion } from './helper-version';
 
 const helperOrigin = 'http://127.0.0.1:37654';

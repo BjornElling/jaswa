@@ -1,4 +1,4 @@
-import { isValidImportedGame } from '../lib/file-imports';
+import { isValidImportedGame } from '../ingest/game-export';
 import { readPreferences } from '../ingest/preferences';
 import { readLoadedPlacements } from '../lib/engrave-rune-build';
 import { readRuneLocks } from '../lib/rune-locks';

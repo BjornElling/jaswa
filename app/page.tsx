@@ -4,7 +4,7 @@ import { HomeSection } from './components/home-section';
 import { CornerNotices, ImportBadge } from './components/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
-import { createImportedGame, validateGameFile } from './lib/file-imports';
+import { createImportedGame, validateGameFile } from './ingest/game-export';
 import { blankPreferences } from './ingest/preferences';
 import { fileToText, importPreferencesFile } from './platform/preference-files';
 import { restoreWorkspace } from './workspace/restore';
