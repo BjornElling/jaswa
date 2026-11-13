@@ -4,7 +4,8 @@ import { HomeSection } from './components/home-section';
 import { CornerNotices, ImportBadge } from './components/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
 import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
-import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, isValidImportedGame, readPreferences, validateGameFile } from './lib/file-imports';
+import { blankPreferences, createImportedGame, fileToText, importPreferencesFile, validateGameFile } from './lib/file-imports';
+import { restoreWorkspace } from './workspace/restore';
 import { checkHelperConnection, helperStatusMessage, readHelperProfile, silentHelper } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
@@ -19,7 +20,7 @@ import { runeOptimizationMonsterKey } from './lib/rune-optimization-settings';
 import type { SpeedTuningPreferences } from './lib/speed-tuning-preferences';
 import { readRunes } from './lib/runes';
 import { createRuneCleanupSession } from './lib/rune-cleanup-session';
-import { engraveImportedGame, engraveOwnPreset, readLoadedPlacements, runesWithLocked, runesWithout } from './lib/engrave-rune-build';
+import { engraveImportedGame, engraveOwnPreset, runesWithLocked, runesWithout } from './lib/engrave-rune-build';
 import { addToGamePreset, deleteGamePreset, leadGamePreset, removeFromGamePreset } from './lib/game-preset-edits';
 import { usePageHistory } from './lib/page-history';
 import type { MonsterCopyPreferences } from './lib/monster-preferences';
@@ -37,7 +38,7 @@ import { runeHoldVerdict } from './lib/rune-holds';
 import type { CraftIgnore } from './lib/craft-ignores';
 import { withCraftIgnore } from './lib/craft-ignores';
 import type { CraftViewChoice, CraftViewMode } from './lib/craft-view-choices';
-import { carriedRuneLocks, heldRuneLocks, lockedRuneIds, noRuneLocks, readRuneLocks, runeLockOf, runeLockScope, withRuneLock } from './lib/rune-locks';
+import { carriedRuneLocks, heldRuneLocks, lockedRuneIds, noRuneLocks, runeLockOf, runeLockScope, withRuneLock } from './lib/rune-locks';
 import { alwaysSynchronizedReason } from './lib/always-synchronized';
 import type { RuneLock, RuneLocks } from './lib/rune-locks';
 import type { MonsterReference, OpenMonsterOverlay } from './components/monster-link';
@@ -165,18 +166,12 @@ export default function Home() {
   gameRef.current = game;
 
   useEffect(() => {
-    Promise.all([loadImportedGame(), loadPreferences()]).then(([savedGame, savedPreferences]) => {
-      const validGame = savedGame && isValidImportedGame(savedGame) ? savedGame : null;
-      /* The engrave record is read on its own, so a malformed one loses the
-         record and keeps the import. */
-      const loadedPlacements = readLoadedPlacements(validGame?.loadedPlacements);
-      const runeLocks = readRuneLocks(validGame?.runeLocks);
-      const savedCurrentGame = validGame === null ? null : { ...validGame, loadedPlacements, runeLocks };
+    restoreWorkspace({ loadGame: loadImportedGame, loadPreferences }).then(({ game: savedCurrentGame, preferences: savedCurrentPreferences, failed }) => {
       setGame(savedCurrentGame);
       if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
-      const savedCurrentPreferences = readPreferences(savedPreferences, savedCurrentGame);
       preferencesRef.current = savedCurrentPreferences;
       setPreferences(savedCurrentPreferences);
+      if (failed.length) setMessage('JASWA could not read part of the saved workspace. Reload to try again.');
     }).catch(() => {
       const emptyPreferences = blankPreferences();
       preferencesRef.current = emptyPreferences;

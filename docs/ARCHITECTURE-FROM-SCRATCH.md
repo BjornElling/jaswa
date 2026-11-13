@@ -1681,6 +1681,12 @@ been replaced. The acceptance criteria in §20 are not yet met.
   before replacing its snapshot; the compiler is checked against the existing
   snapshot and malformed examples. The catalogue agreement test covers every
   current form. The parity audit was skipped because no capture was available.
+- Workspace restoration now runs through `app/workspace/restore.ts`: account
+  and preference reads settle independently, and read failures are surfaced.
+  Unit tests cover an account-read failure with intact preferences. Empty and
+  imported workspaces were also reloaded in Playwright on the already-running
+  localhost:3000 server; screenshots showed no unintended content movement.
+  The failure notice itself has not been exercised in a browser.
 - Still required: import/cycle rules and migration of checks to Vitest; atomic
   combined writes and recovery tests; typed ingestion and immutable observation
   with local projections; workspace commands; shared job runtime; reference
