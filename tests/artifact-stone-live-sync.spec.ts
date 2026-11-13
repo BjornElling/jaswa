@@ -29,7 +29,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
     await page.goto('/');
     await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
     await page.evaluate(async (mode) => {
-      const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
+      const storagePath = '/app/platform/browser-storage.ts', importsPath = '/app/domain/profiles/preference-defaults.ts';
       const { savePreferences } = await import(storagePath);
       const { blankPreferences } = await import(importsPath);
       const preferences = blankPreferences();
@@ -118,7 +118,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
     if (recalculate === 'on-change') await workers.hold();
     revision = 2;
     await expect.poll(async () => page.evaluate(async () => {
-      const path = '/app/lib/browser-storage.ts';
+      const path = '/app/platform/browser-storage.ts';
       const { loadImportedGame } = await import(path);
       return (await loadImportedGame()).data.artifact_crafts[0].quantity;
     })).toBe(0);

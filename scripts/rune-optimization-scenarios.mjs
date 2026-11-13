@@ -9,13 +9,13 @@
  * `runesPerSlot` widens an account past what brute force can afford, for a card
  * check that compares two searches rather than a search and an enumeration.
  */
-import { intangibleSetId } from '../app/lib/monster-stats.ts';
-import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
-import { defaultRuneOptimizationSettings } from '../app/lib/rune-optimization-settings.ts';
-import { runeBuild } from '../app/lib/rune-set-pairs.ts';
-import { runeSetId } from '../app/lib/rune-sets.ts';
-import { slotAllowsSubStat, slotMainProperties } from '../app/lib/runes.ts';
-import { withheldRunes } from '../app/lib/rune-sources.ts';
+import { intangibleSetId } from '../app/domain/combat/monster-stats.ts';
+import { monsterStatTargetKeys } from '../app/domain/profiles/monster-preferences.ts';
+import { defaultRuneOptimizationSettings } from '../app/domain/profiles/rune-optimization-settings.ts';
+import { runeBuild } from '../app/domain/runes/rune-set-pairs.ts';
+import { runeSetId } from '../app/domain/runes/rune-sets.ts';
+import { slotAllowsSubStat, slotMainProperties } from '../app/domain/runes/runes.ts';
+import { withheldRunes } from '../app/domain/placements/rune-sources.ts';
 
 /**
  * The runes the copy may not take, through the app's one rule: its team is the

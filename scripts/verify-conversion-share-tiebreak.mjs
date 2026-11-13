@@ -24,12 +24,12 @@ const server = await createServer({
 });
 
 try {
-  const { scoreArtifactOnMonster } = await server.ssrLoadModule('/app/lib/compute/artifact-score-core.ts');
-  const { artifactScoreShader } = await server.ssrLoadModule('/app/lib/compute/webgpu/artifact-score-shader.ts');
-  const { scoredArtifactProperties, artifactPropertyIndex } = await server.ssrLoadModule('/app/lib/compute/artifact-score-schema.ts');
-  const { artifactConversionRollFraction, artifactProperty } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
-  const { defaultPropertyPreferences } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
-  const { conversionDescription } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
+  const { scoreArtifactOnMonster } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-core.ts');
+  const { artifactScoreShader } = await server.ssrLoadModule('/app/platform/gpu/shaders/artifact-score-shader.ts');
+  const { scoredArtifactProperties, artifactPropertyIndex } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-schema.ts');
+  const { artifactConversionRollFraction, artifactProperty } = await server.ssrLoadModule('/app/domain/artifacts/artifact-properties.ts');
+  const { defaultPropertyPreferences } = await server.ssrLoadModule('/app/domain/profiles/artifact-preferences.ts');
+  const { conversionDescription } = await server.ssrLoadModule('/app/domain/artifacts/artifact-recommendations.ts');
 
   /* The GPU uses the same single-source conversion contract as the CPU.
      WebGPU is optional in the test runner, so keep this small structural guard
@@ -362,7 +362,7 @@ try {
      sub 1 and the lock on sub 4. JASWA proposed re-converting sub 4 to ATK/DEF
      UP Effect (226), and the game's Special Conv. list refuses that stone,
      because v8 merged 204 into 226 and an artifact holds no property twice. */
-  const { artifactPropertyFamilyIndex } = await server.ssrLoadModule('/app/lib/compute/artifact-score-schema.ts');
+  const { artifactPropertyFamilyIndex } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-schema.ts');
   const family = (id) => artifactPropertyFamilyIndex.get(id) ?? -1;
   for (const [legacy, successor] of [[204, 226], [205, 226], [208, 225], [209, 225], [402, 410], [403, 410]]) {
     assert.equal(family(legacy), line(successor), `legacy ${legacy} occupies its successor ${successor}`);

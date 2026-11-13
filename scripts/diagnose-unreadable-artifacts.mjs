@@ -33,12 +33,12 @@ if (!source) {
 
 const account = await loadAccount(source);
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
-const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
+const { readArtifact } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
 const {
   artifactCategoryFromType, artifactGradeFromRank, artifactMainProperties,
   artifactProperty, artifactElements, artifactArchetypes,
   artifactIntangibleEngraveClass,
-} = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
+} = await server.ssrLoadModule('/app/domain/artifacts/artifact-properties.ts');
 
 const number = (value) => (typeof value === 'number' && Number.isFinite(value) ? value
   : typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value)) ? Number(value) : null);

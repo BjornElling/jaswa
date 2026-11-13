@@ -2,10 +2,10 @@
 
 **Status:** Binding interface contract for the account tables and the artifact workspace views
 **Reviewed:** October 20, 2026
-**Code:** `app/components/sortable-table.tsx`, `app/components/use-sorted-rows.ts`,
-`app/lib/table-layouts.ts`, `app/lib/monster-identity.ts`,
-`app/lib/sealed-shrine-storage.ts`, `app/components/artifact-maximum-values.tsx`,
-`app/components/use-auto-recalculate.ts`
+**Code:** `app/ui/sortable-table.tsx`, `app/ui/use-sorted-rows.ts`,
+`app/ui/table-layouts.ts`, `app/domain/monsters/monster-identity.ts`,
+`app/domain/account/sealed-shrine-storage.ts`, `app/features/artifacts/artifact-maximum-values.tsx`,
+`app/ui/use-auto-recalculate.ts`
 **Checks:** `tests/table-sorting.spec.ts`, `tests/awakening-search.spec.ts`,
 `verify:monster-awakening-scope`, `verify:recommendation-filters`,
 `verify:artifact-recalculate-mode`, `verify:library-layout`
@@ -18,7 +18,7 @@ stability in `AGENTS.md` §2.
 
 ## 0. Inclusive filter selections
 
-`app/lib/filter-selection.ts` states the rule for every inclusive filter group:
+`app/domain/shared/filter-selection.ts` states the rule for every inclusive filter group:
 no selected options and all offered options selected both mean **all**. Only a
 proper, non-empty subset narrows the rows. Multiple selections in one group
 are alternatives; different groups combine. A record carrying several locations

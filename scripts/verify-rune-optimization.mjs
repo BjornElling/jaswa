@@ -51,26 +51,26 @@
  *     scripts/verify-rune-optimization.mjs
  */
 import assert from 'node:assert/strict';
-import { compareRankedFigures, requestedTieBreakers } from '../app/lib/rune-optimization-ranking.ts';
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { defaultRuneOptimizationSettings } from '../app/lib/rune-optimization-settings.ts';
-import { gemRemovalPrices } from '../app/lib/rune-optimization-gem-preference.ts';
-import { assumedCraftHalf, craftVariants } from '../app/lib/rune-craft-end-state.ts';
+import { compareRankedFigures, requestedTieBreakers } from '../app/domain/runes/optimization/rune-optimization-ranking.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
+import { defaultRuneOptimizationSettings } from '../app/domain/profiles/rune-optimization-settings.ts';
+import { gemRemovalPrices } from '../app/domain/runes/optimization/rune-optimization-gem-preference.ts';
+import { assumedCraftHalf, craftVariants } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import {
   calculateMonsterTotals, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys,
-} from '../app/lib/monster-stats.ts';
-import { monsterStatTargetKeys } from '../app/lib/monster-preferences.ts';
+} from '../app/domain/combat/monster-stats.ts';
+import { monsterStatTargetKeys } from '../app/domain/profiles/monster-preferences.ts';
 import {
-  buildFigures, canStillFinishSets, canStillSatisfy, craftSupplies, prepareRuneOptimization, remainingSetSupport,
-  targetCeilings, targetFloors,
-} from '../app/lib/rune-optimization-problem.ts';
-import { currentBuilds } from '../app/lib/rune-optimization-refresh.ts';
-import { withheldRunes } from '../app/lib/rune-sources.ts';
+  buildFigures, craftSupplies, prepareRuneOptimization, targetCeilings, targetFloors,
+} from '../app/domain/runes/optimization/rune-optimization-problem.ts';
+import { canStillFinishSets, canStillSatisfy, remainingSetSupport } from '../app/domain/runes/optimization/rune-optimization-sets.ts';
+import { currentBuilds } from '../app/domain/runes/optimization/rune-optimization-refresh.ts';
+import { withheldRunes } from '../app/domain/placements/rune-sources.ts';
 import {
   mergeBuildResults, searchRuneBuilds, searchRuneBuildsInPasses, searchRuneBuildsInSlices,
-} from '../app/lib/rune-optimization-search.ts';
-import { runeBuild } from '../app/lib/rune-set-pairs.ts';
-import { runeSetId, runeSetPieceCount } from '../app/lib/rune-sets.ts';
+} from '../app/domain/runes/optimization/rune-optimization-search.ts';
+import { runeBuild } from '../app/domain/runes/rune-set-pairs.ts';
+import { runeSetId, runeSetPieceCount } from '../app/domain/runes/rune-sets.ts';
 import { craftedRangeScenarios, scenarioGenerator, withheldIn } from './rune-optimization-scenarios.mjs';
 
 const { scenario } = scenarioGenerator();

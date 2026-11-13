@@ -176,9 +176,9 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
 
   const outcomes = await page.evaluate(async () => {
     // The page resolves the URL through the dev server; the type comes from the source file.
-    const url: string = '/app/lib/compute/rune-advice-client.ts';
-    const client = await import(url) as typeof import('../app/lib/compute/rune-advice-client');
-    const request: import('../app/lib/compute/rune-advice-protocol').RuneAdviceRequest = {
+    const url: string = '/app/platform/compute/rune-advice-client.ts';
+    const client = await import(url) as typeof import('../app/platform/compute/rune-advice-client');
+    const request: import('../app/domain/runes/cleanup/rune-advice-protocol').RuneAdviceRequest = {
       runes: [], roles: [], base: new Map(), preferWebGpu: false,
       settings: {
         powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3,
@@ -212,10 +212,10 @@ test('a refresh reuses an idle worker and cannot cancel a concurrent whole calcu
         if (String(url).includes('rune-advice-worker')) constructed += 1;
       }
     };
-    const clientUrl: string = '/app/lib/compute/rune-advice-client.ts';
-    const settingsUrl: string = '/app/ingest/preferences.ts';
-    const client = await import(clientUrl) as typeof import('../app/lib/compute/rune-advice-client');
-    const { defaultRunePotentialSettings } = await import(settingsUrl) as typeof import('../app/ingest/preferences');
+    const clientUrl: string = '/app/platform/compute/rune-advice-client.ts';
+    const settingsUrl: string = '/app/domain/profiles/preference-defaults.ts';
+    const client = await import(clientUrl) as typeof import('../app/platform/compute/rune-advice-client');
+    const { defaultRunePotentialSettings } = await import(settingsUrl) as typeof import('../app/domain/profiles/preference-defaults');
     const request = { runes: [], roles: [], base: new Map(), preferWebGpu: false, settings: defaultRunePotentialSettings };
     const initial = await client.calculateRuneAdvice(request);
     client.cancelRuneAdvice(); // There is no unfinished work to abandon.

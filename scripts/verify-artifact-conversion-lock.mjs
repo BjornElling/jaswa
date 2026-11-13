@@ -7,7 +7,7 @@ const server = await createServer({
 });
 
 try {
-  const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
+  const { readArtifact } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
 
   /* The game panel shows the gold Convert mark on sub 4. Its live export is
      [409, 8, 0, 1, 0], proving tuple position 3 is the current lock. */

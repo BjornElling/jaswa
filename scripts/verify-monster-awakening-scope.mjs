@@ -15,7 +15,7 @@ const server = await createServer({ configFile: false, appType: 'custom', server
 try {
   const {
     isSameOrHigherAwakening, monsterAwakeningPosition, withHigherAwakenings,
-  } = await server.ssrLoadModule('/app/lib/monster-identity.ts');
+  } = await server.ssrLoadModule('/app/domain/monsters/monster-identity.ts');
 
   assert.deepEqual(monsterAwakeningPosition(24801), { lineageId: '248_1', tier: 0 },
     'an unawakened monster is tier 0 of its own element lineage');

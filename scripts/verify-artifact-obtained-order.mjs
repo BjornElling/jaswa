@@ -51,7 +51,7 @@ const parseDate = (value) => Date.parse(String(value).replace(' ', 'T').replace(
 const server = await createServer({ configFile: false, server: { middlewareMode: true } });
 
 try {
-  const { readArtifact, readArtifacts } = await server.ssrLoadModule('/app/lib/artifacts.ts');
+  const { readArtifact, readArtifacts } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
 
   /* A legal record, and the rids that cannot carry an order or an identity.
      A float or an unsafe magnitude must be rejected rather than mis-sorted. */

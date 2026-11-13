@@ -23,11 +23,11 @@ try {
   const {
     engravedConversionStoneCounts, isReadableEngravedConversionStone,
     readEngravedConversionStone, readEngravedConversionStones,
-  } = await server.ssrLoadModule('/app/lib/artifact-conversion-stones.ts');
+  } = await server.ssrLoadModule('/app/domain/artifacts/artifact-conversion-stones.ts');
   const { validateGameFile } = await server.ssrLoadModule('/app/ingest/game-export.ts');
   const { ownedConversionPropertyIndexesFor } =
-    await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
-  const { artifactPropertyIndex } = await server.ssrLoadModule('/app/lib/compute/artifact-score-schema.ts');
+    await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-input.ts');
+  const { artifactPropertyIndex } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-schema.ts');
 
   assert.deepEqual(readEngravedConversionStones({}), []);
   assert.deepEqual(readEngravedConversionStones({ artifact_crafts: [] }), []);

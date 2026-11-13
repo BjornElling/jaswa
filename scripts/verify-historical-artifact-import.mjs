@@ -26,9 +26,9 @@ function artifact(id, dateAdded, powerUps, level = 15) {
 }
 
 try {
-  const { readArtifact, readArtifacts } = await server.ssrLoadModule('/app/lib/artifacts.ts');
-  const { buildArtifactScoreRequestsForMonsterIds } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
-  const { recordedArtifactPreferenceMonsterIds } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
+  const { readArtifact, readArtifacts } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
+  const { buildArtifactScoreRequestsForMonsterIds } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-input.ts');
+  const { recordedArtifactPreferenceMonsterIds } = await server.ssrLoadModule('/app/domain/profiles/artifact-preferences.ts');
 
   const currentRecord = artifact(1, '2026-08-30T00:00:00Z', [1, 1, 0, 0]);
   const historicalRecord = artifact(2, '2022-09-29T00:00:00Z', [0, 0, 0, 0], 12);

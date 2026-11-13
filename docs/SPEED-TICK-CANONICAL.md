@@ -4,7 +4,7 @@
 **Reviewed:** October 20, 2026
 **Game:** *Summoners War: Sky Arena*
 
-This document states the game rules Speed Tuning is built on. `app/lib/speed-tick.ts`
+This document states the game rules Speed Tuning is built on. `app/domain/speed/speed-tick.ts`
 is their only implementation; every figure the page shows is computed there or
 from what it returns. A rule changed there is changed here in the same commit.
 Where the sources disagree or say nothing, this document says so, and the
@@ -173,7 +173,7 @@ and the model must grow a term.
 
 ### 2.4 The other Glory buildings
 
-`app/lib/account-buildings.ts` reads every Glory building from `deco_list`:
+`app/domain/account/account-buildings.ts` reads every Glory building from `deco_list`:
 Guardstone (DEF %), Crystal Altar (HP %), Ancient Sword (ATK %), the five
 Sanctuaries (ATK % for their element's monsters) and Fallen Ancient Guardian
 (CRI Dmg). None moves a speed. They raise the composites a fight is judged by

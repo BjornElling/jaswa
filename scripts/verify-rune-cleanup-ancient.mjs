@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   candidateChance, candidateMaxValue, chanceRuns, prepareRuneCandidate, roleBuilds,
-} from '../app/lib/rune-cleanup-model.ts';
+} from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 
 /* The product's one canonical credit, the same as the ruler's. */
 const credit = { gem: 'average', gemGrade: 'Legend', grind: 'average', grindGrade: 'Legend' };

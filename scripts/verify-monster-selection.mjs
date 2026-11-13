@@ -6,9 +6,9 @@ import { createVerificationServer as createServer } from './verification-server.
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { createMonsterCopyIndex, createMonsterSelectionIndex } = await server.ssrLoadModule('/app/lib/monster-selection.ts');
-  const { monsterIdentity, monsterIdentityId, monsterSkillFamilyId } = await server.ssrLoadModule('/app/lib/monster-identity.ts');
-  const { collaborationSpecies } = await server.ssrLoadModule('/app/lib/monster-species.ts');
+  const { createMonsterCopyIndex, createMonsterSelectionIndex } = await server.ssrLoadModule('/app/domain/monsters/monster-selection.ts');
+  const { monsterIdentity, monsterIdentityId, monsterSkillFamilyId } = await server.ssrLoadModule('/app/domain/monsters/monster-identity.ts');
+  const { collaborationSpecies } = await server.ssrLoadModule('/app/domain/monsters/monster-species.ts');
   const haveLevel40 = { alreadyHaveLevel40: true, familyFullySkilled: false, fodderMon: false, notNeeded: false, candidateLevel: null };
   const familyMaxSkilled = { alreadyHaveLevel40: false, familyFullySkilled: true, fodderMon: false, notNeeded: false, candidateLevel: null };
   const both = { alreadyHaveLevel40: true, familyFullySkilled: true, fodderMon: false, notNeeded: false, candidateLevel: null };

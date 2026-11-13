@@ -16,10 +16,10 @@ const server = await createServer({
 
 try {
   const { allocateArtifactPlacements, assertArtifactAllocation } =
-    await server.ssrLoadModule('/app/lib/artifact-recommendation-allocation.ts');
+    await server.ssrLoadModule('/app/domain/artifacts/artifact-recommendation-allocation.ts');
   const { canonicalArtifactScoreMonsterIds } =
-    await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
-  const { collaborationSpecies } = await server.ssrLoadModule('/app/lib/monster-species.ts');
+    await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-input.ts');
+  const { collaborationSpecies } = await server.ssrLoadModule('/app/domain/monsters/monster-species.ts');
 
   const slots = [
     { monsterId: 'one', category: 'attribute' },
@@ -87,7 +87,7 @@ try {
      recommended swapping back — every time. The tiebreak must be a property of
      the artifact, so both views that rank artifacts derive it from
      `obtainedOrder` and never from an index into the import. */
-  for (const file of ['app/components/artifact-maximum-values.tsx', 'app/components/best-artifact-for-monster.tsx']) {
+  for (const file of ['app/features/artifacts/artifact-maximum-values.tsx', 'app/features/artifacts/best-artifact-for-monster.tsx']) {
     const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
     assert.match(source, /artifacts\.map\(\(artifact\) => \[artifact\.id, artifact\.obtainedOrder\]\)/,
       `${file} must break score ties by the artifact's obtained order`);

@@ -171,7 +171,7 @@ Export observation (the October 2026 capture): runes occur in up to three decks
 at once, including different `deck_seq` under one `deck_type`, and decks name
 runes and artifacts the account no longer owns (rules 3 and 9).
 
-`app/lib/deck-presets.ts` reads the decks and refuses the import for a
+`app/domain/placements/deck-presets.ts` reads the decks and refuses the import for a
 duplicate preset identity, an item twice in one deck, two runes in one slot of
 one monster, an `equip` entry for a monster outside the deck, and a deck that
 saves gear for some of its monsters but not all. A deck keeps naming a monster

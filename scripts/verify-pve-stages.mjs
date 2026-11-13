@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * Holds the PvE database (`app/lib/pve-stages.ts`, `docs/PVE-STAGES.md`) to
+ * Holds the PvE database (`app/domain/reference/pve-stages.ts`, `docs/PVE-STAGES.md`) to
  * what its readers assume of it: every area it names has the floor its
  * readers take as the hardest, every enemy on a Swarfarm floor has every
  * figure and a monster the catalogue knows, and a stated floor carries its
  * source. Runs against the checked-in data, so a refresh that changes the
  * hardest floor or drops a figure fails here before any page reads it.
  */
-import { hasMonsterCatalogEntry } from '../app/lib/monster-catalog.ts';
-import { fastestEnemyOn, hardestPveFloor, highestEnemyStatOn, highestEnemyStatInFinalWaveOn, highestResistanceOn, labyrinthEnemySpeedRanks, pveAreaElement, pveAreaOf, pveFloors } from '../app/lib/pve-stages.ts';
-import { accuracyCeilings } from '../app/lib/accuracy-ceiling.ts';
-import { areaElementAdvantage } from '../app/lib/element-advantage.ts';
-import { presetContents } from '../app/lib/preset-contents.ts';
+import { hasMonsterCatalogEntry } from '../app/domain/monsters/monster-catalog.ts';
+import { fastestEnemyOn, hardestPveFloor, highestEnemyStatOn, highestEnemyStatInFinalWaveOn, highestResistanceOn, labyrinthEnemySpeedRanks, pveAreaElement, pveAreaOf, pveFloors } from '../app/domain/reference/pve-stages.ts';
+import { accuracyCeilings } from '../app/domain/combat/accuracy-ceiling.ts';
+import { areaElementAdvantage } from '../app/domain/combat/element-advantage.ts';
+import { presetContents } from '../app/domain/placements/preset-contents.ts';
 
 let checks = 0;
 function check(condition, message) {

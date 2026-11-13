@@ -1,0 +1,1162 @@
+import { lazy, Suspense, type ChangeEvent, type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { AppRail } from './app-rail';
+import { HomeSection } from '../features/home/home-section';
+import { CornerNotices, ImportBadge } from '../features/home/import-badge';
+import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from '../features/home/import-dialogs';
+import { canSavePreferences, clearImportedGame, loadImportedGame, loadPreferences, PreferenceMirrorUnavailable, PreferenceStoreUnreadable, saveImportedGame, savePreferences, saveWorkspacePair } from '../platform/browser-storage';
+import { createImportedGame, validateGameFile } from '../ingest/game-export';
+import { blankPreferences } from '../domain/profiles/preference-defaults';
+import { downloadJson, fileToText, importPreferencesFile } from '../platform/files';
+import { restoreWorkspace } from '../workspace/restore';
+import { createSerializedWriter } from '../workspace/serialized-writes';
+import { checkHelperConnection, helperStatusMessage, readHelperProfile, silentHelper } from '../platform/helper-client';
+import type { HelperConnection } from '../platform/helper-client';
+import { formatDateTime } from '../domain/shared/formatting';
+import { accountCounts } from '../domain/account/account-counts';
+import { canChooseSaveFolder, chooseSaveFolder, forgetSaveFolder, loadSaveFolder, writeToSaveFolder } from '../platform/save-location';
+import type { DirectoryHandle } from '../platform/save-location';
+import type { GameRecord } from '../domain/account/game-record';
+import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from '../domain/model';
+import type { RuneRole } from '../domain/profiles/rune-roles';
+import type { RuneOptimizationSettings } from '../domain/profiles/rune-optimization-settings';
+import { runeOptimizationMonsterKey } from '../domain/profiles/rune-optimization-settings';
+import type { SpeedTuningPreferences } from '../domain/profiles/speed-tuning-preferences';
+import { readRunes } from '../domain/runes/runes';
+import { createRuneCleanupSession } from '../features/rune-cleanup/rune-cleanup-session';
+import { engraveImportedGame, engraveOwnPreset, runesWithLocked, runesWithout } from '../domain/placements/engrave-rune-build';
+import { addToGamePreset, deleteGamePreset, leadGamePreset, removeFromGamePreset } from '../domain/placements/game-preset-edits';
+import { usePageHistory } from './page-history';
+import type { MonsterCopyPreferences } from '../domain/profiles/monster-preferences';
+import type { MonsterProfileScope } from '../domain/profiles/monster-profile-scope';
+import type { MonsterPriority } from '../domain/profiles/monster-priority';
+import { scenarioPresetId, engravings, readPresets, selectedPresetKey } from '../domain/placements/presets';
+import { PresetsContext } from '../workspace/presets-context';
+import { summarizeRunePlacement } from '../domain/placements/rune-placement';
+import type { OwnPreset, Preset } from '../domain/placements/presets';
+import type { PresetWrites } from '../features/presets/presets-section';
+import { profilesIn, withProfile } from '../domain/profiles/monster-preferences';
+import type { RelicSynergyChoices } from '../domain/relics/relic-synergy';
+import type { RuneHold } from '../domain/profiles/rune-holds';
+import { runeHoldVerdict } from '../domain/profiles/rune-holds';
+import type { CraftIgnore } from '../domain/profiles/craft-ignores';
+import { withCraftIgnore } from '../domain/profiles/craft-ignores';
+import type { CraftViewChoice, CraftViewMode } from '../domain/profiles/craft-view-choices';
+import { carriedRuneLocks, heldRuneLocks, lockedRuneIds, noRuneLocks, runeLockOf, runeLockScope, withRuneLock } from '../domain/placements/rune-locks';
+import { alwaysSynchronizedReason } from '../domain/placements/always-synchronized';
+import type { RuneLock, RuneLocks } from '../domain/placements/rune-locks';
+import type { MonsterReference, OpenMonsterOverlay } from '../ui/gear/monster-link';
+import type { OpenRuneOverlay, RuneOverlayTarget } from '../ui/gear/rune-link';
+import type { OpenSpeedTeamOverlay } from '../features/presets/preset-speed-team-overlay';
+import type { OpenMonsterStatistics } from '../features/monsters/game-statistics-button';
+import { useSessionStorageState, writeSessionValue } from '../ui/session-state';
+import { pageChoices, type Page, type ReportCategory } from '../workspace/workspace-config';
+
+const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
+const isString = (value: unknown): value is string => typeof value === 'string';
+const ArtifactList = lazy(() => import('../features/artifacts/artifact-list').then(({ ArtifactList: component }) => ({ default: component })));
+const ArtifactsSection = lazy(() => import('../features/artifacts/artifacts-section').then(({ ArtifactsSection: component }) => ({ default: component })));
+const GemsSection = lazy(() => import('../features/craft-advice/gems-section').then(({ GemsSection: component }) => ({ default: component })));
+const MonsterStats = lazy(() => import('../features/monsters/monster-stats').then(({ MonsterStats: component }) => ({ default: component })));
+const MonsterNumbers = lazy(() => import('../features/monsters/monster-numbers').then(({ MonsterNumbers: component }) => ({ default: component })));
+const RelicList = lazy(() => import('../features/relics/relic-list').then(({ RelicList: component }) => ({ default: component })));
+const RunePotentialSection = lazy(() => import('../features/rune-cleanup/rune-potential-section').then(({ RunePotentialSection: component }) => ({ default: component })));
+const RuneSetupSection = lazy(() => import('../features/rune-cleanup/rune-potential-section').then(({ RuneSetupSection: component }) => ({ default: component })));
+const SettingsSection = lazy(() => import('../features/settings/settings-section').then(({ SettingsSection: component }) => ({ default: component })));
+const TheMathSection = lazy(() => import('../features/the-math/the-math-section').then(({ TheMathSection: component }) => ({ default: component })));
+const RuneSimulatorSection = import.meta.env.DEV ? lazy(() => import('../features/rune-simulator/rune-simulator-section').then(({ RuneSimulatorSection: component }) => ({ default: component }))) : null;
+const SpeedTuningSection = lazy(() => import('../features/speed-tuning/speed-tuning-section').then(({ SpeedTuningSection: component }) => ({ default: component })));
+const PresetsSection = lazy(() => import('../features/presets/presets-section').then(({ PresetsSection: component }) => ({ default: component })));
+const RuneOptimizationSection = lazy(() => import('../features/rune-optimization/rune-optimization-section').then(({ RuneOptimizationSection: component }) => ({ default: component })));
+const MonsterOverlay = lazy(() => import('../features/monsters/monster-overlay').then(({ MonsterOverlay: component }) => ({ default: component })));
+const RuneOverlay = lazy(() => import('../features/runes/rune-overlay').then(({ RuneOverlay: component }) => ({ default: component })));
+const MonsterStatisticsOverlay = lazy(() => import('../features/monsters/monster-statistics-overlay').then(({ MonsterStatisticsOverlay: component }) => ({ default: component })));
+const PresetSpeedTeamOverlay = lazy(() => import('../features/presets/preset-speed-team-overlay').then(({ PresetSpeedTeamOverlay: component }) => ({ default: component })));
+
+type OverlayTarget =
+  | { kind: 'monster'; target: MonsterReference; presetId?: string }
+  | { kind: 'rune'; target: RuneOverlayTarget };
+
+function WorkspaceLoading() {
+  return <section className="panel" aria-busy="true"><p className="lead">Opening workspace…</p></section>;
+}
+
+/**
+ * The preferences without what was stated for one preset: its
+ * speed tuning and its priority list. A deleted preset is gone in the game too,
+ * and what was said about its team is said about nothing.
+ */
+function withoutPreset(preferences: Preferences, presetId: string): Preferences {
+  if (!(presetId in preferences.presetPriority) && !(presetId in preferences.speedTuning.presets)) return preferences;
+  const rest = <T,>(map: Readonly<Record<string, T>>) => Object.fromEntries(Object.entries(map).filter(([id]) => id !== presetId));
+  return {
+    ...preferences,
+    presetPriority: rest(preferences.presetPriority),
+    speedTuning: { ...preferences.speedTuning, presets: rest(preferences.speedTuning.presets) },
+  };
+}
+
+/**
+ * Live sync replaces the import on every change in the game, and Lock and
+ * Exclude are the user's word to the search, not the game's to undo: within one
+ * account they carry to the next revision (`carriedRuneLocks`). Another account
+ * starts with none.
+ */
+function withLiveRuneLocks(next: ImportedGame, previous: ImportedGame | null, ownPresets: readonly OwnPreset[]): ImportedGame {
+  const account = previous?.data?.wizard_id;
+  if (!previous?.runeLocks || account === undefined || account === null || String(account) !== String(next.data?.wizard_id)) return next;
+  const runeIds = new Set(readRunes(next.data).map((rune) => rune.id));
+  const locks = carriedRuneLocks(previous.runeLocks, runeIds, readPresets(next.data, ownPresets));
+  return Object.keys(locks).length > 0 ? { ...next, runeLocks: locks } : next;
+}
+
+export default function Home() {
+  const [page, setStoredPage] = useSessionStorageState<Page>('jaswa.navigation.page', 'home', isPage);
+  const [game, setGame] = useState<ImportedGame | null>(null);
+  const runeCleanupAccount = game === null ? null : String(game.data?.wizard_id ?? '');
+  const runeCleanupSession = useMemo(() => createRuneCleanupSession(runeCleanupAccount), [runeCleanupAccount]);
+  const [preferences, setPreferences] = useState<Preferences>(blankPreferences());
+  const [pendingGame, setPendingGame] = useState<ImportedGame | null>(null);
+  const [importConfirmation, setImportConfirmation] = useState<{ game: ImportedGame; manual: boolean } | null>(null);
+  const [message, setMessage] = useState('');
+  const [storageNotice, setStorageNotice] = useState<{ message: string; tone: 'warn' | 'bad' } | null>(null);
+  const [report, setReport] = useState<{ category: ReportCategory; details: string } | null>(null);
+  const [ready, setReady] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [removeGameDataPrompt, setRemoveGameDataPrompt] = useState(false);
+  const [loadPreferencesPrompt, setLoadPreferencesPrompt] = useState(false);
+  const [pendingDirectImportMode, setPendingDirectImportMode] = useState<DirectImportMode | null>(null);
+  const [pendingImportRoute, setPendingImportRoute] = useState<ImportRoute | null>(null);
+  const [helperConnection, setHelperConnection] = useState<HelperConnection>(silentHelper);
+  const [saveFolder, setSaveFolder] = useState<DirectoryHandle | null>(null);
+  const [overlay, setOverlay] = useState<OverlayTarget | null>(null);
+  const [optimizerVisit, setOptimizerVisit] = useState(0);
+  /* The preset whose team is open over the page. It is its own state rather
+     than a kind of `overlay` because a monster opened from the team stacks on
+     top of it, and closing that monster must leave the team standing. */
+  const [speedTeam, setSpeedTeam] = useState<string | null>(null);
+  /* The species whose game statistics are open. Its own state for the speed
+     team's reason: it stacks on the monster profile that opened it. */
+  const [statisticsMonster, setStatisticsMonster] = useState<string | null>(null);
+  const statisticsOpener = useRef<HTMLElement | null>(null);
+  /* The control that opened the overlay, so focus returns to the exact row the
+     reader came from. It is held here rather than in the overlay because it has
+     to outlive the overlay's own unmount. */
+  const overlayOpener = useRef<HTMLElement | null>(null);
+  const speedTeamOpener = useRef<HTMLElement | null>(null);
+  /* A step back closes an overlay too: it was opened over the page being left. */
+  const setPage = usePageHistory(page, setStoredPage, isPage, closeEveryOverlay);
+  const preferencesRef = useRef(preferences);
+  /* The import badge's own box, so the confirmation that opens in the same
+     corner can measure what it has to clear rather than assume a height. */
+  const importBadge = useRef<HTMLElement | null>(null);
+  const gameInput = useRef<HTMLInputElement>(null);
+  const settingsInput = useRef<HTMLInputElement>(null);
+  const appliedHelperRevision = useRef<number | null>(null);
+  const appliedHelperSession = useRef<string | null>(null);
+  const reloadHelper = useRef<((force: boolean) => Promise<void>) | null>(null);
+  const [reloadingHelper, setReloadingHelper] = useState(false);
+  const [helperReloadError, setHelperReloadError] = useState<string | null>(null);
+  /* Which helper snapshot JASWA has already refused, so a two-second poll
+     reports an unreadable account once rather than on every pass. */
+  const reportedHelperRejection = useRef<string | null>(null);
+  /* Why the helper's newest snapshot was not imported, while that stands. The
+     refusal was once said on Home alone, so on every other page the import
+     simply stopped moving: decks saved in the game never arrived, and nothing
+     said why. */
+  const [liveImportStopped, setLiveImportStopped] = useState<string | null>(null);
+  /* The current import, readable from the polling interval's callback. That
+     callback outlives the render that created it, so `game` inside it is
+     whatever was loaded when the interval started. */
+  const gameRef = useRef(game);
+  gameRef.current = game;
+  const accountWrite = useMemo(createSerializedWriter, []);
+
+  function publishGame(next: ImportedGame | null) {
+    gameRef.current = next;
+    setGame(next);
+  }
+
+  useEffect(() => {
+    restoreWorkspace({ loadGame: loadImportedGame, loadPreferences }).then(({ game: savedCurrentGame, preferences: savedCurrentPreferences, failed }) => {
+      setGame(savedCurrentGame);
+      if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
+      preferencesRef.current = savedCurrentPreferences;
+      setPreferences(savedCurrentPreferences);
+      if (!canSavePreferences()) setStorageNotice({ tone: 'bad', message: 'Reload to read your saved preferences before changing them.' });
+      if (failed.length) setMessage('JASWA could not read part of the saved workspace. Reload to try again.');
+    }).catch(() => {
+      const emptyPreferences = blankPreferences();
+      preferencesRef.current = emptyPreferences;
+      setPreferences(emptyPreferences);
+    }).finally(() => setReady(true));
+    /* The folder is a live handle rather than a path, so it is read from its
+       own record instead of travelling in the preferences document. */
+    void loadSaveFolder().then(setSaveFolder);
+  }, []);
+
+  useEffect(() => {
+    if (!importConfirmation) return undefined;
+    const timeout = window.setTimeout(() => setImportConfirmation(null), 4_100);
+    return () => window.clearTimeout(timeout);
+  }, [importConfirmation]);
+
+  useEffect(() => {
+    if (!ready || preferences.importRoute !== 'direct') return;
+    let disposed = false;
+    let refreshing = false;
+    let reloadPending = false;
+    // A rejected account is deterministic for one helper/session/revision.
+    // Keep its reason until a different snapshot or an explicit retry arrives.
+    let rejectedSnapshot: { key: string; reason: string } | null = null;
+    async function refreshHelper(force = false) {
+      if (force) { setReloadingHelper(true); setHelperReloadError(null); }
+      if (refreshing) {
+        reloadPending ||= force;
+        return;
+      }
+      refreshing = true;
+      try {
+        const connection = await checkHelperConnection();
+        if (disposed) return;
+        if (!connection.profileReady) {
+          setHelperConnection(connection);
+          rejectedSnapshot = null;
+          // Waiting, a closed game and a lost API connection are not capture failures.
+          // Only the helper's own red state belongs in this notice.
+          setLiveImportStopped(preferences.directImportMode === 'live' ? connection.captureError : null);
+          if (force) setHelperReloadError(helperStatusMessage(connection));
+          return;
+        }
+        const snapshotKey = `${connection.instanceId}:${connection.sessionId}:${connection.revision}`;
+        if (!force && rejectedSnapshot?.key === snapshotKey) {
+          setHelperConnection(connection);
+          setLiveImportStopped(rejectedSnapshot.reason);
+          return;
+        }
+        const needsImport = preferences.directImportMode === 'live'
+          ? appliedHelperRevision.current !== connection.revision || appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`
+          : appliedHelperSession.current !== `${connection.instanceId}:${connection.sessionId}`;
+        if (!force && !needsImport) {
+          setHelperConnection(connection);
+          // A healthy, already accepted revision can clear a connection failure
+          // without re-importing it or hiding a different rejected revision.
+          if (appliedHelperRevision.current === connection.revision
+            && appliedHelperSession.current === `${connection.instanceId}:${connection.sessionId}`) {
+            setLiveImportStopped(null);
+          }
+          return;
+        }
+        const result = await readHelperProfile();
+        if (disposed) return;
+        if (result.state === 'unavailable') {
+          if (force) setHelperReloadError('Game data could not be loaded. Check the helper on Home.');
+          else setMessage('Game data could not be loaded. JASWA is keeping the last saved import. Check the helper.');
+          setHelperConnection({ ...connection, state: 'unavailable', profileReady: false, detail: result.reason });
+          return;
+        }
+        if (result.state === 'unreadable') {
+          if (force) setHelperReloadError('Game data could not be read. Check the helper on Home.');
+          setLiveImportStopped(result.reason);
+          // The connection succeeded. A refused account belongs to import
+          // status; turning it into a socket failure caused Home to oscillate
+          // between Connected and Unavailable at every health/profile pair.
+          setHelperConnection(connection);
+          /* The helper is connected and sending, and JASWA cannot read what it
+             sent. Say so in the same words the file route uses — but once per
+             snapshot, because the poll would otherwise repeat it every two
+             seconds, and never re-import the same rejected revision. */
+          const { instanceId, sessionId, revision } = result.identity;
+          const rejected = `${instanceId}:${sessionId}:${revision}`;
+          rejectedSnapshot = { key: rejected, reason: result.reason };
+          if (!force && reportedHelperRejection.current !== rejected) {
+            reportedHelperRejection.current = rejected;
+            /* What the user loses differs, and guessing wrong is worse than
+               saying less: with an earlier import the workspace is merely
+               stale, without one there is nothing to work from at all. The ref
+               carries it because `game` in this closure belongs to the render
+               that started the interval. */
+            setMessage(`${result.reason} Use Report Issue to send the details.${gameRef.current ? ' JASWA is still showing your last good import.' : ' JASWA has not loaded this account.'}`);
+          }
+          return;
+        }
+        const { profile } = result;
+        const validation = validateGameFile(profile.data);
+        if (!validation.valid) return;
+        const fresh = createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId });
+        if (!await applyImport(fresh, force, preferences.directImportMode === 'live')) return;
+        setHelperConnection(connection);
+        rejectedSnapshot = null;
+        reportedHelperRejection.current = null;
+        setLiveImportStopped(null);
+        setHelperReloadError(null);
+        appliedHelperRevision.current = profile.revision;
+        appliedHelperSession.current = `${profile.instanceId}:${profile.sessionId}`;
+      } catch {
+        if (!disposed) {
+          if (force) setHelperReloadError('Game data could not be loaded. Please try again.');
+          else setMessage('JASWA could not save the helper import. Please try again.');
+        }
+      } finally {
+        refreshing = false;
+        if (force && !disposed) setReloadingHelper(false);
+        if (reloadPending && !disposed) {
+          reloadPending = false;
+          void refreshHelper(true);
+        }
+      }
+    }
+    reloadHelper.current = refreshHelper;
+    void refreshHelper();
+    const interval = window.setInterval(() => void refreshHelper(), 2000);
+    return () => { disposed = true; reloadHelper.current = null; setReloadingHelper(false); setLiveImportStopped(null); window.clearInterval(interval); };
+    // The import writer reads current account and choices through refs; recreating the poll on every render would restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferences.directImportMode, preferences.importRoute, ready]);
+
+  /* The poll stops when the route leaves direct import, and the last answer it
+     gave stays in state. Read alone, that answer kept the update warning up on
+     the file route, where no helper is being asked anything. */
+  const helperUpdateDue = preferences.importRoute === 'direct' && helperConnection.updateAvailable;
+
+  const monsters = useMemo(
+    () => (Array.isArray(game?.data?.unit_list) ? game.data.unit_list : []) as GameRecord[],
+    [game],
+  );
+  /* Scenario and every preset, resolved once for every page that reads one
+     (`DECK-PRESETS.md` §4). */
+  const presets = useMemo(() => readPresets(game?.data, preferences.presets), [game, preferences.presets]);
+  const presetsReading = useMemo(() => {
+    const reading = engravings(presets);
+    const runes = new Map([...reading.runes].map(([id, places]) => [id, summarizeRunePlacement(places)]));
+    return { presets, runes, artifacts: reading.artifacts };
+  }, [presets]);
+  /* JASWA changes the account only while no live sync would put the game's own back. */
+  const canEngrave = preferences.importRoute === 'file' || preferences.directImportMode === 'on-load';
+  /* The locks every page reads: only those that still hold against the placement
+     on screen (`heldRuneLocks`). Live sync keeps them too — they shape the
+     search, and the game is never asked to obey them. */
+  const runeLocks = useMemo(() => (game?.runeLocks ? heldRuneLocks(game.runeLocks, presets) : noRuneLocks),
+    [game, presets]);
+  const lockedRunes = useMemo(() => lockedRuneIds(runeLocks), [runeLocks]);
+  const [selectedPreset, setSelectedPreset] = useSessionStorageState<string>(selectedPresetKey, '', isString);
+
+  /* The overlay's rune is the same object for as long as the overlay and the import
+     stand. Read afresh in render, it was a new rune on every render of this page —
+     the helper's poll alone renders it every two seconds — and the overlay took
+     each one for a different rune and calculated its Improvements again. */
+  const overlayRune = useMemo(() => {
+    if (overlay?.kind !== 'rune') return undefined;
+    const runeTarget = overlay.target;
+    return runeTarget.kind === 'account'
+      ? (game?.data ? readRunes(game.data).find((entry) => entry.id === runeTarget.runeId) : undefined)
+      : runeTarget.rune;
+  }, [overlay, game]);
+
+  async function selectGameFile(file?: File) {
+    if (!file) return;
+    try {
+      const raw = JSON.parse(await fileToText(file)) as unknown;
+      const validation = validateGameFile(raw);
+      if (!validation.valid) { setMessage(validation.message); return; }
+      const imported = createImportedGame(file.name, raw as Record<string, unknown>, validation);
+      /* An empty workspace has no existing data to protect. The confirmation
+         only belongs to replacing a real import. */
+      if (!game) { await applyFileImport(imported); return; }
+      setPendingGame(imported);
+      setMessage('');
+    } catch {
+      setMessage('JASWA could not read this file. Please choose the original JSON file exported from Summoners War.');
+    }
+  }
+
+  /* The applied revision and session describe the helper snapshot the shown
+     game came from, and nothing else. Once a file import, a removal or a switch
+     of source replaces that game, they must be forgotten — kept, they told the
+     poll the helper's data was already on screen, so returning to the direct
+     route left the file's data standing until the game itself changed. */
+  function forgetAppliedHelperImport() {
+    appliedHelperRevision.current = null;
+    appliedHelperSession.current = null;
+  }
+
+  async function applyImport(imported: ImportedGame, manual = false, carryLocks = false) {
+    return accountWrite(async () => {
+      if (imported.helperSession && preferencesRef.current.importRoute !== 'direct') return false;
+      const next = carryLocks && preferencesRef.current.directImportMode === 'live'
+        ? withLiveRuneLocks(imported, gameRef.current, preferencesRef.current.presets) : imported;
+      try {
+        await saveImportedGame(next);
+      } catch {
+        if (manual) setHelperReloadError('JASWA could not save game data. Please try again.');
+        else setMessage('JASWA could not save this import. Please try again.');
+        return false;
+      }
+      publishGame(next);
+      setImportConfirmation({ game: next, manual });
+      setPendingGame(null);
+      setMessage('');
+      return true;
+    });
+  }
+
+  async function applyFileImport(imported: ImportedGame) {
+    if (await applyImport(imported)) forgetAppliedHelperImport();
+  }
+
+  async function removeImport() {
+    return accountWrite(async () => {
+      try {
+        await clearImportedGame();
+      } catch {
+        setMessage('JASWA could not remove the saved import. Please try again.');
+        return;
+      }
+      forgetAppliedHelperImport();
+      publishGame(null);
+      setMessage('');
+    });
+  }
+
+  /* A build is engraved in one preset and nowhere else. A preset built in JASWA
+     lives in the preferences, which no sync overwrites; Scenario and the game's
+     presets live in the import, which live sync would put back. */
+  async function engraveBuild(presetId: string, unitId: string, runeIds: readonly string[]): Promise<void> {
+    return accountWrite(async () => {
+      const currentGame = gameRef.current;
+      const currentPreferences = preferencesRef.current;
+      const preset = readPresets(currentGame?.data, currentPreferences.presets).find((entry) => entry.id === presetId);
+      if (preset?.kind === 'own') {
+        const own = currentPreferences.presets.find((entry) => entry.id === presetId);
+        if (!own) throw new Error('This preset is no longer in your preferences.');
+        const next = engraveOwnPreset(own, preset, unitId, runeIds);
+        changePreferences((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? next : entry) }));
+        return;
+      }
+      if (!currentGame || !preset || !(currentPreferences.importRoute === 'file' || currentPreferences.directImportMode === 'on-load')) {
+        throw new Error('This build cannot be engraved in the current import mode.');
+      }
+      try {
+        const engraved = engraveImportedGame(currentGame, preset, unitId, runeIds);
+        /* A lock whose rune the build moved away is over, and is not stored to come back if the rune ever does. */
+        const locks = heldRuneLocks(engraved.runeLocks ?? noRuneLocks, readPresets(engraved.data, currentPreferences.presets));
+        const next = { ...engraved, runeLocks: Object.keys(locks).length > 0 ? locks : undefined };
+        await saveImportedGame(next);
+        publishGame(next);
+        setMessage('');
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'JASWA could not save this build. Please try again.');
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * The one route from a Lock or Exclude control to storage, wherever it sits.
+   * A lock engraves the rune on the monster first where it is not there yet, so
+   * a lock always names a rune its monster carries, and an exclusion takes a rune
+   * the monster carries off it. The locks are written with the import — never
+   * the preferences — and only those still holding are kept.
+   */
+  async function lockRune(presetId: string, unitId: string, runeId: string, lock: RuneLock | null): Promise<void> {
+    return accountWrite(async () => {
+      const currentGame = gameRef.current;
+      const currentPreferences = preferencesRef.current;
+      const currentPresets = readPresets(currentGame?.data, currentPreferences.presets);
+      const preset = currentPresets.find((entry) => entry.id === presetId);
+      if (!currentGame || !preset) throw new Error('This rune cannot be locked or excluded without an import.');
+      /* Under live sync only the engraving is off, and only where the game owns the
+         placement: the choice itself is the search's, so it stands either way. */
+      const mayEngrave = currentPreferences.importRoute === 'file' || currentPreferences.directImportMode === 'on-load' || preset.kind === 'own';
+      const onMonster = preset.runeOwner.get(runeId) === unitId;
+      if (lock === 'locked' && !onMonster && !mayEngrave) throw new Error(alwaysSynchronizedReason);
+      const slots = new Map(readRunes(currentGame.data).map((rune) => [rune.id, rune.slot]));
+      const slotOf = (id: string) => slots.get(id);
+      try {
+        let next = currentGame;
+        let ownPresets = currentPreferences.presets;
+        let changedOwnPreset = false;
+        /* Locking a rune engraves it here; excluding one the monster carries takes it off (`runeLockLabels`). */
+        const runeIds = lock === 'locked' && !onMonster ? runesWithLocked(preset, unitId, runeId, slotOf)
+          : lock === 'excluded' && onMonster && mayEngrave ? runesWithout(preset, unitId, runeId, slotOf) : null;
+        if (runeIds !== null) {
+          if (preset.kind === 'own') {
+            const own = ownPresets.find((entry) => entry.id === presetId);
+            if (!own) throw new Error('This preset is no longer in your preferences.');
+            const engraved = engraveOwnPreset(own, preset, unitId, runeIds);
+            ownPresets = ownPresets.map((entry) => entry.id === presetId ? engraved : entry);
+            changedOwnPreset = true;
+          } else {
+            next = engraveImportedGame(next, preset, unitId, runeIds, lock === 'locked' ? [runeId] : []);
+          }
+        }
+        const currentLocks = heldRuneLocks(currentGame.runeLocks ?? noRuneLocks, currentPresets);
+        const locks: RuneLocks = heldRuneLocks(withRuneLock(currentLocks, runeLockScope(preset), unitId, runeId, lock, slotOf),
+          readPresets(next.data, ownPresets));
+        next = { ...next, runeLocks: Object.keys(locks).length > 0 ? locks : undefined };
+        if (changedOwnPreset) {
+          const after = { ...currentPreferences, presets: ownPresets, updatedAt: new Date().toISOString() };
+          const result = await saveWorkspacePair(next, currentPreferences, after);
+          preferencesRef.current = result.preferences;
+          setPreferences(result.preferences);
+          setStorageNotice(result.mirrorSaved ? null : { tone: 'warn', message: 'Your preferences were saved, but their quick recovery copy could not be saved.' });
+        } else {
+          await saveImportedGame(next);
+          setStorageNotice(null);
+        }
+        publishGame(next);
+        setMessage('');
+      } catch (error) {
+        const failure = error instanceof Error ? error.message : 'JASWA could not save this lock. Please try again.';
+        setMessage(failure);
+        setStorageNotice({ tone: 'bad', message: failure });
+        throw error;
+      }
+    });
+  }
+
+  /* This is the sole route from a committed preference choice to both React and
+     persistent storage. The ref makes rapid, consecutive changes build on the
+     latest choice before React has rendered; browser-storage writes them in the
+     same order and mirrors each one synchronously. */
+  function changePreferences(change: (current: Preferences) => Preferences) {
+    const next = { ...change(preferencesRef.current), updatedAt: new Date().toISOString() };
+    const writing = savePreferences(next, change);
+    preferencesRef.current = next;
+    setPreferences(next);
+    void writing.then(() => setStorageNotice(null)).catch((error: unknown) => {
+      setStorageNotice(error instanceof PreferenceMirrorUnavailable
+        ? { tone: 'warn', message: 'Your preferences were saved, but their quick recovery copy could not be saved.' }
+        : error instanceof PreferenceStoreUnreadable
+        ? { tone: 'bad', message: 'Reload to read your saved preferences before changing them.' }
+        : { tone: 'bad', message: 'JASWA could not save your preferences. Your latest choice is still on screen.' });
+    });
+  }
+
+  /* The preset the opener is about is the overlay's own, and leaves the one
+     chosen across the program alone: looking at a monster of Arena Attack 1
+     from Speed Tuning is not a decision to read every page in Arena Attack 1.
+     A place about no preset — the Monsters page, an artifact, a relic — shows
+     Scenario, so the overlay opens there too, never on whatever preset another
+     page last chose: that would put an edit into a profile the opener never
+     showed. */
+  const openMonsterOverlay: OpenMonsterOverlay = (target, opener, presetId) => {
+    overlayOpener.current = opener;
+    setOverlay({ kind: 'monster', target, presetId });
+  };
+
+  const openRuneOverlay: OpenRuneOverlay = (target, opener) => {
+    overlayOpener.current = opener;
+    setOverlay({ kind: 'rune', target });
+  };
+
+  /* A team opens over the page that asked for it, never by going to Speed
+     Tuning first: every button that opens an overlay opens it where the user
+     is. Only the rail, Optimize, a team's Edit preset and Rune Optimization's Preset change the page, and
+     each closes it. */
+  const openSpeedTeam: OpenSpeedTeamOverlay = (presetId, opener) => {
+    speedTeamOpener.current = opener;
+    setSpeedTeam(presetId);  };
+
+  const openMonsterStatistics: OpenMonsterStatistics = (masterId, opener) => {
+    statisticsOpener.current = opener;
+    setStatisticsMonster(masterId);
+  };
+
+  function closeMonsterStatistics() {
+    setStatisticsMonster(null);
+    const opener = statisticsOpener.current;
+    statisticsOpener.current = null;
+    if (opener?.isConnected) opener.focus();
+  }
+
+  function closeSpeedTeam() {
+    setSpeedTeam(null);
+    const opener = speedTeamOpener.current;
+    speedTeamOpener.current = null;
+    if (opener?.isConnected) opener.focus();
+  }
+
+  /* Leaving the page leaves what was opened over it. */
+  function closeEveryOverlay() {
+    overlayOpener.current = null;
+    setOverlay(null);
+    speedTeamOpener.current = null;
+    setSpeedTeam(null);
+    statisticsOpener.current = null;
+    setStatisticsMonster(null);
+  }
+
+  function closeOverlay() {
+    setOverlay(null);
+    /* The row may have been filtered away while the overlay was open, in which
+       case there is nothing to return to and the browser's own fallback is
+       better than focusing something the reader is not looking at. */
+    const opener = overlayOpener.current;
+    overlayOpener.current = null;
+    if (opener?.isConnected) opener.focus();
+  }
+
+  /**
+   * The one route from a monster overlay's choice to storage — a named wrapper
+   * over `changePreferences`, never a second route. It writes one copy's profile
+   * in one context and touches no other (`monster-preferences.ts`).
+   *
+   * A record that ends up saying nothing is removed rather than kept as a husk,
+   * so the map holds copies the user has actually decided something about and a
+   * count of records is a count of decisions. A record holding only a cleared
+   * rune list still says something and stays; emptied gear answers say nothing.
+   */
+  function updateMonsterPreferences(scope: MonsterProfileScope, unitId: string, next: MonsterCopyPreferences) {
+    changePreferences((current) => ({ ...current, monsterPreferences: withProfile(current.monsterPreferences, scope, unitId, next) }));
+  }
+
+  /* The rune overlay's one route to storage. A rune left holding nothing is
+     removed, so the map counts decisions rather than runes once opened. */
+  function updateRuneHold(runeId: string, next: RuneHold) {
+    changePreferences((current) => {
+      const runeHolds = { ...current.runeHolds };
+      if (runeHoldVerdict(next) !== null) runeHolds[runeId] = next;
+      else delete runeHolds[runeId];
+      return { ...current, runeHolds };
+    });
+  }
+
+  /* Every Gems & Grinds view writes the same choices; reset clears them all. */
+  function updateCraftIgnores(entry: CraftIgnore | null) {
+    changePreferences((current) => ({ ...current, craftIgnores: entry === null
+      ? [] : withCraftIgnore(current.craftIgnores, entry) }));
+  }
+
+  /* Each view keeps its own question and filters; a change to one never touches another. */
+  function updateCraftView(mode: CraftViewMode, update: (current: CraftViewChoice) => CraftViewChoice) {
+    changePreferences((current) => ({ ...current, craftViews: { ...current.craftViews, [mode]: update(current.craftViews[mode]) } }));
+  }
+
+  function updateHardwareAcceleration(enabled: boolean) {
+    changePreferences((current) => ({ ...current, hardwareAcceleration: enabled }));
+  }
+
+  function updateDirectImportMode(mode: DirectImportMode) {
+    if (mode === preferences.directImportMode) return;
+    setPendingDirectImportMode(mode);
+  }
+
+  function confirmDirectImportMode() {
+    if (!pendingDirectImportMode) return;
+    const mode = pendingDirectImportMode;
+    setPendingDirectImportMode(null);
+    /* Turning synchronization on promises to overwrite the current game data,
+       so the next poll imports even when the helper's snapshot is unchanged. */
+    if (mode === 'live') forgetAppliedHelperImport();
+    changePreferences((current) => ({ ...current, directImportMode: mode }));
+  }
+
+  function updateImportRoute(route: ImportRoute) {
+    if (route === preferences.importRoute) return;
+    /* Switching a live source while data is loaded can immediately replace
+       changes made in JASWA, so let the user approve that source change first. */
+    if (game && preferences.directImportMode === 'live') {
+      setPendingImportRoute(route);
+      return;
+    }
+    switchImportRoute(route);
+  }
+
+  function confirmImportRoute() {
+    if (!pendingImportRoute) return;
+    const route = pendingImportRoute;
+    setPendingImportRoute(null);
+    switchImportRoute(route);
+  }
+
+  /* Choosing the direct route is choosing the helper's data, in either sync
+     mode: whatever the workspace held before is replaced by the next poll. */
+  function switchImportRoute(route: ImportRoute) {
+    if (route === 'direct') forgetAppliedHelperImport();
+    changePreferences((current) => ({ ...current, importRoute: route }));
+  }
+
+  function updateGeneralSettings(update: Partial<GeneralSettings>) {
+    changePreferences((current) => ({ ...current, general: { ...current.general, ...update } }));
+  }
+
+  async function pickSaveFolder() {
+    const handle = await chooseSaveFolder();
+    /* A dismissed picker returns nothing and must leave the current folder
+       alone rather than clearing it. */
+    if (handle) setSaveFolder(handle);
+  }
+
+  async function dropSaveFolder() {
+    try {
+      await forgetSaveFolder();
+      setSaveFolder(null);
+    } catch {
+      setMessage('JASWA could not forget this folder. Please try again.');
+    }
+  }
+
+  /* One writer for both file kinds: it uses the chosen folder when there is
+     one and falls back to the browser's download when there is not, so the
+     user always ends up with the file. */
+  async function saveFile(filename: string, content: string) {
+    if (await writeToSaveFolder(saveFolder, filename, content)) {
+      setMessage(`Saved ${filename} to ${saveFolder?.name}.`);
+      return;
+    }
+    downloadJson(filename, content);
+  }
+
+  function updateRunePotentialSettings(update: Partial<RunePotentialSettings>) {
+    changePreferences((current) => ({
+      ...current,
+      runePotential: { ...current.runePotential, ...update },
+    }));
+  }
+
+  function updateRuneOptimizationSettings(update: Partial<RuneOptimizationSettings>) {
+    changePreferences((current) => ({
+      ...current,
+      runeOptimization: { ...current.runeOptimization, ...update },
+    }));
+  }
+
+  /* The synergy editor's one route to storage. It saves the cells that differ
+     from the shipped judgement, so Reset to defaults saves an empty record. */
+  function updateRelicSynergy(relicSynergy: RelicSynergyChoices) {
+    changePreferences((current) => ({ ...current, relicSynergy }));
+  }
+
+  function updateArtifactSettings(update: Partial<ArtifactSettings>) {
+    changePreferences((current) => ({
+      ...current,
+      artifacts: { ...current.artifacts, ...update },
+    }));
+  }
+
+  /* The Speed Tuning page's one route to storage — a named wrapper over
+     `changePreferences`, like the monster overlay's. */
+  function writeSpeedTuning(change: (current: SpeedTuningPreferences) => SpeedTuningPreferences) {
+    changePreferences((current) => ({ ...current, speedTuning: change(current.speedTuning) }));
+  }
+
+  /* The Presets page's routes to storage: Scenario's list, a game preset's
+     order, and the presets built in JASWA. */
+  const presetWrites: PresetWrites = {
+    monsterPriority(change: (current: MonsterPriority) => MonsterPriority) {
+      changePreferences((current) => ({ ...current, monsterPriority: change(current.monsterPriority) }));
+    },
+    presetOrder(presetId: string, order: readonly string[]) {
+      changePreferences((current) => ({ ...current, presetPriority: { ...current.presetPriority, [presetId]: [...order] } }));
+    },
+    ownPresets(change: (current: OwnPreset[]) => OwnPreset[]) {
+      changePreferences((current) => {
+        const next = change(current.presets);
+        const kept = new Map(next.map((entry) => [entry.id, entry]));
+        let read: Preferences = { ...current, presets: next };
+        for (const entry of current.presets) {
+          if (!kept.has(entry.id)) read = withoutPreset(read, entry.id);
+        }
+        return read;
+      });
+    },
+    async deleteGamePreset(presetId: string) {
+      await changeGamePreset(presetId, (current, preset) => deleteGamePreset(current, preset),
+        (current) => withoutPreset(current, presetId));
+    },
+    async leadGamePreset(presetId: string, unitId: string | null) {
+      await changeGamePreset(presetId, (current, preset) => leadGamePreset(current, preset, unitId));
+    },
+    async addToGamePreset(presetId: string, unitId: string) {
+      await changeGamePreset(presetId, (current, preset, fallback) => addToGamePreset(current, preset, fallback, unitId));
+    },
+    /* Removing a team member leaves its area profile intact. */
+    async removeFromGamePreset(presetId: string, unitId: string) {
+      await changeGamePreset(presetId, (current, preset) => removeFromGamePreset(current, preset, unitId), (current) => {
+        const order = current.presetPriority[presetId];
+        return !order?.includes(unitId) ? current : {
+          ...current, presetPriority: { ...current.presetPriority, [presetId]: order.filter((entry) => entry !== unitId) },
+        };
+      });
+    },
+  };
+
+  /* A leader chosen outside the Presets page, through the same routes as its crown. */
+  async function leadPreset(presetId: string, unitId: string | null) {
+    const preset = presets.find((entry) => entry.id === presetId);
+    if (preset?.kind === 'own') {
+      presetWrites.ownPresets((current) => current.map((entry) => (entry.id === presetId ? { ...entry, leaderUnitId: unitId } : entry)));
+    } else if (preset?.kind === 'game') await presetWrites.leadGamePreset(presetId, unitId);
+  }
+
+  /* A game preset lives in the import, so a change to one is saved there, as an
+     engrave is; live sync would put the game's own back at once, so it refuses. */
+  async function changeGamePreset(presetId: string, change: (current: ImportedGame, preset: Preset, scenario: Preset) => ImportedGame,
+    preferenceChange?: (current: Preferences) => Preferences): Promise<boolean> {
+    return accountWrite(async () => {
+      const currentGame = gameRef.current;
+      const currentPreferences = preferencesRef.current;
+      if (!currentGame || !(currentPreferences.importRoute === 'file' || currentPreferences.directImportMode === 'on-load')) return false;
+      const currentPresets = readPresets(currentGame.data, currentPreferences.presets);
+      const preset = currentPresets.find((entry) => entry.id === presetId);
+      const scenario = currentPresets.find((entry) => entry.kind === 'scenario');
+      if (!preset || !scenario) return false;
+      try {
+        const next = change(currentGame, preset, scenario);
+        const changedPreferences = preferenceChange?.(currentPreferences);
+        if (changedPreferences && changedPreferences !== currentPreferences) {
+          const after = { ...changedPreferences, updatedAt: new Date().toISOString() };
+          const result = await saveWorkspacePair(next, currentPreferences, after);
+          preferencesRef.current = result.preferences;
+          setPreferences(result.preferences);
+          setStorageNotice(result.mirrorSaved ? null : { tone: 'warn', message: 'Your preferences were saved, but their quick recovery copy could not be saved.' });
+        } else {
+          await saveImportedGame(next);
+        }
+        publishGame(next);
+        setMessage('');
+        return true;
+      } catch (error) {
+        const failure = error instanceof Error ? error.message : 'JASWA could not save this preset. Please try again.';
+        setMessage(failure);
+        setStorageNotice({ tone: 'bad', message: failure });
+        return false;
+      }
+    });
+  }
+
+  /* Remount the search when this route starts inside Rune Optimization too:
+     a build and its monster overlay can both be open over the current search.
+     The preset travels with the monster: a build is always for one preset. */
+  function optimizeMonster(unitId: string, presetId?: string) {
+    if (presetId !== undefined) setSelectedPreset(presetId);
+    writeSessionValue(runeOptimizationMonsterKey, unitId);
+    closeEveryOverlay();
+    setOptimizerVisit((visit) => visit + 1);
+    setPage('optimizer');
+  }
+
+  /* A control naming a page: it leaves the team for Presets, with its preset chosen. */
+  function editPreset(presetId: string) {
+    setSelectedPreset(presetId);
+    closeEveryOverlay();
+    setPage('presets');
+  }
+
+  function writeRoles(change: (current: RuneRole[]) => RuneRole[]) {
+    changePreferences((current) => ({ ...current, runeRoles: change(current.runeRoles) }));
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+    void selectGameFile(event.dataTransfer.files[0]);
+  }
+
+  async function handleSettingsImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const next = await importPreferencesFile(file);
+      let mirrorUnavailable = false;
+      try {
+        await savePreferences(next);
+      } catch (error) {
+        if (error instanceof PreferenceMirrorUnavailable) mirrorUnavailable = true;
+        else {
+          const failure = error instanceof PreferenceStoreUnreadable
+            ? 'Reload to read your saved preferences before changing them.'
+            : 'JASWA could not save these preferences. Please try again.';
+          setMessage(failure);
+          setStorageNotice({ tone: 'bad', message: failure });
+          return;
+        }
+      }
+      preferencesRef.current = next;
+      setPreferences(next);
+      setStorageNotice(mirrorUnavailable ? { tone: 'warn', message: 'Your preferences were saved, but their quick recovery copy could not be saved.' } : null);
+      setMessage(mirrorUnavailable
+        ? 'Your preferences were loaded, but their quick recovery copy could not be saved.'
+        : 'Your preferences were loaded.');
+    } catch {
+      setMessage('JASWA could not read this settings file. Please choose a .sw file exported from JASWA.');
+    } finally {
+      event.target.value = '';
+    }
+  }
+
+  function openReport(category: ReportCategory = 'Other', details = '') {
+    setReport({ category, details });
+  }
+
+  function sendReport() {
+    if (!report) return;
+    const counts = game ? accountCounts(game.data) : null;
+    const diagnostics = [
+      `Page: ${page}`,
+      `Import route: ${preferences.importRoute}`,
+      `Direct import mode: ${preferences.directImportMode}`,
+      `Hardware acceleration: ${preferences.hardwareAcceleration ? 'enabled' : 'disabled'}`,
+      `Helper state: ${helperConnection.state}`,
+      `Helper version: ${helperConnection.version ?? 'unknown'}`,
+      `Helper update available: ${helperConnection.updateAvailable ? 'yes' : 'no'}`,
+      `Helper session: ${helperConnection.instanceId || 'none'} / ${helperConnection.sessionId}`,
+      `Helper detail: ${helperConnection.detail}`,
+      `Browser: ${navigator.userAgent}`,
+      game ? `Active import: ${game.fileName} (imported ${formatDateTime(game.importedAt, preferences.general)})` : 'Active import: none',
+      counts ? `Account counts: monsters ${counts.monsters}, runes ${counts.runes}, gems and grinds ${counts.gemsAndGrinds}, artifacts ${counts.artifacts}, relics ${counts.relics}` : 'Account counts: none',
+      game ? `Unknown monster types: ${game.report.unknownMonsterIds.length ? game.report.unknownMonsterIds.join(', ') : 'none'}` : 'Unknown monster types: none',
+      message ? `Latest app message: ${message}` : 'Latest app message: none',
+    ].join('\n');
+    const body = `Hello,\n\nI found an issue in JASWA.\n\nIssue type: ${report.category}\n\nWhat happened:\n${report.details || 'Please describe what JASWA did and what you expected.'}\n\nJASWA diagnostics:\n${diagnostics}\n\nJASWA does not attach the full game data to this e-mail.`;
+    window.location.href = `mailto:bj.elling@gmail.com?subject=${encodeURIComponent(`JASWA issue: ${report.category}`)}&body=${encodeURIComponent(body)}`;
+    setReport(null);
+  }
+
+  if (!ready) return <main className="loading-screen">Preparing your local workspace…</main>;
+
+  return <PresetsContext.Provider value={presetsReading}><main className="app-shell">
+    <AppRail page={page} onNavigate={(next) => { closeEveryOverlay(); setPage(next); }} onReport={() => openReport()} />
+
+    <section className="workspace">
+      {game && <ImportBadge ref={importBadge} game={game} general={preferences.general} />}
+      <CornerNotices badge={importBadge} badgeShown={game !== null}
+        reload={preferences.importRoute === 'direct' && preferences.directImportMode === 'on-load'}
+        reloadError={helperReloadError}
+        reloading={reloadingHelper} onReload={() => void reloadHelper.current?.(true)}
+        helperUpdate={helperUpdateDue}
+        importStopped={game ? liveImportStopped : null}
+        connectionError={preferences.importRoute === 'direct' && (helperConnection.state === 'unavailable' || helperConnection.restartRequired) ? helperStatusMessage(helperConnection) : null}
+        missedChanges={game && preferences.importRoute === 'direct' && helperConnection.state === 'ready' ? helperConnection.missedChanges : []}
+        confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} storageNotice={storageNotice} />
+
+      {page === 'home' && <HomeSection
+        game={game}
+        message={message}
+        dragging={dragging}
+        onPickFile={() => gameInput.current?.click()}
+        onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        onRemove={() => setRemoveGameDataPrompt(true)}
+        hardwareAcceleration={preferences.hardwareAcceleration}
+        onHardwareAcceleration={updateHardwareAcceleration}
+        directImportMode={preferences.directImportMode}
+        onDirectImportMode={updateDirectImportMode}
+        importRoute={preferences.importRoute}
+        onImportRoute={updateImportRoute}
+        helperConnection={helperConnection}
+        general={preferences.general}
+      />}
+
+      {page === 'monster-stats' && <Suspense fallback={<WorkspaceLoading />}><MonsterStats monsters={monsters} gameData={game?.data ?? {}} presets={presets} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+      {page === 'monster-numbers' && <Suspense fallback={<WorkspaceLoading />}><MonsterNumbers monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+
+      {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+
+      {page === 'rune-setup' && <Suspense fallback={<WorkspaceLoading />}><RuneSetupSection
+        game={game}
+        settings={preferences.runePotential}
+        roles={preferences.runeRoles}
+        general={preferences.general}
+        hardwareAcceleration={preferences.hardwareAcceleration}
+        onUpdate={updateRunePotentialSettings}
+        onWriteRoles={writeRoles}
+      /></Suspense>}
+
+      {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
+        key={String(runeCleanupAccount)}
+        session={runeCleanupSession}
+        onUpdate={updateRunePotentialSettings}
+        game={game}
+        profiles={preferences.monsterPreferences}
+        runeHolds={preferences.runeHolds}
+        lockedRunes={lockedRunes}
+        settings={preferences.runePotential}
+        roles={preferences.runeRoles}
+        general={preferences.general}
+        hardwareAcceleration={preferences.hardwareAcceleration}
+        onOpenRune={openRuneOverlay}
+      /></Suspense>}
+
+      {page === 'artifacts' && <Suspense fallback={<WorkspaceLoading />}><ArtifactsSection
+        settings={preferences.artifacts}
+        data={game?.data}
+        monsters={monsters}
+        scenarioProfiles={profilesIn(preferences.monsterPreferences, scenarioPresetId)}
+        general={preferences.general}
+        hardwareAcceleration={preferences.hardwareAcceleration}
+        onUpdate={updateArtifactSettings}
+      /></Suspense>}
+
+      {page === 'settings' && <Suspense fallback={<WorkspaceLoading />}><SettingsSection
+        general={preferences.general}
+        saveFolder={saveFolder?.name ?? null}
+        canChooseFolder={canChooseSaveFolder()}
+        onGeneralChange={updateGeneralSettings}
+        onChooseFolder={() => void pickSaveFolder()}
+        onForgetFolder={() => void dropSaveFolder()}
+        onExport={() => void saveFile('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
+        onImport={() => setLoadPreferencesPrompt(true)}
+      /></Suspense>}
+
+      {page === 'the-math' && <Suspense fallback={<WorkspaceLoading />}><TheMathSection /></Suspense>}
+
+      {RuneSimulatorSection && page === 'rune-simulator' && <Suspense fallback={<WorkspaceLoading />}><RuneSimulatorSection
+        game={game}
+        settings={preferences.runePotential}
+        roles={preferences.runeRoles}
+        general={preferences.general}
+        hardwareAcceleration={preferences.hardwareAcceleration}
+        onOpenRune={openRuneOverlay}
+      /></Suspense>}
+
+      {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay}
+        onChangeRelicSynergy={updateRelicSynergy} /></Suspense>}
+
+      {page === 'gems' && <Suspense fallback={<WorkspaceLoading />}><GemsSection
+        game={game}
+        roles={preferences.runeRoles}
+        preferences={preferences}
+        onOpenRune={openRuneOverlay}
+        onIgnoreCraft={updateCraftIgnores}
+        onCraftViewChange={updateCraftView}
+      /></Suspense>}
+
+      {page === 'speed' && <Suspense fallback={<WorkspaceLoading />}><SpeedTuningSection
+        game={game}
+        monsters={monsters}
+        preferences={preferences}
+        presets={presets}
+        onWrite={writeSpeedTuning}
+        onOpenTeam={openSpeedTeam}
+      /></Suspense>}
+
+      {page === 'presets' && <Suspense fallback={<WorkspaceLoading />}><PresetsSection
+        game={game}
+        monsters={monsters}
+        preferences={preferences}
+        presets={presets}
+        selectedId={selectedPreset}
+        canChangeGamePresets={canEngrave}
+        onSelect={setSelectedPreset}
+        onWrite={presetWrites}
+        onOpenMonster={openMonsterOverlay}
+        onOptimize={(presetId, unitId) => optimizeMonster(unitId, presetId)}
+        onTuneSpeed={openSpeedTeam}
+      /></Suspense>}
+
+      {page === 'optimizer' && <Suspense fallback={<WorkspaceLoading />}><RuneOptimizationSection
+        key={optimizerVisit}
+        game={game}
+        monsters={monsters}
+        preferences={preferences}
+        presets={presets}
+        presetId={selectedPreset}
+        onSelectPreset={setSelectedPreset}
+        onUpdate={updateRuneOptimizationSettings}
+        canEngrave={canEngrave}
+        onEngrave={engraveBuild}
+        runeLocks={runeLocks}
+        onLock={lockRune}
+        onOpenMonster={openMonsterOverlay}
+        onOpenStatistics={openMonsterStatistics}
+        onOpenRune={openRuneOverlay}
+        onTuneSpeed={openSpeedTeam}
+        onEditPreset={editPreset}
+      /></Suspense>}
+    </section>
+
+    <input ref={gameInput} type="file" accept="application/json,.json" hidden
+      onChange={(event) => { void selectGameFile(event.target.files?.[0]); event.target.value = ''; }} />
+    <input ref={settingsInput} type="file" accept=".sw,application/json" hidden
+      onChange={(event) => void handleSettingsImport(event)} />
+
+    {pendingGame && <ReplaceImportDialog
+      pendingGame={pendingGame}
+      onCancel={() => setPendingGame(null)}
+      onReplace={() => void applyFileImport(pendingGame)}
+    />}
+
+    {pendingDirectImportMode && <DirectImportModeDialog
+      mode={pendingDirectImportMode}
+      onCancel={() => setPendingDirectImportMode(null)}
+      onConfirm={confirmDirectImportMode}
+    />}
+
+    {pendingImportRoute && <DirectImportModeDialog
+      mode="live"
+      onCancel={() => setPendingImportRoute(null)}
+      onConfirm={confirmImportRoute}
+    />}
+
+    {loadPreferencesPrompt && <LoadPreferencesDialog
+      onCancel={() => setLoadPreferencesPrompt(false)}
+      onConfirm={() => { setLoadPreferencesPrompt(false); settingsInput.current?.click(); }}
+    />}
+
+    {removeGameDataPrompt && <RemoveGameDataDialog
+      onCancel={() => setRemoveGameDataPrompt(false)}
+      onConfirm={() => { setRemoveGameDataPrompt(false); void removeImport(); }}
+    />}
+
+    {/* Before the monster overlay, which a member's name opens on top of it. */}
+    {speedTeam !== null && <Suspense fallback={null}><PresetSpeedTeamOverlay
+      key={speedTeam}
+      presetId={speedTeam}
+      game={game}
+      monsters={monsters}
+      preferences={preferences}
+      presets={presets}
+      canChangePresets={canEngrave}
+      onWrite={writeSpeedTuning}
+      onLead={(presetId, unitId) => void leadPreset(presetId, unitId)}
+      onClose={closeSpeedTeam}
+      onOpenMonster={openMonsterOverlay}
+      onEditPreset={editPreset}
+    /></Suspense>}
+
+    {overlay?.kind === 'monster' && <Suspense fallback={null}><MonsterOverlay
+      target={overlay.target}
+      game={game?.data}
+      general={preferences.general}
+      profiles={preferences.monsterPreferences}
+      onSave={updateMonsterPreferences}
+      onClose={closeOverlay}
+      presetId={overlay.presetId ?? scenarioPresetId}
+      onOptimize={optimizeMonster}
+      onOpenStatistics={openMonsterStatistics}
+    /></Suspense>}
+
+    {/* After the monster profile, which opens it on top of itself. */}
+    {statisticsMonster !== null && <Suspense fallback={null}><MonsterStatisticsOverlay
+      key={statisticsMonster}
+      masterId={statisticsMonster}
+      general={preferences.general}
+      onClose={closeMonsterStatistics}
+    /></Suspense>}
+
+    {overlayRune && <Suspense fallback={null}><RuneOverlay
+      rune={overlayRune}
+      game={game?.data}
+      profiles={preferences.monsterPreferences}
+      general={preferences.general}
+      settings={preferences.runePotential}
+      roles={preferences.runeRoles}
+      hardwareAcceleration={preferences.hardwareAcceleration}
+      hold={preferences.runeHolds[overlayRune.id]}
+      onHold={overlay?.kind === 'rune' && overlay.target.kind === 'account' ? updateRuneHold : undefined}
+      locked={overlayRune.occupiedId !== null
+        && runeLockOf(runeLocks, scenarioPresetId, overlayRune.occupiedId, overlayRune.id) === 'locked'}
+      onLock={(runeId, unitId, on) => lockRune(scenarioPresetId, unitId, runeId, on ? 'locked' : null)}
+      onClose={closeOverlay}
+    /></Suspense>}
+
+    {report && <ReportDialog
+      report={report}
+      onChange={setReport}
+      onCancel={() => setReport(null)}
+      onSend={sendReport}
+    />}
+  </main></PresetsContext.Provider>;
+}

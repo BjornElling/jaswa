@@ -8,7 +8,7 @@ const server = await createServer({
 });
 
 try {
-  const { craftItemCount } = await server.ssrLoadModule('/app/lib/formatting.ts');
+  const { craftItemCount } = await server.ssrLoadModule('/app/domain/shared/formatting.ts');
 
   assert.equal(craftItemCount([]), 0);
   assert.equal(craftItemCount([

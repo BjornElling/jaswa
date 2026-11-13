@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   allocateRelicEngravings, assertRelicAllocation, rankRelicsForMonster, relicEngravingLimit,
-} from '../app/lib/relic-monster-fit.ts';
-import { relicMonsterModel, relicMonsterValue } from '../app/lib/relic-monster-value.ts';
-import { readRelic, relicEngravingCounts, relicEngravingProblem } from '../app/lib/relics.ts';
+} from '../app/domain/relics/relic-monster-fit.ts';
+import { relicMonsterModel, relicMonsterValue } from '../app/domain/relics/relic-monster-value.ts';
+import { readRelic, relicEngravingCounts, relicEngravingProblem } from '../app/domain/relics/relics.ts';
 
 const account = JSON.parse(readFileSync(new URL('../tests/fixtures/relic-account.json', import.meta.url), 'utf8'));
 const relics = account.relics.map(readRelic);

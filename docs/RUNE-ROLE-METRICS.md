@@ -24,7 +24,7 @@ reads it.
 
 Every figure that is judged — the eight stats and the three composites — is the
 fight's: the display sheet plus exactly what the fight adds (`CombatBonuses` in
-`app/lib/monster-stats.ts`). The developer's decision of October 21, 2026: a
+`app/domain/combat/monster-stats.ts`). The developer's decision of October 21, 2026: a
 value typed into a stat's range is the final value after every bonus, so a CRI
 Rate floor of 100 under a 24-point crit lead asks the runes for 76.
 
@@ -42,7 +42,7 @@ Rate floor of 100 under a 24-point crit lead asks the runes for 76.
   advantage, the attacker gets extra 15% critical hit chance." SWCalc states no
   figure.
 - **Glory buildings and the totem**, read from the export's `deco_list`
-  (`app/lib/account-buildings.ts`, which records the decoration ids, level
+  (`app/domain/account/account-buildings.ts`, which records the decoration ids, level
   tables and their sources): Crystal Altar HP, Ancient Sword ATK and Guardstone
   DEF as a percentage of base; the Sanctuary of the copy's own element as ATK %
   of base; the Fallen Ancient Guardian as CRI Dmg points; the Sky Tribe Totem as
@@ -105,7 +105,7 @@ E.HP D = HP × (1142 + 3.572 × (0.3 × DEF)) / 1000
 DEF break leaves 30 % of the normal DEF (SWCalc Term 4, `Dbreak = 0.3`). E.HP D
 therefore favours HP, while E.HP also rewards the balance between HP and DEF.
 
-`metricDmg`, `metricEhp` and `metricEhpD` in `app/lib/rune-potential-metrics.ts`
+`metricDmg`, `metricEhp` and `metricEhpD` in `app/domain/runes/rune-potential-metrics.ts`
 are the one implementation; the Rune Optimization shader reads their constants
 by name. Every composite on screen and in every comparison is rounded down to a
 whole number (`figureOf`).

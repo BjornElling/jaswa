@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { summarizeRunePlacement, hasRunePlacement, hasRunePlacementOutsideScenario, runePlacementLabel } from '../app/lib/rune-placement.ts';
+import { summarizeRunePlacement, hasRunePlacement, hasRunePlacementOutsideScenario, runePlacementLabel } from '../app/domain/placements/rune-placement.ts';
 
 const scenario = { presetId: 'scenario', unitId: '10' };
 const arena = { presetId: 'arena-1', unitId: '20' };
@@ -29,11 +29,11 @@ assert.deepEqual(runePlacementLabel(presetOnly, () => ''), { label: 'Engraved', 
 /* Standard readers may list every place for their hover, but cannot each decide
    whether a rune is engraved, Scenario-owned, or how many other placements it has. */
 const readers = [
-  'app/components/rune-recommendations.tsx',
-  'app/components/rune-overlay.tsx',
-  'app/components/craft-item-best-use.tsx',
-  'app/lib/rune-cleanup-grid.ts',
-  'app/lib/rune-cleanup-advice.ts',
+  'app/features/rune-cleanup/rune-recommendations.tsx',
+  'app/features/runes/rune-overlay.tsx',
+  'app/features/craft-advice/craft-item-best-use.tsx',
+  'app/domain/runes/cleanup/rune-cleanup-grid.ts',
+  'app/domain/runes/cleanup/rune-cleanup-advice.ts',
 ];
 for (const path of readers) {
   const source = readFileSync(path, 'utf8');
@@ -42,7 +42,7 @@ for (const path of readers) {
   assert.doesNotMatch(source, /\bplaces\.(?:find|some|filter)\s*\(/, `${path} does not classify placements itself`);
 }
 
-const sharedLocation = readFileSync('app/components/engraved-place.tsx', 'utf8');
+const sharedLocation = readFileSync('app/ui/gear/engraved-place.tsx', 'utf8');
 assert.match(sharedLocation, /runePlacementLabel/, 'rune locations use the canonical display reading');
 assert.match(sharedLocation, /export function EngravedPlace\(\{ runePlacement[\s\S]*?runePlacement: RunePlacementSummary;/,
   'the rune location component accepts only the canonical summary');
@@ -50,9 +50,9 @@ assert.match(sharedLocation, /export function ArtifactEngravedPlace\(\{ places[\
   'artifact locations keep a separate all-placements display');
 assert.doesNotMatch(sharedLocation, /\bplaces\.(?:find|some|filter)\s*\(/, 'the shared location component does not classify placements itself');
 
-const page = readFileSync('app/page.tsx', 'utf8');
+const page = readFileSync('app/shell/root.tsx', 'utf8');
 assert.match(page, /summarizeRunePlacement\(places\)/, 'the account boundary builds rune summaries once');
-const context = readFileSync('app/lib/presets-context.ts', 'utf8');
+const context = readFileSync('app/workspace/presets-context.ts', 'utf8');
 assert.match(context, /ReadonlyMap<string, RunePlacementSummary>/, 'rune workspaces receive the canonical summary');
 
 function sourceFiles(directory) {
@@ -64,7 +64,7 @@ function sourceFiles(directory) {
 
 const placementPredicate = /\b(?:place|entry|engraving)\.presetId\s*(?:===|!==)\s*scenarioPresetId/;
 for (const path of sourceFiles('app')) {
-  if (path === 'app/lib/rune-placement.ts') continue;
+  if (path === 'app/domain/placements/rune-placement.ts') continue;
   const source = readFileSync(path, 'utf8');
   assert.doesNotMatch(source, placementPredicate, `${path} does not classify Scenario placements itself`);
   assert.doesNotMatch(source, /\b(?:runePlacement|placement|summary)\.(?:elsewhere\.length|scenario\s*(?:===|!==))/, `${path} reads the canonical summary instead of reclassifying it`);

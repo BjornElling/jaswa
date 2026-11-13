@@ -10,17 +10,17 @@ are not, and where each part of it runs.
 
 | Module | Owns |
 | --- | --- |
-| `app/lib/rune-optimization-requirements.ts` | A calculation's requirements, seeded from the profile (§2) |
-| `app/lib/rune-optimization-problem.ts` | Candidates, filters, exact reduction, the depth's cut (§3–§5) |
-| `app/lib/rune-optimization-ranges.ts` | Figure dependencies, generous envelopes and proof of binding limits (§4.1, §4.3) |
-| `app/lib/rune-optimization-shortlist.ts` | Exact range feasibility, complementary builds and paired improvements for the cut (§4.3, §5) |
-| `app/lib/rune-optimization-craft-allocation.ts` | Exact per-stat allocation of held grades and stones after Gem placements are chosen (§6.4) |
-| `app/lib/rune-optimization-search.ts` | The tree, the tail's blocks, the passes to a card, the merge of parts (§6–§7) |
-| `app/lib/rune-optimization-settings.ts` | How to search: craft items, rune sources, depth, table size |
-| `app/lib/rune-optimization-work.ts` | Measured trials, sampling uncertainty and the work reading (§5) |
-| `app/lib/compute/rune-optimization-*.ts` | Workers, the client that fans out to them and relays their bars, the engine door (§6.5, §7) |
-| `app/lib/compute/{backends,webgpu}/*rune-optimization*` | The card's packing, agreement gate, layout and shader (§7) |
-| `app/components/rune-optimization-section.tsx` | The page (§8) |
+| `app/domain/runes/optimization/rune-optimization-requirements.ts` | A calculation's requirements, seeded from the profile (§2) |
+| `app/domain/runes/optimization/rune-optimization-problem.ts` | Candidates, filters, exact reduction, the depth's cut (§3–§5) |
+| `app/domain/runes/optimization/rune-optimization-ranges.ts` | Figure dependencies, generous envelopes and proof of binding limits (§4.1, §4.3) |
+| `app/domain/runes/optimization/rune-optimization-shortlist.ts` | Exact range feasibility, complementary builds and paired improvements for the cut (§4.3, §5) |
+| `app/domain/runes/optimization/rune-optimization-craft-allocation.ts` | Exact per-stat allocation of held grades and stones after Gem placements are chosen (§6.4) |
+| `app/domain/runes/optimization/rune-optimization-search.ts` | The tree, the tail's blocks, the passes to a card, the merge of parts (§6–§7) |
+| `app/domain/profiles/rune-optimization-settings.ts` | How to search: craft items, rune sources, depth, table size |
+| `app/domain/runes/optimization/rune-optimization-work.ts` | Measured trials, sampling uncertainty and the work reading (§5) |
+| `app/platform/compute/rune-optimization-*.ts` | Workers, the client that fans out to them and relays their bars, the engine door (§6.5, §7) |
+| `app/platform/gpu/{backends,layouts,shaders}/*rune-optimization*` | The card's packing, agreement gate, layout and shader (§7) |
+| `app/features/rune-optimization/rune-optimization-section.tsx` | The page (§8) |
 
 Every figure comes from the shared stat sheet in `monster-stats.ts`, every craft rule
 from `rune-craft-end-state.ts`, every build from `rune-set-pairs.ts`, every set fact from

@@ -5,11 +5,11 @@
  * Pearson's chi-square tests non-sparse survivors; sparse results are explicitly
  * unmeasured. All 625 settings additionally hold floor and preference monotonicity.
  */
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
-import { ordinarySample } from '../app/lib/rune-cleanup-model.ts';
-import { calculatedRuneVerdict, runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/lib/rune-cleanup-advice.ts';
-import { countJobs } from '../app/lib/rune-power-up-outcomes.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
+import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
+import { ordinarySample } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { calculatedRuneVerdict, runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { countJobs } from '../app/domain/runes/rune-power-up-outcomes.ts';
 
 const base = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],

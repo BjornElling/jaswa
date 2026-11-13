@@ -185,11 +185,11 @@ try {
   if (!skipped) {
   console.log(`Snapshot from ${logPath}\n`);
 
-  const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
-  const { artifactEngraveClass } = await server.ssrLoadModule('/app/lib/artifact-grid.ts');
+  const { readArtifact } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
+  const { artifactEngraveClass } = await server.ssrLoadModule('/app/domain/artifacts/artifact-grid.ts');
   const { createImportedGame, validateGameFile } = await server.ssrLoadModule('/app/ingest/game-export.ts');
-  const { accountCounts } = await server.ssrLoadModule('/app/lib/account-counts.ts');
-  const { readDeckPresets } = await server.ssrLoadModule('/app/lib/deck-presets.ts');
+  const { accountCounts } = await server.ssrLoadModule('/app/domain/account/account-counts.ts');
+  const { readDeckPresets } = await server.ssrLoadModule('/app/domain/placements/deck-presets.ts');
 
   /* Import the account through the real entry point, so the audit measures the
      pipeline the user actually gets rather than a convenient subset of it. */
@@ -254,7 +254,7 @@ try {
   /* Every saved deck must be a preset the interface can reach, carrying its
      own placements: a deck read and then not offered is the invisible gap
      `AGENTS.md` §0.1 forbids (`DECK-PRESETS.md` §6). */
-  const { readPresets, presetMenu } = await server.ssrLoadModule('/app/lib/presets.ts');
+  const { readPresets, presetMenu } = await server.ssrLoadModule('/app/domain/placements/presets.ts');
   const presets = readPresets(data, []);
   const offered = new Set(presetMenu(presets).flatMap((tab) => tab.areas.flatMap((area) => area.presets.map((preset) => preset.id))));
   const unreachable = importedDecks.filter((deck) => !offered.has(deck.key));
@@ -308,15 +308,15 @@ try {
   /* An Intangible artifact must be judged against every monster its category
      allows. Scoring it against none would be the same invisibility by another
      route, so parity is checked on the scoring side too. */
-  const { buildArtifactScoreRequestsForMonsterIds } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
-  const { calculateArtifactScoresCpu } = await server.ssrLoadModule('/app/lib/compute/artifact-score-core.ts');
-  const { recordedArtifactPreferenceMonsterIds } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
+  const { buildArtifactScoreRequestsForMonsterIds } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-input.ts');
+  const { calculateArtifactScoresCpu } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-core.ts');
+  const { recordedArtifactPreferenceMonsterIds } = await server.ssrLoadModule('/app/domain/profiles/artifact-preferences.ts');
   /* The shipped defaults, not a hand-written copy: a settings field this audit
      forgets reads as `undefined` and can silently exclude the very artifacts it
      exists to prove are visible. `includeIntangibleArtifacts` did exactly that.
      The scope is widened to every captured monster because parity asks what
      JASWA *can* judge, not what this account happens to own. */
-  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/ingest/preferences.ts');
+  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/domain/profiles/preference-defaults.ts');
   const defaultSettings = { ...defaultArtifactSettings, onlyFactorInOwnedMonsters: false };
   const unscorable = [];
   for (const entry of accepted) {
@@ -355,7 +355,7 @@ try {
   /* Runes have no whole-record reader to audit; what the interface depends on
      is the set id resolving to a name, so an unrecognised set is the rune-side
      equivalent of an unresolved engrave class. */
-  const { runeSetName } = await server.ssrLoadModule('/app/lib/rune-sets.ts');
+  const { runeSetName } = await server.ssrLoadModule('/app/domain/runes/rune-sets.ts');
   const runeRecords = Array.isArray(data.runes) ? data.runes : [];
   const unknownSets = runeRecords.filter((rune) => runeSetName(rune?.set_id) === undefined);
   console.log(`\nRunes after import merge: ${runeRecords.length}`);
@@ -370,7 +370,7 @@ try {
   // ---- Monsters ------------------------------------------------------------
   /* A monster the catalogue does not describe scores as archetype 0, so it is
      the monster-side parity gap and belongs in the same report. */
-  const { hasMonsterCatalogEntry } = await server.ssrLoadModule('/app/lib/monster-catalog.ts');
+  const { hasMonsterCatalogEntry } = await server.ssrLoadModule('/app/domain/monsters/monster-catalog.ts');
   const monsterRecords = [
     ...(Array.isArray(data.unit_list) ? data.unit_list : []),
     ...(Array.isArray(data.unit_storage_normal_list) ? data.unit_storage_normal_list : []),

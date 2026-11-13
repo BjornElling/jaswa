@@ -20,8 +20,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const propertiesPath = resolve(repositoryRoot, 'app/lib/artifact-properties.ts');
-const tiersPath = resolve(repositoryRoot, 'app/lib/quality-tiers.ts');
+const propertiesPath = resolve(repositoryRoot, 'app/domain/artifacts/artifact-properties.ts');
+const tiersPath = resolve(repositoryRoot, 'app/domain/shared/quality-tiers.ts');
 const imageDirectory = resolve(repositoryRoot, 'public/artifact-images');
 const allowlistPath = resolve(repositoryRoot, 'app/data/local-artifact-images.ts');
 const imageBaseUrl = 'https://swarfarm.com/static/herders/images/artifacts/';
@@ -46,9 +46,9 @@ function namesIn(source, pattern, what) {
 async function wantedFilenames() {
   const properties = await readFile(propertiesPath, 'utf8');
   const tiers = await readFile(tiersPath, 'utf8');
-  const grades = namesIn(tiers, /qualityTiers\s*=\s*\[([^\]]*)\]/, 'qualityTiers in app/lib/quality-tiers.ts');
-  const elements = namesIn(properties, /artifactElements[^=]*=\s*\{([^}]*)\}/, 'artifactElements in app/lib/artifact-properties.ts');
-  const archetypes = namesIn(properties, /artifactArchetypes[^=]*=\s*\{([^}]*)\}/, 'artifactArchetypes in app/lib/artifact-properties.ts');
+  const grades = namesIn(tiers, /qualityTiers\s*=\s*\[([^\]]*)\]/, 'qualityTiers in app/domain/shared/quality-tiers.ts');
+  const elements = namesIn(properties, /artifactElements[^=]*=\s*\{([^}]*)\}/, 'artifactElements in app/domain/artifacts/artifact-properties.ts');
+  const archetypes = namesIn(properties, /artifactArchetypes[^=]*=\s*\{([^}]*)\}/, 'artifactArchetypes in app/domain/artifacts/artifact-properties.ts');
   const layers = grades.flatMap((grade) => [`bg_${grade}.png`, `element_${grade}.png`, `archetype_${grade}.png`]);
   return [...layers, ...[...elements, ...archetypes].map((name) => `${name}.png`)];
 }

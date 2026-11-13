@@ -3,9 +3,9 @@
 **Status:** Binding project rules for `app/data/engraving-statistics.json` and the defaults read from it
 **Reviewed:** October 20, 2026
 **Collected by:** `scripts/collect-engraving-statistics.mjs`
-**Read by:** `app/lib/monster-defaults.ts` (all three panels, as the preference
-defaults), `app/lib/artifact-preferences.ts` (the artifact scoring defaults),
-`app/lib/monster-usage-statistics.ts` (the game statistics overlay, §11)
+**Read by:** `app/domain/profiles/monster-defaults.ts` (all three panels, as the preference
+defaults), `app/domain/profiles/artifact-preferences.ts` (the artifact scoring defaults),
+`app/domain/reference/monster-usage-statistics.ts` (the game statistics overlay, §11)
 **Held by:** `npm run verify:statistics-tiers`, `npm run verify:monster-defaults`
 
 ---
@@ -238,7 +238,7 @@ own calculation (`RELIC-CANONICAL.md` §11.9).
 ## 11. Where the panels are shown
 
 **The shares have one place on screen: the game statistics overlay**
-(`app/components/monster-statistics-overlay.tsx`). The monster profile and
+(`app/features/monsters/monster-statistics-overlay.tsx`). The monster profile and
 Rune Optimization each carry one *Statistics* button that opens it over
 the page — on the profile beside the monster's own facts, since the figures are
 about the species, and on Rune Optimization after *Reset to profile*, under the

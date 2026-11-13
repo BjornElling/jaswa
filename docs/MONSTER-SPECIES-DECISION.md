@@ -5,7 +5,7 @@ about a monster rests on (settled September 1, 2026, against 112 pairs captured
 on both sides)
 **Reviewed:** October 20, 2026
 **Enforced by:** `npm run verify:collaboration-species`
-**Implemented in:** `app/lib/monster-species.ts`, `app/data/collaboration-species.json`
+**Implemented in:** `app/domain/monsters/monster-species.ts`, `app/data/collaboration-species.json`
 
 ---
 
@@ -21,7 +21,7 @@ The species representative is the **generic** id, because it outlives the event.
 outside the synchronised catalogue so a refresh never overwrites them; the
 verifier prints how many. The relation cannot be derived from the id: the early
 collaborations sit in family blocks at a fixed offset, while Demon Slayer,
-TEKKEN 8 and The Lord of the Rings do not. `app/lib/monster-species.ts` and
+TEKKEN 8 and The Lord of the Rings do not. `app/domain/monsters/monster-species.ts` and
 `scripts/collect-engraving-statistics.mjs` both read the file, so there is one
 source. In a general context the pair is shown once, under both of its names:
 
@@ -55,7 +55,7 @@ every other collaboration pairing in the table.
 ## Pooling happens at read time
 
 The dataset on disk stays a faithful record of what was observed under each
-name. `app/lib/artifact-preferences.ts` resolves the species when it reads, and
+name. `app/domain/profiles/artifact-preferences.ts` resolves the species when it reads, and
 takes the later observation of the two. This keeps 3.9 MB of history honest and
 lets a corrected pairing take effect without a migration.
 

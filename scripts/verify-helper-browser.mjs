@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 /* Read the recommended version rather than restating it. A literal here is one
    more copy to bump, and the copy nobody remembers — it would fail the next
    release for no reason other than its own staleness. */
-const recommended = (await readFile('app/lib/helper-version.ts', 'utf8')).match(/recommendedHelperVersion = '(\d+\.\d+\.\d+)'/)[1];
+const recommended = (await readFile('app/domain/shared/helper-version.ts', 'utf8')).match(/recommendedHelperVersion = '(\d+\.\d+\.\d+)'/)[1];
 const installerName = `JASWA-Helper-Setup-${recommended}.exe`;
 /* A helper older than any release, so the update box must appear for it
    whatever the current version is, and then disappear once the helper reports

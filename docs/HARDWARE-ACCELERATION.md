@@ -7,8 +7,8 @@ One rule, for the whole program: **heavy work goes to the graphics card unless t
 user switched it off or the card refused.** This document says what "heavy work"
 means, how a calculation states its two halves, and what a calculation may not do.
 
-`app/lib/compute/accelerated-calculation.ts` is the rule. `app/lib/compute/gpu/`
-is the plumbing. `app/lib/hardware-acceleration.ts` is the detection the Home page
+`app/platform/compute/accelerated-calculation.ts` is the rule. `app/platform/gpu/`
+is the plumbing. `app/platform/hardware-acceleration.ts` is the detection the Home page
 shows, and it is display only — it never gates anything.
 
 ---

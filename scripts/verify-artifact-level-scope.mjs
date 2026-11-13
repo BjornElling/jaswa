@@ -21,12 +21,12 @@ function artifact(id) {
 }
 
 try {
-  const { artifactOptimizationMonsters } = await server.ssrLoadModule('/app/lib/artifact-optimization-monsters.ts');
-  const { canEngraveArtifacts, canEngraveRelics } = await server.ssrLoadModule('/app/lib/monster-engrave-eligibility.ts');
-  const { relicEngravingCounts } = await server.ssrLoadModule('/app/lib/relics.ts');
-  const { buildArtifactScoreRequests } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
-  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/ingest/preferences.ts');
-  const { recordedArtifactPreferenceMonsterIds } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
+  const { artifactOptimizationMonsters } = await server.ssrLoadModule('/app/domain/artifacts/artifact-optimization-monsters.ts');
+  const { canEngraveArtifacts, canEngraveRelics } = await server.ssrLoadModule('/app/domain/monsters/monster-engrave-eligibility.ts');
+  const { relicEngravingCounts } = await server.ssrLoadModule('/app/domain/relics/relics.ts');
+  const { buildArtifactScoreRequests } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-input.ts');
+  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/domain/profiles/preference-defaults.ts');
+  const { recordedArtifactPreferenceMonsterIds } = await server.ssrLoadModule('/app/domain/profiles/artifact-preferences.ts');
 
   const masterId = recordedArtifactPreferenceMonsterIds[0];
   const monsters = [

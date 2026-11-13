@@ -1,8 +1,8 @@
 import { isValidImportedGame } from '../ingest/game-export';
 import { readPreferences } from '../ingest/preferences';
-import { readLoadedPlacements } from '../lib/engrave-rune-build';
-import { readRuneLocks } from '../lib/rune-locks';
-import type { ImportedGame, Preferences } from '../lib/types';
+import { readLoadedPlacements } from '../domain/placements/engrave-rune-build';
+import { readRuneLocks } from '../domain/placements/rune-locks';
+import type { ImportedGame, Preferences } from '../domain/model';
 
 export type WorkspaceReader = {
   loadGame(): Promise<unknown>;

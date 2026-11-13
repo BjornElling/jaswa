@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
 const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8'));
-const version = /recommendedHelperVersion = '(\d+\.\d+\.\d+)'/.exec(readFileSync(new URL('../app/lib/helper-version.ts', import.meta.url), 'utf8'))![1];
+const version = /recommendedHelperVersion = '(\d+\.\d+\.\d+)'/.exec(readFileSync(new URL('../app/domain/shared/helper-version.ts', import.meta.url), 'utf8'))![1];
 
 test.use({ viewport: { width: 1440, height: 1100 } });
 

@@ -8,8 +8,8 @@ const server = await createServer({
 });
 
 try {
-  const { highestAwakeningMasterId } = await server.ssrLoadModule('/app/lib/monster-catalog.ts');
-  const { artifactPreferenceStatus, defaultPropertyPreferences } = await server.ssrLoadModule('/app/lib/artifact-preferences.ts');
+  const { highestAwakeningMasterId } = await server.ssrLoadModule('/app/domain/monsters/monster-catalog.ts');
+  const { artifactPreferenceStatus, defaultPropertyPreferences } = await server.ssrLoadModule('/app/domain/profiles/artifact-preferences.ts');
 
   for (const [held, highest] of [['11712', '11732'], ['30003', '30013']]) {
     assert.equal(highestAwakeningMasterId(held), highest,

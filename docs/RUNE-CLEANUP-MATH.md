@@ -12,12 +12,12 @@ refresh, the safeguard controls, the filter panel — is
 
 | Module | Owns |
 | --- | --- |
-| `app/lib/rune-substat-weights.ts` | What one sub property is worth to one role (§3–§4) |
-| `app/lib/rune-craft-end-state.ts` | What a Gem and a Grindstone do (§6) |
-| `app/lib/rune-power-up-outcomes.ts` | What a rune may still become, and how likely (§7) |
-| `app/lib/rune-cleanup-model.ts` | Every other piece of arithmetic: the perfect rune, the ordinary box, a candidate (§5, §8, §9.1) |
-| `app/lib/rune-cleanup-advice.ts` | Policy: gates, calibration, Best role, verdicts, safeguards (§9) |
-| `app/lib/compute/rune-chance-*` | Where the counting runs (§10.1) |
+| `app/domain/runes/rune-substat-weights.ts` | What one sub property is worth to one role (§3–§4) |
+| `app/domain/runes/craft/rune-craft-end-state.ts` | What a Gem and a Grindstone do (§6) |
+| `app/domain/runes/rune-power-up-outcomes.ts` | What a rune may still become, and how likely (§7) |
+| `app/domain/runes/cleanup/rune-cleanup-model.ts` | Every other piece of arithmetic: the perfect rune, the ordinary box, a candidate (§5, §8, §9.1) |
+| `app/domain/runes/cleanup/rune-cleanup-advice.ts` | Policy: gates, calibration, Best role, verdicts, safeguards (§9) |
+| `app/platform/compute/rune-chance-engine.ts`, `app/platform/gpu/*/rune-chance-*` | Where the counting runs (§10.1) |
 
 §10 lists the checks that hold each part.
 
@@ -310,7 +310,7 @@ user which build they intend — a role-model decision, not made here.
 
 ## 6. Gems and Grindstones
 
-`app/lib/rune-craft-end-state.ts` is the only module that applies the craft rules, and
+`app/domain/runes/craft/rune-craft-end-state.ts` is the only module that applies the craft rules, and
 `npm run verify:rune-craft-single-source` keeps it that way. The game's rules are
 `RUNE-CANONICAL.md` §8; that module's header lists them as applied. What this model adds:
 
@@ -711,7 +711,7 @@ is right — and both are needed.
 ### 10.1 Where the counting happens
 
 The odds are the one part of this calculation shaped like a graphics card's work, so
-`app/lib/compute/` offers them to the card through the one door of
+`app/platform/compute/` offers them to the card through the one door of
 `docs/HARDWARE-ACCELERATION.md`, and the status line under the table names the engine
 that answered. What does not move:
 

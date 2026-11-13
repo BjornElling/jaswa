@@ -1,18 +1,22 @@
 import assert from 'node:assert/strict';
-import { readCraftItem, missingCraftItems, missingCraftGrades, missingCraftLineages } from '../app/lib/rune-craft-items.ts';
+import { readCraftItem, missingCraftItems, missingCraftGrades, missingCraftLineages } from '../app/domain/runes/craft/rune-craft-items.ts';
 import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, canonicalCraftCredit,
-  gemOptions } from '../app/lib/rune-craft-end-state.ts';
-import { defaultRuneRoles, createRuneRole } from '../app/lib/rune-roles.ts';
-import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
-import { acceptedWorth, brokenWorth } from '../app/lib/rune-cleanup-advice.ts';
-import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope } from '../app/lib/rune-cleanup-model.ts';
-import { recommendRuneCraft, craftRecommendationRankings, craftMatchesChangeFilter, heldCraftBenchmark, isHeldCraft,
+  gemOptions } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { defaultRuneRoles, createRuneRole } from '../app/domain/profiles/rune-roles.ts';
+import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
+import { acceptedWorth, brokenWorth } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { recommendRuneCraft as recommendWith, craftRecommendationRankings, craftMatchesChangeFilter, heldCraftBenchmark, isHeldCraft,
   wantedCraftItems, craftItemKey, craftRuneKey, reconcileCraftCalculation, craftExtensionRequests, extendCraftCalculation,
-  desirableGemStats, onDesirableGemStat } from '../app/lib/rune-craft-recommendations.ts';
-import { craftScoreLayout as L } from '../app/lib/compute/webgpu/craft-score-layout.ts';
+  desirableGemStats, onDesirableGemStat } from '../app/domain/runes/craft-advice/rune-craft-recommendations.ts';
+import { craftScoreLayout as L } from '../app/domain/runes/craft-advice/craft-score-layout.ts';
+import { craftScore } from '../app/domain/runes/craft-advice/craft-score.ts';
 import { readFileSync } from 'node:fs';
 
-const source = readFileSync('app/lib/compute/craft-score-engine.ts', 'utf8');
+const source = readFileSync('app/platform/compute/craft-score-engine.ts', 'utf8');
+/* The processor reference, which is what every answer below is held to. */
+const recommendRuneCraft = (request, progress) => recommendWith(request,
+  async (jobs) => ({ result: Float64Array.from(jobs, craftScore), backend: 'cpu' }), progress);
 assert.equal(L.prices, L.values + L.stats);
 assert.equal(L.discount, L.prices + L.stats);
 assert.equal(L.discount + 1, L.stride);

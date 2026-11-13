@@ -9,7 +9,7 @@
  * Measured against the rules written out from `RUNE-CANONICAL.md` §8, the first was
  * up to nine per cent short on a real rune, and nothing failed.
  *
- * So `app/lib/rune-craft-end-state.ts` is the only module under `app/` allowed to
+ * So `app/domain/runes/craft/rune-craft-end-state.ts` is the only module under `app/` allowed to
  * read the §8 tables or decide what a craft item does, and this check fails if a
  * sixth copy starts to appear. It is source text rather than behaviour on purpose:
  * a second implementation that happens to agree today is still a second
@@ -19,7 +19,7 @@
  * has to know them. What it must not do is decide anything with them.
  *
  * **One second implementation is sanctioned, and this check cannot see it.** The
- * Clean-up chance shader, `compute/webgpu/rune-chance-shader.ts`, applies the same
+ * Clean-up chance shader, `platform/gpu/shaders/rune-chance-shader.ts`, applies the same
  * rules in WGSL — one converted line, a same-id re-Gem keeping its stone, no
  * duplicate id, never a forced Gem — because the card cannot call TypeScript. It is
  * the bargain `docs/HARDWARE-ACCELERATION.md` makes: `runeChanceAgreement` in its
@@ -35,8 +35,8 @@ const searched = join(root, 'app');
 
 /** The two files that are allowed to know, and what each of them is for. */
 const owners = new Map([
-  [join('app', 'lib', 'rune-craft-items.ts'), 'holds the §8 tables and reads the export'],
-  [join('app', 'lib', 'rune-craft-end-state.ts'), 'is the one place the rules are applied'],
+  [join('app', 'domain', 'runes', 'craft', 'rune-craft-items.ts'), 'holds the §8 tables and reads the export'],
+  [join('app', 'domain', 'runes', 'craft', 'rune-craft-end-state.ts'), 'is the one place the rules are applied'],
 ]);
 
 /**
@@ -77,7 +77,7 @@ for (const path of everyFile(searched)) {
 
 /* And the owner of the rules has to still be the owner: a file that no longer states
    them has been hollowed out by a refactor that moved them somewhere else. */
-const endState = readFileSync(join(root, 'app', 'lib', 'rune-craft-end-state.ts'), 'utf8');
+const endState = readFileSync(join(root, 'app', 'domain', 'runes', 'craft', 'rune-craft-end-state.ts'), 'utf8');
 for (const required of ['craftedScore', 'gemOptions', 'groundValue', 'isGrindableStatId']) {
   if (!endState.includes(`export function ${required}`) && !endState.includes(`export const ${required}`)) {
     offences.push(`rune-craft-end-state.ts no longer exports ${required}`);
@@ -87,7 +87,7 @@ for (const required of ['craftedScore', 'gemOptions', 'groundValue', 'isGrindabl
 if (offences.length > 0) {
   console.error('The Gem and Grindstone rules have started to spread:');
   for (const offence of offences) console.error(`  ${offence}`);
-  console.error('\nEvery caller takes its answer from app/lib/rune-craft-end-state.ts.');
+  console.error('\nEvery caller takes its answer from app/domain/runes/craft/rune-craft-end-state.ts.');
   process.exit(1);
 }
 

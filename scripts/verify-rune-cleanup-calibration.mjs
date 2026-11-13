@@ -9,17 +9,17 @@
  *
  * Release run: --runes=250000 --rollouts=30000.
  */
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
+import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
   addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
-} from '../app/lib/rune-properties.ts';
-import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
-import { craftRollValue, craftValueRange } from '../app/lib/rune-craft-items.ts';
+} from '../app/domain/runes/rune-properties.ts';
+import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/domain/runes/runes.ts';
+import { craftRollValue, craftValueRange } from '../app/domain/runes/craft/rune-craft-items.ts';
 import {
   chanceRuns, judgeAgainstBuild, prepareRuneCandidate, roleBuilds,
-} from '../app/lib/rune-cleanup-model.ts';
+} from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));

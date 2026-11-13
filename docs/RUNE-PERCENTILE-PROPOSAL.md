@@ -42,11 +42,11 @@ The relevant sources were inspected together:
 | Source | Current responsibility |
 | --- | --- |
 | [RUNE-CLEANUP-MATH.md](RUNE-CLEANUP-MATH.md) §§5–9 | Value, future projection, gates and calibration |
-| `app/lib/rune-cleanup-model.ts` | Candidate scores, ceilings and diagnostic ordinary distributions |
-| `app/lib/rune-cleanup-advice.ts` | Shared slot floors, discounts, role choice and verdicts |
-| `app/lib/rune-power-up-outcomes.ts` | Remaining events, bounds and deterministic sampling |
-| `app/lib/rune-generation.ts` | Synthetic drop model shared with Simulator |
-| `app/lib/rune-craft-end-state.ts` | All legal Gem and Grindstone end states |
+| `app/domain/runes/cleanup/rune-cleanup-model.ts` | Candidate scores, ceilings and diagnostic ordinary distributions |
+| `app/domain/runes/cleanup/rune-cleanup-advice.ts` | Shared slot floors, discounts, role choice and verdicts |
+| `app/domain/runes/rune-power-up-outcomes.ts` | Remaining events, bounds and deterministic sampling |
+| `app/domain/runes/rune-generation.ts` | Synthetic drop model shared with Simulator |
+| `app/domain/runes/craft/rune-craft-end-state.ts` | All legal Gem and Grindstone end states |
 
 Currently, Max value is the best reachable crafted score divided by a legal
 perfect-rune ceiling. The five quality anchors are 45%, 55%, 65%, 75% and 85%.

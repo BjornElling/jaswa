@@ -17,7 +17,7 @@
  *
  * Usage: node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-synergy.mjs
  */
-import { relicProperties, relicMainPropertyOrder } from '../app/lib/relic-properties.ts';
+import { relicProperties, relicMainPropertyOrder } from '../app/domain/relics/relic-properties.ts';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +25,7 @@ import {
   cycledRelicSynergyBand, defaultRelicSynergy, hasRelicSynergyRow, readRelicSynergyChoices, relicSynergy,
   relicSynergyBandOrder, relicSynergyCells, relicSynergyChoices, resolveRelicSynergy, sameRelicSynergy,
   withRelicSynergyCell,
-} from '../app/lib/relic-synergy.ts';
+} from '../app/domain/relics/relic-synergy.ts';
 
 let failures = 0;
 function check(ok, message) {

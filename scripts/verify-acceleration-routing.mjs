@@ -30,14 +30,15 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 const root = process.cwd();
-const compute = join('app', 'lib', 'compute');
+const compute = join('app', 'platform', 'compute');
+const gpu = join('app', 'platform', 'gpu');
 
 /** The one module allowed to open a device, and the one allowed to detect a card. */
 const deviceOwners = new Set([
-  join(compute, 'gpu', 'gpu-context.ts'),
+  join(gpu, 'gpu-context.ts'),
   /* Display only: the Home page's Connected box. It gates nothing, which is why it is
      allowed to ask a question of its own. */
-  join('app', 'lib', 'hardware-acceleration.ts'),
+  join('app', 'platform', 'hardware-acceleration.ts'),
 ]);
 
 /**

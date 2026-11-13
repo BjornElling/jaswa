@@ -23,18 +23,18 @@ import assert from 'node:assert/strict';
 import {
   battleSpeedPercent, combatSpeed, displaySpeed, displayedSwiftBonus, everyoneMoved, leaderAreaReaches, leaderSpeedPercent,
   runeSpeedForDisplay, simulateBattle, speedBuffPotency, ticksToFirstTurn, totemPercentByLevel,
-} from '../app/lib/speed-tick.ts';
-import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/lib/speed-skills.ts';
-import { dungeonIds, fastestEnemySpeed, speedContent, speedContents } from '../app/lib/speed-contents.ts';
-import { accuracyCeilings, usefulAccuracy } from '../app/lib/accuracy-ceiling.ts';
-import { enemyNamesOf, readSpeedTeam } from '../app/lib/speed-tuning-analysis.ts';
-import { presetContent, presetContents } from '../app/lib/preset-contents.ts';
+} from '../app/domain/speed/speed-tick.ts';
+import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/domain/speed/speed-skills.ts';
+import { dungeonIds, fastestEnemySpeed, speedContent, speedContents } from '../app/domain/speed/speed-contents.ts';
+import { accuracyCeilings, usefulAccuracy } from '../app/domain/combat/accuracy-ceiling.ts';
+import { enemyNamesOf, readSpeedTeam } from '../app/domain/speed/speed-tuning-analysis.ts';
+import { presetContent, presetContents } from '../app/domain/placements/preset-contents.ts';
 import {
   isSpeedTuningPreferences, presetSpeedTeam, readSpeedTuningPreferences, speedTuningOf,
-} from '../app/lib/speed-tuning-preferences.ts';
-import { accountBuildingsProblem, readBuildingBonuses, readSkyTribeTotem } from '../app/lib/account-buildings.ts';
-import { calculateMonsterTotals, monsterSpeedParts } from '../app/lib/monster-stats.ts';
-import { hasMonsterCatalogEntry } from '../app/lib/monster-catalog.ts';
+} from '../app/domain/profiles/speed-tuning-preferences.ts';
+import { accountBuildingsProblem, readBuildingBonuses, readSkyTribeTotem } from '../app/domain/account/account-buildings.ts';
+import { calculateMonsterTotals, monsterSpeedParts } from '../app/domain/combat/monster-stats.ts';
+import { hasMonsterCatalogEntry } from '../app/domain/monsters/monster-catalog.ts';
 
 let checks = 0;
 function check(condition, message) {

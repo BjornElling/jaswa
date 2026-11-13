@@ -69,10 +69,10 @@ try {
   const page = await browser.newPage();
   await page.goto(`${origin}/`);
   const report = await page.evaluate(async (cases) => {
-    const { GpuContext } = await import('/app/lib/compute/gpu/gpu-context.ts');
-    const { prepareRuneOptimization } = await import('/app/lib/rune-optimization-problem.ts');
-    const { searchRuneBuilds, searchRuneBuildsInPasses } = await import('/app/lib/rune-optimization-search.ts');
-    const backend = await import('/app/lib/compute/backends/webgpu-rune-optimization-backend.ts');
+    const { GpuContext } = await import('/app/platform/gpu/gpu-context.ts');
+    const { prepareRuneOptimization } = await import('/app/domain/runes/optimization/rune-optimization-problem.ts');
+    const { searchRuneBuilds, searchRuneBuildsInPasses } = await import('/app/domain/runes/optimization/rune-optimization-search.ts');
+    const backend = await import('/app/platform/gpu/backends/webgpu-rune-optimization-backend.ts');
     const context = new GpuContext();
     if (!await context.ready()) return { card: false };
     const agrees = await backend.runeOptimizationAgreement(context);

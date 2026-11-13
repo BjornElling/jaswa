@@ -20,17 +20,17 @@
  *     scripts/verify-rune-best-role.mjs
  */
 import assert from 'node:assert/strict';
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
+import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
 import {
   acceptedWorth, brokenWorth, chanceThresholds, runeAdvice, slotFloorMaxValues,
-} from '../app/lib/rune-cleanup-advice.ts';
+} from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
   candidateChance, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
   newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, runeRuns,
   slotMainFamily, standingIn,
-} from '../app/lib/rune-cleanup-model.ts';
-import { canonicalCraftCredit, craftedScore } from '../app/lib/rune-craft-end-state.ts';
+} from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { canonicalCraftCredit, craftedScore } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
 const base = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],

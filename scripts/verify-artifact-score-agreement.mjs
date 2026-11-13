@@ -4,7 +4,7 @@
  * A score reaches the screen by two routes, and they cannot be collapsed into
  * one without losing something real:
  *
- * - **The packed scorer** (`compute/artifact-score-core.ts`) reads typed arrays
+ * - **The packed scorer** (`domain/artifacts/score/artifact-score-core.ts`) reads typed arrays
  *   and is written to be run over hundreds of thousands of pairs at once, on
  *   the CPU or, in the same shape, on the graphics card. The optimization pages
  *   rank with it.
@@ -45,14 +45,14 @@ const acceptableWorthChoices = [0, 25, 50, 75, 100];
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { readArtifacts } = await server.ssrLoadModule('/app/lib/artifacts.ts');
-  const { artifactValueOnMonster } = await server.ssrLoadModule('/app/lib/artifact-value-on-monster.ts');
-  const { buildArtifactScoreRequestsForMonsterIds } = await server.ssrLoadModule('/app/lib/compute/artifact-score-input.ts');
-  const { artifactPairScore } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
-  const { canEngraveArtifacts } = await server.ssrLoadModule('/app/lib/monster-engrave-eligibility.ts');
-  const { monsterSpeciesId } = await server.ssrLoadModule('/app/lib/monster-species.ts');
+  const { readArtifacts } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
+  const { artifactValueOnMonster } = await server.ssrLoadModule('/app/domain/artifacts/artifact-value-on-monster.ts');
+  const { buildArtifactScoreRequestsForMonsterIds } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-input.ts');
+  const { artifactPairScore } = await server.ssrLoadModule('/app/domain/artifacts/artifact-recommendations.ts');
+  const { canEngraveArtifacts } = await server.ssrLoadModule('/app/domain/monsters/monster-engrave-eligibility.ts');
+  const { monsterSpeciesId } = await server.ssrLoadModule('/app/domain/monsters/monster-species.ts');
   const { createImportedGame } = await server.ssrLoadModule('/app/ingest/game-export.ts');
-  const { speciesMainStatAdvice } = await server.ssrLoadModule('/app/lib/main-stat-model.ts');
+  const { speciesMainStatAdvice } = await server.ssrLoadModule('/app/domain/combat/main-stat-model.ts');
 
   /* The app never scores the raw export: the import merges the engraved pieces
      into one artifact list first, so the comparison starts where the app does. */

@@ -8,7 +8,8 @@ const server = await createServer({
 });
 
 try {
-  const { blankPreferences, readPreferences } = await server.ssrLoadModule('/app/ingest/preferences.ts');
+  const { readPreferences } = await server.ssrLoadModule('/app/ingest/preferences.ts');
+  const { blankPreferences } = await server.ssrLoadModule('/app/domain/profiles/preference-defaults.ts');
   const helperGame = { helperSession: { instanceId: 'helper', sessionId: 1 } };
   const fileGame = { fileName: 'account.json' };
   const validFilePreference = { ...blankPreferences(), importRoute: 'file' };

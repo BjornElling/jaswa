@@ -21,7 +21,7 @@ believed on its own — it is checked against the source it claims to describe.*
 
 The number lives in six places: `package.json` (+ `package-lock.json`),
 `src-tauri/Cargo.toml` (+ `Cargo.lock`), `src-tauri/tauri.conf.json` and the
-app's `app/lib/helper-version.ts`. Do not edit them by hand:
+app's `app/domain/shared/helper-version.ts`. Do not edit them by hand:
 
 ```
 npm run release:helper         # bump, build, sign, publish and record — one step

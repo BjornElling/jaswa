@@ -20,7 +20,7 @@ import { createVerificationServer as createServer } from './verification-server.
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { classifyHelperProfile, checkHelperConnection, helperStatusMessage, readHelperProfile } = await server.ssrLoadModule('/app/lib/helper-client.ts');
+  const { classifyHelperProfile, checkHelperConnection, helperStatusMessage, readHelperProfile } = await server.ssrLoadModule('/app/platform/helper-client.ts');
 
   /** A minimal account the reader accepts, so a test can spoil one field at a time. */
   const account = (artifacts) => ({

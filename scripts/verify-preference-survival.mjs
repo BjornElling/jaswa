@@ -17,11 +17,12 @@ const server = await createServer({
 });
 
 try {
-  const { blankPreferences, readPreferences, defaultDirectImportMode } = await server.ssrLoadModule('/app/ingest/preferences.ts');
-  const { withRefreshedMetrics } = await server.ssrLoadModule('/app/lib/rune-roles.ts');
-  const { speedContents } = await server.ssrLoadModule('/app/lib/speed-contents.ts');
-  const { monsterCopyNamesIn } = await server.ssrLoadModule('/app/lib/monster-names.ts');
-  const { monsterProfileScope, monsterProfileAreas } = await server.ssrLoadModule('/app/lib/monster-profile-scope.ts');
+  const { readPreferences } = await server.ssrLoadModule('/app/ingest/preferences.ts');
+  const { blankPreferences, defaultDirectImportMode } = await server.ssrLoadModule('/app/domain/profiles/preference-defaults.ts');
+  const { withRefreshedMetrics } = await server.ssrLoadModule('/app/domain/profiles/rune-roles.ts');
+  const { speedContents } = await server.ssrLoadModule('/app/domain/speed/speed-contents.ts');
+  const { monsterCopyNamesIn } = await server.ssrLoadModule('/app/domain/monsters/monster-names.ts');
+  const { monsterProfileScope, monsterProfileAreas } = await server.ssrLoadModule('/app/domain/profiles/monster-profile-scope.ts');
 
   assert.equal(defaultDirectImportMode, 'live', 'a connected helper keeps the workspace synchronized by default');
 

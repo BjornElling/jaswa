@@ -105,8 +105,8 @@ try {
   /* A nested Summoned list is validated, published, counted and listed exactly
      as a root one, and a stack at zero is neither counted nor shown. */
   const { createImportedGame } = await server.ssrLoadModule('/app/ingest/game-export.ts');
-  const { accountCounts } = await server.ssrLoadModule('/app/lib/account-counts.ts');
-  const { summonedShrineRecords } = await server.ssrLoadModule('/app/lib/sealed-shrine-storage.ts');
+  const { accountCounts } = await server.ssrLoadModule('/app/domain/account/account-counts.ts');
+  const { summonedShrineRecords } = await server.ssrLoadModule('/app/domain/account/sealed-shrine-storage.ts');
   const nested = (stacks) => ({ ...account([owned]), GetWizardDataPart1: { GetUnitStorageList: { unit_storage_list: stacks } } });
   assert.equal(validateGameFile(nested([{ unit_master_id: 10101, quantity: -1 }])).valid, false,
     'a nested Summoned stack is validated like a root one');

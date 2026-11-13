@@ -18,7 +18,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const setSourcePath = resolve(repositoryRoot, 'app/lib/rune-sets.ts');
+const setSourcePath = resolve(repositoryRoot, 'app/domain/runes/rune-sets.ts');
 const imageDirectory = resolve(repositoryRoot, 'public/rune-images');
 const allowlistPath = resolve(repositoryRoot, 'app/data/local-rune-images.ts');
 const imageBaseUrl = 'https://swarfarm.com/static/herders/images/runes/';
@@ -38,9 +38,9 @@ function sleep(milliseconds) {
 async function wantedFilenames() {
   const source = await readFile(setSourcePath, 'utf8');
   const table = source.match(/const runeSetNames[^=]*=\s*\{([\s\S]*?)\};/);
-  if (!table) throw new Error('Could not find runeSetNames in app/lib/rune-sets.ts.');
+  if (!table) throw new Error('Could not find runeSetNames in app/domain/runes/rune-sets.ts.');
   const sets = [...table[1].matchAll(/\d+:\s*'([^']+)'/g)].map((match) => `${match[1].toLowerCase()}.png`);
-  if (sets.length === 0) throw new Error('runeSetNames in app/lib/rune-sets.ts names no sets.');
+  if (sets.length === 0) throw new Error('runeSetNames in app/domain/runes/rune-sets.ts names no sets.');
   const frames = [1, 2, 3, 4, 5, 6].map((slot) => `rune${slot}.png`);
   return [...frames, ...sets];
 }

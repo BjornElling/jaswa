@@ -151,7 +151,7 @@ assert.ok(score(50, [['preferred', 5], ['acceptable', 1], ['unwanted', 1], ['unw
 
 /* 4. The two backends divide by the same number. The shader writes the formula
       out in WGSL, so it is compared as a computed value, not as text. */
-const shader = readFileSync(new URL('../app/lib/compute/webgpu/artifact-score-shader.ts', import.meta.url), 'utf8');
+const shader = readFileSync(new URL('../app/platform/gpu/shaders/artifact-score-shader.ts', import.meta.url), 'utf8');
 for (const constant of [
   'const ARTIFACT_MAIN_POINTS: f32 = ${artifactMainPropertyPoints}.0;',
   'const BENCHMARK_PREFERRED_MAX_ROLLS: f32 = ${benchmarkPreferredMaxRolls}.0;',
@@ -194,12 +194,12 @@ try {
   const {
     artifactMainPropertyPoints, artifactScorePointBenchmark, benchmarkAcceptableLines,
     benchmarkPreferredMaxRolls, calculateArtifactOptimalValue,
-  } = await server.ssrLoadModule('/app/lib/artifact-optimal-value.ts');
+  } = await server.ssrLoadModule('/app/domain/artifacts/artifact-optimal-value.ts');
   const {
     artifactPropertyMaximum, artifactProperty, bestArtifactLineContributions,
     artifactNormalConversionContributions, artifactTotalContributions,
-  } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
-  const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
+  } = await server.ssrLoadModule('/app/domain/artifacts/artifact-properties.ts');
+  const { readArtifact } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
 
   assert.equal(bestArtifactLineContributions, BEST_LINE_CONTRIBUTIONS);
   assert.equal(artifactMainPropertyPoints, ARTIFACT_MAIN_POINTS,

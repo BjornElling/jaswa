@@ -20,9 +20,9 @@ const server = await createServer({
 
 try {
   const { readCraftItem, readCraftItems, craftValueRange, craftRollValue, roundAwayFromZero } =
-    await server.ssrLoadModule('/app/lib/rune-craft-items.ts');
-  const { readRune } = await server.ssrLoadModule('/app/lib/runes.ts');
-  const { craftItemFit, craftReach, craftBlockReason } = await server.ssrLoadModule('/app/lib/rune-craft-plan.ts');
+    await server.ssrLoadModule('/app/domain/runes/craft/rune-craft-items.ts');
+  const { readRune } = await server.ssrLoadModule('/app/domain/runes/runes.ts');
+  const { craftItemFit, craftReach, craftBlockReason } = await server.ssrLoadModule('/app/domain/runes/craft/rune-craft-plan.ts');
 
   const stack = (craftType, craftTypeId, amount = 1) => ({
     craft_item_id: craftTypeId * 10 + craftType, craft_type: craftType, craft_type_id: craftTypeId, amount,

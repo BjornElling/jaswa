@@ -9,19 +9,19 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { readDeckPresets } from '../app/lib/deck-presets.ts';
+import { readDeckPresets } from '../app/domain/placements/deck-presets.ts';
 import { createImportedGame, validateGameFile } from '../app/ingest/game-export.ts';
 import {
   accountItems, engravings, monsterInPreset, presetMenu, readOwnPresets, readPresets, runeSlots, runesInPreset, teammateSetsInPreset,
-} from '../app/lib/presets.ts';
-import { engraveImportedGame } from '../app/lib/engrave-rune-build.ts';
-import { addToGamePreset } from '../app/lib/game-preset-edits.ts';
-import { noRuneLocks } from '../app/lib/rune-locks.ts';
-import { includeHigherPriorityApplies, withheldRunes } from '../app/lib/rune-sources.ts';
-import { presetPriorityOf } from '../app/lib/monster-priority.ts';
-import { readRunes } from '../app/lib/runes.ts';
-import { deckContent, presetContent, presetContents } from '../app/lib/preset-contents.ts';
-import { battleLeaders, leadArea, teamLeadsFor } from '../app/lib/team-leads.ts';
+} from '../app/domain/placements/presets.ts';
+import { engraveImportedGame } from '../app/domain/placements/engrave-rune-build.ts';
+import { addToGamePreset } from '../app/domain/placements/game-preset-edits.ts';
+import { noRuneLocks } from '../app/domain/placements/rune-locks.ts';
+import { includeHigherPriorityApplies, withheldRunes } from '../app/domain/placements/rune-sources.ts';
+import { presetPriorityOf } from '../app/domain/profiles/monster-priority.ts';
+import { readRunes } from '../app/domain/runes/runes.ts';
+import { deckContent, presetContent, presetContents } from '../app/domain/placements/preset-contents.ts';
+import { battleLeaders, leadArea, teamLeadsFor } from '../app/domain/combat/team-leads.ts';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 

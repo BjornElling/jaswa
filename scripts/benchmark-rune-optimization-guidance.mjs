@@ -7,7 +7,7 @@ import { stockGuidanceScenarios } from './rune-optimization-scenarios.mjs';
 // An optional local source snapshot lets the same inputs measure both implementations.
 const args = process.argv.slice(2).filter((arg) => arg !== '--seed-only');
 const seedOnly = process.argv.includes('--seed-only');
-const modulePath = args[1] ? resolve(args[1]) : resolve('app/lib/rune-optimization-problem.ts');
+const modulePath = args[1] ? resolve(args[1]) : resolve('app/domain/runes/optimization/rune-optimization-problem.ts');
 const { prepareRuneOptimization } = await import(pathToFileURL(modulePath).href);
 const { searchRuneBuilds } = await import(pathToFileURL(resolve(dirname(modulePath), 'rune-optimization-search.ts')).href);
 const captured = args[0] && args[0] !== '--generated'

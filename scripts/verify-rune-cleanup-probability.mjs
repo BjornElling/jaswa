@@ -9,8 +9,8 @@
 import assert from 'node:assert/strict';
 import {
   candidateChance, chanceRuns, prepareRuneCandidate, roleBuilds,
-} from '../app/lib/rune-cleanup-model.ts';
-import { remainingEvents } from '../app/lib/rune-properties.ts';
+} from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { remainingEvents } from '../app/domain/runes/rune-properties.ts';
 
 const credit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
 const base = { hp: 0, atk: 0, def: 0, spd: 0, criRate: 0, criDmg: 0, res: 0, acc: 0 };

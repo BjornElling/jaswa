@@ -22,7 +22,7 @@ convenience would make two counts diverge.
 Counts are taken only from the prepared account data after the import boundary
 has merged account-level and engraved records. The same prepared collections
 feed the badge, tables, filters, and calculations (`accountCounts` in
-`app/lib/account-counts.ts`).
+`app/domain/account/account-counts.ts`).
 
 | Game account value | JASWA count | Rule |
 | --- | --- | --- |

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Creates the checked-in PvE database `app/lib/pve-stages.ts` reads: every
+ * Creates the checked-in PvE database `app/domain/reference/pve-stages.ts` reads: every
  * floor of every Cairos dungeon, Abyss and Dimension Hole area Swarfarm carries
  * enemies for, wave by wave, with each enemy's monster and stats.
  *

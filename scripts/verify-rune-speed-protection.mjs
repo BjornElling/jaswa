@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { readRunes, runeStatIds, slotAllowsSubStat, slotMainProperties } from '../app/lib/runes.ts';
-import { runeAdvice, withRuneSellProtection } from '../app/lib/rune-cleanup-advice.ts';
-import { defaultRunePotentialSettings, blankPreferences, readPreferences } from '../app/ingest/preferences.ts';
+import { readRunes, runeStatIds, slotAllowsSubStat, slotMainProperties } from '../app/domain/runes/runes.ts';
+import { runeAdvice, withRuneSellProtection } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { readPreferences } from '../app/ingest/preferences.ts';
+import { defaultRunePotentialSettings, blankPreferences } from '../app/domain/profiles/preference-defaults.ts';
 import { readFileSync } from 'node:fs';
-import { defaultReappTargets, defaultRerollRules, newRerollRule, readRerollRules, rerollRuleProblems, isRerollTarget, rerollMainOptions, reappSetOptions } from '../app/lib/rune-reapp-targets.ts';
-import { emptyRunePlacement, hasRunePlacementOutsideScenario, summarizeRunePlacement } from '../app/lib/rune-placement.ts';
+import { defaultReappTargets, defaultRerollRules, newRerollRule, readRerollRules, rerollRuleProblems, isRerollTarget, rerollMainOptions, reappSetOptions } from '../app/domain/runes/rune-reapp-targets.ts';
+import { emptyRunePlacement, hasRunePlacementOutsideScenario, summarizeRunePlacement } from '../app/domain/placements/rune-placement.ts';
 
 
 const account = JSON.parse(readFileSync(new URL('../tests/fixtures/craft-account.json', import.meta.url), 'utf8'));

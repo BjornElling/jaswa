@@ -44,7 +44,7 @@ const server = await createServer({ configFile: false, server: { middlewareMode:
 
 try {
   const { artifactProperty, artifactNormalConversionMaximum } =
-    await server.ssrLoadModule('/app/lib/artifact-properties.ts');
+    await server.ssrLoadModule('/app/domain/artifacts/artifact-properties.ts');
 
   /* Every property floors at the dialog's minimum, Bomb Damage included. Its
      pre-v6.2.0 lines at 1 once held its floor down while `minRoll` doubled as

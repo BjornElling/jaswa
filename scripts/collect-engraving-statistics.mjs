@@ -41,7 +41,7 @@ function defaultLogPath() {
    master ids, and the game serves both ids the same statistics — verified
    identical for every pair captured on both sides. So coverage counts the pair
    once and capturing either name is enough. `app/data/collaboration-species.json`
-   is the shared table; `app/lib/monster-species.ts` is its other consumer. */
+   is the shared table; `app/domain/monsters/monster-species.ts` is its other consumer. */
 let speciesByMember = new Map();
 let speciesMembers = new Map();
 

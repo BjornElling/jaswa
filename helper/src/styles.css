@@ -8,11 +8,11 @@
    verdict colours, so the two are recognisably one thing.
 
    The tokens are copied rather than imported: this window is a separate Tauri
-   bundle with its own stylesheet and no build-time link to `app/globals.css`.
+   bundle with its own stylesheet and no build-time link to `app/styles/globals.css`.
    Only the handful the helper actually uses are here — the rest of the grid
    has nothing to describe in a 520px window.
 
-   Fonts are the platform's own. `app/globals.css` fetches IBM Plex Sans and
+   Fonts are the platform's own. `app/styles/globals.css` fetches IBM Plex Sans and
    JetBrains Mono from Google, and this window's CSP is `default-src 'self'`
    with no font source at all, so a remote face here would silently fall back.
    The stacks below name Segoe UI and Cascadia Mono first — present on every
@@ -146,7 +146,7 @@ h1, p { margin: 0; }
 }
 
 /* --------------------------------------------------------- the wordmark
-   Set exactly as `app/components/app-rail.tsx` sets it: lowercase, with `sw`
+   Set exactly as `app/shell/app-rail.tsx` sets it: lowercase, with `sw`
    — the pun the name is built on — carrying the gold underline. The helper
    used to render `JASWA` with only the `W` marked, which is a different mark
    for what is meant to be the same product. */
@@ -407,7 +407,7 @@ button:disabled { color: var(--ghost); border-color: var(--line); background: va
 /* Recording is a state to be aware of, not an invitation.
 
    It wears the caution verdict — but in this palette the caution amber and the
-   accent are the same yellow, as `app/globals.css` says outright, so colour
+   accent are the same yellow, as `app/styles/globals.css` says outright, so colour
    alone made this button a twin of "Open JASWA" and blurred "you can act on
    this" into "something is running". The border is therefore dashed: a form
    difference, not a fourth colour, and it reads as temporary — which is what a

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { areaFacts } from '../app/lib/area-facts.ts';
-import { combatThresholdsForMonster } from '../app/lib/rune-combat-thresholds.ts';
-import { presetContents } from '../app/lib/preset-contents.ts';
-import { fastestEnemySpeed, speedContent, dungeonIds } from '../app/lib/speed-contents.ts';
-import { usefulAccuracy } from '../app/lib/accuracy-ceiling.ts';
-import { hardestPveFloor, pveAreaOf, pveFloors, fastestEnemyOn, highestEnemyStatOn, highestEnemyStatInFinalWaveOn, highestResistanceOn } from '../app/lib/pve-stages.ts';
+import { areaFacts } from '../app/domain/reference/area-facts.ts';
+import { combatThresholdsForMonster } from '../app/domain/combat/rune-combat-thresholds.ts';
+import { presetContents } from '../app/domain/placements/preset-contents.ts';
+import { fastestEnemySpeed, speedContent, dungeonIds } from '../app/domain/speed/speed-contents.ts';
+import { usefulAccuracy } from '../app/domain/combat/accuracy-ceiling.ts';
+import { hardestPveFloor, pveAreaOf, pveFloors, fastestEnemyOn, highestEnemyStatOn, highestEnemyStatInFinalWaveOn, highestResistanceOn } from '../app/domain/reference/pve-stages.ts';
 
 const necropolis = hardestPveFloor('necropolis');
 assert.equal(necropolis?.name, 'Abyss Hard');

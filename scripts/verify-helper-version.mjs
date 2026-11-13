@@ -50,8 +50,8 @@ const [cargo, tauri, packageJson, lock, app, download, packager] = await Promise
   readFile(path.join(repositoryRoot, 'helper/src-tauri/tauri.conf.json'), 'utf8').then(JSON.parse),
   readFile(path.join(repositoryRoot, 'helper/package.json'), 'utf8').then(JSON.parse),
   readFile(path.join(repositoryRoot, 'helper/package-lock.json'), 'utf8').then(JSON.parse),
-  readFile(path.join(repositoryRoot, 'app/lib/helper-version.ts'), 'utf8'),
-  readFile(path.join(repositoryRoot, 'app/components/helper-download.tsx'), 'utf8'),
+  readFile(path.join(repositoryRoot, 'app/domain/shared/helper-version.ts'), 'utf8'),
+  readFile(path.join(repositoryRoot, 'app/features/home/helper-download.tsx'), 'utf8'),
   readFile(path.join(repositoryRoot, 'helper/scripts/package.cjs'), 'utf8'),
 ]);
 

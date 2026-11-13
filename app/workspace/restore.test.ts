@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blankPreferences } from '../ingest/preferences';
+import { blankPreferences } from '../domain/profiles/preference-defaults';
 import { restoreWorkspace } from './restore';
 
 describe('workspace restoration', () => {

@@ -2,7 +2,7 @@
 
 **Status:** Binding
 **Reviewed:** November 5, 2026
-**Code:** `app/lib/pve-stages.ts`, `app/data/swarfarm-pve-stages.json`, `app/data/labyrinth-miniboss-stages.json`
+**Code:** `app/domain/reference/pve-stages.ts`, `app/data/swarfarm-pve-stages.json`, `app/data/labyrinth-miniboss-stages.json`
 **Refresh:** `npm run refresh:pve-stages`
 **Check:** `npm run verify:pve-stages`
 

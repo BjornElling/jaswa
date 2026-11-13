@@ -715,7 +715,7 @@ test('an own-preset lock saves its placement and lock together, including after 
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await page.evaluate(async () => {
-    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
+    const storagePath = '/app/platform/browser-storage.ts', importsPath = '/app/domain/profiles/preference-defaults.ts';
     const { savePreferences } = await import(storagePath);
     const { blankPreferences } = await import(importsPath);
     await savePreferences({ ...blankPreferences(), hardwareAcceleration: false,

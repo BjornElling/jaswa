@@ -19,9 +19,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const shader = readFileSync(new URL('../app/lib/compute/webgpu/artifact-score-shader.ts', import.meta.url), 'utf8');
-const backend = readFileSync(new URL('../app/lib/compute/backends/webgpu-artifact-score-backend.ts', import.meta.url), 'utf8');
-const layout = readFileSync(new URL('../app/lib/compute/webgpu/artifact-score-layout.ts', import.meta.url), 'utf8');
+const shader = readFileSync(new URL('../app/platform/gpu/shaders/artifact-score-shader.ts', import.meta.url), 'utf8');
+const backend = readFileSync(new URL('../app/platform/gpu/backends/webgpu-artifact-score-backend.ts', import.meta.url), 'utf8');
+const layout = readFileSync(new URL('../app/platform/gpu/layouts/artifact-score-layout.ts', import.meta.url), 'utf8');
 
 /* WGSL's own alignment and size table, for the types this struct may use. A
    vec3 is the trap: it is 12 bytes wide but aligns to 16. */

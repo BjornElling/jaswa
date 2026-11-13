@@ -23,8 +23,8 @@
  * `rank: 5` regardless of whether the rune is Rare, Hero or Legend.
  */
 import assert from 'node:assert/strict';
-import { compareRuneGameSort } from '../app/lib/rune-cleanup-grid.ts';
-import { readRune } from '../app/lib/runes.ts';
+import { compareRuneGameSort } from '../app/domain/runes/cleanup/rune-cleanup-grid.ts';
+import { readRune } from '../app/domain/runes/runes.ts';
 
 /** A row as the table builds one, with only the facts the orderings read. */
 function row(index, {

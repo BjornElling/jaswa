@@ -11,7 +11,7 @@
  * never once returned a lower tier.
  *
  * The check exists because the cost of being wrong is asymmetric. The reader
- * (`app/lib/artifact-preferences.ts`) keys on the master id and knows nothing of
+ * (`app/domain/profiles/artifact-preferences.ts`) keys on the master id and knows nothing of
  * tiers, so a monster held at two tiers becomes two unrelated monsters, each
  * ranked on its own and each claiming to be that monster — counted, usable, and
  * wrong, which is `AGENTS.md` §0.1's third failure and the one nothing surfaces.

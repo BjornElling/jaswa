@@ -11,14 +11,14 @@
  * Every figure below is derived from the shipped roles and one fixed reference
  * line, so a failure is a change in the model and never a change in the data.
  */
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import {
   roleBuilds, prepareRuneCandidate, candidateMaxValue, newRuneAdviceScope,
-} from '../app/lib/rune-cleanup-model.ts';
-import { newSubstatWeightScope, substatWeights } from '../app/lib/rune-substat-weights.ts';
-import { maximumRoll, slotMainProperties, subPropertyTargetStat } from '../app/lib/rune-properties.ts';
-import { runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
-import { canonicalCraftCredit, noCraftCredit } from '../app/lib/rune-craft-end-state.ts';
+} from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { newSubstatWeightScope, substatWeights } from '../app/domain/runes/rune-substat-weights.ts';
+import { maximumRoll, slotMainProperties, subPropertyTargetStat } from '../app/domain/runes/rune-properties.ts';
+import { runeStatIds, slotAllowsSubStat } from '../app/domain/runes/runes.ts';
+import { canonicalCraftCredit, noCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
 const base = { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 };
 const supportBase = { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 };

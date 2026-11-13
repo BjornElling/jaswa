@@ -19,19 +19,19 @@
  * several roles and every craft assumption.
  */
 import assert from 'node:assert/strict';
-import { defaultRuneRoles, withRefreshedMetrics } from '../app/lib/rune-roles.ts';
-import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
+import { defaultRuneRoles, withRefreshedMetrics } from '../app/domain/profiles/rune-roles.ts';
+import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
   candidateChance, candidateMaxValue, prepareRuneCandidate, roleBuilds,
-} from '../app/lib/rune-cleanup-model.ts';
-import { canonicalCraftCredit, craftPlan, grindCredit } from '../app/lib/rune-craft-end-state.ts';
+} from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { canonicalCraftCredit, craftPlan, grindCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import {
   addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
-} from '../app/lib/rune-properties.ts';
+} from '../app/domain/runes/rune-properties.ts';
 import {
   runeRarities, runeStatIds, slotAllowsSubStat,
-} from '../app/lib/runes.ts';
+} from '../app/domain/runes/runes.ts';
 
 const baseByType = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],

@@ -18,15 +18,15 @@
  * The last check is the mirror image and matters just as much: where a role *does*
  * distinguish sets, the distinction must still bite. Neutral is not the same as blind.
  */
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
-import { runeSetMatchRank } from '../app/lib/rune-cleanup-model.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
+import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { runeSetMatchRank } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 import {
   bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties, subPropertyLevels,
   upgradeSubPropertyRange,
-} from '../app/lib/rune-properties.ts';
-import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
-import { roleRuneSetNameList } from '../app/lib/rune-sets.ts';
+} from '../app/domain/runes/rune-properties.ts';
+import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/domain/runes/runes.ts';
+import { roleRuneSetNameList } from '../app/domain/runes/rune-sets.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));

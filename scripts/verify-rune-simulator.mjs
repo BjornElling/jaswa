@@ -10,7 +10,7 @@ const server = await createServer({
 try {
   const {
     defaultRuneSimulationConfig, powerUpRune, simulateRunes, simulationGradeForSlot,
-  } = await server.ssrLoadModule('/app/lib/rune-simulator.ts');
+  } = await server.ssrLoadModule('/app/domain/runes/simulator/rune-simulator.ts');
 
   /* The grade distribution is a locked game assumption, not a page option. */
   assert.equal(simulationGradeForSlot(1, () => 0), 'Hero');
@@ -91,9 +91,9 @@ try {
   /* The rune that exposed the craft defect: SPD, HP % and DEF % for a support role,
      with Resistance arriving at +12. Every grindable line is ground, and the Gem takes
      Resistance — the line worth least to the role — rather than DEF %. */
-  const { runeAdvice } = await server.ssrLoadModule('/app/lib/rune-cleanup-advice.ts');
-  const { defaultRuneRoles } = await server.ssrLoadModule('/app/lib/rune-roles.ts');
-  const { isGrindableStatId } = await server.ssrLoadModule('/app/lib/rune-craft-end-state.ts');
+  const { runeAdvice } = await server.ssrLoadModule('/app/domain/runes/cleanup/rune-cleanup-advice.ts');
+  const { defaultRuneRoles } = await server.ssrLoadModule('/app/domain/profiles/rune-roles.ts');
+  const { isGrindableStatId } = await server.ssrLoadModule('/app/domain/runes/craft/rune-craft-end-state.ts');
   const support = defaultRuneRoles().filter((role) => role.id === 'support');
   assert.equal(support.length, 1, 'the shipped Support role exists');
   const supportBase = new Map([['Support type',
@@ -161,7 +161,7 @@ try {
       `${atTwelve.id}: +15 does not roll another substat`);
   }
 
-  const { simulationKeeperCounts } = await server.ssrLoadModule('/app/lib/rune-simulator-keeper-counts.ts');
+  const { simulationKeeperCounts } = await server.ssrLoadModule('/app/domain/runes/simulator/rune-simulator-keeper-counts.ts');
   assert.equal(simulationKeeperCounts(result, []), null, 'no keeper table is claimed without verdicts');
   const protectedBatch = await simulateRunes({
     ...defaultRuneSimulationConfig, count: 80, slot: 2, stars: 1,

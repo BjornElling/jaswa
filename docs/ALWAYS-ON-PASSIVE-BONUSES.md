@@ -4,7 +4,7 @@
 **Reviewed:** October 24, 2026
 **Game:** *Summoners War: Sky Arena*
 **Data reviewed:** Swarfarm monster and skill API snapshot, retrieved October 24, 2026
-**Code:** `app/lib/passive-stat-bonuses.ts`, resolved by `app/lib/team-leads.ts` and applied by `app/lib/monster-stats.ts`
+**Code:** `app/domain/combat/passive-stat-bonuses.ts`, resolved by `app/domain/combat/team-leads.ts` and applied by `app/domain/combat/monster-stats.ts`
 **Check:** `npm run verify:passive-stat-bonuses`
 
 This document decides which automatic passive effects enter JASWA's fight

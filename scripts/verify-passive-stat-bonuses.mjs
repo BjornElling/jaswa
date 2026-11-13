@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { monsterSpeedParts, monsterStatSheet } from '../app/lib/monster-stats.ts';
-import { personalPassiveStatBonus } from '../app/lib/passive-stat-bonuses.ts';
-import { teamLeadsFor } from '../app/lib/team-leads.ts';
-import { combatSpeed } from '../app/lib/speed-tick.ts';
+import { monsterSpeedParts, monsterStatSheet } from '../app/domain/combat/monster-stats.ts';
+import { personalPassiveStatBonus } from '../app/domain/combat/passive-stat-bonuses.ts';
+import { teamLeadsFor } from '../app/domain/combat/team-leads.ts';
+import { combatSpeed } from '../app/domain/speed/speed-tick.ts';
 
 const base = {
   con: 100,

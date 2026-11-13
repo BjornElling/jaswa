@@ -25,7 +25,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const catalogPath = resolve(repositoryRoot, 'app/data/swarfarm-monsters.json');
-const catalogModulePath = resolve(repositoryRoot, 'app/lib/monster-catalog.ts');
+const catalogModulePath = resolve(repositoryRoot, 'app/domain/monsters/monster-catalog.ts');
 
 const elementNames = { 1: 'Water', 2: 'Fire', 3: 'Wind', 4: 'Light', 5: 'Dark' };
 

@@ -2,7 +2,7 @@
 
 **Status:** Binding
 **Reviewed:** October 20, 2026
-**Code:** `app/lib/main-stat-model.ts`
+**Code:** `app/domain/combat/main-stat-model.ts`
 **Check:** `npm run verify:main-stat-model`
 
 Which main stat — HP, ATK or DEF — a monster's artifacts and relic should

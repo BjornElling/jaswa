@@ -30,12 +30,12 @@
  * should not have touched the odds at all has to say so. A stage that did touch them
  * states its own figure and records a fresh baseline in the same commit.
  */
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
+import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
   bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties, subPropertyLevels, upgradeSubPropertyRange,
-} from '../app/lib/rune-properties.ts';
-import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+} from '../app/domain/runes/rune-properties.ts';
+import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/domain/runes/runes.ts';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

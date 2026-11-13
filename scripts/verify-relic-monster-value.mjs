@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { relicMonsterModel, relicMonsterValue } from '../app/lib/relic-monster-value.ts';
-import { relicProperties, relicProperty } from '../app/lib/relic-properties.ts';
+import { relicMonsterModel, relicMonsterValue } from '../app/domain/relics/relic-monster-value.ts';
+import { relicProperties, relicProperty } from '../app/domain/relics/relic-properties.ts';
 
 /* The main-stat model reads a need only off a finished build, so each test build
    is the runes it names in slots 6, 4 and 2, and runes whose mains are zero in

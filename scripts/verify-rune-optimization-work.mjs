@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
-import { prepareRuneOptimization } from '../app/lib/rune-optimization-problem.ts';
-import { searchRuneBuilds } from '../app/lib/rune-optimization-search.ts';
+import { prepareRuneOptimization } from '../app/domain/runes/optimization/rune-optimization-problem.ts';
+import { searchRuneBuilds } from '../app/domain/runes/optimization/rune-optimization-search.ts';
 import {
   assessRuneOptimizationSamples, runeOptimizationFinishedWarning, runeOptimizationWorkPool,
   runeOptimizationWorkWarning, trialRuneOptimizationWork,
-} from '../app/lib/rune-optimization-work.ts';
+} from '../app/domain/runes/optimization/rune-optimization-work.ts';
 
 const input = scenarioGenerator(20261004).scenario(0);
 input.locks = {}; input.withheld = {};

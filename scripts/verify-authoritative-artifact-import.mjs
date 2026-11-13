@@ -4,7 +4,7 @@ import { createVerificationServer as createServer } from './verification-server.
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
+  const { readArtifact } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
 
   /* These wire shapes exposed the old import bug: a converted Hero whose
      stored power-ups no longer mirror the original distribution, and a Skill 3

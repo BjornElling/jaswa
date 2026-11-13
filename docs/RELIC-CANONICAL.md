@@ -2,16 +2,16 @@
 
 **Status:** Binding project rules for the Relics page and the *Use for mons* plan
 **Reviewed:** November 5, 2026
-**Code:** `app/lib/relics.ts` (reader, counts), `app/lib/relic-properties.ts`
-(vocabulary and game constants), `app/lib/relic-power-up-model.ts` (every
-probability), `app/lib/relic-synergy.ts` (the 48 cells and the user's own),
-`app/lib/relic-advice.ts`
-(the verdict), `app/lib/relic-grid.ts`, `app/lib/relic-monster-value.ts`,
-`app/lib/relic-monster-fit.ts`, `app/lib/relic-monster-grid.ts`; the stat sheet
-`app/lib/monster-stats.ts`, the main-stat model `app/lib/main-stat-model.ts`,
-eligibility `app/lib/monster-engrave-eligibility.ts`; the pages
-`app/components/relic-list.tsx`, `app/components/relic-synergy-overlay.tsx` and
-`app/components/relic-monster-list.tsx`
+**Code:** `app/domain/relics/relics.ts` (reader, counts), `app/domain/relics/relic-properties.ts`
+(vocabulary and game constants), `app/domain/relics/relic-power-up-model.ts` (every
+probability), `app/domain/relics/relic-synergy.ts` (the 48 cells and the user's own),
+`app/domain/relics/relic-advice.ts`
+(the verdict), `app/domain/relics/relic-grid.ts`, `app/domain/relics/relic-monster-value.ts`,
+`app/domain/relics/relic-monster-fit.ts`, `app/domain/relics/relic-monster-grid.ts`; the stat sheet
+`app/domain/combat/monster-stats.ts`, the main-stat model `app/domain/combat/main-stat-model.ts`,
+eligibility `app/domain/monsters/monster-engrave-eligibility.ts`; the pages
+`app/features/relics/relic-list.tsx`, `app/features/relics/relic-synergy-overlay.tsx` and
+`app/features/relics/relic-monster-list.tsx`
 **Checks:** `verify:relic-synergy`, `verify:relic-maths`,
 `verify:relic-monster-value`, `verify:relic-monster-plan`
 
@@ -321,7 +321,7 @@ durability. With `p(l)` the success rate at level `l`, everything follows.
 
 **Every probability the page states is computed in `relic-power-up-model.ts`
 and nowhere else.** A verdict and the chance printed beside it must come from
-the same arithmetic. `verify:relic-maths` fails if any `app/lib` file other than
+the same arithmetic. `verify:relic-maths` fails if any file under `app/` other than
 the model and `relic-properties.ts` touches `relicPowerUpRates` outside an
 import (subscripts, loops, `reduce`, aliases and spreads are all caught). The
 verifier itself re-derives the results from independent closed forms and a

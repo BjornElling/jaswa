@@ -4,7 +4,7 @@
 deliberate exception to how JASWA names things
 **Reviewed:** October 20, 2026
 **Enforced by:** `npm run verify:element-qualified-names`
-**Implemented in:** `app/lib/monster-catalog.ts`
+**Implemented in:** `app/domain/monsters/monster-catalog.ts`
 
 ---
 
@@ -110,7 +110,7 @@ Three things protect this rule, because a comment alone does not survive a
 confident refactor:
 
 1. **This document**, referenced by name from the code that implements it.
-2. **A comment at the implementation** in `app/lib/monster-catalog.ts` marked
+2. **A comment at the implementation** in `app/domain/monsters/monster-catalog.ts` marked
    `BINDING RULE`, pointing here and saying plainly not to remove the qualifier.
 3. **`npm run verify:element-qualified-names`**, which fails the moment an
    ambiguous name is rendered without its element. It checks the real

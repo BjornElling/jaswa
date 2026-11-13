@@ -9,7 +9,7 @@ import { createVerificationServer as createServer } from './verification-server.
 const server = await createServer({ configFile: false, server: { middlewareMode: true } });
 
 try {
-  const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
+  const { readArtifact } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
 
   /* Captured from the active direct import. Sub-property 3 is the conversion:
      effect 221 rolls 25–40, the line stores no power-ups, and its value of 37

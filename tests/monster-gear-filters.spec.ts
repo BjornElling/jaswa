@@ -31,7 +31,7 @@ const account = {
 test('gear filters count slots, combine groups, preserve choices and stay in place', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.goto('/');
-  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await expect(page.getByText('Preparing your local workspaceâ€¦')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await expect(page.getByText('Nothing to show until a game file is imported.')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('no-import.png') });
@@ -108,7 +108,7 @@ test('gear filters count slots, combine groups, preserve choices and stay in pla
 
 for (const selectedRunes of [undefined, ['Unknown']]) test(`stored filters survive an unreadable new choice: ${JSON.stringify(selectedRunes)}`, async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await expect(page.getByText('Preparing your local workspaceâ€¦')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'gear-filters.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
   });

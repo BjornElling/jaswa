@@ -30,8 +30,8 @@ try {
   const {
     copyMainStatAdvice, copyMainStatNeed, speciesMainStatAdvice, contradictsAdvice, copyArtifactMainBands,
     honouredMainStat, mainStatStatement, chosenMainWeight,
-  } = await server.ssrLoadModule('/app/lib/main-stat-model.ts');
-  const { defaultedMonsterSpeciesIds } = await server.ssrLoadModule('/app/lib/monster-defaults.ts');
+  } = await server.ssrLoadModule('/app/domain/combat/main-stat-model.ts');
+  const { defaultedMonsterSpeciesIds } = await server.ssrLoadModule('/app/domain/profiles/monster-defaults.ts');
 
   const near = (actual, expected, what) => assert.ok(Math.abs(actual - expected) < 1e-9, `${what}: ${actual} is not ${expected}`);
   const blankMains = { 1: [3, 0], 2: [8, 0], 3: [5, 0], 4: [2, 0], 5: [1, 0], 6: [2, 0] };

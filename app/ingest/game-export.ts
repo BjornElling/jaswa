@@ -1,15 +1,15 @@
-import type { HelperSession, ImportReport, ImportedGame } from '../lib/types';
-import { readArtifact } from '../lib/artifacts';
-import { readRelic, relicEngravingProblem } from '../lib/relics';
-import { isReadableEngravedConversionStone } from '../lib/artifact-conversion-stones';
-import { readCraftItem } from '../lib/rune-craft-items';
-import { readRune } from '../lib/runes';
-import { readDeckPresets } from '../lib/deck-presets';
-import { intangibleSetId } from '../lib/monster-stats';
-import { hasMonsterCatalogEntry } from '../lib/monster-catalog';
-import { normalShrineList, shrineMonsterRecords, summonedShrineList } from '../lib/sealed-shrine-storage';
-import { accountBuildingsProblem } from '../lib/account-buildings';
-import type { GameRecord } from '../lib/game-data';
+import type { HelperSession, ImportReport, ImportedGame } from '../domain/model';
+import { readArtifact } from '../domain/artifacts/artifacts';
+import { readRelic, relicEngravingProblem } from '../domain/relics/relics';
+import { isReadableEngravedConversionStone } from '../domain/artifacts/artifact-conversion-stones';
+import { readCraftItem } from '../domain/runes/craft/rune-craft-items';
+import { readRune } from '../domain/runes/runes';
+import { readDeckPresets } from '../domain/placements/deck-presets';
+import { intangibleSetId } from '../domain/combat/monster-stats';
+import { hasMonsterCatalogEntry } from '../domain/monsters/monster-catalog';
+import { normalShrineList, shrineMonsterRecords, summonedShrineList } from '../domain/account/sealed-shrine-storage';
+import { accountBuildingsProblem } from '../domain/account/account-buildings';
+import type { GameRecord } from '../domain/account/game-record';
 
 const expectedSections = [
   'unit_list', 'unit_storage_list', 'unit_storage_normal_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',

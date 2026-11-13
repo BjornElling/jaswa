@@ -3,11 +3,11 @@
 **Status:** Binding rule basis for every artifact JASWA reads, scores or recommends
 **Reviewed:** October 20, 2026
 **Game:** *Summoners War: Sky Arena*, client v9.3.x
-**Code:** `app/lib/artifact-properties.ts` (vocabulary), `app/lib/artifacts.ts`
-(reader), `app/lib/artifact-conversion-stones.ts` (stones),
-`app/lib/artifact-optimal-value.ts` (the score),
-`app/lib/artifact-value-on-monster.ts` and `app/lib/compute/artifact-score-core.ts`
-(its two readers), `app/lib/artifact-preferences.ts` (defaults)
+**Code:** `app/domain/artifacts/artifact-properties.ts` (vocabulary), `app/domain/artifacts/artifacts.ts`
+(reader), `app/domain/artifacts/artifact-conversion-stones.ts` (stones),
+`app/domain/artifacts/artifact-optimal-value.ts` (the score),
+`app/domain/artifacts/artifact-value-on-monster.ts` and `app/domain/artifacts/score/artifact-score-core.ts`
+(its two readers), `app/domain/profiles/artifact-preferences.ts` (defaults)
 **Checks:** `verify:artifact-score-agreement`, `verify:artifact-score-scale`,
 `verify:normal-conversion-maximum`, `verify:conversion-roll-range`,
 `verify:engraved-conversion-stones`, `verify:intangible-artifacts`,
@@ -865,7 +865,7 @@ sorting, the summary figures, Location before/after, Re-calculate — are in
 ## 18. Quality is text; a score is colour
 
 The five tiers — Normal, Magic, Rare, Hero, Legend — are one vocabulary for
-an artifact's grade and a rune's rarity. `app/lib/quality-tiers.ts` owns the
+an artifact's grade and a rune's rarity. `app/domain/shared/quality-tiers.ts` owns the
 list; `ArtifactGrade` aliases it.
 
 **A grade is shown as text, never as colour.** Painting the five game hues down
@@ -878,7 +878,7 @@ contrast of 1.04.
 ### 18.1 The one allowance: a rule in the margin
 
 A tier may show as a **2px rule on the leading edge of a row's first cell**
-(`app/components/quality-rule.tsx`), in the artifact recommendation table, the
+(`app/ui/quality-rule.tsx`), in the artifact recommendation table, the
 best-artifact list, and the rune Clean-up and simulator tables. It survives the
 objection above because:
 
@@ -895,7 +895,7 @@ objection above because:
 
 ### 18.2 A score reads in three bands
 
-`artifactValueBands` in `app/lib/artifact-grid.ts` is the one set of boundaries,
+`artifactValueBands` in `app/domain/artifacts/artifact-grid.ts` is the one set of boundaries,
 applied through `artifactValueTint`:
 
 | Band | Score | Tone |
@@ -1021,7 +1021,7 @@ above the benchmark and drew artifacts from every monster with a real
 preference. So each of the four gear questions — the main, Attribute substats,
 Type substats and relic uniques — is judged on its own: one emptied falls back
 to its default, and the others keep what they state. `statedAnswer` in
-`app/lib/monster-preferences.ts` is the one reading; the write route never
+`app/domain/profiles/monster-preferences.ts` is the one reading; the write route never
 stores two empty bands, and the stored-copy reader reads a pair it finds as
 never stated. **Reset to defaults** returns every choice to absent.
 

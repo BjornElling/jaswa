@@ -1,0 +1,503 @@
+import statistics from '../../data/engraving-statistics.json';
+import type { ArtifactCategory, ArtifactMainProperty } from '../artifacts/artifact-properties';
+import { artifactMainProperties } from '../artifacts/artifact-properties';
+import { monsterStatisticsId } from '../monsters/monster-identity';
+import type { RelicMainProperty } from '../relics/relic-properties';
+import { relicMainProperties } from '../relics/relic-properties';
+import { mainPropertyMaximum, subPropertyRange } from '../runes/rune-properties';
+import type { RuneSlotMain } from '../runes/rune-slot-mains';
+import { runeSlotMainByEffect } from '../runes/rune-slot-mains';
+import { runeSetName, runeSetPieceCount, runeSetPieces } from '../runes/rune-sets';
+import { brokenRuneBuildPart, runeBuildName } from '../runes/rune-set-pairs';
+
+/**
+ * Where a monster's preferences start from, before its owner says anything.
+ *
+ * Every statistics-derived default in JASWA is produced here and nowhere else,
+ * and it is consulted for exactly one purpose: as the fallback in
+ * `monster-preference-resolution.ts` — directly, or through the main-stat need
+ * `main-stat-model.ts` reads off the rune panel. Nothing scores, ranks, filters or sorts on
+ * a default directly. They are provisional values — what the wider player base
+ * does, offered so the user is not handed a roster of empty forms — and the
+ * user's own statement replaces them wherever it exists
+ * (`ARTIFACT-CANONICAL.md` §19.4).
+ *
+ * **Defaults are keyed by species; the user's statements are keyed by owned
+ * copy.** The game's three Statistics panels are keyed on `unit_master_id` and
+ * cannot be otherwise — two copies of one monster can never report different
+ * numbers — while §19.2 holds that what a *copy* is for is its owner's to say.
+ * The two keyings meet in one place, `resolveMonsterPreferences`, and nowhere
+ * else.
+ */
+
+/** The three bands every panel classifies into. */
+export type PreferenceBand = 'preferred' | 'acceptable' | 'unwanted';
+
+/**
+ * A default, with the evidence that produced it. The share travels with the
+ * band because the overlay shows both — what the population does, and what that
+ * amounts to as a preference — and a view that recomputed the band from the
+ * share would eventually recompute it differently.
+ */
+export type DefaultEntry = { band: PreferenceBand; share: number };
+
+/** Slots 1, 3 and 5 carry a fixed main stat, so only these three have a choice. */
+export type RuneSlotKey = 'slot2' | 'slot4' | 'slot6';
+export const runeSlotKeys: readonly RuneSlotKey[] = ['slot2', 'slot4', 'slot6'];
+
+const runeSlotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
+
+/*
+ * A slot's mains are read in `rune-slot-mains.ts`'s vocabulary, which names the
+ * flat HP +, ATK + and DEF + as well. They used to be dropped from the
+ * denominator because the role vocabulary had no word for them; a monster's
+ * slots now offer every main the game does, so every main the population engraves
+ * is counted and shown.
+ */
+
+/**
+ * How a rune-set share was measured, carried in the data because the basis is a
+ * real limitation rather than a footnote.
+ *
+ * The game's `runeset` response is a **top-ten list**, not a full distribution:
+ * across all 1,044 captured monsters it never exceeds ten rows, and those rows
+ * sum to a median 74 % of the same monster's slot-2 main total. So a set's share
+ * here is its share *of the builds that reached the top ten* — which is exactly
+ * what the game's own panel shows the player.
+ *
+ * It is the only honest denominator available. Normalising against the main-stat
+ * total instead would divide one population's counts by another's, the error
+ * each effect group must be normalised against its own total. The
+ * unmeasured tail is by construction made of combinations rarer than the tenth
+ * row, so it cannot promote anything into a band; it can only make a share read
+ * higher than it would against the whole population, which is what the rune-set
+ * threshold in `defaultThresholds` is set to absorb.
+ *
+ * `ENGRAVING-STATISTICS.md` §1 is corrected to say the rune panel is truncated
+ * where the artifact panels are not.
+ */
+export type RuneSetShareBasis = 'observed-top-ten';
+
+/** One row of the game's rune-set list: a whole build and its share of the list. */
+export type RuneBuildShare = { build: string; share: number };
+
+export type RuneDefaults = {
+  /** By rune set name, as `rune-sets.ts` names them. */
+  sets: Map<string, DefaultEntry>;
+  /**
+   * The builds themselves, largest share first, written as `runeBuildName`
+   * writes them. This is what the game's panel shows: each `setList` row is
+   * one combination, and its percentage is its count over the list's total —
+   * a partition that sums to 1, where `sets` is a participation rate that
+   * does not.
+   */
+  builds: RuneBuildShare[];
+  basis: RuneSetShareBasis;
+  /** Builds behind the set distribution, after the game's truncation. */
+  setObservations: number;
+  slots: Record<RuneSlotKey, Map<RuneSlotMain, DefaultEntry>>;
+  /** Observations behind each slot. */
+  slotObservations: Record<RuneSlotKey, number>;
+  /**
+   * Each sub property's share of every sub line across the six slots, by
+   * `RUNE-CANONICAL.md` §2's stat id. Reference only, for the statistics
+   * overlay: no preference is stated in sub properties, so nothing defaults
+   * from it. A share of lines rather than of runes, because the lines per rune
+   * are not a constant the panel lets anything divide by.
+   */
+  subShares: Map<number, number>;
+  subObservations: number;
+  /**
+   * What the population's runes add to HP, ATK and DEF, in percent of base, for
+   * `main-stat-model.ts` to read when a copy says nothing of its own — the
+   * slot-2/4/6 mains and every other line apart, because the model weighs a
+   * chosen main above a rolled line and owns that weight. Absent where the panel
+   * holds no percentage line at all.
+   */
+  mainStatNeed?: RuneStatNeed;
+};
+
+export type ArtifactCategoryDefaults = {
+  main: Map<ArtifactMainProperty, DefaultEntry>;
+  /** By the sub-property ids `ARTIFACT-CANONICAL.md` §15.4 numbers. */
+  sub: Map<number, DefaultEntry>;
+  mainObservations: number;
+  subObservations: number;
+};
+
+export type ArtifactDefaults = Record<ArtifactCategory, ArtifactCategoryDefaults | undefined>;
+
+export type RelicDefaults = {
+  main: Map<RelicMainProperty, DefaultEntry>;
+  /** By the unique-property ids `RELIC-CANONICAL.md` §4 numbers. */
+  unique: Map<number, DefaultEntry>;
+  mainObservations: number;
+  uniqueObservations: number;
+};
+
+/**
+ * Everything one monster species starts from.
+ *
+ * Each panel is independently `undefined`, because a species carrying two
+ * panels and not the third is the ordinary case: 1,044 species carry runes and
+ * artifacts, 1,035 carry relics. A missing panel reads as *not judged*
+ * (§19.5) — never as a zero, and never as a licence to invent the missing half.
+ */
+export type MonsterDefaults = {
+  speciesId: string;
+  runes?: RuneDefaults;
+  artifacts?: ArtifactDefaults;
+  relics?: RelicDefaults;
+};
+
+type EffectCount = { effectId: number; count: number; slotId?: number };
+type RuneSetCount = { setList: number[]; count: number };
+type PanelStatistics = { observedAt?: string; primaryEffect?: EffectCount[]; secondaryEffect?: EffectCount[] };
+type RunePanelStatistics = PanelStatistics & { runeSets?: RuneSetCount[] };
+type MonsterStatistics = { runes?: RunePanelStatistics; artifacts?: PanelStatistics; relics?: PanelStatistics };
+
+const recordedStatistics = (statistics as { monsters: Record<string, MonsterStatistics> }).monsters;
+
+/* A collaboration pair is one monster the game released under two names, and it
+   serves both ids one distribution — `MONSTER-SPECIES-DECISION.md` owns that
+   rule. The later observation wins rather than the two being summed: they are
+   one observation seen twice, so adding them would claim twice the evidence
+   that exists. Resolving here, at the point of reading, keeps the dataset on
+   disk a faithful record of what was seen under each name. */
+function latestObservation(entry: MonsterStatistics | undefined): string {
+  if (!entry) return '';
+  return [entry.runes?.observedAt, entry.artifacts?.observedAt, entry.relics?.observedAt]
+    .filter((stamp): stamp is string => typeof stamp === 'string')
+    .sort()
+    .at(-1) ?? '';
+}
+
+const monsterStatistics: Record<string, MonsterStatistics> = {};
+for (const [masterId, recorded] of Object.entries(recordedStatistics)) {
+  const speciesId = monsterStatisticsId(masterId);
+  const existing = monsterStatistics[speciesId];
+  if (!existing || latestObservation(recorded) > latestObservation(existing)) monsterStatistics[speciesId] = recorded;
+}
+
+/** Every species the defaults cover, for the verifier and for callers choosing a scope. */
+export const defaultedMonsterSpeciesIds: readonly string[] = Object.keys(monsterStatistics);
+
+/**
+ * The cuts, all six panels in one table so they can be read against each other
+ * rather than drifting apart in six files.
+ *
+ * `ENGRAVING-STATISTICS.md` §10 sets the rule: a cut is chosen relative to the
+ * size of the distribution it partitions, then checked against what it actually
+ * produces. Each row below was measured across all 1,044 captured monsters, and
+ * no panel leaves a captured monster with nothing at all.
+ *
+ * - **Artifact main** keeps the three-value cut: three values against an even
+ *   33 %. It is reference now, read only by the statistics overlay: the
+ *   main's default is the main-stat model's (`main-stat-model.ts`).
+ * - **Artifact sub** is deliberately *not* §19.3's 10 %, and this is the one
+ *   place the overlay's cuts and the scorer's part company. They answer
+ *   different questions. The scorer asks "how much is this roll worth", where a
+ *   narrow preferred band keeps the benchmark meaningful and §16's measured
+ *   breadth depends on it — that 10 % stays exactly where it is, in
+ *   `artifact-preferences.ts`, and nothing here touches it. The overlay asks
+ *   "what should this monster's substats be", and a default of one property for
+ *   93 % of monsters — with *none at all* for 7 % — is not a set of choices, it
+ *   is a single guess. At 6 % the same fixed percentage yields 3.6 properties on
+ *   average, the largest group gets exactly four, and no captured monster gets
+ *   zero. It stays one fixed share rather than a fixed count, so a monster whose
+ *   population really does use only two substats still shows two.
+ * - **Rune slot main** keeps the artifact main's cuts even though its slots hold
+ *   seven or eight values. The measurement is why: at 40 % each slot averages
+ *   almost exactly *one* preferred main, which is the right answer for a slot
+ *   that holds one rune. These distributions are far from even — a slot's leader
+ *   routinely takes half of it — so 40 % discriminates here despite the count.
+ * - **Rune set** is the one panel whose cuts could not be inherited. Its shares
+ *   are *participation rates*, not a partition: a build with two sets votes
+ *   for both, so they sum to about 1.7 rather than 1, and a cut therefore has to
+ *   sit higher to mean "a clear leader". A monster also has two sets engraved at once,
+ *   so the right answer is about two preferred sets, not one: 35 % yields 1.96,
+ *   where 40 % undershoots at 1.67 and 30 % overshoots at 2.30. It also absorbs
+ *   the inflation `RuneSetShareBasis` describes.
+ * - **Relic main** is identical to artifact main by construction. Two 3-value
+ *   distributions asking the same question cannot have two sets of cuts. It is
+ *   reference too, for the same reason.
+ * - **Relic unique** has sixteen values, so chance is exactly 6.25 % — and that
+ *   is the acceptable cut: a property at or above chance is worth accepting.
+ *   Preferred at 15 % is 2.4× chance, the same multiple §19.3 uses for artifact
+ *   subs. Artifact sub's own 10 %/5 % was measured here and is too loose: it
+ *   yields 3.24 acceptable per monster, at which point the second band stops
+ *   distinguishing anything.
+ */
+export const defaultThresholds = {
+  runeSets: { preferred: 0.35, acceptable: 0.12 },
+  runeSlotMain: { preferred: 0.4, acceptable: 0.1 },
+  artifactMain: { preferred: 0.4, acceptable: 0.1 },
+  /* One cut, not two. A second band here would hold fourteen properties out of
+     twenty-three, which distinguishes nothing; the user can draw that second
+     band themselves, where they know which properties are concessions. */
+  artifactSub: { preferred: 0.06, acceptable: 0.06 },
+  relicMain: { preferred: 0.4, acceptable: 0.1 },
+  relicUnique: { preferred: 0.15, acceptable: 0.0625 },
+} as const;
+
+/**
+ * A share against one panel's two cuts. The single classifier every panel uses,
+ * so one change of mind about what "preferred" means cannot leave six panels
+ * disagreeing.
+ */
+export function classifyShare(share: number, limits: { preferred: number; acceptable: number }): PreferenceBand {
+  if (share >= limits.preferred) return 'preferred';
+  if (share >= limits.acceptable) return 'acceptable';
+  return 'unwanted';
+}
+
+function totalCount(rows: readonly { count: number }[]): number {
+  return rows.reduce((sum, row) => sum + row.count, 0);
+}
+
+/**
+ * One distribution folded into bands, keyed by whatever vocabulary the caller
+ * resolves an effect id into. A row whose id the vocabulary does not cover is
+ * dropped: it cannot be shown, chosen or compared, so carrying it would produce
+ * a default nothing can act on.
+ */
+function classifyDistribution<T>(
+  rows: readonly EffectCount[],
+  total: number,
+  resolve: (effectId: number) => T | undefined,
+  limits: { preferred: number; acceptable: number },
+): Map<T, DefaultEntry> {
+  const entries = new Map<T, DefaultEntry>();
+  if (total <= 0) return entries;
+  for (const row of rows) {
+    const key = resolve(row.effectId);
+    if (key === undefined) continue;
+    const share = row.count / total;
+    entries.set(key, { band: classifyShare(share, limits), share });
+  }
+  return entries;
+}
+
+/* The artifact and relic panels serve both slots from one response, and the
+   slot numbering is the export's own: for artifacts slot 1 is the Attribute
+   piece and slot 2 the Type one. */
+const artifactCategorySlots: Record<ArtifactCategory, number> = { attribute: 1, type: 2 };
+
+function runeDefaults(panel: RunePanelStatistics | undefined): RuneDefaults | undefined {
+  if (!panel) return undefined;
+
+  /* A set's share is the summed count of every build containing it, counted
+     once per build however many copies that build wore. `[1, 1, 1]` is one
+     build's vote for Energy, not three: the question is whether a build uses
+     the set, and three 2-piece Energys is still one answer of yes. Counting the
+     multiplicity would let a single popular triple-set build make one set look
+     three times as chosen as it is. Shares therefore do not sum to 1 — a
+     two-set build votes twice — which is correct for a participation rate. */
+  const setRows = panel.runeSets ?? [];
+  const setObservations = totalCount(setRows);
+  const setCounts = new Map<string, number>();
+  for (const row of setRows) {
+    if (!Array.isArray(row.setList)) continue;
+    for (const setId of new Set(row.setList)) {
+      const name = runeSetName(setId);
+      if (name === undefined) continue;
+      setCounts.set(name, (setCounts.get(name) ?? 0) + row.count);
+    }
+  }
+  const sets = new Map<string, DefaultEntry>();
+  if (setObservations > 0) {
+    for (const [name, count] of setCounts) {
+      const share = count / setObservations;
+      sets.set(name, { band: classifyShare(share, defaultThresholds.runeSets), share });
+    }
+  }
+
+  const builds: RuneBuildShare[] = [];
+  if (setObservations > 0) {
+    for (const row of setRows) {
+      if (!Array.isArray(row.setList)) continue;
+      const names = row.setList.map(runeSetName);
+      if (names.some((name) => name === undefined)) continue;
+      /* The game lists a combination by set id; JASWA writes a build with its
+         four-set first, and names the slots the list leaves unfilled — `[13]`
+         is Violent and two runes of anything, which is `Violent/Broken`. */
+      const ordered = [
+        ...(names as string[]).filter((name) => runeSetPieceCount[name] === 4),
+        ...(names as string[]).filter((name) => runeSetPieceCount[name] !== 4),
+      ];
+      /* A set the table gives no count throws: a guessed two would write a
+         build the statistics never showed. */
+      const filled = ordered.reduce((total, name) => total + runeSetPieces(name), 0);
+      builds.push({
+        build: runeBuildName(filled < 6 ? [...ordered, brokenRuneBuildPart] : ordered),
+        share: row.count / setObservations,
+      });
+    }
+    builds.sort((left, right) => right.share - left.share);
+  }
+
+  const primary = panel.primaryEffect ?? [];
+  const slots = {} as Record<RuneSlotKey, Map<RuneSlotMain, DefaultEntry>>;
+  const slotObservations = {} as Record<RuneSlotKey, number>;
+  for (const key of runeSlotKeys) {
+    const all = primary.filter((row) => row.slotId === runeSlotNumbers[key]);
+    const total = totalCount(all);
+    slots[key] = classifyDistribution(all, total, runeSlotMainByEffect, defaultThresholds.runeSlotMain);
+    slotObservations[key] = total;
+  }
+
+  /* A panel that yielded neither a set nor a single expressible main is a panel
+     nothing can start from, and saying so is not the same as saying the
+     preference is empty. */
+  const hasSlots = runeSlotKeys.some((key) => slots[key].size > 0);
+  if (sets.size === 0 && !hasSlots) return undefined;
+
+  const secondary = panel.secondaryEffect ?? [];
+  const subObservations = totalCount(secondary);
+  const subCounts = new Map<number, number>();
+  for (const row of secondary) subCounts.set(row.effectId, (subCounts.get(row.effectId) ?? 0) + row.count);
+  const subShares = new Map<number, number>();
+  if (subObservations > 0) for (const [effectId, count] of subCounts) subShares.set(effectId, count / subObservations);
+
+  const mainStatNeed = runeStatisticsNeed(panel);
+  return {
+    sets, builds, basis: 'observed-top-ten', setObservations, slots, slotObservations, subShares, subObservations,
+    ...(mainStatNeed === undefined ? {} : { mainStatNeed }),
+  };
+}
+
+const percentEffectIds: Record<ArtifactMainProperty, number> = { HP: 2, ATK: 4, DEF: 6 };
+
+/** A rune build's lift in percent of base: its slot-2/4/6 mains, and everything else. */
+export type RuneStatNeed = { mains: Record<ArtifactMainProperty, number>; rest: Record<ArtifactMainProperty, number> };
+
+/* A six-star sub line's expected worth at +12: its initial roll and, since four
+   upgrades fall across four lines, one upgrade on average. Grinds are left out —
+   the panel cannot say how many lines carry one. */
+function expectedSubLine(effectId: number): number {
+  const mean = (kind: 'initial' | 'upgrade') => {
+    const range = subPropertyRange(6, effectId, kind);
+    return range === undefined ? 0 : (range.minimum + range.maximum) / 2;
+  };
+  return mean('initial') + mean('upgrade');
+}
+
+/**
+ * The population's rune build as an expected HP, ATK and DEF percentage — the
+ * statistics stand-in for the six runes a copy may not yet have engraved.
+ *
+ * A slot-2/4/6 main is counted at its +15 value against that slot's own total;
+ * a sub line at `expectedSubLine` against the average number of runes a slot
+ * reports, since slots 1, 3 and 5 report no main to count them by. Flat lines are
+ * left out: converting one needs the base stat it adds to, which a species does
+ * not have, and a copy falling back on this panel must read it as its species
+ * does or it would disagree with its own species row for no reason.
+ */
+function runeStatisticsNeed(panel: RunePanelStatistics): RuneStatNeed | undefined {
+  const primary = panel.primaryEffect ?? [];
+  const secondary = panel.secondaryEffect ?? [];
+  const slotTotals = runeSlotKeys.map((key) => totalCount(primary.filter((row) => row.slotId === runeSlotNumbers[key])));
+  const runesPerSlot = slotTotals.reduce((sum, total) => sum + total, 0) / slotTotals.length;
+  if (!(runesPerSlot > 0)) return undefined;
+
+  const mains = { HP: 0, ATK: 0, DEF: 0 } as Record<ArtifactMainProperty, number>;
+  const rest = { HP: 0, ATK: 0, DEF: 0 } as Record<ArtifactMainProperty, number>;
+  for (const stat of ['HP', 'ATK', 'DEF'] as const) {
+    const effectId = percentEffectIds[stat];
+    runeSlotKeys.forEach((key, at) => {
+      if (slotTotals[at] <= 0) return;
+      const count = totalCount(primary.filter((row) => row.slotId === runeSlotNumbers[key] && row.effectId === effectId));
+      mains[stat] += count / slotTotals[at] * mainPropertyMaximum(6, effectId);
+    });
+    const lines = totalCount(secondary.filter((row) => row.effectId === effectId));
+    rest[stat] += lines / runesPerSlot * expectedSubLine(effectId);
+  }
+  const total = (['HP', 'ATK', 'DEF'] as const).reduce((sum, stat) => sum + mains[stat] + rest[stat], 0);
+  return total > 0 ? { mains, rest } : undefined;
+}
+
+function artifactCategoryDefaults(
+  panel: PanelStatistics | undefined,
+  category: ArtifactCategory,
+): ArtifactCategoryDefaults | undefined {
+  if (!panel) return undefined;
+  const slot = artifactCategorySlots[category];
+  const primary = (panel.primaryEffect ?? []).filter((row) => row.slotId === slot);
+  const secondary = (panel.secondaryEffect ?? []).filter((row) => row.slotId === slot);
+  const mainObservations = totalCount(primary);
+  const subObservations = totalCount(secondary);
+  /* A captured species with no observations in this slot cannot be judged:
+     dividing by its total would be a division by zero, and the honest answer is
+     the same "not judged" an uncaptured species gets. */
+  if (!mainObservations || !subObservations) return undefined;
+  return {
+    main: classifyDistribution(
+      primary, mainObservations, (id) => artifactMainProperties[id], defaultThresholds.artifactMain,
+    ),
+    sub: classifyDistribution(secondary, subObservations, (id) => id, defaultThresholds.artifactSub),
+    mainObservations,
+    subObservations,
+  };
+}
+
+function artifactDefaults(panel: PanelStatistics | undefined): ArtifactDefaults | undefined {
+  if (!panel) return undefined;
+  const attribute = artifactCategoryDefaults(panel, 'attribute');
+  const type = artifactCategoryDefaults(panel, 'type');
+  if (!attribute && !type) return undefined;
+  return { attribute, type };
+}
+
+function relicDefaults(panel: PanelStatistics | undefined): RelicDefaults | undefined {
+  if (!panel) return undefined;
+  const primary = panel.primaryEffect ?? [];
+  const secondary = panel.secondaryEffect ?? [];
+  const mainObservations = totalCount(primary);
+  const uniqueObservations = totalCount(secondary);
+  if (!mainObservations && !uniqueObservations) return undefined;
+  return {
+    main: classifyDistribution(
+      primary, mainObservations, (id) => relicMainProperties[id], defaultThresholds.relicMain,
+    ),
+    unique: classifyDistribution(secondary, uniqueObservations, (id) => id, defaultThresholds.relicUnique),
+    mainObservations,
+    uniqueObservations,
+  };
+}
+
+/* The folding is pure and the dataset is 6.6 MB, while the overlay opens on one
+   monster at a time and re-reads it on every render. Memoising by species keeps
+   that from refolding three panels per keystroke. */
+const resolved = new Map<string, MonsterDefaults | undefined>();
+
+/**
+ * What the wider player base engraves on this monster species, across all three
+ * panels, as the provisional preferences a copy of it starts from.
+ *
+ * A master id resolves to its species first, so a collaboration monster and its
+ * generic twin answer alike whichever name the player's copy carries, and an
+ * unawakened copy answers with its awakened form's statistics.
+ *
+ * `undefined` where the dataset has not captured this species at all — most of
+ * the game's roster is not captured, so that is the ordinary case rather than an
+ * edge one, and §19.5 requires it to read as *not judged* rather than as a
+ * score of zero.
+ */
+export function monsterDefaults(masterId: unknown): MonsterDefaults | undefined {
+  if (typeof masterId !== 'number' && typeof masterId !== 'string') return undefined;
+  const speciesId = monsterStatisticsId(masterId);
+  const cached = resolved.get(speciesId);
+  if (cached !== undefined || resolved.has(speciesId)) return cached;
+
+  const recorded = monsterStatistics[speciesId];
+  const defaults = recorded === undefined ? undefined : ((): MonsterDefaults | undefined => {
+    const runes = runeDefaults(recorded.runes);
+    const artifacts = artifactDefaults(recorded.artifacts);
+    const relics = relicDefaults(recorded.relics);
+    if (!runes && !artifacts && !relics) return undefined;
+    return { speciesId, runes, artifacts, relics };
+  })();
+
+  resolved.set(speciesId, defaults);
+  return defaults;
+}

@@ -6,13 +6,13 @@ try {
   const page = await browser.newPage();
   await page.goto('http://localhost:3000/');
   const report = await page.evaluate(async (large) => {
-    const { GpuContext } = await import('/app/lib/compute/gpu/gpu-context.ts');
-    const { craftScoreAgreement } = await import('/app/lib/compute/craft-score-engine.ts');
-    const { recommendRuneCraft } = await import('/app/lib/rune-craft-recommendations.ts');
-    const { readCraftItem } = await import('/app/lib/rune-craft-items.ts');
-    const { ordinarySample } = await import('/app/lib/rune-cleanup-model.ts');
-    const { defaultRuneRoles } = await import('/app/lib/rune-roles.ts');
-    const { defaultRunePotentialSettings } = await import('/app/ingest/preferences.ts');
+    const { GpuContext } = await import('/app/platform/gpu/gpu-context.ts');
+    const { craftScoreAgreement, scoreCraftJobs } = await import('/app/platform/compute/craft-score-engine.ts');
+    const { recommendRuneCraft } = await import('/app/domain/runes/craft-advice/rune-craft-recommendations.ts');
+    const { readCraftItem } = await import('/app/domain/runes/craft/rune-craft-items.ts');
+    const { ordinarySample } = await import('/app/domain/runes/cleanup/rune-cleanup-model.ts');
+    const { defaultRuneRoles } = await import('/app/domain/profiles/rune-roles.ts');
+    const { defaultRunePotentialSettings } = await import('/app/domain/profiles/preference-defaults.ts');
     const context = new GpuContext();
     if (!await context.ready()) throw new Error('No graphics card is available; shader verification was not done.');
     if (!await craftScoreAgreement(context)) throw new Error('The craft score agreement gate failed.');
@@ -28,8 +28,8 @@ try {
     for (const kind of ['gem', 'grindstone']) {
       const request = { runes, items: items.filter((item) => item.kind === kind), missing: [], roles: defaultRuneRoles(),
         settings: defaultRunePotentialSettings, base, roll: 'two-thirds' };
-      const cpu = await recommendRuneCraft({ ...request, preferGpu: false });
-      const gpu = await recommendRuneCraft({ ...request, preferGpu: true });
+      const cpu = await recommendRuneCraft({ ...request, preferGpu: false }, scoreCraftJobs);
+      const gpu = await recommendRuneCraft({ ...request, preferGpu: true }, scoreCraftJobs);
       const reading = (result) => JSON.stringify(result.candidates);
       results.push({ kind, backend: gpu.backend, same: reading(cpu) === reading(gpu), comparisons: gpu.comparisons,
         runes: runes.length, processorMs: Math.round(cpu.durationMs), cardMs: Math.round(gpu.durationMs) });

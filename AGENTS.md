@@ -37,7 +37,7 @@ file is corrected.
   every other choice is kept. Never reject a whole preferences document because
   one part of it predates the change just made; that is what made every dev
   server restart after a contract change put everything back to defaults.
-  `app/lib/preference-reading.ts` states the rule,
+  `app/domain/profiles/preference-reading.ts` states the rule,
   `npm run verify:preference-survival` holds it, and
   `docs/LOCAL-PERSISTENCE-CONTRACT.md` lists what is saved and which reader
   reads each part back.
@@ -216,7 +216,7 @@ tuning* once did, and the user lost the page they were working on for a dialog
 that needed none of it. Only a control naming a *page* — the rail, *Optimize*, a
 team's *Edit preset*, Rune Optimization's *Preset* — changes the page, and leaving a page closes what was opened over it.
 
-- An overlay more than one page opens is mounted once, in `app/page.tsx`, and
+- An overlay more than one page opens is mounted once, in `app/shell/root.tsx`, and
   reached through one opener (`openMonsterOverlay`, `openRuneOverlay`,
   `openSpeedTeam`), Speed Tuning's own lines included.
 - Every opener carries `aria-haspopup="dialog"` and passes the control that
@@ -228,7 +228,7 @@ team's *Edit preset*, Rune Optimization's *Preset* — changes the page, and lea
 
 No selected options means every option; selecting the whole group also means
 every option. Only a proper, non-empty subset narrows the results. Apply this
-to every inclusive filter group through `app/lib/filter-selection.ts`, including
+to every inclusive filter group through `app/domain/shared/filter-selection.ts`, including
 Location groups stored as separate booleans. Keep the user's actual selections
 as chosen; interpreting an empty group must not select its controls for them.
 Conditions such as *Hide if*, *Only show if*, thresholds and calculation modes
@@ -292,7 +292,7 @@ playful. Every document in `docs/` is English since October 20, 2026.
 
 ## 5. Visual style
 
-The house style is set in `app/globals.css` and stated at the top of it. The
+The house style is set in `app/styles/globals.css` and stated at the top of it. The
 parts an agent must not quietly break:
 
 - **Colour carries one meaning: "you can act on this."** Gold (`--text-accent`,
@@ -306,7 +306,7 @@ parts an agent must not quietly break:
   justification:
   - The verdict colours (`--state-*`), for a machine reporting its own state.
     They are also the three tones of **the marks after a figure**
-    (`app/components/figure-marks.tsx`): red for something wrong, yellow for
+    (`app/ui/figure-marks.tsx`): red for something wrong, yellow for
     something left to do, green for a fact in the figure's favour. Every mark that
     applies is shown, side by side on the figure's own line, red first, then
     yellow, then green; none hides another, and none is uncoloured.
@@ -319,7 +319,7 @@ parts an agent must not quietly break:
     the name not. An Enchanted Gem's mark — the circular arrows an artifact's
     converted line also carries, with nothing drawn around them — is gold
     always, as in the game, and so is that same mark on an artifact's converted
-    line, so the one mark never reads as two. `app/components/rune-sub-line.tsx` is the
+    line, so the one mark never reads as two. `app/ui/gear/rune-sub-line.tsx` is the
     one place that writes a rune property line, innate or sub, so no page can
     word or colour one its own way.
 
@@ -328,7 +328,7 @@ parts an agent must not quietly break:
   read as decoration rather than information, whatever their provenance. Grade
   is expressed as text, in its own column. The one recorded allowance is
   `ARTIFACT-CANONICAL.md` §18.1: a muted 2px rule on the leading edge of an
-  item's row (`app/components/quality-rule.tsx`), outside the reading line and
+  item's row (`app/ui/quality-rule.tsx`), outside the reading line and
   naming its tier in `aria-label` — on the artifact recommendations, the best
   artifact for a monster, Rune Clean-up and Rune Simulator. That document
   decides its subject, so the allowance stands; do not extend it to another
@@ -373,7 +373,7 @@ parts an agent must not quietly break:
   one component.
 - **Icons are stroked SVG paths**, sized to the type, using `currentColor`. Not
   emoji — they render at a different weight in every browser.
-- **Buttons come from `app/components/button.tsx`.** `Button` and
+- **Buttons come from `app/ui/button.tsx`.** `Button` and
   `FilterButton` own the box, the tones, the sizes and the disabled look;
   choose a `tone` and a `size` rather than writing `className="button …"` or
   giving one call site a height of its own. A button that reports its own work
@@ -382,7 +382,7 @@ parts an agent must not quietly break:
   started the work, which is rule 2 applied to a control's own label.
   `tests/button-box.spec.ts` holds both halves of that.
 - **Every calculating panel ends in one column:
-  `app/components/calculation-actions.tsx`.** At the panel's right edge,
+  `app/ui/calculation-actions.tsx`.** At the panel's right edge,
   *Clear results* and *Calculate* on top, the report under them (progress
   in the accent, the last run's summary dimmed, a failure in red) and the
   resets at the foot. *Calculate* is also the stop: while it works it reads
@@ -395,7 +395,7 @@ parts an agent must not quietly break:
   `ATK` or `DEF` and stops there — no `+1,500`, no roll, no bar. The magnitude
   is fixed by grade and adds nothing to the judgement the user is making, so a
   number in that column only costs column width and reading time. `Artifact`
-  deliberately carries no main value at all (`app/lib/artifacts.ts`); the import
+  deliberately carries no main value at all (`app/domain/artifacts/artifacts.ts`); the import
   reads it once to reject a malformed record and drops it.
 - **An ambiguous monster name keeps its element.** `DHALSIM (Water)` is not
   clutter to be tidied away: the game ships five elemental copies under that one
@@ -417,14 +417,14 @@ parts an agent must not quietly break:
   it in one place.
 - **One artifact calculation, however many views read it.** Every page under
   Artifacts answers from the same engine and the same settings. Concretely:
-  - The **rules** live in `app/lib/artifact-optimal-value.ts` (what a preferred
+  - The **rules** live in `app/domain/artifacts/artifact-optimal-value.ts` (what a preferred
     or acceptable line is worth, what the main property adds, the benchmark in
-    the denominator) and in `app/lib/compute/artifact-score-protocol.ts` (the
+    the denominator) and in `app/domain/artifacts/score/artifact-score-protocol.ts` (the
     engrave rule). Both readers call those rather than restating them: the
-    packed scorer (`app/lib/compute/artifact-score-core.ts`), which the
+    packed scorer (`app/domain/artifacts/score/artifact-score-core.ts`), which the
     rankings run over every pair and a view reads for one pair through
     `artifactPairScore()`; and `artifactValueOnMonster()`
-    (`app/lib/artifact-value-on-monster.ts`), which answers for one artifact
+    (`app/domain/artifacts/artifact-value-on-monster.ts`), which answers for one artifact
     object on one monster — the library row reads it through
     `artifactJudgementOnMonster()`, so the row's marks and its score come from
     one reading.
@@ -459,22 +459,22 @@ parts an agent must not quietly break:
   every reading of a monster's slots, stats or speed takes its context as an
   argument (`runesInPreset` for runes). Gear on a monster is **engraved**,
   never equipped or worn, and **preset** means the game's preset and nothing
-  else. For runes, `app/lib/rune-placement.ts` is the one Scenario-first
+  else. For runes, `app/domain/placements/rune-placement.ts` is the one Scenario-first
   reading outside Rune Optimization: Scenario's monster and the count of its
   other placements, or *Engraved × n* when there is no Scenario placement.
   Location labels, engraved filters and sell safeguards all read that summary.
   Rune Optimization alone reads the selected preset's current placement and
   applies the game's remembered-placement rule; no other workspace resolves a
   rune's current location from one preset. **Whose engraved runes a monster
-  may take is one rule, `app/lib/rune-sources.ts`:** a teammate's by the
+  may take is one rule, `app/domain/placements/rune-sources.ts`:** a teammate's by the
   team's priority list, another deck of its pool's only with *Include runes
   from higher-priority monsters* — teams and phases are never ranked against
   each other — and an engrave that takes such a rune takes it off that deck.
   The search and the re-reading of a build read its answer (`withheld`); no
   other module decides it.
 - **One Gem rule and one Grindstone rule, however many workspaces spend them.**
-  `app/lib/rune-craft-end-state.ts` is the only module that applies
-  `RUNE-CANONICAL.md` §8, and `app/lib/rune-craft-items.ts` is the only one that
+  `app/domain/runes/craft/rune-craft-end-state.ts` is the only module that applies
+  `RUNE-CANONICAL.md` §8, and `app/domain/runes/craft/rune-craft-items.ts` is the only one that
   holds its tables. Nothing else under `app/` may read either. This is not
   tidiness: the same four rules were applied in five places, two of them had
   drifted, and the projection was reading the *weakest* line where the ceiling
@@ -499,7 +499,7 @@ parts an agent must not quietly break:
 - **The graphics card is asked through one door.**
   `docs/HARDWARE-ACCELERATION.md` is binding. A calculation states how the
   processor does it and how the card does it; it does not decide *whether* to use
-  a card, because `app/lib/compute/accelerated-calculation.ts` does that once for
+  a card, because `app/platform/compute/accelerated-calculation.ts` does that once for
   the whole program. Three states and not two: switched off is the user's
   decision, refused is the card's, and only the third uses the card. Every
   calculation reports which engine answered, because a silent fall back to the
@@ -517,19 +517,19 @@ parts an agent must not quietly break:
   machine's card, and `verify:rune-optimization-card` uses it to execute the
   optimization shader against the processor.
 - **One main-stat model.** `docs/MAIN-STAT-MODEL.md` is binding, and
-  `app/lib/main-stat-model.ts` is the only place that decides which of HP, ATK
+  `app/domain/combat/main-stat-model.ts` is the only place that decides which of HP, ATK
   and DEF a monster's artifacts and relic should carry. The overlay's defaults,
   both artifact score readers, the relic plan and the overlay's advice mark all
   read it; none computes a need of its own.
 - **One PvE database.** `docs/PVE-STAGES.md` is binding, and
-  `app/lib/pve-stages.ts` is the only place JASWA looks up what the game sets
+  `app/domain/reference/pve-stages.ts` is the only place JASWA looks up what the game sets
   against a team — an area's floors, waves and enemies with their speed,
   Resistance, Accuracy, HP, ATK and DEF. Speed Tuning's floors, the Accuracy
   goal and the fastest enemy all read it; a later figure that needs an enemy
   reads it too rather than carry a table of its own. A figure no source gives
   is unknown, never borrowed from another floor. `npm run verify:pve-stages`
   is the check.
-- **One stat sheet, one build search.** `app/lib/monster-stats.ts` is the only
+- **One stat sheet, one build search.** `app/domain/combat/monster-stats.ts` is the only
   place a monster's stats are summed — the Monsters page, the overlay, Speed
   Tuning and Rune Optimization all read it — and `docs/RUNE-OPTIMIZATION.md` is
   binding for the build search. Every reduction the search makes before its
@@ -543,7 +543,7 @@ parts an agent must not quietly break:
   source or an earlier JASWA choice gives way. Check a new calculation against
   that page before inventing or borrowing a formula.
 - **One clock for every turn order.** `docs/SPEED-TICK-CANONICAL.md` is
-  binding, and `app/lib/speed-tick.ts` is the only module that states a rule
+  binding, and `app/domain/speed/speed-tick.ts` is the only module that states a rule
   of the game's turn order — combat speed, the tick, a boost, a buff, a tie.
   `speed-tuning-analysis.ts` decides what to simulate and reports it; it never
   restates a rule, and an interval is found by running that one clock at every
@@ -606,7 +606,7 @@ Before reporting a change complete, all of these hold:
 9. After a statistics capture or a change to the collector,
    `npm run verify:statistics-tiers` passes.
 10. After a change to the turn-order rules, the speed skill reading, the
-    speed snapshot or the account's buildings (`app/lib/account-buildings.ts`,
+    speed snapshot or the account's buildings (`app/domain/account/account-buildings.ts`,
     the Sky Tribe Totem among them), `npm run verify:speed-tick` passes; after
     a change to the buildings, so does `npm run verify:monster-display-stats`.
     After a change to the PvE database or a refresh of it, both
@@ -621,7 +621,7 @@ Before reporting a change complete, all of these hold:
     in the same commit — `work/` is not committed, so a baseline is always
     captured deliberately before a change and never inherited.
 12. After a change to the stat sheet or to anything under
-    `app/lib/rune-optimization-*`, `npm run verify:rune-optimization` passes.
+    `app/domain/runes/optimization/`, `npm run verify:rune-optimization` passes.
     After a change to the search, its card backend, layout or shader, so does
     `npm run verify:rune-optimization-card` — it needs the dev server and a
     graphics card, and where either is missing, say the shader went unrun.

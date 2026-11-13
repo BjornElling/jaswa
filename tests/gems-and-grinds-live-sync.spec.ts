@@ -17,7 +17,7 @@ async function openSection(page: Page, title: string) {
  * the results may empty, even for a moment, while the change is worked in.
  */
 const account = JSON.parse(readFileSync(new URL('./fixtures/craft-account.json', import.meta.url), 'utf8'));
-const version = /recommendedHelperVersion = '(\d+\.\d+\.\d+)'/.exec(readFileSync(new URL('../app/lib/helper-version.ts', import.meta.url), 'utf8'))![1];
+const version = /recommendedHelperVersion = '(\d+\.\d+\.\d+)'/.exec(readFileSync(new URL('../app/domain/shared/helper-version.ts', import.meta.url), 'utf8'))![1];
 
 /* Thirty more Violent runes from +12, so each ranking is ten cards long and the page scrolls. */
 const source = account.runes.find((rune: { rune_id: number }) => rune.rune_id === 101);
@@ -43,7 +43,7 @@ async function liveHelper(page: Page, change?: (data: typeof tall, revision: num
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.evaluate(async () => {
-    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
+    const storagePath = '/app/platform/browser-storage.ts', importsPath = '/app/domain/profiles/preference-defaults.ts';
     const { savePreferences } = await import(storagePath);
     const { blankPreferences } = await import(importsPath);
     localStorage.clear(); sessionStorage.clear();
@@ -103,9 +103,9 @@ for (const [title, mode] of [['Recommendations', 'recommendations'], ['Best use 
 
 /* Every rune a calculated Keep, as Clean-up's table would leave it, so Only keep-runes shows the whole tall list. */
 const seedKeepers = (page: Page) => page.evaluate(async () => {
-  const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts', runesPath = '/app/lib/runes.ts';
-  const importer = await (await fetch('/app/components/use-rune-keepers.ts')).text();
-  const memoryPath = /["'](\/app\/lib\/compute\/rune-advice-memory\.ts[^"']*)["']/.exec(importer)?.[1] ?? '/app/lib/compute/rune-advice-memory.ts';
+  const storagePath = '/app/platform/browser-storage.ts', importsPath = '/app/domain/profiles/preference-defaults.ts', runesPath = '/app/domain/runes/runes.ts';
+  const importer = await (await fetch('/app/features/rune-cleanup/use-rune-keepers.ts')).text();
+  const memoryPath = /["'](\/app\/platform\/compute\/rune-advice-memory\.ts[^"']*)["']/.exec(importer)?.[1] ?? '/app/platform/compute/rune-advice-memory.ts';
   const { loadImportedGame } = await import(storagePath);
   const { blankPreferences } = await import(importsPath);
   const { rememberRuneAdvice } = await import(memoryPath);

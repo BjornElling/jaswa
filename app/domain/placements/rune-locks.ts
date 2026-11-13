@@ -1,0 +1,194 @@
+import { isRecord } from '../profiles/preference-reading';
+import type { Preset } from './presets';
+
+/**
+ * **Lock and Exclude: what the user says about one rune for one monster.**
+ *
+ * The one model behind every Lock and Exclude control in JASWA — the build
+ * overlay's, the rune overlay's — and the one the build search and the
+ * re-reading of a found build read. Both words bind a rune to a monster in one
+ * **scope**: one preset, Scenario being a scope of its own. A lock belongs to
+ * the team that set it; what a pool's other decks may take is
+ * `rune-sources.ts`'s to say, and it never takes a rune locked there.
+ *
+ * - **Locked** is the rune engraved on the monster and staying there: the
+ *   search takes it as the slot's one answer and never offers it to another
+ *   monster of the scope. Locking a rune engraves it first, so a lock always
+ *   names a rune the monster carries, and one rune is locked to one monster.
+ * - **Excluded** keeps the rune out of every build the search finds for that
+ *   monster, and says nothing about any other. Excluding a rune the monster
+ *   carries takes it off first, so an exclusion never names a rune in use.
+ *
+ * Both belong to the import, not to the preferences: they are stored with the
+ * game data (`ImportedGame.runeLocks`) and go with it, so a new file or a
+ * session read on game start begins with none — the game knows no such thing
+ * and its data is the account as it now is. Under *Always synchronized* the
+ * import is replaced on every change in the game, and the choices carry from
+ * one revision of the same account to the next (`carriedRuneLocks`). There they
+ * still bind the search, and only the engraving that comes with them is off
+ * where the game owns the placement: a rune may be locked only where it already
+ * is, and excluding one the monster carries leaves it there.
+ */
+export type RuneLock = 'locked' | 'excluded';
+
+/**
+ * **What a Lock or Exclude control says**, by whether the rune is on the monster
+ * in the scope now — one wording for every control in JASWA. A bare "Lock to
+ * monster" on a rune that sits on another monster left the reader guessing
+ * which monster it meant, so a control names the move it makes as well:
+ * locking a rune not yet on the monster engraves it there, and excluding a rune
+ * the monster carries takes it off. A control that can be either keeps both
+ * wordings in its box (`LabelSwap`), so the move cannot resize it.
+ */
+export const runeLockLabels: Readonly<Record<RuneLock, Readonly<{ onMonster: string; elsewhere: string }>>> = {
+  locked: { onMonster: 'Lock', elsewhere: 'Engrave and lock' },
+  excluded: { onMonster: 'Remove and exclude', elsewhere: 'Exclude' },
+};
+
+/** By scope, then the monster's `unit_id`, then the `rune_id`. */
+export type RuneLocks = Readonly<Record<string, Readonly<Record<string, Readonly<Record<string, RuneLock>>>>>>;
+
+export const noRuneLocks: RuneLocks = {};
+
+/** Locks belong to one team, even when its content shares a pool with other teams. */
+export function runeLockScope(preset: Pick<Preset, 'id'>): string {
+  return preset.id;
+}
+
+export function runeLockOf(locks: RuneLocks, scope: string, unitId: string, runeId: string): RuneLock | undefined {
+  return locks[scope]?.[unitId]?.[runeId];
+}
+
+/**
+ * What one monster's search reads, by rune: `locked` for every rune locked in
+ * the scope — to this monster or to another, which the search tells apart by
+ * where the rune is engraved — and `excluded` for this monster's own exclusions.
+ */
+export function runeLocksFor(locks: RuneLocks, scope: string, unitId: string): Record<string, RuneLock> {
+  const read: Record<string, RuneLock> = {};
+  for (const [runeId, lock] of Object.entries(locks[scope]?.[unitId] ?? {})) if (lock === 'excluded') read[runeId] = lock;
+  for (const byRune of Object.values(locks[scope] ?? {})) {
+    for (const [runeId, lock] of Object.entries(byRune)) if (lock === 'locked') read[runeId] = lock;
+  }
+  return read;
+}
+
+/** Every rune locked to a monster anywhere, which Rune Clean-up keeps whatever it reads the rune as. */
+export function lockedRuneIds(locks: RuneLocks): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const byUnit of Object.values(locks)) for (const byRune of Object.values(byUnit)) {
+    for (const [runeId, lock] of Object.entries(byRune)) if (lock === 'locked') ids.add(runeId);
+  }
+  return ids;
+}
+
+function pruned(locks: Record<string, Record<string, Record<string, RuneLock>>>): RuneLocks {
+  for (const [scope, byUnit] of Object.entries(locks)) {
+    for (const [unitId, byRune] of Object.entries(byUnit)) if (Object.keys(byRune).length === 0) delete byUnit[unitId];
+    if (Object.keys(byUnit).length === 0) delete locks[scope];
+  }
+  return locks;
+}
+
+function copied(locks: RuneLocks): Record<string, Record<string, Record<string, RuneLock>>> {
+  return Object.fromEntries(Object.entries(locks).map(([scope, byUnit]) => [scope,
+    Object.fromEntries(Object.entries(byUnit).map(([unitId, byRune]) => [unitId, { ...byRune }]))]));
+}
+
+/**
+ * One choice set or taken off. A lock takes the rune from any other monster of
+ * the scope it was locked to, and the place of any rune locked into the same
+ * slot of this monster, which the engraving that comes with it has just
+ * replaced. `slotOf` names a rune's slot. Lock and Exclude are one choice, so
+ * setting either replaces the other.
+ */
+export function withRuneLock(locks: RuneLocks, scope: string, unitId: string, runeId: string, lock: RuneLock | null,
+  slotOf: (runeId: string) => number | undefined): RuneLocks {
+  const next = copied(locks);
+  const byUnit = next[scope] ?? {};
+  next[scope] = byUnit;
+  if (lock === 'locked') {
+    const slot = slotOf(runeId);
+    for (const [other, byRune] of Object.entries(byUnit)) {
+      if (byRune[runeId] === 'locked' && other !== unitId) delete byRune[runeId];
+      if (other !== unitId) continue;
+      for (const [id, held] of Object.entries(byRune)) if (held === 'locked' && id !== runeId && slotOf(id) === slot) delete byRune[id];
+    }
+  }
+  const byRune = byUnit[unitId] ?? {};
+  byUnit[unitId] = byRune;
+  if (lock === null) delete byRune[runeId]; else byRune[runeId] = lock;
+  return pruned(next);
+}
+
+/**
+ * The locks that still hold against the account's placement: a lock while its
+ * rune is engraved on its monster in a preset of the scope, an exclusion while
+ * the scope exists. Derived on every read rather than kept in step by every
+ * write, so an engraving that moves a locked rune away, or a preset deleted,
+ * cannot leave a lock behind that the search would still obey.
+ */
+export function heldRuneLocks(locks: RuneLocks, presets: readonly Preset[]): RuneLocks {
+  const byScope = new Map<string, Preset[]>();
+  for (const preset of presets) {
+    const scope = runeLockScope(preset);
+    byScope.set(scope, [...byScope.get(scope) ?? [], preset]);
+  }
+  const next = copied(locks);
+  for (const [scope, byUnit] of Object.entries(next)) {
+    const scopePresets = byScope.get(scope);
+    if (!scopePresets) { delete next[scope]; continue; }
+    for (const [unitId, byRune] of Object.entries(byUnit)) {
+      for (const [runeId, lock] of Object.entries(byRune)) {
+        if (lock === 'locked' && !scopePresets.some((preset) => preset.runeOwner.get(runeId) === unitId)) delete byRune[runeId];
+      }
+    }
+  }
+  return pruned(next);
+}
+
+/**
+ * The choices a live revision of the same account keeps: every one whose rune
+ * is still in the account, and of the locks those that still hold. A sold rune
+ * takes its exclusions with it rather than leaving them stored for good.
+ */
+export function carriedRuneLocks(locks: RuneLocks, runeIds: ReadonlySet<string>, presets: readonly Preset[]): RuneLocks {
+  const next = copied(locks);
+  for (const byUnit of Object.values(next)) for (const byRune of Object.values(byUnit)) {
+    for (const runeId of Object.keys(byRune)) if (!runeIds.has(runeId)) delete byRune[runeId];
+  }
+  return heldRuneLocks(pruned(next), presets);
+}
+
+const isIdentifier = (value: string) => value.length > 0 && value.length <= 64;
+
+/**
+ * The stored record read back one choice at a time (`AGENTS.md` §6): an entry
+ * that is not a rune id against `locked` or `excluded` is dropped, and the rest
+ * kept. A second lock of one rune in one scope keeps the first.
+ */
+export function readRuneLocks(value: unknown): RuneLocks | undefined {
+  if (!isRecord(value)) return undefined;
+  const read: Record<string, Record<string, Record<string, RuneLock>>> = {};
+  for (const [scope, byUnit] of Object.entries(value)) {
+    if (!isIdentifier(scope) || !isRecord(byUnit)) continue;
+    const lockedInScope = new Set<string>();
+    const units: Record<string, Record<string, RuneLock>> = {};
+    for (const [unitId, byRune] of Object.entries(byUnit)) {
+      if (!isIdentifier(unitId) || !isRecord(byRune)) continue;
+      const runes: Record<string, RuneLock> = {};
+      for (const [runeId, lock] of Object.entries(byRune)) {
+        if (!isIdentifier(runeId) || (lock !== 'locked' && lock !== 'excluded')) continue;
+        if (lock === 'locked') {
+          if (lockedInScope.has(runeId)) continue;
+          lockedInScope.add(runeId);
+        }
+        runes[runeId] = lock;
+      }
+      units[unitId] = runes;
+    }
+    read[scope] = units;
+  }
+  const kept = pruned(read);
+  return Object.keys(kept).length > 0 ? kept : undefined;
+}

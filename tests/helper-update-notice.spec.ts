@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
 const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8')) as Record<string, unknown>;
-const recommended = /recommendedHelperVersion = '(\d+\.\d+\.\d+)'/.exec(readFileSync(new URL('../app/lib/helper-version.ts', import.meta.url), 'utf8'))![1];
+const recommended = /recommendedHelperVersion = '(\d+\.\d+\.\d+)'/.exec(readFileSync(new URL('../app/domain/shared/helper-version.ts', import.meta.url), 'utf8'))![1];
 
 /* The corner cards are measured against the root's client width, which only
    differs from the window's while a scrollbar is drawn. */

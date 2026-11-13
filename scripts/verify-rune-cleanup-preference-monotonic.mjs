@@ -6,12 +6,12 @@
  * resulting recommendations for the rest of the box.
  */
 import assert from 'node:assert/strict';
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
-import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
+import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
+import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
   newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds,
-} from '../app/lib/rune-cleanup-model.ts';
+} from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 
 const base = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],

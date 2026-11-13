@@ -29,11 +29,11 @@ function artifact(id, { type, attribute = 0, unitStyle = 0 }) {
 }
 
 try {
-  const { readArtifact } = await server.ssrLoadModule('/app/lib/artifacts.ts');
-  const { artifactEngraveClass, artifactEngraveClassLabel } = await server.ssrLoadModule('/app/lib/artifact-grid.ts');
-  const { artifactIntangibleEngraveClass, artifactIntangibleLabel } = await server.ssrLoadModule('/app/lib/artifact-properties.ts');
-  const { scoreArtifactOnMonster } = await server.ssrLoadModule('/app/lib/compute/artifact-score-core.ts');
-  const { intangibleRestrictionCode } = await server.ssrLoadModule('/app/lib/compute/artifact-score-protocol.ts');
+  const { readArtifact } = await server.ssrLoadModule('/app/domain/artifacts/artifacts.ts');
+  const { artifactEngraveClass, artifactEngraveClassLabel } = await server.ssrLoadModule('/app/domain/artifacts/artifact-grid.ts');
+  const { artifactIntangibleEngraveClass, artifactIntangibleLabel } = await server.ssrLoadModule('/app/domain/artifacts/artifact-properties.ts');
+  const { scoreArtifactOnMonster } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-core.ts');
+  const { intangibleRestrictionCode } = await server.ssrLoadModule('/app/domain/artifacts/score/artifact-score-protocol.ts');
 
   // ---- Reading ------------------------------------------------------------
   const intangibleAttribute = readArtifact(artifact(1, { type: 1, attribute: artifactIntangibleEngraveClass }));

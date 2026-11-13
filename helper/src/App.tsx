@@ -216,7 +216,7 @@ function Glyph({ name }: { name: 'jaswa' | 'download' | 'report' | 'log' | 'reco
   );
 }
 
-/* The wordmark, exactly as `app/components/app-rail.tsx` sets it: lowercase,
+/* The wordmark, exactly as `app/shell/app-rail.tsx` sets it: lowercase,
    with the SW the name puns on carrying the gold underline. The helper used to
    set it uppercase with only the W marked, which made the two windows look like
    two products with similar names. */

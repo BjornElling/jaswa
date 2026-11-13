@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { craftedRangeScenarios, scenarioGenerator, stockGuidanceScenarios } from './rune-optimization-scenarios.mjs';
-import { prepareRuneOptimization, buildFigures, figureIndex } from '../app/lib/rune-optimization-problem.ts';
-import { effectSlot } from '../app/lib/monster-stats.ts';
-import { runeOptimizationDepths, runeOptimizationSettingChecks } from '../app/lib/rune-optimization-settings.ts';
-import { mergeBuildResults, searchRuneBuilds } from '../app/lib/rune-optimization-search.ts';
-import { assumedCraftHalf, craftVariants, heldCraftHalf } from '../app/lib/rune-craft-end-state.ts';
+import { prepareRuneOptimization, buildFigures, figureIndex } from '../app/domain/runes/optimization/rune-optimization-problem.ts';
+import { effectSlot } from '../app/domain/combat/monster-stats.ts';
+import { runeOptimizationDepths, runeOptimizationSettingChecks } from '../app/domain/profiles/rune-optimization-settings.ts';
+import { mergeBuildResults, searchRuneBuilds } from '../app/domain/runes/optimization/rune-optimization-search.ts';
+import { assumedCraftHalf, craftVariants, heldCraftHalf } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
 // Fixed wide pools expose the depth cut; small brute-force cases hold exact reductions elsewhere.
 const generator = scenarioGenerator(20261003, [14, 18]);

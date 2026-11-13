@@ -24,21 +24,22 @@
  * Usage: node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { relicAdvice, relicOvertakeThresholds } from '../app/lib/relic-advice.ts';
+import { basename, join, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { relicAdvice, relicOvertakeThresholds } from '../app/domain/relics/relic-advice.ts';
 /* Imported from the model itself, not through the advice module's re-exports:
    this file's job is to check that implementation, so it names it directly. */
 import {
   relicExpectedLevel, relicExpectedStrength,
   relicFinalLevelChances, relicLanding, relicNextAttemptChance, relicReachChance,
-} from '../app/lib/relic-power-up-model.ts';
+} from '../app/domain/relics/relic-power-up-model.ts';
 import {
   relicMaximumDurability, relicMaximumLevel, relicNextLevelStrengthGain, relicOrdinaryLevelStrengthGain,
   relicPowerUpRates, relicStrengthIndex, relicThreshold,
-} from '../app/lib/relic-properties.ts';
-import { relicProperties } from '../app/lib/relic-properties.ts';
-import { defaultRelicSynergy, relicSynergy, relicSynergyBandOrder } from '../app/lib/relic-synergy.ts';
-import { relicSynergyWeights } from '../app/lib/relic-advice.ts';
+} from '../app/domain/relics/relic-properties.ts';
+import { relicProperties } from '../app/domain/relics/relic-properties.ts';
+import { defaultRelicSynergy, relicSynergy, relicSynergyBandOrder } from '../app/domain/relics/relic-synergy.ts';
+import { relicSynergyWeights } from '../app/domain/relics/relic-advice.ts';
 
 let failures = 0;
 function check(ok, message) {
@@ -425,11 +426,14 @@ check(worstSimulated < simulationBar,
    model is the single source of truth by rule, and this is the rule. */
 const modelModule = 'relic-power-up-model.ts';
 const allowedToHoldRates = new Set(['relic-properties.ts', modelModule]);
-const libraryDirectory = new URL('../app/lib/', import.meta.url);
+/* Every layer that computes. The interface is left out on purpose: The Math quotes
+   the published table to explain it, which is reading a fact, not deriving one. */
+const appDirectory = fileURLToPath(new URL('../app/', import.meta.url));
 const offenders = [];
-for (const entry of readdirSync(libraryDirectory)) {
-  if (!entry.endsWith('.ts') || allowedToHoldRates.has(entry)) continue;
-  const source = readFileSync(join(libraryDirectory.pathname.slice(1), entry), 'utf8');
+for (const entry of readdirSync(appDirectory, { recursive: true }).map((name) => String(name).split(sep).join('/'))) {
+  if (!/^(domain|ingest|workspace|platform)\//.test(entry)) continue;
+  if (!/\.tsx?$/.test(entry) || allowedToHoldRates.has(basename(entry))) continue;
+  const source = readFileSync(join(appDirectory, entry), 'utf8');
   /* Naming the table in an import says nothing about what a file does with it,
      and an import list spans lines, so the whole statement goes before the scan
      rather than being pattern-matched line by line. */

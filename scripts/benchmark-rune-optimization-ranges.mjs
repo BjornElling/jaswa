@@ -1,8 +1,8 @@
 /** Local measurements; an optional captured RuneOptimizationInput stays on this computer. */
 import { readFileSync } from 'node:fs';
 import { scenarioGenerator } from './rune-optimization-scenarios.mjs';
-import { prepareRuneOptimization } from '../app/lib/rune-optimization-problem.ts';
-import { searchRuneBuilds } from '../app/lib/rune-optimization-search.ts';
+import { prepareRuneOptimization } from '../app/domain/runes/optimization/rune-optimization-problem.ts';
+import { searchRuneBuilds } from '../app/domain/runes/optimization/rune-optimization-search.ts';
 
 const captured = process.argv[2] ? JSON.parse(readFileSync(process.argv[2], 'utf8')) : null;
 const source = captured ?? scenarioGenerator(20261004, [2, 2]).scenario(0);

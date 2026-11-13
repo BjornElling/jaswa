@@ -8,8 +8,9 @@ const server = await createServer({
 });
 
 try {
-  const { readPreferences, defaultArtifactSettings } = await server.ssrLoadModule('/app/ingest/preferences.ts');
-  const { scoringSettings } = await server.ssrLoadModule('/app/lib/artifact-recommendations.ts');
+  const { readPreferences } = await server.ssrLoadModule('/app/ingest/preferences.ts');
+  const { defaultArtifactSettings } = await server.ssrLoadModule('/app/domain/profiles/preference-defaults.ts');
+  const { scoringSettings } = await server.ssrLoadModule('/app/domain/artifacts/artifact-recommendations.ts');
 
   assert.equal(defaultArtifactSettings.recalculate, 'manual',
     'a whole-library calculation is work the user asks for, so manual is the default');

@@ -36,15 +36,15 @@
  * other half of that repair) and because the Gem decision is the one part of a rune's
  * end state that depends on how its lines actually rolled.
  */
-import { defaultRuneRoles } from '../app/lib/rune-roles.ts';
-import { runeAdvice } from '../app/lib/rune-cleanup-advice.ts';
-import { chanceRuns } from '../app/lib/rune-cleanup-model.ts';
-import { countJobs } from '../app/lib/rune-power-up-outcomes.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
+import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { chanceRuns } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { countJobs } from '../app/domain/runes/rune-power-up-outcomes.ts';
 import {
   addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
-} from '../app/lib/rune-properties.ts';
-import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/lib/runes.ts';
+} from '../app/domain/runes/rune-properties.ts';
+import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/domain/runes/runes.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
   .map((arg) => arg.slice(2).split('=', 2)));

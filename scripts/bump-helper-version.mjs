@@ -17,7 +17,7 @@ import { repositoryRoot } from './helper-fingerprint.mjs';
 
 const requested = process.argv[2] ?? 'patch';
 
-const appPath = path.join(repositoryRoot, 'app/lib/helper-version.ts');
+const appPath = path.join(repositoryRoot, 'app/domain/shared/helper-version.ts');
 const cargoPath = path.join(repositoryRoot, 'helper/src-tauri/Cargo.toml');
 const tauriPath = path.join(repositoryRoot, 'helper/src-tauri/tauri.conf.json');
 const helperDirectory = path.join(repositoryRoot, 'helper');
@@ -109,5 +109,5 @@ await replaceOnce(
   'recommendedHelperVersion',
 );
 
-console.log(`Helper v${from} -> v${to} in app/lib/helper-version.ts, helper/package.json (+lock), Cargo.toml (+lock) and tauri.conf.json.`);
+console.log(`Helper v${from} -> v${to} in app/domain/shared/helper-version.ts, helper/package.json (+lock), Cargo.toml (+lock) and tauri.conf.json.`);
 console.log(`Next: run \`npm run package\` in helper/ to build, sign and record v${to} in helper/release.json.`);

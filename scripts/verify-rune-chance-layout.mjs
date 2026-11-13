@@ -19,11 +19,11 @@
  * ever executes a shader.
  */
 import assert from 'node:assert/strict';
-import { runeChanceShader } from '../app/lib/compute/webgpu/rune-chance-shader.ts';
+import { runeChanceShader } from '../app/platform/gpu/shaders/rune-chance-shader.ts';
 import {
   chanceLanes, gemEntryStride, maxGemOptions, maxLines, maxPool, poolEntryStride,
   runeChanceConstants, runeRecordEnd, runeStride, scoringRecordEnd, scoringStride, statIdBound,
-} from '../app/lib/compute/webgpu/rune-chance-layout.ts';
+} from '../app/platform/gpu/layouts/rune-chance-layout.ts';
 
 /* 1. Every record fits inside the stride the backend allocates for it. */
 assert.ok(runeRecordEnd <= runeStride,

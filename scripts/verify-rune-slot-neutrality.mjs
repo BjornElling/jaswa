@@ -4,11 +4,11 @@
  * holdout and all 625 settings combinations live in verify-rune-slot-policy-matrix.
  */
 import assert from 'node:assert/strict';
-import { defaultRuneRoles, withRefreshedMetrics } from '../app/lib/rune-roles.ts';
-import { defaultRunePotentialSettings } from '../app/ingest/preferences.ts';
-import { ordinarySample } from '../app/lib/rune-cleanup-model.ts';
-import { runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/lib/rune-cleanup-advice.ts';
-import { slotMainProperties } from '../app/lib/rune-properties.ts';
+import { defaultRuneRoles, withRefreshedMetrics } from '../app/domain/profiles/rune-roles.ts';
+import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
+import { ordinarySample } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { slotMainProperties } from '../app/domain/runes/rune-properties.ts';
 
 /* This holds the quality gates themselves; the user's speed exception is checked separately. */
 const qualitySettings = { ...defaultRunePotentialSettings, neverSellPreGrindSpeed: false };

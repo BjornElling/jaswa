@@ -18,15 +18,15 @@
  * it when no card is at hand.
  */
 import assert from 'node:assert/strict';
-import { effectSlot, effectSlotCount, targetFigureCount, targetFigureKeys } from '../app/lib/monster-stats.ts';
-import { runeOptimizationShader } from '../app/lib/compute/webgpu/rune-optimization-shader.ts';
+import { effectSlot, effectSlotCount, targetFigureCount, targetFigureKeys } from '../app/domain/combat/monster-stats.ts';
+import { runeOptimizationShader } from '../app/platform/gpu/shaders/rune-optimization-shader.ts';
 import {
   brokenDefenseShare, criticalRateCapPercent, defenseFactorBase, defenseFactorPerDef, defenseFactorScale,
-} from '../app/lib/rune-potential-metrics.ts';
+} from '../app/domain/runes/rune-potential-metrics.ts';
 import {
   optimizationLanes, questionBarAt, questionFloorsAt, questionLength, questionRankAt, rangeStride,
   runeOptimizationConstants, runeOptimizationFloatConstants, survivorBytes, survivorCapacity, survivorStride, survivorsAt,
-} from '../app/lib/compute/webgpu/rune-optimization-layout.ts';
+} from '../app/platform/gpu/layouts/rune-optimization-layout.ts';
 
 /* 1. The question fits its length, and the stat sheet's positions are the ones declared. */
 assert.ok(questionBarAt < questionLength, `the question ends at ${questionBarAt} but is ${questionLength} long`);

@@ -40,10 +40,10 @@ try {
   await page.goto('http://localhost:3000/');
   for (const scenario of cases) {
     const report = await page.evaluate(async ({ input, preferWebGpu }) => {
-      const { prepareRuneOptimization, estimateRuneOptimizationBuilds } = await import('/app/lib/rune-optimization-problem.ts');
-      const { trialRuneOptimizationWork, runeOptimizationWorkWarning } = await import('/app/lib/rune-optimization-work.ts');
-      const { timeRuneBuildSearch } = await import('/app/lib/compute/rune-optimization-engine.ts');
-      const { optimizeRuneBuilds, searchWorkerCount } = await import('/app/lib/compute/rune-optimization-client.ts');
+      const { prepareRuneOptimization, estimateRuneOptimizationBuilds } = await import('/app/domain/runes/optimization/rune-optimization-problem.ts');
+      const { trialRuneOptimizationWork, runeOptimizationWorkWarning } = await import('/app/domain/runes/optimization/rune-optimization-work.ts');
+      const { timeRuneBuildSearch } = await import('/app/platform/compute/rune-optimization-engine.ts');
+      const { optimizeRuneBuilds, searchWorkerCount } = await import('/app/platform/compute/rune-optimization-client.ts');
       const start = performance.now();
       const problem = prepareRuneOptimization(input);
       const preparationMs = performance.now() - start;

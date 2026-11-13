@@ -3,7 +3,7 @@
 /**
  * Holds the preference defaults to what their thresholds were chosen to mean.
  *
- * `app/lib/monster-defaults.ts` turns three captured distributions into
+ * `app/domain/profiles/monster-defaults.ts` turns three captured distributions into
  * provisional preferences, and every cut in `defaultThresholds` was chosen by
  * measuring what it produces across the whole dataset — one preferred main per
  * rune slot, about two preferred rune sets because a monster carries two, and a
@@ -47,7 +47,7 @@ const server = await createServer({ configFile: false, appType: 'custom', server
 
 try {
   const { monsterDefaults, defaultedMonsterSpeciesIds, runeSlotKeys } =
-    await server.ssrLoadModule('/app/lib/monster-defaults.ts');
+    await server.ssrLoadModule('/app/domain/profiles/monster-defaults.ts');
 
   assert.ok(defaultedMonsterSpeciesIds.length > 0, 'the dataset covers no species at all');
 

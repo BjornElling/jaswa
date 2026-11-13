@@ -9,9 +9,9 @@
 import { readFileSync } from 'node:fs';
 
 const files = {
-  advice: 'app/lib/rune-cleanup-advice.ts',
-  roles: 'app/lib/rune-roles.ts',
-  section: 'app/components/rune-potential-section.tsx',
+  advice: 'app/domain/runes/cleanup/rune-cleanup-advice.ts',
+  roles: 'app/domain/profiles/rune-roles.ts',
+  section: 'app/features/rune-cleanup/rune-potential-section.tsx',
 };
 
 const source = Object.fromEntries(Object.entries(files).map(([key, path]) => [key, readFileSync(path, 'utf8')]));

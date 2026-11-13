@@ -5,10 +5,10 @@
  */
 import assert from 'node:assert/strict';
 import { prepareRuneCandidate, roleBuilds, candidateMaxValue, candidateChance,
-  candidateExpectedValue, runeRuns } from '../app/lib/rune-cleanup-model.ts';
-import { playForward, runScore } from '../app/lib/rune-power-up-outcomes.ts';
-import { craftItemRoll } from '../app/lib/rune-craft-end-state.ts';
-import { initialSubPropertyRange } from '../app/lib/rune-properties.ts';
+  candidateExpectedValue, runeRuns } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { playForward, runScore } from '../app/domain/runes/rune-power-up-outcomes.ts';
+import { craftItemRoll } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { initialSubPropertyRange } from '../app/domain/runes/rune-properties.ts';
 
 const role = { id: 'future-craft', name: 'Future craft', type: 'Support type',
   sets: { preferred: ['Violent'], acceptable: [] },

@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   calculateMonsterTotals, combatStatBonus, monsterEffects, monsterStatSheet, monsterTargetFigures, completedTeamSets, teamSetBonuses,
-} from '../app/lib/monster-stats.ts';
-import { copyProfile, readMonsterPreferences, withProfile } from '../app/lib/monster-preferences.ts';
-import { relicMonsterModel } from '../app/lib/relic-monster-value.ts';
-import { noBuildingBonuses, readBuildingBonuses } from '../app/lib/account-buildings.ts';
-import { fightAddition } from '../app/lib/figure-marks.ts';
-import { combatSpeed } from '../app/lib/speed-tick.ts';
+} from '../app/domain/combat/monster-stats.ts';
+import { copyProfile, readMonsterPreferences, withProfile } from '../app/domain/profiles/monster-preferences.ts';
+import { relicMonsterModel } from '../app/domain/relics/relic-monster-value.ts';
+import { noBuildingBonuses, readBuildingBonuses } from '../app/domain/account/account-buildings.ts';
+import { fightAddition } from '../app/domain/shared/figure-marks.ts';
+import { combatSpeed } from '../app/domain/speed/speed-tick.ts';
 
 const monster = {
   con: 659, atk: 637, def: 736, spd: 108,

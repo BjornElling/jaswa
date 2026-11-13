@@ -19,7 +19,7 @@ in the current browser tab only and is cleared when that tab closes.
 | The export folder | The chosen folder handle, where the browser supports it | IndexedDB |
 
 The records live in the local `jaswa-local` IndexedDB database;
-`app/lib/browser-storage.ts` is the only module that opens it. The preferences
+`app/platform/browser-storage.ts` is the only module that opens it. The preferences
 mirror is a write-through safety copy for a tab closed before IndexedDB
 completes; IndexedDB remains the complete store. A folder handle is an
 IndexedDB record because browser handles cannot travel in an exported
@@ -38,7 +38,7 @@ writers in separate tabs.
 
 `readPreferences` (`app/ingest/preferences.ts`) reads the stored copy and a
 `.sw` file alike, one section at a time, and each section through its own
-reader, one choice at a time (`app/lib/preference-reading.ts`, AGENTS.md §0):
+reader, one choice at a time (`app/domain/profiles/preference-reading.ts`, AGENTS.md §0):
 
 | Section | What the user chose | Reader |
 | --- | --- | --- |
@@ -97,7 +97,7 @@ its explicit save or confirmation control.
 ## Write rule
 
 Every committed preference change goes through `changePreferences` in
-`app/page.tsx`; components receive controlled values and callbacks, never a
+`app/shell/root.tsx`; components receive controlled values and callbacks, never a
 storage API. That route updates the synchronous preferences mirror before the
 new value reaches the interface, and queues an IndexedDB write after the
 earlier preference writes. Imported game data and folder choices wait for their
