@@ -1,4 +1,4 @@
-import { createRuneSimulatorWorker } from '../../platform/feature-workers';
+import { createRuneSimulatorWorker } from '../../platform/rune-simulator-factory';
 /**
  * The page's one way to ask for a Rune Simulator run.
  *

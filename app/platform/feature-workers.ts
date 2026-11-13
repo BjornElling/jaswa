@@ -23,10 +23,6 @@ export function createRuneOptimizationWorker(): Worker {
   return new Worker(new URL('../lib/compute/rune-optimization-worker.ts', import.meta.url), { type: 'module' });
 }
 
-export function createRuneSimulatorWorker(): Worker {
-  return new Worker(new URL('../lib/compute/rune-simulator-worker.ts', import.meta.url), { type: 'module' });
-}
-
 export function createRuneStatisticsWorker(): Worker {
   return new Worker(new URL('../lib/compute/rune-statistics-worker.ts', import.meta.url), { type: 'module' });
 }
