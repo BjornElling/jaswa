@@ -1681,6 +1681,8 @@ been replaced. The acceptance criteria in §20 are not yet met.
   before replacing its snapshot; the compiler is checked against the existing
   snapshot and malformed examples. The catalogue agreement test covers every
   current form. The parity audit was skipped because no capture was available.
+- Added an IndexedDB test harness for ordered preference writes and mirror
+  fallback. It does not yet test or implement cross-record atomicity.
 - Workspace restoration now runs through `app/workspace/restore.ts`: account
   and preference reads settle independently, and read failures are surfaced.
   Unit tests cover an account-read failure with intact preferences. Empty and
