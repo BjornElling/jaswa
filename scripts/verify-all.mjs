@@ -12,7 +12,7 @@ const checks = chain.map((part) => {
   return match[1];
 });
 if (!checks.length || new Set(checks).size !== checks.length) throw new Error('Domain checks must be non-empty and unique.');
-checks.push('test:e2e');
+checks.push('test:unit', 'test:e2e');
 if (!process.env.npm_execpath) throw new Error('Run this command through npm run verify:all.');
 
 const results = [];

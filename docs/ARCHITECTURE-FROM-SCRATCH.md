@@ -1673,7 +1673,15 @@ been replaced. The acceptance criteria in §20 are not yet met.
   failure. The full aggregate has not yet been run.
 - `npm run lint`, `npm run build` and `npx tsc --noEmit` passed for this
   initial change.
-- Still required: the isolated Vitest harness and import/cycle rules; atomic
+- Added an isolated Vitest configuration and the first catalogue tests; existing
+  independent verification scripts remain intact. This is the start of the
+  harness, not a completed migration of the checks.
+- Rune reference averages now ask the catalogue for the exact form's archetype.
+  The catalogue refresh validates IDs, names, image filenames and archetypes
+  before replacing its snapshot; the compiler is checked against the existing
+  snapshot and malformed examples. The catalogue agreement test covers every
+  current form. The parity audit was skipped because no capture was available.
+- Still required: import/cycle rules and migration of checks to Vitest; atomic
   combined writes and recovery tests; typed ingestion and immutable observation
   with local projections; workspace commands; shared job runtime; reference
   ownership; feature and style reorganization; helper restructuring; and all

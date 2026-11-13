@@ -15,9 +15,9 @@
  */
 import type { GameRecord } from './game-data';
 import { monsterBaseStats } from './monster-stats';
+import { monsterCatalogueArchetype, type MonsterArchetype } from './monster-catalog';
 import type { RoleType } from './rune-roles';
 import type { TargetStat } from './rune-properties';
-import monsterCatalogue from '../data/swarfarm-monsters.json';
 
 /** The level a monster has to have reached to speak for its family. */
 export const referenceMonsterLevel = 40;
@@ -41,18 +41,13 @@ export type ReferenceLine = { stats: ReferenceStats; basis: ReferenceBasis; mons
    and `none` cover farmable fodder and unclassified entries, and neither names a
    family a role can ask for, so both are left out of every family average and
    counted only in the roster-wide one. */
-const archetypeForRoleType: Readonly<Record<RoleType, string | null>> = {
+const archetypeForRoleType: Readonly<Record<RoleType, MonsterArchetype | null>> = {
   'Attack type': 'Attack',
   'Support type': 'Support',
   'Defence type': 'Defense',
   'HP type': 'HP',
   'No type': null,
 };
-
-const archetypes: ReadonlyMap<number, string> = new Map(
-  (monsterCatalogue as { monsters?: Array<{ com2us_id: number; archetype: string }> }).monsters
-    ?.map((monster) => [monster.com2us_id, monster.archetype]) ?? [],
-);
 
 function numberValue(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
@@ -101,12 +96,12 @@ export function referenceLines(data: GameRecord | undefined): Map<RoleType, Refe
 
   const rosterWide = average(monsters);
   const lines = new Map<RoleType, ReferenceLine>();
-  for (const [roleType, archetype] of Object.entries(archetypeForRoleType) as Array<[RoleType, string | null]>) {
+  for (const [roleType, archetype] of Object.entries(archetypeForRoleType) as Array<[RoleType, MonsterArchetype | null]>) {
     if (archetype === null) {
       lines.set(roleType, { stats: rosterWide, basis: 'roster', monsters: monsters.length });
       continue;
     }
-    const family = monsters.filter((monster) => archetypes.get(numberValue(monster.unit_master_id)) === archetype);
+    const family = monsters.filter((monster) => monsterCatalogueArchetype(numberValue(monster.unit_master_id)) === archetype);
     lines.set(roleType, family.length > 0
       ? { stats: average(family), basis: 'family', monsters: family.length }
       : { stats: rosterWide, basis: 'roster', monsters: monsters.length });

@@ -125,6 +125,11 @@ function monsterArchetype(value: unknown): MonsterArchetype | undefined {
   return monsterArchetypes.includes(value as MonsterArchetype) ? value as MonsterArchetype : undefined;
 }
 
+/** The catalogue's classification for this exact form, when known. */
+export function monsterCatalogueArchetype(masterId: unknown): MonsterArchetype | undefined {
+  return monsterArchetype(swarfarmByCom2usId[String(masterId ?? '')]?.archetype);
+}
+
 // The name the same monster carries under its other release. Read straight from
 // the catalogue rather than through `monsterPresentation`, which calls this.
 //
@@ -226,7 +231,7 @@ export function monsterPresentation(masterId: unknown): MonsterPresentation {
     searchAliases: [renamed?.formerName, twinName(key, catalogueName)].filter((alias): alias is string => Boolean(alias)),
     shortName: name.slice(0, 1).toUpperCase(),
     imageFilename: imageFilename && localMonsterImageFilenames.has(imageFilename) ? imageFilename : undefined,
-    archetype: monsterArchetype(swarfarmMonster?.archetype),
+    archetype: monsterCatalogueArchetype(masterId),
   };
 }
 

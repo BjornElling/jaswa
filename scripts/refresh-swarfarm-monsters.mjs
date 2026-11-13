@@ -11,6 +11,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { compileMonsterCatalogue } from './monster-catalog-compiler.mjs';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = resolve(repositoryRoot, 'app/data/swarfarm-monsters.json');
@@ -20,19 +21,8 @@ const minimumDelayMs = 3_000;
 const maximumSnapshotAgeMs = 7 * 24 * 60 * 60 * 1_000;
 const force = process.argv.includes('--force');
 
-const fields = [
-  'com2us_id', 'name', 'image_filename', 'archetype',
-];
-
 function sleep(milliseconds) {
   return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
-}
-
-function compactMonster(monster) {
-  const compacted = Object.fromEntries(fields
-    .filter((field) => Object.hasOwn(monster, field))
-    .map((field) => [field, monster[field]]));
-  return compacted;
 }
 
 async function readExistingSnapshot() {
@@ -96,7 +86,7 @@ async function main() {
     const payload = await fetchPage(page);
     totalCount ??= payload.count;
     if (payload.count !== totalCount) throw new Error('Swarfarm changed the reported total during this refresh. The existing snapshot was kept.');
-    monsters.push(...payload.results.map(compactMonster));
+    monsters.push(...payload.results);
     console.log(`Fetched page ${page}: ${monsters.length}/${totalCount} monsters.`);
     if (!payload.next) break;
     page += 1;
@@ -106,8 +96,7 @@ async function main() {
   if (monsters.length !== totalCount) {
     throw new Error(`Expected ${totalCount} monsters but received ${monsters.length}. The existing snapshot was kept.`);
   }
-  const duplicateId = monsters.find((monster, index) => monsters.findIndex((candidate) => candidate.com2us_id === monster.com2us_id) !== index);
-  if (duplicateId) throw new Error(`Duplicate com2us_id ${duplicateId.com2us_id} in Swarfarm response. The existing snapshot was kept.`);
+  const compiled = compileMonsterCatalogue(monsters);
 
   await writeSnapshot({
     source: endpoint,
@@ -115,7 +104,7 @@ async function main() {
     totalCount,
     requestedPageSize,
     minimumDelayMs,
-    monsters: monsters.sort((left, right) => left.com2us_id - right.com2us_id),
+    monsters: compiled,
   });
   console.log(`Wrote ${monsters.length} monsters to ${outputPath}.`);
 }
