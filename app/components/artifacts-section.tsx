@@ -4,7 +4,7 @@ import { CheckboxRow, OptionCard, RadioLine } from './form-controls';
 import { ArtifactMaximumValues } from './artifact-maximum-values';
 import { BestArtifactForMonster } from './best-artifact-for-monster';
 import { BestMonsterForArtifact } from './best-monster-for-artifact';
-import { artifactAcceptableWorthChoices, artifactInsignificantDifferenceRange } from '../lib/file-imports';
+import { artifactAcceptableWorthChoices, artifactInsignificantDifferenceRange } from '../ingest/preferences';
 import type { ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, GeneralSettings } from '../lib/types';
 import type { GameRecord } from '../lib/game-data';
 import type { MonsterProfiles } from '../lib/monster-preferences';

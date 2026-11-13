@@ -1,6 +1,6 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { blankPreferences } from './file-imports';
+import { blankPreferences } from '../ingest/preferences';
 import { loadPreferences, savePreferences } from './browser-storage';
 
 describe('preference storage', () => {

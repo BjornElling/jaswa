@@ -7,7 +7,7 @@ import {
 } from '../lib/artifact-optimal-value';
 import type { ArtifactPropertyPreference } from '../lib/artifact-optimal-value';
 import { scorePercent } from '../lib/compute/artifact-score-core';
-import { defaultArtifactSettings, defaultRunePotentialSettings } from '../lib/file-imports';
+import { defaultArtifactSettings, defaultRunePotentialSettings } from '../ingest/preferences';
 import { chanceThresholds, qualityThresholds } from '../lib/rune-cleanup-advice';
 import { statSetBonuses } from '../lib/monster-stats';
 import { swiftSetId } from '../lib/rune-sets';

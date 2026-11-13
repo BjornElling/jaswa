@@ -27,7 +27,7 @@ preferences file.
 
 ### The preferences, by section
 
-`readPreferences` (`app/lib/file-imports.ts`) reads the stored copy and a
+`readPreferences` (`app/ingest/preferences.ts`) reads the stored copy and a
 `.sw` file alike, one section at a time, and each section through its own
 reader, one choice at a time (`app/lib/preference-reading.ts`, AGENTS.md §0):
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blankPreferences } from '../lib/file-imports';
+import { blankPreferences } from '../ingest/preferences';
 import { restoreWorkspace } from './restore';
 
 describe('workspace restoration', () => {
