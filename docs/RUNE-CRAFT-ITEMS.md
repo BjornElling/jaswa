@@ -244,7 +244,8 @@ enters it: those decide what a Gem is shown to gain, not which stat it should be
 refuses before the top is read (*Can change gem'ed stat?* below), so a rune that already carries a Gem wants a
 better roll of that stat. The reason above does not apply there — the user has
 already decided the stat stays — and read after the top, the two rules emptied
-the rune between them.
+the rune between them. Under Yes such a rune wants both: the rule's stat, and a
+better roll of the stat its Gem already holds, which closes nothing.
 The gain itself is read on the same reference lines (§5), so the line a Gem is
 shown on and the stat it was chosen for cannot disagree about the stones. A Hero Gem of the chosen stat is suggested like a Legend
 one, as long as it raises the rune.
@@ -325,6 +326,13 @@ the gemmed stat alone, and a better roll of it is the rune's choice even where
 the placement rule would rather have another stat. A rune with no Gem keeps the
 placement rule's own choice: No never steers a first Gem onto a line whose stat
 it repeats unless that is the stat worth most.
+
+Yes is a permission, so it never shows less than No. On a rune with a Gem it
+offers both the placement rule's stat and the better roll of the gemmed stat
+that No offers: re-rolling a stat the rune has already spent its Gem on closes
+nothing §5.1 protects. Read as the placement rule alone, Yes emptied such a
+rune whenever the box lacked the rule's stat, while No still showed the better
+roll — and Yes looked like *must change*.
 
 The two read differently on purpose. *Stat already grinded* is an inclusive
 filter under `AGENTS.md` §2.2: Yes and No are independent, neither is chosen

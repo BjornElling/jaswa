@@ -300,8 +300,12 @@ for (const row of whole.candidates) if (row.item.kind === 'gem') {
   const [row] = answer.candidates;
   assert.ok(row && row.after.score > row.before.score, 'the Ancient CRI Rate Gem no longer raises the fixture rune');
   assert.equal(row.gemChoice[0].statId, 8, 'the fixture rune no longer wants SPD first; it no longer tests the case');
-  assert.equal(onDesirableGemStat(row, desirableGemStats(answer.candidates, undefined, 'yes')), false,
-    'Yes keeps the placement rule: a Gem of a lesser stat is not suggested');
+  /* Yes is a permission: it may add the placement rule's stat, never take away the
+     better roll No offers. Read as the rule alone, Yes showed nothing here. */
+  assert.equal(onDesirableGemStat(row, desirableGemStats(answer.candidates, undefined, 'yes')), true,
+    'Yes hid a better roll of the gem\'ed stat that No suggests');
+  assert.equal(desirableGemStats(answer.candidates, undefined, 'yes').get(row.rune.id)?.has(8), true,
+    'Yes no longer offers the placement rule\'s own stat');
   assert.equal(onDesirableGemStat(row, desirableGemStats(answer.candidates, undefined, 'no')), true,
     'No must leave a better roll of the gem\'ed stat as the rune\'s choice');
 }
