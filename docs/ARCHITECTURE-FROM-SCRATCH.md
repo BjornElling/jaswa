@@ -1718,7 +1718,10 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   Unit tests cover an account-read failure with intact preferences. Empty and
   imported workspaces were also reloaded in Playwright on the already-running
   localhost:3000 server; screenshots showed no unintended content movement.
-  The failure notice itself has not been exercised in a browser.
+  A preference read failure with no usable mirror now surfaces the failure
+  instead of silently returning empty preferences. The failure notice and two
+  consecutive setting changes followed by reload were exercised in Playwright,
+  with empty and imported workspaces on the already-running localhost server.
 - Still required: import/cycle rules and migration of checks to Vitest; atomic
   combined writes and recovery tests; typed ingestion and immutable observation
   with local projections; workspace commands; shared job runtime; reference

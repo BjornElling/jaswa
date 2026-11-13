@@ -31,4 +31,11 @@ describe('preference storage', () => {
     vi.stubGlobal('indexedDB', { open: () => { throw new Error('unavailable'); } });
     expect(await loadPreferences()).toEqual(preferences);
   });
+
+  it('reports a database failure when there is no readable mirror', async () => {
+    vi.stubGlobal('indexedDB', { open: () => { throw new Error('unavailable'); } });
+    await expect(loadPreferences()).rejects.toThrow('unavailable');
+    window.localStorage.setItem('jaswa-preferences', '{invalid');
+    await expect(loadPreferences()).rejects.toThrow('unavailable');
+  });
 });

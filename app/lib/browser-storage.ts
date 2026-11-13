@@ -129,8 +129,10 @@ export async function loadPreferences(): Promise<unknown> {
   const mirror = readPreferencesMirror();
   try {
     return latestPreferences(await readWorkspaceValue<unknown>(preferencesKey), mirror);
-  } catch {
-    return latestPreferences(null, mirror);
+  } catch (error) {
+    const recovered = latestPreferences(null, mirror);
+    if (recovered === null) throw error;
+    return recovered;
   }
 }
 
