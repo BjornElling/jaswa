@@ -1703,6 +1703,11 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   on the already-running localhost server. This is only the existing runtime's
   relocation and coverage: shared leases, specialized strategies and the
   remaining clients have not yet been ported.
+- Worker construction for craft recommendations and optimization work estimates
+  now lives at the platform boundary; ESLint prevents new direct construction in
+  components. Their existing scheduling and cancellation remain in place. The
+  affected populated flows passed their focused Playwright checks on the
+  already-running localhost server; this does not complete the shared runtime.
 - Workspace restoration now runs through `app/workspace/restore.ts`: account
   and preference reads settle independently, and read failures are surfaced.
   Unit tests cover an account-read failure with intact preferences. Empty and

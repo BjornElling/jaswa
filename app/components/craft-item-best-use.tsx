@@ -1,5 +1,6 @@
 import { filterIncludes, filterPair } from '../lib/filter-selection';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createCraftRecommendationWorker } from '../platform/feature-workers';
 import type { ReactNode } from 'react';
 import { AncientName } from './ancient-mark';
 import { Button, FilterButton, InlineButton, LabelSwap } from './button';
@@ -139,7 +140,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   function run(request: CraftRecommendationRequest, asks: readonly CraftRecommendationRequest[],
     settle: (results: CraftRecommendations[]) => CraftCalculation) {
     worker.current?.terminate();
-    const running = new Worker(new URL('../lib/compute/craft-recommendation-worker.ts', import.meta.url), { type: 'module' });
+    const running = createCraftRecommendationWorker();
     worker.current = running;
     workerRequest.current = request;
     setWork({ request, busy: true, progress: 0 });

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createRuneOptimizationWorkWorker } from '../platform/feature-workers';
 import type { RuneOptimizationInput, RuneOptimizationProblem } from '../lib/rune-optimization-problem';
 import type { RuneOptimizationWork } from '../lib/rune-optimization-work';
 import { searchWorkerCount } from '../lib/compute/rune-optimization-client';
@@ -27,7 +28,7 @@ export function useRuneOptimizationWork(input: RuneOptimizationInput | undefined
     };
     const timer = setTimeout(() => {
       try {
-        worker = new Worker(new URL('../lib/compute/rune-optimization-work-worker.ts', import.meta.url), { type: 'module' });
+        worker = createRuneOptimizationWorkWorker();
         worker.onmessage = (event: MessageEvent<{ problem: RuneOptimizationProblem; work: RuneOptimizationWork; failed?: boolean }>) => {
           if (stopped) return;
           if (event.data.failed) { fail(); return; }

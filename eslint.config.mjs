@@ -43,6 +43,22 @@ const eslintConfig = defineConfig([
       }],
     },
   },
+  {
+    files: ['app/components/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': ['error',
+        { selector: "JSXOpeningElement[name.name='select']", message: 'Use the shared Dropdown component instead of a raw select.' },
+        { selector: "NewExpression[callee.name='Worker']", message: 'Create workers at the platform boundary.' },
+      ],
+    },
+  },
+  {
+    files: ['app/components/dropdown.tsx'],
+    rules: { 'no-restricted-syntax': ['error', {
+      selector: "NewExpression[callee.name='Worker']",
+      message: 'Create workers at the platform boundary.',
+    }] },
+  },
 ]);
 
 export default eslintConfig;
