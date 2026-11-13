@@ -324,8 +324,12 @@ export function savePreferences(preferences: Preferences, rebase?: (current: Pre
   const snapshot = { ...structuredClone(preferences), [writeOrderKey]: nextOrder };
   let pairedAfter: OrderedPreferences | null = null;
   if (pending && rebase) {
-    pairedAfter = { ...structuredClone(rebase(preferencesWithoutWriteOrder(pending.after) as Preferences)),
-      updatedAt: preferences.updatedAt, __jaswaWriteOrder: nextOrder };
+    try {
+      pairedAfter = { ...structuredClone(rebase(preferencesWithoutWriteOrder(pending.after) as Preferences)),
+        updatedAt: preferences.updatedAt, __jaswaWriteOrder: nextOrder };
+    } catch (error) {
+      return Promise.reject(error);
+    }
     pending.before = snapshot;
     pending.after = pairedAfter;
   }

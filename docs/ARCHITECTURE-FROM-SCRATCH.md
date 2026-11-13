@@ -1703,8 +1703,7 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   selects the later ordered copy independently of timestamp ties or clock
   rollback. Tests cover mirror failure, a pending write and a fresh module
   restoration. Existing unordered choices still use timestamp reconciliation.
-  This does not yet test or implement cross-record atomicity or writer locking
-  across tabs. A database success with a failed synchronous mirror now raises a
+  Cross-tab writer locking is not implemented. A database success with a failed synchronous mirror now raises a
   distinct warning on the current page; browser and unit tests exercise recovery
   after that failure, and a later successful save clears the warning. A failed
   database read leaves a recoverable mirror visible but refuses preference writes
@@ -1718,8 +1717,16 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   one transaction, and rebases concurrent preference edits onto both outcomes.
   Its tests exercise transaction abort, both mirror-publication failures, edits
   before, during and after the commit, and recovery with identical timestamps.
-  Lock/Exclude is not connected to this writer yet; its workspace publication,
-  concurrent account writes and real browser flow still need verification.
+  Lock/Exclude in an own preset now uses that writer when it also changes the
+  preset's engraving. Removing a monster from a game preset or deleting one
+  uses it when the operation also changes saved preferences. Account writes
+  are queued and re-read current state before application; this queue is not
+  yet the proposed extracted workspace command system. A focused Playwright
+  test on the already-running localhost:3000 server exercised an injected
+  transaction abort, a successful lock, an exclusion with an unrelated
+  preference edit while the transaction was held, and reload. Existing focused
+  Scenario engraving, preset and helper tests passed. Cross-tab coordination,
+  broader interrupted-write coverage and final end-to-end verification remain.
 - Moved the existing numbered-request worker runtime to `app/platform/` and
   added isolated tests for out-of-order replies, independent cancellation and
   recovery after worker failure. The existing browser cancellation test passed
@@ -1748,8 +1755,8 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   A mirror without a valid timestamp is still handed to the per-choice readers
   when neither copy has an ordering timestamp, so that one malformed field does
   not discard the remaining choices.
-- Still required: import/cycle rules and migration of checks to Vitest; atomic
-  combined writes and recovery tests; typed ingestion and immutable observation
+- Still required: import/cycle rules and migration of checks to Vitest; broader
+  paired-write and cross-tab verification; typed ingestion and immutable observation
   with local projections; workspace commands; shared job runtime; reference
   ownership; feature and style reorganization; helper restructuring; and all
   end-to-end and platform acceptance checks.

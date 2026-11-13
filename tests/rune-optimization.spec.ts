@@ -708,6 +708,108 @@ const storedLocks = (page: Page) => page.evaluate(async () => new Promise<unknow
   };
 }));
 
+test('an own-preset lock saves its placement and lock together, including after an aborted write', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await freshWorkspace(page);
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
+  await page.evaluate(async () => {
+    const storagePath = '/app/lib/browser-storage.ts', importsPath = '/app/ingest/preferences.ts';
+    const { savePreferences } = await import(storagePath);
+    const { blankPreferences } = await import(importsPath);
+    await savePreferences({ ...blankPreferences(), hardwareAcceleration: false,
+      presets: [{ id: 'own-atomic', name: 'Atomic team', content: null, members: ['11'], leaderUnitId: null, gear: null }] });
+  });
+  await page.reload();
+  await openOptimization(page);
+  await page.getByLabel('Preset', { exact: true }).selectOption('own-atomic');
+  await page.getByLabel('Monster', { exact: true }).selectOption('11');
+  await rankUnranked(page);
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
+  const rows = await page.getByRole('table', { name: 'Rune builds' }).getByRole('button', { name: /^Show build \d+$/ }).count();
+  let chosen = 0;
+  for (let build = 1; build <= rows && chosen === 0; build += 1) {
+    await page.getByRole('button', { name: `Show build ${build}`, exact: true }).click();
+    if (await page.getByRole('dialog', { name: `Build ${build}` }).getByRole('button', { name: 'Engrave and lock', exact: true }).count()) chosen = build;
+    else await page.keyboard.press('Escape');
+  }
+  expect(chosen, 'no build offers an unengraved rune to lock').toBeGreaterThan(0);
+  const dialog = page.getByRole('dialog', { name: `Build ${chosen}` });
+  const candidate = dialog.getByRole('button', { name: 'Engrave and lock', exact: true }).first();
+  const slot = await candidate.locator('xpath=ancestor::li[contains(@class,"rune-build-card")]').getAttribute('aria-label');
+  expect(slot).toBeTruthy();
+  const card = dialog.getByRole('listitem', { name: slot!, exact: true });
+  const lock = card.getByRole('button', { name: 'Engrave and lock', exact: true });
+  const cardBefore = await box(card);
+  await page.screenshot({ path: testInfo.outputPath('own-lock-before.png') });
+  await page.evaluate(() => {
+    const original = IDBObjectStore.prototype.put;
+    (window as unknown as { restorePut: () => void }).restorePut = () => { IDBObjectStore.prototype.put = original; };
+    IDBObjectStore.prototype.put = function (value, key) {
+      if (key === 'preference-commit') throw new Error('Injected paired write failure');
+      return original.call(this, value, key);
+    };
+  });
+  await lock.click();
+  await expect(page.getByRole('status', { name: 'Preferences storage' })).toContainText('Injected paired write failure');
+  await expect(lock).toHaveAttribute('aria-pressed', 'false');
+  expect(await storedLocks(page)).toBeUndefined();
+  expect(await box(card)).toEqual(cardBefore);
+  await page.evaluate(() => (window as unknown as { restorePut: () => void }).restorePut());
+  await lock.click();
+  const locked = card.getByRole('button', { name: 'Lock', exact: true });
+  await expect(locked).toHaveAttribute('aria-pressed', 'true');
+  expect(await box(card)).toEqual(cardBefore);
+  await page.screenshot({ path: testInfo.outputPath('own-lock-after.png') });
+  const verifyPair = async (expected: 'locked' | 'excluded') => {
+    const locks = await storedLocks(page) as Record<string, Record<string, Record<string, string>>>;
+    const rune = Object.keys(locks['own-atomic']['11']).find((id) => locks['own-atomic']['11'][id] === expected);
+    expect(rune).toBeTruthy();
+    const stored = await storedPreferences(page) as { presets: Array<{ id: string; gear: Record<string, { runeIds: string[] }> }> };
+    const runeIds = stored.presets.find((preset) => preset.id === 'own-atomic')?.gear['11'].runeIds;
+    if (expected === 'locked') expect(runeIds).toContain(rune);
+    else expect(runeIds).not.toContain(rune);
+  };
+  await verifyPair('locked');
+  /* Hold the database transaction open so a real preference click lands while
+     the paired write is pending, then release it and inspect both records. */
+  await page.evaluate(() => new Promise<void>((resolve, reject) => {
+    const open = indexedDB.open('jaswa-local', 1);
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const transaction = db.transaction('workspace', 'readwrite');
+      const store = transaction.objectStore('workspace');
+      let released = false;
+      (window as unknown as { releasePairedBlocker: () => void }).releasePairedBlocker = () => { released = true; };
+      transaction.oncomplete = () => db.close();
+      const keepAlive = () => {
+        if (released) return;
+        const request = store.get('preferences');
+        request.onsuccess = keepAlive;
+      };
+      keepAlive();
+      resolve();
+    };
+  }));
+  await card.getByRole('button', { name: 'Remove and exclude', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').__jaswaPendingCommit))).toBe(true);
+  await page.keyboard.press('Escape');
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('input[name="number-format"][value="american"]').check();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}')
+    .__jaswaPendingCommit?.after?.general?.numberFormat)).toBe('american');
+  await page.evaluate(() => (window as unknown as { releasePairedBlocker: () => void }).releasePairedBlocker());
+  await expect.poll(() => page.evaluate(() => Boolean(JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').__jaswaPendingCommit))).toBe(false);
+  await verifyPair('excluded');
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await expect(page.locator('input[name="number-format"][value="american"]')).toBeChecked();
+  await verifyPair('excluded');
+});
+
 test('Lock and Exclude on a build card bind one rune to this monster, move nothing, and last until the next import', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1920, height: 1080 });

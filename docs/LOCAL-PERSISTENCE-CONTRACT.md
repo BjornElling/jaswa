@@ -112,6 +112,16 @@ show recoverable preferences, but preference saves are refused until a reload
 successfully reads the database. This prevents a partial recovery copy from
 overwriting newer choices the database might contain. A notice explains why.
 
+An own-preset Lock or Exclude that changes its engraving, and a game-preset
+edit that also changes saved preferences, commit both records together. Before
+the IndexedDB transaction, the mirror records the preference values on both
+sides and a local commit token; the transaction writes the token with both
+records. Recovery reads the token and preferences in one database transaction
+and selects the committed side. Preference edits made while the transaction is
+pending are applied to both sides, so unrelated choices survive either outcome.
+Account changes are queued in the current tab and resolved against the latest
+committed account. Coordination between separate tabs is not yet implemented.
+
 The named wrappers over `changePreferences`, each the one route for its
 section:
 

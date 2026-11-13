@@ -3,11 +3,12 @@ import { AppRail } from './components/app-rail';
 import { HomeSection } from './components/home-section';
 import { CornerNotices, ImportBadge } from './components/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
-import { canSavePreferences, clearImportedGame, loadImportedGame, loadPreferences, PreferenceMirrorUnavailable, PreferenceStoreUnreadable, saveImportedGame, savePreferences } from './lib/browser-storage';
+import { canSavePreferences, clearImportedGame, loadImportedGame, loadPreferences, PreferenceMirrorUnavailable, PreferenceStoreUnreadable, saveImportedGame, savePreferences, saveWorkspacePair } from './lib/browser-storage';
 import { createImportedGame, validateGameFile } from './ingest/game-export';
 import { blankPreferences } from './ingest/preferences';
 import { fileToText, importPreferencesFile } from './platform/preference-files';
 import { restoreWorkspace } from './workspace/restore';
+import { createSerializedWriter } from './workspace/serialized-writes';
 import { checkHelperConnection, helperStatusMessage, readHelperProfile, silentHelper } from './lib/helper-client';
 import type { HelperConnection } from './lib/helper-client';
 import { downloadJson, formatDateTime } from './lib/formatting';
@@ -31,7 +32,7 @@ import type { MonsterPriority } from './lib/monster-priority';
 import { scenarioPresetId, engravings, readPresets, selectedPresetKey } from './lib/presets';
 import { PresetsContext } from './lib/presets-context';
 import { summarizeRunePlacement } from './lib/rune-placement';
-import type { OwnPreset } from './lib/presets';
+import type { OwnPreset, Preset } from './lib/presets';
 import type { PresetWrites } from './components/presets-section';
 import { profilesIn, withProfile } from './lib/monster-preferences';
 import type { RelicSynergyChoices } from './lib/relic-synergy';
@@ -85,6 +86,7 @@ function WorkspaceLoading() {
  * and what was said about its team is said about nothing.
  */
 function withoutPreset(preferences: Preferences, presetId: string): Preferences {
+  if (!(presetId in preferences.presetPriority) && !(presetId in preferences.speedTuning.presets)) return preferences;
   const rest = <T,>(map: Readonly<Record<string, T>>) => Object.fromEntries(Object.entries(map).filter(([id]) => id !== presetId));
   return {
     ...preferences,
@@ -167,6 +169,12 @@ export default function Home() {
      whatever was loaded when the interval started. */
   const gameRef = useRef(game);
   gameRef.current = game;
+  const accountWrite = useMemo(createSerializedWriter, []);
+
+  function publishGame(next: ImportedGame | null) {
+    gameRef.current = next;
+    setGame(next);
+  }
 
   useEffect(() => {
     restoreWorkspace({ loadGame: loadImportedGame, loadPreferences }).then(({ game: savedCurrentGame, preferences: savedCurrentPreferences, failed }) => {
@@ -275,8 +283,7 @@ export default function Home() {
         const validation = validateGameFile(profile.data);
         if (!validation.valid) return;
         const fresh = createImportedGame('JASWA Helper — Steam', profile.data, validation, { instanceId: profile.instanceId, sessionId: profile.sessionId });
-        const imported = preferences.directImportMode === 'live' ? withLiveRuneLocks(fresh, gameRef.current, preferencesRef.current.presets) : fresh;
-        if (!await applyImport(imported, force)) return;
+        if (!await applyImport(fresh, force, preferences.directImportMode === 'live')) return;
         setHelperConnection(connection);
         rejectedSnapshot = null;
         reportedHelperRejection.current = null;
@@ -302,6 +309,8 @@ export default function Home() {
     void refreshHelper();
     const interval = window.setInterval(() => void refreshHelper(), 2000);
     return () => { disposed = true; reloadHelper.current = null; setReloadingHelper(false); setLiveImportStopped(null); window.clearInterval(interval); };
+    // The import writer reads current account and choices through refs; recreating the poll on every render would restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preferences.directImportMode, preferences.importRoute, ready]);
 
   /* The poll stops when the route leaves direct import, and the last answer it
@@ -370,19 +379,24 @@ export default function Home() {
     appliedHelperSession.current = null;
   }
 
-  async function applyImport(imported: ImportedGame, manual = false) {
-    try {
-      await saveImportedGame(imported);
-    } catch {
-      if (manual) setHelperReloadError('JASWA could not save game data. Please try again.');
-      else setMessage('JASWA could not save this import. Please try again.');
-      return false;
-    }
-    setGame(imported);
-    setImportConfirmation({ game: imported, manual });
-    setPendingGame(null);
-    setMessage('');
-    return true;
+  async function applyImport(imported: ImportedGame, manual = false, carryLocks = false) {
+    return accountWrite(async () => {
+      if (imported.helperSession && preferencesRef.current.importRoute !== 'direct') return false;
+      const next = carryLocks && preferencesRef.current.directImportMode === 'live'
+        ? withLiveRuneLocks(imported, gameRef.current, preferencesRef.current.presets) : imported;
+      try {
+        await saveImportedGame(next);
+      } catch {
+        if (manual) setHelperReloadError('JASWA could not save game data. Please try again.');
+        else setMessage('JASWA could not save this import. Please try again.');
+        return false;
+      }
+      publishGame(next);
+      setImportConfirmation({ game: next, manual });
+      setPendingGame(null);
+      setMessage('');
+      return true;
+    });
   }
 
   async function applyFileImport(imported: ImportedGame) {
@@ -390,44 +404,50 @@ export default function Home() {
   }
 
   async function removeImport() {
-    try {
-      await clearImportedGame();
-    } catch {
-      setMessage('JASWA could not remove the saved import. Please try again.');
-      return;
-    }
-    forgetAppliedHelperImport();
-    setGame(null);
-    setMessage('');
+    return accountWrite(async () => {
+      try {
+        await clearImportedGame();
+      } catch {
+        setMessage('JASWA could not remove the saved import. Please try again.');
+        return;
+      }
+      forgetAppliedHelperImport();
+      publishGame(null);
+      setMessage('');
+    });
   }
 
   /* A build is engraved in one preset and nowhere else. A preset built in JASWA
      lives in the preferences, which no sync overwrites; Scenario and the game's
      presets live in the import, which live sync would put back. */
   async function engraveBuild(presetId: string, unitId: string, runeIds: readonly string[]): Promise<void> {
-    const preset = presets.find((entry) => entry.id === presetId);
-    if (preset?.kind === 'own') {
-      const own = preferences.presets.find((entry) => entry.id === presetId);
-      if (!own) throw new Error('This preset is no longer in your preferences.');
-      const next = engraveOwnPreset(own, preset, unitId, runeIds);
-      changePreferences((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? next : entry) }));
-      return;
-    }
-    if (!game || !preset || !canEngrave) {
-      throw new Error('This build cannot be engraved in the current import mode.');
-    }
-    try {
-      const engraved = engraveImportedGame(game, preset, unitId, runeIds);
-      /* A lock whose rune the build moved away is over, and is not stored to come back if the rune ever does. */
-      const locks = heldRuneLocks(engraved.runeLocks ?? noRuneLocks, readPresets(engraved.data, preferences.presets));
-      const next = { ...engraved, runeLocks: Object.keys(locks).length > 0 ? locks : undefined };
-      await saveImportedGame(next);
-      setGame(next);
-      setMessage('');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'JASWA could not save this build. Please try again.');
-      throw error;
-    }
+    return accountWrite(async () => {
+      const currentGame = gameRef.current;
+      const currentPreferences = preferencesRef.current;
+      const preset = readPresets(currentGame?.data, currentPreferences.presets).find((entry) => entry.id === presetId);
+      if (preset?.kind === 'own') {
+        const own = currentPreferences.presets.find((entry) => entry.id === presetId);
+        if (!own) throw new Error('This preset is no longer in your preferences.');
+        const next = engraveOwnPreset(own, preset, unitId, runeIds);
+        changePreferences((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? next : entry) }));
+        return;
+      }
+      if (!currentGame || !preset || !(currentPreferences.importRoute === 'file' || currentPreferences.directImportMode === 'on-load')) {
+        throw new Error('This build cannot be engraved in the current import mode.');
+      }
+      try {
+        const engraved = engraveImportedGame(currentGame, preset, unitId, runeIds);
+        /* A lock whose rune the build moved away is over, and is not stored to come back if the rune ever does. */
+        const locks = heldRuneLocks(engraved.runeLocks ?? noRuneLocks, readPresets(engraved.data, currentPreferences.presets));
+        const next = { ...engraved, runeLocks: Object.keys(locks).length > 0 ? locks : undefined };
+        await saveImportedGame(next);
+        publishGame(next);
+        setMessage('');
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'JASWA could not save this build. Please try again.');
+        throw error;
+      }
+    });
   }
 
   /**
@@ -438,42 +458,60 @@ export default function Home() {
    * the preferences — and only those still holding are kept.
    */
   async function lockRune(presetId: string, unitId: string, runeId: string, lock: RuneLock | null): Promise<void> {
-    const preset = presets.find((entry) => entry.id === presetId);
-    if (!game || !preset) throw new Error('This rune cannot be locked or excluded without an import.');
-    /* Under live sync only the engraving is off, and only where the game owns the
-       placement: the choice itself is the search's, so it stands either way. */
-    const mayEngrave = canEngrave || preset.kind === 'own';
-    const onMonster = preset.runeOwner.get(runeId) === unitId;
-    if (lock === 'locked' && !onMonster && !mayEngrave) throw new Error(alwaysSynchronizedReason);
-    const slots = new Map(readRunes(game.data).map((rune) => [rune.id, rune.slot]));
-    const slotOf = (id: string) => slots.get(id);
-    try {
-      let next = game;
-      let ownPresets = preferences.presets;
-      /* Locking a rune engraves it here; excluding one the monster carries takes it off (`runeLockLabels`). */
-      const runeIds = lock === 'locked' && !onMonster ? runesWithLocked(preset, unitId, runeId, slotOf)
-        : lock === 'excluded' && onMonster && mayEngrave ? runesWithout(preset, unitId, runeId, slotOf) : null;
-      if (runeIds !== null) {
-        if (preset.kind === 'own') {
-          const own = ownPresets.find((entry) => entry.id === presetId);
-          if (!own) throw new Error('This preset is no longer in your preferences.');
-          const engraved = engraveOwnPreset(own, preset, unitId, runeIds);
-          ownPresets = ownPresets.map((entry) => entry.id === presetId ? engraved : entry);
-          changePreferences((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? engraved : entry) }));
-        } else {
-          next = engraveImportedGame(next, preset, unitId, runeIds, lock === 'locked' ? [runeId] : []);
+    return accountWrite(async () => {
+      const currentGame = gameRef.current;
+      const currentPreferences = preferencesRef.current;
+      const currentPresets = readPresets(currentGame?.data, currentPreferences.presets);
+      const preset = currentPresets.find((entry) => entry.id === presetId);
+      if (!currentGame || !preset) throw new Error('This rune cannot be locked or excluded without an import.');
+      /* Under live sync only the engraving is off, and only where the game owns the
+         placement: the choice itself is the search's, so it stands either way. */
+      const mayEngrave = currentPreferences.importRoute === 'file' || currentPreferences.directImportMode === 'on-load' || preset.kind === 'own';
+      const onMonster = preset.runeOwner.get(runeId) === unitId;
+      if (lock === 'locked' && !onMonster && !mayEngrave) throw new Error(alwaysSynchronizedReason);
+      const slots = new Map(readRunes(currentGame.data).map((rune) => [rune.id, rune.slot]));
+      const slotOf = (id: string) => slots.get(id);
+      try {
+        let next = currentGame;
+        let ownPresets = currentPreferences.presets;
+        let changedOwnPreset = false;
+        /* Locking a rune engraves it here; excluding one the monster carries takes it off (`runeLockLabels`). */
+        const runeIds = lock === 'locked' && !onMonster ? runesWithLocked(preset, unitId, runeId, slotOf)
+          : lock === 'excluded' && onMonster && mayEngrave ? runesWithout(preset, unitId, runeId, slotOf) : null;
+        if (runeIds !== null) {
+          if (preset.kind === 'own') {
+            const own = ownPresets.find((entry) => entry.id === presetId);
+            if (!own) throw new Error('This preset is no longer in your preferences.');
+            const engraved = engraveOwnPreset(own, preset, unitId, runeIds);
+            ownPresets = ownPresets.map((entry) => entry.id === presetId ? engraved : entry);
+            changedOwnPreset = true;
+          } else {
+            next = engraveImportedGame(next, preset, unitId, runeIds, lock === 'locked' ? [runeId] : []);
+          }
         }
+        const currentLocks = heldRuneLocks(currentGame.runeLocks ?? noRuneLocks, currentPresets);
+        const locks: RuneLocks = heldRuneLocks(withRuneLock(currentLocks, runeLockScope(preset), unitId, runeId, lock, slotOf),
+          readPresets(next.data, ownPresets));
+        next = { ...next, runeLocks: Object.keys(locks).length > 0 ? locks : undefined };
+        if (changedOwnPreset) {
+          const after = { ...currentPreferences, presets: ownPresets, updatedAt: new Date().toISOString() };
+          const result = await saveWorkspacePair(next, currentPreferences, after);
+          preferencesRef.current = result.preferences;
+          setPreferences(result.preferences);
+          setStorageNotice(result.mirrorSaved ? null : { tone: 'warn', message: 'Your preferences were saved, but their quick recovery copy could not be saved.' });
+        } else {
+          await saveImportedGame(next);
+          setStorageNotice(null);
+        }
+        publishGame(next);
+        setMessage('');
+      } catch (error) {
+        const failure = error instanceof Error ? error.message : 'JASWA could not save this lock. Please try again.';
+        setMessage(failure);
+        setStorageNotice({ tone: 'bad', message: failure });
+        throw error;
       }
-      const locks: RuneLocks = heldRuneLocks(withRuneLock(runeLocks, runeLockScope(preset), unitId, runeId, lock, slotOf),
-        readPresets(next.data, ownPresets));
-      next = { ...next, runeLocks: Object.keys(locks).length > 0 ? locks : undefined };
-      await saveImportedGame(next);
-      setGame(next);
-      setMessage('');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'JASWA could not save this lock. Please try again.');
-      throw error;
-    }
+    });
   }
 
   /* This is the sole route from a committed preference choice to both React and
@@ -482,7 +520,7 @@ export default function Home() {
      same order and mirrors each one synchronously. */
   function changePreferences(change: (current: Preferences) => Preferences) {
     const next = { ...change(preferencesRef.current), updatedAt: new Date().toISOString() };
-    const writing = savePreferences(next);
+    const writing = savePreferences(next, change);
     preferencesRef.current = next;
     setPreferences(next);
     void writing.then(() => setStorageNotice(null)).catch((error: unknown) => {
@@ -723,30 +761,23 @@ export default function Home() {
       });
     },
     async deleteGamePreset(presetId: string) {
-      const preset = presets.find((entry) => entry.id === presetId);
-      if (!preset) return;
-      if (await changeGamePreset((current) => deleteGamePreset(current, preset))) {
-        changePreferences((current) => withoutPreset(current, presetId));
-      }
+      await changeGamePreset(presetId, (current, preset) => deleteGamePreset(current, preset),
+        (current) => withoutPreset(current, presetId));
     },
     async leadGamePreset(presetId: string, unitId: string | null) {
-      const preset = presets.find((entry) => entry.id === presetId);
-      if (preset) await changeGamePreset((current) => leadGamePreset(current, preset, unitId));
+      await changeGamePreset(presetId, (current, preset) => leadGamePreset(current, preset, unitId));
     },
     async addToGamePreset(presetId: string, unitId: string) {
-      const preset = presets.find((entry) => entry.id === presetId);
-      const fallback = presets.find((entry) => entry.kind === 'scenario');
-      if (preset && fallback) await changeGamePreset((current) => addToGamePreset(current, preset, fallback, unitId));
+      await changeGamePreset(presetId, (current, preset, fallback) => addToGamePreset(current, preset, fallback, unitId));
     },
     /* Removing a team member leaves its area profile intact. */
     async removeFromGamePreset(presetId: string, unitId: string) {
-      const preset = presets.find((entry) => entry.id === presetId);
-      if (!preset || !await changeGamePreset((current) => removeFromGamePreset(current, preset, unitId))) return;
-      changePreferences((current) => ({
-        ...current,
-        presetPriority: current.presetPriority[presetId] === undefined ? current.presetPriority
-          : { ...current.presetPriority, [presetId]: current.presetPriority[presetId].filter((entry) => entry !== unitId) },
-      }));
+      await changeGamePreset(presetId, (current, preset) => removeFromGamePreset(current, preset, unitId), (current) => {
+        const order = current.presetPriority[presetId];
+        return !order?.includes(unitId) ? current : {
+          ...current, presetPriority: { ...current.presetPriority, [presetId]: order.filter((entry) => entry !== unitId) },
+        };
+      });
     },
   };
 
@@ -760,18 +791,38 @@ export default function Home() {
 
   /* A game preset lives in the import, so a change to one is saved there, as an
      engrave is; live sync would put the game's own back at once, so it refuses. */
-  async function changeGamePreset(change: (current: ImportedGame) => ImportedGame): Promise<boolean> {
-    if (!game || !canEngrave) return false;
-    try {
-      const next = change(game);
-      await saveImportedGame(next);
-      setGame(next);
-      setMessage('');
-      return true;
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'JASWA could not save this preset. Please try again.');
-      return false;
-    }
+  async function changeGamePreset(presetId: string, change: (current: ImportedGame, preset: Preset, scenario: Preset) => ImportedGame,
+    preferenceChange?: (current: Preferences) => Preferences): Promise<boolean> {
+    return accountWrite(async () => {
+      const currentGame = gameRef.current;
+      const currentPreferences = preferencesRef.current;
+      if (!currentGame || !(currentPreferences.importRoute === 'file' || currentPreferences.directImportMode === 'on-load')) return false;
+      const currentPresets = readPresets(currentGame.data, currentPreferences.presets);
+      const preset = currentPresets.find((entry) => entry.id === presetId);
+      const scenario = currentPresets.find((entry) => entry.kind === 'scenario');
+      if (!preset || !scenario) return false;
+      try {
+        const next = change(currentGame, preset, scenario);
+        const changedPreferences = preferenceChange?.(currentPreferences);
+        if (changedPreferences && changedPreferences !== currentPreferences) {
+          const after = { ...changedPreferences, updatedAt: new Date().toISOString() };
+          const result = await saveWorkspacePair(next, currentPreferences, after);
+          preferencesRef.current = result.preferences;
+          setPreferences(result.preferences);
+          setStorageNotice(result.mirrorSaved ? null : { tone: 'warn', message: 'Your preferences were saved, but their quick recovery copy could not be saved.' });
+        } else {
+          await saveImportedGame(next);
+        }
+        publishGame(next);
+        setMessage('');
+        return true;
+      } catch (error) {
+        const failure = error instanceof Error ? error.message : 'JASWA could not save this preset. Please try again.';
+        setMessage(failure);
+        setStorageNotice({ tone: 'bad', message: failure });
+        return false;
+      }
+    });
   }
 
   /* Remount the search when this route starts inside Rune Optimization too:
