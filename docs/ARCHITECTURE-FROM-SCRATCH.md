@@ -3,6 +3,7 @@
 **Status:** Architectural analysis and proposed design; not a replacement for binding contracts
 **Date:** November 13, 2026
 **Scope:** Browser application, calculation workers, Windows helper, reference data, hosting and verification
+**Addendum:** §21 records an independent second assessment, compares it with §§1–20 and states the resulting recommendation
 
 ## 1. Assignment and answer
 
@@ -1265,3 +1266,205 @@ A developer has established this architecture when:
 The intended result is a structure where a maintainer can answer three
 questions before editing: **who owns this fact or decision, which boundary
 accepts it, and which independent check holds its meaning?**
+
+## 21. Second opinion: an independent assessment
+
+### 21.1 How this assessment was made
+
+The same assignment was answered a second time, without treating §§1–20 as
+binding: inspect the code first-hand, form a blueprint, and only then compare
+it with the proposal above and decide what is most appropriate.
+
+One honest limit: the proposal had been read before the code was inspected.
+The independence here is that of a reviewer who re-measures every claim
+against the source and reaches each conclusion from that evidence, not that
+of someone who never saw the proposal.
+
+The factual claims in §3.2 and §14.2 hold when re-measured: `app/page.tsx` has
+1,097 lines, `app/globals.css` 7,546, the Rune Optimization screen 1,025, its
+search 1,352 and the Clean-up model 1,267; `.github/workflows/deploy.yml`
+selects Node 22 while `.node-version` says 26.
+
+### 21.2 The independent answer, before comparison
+
+Starting from the product and the code alone, I would build:
+
+1. A local-first Vite, React and TypeScript application, an optional Windows
+   helper, and static hosting. No account backend.
+2. A typed account boundary as *the* central structural decision: raw export
+   shape ends at ingestion, and everything after it reads typed collections.
+3. A pure domain organized by game subject — account, monsters, runes,
+   artifacts, relics, placements, profiles, combat, speed — with each
+   expensive procedure living inside the subject that owns its rules.
+4. A thin platform layer for storage, files, helper transport, the worker
+   runtime and the graphics card.
+5. A small workspace store with typed commands; pages read queries and
+   dispatch commands.
+6. One test runner for domain and integration checks, and architectural
+   boundaries expressed as lint rules.
+7. Reference data compiled, at refresh time, into the trimmed typed shape the
+   application reads.
+
+Points 1, 2 and 5 coincide with the proposal. Points 3, 4, 6 and 7 differ from
+it in emphasis or in substance, as §21.5 explains.
+
+### 21.3 Evidence from the code that shaped the answer
+
+| Observation | What it shows |
+| --- | --- |
+| 65 files under `app/` name `GameRecord` or `ImportedGame` (whose `data` is `Record<string, unknown>`), 27 of them components | The raw export shape is the program's common language. Not every file reads raw fields — some pass the record on — but each is coupled to its shape. This is the largest single coupling in the code base |
+| Only `browser-storage.ts` and `session-storage-state.ts` touch `localStorage`, `indexedDB` or `sessionStorage` | Storage is already isolated. Moving it into an `adapters/` folder is mostly a rename, not a gain |
+| Six worker clients and eight worker entries. Two clients use `cancellable-worker.ts`; four (`rune-statistics-client.ts`, `rune-advice-client.ts`, `rune-calibration-client.ts`, `rune-optimization-client.ts`) each carry their own worker singleton, request IDs, cancellation and answer memory; two components (`craft-item-best-use.tsx`, `use-rune-optimization-work.ts`) construct workers themselves | The shared lifecycle exists but is optional, so each new calculation re-solves it. Components reaching for `new Worker` is a boundary the architecture should make impossible |
+| `swarfarm-monsters.json` is imported by both `monster-catalog.ts` and `rune-reference-stats.ts`; the three Swarfarm snapshots together hold about 47,000 lines and are imported statically | §13's rule that accessors are the only interpreters is already broken once, and reference data travels in its source shape rather than in the shape JASWA uses |
+| 76 `scripts/verify-*.mjs` checks; `test:domain` is one `&&` chain of about 80 commands; about 35 scripts start a Vite server or transform to load TypeScript (`scripts/verification-server.mjs`) | The project has built its own test runner out of scripts. `AGENTS.md` §7 has to warn that the chain stops at the first failure — a property no test runner has |
+| `eslint.config.mjs` holds one restricted-syntax rule (no raw `<select>`) and no import-boundary rule; single-source rules are checked by scripts that read source text | Ownership is enforced after the fact by bespoke scripts rather than at the moment code is written |
+| `helper/src-tauri/src/profile.rs` has 4,754 lines and `service.rs` 2,669 | The largest hand-written files in the repository are in the helper, which §14 discusses mostly at the level of process boundaries |
+| Five CSS modules beside 7,546 lines of global CSS | The direction in §12.2 has started; it has not yet become the norm |
+
+### 21.4 Where the assessments agree
+
+Reached independently and kept unchanged:
+
+- Local-first with no remote backend, and the helper as a separate, optional
+  executable (§§4, 19).
+- A typed `AccountSnapshot` published once by a transactional import with
+  structured issues (§§7.1, 9). The evidence in §21.3 makes this the most
+  valuable single change.
+- Placement as a `(context, item, monster, slot)` relation, and local changes
+  as an explicit projection over an immutable observation (§§7.2, 7.3).
+- Profiles as stored statements resolved against defaults, with the three
+  states kept only where the subject contract distinguishes them (§8.1).
+- Per-choice preference reading and ordered writes (§10.3, first half).
+- CPU reference, one acceleration door and an honest backend report (§11.4),
+  and the two deliberate cancellation forms (§11.2).
+- One writer per origin through a browser lock (§10.4): with
+  `navigator.locks` this is a few dozen lines and proportionate.
+- The rejected alternatives in §19, all of them.
+
+### 21.5 Where I would decide differently
+
+**1. Checks belong in a test runner; boundaries belong in lint.** This is
+the main divergence. §16 keeps the named `verify:*` scripts and asks for an
+explicit pass/fail/skip summary; a test runner provides that summary natively.
+Vitest uses the same Vite transform that `verification-server.mjs` already
+starts by hand, so it adds a dev dependency rather than a new toolchain. It
+reports every failure in one run, filters to one check, runs in watch mode,
+puts tests beside the module they hold, and records a skip as a skip with its
+reason instead of an exit code of zero.
+
+Keep each `verify:*` name as a thin alias for its filtered test so `AGENTS.md`,
+the subject documents and habit keep working. Express ownership rules as
+import restrictions per folder (`no-restricted-imports` or an import-path
+rule): "only `domain/runes/craft/` imports the craft tables" fails in the
+editor, not after a script reads the source. Keep text-reading checks only
+for what an import rule cannot see, such as a formula restated without an
+import. Checks that need a real export, the dev server or a graphics card stay
+separate scripts.
+
+Why this matters more than §16 implies: JASWA is maintained by one developer
+working largely through agents, and an agent follows what fails. Fast,
+targeted and complete failure reports are the cheapest way to keep every
+other boundary in this document from eroding.
+
+**2. Fewer layers.** §6 has ten top-level folders. The `domain/` versus
+`algorithms/` distinction is about cost, not dependency: both are pure, and
+neither may touch the browser. Put Clean-up, the optimization search and
+craft advice inside their subject, and keep "procedures may use rules; rules
+never use procedures" as a lint rule within it. Likewise `adapters/` and
+`compute/` are both platform. A compact tree:
+
+```text
+app/
+  shell/        composition root, navigation, the one overlay host
+  features/     one folder per page: screen, editors, presenters, CSS module
+  ui/           shared primitives, gear lines, calculation actions
+  workspace/    store, commands, queries, restore, import use case, job lifecycle
+  domain/       pure: account, monsters, runes (cleanup/, optimization/,
+                craft/), artifacts, relics, placements, profiles, combat,
+                speed, reference
+  ingest/       game export and preference readers; the only raw-shape code
+  platform/     storage, files, helper transport, worker runtime, gpu/
+  styles/       tokens, voices, base
+```
+
+Four dependency rules replace a matrix: `features → workspace → domain`;
+`ingest → domain`; `platform` implements the ports `workspace` declares;
+`domain` imports nothing above it. A rule that fits in one sentence is one an
+agent and a maintainer both keep.
+
+**3. Reference data gets an ingestion boundary too.** §13 makes accessors
+the only interpreters; §21.3 shows that rule broken once already. Enforce it by
+construction: the refresh script that already fetches and validates Swarfarm
+emits a trimmed, typed snapshot per consumer — catalogue, speed skills, PvE
+stages — containing only the fields JASWA reads. Runtime code never sees the
+source shape, the bundle carries less, and a second interpreter has nothing
+raw to read. This is §7.1 applied to the second external source.
+
+**4. One generic job client, not one per calculation.** §11 asks for a
+shared job lifecycle; I would make it the only way to start work. A worker
+side `defineJob({ key, run })` and a page side `jobClient(descriptor)` own the
+worker slot, request IDs, reuse of identical in-flight work, bounded answer
+memory, cancellation and the backend report. A calculation then consists of
+its pure algorithm, its descriptor and its presenter. A lint rule forbids
+`new Worker` outside `platform/`. Specialization stays where §8.2 puts it: in
+the algorithm, never in the plumbing. Only jobs that stream partial answers —
+Rune Optimization's Stop — need a richer descriptor.
+
+**5. Prove the cross-store case before engineering it.** §10.3's pending
+commit token with before/after mirror recovery is correct, but it is the most
+intricate mechanism in the proposal and exists for one case: a command that
+writes import-local changes and user presets together. First establish
+whether a single engrave actually does both. If not, each command writes one
+durable document and the protocol is unnecessary. If so, IndexedDB already
+commits two object stores in one transaction; the remaining hazard is the
+synchronous mirror, and for an account-coupled preference it suffices to
+write the mirror after the IndexedDB commit and let the newest-copy rule pick
+IndexedDB on disagreement. Choose the smallest rule that survives the
+interrupted-write test §16 already requires.
+
+### 21.6 What the proposal leaves implicit
+
+- **Priority.** §17 orders a greenfield build and §18 maps responsibilities;
+  neither ranks what to do in the code that exists. The document rightly
+  authorizes no rewrite, but it can rank by value per cost (§21.7).
+- **The helper's internals.** The six-part split in §14.1 applies first as
+  Rust modules inside the existing crate, breaking up `profile.rs` and
+  `service.rs`. The privilege broker is a later, separate step with its own
+  risks.
+- **The cross-language contract, stated as one property.** Replaying a
+  recorded capture through the helper yields a snapshot that browser
+  ingestion accepts with the same per-entity counts as the matching file
+  export, where one exists. Sanitized fixtures carry that property; it is
+  sharper than "shared fixtures" alone.
+
+### 21.7 Synthesis: the most appropriate solution
+
+The proposal's target architecture is sound and should stand, with four
+amendments — a test runner and lint boundaries, the compact tree, compiled
+reference data, and one generic job client — and one deferral: the
+cross-store recovery protocol until the case is proven.
+
+The answer to "how would we structure it" is therefore the amended target.
+The answer to "how do we get there" is evolution, not a rewrite. JASWA's
+value lies in its verified rules and their independent checks, not in its
+folder layout, and a rewrite would have to re-earn trust that those checks
+already give. `AGENTS.md` permits breaking changes, so the reason is risk to
+correctness, not compatibility. Each step below stands on its own and leaves
+`main` shippable:
+
+| Step | Change | Why in this position |
+| --- | --- | --- |
+| 1 | Test runner with `verify:*` aliases, and import-boundary lint | Cheap; makes every later move safe and mechanically checkable |
+| 2 | Typed `AccountSnapshot` behind `ingest/`; move consumers one collection at a time, read-only views first | Removes the largest coupling (65 files) and unlocks steps 5 and 6 |
+| 3 | Generic job client; port the clients one at a time and forbid `new Worker` elsewhere | Repeated lifecycle code, small blast radius per port |
+| 4 | Reference snapshots compiled at refresh time | Independent of everything else; removes a duplicate interpreter and bundle weight |
+| 5 | Local changes as a projection over the immutable observation | Needs the typed snapshot to project over |
+| 6 | Workspace store and commands out of `app/page.tsx` | Simpler once commands operate on typed state and explicit local changes |
+| 7 | Helper modules inside the crate; privilege broker afterwards | Readability first, privilege separation as its own verified change |
+| 8 | Feature layout into CSS modules whenever a feature is touched | No big-bang; the global voices and tokens stay put |
+
+The acceptance criteria in §20 stand. Two are added:
+
+11. One test command reports every failure and every skip in a single run.
+12. Reference snapshots reach runtime code only in their trimmed, typed form,
+    through one accessor each.
