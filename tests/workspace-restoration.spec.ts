@@ -46,6 +46,27 @@ test('reports an unreadable preference store when no mirror can recover it', asy
   await page.screenshot({ path: testInfo.outputPath('after-failure.png') });
 });
 
+test('shows recovered choices without overwriting an unread database', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('input[name="number-format"][value="american"]').check();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').general?.numberFormat)).toBe('american');
+  await page.addInitScript(() => {
+    const get = IDBObjectStore.prototype.get;
+    IDBObjectStore.prototype.get = function (key) {
+      if (key === 'preferences') throw new Error('Preference read unavailable');
+      return get.call(this, key);
+    };
+  });
+  await page.reload();
+  await expect(page.locator('input[name="number-format"][value="american"]')).toBeChecked();
+  await expect(page.getByRole('status', { name: 'Preferences storage' })).toContainText('Reload to read your saved preferences');
+  await page.locator('input[name="number-format"][value="european"]').check();
+  await expect(page.getByRole('status', { name: 'Preferences storage' })).toContainText('Reload to read your saved preferences');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').general?.numberFormat)).toBe('american');
+});
+
 test('reports a failed recovery copy on the page where the choice was made', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');

@@ -1704,7 +1704,10 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   This does not yet test or implement cross-record atomicity or writer locking
   across tabs. A database success with a failed synchronous mirror now raises a
   distinct warning on the current page; browser and unit tests exercise recovery
-  after that failure, and a later successful save clears the warning.
+  after that failure, and a later successful save clears the warning. A failed
+  database read leaves a recoverable mirror visible but refuses preference writes
+  until a reload can read the database, avoiding a blind overwrite of choices
+  that may only be present in the database.
 - Moved the existing numbered-request worker runtime to `app/platform/` and
   added isolated tests for out-of-order replies, independent cancellation and
   recovery after worker failure. The existing browser cancellation test passed

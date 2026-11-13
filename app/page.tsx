@@ -3,7 +3,7 @@ import { AppRail } from './components/app-rail';
 import { HomeSection } from './components/home-section';
 import { CornerNotices, ImportBadge } from './components/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
-import { clearImportedGame, loadImportedGame, loadPreferences, PreferenceMirrorUnavailable, saveImportedGame, savePreferences } from './lib/browser-storage';
+import { canSavePreferences, clearImportedGame, loadImportedGame, loadPreferences, PreferenceMirrorUnavailable, PreferenceStoreUnreadable, saveImportedGame, savePreferences } from './lib/browser-storage';
 import { createImportedGame, validateGameFile } from './ingest/game-export';
 import { blankPreferences } from './ingest/preferences';
 import { fileToText, importPreferencesFile } from './platform/preference-files';
@@ -174,6 +174,7 @@ export default function Home() {
       if (savedCurrentGame?.helperSession) appliedHelperSession.current = `${savedCurrentGame.helperSession.instanceId}:${savedCurrentGame.helperSession.sessionId}`;
       preferencesRef.current = savedCurrentPreferences;
       setPreferences(savedCurrentPreferences);
+      if (!canSavePreferences()) setStorageNotice({ tone: 'bad', message: 'Reload to read your saved preferences before changing them.' });
       if (failed.length) setMessage('JASWA could not read part of the saved workspace. Reload to try again.');
     }).catch(() => {
       const emptyPreferences = blankPreferences();
@@ -487,6 +488,8 @@ export default function Home() {
     void writing.then(() => setStorageNotice(null)).catch((error: unknown) => {
       setStorageNotice(error instanceof PreferenceMirrorUnavailable
         ? { tone: 'warn', message: 'Your preferences were saved, but their quick recovery copy could not be saved.' }
+        : error instanceof PreferenceStoreUnreadable
+        ? { tone: 'bad', message: 'Reload to read your saved preferences before changing them.' }
         : { tone: 'bad', message: 'JASWA could not save your preferences. Your latest choice is still on screen.' });
     });
   }
@@ -810,8 +813,11 @@ export default function Home() {
       } catch (error) {
         if (error instanceof PreferenceMirrorUnavailable) mirrorUnavailable = true;
         else {
-          setMessage('JASWA could not save these preferences. Please try again.');
-          setStorageNotice({ tone: 'bad', message: 'JASWA could not save these preferences. Please try again.' });
+          const failure = error instanceof PreferenceStoreUnreadable
+            ? 'Reload to read your saved preferences before changing them.'
+            : 'JASWA could not save these preferences. Please try again.';
+          setMessage(failure);
+          setStorageNotice({ tone: 'bad', message: failure });
           return;
         }
       }

@@ -107,6 +107,10 @@ on every page and explains that the recovery copy was not saved; a database
 failure is reported separately. A later successful preference save clears the
 notice. Loading a preferences file still publishes it when the database accepted
 it, even if its mirror failed, with the same warning.
+When the database could not be read during restoration, the mirror can still
+show recoverable preferences, but preference saves are refused until a reload
+successfully reads the database. This prevents a partial recovery copy from
+overwriting newer choices the database might contain. A notice explains why.
 
 The named wrappers over `changePreferences`, each the one route for its
 section:

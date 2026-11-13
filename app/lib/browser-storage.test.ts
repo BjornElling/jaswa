@@ -1,16 +1,17 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { blankPreferences } from '../ingest/preferences';
-import { loadPreferences, PreferenceMirrorUnavailable, savePreferences, writeWorkspaceValue } from './browser-storage';
+import { loadPreferences, PreferenceMirrorUnavailable, PreferenceStoreUnreadable, savePreferences, writeWorkspaceValue } from './browser-storage';
 
 describe('preference storage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     const entries = new Map<string, string>();
     vi.stubGlobal('indexedDB', new IDBFactory());
     vi.stubGlobal('window', { localStorage: {
       getItem: (key: string) => entries.get(key) ?? null,
       setItem: (key: string, value: string) => entries.set(key, value),
     } });
+    await loadPreferences();
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -30,6 +31,8 @@ describe('preference storage', () => {
     window.localStorage.setItem('jaswa-preferences', JSON.stringify(preferences));
     vi.stubGlobal('indexedDB', { open: () => { throw new Error('unavailable'); } });
     expect(await loadPreferences()).toEqual(preferences);
+    await expect(savePreferences({ ...preferences, hardwareAcceleration: false })).rejects.toBeInstanceOf(PreferenceStoreUnreadable);
+    expect(JSON.parse(window.localStorage.getItem('jaswa-preferences')!)).toEqual(JSON.parse(JSON.stringify(preferences)));
   });
 
   it('reports a database failure when there is no readable mirror', async () => {
@@ -84,5 +87,15 @@ describe('preference storage', () => {
     expect(await loadPreferences()).toEqual(second);
     await savePreferences(second);
     expect(await loadPreferences()).toEqual(second);
+  });
+
+  it('initializes standalone writes before ordering two consecutive requests', async () => {
+    const first = { ...blankPreferences(), hardwareAcceleration: false };
+    const second = { ...first, importRoute: 'direct' as const };
+    vi.resetModules();
+    const fresh = await import('./browser-storage');
+    const writes = [fresh.savePreferences(first), fresh.savePreferences(second)];
+    await Promise.all(writes);
+    expect(await fresh.loadPreferences()).toEqual(second);
   });
 });

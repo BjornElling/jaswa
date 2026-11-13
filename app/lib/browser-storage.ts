@@ -13,6 +13,9 @@ const writeOrderKey = '__jaswaWriteOrder';
    order. It is deliberately limited to preferences, never an imported game. */
 let preferenceWriteTail: Promise<void> = Promise.resolve();
 let lastPreferenceWriteOrder = 0;
+let preferenceDatabaseRead = false;
+let preferenceReadAttempted = false;
+let preferenceInitialization: Promise<unknown> | null = null;
 
 /* The one place the workspace database is opened: its name, its store and
    the store's creation. The save folder (`save-location.ts`) lives in the same
@@ -144,6 +147,14 @@ export class PreferenceMirrorUnavailable extends Error {
   }
 }
 
+/** Writing over an unread database could erase choices missing from the mirror. */
+export class PreferenceStoreUnreadable extends Error {
+  constructor() {
+    super('Reload to read the saved preferences before changing them.');
+    this.name = 'PreferenceStoreUnreadable';
+  }
+}
+
 function writePreferencesMirror(preferences: unknown): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -168,17 +179,34 @@ export function clearImportedGame(): Promise<void> {
 
 /** The newest stored copy, unjudged; pass it through `readPreferences`. */
 export async function loadPreferences(): Promise<unknown> {
+  preferenceReadAttempted = true;
   const mirror = readPreferencesMirror();
   try {
-    return preferencesWithoutWriteOrder(latestPreferences(await readWorkspaceValue<unknown>(preferencesKey), mirror));
+    const databaseCopy = await readWorkspaceValue<unknown>(preferencesKey);
+    preferenceDatabaseRead = true;
+    return preferencesWithoutWriteOrder(latestPreferences(databaseCopy, mirror));
   } catch (error) {
+    preferenceDatabaseRead = false;
     const recovered = latestPreferences(null, mirror);
     if (recovered === null) throw error;
     return preferencesWithoutWriteOrder(recovered);
   }
 }
 
-export function savePreferences(preferences: Preferences) {
+export function canSavePreferences(): boolean {
+  return preferenceDatabaseRead;
+}
+
+export function savePreferences(preferences: Preferences): Promise<void> {
+  /* Standalone callers can write a complete document without first mounting the
+     workspace. The interactive path has already restored, so it keeps its
+     synchronous mirror. An unsuccessful read never permits a blind overwrite. */
+  if (preferenceInitialization || !preferenceReadAttempted) {
+    const snapshot = structuredClone(preferences);
+    preferenceInitialization ??= loadPreferences().finally(() => { preferenceInitialization = null; });
+    return preferenceInitialization.then(() => savePreferences(snapshot));
+  }
+  if (!preferenceDatabaseRead) return Promise.reject(new PreferenceStoreUnreadable());
   const observedMirrorOrder = writeOrder(readPreferencesMirror()) ?? 0;
   const nextOrder = Math.max(lastPreferenceWriteOrder, observedMirrorOrder) + 1;
   if (!Number.isSafeInteger(nextOrder)) throw new Error('Preference write order is exhausted.');
