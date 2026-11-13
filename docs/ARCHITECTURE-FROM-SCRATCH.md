@@ -1679,6 +1679,11 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
 - Added an isolated Vitest configuration and the first catalogue tests; existing
   independent verification scripts remain intact. This is the start of the
   harness, not a completed migration of the checks.
+- Migrated the inclusive-filter verification to Vitest, retaining the exhaustive
+  selection cases and the independent source checks for all eleven workspaces.
+  `verify:filter-selection` selects that file explicitly and fails if no test is
+  discovered. The alias, typecheck and build passed; this is one migrated check,
+  not completion of the verification migration.
 - Rune reference averages now ask the catalogue for the exact form's archetype.
   The catalogue refresh validates IDs, names, image filenames and archetypes
   before replacing its snapshot; the compiler is checked against the existing

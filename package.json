@@ -45,7 +45,7 @@
     "verify:rune-optimization-layout": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-rune-optimization-layout.mjs",
     "verify:rune-optimization-card": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-rune-optimization-card.mjs",
     "verify:rune-craft-single-source": "node scripts/verify-rune-craft-single-source.mjs",
-    "verify:filter-selection": "node --experimental-strip-types --no-warnings scripts/verify-filter-selection.mjs",
+    "verify:filter-selection": "vitest run --config vitest.config.ts app/lib/filter-selection.test.ts",
     "verify:craft-recommendations": "node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-craft-recommendations.mjs",
     "verify:craft-recommendations-card": "node scripts/verify-craft-recommendations-card.mjs",
     "verify:artifact-recommendation-allocation": "node scripts/verify-artifact-recommendation-allocation.mjs",
