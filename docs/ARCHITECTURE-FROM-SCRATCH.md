@@ -1722,6 +1722,9 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   instead of silently returning empty preferences. The failure notice and two
   consecutive setting changes followed by reload were exercised in Playwright,
   with empty and imported workspaces on the already-running localhost server.
+  A mirror without a valid timestamp is still handed to the per-choice readers
+  when neither copy has an ordering timestamp, so that one malformed field does
+  not discard the remaining choices.
 - Still required: import/cycle rules and migration of checks to Vitest; atomic
   combined writes and recovery tests; typed ingestion and immutable observation
   with local projections; workspace commands; shared job runtime; reference

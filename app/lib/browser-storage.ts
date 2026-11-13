@@ -93,10 +93,18 @@ function savedAt(value: unknown): number | null {
   return Number.isFinite(time) ? time : null;
 }
 
+function isPreferenceCopy(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function latestPreferences(first: unknown, second: unknown): unknown {
   const firstTime = savedAt(first);
   const secondTime = savedAt(second);
-  if (firstTime === null) return secondTime === null ? null : second;
+  /* A missing timestamp is one malformed field, not a reason to discard the
+     other choices. When neither copy can be ordered, prefer the mirror as in
+     the equal-timestamp case and let the section readers judge each choice. */
+  if (firstTime === null && secondTime === null) return isPreferenceCopy(second) ? second : isPreferenceCopy(first) ? first : null;
+  if (firstTime === null) return second;
   if (secondTime === null) return first;
   /* The synchronous mirror is written before IndexedDB, so it must win an
      exact tie as well as a newer timestamp after a tab closes mid-write. */

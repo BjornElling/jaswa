@@ -38,4 +38,13 @@ describe('preference storage', () => {
     window.localStorage.setItem('jaswa-preferences', '{invalid');
     await expect(loadPreferences()).rejects.toThrow('unavailable');
   });
+
+  it('keeps independent choices in a mirror with a missing or invalid timestamp', async () => {
+    vi.stubGlobal('indexedDB', { open: () => { throw new Error('unavailable'); } });
+    for (const updatedAt of [undefined, 'invalid']) {
+      const mirror = { hardwareAcceleration: false, importRoute: 'direct', updatedAt };
+      window.localStorage.setItem('jaswa-preferences', JSON.stringify(mirror));
+      expect(await loadPreferences()).toEqual(JSON.parse(JSON.stringify(mirror)));
+    }
+  });
 });
