@@ -7,7 +7,7 @@
  * Worker object.
  */
 import type { RuneSimulationResult } from '../rune-simulator';
-import { cancellableWorker } from './cancellable-worker';
+import { cancellableWorker } from '../../platform/cancellable-worker';
 import type { RuneSimulationWorkerRequest } from './rune-simulator-protocol';
 
 const ask = cancellableWorker<RuneSimulationResult>(

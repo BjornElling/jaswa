@@ -1697,6 +1697,12 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   typed account boundary.
 - Added an IndexedDB test harness for ordered preference writes and mirror
   fallback. It does not yet test or implement cross-record atomicity.
+- Moved the existing numbered-request worker runtime to `app/platform/` and
+  added isolated tests for out-of-order replies, independent cancellation and
+  recovery after worker failure. The existing browser cancellation test passed
+  on the already-running localhost server. This is only the existing runtime's
+  relocation and coverage: shared leases, specialized strategies and the
+  remaining clients have not yet been ported.
 - Workspace restoration now runs through `app/workspace/restore.ts`: account
   and preference reads settle independently, and read failures are surfaced.
   Unit tests cover an account-read failure with intact preferences. Empty and

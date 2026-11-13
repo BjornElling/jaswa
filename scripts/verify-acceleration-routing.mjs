@@ -85,7 +85,7 @@ for (const path of everyFile(join(root, 'app'))) {
   }
   /* The request client also ends in -worker.ts; it forwards results on the
      page and owns no calculation or engine report. */
-  if (name.endsWith('-worker.ts') && name !== join(compute, 'cancellable-worker.ts')) workers.push({ name, source });
+  if (name.endsWith('-worker.ts') && name !== join('app', 'platform', 'cancellable-worker.ts')) workers.push({ name, source });
 }
 
 const rule = code(readFileSync(join(root, decisionOwner), 'utf8'));

@@ -5,7 +5,7 @@ import { FilterButton } from './button';
 import { CalculationActions, CalculationNote } from './calculation-actions';
 import { CalculationStatus } from './calculation-status';
 import { useCancellableRun } from './use-cancellable-run';
-import { isCalculationCancelled } from '../lib/compute/cancellable-worker';
+import { isCalculationCancelled } from '../platform/cancellable-worker';
 import { SettledCalculation } from './settled-calculation';
 import { ConversionList } from './conversion-list';
 import { ConvertedArtifactMark } from './converted-artifact-mark';

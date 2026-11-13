@@ -1,4 +1,4 @@
-import { cancellableWorker } from './cancellable-worker';
+import { cancellableWorker } from '../../platform/cancellable-worker';
 import type { ArtifactScoreRequest, ArtifactScoreResult } from './artifact-score-protocol';
 
 const ask = cancellableWorker<ArtifactScoreResult>(

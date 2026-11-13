@@ -296,8 +296,8 @@ test('cancelling one worker request answers the others from a fresh worker', asy
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   const outcome = await page.evaluate(async () => {
-    const url: string = '/app/lib/compute/cancellable-worker.ts';
-    const { cancellableWorker, isCalculationCancelled } = await import(url) as typeof import('../app/lib/compute/cancellable-worker');
+    const url: string = '/app/platform/cancellable-worker.ts';
+    const { cancellableWorker, isCalculationCancelled } = await import(url) as typeof import('../app/platform/cancellable-worker');
     /* Answers every request after a pause, echoing its value back. */
     const source = `onmessage = (event) => setTimeout(() => postMessage({ type: 'result', requestId: event.data.requestId, result: event.data.value }), 200);`;
     let started = 0;

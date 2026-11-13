@@ -4,7 +4,7 @@ import { FilterButton } from './button';
 import { CalculationActions, CalculationNote } from './calculation-actions';
 import { CalculationStatus } from './calculation-status';
 import { useCancellableRun } from './use-cancellable-run';
-import { isCalculationCancelled } from '../lib/compute/cancellable-worker';
+import { isCalculationCancelled } from '../platform/cancellable-worker';
 import { Dropdown } from './dropdown';
 import { PageHeader } from './page-chrome';
 import { QualityRule } from './quality-rule';
