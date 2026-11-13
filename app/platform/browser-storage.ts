@@ -1,4 +1,6 @@
 import type { ImportedGame, Preferences } from '../domain/model';
+import { PairedCommitUnavailable, PreferenceMirrorUnavailable, PreferenceStoreUnreadable } from '../workspace/ports';
+import type { WorkspaceRepository } from '../workspace/ports';
 
 const databaseName = 'jaswa-local';
 const storeName = 'workspace';
@@ -192,30 +194,6 @@ function latestPreferences(first: unknown, second: unknown): unknown {
   return secondTime >= firstTime ? second : first;
 }
 
-/** The database write succeeded, but closing immediately may lose a later edit. */
-export class PreferenceMirrorUnavailable extends Error {
-  constructor() {
-    super('The preference recovery copy could not be saved.');
-    this.name = 'PreferenceMirrorUnavailable';
-  }
-}
-
-/** Writing over an unread database could erase choices missing from the mirror. */
-export class PreferenceStoreUnreadable extends Error {
-  constructor() {
-    super('Reload to read the saved preferences before changing them.');
-    this.name = 'PreferenceStoreUnreadable';
-  }
-}
-
-/** A paired write cannot begin without a recoverable pending mirror. */
-export class PairedCommitUnavailable extends Error {
-  constructor() {
-    super('The paired change could not be prepared safely. Please try again.');
-    this.name = 'PairedCommitUnavailable';
-  }
-}
-
 function writePreferencesMirror(preferences: unknown): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -342,3 +320,14 @@ export function savePreferences(preferences: Preferences, rebase?: (current: Pre
     if (!mirrored) throw new PreferenceMirrorUnavailable();
   });
 }
+
+/** The browser's implementation of the workspace's durable storage port. */
+export const browserWorkspaceRepository: WorkspaceRepository = {
+  loadGame: loadImportedGame,
+  loadPreferences,
+  canSavePreferences,
+  saveGame: saveImportedGame,
+  clearGame: clearImportedGame,
+  savePreferences,
+  saveGamePair: saveWorkspacePair,
+};

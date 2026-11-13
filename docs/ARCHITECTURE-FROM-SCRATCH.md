@@ -1659,108 +1659,170 @@ The earlier statements in this document that no rewrite is authorized and that
 implementation must be evolutionary are superseded by that instruction. The
 subject contracts and preservation of the owner's choices remain binding.
 
-**Status: started; the redesign is not complete.** The existing raw account model, persistence protocol, workers, helper and
-presentation have not yet been replaced. The acceptance criteria in §20 are not yet met.
+**Status: in progress; the redesign is not complete.** The acceptance criteria
+in §20 and §21.7 are not yet met. §§1–22 are the analysis as written; file
+paths in them describe the tree before §23.2 and are deliberately not rewritten.
 
-- Added `npm run verify:all` as an interim aggregate: it runs every existing
-  domain alias independently, then the browser suite, and reports failures and
-  observed skips without stopping at the first failed check. Private captures,
-  real-card checks and Windows integration remain separate and are reported as
-  not run. This is not the planned Vitest integration or the final verification
-  system; browser skip details depend on Playwright's output. A simulated
-  failing check confirmed that later checks run and the aggregate exits with a
-  failure. A later aggregate completed with passing domain and browser suites,
-  but ran while implementation files were changing and therefore is not a
-  final verification of the current tree. It reported the absent private traffic
-  capture, real-card checks and Windows integration separately as not run.
-- `npm run lint`, `npm run build` and `npx tsc --noEmit` passed for this
-  initial change.
-- ESLint now rejects direct ingestion imports of UI, workspace and platform
-  modules. A negative probe confirmed the restriction; transitive dependencies
-  and the other architectural boundaries still need enforcement.
-- Added an isolated Vitest configuration and the first catalogue tests; existing
-  independent verification scripts remain intact. This is the start of the
-  harness, not a completed migration of the checks.
-- Migrated the inclusive-filter verification to Vitest, retaining the exhaustive
-  selection cases and the independent source checks for all eleven workspaces.
-  `verify:filter-selection` selects that file explicitly and fails if no test is
-  discovered. The alias, typecheck and build passed; this is one migrated check,
-  not completion of the verification migration.
-- Rune reference averages now ask the catalogue for the exact form's archetype.
-  The catalogue refresh validates IDs, names, image filenames and archetypes
-  before replacing its snapshot; the compiler is checked against the existing
-  snapshot and malformed examples. The catalogue agreement test covers every
-  current form. The parity audit was skipped because no capture was available.
-- Preference decoding now lives in `app/ingest/preferences.ts` and browser
-  preference-file I/O in `app/platform/preference-files.ts`. The former import
-  module temporarily re-exports their public names for existing verification
-  scripts. Game-export validation and preparation now live in
-  `app/ingest/game-export.ts`; their output is still raw-shaped and needs the
-  typed account boundary.
-- Added an IndexedDB test harness for ordered preference writes and mirror
-  fallback. Browser storage now assigns an explicit local write order to both
-  preference copies, strips it before handing choices to the application, and
-  selects the later ordered copy independently of timestamp ties or clock
-  rollback. Tests cover mirror failure, a pending write and a fresh module
-  restoration. Existing unordered choices still use timestamp reconciliation.
-  Cross-tab writer locking is not implemented. A database success with a failed synchronous mirror now raises a
-  distinct warning on the current page; browser and unit tests exercise recovery
-  after that failure, and a later successful save clears the warning. A failed
-  database read leaves a recoverable mirror visible but refuses preference writes
-  until a reload can read the database, avoiding a blind overwrite of choices
-  that may only be present in the database.
-- Preference restoration can now interpret a pending paired-write recovery
-  record against a commit marker read in the same IndexedDB transaction as
-  the preference copy. Unit tests cover both marker outcomes, an unreadable
-  database and a malformed pending record. The storage adapter now has a paired
-  writer that stages the record, commits the account, preferences and marker in
-  one transaction, and rebases concurrent preference edits onto both outcomes.
-  Its tests exercise transaction abort, both mirror-publication failures, edits
-  before, during and after the commit, and recovery with identical timestamps.
-  Lock/Exclude in an own preset now uses that writer when it also changes the
-  preset's engraving. Removing a monster from a game preset or deleting one
-  uses it when the operation also changes saved preferences. Account writes
-  are queued and re-read current state before application; this queue is not
-  yet the proposed extracted workspace command system. A focused Playwright
-  test on the already-running localhost:3000 server exercised an injected
-  transaction abort, a successful lock, an exclusion with an unrelated
-  preference edit while the transaction was held, and reload. Existing focused
-  Scenario engraving, preset and helper tests passed. Cross-tab coordination,
-  broader interrupted-write coverage and final end-to-end verification remain.
-- Moved the existing numbered-request worker runtime to `app/platform/` and
-  added isolated tests for out-of-order replies, independent cancellation and
-  recovery after worker failure. The existing browser cancellation test passed
-  on the already-running localhost server. This is only the existing runtime's
-  relocation and coverage: shared leases, specialized strategies and the
-  remaining clients have not yet been ported.
-- Worker construction for craft recommendations and optimization work estimates
-  now lives at the platform boundary; ESLint prevents new direct construction in
-  components. Their existing scheduling and cancellation remain in place. The
-  affected populated flows passed their focused Playwright checks on the
-  already-running localhost server; this does not complete the shared runtime.
-- The remaining calculation clients also construct workers through the platform
-  boundary, with a lint restriction on direct construction in those clients.
-  Focused browser tests passed for simulation, shared Clean-up work and stopping
-  an optimization search. These retain the existing per-job lifecycle policies;
-  consolidating those policies is still outstanding.
-- Workspace restoration now runs through `app/workspace/restore.ts`: account
-  and preference reads settle independently, and read failures are surfaced.
-  Unit tests cover an account-read failure with intact preferences. Empty and
-  imported workspaces were also reloaded in Playwright on the already-running
-  localhost:3000 server; screenshots showed no unintended content movement.
-  A preference read failure with no usable mirror now surfaces the failure
-  instead of silently returning empty preferences. The failure notice and two
-  consecutive setting changes followed by reload were exercised in Playwright,
-  with empty and imported workspaces on the already-running localhost server.
-  A mirror without a valid timestamp is still handed to the per-choice readers
-  when neither copy has an ordering timestamp, so that one malformed field does
-  not discard the remaining choices.
-- Still required: import/cycle rules and migration of checks to Vitest; broader
-  paired-write and cross-tab verification; typed ingestion and immutable observation
-  with local projections; workspace commands; shared job runtime; reference
-  ownership; feature and style reorganization; helper restructuring; and all
-  end-to-end and platform acceptance checks.
+### 23.1 Verification baseline
 
-Update this section as implementation proceeds, distinguishing completed work,
-verification, skipped checks and remaining work. Do not mark the redesign
-complete until the acceptance criteria have evidence.
+Before the reorganization, `npm run verify:all` passed completely on commit
+`8387c2e`: every domain alias, 32 unit tests and 351 Playwright tests against
+the dev server on `http://localhost:3000/`. `verify:library-layout` and
+`verify:recommendation-filters` ran against the private export at
+`%TEMP%/claude/shots/game.json`. One skip: no helper traffic log at
+`Downloads/JASWA Helper traffic.log`, so the real artifact acquisition order
+went unchecked. Not run: private-capture audits, real-card checks and Windows
+helper integration.
+
+After the reorganization (`be48ff4`), the same run passed every domain alias,
+32 unit tests and 351 Playwright tests, with the same skip, except
+`verify:helper-version`: the path rewrite had touched comments in two helper
+sources, which the release gate fingerprints. The next commit restores those
+two files, and `verify:helper-version` passes again (see §23.4 item 9).
+
+Environment note: Vitest fails every suite when started from Git Bash, which
+spells the drive `c:` while Vitest spells it `C:`; run it from PowerShell or
+through `npm run`.
+
+### 23.2 Completed
+
+- **Aggregate verification** (`npm run verify:all`): runs every domain alias
+  independently, then `test:unit` and `test:e2e`, and reports failures and
+  observed skips without stopping at the first failure. Interim: the domain
+  checks are not yet Vitest tests.
+- **Vitest harness** with an isolated cache (`vitest.config.ts`); the filter
+  selection check, the catalogue agreement, storage, restore, serialized writes,
+  the cancellable worker and the workspace store have unit tests.
+- **Catalogue ownership:** rune reference averages ask the catalogue for
+  archetype; the catalogue refresh validates IDs, names, image files and
+  archetypes before replacing its snapshot.
+- **Ingestion boundary started:** `app/ingest/game-export.ts` (validation and
+  preparation, still raw-shaped output) and `app/ingest/preferences.ts`
+  (per-choice readers). Preference defaults live in
+  `app/domain/profiles/preference-defaults.ts`; file I/O in `app/platform/files.ts`.
+- **Durable writes:** ordered preference writes with an explicit write order on
+  both copies; a paired account-and-preferences transaction with a pending
+  mirror record and a commit marker, used by Lock/Exclude in an own preset and
+  by game-preset removal/deletion that also change preferences; independent
+  restoration of account and preferences; honest failure notices. An unreadable
+  pending record now falls back to the database copy (the database is atomic)
+  instead of rejecting every choice.
+- **Worker construction** only at `app/platform/feature-workers.ts` and
+  `rune-simulator-factory.ts`; the numbered-request runtime is
+  `app/platform/cancellable-worker.ts`. The per-job lifecycles are unchanged.
+- **Compact source tree (commit `be48ff4`)**: `shell/`, `features/<page>/`,
+  `ui/` (with `forms/`, `gear/`), `workspace/`, `domain/<subject>/` (runes with
+  `craft/`, `craft-advice/`, `cleanup/`, `optimization/`, `simulator/`;
+  artifacts with `score/`), `ingest/`, `platform/` (`compute/`, `gpu/`),
+  `styles/`. Every check, test and document path was rewritten.
+- **Enforced boundaries:** `scripts/verify-import-graph.mjs` (in `npm run
+  lint`) checks the whole graph — layers, a feature using another only through
+  its `public.ts`, no domain rule depending on a procedure folder, no value
+  cycles. ESLint states the same layers and bans browser globals in `domain/`
+  and `ingest/`. Real separations made to satisfy them: accelerated engines in
+  `platform/compute/`, with the counter injected into craft advice and the
+  simulator; the verdict vocabulary in `domain/runes/rune-verdict.ts`; the
+  optimization set rules in `rune-optimization-sets.ts` (removed the only cycle).
+- **Toolchain:** the GitHub workflow is a manual validation run on the
+  `.node-version` toolchain (`.github/workflows/validate.yml`); Workers Builds
+  stays the only delivery path.
+- Fixed a test (`tests/monster-gear-filters.spec.ts`) that compared against a
+  raw Windows-1252 byte and so could never match.
+
+### 23.3 In progress: workspace store (§10.1) and one writer per origin (§10.4)
+
+Added but **not yet wired into the shell** (commit after `be48ff4`):
+
+- `app/workspace/ports.ts`: `WorkspaceRepository`, `WriterCoordination` and the
+  storage error classes (moved out of `platform/browser-storage.ts`).
+- `app/workspace/workspace-store.ts`: `createWorkspaceStore(repository,
+  coordination)` with `getSnapshot`/`subscribe` and the commands `restore`,
+  `changePreferences`, `replacePreferences`, `importAccount`, `removeAccount`,
+  `engraveBuild`, `lockRune`, `changeGamePreset`, moved faithfully from
+  `app/shell/root.tsx`; `withoutPreset` and `canEngraveUnder` live there too.
+  Unit tests in `workspace-store.test.ts`.
+- `app/platform/browser-storage.ts` exports `browserWorkspaceRepository`.
+- `app/platform/writer-coordination.ts`: Web Locks writer role (queued request
+  held for the page's life; reader after 1.5 s; takes over when the writer
+  closes) and a `BroadcastChannel` commit signal without payload.
+
+Next steps for this item, in order:
+
+1. In `app/shell/root.tsx`, create the store once (module scope or `useMemo`)
+   from `browserWorkspaceRepository` and `createWriterCoordination()`, read it
+   with `useSyncExternalStore`, call `store.restore()` on mount, and replace
+   `game`/`preferences`/`storageNotice` state, `gameRef`/`preferencesRef`,
+   `accountWrite`, `publishGame` and the command bodies with store calls. Keep
+   in the shell: `message`, dialogs, overlays, helper polling, import
+   confirmation. Map command errors to `message` exactly as before (the import
+   path: `helperReloadError` when manual, else `message`; `WorkspaceReadOnly`
+   shows only its notice). Set `appliedHelperSession` from the restored game,
+   and `message` when `restoreFailed` is non-empty.
+2. Show the reader state: the notice is already set by the store; confirm the
+   corner notice renders it, and that `tests/session-interface-state.spec.ts`
+   (opens a second tab, reads only) still passes.
+3. Add a Playwright test: two tabs in one context; the second is read-only, a
+   choice in the first appears in the second after its commit, and the second
+   takes over after the first closes.
+4. Update `docs/LOCAL-PERSISTENCE-CONTRACT.md` (writer role, commit signal) and
+   run `npm run verify:all`; commit.
+
+### 23.4 Remaining work, in dependency order
+
+1. **Move the helper poll into a direct-import controller** (§9.3) under
+   `app/workspace/`, with `start`/`stop`/`refresh` and a subscription, using the
+   store's `importAccount`. Then `root.tsx` is composition only.
+2. **Typed account snapshot** (§7.1). Scope measured: raw monster fields are
+   read in 28 files and `game.data` in about 30; the stat sheet and
+   `monsterInPreset` consume raw rune records. Plan: define `AccountSnapshot`
+   and typed `MonsterCopy` in `domain/account/`, built once in
+   `ingest/game-export.ts` from the existing readers (`readRunes`,
+   `readArtifacts`, `readRelics`, `readCraftItems`, `readDeckPresets`, shrine
+   readers); move each raw reader into `ingest/`; switch consumers one
+   collection at a time (read-only views first, then the stat sheet with
+   `verify:monster-display-stats` and `verify:rune-optimization` as oracles);
+   delete `GameRecord` from the domain when the last consumer is gone.
+3. **Local changes as a projection** (§7.3): keep the observation immutable and
+   store `LocalAccountChanges` (complete per-context placement replacements,
+   removals, first observed placements); `engrave-rune-build.ts` and
+   `game-preset-edits.ts` become pure reducers over it.
+4. **Shared job runtime** (§§11, 22.4): one runtime for request routing,
+   scheduling, failure cleanup and bounded memory; port one ordinary job
+   (artifact scores) first, then calibration leases and optimization Stop;
+   features then reach jobs through `workspace/` rather than
+   `platform/compute/` (tighten the import-graph rule for `features` at that
+   point).
+5. **Reference data** (§22.5): one validated, domain-owned snapshot and accessor
+   per dataset (speed skills, PvE stages, monster details); compare the
+   compiler's output with today's accessors before switching.
+6. **Checks into Vitest** (§22.6): port the `scripts/verify-*.mjs` assertions
+   unchanged into `*.test.ts` beside their modules; keep each `verify:*` name as
+   an alias that fails on an empty selection; scripts needing a real export, a
+   card or the dev server stay scripts. Retire `verify-all.mjs`'s parsing of
+   `test:domain` when the chain is gone.
+7. **CSS** (§12.2): keep tokens and voices in `app/styles/`; move feature layout
+   from `app/styles/globals.css` (7,546 lines) into CSS modules beside each
+   feature, one feature at a time with before/after screenshots.
+8. **Offline shell** (§14.2): a generated precache manifest; navigation-only
+   fallback; never HTML for a script, worker or image.
+9. **Helper** (§14.1): split `profile.rs` (4,754 lines) and `service.rs`
+   (2,669) into transport, decoding, projection, API, platform and diagnostics
+   modules inside the crate; then the privilege broker. Any helper change must
+   be released (`npm run release:helper`), which needs the Rust toolchain and
+   `JASWA_SIGNING_THUMBPRINT`. At that release, also update the comments in
+   `helper/src/App.tsx` and `helper/src/styles.css` that still name
+   `app/components/app-rail.tsx` and `app/globals.css` (now
+   `app/shell/app-rail.tsx` and `app/styles/globals.css`); they were left as
+   they are because the release gate fingerprints every helper source byte.
+10. Evidence for every acceptance criterion in §20 and §21.7, then mark the
+    redesign complete.
+
+### 23.5 How to resume
+
+- Work on `main`; run `git status` and `git log --oneline -5`. The last
+  commits are the reorganization (`be48ff4`) and the store groundwork.
+- Probe `http://localhost:3000/`; start `npm run dev` if it does not answer.
+- Run `npx tsc --noEmit`, `npm run lint` and `npm run test:unit` (PowerShell)
+  to confirm a clean start, then continue with §23.3 step 1.
+- After each step: typecheck, lint, the affected checks, `npm run verify:all`
+  for anything that touches the interface, update this section, commit.

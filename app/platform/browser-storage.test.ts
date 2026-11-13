@@ -1,8 +1,8 @@
 import { IDBFactory, IDBObjectStore as FakeObjectStore } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { blankPreferences } from '../domain/profiles/preference-defaults';
-import { loadImportedGame, loadPreferences, PairedCommitUnavailable, PreferenceMirrorUnavailable, PreferenceStoreUnreadable,
-  saveImportedGame, savePreferences, saveWorkspacePair, writeWorkspaceValue } from './browser-storage';
+import { loadImportedGame, loadPreferences, saveImportedGame, savePreferences, saveWorkspacePair, writeWorkspaceValue } from './browser-storage';
+import { PairedCommitUnavailable, PreferenceMirrorUnavailable, PreferenceStoreUnreadable } from '../workspace/ports';
 import type { ImportedGame } from '../domain/model';
 
 const account = (fileName: string): ImportedGame => ({
