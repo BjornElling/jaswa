@@ -1710,6 +1710,12 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   database read leaves a recoverable mirror visible but refuses preference writes
   until a reload can read the database, avoiding a blind overwrite of choices
   that may only be present in the database.
+- Preference restoration can now interpret a pending paired-write recovery
+  record against a commit marker read in the same IndexedDB transaction as
+  the preference copy. Unit tests cover both marker outcomes, an unreadable
+  database and a malformed pending record. No production writer creates that
+  record yet; paired writes, concurrent edits and their interruption tests are
+  still required before Lock/Exclude can use it.
 - Moved the existing numbered-request worker runtime to `app/platform/` and
   added isolated tests for out-of-order replies, independent cancellation and
   recovery after worker failure. The existing browser cancellation test passed

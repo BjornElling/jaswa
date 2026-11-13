@@ -6,6 +6,8 @@ const gameKey = 'imported-game';
 const preferencesKey = 'preferences';
 const preferencesMirrorKey = 'jaswa-preferences';
 const writeOrderKey = '__jaswaWriteOrder';
+const preferenceCommitKey = 'preference-commit';
+const pendingCommitKey = '__jaswaPendingCommit';
 
 /* A preference click must survive even a tab closed immediately afterwards.
    IndexedDB is the complete workspace store; this small synchronous mirror is
@@ -45,6 +47,34 @@ export async function readWorkspaceValue<T>(key: string): Promise<T | null> {
       database.close();
       reject(request.error);
     };
+  });
+}
+
+/* The preferences and commit marker must describe the same database snapshot.
+   Otherwise a commit between two reads could make recovery choose the wrong
+   half of a pending mirror. */
+async function readPreferenceState(): Promise<{ preferences: unknown; commit: unknown }> {
+  const database = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(storeName, 'readonly');
+    const store = transaction.objectStore(storeName);
+    let preferences: IDBRequest;
+    let commit: IDBRequest;
+    try {
+      preferences = store.get(preferencesKey);
+      commit = store.get(preferenceCommitKey);
+    } catch (error) {
+      transaction.abort();
+      database.close();
+      reject(error);
+      return;
+    }
+    transaction.oncomplete = () => {
+      database.close();
+      resolve({ preferences: preferences.result ?? null, commit: commit.result ?? null });
+    };
+    transaction.onabort = () => { database.close(); reject(transaction.error ?? new Error('Preference read aborted.')); };
+    transaction.onerror = () => { database.close(); reject(transaction.error ?? new Error('Preference read failed.')); };
   });
 }
 
@@ -98,6 +128,18 @@ function savedAt(value: unknown): number | null {
 
 function isPreferenceCopy(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+type PendingPreferenceCommit = { token: string; before: Record<string, unknown>; after: Record<string, unknown> };
+
+function readPendingPreferenceCommit(value: unknown): PendingPreferenceCommit | null {
+  if (!isPreferenceCopy(value) || !(pendingCommitKey in value)) return null;
+  const pending = value[pendingCommitKey];
+  if (!isPreferenceCopy(pending) || typeof pending.token !== 'string' || pending.token.length === 0
+    || !isPreferenceCopy(pending.before) || !isPreferenceCopy(pending.after)) {
+    throw new Error('The pending preference recovery record is unreadable.');
+  }
+  return { token: pending.token, before: pending.before, after: pending.after };
 }
 
 function writeOrder(value: unknown): number | null {
@@ -180,13 +222,19 @@ export function clearImportedGame(): Promise<void> {
 /** The newest stored copy, unjudged; pass it through `readPreferences`. */
 export async function loadPreferences(): Promise<unknown> {
   preferenceReadAttempted = true;
+  preferenceDatabaseRead = false;
   const mirror = readPreferencesMirror();
+  const pending = readPendingPreferenceCommit(mirror);
   try {
-    const databaseCopy = await readWorkspaceValue<unknown>(preferencesKey);
+    const { preferences: databaseCopy, commit } = await readPreferenceState();
     preferenceDatabaseRead = true;
-    return preferencesWithoutWriteOrder(latestPreferences(databaseCopy, mirror));
+    const mirrorCopy = pending ? (commit === pending.token ? pending.after : pending.before) : mirror;
+    return preferencesWithoutWriteOrder(latestPreferences(databaseCopy, mirrorCopy));
   } catch (error) {
     preferenceDatabaseRead = false;
+    /* The database decides whether the pair committed. Choosing either side
+       without its marker could publish only half of the user's action. */
+    if (pending) throw error;
     const recovered = latestPreferences(null, mirror);
     if (recovered === null) throw error;
     return preferencesWithoutWriteOrder(recovered);

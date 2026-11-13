@@ -98,4 +98,37 @@ describe('preference storage', () => {
     await Promise.all(writes);
     expect(await fresh.loadPreferences()).toEqual(second);
   });
+
+  it.each([false, true])('recovers the %s branch of an interrupted paired commit', async (committed) => {
+    const before = { ...blankPreferences(), hardwareAcceleration: false, importRoute: 'file' as const,
+      updatedAt: '2026-11-13T10:00:00.000Z' };
+    const after = { ...before, importRoute: 'direct' as const };
+    const token = 'commit-under-test';
+    const beforeCopy = { ...before, __jaswaWriteOrder: 100 };
+    const afterCopy = { ...after, __jaswaWriteOrder: 101 };
+    await writeWorkspaceValue('preferences', committed ? afterCopy : beforeCopy);
+    await writeWorkspaceValue('preference-commit', committed ? token : 'earlier-commit');
+    window.localStorage.setItem('jaswa-preferences', JSON.stringify({
+      __jaswaPendingCommit: { token, before: beforeCopy, after: afterCopy },
+    }));
+    vi.resetModules();
+    const reloaded = await import('./browser-storage');
+    expect(await reloaded.loadPreferences()).toEqual(committed ? after : before);
+  });
+
+  it('does not guess a pending commit outcome when its database is unavailable', async () => {
+    const before = blankPreferences();
+    window.localStorage.setItem('jaswa-preferences', JSON.stringify({
+      __jaswaPendingCommit: { token: 'commit-under-test', before, after: { ...before, hardwareAcceleration: false } },
+    }));
+    vi.stubGlobal('indexedDB', { open: () => { throw new Error('unavailable'); } });
+    await expect(loadPreferences()).rejects.toThrow('unavailable');
+    await expect(savePreferences(before)).rejects.toBeInstanceOf(PreferenceStoreUnreadable);
+  });
+
+  it('reports an unreadable pending recovery record rather than treating it as preferences', async () => {
+    window.localStorage.setItem('jaswa-preferences', JSON.stringify({ __jaswaPendingCommit: { token: 'broken' } }));
+    await expect(loadPreferences()).rejects.toThrow('pending preference recovery record');
+    await expect(savePreferences(blankPreferences())).rejects.toBeInstanceOf(PreferenceStoreUnreadable);
+  });
 });
