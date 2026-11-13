@@ -32,6 +32,17 @@ const eslintConfig = defineConfig([
     files: ['app/components/dropdown.tsx'],
     rules: { 'no-restricted-syntax': 'off' },
   },
+  {
+    files: ['app/ingest/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['react', 'react-dom', '**/platform/**', '**/workspace/**', '**/components/**', '**/features/**', '**/shell/**'],
+          message: 'Ingestion decodes data without UI, workspace or platform dependencies.',
+        }],
+      }],
+    },
+  },
 ]);
 
 export default eslintConfig;

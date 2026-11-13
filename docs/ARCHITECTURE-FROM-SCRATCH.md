@@ -1669,9 +1669,13 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   not run. This is not the planned Vitest integration or the final verification
   system; browser skip details depend on Playwright's output. A simulated
   failing check confirmed that later checks run and the aggregate exits with a
-  failure. The full aggregate has not yet been run.
+  failure. The aggregate was started, but stopped during the domain suite before the
+  browser suite so implementation could continue; it has not passed.
 - `npm run lint`, `npm run build` and `npx tsc --noEmit` passed for this
   initial change.
+- ESLint now rejects direct ingestion imports of UI, workspace and platform
+  modules. A negative probe confirmed the restriction; transitive dependencies
+  and the other architectural boundaries still need enforcement.
 - Added an isolated Vitest configuration and the first catalogue tests; existing
   independent verification scripts remain intact. This is the start of the
   harness, not a completed migration of the checks.
