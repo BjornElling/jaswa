@@ -1696,7 +1696,15 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   `app/ingest/game-export.ts`; their output is still raw-shaped and needs the
   typed account boundary.
 - Added an IndexedDB test harness for ordered preference writes and mirror
-  fallback. It does not yet test or implement cross-record atomicity.
+  fallback. Browser storage now assigns an explicit local write order to both
+  preference copies, strips it before handing choices to the application, and
+  selects the later ordered copy independently of timestamp ties or clock
+  rollback. Tests cover mirror failure, a pending write and a fresh module
+  restoration. Existing unordered choices still use timestamp reconciliation.
+  This does not yet test or implement cross-record atomicity or writer locking
+  across tabs. A database success with a failed synchronous mirror now raises a
+  distinct warning on the current page; browser and unit tests exercise recovery
+  after that failure, and a later successful save clears the warning.
 - Moved the existing numbered-request worker runtime to `app/platform/` and
   added isolated tests for out-of-order replies, independent cancellation and
   recovery after worker failure. The existing browser cancellation test passed

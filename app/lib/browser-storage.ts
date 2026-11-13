@@ -5,12 +5,14 @@ const storeName = 'workspace';
 const gameKey = 'imported-game';
 const preferencesKey = 'preferences';
 const preferencesMirrorKey = 'jaswa-preferences';
+const writeOrderKey = '__jaswaWriteOrder';
 
 /* A preference click must survive even a tab closed immediately afterwards.
    IndexedDB is the complete workspace store; this small synchronous mirror is
    written before React receives the new value, then reconciled to IndexedDB in
    order. It is deliberately limited to preferences, never an imported game. */
 let preferenceWriteTail: Promise<void> = Promise.resolve();
+let lastPreferenceWriteOrder = 0;
 
 /* The one place the workspace database is opened: its name, its store and
    the store's creation. The save folder (`save-location.ts`) lives in the same
@@ -82,9 +84,7 @@ function readPreferencesMirror(): unknown {
   }
 }
 
-/* Only the timestamp decides which copy is newer. The copies are not checked
-   against the whole contract here: that used to throw away any copy saved
-   before the latest change to it, and with it every choice the user had made.
+/* The copies are not checked against the whole preference contract here:
    `readPreferences` judges the chosen copy one choice at a time. */
 function savedAt(value: unknown): number | null {
   if (typeof value !== 'object' || value === null) return null;
@@ -97,7 +97,32 @@ function isPreferenceCopy(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function writeOrder(value: unknown): number | null {
+  if (!isPreferenceCopy(value)) return null;
+  const order = value[writeOrderKey];
+  return typeof order === 'number' && Number.isSafeInteger(order) && order > 0 ? order : null;
+}
+
+function preferencesWithoutWriteOrder(value: unknown): unknown {
+  if (!isPreferenceCopy(value) || !(writeOrderKey in value)) return value;
+  const copy = { ...value };
+  delete copy[writeOrderKey];
+  return copy;
+}
+
 function latestPreferences(first: unknown, second: unknown): unknown {
+  const firstOrder = writeOrder(first);
+  const secondOrder = writeOrder(second);
+  lastPreferenceWriteOrder = Math.max(lastPreferenceWriteOrder, firstOrder ?? 0, secondOrder ?? 0);
+  /* A write order is assigned only after restoration has read both copies, so
+     an ordered copy follows an unordered one. Ordinary mirror-first writes
+     win an equal order, while a database-only write can win even if the clock
+     moved backwards or the old mirror has the same timestamp. */
+  if (firstOrder !== null || secondOrder !== null) {
+    if (firstOrder === null) return second;
+    if (secondOrder === null) return first;
+    return secondOrder >= firstOrder ? second : first;
+  }
   const firstTime = savedAt(first);
   const secondTime = savedAt(second);
   /* A missing timestamp is one malformed field, not a reason to discard the
@@ -111,12 +136,21 @@ function latestPreferences(first: unknown, second: unknown): unknown {
   return secondTime >= firstTime ? second : first;
 }
 
-function writePreferencesMirror(preferences: Preferences) {
-  if (typeof window === 'undefined') return;
+/** The database write succeeded, but closing immediately may lose a later edit. */
+export class PreferenceMirrorUnavailable extends Error {
+  constructor() {
+    super('The preference recovery copy could not be saved.');
+    this.name = 'PreferenceMirrorUnavailable';
+  }
+}
+
+function writePreferencesMirror(preferences: unknown): boolean {
+  if (typeof window === 'undefined') return false;
   try {
     window.localStorage.setItem(preferencesMirrorKey, JSON.stringify(preferences));
+    return true;
   } catch {
-    /* IndexedDB remains the primary store when a browser declines the mirror. */
+    return false;
   }
 }
 
@@ -136,18 +170,24 @@ export function clearImportedGame(): Promise<void> {
 export async function loadPreferences(): Promise<unknown> {
   const mirror = readPreferencesMirror();
   try {
-    return latestPreferences(await readWorkspaceValue<unknown>(preferencesKey), mirror);
+    return preferencesWithoutWriteOrder(latestPreferences(await readWorkspaceValue<unknown>(preferencesKey), mirror));
   } catch (error) {
     const recovered = latestPreferences(null, mirror);
     if (recovered === null) throw error;
-    return recovered;
+    return preferencesWithoutWriteOrder(recovered);
   }
 }
 
 export function savePreferences(preferences: Preferences) {
-  writePreferencesMirror(preferences);
-  const snapshot = structuredClone(preferences);
+  const observedMirrorOrder = writeOrder(readPreferencesMirror()) ?? 0;
+  const nextOrder = Math.max(lastPreferenceWriteOrder, observedMirrorOrder) + 1;
+  if (!Number.isSafeInteger(nextOrder)) throw new Error('Preference write order is exhausted.');
+  lastPreferenceWriteOrder = nextOrder;
+  const snapshot = { ...structuredClone(preferences), [writeOrderKey]: nextOrder };
+  const mirrored = writePreferencesMirror(snapshot);
   const writeNext = preferenceWriteTail.catch(() => undefined).then(() => writeWorkspaceValue(preferencesKey, snapshot));
   preferenceWriteTail = writeNext;
-  return writeNext;
+  return writeNext.then(() => {
+    if (!mirrored) throw new PreferenceMirrorUnavailable();
+  });
 }

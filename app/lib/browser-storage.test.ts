@@ -1,7 +1,7 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { blankPreferences } from '../ingest/preferences';
-import { loadPreferences, savePreferences } from './browser-storage';
+import { loadPreferences, PreferenceMirrorUnavailable, savePreferences, writeWorkspaceValue } from './browser-storage';
 
 describe('preference storage', () => {
   beforeEach(() => {
@@ -20,7 +20,7 @@ describe('preference storage', () => {
     const second = { ...first, importRoute: 'direct' as const, updatedAt: '2026-11-13T10:00:01.000Z' };
     const firstWrite = savePreferences(first);
     const secondWrite = savePreferences(second);
-    expect(JSON.parse(window.localStorage.getItem('jaswa-preferences')!)).toEqual(second);
+    expect(JSON.parse(window.localStorage.getItem('jaswa-preferences')!)).toMatchObject(JSON.parse(JSON.stringify(second)));
     await Promise.all([firstWrite, secondWrite]);
     expect(await loadPreferences()).toEqual(second);
   });
@@ -46,5 +46,43 @@ describe('preference storage', () => {
       window.localStorage.setItem('jaswa-preferences', JSON.stringify(mirror));
       expect(await loadPreferences()).toEqual(JSON.parse(JSON.stringify(mirror)));
     }
+  });
+
+  it.each(['2026-11-13T10:00:00.000Z', '2025-01-01T00:00:00.000Z'])(
+    'selects a later database write even when its timestamp is %s and its mirror fails',
+    async (laterTimestamp) => {
+      const first = { ...blankPreferences(), hardwareAcceleration: false, updatedAt: '2026-11-13T10:00:00.000Z' };
+      const second = { ...first, importRoute: 'direct' as const, updatedAt: laterTimestamp };
+      await savePreferences(first);
+      vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => { throw new Error('mirror unavailable'); });
+      await expect(savePreferences(second)).rejects.toBeInstanceOf(PreferenceMirrorUnavailable);
+      expect(await loadPreferences()).toEqual(second);
+      vi.resetModules();
+      const reloaded = await import('./browser-storage');
+      expect(await reloaded.loadPreferences()).toEqual(second);
+      vi.mocked(window.localStorage.setItem).mockRestore();
+      const third = { ...second, hardwareAcceleration: true };
+      await reloaded.savePreferences(third);
+      expect(await reloaded.loadPreferences()).toEqual(third);
+    },
+  );
+
+  it('returns the newer synchronous mirror before queued database writes settle', async () => {
+    const first = { ...blankPreferences(), updatedAt: '2026-11-13T10:00:00.000Z' };
+    const second = { ...first, importRoute: 'direct' as const, updatedAt: '2025-01-01T00:00:00.000Z' };
+    await savePreferences(first);
+    const writing = savePreferences(second);
+    expect(await loadPreferences()).toEqual(second);
+    await writing;
+  });
+
+  it('preserves existing unordered choices using their timestamps before the first ordered write', async () => {
+    const first = { ...blankPreferences(), updatedAt: '2026-11-13T10:00:00.000Z' };
+    const second = { ...first, importRoute: 'direct' as const, updatedAt: '2026-11-13T10:00:01.000Z' };
+    await writeWorkspaceValue('preferences', first);
+    window.localStorage.setItem('jaswa-preferences', JSON.stringify(second));
+    expect(await loadPreferences()).toEqual(second);
+    await savePreferences(second);
+    expect(await loadPreferences()).toEqual(second);
   });
 });

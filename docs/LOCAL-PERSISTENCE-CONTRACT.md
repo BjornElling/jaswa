@@ -25,6 +25,15 @@ completes; IndexedDB remains the complete store. A folder handle is an
 IndexedDB record because browser handles cannot travel in an exported
 preferences file.
 
+Preference copies written by the browser adapter carry a local write-order
+number. It orders the two storage copies independently of wall-clock ties or
+clock changes and is removed before preferences reach the application or a
+`.sw` export. On the first read of existing unordered copies, their timestamps
+still choose the newer copy; a missing timestamp alone never discards the only
+available preference document. The write order identifies a local write, not
+an application or file format version. This ordering does not yet coordinate
+writers in separate tabs.
+
 ### The preferences, by section
 
 `readPreferences` (`app/ingest/preferences.ts`) reads the stored copy and a
@@ -93,6 +102,11 @@ storage API. That route updates the synchronous preferences mirror before the
 new value reaches the interface, and queues an IndexedDB write after the
 earlier preference writes. Imported game data and folder choices wait for their
 IndexedDB transaction to complete before appearing as saved state.
+If the database write succeeds but the mirror fails, a warning follows the user
+on every page and explains that the recovery copy was not saved; a database
+failure is reported separately. A later successful preference save clears the
+notice. Loading a preferences file still publishes it when the database accepted
+it, even if its mirror failed, with the same warning.
 
 The named wrappers over `changePreferences`, each the one route for its
 section:

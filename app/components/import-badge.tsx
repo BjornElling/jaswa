@@ -120,7 +120,7 @@ function placeNotice(notice: HTMLElement, badge: HTMLElement | null, gap: number
  * Both are overlays rather than lines in Game data. Neither may push the
  * choices the user was about to make down the page.
  */
-export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, connectionError, missedChanges, confirmation, general }: {
+export function CornerNotices({ badge, badgeShown, reload, reloadError, reloading, onReload, helperUpdate, importStopped, connectionError, missedChanges, confirmation, general, storageNotice }: {
   reload: boolean;
   reloadError: string | null;
   reloading: boolean;
@@ -139,12 +139,14 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
   missedChanges: readonly HelperMiss[];
   confirmation: ImportedGame | null;
   general: GeneralSettings;
+  storageNotice: { message: string; tone: 'warn' | 'bad' } | null;
 }) {
   /* A stop outranks a gap: while nothing arrives, which changes were missed
      before is the smaller news. Both use the one slot under the badge. */
   const missed = importStopped === null && connectionError === null ? missedChangesNotice(missedChanges) : null;
   const stoppedNotice = useRef<HTMLElement | null>(null);
   const updateNotice = useRef<HTMLElement | null>(null);
+  const preferenceNotice = useRef<HTMLElement | null>(null);
   const reloadButton = useRef<HTMLButtonElement | null>(null);
   const toast = useRef<HTMLElement | null>(null);
   const toastShown = confirmation !== null || (reload && reloadError !== null);
@@ -164,10 +166,11 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
       }
       if (stoppedNotice.current) placeNotice(stoppedNotice.current, button ?? above, gap);
       if (updateNotice.current) placeNotice(updateNotice.current, stoppedNotice.current ?? button ?? above, gap);
+      if (preferenceNotice.current) placeNotice(preferenceNotice.current, updateNotice.current ?? stoppedNotice.current ?? button ?? above, gap);
       const card = toast.current;
       if (!card) return;
-      const clear = updateNotice.current ?? stoppedNotice.current ?? button ?? above;
-      const shape = above ?? button ?? stoppedNotice.current ?? updateNotice.current;
+      const clear = preferenceNotice.current ?? updateNotice.current ?? stoppedNotice.current ?? button ?? above;
+      const shape = above ?? button ?? stoppedNotice.current ?? updateNotice.current ?? preferenceNotice.current;
       const place = clear && shape ? placeBelow(clear, shape, inset, gap) : null;
       card.style.top = place ? `${place.top}px` : '';
       card.style.right = place ? `${place.right}px` : '';
@@ -181,14 +184,14 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
        font arriving is enough — and the ones below are cut to its measurements,
        so they watch the boxes rather than only the events around them. */
     const watcher = new ResizeObserver(update);
-    for (const box of [above, reloadButton.current, stoppedNotice.current, updateNotice.current]) if (box) watcher.observe(box);
+    for (const box of [above, reloadButton.current, stoppedNotice.current, updateNotice.current, preferenceNotice.current]) if (box) watcher.observe(box);
     return () => {
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
       watcher.disconnect();
     };
   /* The notice's wording, not the object rebuilt on every render, is what can move the cards. */
-  }, [badge, badgeShown, helperUpdate, importStopped, connectionError, missed?.gap, missed?.next, toastShown, reload, reloadError]);
+  }, [badge, badgeShown, helperUpdate, importStopped, connectionError, missed?.gap, missed?.next, toastShown, reload, reloadError, storageNotice]);
 
   return <>
     {reload && <Button ref={reloadButton} size="card" className="game-reload" busy={reloading}
@@ -203,6 +206,10 @@ export function CornerNotices({ badge, badgeShown, reload, reloadError, reloadin
     </aside>}
     {missed !== null && <MissedChangesNotice ref={stoppedNotice} gap={missed.gap} next={missed.next} />}
     {helperUpdate && <HelperUpdateNotice ref={updateNotice} />}
+    {storageNotice && <aside ref={preferenceNotice} className="helper-update" data-notice-tone={storageNotice.tone} role="status" aria-live="polite" aria-label="Preferences storage">
+      <p className="corner-notice-title">Preferences storage</p>
+      <p className="corner-notice-detail">{storageNotice.message}</p>
+    </aside>}
     {reload && reloadError
       ? <aside ref={toast} className="import-confirmation import-failure" data-notice-tone="bad" role="status" aria-label="Game data reload failed">
         <p className="corner-notice-title">Game data reload failed</p>

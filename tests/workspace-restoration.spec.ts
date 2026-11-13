@@ -45,3 +45,27 @@ test('reports an unreadable preference store when no mirror can recover it', asy
   await expect(page.getByText('JASWA could not read part of the saved workspace. Reload to try again.')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('after-failure.png') });
 });
+
+test('reports a failed recovery copy on the page where the choice was made', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+  const panel = page.locator('.panel').first();
+  const before = await panel.boundingBox();
+  await page.screenshot({ path: testInfo.outputPath('before-mirror-failure.png') });
+  await page.evaluate(() => {
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'jaswa-preferences') throw new Error('Mirror unavailable');
+      return setItem.call(this, key, value);
+    };
+  });
+  await page.locator('input[name="number-format"][value="american"]').check();
+  await expect(page.getByRole('status', { name: 'Preferences storage' })).toContainText('quick recovery copy could not be saved');
+  expect(await panel.boundingBox()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('after-mirror-failure.png') });
+  await page.reload();
+  await expect(page.locator('input[name="number-format"][value="american"]')).toBeChecked();
+});

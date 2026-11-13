@@ -3,7 +3,7 @@ import { AppRail } from './components/app-rail';
 import { HomeSection } from './components/home-section';
 import { CornerNotices, ImportBadge } from './components/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from './components/import-dialogs';
-import { clearImportedGame, loadImportedGame, loadPreferences, saveImportedGame, savePreferences } from './lib/browser-storage';
+import { clearImportedGame, loadImportedGame, loadPreferences, PreferenceMirrorUnavailable, saveImportedGame, savePreferences } from './lib/browser-storage';
 import { createImportedGame, validateGameFile } from './ingest/game-export';
 import { blankPreferences } from './ingest/preferences';
 import { fileToText, importPreferencesFile } from './platform/preference-files';
@@ -116,6 +116,7 @@ export default function Home() {
   const [pendingGame, setPendingGame] = useState<ImportedGame | null>(null);
   const [importConfirmation, setImportConfirmation] = useState<{ game: ImportedGame; manual: boolean } | null>(null);
   const [message, setMessage] = useState('');
+  const [storageNotice, setStorageNotice] = useState<{ message: string; tone: 'warn' | 'bad' } | null>(null);
   const [report, setReport] = useState<{ category: ReportCategory; details: string } | null>(null);
   const [ready, setReady] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -483,8 +484,10 @@ export default function Home() {
     const writing = savePreferences(next);
     preferencesRef.current = next;
     setPreferences(next);
-    void writing.catch(() => {
-      setMessage('JASWA could not save your preferences. Your latest choice is still on screen.');
+    void writing.then(() => setStorageNotice(null)).catch((error: unknown) => {
+      setStorageNotice(error instanceof PreferenceMirrorUnavailable
+        ? { tone: 'warn', message: 'Your preferences were saved, but their quick recovery copy could not be saved.' }
+        : { tone: 'bad', message: 'JASWA could not save your preferences. Your latest choice is still on screen.' });
     });
   }
 
@@ -801,15 +804,23 @@ export default function Home() {
     if (!file) return;
     try {
       const next = await importPreferencesFile(file);
+      let mirrorUnavailable = false;
       try {
         await savePreferences(next);
-      } catch {
-        setMessage('JASWA could not save these preferences. Please try again.');
-        return;
+      } catch (error) {
+        if (error instanceof PreferenceMirrorUnavailable) mirrorUnavailable = true;
+        else {
+          setMessage('JASWA could not save these preferences. Please try again.');
+          setStorageNotice({ tone: 'bad', message: 'JASWA could not save these preferences. Please try again.' });
+          return;
+        }
       }
       preferencesRef.current = next;
       setPreferences(next);
-      setMessage('Your preferences were loaded.');
+      setStorageNotice(mirrorUnavailable ? { tone: 'warn', message: 'Your preferences were saved, but their quick recovery copy could not be saved.' } : null);
+      setMessage(mirrorUnavailable
+        ? 'Your preferences were loaded, but their quick recovery copy could not be saved.'
+        : 'Your preferences were loaded.');
     } catch {
       setMessage('JASWA could not read this settings file. Please choose a .sw file exported from JASWA.');
     } finally {
@@ -860,7 +871,7 @@ export default function Home() {
         importStopped={game ? liveImportStopped : null}
         connectionError={preferences.importRoute === 'direct' && (helperConnection.state === 'unavailable' || helperConnection.restartRequired) ? helperStatusMessage(helperConnection) : null}
         missedChanges={game && preferences.importRoute === 'direct' && helperConnection.state === 'ready' ? helperConnection.missedChanges : []}
-        confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} />
+        confirmation={importConfirmation && (page === 'home' || importConfirmation.manual) ? importConfirmation.game : null} general={preferences.general} storageNotice={storageNotice} />
 
       {page === 'home' && <HomeSection
         game={game}
