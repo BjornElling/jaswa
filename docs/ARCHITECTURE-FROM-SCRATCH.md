@@ -1650,3 +1650,35 @@ The compact tree, validated reference boundary, shared execution runtime and
 test runner are the final target. §§20 and 21.7's additional acceptance criteria
 stand with the atomicity, dependency and reporting qualifications above. No
 larger rewrite, new service or additional architectural layer is needed.
+
+
+## 23. Implementation status — November 13, 2026
+
+The owner has authorized a greenfield, big-bang implementation of this design.
+The earlier statements in this document that no rewrite is authorized and that
+implementation must be evolutionary are superseded by that instruction. The
+subject contracts and preservation of the owner's choices remain binding.
+
+**Status: started; the redesign is not complete.** The existing application,
+raw import model, persistence, workers, helper and presentation have not yet
+been replaced. The acceptance criteria in §20 are not yet met.
+
+- Added `npm run verify:all` as an interim aggregate: it runs every existing
+  domain alias independently, then the browser suite, and reports failures and
+  observed skips without stopping at the first failed check. Private captures,
+  real-card checks and Windows integration remain separate and are reported as
+  not run. This is not the planned Vitest integration or the final verification
+  system; browser skip details depend on Playwright's output. A simulated
+  failing check confirmed that later checks run and the aggregate exits with a
+  failure. The full aggregate has not yet been run.
+- `npm run lint`, `npm run build` and `npx tsc --noEmit` passed for this
+  initial change.
+- Still required: the isolated Vitest harness and import/cycle rules; atomic
+  combined writes and recovery tests; typed ingestion and immutable observation
+  with local projections; workspace commands; shared job runtime; reference
+  ownership; feature and style reorganization; helper restructuring; and all
+  end-to-end and platform acceptance checks.
+
+Update this section as implementation proceeds, distinguishing completed work,
+verification, skipped checks and remaining work. Do not mark the redesign
+complete until the acceptance criteria have evidence.
