@@ -1713,9 +1713,13 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
 - Preference restoration can now interpret a pending paired-write recovery
   record against a commit marker read in the same IndexedDB transaction as
   the preference copy. Unit tests cover both marker outcomes, an unreadable
-  database and a malformed pending record. No production writer creates that
-  record yet; paired writes, concurrent edits and their interruption tests are
-  still required before Lock/Exclude can use it.
+  database and a malformed pending record. The storage adapter now has a paired
+  writer that stages the record, commits the account, preferences and marker in
+  one transaction, and rebases concurrent preference edits onto both outcomes.
+  Its tests exercise transaction abort, both mirror-publication failures, edits
+  before, during and after the commit, and recovery with identical timestamps.
+  Lock/Exclude is not connected to this writer yet; its workspace publication,
+  concurrent account writes and real browser flow still need verification.
 - Moved the existing numbered-request worker runtime to `app/platform/` and
   added isolated tests for out-of-order replies, independent cancellation and
   recovery after worker failure. The existing browser cancellation test passed

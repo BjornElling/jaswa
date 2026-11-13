@@ -1,7 +1,14 @@
-import { IDBFactory } from 'fake-indexeddb';
+import { IDBFactory, IDBObjectStore as FakeObjectStore } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { blankPreferences } from '../ingest/preferences';
-import { loadPreferences, PreferenceMirrorUnavailable, PreferenceStoreUnreadable, savePreferences, writeWorkspaceValue } from './browser-storage';
+import { loadImportedGame, loadPreferences, PairedCommitUnavailable, PreferenceMirrorUnavailable, PreferenceStoreUnreadable,
+  saveImportedGame, savePreferences, saveWorkspacePair, writeWorkspaceValue } from './browser-storage';
+import type { ImportedGame } from './types';
+
+const account = (fileName: string): ImportedGame => ({
+  fileName, importedAt: '2026-11-13T10:00:00.000Z', data: {},
+  report: { valid: true, message: '', knownSections: [], unknownMonsterIds: [] },
+});
 
 describe('preference storage', () => {
   beforeEach(async () => {
@@ -130,5 +137,117 @@ describe('preference storage', () => {
     window.localStorage.setItem('jaswa-preferences', JSON.stringify({ __jaswaPendingCommit: { token: 'broken' } }));
     await expect(loadPreferences()).rejects.toThrow('pending preference recovery record');
     await expect(savePreferences(blankPreferences())).rejects.toBeInstanceOf(PreferenceStoreUnreadable);
+  });
+
+  it('commits a pair and rebases an unrelated preference edit queued while it runs', async () => {
+    const before = { ...blankPreferences(), hardwareAcceleration: false, updatedAt: '2026-11-13T10:00:00.000Z' };
+    const after = { ...before, importRoute: 'direct' as const };
+    await saveImportedGame(account('before'));
+    const earlier = savePreferences(before);
+    const paired = saveWorkspacePair(account('after'), before, after);
+    const later = { ...before, general: { ...before.general, numberFormat: 'american' as const } };
+    const following = savePreferences(later, (current) => ({ ...current, general: later.general }));
+    await earlier;
+    expect((await paired).preferences).toEqual({ ...after, general: later.general });
+    await following;
+    expect(await loadImportedGame()).toEqual(account('after'));
+    expect(await loadPreferences()).toEqual({ ...after, general: later.general });
+  });
+
+  it('aborts the whole pair while retaining an unrelated queued preference edit', async () => {
+    const before = { ...blankPreferences(), hardwareAcceleration: false };
+    const after = { ...before, importRoute: 'direct' as const };
+    await saveImportedGame(account('before'));
+    await savePreferences(before);
+    const put = FakeObjectStore.prototype.put;
+    const failing = vi.spyOn(FakeObjectStore.prototype, 'put').mockImplementation(function (this: InstanceType<typeof FakeObjectStore>, value, key) {
+      if (key === 'preference-commit') throw new Error('injected transaction failure');
+      return put.call(this, value, key);
+    });
+    const paired = saveWorkspacePair(account('after'), before, after);
+    const later = { ...before, general: { ...before.general, numberFormat: 'american' as const } };
+    const following = savePreferences(later, (current) => ({ ...current, general: later.general }));
+    await expect(paired).rejects.toThrow('injected transaction failure');
+    failing.mockRestore();
+    await following;
+    expect(await loadImportedGame()).toEqual(account('before'));
+    expect(await loadPreferences()).toEqual(later);
+  });
+
+  it('recovers the committed pair when publication of the final mirror fails', async () => {
+    const before = blankPreferences();
+    const after = { ...before, importRoute: 'direct' as const };
+    await saveImportedGame(account('before'));
+    await savePreferences(before);
+    const setItem = window.localStorage.setItem;
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation((key, value) => {
+      if (!value.includes('__jaswaPendingCommit')) throw new Error('mirror unavailable');
+      setItem.call(window.localStorage, key, value);
+    });
+    const result = await saveWorkspacePair(account('after'), before, after);
+    expect(result.mirrorSaved).toBe(false);
+    vi.resetModules();
+    const reloaded = await import('./browser-storage');
+    expect(await reloaded.loadImportedGame()).toEqual(account('after'));
+    expect(await reloaded.loadPreferences()).toEqual(after);
+  });
+
+  it('recovers the preceding pair and unrelated edits when rollback mirror publication fails', async () => {
+    const before = blankPreferences();
+    const after = { ...before, importRoute: 'direct' as const };
+    await saveImportedGame(account('before'));
+    await savePreferences(before);
+    const setItem = window.localStorage.setItem;
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation((key, value) => {
+      if (!value.includes('__jaswaPendingCommit')) throw new Error('mirror unavailable');
+      setItem.call(window.localStorage, key, value);
+    });
+    const put = FakeObjectStore.prototype.put;
+    const failing = vi.spyOn(FakeObjectStore.prototype, 'put').mockImplementation(function (this: InstanceType<typeof FakeObjectStore>, value, key) {
+      if (key === 'preference-commit') throw new Error('injected transaction failure');
+      return put.call(this, value, key);
+    });
+    const paired = saveWorkspacePair(account('after'), before, after);
+    const later = { ...before, hardwareAcceleration: false };
+    const following = savePreferences(later, (current) => ({ ...current, hardwareAcceleration: false }));
+    await expect(paired).rejects.toThrow('injected transaction failure');
+    failing.mockRestore();
+    await following;
+    vi.resetModules();
+    const reloaded = await import('./browser-storage');
+    expect(await reloaded.loadImportedGame()).toEqual(account('before'));
+    expect(await reloaded.loadPreferences()).toEqual(later);
+  });
+
+  it('does not begin a pair without a durable pending mirror', async () => {
+    const before = blankPreferences();
+    await saveImportedGame(account('before'));
+    await savePreferences(before);
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => { throw new Error('mirror unavailable'); });
+    await expect(saveWorkspacePair(account('after'), before, { ...before, importRoute: 'direct' })).rejects.toBeInstanceOf(PairedCommitUnavailable);
+    expect(await loadImportedGame()).toEqual(account('before'));
+    expect(await loadPreferences()).toEqual(before);
+  });
+
+  it('keeps a later preference edit after the paired write has committed', async () => {
+    const before = { ...blankPreferences(), updatedAt: '2026-11-13T10:00:00.000Z' };
+    const after = { ...before, importRoute: 'direct' as const };
+    await savePreferences(before);
+    const paired = await saveWorkspacePair(account('after'), before, after);
+    const later = { ...paired.preferences, hardwareAcceleration: false };
+    await savePreferences(later);
+    vi.resetModules();
+    const reloaded = await import('./browser-storage');
+    expect(await reloaded.loadPreferences()).toEqual(later);
+    expect(await reloaded.loadImportedGame()).toEqual(account('after'));
+  });
+
+  it('refuses a full replacement during a pair when it cannot be rebased safely', async () => {
+    const before = blankPreferences();
+    await savePreferences(before);
+    const paired = saveWorkspacePair(account('after'), before, { ...before, importRoute: 'direct' });
+    await expect(savePreferences(before)).rejects.toBeInstanceOf(PairedCommitUnavailable);
+    await paired;
+    expect((await loadPreferences() as typeof before).importRoute).toBe('direct');
   });
 });
