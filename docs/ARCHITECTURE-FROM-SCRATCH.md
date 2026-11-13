@@ -1669,8 +1669,10 @@ presentation have not yet been replaced. The acceptance criteria in §20 are not
   not run. This is not the planned Vitest integration or the final verification
   system; browser skip details depend on Playwright's output. A simulated
   failing check confirmed that later checks run and the aggregate exits with a
-  failure. The aggregate was started, but stopped during the domain suite before the
-  browser suite so implementation could continue; it has not passed.
+  failure. A later aggregate completed with passing domain and browser suites,
+  but ran while implementation files were changing and therefore is not a
+  final verification of the current tree. It reported the absent private traffic
+  capture, real-card checks and Windows integration separately as not run.
 - `npm run lint`, `npm run build` and `npx tsc --noEmit` passed for this
   initial change.
 - ESLint now rejects direct ingestion imports of UI, workspace and platform
