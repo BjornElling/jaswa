@@ -16,7 +16,8 @@ import { WorkspacePage } from '../../ui/workspace-page';
 import { columnClasses, relicTableColumns } from '../../ui/table-layouts';
 import type { GameRecord } from '../../domain/account/game-record';
 import type { ImportedGame, Preferences } from '../../domain/model';
-import { readRelics, relicEngravingCounts } from '../../domain/relics/relics';
+import { relicEngravingCounts } from '../../domain/relics/relics';
+import type { Relic } from '../../domain/relics/relics';
 import {
   relicFamilies, relicFamilyByGrant, relicMainPropertyOrder, relicMaximumDurability, relicMaximumLevel,
   relicNextTierLevel, relicPropertyLabel,
@@ -36,6 +37,8 @@ import {
 import type { RelicRow, RelicSortKey } from '../../domain/relics/relic-grid';
 import { formatNumber } from '../../domain/shared/formatting';
 import { useSessionStorageState } from '../../ui/session-state';
+
+const noRelicRecords: readonly Relic[] = [];
 
 /* Split out on its own, because it reads the 6.6 MB engraving-statistics
    dataset and the library above it does not. Loaded eagerly, the page could
@@ -176,7 +179,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
      own on top (`relic-synergy.ts`). The verdicts, the column and the filter all
      take it from here, so an edit in the table reaches each of them at once. */
   const synergy = useMemo(() => resolveRelicSynergy(preferences.relicSynergy), [preferences.relicSynergy]);
-  const relics = useMemo(() => readRelics(game?.data), [game]);
+  const relics = game?.snapshot.relics ?? noRelicRecords;
   const engravings = useMemo(() => relicEngravingCounts(monsters), [monsters]);
   /* The counts reach the advice because a same-pair copy that has run out of
      places can no longer make a duplicate redundant (§8 rule 0's exception). */

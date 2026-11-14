@@ -7,11 +7,17 @@ import { BestMonsterForArtifact } from './best-monster-for-artifact';
 import { artifactAcceptableWorthChoices, artifactInsignificantDifferenceRange } from '../../domain/profiles/preference-defaults';
 import type { ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, GeneralSettings } from '../../domain/model';
 import type { GameRecord } from '../../domain/account/game-record';
+import type { AccountSnapshot } from '../../domain/account/account-snapshot';
+import type { Artifact } from '../../domain/artifacts/artifacts';
 import type { MonsterProfiles } from '../../domain/profiles/monster-preferences';
 import { craftRollAssumptions } from '../../domain/runes/craft/rune-craft-items';
 import { engravedConversionStoneCounts } from '../../domain/artifacts/artifact-conversion-stones';
 import { formatNumber } from '../../domain/shared/formatting';
 import type { CraftRollAssumption } from '../../domain/runes/craft/rune-craft-items';
+import type { EngravedConversionStone } from '../../domain/artifacts/artifact-conversion-stones';
+
+const noArtifacts: readonly Artifact[] = [];
+const noConversionStones: readonly EngravedConversionStone[] = [];
 
 /* The slider's stops are the stored percentages themselves
    (`ARTIFACT-CANONICAL.md` §19.6), so
@@ -50,9 +56,10 @@ const recalculateOptions: Array<{ value: ArtifactRecalculateMode; label: string 
    the account owns, while this page will answer what to change. Keeping those
    questions apart leaves the optimizer room for a clear, decision-first draft. */
 
-export function ArtifactsSection({ settings, data, monsters, scenarioProfiles, general, hardwareAcceleration, onUpdate }: {
+export function ArtifactsSection({ settings, data, snapshot, monsters, scenarioProfiles, general, hardwareAcceleration, onUpdate }: {
   settings: ArtifactSettings;
   data: GameRecord | undefined;
+  snapshot: AccountSnapshot | undefined;
   monsters: readonly GameRecord[];
   scenarioProfiles: MonsterProfiles;
   general: GeneralSettings;
@@ -66,6 +73,8 @@ export function ArtifactsSection({ settings, data, monsters, scenarioProfiles, g
   /* With no conversion assumed the roll value has nothing to describe, so the
      slider dims rather than inviting an answer that changes nothing. */
   const conversionsOff = settings.conversionStoneMode === 'none';
+  const artifacts = snapshot?.artifacts ?? noArtifacts;
+  const conversionStones = snapshot?.conversionStones ?? noConversionStones;
   /* Every stone the account owns is counted here, the ones naming a property
      v8.0.0 retired included: the game still lets them be used, so leaving them
      out would understate what the user holds, while valuing them would credit
@@ -83,17 +92,17 @@ export function ArtifactsSection({ settings, data, monsters, scenarioProfiles, g
     </section>}
 
     <Disclosure title="Recommendations" sessionKey="artifacts.recommendations">
-      {data ? <ArtifactMaximumValues data={data} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
+      {data ? <ArtifactMaximumValues data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then ask every artifact where it can shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best monster for this artifact" sessionKey="artifacts.best-monster">
-      {data ? <BestMonsterForArtifact data={data} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
+      {data ? <BestMonsterForArtifact data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then find the monster that can make an artifact shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best artifact for this monster" sessionKey="artifacts.best-artifact">
-      {data ? <BestArtifactForMonster data={data} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
+      {data ? <BestArtifactForMonster data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then compare artifacts against one monster at a time.</p>}
     </Disclosure>
 

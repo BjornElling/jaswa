@@ -35,7 +35,8 @@ try {
   });
   assert.equal(twoIntangible.valid, false,
     'a monster with two engraved Intangible Runes must be rejected by the import boundary');
-  assert.match(twoIntangible.message, /more than one Intangible Rune/);
+  assert.equal(twoIntangible.issues[0]?.code, 'two-intangibles-on-one-monster');
+  assert.equal(twoIntangible.issues[0]?.sourcePath, 'runes[1]');
 
   const twoLocations = validateGameFile({
     ...account([owned]),
@@ -43,7 +44,8 @@ try {
   });
   assert.equal(twoLocations.valid, false,
     'one unit id cannot describe both Inventory and the normal Sealed Shrine');
-  assert.match(twoLocations.message, /Inventory and Sealed Shrine at once/);
+  assert.equal(twoLocations.issues[0]?.code, 'monster-in-two-places');
+  assert.equal(twoLocations.issues[0]?.sourcePath, 'unit_storage_normal_list[0]');
 
   const foreign = validateGameFile(account([
     owned,
@@ -51,7 +53,8 @@ try {
   ]));
   assert.equal(foreign.valid, false,
     'a snapshot containing another wizard\'s monster is rejected');
-  assert.match(foreign.message, /cannot verify as belonging to this account/);
+  assert.equal(foreign.issues[0]?.code, 'foreign-monster');
+  assert.equal(foreign.issues[0]?.sourcePath, 'unit_list[1]');
 
   const unverifiable = validateGameFile(account([
     owned,
@@ -68,7 +71,8 @@ try {
     if (value === undefined) delete unit[field];
     const report = validateGameFile(account([unit]));
     assert.equal(report.valid, false, `a monster with ${field} ${JSON.stringify(value)} is refused`);
-    assert.match(report.message, /monster JASWA cannot read/);
+    assert.equal(report.issues[0]?.code, 'unreadable-monster');
+    assert.equal(report.issues[0]?.sourcePath, 'unit_list[0]');
   }
   assert.equal(validateGameFile(account([{ ...owned, class: 6, skills: [[1, 1], [2, 5]] }])).valid, true,
     'a monster with a grade and skills the game can produce is read');
@@ -82,7 +86,8 @@ try {
     { ...owned, unit_id: 13, runes: [{ ...engravedRune, occupied_id: 13 }] },
   ]));
   assert.equal(twice.valid, false, 'one rune under two Scenario monsters is refused');
-  assert.match(twice.message, /one rune on two monsters/);
+  assert.equal(twice.issues[0]?.code, 'rune-engraved-twice');
+  assert.equal(twice.issues[0]?.sourcePath, 'unit_list[1].runes[0]');
 
   /* An item's own record and the monsters' lists say the same about where it
      is: Scenario reads the lists, its location reads the record. A rune left
@@ -93,14 +98,16 @@ try {
     'a prepared account repeats an engraved rune with the same placement');
   const stale = validateGameFile({ ...account([owned]), runes: [engravedRune] });
   assert.equal(stale.valid, false, 'a rune whose record names a monster that does not carry it is refused');
-  assert.match(stale.message, /rune on a monster that does not carry it/);
+  assert.equal(stale.issues[0]?.code, 'rune-misplaced');
+  assert.equal(stale.issues[0]?.sourcePath, 'runes[0]');
   const both = validateGameFile({ ...account([carried]), runes: [{ ...engravedRune, occupied_type: 2, occupied_id: 0 }] });
   assert.equal(both.valid, false, 'a rune in the inventory and on a monster is refused');
   const artifact = { rid: 50, wizard_id: 7, occupied_id: 10, slot: 1, type: 1, attribute: 1, unit_style: 0, natural_rank: 5, rank: 5, level: 15,
     pri_effect: [100, 1500, 0, 0, 0], sec_effects: [], locked: 0, source: 0, extra: [] };
   const staleArtifact = validateGameFile({ ...account([owned]), artifacts: [artifact] });
   assert.equal(staleArtifact.valid, false, 'an artifact whose record names a monster that does not carry it is refused');
-  assert.match(staleArtifact.message, /artifact on a monster that does not carry it/);
+  assert.equal(staleArtifact.issues[0]?.code, 'artifact-misplaced');
+  assert.equal(staleArtifact.issues[0]?.sourcePath, 'artifacts[0]');
 
   /* A nested Summoned list is validated, published, counted and listed exactly
      as a root one, and a stack at zero is neither counted nor shown. */

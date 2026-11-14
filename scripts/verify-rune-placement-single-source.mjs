@@ -52,7 +52,7 @@ assert.doesNotMatch(sharedLocation, /\bplaces\.(?:find|some|filter)\s*\(/, 'the 
 
 const page = readFileSync('app/shell/root.tsx', 'utf8');
 assert.match(page, /summarizeRunePlacement\(places\)/, 'the account boundary builds rune summaries once');
-const context = readFileSync('app/workspace/presets-context.ts', 'utf8');
+const context = readFileSync('app/ui/presets-context.ts', 'utf8');
 assert.match(context, /ReadonlyMap<string, RunePlacementSummary>/, 'rune workspaces receive the canonical summary');
 
 function sourceFiles(directory) {

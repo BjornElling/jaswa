@@ -2,13 +2,13 @@ import { type DragEvent, useEffect, useState } from 'react';
 import { Button, LabelSwap } from '../../ui/button';
 import { WorkspacePage } from '../../ui/workspace-page';
 import { CheckboxRow, ImportRouteCard, RadioRow } from '../../ui/form-controls';
-import { detectGraphicsCard, disabledStatus } from '../../platform/hardware-acceleration';
-import type { AccelerationState, AccelerationStatus } from '../../platform/hardware-acceleration';
+import { disabledStatus } from '../../workspace/acceleration-status';
+import type { AccelerationState, AccelerationStatus, GraphicsCardProbe } from '../../workspace/acceleration-status';
 import { accelerationLabels, helperLabels } from './status-labels';
 import { formatDateTime } from '../../domain/shared/formatting';
 import { HelperDownload } from './helper-download';
-import type { HelperConnection } from '../../platform/helper-client';
-import { helperStatusMessage } from '../../platform/helper-client';
+import type { HelperConnection } from '../../workspace/ports';
+import { helperStatusMessage } from '../../workspace/helper-status';
 import { recommendedHelperVersion } from '../../domain/shared/helper-version';
 import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame } from '../../domain/model';
 
@@ -28,7 +28,7 @@ function AccelerationMark({ state }: { state: AccelerationState | 'restart' }) {
   </span>;
 }
 
-export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, general }: {
+export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, detectGraphicsCard, general }: {
   game: ImportedGame | null;
   general: GeneralSettings;
   message: string;
@@ -45,6 +45,8 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
   importRoute: ImportRoute;
   onImportRoute: (route: ImportRoute) => void;
   helperConnection: HelperConnection;
+  /** The browser's graphics-card probe, supplied by the shell; it describes the card and decides nothing. */
+  detectGraphicsCard: GraphicsCardProbe;
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
   /* What the card answered, kept apart from the setting: switching the setting
@@ -56,7 +58,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
     let current = true;
     void detectGraphicsCard().then((status) => { if (current) setDetected(status); });
     return () => { current = false; };
-  }, [hardwareAcceleration, detected]);
+  }, [hardwareAcceleration, detected, detectGraphicsCard]);
 
   const status: AccelerationStatus = !hardwareAcceleration ? disabledStatus
     : detected ?? { state: 'checking', adapterName: 'Asking the browser…', detail: 'Looking for a graphics card to compute on.' };

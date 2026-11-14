@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2024"],
+    "types": [],
+    "incremental": false,
+    "noEmit": true
+  },
+  "include": [
+    "app/domain/**/*.ts",
+    "app/ingest/**/*.ts",
+    "app/data/**/*.ts",
+    "scripts/types/universal-globals.d.ts"
+  ],
+  "exclude": ["**/*.test.ts"]
+}

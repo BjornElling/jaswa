@@ -3,12 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { blankPreferences } from '../domain/profiles/preference-defaults';
 import { loadImportedGame, loadPreferences, saveImportedGame, savePreferences, saveWorkspacePair, writeWorkspaceValue } from './browser-storage';
 import { PairedCommitUnavailable, PreferenceMirrorUnavailable, PreferenceStoreUnreadable } from '../workspace/ports';
-import type { ImportedGame } from '../domain/model';
-import type { AccountSnapshot } from '../domain/account/account-snapshot';
+import type { StoredGame } from '../domain/model';
 
-const account = (fileName: string): ImportedGame => ({
-  fileName, importedAt: '2026-11-13T10:00:00.000Z', data: {}, snapshot: {} as AccountSnapshot,
-  report: { valid: true, message: '', knownSections: [], unknownMonsterIds: [] },
+const account = (fileName: string): StoredGame => ({
+  fileName, importedAt: '2026-11-13T10:00:00.000Z', data: {}, coverage: { complete: true, misses: [] },
 });
 
 describe('preference storage', () => {

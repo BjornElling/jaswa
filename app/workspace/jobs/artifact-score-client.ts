@@ -1,9 +1,9 @@
-import { createArtifactScoreWorker } from '../feature-workers';
-import { createJobRuntime } from '../job-runtime';
+import { workerFactories } from './worker-factories';
+import { createJobRuntime } from './job-runtime';
 import type { ArtifactScoreRequest, ArtifactScoreResult } from '../../domain/artifacts/score/artifact-score-protocol';
 
 const job = createJobRuntime<Record<string, unknown>, ArtifactScoreResult>(
-  () => createArtifactScoreWorker(),
+  () => workerFactories().artifactScore(),
   'JASWA could not start its artifact calculation worker.',
   { allowConcurrent: true },
 );

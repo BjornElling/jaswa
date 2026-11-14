@@ -1,4 +1,4 @@
-import { createRuneOptimizationWorker } from '../feature-workers';
+import { workerFactories } from './worker-factories';
 /**
  * The main thread's one way to ask for a Rune Optimization calculation.
  *
@@ -71,7 +71,39 @@ export function optimizeRuneBuilds(
     } };
     onPhase?.('candidates');
 
-    const failed = (message: string) => {
+    /* Shares lost after Stop: their builds are gone, the others' are still the answer. */
+    const abandoned = new Set<number>();
+    let lastFailure = 'JASWA could not finish its rune search.';
+    const finishIfAnswered = () => {
+      if (answers.some((answer, at) => answer === undefined && !abandoned.has(at))) return;
+      const complete = answers.filter((answer): answer is RuneOptimizationAnswer => answer !== undefined);
+      if (!complete.length) { settle({ status: 'failed', message: lastFailure }); return; }
+      const rank = figureIndex(input.requirements.rankBy);
+      const merged = mergeBuildResults(complete, rank, input.settings.resultCount, prepared!.tieBreakers);
+      settle({
+        status: 'done',
+        answer: {
+          ...merged,
+          tieBreakers: prepared!.tieBreakers,
+          report: complete[0].report,
+          backend: combineCalculationBackends(complete.map((answer) => answer.backend)),
+          /* The wall clock the user waited, not the sum of the workers' clocks. */
+          durationMs: performance.now() - startedAt,
+        },
+      });
+    };
+
+    const failed = (message: string, part?: number) => {
+      /* After Stop the user asked for the builds already found. A share failing
+         then is dropped, not answered by restarting the search in one worker
+         that stops at once and returns almost nothing (§11.2). */
+      if (stopping && prepared && part !== undefined) {
+        abandoned.add(part);
+        lastFailure = message;
+        workers[part]?.terminate();
+        finishIfAnswered();
+        return;
+      }
       // A browser unable to sustain several workers still has a useful search.
       // Retry the same prepared candidates in one worker, without changing depth.
       if (prepared && parts > 1) {
@@ -88,7 +120,7 @@ export function optimizeRuneBuilds(
     function startWorker(part: number, problem?: RuneOptimizationProblem) {
       if (settled) return;
       try {
-        const worker = createRuneOptimizationWorker();
+        const worker = workerFactories().runeOptimization();
         workers.push(worker);
         worker.addEventListener('message', (event: MessageEvent<RuneOptimizationWorkerResponse>) => {
           if (settled || !workers.includes(worker)) return;
@@ -118,26 +150,12 @@ export function optimizeRuneBuilds(
             onProgress?.(progress.reduce((total, share) => total + share, 0) / parts);
             return;
           }
-          if (message.type === 'error') { failed(message.message); return; }
+          if (message.type === 'error') { failed(message.message, part); return; }
           answers[part] = message.answer;
-          if (answers.some((answer) => answer === undefined)) return;
-          const complete = answers as RuneOptimizationAnswer[];
-          const rank = figureIndex(input.requirements.rankBy);
-          const merged = mergeBuildResults(complete, rank, input.settings.resultCount, prepared!.tieBreakers);
-          settle({
-            status: 'done',
-            answer: {
-              ...merged,
-              tieBreakers: prepared!.tieBreakers,
-              report: complete[0].report,
-              backend: combineCalculationBackends(complete.map((answer) => answer.backend)),
-              /* The wall clock the user waited, not the sum of the workers' clocks. */
-              durationMs: performance.now() - startedAt,
-            },
-          });
+          finishIfAnswered();
         });
         worker.addEventListener('error', () => {
-          if (!settled && workers.includes(worker)) failed('JASWA could not start its rune search.');
+          if (!settled && workers.includes(worker)) failed('JASWA could not start its rune search.', part);
         }, { once: true });
         if (problem) {
           worker.postMessage({ type: 'calculate', requestId: part, request: { problem, part, parts, preferWebGpu } });

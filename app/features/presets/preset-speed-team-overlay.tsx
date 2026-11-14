@@ -6,11 +6,13 @@ import { monsterCopyNames } from '../../domain/monsters/monster-names';
 import { profilesIn } from '../../domain/profiles/monster-preferences';
 import { accountItems } from '../../domain/placements/presets';
 import type { Preset } from '../../domain/placements/presets';
-import { readSkyTribeTotem } from '../../domain/account/account-buildings';
+import type { SkyTribeTotem } from '../../domain/account/account-buildings';
 import { monstersByUnitId, presetTeam } from '../../domain/speed/speed-team';
 import { isSpeedTeam, speedTuningOf } from '../../domain/profiles/speed-tuning-preferences';
 import type { SpeedTuningPreferences } from '../../domain/profiles/speed-tuning-preferences';
 import type { ImportedGame, Preferences } from '../../domain/model';
+
+const noSkyTribeTotem: SkyTribeTotem = { state: 'unknown' };
 
 /**
  * Opens a preset's team over the current page. Every page takes this one door,
@@ -45,7 +47,7 @@ export function PresetSpeedTeamOverlay({ presetId, game, monsters, preferences, 
   const tuning = preferences.speedTuning.presets;
   const monsterById = useMemo(() => monstersByUnitId(monsters), [monsters]);
   const items = useMemo(() => accountItems(game?.data), [game]);
-  const totem = useMemo(() => readSkyTribeTotem(game?.data), [game]);
+  const totem = game?.snapshot.skyTribeTotem ?? noSkyTribeTotem;
   const totemShare = totem.state === 'built' ? totem.percent : 0;
   const line = useMemo(() => (preset && isSpeedTeam(preset) ? presetTeam(preset, presets, tuning, monsterById, items) : null),
     [preset, presets, tuning, monsterById, items]);

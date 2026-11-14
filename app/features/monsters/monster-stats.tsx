@@ -18,8 +18,8 @@ import { WorkspacePage } from '../../ui/workspace-page';
 import { isRainbowmon, monsterPresentation } from '../../domain/monsters/monster-catalog';
 import type { MonsterArchetype } from '../../domain/monsters/monster-catalog';
 import { withHigherAwakenings } from '../../domain/monsters/monster-identity';
-import { shrineMonsterRecords } from '../../domain/account/sealed-shrine-storage';
 import type { GameRecord } from '../../domain/account/game-record';
+import type { AccountSnapshot } from '../../domain/account/account-snapshot';
 import { calculateMonsterTotals, monsterTargetFigures } from '../../domain/combat/monster-stats';
 import { statGridLabels } from '../../domain/shared/stat-labels';
 import { activeRuneSets, elementName, elementNameList } from '../../domain/runes/rune-sets';
@@ -33,7 +33,6 @@ import type { MonsterGridColumn, MonsterRow, SortKey } from '../../domain/monste
 import { monsterCopyNames } from '../../domain/monsters/monster-names';
 import { profilesIn } from '../../domain/profiles/monster-preferences';
 import { fightElementAdvantage, fightLeads } from '../../domain/profiles/monster-preference-resolution';
-import { readBuildingBonuses } from '../../domain/account/account-buildings';
 import { accountItems, monsterInPreset, presetMenu } from '../../domain/placements/presets';
 import { rosterOf, teamBonusesFor } from '../../domain/combat/team-leads';
 import type { Preset } from '../../domain/placements/presets';
@@ -191,9 +190,10 @@ const monsterFilterReader = { read: (value: unknown): MonsterFilterState => read
   showRainbowmons: isBoolean,
 }) };
 
-export function MonsterStats({ monsters, gameData, presets, preferences, onOpenMonster }: {
+export function MonsterStats({ monsters, gameData, snapshot, presets, preferences, onOpenMonster }: {
   monsters: GameRecord[];
   gameData: GameRecord;
+  snapshot: AccountSnapshot | undefined;
   /** Scenario first, then every preset (`readPresets`). */
   presets: readonly Preset[];
   preferences: Preferences;
@@ -215,8 +215,11 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
   const choice = useMemo(() => resolvePresetChoice(menu, storedChoice), [menu, storedChoice]);
   const { preset } = choice;
   const items = useMemo(() => accountItems(gameData), [gameData]);
-  const buildings = useMemo(() => readBuildingBonuses(gameData), [gameData]);
+  const buildings = snapshot?.buildings;
   const roster = useMemo(() => rosterOf(gameData), [gameData]);
+  const shrineRecords = useMemo(() => snapshot
+    ? [...snapshot.summonedShrine.map(({ record }) => record), ...snapshot.normalShrine.map(({ record }) => record)]
+    : [], [snapshot]);
 
   /* The preset's own team, each copy with the runes and artifacts it carries
      there and Scenario's relic, as the game reads it (`DECK-PRESETS.md` §1).
@@ -295,14 +298,14 @@ export function MonsterStats({ monsters, gameData, presets, preferences, onOpenM
      lineage floor without ever putting a shrine row in the stat sheet. */
   const heldNames = useMemo(() => [
     ...monsters,
-    ...shrineMonsterRecords(gameData),
+    ...shrineRecords,
   ].map((monster: GameRecord) => {
     const presentation = monsterPresentation(monster.unit_master_id);
     return {
       masterId: String(monster.unit_master_id ?? ''),
       names: [presentation.name, ...presentation.searchAliases],
     };
-  }), [monsters, gameData]);
+  }), [monsters, shrineRecords]);
 
   /* A search names a monster, and awakening it does not change which monster it
      is, so the term reaches the forms above what it matched and never the forms

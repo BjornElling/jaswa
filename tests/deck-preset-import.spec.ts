@@ -111,16 +111,16 @@ test('a rune a deck still names after it was sold stays visible', async ({ page 
 for (const [title, decks, message] of [
   ['a rune assigned twice inside one saved deck',
     [{ deck_type: 1, deck_seq: 1, unit_id_list: [1, 2], equip: [engraved(1), engraved(2)] }],
-    'This Deck Preset assigns a rune more than once or has an invalid rune ID.'],
+    'This Deck Preset assigns a rune more than once or has an invalid rune ID (deck_list).'],
   ['a deck that saves gear for some of its monsters but not all',
     [{ deck_type: 1, deck_seq: 1, unit_id_list: [1, 2], equip: [engraved(1)] }],
-    'This Deck Preset saves engravings for some of its monsters but not all.'],
+    'This Deck Preset saves engravings for some of its monsters but not all (deck_list).'],
   ['gear engraved on a monster outside the deck',
     [{ deck_type: 1, deck_seq: 1, unit_id_list: [1], equip: [engraved(1, []), engraved(2)] }],
-    'This Deck Preset engraves gear on a monster outside the preset, or twice on one.'],
+    'This Deck Preset engraves gear on a monster outside the preset, or twice on one (deck_list).'],
   ['a deck without a monster list',
     [{ deck_type: 1, deck_seq: 1, equip: null }],
-    'This account contains a Deck Preset without a monster list.'],
+    'This account contains a Deck Preset without a monster list (deck_list).'],
 ] as const) {
   test(`reports ${title}`, async ({ page }, testInfo) => {
     await freshWorkspace(page);

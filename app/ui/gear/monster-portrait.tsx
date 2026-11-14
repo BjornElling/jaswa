@@ -1,4 +1,4 @@
-import { portraitUrl } from '../../domain/monsters/monster-portrait-image';
+import { portraitUrl } from './monster-portrait-image';
 
 /**
  * `decorative` hides the portrait from assistive technology, for the one case

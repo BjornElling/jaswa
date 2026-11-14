@@ -66,7 +66,9 @@ test('the caret stays where the user put it while the editor is open', async ({ 
   await expect(spd).toHaveValue('215');
 });
 
-test('a zero desired stat is saved as unstated', async ({ page }) => {
+/* AGENTS.md §3: a stated 0 is a target of nothing and stays distinct from a
+   blank field, which states nothing, in state, on save and on screen. */
+test('a zero desired stat stays a stated zero beside blank ones', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('button', { name: 'Rune Settings' }).click();
@@ -80,8 +82,10 @@ test('a zero desired stat is saved as unstated', async ({ page }) => {
   await expect(page.getByRole('dialog')).toBeHidden();
 
   const saved = page.locator('.role-card').filter({ hasText: 'New role' });
-  await expect(saved.locator('.target.empty')).toHaveCount(11);
+  /* Eight stats and three composites; HP is stated, and E.HP still needs DEF. */
+  await expect(saved.locator('.target.empty')).toHaveCount(10);
 
   await page.getByRole('button', { name: 'Edit New role' }).click();
-  await expect(page.getByRole('spinbutton', { name: 'HP', exact: true })).toHaveValue('');
+  await expect(page.getByRole('spinbutton', { name: 'HP', exact: true })).toHaveValue('0');
+  await expect(page.getByRole('spinbutton', { name: 'Def', exact: true })).toHaveValue('');
 });

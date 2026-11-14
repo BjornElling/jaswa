@@ -1,4 +1,4 @@
-import type { ImportedGame, Preferences } from '../domain/model';
+import type { Preferences, StoredGame } from '../domain/model';
 import { PairedCommitUnavailable, PreferenceMirrorUnavailable, PreferenceStoreUnreadable } from '../workspace/ports';
 import type { WorkspaceRepository } from '../workspace/ports';
 
@@ -205,10 +205,10 @@ function writePreferencesMirror(preferences: unknown): boolean {
 }
 
 export function loadImportedGame() {
-  return readWorkspaceValue<ImportedGame>(gameKey);
+  return readWorkspaceValue<unknown>(gameKey);
 }
 
-export function saveImportedGame(game: ImportedGame) {
+export function saveImportedGame(game: StoredGame) {
   return writeWorkspaceValue(gameKey, game);
 }
 
@@ -218,8 +218,10 @@ export function clearImportedGame(): Promise<void> {
 
 /** The newest stored copy, unjudged; pass it through `readPreferences`. */
 export async function loadPreferences(): Promise<unknown> {
+  /* `preferenceDatabaseRead` keeps its last answer until this read settles: a
+     takeover re-reads while the tab already writes, and a click in that window
+     must not be refused as a write over an unread database. */
   preferenceReadAttempted = true;
-  preferenceDatabaseRead = false;
   const mirror = readPreferencesMirror();
   const pending = readPendingPreferenceCommit(mirror);
   try {
@@ -260,7 +262,7 @@ function pendingMirror(commit: ActivePairedCommit): unknown {
  * both database records. Preference-only edits may be rebased onto both outcomes
  * while it runs; recovery chooses the branch established by the marker.
  */
-export function saveWorkspacePair(game: ImportedGame, before: Preferences, after: Preferences): Promise<{ preferences: Preferences; mirrorSaved: boolean }> {
+export function saveWorkspacePair(game: StoredGame, before: Preferences, after: Preferences): Promise<{ preferences: Preferences; mirrorSaved: boolean }> {
   if (!preferenceDatabaseRead || activePairedCommit) return Promise.reject(new PairedCommitUnavailable());
   const beforeCopy: OrderedPreferences = structuredClone(before);
   if (lastPreferenceWriteOrder > 0) beforeCopy.__jaswaWriteOrder = lastPreferenceWriteOrder;

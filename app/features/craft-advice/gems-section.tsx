@@ -4,7 +4,7 @@ import { AncientName } from '../../ui/gear/ancient-mark';
 import { FilterButton } from '../../ui/button';
 import { CraftItemBestUse } from './craft-item-best-use';
 import type { CraftViewChoice, CraftViewMode } from '../../domain/profiles/craft-view-choices';
-import { craftResultMemory, missingCraftResultMemory } from '../../platform/compute/craft-result-memory';
+import { craftResultMemory, missingCraftResultMemory } from '../../workspace/jobs/craft-result-memory';
 import { DataTablePage, TableColumnGroup } from '../../ui/data-table-page';
 import { Dropdown } from '../../ui/dropdown';
 import { FilterSummary } from '../../ui/filter-summary';
@@ -19,16 +19,17 @@ import { formatNumber } from '../../domain/shared/formatting';
 import type { GameRecord } from '../../domain/account/game-record';
 import { monsterNameCollator } from '../../domain/monsters/monster-grid';
 import {
-  craftKindLabels, craftLineageLabels, craftSetName, craftLineageNotes, itemGrades, readCraftItems,
+  craftKindLabels, craftLineageLabels, craftSetName, craftLineageNotes, itemGrades,
 } from '../../domain/runes/craft/rune-craft-items';
-import type { CraftKind, CraftLineage } from '../../domain/runes/craft/rune-craft-items';
+import type { CraftItem, CraftKind, CraftLineage } from '../../domain/runes/craft/rune-craft-items';
 import {
   compareCraftRows, compareCraftRowTieBreaks, craftRangeText, craftRequirementText,
   defaultCraftSortDirections,
 } from '../../domain/runes/craft-advice/rune-craft-grid';
 import type { CraftRow, CraftSortKey } from '../../domain/runes/craft-advice/rune-craft-grid';
 import { craftBlockReason, craftReach } from '../../domain/runes/craft/rune-craft-plan';
-import { readRunes, runeStatIds, runeStatName } from '../../domain/runes/runes';
+import { runeStatIds, runeStatName } from '../../domain/runes/runes';
+import type { Rune } from '../../domain/runes/runes';
 import type { RuneRole } from '../../domain/profiles/rune-roles';
 import type { ImportedGame, ItemGrade, Preferences } from '../../domain/model';
 import { useSessionStorageState } from '../../ui/session-state';
@@ -37,6 +38,9 @@ import type { OpenRuneOverlay } from '../../ui/gear/rune-link';
 
 const craftKinds: readonly CraftKind[] = ['gem', 'grindstone'];
 const craftLineages: readonly CraftLineage[] = ['standard', 'immemorial', 'ancient'];
+const noCraftItems: readonly CraftItem[] = [];
+const noRuneRecords: readonly Rune[] = [];
+const noMonsters: readonly GameRecord[] = [];
 /** The value an Immemorial item carries where the Set control expects a name. */
 const anySetValue = 'immemorial';
 
@@ -139,13 +143,9 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
   const { kinds, lineages, grades, statId, set, showUsable, showDead,
     minimumQuantityEnabled, minimumQuantity } = filters;
 
-  const data = game?.data as GameRecord | undefined;
-  const items = useMemo(() => readCraftItems(data), [data]);
-  const runes = useMemo(() => readRunes(data), [data]);
-  const monsters = useMemo(
-    () => (Array.isArray(data?.unit_list) ? data.unit_list : []) as GameRecord[],
-    [data],
-  );
+  const items = game?.snapshot.craftItems ?? noCraftItems;
+  const runes = game?.snapshot.runes ?? noRuneRecords;
+  const monsters = useMemo(() => game?.snapshot.monsters.map((monster) => monster.record) ?? noMonsters, [game?.snapshot]);
   const reach = useMemo(() => craftReach(items, runes), [items, runes]);
   const format = useMemo(() => (value: number) => formatNumber(value, preferences.general), [preferences.general]);
 
@@ -220,7 +220,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
       ? 'If your account has any, report the missing items from the rail.'
       : 'Go to Home to connect the helper or import a game file.'}</p>
   </section>;
-  const noRunes = <section className="empty-state">
+  const noRunesMessage = <section className="empty-state">
     <h2>{game ? 'This import holds no runes to improve.' : 'Nothing to show until a game file is imported.'}</h2>
     <p className="next-step">{game
       ? 'Import an account that holds runes to see which gems and grindstones they lack.'
@@ -408,7 +408,7 @@ export function GemsSection({ game, roles, preferences, onOpenRune, onIgnoreCraf
     {/* An empty box is the one with the most missing, so this view needs
         runes, not items. */}
     <Disclosure title="What's missing" sessionKey="gems.missing" deferContent>
-      {!runes.length ? noRunes : craftView('missing', missingCalculation)}
+      {!runes.length ? noRunesMessage : craftView('missing', missingCalculation)}
     </Disclosure>
   </WorkspacePage>;
 }

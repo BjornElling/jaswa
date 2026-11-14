@@ -1,4 +1,4 @@
-import { createRuneAdviceWorker } from '../feature-workers';
+import { workerFactories } from './worker-factories';
 /**
  * The main thread's one way to ask for a Rune Clean-up calculation.
  *
@@ -64,7 +64,7 @@ export function runeAdviceChannel(): RuneAdviceChannel {
 
   function adviceWorker(): Worker {
     if (worker) return worker;
-    worker = createRuneAdviceWorker();
+    worker = workerFactories().runeAdvice();
     return worker;
   }
 

@@ -1,4 +1,3 @@
-import { createRuneSimulatorWorker } from '../rune-simulator-factory';
 /**
  * The page's one way to ask for a Rune Simulator run.
  *
@@ -8,11 +7,16 @@ import { createRuneSimulatorWorker } from '../rune-simulator-factory';
  * Worker object.
  */
 import type { RuneSimulationResult } from '../../domain/runes/simulator/rune-simulator';
-import { createJobRuntime } from '../job-runtime';
+import { createJobRuntime } from './job-runtime';
+import { workerFactories } from './worker-factories';
 import type { RuneSimulationWorkerRequest } from '../../domain/runes/simulator/rune-simulator-protocol';
 
 const job = createJobRuntime<Record<string, unknown>, RuneSimulationResult>(
-  () => createRuneSimulatorWorker(),
+  () => {
+    const create = workerFactories().runeSimulator;
+    if (!create) throw new Error('The Rune Simulator runs in development builds only.');
+    return create();
+  },
   'JASWA could not start its rune simulation worker.',
 );
 

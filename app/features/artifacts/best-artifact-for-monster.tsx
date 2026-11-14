@@ -5,7 +5,7 @@ import { FilterButton } from '../../ui/button';
 import { CalculationActions, CalculationNote } from '../../ui/calculation-actions';
 import { CalculationStatus } from '../../ui/calculation-status';
 import { useCancellableRun } from '../../ui/use-cancellable-run';
-import { isCalculationCancelled } from '../../platform/cancellable-worker';
+import { isCalculationCancelled } from '../../workspace/jobs/cancellable-worker';
 import { SettledCalculation } from '../../ui/settled-calculation';
 import { ConversionList } from './conversion-list';
 import { ConvertedArtifactMark } from '../../ui/gear/converted-artifact-mark';
@@ -15,15 +15,14 @@ import { qualityRuleHost } from '../../ui/quality-rule-host';
 import { ValueSlider } from '../../ui/range-slider';
 import { UnrefinedArtifactMark } from '../../ui/gear/unrefined-artifact-mark';
 import { useAutoRecalculate } from '../../ui/use-auto-recalculate';
-import { calculateArtifactScores } from '../../platform/compute/artifact-score-client';
+import { calculateArtifactScores } from '../../workspace/jobs/artifact-score-client';
 import { combineCalculationBackends } from '../../domain/shared/calculation-summary';
 import type { CalculationBackend } from '../../domain/shared/calculation-summary';
 import { buildArtifactScoreRequestsForCopy, buildArtifactScoreRequestsForMonsterIds } from '../../domain/artifacts/score/artifact-score-input';
 import { artifactEngraveClassLabel, artifactValueTint, displaySubProperty } from '../../domain/artifacts/artifact-grid';
 import { artifactCategoryLabels, artifactGradeOrder, artifactMainPropertyOrder } from '../../domain/artifacts/artifact-properties';
 import { artifactOptimizationMonsters } from '../../domain/artifacts/artifact-optimization-monsters';
-import { artifactPairScore, engravedStonesFor, scoringSettings } from '../../domain/artifacts/artifact-recommendations';
-import { readArtifacts } from '../../domain/artifacts/artifacts';
+import { artifactPairScore, scoringSettings } from '../../domain/artifacts/artifact-recommendations';
 import { formatNumber } from '../../domain/shared/formatting';
 import { monsterNameCollator } from '../../domain/monsters/monster-grid';
 import { monsterPresentation } from '../../domain/monsters/monster-catalog';
@@ -313,8 +312,10 @@ function Recommendation({ row, context }: { row: ResultRow; context: ScoreContex
   </li>;
 }
 
-export function BestArtifactForMonster({ data, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
+export function BestArtifactForMonster({ data, artifacts, stones, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
   data: GameRecord;
+  artifacts: readonly Artifact[];
+  stones: readonly EngravedConversionStone[];
   monsters: readonly GameRecord[];
   scenarioProfiles: MonsterProfiles;
   settings: ArtifactSettings;
@@ -332,11 +333,9 @@ export function BestArtifactForMonster({ data, monsters, scenarioProfiles, setti
     [monsters, settings, copyNames],
   );
   const selectedMonster = eligibleMonsters.find((monster) => monster.unitId === filters.selectedUnitId);
-  const artifacts = useMemo(() => readArtifacts(data), [data]);
   /* Ties are settled by the artifact's own order (§17.1), not its position in
      the import, which changes whenever the artifact is engraved or removed. */
   const artifactNumbers = useMemo(() => new Map(artifacts.map((artifact) => [artifact.id, artifact.obtainedOrder])), [artifacts]);
-  const stones = useMemo(() => engravedStonesFor(data), [data]);
   const monstersByUnitId = useMemo(() => new Map(allMonsters.map((monster) => [monster.unitId, monster])), [allMonsters]);
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();

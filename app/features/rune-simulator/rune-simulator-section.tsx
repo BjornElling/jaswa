@@ -4,7 +4,7 @@ import { FilterButton } from '../../ui/button';
 import { CalculationActions, CalculationNote } from '../../ui/calculation-actions';
 import { CalculationStatus } from '../../ui/calculation-status';
 import { useCancellableRun } from '../../ui/use-cancellable-run';
-import { isCalculationCancelled } from '../../platform/cancellable-worker';
+import { isCalculationCancelled } from '../../workspace/jobs/cancellable-worker';
 import { Dropdown } from '../../ui/dropdown';
 import { PageHeader } from '../../ui/page-chrome';
 import { QualityRule } from '../../ui/quality-rule';
@@ -25,7 +25,7 @@ import {
 } from '../../domain/runes/simulator/rune-simulator';
 import { simulationKeeperCounts } from '../../domain/runes/simulator/rune-simulator-keeper-counts';
 import { runeChanceText, runeVerdictLabels } from '../../domain/runes/cleanup/rune-cleanup-advice';
-import { calculateRuneSimulation } from '../../platform/compute/rune-simulator-client';
+import { calculateRuneSimulation } from '../../workspace/jobs/rune-simulator-client';
 import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../../domain/model';
 import type { RuneRole } from '../../domain/profiles/rune-roles';
 import { referenceLines, noReferenceLineMessage } from '../../domain/reference/rune-reference-stats';

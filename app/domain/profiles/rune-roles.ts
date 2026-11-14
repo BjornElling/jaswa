@@ -82,8 +82,8 @@ export type RoleArtifacts = { atk: boolean; def: boolean; hp: boolean };
 
 /**
  * The stat targets a role aims at, as stated. A stat left `undefined` is one
- * the role does not aim at and is shown as a dash; `0` means the same thing
- * when it is saved, so it is dropped rather than becoming a false target.
+ * the role does not aim at and is shown as a dash; `0` is a stated target of
+ * nothing and stays distinct from that absence.
  */
 export type RoleStatTargets = {
   hp?: number; atk?: number; def?: number; spd?: number;
@@ -132,8 +132,8 @@ type RoleSource = Omit<RuneRole, 'targets'> & { targets: RoleStatTargets };
 /**
  * Fills in `dmg`, `ehp` and `ehpD` from the role's own stat targets, using
  * the same calculation and the same truncating display rule the rest of the app
- * uses for these figures. A role that states no ATK, CRI Rate or CRI Dmg still
- * gets a DMG of 0 rather than a dash: nothing is missing, the answer is zero.
+ * uses for these figures. A composite is present only when all of its inputs
+ * are stated; an explicit zero is an input just like any other stated value.
  */
 function withDerivedMetrics(role: RoleSource): RuneRole {
   const targets = statTargetsOnly(role.targets);
@@ -401,7 +401,8 @@ export function withRefreshedMetrics(role: RuneRole): RuneRole {
 function statTargetsOnly(targets: RoleTargets): RoleStatTargets {
   const stats: RoleStatTargets = {};
   for (const key of roleStatTargetKeys) {
-    if (targets[key] !== undefined && targets[key] !== 0) stats[key] = targets[key];
+    const target = targets[key];
+    if (typeof target === 'number' && Number.isInteger(target) && target >= 0 && target <= roleTargetMaximum) stats[key] = target;
   }
   return stats;
 }
@@ -421,11 +422,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isChoice<T extends string>(value: unknown, allowed: readonly T[]): value is RoleChoice<T> {
-  if (!isRecord(value) || !Array.isArray(value.preferred) || !Array.isArray(value.acceptable)) return false;
-  const members = [...value.preferred, ...value.acceptable];
-  return members.every((entry): entry is T => typeof entry === 'string' && allowed.includes(entry as T))
-    && new Set(members).size === members.length;
+function readChoice<T extends string>(value: unknown, allowed: readonly T[], fallback: RoleChoice<T>): RoleChoice<T> {
+  if (!isRecord(value) || !Array.isArray(value.preferred) || !Array.isArray(value.acceptable)) return fallback;
+  const readBand = (band: unknown[]): T[] => {
+    const read: T[] = [];
+    for (const entry of band) {
+      if (typeof entry === 'string' && allowed.includes(entry as T) && !read.includes(entry as T)) read.push(entry as T);
+    }
+    return read;
+  };
+  const preferred = readBand(value.preferred);
+  const preferredSet = new Set(preferred);
+  return {
+    preferred,
+    acceptable: readBand(value.acceptable).filter((entry) => !preferredSet.has(entry)),
+  };
 }
 
 /* Each stated target on its own. The composites are not read at all: they are
@@ -435,7 +446,7 @@ function readStatTargets(value: unknown): RoleStatTargets {
   const targets: RoleStatTargets = {};
   for (const key of roleStatTargetKeys) {
     const target = stored[key];
-    if (typeof target === 'number' && Number.isInteger(target) && target > 0 && target <= roleTargetMaximum) targets[key] = target;
+    if (typeof target === 'number' && Number.isInteger(target) && target >= 0 && target <= roleTargetMaximum) targets[key] = target;
   }
   return targets;
 }
@@ -457,7 +468,7 @@ function readRuneRole(value: unknown): RuneRole | null {
   const artifacts = isRecord(value.artifacts) ? value.artifacts : {};
   const slot = (key: keyof RoleSlots) => {
     const stored = slots[key];
-    return isChoice(stored, runeMainStatsBySlot[key]) ? stored : blank.slots[key];
+    return readChoice(stored, runeMainStatsBySlot[key], blank.slots[key]);
   };
   const flag = (key: keyof RuneRole['artifacts']) => {
     const stored = artifacts[key];
@@ -467,7 +478,7 @@ function readRuneRole(value: unknown): RuneRole | null {
     id: value.id,
     name: value.name,
     type: roleTypes.includes(value.type as RoleType) ? value.type as RoleType : blank.type,
-    sets: isChoice(value.sets, roleRuneSetNameList) ? value.sets : blank.sets,
+    sets: readChoice(value.sets, roleRuneSetNameList, blank.sets),
     slots: { slot2: slot('slot2'), slot4: slot('slot4'), slot6: slot('slot6') },
     artifacts: { atk: flag('atk'), def: flag('def'), hp: flag('hp') },
     targets: readStatTargets(value.targets),

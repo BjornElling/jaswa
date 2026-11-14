@@ -89,17 +89,26 @@ export const blankCraftViewChoices = (): CraftViewChoices =>
 
 const isString = (value: unknown) => typeof value === 'string';
 const isListOf = <T,>(choices: readonly T[]) => (value: unknown) => Array.isArray(value) && value.every(isOneOf(choices));
+const uniqueList = <T,>(values: readonly T[]): T[] => [...new Set(values)];
 
 /** Each view, and each choice within it, is read on its own: one unreadable choice resets only itself. */
 export function readCraftViewChoices(value: unknown): CraftViewChoices {
   const stored = isRecord(value) ? value : {};
-  return Object.fromEntries(craftViewModes.map((mode) => [mode, readSettings(stored[mode], defaultCraftViewChoice, {
-    kind: isOneOf(craftKinds),
-    lineages: isListOf(craftViewOffers[mode].lineages), grades: isListOf(craftViewOffers[mode].grades),
-    statId: (value) => value === '' || runeStatIds.some((id) => String(id) === value),
-    selectedItemId: isString, set: isString, roll: isOneOf(craftRollAssumptions),
-    showEngraved: isBoolean, showInventory: isBoolean, count: isOneOf(craftSuggestionCounts),
-    already: isListOf(craftChangeOptions), gemChange: isOneOf(craftChangeOptions), keepOnly: isBoolean,
-    level: isLevelRange,
-  })])) as CraftViewChoices;
+  return Object.fromEntries(craftViewModes.map((mode) => {
+    const choice = readSettings(stored[mode], defaultCraftViewChoice, {
+      kind: isOneOf(craftKinds),
+      lineages: isListOf(craftViewOffers[mode].lineages), grades: isListOf(craftViewOffers[mode].grades),
+      statId: (value) => value === '' || runeStatIds.some((id) => String(id) === value),
+      selectedItemId: isString, set: isString, roll: isOneOf(craftRollAssumptions),
+      showEngraved: isBoolean, showInventory: isBoolean, count: isOneOf(craftSuggestionCounts),
+      already: isListOf(craftChangeOptions), gemChange: isOneOf(craftChangeOptions), keepOnly: isBoolean,
+      level: isLevelRange,
+    });
+    return [mode, {
+      ...choice,
+      lineages: uniqueList(choice.lineages),
+      grades: uniqueList(choice.grades),
+      already: uniqueList(choice.already),
+    }];
+  })) as CraftViewChoices;
 }

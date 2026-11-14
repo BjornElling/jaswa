@@ -19,12 +19,28 @@ export class CalculationCancelled extends Error {
 export const isCalculationCancelled = (error: unknown): error is CalculationCancelled => error instanceof CalculationCancelled;
 
 type Response<T> = { requestId: number } & ({ type: 'result'; result: T } | { type: 'error'; message: string });
-type Pending<T> = { message: Record<string, unknown>; resolve: (value: T) => void; reject: (error: Error) => void; cleanup: () => void };
+type Pending<T> = { message: Record<string, unknown>; resolve: (value: T) => void; reject: (error: Error) => void; cleanup: () => void; signal?: AbortSignal; postedTo?: Worker };
 
 export function cancellableWorker<T>(create: () => Worker, startFailure: string) {
   let worker: Worker | undefined;
   let nextRequestId = 1;
+  let repostScheduled = false;
   const pending = new Map<number, Pending<T>>();
+
+  /* Several requests often share one signal, so one cancel aborts them in a row.
+     The survivors are asked again once, after every sibling's abort has run, so
+     the cancel costs one fresh worker rather than one per aborted request. */
+  function scheduleRepost() {
+    if (repostScheduled) return;
+    repostScheduled = true;
+    queueMicrotask(() => {
+      repostScheduled = false;
+      for (const [otherId, other] of pending) {
+        /* A request made after the cancel already went to the fresh worker. */
+        if (!other.signal?.aborted && other.postedTo !== worker) post(otherId, other);
+      }
+    });
+  }
 
   function failAll(message: string) {
     const waiting = [...pending.values()];
@@ -58,7 +74,9 @@ export function cancellableWorker<T>(create: () => Worker, startFailure: string)
 
   function post(requestId: number, entry: Pending<T>) {
     try {
-      live().postMessage({ ...entry.message, requestId });
+      const target = live();
+      target.postMessage({ ...entry.message, requestId });
+      entry.postedTo = target;
     } catch {
       pending.delete(requestId);
       entry.cleanup();
@@ -80,12 +98,13 @@ export function cancellableWorker<T>(create: () => Worker, startFailure: string)
         reject(new CalculationCancelled());
         worker?.terminate();
         worker = undefined;
-        for (const [otherId, other] of pending) post(otherId, other);
+        scheduleRepost();
       };
       if (signal) {
         signal.addEventListener('abort', onAbort, { once: true });
         cleanup = () => signal.removeEventListener('abort', onAbort);
       }
+      entry.signal = signal;
       post(requestId, entry);
     });
   };

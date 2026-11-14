@@ -21,18 +21,18 @@ import { RangeSlider } from '../../ui/range-slider';
 import { TokenChoiceField } from '../../ui/forms/token-choice-field';
 import { alignmentClass, runeCleanupTableColumns } from '../../ui/table-layouts';
 import { formatNumber } from '../../domain/shared/formatting';
-import { readRunes, runeMaximumLevel, runeStatName } from '../../domain/runes/runes';
+import { runeMaximumLevel, runeStatName } from '../../domain/runes/runes';
 import { monsterCopyNamesIn } from '../../domain/monsters/monster-names';
 import { engravingLines } from '../../domain/placements/presets';
 import { emptyRunePlacement, hasRunePlacement } from '../../domain/placements/rune-placement';
-import { usePresets } from '../../workspace/presets-context';
+import { usePresets } from '../../ui/presets-context';
 import type { MonsterPreferences } from '../../domain/profiles/monster-preferences';
 import { runeVerdictLabels, withRuneSellProtection } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import type { RuneVerdict } from '../../domain/runes/rune-verdict';
 import {
   calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
-} from '../../platform/compute/rune-advice-client';
-import { rememberRuneAdvice } from '../../platform/compute/rune-advice-memory';
+} from '../../workspace/jobs/rune-advice-client';
+import { rememberRuneAdvice } from '../../workspace/jobs/rune-advice-memory';
 import { combineCalculationBackends } from '../../domain/shared/calculation-summary';
 import { noReferenceLineMessage, referenceLines } from '../../domain/reference/rune-reference-stats';
 import { runeCalculationKey, runeCalculationKeyForRune } from '../../domain/runes/rune-calculation-inputs';
@@ -63,6 +63,8 @@ import { StarIcon } from '../../ui/star-icon';
    Listed rather than derived from the import so the filter strip does not change
    shape when a different account is loaded. */
 const slotOptions = [1, 2, 3, 4, 5, 6];
+const noRunes: readonly Rune[] = [];
+const noMonsters: readonly GameRecord[] = [];
 const starOptions = [1, 2, 3, 4, 5, 6];
 /* The requested rarity filter deliberately leaves Magic out of its short row;
    when no rarity is chosen, Magic runes remain included with every other rune. */
@@ -231,16 +233,16 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
    * are judged like any other; whether they are *on screen* is the filter strip's
    * business, and a filter cannot move a single figure.
    */
-  const runes = useMemo(() => readRunes(game?.data), [game]);
+  const runes = game?.snapshot.runes ?? noRunes;
 
   /* The same names the rest of the workspace uses, numbered where the roster holds
      more than one of a species, so a Location cell identifies the copy the rune is
      actually on rather than a species the account owns four of. */
   const reading = usePresets();
   const namesIn = useMemo(() => {
-    const units = game?.data?.unit_list;
-    return monsterCopyNamesIn(Array.isArray(units) ? units as GameRecord[] : [], profiles, reading.presets);
-  }, [game, profiles, reading.presets]);
+    const units = game?.snapshot.monsters.map((entry) => entry.record) ?? noMonsters;
+    return monsterCopyNamesIn(units, profiles, reading.presets);
+  }, [game?.snapshot, profiles, reading.presets]);
 
   /* Every place a rune is engraved, in Scenario and in each preset, read from
      the one resolution the page made (`presets-context.ts`). */
@@ -263,7 +265,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      finishing into a void. */
   useEffect(() => () => { cancelRuneAdvice(); cancelRuneAdviceRefresh(); }, []);
 
-  const account = game?.data?.wizard_id === undefined ? '' : String(game.data.wizard_id);
+  const account = game?.snapshot.accountId ?? '';
   const held = game !== null && result !== null && result.account === account ? result : null;
   const standardsChanged = held !== null && runeCleanupStandardsChanged(held, roles, settings, base);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);

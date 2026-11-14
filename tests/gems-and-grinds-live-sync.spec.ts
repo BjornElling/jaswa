@@ -105,7 +105,7 @@ for (const [title, mode] of [['Recommendations', 'recommendations'], ['Best use 
 const seedKeepers = (page: Page) => page.evaluate(async () => {
   const storagePath = '/app/platform/browser-storage.ts', importsPath = '/app/domain/profiles/preference-defaults.ts', runesPath = '/app/domain/runes/runes.ts';
   const importer = await (await fetch('/app/features/rune-cleanup/use-rune-keepers.ts')).text();
-  const memoryPath = /["'](\/app\/platform\/compute\/rune-advice-memory\.ts[^"']*)["']/.exec(importer)?.[1] ?? '/app/platform/compute/rune-advice-memory.ts';
+  const memoryPath = /["'](\/app\/workspace\/jobs\/rune-advice-memory\.ts[^"']*)["']/.exec(importer)?.[1] ?? '/app/workspace/jobs/rune-advice-memory.ts';
   const { loadImportedGame } = await import(storagePath);
   const { blankPreferences } = await import(importsPath);
   const { rememberRuneAdvice } = await import(memoryPath);

@@ -16,7 +16,7 @@ import { UnrefinedArtifactMark } from '../../ui/gear/unrefined-artifact-mark';
 import { alignmentClass, artifactTableColumns } from '../../ui/table-layouts';
 import type { GameRecord } from '../../domain/account/game-record';
 import type { ImportedGame, Preferences } from '../../domain/model';
-import { readArtifacts } from '../../domain/artifacts/artifacts';
+import type { Artifact } from '../../domain/artifacts/artifacts';
 import { artifactJudgementOnMonster } from '../../domain/artifacts/artifact-value-on-monster';
 import { scorePercent } from '../../domain/artifacts/score/artifact-score-core';
 import {
@@ -32,7 +32,7 @@ import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../.
 import { monsterCopyNamesIn } from '../../domain/monsters/monster-names';
 import { scenarioPresetId, engravingLines } from '../../domain/placements/presets';
 import { profilesIn } from '../../domain/profiles/monster-preferences';
-import { usePresets } from '../../workspace/presets-context';
+import { usePresets } from '../../ui/presets-context';
 import { formatNumber } from '../../domain/shared/formatting';
 import { useSessionStorageState } from '../../ui/session-state';
 import { WorkspacePage } from '../../ui/workspace-page';
@@ -40,6 +40,7 @@ import { WorkspacePage } from '../../ui/workspace-page';
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
 const archetypeOrder = Object.values(artifactArchetypes);
+const noArtifacts: readonly Artifact[] = [];
 /* Intangible is not one of the element or archetype buttons. It belongs to
    neither group — it is the absence of a restriction — so narrowing *to* it
    sat oddly beside nine classes that narrow to one. Include answers the
@@ -196,7 +197,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
   );
   const { search, selectedCategories, selectedClasses, selectedGrades, selectedMainProperties,
     sortBySubProperty, showEngraved, showInventory, includeIntangible } = filters;
-  const artifacts = useMemo(() => readArtifacts(game?.data), [game]);
+  const artifacts = game?.snapshot.artifacts ?? noArtifacts;
 
   const placements = usePresets();
   /* An artifact's value is read in Scenario, so the profile it is judged by is

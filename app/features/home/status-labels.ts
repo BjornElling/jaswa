@@ -1,5 +1,5 @@
-import type { AccelerationState } from '../../platform/hardware-acceleration';
-import type { HelperConnection } from '../../platform/helper-client';
+import type { AccelerationState } from '../../workspace/acceleration-status';
+import type { HelperConnection } from '../../workspace/ports';
 
 /* These labels are display copy, kept beside the states they describe so a
    component cannot quietly invent a second vocabulary for the same verdict. */

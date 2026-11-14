@@ -45,6 +45,25 @@ describe('cancellable worker', () => {
     await expect(second).resolves.toBe(2);
   });
 
+  it('costs one fresh worker when several requests share the cancelled signal', async () => {
+    const workers: TestWorker[] = [];
+    const ask = cancellableWorker<number>(() => {
+      const worker = new TestWorker(); workers.push(worker); return worker as unknown as Worker;
+    }, 'start failed');
+    const controller = new AbortController();
+    const batch = [ask({}, controller.signal), ask({}, controller.signal), ask({}, controller.signal)];
+    const survivor = ask({});
+    controller.abort();
+    const afterCancel = ask({});
+    for (const request of batch) await expect(request).rejects.toBeInstanceOf(CalculationCancelled);
+    expect(workers).toHaveLength(2);
+    expect(workers[1].messages).toHaveLength(2);
+    workers[1].emit('message', { data: { type: 'result', requestId: workers[1].messages[0].requestId, result: 7 } });
+    workers[1].emit('message', { data: { type: 'result', requestId: workers[1].messages[1].requestId, result: 8 } });
+    await expect(afterCancel).resolves.toBe(7);
+    await expect(survivor).resolves.toBe(8);
+  });
+
   it('fails pending requests when a worker dies and starts a fresh one later', async () => {
     const workers: TestWorker[] = [];
     const ask = cancellableWorker<number>(() => {

@@ -495,20 +495,26 @@ export function readTargetField(key: keyof MonsterStatTargets, raw: string): num
   return Math.min(targetCeiling(key), Math.max(0, Math.round(parsed)));
 }
 
-function isStatTargets(value: unknown): value is MonsterStatTargets {
-  if (!isRecord(value)) return false;
-  if (!Object.keys(value).every((key) => monsterStatTargetKeys.includes(key as keyof MonsterStatTargets))) return false;
-  return monsterStatTargetKeys.every((key) => {
+function readStatTargets(value: unknown): MonsterStatTargets | undefined {
+  if (!isRecord(value)) return undefined;
+  const targets: MonsterStatTargets = {};
+  for (const key of monsterStatTargetKeys) {
     const target = value[key];
-    return target === undefined
-      || (typeof target === 'number' && Number.isInteger(target) && target >= 0 && target <= targetCeiling(key));
-  });
+    if (typeof target === 'number' && Number.isInteger(target) && target >= 0 && target <= targetCeiling(key)) targets[key] = target;
+  }
+  return Object.keys(targets).length > 0 ? targets : undefined;
 }
 
-function isRuneSlots(value: unknown): boolean {
-  return isRecord(value)
-    && Object.entries(value).every(([key, slot]) =>
-      runeSlotKeys.includes(key as RuneSlotKey) && isChosenList(slot, isRuneMainStatIn(key as RuneSlotKey)));
+function readRuneSlots(value: unknown): Partial<Record<RuneSlotKey, string[]>> | undefined {
+  if (!isRecord(value)) return undefined;
+  const slots: Partial<Record<RuneSlotKey, string[]>> = {};
+  for (const key of runeSlotKeys) {
+    const slot = value[key];
+    if (isChosenList(slot, isRuneMainStatIn(key))) slots[key] = slot;
+  }
+  /* An empty result means no slot choice was readable. An empty list inside a
+     readable slot remains the deliberate cleared answer. */
+  return Object.keys(slots).length > 0 ? slots : undefined;
 }
 
 /*
@@ -519,7 +525,7 @@ function isRuneSlots(value: unknown): boolean {
  */
 const isLead = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= leadMaximum;
 
-const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | 'artifacts' | 'relics'>,
+const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | 'artifacts' | 'relics' | 'runeSlots' | 'statTargets' | 'statCeilings'>,
   (value: unknown) => boolean> = {
   label: (value) => typeof value === 'string' && value.trim() === value && value.length <= monsterLabelMaximum,
   runeSets: isRuneBuildList,
@@ -531,12 +537,9 @@ const copyFieldChecks: Record<Exclude<keyof MonsterCopyPreferences, 'unitId' | '
   atkLead: isLead,
   defLead: isLead,
   hpLead: isLead,
-  runeSlots: isRuneSlots,
   /* Two empty gear bands are no answer (`statedAnswer`), so a stored pair is
      read as never stated and that one question starts from its default. */
   mainStat: (value) => isBanded(value, isArtifactMain) && statedAnswer(value) !== undefined,
-  statTargets: isStatTargets,
-  statCeilings: isStatTargets,
   runeSuggestionStat: (value) => monsterStatTargetKeys.includes(value as keyof MonsterStatTargets),
 };
 
@@ -569,6 +572,12 @@ function readMonsterProfiles(value: Record<string, unknown>, scope: MonsterProfi
     const copy: Record<string, unknown> = { unitId };
     for (const [key, check] of Object.entries(copyFieldChecks)) {
       if (stored[key] !== undefined && check(stored[key])) copy[key] = stored[key];
+    }
+    const runeSlots = readRuneSlots(stored.runeSlots);
+    if (runeSlots !== undefined) copy.runeSlots = runeSlots;
+    for (const key of ['statTargets', 'statCeilings'] as const) {
+      const targets = readStatTargets(stored[key]);
+      if (targets !== undefined) copy[key] = targets;
     }
     const artifacts = readArtifactPreferences(stored.artifacts);
     if (artifacts !== undefined) copy.artifacts = artifacts;

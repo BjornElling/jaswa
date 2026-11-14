@@ -1,4 +1,4 @@
-import { createRuneCalibrationWorker } from '../feature-workers';
+import { workerFactories } from './worker-factories';
 /**
  * **The slot calibration, counted once and on every core.**
  *
@@ -74,7 +74,7 @@ function feed(worker: Worker): void {
 }
 
 function spawn(): void {
-  const worker = createRuneCalibrationWorker();
+  const worker = workerFactories().runeCalibration();
   running.set(worker, null);
   worker.onmessage = (event: MessageEvent<RuneCalibrationWorkerResponse>) => {
     const job = running.get(worker);

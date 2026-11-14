@@ -5,6 +5,7 @@
 **Scope:** Browser application, calculation workers, Windows helper, reference data, hosting and verification
 **Addendum:** §21 records an independent second assessment, compares it with §§1–20 and states the resulting recommendation
 **Final review:** §22 evaluates those amendments and states the consolidated recommendation; its qualifications supersede the corresponding proposals in §§6, 10.3 and 21
+**Implementation:** §23 records what has been built, what a review corrected and what remains open, per acceptance criterion
 
 ## 1. Assignment and answer
 
@@ -1651,166 +1652,145 @@ test runner are the final target. §§20 and 21.7's additional acceptance criter
 stand with the atomicity, dependency and reporting qualifications above. No
 larger rewrite, new service or additional architectural layer is needed.
 
-
 ## 23. Implementation status — November 14, 2026
 
 The owner has authorized a greenfield, big-bang implementation of this design.
 The earlier statements in this document that no rewrite is authorized and that
 implementation must be evolutionary are superseded by that instruction. The
 subject contracts and preservation of the owner's choices remain binding.
+Sections 3, 6, 18 and 21–22 cite files where they were when those sections
+were written (`app/page.tsx`, `app/lib/`, `app/globals.css`); this section uses
+current paths.
 
-**Status: operational for the accepted architecture.** The application store,
-writer coordination, direct-import lifecycle, typed account snapshot, local
-change projection, shared job runtime and offline shell are implemented and
-verified below. §§1–22 remain the design record; this section records the
-implementation evidence and the adversarial corrections made while wiring it.
+**Status: the structural architecture is implemented and enforced; two model
+changes remain open.** The compact tree, the dependency direction, the
+workspace store and its ports, writer coordination, the direct-import
+controller, the job clients behind an injected worker port, the derived typed
+account snapshot and the offline shell are in place, and lint fails when they
+are bypassed. Still open, and stated per acceptance criterion in §23.3: typed
+monster records below the collection level (§7.1, §20 criterion 1) and the
+immutable observation with explicit local overrides (§7.3, criterion 3).
 
-### 23.1 Verification baseline and current evidence
+### 23.1 What exists, and where
 
-The historical checkpoints remain useful context: `8387c2e` was the last
-fully verified pre-reorganization state, and `be48ff4` established the compact
-tree. The starting `HEAD` for this implementation was `be8615c`, where the
-workspace store existed but was not yet wired into the shell.
+| Design | Implementation |
+| --- | --- |
+| Compact tree (§21.5(2), §22.3) | `app/{shell,features,ui,workspace,domain,ingest,platform,styles,data}` |
+| Dependency direction (§22.3) | `scripts/verify-import-graph.mjs` (in `npm run lint`) holds the whole graph: layers, `features → workspace → domain` with no feature reaching `platform`, a feature using another only through `app/features/<name>/public.ts`, rules never importing procedures, no value cycles, no package imports in `domain/`/`ingest/`, no React in `workspace/`, no `import = require`, no non-literal dynamic import, only `app/main.tsx` at the root. `eslint.config.mjs` states the same layers in the editor |
+| Typed snapshot (§7.1) | `AccountSnapshot` (`app/domain/account/account-snapshot.ts`) is derived from the observation by `withAccountSnapshot` (`app/ingest/game-export.ts`), memoized per observation and rebuilt on every commit. It is never stored: `storedGame`/`readStoredGame` persist the observation, its capture facts (`coverage`, helper session) and the local choices, and derive the snapshot and the import report again on restore. Screens read runes, artifacts, relics, craft items, conversion stones, buildings, the Sky Tribe Totem and account counts from it |
+| Workspace store (§10.1) | `app/workspace/workspace-store.ts`: immutable snapshots, `useSyncExternalStore`, the commands `restore`, `changePreferences`, `replacePreferences`, `importAccount`, `removeAccount`, `engraveBuild`, `lockRune`, `changeGamePreset` |
+| Ports (§5, §22.3) | `app/workspace/ports.ts` (repository, writer coordination, helper types), `app/workspace/jobs/worker-factories.ts` (workers), `app/workspace/acceleration-status.ts` (the graphics-card probe the Home card receives). Only `app/shell/root.tsx` connects them to `app/platform/` |
+| Persistence (§10.3, §22.2) | `app/platform/browser-storage.ts`: ordered preference writes with a write order on both copies; paired account-and-preference commits with a pending mirror and commit marker (Lock/Exclude in an own preset, an own-preset engrave that ends locks, game-preset edits that change preferences) |
+| One writer per origin (§10.4) | `app/platform/writer-coordination.ts` (Web Locks, `BroadcastChannel` invalidation). Where Web Locks are missing or refused the tab writes and keeps a notice that another tab could overwrite it |
+| Direct import (§9.3) | `app/workspace/direct-import-controller.ts` |
+| Job lifecycle (§§11, 22.4) | `app/workspace/jobs/`: the clients, memories, `cancellable-worker.ts` and `job-runtime.ts`. Workers, engines and shaders stay in `app/platform/compute/` and `app/platform/gpu/`. No feature constructs or drives a worker |
+| Structured import issues (§9.1) | `ImportReport.issues` (`app/ingest/game-export.ts`): code, collection, source path, identifier field and entity id of the first refusal. Deck presets, relic engravings and buildings are refused by their owners' readers and located at collection level, so no second reader restates their rules to find an index |
+| Offline shell (§14.2) | `scripts/sw-template.js`, emitted by the Vite plugin in `vite.config.ts` as `/sw.js` with the build's precache list and hash injected |
+| Aggregate verification (§22.6) | `npm run verify:all` (`scripts/verify-all.mjs`): typecheck, lint, build, every `test:domain` alias, unit and browser tests as independent steps, then PASS/FAIL/SKIP/NOT RUN with a named reason for every alias it does not run |
 
-The current working tree has a stronger, explicit record. `npx tsc --noEmit`,
-`npm run lint`, `npm run build`, 42 Vitest tests and all 352 Playwright tests
-pass against the reused dev server at `http://localhost:3000/`. The browser
-suite runs with one worker because its lifetime Web Lock is origin-wide; the
-two-tab writer/takeover contract passes in that suite. After the final helper
-source-race guard, the 11 affected helper/import browser tests pass again.
+### 23.2 Review of November 14: defects found and corrected
 
-The deterministic part of `npm run test:domain` passes with the committed
-synthetic account through the real-export browser checks. The synthetic account
-does not satisfy `verify:library-layout`'s full-page fixture contract, so that
-check stops there rather than claiming a pass. The earlier private capture
-also timed out in the artifact recommendation checks; neither result is hidden
-as a pass. `audit:import-parity` reports a skip because the private helper
-traffic log is absent. Real-card, real-Windows-helper and private-capture
-checks remain not run.
+A second, adversarial review of the implementation found the following and
+corrected each in code, with a test where one could hold it:
 
-Environment note: Vitest fails every suite when started from Git Bash, which
-spells the drive `c:` while Vitest spells it `C:`; run it from PowerShell or
-through `npm run`.
+- **The typed snapshot was stored beside the data it derives from** and read
+  in three places only. It is now derived, never stored (AGENTS.md §6), and
+  the screens read their collections from it. Its report is derived too, so
+  the catalogue's current knowledge of unknown monsters applies on restore.
+- **A stored import that failed validation vanished silently.** Restore now
+  reports it and Home asks for a fresh import (AGENTS.md §0.1).
+- **Store defects:** restore computed the read-only notice from the previous
+  role; an own-preset engrave reported success when its save failed and left
+  locks the build had moved away; a missing recovery copy counted as a failed
+  save; a successful save cleared lasting notices; the shell restated
+  `canEngraveUnder` and showed a wrong "open in another tab" message while the
+  role was still being settled.
+- **Features reached the platform 29 times** (compute clients, worker
+  factories, the helper client, the graphics-card probe) and the checker
+  allowed it. The job clients moved to `app/workspace/jobs/` behind an
+  injected worker port; Gems & Grinds and the optimization work estimate,
+  which drove raw workers from components, now use clients
+  (`craft-recommendation-client.ts`, `rune-optimization-work-client.ts`).
+  The presets React context moved from `workspace/` to `ui/`.
+- **Six forms of import escaped the graph checker** (backtick and non-literal
+  dynamic imports, `import = require`, `.js` files, packages, nested
+  `public.ts`, unclassified root files); each now fails, proven by probes.
+- **The offline shell never updated after its first install**, could cache an
+  SPA HTML fallback under a script URL, and listed public files by hand. The
+  worker's bytes now carry the build's list and hash, the shell cache is
+  per build, the build before it is kept for tabs still running it, only
+  non-HTML same-origin responses are cached, and a new worker is applied only
+  at `pagehide`.
+- **Worker plumbing:** a cancel shared by several requests restarted the
+  worker once per request; the job runtime held the last artifact result for
+  the whole session in state nobody read; Rune Optimization discarded the
+  builds already found when one share failed after Stop (§11.2); a helper
+  answering with a body that is not JSON was reported as not running.
+- **Preferences (AGENTS.md §0, §3):** an explicit `0` role target was dropped;
+  one unknown set name, stat key or slot cost every neighbouring choice; an
+  unreadable reroll kind was coerced into a re-app rule; craft filters kept
+  duplicates; any JSON with an `updatedAt` key passed as a `.sw` file; a `.sw`
+  file was read without the account restore reads against. Each now costs only
+  itself, and `LOCAL-PERSISTENCE-CONTRACT.md` lists every stored field.
+- **Checks:** `verify:all` omitted typecheck, lint and build and could omit a
+  new alias silently; the acceleration-routing check would pass with no
+  workers found; the relic-maths check did not look at features.
+- **Structured import issues (§9.1):** refusals now carry an issue code,
+  collection, source path and entity id, and the message names the record,
+  e.g. `This file contains a rune JASWA cannot read (runes[0], rune_id 10).`
 
-### 23.2 Completed
+### 23.3 Acceptance criteria (§20 and §21.7)
 
-- **Aggregate verification** (`npm run verify:all`): runs every domain alias
-  independently, then `test:unit` and `test:e2e`, and reports failures and
-  observed skips without stopping at the first failure. Interim: the domain
-  checks are not yet Vitest tests.
-- **Vitest harness** with an isolated cache (`vitest.config.ts`); the filter
-  selection check, the catalogue agreement, storage, restore, serialized writes,
-  the cancellable worker and the workspace store have unit tests.
-- **Catalogue ownership:** rune reference averages ask the catalogue for
-  archetype; the catalogue refresh validates IDs, names, image files and
-  archetypes before replacing its snapshot.
-- **Ingestion boundary started:** `app/ingest/game-export.ts` (validation and
-  preparation, still raw-shaped output) and `app/ingest/preferences.ts`
-  (per-choice readers). Preference defaults live in
-  `app/domain/profiles/preference-defaults.ts`; file I/O in `app/platform/files.ts`.
-- **Durable writes:** ordered preference writes with an explicit write order on
-  both copies; a paired account-and-preferences transaction with a pending
-  mirror record and a commit marker, used by Lock/Exclude in an own preset and
-  by game-preset removal/deletion that also change preferences; independent
-  restoration of account and preferences; honest failure notices. An unreadable
-  pending record now falls back to the database copy (the database is atomic)
-  instead of rejecting every choice.
-- **Worker construction** only at `app/platform/feature-workers.ts` and
-  `rune-simulator-factory.ts`; the numbered-request runtime is
-  `app/platform/cancellable-worker.ts`. The per-job lifecycles are unchanged.
-- **Compact source tree (commit `be48ff4`)**: `shell/`, `features/<page>/`,
-  `ui/` (with `forms/`, `gear/`), `workspace/`, `domain/<subject>/` (runes with
-  `craft/`, `craft-advice/`, `cleanup/`, `optimization/`, `simulator/`;
-  artifacts with `score/`), `ingest/`, `platform/` (`compute/`, `gpu/`),
-  `styles/`. Every check, test and document path was rewritten.
-- **Enforced boundaries:** `scripts/verify-import-graph.mjs` (in `npm run
-  lint`) checks the whole graph — layers, a feature using another only through
-  its `public.ts`, no domain rule depending on a procedure folder, no value
-  cycles. ESLint states the same layers and bans browser globals in `domain/`
-  and `ingest/`. Real separations made to satisfy them: accelerated engines in
-  `platform/compute/`, with the counter injected into craft advice and the
-  simulator; the verdict vocabulary in `domain/runes/rune-verdict.ts`; the
-  optimization set rules in `rune-optimization-sets.ts` (removed the only cycle).
-- **Toolchain:** the GitHub workflow is a manual validation run on the
-  `.node-version` toolchain (`.github/workflows/validate.yml`); Workers Builds
-  stays the only delivery path.
-- Fixed a test (`tests/monster-gear-filters.spec.ts`) that compared against a
-  raw Windows-1252 byte and so could never match.
+| Criterion | Status | Evidence or gap |
+| --- | --- | --- |
+| 1. No game-shaped field reaches a screen or algorithm unvalidated | Partial | Every field passes `validateGameFile` before acceptance, and screens read item collections, buildings and counts from the typed snapshot. Monster records stay `GameRecord`: `MonsterCopy.record` carries them to the combat, placement and reference domain functions (`monsterStatSheet`, `accountItems`, `rosterOf`, `readPresets`, `referenceLines`), which still read raw unit fields. Typing those inputs is the remaining step of §22.6(2) |
+| 2. One collection drives counts, views and calculations | Met | `snapshot.counts` is `accountCounts` over the same accepted observation the views read; `npm run audit:import-parity` holds it against a capture |
+| 3. Observed facts, statements and local changes have distinct owners | Partial | Preferences and local choices (`localChanges`, `runeLocks`) are separate records with their own readers. An engrave or game-preset edit still rewrites the observation (`engraveImportedGame`, `game-preset-edits.ts`); `LocalAccountChanges` holds the first observed placements and removed presets, not complete per-context overrides over an immutable observation |
+| 4. One owner per rule | Met | Single-source checks (`verify:rune-craft-single-source`, `verify:rune-placement-single-source`, `verify:acceleration-routing`, `verify:relic-maths`, …) and the import graph |
+| 5. Domain runs without React, storage, workers or network | Met | Import graph and lint: no packages and no browser globals in `domain/` and `ingest/` |
+| 6. Validated readers, ordered/atomic writes, honest failures | Met | `app/ingest/preferences.ts`, `readStoredGame`, `browser-storage.ts` with unit tests for interrupted paired writes |
+| 7. One question key, freshness, cancellation, CPU reference, truthful backend | Met for the existing jobs | Per-client keys and memories; CPU reference behind `runAccelerated`; backend reported per answer |
+| 8. A screen can be replaced without touching import, persistence, formulas or workers | Met | Features depend on workspace and domain only (enforced) |
+| 9. The helper cannot apply a plan | Met | `PASSIVE-GAME-DATA-CONTRACT.md`; the helper exposes no mutation endpoint |
+| 10. Separately verifiable empty/full, geometry, GPU and Windows | Met as checks; partly not run here | See §23.4 |
+| 11. One command reports every failure and skip | Met | `npm run verify:all` |
+| 12. Reference snapshots reach runtime only through their accessor | Met | Catalogue, speed skills, PvE stages and rune reference stats are read through domain accessors; the catalogue refresh validates before replacing |
 
-### 23.3 Completed: workspace store (§10.1) and one writer per origin (§10.4)
+Deliberately not done, and not claimed: the domain checks are still
+`scripts/verify-*.mjs` aggregated by `verify:all` rather than Vitest tests;
+feature layout has not moved wholesale into CSS modules; the helper's Rust
+modules have not been split and no privilege broker exists. Each needs its own
+evidence — a signed helper release, per-feature visual verification — and none
+is required by the criteria above.
 
-The store is wired into the shell and is the only application route to durable
-account and preference state:
+### 23.4 Verification record
 
-- `app/workspace/ports.ts`: `WorkspaceRepository`, `WriterCoordination` and the
-  storage error classes (moved out of `platform/browser-storage.ts`).
-- `app/workspace/workspace-store.ts`: `createWorkspaceStore(repository,
-  coordination)` with `getSnapshot`/`subscribe` and the commands `restore`,
-  `changePreferences`, `replacePreferences`, `importAccount`, `removeAccount`,
-  `engraveBuild`, `lockRune`, `changeGamePreset`, moved faithfully from
-  `app/shell/root.tsx`; `withoutPreset` and `canEngraveUnder` live there too.
-  Unit tests in `workspace-store.test.ts`.
-- `app/platform/browser-storage.ts` exports `browserWorkspaceRepository`.
-- `app/platform/writer-coordination.ts`: Web Locks writer role (queued request
-  held for the page's life; reader after 1.5 s; takes over when the writer
-  closes) and a `BroadcastChannel` commit signal without payload.
+Run from PowerShell on November 14, 2026 against `http://localhost:3000/`,
+started for the check because no server was running.
 
-`root.tsx` creates the store once and reads immutable snapshots through
-`useSyncExternalStore`; command errors stay local to the shell while durable
-writes, restore and writer/read-only notices stay in `workspace/`. A Playwright
-two-tab test proves commit propagation and writer takeover.
-
-### 23.4 Completed architecture slices and adversarial corrections
-
-1. **Direct import controller** (§9.3): `app/workspace/direct-import-controller.ts`
-   owns start/stop/refresh, source tokens, unreadable-account reporting and
-   stale-response suppression. The shell now composes it rather than polling.
-2. **Typed account snapshot** (§7.1): `AccountSnapshot` is built once at the
-   ingestion boundary and is required when an imported game is restored. Its
-   source, coverage, identities and collections are structurally validated;
-   the legacy export remains only as the ingestion-owned record mirror while
-   subject readers are migrated.
-3. **Local changes projection** (§7.3): `LocalAccountChanges` owns first
-   observed placements and removed game presets. Its readers are per-field, so
-   one malformed local choice cannot erase another choice or the account.
-4. **Shared job runtime** (§§11, 22.4): artifact scores and Rune Simulator use
-   `app/platform/job-runtime.ts`. It cleans up abort listeners and bounded
-   result state; parallel fan-out is explicit for artifact scores, while the
-   simulator remains latest-request-wins. The worker transport now also removes
-   completed abort listeners.
-5. **Reference boundary** (§22.5): PvE stages, speed skills, monster catalogue
-   and rune reference data are read through domain-owned accessors; runtime
-   code does not fetch a third-party source.
-6. **Vitest and architectural checks** (§22.6): the isolated Vitest harness
-   covers storage, restore, writer coordination, import control, local changes,
-   cancellation and job lifecycle. Import direction, Fast Refresh, line
-   endings and service-worker rules run in lint; named external checks remain
-   scripts where they require a real export, browser, card or helper.
-7. **Offline shell** (§14.2): Vite emits `precache-manifest.json`; the service
-   worker consumes it and falls back to HTML only for navigations. Scripts,
-   workers and images never receive an HTML response.
-8. **Test isolation correction:** the browser suite now uses one worker. A
-   lifetime Web Lock is deliberately origin-wide, so parallel test workers
-   would make unrelated tests readers of one another. The two-tab takeover
-   contract is tested in one context instead.
-
-The helper's Rust module split and wholesale CSS-module migration remain
-mechanical maintenance work rather than application-boundary changes. They are
-not silently claimed as complete: changing the helper requires a signed
-release, and moving thousands of CSS rules requires visual evidence per
-feature. Neither is necessary to satisfy the executable acceptance criteria in
-§20, which are covered by the checks above.
-
-### 23.5 Verification record
-
-- Work remains on `main`; the local preview is `http://localhost:3000/` and is
-  reused for browser verification.
-- `npx tsc --noEmit`, `npm run lint`, `npm run build`, `npm run test:unit` (42
-  tests), the full Playwright suite (352 tests), the writer takeover flow and
-  the affected helper/import flows pass in PowerShell. The browser suite is
-  run with one worker because the writer lock is intentionally origin-wide.
-- The deterministic domain checks pass. `verify:library-layout` and
-  `verify:recommendation-filters` remain capture-dependent and were not claimed
-  when the available synthetic/private captures could not complete them;
-  `audit:import-parity` is an explicit skip without a traffic log. Real-card,
-  real-helper and private-capture checks remain not run.
+- `npm run verify:all`: typecheck, lint (with the import graph, the pure-layer
+  typecheck and the service-worker check), build and `test:unit` (60 tests)
+  pass. Every `test:domain` alias passes except two results, both since
+  resolved: `verify:helper-unreadable-report` asserted the helper defect
+  corrected in §23.2 and now holds the corrected reading, and
+  `verify:artifact-obtained-order` skips without a private traffic log.
+  `verify:library-layout` and `verify:recommendation-filters` ran against a
+  local real export and pass.
+- `test:e2e`: 351 of 352 pass in 11.9 minutes on two workers. The one failure
+  asserted that a stated `0` is saved as unstated, the behaviour AGENTS.md §3
+  forbids; it now asserts the stated zero and passes. No application code
+  changed after that run.
+- The browser suite runs on two workers again. The single worker introduced
+  with the writer lock rested on a mistaken premise: a probe showed Web Locks
+  are scoped to a browser context, and every test has its own.
+- `verify:rune-cleanup-equivalence` against a baseline captured at the
+  preceding commit: every field identical for 582 runes in 6 scenarios.
+- Driven in the browser: empty and imported workspaces across the rail with no
+  page errors; restore after reload with the snapshot derived again; an
+  unreadable file refused with its record named; a role edited with one target
+  blank and one at `0`, both surviving a reload distinctly.
+- Not run here: `verify:rune-optimization-card` and
+  `verify:craft-recommendations-card` (this machine's headless browser reported
+  no graphics card), `audit:import-parity` (no private capture), the helper
+  replay and real-Windows helper checks, the `:large` variants and
+  `verify:rune-cleanup-preference-monotonic`.

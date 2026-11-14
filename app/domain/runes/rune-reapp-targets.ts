@@ -191,11 +191,12 @@ export function readRerollRules(value: unknown): RerollRule[] {
       ids.add(id);
       return id;
     }
-    const id = uniqueId(entry.id);
-    const blank = newRerollRule(id);
     // Both stones used to share one rule. Preserve each question as its own rule.
     const kinds: readonly RerollKind[] = entry.kind === 'both' ? ['reapp', 'refine']
-      : [entry.kind === 'reapp' || entry.kind === 'refine' ? entry.kind : blank.kind];
+      : entry.kind === 'reapp' || entry.kind === 'refine' ? [entry.kind] : [];
+    if (kinds.length === 0) return [];
+    const id = uniqueId(entry.id);
+    const blank = newRerollRule(id);
     const innate: InnateRequirement = 'innate' in entry
       ? innateRequirements.includes(entry.innate as InnateRequirement) ? entry.innate as InnateRequirement : blank.innate
       : typeof entry.requiresInnate === 'boolean' ? entry.requiresInnate ? 'yes' : 'both' : blank.innate;

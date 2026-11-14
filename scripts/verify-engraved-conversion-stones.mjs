@@ -77,12 +77,15 @@ try {
     runes: [],
     artifact_crafts: crafts,
   });
-  const stoneRefusal = 'This file contains an engraved conversion stone JASWA cannot read.';
-  assert.notEqual(validateGameFile(account([{ rid: 1, master_id: 101010005201, quantity: 1 }])).message, stoneRefusal,
+  assert.equal(validateGameFile(account([{ rid: 1, master_id: 101010005201, quantity: 1 }])).valid, true,
     'a retired-property stone is a legal stone and passes the import');
-  assert.equal(validateGameFile(account([{ rid: 1, master_id: 101010009301, quantity: 1 }])).message, stoneRefusal);
-  assert.equal(validateGameFile(account([{ master_id: 101010005301, quantity: 1 }])).message, stoneRefusal,
+  const unreadableStone = validateGameFile(account([{ rid: 1, master_id: 101010009301, quantity: 1 }]));
+  assert.equal(unreadableStone.issues[0]?.code, 'unreadable-conversion-stone');
+  assert.equal(unreadableStone.issues[0]?.sourcePath, 'artifact_crafts[0]');
+  const missingStoneId = validateGameFile(account([{ master_id: 101010005301, quantity: 1 }]));
+  assert.equal(missingStoneId.issues[0]?.code, 'unreadable-conversion-stone',
     'a stone record without its own id is refused like any other identified collection');
+  assert.equal(missingStoneId.issues[0]?.sourcePath, 'artifact_crafts[0]');
 
   /* A type-only property may not be engraved onto an attribute stone. */
   assert.equal(readEngravedConversionStone({ master_id: 101010005407, quantity: 1 }), undefined);

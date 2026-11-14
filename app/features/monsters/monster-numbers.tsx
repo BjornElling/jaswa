@@ -3,11 +3,12 @@ import { WorkspacePage } from '../../ui/workspace-page';
 import { MonsterStorage } from './monster-storage';
 import type { OpenMonsterOverlay } from '../../ui/gear/monster-link';
 import type { GameRecord } from '../../domain/account/game-record';
+import type { AccountSnapshot } from '../../domain/account/account-snapshot';
 import type { Preferences } from '../../domain/model';
 
 export function MonsterNumbers(props: {
   monsters: GameRecord[];
-  gameData: GameRecord;
+  snapshot: AccountSnapshot | undefined;
   preferences: Preferences;
   onOpenMonster: OpenMonsterOverlay;
 }) {

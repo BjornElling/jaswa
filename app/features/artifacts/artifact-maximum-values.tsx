@@ -4,7 +4,7 @@ import { FilterButton } from '../../ui/button';
 import { CalculationActions, CalculationNote } from '../../ui/calculation-actions';
 import { CalculationStatus } from '../../ui/calculation-status';
 import { useCancellableRun } from '../../ui/use-cancellable-run';
-import { isCalculationCancelled } from '../../platform/cancellable-worker';
+import { isCalculationCancelled } from '../../workspace/jobs/cancellable-worker';
 import { SettledCalculation } from '../../ui/settled-calculation';
 import { Dropdown } from '../../ui/dropdown';
 import { ConvertedArtifactMark } from '../../ui/gear/converted-artifact-mark';
@@ -12,7 +12,7 @@ import { UnrefinedArtifactMark } from '../../ui/gear/unrefined-artifact-mark';
 import { SortableHeader } from '../../ui/sortable-table';
 import { useSortedRows } from '../../ui/use-sorted-rows';
 import { columnClasses } from '../../ui/table-layouts';
-import { calculateArtifactScores } from '../../platform/compute/artifact-score-client';
+import { calculateArtifactScores } from '../../workspace/jobs/artifact-score-client';
 import { combineCalculationBackends } from '../../domain/shared/calculation-summary';
 import type { CalculationBackend } from '../../domain/shared/calculation-summary';
 import { buildArtifactScoreRequestsForMonsterIds } from '../../domain/artifacts/score/artifact-score-input';
@@ -20,7 +20,7 @@ import { ConversionList } from './conversion-list';
 import { QualityRule } from '../../ui/quality-rule';
 import { qualityRuleHost } from '../../ui/quality-rule-host';
 import { useAutoRecalculate } from '../../ui/use-auto-recalculate';
-import { artifactPairScore, engravedStonesFor, scoringSettings } from '../../domain/artifacts/artifact-recommendations';
+import { artifactPairScore, scoringSettings } from '../../domain/artifacts/artifact-recommendations';
 import { allocateArtifactPlacements } from '../../domain/artifacts/artifact-recommendation-allocation';
 import type { SortableColumn } from '../../ui/use-sorted-rows';
 import { artifactPreferenceStatus, recordedArtifactPreferenceMonsterIds } from '../../domain/profiles/artifact-preferences';
@@ -29,7 +29,6 @@ import {
   artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder,
   artifactIntangibleLabel, artifactMainPropertyOrder,
 } from '../../domain/artifacts/artifact-properties';
-import { readArtifacts } from '../../domain/artifacts/artifacts';
 import { formatNumber } from '../../domain/shared/formatting';
 import { monsterPresentation, monsterSpeciesPresentation } from '../../domain/monsters/monster-catalog';
 import { monsterSpeciesId } from '../../domain/monsters/monster-identity';
@@ -38,6 +37,7 @@ import type { MonsterCopyName } from '../../domain/monsters/monster-names';
 import type { MonsterProfiles } from '../../domain/profiles/monster-preferences';
 import { monsterNameCollator } from '../../domain/monsters/monster-grid';
 import type { Artifact } from '../../domain/artifacts/artifacts';
+import type { EngravedConversionStone } from '../../domain/artifacts/artifact-conversion-stones';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../../domain/artifacts/artifact-properties';
 import type { ArtifactConversion, ArtifactScoreRequest, ArtifactScoreResult } from '../../domain/artifacts/score/artifact-score-protocol';
 import type { GameRecord } from '../../domain/account/game-record';
@@ -267,8 +267,10 @@ function Score({ value, general }: { value: number | undefined; general: General
   return value === undefined ? '—' : <span {...artifactValueTint(value)}>{formatNumber(value, general)} %</span>;
 }
 
-export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
+export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
   data: GameRecord | undefined;
+  artifacts: readonly Artifact[];
+  stones: readonly EngravedConversionStone[];
   monsters: readonly GameRecord[];
   scenarioProfiles: MonsterProfiles;
   settings: ArtifactSettings;
@@ -279,13 +281,11 @@ export function ArtifactMaximumValues({ data, monsters, scenarioProfiles, settin
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const [error, setError] = useState<string | undefined>();
-  const artifacts = useMemo(() => readArtifacts(data), [data]);
   /* The tiebreak is the artifact's own order (§17.1), never its position in the
      import: the import lists the inventory before the engraved, so engraving
      one of two tied artifacts moved it behind the other, and the plan then
      recommended swapping back — every time. `obtainedOrder` does not move. */
   const artifactOrder = useMemo(() => new Map(artifacts.map((artifact) => [artifact.id, artifact.obtainedOrder])), [artifacts]);
-  const stones = useMemo(() => engravedStonesFor(data), [data]);
   const copyNames = useMemo(() => monsterCopyNames(monsters, scenarioProfiles), [monsters, scenarioProfiles]);
   const ownedMonsters = useMemo(() => readOwnedMonsters(monsters, copyNames), [monsters, copyNames]);
   const scopedMonsters = useMemo(() => recommendationMonsters(monsters, settings, copyNames), [monsters, settings, copyNames]);

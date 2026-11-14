@@ -1,4 +1,4 @@
-import type { HelperSession, ImportReport, ImportedGame } from '../domain/model';
+import type { HelperSession, ImportIssue, ImportIssueCode, ImportReport, ImportedGame, StoredGame } from '../domain/model';
 import { readArtifact, readArtifacts } from '../domain/artifacts/artifacts';
 import { readRelic, readRelics, relicEngravingProblem } from '../domain/relics/relics';
 import { isReadableEngravedConversionStone, readEngravedConversionStones } from '../domain/artifacts/artifact-conversion-stones';
@@ -8,11 +8,14 @@ import { readDeckPresets } from '../domain/placements/deck-presets';
 import { intangibleSetId } from '../domain/combat/monster-stats';
 import { hasMonsterCatalogEntry } from '../domain/monsters/monster-catalog';
 import { normalShrineList, normalShrineRecords, shrineMonsterRecords, summonedShrineList, summonedShrineRecords } from '../domain/account/sealed-shrine-storage';
-import { accountBuildingsProblem, readBuildingBonuses } from '../domain/account/account-buildings';
+import { accountBuildingsProblem, readBuildingBonuses, readSkyTribeTotem } from '../domain/account/account-buildings';
+import { accountCounts } from '../domain/account/account-counts';
 import type { GameRecord } from '../domain/account/game-record';
-import { isAccountSnapshot } from '../domain/account/account-snapshot';
+import { completeCoverage, readCaptureCoverage } from '../domain/account/account-snapshot';
 import type { AccountSnapshot, CaptureCoverage, MonsterCopy, SummonedStack } from '../domain/account/account-snapshot';
+import { readLocalAccountChanges } from '../domain/account/local-account-changes';
 import { readPresets } from '../domain/placements/presets';
+import { readRuneLocks } from '../domain/placements/rune-locks';
 
 const expectedSections = [
   'unit_list', 'unit_storage_list', 'unit_storage_normal_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
@@ -40,17 +43,65 @@ function isPositiveIdentifier(value: unknown): boolean {
 
 /* A collection is a count of owned entities, not a bag of values that happen
    to look like them. Requiring a positive id and one occurrence per collection
-   keeps malformed records from becoming a count that no table can honour. */
-function isValidIdentifiedCollection(
+   keeps malformed records from becoming a count that no table can honour. The
+   problem carries the first index so a refusal can be diagnosed without
+   sending the source data anywhere. */
+type CollectionProblem = {
+  index?: number;
+  entityId?: string;
+  reason: 'not-an-array' | 'not-a-record' | 'invalid-identifier' | 'failed-record-check' | 'duplicate-identifier';
+  firstIndex?: number;
+};
+
+function recordEntityId(record: GameRecord, identifier: string): string | undefined {
+  const value = record[identifier];
+  return typeof value === 'number' || typeof value === 'string' ? String(value) : undefined;
+}
+
+function firstIdentifiedCollectionProblem(
   value: unknown,
   identifier: string,
   recordCheck: (record: GameRecord) => boolean = () => true,
-): value is GameRecord[] {
-  if (!Array.isArray(value)) return false;
-  const records = value.filter(isRecord);
-  if (records.length !== value.length) return false;
-  if (!records.every((record) => isPositiveIdentifier(record[identifier]) && recordCheck(record))) return false;
-  return new Set(records.map((record) => String(record[identifier]))).size === records.length;
+): CollectionProblem | undefined {
+  if (!Array.isArray(value)) return { reason: 'not-an-array' };
+  const records: GameRecord[] = [];
+  for (const [index, entry] of value.entries()) {
+    if (!isRecord(entry)) return { index, reason: 'not-a-record' };
+    const entityId = recordEntityId(entry, identifier);
+    if (!isPositiveIdentifier(entry[identifier])) return { index, entityId, reason: 'invalid-identifier' };
+    if (!recordCheck(entry)) return { index, entityId, reason: 'failed-record-check' };
+    records.push(entry);
+  }
+  const firstById = new Map<string, number>();
+  for (const [index, record] of records.entries()) {
+    const id = String(record[identifier]);
+    const firstIndex = firstById.get(id);
+    if (firstIndex !== undefined) return { index, entityId: id, reason: 'duplicate-identifier', firstIndex };
+    firstById.set(id, index);
+  }
+  return undefined;
+}
+
+function collectionProblemExplanation(problem: CollectionProblem, identifier: string): string {
+  if (problem.reason === 'not-an-array') return 'The collection is not an array.';
+  if (problem.reason === 'not-a-record') return `The record at index ${problem.index} is not an object.`;
+  if (problem.reason === 'invalid-identifier') return `The record at index ${problem.index} has an invalid ${identifier}.`;
+  if (problem.reason === 'failed-record-check') return `The record at index ${problem.index} failed its reader check.`;
+  return `The ${identifier} is duplicated at index ${problem.index}; its first record is at index ${problem.firstIndex}.`;
+}
+
+function identifiedCollectionIssue(
+  code: ImportIssueCode,
+  collection: string,
+  identifier: string,
+  problem: CollectionProblem,
+): ImportIssue {
+  const sourcePath = problem.index === undefined ? collection : `${collection}[${problem.index}]`;
+  return {
+    code, collection, sourcePath,
+    ...(problem.entityId !== undefined ? { entityId: problem.entityId, field: identifier } : {}),
+    explanation: collectionProblemExplanation(problem, identifier),
+  };
 }
 
 /* Read through the workspace's own reader, for the reason `AGENTS.md` §0.1
@@ -72,18 +123,6 @@ function isValidCraftRecord(record: GameRecord): boolean {
 
 function isValidRuneRecord(record: GameRecord): boolean {
   return readRune(record) !== null;
-}
-
-/** The game allows one Intangible Rune in a monster's engraved six. */
-function hasAtMostOneEngravedIntangible(records: readonly GameRecord[]): boolean {
-  const owners = new Set<string>();
-  for (const record of records) {
-    if (record.set_id !== intangibleSetId || record.occupied_type !== 1) continue;
-    const owner = String(record.occupied_id);
-    if (owners.has(owner)) return false;
-    owners.add(owner);
-  }
-  return true;
 }
 
 function isValidStorageRecord(record: GameRecord): boolean {
@@ -134,65 +173,160 @@ function isValidUnitRecord(record: GameRecord): boolean {
     && (record.skills === undefined || isSkillList(record.skills));
 }
 
-/* In Scenario an item is engraved on one monster at most (`DECK-PRESETS.md`
-   §1); a list naming it under two would leave its owner to whichever unit was
-   read last, so it is refused as a saved deck repeating one is. */
-function engravesAnItemTwice(units: readonly GameRecord[], section: 'runes' | 'artifacts', identifier: string): boolean {
-  const seen = new Set<string>();
-  for (const unit of units) {
-    for (const item of recordCollection(unit[section])) {
-      const id = String(item[identifier]);
-      if (seen.has(id)) return true;
-      seen.add(id);
-    }
+/** The game allows one Intangible Rune in a monster's engraved six. */
+type IndexedRecord = { index: number; record: GameRecord };
+
+/** The second Intangible record is the one that makes the monster's six contradictory. */
+function firstEngravedIntangibleProblem(records: readonly GameRecord[]): IndexedRecord | undefined {
+  const owners = new Set<string>();
+  for (const [index, record] of records.entries()) {
+    if (record.set_id !== intangibleSetId || record.occupied_type !== 1) continue;
+    const owner = String(record.occupied_id);
+    if (owners.has(owner)) return { index, record };
+    owners.add(owner);
   }
-  return false;
+  return undefined;
 }
 
-/**
- * Whether an item's own record in the account list and the monsters' gear lists
- * disagree about where it is. Scenario reads the gear lists, a rune's location
- * reads its record, so a disagreement showed an inventory rune as engraved on a
- * monster that did not carry it while every rule treated it as free. A game
- * export never disagrees; a prepared account repeats each engraved item in the
- * account list with the same placement, which agrees.
- */
-function misplacesAnItem(value: GameRecord, units: readonly GameRecord[], section: 'runes' | 'artifacts', identifier: string): boolean {
+function firstRepeatedEngravedItem(
+  units: readonly GameRecord[],
+  section: 'runes' | 'artifacts',
+  identifier: string,
+): { unitIndex: number; itemIndex: number; item: GameRecord; first: { unitIndex: number; itemIndex: number } } | undefined {
+  const seen = new Map<string, { unitIndex: number; itemIndex: number }>();
+  for (const [unitIndex, unit] of units.entries()) {
+    for (const [itemIndex, item] of recordCollection(unit[section]).entries()) {
+      const id = String(item[identifier]);
+      const first = seen.get(id);
+      if (first) return { unitIndex, itemIndex, item, first };
+      seen.set(id, { unitIndex, itemIndex });
+    }
+  }
+  return undefined;
+}
+
+/** The account-level record whose placement disagrees with the monster lists. */
+function firstMisplacedItem(
+  value: GameRecord,
+  units: readonly GameRecord[],
+  section: 'runes' | 'artifacts',
+  identifier: string,
+): IndexedRecord | undefined {
   const carrier = new Map<string, string>();
   for (const unit of units) {
     for (const item of recordCollection(unit[section])) carrier.set(String(item[identifier]), String(unit.unit_id));
   }
-  return recordCollection(value[section]).some((item) => {
-    const engraved = section === 'runes' ? item.occupied_type === 1 : Number(item.occupied_id) > 0;
-    const on = carrier.get(String(item[identifier]));
-    return engraved ? on !== String(item.occupied_id) : on !== undefined;
-  });
+  if (!Array.isArray(value[section])) return undefined;
+  for (const [index, entry] of value[section].entries()) {
+    if (!isRecord(entry)) continue;
+    const engraved = section === 'runes' ? entry.occupied_type === 1 : Number(entry.occupied_id) > 0;
+    const on = carrier.get(String(entry[identifier]));
+    if (engraved ? on !== String(entry.occupied_id) : on !== undefined) return { index, record: entry };
+  }
+  return undefined;
 }
 
-function validateAccountCollections(value: GameRecord): string | undefined {
-  if (!isValidIdentifiedCollection(value.unit_list, 'unit_id', isValidUnitRecord)) {
-    return 'This file contains a monster JASWA cannot read.';
+function resolvedCollectionPath(
+  value: GameRecord,
+  key: string,
+  containers: readonly (readonly string[])[],
+): string {
+  for (const containerPath of containers) {
+    let current: unknown = value;
+    for (const step of containerPath) current = isRecord(current) ? current[step] : undefined;
+    if (isRecord(current) && Array.isArray(current[key])) return [...containerPath, key].join('.');
   }
-  if (!isValidIdentifiedCollection(value.runes, 'rune_id', isValidRuneRecord)) {
-    return 'This file contains a rune JASWA cannot read.';
+  return key;
+}
+
+function shrineCollectionPath(value: GameRecord, kind: 'summoned' | 'normal'): string {
+  return kind === 'summoned'
+    ? resolvedCollectionPath(value, 'unit_storage_list', [[], ['GetUnitStorageList'], ['GetWizardDataPart1'], ['GetWizardDataPart1', 'GetUnitStorageList']])
+    : resolvedCollectionPath(value, 'unit_storage_normal_list', [[], ['GetWizardDataPart1'], ['GetUnitStorageList']]);
+}
+
+function issuePrefix(issue: ImportIssue): string {
+  switch (issue.code) {
+    case 'not-an-object': return 'This is not a valid Summoners War JSON file.';
+    case 'missing-core-lists': return 'This file does not contain the monster and rune lists needed by JASWA.';
+    case 'unreadable-monster': return 'This file contains a monster JASWA cannot read.';
+    case 'unreadable-rune': return 'This file contains a rune JASWA cannot read.';
+    case 'two-intangibles-on-one-monster': return 'This file has more than one Intangible Rune engraved on one monster.';
+    case 'unreadable-deck-preset':
+    case 'relic-engraving':
+    case 'unreadable-buildings': return issue.explanation;
+    case 'unreadable-shrine-monster': return 'This file contains a sealed-shrine monster JASWA cannot read.';
+    case 'monster-in-two-places': return 'This file places a monster in Inventory and Sealed Shrine at once.';
+    case 'invalid-account-identity': return 'This file contains an invalid account identity.';
+    case 'foreign-monster': return 'This file contains a monster JASWA cannot verify as belonging to this account.';
+    case 'unreadable-engraved-rune': return 'This file contains an engraved rune JASWA cannot read.';
+    case 'unreadable-engraved-artifact': return 'This file contains an engraved artifact JASWA cannot read.';
+    case 'unreadable-engraved-relic': return 'This file contains an engraved relic JASWA cannot read.';
+    case 'rune-engraved-twice': return 'This file engraves one rune on two monsters.';
+    case 'artifact-engraved-twice': return 'This file engraves one artifact on two monsters.';
+    case 'rune-misplaced': return 'This file places a rune on a monster that does not carry it.';
+    case 'artifact-misplaced': return 'This file places an artifact on a monster that does not carry it.';
+    case 'unreadable-artifact': return 'This file contains an artifact JASWA cannot read.';
+    case 'unreadable-relic': return 'This file contains a relic JASWA cannot read.';
+    case 'unreadable-conversion-stone': return 'This file contains an engraved conversion stone JASWA cannot read.';
+    case 'unreadable-craft-item': return 'This file contains an invalid craft-item collection.';
   }
-  if (!hasAtMostOneEngravedIntangible(recordCollection(value.runes))) {
-    return 'This file has more than one Intangible Rune engraved on one monster.';
+}
+
+function importMessage(issue: ImportIssue): string {
+  const prefix = issuePrefix(issue);
+  if (issue.sourcePath === '$') return prefix;
+  const sentence = prefix.endsWith('.') ? prefix.slice(0, -1) : prefix;
+  const location = ` (${issue.sourcePath}${issue.entityId !== undefined && issue.field ? `, ${issue.field} ${issue.entityId}` : ''})`;
+  return `${sentence}${location}.`;
+}
+type IssueEntity = { field: string; entityId: string | undefined };
+const entityOf = (record: GameRecord, field: string): IssueEntity => ({ field, entityId: recordEntityId(record, field) });
+
+function directImportIssue(
+  code: ImportIssueCode,
+  collection: string,
+  sourcePath: string,
+  explanation: string,
+  entity?: IssueEntity,
+): ImportIssue {
+  return { code, collection, sourcePath, ...(entity?.entityId !== undefined ? { entityId: entity.entityId, field: entity.field } : {}), explanation };
+}
+
+function validateAccountCollections(value: GameRecord): ImportIssue | undefined {
+  const unitProblem = firstIdentifiedCollectionProblem(value.unit_list, 'unit_id', isValidUnitRecord);
+  if (unitProblem) return identifiedCollectionIssue('unreadable-monster', 'unit_list', 'unit_id', unitProblem);
+
+  const runeProblem = firstIdentifiedCollectionProblem(value.runes, 'rune_id', isValidRuneRecord);
+  if (runeProblem) return identifiedCollectionIssue('unreadable-rune', 'runes', 'rune_id', runeProblem);
+
+  const intangible = firstEngravedIntangibleProblem(recordCollection(value.runes));
+  if (intangible) {
+    return directImportIssue(
+      'two-intangibles-on-one-monster', 'runes', `runes[${intangible.index}]`,
+      `The second Intangible Rune engraved on monster ${String(intangible.record.occupied_id)} is at this index.`,
+      entityOf(intangible.record, 'rune_id'),
+    );
   }
   try {
     readDeckPresets(value);
   } catch (error) {
-    return error instanceof Error ? error.message : 'This account contains a Deck Preset JASWA cannot read.';
+    const explanation = error instanceof Error ? error.message : 'This account contains a Deck Preset JASWA cannot read.';
+    /* The deck reader owns the deck contract; its sentence says what failed, and
+       restating its rules here to find the index would be a second deck reader. */
+    return directImportIssue('unreadable-deck-preset', 'deck presets', 'deck_list', explanation);
   }
   /* Each tab is checked where the account carries it, nested or at the root,
      because that same list is what the import publishes, counts and shows. */
   const summonedShrine = summonedShrineList(value);
-  if (summonedShrine !== undefined && !isValidIdentifiedCollection(summonedShrine, 'unit_master_id', isValidImportedStorageRecord)) {
-    return 'This file contains a sealed-shrine monster JASWA cannot read.';
+  if (summonedShrine !== undefined) {
+    const problem = firstIdentifiedCollectionProblem(summonedShrine, 'unit_master_id', isValidImportedStorageRecord);
+    if (problem) return identifiedCollectionIssue('unreadable-shrine-monster', shrineCollectionPath(value, 'summoned'), 'unit_master_id', problem);
   }
   const normalShrine = normalShrineList(value);
-  if (normalShrine !== undefined && !isValidIdentifiedCollection(normalShrine, 'unit_id', isValidUnitRecord)) {
-    return 'This file contains a sealed-shrine monster JASWA cannot read.';
+  if (normalShrine !== undefined) {
+    const problem = firstIdentifiedCollectionProblem(normalShrine, 'unit_id', isValidUnitRecord);
+    if (problem) return identifiedCollectionIssue('unreadable-shrine-monster', shrineCollectionPath(value, 'normal'), 'unit_id', problem);
   }
 
   const units = recordCollection(value.unit_list);
@@ -201,8 +335,13 @@ function validateAccountCollections(value: GameRecord): string | undefined {
      A repeated id is contradictory source data: choosing a row to hide would
      make the account total look plausible while leaving its location false. */
   const liveUnitIds = new Set(units.map((unit) => String(unit.unit_id)));
-  if (normalStorageUnits.some((unit) => liveUnitIds.has(String(unit.unit_id)))) {
-    return 'This file places a monster in Inventory and Sealed Shrine at once.';
+  const duplicateLocationIndex = normalStorageUnits.findIndex((unit) => liveUnitIds.has(String(unit.unit_id)));
+  if (duplicateLocationIndex >= 0) {
+    const duplicate = normalStorageUnits[duplicateLocationIndex];
+    return directImportIssue(
+      'monster-in-two-places', shrineCollectionPath(value, 'normal'), `${shrineCollectionPath(value, 'normal')}[${duplicateLocationIndex}]`,
+      `The monster is listed in Inventory and Sealed Shrine at once.`, entityOf(duplicate, 'unit_id'),
+    );
   }
   /* A full export normally carries the account wizard id on every owned unit.
      Without this boundary, a battle response can look like a valid monster
@@ -212,67 +351,118 @@ function validateAccountCollections(value: GameRecord): string | undefined {
      an explicit different id is still rejected. */
   if (value.wizard_id !== undefined) {
     if (!isPositiveIdentifier(value.wizard_id)) {
-      return 'This file contains an invalid account identity.';
+      const entityId = typeof value.wizard_id === 'number' || typeof value.wizard_id === 'string' ? String(value.wizard_id) : undefined;
+      return directImportIssue('invalid-account-identity', 'wizard_id', 'wizard_id', 'The account wizard_id is not a positive identifier.', { field: 'wizard_id', entityId });
     }
     const accountWizardId = String(value.wizard_id);
-    if (units.some((unit) => String(unit.wizard_id) !== accountWizardId)
-      || normalStorageUnits.some((unit) => unit.wizard_id !== undefined
-        && String(unit.wizard_id) !== accountWizardId)) {
-      return 'This file contains a monster JASWA cannot verify as belonging to this account.';
+    const foreignUnitIndex = units.findIndex((unit) => String(unit.wizard_id) !== accountWizardId);
+    const foreignNormalIndex = normalStorageUnits.findIndex((unit) => unit.wizard_id !== undefined
+      && String(unit.wizard_id) !== accountWizardId);
+    if (foreignUnitIndex >= 0) {
+      const unit = units[foreignUnitIndex];
+      return directImportIssue(
+        'foreign-monster', 'unit_list', `unit_list[${foreignUnitIndex}]`,
+        `The monster's wizard_id does not match the account wizard_id ${accountWizardId}.`, entityOf(unit, 'unit_id'),
+      );
+    }
+    if (foreignNormalIndex >= 0) {
+      const unit = normalStorageUnits[foreignNormalIndex];
+      const collection = shrineCollectionPath(value, 'normal');
+      return directImportIssue(
+        'foreign-monster', collection, `${collection}[${foreignNormalIndex}]`,
+        `The monster's wizard_id does not match the account wizard_id ${accountWizardId}.`, entityOf(unit, 'unit_id'),
+      );
     }
   }
-  for (const unit of units) {
-    if (unit.runes !== undefined && !isValidIdentifiedCollection(unit.runes, 'rune_id', isValidRuneRecord)) {
-      return 'This file contains an engraved rune JASWA cannot read.';
+  for (const [unitIndex, unit] of units.entries()) {
+    if (unit.runes !== undefined) {
+      const problem = firstIdentifiedCollectionProblem(unit.runes, 'rune_id', isValidRuneRecord);
+      if (problem) {
+        const collection = `unit_list[${unitIndex}].runes`;
+        return identifiedCollectionIssue('unreadable-engraved-rune', collection, 'rune_id', problem);
+      }
+      const duplicateIntangible = firstEngravedIntangibleProblem(recordCollection(unit.runes));
+      if (duplicateIntangible) {
+        const collection = `unit_list[${unitIndex}].runes`;
+        return directImportIssue(
+          'two-intangibles-on-one-monster', collection, `${collection}[${duplicateIntangible.index}]`,
+          `The second Intangible Rune engraved on monster ${String(duplicateIntangible.record.occupied_id)} is at this index.`,
+          entityOf(duplicateIntangible.record, 'rune_id'),
+        );
+      }
     }
-    if (unit.runes !== undefined && !hasAtMostOneEngravedIntangible(recordCollection(unit.runes))) {
-      return 'This file has more than one Intangible Rune engraved on one monster.';
+    if (unit.artifacts !== undefined) {
+      const problem = firstIdentifiedCollectionProblem(unit.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null);
+      if (problem) {
+        const collection = `unit_list[${unitIndex}].artifacts`;
+        return identifiedCollectionIssue('unreadable-engraved-artifact', collection, 'rid', problem);
+      }
     }
-    if (unit.artifacts !== undefined && !isValidIdentifiedCollection(unit.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
-      return 'This file contains an engraved artifact JASWA cannot read.';
-    }
-    if (unit.relics !== undefined && !isValidIdentifiedCollection(unit.relics, 'rid', (relic) => readRelic(relic) !== null)) {
-      return 'This file contains an engraved relic JASWA cannot read.';
+    if (unit.relics !== undefined) {
+      const problem = firstIdentifiedCollectionProblem(unit.relics, 'rid', (relic) => readRelic(relic) !== null);
+      if (problem) {
+        const collection = `unit_list[${unitIndex}].relics`;
+        return identifiedCollectionIssue('unreadable-engraved-relic', collection, 'rid', problem);
+      }
     }
   }
-  if (engravesAnItemTwice(units, 'runes', 'rune_id')) {
-    return 'This file engraves one rune on two monsters.';
+  const repeatedRune = firstRepeatedEngravedItem(units, 'runes', 'rune_id');
+  if (repeatedRune) {
+    const collection = `unit_list[${repeatedRune.unitIndex}].runes`;
+    return directImportIssue(
+      'rune-engraved-twice', collection, `${collection}[${repeatedRune.itemIndex}]`,
+      `The rune is also engraved on monster ${String(units[repeatedRune.first.unitIndex].unit_id)}.`,
+      entityOf(repeatedRune.item, 'rune_id'),
+    );
   }
-  if (engravesAnItemTwice(units, 'artifacts', 'rid')) {
-    return 'This file engraves one artifact on two monsters.';
+  const repeatedArtifact = firstRepeatedEngravedItem(units, 'artifacts', 'rid');
+  if (repeatedArtifact) {
+    const collection = `unit_list[${repeatedArtifact.unitIndex}].artifacts`;
+    return directImportIssue(
+      'artifact-engraved-twice', collection, `${collection}[${repeatedArtifact.itemIndex}]`,
+      `The artifact is also engraved on monster ${String(units[repeatedArtifact.first.unitIndex].unit_id)}.`,
+      entityOf(repeatedArtifact.item, 'rid'),
+    );
   }
-  if (misplacesAnItem(value, units, 'runes', 'rune_id')) {
-    return 'This file places a rune on a monster that does not carry it.';
+  const misplacedRune = firstMisplacedItem(value, units, 'runes', 'rune_id');
+  if (misplacedRune) {
+    return directImportIssue('rune-misplaced', 'runes', `runes[${misplacedRune.index}]`,
+      'The account record and monster engraving do not name the same placement.', entityOf(misplacedRune.record, 'rune_id'));
   }
-  if (misplacesAnItem(value, units, 'artifacts', 'rid')) {
-    return 'This file places an artifact on a monster that does not carry it.';
+  const misplacedArtifact = firstMisplacedItem(value, units, 'artifacts', 'rid');
+  if (misplacedArtifact) {
+    return directImportIssue('artifact-misplaced', 'artifacts', `artifacts[${misplacedArtifact.index}]`,
+      'The account record and monster engraving do not name the same placement.', entityOf(misplacedArtifact.record, 'rid'));
   }
 
-  if (value.artifacts !== undefined && !isValidIdentifiedCollection(value.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null)) {
-    return 'This file contains an artifact JASWA cannot read.';
+  if (value.artifacts !== undefined) {
+    const problem = firstIdentifiedCollectionProblem(value.artifacts, 'rid', (artifact) => readArtifact(artifact) !== null);
+    if (problem) return identifiedCollectionIssue('unreadable-artifact', 'artifacts', 'rid', problem);
   }
   /* Relics are read through the same reader the workspace uses, for the reason
      `AGENTS.md` §0.1 gives: a relic that passes a structural check and then
      cannot be judged is counted, invisible, and worse than rejected. */
-  if (value.relics !== undefined && !isValidIdentifiedCollection(value.relics, 'rid', (relic) => readRelic(relic) !== null)) {
-    return 'This file contains a relic JASWA cannot read.';
+  if (value.relics !== undefined) {
+    const problem = firstIdentifiedCollectionProblem(value.relics, 'rid', (relic) => readRelic(relic) !== null);
+    if (problem) return identifiedCollectionIssue('unreadable-relic', 'relics', 'rid', problem);
   }
   const relicProblem = relicEngravingProblem(units);
-  if (relicProblem) return relicProblem;
-  if (value.artifact_crafts !== undefined
-    && !isValidIdentifiedCollection(value.artifact_crafts, 'rid', isReadableEngravedConversionStone)) {
-    return 'This file contains an engraved conversion stone JASWA cannot read.';
+  if (relicProblem) return directImportIssue('relic-engraving', 'unit_list[*].relics', 'unit_list[*].relics', relicProblem);
+  if (value.artifact_crafts !== undefined) {
+    const problem = firstIdentifiedCollectionProblem(value.artifact_crafts, 'rid', isReadableEngravedConversionStone);
+    if (problem) return identifiedCollectionIssue('unreadable-conversion-stone', 'artifact_crafts', 'rid', problem);
   }
-  if (value.rune_craft_item_list !== undefined
-    && !isValidIdentifiedCollection(value.rune_craft_item_list, 'craft_item_id', isValidCraftRecord)) {
-    return 'This file contains an invalid craft-item collection.';
+  if (value.rune_craft_item_list !== undefined) {
+    const problem = firstIdentifiedCollectionProblem(value.rune_craft_item_list, 'craft_item_id', isValidCraftRecord);
+    if (problem) return identifiedCollectionIssue('unreadable-craft-item', 'rune_craft_item_list', 'craft_item_id', problem);
   }
   /* The buildings move every combat speed and every stat they
      touch, so a building list that cannot say a level is refused rather than
      read as "no building". */
-  return accountBuildingsProblem(value);
+  const buildingsProblem = accountBuildingsProblem(value);
+  if (buildingsProblem) return directImportIssue('unreadable-buildings', 'buildings', 'deco_list', buildingsProblem);
+  return undefined;
 }
-
 /* Artifacts and relics both carry their own id as `rid`, not `artifact_id` or
    `relic_id`: no record in the export has either, so keying on them silently
    de-duplicated nothing and would let an engraved item appear twice once the
@@ -341,56 +531,95 @@ function removeExcludedKeys(value: unknown): unknown {
     .map(([key, entry]) => [key, removeExcludedKeys(entry)]));
 }
 
-function isImportReport(value: unknown): value is ImportReport {
-  return isRecord(value)
-    && typeof value.valid === 'boolean'
-    && typeof value.message === 'string'
-    && Array.isArray(value.knownSections) && value.knownSections.every((entry) => typeof entry === 'string')
-    && Array.isArray(value.unknownMonsterIds) && value.unknownMonsterIds.every((entry) => typeof entry === 'string');
+function readHelperSession(value: unknown): HelperSession | undefined | null {
+  if (value === undefined) return undefined;
+  return isRecord(value) && typeof value.instanceId === 'string' && value.instanceId.length > 0
+    && typeof value.sessionId === 'number' && Number.isSafeInteger(value.sessionId) && value.sessionId > 0
+    ? { instanceId: value.instanceId, sessionId: value.sessionId } : null;
 }
 
-/** Accept only a complete game record. */
-export function isValidImportedGame(value: unknown): value is ImportedGame {
-  if (!isRecord(value)) return false;
-  const helperSession = value.helperSession === undefined || (isRecord(value.helperSession)
-    && typeof value.helperSession.instanceId === 'string' && value.helperSession.instanceId.length > 0
-    && typeof value.helperSession.sessionId === 'number' && Number.isSafeInteger(value.helperSession.sessionId) && value.helperSession.sessionId > 0);
-  return typeof value.fileName === 'string' && value.fileName.length > 0
-    && typeof value.importedAt === 'string' && Number.isFinite(Date.parse(value.importedAt))
-    && isRecord(value.data) && validateGameFile(value.data).valid
-    && isAccountSnapshot(value.snapshot)
-    && isImportReport(value.report)
-    && helperSession;
+/** The stored form of an accepted import: its observation and local choices, never what derives from them. */
+export function storedGame(game: ImportedGame): StoredGame {
+  return {
+    fileName: game.fileName, importedAt: game.importedAt, data: game.data, coverage: game.coverage,
+    ...(game.helperSession ? { helperSession: game.helperSession } : {}),
+    ...(game.localChanges ? { localChanges: game.localChanges } : {}),
+    ...(game.runeLocks ? { runeLocks: game.runeLocks } : {}),
+  };
+}
+
+/**
+ * Read a stored import back through the same validation a fresh one passes. The
+ * observation and its capture facts are the account and are taken whole or not
+ * at all; the local choices made against it are read one field at a time, so a
+ * malformed lock costs that lock and never the account (`AGENTS.md` §0).
+ */
+export function readStoredGame(value: unknown): ImportedGame | null {
+  if (!isRecord(value)) return null;
+  const helperSession = readHelperSession(value.helperSession);
+  const coverage = readCaptureCoverage(value.coverage);
+  if (typeof value.fileName !== 'string' || value.fileName.length === 0
+    || typeof value.importedAt !== 'string' || !Number.isFinite(Date.parse(value.importedAt))
+    || helperSession === null || coverage === null || !isRecord(value.data)) return null;
+  const report = validateGameFile(value.data);
+  if (!report.valid) return null;
+  const localChanges = readLocalAccountChanges(value.localChanges);
+  const runeLocks = readRuneLocks(value.runeLocks);
+  return withAccountSnapshot({
+    fileName: value.fileName, importedAt: value.importedAt, data: value.data, coverage, report,
+    ...(helperSession ? { helperSession } : {}),
+    ...(localChanges ? { localChanges } : {}),
+    ...(runeLocks ? { runeLocks } : {}),
+  });
+}
+
+/* The snapshot is rebuilt only when the observation it reads changed: a lock or
+   a local-change record leaves `data` the same object and the snapshot with it. */
+const snapshots = new WeakMap<object, AccountSnapshot>();
+
+/** The game with its typed snapshot read from its current data. */
+export function withAccountSnapshot(game: Omit<ImportedGame, 'snapshot'> & { snapshot?: AccountSnapshot }): ImportedGame {
+  const held = snapshots.get(game.data);
+  if (held && game.snapshot === held) return game as ImportedGame;
+  const snapshot = held ?? buildAccountSnapshot(game.data, game.importedAt, game.fileName, game.helperSession, game.coverage);
+  snapshots.set(game.data, snapshot);
+  return { ...game, snapshot };
 }
 
 export function validateGameFile(value: unknown): ImportReport {
-  if (!isRecord(value)) return { valid: false, message: 'This is not a valid Summoners War JSON file.', knownSections: [], unknownMonsterIds: [] };
+  if (!isRecord(value)) {
+    const issue = directImportIssue('not-an-object', 'root', '$', 'The import root is not an object.');
+    return { valid: false, message: importMessage(issue), knownSections: [], unknownMonsterIds: [], issues: [issue] };
+  }
   const knownSections = expectedSections.filter((section) => hasCollection(section === 'unit_storage_list' ? summonedShrineList(value)
     : section === 'unit_storage_normal_list' ? normalShrineList(value) : value[section]));
   if (!hasCollection(value.unit_list) || !hasCollection(value.runes)) {
-    return { valid: false, message: 'This file does not contain the monster and rune lists needed by JASWA.', knownSections, unknownMonsterIds: [] };
+    const collection = !hasCollection(value.unit_list) ? 'unit_list' : 'runes';
+    const issue = directImportIssue('missing-core-lists', collection, collection,
+      `The required ${collection === 'unit_list' ? 'monster' : 'rune'} collection is missing or is not an array.`);
+    return { valid: false, message: importMessage(issue), knownSections, unknownMonsterIds: [], issues: [issue] };
   }
-  const collectionError = validateAccountCollections(value);
-  if (collectionError) return { valid: false, message: collectionError, knownSections, unknownMonsterIds: [] };
+  const collectionIssue = validateAccountCollections(value);
+  if (collectionIssue) {
+    return { valid: false, message: importMessage(collectionIssue), knownSections, unknownMonsterIds: [], issues: [collectionIssue] };
+  }
   const unknownMonsterIds = [...new Set([
     ...recordCollection(value.unit_list),
     ...shrineMonsterRecords(value),
   ]
     .map((monster) => String(monster.unit_master_id))
     .filter((id) => id !== 'undefined' && !hasMonsterCatalogEntry(id)))];
-  return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds };
+  return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds, issues: [] };
 }
 
 export function createImportedGame(fileName: string, data: Record<string, unknown>, report: ImportReport, helperSession?: HelperSession,
-  coverage: CaptureCoverage = { complete: true, misses: [] }): ImportedGame {
+  coverage: CaptureCoverage = completeCoverage): ImportedGame {
   const importedAt = new Date().toISOString();
   const prepared = completeEngravedCollections(removeExcludedKeys(data) as GameRecord);
-  return {
-    fileName, importedAt, data: prepared,
-    snapshot: buildAccountSnapshot(prepared, importedAt, fileName, helperSession, coverage),
-    report,
+  return withAccountSnapshot({
+    fileName, importedAt, data: prepared, coverage, report,
     ...(helperSession ? { helperSession } : {}),
-  };
+  });
 }
 
 function monsterCopy(record: GameRecord): MonsterCopy | null {
@@ -407,8 +636,8 @@ function monsterCopy(record: GameRecord): MonsterCopy | null {
   };
 }
 
-export function buildAccountSnapshot(data: GameRecord, importedAt: string, fileName: string, helperSession?: HelperSession,
-  coverage: CaptureCoverage = { complete: true, misses: [] }): AccountSnapshot {
+function buildAccountSnapshot(data: GameRecord, importedAt: string, fileName: string, helperSession: HelperSession | undefined,
+  coverage: CaptureCoverage): AccountSnapshot {
   const units = recordCollection(data.unit_list);
   const monsters = units.map(monsterCopy).filter((entry): entry is MonsterCopy => entry !== null);
   const normalShrine = normalShrineRecords(data).map(monsterCopy).filter((entry): entry is MonsterCopy => entry !== null);
@@ -427,8 +656,8 @@ export function buildAccountSnapshot(data: GameRecord, importedAt: string, fileN
     monsters, normalShrine, summonedShrine,
     runes: readRunes(data), artifacts: readArtifacts(data), relics: readRelics(data),
     craftItems: readCraftItems(data), conversionStones: readEngravedConversionStones(data),
-    buildings: readBuildingBonuses(data), presets, scenario: presets.find((preset) => preset.kind === 'scenario') ?? null,
+    counts: accountCounts(data), buildings: readBuildingBonuses(data), skyTribeTotem: readSkyTribeTotem(data),
+    presets, scenario: presets.find((preset) => preset.kind === 'scenario') ?? null,
     coverage,
   };
 }
-

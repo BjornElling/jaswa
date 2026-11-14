@@ -1,17 +1,16 @@
 import type { ImportedGame, Preferences } from '../domain/model';
 import { blankPreferences } from '../domain/profiles/preference-defaults';
-import { readRunes } from '../domain/runes/runes';
 import { readPresets } from '../domain/placements/presets';
 import type { OwnPreset, Preset } from '../domain/placements/presets';
 import { engraveImportedGame, engraveOwnPreset, runesWithLocked, runesWithout } from '../domain/placements/engrave-rune-build';
-import { carriedRuneLocks, heldRuneLocks, noRuneLocks, runeLockScope, withRuneLock } from '../domain/placements/rune-locks';
+import { carriedRuneLocks, heldRuneLocks, noRuneLocks, runeLockCount, runeLockScope, withRuneLock } from '../domain/placements/rune-locks';
 import type { RuneLock, RuneLocks } from '../domain/placements/rune-locks';
 import { alwaysSynchronizedReason } from '../domain/placements/always-synchronized';
 import { restoreWorkspace } from './restore';
 import { createSerializedWriter } from './serialized-writes';
 import { PreferenceMirrorUnavailable, PreferenceStoreUnreadable, WorkspaceReadOnly } from './ports';
 import type { WorkspaceRepository, WriterCoordination, WriterRole } from './ports';
-import { buildAccountSnapshot } from '../ingest/game-export';
+import { storedGame, withAccountSnapshot } from '../ingest/game-export';
 
 export type StorageNotice = { message: string; tone: 'warn' | 'bad' };
 
@@ -27,6 +26,8 @@ export type WorkspaceState = {
   storageNotice: StorageNotice | null;
   /** Which saved records could not be read when the workspace opened. */
   restoreFailed: readonly ('game' | 'preferences')[];
+  /** A saved import was read but refused by the current import contract. */
+  gameRejected: boolean;
   /** `null` until this tab knows whether it may write. */
   writer: WriterRole | null;
 };
@@ -35,6 +36,7 @@ const mirrorWarning: StorageNotice = { tone: 'warn', message: 'Your preferences 
 const unreadNotice: StorageNotice = { tone: 'bad', message: 'Reload to read your saved preferences before changing them.' };
 const readOnlyNotice: StorageNotice = { tone: 'warn', message: 'JASWA is open in another tab. This tab shows your workspace and takes over when that tab closes.' };
 const rolePendingNotice: StorageNotice = { tone: 'warn', message: 'JASWA is checking whether this tab may change the workspace.' };
+const uncoordinatedNotice: StorageNotice = { tone: 'warn', message: 'This browser cannot coordinate JASWA tabs. Keep JASWA open in one tab, or one tab may overwrite the other’s changes.' };
 
 /* JASWA changes the account only while no live sync would put the game's own back. */
 export const canEngraveUnder = (preferences: Preferences) => preferences.importRoute === 'file' || preferences.directImportMode === 'on-load';
@@ -46,18 +48,19 @@ export const canEngraveUnder = (preferences: Preferences) => preferences.importR
  * starts with none.
  */
 function withLiveRuneLocks(next: ImportedGame, previous: ImportedGame | null, ownPresets: readonly OwnPreset[]): ImportedGame {
-  const account = previous?.data?.wizard_id;
-  if (!previous?.runeLocks || account === undefined || account === null || String(account) !== String(next.data?.wizard_id)) return next;
-  const runeIds = new Set(readRunes(next.data).map((rune) => rune.id));
+  const account = previous?.snapshot.accountId ?? null;
+  if (!previous?.runeLocks || account === null || account !== next.snapshot.accountId) return next;
+  const runeIds = new Set(next.snapshot.runes.map((rune) => rune.id));
   const locks = carriedRuneLocks(previous.runeLocks, runeIds, readPresets(next.data, ownPresets));
   return Object.keys(locks).length > 0 ? { ...next, runeLocks: locks } : next;
 }
 
-const withLocks = (game: ImportedGame, locks: RuneLocks): ImportedGame => ({ ...game, runeLocks: Object.keys(locks).length > 0 ? locks : undefined });
-
-function refreshAccountSnapshot(game: ImportedGame): ImportedGame {
-  return { ...game, snapshot: buildAccountSnapshot(game.data, game.importedAt, game.fileName, game.helperSession, game.snapshot.coverage) };
-}
+/* No locks is no field: the stored game then has no `runeLocks` key at all. */
+const withLocks = (game: ImportedGame, locks: RuneLocks): ImportedGame => {
+  const rest = { ...game };
+  delete rest.runeLocks;
+  return Object.keys(locks).length > 0 ? { ...rest, runeLocks: locks } : rest;
+};
 
 /**
  * The preferences without what was stated for one preset: its speed tuning and
@@ -83,7 +86,7 @@ export function withoutPreset(preferences: Preferences, presetId: string): Prefe
  */
 export function createWorkspaceStore(repository: WorkspaceRepository, coordination: WriterCoordination) {
   let state: WorkspaceState = {
-    ready: false, game: null, preferences: blankPreferences(), storageNotice: null, restoreFailed: [], writer: null,
+    ready: false, game: null, preferences: blankPreferences(), storageNotice: null, restoreFailed: [], gameRejected: false, writer: null,
   };
   const listeners = new Set<() => void>();
   const accountWrite = createSerializedWriter();
@@ -94,6 +97,14 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
     listeners.forEach((listener) => listener());
   }
 
+  /* What this tab may do, said once for every route that learns its role. It is
+     also what stands once a save succeeds, so a lasting condition — an unread
+     database, tabs this browser cannot coordinate — is never cleared by a click. */
+  const roleNotice = (role: WriterRole): StorageNotice | null =>
+    role === 'reader' ? readOnlyNotice
+      : !repository.canSavePreferences() ? unreadNotice
+      : !coordination.isCoordinated() ? uncoordinatedNotice : null;
+
   async function restore(roleOverride?: WriterRole) {
     const generation = ++restoreGeneration;
     const [restored, role] = await Promise.all([
@@ -101,37 +112,27 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
       roleOverride ? Promise.resolve(roleOverride) : coordination.ready(),
     ]);
     if (generation !== restoreGeneration) return;
-    if (restored === null) {
-      set({
-        ready: true,
-        preferences: blankPreferences(),
-        restoreFailed: ['game', 'preferences'],
-        writer: role,
-        storageNotice: role === 'reader' ? readOnlyNotice : repository.canSavePreferences() ? null : unreadNotice,
-      });
-      return;
-    }
-    set({
-      ready: true,
-      writer: role,
-      game: restored.game,
-      preferences: restored.preferences,
-      restoreFailed: restored.failed,
-      storageNotice: state.writer === 'reader' ? readOnlyNotice : repository.canSavePreferences() ? null : unreadNotice,
+    /* A takeover while this read ran is the newer word about the role. */
+    const current = coordination.getRole() ?? role;
+    set(restored === null ? {
+      ready: true, game: null, preferences: blankPreferences(), restoreFailed: ['game', 'preferences'], gameRejected: false, writer: current, storageNotice: roleNotice(current),
+    } : {
+      ready: true, writer: current, game: restored.game, preferences: restored.preferences, restoreFailed: restored.failed, gameRejected: restored.gameRejected,
+      storageNotice: roleNotice(current),
     });
   }
 
   /* A reader shows what the writer committed; when it becomes the writer it reads
      once more, so it starts from the other tab's last word rather than its own. */
   coordination.onRoleChange((role) => {
-    set({ writer: role, storageNotice: role === 'reader' ? readOnlyNotice : repository.canSavePreferences() ? null : unreadNotice });
+    set({ writer: role, storageNotice: roleNotice(role) });
     if (role === 'writer') void restore(role);
   });
   coordination.onRemoteCommit(() => {
     if (state.writer === 'reader') void restore();
   });
   void coordination.ready().then((role) => {
-    set({ writer: role, storageNotice: role === 'reader' ? readOnlyNotice : repository.canSavePreferences() ? null : unreadNotice });
+    if (state.writer === null) set({ writer: role, storageNotice: roleNotice(role) });
   });
 
   async function requireWriter() {
@@ -170,7 +171,7 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
     }
     set({ preferences: next });
     void writing.then(() => {
-      set({ storageNotice: null });
+      set({ storageNotice: roleNotice('writer') });
       coordination.announceCommit();
     }).catch((error: unknown) => {
       set({ storageNotice: error instanceof PreferenceMirrorUnavailable ? mirrorWarning
@@ -178,7 +179,8 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
         : { tone: 'bad', message: 'JASWA could not save your preferences. Your latest choice is still on screen.' } });
       if (error instanceof PreferenceMirrorUnavailable) coordination.announceCommit();
     });
-    return writing.then(() => true, () => false);
+    /* A missing recovery copy is a weaker save, not a failed one: the database holds the choice. */
+    return writing.then(() => true, (error: unknown) => error instanceof PreferenceMirrorUnavailable);
   }
 
   function changePreferences(change: (current: Preferences) => Preferences): boolean {
@@ -204,7 +206,7 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
       }
       mirrorSaved = false;
     }
-    publishPreferences(next, mirrorSaved ? null : mirrorWarning);
+    publishPreferences(next, mirrorSaved ? roleNotice('writer') : mirrorWarning);
     coordination.announceCommit();
     return { mirrorSaved };
   }
@@ -221,8 +223,8 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
       if (imported.helperSession && preferences.importRoute !== 'direct') return null;
       const next = options.carryLiveLocks && preferences.directImportMode === 'live'
         ? withLiveRuneLocks(imported, game, preferences.presets) : imported;
-      const accepted = refreshAccountSnapshot(next);
-      await repository.saveGame(accepted);
+      const accepted = withAccountSnapshot(next);
+      await repository.saveGame(storedGame(accepted));
       set({ game: accepted });
       coordination.announceCommit();
       return accepted;
@@ -251,16 +253,16 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
   async function commitPair(game: ImportedGame, before: Preferences, proposed: Preferences) {
     const current = state.preferences;
     const after = rebasePreferenceChange(before, proposed, current);
-    const accepted = refreshAccountSnapshot(game);
-    const result = await repository.saveGamePair(accepted, current, after);
-    set({ game: accepted, preferences: result.preferences, storageNotice: result.mirrorSaved ? null : mirrorWarning });
+    const accepted = withAccountSnapshot(game);
+    const result = await repository.saveGamePair(storedGame(accepted), current, after);
+    set({ game: accepted, preferences: result.preferences, storageNotice: result.mirrorSaved ? roleNotice('writer') : mirrorWarning });
     coordination.announceCommit();
   }
 
   async function commitGame(game: ImportedGame) {
-    const accepted = refreshAccountSnapshot(game);
-    await repository.saveGame(accepted);
-    set({ game: accepted, storageNotice: null });
+    const accepted = withAccountSnapshot(game);
+    await repository.saveGame(storedGame(accepted));
+    set({ game: accepted, storageNotice: roleNotice('writer') });
     coordination.announceCommit();
   }
 
@@ -279,12 +281,22 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
     return accountWrite(async () => {
       await requireWriter();
       const { game, preferences } = state;
-      const preset = readPresets(game?.data, preferences.presets).find((entry) => entry.id === presetId);
+      const presets = readPresets(game?.data, preferences.presets);
+      const preset = presets.find((entry) => entry.id === presetId);
       if (preset?.kind === 'own') {
         const own = preferences.presets.find((entry) => entry.id === presetId);
         if (!own) throw new Error('This preset is no longer in your preferences.');
         const next = engraveOwnPreset(own, preset, unitId, runeIds);
-        await queuePreferenceChange((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? next : entry) }));
+        const ownPresets = preferences.presets.map((entry) => entry.id === presetId ? next : entry);
+        /* A lock the build moved away is over here too, as in a game preset: the
+           preset and the locks that no longer hold are committed together. */
+        const locks = game ? heldRuneLocks(game.runeLocks ?? noRuneLocks, readPresets(game.data, ownPresets)) : noRuneLocks;
+        if (game && runeLockCount(locks) !== runeLockCount(game.runeLocks ?? noRuneLocks)) {
+          await commitPair(withLocks(game, locks), preferences, { ...preferences, presets: ownPresets });
+          return;
+        }
+        const saved = await queuePreferenceChange((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? next : entry) }));
+        if (!saved) throw new Error('JASWA could not save this build. Please try again.');
         return;
       }
       if (!game || !preset || !canEngraveUnder(preferences)) throw new Error('This build cannot be engraved in the current import mode.');
@@ -318,7 +330,7 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
       const mayEngrave = canEngraveUnder(preferences) || preset.kind === 'own';
       const onMonster = preset.runeOwner.get(runeId) === unitId;
       if (lock === 'locked' && !onMonster && !mayEngrave) throw new Error(alwaysSynchronizedReason);
-      const slots = new Map(readRunes(game.data).map((rune) => [rune.id, rune.slot]));
+      const slots = new Map(game.snapshot.runes.map((rune) => [rune.id, rune.slot]));
       const slotOf = (id: string) => slots.get(id);
       try {
         let next = game;

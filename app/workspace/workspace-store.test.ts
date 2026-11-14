@@ -1,18 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { blankPreferences } from '../domain/profiles/preference-defaults';
-import type { ImportedGame, Preferences } from '../domain/model';
-import type { AccountSnapshot } from '../domain/account/account-snapshot';
+import type { Preferences, StoredGame } from '../domain/model';
+import { createImportedGame, readStoredGame, storedGame, validateGameFile } from '../ingest/game-export';
 import { WorkspaceReadOnly } from './ports';
 import type { WorkspaceRepository, WriterCoordination, WriterRole } from './ports';
 import { createWorkspaceStore } from './workspace-store';
 
-const account: ImportedGame = {
-  fileName: 'export.json', importedAt: '2026-11-13T10:00:00.000Z', data: { wizard_id: 1 }, snapshot: {} as AccountSnapshot,
-  report: { valid: true, message: '', knownSections: [], unknownMonsterIds: [] },
-};
+const exportData = { wizard_id: 1, unit_list: [], runes: [] };
+const account = createImportedGame('export.json', exportData, validateGameFile(exportData));
 
 function memoryRepository() {
-  const saved: { game: ImportedGame | null; preferences: Preferences[] } = { game: null, preferences: [] };
+  const saved: { game: StoredGame | null; preferences: Preferences[] } = { game: null, preferences: [] };
   const repository: WorkspaceRepository = {
     loadGame: async () => saved.game,
     loadPreferences: async () => saved.preferences.at(-1) ?? null,
@@ -25,11 +23,12 @@ function memoryRepository() {
   return { repository, saved };
 }
 
-function fixedRole(role: WriterRole) {
+function fixedRole(role: WriterRole, coordinated = true) {
   let commits = 0;
   const coordination: WriterCoordination = {
     ready: async () => role,
     getRole: () => role,
+    isCoordinated: () => coordinated,
     onRoleChange: () => () => {},
     announceCommit: () => { commits += 1; },
     onRemoteCommit: () => () => {},
@@ -52,28 +51,67 @@ describe('workspace store', () => {
       .toEqual([[false, 'file'], [false, 'direct']]);
   });
 
-  it('stores an account before showing it and announces the commit', async () => {
+  it('stores an account before showing it, without what derives from it, and announces the commit', async () => {
     const { repository, saved } = memoryRepository();
     const writer = fixedRole('writer');
     const store = createWorkspaceStore(repository, writer.coordination);
     await store.restore();
     const accepted = await store.importAccount(account);
-    expect(accepted).toMatchObject(account);
-    expect(saved.game).toEqual(accepted);
-    expect(store.getSnapshot().game).toEqual(accepted);
+    expect(accepted).toBe(account);
+    expect(saved.game).toEqual(storedGame(account));
+    expect(saved.game).not.toHaveProperty('snapshot');
+    expect(saved.game).not.toHaveProperty('report');
+    expect(store.getSnapshot().game).toBe(account);
     expect(writer.commits()).toBe(1);
   });
 
-  it('keeps a reader tab from changing anything', async () => {
+  it('restores a stored account with its snapshot and report derived again', async () => {
+    const { repository, saved } = memoryRepository();
+    saved.game = storedGame(account);
+    const store = createWorkspaceStore(repository, fixedRole('writer').coordination);
+    await store.restore();
+    const restored = store.getSnapshot().game;
+    expect(restored?.snapshot.accountId).toBe('1');
+    expect(restored?.snapshot.runes).toEqual([]);
+    expect(restored?.report.valid).toBe(true);
+    expect(store.getSnapshot().storageNotice).toBeNull();
+  });
+
+  it('keeps a reader tab from changing anything and says so after restore', async () => {
     const { repository, saved } = memoryRepository();
     const store = createWorkspaceStore(repository, fixedRole('reader').coordination);
     await store.restore();
-    await Promise.resolve();
+    expect(store.getSnapshot().storageNotice?.tone).toBe('warn');
     expect(store.changePreferences((current) => ({ ...current, hardwareAcceleration: false }))).toBe(false);
     await expect(store.importAccount(account)).rejects.toBeInstanceOf(WorkspaceReadOnly);
     expect(saved.game).toBeNull();
     expect(saved.preferences).toEqual([]);
     expect(store.getSnapshot().preferences).toEqual({ ...blankPreferences(), updatedAt: store.getSnapshot().preferences.updatedAt });
-    expect(store.getSnapshot().storageNotice?.tone).toBe('warn');
+  });
+  it('keeps saying tabs are uncoordinated after a successful save', async () => {
+    const { repository } = memoryRepository();
+    const store = createWorkspaceStore(repository, fixedRole('writer', false).coordination);
+    await store.restore();
+    expect(store.getSnapshot().storageNotice?.message).toMatch(/cannot coordinate/);
+    store.changePreferences((current) => ({ ...current, hardwareAcceleration: false }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(store.getSnapshot().storageNotice?.message).toMatch(/cannot coordinate/);
+  });
+});
+
+describe('stored game', () => {
+  it('costs a malformed lock only that lock, never the account', () => {
+    const restored = readStoredGame({ ...storedGame(account), runeLocks: 'not a lock map' });
+    expect(restored?.data).toEqual(account.data);
+    expect(restored?.runeLocks).toBeUndefined();
+  });
+
+  it('refuses an account whose capture facts are unreadable', () => {
+    expect(readStoredGame({ ...storedGame(account), coverage: { complete: true, misses: [{ command: 'x', cause: 'unread' }] } })).toBeNull();
+    expect(readStoredGame({ ...storedGame(account), coverage: undefined })).toBeNull();
+  });
+
+  it('refuses an account whose observation no longer passes the import contract', () => {
+    expect(readStoredGame({ ...storedGame(account), data: { unit_list: [] } })).toBeNull();
   });
 });

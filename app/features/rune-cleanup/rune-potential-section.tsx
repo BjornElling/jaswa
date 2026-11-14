@@ -18,7 +18,7 @@ import type { RuneHolds } from '../../domain/profiles/rune-holds';
 import { roleRuneSetNameList } from '../../domain/runes/rune-sets';
 import { formatDecimal } from '../../domain/shared/formatting';
 import { calculationBackendLabel, type CalculationBackend } from '../../domain/shared/calculation-summary';
-import { calculateRuneStatistics, cancelRuneStatistics, rememberedRuneStatistics } from '../../platform/compute/rune-statistics-client';
+import { calculateRuneStatistics, cancelRuneStatistics, rememberedRuneStatistics } from '../../workspace/jobs/rune-statistics-client';
 import { runeCalculationKey } from '../../domain/runes/rune-calculation-inputs';
 import type { RuneCleanupStatistics } from '../../domain/runes/cleanup/rune-cleanup-statistics';
 import { withRuneStatisticsProtection } from '../../domain/runes/cleanup/rune-cleanup-statistics';
@@ -516,7 +516,7 @@ function RoleEditor({ draft, isNew, onCancel, onSave }: {
           </div>
         </EditorBlock>
 
-        <EditorBlock title="Desired stats" note="Leave a stat empty — or enter 0 — to leave it unstated. DMG, E.HP and E.HP D follow from these and are not entered.">
+        <EditorBlock title="Desired stats" note="Leave a stat empty to leave it unstated; 0 is a stated target of nothing. DMG, E.HP and E.HP D follow from these and are not entered.">
           <div className="editor-targets">
             {roleStatTargetKeys.map((key) => {
               const column = roleTargetColumns.find((entry) => entry.key === key);
@@ -528,8 +528,12 @@ function RoleEditor({ draft, isNew, onCancel, onSave }: {
                   placeholder="—"
                   onChange={(event) => {
                     const raw = event.target.value.trim();
+                    if (raw === '') {
+                      updateTarget(key, undefined);
+                      return;
+                    }
                     const parsed = Number(raw);
-                    updateTarget(key, raw === '' || !Number.isFinite(parsed)
+                    updateTarget(key, !Number.isFinite(parsed)
                       ? undefined
                       : Math.min(roleTargetMaximum, Math.max(0, Math.round(parsed))));
                   }} />
@@ -561,4 +565,3 @@ function EditorBlock({ title, note, legend = false, children }: {
     {children}
   </section>;
 }
-

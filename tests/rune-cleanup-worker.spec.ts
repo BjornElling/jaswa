@@ -176,8 +176,8 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
 
   const outcomes = await page.evaluate(async () => {
     // The page resolves the URL through the dev server; the type comes from the source file.
-    const url: string = '/app/platform/compute/rune-advice-client.ts';
-    const client = await import(url) as typeof import('../app/platform/compute/rune-advice-client');
+    const url: string = '/app/workspace/jobs/rune-advice-client.ts';
+    const client = await import(url) as typeof import('../app/workspace/jobs/rune-advice-client');
     const request: import('../app/domain/runes/cleanup/rune-advice-protocol').RuneAdviceRequest = {
       runes: [], roles: [], base: new Map(), preferWebGpu: false,
       settings: {
@@ -212,9 +212,9 @@ test('a refresh reuses an idle worker and cannot cancel a concurrent whole calcu
         if (String(url).includes('rune-advice-worker')) constructed += 1;
       }
     };
-    const clientUrl: string = '/app/platform/compute/rune-advice-client.ts';
+    const clientUrl: string = '/app/workspace/jobs/rune-advice-client.ts';
     const settingsUrl: string = '/app/domain/profiles/preference-defaults.ts';
-    const client = await import(clientUrl) as typeof import('../app/platform/compute/rune-advice-client');
+    const client = await import(clientUrl) as typeof import('../app/workspace/jobs/rune-advice-client');
     const { defaultRunePotentialSettings } = await import(settingsUrl) as typeof import('../app/domain/profiles/preference-defaults');
     const request = { runes: [], roles: [], base: new Map(), preferWebGpu: false, settings: defaultRunePotentialSettings };
     const initial = await client.calculateRuneAdvice(request);
@@ -296,8 +296,8 @@ test('cancelling one worker request answers the others from a fresh worker', asy
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   const outcome = await page.evaluate(async () => {
-    const url: string = '/app/platform/cancellable-worker.ts';
-    const { cancellableWorker, isCalculationCancelled } = await import(url) as typeof import('../app/platform/cancellable-worker');
+    const url: string = '/app/workspace/jobs/cancellable-worker.ts';
+    const { cancellableWorker, isCalculationCancelled } = await import(url) as typeof import('../app/workspace/jobs/cancellable-worker');
     /* Answers every request after a pause, echoing its value back. */
     const source = `onmessage = (event) => setTimeout(() => postMessage({ type: 'result', requestId: event.data.requestId, result: event.data.value }), 200);`;
     let started = 0;

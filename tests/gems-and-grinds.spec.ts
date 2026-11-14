@@ -472,8 +472,8 @@ test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a s
     /* The memory is module state, so it is reached through the very URL the app
        loaded — after an edit the dev server serves it with a timestamp query. */
     const importer = await (await fetch('/app/features/rune-cleanup/use-rune-keepers.ts')).text();
-    const memoryPath = /["'](\/app\/platform\/compute\/rune-advice-memory\.ts[^"']*)["']/.exec(importer)?.[1]
-      ?? '/app/platform/compute/rune-advice-memory.ts';
+    const memoryPath = /["'](\/app\/workspace\/jobs\/rune-advice-memory\.ts[^"']*)["']/.exec(importer)?.[1]
+      ?? '/app/workspace/jobs/rune-advice-memory.ts';
     const runesPath = '/app/domain/runes/runes.ts';
     const { loadImportedGame } = await import(storagePath);
     const { blankPreferences } = await import(importsPath);

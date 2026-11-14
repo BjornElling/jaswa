@@ -8,11 +8,12 @@ import { RuneInnateLine, RuneSubLine } from '../../ui/gear/rune-sub-line';
 import { StarIcon } from '../../ui/star-icon';
 import { formatNumber } from '../../domain/shared/formatting';
 import { runeChanceText } from '../../domain/runes/cleanup/rune-cleanup-grid';
+import type { AccountSnapshot } from '../../domain/account/account-snapshot';
 import type { GameRecord } from '../../domain/account/game-record';
 import { monsterCopyNamesIn } from '../../domain/monsters/monster-names';
-import { usePresets } from '../../workspace/presets-context';
-import { runeAdviceChannel } from '../../platform/compute/rune-advice-client';
-import { rememberedRuneAdvice, rememberRuneAdvice } from '../../platform/compute/rune-advice-memory';
+import { usePresets } from '../../ui/presets-context';
+import { runeAdviceChannel } from '../../workspace/jobs/rune-advice-client';
+import { rememberedRuneAdvice, rememberRuneAdvice } from '../../workspace/jobs/rune-advice-memory';
 import { runeCalculationKey } from '../../domain/runes/rune-calculation-inputs';
 import { runeAdviceKey } from '../../domain/runes/cleanup/rune-cleanup-refresh';
 import { qualityThresholds, runeCraftSteps } from '../../domain/runes/cleanup/rune-cleanup-advice';
@@ -316,9 +317,10 @@ function BusyMark({ busy }: { busy: boolean }) {
   </span>;
 }
 
-export function RuneOverlay({ rune, game, profiles, general, settings, roles, hardwareAcceleration, hold, onHold, locked, onLock, onClose }: {
+export function RuneOverlay({ rune, game, snapshot, profiles, general, settings, roles, hardwareAcceleration, hold, onHold, locked, onLock, onClose }: {
   rune: Rune;
   game: GameRecord | undefined;
+  snapshot: AccountSnapshot | undefined;
   profiles: MonsterPreferences;
   general: GeneralSettings;
   settings: RunePotentialSettings;
@@ -337,9 +339,9 @@ export function RuneOverlay({ rune, game, profiles, general, settings, roles, ha
   const placements = usePresets();
   const placement = useMemo(() => placements.runes.get(rune.id) ?? emptyRunePlacement, [placements, rune.id]);
   const namesIn = useMemo(() => {
-    const units = Array.isArray(game?.unit_list) ? game.unit_list as GameRecord[] : [];
+    const units = snapshot?.monsters.map((entry) => entry.record) ?? [];
     return monsterCopyNamesIn(units, profiles, placements.presets);
-  }, [game, profiles, placements.presets]);
+  }, [snapshot, profiles, placements.presets]);
   const monsterName = (unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import';
   const { known, explained } = useRuneAdvice(rune, game, settings, roles, hardwareAcceleration);
   const maxCraft = maxCraftOf(known, explained, rune);

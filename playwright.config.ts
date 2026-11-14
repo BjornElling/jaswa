@@ -2,13 +2,15 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  /* The application deliberately holds one Web Lock per origin for the life of
-     a tab. Parallel browser workers would therefore make unrelated tests
-     readers of one another and turn a test-order detail into a fake product
-     failure. Multi-tab behaviour is covered explicitly in one test context. */
-  fullyParallel: false,
+  /* Web Locks are scoped to a browser context, and every test gets its own, so
+     the writer lock never crosses tests; the two-tab contract opens its second
+     tab in the same context on purpose. */
+  fullyParallel: true,
   preserveOutput: 'always',
-  workers: 1,
+  /* Each isolated browser calibrates the full mixed-grade rune funnel before
+     its first verdict. Two concurrent calibrations keep that CPU work realistic;
+     the wait covers the cold calculation, not a different interface contract. */
+  workers: 2,
   timeout: 90_000,
   expect: { timeout: 60_000 },
   use: {

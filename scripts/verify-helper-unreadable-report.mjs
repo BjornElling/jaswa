@@ -20,7 +20,8 @@ import { createVerificationServer as createServer } from './verification-server.
 const server = await createServer({ configFile: false, appType: 'custom', server: { middlewareMode: true } });
 
 try {
-  const { classifyHelperProfile, checkHelperConnection, helperStatusMessage, readHelperProfile } = await server.ssrLoadModule('/app/platform/helper-client.ts');
+  const { classifyHelperProfile, checkHelperConnection, readHelperProfile } = await server.ssrLoadModule('/app/platform/helper-client.ts');
+  const { helperStatusMessage } = await server.ssrLoadModule('/app/workspace/helper-status.ts');
 
   /** A minimal account the reader accepts, so a test can spoil one field at a time. */
   const account = (artifacts) => ({
@@ -117,12 +118,17 @@ try {
     assert.match(helperStatusMessage(await checkHelperConnection()), /could not load game data/,
       'a status nobody can place is still a report to save');
     globalThis.fetch = async () => new Response('{invalid');
+    /* A body that is not JSON came from a helper that answered: it is an answer
+       JASWA cannot read, never a helper that is not running. */
+    assert.equal((await checkHelperConnection()).state, 'unavailable');
+    assert.match((await checkHelperConnection()).detail, /not in any known language/);
+    assert.match((await readHelperProfile()).reason, /could not read the helper snapshot/);
+    globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
     /* A helper that cannot be reached still has to say so in a sentence the user
        can act on, and carry the raw reason an error report is made of. */
     assert.equal((await checkHelperConnection()).captureError, null);
     assert.match((await checkHelperConnection()).detail, /Helper is not running/);
     assert.match((await checkHelperConnection()).detail, /\(.+\)/);
-    assert.match((await readHelperProfile()).reason, /could not read the helper snapshot/);
     globalThis.fetch = async () => new Response('{}', { status: 503 });
     assert.match((await readHelperProfile()).reason, /HTTP 503/);
   } finally { globalThis.window = oldWindow; globalThis.fetch = oldFetch; }

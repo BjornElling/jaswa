@@ -24,7 +24,7 @@
  * Usage: node --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import { basename, join, sep } from 'node:path';
+import { join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { relicAdvice, relicOvertakeThresholds } from '../app/domain/relics/relic-advice.ts';
 /* Imported from the model itself, not through the advice module's re-exports:
@@ -425,14 +425,15 @@ check(worstSimulated < simulationBar,
    the wrong one would be whichever the reader happened to be looking at. The
    model is the single source of truth by rule, and this is the rule. */
 const modelModule = 'relic-power-up-model.ts';
-const allowedToHoldRates = new Set(['relic-properties.ts', modelModule]);
-/* Every layer that computes. The interface is left out on purpose: The Math quotes
-   the published table to explain it, which is reading a fact, not deriving one. */
+const allowedToHoldRates = new Set(['domain/relics/relic-properties.ts', 'domain/relics/relic-power-up-model.ts']);
+/* Every app layer is scanned. The Math is the one deliberate exception because it
+   quotes the published table to explain it; it is not another product reader. */
 const appDirectory = fileURLToPath(new URL('../app/', import.meta.url));
+const theMathPrefix = 'features/the-math/';
 const offenders = [];
 for (const entry of readdirSync(appDirectory, { recursive: true }).map((name) => String(name).split(sep).join('/'))) {
-  if (!/^(domain|ingest|workspace|platform)\//.test(entry)) continue;
-  if (!/\.tsx?$/.test(entry) || allowedToHoldRates.has(basename(entry))) continue;
+  if (entry.startsWith(theMathPrefix)) continue;
+  if (!/\.(ts|tsx|js|jsx|mjs)$/.test(entry) || allowedToHoldRates.has(entry)) continue;
   const source = readFileSync(join(appDirectory, entry), 'utf8');
   /* Naming the table in an import says nothing about what a file does with it,
      and an import list spans lines, so the whole statement goes before the scan

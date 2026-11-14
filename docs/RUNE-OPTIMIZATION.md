@@ -812,8 +812,11 @@ and keeps the previous table.
 Only parts with distinct tree work are launched. If several workers cannot be started or a
 search worker fails, the client retries the same prepared problem in one worker, reports
 that stage and keeps the depth and requirements. An unexpected failure of that single
-search is an error, recorded in the console; the previous table is kept. This recovery is
-independent of the rule deciding whether the card answers.
+search is an error, recorded in the console; the previous table is kept. After *Stop
+search* there is no retry: a part that fails then is dropped, and the table merges the builds
+the other parts had checked, marked incomplete — restarting would answer the user's stop
+with a search that stops at once and finds almost nothing. This recovery is independent of
+the rule deciding whether the card answers.
 
 **The parts share their bar.** A part whose table is full proves the merged table holds as
 many builds at or above its last row, because the parts' builds are distinct. So every rise

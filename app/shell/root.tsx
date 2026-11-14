@@ -7,11 +7,13 @@ import { browserWorkspaceRepository } from '../platform/browser-storage';
 import { createWriterCoordination } from '../platform/writer-coordination';
 import { PreferenceStoreUnreadable } from '../workspace/ports';
 import { createImportedGame, validateGameFile } from '../ingest/game-export';
-import { downloadJson, fileToText, importPreferencesFile } from '../platform/files';
-import { createWorkspaceStore, withoutPreset } from '../workspace/workspace-store';
-import { checkHelperConnection, helperStatusMessage, readHelperProfile, silentHelper } from '../platform/helper-client';
+import { downloadJson, fileToText } from '../platform/files';
+import { readPreferencesFile } from '../ingest/preferences';
+import { canEngraveUnder, createWorkspaceStore, withoutPreset } from '../workspace/workspace-store';
+import { checkHelperConnection, readHelperProfile, silentHelper } from '../platform/helper-client';
+import { helperStatusMessage } from '../workspace/helper-status';
+import { detectGraphicsCard } from '../platform/hardware-acceleration';
 import { formatDateTime } from '../domain/shared/formatting';
-import { accountCounts } from '../domain/account/account-counts';
 import { canChooseSaveFolder, chooseSaveFolder, forgetSaveFolder, loadSaveFolder, writeToSaveFolder } from '../platform/save-location';
 import type { DirectoryHandle } from '../platform/save-location';
 import type { ArtifactSettings, DirectImportMode, GeneralSettings, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from '../domain/model';
@@ -26,7 +28,7 @@ import type { MonsterCopyPreferences } from '../domain/profiles/monster-preferen
 import type { MonsterProfileScope } from '../domain/profiles/monster-profile-scope';
 import type { MonsterPriority } from '../domain/profiles/monster-priority';
 import { scenarioPresetId, engravings, readPresets, selectedPresetKey } from '../domain/placements/presets';
-import { PresetsContext } from '../workspace/presets-context';
+import { PresetsContext } from '../ui/presets-context';
 import { summarizeRunePlacement } from '../domain/placements/rune-placement';
 import type { OwnPreset, Preset } from '../domain/placements/presets';
 import type { PresetWrites } from '../features/presets/presets-section';
@@ -46,7 +48,13 @@ import type { OpenMonsterStatistics } from '../features/monsters/game-statistics
 import { useSessionStorageState, writeSessionValue } from '../ui/session-state';
 import { pageChoices, type Page, type ReportCategory } from '../workspace/workspace-config';
 import { createDirectImportController } from '../workspace/direct-import-controller';
+import { provideRuneSimulatorFactory, provideWorkerFactories } from '../workspace/jobs/worker-factories';
+import { featureWorkerFactories } from '../platform/feature-workers';
 
+/* The composition root: the one place workspace ports meet their browser adapters. */
+provideWorkerFactories(featureWorkerFactories);
+/* Loaded only in development, so the simulator's worker never enters a production build. */
+if (import.meta.env.DEV) void import('../platform/rune-simulator-factory').then(({ createRuneSimulatorWorker }) => provideRuneSimulatorFactory(createRuneSimulatorWorker));
 const workspaceStore = createWorkspaceStore(browserWorkspaceRepository, createWriterCoordination());
 const directImportController = createDirectImportController(silentHelper);
 
@@ -121,7 +129,9 @@ export default function Home() {
   const settingsInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     void workspaceStore.restore().then(() => {
-      if (workspaceStore.getSnapshot().restoreFailed.length) setMessage('JASWA could not read part of the saved workspace. Reload to try again.');
+      const restored = workspaceStore.getSnapshot();
+      if (restored.restoreFailed.length) setMessage('JASWA could not read part of the saved workspace. Reload to try again.');
+      else if (restored.gameRejected) setMessage('Your saved import no longer passes JASWA’s import checks, so it is not shown. Import your account again.');
     });
     /* The folder is a live handle rather than a path, so it is read from its
        own record instead of travelling in the preferences document. */
@@ -180,7 +190,7 @@ export default function Home() {
     return { presets, runes, artifacts: reading.artifacts };
   }, [presets]);
   /* JASWA changes the account only while no live sync would put the game's own back. */
-  const canEngrave = preferences.importRoute === 'file' || preferences.directImportMode === 'on-load';
+  const canEngrave = canEngraveUnder(preferences);
   /* The locks every page reads: only those that still hold against the placement
      on screen (`heldRuneLocks`). Live sync keeps them too — they shape the
      search, and the game is never asked to obey them. */
@@ -227,24 +237,17 @@ export default function Home() {
     directImportController.resetObservation();
   }
 
-  async function applyImport(imported: ImportedGame) {
-    const current = workspaceStore.getSnapshot();
-    if (imported.helperSession && current.preferences.importRoute !== 'direct') return false;
+  async function applyFileImport(imported: ImportedGame) {
     try {
       const next = await workspaceStore.importAccount(imported);
-      if (next === null) return false;
+      if (next === null) return;
       setImportConfirmation({ game: next, manual: false });
       setPendingGame(null);
       setMessage('');
-      return true;
+      forgetAppliedHelperImport();
     } catch {
       setMessage('JASWA could not save this import. Please try again.');
-      return false;
     }
-  }
-
-  async function applyFileImport(imported: ImportedGame) {
-    if (await applyImport(imported)) forgetAppliedHelperImport();
   }
 
   async function removeImport() {
@@ -257,9 +260,7 @@ export default function Home() {
     }
   }
 
-  /* A build is engraved in one preset and nowhere else. A preset built in JASWA
-     lives in the preferences, which no sync overwrites; Scenario and the game's
-     presets live in the import, which live sync would put back. */
+  /* The store's commands decide; the shell only says where the user acted. */
   async function engraveBuild(presetId: string, unitId: string, runeIds: readonly string[]): Promise<void> {
     try {
       await workspaceStore.engraveBuild(presetId, unitId, runeIds);
@@ -270,13 +271,6 @@ export default function Home() {
     }
   }
 
-  /**
-   * The one route from a Lock or Exclude control to storage, wherever it sits.
-   * A lock engraves the rune on the monster first where it is not there yet, so
-   * a lock always names a rune its monster carries, and an exclusion takes a rune
-   * the monster carries off it. The locks are written with the import — never
-   * the preferences — and only those still holding are kept.
-   */
   async function lockRune(presetId: string, unitId: string, runeId: string, lock: RuneLock | null): Promise<void> {
     try {
       await workspaceStore.lockRune(presetId, unitId, runeId, lock);
@@ -288,12 +282,10 @@ export default function Home() {
     }
   }
 
-  /* This is the sole route from a committed preference choice to both React and
-     persistent storage. The ref makes rapid, consecutive changes build on the
-     latest choice before React has rendered; browser-storage writes them in the
-     same order and mirrors each one synchronously. */
+  /* Every preference choice goes through the store's one route, which applies it
+     to the latest choices and says on its own notice when this tab may not write. */
   function changePreferences(change: (current: Preferences) => Preferences) {
-    if (!workspaceStore.changePreferences(change)) setMessage('JASWA is open in another tab. This tab cannot change the workspace yet.');
+    workspaceStore.changePreferences(change);
   }
 
   /* The preset the opener is about is the overlay's own, and leaves the one
@@ -319,7 +311,8 @@ export default function Home() {
      each closes it. */
   const openSpeedTeam: OpenSpeedTeamOverlay = (presetId, opener) => {
     speedTeamOpener.current = opener;
-    setSpeedTeam(presetId);  };
+    setSpeedTeam(presetId);
+  };
 
   const openMonsterStatistics: OpenMonsterStatistics = (masterId, opener) => {
     statisticsOpener.current = opener;
@@ -599,20 +592,16 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const next = await importPreferencesFile(file);
+      const next = readPreferencesFile(await fileToText(file), workspaceStore.getSnapshot().game);
       try {
         const result = await workspaceStore.replacePreferences(next);
         setMessage(result.mirrorSaved
           ? 'Your preferences were loaded.'
           : 'Your preferences were loaded, but their quick recovery copy could not be saved.');
       } catch (error) {
-        {
-          const failure = error instanceof PreferenceStoreUnreadable
-            ? 'Reload to read your saved preferences before changing them.'
-            : 'JASWA could not save these preferences. Please try again.';
-          setMessage(failure);
-          return;
-        }
+        setMessage(error instanceof PreferenceStoreUnreadable
+          ? 'Reload to read your saved preferences before changing them.'
+          : 'JASWA could not save these preferences. Please try again.');
       }
     } catch {
       setMessage('JASWA could not read this settings file. Please choose a .sw file exported from JASWA.');
@@ -627,7 +616,7 @@ export default function Home() {
 
   function sendReport() {
     if (!report) return;
-    const counts = game ? accountCounts(game.data) : null;
+    const counts = game?.snapshot.counts ?? null;
     const diagnostics = [
       `Page: ${page}`,
       `Import route: ${preferences.importRoute}`,
@@ -682,11 +671,12 @@ export default function Home() {
         importRoute={preferences.importRoute}
         onImportRoute={updateImportRoute}
         helperConnection={helperConnection}
+        detectGraphicsCard={detectGraphicsCard}
         general={preferences.general}
       />}
 
-      {page === 'monster-stats' && <Suspense fallback={<WorkspaceLoading />}><MonsterStats monsters={monsters} gameData={game?.data ?? {}} presets={presets} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
-      {page === 'monster-numbers' && <Suspense fallback={<WorkspaceLoading />}><MonsterNumbers monsters={monsters} gameData={game?.data ?? {}} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+      {page === 'monster-stats' && <Suspense fallback={<WorkspaceLoading />}><MonsterStats monsters={monsters} gameData={game?.data ?? {}} snapshot={game?.snapshot} presets={presets} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+      {page === 'monster-numbers' && <Suspense fallback={<WorkspaceLoading />}><MonsterNumbers monsters={monsters} snapshot={game?.snapshot} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
@@ -718,6 +708,7 @@ export default function Home() {
       {page === 'artifacts' && <Suspense fallback={<WorkspaceLoading />}><ArtifactsSection
         settings={preferences.artifacts}
         data={game?.data}
+        snapshot={game?.snapshot}
         monsters={monsters}
         scenarioProfiles={profilesIn(preferences.monsterPreferences, scenarioPresetId)}
         general={preferences.general}
@@ -855,6 +846,7 @@ export default function Home() {
     {overlay?.kind === 'monster' && <Suspense fallback={null}><MonsterOverlay
       target={overlay.target}
       game={game?.data}
+      snapshot={game?.snapshot}
       general={preferences.general}
       profiles={preferences.monsterPreferences}
       onSave={updateMonsterPreferences}
@@ -875,6 +867,7 @@ export default function Home() {
     {overlayRune && <Suspense fallback={null}><RuneOverlay
       rune={overlayRune}
       game={game?.data}
+      snapshot={game?.snapshot}
       profiles={preferences.monsterPreferences}
       general={preferences.general}
       settings={preferences.runePotential}

@@ -1,4 +1,8 @@
-/** Worker construction stays at the browser boundary; each feature retains its scheduling policy. */
+import type { WorkerFactories } from '../workspace/jobs/worker-factories';
+
+/* Worker construction stays at the browser boundary: a bundled worker URL is
+   transport, and the job clients in `app/workspace/jobs/` receive these
+   through the shell. */
 export function createCraftRecommendationWorker(): Worker {
   return new Worker(new URL('./compute/craft-recommendation-worker.ts', import.meta.url), { type: 'module' });
 }
@@ -26,3 +30,14 @@ export function createRuneOptimizationWorker(): Worker {
 export function createRuneStatisticsWorker(): Worker {
   return new Worker(new URL('./compute/rune-statistics-worker.ts', import.meta.url), { type: 'module' });
 }
+
+/** Every production worker, as the shell hands them to the job clients. The simulator's is added in development only. */
+export const featureWorkerFactories: WorkerFactories = {
+  artifactScore: createArtifactScoreWorker,
+  craftRecommendation: createCraftRecommendationWorker,
+  runeAdvice: createRuneAdviceWorker,
+  runeCalibration: createRuneCalibrationWorker,
+  runeOptimization: createRuneOptimizationWorker,
+  runeOptimizationWork: createRuneOptimizationWorkWorker,
+  runeStatistics: createRuneStatisticsWorker,
+};

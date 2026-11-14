@@ -7,7 +7,7 @@ import { monsterPresentation } from '../../domain/monsters/monster-catalog';
 import { monsterCopyNames } from '../../domain/monsters/monster-names';
 import { profilesIn } from '../../domain/profiles/monster-preferences';
 import type { MonsterPreferences } from '../../domain/profiles/monster-preferences';
-import { warmMonsterPortraits } from '../../domain/monsters/monster-portrait-image';
+import { warmMonsterPortraits } from '../../ui/gear/monster-portrait-image';
 import { choiceOfArea, choiceOfTab } from '../../domain/placements/preset-choice';
 import type { PresetChoice, ResolvedPresetChoice } from '../../domain/placements/preset-choice';
 import type { PresetMenuTab } from '../../domain/placements/presets';

@@ -1,4 +1,4 @@
-import type { ImportedGame, Preferences } from '../domain/model';
+import type { Preferences, StoredGame } from '../domain/model';
 
 export type HelperMiss = { command: string; cause: 'encrypted' | 'unread' };
 export type HelperConnection = {
@@ -43,7 +43,7 @@ export type WorkspaceRepository = {
   loadPreferences(): Promise<unknown>;
   /** Whether the stored preferences were read, so a write cannot erase choices only the database holds. */
   canSavePreferences(): boolean;
-  saveGame(game: ImportedGame): Promise<void>;
+  saveGame(game: StoredGame): Promise<void>;
   clearGame(): Promise<void>;
   /**
    * Mirror first, then the database in order. `rebase` re-applies the same change
@@ -51,7 +51,7 @@ export type WorkspaceRepository = {
    */
   savePreferences(preferences: Preferences, rebase?: (current: Preferences) => Preferences): Promise<void>;
   /** The account and preferences committed in one transaction (`LOCAL-PERSISTENCE-CONTRACT.md`). */
-  saveGamePair(game: ImportedGame, before: Preferences, after: Preferences): Promise<{ preferences: Preferences; mirrorSaved: boolean }>;
+  saveGamePair(game: StoredGame, before: Preferences, after: Preferences): Promise<{ preferences: Preferences; mirrorSaved: boolean }>;
 };
 
 /**
@@ -64,6 +64,8 @@ export type WriterCoordination = {
   ready(): Promise<WriterRole>;
   /** The current role, including a reader becoming the writer after takeover. */
   getRole(): WriterRole | null;
+  /** False where this browser cannot coordinate tabs, so a second tab would write over this one unseen. */
+  isCoordinated(): boolean;
   /** Called when the role changes after `ready`, with the new role. */
   onRoleChange(listener: (role: WriterRole) => void): () => void;
   /** Tells the other tabs that committed state changed, without sending the state itself. */

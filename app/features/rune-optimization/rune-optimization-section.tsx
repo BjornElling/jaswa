@@ -29,7 +29,7 @@ import { SortMark } from '../../ui/sortable-table';
 import { WorkspacePage } from '../../ui/workspace-page';
 import { useRuneOptimizationWork } from './use-rune-optimization-work';
 import { runeOptimizationFinishedWarning, runeOptimizationWorkWarning } from '../../domain/runes/optimization/rune-optimization-work';
-import { cancelRuneOptimization, optimizeRuneBuilds, stopRuneOptimization } from '../../platform/compute/rune-optimization-client';
+import { cancelRuneOptimization, optimizeRuneBuilds, stopRuneOptimization } from '../../workspace/jobs/rune-optimization-client';
 import type { RuneOptimizationAnswer, RuneOptimizationPhase } from '../../domain/runes/optimization/rune-optimization-protocol';
 import { formatNumber } from '../../domain/shared/formatting';
 import type { GeneralSettings } from '../../domain/model';
@@ -54,10 +54,9 @@ import { accountItems, scenarioPresetId, monsterInPreset, runesInPreset } from '
 import { noTeamBonuses, rosterOf, teamBonusesFor } from '../../domain/combat/team-leads';
 import { elementAdvantageHeld } from '../../domain/combat/element-advantage';
 import type { Preset } from '../../domain/placements/presets';
-import { readBuildingBonuses } from '../../domain/account/account-buildings';
 import { runeLockOf, runeLockScope, runeLocksFor } from '../../domain/placements/rune-locks';
 import type { RuneLock, RuneLocks } from '../../domain/placements/rune-locks';
-import { craftRollAssumptions, craftRollLabels, itemGrades, readCraftItems } from '../../domain/runes/craft/rune-craft-items';
+import { craftRollAssumptions, craftRollLabels, itemGrades } from '../../domain/runes/craft/rune-craft-items';
 import type { CraftItem, CraftRollAssumption } from '../../domain/runes/craft/rune-craft-items';
 import { estimateRuneOptimizationBuilds, figureIndex } from '../../domain/runes/optimization/rune-optimization-problem';
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../../domain/runes/optimization/rune-optimization-problem';
@@ -75,7 +74,7 @@ import { referenceLines } from '../../domain/reference/rune-reference-stats';
 import { runeSlotMainByEffect, runeSlotMainsBySlot } from '../../domain/runes/rune-slot-mains';
 import { activeRuneSets, elementName } from '../../domain/runes/rune-sets';
 import { runeBuildName } from '../../domain/runes/rune-set-pairs';
-import { readRune, readRunes } from '../../domain/runes/runes';
+import { readRune } from '../../domain/runes/runes';
 import type { Rune } from '../../domain/runes/runes';
 import { useSessionStorageState } from '../../ui/session-state';
 import { runeOptimizationTableColumns, columnClasses, sortMarkSide } from '../../ui/table-layouts';
@@ -97,6 +96,8 @@ import type { ImportedGame, ItemGrade, Preferences } from '../../domain/model';
  */
 
 const slotNumbers: Record<RuneSlotKey, number> = { slot2: 2, slot4: 4, slot6: 6 };
+const noRunes: readonly Rune[] = [];
+const noCraftItems: readonly CraftItem[] = [];
 
 /** The eleven figures under the words the profile uses for them. */
 const figureLabels: Readonly<Record<RankFigure, string>> = Object.fromEntries(
@@ -298,7 +299,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const edited = edits !== null && edits.unitId === unitId && edits.presetId === activePresetId;
   /* The account's buildings enter the composites here as they do on the Monsters
      page and in the overlay, so a build's DMG is the figure those pages show. */
-  const buildings = useMemo(() => readBuildingBonuses(game?.data), [game]);
+  const buildings = game?.snapshot.buildings;
   const requirements = useMemo(() => {
     const draft = edited ? edits.requirements : profile?.requirements;
     return draft ? {
@@ -316,7 +317,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const question = useMemo(() => (requirements ? askable(requirements) : undefined), [requirements]);
   const unranked = requirements !== undefined && question === undefined;
 
-  const accountRunes = useMemo(() => (game ? readRunes(game.data) : []), [game]);
+  const accountRunes = game?.snapshot.runes ?? noRunes;
   const runes = useMemo(() => (preset ? runesInPreset(accountRunes, preset) : []), [accountRunes, preset]);
   /* A member's runes in the preset are the preset's to say, so a rune its Scenario
      owner does not carry here is unengraved in the game's preset list, however it
@@ -335,7 +336,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   const locks = useMemo(() => (preset && unitId !== '' ? runeLocksFor(runeLocks, runeLockScope(preset), unitId) : {}),
     [preset, unitId, runeLocks]);
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
-  const craftItems = useMemo(() => (game ? readCraftItems(game.data) : []), [game]);
+  const craftItems = game?.snapshot.craftItems ?? noCraftItems;
   const itemsById = useMemo(() => new Map(craftItems.map((item) => [item.id, item])), [craftItems]);
   const alwaysCrits = requirements?.alwaysCrits ?? false;
 

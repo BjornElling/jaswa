@@ -43,7 +43,7 @@ try {
       const { prepareRuneOptimization, estimateRuneOptimizationBuilds } = await import('/app/domain/runes/optimization/rune-optimization-problem.ts');
       const { trialRuneOptimizationWork, runeOptimizationWorkWarning } = await import('/app/domain/runes/optimization/rune-optimization-work.ts');
       const { timeRuneBuildSearch } = await import('/app/platform/compute/rune-optimization-engine.ts');
-      const { optimizeRuneBuilds, searchWorkerCount } = await import('/app/platform/compute/rune-optimization-client.ts');
+      const { optimizeRuneBuilds, searchWorkerCount } = await import('/app/workspace/jobs/rune-optimization-client.ts');
       const start = performance.now();
       const problem = prepareRuneOptimization(input);
       const preparationMs = performance.now() - start;

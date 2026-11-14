@@ -8,13 +8,18 @@
  * reaches a procedure through a neighbour.
  *
  * Usage: node scripts/verify-import-graph.mjs [--list]
+ * Set JASWA_IMPORT_GRAPH_ROOT to an app directory to check an isolated source
+ * tree without changing the repository being checked.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, posix, relative, resolve } from 'node:path';
 import ts from 'typescript';
 
-const root = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/([a-zA-Z]:)/, '$1')), '..');
-const toRepo = (file) => relative(root, file).split('\\').join('/');
+const repositoryRoot = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/([a-zA-Z]:)/, '$1')), '..');
+const appRoot = resolve(process.env.JASWA_IMPORT_GRAPH_ROOT ?? join(repositoryRoot, 'app'));
+const rootPrefix = 'app/';
+const toGraphPath = (file) => rootPrefix + relative(appRoot, file).split('\\').join('/');
+const fromGraphPath = (file) => join(appRoot, file.slice(rootPrefix.length));
 
 function walk(directory) {
   return readdirSync(directory).flatMap((name) => {
@@ -23,25 +28,51 @@ function walk(directory) {
   });
 }
 
-const sources = walk(join(root, 'app')).filter((file) => /\.(ts|tsx)$/.test(file) && !/\.d\.ts$/.test(file)).map(toRepo);
-const known = new Set(walk(join(root, 'app')).map(toRepo));
-const candidates = ['', '.ts', '.tsx', '.json', '.css', '/index.ts', '/index.tsx'];
+const sources = walk(appRoot)
+  .filter((file) => /\.(ts|tsx|js|jsx|mjs)$/.test(file) && !/\.d\.ts$/.test(file))
+  .map(toGraphPath);
+const known = new Set(walk(appRoot).map(toGraphPath));
+const candidates = [
+  '', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.json', '.css',
+  '/index.ts', '/index.tsx', '/index.js', '/index.jsx', '/index.mjs',
+];
 
-function resolveSpecifier(from, specifier) {
+function resolveSpecifier(from, specifier, line) {
   if (!specifier.startsWith('.')) return null;
   const base = posix.normalize(posix.join(posix.dirname(from), specifier.replace(/\?.*$/, '')));
   for (const extension of candidates) if (known.has(base + extension)) return base + extension;
-  throw new Error(`${from}: cannot resolve ${specifier}`);
+  throw new Error(`${from}:${line}: cannot resolve ${specifier}`);
 }
+
+
+const rootEntries = new Set(['app/main.tsx']);
+const isTest = (file) => /\.test\.(ts|tsx|js|jsx|mjs)$/.test(file);
+const isStringSpecifier = (node) => ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
+const lineOf = (source, node) => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+const isReactPackage = (specifier) => specifier === 'react' || specifier.startsWith('react/')
+  || specifier === 'react-dom' || specifier.startsWith('react-dom/');
 
 /** Every module a file depends on, with whether the dependency exists only for types. */
 function dependencies(file) {
-  const text = readFileSync(join(root, file), 'utf8');
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const text = readFileSync(fromGraphPath(file), 'utf8');
+  const scriptKind = file.endsWith('.tsx') ? ts.ScriptKind.TSX
+    : file.endsWith('.jsx') ? ts.ScriptKind.JSX
+      : /\.(js|jsx|mjs)$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, scriptKind);
   const found = [];
-  const add = (specifier, typeOnly) => {
-    const target = resolveSpecifier(file, specifier);
+  const problems = [];
+  const add = (specifier, typeOnly, node) => {
+    const line = lineOf(source, node);
+    const target = resolveSpecifier(file, specifier, line);
     if (target) found.push({ target, typeOnly });
+    else if (!isTest(file) && (layerOf(file) === 'domain' || layerOf(file) === 'ingest')) {
+      problems.push(`${file}:${line}: ${layerOf(file)} may not import package '${specifier}'`);
+    } else if (!isTest(file) && layerOf(file) === 'workspace' && isReactPackage(specifier)) {
+      problems.push(`${file}:${line}: workspace may not import package '${specifier}'`);
+    }
+  };
+  const nonLiteralImport = (node) => {
+    problems.push(`${file}:${lineOf(source, node)}: dynamic import specifier must be a string literal`);
   };
   const visit = (node) => {
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
@@ -49,28 +80,33 @@ function dependencies(file) {
       const typeOnly = Boolean(clause?.isTypeOnly || (clause && !clause.name && clause.namedBindings
         && ts.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.length > 0
         && clause.namedBindings.elements.every((element) => element.isTypeOnly)));
-      add(node.moduleSpecifier.text, typeOnly);
+      add(node.moduleSpecifier.text, typeOnly, node);
     } else if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-      add(node.moduleSpecifier.text, node.isTypeOnly);
-    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword
-      && node.arguments[0] && ts.isStringLiteral(node.arguments[0])) {
-      add(node.arguments[0].text, false);
+      add(node.moduleSpecifier.text, node.isTypeOnly, node);
+    } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const argument = node.arguments[0];
+      if (argument && ts.isStringLiteral(argument)) add(argument.text, false, node);
+      else nonLiteralImport(node);
+    } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+      /* `import x = require(...)` is CommonJS interop this ESM project never
+         uses; refusing the form outright leaves one import syntax to check. */
+      problems.push(`${file}:${lineOf(source, node)}: import = require(...) is not allowed`);
     } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) && ts.isStringLiteral(node.argument.literal)) {
-      add(node.argument.literal.text, true);
+      add(node.argument.literal.text, true, node);
     } else if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'URL'
-      && node.arguments?.[0] && ts.isStringLiteral(node.arguments[0]) && node.arguments[1]?.getText(source) === 'import.meta.url') {
-      add(node.arguments[0].text, false);
+      && node.arguments?.[0] && isStringSpecifier(node.arguments[0]) && node.arguments[1]?.getText(source) === 'import.meta.url') {
+      add(node.arguments[0].text, false, node);
     }
     ts.forEachChild(node, visit);
   };
   visit(source);
-  return found;
+  return { edges: found, problems };
 }
 
-/** `app/<layer>/...`; the composition entry and root files count as the shell. */
+/** `app/<layer>/...`; only explicitly named root entries count as the shell. */
 function layerOf(file) {
   const parts = file.split('/');
-  if (parts.length === 2) return 'shell';
+  if (parts.length === 2) return rootEntries.has(file) ? 'shell' : null;
   return parts[1];
 }
 
@@ -80,7 +116,8 @@ const allowed = {
   workspace: ['workspace', 'domain', 'ingest', 'data'],
   platform: ['platform', 'domain', 'ingest', 'workspace', 'data'],
   ui: ['ui', 'domain', 'data', 'styles'],
-  features: ['features', 'ui', 'workspace', 'domain', 'data', 'styles', 'platform'],
+  /* A feature reaches the platform only through workspace ports the shell wires (§22.3). */
+  features: ['features', 'ui', 'workspace', 'domain', 'data', 'styles'],
   shell: ['shell', 'features', 'ui', 'workspace', 'domain', 'ingest', 'platform', 'data', 'styles'],
   data: ['data'],
   styles: ['styles'],
@@ -90,21 +127,32 @@ const allowed = {
 const procedures = ['app/domain/runes/cleanup/', 'app/domain/runes/craft-advice/', 'app/domain/runes/optimization/', 'app/domain/runes/simulator/'];
 const procedureOf = (file) => procedures.find((prefix) => file.startsWith(prefix));
 const featureOf = (file) => file.startsWith('app/features/') ? file.split('/')[2] : null;
-const isTest = (file) => /\.test\.tsx?$/.test(file);
 
-const graph = new Map(sources.map((file) => [file, dependencies(file)]));
 const problems = [];
+const graph = new Map();
+for (const file of sources) {
+  const layer = layerOf(file);
+  if (!layer) problems.push(`${file}: root app file is not classified; add it to rootEntries only if it is a genuine entry`);
+  const result = dependencies(file);
+  graph.set(file, result.edges);
+  problems.push(...result.problems);
+}
 for (const [file, edges] of graph) {
   if (isTest(file)) continue;
   const layer = layerOf(file);
   const permitted = allowed[layer];
-  if (!permitted) { problems.push(`${file}: unknown layer '${layer}'`); continue; }
+  if (!permitted) {
+    if (layer !== null) problems.push(`${file}: unknown layer '${layer}'`);
+    continue;
+  }
   for (const { target } of edges) {
     const targetLayer = layerOf(target);
-    if (!permitted.includes(targetLayer)) problems.push(`${file} → ${target}: ${layer} may not import ${targetLayer}`);
+    if (!targetLayer) problems.push(`${file} → ${target}: target is an unclassified root app file`);
+    else if (!permitted.includes(targetLayer)) problems.push(`${file} → ${target}: ${layer} may not import ${targetLayer}`);
     const sourceFeature = featureOf(file);
     const targetFeature = featureOf(target);
-    if (sourceFeature && targetFeature && sourceFeature !== targetFeature && !target.endsWith('/public.ts')) {
+    const isExactFeaturePublic = /^app\/features\/[^/]+\/public\.ts$/.test(target);
+    if (sourceFeature && targetFeature && sourceFeature !== targetFeature && !isExactFeaturePublic) {
       problems.push(`${file} → ${target}: a feature may use another feature only through its public.ts`);
     }
     const targetProcedure = procedureOf(target);
@@ -151,7 +199,7 @@ function connect(file) {
 for (const file of graph.keys()) if (!index.has(file)) connect(file);
 for (const cycle of cycles) problems.push(`import cycle: ${cycle.join(' ↔ ')}`);
 
-if (!existsSync(join(root, 'app/main.tsx'))) problems.push('app/main.tsx is missing');
+if (!existsSync(join(appRoot, 'main.tsx'))) problems.push('app/main.tsx is missing');
 if (problems.length) {
   console.error(`Import graph: ${problems.length} problem(s).`);
   for (const problem of problems) console.error(`  ${problem}`);

@@ -1,6 +1,7 @@
 import { validateGameFile } from '../ingest/game-export';
 import { helperUpdateAvailable, isHelperVersion, recommendedHelperVersion } from '../domain/shared/helper-version';
 import type { HelperConnection, HelperMiss, HelperProfileResult } from '../workspace/ports';
+import { outdatedHelper } from '../workspace/helper-status';
 export type { HelperConnection, HelperMiss, HelperProfile, HelperProfileResult, HelperSessionIdentity } from '../workspace/ports';
 
 const helperOrigin = 'http://127.0.0.1:37654';
@@ -12,9 +13,6 @@ const helperOrigin = 'http://127.0.0.1:37654';
  * reader JASWA has yet to write.
  */
 
-/* The Rift Raid result is the one encrypted answer seen so far, and the user
-   knows it as rewards, not as a command name. */
-const raidResultCommand = 'BattleRiftOfWorldsRaidResult';
 
 /* The helper's own list, one entry per miss; a command named once is enough
    to know which part of the game to go and model. `null` when the list is not
@@ -31,43 +29,6 @@ function readMissedChanges(value: unknown): HelperMiss[] | null {
   return misses;
 }
 
-/** Three named, the rest counted. */
-function nameSome(names: readonly string[]): string {
-  return `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}`;
-}
-
-/**
- * The gap notice's two lines. An unread command is JASWA's to fix and an
- * encrypted one the game's limit, and each sentence names only its own kind:
- * one sentence explaining the other's commands read as if a sale of summoning
- * pieces were a Rift Raid reward.
- */
-export function missedChangesNotice(misses: readonly HelperMiss[]): { gap: string; next: string } | null {
-  if (!misses.length) return null;
-  const unread = [...new Set(misses.filter((miss) => miss.cause === 'unread').map((miss) => miss.command))];
-  const sealed = [...new Set(misses.filter((miss) => miss.cause === 'encrypted').map((miss) => miss.command))];
-  const sealedNames = nameSome(sealed.map((command) => command === raidResultCommand ? 'Rift Raid rewards' : `${command} answers`));
-  if (!unread.length) {
-    return { gap: `${sealedNames} are encrypted on purpose by the game’s developer — a deliberate limit no JASWA update can get around.`,
-      next: 'Everything else keeps arriving. Restart Summoners War after your runs to load them.' };
-  }
-  const read = `The helper cannot read ${nameSome(unread)} yet — a JASWA update can fix that.`;
-  return { gap: sealed.length ? `${read} ${sealedNames} were missed too: the game’s developer encrypts them on purpose.` : read,
-    next: 'Everything else keeps arriving. Restart Summoners War for a complete import.' };
-}
-
-/* The opening words of the one refusal an update cures, so the Home card and
-   the corner notice can tell it from a helper that is broken. */
-const outdatedHelper = 'This helper is older than JASWA';
-
-/** Keep socket evidence in diagnostics; the Home card needs a next step. */
-export function helperStatusMessage(connection: HelperConnection): string {
-  if (connection.state !== 'unavailable') return connection.detail;
-  if (connection.detail.startsWith('Helper is not running.')) return 'Helper is not running. Open it and try again.';
-  if (connection.detail.startsWith(outdatedHelper)) return 'This helper is older than JASWA. Update it, then start it again.';
-  if (connection.detail.startsWith('Gateway exchange failed:')) return 'Connection to the game was interrupted. Try Restart helper. Check its status for any missing game data.';
-  return 'The helper could not load game data. Save an error report in the helper, then restart it and the game.';
-}
 
 async function localFetch(path: string) {
   const controller = new AbortController();
@@ -93,7 +54,10 @@ export async function checkHelperConnection(): Promise<HelperConnection> {
        own window learns an update exists without a request of its own. */
     const response = await localFetch(`/health?latest=${recommendedHelperVersion}`);
     if (!response.ok) return { ...silentHelper, state: 'unavailable', detail: `The helper goblin answered, but only in grunts (HTTP ${response.status}). Open the helper and save an error report.` };
-    const value = await response.json() as unknown;
+    /* A body that is not JSON came from a helper that answered, so it is read as
+       an unreadable answer below, never as a helper that is not running. */
+    let value: unknown = null;
+    try { value = await response.json(); } catch { value = null; }
     const reportedVersion = isRecord(value) && value.running === true && isHelperVersion(value.version) ? value.version : null;
     const knownUpdate = reportedVersion !== null && helperUpdateAvailable(reportedVersion);
     /* Returned, not thrown: the catch below is for a helper that could not be

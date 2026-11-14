@@ -17,20 +17,22 @@ class TestWorker {
 }
 
 describe('job runtime', () => {
-  it('holds the last result and makes cancellation observable', async () => {
+  it('lets the latest question win and honours the caller signal', async () => {
     const workers: TestWorker[] = [];
     const runtime = createJobRuntime<{ value: number }, number>(() => {
       const worker = new TestWorker(); workers.push(worker); return worker as unknown as Worker;
     }, 'start failed');
     const first = runtime.run({ value: 1 });
-    workers[0].emit('message', { data: { type: 'result', requestId: workers[0].messages[0].requestId, result: 7 } });
-    await expect(first).resolves.toBe(7);
-    expect(runtime.getState()).toMatchObject({ activity: 'idle', result: 7, progress: 1 });
-
     const second = runtime.run({ value: 2 });
-    runtime.cancel();
-    await expect(second).rejects.toBeInstanceOf(CalculationCancelled);
-    expect(runtime.getState()).toMatchObject({ activity: 'stopped', result: 7, error: null });
+    await expect(first).rejects.toBeInstanceOf(CalculationCancelled);
+    const live = workers.at(-1)!;
+    live.emit('message', { data: { type: 'result', requestId: live.messages.at(-1)!.requestId, result: 20 } });
+    await expect(second).resolves.toBe(20);
+
+    const controller = new AbortController();
+    const third = runtime.run({ value: 3 }, controller.signal);
+    controller.abort();
+    await expect(third).rejects.toBeInstanceOf(CalculationCancelled);
   });
 
   it('keeps independent fan-out requests alive when concurrency is explicit', async () => {
@@ -42,6 +44,5 @@ describe('job runtime', () => {
     worker.emit('message', { data: { type: 'result', requestId: worker.messages[0].requestId, result: 10 } });
     await expect(first).resolves.toBe(10);
     await expect(second).resolves.toBe(20);
-    expect(runtime.getState().activity).toBe('idle');
   });
 });

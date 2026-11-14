@@ -4,7 +4,7 @@ import { FilterButton } from '../../ui/button';
 import { CalculationActions, CalculationNote } from '../../ui/calculation-actions';
 import { CalculationStatus } from '../../ui/calculation-status';
 import { useCancellableRun } from '../../ui/use-cancellable-run';
-import { isCalculationCancelled } from '../../platform/cancellable-worker';
+import { isCalculationCancelled } from '../../workspace/jobs/cancellable-worker';
 import { SettledCalculation } from '../../ui/settled-calculation';
 import { Dropdown } from '../../ui/dropdown';
 import { ConvertedArtifactMark } from '../../ui/gear/converted-artifact-mark';
@@ -12,17 +12,16 @@ import { UnrefinedArtifactMark } from '../../ui/gear/unrefined-artifact-mark';
 import { SortableHeader } from '../../ui/sortable-table';
 import { useSortedRows } from '../../ui/use-sorted-rows';
 import { columnClasses } from '../../ui/table-layouts';
-import { calculateArtifactScores } from '../../platform/compute/artifact-score-client';
+import { calculateArtifactScores } from '../../workspace/jobs/artifact-score-client';
 import { combineCalculationBackends } from '../../domain/shared/calculation-summary';
 import type { CalculationBackend } from '../../domain/shared/calculation-summary';
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../../domain/artifacts/score/artifact-score-input';
 import { ConversionList } from './conversion-list';
-import { engravedStonesFor, isWorthwhileGain, scoringSettings } from '../../domain/artifacts/artifact-recommendations';
+import { isWorthwhileGain, scoringSettings } from '../../domain/artifacts/artifact-recommendations';
 import { useAutoRecalculate } from '../../ui/use-auto-recalculate';
 import type { SortableColumn } from '../../ui/use-sorted-rows';
 import { artifactCategoryLabel, artifactEngraveClassLabel, artifactValueTint, displaySubProperty } from '../../domain/artifacts/artifact-grid';
 import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder, artifactIntangibleLabel, artifactMainPropertyOrder } from '../../domain/artifacts/artifact-properties';
-import { readArtifacts } from '../../domain/artifacts/artifacts';
 import { formatNumber } from '../../domain/shared/formatting';
 import { monsterPresentation } from '../../domain/monsters/monster-catalog';
 import { monsterSpeciesId } from '../../domain/monsters/monster-identity';
@@ -32,6 +31,8 @@ import type { MonsterProfiles } from '../../domain/profiles/monster-preferences'
 import { monsterNameCollator } from '../../domain/monsters/monster-grid';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../../domain/artifacts/artifact-properties';
 import type { ArtifactMaximumScore } from '../../domain/artifacts/score/artifact-score-protocol';
+import type { Artifact } from '../../domain/artifacts/artifacts';
+import type { EngravedConversionStone } from '../../domain/artifacts/artifact-conversion-stones';
 import type { GameRecord } from '../../domain/account/game-record';
 import type { MonsterArchetype } from '../../domain/monsters/monster-catalog';
 import type { ArtifactSettings, GeneralSettings } from '../../domain/model';
@@ -85,7 +86,7 @@ const optionPartSeparator = '\u2002·\u2002';
 const optionRestrictionSeparator = '\u2002/\u2002';
 const optionSubstatSeparator = '\u2002|\u2002';
 
-function artifactSortKey(artifact: ReturnType<typeof readArtifacts>[number]): string {
+function artifactSortKey(artifact: Artifact): string {
   return [
     artifactCategoryLabel(artifact.category), artifactEngraveClassLabel(artifact), artifact.mainProperty,
     ...artifact.subProperties.map((property) => `${property.definition.name} ${property.valueHundredths}`),
@@ -137,8 +138,10 @@ function ResultCard({ title, description, children, empty }: {
   </section>;
 }
 
-export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
+export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
   data: GameRecord;
+  artifacts: readonly Artifact[];
+  stones: readonly EngravedConversionStone[];
   monsters: readonly GameRecord[];
   scenarioProfiles: MonsterProfiles;
   settings: ArtifactSettings;
@@ -148,8 +151,6 @@ export function BestMonsterForArtifact({ data, monsters, scenarioProfiles, setti
   const [filters, setFilters] = useState<ArtifactFilters>(defaultFilters);
   const [calculation, setCalculation] = useState<Calculation | undefined>();
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
-  const artifacts = useMemo(() => readArtifacts(data), [data]);
-  const stones = useMemo(() => engravedStonesFor(data), [data]);
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();
     for (const artifact of artifacts) {

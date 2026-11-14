@@ -1,6 +1,8 @@
 import { filterIncludes, filterPair } from '../../domain/shared/filter-selection';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createCraftRecommendationWorker } from '../../platform/feature-workers';
+import { askCraftRecommendations, CraftWorkerCrashed } from '../../workspace/jobs/craft-recommendation-client';
+import type { CraftRecommendationJob } from '../../workspace/jobs/craft-recommendation-client';
+import { isCalculationCancelled } from '../../workspace/jobs/cancellable-worker';
 import type { ReactNode } from 'react';
 import { AncientName } from '../../ui/gear/ancient-mark';
 import { Button, FilterButton, InlineButton, LabelSwap } from '../../ui/button';
@@ -17,7 +19,7 @@ import { formatDecimal, formatNumber } from '../../domain/shared/formatting';
 import type { GameRecord } from '../../domain/account/game-record';
 import { monsterCopyNamesIn } from '../../domain/monsters/monster-names';
 import { emptyRunePlacement, hasRunePlacement } from '../../domain/placements/rune-placement';
-import { usePresets } from '../../workspace/presets-context';
+import { usePresets } from '../../ui/presets-context';
 import type { MonsterPreferences } from '../../domain/profiles/monster-preferences';
 import { craftKindLabels, craftLineageLabels, craftRollLabels, craftRollAssumptions,
   craftSetLabel, missingCraftItems } from '../../domain/runes/craft/rune-craft-items';
@@ -34,7 +36,6 @@ import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, C
 import { grindLines, grindPlan, craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
   desirableGemStats, extendCraftCalculation, heldCraftBenchmark, reconcileCraftCalculation,
   isHeldCraft, onDesirableGemStat, runeAsItStands, wantedCraftItems } from '../../domain/runes/craft-advice/rune-craft-recommendations';
-import type { CraftRecommendationResponse } from '../../domain/runes/craft-advice/craft-recommendation-protocol';
 import { useRuneKeepers } from '../rune-cleanup/public';
 import { craftIgnoreKey } from '../../domain/profiles/craft-ignores';
 import type { CraftIgnore } from '../../domain/profiles/craft-ignores';
@@ -112,14 +113,14 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     items, missing, runes, roles, base, settings, roll: state.roll, preferGpu: hardwareAcceleration,
   } : null, [base, items, missing, runes, roles, settings, state.roll, hardwareAcceleration]);
   const calculationKey = useMemo(() => request ? craftCalculationKey(request) : '', [request]);
-  const worker = useRef<Worker | null>(null);
-  const workerRequest = useRef<CraftRecommendationRequest | null>(null);
+  const job = useRef<CraftRecommendationJob | null>(null);
+  const jobRequest = useRef<CraftRecommendationRequest | null>(null);
   const [work, setWork] = useState<{ request: CraftRecommendationRequest; busy: boolean; progress: number; error?: string } | null>(null);
   const current = work?.request === request ? work : null;
   useEffect(() => () => {
     // A late cleanup of an older question must not terminate its replacement.
-    if (workerRequest.current !== request) return;
-    worker.current?.terminate(); worker.current = null; workerRequest.current = null;
+    if (jobRequest.current !== request) return;
+    job.current?.cancel(); job.current = null; jobRequest.current = null;
   }, [request]);
   /* Reconciliation plans the next answer. It must not publish a partial one:
      a changed rune can still lead the same ranking once its new answer is in. */
@@ -129,7 +130,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   /* The question a cancel stopped, so the account-change extension below does
      not start the very work the user just cancelled. */
   const [stopped, setStopped] = useState<CraftRecommendationRequest | null>(null);
-  function stop() { worker.current?.terminate(); worker.current = null; workerRequest.current = null; setWork(null); }
+  function stop() { job.current?.cancel(); job.current = null; jobRequest.current = null; setWork(null); }
   function clear() { stop(); onCalculated(null); }
   /* Leaves the stored answer alone: whatever stood before Calculate stands again. */
   function cancel() { stop(); setStopped(request); }
@@ -139,35 +140,24 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
    */
   function run(request: CraftRecommendationRequest, asks: readonly CraftRecommendationRequest[],
     settle: (results: CraftRecommendations[]) => CraftCalculation) {
-    worker.current?.terminate();
-    const running = createCraftRecommendationWorker();
-    worker.current = running;
-    workerRequest.current = request;
+    job.current?.cancel();
+    const started = askCraftRecommendations(asks, (progress) =>
+      setWork((previous) => previous?.request === request ? { ...previous, progress } : previous));
+    job.current = started;
+    jobRequest.current = request;
     setWork({ request, busy: true, progress: 0 });
-    const results: CraftRecommendations[] = [];
-    running.onmessage = (event: MessageEvent<CraftRecommendationResponse>) => {
-      if (worker.current !== running) return;
-      const message = event.data;
-      if (message.type === 'progress') {
-        const progress = (results.length + message.fraction) / asks.length;
-        setWork((previous) => previous?.request === request ? { ...previous, progress } : previous);
-        return;
-      }
-      if (message.type === 'result') results.push(message.result);
-      if (message.type === 'result' && results.length < asks.length) { running.postMessage(asks[results.length]); return; }
-      setWork({ request, busy: false, progress: 1,
-        ...(message.type === 'error' ? { error: message.message } : {}) });
-      if (message.type === 'result') onCalculated(settle(results));
-      running.terminate(); worker.current = null; workerRequest.current = null;
-    };
-    running.onerror = () => {
-      if (worker.current !== running) return;
-      setWork({ request, busy: false, progress: 0, error: 'The craft worker could not finish. Try calculating again.' });
-      running.terminate(); worker.current = null; workerRequest.current = null;
-    };
-    running.postMessage(asks[0]);
-  }
-  function calculate() {
+    void started.result.then((results) => {
+      if (job.current !== started) return;
+      job.current = null; jobRequest.current = null;
+      setWork({ request, busy: false, progress: 1 });
+      onCalculated(settle(results));
+    }, (error: unknown) => {
+      if (job.current !== started || isCalculationCancelled(error)) return;
+      job.current = null; jobRequest.current = null;
+      setWork({ request, busy: false, progress: error instanceof CraftWorkerCrashed ? 0 : 1,
+        error: error instanceof Error ? error.message : new CraftWorkerCrashed().message });
+    });
+  }  function calculate() {
     if (!request) return;
     run(request, [request], ([result]) => ({ key: calculationKey,
       items: [...request.items, ...request.missing].map(craftItemKey), runes: request.runes.map(craftRuneKey), result }));

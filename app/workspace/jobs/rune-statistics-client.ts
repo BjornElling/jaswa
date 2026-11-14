@@ -1,4 +1,4 @@
-import { createRuneStatisticsWorker } from '../feature-workers';
+import { workerFactories } from './worker-factories';
 /**
  * The one way from Rune Settings to its fixed synthetic statistics.
  *
@@ -27,7 +27,7 @@ const waiting = new Map<number, (outcome: RuneStatisticsOutcome) => void>();
 
 function statisticsWorker(): Worker {
   if (worker) return worker;
-  worker = createRuneStatisticsWorker();
+  worker = workerFactories().runeStatistics();
   return worker;
 }
 

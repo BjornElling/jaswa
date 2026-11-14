@@ -65,7 +65,7 @@ function readRunePotentialSettings(value: unknown, fallback: RunePotentialSettin
 }
 
 const preferenceSections = [
-  'updatedAt', 'hardwareAcceleration', 'importRoute', 'directImportMode', 'general',
+  'hardwareAcceleration', 'importRoute', 'directImportMode', 'general',
   'monsterPreferences', 'runeHolds', 'craftIgnores', 'craftViews', 'runePotential', 'runeRoles', 'artifacts', 'speedTuning',
   'monsterPriority', 'presets', 'presetPriority', 'runeOptimization', 'relicSynergy',
 ] as const satisfies readonly (keyof Preferences)[];
@@ -122,3 +122,14 @@ export function isPreferencesDocument(value: unknown): boolean {
   return isRecord(value) && (preferenceSections.some((section) => section in value) || formerRuneRolesKey in value);
 }
 
+/**
+ * A `.sw` file's text read as preferences, through the same readers and against
+ * the same account as a restore, so a preset that restore would refuse is
+ * refused here too rather than on the next reload. Throws when the text is not
+ * a preferences document at all.
+ */
+export function readPreferencesFile(text: string, game: ImportedGame | null): Preferences {
+  const value = JSON.parse(text) as unknown;
+  if (!isPreferencesDocument(value)) throw new Error('Invalid JASWA preferences file');
+  return { ...readPreferences(value, game), updatedAt: new Date().toISOString() };
+}

@@ -11,20 +11,75 @@ import type { RuneOptimizationSettings } from './profiles/rune-optimization-sett
 import type { RerollRule } from './runes/rune-reapp-targets';
 import type { RuneRole } from './profiles/rune-roles';
 import type { SpeedTuningPreferences } from './profiles/speed-tuning-preferences';
-import type { AccountSnapshot } from './account/account-snapshot';
+import type { AccountSnapshot, CaptureCoverage } from './account/account-snapshot';
 import type { LocalAccountChanges } from './account/local-account-changes';
 
-export type ImportReport = { valid: boolean; message: string; knownSections: string[]; unknownMonsterIds: string[] };
+export type ImportIssueCode =
+  | 'not-an-object'
+  | 'missing-core-lists'
+  | 'unreadable-monster'
+  | 'unreadable-rune'
+  | 'two-intangibles-on-one-monster'
+  | 'unreadable-deck-preset'
+  | 'unreadable-shrine-monster'
+  | 'monster-in-two-places'
+  | 'invalid-account-identity'
+  | 'foreign-monster'
+  | 'unreadable-engraved-rune'
+  | 'unreadable-engraved-artifact'
+  | 'unreadable-engraved-relic'
+  | 'rune-engraved-twice'
+  | 'artifact-engraved-twice'
+  | 'rune-misplaced'
+  | 'artifact-misplaced'
+  | 'unreadable-artifact'
+  | 'unreadable-relic'
+  | 'relic-engraving'
+  | 'unreadable-conversion-stone'
+  | 'unreadable-craft-item'
+  | 'unreadable-buildings';
+export type ImportIssue = {
+  code: ImportIssueCode;
+  collection: string;
+  sourcePath: string;
+  /** The identifier field `entityId` was read from, so a message can name it. */
+  field?: string;
+  entityId?: string;
+  explanation: string;
+};
+export type ImportReport = {
+  valid: boolean;
+  message: string;
+  knownSections: string[];
+  unknownMonsterIds: string[];
+  issues: readonly ImportIssue[];
+};
 export type HelperSession = { instanceId: string; sessionId: number };
+/**
+ * What is stored of an accepted import: the observation, the facts about how it
+ * was captured, and the local choices made against it. Everything derivable from
+ * these — the typed snapshot and the import report — is derived again on restore
+ * (`AGENTS.md` §6), so a stored copy can never disagree with its own data.
+ */
+export type StoredGame = {
+  fileName: string; importedAt: string; data: Record<string, unknown>; helperSession?: HelperSession;
+  /** Which account changes the helper saw and could not read; a fact of the capture, not of the data. */
+  coverage: CaptureCoverage;
+  localChanges?: LocalAccountChanges;
+  runeLocks?: RuneLocks;
+};
 export type ImportedGame = {
-  fileName: string; importedAt: string; data: Record<string, unknown>; snapshot: AccountSnapshot; report: ImportReport; helperSession?: HelperSession;
+  fileName: string; importedAt: string; data: Record<string, unknown>; helperSession?: HelperSession;
+  coverage: CaptureCoverage;
+  /** Derived from `data` at the ingestion boundary and never stored. */
+  snapshot: AccountSnapshot;
+  /** Derived from `data` at the ingestion boundary and never stored. */
+  report: ImportReport;
   /**
-   * Where each rune JASWA has moved since this import sat when it was loaded,
-   * by preset id: the monster's `unit_id`, or `null` where the preset had it on
-   * none. Written by an engrave, the first time a rune moves in that preset,
-   * and never again, so a rune moved twice still names where the game had it.
-   * Absent on every fresh import, file or helper alike — the account is then
-   * where the game says, and nothing has moved.
+   * What was done locally against this import (`local-account-changes.ts`):
+   * where each moved rune sat when its preset was first observed, and which game
+   * presets were removed. Absent on every fresh import, file or helper alike —
+   * the account is then where the game says, and nothing has moved.
    */
   localChanges?: LocalAccountChanges;
   /** The runes locked to and excluded from monsters since this import (`rune-locks.ts`); absent on every fresh import except a live revision of the same account, which carries them. */

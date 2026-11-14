@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { runeAdviceChannel } from '../../platform/compute/rune-advice-client';
-import { rememberedRuneAdviceFor, rememberRuneAdvice } from '../../platform/compute/rune-advice-memory';
-import type { RuneAdviceInputs } from '../../platform/compute/rune-advice-memory';
+import { runeAdviceChannel } from '../../workspace/jobs/rune-advice-client';
+import { rememberedRuneAdviceFor, rememberRuneAdvice } from '../../workspace/jobs/rune-advice-memory';
+import type { RuneAdviceInputs } from '../../workspace/jobs/rune-advice-memory';
 import { calculatedRuneVerdict } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import type { RuneAdvice } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import { runeCalculationKey } from '../../domain/runes/rune-calculation-inputs';

@@ -1,11 +1,10 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { Ref, RefObject } from 'react';
-import { accountCounts } from '../../domain/account/account-counts';
 import type { GeneralSettings, ImportedGame } from '../../domain/model';
 import { formatDateTime, formatNumber } from '../../domain/shared/formatting';
 import { recommendedHelperVersion } from '../../domain/shared/helper-version';
-import { missedChangesNotice } from '../../platform/helper-client';
-import type { HelperMiss } from '../../platform/helper-client';
+import { missedChangesNotice } from '../../workspace/helper-status';
+import type { HelperMiss } from '../../workspace/ports';
 import { HelperDownload } from './helper-download';
 import { Button } from '../../ui/button';
 
@@ -15,7 +14,7 @@ export function ImportBadge({ game, general, ref }: {
   /** Handed out so the cards hanging under it can measure what they have to clear. */
   ref?: Ref<HTMLElement>;
 }) {
-  const counts = useMemo(() => accountCounts(game.data), [game]);
+  const counts = game.snapshot.counts;
   return <aside ref={ref} className="import-badge live" data-notice-tone="good" aria-label="Imported game data">
     <p className="import-badge-count">
       {formatNumber(counts.monsters, general)} monsters · {formatNumber(counts.runes, general)} runes
@@ -281,7 +280,7 @@ function MissedChangesNotice({ gap, next, ref }: { gap: string; next: string; re
 }
 
 function ImportConfirmation({ game, general, ref }: { game: ImportedGame; general: GeneralSettings; ref: Ref<HTMLElement> }) {
-  const counts = useMemo(() => accountCounts(game.data), [game]);
+  const counts = game.snapshot.counts;
   return <aside ref={ref} className="import-confirmation" data-notice-tone="good" role="status" aria-live="polite"
     aria-label="Game data loaded correctly">
     <p className="corner-notice-title">

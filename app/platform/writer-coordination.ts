@@ -16,12 +16,13 @@ const settleAfter = 1_500;
  * A browser without Web Locks cannot coordinate tabs at all; this tab then writes,
  * and the store says plainly that a second tab would compete with it.
  */
-export function createWriterCoordination(): WriterCoordination & { supported: boolean } {
+export function createWriterCoordination(): WriterCoordination {
   const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
   const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(channelName) : null;
   const roleListeners = new Set<(role: WriterRole) => void>();
   const commitListeners = new Set<() => void>();
   let role: WriterRole | null = null;
+  let coordinated = Boolean(locks);
   let settle: (role: WriterRole) => void = () => {};
   const settled = new Promise<WriterRole>((resolve) => { settle = resolve; });
 
@@ -48,15 +49,17 @@ export function createWriterCoordination(): WriterCoordination & { supported: bo
       become('writer');
       return new Promise<never>(() => {});
     }).catch(() => {
+      /* A refused lock request coordinates nothing: this tab writes, and says so. */
       clearTimeout(timer);
+      coordinated = false;
       become('writer');
     });
   }
 
   return {
-    supported: Boolean(locks),
     ready: () => settled,
     getRole: () => role,
+    isCoordinated: () => coordinated,
     onRoleChange(listener) {
       roleListeners.add(listener);
       return () => roleListeners.delete(listener);

@@ -14,7 +14,7 @@ import type { MonsterCopyName } from '../../domain/monsters/monster-names';
 import type { PresetColumn } from '../../domain/placements/preset-contents';
 import { accountItems, presetGroupLabel } from '../../domain/placements/presets';
 import type { Preset } from '../../domain/placements/presets';
-import { readSkyTribeTotem } from '../../domain/account/account-buildings';
+import type { SkyTribeTotem } from '../../domain/account/account-buildings';
 import { monstersByUnitId, presetTeam } from '../../domain/speed/speed-team';
 import { totemMaximumLevel } from '../../domain/speed/speed-tick';
 import { outOfPlaceCount, readSpeedTeam } from '../../domain/speed/speed-tuning-analysis';
@@ -142,6 +142,7 @@ const columns: readonly { id: PresetColumn; title: string; empty: string }[] = [
   { id: 'arena', title: 'Arena', empty: 'No arena presets.' },
   { id: 'other', title: 'Other presets', empty: 'No other presets.' },
 ];
+const noSkyTribeTotem: SkyTribeTotem = { state: 'unknown' };
 
 export function SpeedTuningSection({ game, monsters, preferences, presets, onWrite, onOpenTeam }: {
   game: ImportedGame | null;
@@ -157,7 +158,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, onWri
 
   const monsterById = useMemo(() => monstersByUnitId(monsters), [monsters]);
   const items = useMemo(() => accountItems(game?.data), [game]);
-  const totem = useMemo(() => readSkyTribeTotem(game?.data), [game]);
+  const totem = game?.snapshot.skyTribeTotem ?? noSkyTribeTotem;
   const totemShare = totem.state === 'built' ? totem.percent : 0;
 
   /* Every preset with monsters, as a team. Each reading runs the clock for the
@@ -239,7 +240,7 @@ function SpeedHeader() {
  * and is read where that monster or team is.
  */
 function SpeedBasis({ totem, general }: {
-  totem: ReturnType<typeof readSkyTribeTotem>;
+  totem: SkyTribeTotem;
   general: Preferences['general'];
 }) {
   const level = totem.state === 'built' ? `Level ${totem.level} of ${totemMaximumLevel}`

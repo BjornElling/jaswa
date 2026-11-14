@@ -6,7 +6,7 @@ import { referenceLines } from '../app/domain/reference/rune-reference-stats.ts'
 import { readRunes } from '../app/domain/runes/runes.ts';
 import { runeCalculationKey, runeCalculationKeyForRune } from '../app/domain/runes/rune-calculation-inputs.ts';
 import { calculateRuneCleanupStatistics, withRuneStatisticsProtection } from '../app/domain/runes/cleanup/rune-cleanup-statistics.ts';
-import { rememberRuneAdvice, rememberedRuneAdvice } from '../app/platform/compute/rune-advice-memory.ts';
+import { rememberRuneAdvice, rememberedRuneAdvice } from '../app/workspace/jobs/rune-advice-memory.ts';
 
 const account = JSON.parse(readFileSync(new URL('../tests/fixtures/craft-account.json', import.meta.url), 'utf8'));
 const base = new Map([...referenceLines(account)].map(([type, line]) => [type, line.stats]));

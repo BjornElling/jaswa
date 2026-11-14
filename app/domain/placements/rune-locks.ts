@@ -74,6 +74,13 @@ export function runeLocksFor(locks: RuneLocks, scope: string, unitId: string): R
 }
 
 /** Every rune locked to a monster anywhere, which Rune Clean-up keeps whatever it reads the rune as. */
+/** How many Lock and Exclude choices are stated; `heldRuneLocks` only removes, so a smaller count means it changed something. */
+export function runeLockCount(locks: RuneLocks): number {
+  let count = 0;
+  for (const byUnit of Object.values(locks)) for (const byRune of Object.values(byUnit)) count += Object.keys(byRune).length;
+  return count;
+}
+
 export function lockedRuneIds(locks: RuneLocks): ReadonlySet<string> {
   const ids = new Set<string>();
   for (const byUnit of Object.values(locks)) for (const byRune of Object.values(byUnit)) {

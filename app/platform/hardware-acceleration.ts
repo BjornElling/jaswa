@@ -17,18 +17,11 @@
 /* Typed here rather than pulled from a package: the whole of WebGPU is one
    method and two fields away, and everything else in `@webgpu/types` would be
    dependency for its own sake. Only what is actually read is declared. */
+import type { AccelerationStatus } from '../workspace/acceleration-status';
+
 type GpuAdapterInfo = { vendor?: string; architecture?: string; device?: string; description?: string };
 type GpuAdapter = { info?: GpuAdapterInfo; requestAdapterInfo?: () => Promise<GpuAdapterInfo> };
 type Gpu = { requestAdapter: (options?: { powerPreference?: 'low-power' | 'high-performance' }) => Promise<GpuAdapter | null> };
-
-/**
- * `checking` is the state the page opens in, not a transient to be skipped:
- * asking the card for an adapter is asynchronous, and a box that showed
- * "unavailable" for one frame first would be wrong before it was right.
- */
-export type AccelerationState = 'checking' | 'disabled' | 'ready' | 'unavailable';
-
-export type AccelerationStatus = { state: AccelerationState; adapterName: string; detail: string };
 
 /**
  * The card's model, lifted out of a WebGL renderer string.
@@ -172,9 +165,3 @@ export async function detectGraphicsCard(): Promise<AccelerationStatus> {
     };
   }
 }
-
-export const disabledStatus: AccelerationStatus = {
-  state: 'disabled',
-  adapterName: 'Not connected',
-  detail: 'Switched off. Calculations run on the processor.',
-};

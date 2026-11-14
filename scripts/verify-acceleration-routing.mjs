@@ -27,7 +27,8 @@
  *    whole arrangement exists to make visible.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
+import ts from 'typescript';
 
 const root = process.cwd();
 const compute = join('app', 'platform', 'compute');
@@ -71,22 +72,55 @@ function everyFile(directory) {
   for (const entry of readdirSync(directory)) {
     const path = join(directory, entry);
     if (statSync(path).isDirectory()) found.push(...everyFile(path));
-    else if (/\.(ts|tsx)$/.test(entry)) found.push(path);
+    else if (/\.(ts|tsx|js|jsx|mjs)$/.test(entry)) found.push(path);
   }
   return found;
 }
 
 const offences = [];
 const workers = [];
+const expectedWorkerNames = new Set();
+const sourceByName = new Map();
+
+function workerTargets(path, source) {
+  const scriptKind = path.endsWith('.tsx') ? ts.ScriptKind.TSX
+    : path.endsWith('.jsx') ? ts.ScriptKind.JSX : ts.ScriptKind.TS;
+  const parsed = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, scriptKind);
+  const targets = [];
+  const visit = (node) => {
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'Worker') {
+      const url = node.arguments?.[0];
+      if (url && ts.isNewExpression(url) && ts.isIdentifier(url.expression) && url.expression.text === 'URL'
+        && url.arguments?.[0] && (ts.isStringLiteral(url.arguments[0]) || ts.isNoSubstitutionTemplateLiteral(url.arguments[0]))
+        && url.arguments[1]?.getText(parsed) === 'import.meta.url') {
+        targets.push(relative(root, resolve(dirname(path), url.arguments[0].text)).split('/').join(sep));
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parsed);
+  return targets;
+}
+
 for (const path of everyFile(join(root, 'app'))) {
   const name = relative(root, path).split('/').join(sep);
-  const source = code(readFileSync(path, 'utf8'));
+  const rawSource = readFileSync(path, 'utf8');
+  const source = code(rawSource);
+  sourceByName.set(name, source);
+  for (const target of workerTargets(path, rawSource)) expectedWorkerNames.add(target);
   if (/\brequestAdapter\b|\brequestDevice\b/.test(source) && !deviceOwners.has(name)) {
     offences.push(`${name} asks the browser for a graphics device of its own`);
   }
-  /* The request client also ends in -worker.ts; it forwards results on the
-     page and owns no calculation or engine report. */
-  if (name.endsWith('-worker.ts') && name !== join('app', 'platform', 'cancellable-worker.ts')) workers.push({ name, source });
+}
+
+if (expectedWorkerNames.size === 0) offences.push('no worker target was found under app/platform');
+for (const name of expectedWorkerNames) {
+  const source = sourceByName.get(name);
+  if (source === undefined) {
+    offences.push(`expected worker target is missing: ${name}`);
+  } else {
+    workers.push({ name, source });
+  }
 }
 
 const rule = code(readFileSync(join(root, decisionOwner), 'utf8'));
@@ -121,5 +155,6 @@ if (offences.length > 0) {
   process.exit(1);
 }
 
-console.log(`PASS: one module opens a device, one weighs the setting, and all ${workers.length - processorOnlyWorkers.size}`
+const cardWorkers = workers.filter(({ name }) => !processorOnlyWorkers.has(name));
+console.log(`PASS: one module opens a device, one weighs the setting, and all ${cardWorkers.length}`
   + ` workers with a card path report the engine that answered (${processorOnlyWorkers.size} processor-only).`);

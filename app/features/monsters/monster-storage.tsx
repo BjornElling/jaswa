@@ -22,7 +22,7 @@ import {
 } from '../../domain/monsters/monster-grid';
 import { columnClasses, storageTableColumns } from '../../ui/table-layouts';
 import { elementName, elementNameList } from '../../domain/runes/rune-sets';
-import { normalShrineRecords, summonedShrineRecords } from '../../domain/account/sealed-shrine-storage';
+import type { AccountSnapshot } from '../../domain/account/account-snapshot';
 import type { Preferences } from '../../domain/model';
 import { useSessionStorageState } from '../../ui/session-state';
 
@@ -208,14 +208,15 @@ function mergeStorageRows(rows: readonly StorageMonsterRow[]): StorageMonsterRow
    lists, so the table lists what the badge counts and nothing else
    (`AGENTS.md` §0.1). Ordinary Monster Storage stays on the game's
    `building_id` marker. */
-function storageEntries(gameData: GameRecord): Array<{ record: GameRecord; location: ShrineLocation; index: number }> {
+function storageEntries(snapshot: AccountSnapshot | undefined): Array<{ record: GameRecord; location: ShrineLocation; index: number }> {
+  if (!snapshot) return [];
   return [
-    ...summonedShrineRecords(gameData).map((record) => ({ record, location: 'sealed-summoned' as const })),
-    ...normalShrineRecords(gameData).map((record) => ({ record, location: 'sealed-normal' as const })),
+    ...snapshot.summonedShrine.map(({ record }) => ({ record, location: 'sealed-summoned' as const })),
+    ...snapshot.normalShrine.map(({ record }) => ({ record, location: 'sealed-normal' as const })),
   ].map((entry, index) => ({ ...entry, index }));
 }
 
-/* A summoned stack states its copies; `summonedShrineRecords` has already left
+/* A summoned stack states its copies; the snapshot has already left
    out every stack that holds none, so its quantity is used as it stands. Every
    other record is one monster. */
 function storageEntryQuantity(record: GameRecord, location: StorageLocation): number {
@@ -317,9 +318,9 @@ function storageSkillProgress(row: StorageMonsterRow): number | null {
 
 const storageCell = columnClasses(storageColumns);
 
-export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster }: {
+export function MonsterStorage({ monsters, snapshot, preferences, onOpenMonster }: {
   monsters: GameRecord[];
-  gameData: GameRecord;
+  snapshot: AccountSnapshot | undefined;
   preferences: Preferences;
   onOpenMonster: OpenMonsterOverlay;
 }) {
@@ -333,7 +334,7 @@ export function MonsterStorage({ monsters, gameData, preferences, onOpenMonster 
     minimumQuantityEnabled, minimumQuantity,
   } = filters;
 
-  const shrineEntries = useMemo(() => storageEntries(gameData), [gameData]);
+  const shrineEntries = useMemo(() => storageEntries(snapshot), [snapshot]);
   const rows = useMemo<StorageMonsterRow[]>(() => mergeStorageRows([
     /* Storage and Inventory are the game's two places a monster on the account
        can be, so the same list yields both: the `building_id` marker decides

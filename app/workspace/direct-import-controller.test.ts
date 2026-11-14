@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { silentHelper } from '../platform/helper-client';
 import type { ImportedGame } from '../domain/model';
-import type { AccountSnapshot } from '../domain/account/account-snapshot';
 import type { HelperConnection, HelperProfileResult } from './ports';
 import { createDirectImportController, type DirectImportConfig } from './direct-import-controller';
 
 const account: ImportedGame = {
-  fileName: 'helper.json', importedAt: '2026-11-14T10:00:00.000Z', data: { wizard_id: 7 }, snapshot: {} as AccountSnapshot,
-  report: { valid: true, message: 'Ready to import.', knownSections: [], unknownMonsterIds: [] },
+  fileName: 'helper.json', importedAt: '2026-11-14T10:00:00.000Z', data: { wizard_id: 7 }, coverage: { complete: true, misses: [] }, snapshot: {} as ImportedGame['snapshot'],
+  report: { valid: true, message: 'Ready to import.', knownSections: [], unknownMonsterIds: [], issues: [] },
 };
 
 function connection(revision = 1): HelperConnection {

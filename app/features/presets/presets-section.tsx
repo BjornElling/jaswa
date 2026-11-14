@@ -5,7 +5,7 @@ import { Dropdown } from '../../ui/dropdown';
 import { FigureMarks } from '../../ui/figure-marks';
 import { ArrowIcon, RemoveIcon } from '../../ui/list-icons';
 import { MonsterLink } from '../../ui/gear/monster-link';
-import { warmMonsterPortraits } from '../../domain/monsters/monster-portrait-image';
+import { warmMonsterPortraits } from '../../ui/gear/monster-portrait-image';
 import type { OpenMonsterOverlay } from '../../ui/gear/monster-link';
 import type { OpenSpeedTeamOverlay } from './preset-speed-team-overlay';
 import { isSpeedTeam } from '../../domain/profiles/speed-tuning-preferences';
@@ -32,7 +32,6 @@ import { gamePresetHasRoom } from '../../domain/placements/game-preset-edits';
 import { accountItems, monsterInPreset, newOwnPresetId, presetMenu } from '../../domain/placements/presets';
 import type { OwnPreset, Preset } from '../../domain/placements/presets';
 import { resolvePresetChoice } from '../../domain/placements/preset-choice';
-import { normalShrineRecords } from '../../domain/account/sealed-shrine-storage';
 import type { PresetChoice } from '../../domain/placements/preset-choice';
 import type { ImportedGame, Preferences } from '../../domain/model';
 
@@ -137,7 +136,7 @@ export function PresetsSection({ game, monsters, preferences, presets, selectedI
   const areaContent = area.content;
   /* A member resting in the Normal Sealed Shrine is in the import but not on
      the roster any page reads: it is named rather than called absent. */
-  const shrineNames = useMemo(() => new Map(normalShrineRecords(game?.data).map((unit) =>
+  const shrineNames = useMemo(() => new Map((game?.snapshot.normalShrine ?? []).map(({ record: unit }) =>
     [String(unit.unit_id), monsterPresentation(unit.unit_master_id).name])), [game]);
   const warnings = preset ? presetWarnings(preset, shrineNames) : '';
   const suggestedName = areaContent === null ? ''

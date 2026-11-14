@@ -1,4 +1,4 @@
-import { readBuildingBonuses } from '../../domain/account/account-buildings';
+import type { AccountSnapshot } from '../../domain/account/account-snapshot';
 import { monsterProfileAreas, monsterProfileAreaName } from '../../domain/profiles/monster-profile-scope';
 import type { MonsterProfileScope } from '../../domain/profiles/monster-profile-scope';
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,13 +22,12 @@ import { Overlay, OverlayAction } from '../../ui/overlay';
 import { PencilIcon } from '../../ui/pencil-icon';
 import type { MonsterReference } from '../../ui/gear/monster-link';
 import type { Artifact } from '../../domain/artifacts/artifacts';
-import { usePresets } from '../../workspace/presets-context';
+import { usePresets } from '../../ui/presets-context';
 import { accountItems, scenarioPresetId, monsterInPreset } from '../../domain/placements/presets';
 import { noTeamBonuses, rosterOf, teamBonusesFor } from '../../domain/combat/team-leads';
 import { elementAdvantageHeld } from '../../domain/combat/element-advantage';
 import { AreaLines, LeadFields, TeamLeads } from './fight-conditions';
 import { areaFacts } from '../../domain/reference/area-facts';
-import { readArtifacts } from '../../domain/artifacts/artifacts';
 import { artifactSkillAccuracy } from '../../domain/artifacts/artifact-skill-accuracy';
 import type { ArtifactCategory, ArtifactMainProperty } from '../../domain/artifacts/artifact-properties';
 import { artifactCategoryLabels, artifactMainPropertyOrder, artifactPropertiesFor } from '../../domain/artifacts/artifact-properties';
@@ -51,7 +50,6 @@ import type { Shortfall } from '../../domain/monsters/monster-shortfall';
 import { monsterShortfalls } from '../../domain/monsters/monster-shortfall';
 import { completedTeamSets, isStatFigure, monsterStatSheet } from '../../domain/combat/monster-stats';
 import type { Relic } from '../../domain/relics/relics';
-import { readRelics } from '../../domain/relics/relics';
 import { canEngraveArtifacts, canEngraveRelics } from '../../domain/monsters/monster-engrave-eligibility';
 import { relicProperties, relicPropertyLabel } from '../../domain/relics/relic-properties';
 import { roleTargetColumns } from '../../domain/profiles/rune-roles';
@@ -219,9 +217,10 @@ function Nickname({ value, editing, onEditingChange, onCommit }: {
   </>;
 }
 
-export function MonsterOverlay({ target, game, general, profiles, presetId, onSave, onClose, onOptimize, onOpenStatistics }: {
+export function MonsterOverlay({ target, game, snapshot, general, profiles, presetId, onSave, onClose, onOptimize, onOpenStatistics }: {
   target: MonsterReference;
   game: GameRecord | undefined;
+  snapshot: AccountSnapshot | undefined;
   general: GeneralSettings;
   /** Area profiles, independent of the team whose gear the panel reports. */
   profiles: MonsterPreferences;
@@ -267,11 +266,10 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
     setEditingNickname(false);
   }
   const monster = useMemo(() => {
-    if (target.kind !== 'copy' || !game) return undefined;
-    const roster = Array.isArray(game.unit_list) ? game.unit_list : [];
-    const record = roster.find((entry) => String((entry as GameRecord)?.unit_id) === target.unitId) as GameRecord | undefined;
+    if (target.kind !== 'copy' || !snapshot) return undefined;
+    const record = snapshot.monsters.find((entry) => entry.id === target.unitId)?.record;
     return record && preset ? monsterInPreset(record, preset, accountItems(game)) : record;
-  }, [game, target, preset]);
+  }, [game, snapshot, target, preset]);
 
   const roster = useMemo(() => rosterOf(game), [game]);
   /* What the team adds: its teammates' sets and, outside Scenario, the leads
@@ -284,10 +282,10 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
   /* The heading names the copy the way every table does — `Lushen (2A) #2` —
      so the overlay and the row that opened it agree on which Lushen this is. */
   const heroName = useMemo(() => {
-    if (target.kind !== 'copy' || !game) return display.name;
-    const roster = Array.isArray(game.unit_list) ? game.unit_list as GameRecord[] : [];
+    if (target.kind !== 'copy' || !snapshot) return display.name;
+    const roster = snapshot.monsters.map((entry) => entry.record);
     return numberedMonsterNames(roster)[target.unitId] ?? display.name;
-  }, [game, target, display.name]);
+  }, [snapshot, target, display.name]);
   const resolved: ResolvedMonsterPreferences = useMemo(
     () => resolveMonsterPreferences(unitId, masterId, draft, monster, team),
     [unitId, masterId, draft, monster, team],
@@ -297,7 +295,7 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
      totem among it — and its eight stats as its own panel shows them. They are
      derived rather than stored, from the same stat sheet the shortfall check and
      the Monsters page read. */
-  const fight = useMemo(() => ({ ...resolved, buildings: readBuildingBonuses(game) }), [resolved, game]);
+  const fight = useMemo(() => ({ ...resolved, buildings: snapshot?.buildings }), [resolved, snapshot]);
   const sheet = useMemo(
     () => (monster ? monsterStatSheet(monster, fight) : undefined),
     [monster, fight],
@@ -311,15 +309,15 @@ export function MonsterOverlay({ target, game, general, profiles, presetId, onSa
     const artifacts: Partial<Record<ArtifactCategory, Artifact>> = {};
     /* The preset's artifacts, not the ones the export marks as engraved, which are Scenario's. */
     const inPreset = new Set(preset?.artifactsOf.get(unitId) ?? []);
-    for (const artifact of readArtifacts(game)) {
+    for (const artifact of snapshot?.artifacts ?? []) {
       if (!canEngraveArtifacts(monster)) continue;
       if (inPreset.has(artifact.id)) artifacts[artifact.category] = artifact;
     }
     const relicIds = new Set((Array.isArray(monster.relics) ? monster.relics : [])
       .map((entry) => String((entry as GameRecord | null)?.rid)));
     return { artifacts, relics: canEngraveRelics(monster)
-      ? readRelics(game).filter((relic) => relicIds.has(relic.id)) : [] };
-  }, [game, monster, preset]);
+      ? (snapshot?.relics ?? []).filter((relic) => relicIds.has(relic.id)) : [] };
+  }, [game, snapshot, monster, preset]);
 
   /* Named under the leads and never counted into ACC (`artifact-skill-accuracy.ts`). */
   const artifactAccuracy = useMemo(() => artifactSkillAccuracy(Object.values(engraved.artifacts)), [engraved]);
