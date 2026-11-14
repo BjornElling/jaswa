@@ -14,7 +14,7 @@ in the current browser tab only and is cleared when that tab closes.
 
 | Record | Holds | Lives in |
 | --- | --- | --- |
-| The imported game | The prepared account collections the counts read (`IMPORT-PARITY-CONTRACT.md` §2); for each preset JASWA has engraved a build in, where each moved rune sat when the import was loaded (`loadedPlacements`, the build overlay's *Previously*); the runes locked to or excluded from monsters since (`runeLocks`, `rune-locks.ts`). Both go with the import, so the next one starts without — except that under *Always synchronized* the locks carry from one revision of the same account to the next | IndexedDB |
+| The imported game | The prepared account collections the counts read (`IMPORT-PARITY-CONTRACT.md` §2); the local projection under `localChanges` records where each moved rune sat when its preset build was first observed (`firstObservedPlacements`, the build overlay's *Previously*) and which game presets were removed locally; the runes locked to or excluded from monsters since (`runeLocks`, `rune-locks.ts`). Both go with the import, so the next one starts without — except that under *Always synchronized* the locks carry from one revision of the same account to the next | IndexedDB |
 | The preferences | Every saved choice, by section below | IndexedDB, with a `localStorage` mirror |
 | The export folder | The chosen folder handle, where the browser supports it | IndexedDB |
 
@@ -31,8 +31,12 @@ clock changes and is removed before preferences reach the application or a
 `.sw` export. On the first read of existing unordered copies, their timestamps
 still choose the newer copy; a missing timestamp alone never discards the only
 available preference document. The write order identifies a local write, not
-an application or file format version. This ordering does not yet coordinate
-writers in separate tabs.
+an application or file format version. This ordering is coordinated between
+tabs by one origin-wide Web Lock: the tab holding the writer role commits
+durable commands, while other tabs remain read-only until the writer closes and
+they take over. A `BroadcastChannel` carries only a commit invalidation, so
+readers restore committed records rather than receiving a second account
+payload or merging stale mirrors.
 
 ### The preferences, by section
 

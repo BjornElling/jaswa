@@ -56,6 +56,7 @@ export function createWriterCoordination(): WriterCoordination & { supported: bo
   return {
     supported: Boolean(locks),
     ready: () => settled,
+    getRole: () => role,
     onRoleChange(listener) {
       roleListeners.add(listener);
       return () => roleListeners.delete(listener);

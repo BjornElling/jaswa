@@ -15,7 +15,7 @@
  * a time, a cell equal to the shipped one not carried, and a table resolved from
  * them differing from the shipped one in exactly those cells.
  *
- * Usage: node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-synergy.mjs
+ * Usage: node --import ./scripts/json-module-hook.mjs scripts/verify-relic-synergy.mjs
  */
 import { relicProperties, relicMainPropertyOrder } from '../app/domain/relics/relic-properties.ts';
 import { readFileSync, readdirSync, statSync } from 'node:fs';

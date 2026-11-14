@@ -11,11 +11,13 @@ import type { RuneOptimizationSettings } from './profiles/rune-optimization-sett
 import type { RerollRule } from './runes/rune-reapp-targets';
 import type { RuneRole } from './profiles/rune-roles';
 import type { SpeedTuningPreferences } from './profiles/speed-tuning-preferences';
+import type { AccountSnapshot } from './account/account-snapshot';
+import type { LocalAccountChanges } from './account/local-account-changes';
 
 export type ImportReport = { valid: boolean; message: string; knownSections: string[]; unknownMonsterIds: string[] };
 export type HelperSession = { instanceId: string; sessionId: number };
 export type ImportedGame = {
-  fileName: string; importedAt: string; data: Record<string, unknown>; report: ImportReport; helperSession?: HelperSession;
+  fileName: string; importedAt: string; data: Record<string, unknown>; snapshot: AccountSnapshot; report: ImportReport; helperSession?: HelperSession;
   /**
    * Where each rune JASWA has moved since this import sat when it was loaded,
    * by preset id: the monster's `unit_id`, or `null` where the preset had it on
@@ -24,7 +26,7 @@ export type ImportedGame = {
    * Absent on every fresh import, file or helper alike — the account is then
    * where the game says, and nothing has moved.
    */
-  loadedPlacements?: Record<string, Record<string, string | null>>;
+  localChanges?: LocalAccountChanges;
   /** The runes locked to and excluded from monsters since this import (`rune-locks.ts`); absent on every fresh import except a live revision of the same account, which carries them. */
   runeLocks?: RuneLocks;
 };

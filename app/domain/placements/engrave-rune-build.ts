@@ -4,6 +4,8 @@ import { readRune } from '../runes/runes';
 import { readPresets } from './presets';
 import type { OwnPreset, Preset } from './presets';
 import type { ImportedGame } from '../model';
+import { withFirstObservedPlacements } from '../account/local-account-changes';
+import type { FirstObservedPlacements } from '../account/local-account-changes';
 
 /* A rune record's place in Scenario as the export states it: the monster it is engraved on, or `null`. */
 function placeOf(record: GameRecord): string | null {
@@ -16,8 +18,8 @@ function placeOf(record: GameRecord): string | null {
  * already remembered keeps its first entry: the question the record answers is
  * "where did the game have it", not "where was it a moment ago".
  */
-function remember(remembered: ImportedGame['loadedPlacements'], presetId: string, before: ReadonlyMap<string, string>, after: ReadonlyMap<string, string>,
-  runeIds: readonly string[]): ImportedGame['loadedPlacements'] {
+function remember(remembered: FirstObservedPlacements | undefined, presetId: string, before: ReadonlyMap<string, string>, after: ReadonlyMap<string, string>,
+  runeIds: readonly string[]): FirstObservedPlacements {
   const loaded = { ...remembered };
   const placements = { ...loaded[presetId] };
   for (const id of new Set([...runeIds, ...before.keys()])) {
@@ -153,11 +155,12 @@ export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: 
       const place = placeOf(record);
       return place === null ? [] : [[String(record.rune_id), place] as const];
     }));
-    return { ...game, data, loadedPlacements: remember(game.loadedPlacements, preset.id, owners(game.data.runes), owners(data.runes), runeIds) };
+    return { ...game, data, localChanges: withFirstObservedPlacements(game.localChanges,
+      remember(game.localChanges?.firstObservedPlacements, preset.id, owners(game.data.runes), owners(data.runes), runeIds)) };
   }
   const gear = engravedGear(preset, unitId, runeIds);
   let data = withDeckGear(game.data, preset, equipOf(gear));
-  let loadedPlacements = remember(game.loadedPlacements, preset.id, preset.runeOwner, ownersOf(gear), runeIds);
+  let loadedPlacements = remember(game.localChanges?.firstObservedPlacements, preset.id, preset.runeOwner, ownersOf(gear), runeIds);
   const engraved = new Set(runeIds);
   const taken = new Set(claimed.filter((id) => engraved.has(id) && preset.poolRunes.has(id)));
   const holders = new Set([...taken].flatMap((id) => preset.poolRunes.get(id)?.map((holder) => holder.presetId) ?? []));
@@ -166,27 +169,10 @@ export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: 
     data = withDeckGear(data, holder, equipOf(left));
     loadedPlacements = remember(loadedPlacements, holder.id, holder.runeOwner, ownersOf(left), [...taken]);
   }
-  return { ...game, data, loadedPlacements };
+  return { ...game, data, localChanges: withFirstObservedPlacements(game.localChanges, loadedPlacements) };
 }
 
 /** Engrave a build in a preset built in JASWA. */
 export function engraveOwnPreset(own: OwnPreset, preset: Preset, unitId: string, runeIds: readonly string[]): OwnPreset {
   return { ...own, gear: Object.fromEntries(engravedGear(preset, unitId, runeIds)) };
-}
-
-/**
- * The stored record read back one entry at a time (`AGENTS.md` §6): an entry
- * that is not a rune id against a monster id or `null` is dropped, and the rest
- * kept. A malformed record costs the "Previously" line, never the import.
- */
-export function readLoadedPlacements(value: unknown): ImportedGame['loadedPlacements'] {
-  if (!isRecord(value)) return undefined;
-  const read: Record<string, Record<string, string | null>> = {};
-  for (const [presetId, placements] of Object.entries(value)) {
-    if (presetId.length === 0 || !isRecord(placements)) continue;
-    const entries = Object.entries(placements)
-      .filter(([runeId, place]) => runeId.length > 0 && (place === null || (typeof place === 'string' && place.length > 0)));
-    if (entries.length > 0) read[presetId] = Object.fromEntries(entries) as Record<string, string | null>;
-  }
-  return Object.keys(read).length > 0 ? read : undefined;
 }

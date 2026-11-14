@@ -1,27 +1,9 @@
 import { validateGameFile } from '../ingest/game-export';
 import { helperUpdateAvailable, isHelperVersion, recommendedHelperVersion } from '../domain/shared/helper-version';
+import type { HelperConnection, HelperMiss, HelperProfileResult } from '../workspace/ports';
+export type { HelperConnection, HelperMiss, HelperProfile, HelperProfileResult, HelperSessionIdentity } from '../workspace/ports';
 
 const helperOrigin = 'http://127.0.0.1:37654';
-
-export type HelperConnection = {
-  state: 'checking' | 'ready' | 'unavailable';
-  detail: string;
-  /** Only the helper’s own red capture state raises a capture-failure notice. */
-  captureError: string | null;
-  version: string | null;
-  updateAvailable: boolean;
-  /** The helper's own answer to whether Summoners War is running; `false` until a helper says otherwise. */
-  gameRunning: boolean;
-  profileReady: boolean;
-  restartRequired: boolean;
-  gameStartedBeforeHelper: boolean;
-  gameLoginPending: boolean;
-  instanceId: string;
-  revision: number;
-  sessionId: number;
-  /** Account changes the helper could not read since the game's login, each command and cause once. */
-  missedChanges: HelperMiss[];
-};
 
 /**
  * Why the helper missed a change. `encrypted` is proven, not supposed: the
@@ -29,7 +11,6 @@ export type HelperConnection = {
  * never open (docs/LIVE-IMPORT-COVERAGE.md). `unread` is everything else — a
  * reader JASWA has yet to write.
  */
-export type HelperMiss = { command: string; cause: 'encrypted' | 'unread' };
 
 /* The Rift Raid result is the one encrypted answer seen so far, and the user
    knows it as rewards, not as a command name. */
@@ -87,15 +68,6 @@ export function helperStatusMessage(connection: HelperConnection): string {
   if (connection.detail.startsWith('Gateway exchange failed:')) return 'Connection to the game was interrupted. Try Restart helper. Check its status for any missing game data.';
   return 'The helper could not load game data. Save an error report in the helper, then restart it and the game.';
 }
-
-export type HelperProfile = {
-  updatedAt: string;
-  instanceId: string;
-  revision: number;
-  sessionId: number;
-  source: 'game-start' | 'live';
-  data: Record<string, unknown>;
-};
 
 async function localFetch(path: string) {
   const controller = new AbortController();
@@ -173,13 +145,7 @@ export async function checkHelperConnection(): Promise<HelperConnection> {
  * returning `null` for both is what let a single unreadable artifact stop direct
  * import with the dashboard still reading "Connected".
  */
-export type HelperProfileResult =
-  | { state: 'ready'; profile: HelperProfile }
-  | { state: 'unreadable'; reason: string; identity: HelperSessionIdentity; data: Record<string, unknown> }
-  | { state: 'unavailable'; reason: string; evidence?: unknown };
-
 /** Which snapshot a rejection belongs to, so it is reported once and not every poll. */
-export type HelperSessionIdentity = { instanceId: string; sessionId: number; revision: number };
 
 /**
  * Classifies one `/profile` answer. Split from the request so the decision that

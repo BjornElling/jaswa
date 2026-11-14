@@ -1,5 +1,38 @@
 import type { ImportedGame, Preferences } from '../domain/model';
 
+export type HelperMiss = { command: string; cause: 'encrypted' | 'unread' };
+export type HelperConnection = {
+  state: 'checking' | 'ready' | 'unavailable';
+  detail: string;
+  captureError: string | null;
+  version: string | null;
+  updateAvailable: boolean;
+  gameRunning: boolean;
+  profileReady: boolean;
+  restartRequired: boolean;
+  gameStartedBeforeHelper: boolean;
+  gameLoginPending: boolean;
+  instanceId: string;
+  revision: number;
+  sessionId: number;
+  missedChanges: HelperMiss[];
+};
+
+export type HelperProfile = {
+  updatedAt: string;
+  instanceId: string;
+  revision: number;
+  sessionId: number;
+  source: 'game-start' | 'live';
+  data: Record<string, unknown>;
+};
+
+export type HelperSessionIdentity = { instanceId: string; sessionId: number; revision: number };
+export type HelperProfileResult =
+  | { state: 'ready'; profile: HelperProfile }
+  | { state: 'unreadable'; reason: string; identity: HelperSessionIdentity; data: Record<string, unknown> }
+  | { state: 'unavailable'; reason: string; evidence?: unknown };
+
 /* The operations the workspace needs from the outside world, declared here and
    implemented in `app/platform/`. Only the shell connects the two, so the store
    can be exercised in a test without a browser, a database or another tab. */
@@ -29,6 +62,8 @@ export type WriterRole = 'writer' | 'reader';
 export type WriterCoordination = {
   /** Settles once this tab knows its role; a tab never changes storage before that. */
   ready(): Promise<WriterRole>;
+  /** The current role, including a reader becoming the writer after takeover. */
+  getRole(): WriterRole | null;
   /** Called when the role changes after `ready`, with the new role. */
   onRoleChange(listener: (role: WriterRole) => void): () => void;
   /** Tells the other tabs that committed state changed, without sending the state itself. */

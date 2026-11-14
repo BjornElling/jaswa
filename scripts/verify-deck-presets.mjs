@@ -269,7 +269,7 @@ assert.deepEqual(gearOf(engraved.data, 24, 101), null, 'a monsters-only preset i
 assert.deepEqual(engraved.data.runes, game.data.runes, 'no rune moves in Scenario');
 assert.deepEqual(engraved.data.unit_list, game.data.unit_list, 'no monster\'s Scenario runes change');
 assert.deepEqual(engraved.data.defense_deck_info, game.data.defense_deck_info);
-assert.deepEqual(engraved.loadedPlacements, { 'deck-1-1': {
+assert.deepEqual(engraved.localChanges.firstObservedPlacements, { 'deck-1-1': {
   5013: '11', 5002: null, 5003: null, 5004: null, 5005: null, 5006: null,
   5007: '12', 5008: '12', 5009: '12', 5010: '12', 5011: '12', 5012: '12',
 } }, 'where each moved rune sat in that preset is remembered under that preset');
@@ -296,7 +296,7 @@ const inScenario = engraveImportedGame(game, find(before, 'scenario'), '12', ['5
 assert.deepEqual(runeIdsOf(inScenario.data.unit_list.find((unit) => unit.unit_id === 12)).sort(), ['5001', '5002', '5003', '5004', '5005', '5006']);
 assert.deepEqual(runeIdsOf(inScenario.data.unit_list.find((unit) => unit.unit_id === 11)), [], 'Scenario still holds a rune once');
 assert.deepEqual(inScenario.data.deck_list, game.data.deck_list, 'a Scenario engrave changes no preset');
-assert.equal(inScenario.loadedPlacements.scenario['5001'], '11');
+assert.equal(inScenario.localChanges.firstObservedPlacements.scenario['5001'], '11');
 
 assert.throws(() => engraveImportedGame(game, find(before, 'deck-1-2'), '11', keepBuild), /not in the selected preset/,
   'a monster outside the preset cannot be engraved in it');
@@ -387,7 +387,7 @@ const poolBuild = ['5013', '5008', '5009', '5010', '5011', '5012'];
 const taking = engraveImportedGame(poolGame, find(pooled, 'deck-23-2'), '12', poolBuild);
 assert.deepEqual(runeIdsByMember(gearOf(taking.data, 23, 2)), { 12: poolBuild }, 'the build lands in its team');
 assert.deepEqual(runeIdsByMember(gearOf(taking.data, 23, 1)), { 11: arenaEleven.filter((id) => id !== '5013') }, 'and the rune leaves the team that held it');
-assert.equal(taking.loadedPlacements['deck-23-1']['5013'], '11', 'where it sat there is remembered there');
+assert.equal(taking.localChanges.firstObservedPlacements['deck-23-1']['5013'], '11', 'where it sat there is remembered there');
 assert.deepEqual(find(readPresets(taking.data, []), 'deck-23-2').poolConflicts.runeIds, [], 'no overlap is formed');
 assert.deepEqual(gearOf(taking.data, 1, 1), gearOf(poolGame.data, 1, 1), 'a deck outside the pool is untouched');
 
@@ -418,7 +418,7 @@ const kept = engraveImportedGame(sharedGame, find(shared, 'deck-23-2'), '12', po
 assert.deepEqual(runeIdsByMember(gearOf(kept.data, 23, 2)), { 12: poolBuild }, 'a build keeping a shared rune lands in its team');
 assert.deepEqual(runeIdsByMember(gearOf(kept.data, 23, 1)), { 11: arenaEleven.filter((id) => id !== '5013') },
   'and settles the overlap: the rune leaves the other team');
-assert.equal(kept.loadedPlacements['deck-23-1']['5013'], '11', 'where it sat there is remembered');
+assert.equal(kept.localChanges.firstObservedPlacements['deck-23-1']['5013'], '11', 'where it sat there is remembered');
 assert.deepEqual(find(readPresets(kept.data, []), 'deck-23-2').poolConflicts.runeIds, [], 'no overlap is left');
 const excluding = engraveImportedGame(sharedGame, find(shared, 'deck-23-2'), '12', ['5013', '5008', '5009', '5010', '5011'], []);
 assert.deepEqual(gearOf(excluding.data, 23, 1), gearOf(sharedGame.data, 23, 1),

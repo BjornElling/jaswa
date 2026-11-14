@@ -141,7 +141,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
       /* The other two readers must retain their own complete answer too, with
          the same selected subject throughout the live update. */
       for (const [title, panelClass, chooser, value, action, resultsClass] of [
-        ['Best monster for this artifact', '.best-monster-for-artifact', 'Choose an artifact for monster recommendations', '1001', 'Calculate', '.best-monster-results'],
+        ['Best monster for this artifact', '.best-monster-for-artifact', 'Choose an artifact for monster recommendations', '1002', 'Calculate', '.best-monster-results'],
         ['Best artifact for this monster', '.best-artifact-for-monster', 'Choose a monster for artifact recommendations', '1', 'Calculate', '.best-artifact-results'],
       ]) {
         await page.locator('summary').filter({ hasText: title }).click();

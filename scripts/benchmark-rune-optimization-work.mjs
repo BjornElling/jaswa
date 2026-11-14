@@ -1,5 +1,5 @@
 /** Local-only measurements; an optional captured optimization input never leaves this machine.
- * node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/benchmark-rune-optimization-work.mjs [input.json]
+ * node --import ./scripts/json-module-hook.mjs scripts/benchmark-rune-optimization-work.mjs [input.json]
  * Set JASWA_BENCH_GPU=1 to exercise the normal graphics-card agreement gate.
  */
 import { readFileSync } from 'node:fs';

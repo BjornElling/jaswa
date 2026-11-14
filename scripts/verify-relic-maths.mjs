@@ -21,7 +21,7 @@
  * right for the per-level curve the game publishes, and a flat test would pass
  * on a model that had quietly collapsed to a single rate.
  *
- * Usage: node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs
+ * Usage: node --import ./scripts/json-module-hook.mjs scripts/verify-relic-maths.mjs
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { basename, join, sep } from 'node:path';

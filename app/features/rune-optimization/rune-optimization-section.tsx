@@ -848,7 +848,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       index={chosenBuild} buildName={buildNameOf(builds[chosenBuild].runes.map((rune) => rune.setId))}
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
       followable={buildFollowable(builds[chosenBuild])}
-      runesById={runesById} presetId={activePresetId} loadedPlacements={game?.loadedPlacements?.[activePresetId]} scenarioPlaces={scenarioPlaces} poolPlaces={poolPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
+      runesById={runesById} presetId={activePresetId} loadedPlacements={game?.localChanges?.firstObservedPlacements?.[activePresetId]} scenarioPlaces={scenarioPlaces} poolPlaces={poolPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
       lockOf={(runeId) => (preset ? runeLockOf(runeLocks, runeLockScope(preset), buildMonster.unitId, runeId) : undefined)}
       onLock={(runeId, lock) => onLock(activePresetId, buildMonster.unitId, runeId, lock)}

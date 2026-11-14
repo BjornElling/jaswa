@@ -16,8 +16,7 @@
  * two substat events left, the expectation agrees with an exact enumeration of every
  * outcome.
  *
- *   node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs \
- *     scripts/verify-rune-best-role.mjs
+ *   node --import ./scripts/json-module-hook.mjs scripts/verify-rune-best-role.mjs
  */
 import assert from 'node:assert/strict';
 import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';

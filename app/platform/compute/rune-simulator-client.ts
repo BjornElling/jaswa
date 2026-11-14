@@ -8,10 +8,10 @@ import { createRuneSimulatorWorker } from '../rune-simulator-factory';
  * Worker object.
  */
 import type { RuneSimulationResult } from '../../domain/runes/simulator/rune-simulator';
-import { cancellableWorker } from '../cancellable-worker';
+import { createJobRuntime } from '../job-runtime';
 import type { RuneSimulationWorkerRequest } from '../../domain/runes/simulator/rune-simulator-protocol';
 
-const ask = cancellableWorker<RuneSimulationResult>(
+const job = createJobRuntime<Record<string, unknown>, RuneSimulationResult>(
   () => createRuneSimulatorWorker(),
   'JASWA could not start its rune simulation worker.',
 );
@@ -22,5 +22,5 @@ export function calculateRuneSimulation(
   context: RuneSimulationWorkerRequest['context'],
   signal?: AbortSignal,
 ): Promise<RuneSimulationResult> {
-  return ask({ type: 'simulate', config, context }, signal);
+  return job.run({ type: 'simulate', config, context }, signal);
 }

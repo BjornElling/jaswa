@@ -2,6 +2,7 @@ import type { GameRecord } from '../account/game-record';
 import { isRecord } from '../profiles/preference-reading';
 import type { Preset } from './presets';
 import type { ImportedGame } from '../model';
+import { withFirstObservedPlacements, withRemovedPreset } from '../account/local-account-changes';
 
 /*
  * The changes the Presets page makes to one of the game's presets: taking it
@@ -119,8 +120,10 @@ export function deleteGamePreset(game: ImportedGame, preset: Preset): ImportedGa
   } else {
     delete data[defenseField[source.kind]];
   }
-  const loadedPlacements = Object.fromEntries(Object.entries(game.loadedPlacements ?? {}).filter(([id]) => id !== preset.id));
-  return { ...game, data, loadedPlacements: Object.keys(loadedPlacements).length > 0 ? loadedPlacements : undefined };
+  const firstObserved = Object.fromEntries(Object.entries(game.localChanges?.firstObservedPlacements ?? {})
+    .filter(([id]) => id !== preset.id));
+  const withoutPreset = withFirstObservedPlacements(game.localChanges, Object.keys(firstObserved).length > 0 ? firstObserved : undefined);
+  return { ...game, data, localChanges: withRemovedPreset(withoutPreset, preset.id) };
 }
 
 /**

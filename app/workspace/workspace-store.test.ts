@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { blankPreferences } from '../domain/profiles/preference-defaults';
 import type { ImportedGame, Preferences } from '../domain/model';
+import type { AccountSnapshot } from '../domain/account/account-snapshot';
 import { WorkspaceReadOnly } from './ports';
 import type { WorkspaceRepository, WriterCoordination, WriterRole } from './ports';
 import { createWorkspaceStore } from './workspace-store';
 
 const account: ImportedGame = {
-  fileName: 'export.json', importedAt: '2026-11-13T10:00:00.000Z', data: { wizard_id: 1 },
+  fileName: 'export.json', importedAt: '2026-11-13T10:00:00.000Z', data: { wizard_id: 1 }, snapshot: {} as AccountSnapshot,
   report: { valid: true, message: '', knownSections: [], unknownMonsterIds: [] },
 };
 
@@ -28,6 +29,7 @@ function fixedRole(role: WriterRole) {
   let commits = 0;
   const coordination: WriterCoordination = {
     ready: async () => role,
+    getRole: () => role,
     onRoleChange: () => () => {},
     announceCommit: () => { commits += 1; },
     onRemoteCommit: () => () => {},
@@ -55,9 +57,10 @@ describe('workspace store', () => {
     const writer = fixedRole('writer');
     const store = createWorkspaceStore(repository, writer.coordination);
     await store.restore();
-    expect(await store.importAccount(account)).toEqual(account);
-    expect(saved.game).toEqual(account);
-    expect(store.getSnapshot().game).toEqual(account);
+    const accepted = await store.importAccount(account);
+    expect(accepted).toMatchObject(account);
+    expect(saved.game).toEqual(accepted);
+    expect(store.getSnapshot().game).toEqual(accepted);
     expect(writer.commits()).toBe(1);
   });
 

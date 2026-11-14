@@ -4,9 +4,10 @@ import { blankPreferences } from '../domain/profiles/preference-defaults';
 import { loadImportedGame, loadPreferences, saveImportedGame, savePreferences, saveWorkspacePair, writeWorkspaceValue } from './browser-storage';
 import { PairedCommitUnavailable, PreferenceMirrorUnavailable, PreferenceStoreUnreadable } from '../workspace/ports';
 import type { ImportedGame } from '../domain/model';
+import type { AccountSnapshot } from '../domain/account/account-snapshot';
 
 const account = (fileName: string): ImportedGame => ({
-  fileName, importedAt: '2026-11-13T10:00:00.000Z', data: {},
+  fileName, importedAt: '2026-11-13T10:00:00.000Z', data: {}, snapshot: {} as AccountSnapshot,
   report: { valid: true, message: '', knownSections: [], unknownMonsterIds: [] },
 });
 

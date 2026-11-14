@@ -47,8 +47,7 @@
  *
  * No real card runs here; `verify-rune-optimization-card.mjs` holds the shader.
  *
- *   node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs \
- *     scripts/verify-rune-optimization.mjs
+ *   node --import ./scripts/json-module-hook.mjs scripts/verify-rune-optimization.mjs
  */
 import assert from 'node:assert/strict';
 import { compareRankedFigures, requestedTieBreakers } from '../app/domain/runes/optimization/rune-optimization-ranking.ts';

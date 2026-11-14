@@ -19,7 +19,7 @@ export class CalculationCancelled extends Error {
 export const isCalculationCancelled = (error: unknown): error is CalculationCancelled => error instanceof CalculationCancelled;
 
 type Response<T> = { requestId: number } & ({ type: 'result'; result: T } | { type: 'error'; message: string });
-type Pending<T> = { message: Record<string, unknown>; resolve: (value: T) => void; reject: (error: Error) => void };
+type Pending<T> = { message: Record<string, unknown>; resolve: (value: T) => void; reject: (error: Error) => void; cleanup: () => void };
 
 export function cancellableWorker<T>(create: () => Worker, startFailure: string) {
   let worker: Worker | undefined;
@@ -29,7 +29,7 @@ export function cancellableWorker<T>(create: () => Worker, startFailure: string)
   function failAll(message: string) {
     const waiting = [...pending.values()];
     pending.clear();
-    for (const entry of waiting) entry.reject(new Error(message));
+    for (const entry of waiting) { entry.cleanup(); entry.reject(new Error(message)); }
   }
 
   function live(): Worker {
@@ -40,6 +40,7 @@ export function cancellableWorker<T>(create: () => Worker, startFailure: string)
       const entry = pending.get(event.data.requestId);
       if (!entry) return;
       pending.delete(event.data.requestId);
+      entry.cleanup();
       if (event.data.type === 'error') entry.reject(new Error(event.data.message));
       else entry.resolve(event.data.result);
     });
@@ -60,6 +61,7 @@ export function cancellableWorker<T>(create: () => Worker, startFailure: string)
       live().postMessage({ ...entry.message, requestId });
     } catch {
       pending.delete(requestId);
+      entry.cleanup();
       entry.reject(new Error(startFailure));
     }
   }
@@ -69,15 +71,21 @@ export function cancellableWorker<T>(create: () => Worker, startFailure: string)
     const requestId = nextRequestId;
     nextRequestId += 1;
     return new Promise<T>((resolve, reject) => {
-      const entry: Pending<T> = { message, resolve, reject };
+      let cleanup = () => {};
+      const entry: Pending<T> = { message, resolve, reject, cleanup: () => cleanup() };
       pending.set(requestId, entry);
-      signal?.addEventListener('abort', () => {
+      const onAbort = () => {
         if (!pending.delete(requestId)) return;
+        entry.cleanup();
         reject(new CalculationCancelled());
         worker?.terminate();
         worker = undefined;
         for (const [otherId, other] of pending) post(otherId, other);
-      }, { once: true });
+      };
+      if (signal) {
+        signal.addEventListener('abort', onAbort, { once: true });
+        cleanup = () => signal.removeEventListener('abort', onAbort);
+      }
       post(requestId, entry);
     });
   };

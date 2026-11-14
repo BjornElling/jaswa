@@ -1,10 +1,11 @@
 import { createArtifactScoreWorker } from '../feature-workers';
-import { cancellableWorker } from '../cancellable-worker';
+import { createJobRuntime } from '../job-runtime';
 import type { ArtifactScoreRequest, ArtifactScoreResult } from '../../domain/artifacts/score/artifact-score-protocol';
 
-const ask = cancellableWorker<ArtifactScoreResult>(
+const job = createJobRuntime<Record<string, unknown>, ArtifactScoreResult>(
   () => createArtifactScoreWorker(),
   'JASWA could not start its artifact calculation worker.',
+  { allowConcurrent: true },
 );
 
 /** The main thread gets one promise; all backend selection remains in the worker.
@@ -14,5 +15,5 @@ export function calculateArtifactScores(
   preferWebGpu: boolean,
   signal?: AbortSignal,
 ): Promise<ArtifactScoreResult> {
-  return ask({ type: 'calculate', request, preferWebGpu }, signal);
+  return job.run({ type: 'calculate', request, preferWebGpu }, signal);
 }

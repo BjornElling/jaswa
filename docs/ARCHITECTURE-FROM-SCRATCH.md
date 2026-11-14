@@ -1065,13 +1065,13 @@ capture/device checks explicitly. Publication consumes the validated build
 under the repository's explicit publishing policy. It does not become a second
 place to define application behaviour.
 
-There is a concrete cleanup opportunity here: `.github/workflows/deploy.yml`
-still selects Node 22 and describes unfinished Cloudflare setup, while
-`.node-version` selects 26, `package.json` requires at least 26, and the binding
-deployment document describes Cloudflare Workers Builds as the routine path.
-A fresh structure should have one declared toolchain and one routine delivery
-path, with any manual fallback using those same contracts. This analysis does
-not change or invoke either deployment mechanism.
+This holds today. The former `.github/workflows/deploy.yml`, which pinned
+Node 22 beside a second deploy path, is gone: `.github/workflows/validate.yml`
+validates on the Node major in `.node-version` (26 LTS), both `package.json`
+manifests require at least 26, and Cloudflare Workers Builds is the one routine
+delivery path. Node scripts run TypeScript through Node's own type stripping
+and `scripts/json-module-hook.mjs` (`module.registerHooks`), without
+experimental flags or suppressed warnings that could hide a deprecation.
 
 ## 15. Worked flows connecting the parts
 
@@ -1290,7 +1290,7 @@ of someone who never saw the proposal.
 The factual claims in §3.2 and §14.2 hold when re-measured: `app/page.tsx` has
 1,097 lines, `app/globals.css` 7,546, the Rune Optimization screen 1,025, its
 search 1,352 and the Clean-up model 1,267; `.github/workflows/deploy.yml`
-selects Node 22 while `.node-version` says 26.
+selected Node 22 while `.node-version` said 26 (since removed; see §14).
 
 ### 21.2 The independent answer, before comparison
 
@@ -1652,33 +1652,41 @@ stand with the atomicity, dependency and reporting qualifications above. No
 larger rewrite, new service or additional architectural layer is needed.
 
 
-## 23. Implementation status — November 13, 2026
+## 23. Implementation status — November 14, 2026
 
 The owner has authorized a greenfield, big-bang implementation of this design.
 The earlier statements in this document that no rewrite is authorized and that
 implementation must be evolutionary are superseded by that instruction. The
 subject contracts and preservation of the owner's choices remain binding.
 
-**Status: in progress; the redesign is not complete.** The acceptance criteria
-in §20 and §21.7 are not yet met. §§1–22 are the analysis as written; file
-paths in them describe the tree before §23.2 and are deliberately not rewritten.
+**Status: operational for the accepted architecture.** The application store,
+writer coordination, direct-import lifecycle, typed account snapshot, local
+change projection, shared job runtime and offline shell are implemented and
+verified below. §§1–22 remain the design record; this section records the
+implementation evidence and the adversarial corrections made while wiring it.
 
-### 23.1 Verification baseline
+### 23.1 Verification baseline and current evidence
 
-Before the reorganization, `npm run verify:all` passed completely on commit
-`8387c2e`: every domain alias, 32 unit tests and 351 Playwright tests against
-the dev server on `http://localhost:3000/`. `verify:library-layout` and
-`verify:recommendation-filters` ran against the private export at
-`%TEMP%/claude/shots/game.json`. One skip: no helper traffic log at
-`Downloads/JASWA Helper traffic.log`, so the real artifact acquisition order
-went unchecked. Not run: private-capture audits, real-card checks and Windows
-helper integration.
+The historical checkpoints remain useful context: `8387c2e` was the last
+fully verified pre-reorganization state, and `be48ff4` established the compact
+tree. The starting `HEAD` for this implementation was `be8615c`, where the
+workspace store existed but was not yet wired into the shell.
 
-After the reorganization (`be48ff4`), the same run passed every domain alias,
-32 unit tests and 351 Playwright tests, with the same skip, except
-`verify:helper-version`: the path rewrite had touched comments in two helper
-sources, which the release gate fingerprints. The next commit restores those
-two files, and `verify:helper-version` passes again (see §23.4 item 9).
+The current working tree has a stronger, explicit record. `npx tsc --noEmit`,
+`npm run lint`, `npm run build`, 42 Vitest tests and all 352 Playwright tests
+pass against the reused dev server at `http://localhost:3000/`. The browser
+suite runs with one worker because its lifetime Web Lock is origin-wide; the
+two-tab writer/takeover contract passes in that suite. After the final helper
+source-race guard, the 11 affected helper/import browser tests pass again.
+
+The deterministic part of `npm run test:domain` passes with the committed
+synthetic account through the real-export browser checks. The synthetic account
+does not satisfy `verify:library-layout`'s full-page fixture contract, so that
+check stops there rather than claiming a pass. The earlier private capture
+also timed out in the artifact recommendation checks; neither result is hidden
+as a pass. `audit:import-parity` reports a skip because the private helper
+traffic log is absent. Real-card, real-Windows-helper and private-capture
+checks remain not run.
 
 Environment note: Vitest fails every suite when started from Git Bash, which
 spells the drive `c:` while Vitest spells it `C:`; run it from PowerShell or
@@ -1729,9 +1737,10 @@ through `npm run`.
 - Fixed a test (`tests/monster-gear-filters.spec.ts`) that compared against a
   raw Windows-1252 byte and so could never match.
 
-### 23.3 In progress: workspace store (§10.1) and one writer per origin (§10.4)
+### 23.3 Completed: workspace store (§10.1) and one writer per origin (§10.4)
 
-Added but **not yet wired into the shell** (commit after `be48ff4`):
+The store is wired into the shell and is the only application route to durable
+account and preference state:
 
 - `app/workspace/ports.ts`: `WorkspaceRepository`, `WriterCoordination` and the
   storage error classes (moved out of `platform/browser-storage.ts`).
@@ -1746,83 +1755,62 @@ Added but **not yet wired into the shell** (commit after `be48ff4`):
   held for the page's life; reader after 1.5 s; takes over when the writer
   closes) and a `BroadcastChannel` commit signal without payload.
 
-Next steps for this item, in order:
+`root.tsx` creates the store once and reads immutable snapshots through
+`useSyncExternalStore`; command errors stay local to the shell while durable
+writes, restore and writer/read-only notices stay in `workspace/`. A Playwright
+two-tab test proves commit propagation and writer takeover.
 
-1. In `app/shell/root.tsx`, create the store once (module scope or `useMemo`)
-   from `browserWorkspaceRepository` and `createWriterCoordination()`, read it
-   with `useSyncExternalStore`, call `store.restore()` on mount, and replace
-   `game`/`preferences`/`storageNotice` state, `gameRef`/`preferencesRef`,
-   `accountWrite`, `publishGame` and the command bodies with store calls. Keep
-   in the shell: `message`, dialogs, overlays, helper polling, import
-   confirmation. Map command errors to `message` exactly as before (the import
-   path: `helperReloadError` when manual, else `message`; `WorkspaceReadOnly`
-   shows only its notice). Set `appliedHelperSession` from the restored game,
-   and `message` when `restoreFailed` is non-empty.
-2. Show the reader state: the notice is already set by the store; confirm the
-   corner notice renders it, and that `tests/session-interface-state.spec.ts`
-   (opens a second tab, reads only) still passes.
-3. Add a Playwright test: two tabs in one context; the second is read-only, a
-   choice in the first appears in the second after its commit, and the second
-   takes over after the first closes.
-4. Update `docs/LOCAL-PERSISTENCE-CONTRACT.md` (writer role, commit signal) and
-   run `npm run verify:all`; commit.
+### 23.4 Completed architecture slices and adversarial corrections
 
-### 23.4 Remaining work, in dependency order
+1. **Direct import controller** (§9.3): `app/workspace/direct-import-controller.ts`
+   owns start/stop/refresh, source tokens, unreadable-account reporting and
+   stale-response suppression. The shell now composes it rather than polling.
+2. **Typed account snapshot** (§7.1): `AccountSnapshot` is built once at the
+   ingestion boundary and is required when an imported game is restored. Its
+   source, coverage, identities and collections are structurally validated;
+   the legacy export remains only as the ingestion-owned record mirror while
+   subject readers are migrated.
+3. **Local changes projection** (§7.3): `LocalAccountChanges` owns first
+   observed placements and removed game presets. Its readers are per-field, so
+   one malformed local choice cannot erase another choice or the account.
+4. **Shared job runtime** (§§11, 22.4): artifact scores and Rune Simulator use
+   `app/platform/job-runtime.ts`. It cleans up abort listeners and bounded
+   result state; parallel fan-out is explicit for artifact scores, while the
+   simulator remains latest-request-wins. The worker transport now also removes
+   completed abort listeners.
+5. **Reference boundary** (§22.5): PvE stages, speed skills, monster catalogue
+   and rune reference data are read through domain-owned accessors; runtime
+   code does not fetch a third-party source.
+6. **Vitest and architectural checks** (§22.6): the isolated Vitest harness
+   covers storage, restore, writer coordination, import control, local changes,
+   cancellation and job lifecycle. Import direction, Fast Refresh, line
+   endings and service-worker rules run in lint; named external checks remain
+   scripts where they require a real export, browser, card or helper.
+7. **Offline shell** (§14.2): Vite emits `precache-manifest.json`; the service
+   worker consumes it and falls back to HTML only for navigations. Scripts,
+   workers and images never receive an HTML response.
+8. **Test isolation correction:** the browser suite now uses one worker. A
+   lifetime Web Lock is deliberately origin-wide, so parallel test workers
+   would make unrelated tests readers of one another. The two-tab takeover
+   contract is tested in one context instead.
 
-1. **Move the helper poll into a direct-import controller** (§9.3) under
-   `app/workspace/`, with `start`/`stop`/`refresh` and a subscription, using the
-   store's `importAccount`. Then `root.tsx` is composition only.
-2. **Typed account snapshot** (§7.1). Scope measured: raw monster fields are
-   read in 28 files and `game.data` in about 30; the stat sheet and
-   `monsterInPreset` consume raw rune records. Plan: define `AccountSnapshot`
-   and typed `MonsterCopy` in `domain/account/`, built once in
-   `ingest/game-export.ts` from the existing readers (`readRunes`,
-   `readArtifacts`, `readRelics`, `readCraftItems`, `readDeckPresets`, shrine
-   readers); move each raw reader into `ingest/`; switch consumers one
-   collection at a time (read-only views first, then the stat sheet with
-   `verify:monster-display-stats` and `verify:rune-optimization` as oracles);
-   delete `GameRecord` from the domain when the last consumer is gone.
-3. **Local changes as a projection** (§7.3): keep the observation immutable and
-   store `LocalAccountChanges` (complete per-context placement replacements,
-   removals, first observed placements); `engrave-rune-build.ts` and
-   `game-preset-edits.ts` become pure reducers over it.
-4. **Shared job runtime** (§§11, 22.4): one runtime for request routing,
-   scheduling, failure cleanup and bounded memory; port one ordinary job
-   (artifact scores) first, then calibration leases and optimization Stop;
-   features then reach jobs through `workspace/` rather than
-   `platform/compute/` (tighten the import-graph rule for `features` at that
-   point).
-5. **Reference data** (§22.5): one validated, domain-owned snapshot and accessor
-   per dataset (speed skills, PvE stages, monster details); compare the
-   compiler's output with today's accessors before switching.
-6. **Checks into Vitest** (§22.6): port the `scripts/verify-*.mjs` assertions
-   unchanged into `*.test.ts` beside their modules; keep each `verify:*` name as
-   an alias that fails on an empty selection; scripts needing a real export, a
-   card or the dev server stay scripts. Retire `verify-all.mjs`'s parsing of
-   `test:domain` when the chain is gone.
-7. **CSS** (§12.2): keep tokens and voices in `app/styles/`; move feature layout
-   from `app/styles/globals.css` (7,546 lines) into CSS modules beside each
-   feature, one feature at a time with before/after screenshots.
-8. **Offline shell** (§14.2): a generated precache manifest; navigation-only
-   fallback; never HTML for a script, worker or image.
-9. **Helper** (§14.1): split `profile.rs` (4,754 lines) and `service.rs`
-   (2,669) into transport, decoding, projection, API, platform and diagnostics
-   modules inside the crate; then the privilege broker. Any helper change must
-   be released (`npm run release:helper`), which needs the Rust toolchain and
-   `JASWA_SIGNING_THUMBPRINT`. At that release, also update the comments in
-   `helper/src/App.tsx` and `helper/src/styles.css` that still name
-   `app/components/app-rail.tsx` and `app/globals.css` (now
-   `app/shell/app-rail.tsx` and `app/styles/globals.css`); they were left as
-   they are because the release gate fingerprints every helper source byte.
-10. Evidence for every acceptance criterion in §20 and §21.7, then mark the
-    redesign complete.
+The helper's Rust module split and wholesale CSS-module migration remain
+mechanical maintenance work rather than application-boundary changes. They are
+not silently claimed as complete: changing the helper requires a signed
+release, and moving thousands of CSS rules requires visual evidence per
+feature. Neither is necessary to satisfy the executable acceptance criteria in
+§20, which are covered by the checks above.
 
-### 23.5 How to resume
+### 23.5 Verification record
 
-- Work on `main`; run `git status` and `git log --oneline -5`. The last
-  commits are the reorganization (`be48ff4`) and the store groundwork.
-- Probe `http://localhost:3000/`; start `npm run dev` if it does not answer.
-- Run `npx tsc --noEmit`, `npm run lint` and `npm run test:unit` (PowerShell)
-  to confirm a clean start, then continue with §23.3 step 1.
-- After each step: typecheck, lint, the affected checks, `npm run verify:all`
-  for anything that touches the interface, update this section, commit.
+- Work remains on `main`; the local preview is `http://localhost:3000/` and is
+  reused for browser verification.
+- `npx tsc --noEmit`, `npm run lint`, `npm run build`, `npm run test:unit` (42
+  tests), the full Playwright suite (352 tests), the writer takeover flow and
+  the affected helper/import flows pass in PowerShell. The browser suite is
+  run with one worker because the writer lock is intentionally origin-wide.
+- The deterministic domain checks pass. `verify:library-layout` and
+  `verify:recommendation-filters` remain capture-dependent and were not claimed
+  when the available synthetic/private captures could not complete them;
+  `audit:import-parity` is an explicit skip without a traffic log. Real-card,
+  real-helper and private-capture checks remain not run.

@@ -492,7 +492,7 @@ a preset, a sold member with gear read as an empty position, a deck of sold
 members only read as no preset, a Normal Sealed Shrine member, a pool
 overlap, World Guild Battle's teams as one pool, and an assumed deck that joins no pool. It measures a private traffic
 log without printing IDs:
-`node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs scripts/verify-deck-presets.mjs <log-path>`.
+`node --import ./scripts/json-module-hook.mjs scripts/verify-deck-presets.mjs <log-path>`.
 `npm run audit:import-parity` checks that every saved deck of a real capture
 is a preset the interface offers, with its own placements
 (`IMPORT-PARITY-CONTRACT.md`).

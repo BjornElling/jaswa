@@ -1,15 +1,18 @@
 import type { HelperSession, ImportReport, ImportedGame } from '../domain/model';
-import { readArtifact } from '../domain/artifacts/artifacts';
-import { readRelic, relicEngravingProblem } from '../domain/relics/relics';
-import { isReadableEngravedConversionStone } from '../domain/artifacts/artifact-conversion-stones';
-import { readCraftItem } from '../domain/runes/craft/rune-craft-items';
-import { readRune } from '../domain/runes/runes';
+import { readArtifact, readArtifacts } from '../domain/artifacts/artifacts';
+import { readRelic, readRelics, relicEngravingProblem } from '../domain/relics/relics';
+import { isReadableEngravedConversionStone, readEngravedConversionStones } from '../domain/artifacts/artifact-conversion-stones';
+import { readCraftItem, readCraftItems } from '../domain/runes/craft/rune-craft-items';
+import { readRune, readRunes } from '../domain/runes/runes';
 import { readDeckPresets } from '../domain/placements/deck-presets';
 import { intangibleSetId } from '../domain/combat/monster-stats';
 import { hasMonsterCatalogEntry } from '../domain/monsters/monster-catalog';
-import { normalShrineList, shrineMonsterRecords, summonedShrineList } from '../domain/account/sealed-shrine-storage';
-import { accountBuildingsProblem } from '../domain/account/account-buildings';
+import { normalShrineList, normalShrineRecords, shrineMonsterRecords, summonedShrineList, summonedShrineRecords } from '../domain/account/sealed-shrine-storage';
+import { accountBuildingsProblem, readBuildingBonuses } from '../domain/account/account-buildings';
 import type { GameRecord } from '../domain/account/game-record';
+import { isAccountSnapshot } from '../domain/account/account-snapshot';
+import type { AccountSnapshot, CaptureCoverage, MonsterCopy, SummonedStack } from '../domain/account/account-snapshot';
+import { readPresets } from '../domain/placements/presets';
 
 const expectedSections = [
   'unit_list', 'unit_storage_list', 'unit_storage_normal_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
@@ -355,6 +358,7 @@ export function isValidImportedGame(value: unknown): value is ImportedGame {
   return typeof value.fileName === 'string' && value.fileName.length > 0
     && typeof value.importedAt === 'string' && Number.isFinite(Date.parse(value.importedAt))
     && isRecord(value.data) && validateGameFile(value.data).valid
+    && isAccountSnapshot(value.snapshot)
     && isImportReport(value.report)
     && helperSession;
 }
@@ -377,13 +381,54 @@ export function validateGameFile(value: unknown): ImportReport {
   return { valid: true, message: 'Ready to import.', knownSections, unknownMonsterIds };
 }
 
-export function createImportedGame(fileName: string, data: Record<string, unknown>, report: ImportReport, helperSession?: HelperSession): ImportedGame {
+export function createImportedGame(fileName: string, data: Record<string, unknown>, report: ImportReport, helperSession?: HelperSession,
+  coverage: CaptureCoverage = { complete: true, misses: [] }): ImportedGame {
+  const importedAt = new Date().toISOString();
+  const prepared = completeEngravedCollections(removeExcludedKeys(data) as GameRecord);
   return {
-    fileName,
-    importedAt: new Date().toISOString(),
-    data: completeEngravedCollections(removeExcludedKeys(data) as GameRecord),
+    fileName, importedAt, data: prepared,
+    snapshot: buildAccountSnapshot(prepared, importedAt, fileName, helperSession, coverage),
     report,
     ...(helperSession ? { helperSession } : {}),
+  };
+}
+
+function monsterCopy(record: GameRecord): MonsterCopy | null {
+  const unitId = record.unit_id;
+  const speciesId = record.unit_master_id;
+  if ((typeof unitId !== 'number' && typeof unitId !== 'string')
+    || (typeof speciesId !== 'number' && typeof speciesId !== 'string')) return null;
+  const number = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) ? value : null;
+  return {
+    id: String(unitId), speciesId: String(speciesId),
+    name: typeof record.name === 'string' ? record.name : null,
+    element: typeof record.attribute === 'string' ? record.attribute : null,
+    level: number(record.unit_level), grade: number(record.class), record,
+  };
+}
+
+export function buildAccountSnapshot(data: GameRecord, importedAt: string, fileName: string, helperSession?: HelperSession,
+  coverage: CaptureCoverage = { complete: true, misses: [] }): AccountSnapshot {
+  const units = recordCollection(data.unit_list);
+  const monsters = units.map(monsterCopy).filter((entry): entry is MonsterCopy => entry !== null);
+  const normalShrine = normalShrineRecords(data).map(monsterCopy).filter((entry): entry is MonsterCopy => entry !== null);
+  const summonedShrine: SummonedStack[] = summonedShrineRecords(data).flatMap((record) => {
+    const speciesId = record.unit_master_id;
+    const quantity = record.quantity;
+    return (typeof speciesId === 'number' || typeof speciesId === 'string') && typeof quantity === 'number'
+      ? [{ speciesId: String(speciesId), quantity, grade: typeof record.class === 'number' ? record.class : null, record }]
+      : [];
+  });
+  const presets = readPresets(data, []);
+  return {
+    accountId: isPositiveIdentifier(data.wizard_id) ? String(data.wizard_id) : null,
+    importedAt,
+    source: helperSession ? { kind: 'helper', instanceId: helperSession.instanceId, sessionId: helperSession.sessionId } : { kind: 'file', fileName },
+    monsters, normalShrine, summonedShrine,
+    runes: readRunes(data), artifacts: readArtifacts(data), relics: readRelics(data),
+    craftItems: readCraftItems(data), conversionStones: readEngravedConversionStones(data),
+    buildings: readBuildingBonuses(data), presets, scenario: presets.find((preset) => preset.kind === 'scenario') ?? null,
+    coverage,
   };
 }
 

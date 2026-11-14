@@ -1325,7 +1325,7 @@ test('a rune on another monster in Scenario names that monster in a preset build
       const read = store.get('imported-game');
       read.onsuccess = () => {
         const game = read.result;
-        game.loadedPlacements = { 'deck-1-1': Object.fromEntries(runeIds.map((id: number) => [String(id), '12'])) };
+        game.localChanges = { firstObservedPlacements: { 'deck-1-1': Object.fromEntries(runeIds.map((id: number) => [String(id), '12'])) } };
         store.put(game, 'imported-game').onsuccess = () => { request.result.close(); resolve(); };
       };
     };

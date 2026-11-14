@@ -13,7 +13,7 @@
  * always produces the same records, so a difference is a change in the engine
  * and nothing else.
  *
- *   node --experimental-strip-types --no-warnings --import ./scripts/json-module-hook.mjs \
+ *   node --import ./scripts/json-module-hook.mjs \
  *     scripts/verify-rune-cleanup-equivalence.mjs [--write] [--quick]
  *
  * `--write` records the current tree as the baseline (`work/` is not committed,
