@@ -5,13 +5,16 @@ import { readCraftIgnores } from '../domain/profiles/craft-ignores';
 import { readCraftViewChoices } from '../domain/profiles/craft-view-choices';
 import { readStoredRerollRules } from '../domain/runes/rune-reapp-targets';
 import { readMonsterPriority, readPresetPriority } from '../domain/profiles/monster-priority';
-import { readOwnPresets, runeSlots } from '../domain/placements/presets';
+import { readOwnPresets, readPresets, runeSlots } from '../domain/placements/presets';
+import type { OwnPreset } from '../domain/placements/presets';
+import { monstersByUnitId, speciesOf } from '../domain/speed/speed-team';
 import { readRelicSynergyChoices } from '../domain/relics/relic-synergy';
 import { craftRollAssumptions } from '../domain/runes/craft/rune-craft-items';
 import type { GameRecord } from '../domain/account/game-record';
 import { readRuneRoles } from '../domain/profiles/rune-roles';
 import { readGeneralSettings } from '../domain/shared/regional-settings';
 import { readSpeedTuningPreferences } from '../domain/profiles/speed-tuning-preferences';
+import type { FormerPresetTeam } from '../domain/profiles/speed-tuning-preferences';
 import { runeOptimizationSettingChecks } from '../domain/profiles/rune-optimization-settings';
 import { isBoolean, isOneOf, isWholeNumberIn, readSettings } from '../domain/profiles/preference-reading';
 import type { FieldChecks } from '../domain/profiles/preference-reading';
@@ -81,6 +84,23 @@ function storedRuneRoles(stored: Record<string, unknown>): unknown {
   return 'runeRoles' in stored ? stored.runeRoles : stored[formerRuneRolesKey];
 }
 
+/* Speed tuning was kept by preset id until November 14, 2026, and is kept by
+   team now. The orders stated then are the user's, so a stored copy of that
+   section is carried over against the import it is read with (AGENTS.md §0);
+   every write uses the teams. Read without an import, it carries nothing. */
+function formerPresetTeams(game: ImportedGame | null, own: OwnPreset[]): (presetId: string) => FormerPresetTeam | undefined {
+  if (!game) return () => undefined;
+  /* Resolved on the first former entry asked for, so a stored copy without
+     that section costs a restore nothing. */
+  let resolved: { presets: ReturnType<typeof readPresets>; masterOf: (unitId: string) => string | null } | null = null;
+  return (presetId) => {
+    resolved ??= { presets: readPresets(game.data, own), masterOf: speciesOf(monstersByUnitId(game.snapshot.monsters.map((monster) => monster.record))) };
+    const { presets, masterOf } = resolved;
+    const preset = presets.find((entry) => entry.id === presetId);
+    return preset ? { content: preset.content?.id ?? 'unnamed', members: preset.members.map((unitId) => ({ unitId, masterId: masterOf(unitId) })) } : undefined;
+  };
+}
+
 /**
  * The stored preferences, one choice at a time (`preference-reading.ts`).
  *
@@ -93,6 +113,7 @@ function storedRuneRoles(stored: Record<string, unknown>): unknown {
 export function readPreferences(value: unknown, game: ImportedGame | null): Preferences {
   const stored = isRecord(value) ? value : {};
   const blank = blankPreferences();
+  const presets = readOwnPresets(stored.presets, game ? runeSlots(game.data) : undefined);
   return {
     updatedAt: typeof stored.updatedAt === 'string' && Number.isFinite(Date.parse(stored.updatedAt)) ? stored.updatedAt : blank.updatedAt,
     hardwareAcceleration: isBoolean(stored.hardwareAcceleration) ? stored.hardwareAcceleration : blank.hardwareAcceleration,
@@ -106,9 +127,9 @@ export function readPreferences(value: unknown, game: ImportedGame | null): Pref
     runePotential: readRunePotentialSettings(stored.runePotential, blank.runePotential),
     runeRoles: readRuneRoles(storedRuneRoles(stored)),
     artifacts: readSettings(stored.artifacts, blank.artifacts, artifactSettingChecks),
-    speedTuning: readSpeedTuningPreferences(stored.speedTuning),
+    speedTuning: readSpeedTuningPreferences(stored.speedTuning, formerPresetTeams(game, presets)),
     monsterPriority: readMonsterPriority(stored.monsterPriority),
-    presets: readOwnPresets(stored.presets, game ? runeSlots(game.data) : undefined),
+    presets,
     presetPriority: readPresetPriority(stored.presetPriority),
     runeOptimization: readSettings(stored.runeOptimization, blank.runeOptimization, runeOptimizationSettingChecks),
     relicSynergy: readRelicSynergyChoices(stored.relicSynergy),

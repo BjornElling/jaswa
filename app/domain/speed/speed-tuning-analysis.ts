@@ -388,6 +388,65 @@ function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: B
   return oppositionOf(units, content, trace).map((opposition) => stageReading(units, opposition, content));
 }
 
+/* Each present member as the clock reads it, in the team's order: its leads,
+   the totem, and its display speed — the what-if where one is typed. */
+function candidatesOf(team: SpeedTeam, monsters: ReadonlyMap<string, GameRecord>, totemPercent: number,
+  whatIfs: ReadonlyMap<string, number> | undefined): Candidate[] {
+  const content = speedContent(team.content);
+  const leaderMonster = team.leaderUnitId === null ? undefined : monsters.get(team.leaderUnitId);
+  const leaderSkill = leaderMonster ? speedLeaderSkill(leaderMonster.unit_master_id) : null;
+  /* The team's own lead, then those of the battle's other decks, which reach it
+     too; one speed lead counts, as one of any attribute does (`leadReaches`). */
+  const speedLeads = [leaderSkill, ...team.otherLeaders.map((leader) => speedLeaderSkill(leader.masterId))]
+    .filter((lead): lead is SpeedLeaderSkill => lead !== null);
+  return team.members.flatMap((member) => {
+    const monster = monsters.get(member.unitId);
+    if (!monster) return [];
+    const parts = monsterSpeedParts(monster);
+    const element = elementName(monster.attribute) ?? null;
+    const shown = whatIfs?.get(member.unitId) ?? parts.displaySpeed;
+    const leaderPercent = battleSpeedPercent(speedLeads, content.area, element);
+    return [{
+      unitId: member.unitId,
+      profile: speedSkillProfile(monster),
+      speedBuffPercent: speedBuffPotency(parts.speedUpEffect),
+      leaderPercent,
+      base: {
+        baseSpeed: parts.baseSpeed,
+        swift: parts.swift,
+        passiveFlatSpeed: parts.passiveFlatSpeed,
+        percentOfBase: totemPercent + leaderPercent + parts.passiveSpeedPercent,
+      },
+      runeSpeed: runeSpeedForDisplay(parts.baseSpeed, parts.swift, shown),
+    }];
+  });
+}
+
+/* The members by their first turn on the team's own clock. A member that never
+   moves within the clock's limit ranks after every one that does. */
+function movingOrder(candidates: readonly Candidate[], trace: BattleTrace): string[] {
+  const first = firstTurns(trace.events);
+  const firstAt = (unitId: string) => {
+    const event = first.get(unitId);
+    return event === undefined ? Number.POSITIVE_INFINITY : trace.events.indexOf(event);
+  };
+  return candidates.map((candidate) => candidate.unitId).sort((left, right) => firstAt(left) - firstAt(right));
+}
+
+/**
+ * The order the team moves in now: its members by their first turns, on the
+ * runes the preset engraves and never a what-if, with the preset's own slots as
+ * the field position that settles a tie. A team nobody has put in order for is
+ * shown in this one, so it follows the runes until the user states another. A
+ * member the import does not hold comes last, in its slot's order.
+ */
+export function gameTurnOrder(team: SpeedTeam, slots: readonly string[], monsters: ReadonlyMap<string, GameRecord>, totemPercent: number): string[] {
+  const inSlots = { ...team, members: slots.map((unitId) => ({ unitId, masterId: null })) };
+  const candidates = candidatesOf(inSlots, monsters, totemPercent, undefined);
+  const trace = teamTrace(candidates.map((candidate) => tickUnit(candidate)), speedContent(team.content).tick, false);
+  return [...movingOrder(candidates, trace), ...slots.filter((unitId) => !monsters.has(unitId))];
+}
+
 export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = false }: {
   team: SpeedTeam;
   monsters: ReadonlyMap<string, GameRecord>;
@@ -414,31 +473,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const missingUnitIds = team.members.filter((member) => !monsters.has(member.unitId)).map((member) => member.unitId);
   const leaderMonster = team.leaderUnitId === null ? undefined : monsters.get(team.leaderUnitId);
   const leaderSkill = leaderMonster ? speedLeaderSkill(leaderMonster.unit_master_id) : null;
-  /* The team's own lead, then those of the battle's other decks, which reach it
-     too; one speed lead counts, as one of any attribute does (`leadReaches`). */
-  const speedLeads = [leaderSkill, ...team.otherLeaders.map((leader) => speedLeaderSkill(leader.masterId))]
-    .filter((lead): lead is SpeedLeaderSkill => lead !== null);
-
-  const candidates: Candidate[] = present.map((member) => {
-    const monster = monsters.get(member.unitId) as GameRecord;
-    const parts = monsterSpeedParts(monster);
-    const element = elementName(monster.attribute) ?? null;
-    const shown = whatIfs?.get(member.unitId) ?? parts.displaySpeed;
-    const leaderPercent = battleSpeedPercent(speedLeads, content.area, element);
-    return {
-      unitId: member.unitId,
-      profile: speedSkillProfile(monster),
-      speedBuffPercent: speedBuffPotency(parts.speedUpEffect),
-      leaderPercent,
-      base: {
-        baseSpeed: parts.baseSpeed,
-        swift: parts.swift,
-        passiveFlatSpeed: parts.passiveFlatSpeed,
-        percentOfBase: totemPercent + leaderPercent + parts.passiveSpeedPercent,
-      },
-      runeSpeed: runeSpeedForDisplay(parts.baseSpeed, parts.swift, shown),
-    };
-  });
+  const candidates = candidatesOf(team, monsters, totemPercent, whatIfs);
   const units = candidates.map((candidate) => tickUnit(candidate));
   const trace = teamTrace(units, content.tick);
   const first = firstTurns(trace.events);
@@ -459,12 +494,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
      passed it. Only first turns are ranked, as a teammate boosted into a
      second turn moves nobody out of place. A member that never moves within
      the clock's limit ranks after every one that does. */
-  const firstAt = (unitId: string) => {
-    const event = first.get(unitId);
-    return event === undefined ? Number.POSITIVE_INFINITY : trace.events.indexOf(event);
-  };
-  const moveOrder = candidates.map((candidate) => candidate.unitId)
-    .sort((left, right) => firstAt(left) - firstAt(right));
+  const moveOrder = movingOrder(candidates, trace);
   const verdicts: MemberVerdict[] = candidates.map((candidate, index) => {
     const rank = moveOrder.indexOf(candidate.unitId);
     if (rank < index) return { kind: 'early' };

@@ -7443,7 +7443,7 @@ th.align-center .rank-heading { justify-content: center; }
 .speed-enemy-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 /* The team's own switch, under its last slot at the right edge, and quieter
    than the slots above it: it is a setting, not a reading. */
-.speed-no-tuning { display: flex; justify-content: flex-end; }
+.speed-no-tuning { display: flex; justify-content: flex-end; align-items: center; gap: var(--s4); }
 .speed-no-tuning .checkbox-row { color: var(--text-muted); }
 .speed-col-stage { width: 12ch; }
 .speed-col-cut { width: 32px; }

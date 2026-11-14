@@ -8,7 +8,7 @@ import { accountItems } from '../../domain/placements/presets';
 import type { Preset } from '../../domain/placements/presets';
 import type { SkyTribeTotem } from '../../domain/account/account-buildings';
 import { monstersByUnitId, presetTeam } from '../../domain/speed/speed-team';
-import { isSpeedTeam, speedTuningOf } from '../../domain/profiles/speed-tuning-preferences';
+import { isSpeedTeam, withTeamSpeedTuning } from '../../domain/profiles/speed-tuning-preferences';
 import type { SpeedTuningPreferences } from '../../domain/profiles/speed-tuning-preferences';
 import type { ImportedGame, Preferences } from '../../domain/model';
 
@@ -44,13 +44,13 @@ export function PresetSpeedTeamOverlay({ presetId, game, monsters, preferences, 
   onEditPreset: (presetId: string) => void;
 }) {
   const preset = presets.find((entry) => entry.id === presetId);
-  const tuning = preferences.speedTuning.presets;
+  const tuning = preferences.speedTuning;
   const monsterById = useMemo(() => monstersByUnitId(monsters), [monsters]);
   const items = useMemo(() => accountItems(game?.data), [game]);
   const totem = game?.snapshot.skyTribeTotem ?? noSkyTribeTotem;
   const totemShare = totem.state === 'built' ? totem.percent : 0;
-  const line = useMemo(() => (preset && isSpeedTeam(preset) ? presetTeam(preset, presets, tuning, monsterById, items) : null),
-    [preset, presets, tuning, monsterById, items]);
+  const line = useMemo(() => (preset && isSpeedTeam(preset) ? presetTeam(preset, presets, tuning, monsterById, items, totemShare) : null),
+    [preset, presets, tuning, monsterById, items, totemShare]);
   /* All teams of this area read the same copy names. */
   const names = useMemo(() => monsterCopyNames(monsters, profilesIn(preferences.monsterPreferences, preset?.profileScope ?? 'scenario')),
     [monsters, preferences.monsterPreferences, preset]);
@@ -58,11 +58,11 @@ export function PresetSpeedTeamOverlay({ presetId, game, monsters, preferences, 
   if (!game || !preset || !line) return null;
   const { team } = line;
 
-  return <SpeedTeamOverlay key={preset.id} initial={team} title={preset.name}
+  return <SpeedTeamOverlay key={preset.id} initial={team} slots={preset.members} title={preset.name}
     monsters={line.monsters} totemShare={totemShare} names={names} general={preferences.general}
     leading={leadingIn(preset, canChangePresets)}
     onSave={(saved) => {
-      onWrite((current) => ({ ...current, presets: { ...current.presets, [saved.id]: speedTuningOf(saved) } }));
+      onWrite((current) => withTeamSpeedTuning(current, saved));
       if (saved.leaderUnitId !== team.leaderUnitId) onLead(saved.id, saved.leaderUnitId);
       onClose();
     }}

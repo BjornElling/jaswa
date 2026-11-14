@@ -68,17 +68,16 @@ const withLocks = (game: ImportedGame, locks: RuneLocks): ImportedGame => {
 };
 
 /**
- * The preferences without what was stated for one preset: its speed tuning and
- * its priority list. A deleted preset is gone in the game too, and what was said
- * about its team is said about nothing.
+ * The preferences without what was stated for one preset: its priority list. A
+ * deleted preset is gone in the game too. Its speed tuning stays: that belongs
+ * to the team — its content and its monsters — and holds for the next preset
+ * built of them.
  */
 export function withoutPreset(preferences: Preferences, presetId: string): Preferences {
-  if (!(presetId in preferences.presetPriority) && !(presetId in preferences.speedTuning.presets)) return preferences;
-  const rest = <T,>(map: Readonly<Record<string, T>>) => Object.fromEntries(Object.entries(map).filter(([id]) => id !== presetId));
+  if (!(presetId in preferences.presetPriority)) return preferences;
   return {
     ...preferences,
-    presetPriority: rest(preferences.presetPriority),
-    speedTuning: { ...preferences.speedTuning, presets: rest(preferences.speedTuning.presets) },
+    presetPriority: Object.fromEntries(Object.entries(preferences.presetPriority).filter(([id]) => id !== presetId)),
   };
 }
 

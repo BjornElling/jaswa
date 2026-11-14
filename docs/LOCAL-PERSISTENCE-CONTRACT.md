@@ -74,7 +74,7 @@ reader, one choice at a time (`app/domain/profiles/preference-reading.ts`, AGENT
 | `runePotential` | Rune Clean-up settings, with its reroll rules | `readSettings`; `readStoredRerollRules` (`rune-reapp-targets.ts`) |
 | `runeRoles` | Rune Clean-up roles | `readRuneRoles` (`rune-roles.ts`) |
 | `artifacts` | Artifact Optimization settings: owned or Lv. 40 monsters only, how conversion stones are sourced, the assumed stone value, the acceptable-property factor, whether insignificant differences are ignored and their band, whether Intangible artifacts are included, and whether results re-calculate on change | `readSettings` |
-| `speedTuning` | Per preset: the turn order wanted, what-if display speeds by `unit_id`, *No speed tuning* | `readSpeedTuningPreferences` (`speed-tuning-preferences.ts`) |
+| `speedTuning` | Per team — preset content and species (`unit_master_id`): whether the turn order is stated and, if so, the order; what-if display speeds; *No speed tuning*. The per-preset section kept before November 14, 2026 is carried over against the import it is read with | `readSpeedTuningPreferences` (`speed-tuning-preferences.ts`) |
 | `monsterPriority` | Scenario's priority list | `readMonsterPriority` (`monster-priority.ts`) |
 | `presetPriority` | The order the user gave each game preset's monsters | `readPresetPriority` (`monster-priority.ts`) |
 | `presets` | The presets built in JASWA: a name, a content, the monsters, the leader and, once engraved, every member's runes and artifacts (`DECK-PRESETS.md` §4) | `readOwnPresets` (`presets.ts`) |
@@ -158,8 +158,11 @@ section:
 - **`writeSpeedTuning`** — only the user's statements are stored; every
   combat speed, verdict and interval is derived from the current import on each
   render. A what-if the contract refuses — not a whole display speed from 1 to
-  999 — is dropped alone. A stored order names monsters by `unit_id`; one the
-  preset no longer holds is left out and one it gained since is read last.
+  999 — is dropped alone. A team is named by its content and its species, so an
+  entry with an unreadable species or content is dropped whole, and a second
+  entry for a team already read is dropped. An entry that states nothing — no
+  order, no what-if, tuned — is not stored, and deleting a preset leaves its
+  team's entry in place.
 - **`presetWrites`** — Scenario's list, a game preset's order and the presets
   built in JASWA. A preset built in JASWA that fails its check is dropped alone.
 - **`updateCraftView`** — one Gems & Grinds view's question or filter; the

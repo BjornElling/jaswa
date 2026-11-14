@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
  * Speed Tuning reads the account's presets (`docs/DECK-PRESETS.md` §5): every
  * preset with a monster is a line in its content's column, its monsters and
  * leader are the game's, and only the turn order wanted and the what-ifs tried
- * are the user's to state.
+ * are the user's to state — kept for the team, its content and its species,
+ * and shown in the order it moves in until one is stated.
  */
 
 /* Bernard 1, Megan 2, Verdehile 3, Lushen #1 4, Lushen #2 5, Veromos 6. */
@@ -191,31 +192,32 @@ test('a team marked as not speed tuned drops its enemy cut-in and keeps its own 
     /* A place in the team's own order, with no enemy turn counted in it: five monsters, five places. */
     for (const [, place] of text.matchAll(/moves (\d+)/g)) expect(Number(place)).toBeLessThanOrEqual(5);
   }
-  /* Megan moved 8th behind the enemies' turns; now her place is the team's own.
-     Placed first and moving last she is too slow, and her range is what puts
-     her before Bernard, placed under her. */
-  await expect(verdicts.first()).toHaveText('Too slow · moves 5th · needs 156+ display speed');
+  /* Megan moved 8th behind the enemies' turns; now her place is the team's own,
+     and in the order the team moves in, that is last: in place. */
+  await expect(verdicts.last()).toHaveText('In place · moves 5th');
   await card.screenshot({ path: testInfo.outputPath('speed-not-tuned.png') });
 
   await card.getByRole('button', { name: 'Save changes' }).click();
   await expect(card).toHaveCount(0);
-  await expect(line.locator('.speed-summary-state')).toHaveText('5 of 5 out of place · No speed tuning');
-  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
+  await expect(line.locator('.speed-summary-state')).toHaveText('Turn order holds · No speed tuning');
+  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'good');
   expect(await box(line)).toEqual(lineBefore);
   expect(await box(nextLine)).toEqual(nextBefore);
   await page.screenshot({ path: testInfo.outputPath('speed-summary-not-tuned.png') });
-  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.presets?.['deck-24-101']?.noSpeedTuning))
-    .toBe(true);
+  /* Kept for the team, with no order of the user's: it still follows the runes. */
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.teams?.[0]))
+    .toMatchObject({ content: 'giants', orderStated: false, noSpeedTuning: true });
 
-  /* Kept across a reload, and undone the same way. */
+  /* Kept across a reload, and undone the same way, which leaves nothing stated. */
   await page.reload();
   await openSpeedTuning(page);
-  await expect(line.locator('.speed-summary-state')).toHaveText('5 of 5 out of place · No speed tuning');
+  await expect(line.locator('.speed-summary-state')).toHaveText('Turn order holds · No speed tuning');
   await line.click();
   await expect(toggle).toBeChecked();
   await toggle.uncheck();
   await card.getByRole('button', { name: 'Save changes' }).click();
   await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.teams)).toEqual([]);
 
   /* A single member has no teammate to overtake; its order still holds. */
   const solo = presetLine(page.getByRole('region', { name: 'Arena', exact: true }), 'Arena Attack 2');
@@ -255,39 +257,39 @@ test('a line\'s names are dragged within it to change the team\'s order, kept at
   const dungeons = page.getByRole('region', { name: 'Dungeons', exact: true });
   const line = presetLine(dungeons, "Giant's Keep 1");
   const names = line.locator('.speed-summary-name');
-  await expect(names).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  await expect(names).toHaveText(['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)']);
   const others = presetLine(dungeons, "Giant's Keep 2");
   const [lineBefore, othersBefore] = [await box(line), await box(others)];
 
-  /* Bernard taken by its name and dropped to the left of Megan. */
-  const bernard = await box(line.locator('.speed-summary-member').nth(1));
-  const megan = await box(line.locator('.speed-summary-member').nth(0));
-  await page.mouse.move(bernard.x + bernard.width / 2, bernard.y + bernard.height / 2);
+  /* Lushen taken by its name and dropped to the left of Bernard. */
+  const lushen = await box(line.locator('.speed-summary-member').nth(1));
+  const bernard = await box(line.locator('.speed-summary-member').nth(0));
+  await page.mouse.move(lushen.x + lushen.width / 2, lushen.y + lushen.height / 2);
   await page.mouse.down();
   for (let step = 1; step <= 8; step += 1) {
-    await page.mouse.move(bernard.x + bernard.width / 2 - (bernard.x - megan.x + 4) * step / 8, megan.y + megan.height / 2);
+    await page.mouse.move(lushen.x + lushen.width / 2 - (lushen.x - bernard.x + 4) * step / 8, bernard.y + bernard.height / 2);
   }
-  await page.mouse.move(megan.x + 3, megan.y + megan.height / 2);
+  await page.mouse.move(bernard.x + 3, bernard.y + bernard.height / 2);
   /* The preview is the line drawn in the drop's order, before anything is kept. */
-  await expect(line.locator('.speed-summary-member[data-dragging] .speed-summary-name')).toHaveText('Bernard (2A)');
+  await expect(line.locator('.speed-summary-member[data-dragging] .speed-summary-name')).toHaveText('Lushen #1');
   await expect(line.locator('.speed-summary-member[data-dragging]')).toHaveCSS('order', '0');
   await page.screenshot({ path: testInfo.outputPath('speed-line-drag-preview.png') });
   await page.mouse.up();
 
-  await expect(names).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  const stated = ['Lushen #1', 'Bernard (2A)', 'Veromos', 'Verdehile', 'Megan (2A)'];
+  await expect(names).toHaveText(stated);
   /* A drop is not a click: the team's overlay stays shut, and nothing beyond the line moved. */
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect((await box(line)).y).toBe(lineBefore.y);
   expect(await box(others)).toEqual(othersBefore);
-  /* Kept as the team's order, as Save in the overlay would keep it, and the overlay opens on it. */
-  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.presets?.['deck-24-101']?.order))
-    .toEqual(['1', '2', '4', '6', '3']);
+  /* Kept as the team's order, by species, as Save in the overlay would keep it, and the overlay opens on it. */
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.teams))
+    .toEqual([{ content: 'giants', members: ['13413', '11533', '19215', '14712', '15931'].map((masterId) => ({ masterId })), orderStated: true, noSpeedTuning: false }]);
   await page.reload();
   await openSpeedTuning(page);
-  await expect(names).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  await expect(names).toHaveText(stated);
   await line.click();
-  await expect(page.getByRole('dialog', { name: "Giant's Keep 1" }).locator('.speed-monster .monster-name'))
-    .toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  await expect(page.getByRole('dialog', { name: "Giant's Keep 1" }).locator('.speed-monster .monster-name')).toHaveText(stated);
   await page.keyboard.press('Escape');
 
   /* A line Speed Tuning cannot judge has no team order to drag. */
@@ -308,8 +310,13 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   const dungeons = page.getByRole('region', { name: 'Dungeons', exact: true });
   const headBefore = await box(dungeons.getByRole('heading', { name: 'Dungeons' }));
   const line = presetLine(dungeons, "Giant's Keep 1");
-  /* The line lists the preset in the game's own order until the user asks for another. */
-  await expect(line.locator('.speed-summary-name')).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  /* The line lists the team in the order it moves in until the user asks for
+     another — not the preset's slots, which put Megan first. In order, but stage
+     2's enemies get a turn before the last monster's first, read off the same
+     ticks the Ticks view draws, and that fails the team. */
+  const moving = ['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)'];
+  await expect(line.locator('.speed-summary-name')).toHaveText(moving);
+  await expect(line.locator('.speed-summary-state')).toHaveText('Enemy can cut in (stage 2)');
   await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
   const lineBox = await box(line);
 
@@ -341,41 +348,18 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(card.getByLabel(/^Add a monster/)).toHaveCount(0);
   await expect(card.getByRole('button', { name: /^Remove/ })).toHaveCount(0);
   const names = card.locator('.speed-monster .monster-name');
-  await expect(names).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
-  const startBox = await box(card.locator('.speed-team-editor'));
-  await page.screenshot({ path: testInfo.outputPath('speed-overlay-opened.png') });
-
-  /* Dragging Megan down slides the others up to where the drop leaves them,
-     numbered as drawn, before anything is committed; the drop commits it. */
-  const slots = card.locator('.speed-slot');
-  const slotBoxes = await Promise.all([0, 1, 2, 3, 4].map((at) => box(slots.nth(at).locator('.speed-monster'))));
-  /* Taken by its number: the name is a link, and a link is not a handle. */
-  const handle = await box(slots.nth(0).locator('.speed-order'));
-  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-  await page.mouse.down();
-  for (let step = 1; step <= 12; step += 1) {
-    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 + (slotBoxes[4].y - slotBoxes[0].y) * step / 12);
-  }
-  await expect(card.locator('.speed-order')).toHaveText(['5', '1', '2', '3', '4']);
-  await expect(names).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
-  /* Drawn aside, not laid out again: the slide moves the rows, never the editor. */
-  await expect.poll(async () => Math.abs((await box(slots.nth(1).locator('.speed-monster'))).y - slotBoxes[0].y)).toBeLessThanOrEqual(1);
-  await expect.poll(async () => Math.abs((await box(slots.nth(0).locator('.speed-monster'))).y - slotBoxes[4].y)).toBeLessThanOrEqual(1);
-  expectSameHeight((await box(card.locator('.speed-team-editor'))).height, startBox.height);
-  await card.screenshot({ path: testInfo.outputPath('speed-team-drag-preview.png') });
-  /* One more step, so the drop lands on a target the drag is still over. */
-  await page.mouse.move(handle.x + handle.width / 2 + 1, handle.y + handle.height / 2 + slotBoxes[4].y - slotBoxes[0].y);
-  await page.mouse.up();
-  await expect(names).toHaveText(['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)']);
+  await expect(names).toHaveText(moving);
   await expect(card.locator('.speed-order')).toHaveText(['1', '2', '3', '4', '5']);
   await expect(card.locator('.speed-combat')).toHaveText(['170', '119', '115', '114', '112']);
-  await expect(card.getByRole('button', { name: 'Save changes' })).toBeEnabled();
-  /* Leaving would drop the draft, so the way to the preset waits for Save, in the same box. */
-  await expect(editPreset).toBeDisabled();
-  expect(await box(editPreset)).toEqual(editBox);
+  /* Nothing stated, nothing to reset. */
+  const resetOrder = card.getByRole('button', { name: 'Reset turn order' });
+  await expect(resetOrder).toBeDisabled();
+  const resetBox = await box(resetOrder);
+  const startBox = await box(card.locator('.speed-team-editor'));
+  await page.screenshot({ path: testInfo.outputPath('speed-overlay-opened.png') });
   /* No line sums the team up: each slot says its own verdict. Every first turn
-     is where it was placed, but stage 2's enemy getting in before the last
-     three is a fault of its own: red, and leading their lines. */
+     is where it stands, but stage 2's enemy getting in before the last three is
+     a fault of its own: red, and leading their lines. */
   await expect(card.locator('.speed-verdict').first()).toHaveText('In place · moves 1st');
   await expect(card.locator('.speed-verdict').first()).toHaveAttribute('data-state', 'good');
   await expect(card.locator('.speed-verdict[data-state="warn"]')).toHaveCount(0);
@@ -402,30 +386,45 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   expectSameHeight((await box(card.locator('.speed-team-editor'))).height, startBox.height);
   await card.screenshot({ path: testInfo.outputPath('speed-team-perfect.png') });
 
-  /* A draft with edits survives a stray Escape; Save puts the order on the page. */
+  /* Dragging Megan up slides the others down to where the drop leaves them,
+     numbered as drawn, before anything is committed; the drop commits it. */
+  const slots = card.locator('.speed-slot');
+  const slotBoxes = await Promise.all([0, 1, 2, 3, 4].map((at) => box(slots.nth(at).locator('.speed-monster'))));
+  /* Taken by its number: the name is a link, and a link is not a handle. */
+  const handle = await box(slots.nth(4).locator('.speed-order'));
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  for (let step = 1; step <= 12; step += 1) {
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - (slotBoxes[4].y - slotBoxes[0].y) * step / 12);
+  }
+  await expect(card.locator('.speed-order')).toHaveText(['2', '3', '4', '5', '1']);
+  await expect(names).toHaveText(moving);
+  /* Drawn aside, not laid out again: the slide moves the rows, never the editor. */
+  await expect.poll(async () => Math.abs((await box(slots.nth(0).locator('.speed-monster'))).y - slotBoxes[1].y)).toBeLessThanOrEqual(1);
+  await expect.poll(async () => Math.abs((await box(slots.nth(4).locator('.speed-monster'))).y - slotBoxes[0].y)).toBeLessThanOrEqual(1);
+  expectSameHeight((await box(card.locator('.speed-team-editor'))).height, startBox.height);
+  await card.screenshot({ path: testInfo.outputPath('speed-team-drag-preview.png') });
+  /* One more step, so the drop lands on a target the drag is still over. */
+  await page.mouse.move(handle.x + handle.width / 2 + 1, handle.y + handle.height / 2 - (slotBoxes[4].y - slotBoxes[0].y));
+  await page.mouse.up();
+  await expect(names).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  await expect(card.locator('.speed-order')).toHaveText(['1', '2', '3', '4', '5']);
+  await expect(card.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+  /* The order is the user's now, so it can be handed back — in the same box. */
+  await expect(resetOrder).toBeEnabled();
+  expect(await box(resetOrder)).toEqual(resetBox);
+  /* Leaving would drop the draft, so the way to the preset waits for Save, in the same box. */
+  await expect(editPreset).toBeDisabled();
+  expect(await box(editPreset)).toEqual(editBox);
+  /* A draft with edits survives a stray Escape. */
   await page.keyboard.press('Escape');
   await expect(card).toBeVisible();
-  await card.getByRole('button', { name: 'Save changes' }).click();
-  await expect(card).toHaveCount(0);
-  await expect(line).toBeFocused();
-  await expect(line.locator('.speed-summary-name')).toHaveText(['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)']);
-  /* In order, but stage 2's enemies get a turn before the last monster's first,
-     read off the same ticks the Ticks view draws, and that fails the team. */
-  await expect(line.locator('.speed-summary-state')).toHaveText('Enemy can cut in (stage 2)');
-  await expect(line.locator('.speed-summary-mark')).toHaveAttribute('data-state', 'bad');
-  expectSameHeight((await box(line)).height, lineBox.height);
-  expectSameHeight((await box(dungeons.getByRole('heading', { name: 'Dungeons' }))).y, headBefore.y);
-  /* Stored for this preset alone: the order wanted, and no what-if yet. */
-  expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning))
-    .toEqual({ presets: { 'deck-24-101': { order: ['1', '4', '6', '3', '2'], whatIfs: {}, noSpeedTuning: false } } });
-  await page.screenshot({ path: testInfo.outputPath('speed-page-one-team.png') });
 
-  await line.click();
   const saved = card;
   /* Megan asked to move second. The order placed is the authority: Megan,
      moving last of the team, is too slow, and the three below her that move
      first are too fast. */
-  for (let step = 0; step < 3; step += 1) await saved.getByRole('button', { name: 'Move Megan (2A) earlier' }).click();
+  await saved.getByRole('button', { name: 'Move Megan (2A) later' }).click();
   const megan = saved.locator('.speed-slot').nth(1);
   /* Her range puts her between Bernard and Lushen #1 as they stand, and the
      enemy getting in comes last. */
@@ -496,11 +495,22 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
      fixes the editor's reading and is saved with the preset, but the page does
      not read it. */
   await saved.getByRole('button', { name: 'Save changes' }).click();
+  await expect(saved).toHaveCount(0);
   await expect(line).toBeFocused();
   /* The names follow the order asked for, uncoloured; only the mark and the sentence change. */
   await expect(line.locator('.speed-summary-name')).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
   /* With the runes engraved, the three below Megan still move before her, so all four are out of place, and stage 2 still cuts in. */
   await expect(line.locator('.speed-summary-state')).toHaveText('4 of 5 out of place · Enemy can cut in (stage 2)');
+  expectSameHeight((await box(dungeons.getByRole('heading', { name: 'Dungeons' }))).y, headBefore.y);
+  /* Kept for the team — Giant's Keep and these five species — not for the
+     preset: the order wanted, and Megan's what-if. */
+  expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning)).toEqual({ teams: [{
+    content: 'giants',
+    members: [{ masterId: '11533' }, { masterId: '15931', whatIfDisplaySpeed: 120 }, { masterId: '13413' }, { masterId: '19215' }, { masterId: '14712' }],
+    orderStated: true,
+    noSpeedTuning: false,
+  }] });
+  await page.screenshot({ path: testInfo.outputPath('speed-page-one-team.png') });
   /* Opened again, the what-if is still there, and the overlay reads it. */
   await line.click();
   await expect(saved.getByLabel("What-if display speed for Megan (2A) in Giant's Keep 1")).toHaveValue('120');
@@ -533,9 +543,79 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await line.click();
   await expect(saved.getByLabel("What-if display speed for Megan (2A) in Giant's Keep 1")).toHaveValue('120');
   await expect(saved.locator('.speed-monster .monster-name')).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
-  await saved.getByRole('button', { name: 'Close' }).click();
-  /* Another preset of the same dungeon is untouched by this one's tuning. */
+  /* Reset hands the order back to the runes: the team stands as it moves at
+     once, and only the what-if is kept. */
+  await saved.getByRole('button', { name: 'Reset turn order' }).click();
+  await expect(saved.locator('.speed-monster .monster-name')).toHaveText(moving);
+  await expect(saved.getByRole('button', { name: 'Reset turn order' })).toBeDisabled();
+  await saved.getByRole('button', { name: 'Save changes' }).click();
+  await expect(line.locator('.speed-summary-name')).toHaveText(moving);
+  await expect.poll(async () => page.evaluate(() => JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.teams))
+    .toEqual([{ content: 'giants', members: moving.map((name) => name === 'Megan (2A)'
+      ? { masterId: '15931', whatIfDisplaySpeed: 120 } : { masterId: { 'Bernard (2A)': '11533', 'Lushen #1': '13413', Veromos: '19215', Verdehile: '14712' }[name] }),
+    orderStated: false, noSpeedTuning: false }]);
+  /* Another preset of the same dungeon, with other monsters, is untouched by this one's tuning. */
   await expect(presetLine(dungeons, "Giant's Keep 2").locator('.speed-summary-name')).toHaveText(['Lushen #1', 'Lushen #2']);
+});
+
+test('an order stated for a team holds for every preset of its content with those monsters, and outlives them all', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await freshWorkspace(page);
+  /* Giant's Keep 1 and 3 hold the same five monsters in other slots; Dragon's
+     Lair 1 holds two of them, as Giant's Keep 4 does. */
+  const twins = { ...withPresets, deck_list: [...withPresets.deck_list, deck(24, 103, [3, 6, 4, 1, 2]), deck(24, 104, [2, 1])] };
+  await importAccount(page, twins, 'speed-twins.json');
+  await openSpeedTuning(page);
+  const dungeons = page.getByRole('region', { name: 'Dungeons', exact: true });
+  const moving = ['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)'];
+  const first = presetLine(dungeons, "Giant's Keep 1");
+  const third = presetLine(dungeons, "Giant's Keep 3");
+  await expect(first.locator('.speed-summary-name')).toHaveText(moving);
+  await expect(third.locator('.speed-summary-name')).toHaveText(moving);
+
+  /* Moved on one line, both lines follow; a smaller team of two of them, and the
+     same two in another content, do not. */
+  await first.click();
+  const card = page.getByRole('dialog', { name: "Giant's Keep 1" });
+  await card.getByRole('button', { name: 'Move Verdehile earlier' }).click();
+  await card.getByRole('button', { name: 'Save changes' }).click();
+  const stated = ['Bernard (2A)', 'Lushen #1', 'Verdehile', 'Veromos', 'Megan (2A)'];
+  await expect(first.locator('.speed-summary-name')).toHaveText(stated);
+  await expect(third.locator('.speed-summary-name')).toHaveText(stated);
+  await expect(presetLine(dungeons, "Giant's Keep 4").locator('.speed-summary-name')).toHaveText(['Bernard (2A)', 'Megan (2A)']);
+  await expect(presetLine(dungeons, "Dragon's Lair 1").locator('.speed-summary-name')).toHaveText(['Bernard (2A)', 'Megan (2A)']);
+
+  /* Every preset of the team gone, and one rebuilt later under another number:
+     the order is still the team's. */
+  const rebuilt = { ...withPresets, deck_list: [...withPresets.deck_list.filter((entry: { deck_type: number; deck_seq: number }) => !(entry.deck_type === 24 && entry.deck_seq === 101)), deck(24, 105, [6, 3, 2, 4, 1])] };
+  await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'speed-rebuilt.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(rebuilt)),
+  });
+  await page.getByRole('dialog').getByRole('button', { name: 'Replace data' }).click();
+  await expect(page.getByText('speed-rebuilt.json · imported')).toBeVisible();
+  await openSpeedTuning(page);
+  await expect(presetLine(dungeons, "Giant's Keep 1")).toHaveCount(0);
+  await expect(presetLine(dungeons, "Giant's Keep 5").locator('.speed-summary-name')).toHaveText(stated);
+});
+
+test('an order kept by preset before teams carries over to its team', async ({ page }) => {
+  await freshWorkspace(page);
+  await importAccount(page);
+  /* As the former contract stored it: by preset id, monsters by unit id. */
+  await page.evaluate(() => {
+    const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');
+    localStorage.setItem('jaswa-preferences', JSON.stringify({ ...preferences,
+      speedTuning: { presets: { 'deck-24-101': { order: ['2', '1', '4', '6', '3'], whatIfs: { 2: 150 }, noSpeedTuning: false } } },
+      updatedAt: new Date(Date.now() + 1000).toISOString() }));
+  });
+  await page.reload();
+  await openSpeedTuning(page);
+  const line = presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), "Giant's Keep 1");
+  await expect(line.locator('.speed-summary-name')).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
+  await line.click();
+  await expect(page.getByLabel("What-if display speed for Megan (2A) in Giant's Keep 1")).toHaveValue('150');
 });
 
 test('a preset that holds fewer monsters than its content keeps the card\'s size', async ({ page }, testInfo) => {
@@ -683,8 +763,8 @@ test('arena presets face a worst-case enemy', async ({ page }, testInfo) => {
   /* Unsaved, a what-if leaves with the overlay. */
   await card.getByRole('button', { name: 'Close' }).click();
   await expect(card).toHaveCount(0);
-  expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.presets ?? {}))
-    .toEqual({});
+  expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.teams ?? []))
+    .toEqual([]);
 
   const first = presetLine(arena, 'Arena Attack 1');
   await expect(first.locator('.speed-summary-state')).toHaveText('Tied · position decides · Enemy can cut in');
@@ -744,6 +824,11 @@ test('a boost to one ally names who gets it: the lowest bar, as auto battle send
   await openSpeedTuning(page);
   await presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), "Giant's Keep 1").click();
   const draft = page.getByRole('dialog', { name: "Giant's Keep 1" });
+  /* Konamiya's Resurge sends Veromos second, so the team opens in that order;
+     the Lushens are placed before Veromos, as the preset's slots have them. */
+  await expect(draft.locator('.speed-monster .monster-name')).toHaveText(['Konamiya', 'Veromos', 'Lushen #1', 'Lushen #2']);
+  for (let step = 0; step < 2; step += 1) await draft.getByRole('button', { name: 'Move Veromos later' }).click();
+  await expect(draft.locator('.speed-monster .monster-name')).toHaveText(['Konamiya', 'Lushen #1', 'Lushen #2', 'Veromos']);
   const caster = draft.locator('.speed-slot').first();
   const slotBox = await box(caster);
   await draft.screenshot({ path: testInfo.outputPath('speed-one-ally-before.png') });
@@ -822,8 +907,7 @@ test('each slot states the display speeds that hold it, and a what-if is selecte
   const line = presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), "Giant's Keep 1");
   await line.click();
   const draft = page.getByRole('dialog', { name: "Giant's Keep 1" });
-  /* Megan, first in the game's order, asked to move last. */
-  for (let step = 0; step < 4; step += 1) await draft.getByRole('button', { name: 'Move Megan (2A) later' }).click();
+  /* Megan, first in the preset's slots, opens last: the order the team moves in. */
   await expect(draft.getByRole('button', { name: 'Move Megan (2A) later' })).toBeDisabled();
   await expect(draft.locator('.speed-monster .monster-name')).toHaveText(['Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile', 'Megan (2A)']);
   /* What a booster's turn hands the next one hangs on the line below it, and takes no room. */

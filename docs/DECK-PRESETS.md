@@ -343,7 +343,9 @@ and Scenario have separate profiles, even when they hold the same copy.
   reader. Unnamed teams share the explicit unassigned area; no content is
   guessed beyond the import's existing classification.
 - Gear, team membership, leader, rune priority, locks and speed tuning remain
-  team-specific. Sharing a profile never copies or merges game placements.
+  team-specific — speed tuning kept by content and species, so every preset
+  of one team reads it (`SPEED-TICK-CANONICAL.md` §9). Sharing a profile never
+  copies or merges game placements.
 - No fallback between areas. An unstated choice reads species defaults there,
   never Scenario's profile. *Copy from…* copies another area's stated choices;
   later edits stay independent. A profile with no stated choices stays visible
@@ -453,9 +455,10 @@ current location.
 its monsters are the preset's, every speed is computed from the preset's own
 runes with the relic from Scenario, and the leader is the user's to choose on
 the team as on the Presets page — saved with the team, written as the crown
-writes it, and under live sync only reported. Until a turn order is stated,
-the team is read in the game's own order. How the page lays out and judges a
-team is `SPEED-TICK-CANONICAL.md` §9.
+writes it, and under live sync only reported. A stated turn order belongs to
+the team rather than the preset — its content and its monsters' species — and
+until one is stated the team is shown in the order it moves in now. How the
+page lays out and judges a team is `SPEED-TICK-CANONICAL.md` §9.
 
 **Rune Clean-up, Gems & Grinds and every rune or artifact list.**
 - Runes use the Scenario-first reading above: the Scenario monster's name, with

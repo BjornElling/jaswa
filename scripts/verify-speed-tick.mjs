@@ -27,10 +27,10 @@ import {
 import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/domain/speed/speed-skills.ts';
 import { dungeonIds, fastestEnemySpeed, speedContent, speedContents } from '../app/domain/speed/speed-contents.ts';
 import { accuracyCeilings, usefulAccuracy } from '../app/domain/combat/accuracy-ceiling.ts';
-import { enemyNamesOf, readSpeedTeam } from '../app/domain/speed/speed-tuning-analysis.ts';
+import { enemyNamesOf, gameTurnOrder, readSpeedTeam } from '../app/domain/speed/speed-tuning-analysis.ts';
 import { presetContent, presetContents } from '../app/domain/placements/preset-contents.ts';
 import {
-  isSpeedTuningPreferences, presetSpeedTeam, readSpeedTuningPreferences, speedTuningOf,
+  canKeepSpeedTuning, isSpeedTuningPreferences, presetSpeedTeam, readSpeedTuningPreferences, teamSpeedTuning, withTeamSpeedTuning,
 } from '../app/domain/profiles/speed-tuning-preferences.ts';
 import { accountBuildingsProblem, readBuildingBonuses, readSkyTribeTotem } from '../app/domain/account/account-buildings.ts';
 import { calculateMonsterTotals, monsterSpeedParts } from '../app/domain/combat/monster-stats.ts';
@@ -342,105 +342,166 @@ check(accountBuildingsProblem({ deco_list: [{ master_id: 5, level: 99 }] }) === 
     'display speed is the stat sheet\'s own figure');
 }
 
-/* The saved contract: per preset, the turn order asked for, the what-ifs
-   tried and whether the team is speed tuned at all. The monsters and the leader are the preset's, so none is stored. */
+/* The saved contract: per team — a content and its monsters by species — the
+   order stated, the what-ifs tried and whether the team is speed tuned at all.
+   The leader is the preset's, so it is not stored. */
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
-check(isSpeedTuningPreferences({ presets: {} }), 'an empty workspace is valid');
-check(same(readSpeedTuningPreferences({ presets: {} }), { presets: {} }), 'an empty workspace reads back empty');
-check(same(readSpeedTuningPreferences(undefined), { presets: {} }), 'nothing stored reads as nothing tuned');
-check(isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1', '2'], whatIfs: { 1: 120 }, noSpeedTuning: false } } }), 'an order and a what-if are kept with their preset');
-check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: {} } } }), 'a preset without its speed tuning switch is not written');
-check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: {}, noSpeedTuning: 'yes' } } }), 'a switch that is not true or false is not written');
-check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1', '1'], whatIfs: {}, noSpeedTuning: false } } }), 'a monster twice in an order is not written');
-check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: { 1: 0 }, noSpeedTuning: false } } }), 'a what-if of zero is not written');
-check(!isSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1'], whatIfs: {}, noSpeedTuning: false, margin: 1 } } }), 'a field the contract does not name is not written');
-check(!isSpeedTuningPreferences({ presets: {}, teams: [] }), 'a section the contract does not name is not written');
-check(!isSpeedTuningPreferences({ teams: [], rules: [] }), 'the teams-and-rules shape is no longer the contract');
+const teamEntry = (content, masterIds, extra = {}) => ({ content, members: masterIds.map((masterId) => ({ masterId })), orderStated: true, noSpeedTuning: false, ...extra });
+check(isSpeedTuningPreferences({ teams: [] }), 'an empty workspace is valid');
+check(same(readSpeedTuningPreferences({ teams: [] }), { teams: [] }), 'an empty workspace reads back empty');
+check(same(readSpeedTuningPreferences(undefined), { teams: [] }), 'nothing stored reads as nothing tuned');
+check(isSpeedTuningPreferences({ teams: [teamEntry('arena-attack', ['11', '12'], { members: [{ masterId: '11', whatIfDisplaySpeed: 120 }, { masterId: '12' }] })] }),
+  'an order and a what-if are kept with their team');
+check(isSpeedTuningPreferences({ teams: [teamEntry('unnamed', ['11'])] }), 'a team of a preset not yet named is kept under unnamed');
+check(!isSpeedTuningPreferences({ teams: [teamEntry('arena', ['11'])] }), 'a speed content is not a preset content');
+check(!isSpeedTuningPreferences({ teams: [{ content: 'giants', members: [{ masterId: '11' }], orderStated: true }] }), 'a team without its speed tuning switch is not written');
+check(!isSpeedTuningPreferences({ teams: [teamEntry('giants', ['11'], { noSpeedTuning: 'yes' })] }), 'a switch that is not true or false is not written');
+check(!isSpeedTuningPreferences({ teams: [teamEntry('giants', ['11'], { members: [{ masterId: '11', whatIfDisplaySpeed: 0 }] })] }), 'a what-if of zero is not written');
+check(!isSpeedTuningPreferences({ teams: [teamEntry('giants', ['11'], { margin: 1 })] }), 'a field the contract does not name is not written');
+check(!isSpeedTuningPreferences({ teams: [teamEntry('giants', ['11'], { orderStated: false })] }), 'a team that states nothing is not written');
+check(!isSpeedTuningPreferences({ teams: [teamEntry('giants', ['11', '12']), teamEntry('giants', ['12', '11'])] }), 'one team, whatever order its species are listed in, is written once');
+check(isSpeedTuningPreferences({ teams: [teamEntry('giants', ['11', '12']), teamEntry('dragons', ['11', '12'])] }), 'the same monsters in another content are another team');
+check(!isSpeedTuningPreferences({ teams: [], presets: {} }), 'a section the contract does not name is not written');
+check(!isSpeedTuningPreferences({ presets: {} }), 'the per-preset shape is no longer the contract');
 {
-  const stored = readSpeedTuningPreferences({ presets: { 'deck-24-101': { order: ['1', '2'], whatIfs: { 1: 'fast', 2: 140, 3: 1000 } } } });
-  check(same(stored.presets['deck-24-101'], { order: ['1', '2'], whatIfs: { 2: 140 }, noSpeedTuning: false }),
+  const stored = readSpeedTuningPreferences({ teams: [teamEntry('giants', ['11', '12'], { members: [{ masterId: '11', whatIfDisplaySpeed: 'fast' }, { masterId: '12', whatIfDisplaySpeed: 140 }] })] });
+  check(same(stored.teams[0].members, [{ masterId: '11' }, { masterId: '12', whatIfDisplaySpeed: 140 }]),
     'a malformed what-if is dropped on its own; its neighbour and the order it sat beside are kept');
 }
 {
-  const stored = readSpeedTuningPreferences({ presets: { 'deck-1-1': { order: ['2', '1', '2', 5, '', '3', '1'], whatIfs: {} } } });
-  check(same(stored.presets['deck-1-1'].order, ['2', '1', '3']), 'a repeated or unreadable order entry is dropped alone, the rest keep their places');
+  const stored = readSpeedTuningPreferences({ teams: [
+    teamEntry('giants', ['11']),
+    'not a team',
+    teamEntry('giants', ['11', 5]),
+    teamEntry('nowhere', ['13']),
+    teamEntry('dragons', ['14'], { noSpeedTuning: 'yes', orderStated: 'yes' }),
+    teamEntry('dragons', ['15'], { orderStated: false, noSpeedTuning: true }),
+    teamEntry('giants', ['11'], { noSpeedTuning: true }),
+  ] });
+  check(same(stored.teams.map((entry) => entry.members[0].masterId), ['11', '15']), 'an unreadable team, one stating nothing and a second entry for a team cost only themselves');
+  check(stored.teams[0].noSpeedTuning === false && stored.teams[1].noSpeedTuning === true && stored.teams[1].orderStated === false,
+    'each switch reads on its own, and an unreadable one starts from its default');
 }
 {
-  const stored = readSpeedTuningPreferences({ presets: {
-    'deck-1-1': { order: ['1'], whatIfs: {} },
-    'deck-1-2': 'not a preset',
-    '': { order: ['1'], whatIfs: {} },
-    'deck-1-3': { order: ['4'], whatIfs: { 4: 150 }, marginEnabled: true },
-    'deck-1-4': { order: ['5'], whatIfs: {}, noSpeedTuning: 'yes' },
-    'deck-1-5': { order: ['6'], whatIfs: {}, noSpeedTuning: true },
-  } });
-  check(same(Object.keys(stored.presets), ['deck-1-1', 'deck-1-3', 'deck-1-4', 'deck-1-5']), 'an unreadable preset entry costs only itself');
-  check(stored.presets['deck-1-4'].noSpeedTuning === false && same(stored.presets['deck-1-4'].order, ['5']) && stored.presets['deck-1-5'].noSpeedTuning === true,
-    'an unreadable speed tuning switch starts from its default and costs its preset nothing else');
-  check(stored.presets['deck-1-1'].noSpeedTuning === false, 'a preset stored before the switch reads as speed tuned');
-  check(same(stored.presets['deck-1-3'], { order: ['4'], whatIfs: { 4: 150 }, noSpeedTuning: false }), 'a field the page no longer offers is left out on reading, and the preset kept');
+  /* The former per-preset section is carried into teams against the import. */
+  const former = { 'deck-1-1': { order: ['2', '1'], whatIfs: { 1: 130 }, noSpeedTuning: false }, 'deck-1-2': { order: ['3'], whatIfs: {} },
+    'deck-1-3': { order: ['4'], whatIfs: {}, noSpeedTuning: true }, gone: { order: ['9'], whatIfs: {} } };
+  const presets = {
+    'deck-1-1': { content: 'arena-attack', members: [{ unitId: '1', masterId: '11' }, { unitId: '2', masterId: '12' }] },
+    'deck-1-2': { content: 'arena-attack', members: [{ unitId: '3', masterId: null }] },
+    'deck-1-3': { content: 'unnamed', members: [{ unitId: '4', masterId: '14' }] },
+  };
+  const stored = readSpeedTuningPreferences({ presets: former }, (presetId) => presets[presetId]);
+  check(same(stored.teams, [
+    { content: 'arena-attack', members: [{ masterId: '12' }, { masterId: '11', whatIfDisplaySpeed: 130 }], orderStated: true, noSpeedTuning: false },
+    { content: 'unnamed', members: [{ masterId: '14' }], orderStated: true, noSpeedTuning: true },
+  ]), 'a former preset entry becomes its team; one whose preset or species is unknown is left behind');
+  check(same(readSpeedTuningPreferences({ presets: former }), { teams: [] }), 'read without an import, the former section carries nothing');
 }
-check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants', members: [{ unitId: '1' }], leaderUnitId: null }], rules: [] }), { presets: {} }),
-  'the teams-and-rules shape reads as nothing tuned');
 {
-  /* A preset's own members and leader, in the order asked for: one the preset
-     gained since is placed last, one it lost is left out with its what-if. */
+  /* A preset's own members and leader, in the order stated for its team; a
+     team never stated reads in the order given as the fallback. */
   const giants = presetContent('giants');
+  const species = { 1: '11', 2: '12', 3: '13', 4: '11' };
+  const masterOf = (unitId) => species[unitId] ?? null;
   const preset = { id: 'deck-24-101', members: ['1', '2', '3'], leaderUnitId: '2', content: giants };
-  const team = presetSpeedTeam(preset, { order: ['3', '9', '1'], whatIfs: { 1: 130, 9: 150 } });
-  check(same(team.members, [{ unitId: '3' }, { unitId: '1', whatIfDisplaySpeed: 130 }, { unitId: '2' }])
-    && team.leaderUnitId === '2' && team.id === 'deck-24-101' && team.content === 'giants' && team.size === 5,
-    'the stored order leads, a new member follows it, a departed one is gone');
-  check(same(presetSpeedTeam(preset, undefined).members, [{ unitId: '1' }, { unitId: '2' }, { unitId: '3' }]),
-    'a preset never tuned reads in the game\'s own order');
-  check(same(speedTuningOf(team), { order: ['3', '1', '2'], whatIfs: { 1: 130 }, noSpeedTuning: false }),
-    'a team written back stores only the order, the what-ifs and whether it is speed tuned');
-  check(team.noSpeedTuning === false && presetSpeedTeam(preset, { order: [], whatIfs: {}, noSpeedTuning: true }).noSpeedTuning,
+  const stated = teamEntry('giants', ['13', '11', '12'], { members: [{ masterId: '13' }, { masterId: '11', whatIfDisplaySpeed: 130 }, { masterId: '12' }] });
+  const read = presetSpeedTeam(preset, masterOf, stated);
+  check(same(read.members, [{ unitId: '3', masterId: '13' }, { unitId: '1', masterId: '11', whatIfDisplaySpeed: 130 }, { unitId: '2', masterId: '12' }])
+    && read.orderStated && read.leaderUnitId === '2' && read.id === 'deck-24-101' && read.content === 'giants' && read.tuningContent === 'giants' && read.size === 5,
+    'the stated order leads, by species');
+  const prefs = { teams: [stated] };
+  const other = { ...preset, id: 'deck-24-102', members: ['2', '3', '1'] };
+  check(same(presetSpeedTeam(other, masterOf, teamSpeedTuning(prefs, presetSpeedTeam(other, masterOf, undefined))).members.map((member) => member.unitId), ['3', '1', '2']),
+    'another preset of the same content with the same monsters reads the same order');
+  check(teamSpeedTuning(prefs, presetSpeedTeam({ ...preset, content: presetContent('dragons') }, masterOf, undefined)) === undefined,
+    'the same monsters in another content read nothing stated');
+  check(teamSpeedTuning(prefs, presetSpeedTeam({ ...preset, members: ['1', '2'] }, masterOf, undefined)) === undefined,
+    'a team missing one of the monsters reads nothing stated');
+  check(same(presetSpeedTeam(preset, masterOf, undefined, [], ['3', '2', '1']).members.map((member) => member.unitId), ['3', '2', '1'])
+    && !presetSpeedTeam(preset, masterOf, undefined).orderStated,
+    'a team never stated reads in the order it moves in');
+  check(same(presetSpeedTeam(preset, masterOf, { ...stated, orderStated: false }, [], ['2', '3', '1']).members,
+    [{ unitId: '2', masterId: '12' }, { unitId: '3', masterId: '13' }, { unitId: '1', masterId: '11', whatIfDisplaySpeed: 130 }]),
+    'a what-if stated without an order rides on the order the team moves in');
+  /* Two copies of one species take their places in slot order. */
+  const twice = presetSpeedTeam({ ...preset, members: ['1', '4'] }, masterOf, teamEntry('giants', ['11', '11'], { members: [{ masterId: '11', whatIfDisplaySpeed: 140 }, { masterId: '11' }] }));
+  check(same(twice.members, [{ unitId: '1', masterId: '11', whatIfDisplaySpeed: 140 }, { unitId: '4', masterId: '11' }]), 'a species twice reads both of its places');
+  /* Written back, a team is kept by what it is, where it stood among the others. */
+  const moved = { ...read, members: [read.members[1], read.members[0], read.members[2]] };
+  const before = { teams: [teamEntry('dragons', ['14']), stated, teamEntry('necropolis', ['15'])] };
+  const written = withTeamSpeedTuning(before, moved);
+  check(same(written.teams.map((entry) => entry.content), ['dragons', 'giants', 'necropolis'])
+    && same(written.teams[1].members, [{ masterId: '11', whatIfDisplaySpeed: 130 }, { masterId: '13' }, { masterId: '12' }]),
+    'a team written back replaces its own entry in place');
+  const reset = withTeamSpeedTuning(before, { ...read, orderStated: false, members: read.members.map(({ unitId, masterId }) => ({ unitId, masterId })) });
+  check(same(reset.teams.map((entry) => entry.content), ['dragons', 'necropolis']), 'a team that states nothing any more leaves no entry');
+  const unknown = presetSpeedTeam({ ...preset, members: ['1', '9'] }, masterOf, undefined);
+  check(!canKeepSpeedTuning(unknown) && withTeamSpeedTuning(before, { ...unknown, orderStated: true }) === before,
+    'a team with a member the import does not hold cannot be kept');
+  check(read.noSpeedTuning === false && presetSpeedTeam(preset, masterOf, { ...stated, noSpeedTuning: true }).noSpeedTuning,
     'a team is speed tuned until the user says otherwise');
-  const oversized = presetSpeedTeam({ ...preset, members: ['1', '2', '3', '4', '5'], content: presetContent('arena-attack') }, undefined);
+  const oversized = presetSpeedTeam({ ...preset, members: ['1', '2', '3', '4', '5'], content: presetContent('arena-attack') }, masterOf, undefined);
   check(oversized.members.length === 5 && oversized.size === 5, 'a preset holding more monsters than its content fields is shown whole');
   /* Every content is a team to tune, read against its area where it has no enemy data. */
   for (const content of presetContents) {
-    const read = speedContent(presetSpeedTeam({ ...preset, content }, undefined).content);
+    const read = speedContent(presetSpeedTeam({ ...preset, content }, masterOf, undefined).content);
     check(read.teamSize === null || read.teamSize === content.teamSize, `${content.name}: its enemy data was read for its own team`);
     check(read.opponent !== 'none' || read.teamSize === null, `${content.name}: a content without enemies is read by area alone`);
   }
-  check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('temple-of-chaos') }, undefined).content).area === 'dungeon',
+  check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('temple-of-chaos') }, masterOf, undefined).content).area === 'dungeon',
     'Temple of Chaos counts dungeon leads');
-  const siege = speedContent(presetSpeedTeam({ ...preset, content: presetContent('siege') }, undefined).content);
+  const siege = speedContent(presetSpeedTeam({ ...preset, content: presetContent('siege') }, masterOf, undefined).content);
   check(siege.area === 'guild' && siege.opponent === 'worst-case', 'a Siege Battle attack counts guild leads and faces the worst-case enemy');
-  check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('siege-defense') }, undefined).content).opponent === 'none',
+  check(speedContent(presetSpeedTeam({ ...preset, content: presetContent('siege-defense') }, masterOf, undefined).content).opponent === 'none',
     'a Siege Battle defense is tuned for its own order alone');
   for (const id of ['rift-raid', 'dimension-raid-1', 'dimension-raid-2', 'dimension-raid-3']) {
-    const raid = speedContent(presetSpeedTeam({ ...preset, content: presetContent(id) }, undefined).content);
+    const raid = speedContent(presetSpeedTeam({ ...preset, content: presetContent(id) }, masterOf, undefined).content);
     check(raid.area === 'raid' && raid.tick === 'raid', `${presetContent(id).name} ticks and leads as a raid`);
   }
   check(speedContents.every((content) => content.tick === (content.area === 'raid' ? 'raid' : 'standard')), 'only a raid ticks at 4.5 %');
-  const unnamed = presetSpeedTeam({ ...preset, content: null }, undefined);
-  check(unnamed.content === 'unnamed' && unnamed.size === 3, 'a preset not yet named has the places it fills and counts General leads alone');
+  const unnamed = presetSpeedTeam({ ...preset, content: null }, masterOf, undefined);
+  check(unnamed.content === 'unnamed' && unnamed.tuningContent === 'unnamed' && unnamed.size === 3, 'a preset not yet named has the places it fills and counts General leads alone');
 }
 {
   /* Stored, a what-if still never reaches a reading that is not handed it: the page judges the runes engraved. */
   const unitId = '1';
   const monster = { ...baseFacts, unit_id: 1, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 40], sec_eff: [] }] };
   const monsters = new Map([[unitId, monster]]);
+  const masterOf = (id) => String(monsters.get(id)?.unit_master_id ?? '') || null;
   const preset = { id: 'deck-24-101', members: [unitId], leaderUnitId: null, content: presetContent('giants') };
-  const plain = readSpeedTeam({ team: presetSpeedTeam(preset, undefined), monsters, totemPercent: 15 });
-  const stored = readSpeedTeam({ team: presetSpeedTeam(preset, { order: [unitId], whatIfs: { [unitId]: 999 } }), monsters, totemPercent: 15 });
+  const plain = readSpeedTeam({ team: presetSpeedTeam(preset, masterOf, undefined), monsters, totemPercent: 15 });
+  const stored = readSpeedTeam({ team: presetSpeedTeam(preset, masterOf, teamEntry('giants', ['14712'], { members: [{ masterId: '14712', whatIfDisplaySpeed: 999 }] })), monsters, totemPercent: 15 });
   check(stored.members[0].displaySpeed === monsterSpeedParts(monster).displaySpeed && !stored.members[0].whatIf
     && stored.members[0].combatSpeed === plain.members[0].combatSpeed, 'a stored what-if is read by nothing but the overlay');
   /* A team the user says is not speed tuned faces nothing: its places are its own order's. */
-  const untuned = readSpeedTeam({ team: presetSpeedTeam(preset, { order: [], whatIfs: {}, noSpeedTuning: true }), monsters, totemPercent: 15, ranges: true });
+  const untuned = readSpeedTeam({ team: presetSpeedTeam(preset, masterOf, teamEntry('giants', ['14712'], { orderStated: false, noSpeedTuning: true })), monsters, totemPercent: 15, ranges: true });
   check(plain.enemies.length > 0 && untuned.enemies.length === 0 && untuned.members[0].cutInAt.length === 0
     && same(untuned.members[0].turnPositions, [1]) && untuned.members[0].combatSpeed === plain.members[0].combatSpeed,
     'a team not speed tuned is read against no enemy, at the same combat speeds');
   /* A Rift Raid deck runs at the speed lead of another deck of its battle:
      11801 leads +19 % SPD everywhere. */
   const raid = { ...preset, id: 'deck-3-1', content: presetContent('rift-raid') };
-  const alone = readSpeedTeam({ team: presetSpeedTeam(raid, undefined), monsters, totemPercent: 15 });
-  const led = readSpeedTeam({ team: presetSpeedTeam(raid, undefined, [{ unitId: '9', masterId: '11801', presetName: 'Rift Raid 2' }]), monsters, totemPercent: 15 });
+  const alone = readSpeedTeam({ team: presetSpeedTeam(raid, masterOf, undefined), monsters, totemPercent: 15 });
+  const led = readSpeedTeam({ team: presetSpeedTeam(raid, masterOf, undefined, [{ unitId: '9', masterId: '11801', presetName: 'Rift Raid 2' }]), monsters, totemPercent: 15 });
   check(alone.members[0].leaderPercent === 0 && led.members[0].leaderPercent === 19 && led.members[0].combatSpeed > alone.members[0].combatSpeed,
     'a Rift Raid deck counts the speed lead of another deck of its battle');
+}
+{
+  /* A team nobody put in order is shown in the order it moves in: by first
+     turn on the runes engraved, never a what-if, with the slots settling a tie
+     and a member the import does not hold last. */
+  const copy = (unitId, masterId, spd) => ({ ...baseFacts, unit_id: Number(unitId), unit_master_id: masterId, attribute: 2, spd, skills: [], runes: [] });
+  const monsters = new Map([['1', copy('1', 14712, 100)], ['2', copy('2', 14713, 120)], ['3', copy('3', 14714, 110)], ['4', copy('4', 14715, 110)]]);
+  const masterOf = (id) => monsters.has(id) ? String(monsters.get(id).unit_master_id) : null;
+  const preset = { id: 'deck-24-101', members: ['1', '9', '2', '3'], leaderUnitId: null, content: presetContent('arena-attack') };
+  const slotted = presetSpeedTeam(preset, masterOf, undefined);
+  check(same(gameTurnOrder(slotted, preset.members, monsters, 0), ['2', '3', '1', '9']), 'the fastest moves first, and a missing member comes last');
+  const tied = { ...preset, members: ['4', '3'] };
+  check(same(gameTurnOrder(presetSpeedTeam(tied, masterOf, undefined), tied.members, monsters, 0), ['4', '3']),
+    'a tie is settled by the preset\'s slots');
+  const withWhatIf = { ...slotted, members: slotted.members.map((member) => member.unitId === '1' ? { ...member, whatIfDisplaySpeed: 300 } : member) };
+  check(same(gameTurnOrder(withWhatIf, preset.members, monsters, 0), ['2', '3', '1', '9']), 'a what-if never moves the order the team moves in');
 }
 {
   /* Arena and Siege Battle attacks are read by one worst case: the same team,

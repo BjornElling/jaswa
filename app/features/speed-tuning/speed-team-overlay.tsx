@@ -11,7 +11,7 @@ import type { MonsterCopyName } from '../../domain/monsters/monster-names';
 import { formatNumber } from '../../domain/shared/formatting';
 import { fastestEnemySpeed, isDungeonId } from '../../domain/speed/speed-contents';
 import { usefulAccuracy } from '../../domain/combat/accuracy-ceiling';
-import { readSpeedTeam } from '../../domain/speed/speed-tuning-analysis';
+import { gameTurnOrder, readSpeedTeam } from '../../domain/speed/speed-tuning-analysis';
 import type { SpeedTeam } from '../../domain/profiles/speed-tuning-preferences';
 import type { GeneralSettings } from '../../domain/model';
 
@@ -28,8 +28,10 @@ function TicksIcon() {
  * every keystroke behind the overlay would be the page moving while the reader
  * looks at something else.
  */
-export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, general, leading, onSave, onClose, onOpenMonster, onEditPreset }: {
+export function SpeedTeamOverlay({ initial, slots, title, monsters, totemShare, names, general, leading, onSave, onClose, onOpenMonster, onEditPreset }: {
   initial: SpeedTeam;
+  /** The preset's members in its own slots: the field position that settles a tie. */
+  slots: readonly string[];
   /** The preset's name. */
   title: string;
   /** The preset's monsters, each with the preset's own runes. */
@@ -85,9 +87,18 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
     [draft, whatIfs, monsters, totemShare]);
   const dungeon = isDungeonId(draft.content) ? draft.content : null;
 
+  /* A team with no order of the user's stands in the order it moves in, and a
+     change that moves it — a new leader, Reset turn order — moves it here too.
+     A what-if never does: it is an experiment against the order, not a cause of it. */
+  function settled(team: SpeedTeam): SpeedTeam {
+    if (team.orderStated) return team;
+    const order = gameTurnOrder(team, slots, monsters, totemShare);
+    return { ...team, members: [...team.members].sort((left, right) => order.indexOf(left.unitId) - order.indexOf(right.unitId)) };
+  }
+
   function change(update: (team: SpeedTeam) => SpeedTeam) {
     holdTop();
-    setDraft(update);
+    setDraft((team) => settled(update(team)));
     setDirty(true);
   }
 
@@ -95,7 +106,7 @@ export function SpeedTeamOverlay({ initial, title, monsters, totemShare, names, 
     change((team) => ({
       ...team,
       members: team.members.map((member) => member.unitId !== unitId ? member
-        : value === undefined ? { unitId: member.unitId } : { ...member, whatIfDisplaySpeed: value }),
+        : value === undefined ? { unitId: member.unitId, masterId: member.masterId } : { ...member, whatIfDisplaySpeed: value }),
     }));
   }
 

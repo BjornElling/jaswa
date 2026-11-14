@@ -50,10 +50,10 @@ try {
     runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
     speedTuning: {
-      presets: {
-        'deck-24-101': { order: ['18', '17'], whatIfs: { 17: 140 }, noSpeedTuning: false },
-        'own-arena': { order: ['17'], whatIfs: {}, noSpeedTuning: true },
-      },
+      teams: [
+        { content: 'giants', members: [{ masterId: '14712' }, { masterId: '14713', whatIfDisplaySpeed: 140 }], orderStated: true, noSpeedTuning: false },
+        { content: 'arena-attack', members: [{ masterId: '14713' }], orderStated: false, noSpeedTuning: true },
+      ],
     },
     monsterPriority: ['18', '17'],
     presets: [
@@ -270,14 +270,16 @@ try {
   assert.deepEqual(synergy.relicSynergy, chosen.relicSynergy, 'an unreadable synergy cell costs only itself');
   assert.deepEqual(readPreferences({ ...chosen, relicSynergy: [] }, null).relicSynergy, {}, 'a synergy record that is not one reads as the shipped table');
 
-  /* A preset's speed tuning that fails costs that preset; inside one, a what-if
-     or an order entry that fails costs only itself. */
-  const speed = readPreferences({ ...chosen, speedTuning: { presets: {
-    ...chosen.speedTuning.presets,
-    'deck-1-9': 'not a tuning',
-    'deck-24-101': { order: ['18', 18, '17', '18'], whatIfs: { 17: 140, 18: 0 }, noSpeedTuning: 'no', marginEnabled: true },
-  } } }, null);
-  assert.deepEqual(speed.speedTuning, chosen.speedTuning, 'an unreadable preset tuning, order entry or what-if costs only itself');
+  /* A team's speed tuning that fails costs that team; inside one, a what-if
+     that fails costs only itself. */
+  const [ordered, untuned] = chosen.speedTuning.teams;
+  const speed = readPreferences({ ...chosen, speedTuning: { teams: [
+    'not a tuning',
+    { ...ordered, members: [{ masterId: '14712', whatIfDisplaySpeed: 0 }, ordered.members[1]], marginEnabled: true },
+    { ...ordered, noSpeedTuning: true },
+    { ...untuned, noSpeedTuning: true, orderStated: 'no' },
+  ] } }, null);
+  assert.deepEqual(speed.speedTuning, chosen.speedTuning, 'an unreadable team tuning, a second entry for a team or a what-if costs only itself');
 
   /* The teams-and-rules shape that came before presets is nothing the contract
      names: it reads as nothing tuned, and costs no other section anything. */
@@ -285,7 +287,7 @@ try {
     teams: [{ id: 'team-a', content: speedContents[0].id, members: [{ unitId: '17' }], leaderUnitId: '17' }],
     rules: [{ id: 'rule-a', unitId: '17', must: { kind: 'move-before', unitId: '18' }, displaySpeed: true, dungeonSpeed: false, arenaSpeed: true }],
   } }, null);
-  assert.deepEqual(oldSpeed.speedTuning, { presets: {} }, 'teams and rules read as nothing tuned');
+  assert.deepEqual(oldSpeed.speedTuning, { teams: [] }, 'teams and rules read as nothing tuned');
   for (const other of Object.keys(chosen)) {
     if (other !== 'speedTuning') assert.deepEqual(oldSpeed[other], chosen[other], `an old speedTuning must keep "${other}"`);
   }

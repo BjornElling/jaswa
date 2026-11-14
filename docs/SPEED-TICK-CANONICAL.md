@@ -544,9 +544,20 @@ Which presets are teams, and whose monsters, gear and leader they carry, is
 - Every team opens and is tuned alike. A content without enemy data is tuned
   for its own turn order, its leads counted by its area (§2.2); a preset whose
   content is not yet named counts only the leads that count everywhere.
-- The user states the turn order wanted and the what-if display speeds, stored
-  per preset (`speed-tuning-preferences.ts`). Every figure is derived from the
-  current import on each render.
+- The user states the turn order wanted and the what-if display speeds. They
+  are kept for the **team**, not the preset: its preset content (Arena Attack,
+  Tower of Fire …, or *unnamed*) and its monsters by species
+  (`unit_master_id`), whatever slots they stand in
+  (`speed-tuning-preferences.ts`). Every preset of that content with exactly
+  those species reads the same statement — two at once, or one built after the
+  last was deleted — and a statement is never forgotten. A team with a member
+  the import does not hold has no species to be kept by, so nothing on it can
+  be stated.
+- A team with no order stated is shown in the order it moves in now
+  (`gameTurnOrder`): by first turn on the clock, at the runes engraved and
+  never a what-if, the preset's slots settling a tie. It follows the runes and
+  the leader until the user moves a monster; *Reset turn order* hands it back.
+- Every figure is derived from the current import on each render.
 - *No speed tuning*, under a team's last slot and off by default, is the
   user's word that the team is not speed tuned. Saved with the team's tuning,
   it reads the team against no enemy: each monster still says whether it is in

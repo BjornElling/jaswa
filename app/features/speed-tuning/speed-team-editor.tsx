@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { Button } from '../../ui/button';
 import { CheckboxRow } from '../../ui/form-controls';
 import { ArrowIcon } from '../../ui/list-icons';
 import { MonsterLink } from '../../ui/gear/monster-link';
@@ -14,7 +15,7 @@ import type { SpeedOpponent } from '../../domain/speed/speed-contents';
 import { leaderAreaReaches } from '../../domain/speed/speed-tick';
 import { displaySpeedIntervalText } from '../../domain/speed/speed-tuning-analysis';
 import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../../domain/speed/speed-tuning-analysis';
-import { whatIfDisplaySpeedMaximum } from '../../domain/profiles/speed-tuning-preferences';
+import { canKeepSpeedTuning, whatIfDisplaySpeedMaximum } from '../../domain/profiles/speed-tuning-preferences';
 import type { SpeedTeam } from '../../domain/profiles/speed-tuning-preferences';
 import type { GeneralSettings } from '../../domain/model';
 
@@ -80,9 +81,10 @@ export function BoostMark({ label, tone }: { label: string; tone: 'team' | 'own'
   </span>;
 }
 
-function WhatIfField({ member, label, onChange }: {
+function WhatIfField({ member, label, disabled, onChange }: {
   member: MemberReading;
   label: string;
+  disabled: boolean;
   onChange: (value: number | undefined) => void;
 }) {
   /* Held as text while it is typed, so an empty field is "no experiment" rather
@@ -91,7 +93,7 @@ function WhatIfField({ member, label, onChange }: {
   const [draft, setDraft] = useState<string | null>(null);
   const value = draft ?? (member.whatIf ? String(member.displaySpeed) : '');
   return <input className="speed-what-if" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3}
-    autoComplete="off" aria-label={label} value={value}
+    autoComplete="off" aria-label={label} value={value} disabled={disabled}
     onChange={(event) => {
       const digits = event.target.value.replace(/\D/g, '');
       setDraft(digits);
@@ -143,12 +145,15 @@ function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings)
  */
 export function SpeedTeamEditor({ reading, title, names, general, onChange, onWhatIf, onOpenMonster, turnOrderAction, enemiesKnown = true, leading }: EditorProps) {
   const { team, content } = reading;
-  const reorder = useDragReorder<HTMLTableElement>({ count: team.members.length, onMove: move });
+  /* What is stated here is kept for the team's species; a member the import
+     does not hold leaves them unknown, so nothing here could be kept. */
+  const keepable = canKeepSpeedTuning(team);
+  const reorder = useDragReorder<HTMLTableElement>({ count: keepable ? team.members.length : 0, onMove: move });
   const readingById = new Map(reading.members.map((member) => [member.unitId, member]));
 
   function move(from: number, to: number) {
-    if (to < 0 || to >= team.members.length || from === to) return;
-    onChange((current) => ({ ...current, members: moveItem(current.members, from, to) }));
+    if (!keepable || to < 0 || to >= team.members.length || from === to) return;
+    onChange((current) => ({ ...current, members: moveItem(current.members, from, to), orderStated: true }));
   }
 
   /* The enemy rows are the content's: one worst case against another player's
@@ -195,9 +200,9 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         const name = names[member.unitId]?.name ?? 'Unknown monster';
         const controls = <td className="speed-controls" rowSpan={2}>
           <button type="button" className="speed-icon-button" aria-label={`Move ${name} earlier`}
-            disabled={at === 0} onClick={() => move(at, at - 1)}><ArrowIcon direction="up" /></button>
+            disabled={!keepable || at === 0} onClick={() => move(at, at - 1)}><ArrowIcon direction="up" /></button>
           <button type="button" className="speed-icon-button" aria-label={`Move ${name} later`}
-            disabled={at === team.members.length - 1} onClick={() => move(at, at + 1)}><ArrowIcon direction="down" /></button>
+            disabled={!keepable || at === team.members.length - 1} onClick={() => move(at, at + 1)}><ArrowIcon direction="down" /></button>
         </td>;
         /* Numbered by where the slot is drawn, so a drag's preview reads 1 to n down the table. */
         const number = reorder.place(at) + 1;
@@ -269,7 +274,7 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
             <td className="speed-figure speed-slot-range" rowSpan={2}
               title={noRange ? `No display speed of ${name} moves it between the monsters placed beside it${reading.enemies.length > 0 ? ' ahead of the enemy' : ''}` : undefined}>{range}</td>
             <td className="speed-figure speed-what-if-cell" rowSpan={2}>
-              <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`}
+              <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`} disabled={!keepable}
                 onChange={(value) => onWhatIf(member.unitId, value)} />
             </td>
             <td className="speed-figure speed-combat" rowSpan={2} title={`${formatNumber(monster.combatSpeed, general)} combat speed${monster.leaderPercent > 0
@@ -290,8 +295,12 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
 
     {/* Ticking it takes the enemy section below away, and the overlay closes
         up on what is left: that is the change asked for, so it may move. */}
+    {/* Resetting hands the order back to the runes: the team is shown in the
+        order it moves in now, and follows them from then on. */}
     <div className="speed-no-tuning">
-      <CheckboxRow label="No speed tuning" checked={team.noSpeedTuning}
+      <Button size="compact" disabled={!keepable || !team.orderStated}
+        onClick={() => onChange((current) => ({ ...current, orderStated: false }))}>Reset turn order</Button>
+      <CheckboxRow label="No speed tuning" checked={team.noSpeedTuning} disabled={!keepable}
         onChange={(checked) => onChange((current) => ({ ...current, noSpeedTuning: checked }))} />
     </div>
 

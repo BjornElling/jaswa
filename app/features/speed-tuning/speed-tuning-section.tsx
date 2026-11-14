@@ -19,7 +19,7 @@ import { monstersByUnitId, presetTeam } from '../../domain/speed/speed-team';
 import { totemMaximumLevel } from '../../domain/speed/speed-tick';
 import { outOfPlaceCount, readSpeedTeam } from '../../domain/speed/speed-tuning-analysis';
 import type { TeamReading } from '../../domain/speed/speed-tuning-analysis';
-import { isSpeedTeam, speedTuningOf } from '../../domain/profiles/speed-tuning-preferences';
+import { canKeepSpeedTuning, isSpeedTeam, withTeamSpeedTuning } from '../../domain/profiles/speed-tuning-preferences';
 import type { SpeedTeam, SpeedTuningPreferences } from '../../domain/profiles/speed-tuning-preferences';
 import type { ImportedGame, Preferences } from '../../domain/model';
 
@@ -58,7 +58,9 @@ function PresetLine({ line, names, known, onOpen, onReorder }: {
 }) {
   const order = line.team.members.map((member) => member.unitId);
   const status = teamStatus(line.reading, line.team.noSpeedTuning);
-  const reorder = useInlineReorder<HTMLSpanElement>({ count: order.length, onMove: onReorder });
+  /* A team with a member the import does not hold has no species to keep an
+     order under, so its names stay where they are rather than snap back. */
+  const reorder = useInlineReorder<HTMLSpanElement>({ count: canKeepSpeedTuning(line.team) ? order.length : 0, onMove: onReorder });
   return <div className="speed-summary" role="button" tabIndex={0} aria-haspopup="dialog"
     onClick={(event) => onOpen(event.currentTarget)}
     onKeyDown={(event) => {
@@ -153,7 +155,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, onWri
   /** Opens a preset's team over this page, through the same door every page uses. */
   onOpenTeam: OpenSpeedTeamOverlay;
 }) {
-  const tuning = preferences.speedTuning.presets;
+  const tuning = preferences.speedTuning;
   const general = preferences.general;
 
   const monsterById = useMemo(() => monstersByUnitId(monsters), [monsters]);
@@ -165,7 +167,7 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, onWri
      whole team, so they are read together, once for each change to the
      presets, the import, the totem or the tuning. */
   const lines = useMemo<Line[]>(() => presets.filter(isSpeedTeam).map((preset): Line => {
-    const { team, monsters: inPreset } = presetTeam(preset, presets, tuning, monsterById, items);
+    const { team, monsters: inPreset } = presetTeam(preset, presets, tuning, monsterById, items, totemShare);
     return { preset, team, monsters: inPreset, reading: readSpeedTeam({ team, monsters: inPreset, totemPercent: totemShare }) };
   }), [presets, tuning, monsterById, items, totemShare]);
 
@@ -215,8 +217,8 @@ export function SpeedTuningSection({ game, monsters, preferences, presets, onWri
     return <PresetLine line={line} names={namesIn(line.preset.id)} known={(unitId) => monsterById.has(unitId)}
       onOpen={(opener) => onOpenTeam(line.preset.id, opener)}
       onReorder={(from, to) => {
-        const team = { ...line.team, members: moveItem(line.team.members, from, to) };
-        onWrite((current) => ({ ...current, presets: { ...current.presets, [team.id]: speedTuningOf(team) } }));
+        const team = { ...line.team, members: moveItem(line.team.members, from, to), orderStated: true };
+        onWrite((current) => withTeamSpeedTuning(current, team));
       }} />;
   }
 }

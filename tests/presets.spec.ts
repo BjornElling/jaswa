@@ -1469,6 +1469,7 @@ test('two teams share one area profile while retaining their gear and surviving 
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'shared-profiles.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(sharedAccount)),
   });
+  await expect(page.getByText('shared-profiles.json').first()).toBeVisible();
   let dialog = await openProfileIn(page, '12', 'deck-1-4');
   const areas = dialog.getByLabel('Build for', { exact: true });
   await expect(areas.locator('option')).toHaveText(['Scenario', 'Arena Attack', 'Not yet named']);
