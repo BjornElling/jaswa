@@ -30,10 +30,10 @@ try {
 
   const masterId = recordedArtifactPreferenceMonsterIds[0];
   const monsters = [
-    { unit_id: 1, unit_master_id: masterId, unit_level: 39, class: 6 },
-    { unit_id: 2, unit_master_id: masterId, unit_level: 40, class: 6 },
-    { unit_id: 3, unit_master_id: masterId, unit_level: 41, class: 6 },
-    { unit_id: 4, unit_master_id: masterId, unit_level: 40, class: 5 },
+    { con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 1, unit_master_id: masterId, unit_level: 39, class: 6 },
+    { con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 2, unit_master_id: masterId, unit_level: 40, class: 6 },
+    { con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 3, unit_master_id: masterId, unit_level: 41, class: 6 },
+    { con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 4, unit_master_id: masterId, unit_level: 40, class: 5 },
   ];
   const settings = { ...defaultArtifactSettings, onlyFactorInOwnedMonsters: false, onlyLevel40Monsters: true };
 

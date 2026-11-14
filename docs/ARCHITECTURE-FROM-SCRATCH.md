@@ -1,11 +1,12 @@
 # JASWA built from scratch
 
-**Status:** Architectural analysis and proposed design; not a replacement for binding contracts
-**Date:** November 13, 2026
+**Status:** Architectural blueprint, implementation record and final implementation review; subject contracts remain binding
+**Date:** November 14, 2026
 **Scope:** Browser application, calculation workers, Windows helper, reference data, hosting and verification
 **Addendum:** §21 records an independent second assessment, compares it with §§1–20 and states the resulting recommendation
 **Final review:** §22 evaluates those amendments and states the consolidated recommendation; its qualifications supersede the corresponding proposals in §§6, 10.3 and 21
 **Implementation:** §23 records what has been built, what a review corrected and what remains open, per acceptance criterion
+**Current status:** §24 supersedes the earlier implementation findings and acceptance statuses, records their corrections and reviews the resulting architecture and code
 
 ## 1. Assignment and answer
 
@@ -429,7 +430,7 @@ The model must preserve these distinctions:
   old JASWA storage format.
 - A relic's many engraving references do not multiply its inventory count.
 
-**Implementation review, November 14 — R1 [P1]: missing and invalid monster
+**Implementation review, November 14 — R1 [P1; resolved in §24.1]: missing and invalid monster
 stats become calculation inputs.** `isValidUnitRecord` in
 `app/ingest/game-export.ts` checks identity, grade, level and skills, but none
 of the eight base stats. `monsterBaseStats` in
@@ -672,7 +673,7 @@ representation. Validating only that JSON looks plausible cannot establish it.
 Structured issues make a new game encoding diagnosable without weakening the
 reader.
 
-**Implementation review, November 14 — R2 [P1]: contradictory copies of one
+**Implementation review, November 14 — R2 [P1; resolved in §24.1]: contradictory copies of one
 item pass ingestion.** `firstMisplacedItem` in
 `app/ingest/game-export.ts` compares account-level and monster-level placement,
 but does not compare the physical facts of their repeated item ID.
@@ -733,7 +734,7 @@ accepted. Never ask the game to repeat an operation.
 The helper revision token is a source observation identifier, not a JASWA
 schema version or a compatibility mechanism.
 
-**Implementation review, November 14 — R3 [P1]: stopping the controller does
+**Implementation review, November 14 — R3 [P1; resolved in §24.1]: stopping the controller does
 not invalidate an import already saving.** `refresh` in
 `app/workspace/direct-import-controller.ts` checks its configuration after
 `await importAccount`, but that command has already published the account.
@@ -851,7 +852,7 @@ validated readers used at startup. An account import is not silently included.
 Folder handles, caches, device detection, session state and draft edits do not
 travel in it.
 
-**Implementation review, November 14 — R4 [P1]: a preference-file load races
+**Implementation review, November 14 — R4 [P1; resolved in §24.1]: a preference-file load races
 ordinary preference edits.** `replacePreferences` in
 `app/workspace/workspace-store.ts` saves the replacement before publishing it;
 `changePreferences` remains enabled and evaluates a following edit against the
@@ -884,7 +885,7 @@ No multi-account manager is required: there is one active imported account.
 On replacement, clear account-derived caches and re-resolve references without
 deleting durable user choices merely because their copy IDs are absent now.
 
-**Implementation review, November 14 — R5 [P1]: takeover permits writes
+**Implementation review, November 14 — R5 [P1; resolved in §24.1]: takeover permits writes
 before the new writer has restored the previous writer's choices.** The role
 callback in `app/workspace/workspace-store.ts` first publishes `writer` and
 then starts an asynchronous `restore`; `ready` remains true, and neither
@@ -972,7 +973,7 @@ otherwise clone the prepared representation. Shared mutable memory is an
 optimization to justify with measurements, not a starting requirement. Do not
 add cross-origin-isolation dependencies merely to obtain it.
 
-**Implementation review, November 14 — R6 [P2]: worker budgets are still
+**Implementation review, November 14 — R6 [P2; resolved in §24.1]: worker budgets are still
 independent per calculation.** `poolSize` in
 `app/workspace/jobs/rune-calibration-client.ts` claims up to all but one core;
 `searchWorkerCount` in `rune-optimization-client.ts` independently claims up
@@ -1174,7 +1175,7 @@ delivery path. Node scripts run TypeScript through Node's own type stripping
 and `scripts/json-module-hook.mjs` (`module.registerHooks`), without
 experimental flags or suppressed warnings that could hide a deprecation.
 
-**Implementation review, November 14 — R7 [P2]: the active shell can serve
+**Implementation review, November 14 — R7 [P2; resolved in §24.1]: the active shell can serve
 the previous build's mutable public assets.** The fetch handler in
 `scripts/sw-template.js` calls unscoped `caches.match(event.request)` for every
 asset. Activation deliberately retains the previous shell, whose cache was
@@ -1226,7 +1227,7 @@ record together. Only then does the UI publish the new effective state. Every
 stat sheet and location query updates from that projection. No game request is
 made. A failure leaves the preceding plan visible.
 
-**Implementation review, November 14 — R8 [P1]: Engrave does not enforce
+**Implementation review, November 14 — R8 [P1; resolved in §24.1]: Engrave does not enforce
 the command preconditions described above.**
 `app/workspace/workspace-store.ts#engraveBuild` accepts only preset, monster
 and rune IDs. It does not read `withheldRunes`, locks or the build's craft
@@ -1794,7 +1795,7 @@ Sections 3, 6, 18 and 21–22 cite files where they were when those sections
 were written (`app/page.tsx`, `app/lib/`, `app/globals.css`); this section uses
 current paths.
 
-**Status: the layers and ports are implemented; acceptance remains partial.**
+**Historical status before the corrections in §24: the layers and ports were implemented; acceptance remained partial.**
 The compact tree, the dependency direction, the
 workspace store and its ports, writer coordination, the direct-import
 controller, the job clients behind an injected worker port, the derived typed
@@ -1877,6 +1878,10 @@ corrected each in code, with a test where one could hold it:
 
 ### 23.3 Acceptance criteria (§20 and §21.7)
 
+This table records the preceding review, before R1–R8 were corrected. The
+current acceptance assessment is §24.3; the old failure evidence is retained
+here so the regression coverage can be traced to the original findings.
+
 | Criterion | Status | Evidence or gap |
 | --- | --- | --- |
 | 1. No game-shaped field reaches a screen or algorithm unvalidated | Partial | Item collections, buildings and counts have typed readers, but `MonsterCopy.record` still carries raw unit fields into combat, placement and reference functions. R1 (§7.1) proves that `validateGameFile` accepts missing/malformed base stats that algorithms then treat as known numbers; completing types alone is insufficient |
@@ -1952,3 +1957,250 @@ started for the check because no server was running.
   not rerun. Full `verify:all`, domain/e2e suites, private-capture parity,
   real-card execution, production service-worker installation and Windows/helper
   integration were not run as part of this review.
+
+## 24. Corrections and final implementation review — November 14, 2026
+
+### 24.1 Resolution of the outstanding findings
+
+The owner requested correction of the outstanding findings, followed by a
+review of the whole implementation, first its architecture and structure and
+then its code. R1–R8 are corrected. The two additional model gaps identified
+in §23 — typed monster facts and immutable observations with local overrides —
+are implemented too. This section supersedes the corresponding open statuses
+in §§7, 9–11, 14–15 and 23; their original reproductions remain historical evidence.
+
+| Finding | Correction | Regression evidence |
+| --- | --- | --- |
+| R1 — missing/invalid monster stats | The ingestion boundary requires eight finite base facts, positive for constitution, ATK, DEF and SPD and nonnegative for the other four. Missing facts refuse the import with the monster's source path. `monsterBaseStats` also refuses unavailable facts; `referenceMonsters` cannot average them as zero. Optional identity/display fields are validated where supplied. `MonsterCopy.record` now has a closed `MonsterRecord` contract; unrelated export fields stay in the observation | `game-export.test.ts`: missing, string, negative, infinite, NaN and zero-speed cases, through ingestion, the stat sheet and the reference pool; existing synthetic exports now state their numerical facts explicitly |
+| R2 — contradictory physical copies | One reconciliation reads rune, artifact and relic copies through their canonical readers, refuses differing physical facts with both source paths, and makes monster gear reference the canonical collection. Artifact main magnitude participates even though scoring deliberately drops it, because stat sheets read it | Rune, artifact-magnitude and relic contradictions and canonical object identity in `game-export.test.ts`; real-export import parity |
+| R3 — a stopped helper import still commits | Each controller configuration has an abort lifetime, passed through the serialized import command to the repository transaction. Stop, restart and route/mode changes invalidate an uncommitted helper import. IndexedDB aborts the transaction; an alternate adapter crossing the cancellation boundary is reconciled before the command settles. An accepted source token is still recorded only after commit | A real store/controller/browser-repository integration test holds the repository commit pending, stops the controller, changes to the file route and verifies both stored and published accounts remain unchanged |
+| R4 — preference-file replacement loses following clicks | Preference loads and following edits have an explicit command order. Each queued replacement owns the edits requested after it; those edits apply to that replacement, rather than a stale complete document. Another queued replacement cannot steal their position. Failed loads retain the preceding document and apply independent following edits there | Store plus real IndexedDB/mirror tests cover a click during a delayed replacement and a click after two queued replacements; state and restoration agree |
+| R5 — takeover writes stale preferences | Takeover immediately invalidates earlier restores and suspends write readiness. The new writer restores the previous writer's committed choices before commands can write. A missing or refused Web Lock grants read access only, with a specific notice | A delayed takeover read holds the unsafe window open; preference writes are refused and saved choices survive. Browser-coordination tests also cover absent/refused locks |
+| R6 — independently claimed worker budgets | All injected factories share one budget: at most eight active workers and at most the available cores minus one, with a minimum of one. Foreground requests precede queued calibration/work estimation. Terminal replies and cancellation release capacity; idle workers retain caches without reserving a core. Search partitioning and calibration leases retain their existing owners | Simultaneous foreground/background requests, total capacity, queued cancellation, warm-worker reuse and control messages are exercised in `worker-budget.test.ts`. Account replacement clears registered job memories; advice memory also prunes sold rune IDs |
+| R7 — stale stable assets from the preceding shell | The active shell or artwork cache is consulted first. Only immutable `/assets/` chunks may fall back to another shell; a missing stable public URL goes to the network. Artwork stays separate | `verify:service-worker` executes the actual template's fetch handler with previous/current caches: changed manifest, previous hashed chunk, missing stable icon and artwork. This runs even when `dist` is absent/stale |
+| R8 — Engrave trusts the screen | The command receives the original build, craft assumptions and question identity. When its turn starts, it reads the latest account, preset, source permissions, priority, locks, settings, stock, buildings and teammate sets and invokes `currentBuilds`/`buildFollowable`. It checks six distinct slots for own presets too. A saved profile/team change while queued refuses the preceding question. Own-preset engraving commits its plan and locks together before publishing | Store/repository tests cover changed source permission, lock, exclusion, saved profile, depleted stock, own presets, duplicate slots, successful engravings and failed account/paired saves. Existing Rune Optimization browser tests hold the actual interaction and reload |
+
+The immutable observation is `ImportedGame.observation`, frozen at ingestion;
+`ImportedGame.data` is the effective projection consumed by current readers.
+`storedGame` writes only the observation and explicit local choices. The
+projection stores Scenario rune-owner overrides and, per game preset, its
+positions, leader, gear or deletion. `readStoredGame` validates and applies
+those choices; a malformed local context returns to its observed arrangement
+without discarding other contexts or preferences. It never stores a second
+effective account. Pure editing functions operate on the projection, leaving
+the observation unchanged. `local-projection.test.ts` holds combined Scenario,
+preset-gear, leader and deletion roundtrips, independent rejection and immutable
+observed facts. `LOCAL-PERSISTENCE-CONTRACT.md` and
+`IMPORT-PARITY-CONTRACT.md` state these current contracts.
+
+### 24.2 Final review: architecture and structure
+
+The review covered every production layer and its dependency graph: shell and
+shared UI, all feature entry points, workspace commands/controllers and job
+clients, ingestion and restoration, the account/profile/placement/combat and
+gear domains, reference accessors and refresh compilation, browser adapters,
+worker/CPU/GPU boundaries, offline delivery, the hosting worker, verification
+entry points and the helper's protocol/profile/service/Windows boundaries.
+Detailed code tracing concentrated on external input, durable changes,
+asynchronous completion, cancellation and account identity, where structural
+compliance alone cannot prove behaviour. This is a whole-implementation
+architecture and code review, not a claim that every formula, shader or line
+has been independently rederived.
+
+**Assessment:** the implementation now supports the intended modular local-first
+application. The compact physical tree expresses its ownership; the checked
+dependency direction remains intact. Workspace commands own durable changes;
+platform adapters implement their ports. One accepted observation supplies
+the effective account and typed collections, while preferences and local plans
+have separate ownership. Shared domain rules still decide calculations,
+placements, sources, crafting and combat. Features retain presentation and
+draft state, and workers retain bulk execution. The helper and host remain
+separate runtime boundaries; no game-write capability has been introduced.
+
+Two structural qualifications are deliberate. The closed `MonsterRecord`
+retains encoded field names for existing arithmetic readers; it does not
+duplicate those numerical facts into another independently editable stat
+model. Canonical item records are validated before those readers use them.
+Also, the shared worker budget bounds active execution, not the number of
+idle native workers or a measured heap-byte total. Existing result memories
+have explicit count/account limits and reset lifetimes. Neither change is a
+claim of a measured speed or memory improvement.
+
+Review of the completed changes also corrected these issues:
+
+- Account replacement did not release every registered answer memory, and
+  advice for sold rune IDs could accumulate when reference averages stayed
+  unchanged. Registered resets now release account-wide work/results on removal
+  or replacement; advice entries are bounded by the current physical stock.
+  Resets are registered by loaded clients so the store need not import every
+  calculation merely to clear an unused cache.
+  A browser regression caught an overly broad reset for exports without an
+  account ID: a live revision in the same helper instance/session must retain
+  the result being refreshed. Source-session identity now distinguishes that
+  revision from replacement, with both a store regression and live-sync browser
+  coverage.
+  File observations without an account ID also retain mathematical results when
+  their copy/species identities are unchanged; a new roster clears them. Each
+  consumer still reconciles current item facts and its complete calculation key.
+- A missing/refused Web Lock previously left a writable, uncoordinated tab.
+  It now remains read-only, preserving the single-writer invariant rather than
+  relying on a warning to prevent competing writes.
+  During takeover the rendered workspace stays mounted while writer readiness
+  is suspended; returning to the startup loading screen would discard drafts
+  and move content without the user asking for it.
+- Cache identity originally included only the data object, although a snapshot
+  also carries import time, source and coverage. Reusing collections now checks
+  that metadata too; the snapshot cannot retain another capture's provenance.
+- The import-graph checker could not resolve a unit test's committed JSON
+  fixture outside `app/`. It now permits existing `tests/fixtures/*.json` only
+  for test modules; production dependency restrictions remain unchanged.
+
+A production-build comparison using the preceding committed app sources and
+the final sources is recorded in the verification record below. Chunk names
+and entry sizes alone were not used to infer loading cost: the statically
+reachable JavaScript graph was compared. The large reference-data footprint
+is a remaining optimization opportunity, not an import or calculation defect.
+No new service, migration layer, helper privilege broker or blanket CSS rewrite
+is needed to close this review.
+
+### 24.3 Final review: code and acceptance
+
+Code review traced both successful and failing paths through import, restore,
+preference replacement, paired commits, takeover, local projection, Engrave,
+worker scheduling and service-worker lookup. It checked empty collections,
+complete builds, unknown/malformed fields, repeated IDs, missing inputs,
+independent preference survival, stale asynchronous work and failed persistence.
+The regression checks exercise actual modules and the browser repository;
+they do not reproduce replacement implementations of those boundaries.
+
+Further code corrections made during that review were:
+
+- An empty craft-recommendation batch tried to post a nonexistent first request.
+  It now resolves an empty result without constructing a worker.
+- Own-preset Engrave used an optimistic preference write on its simpler path,
+  so a failed save could leave the new plan visible. Every own-preset engraving
+  now uses the paired commit before publishing, including when no lock changes.
+- A queued preference-file replacement needed its own following-edit list;
+  one shared list would lose a click made after a second queued file load.
+- A completed search worker receiving only a best-bar/stop control must not
+  reserve another core. The budget distinguishes controls from work, avoiding
+  a capacity leak while other shares are still queued.
+- Engrave revalidation now reads current teammate sets and refuses saved
+  profile/team changes that occurred while the command was queued.
+- Numeric monster attributes now resolve through the element vocabulary,
+  rather than being treated as unnamed because they were not strings.
+- Source monster IDs must be positive numeric IDs, matching the preset reader.
+  Accepting numeric strings (especially alternate spellings such as `"01"`)
+  could count a copy that numeric placement readers could not resolve. The
+  semantic copy ID exposed by the snapshot remains a string. The import
+  constructor also validates its actual source, rather than trusting a report
+  a caller could accidentally have produced for a different object.
+- A failure posting another request to a busy worker now releases its shared
+  reservation and reports failure, rather than leaving a claimed core behind.
+- The browser engraving assertion now checks immutable observed placements
+  plus explicit overrides and reload behaviour, replacing its assumption that
+  the stored observation itself must be rewritten.
+- Restoring an attack-deck leader must use the deck's kind, not the presence
+  of a leader field in its original record. A chosen leader now survives reload
+  when the observation omitted that field, without rewriting the observation.
+- Relic preview models now represent unavailable base facts with a
+  `missing-stats` status and null base/totals, rather than throwing or presenting
+  missing facts as zeros. Ingestion still refuses an owned record without them;
+  the independent plan checks also exercise the unavailable preview contract.
+- Browser checks now target the rune/stat whose formatting they examine,
+  declare the reference facts needed by a specific Gem-ordering case, and read
+  saved presets through restoration. They no longer depend on a first-ranked
+  row, zero-filled missing references or a rewritten observation. Worker-failure
+  coverage counts one actual single-share retry instead of assuming synchronous
+  construction order under a shared budget.
+  The independent relic-value and Speed Tuning examples state all eight base
+  facts explicitly, including generated speed-test teams.
+  Live-refresh coverage waits for the completed import's Home paragraph, avoiding
+  both a transient confirmation and the import badge, which does not show filenames.
+- The Broken-policy browser check isolates that gate from independent *Never
+  sell if* safeguards. Tracing the former increase found that the raw gate was
+  not admitting more runes: a changed Best role crossed the separate Potential
+  protection threshold. No scoring arithmetic was changed to force a test's
+  percentage. The independent preference-monotonicity check passes its 648
+  deterministic cases.
+
+| Acceptance criterion | Current assessment |
+| --- | --- |
+| 1. Validated facts reach screens/calculations | Met for the current consumed account contract, including the closed monster record and required base stats |
+| 2. Counts, views and calculations share accepted physical facts | Met; repeated physical copies are reconciled before publication, not merely counted once |
+| 3. Observations, statements and local plans have distinct owners | Met; immutable observed data and separately stored, derived local projection |
+| 4. One owner per rule | Met; domain structural/formula checks and import graph retained |
+| 5. Pure domain without React/platform I/O | Met; whole graph and separate pure-layer typecheck |
+| 6. Validated reads, ordered/paired writes and honest failures | Met for the implemented browser repository; pending source changes, preference loads and takeover have regression coverage |
+| 7. Question identity, freshness, cancellation, CPU/card reporting and shared capacity | Met for current job protocols; throughput and heap-byte profiling are not acceptance claims |
+| 8. A replacement screen need not recreate durable-command protection | Met; Engrave enforces its preconditions in the command |
+| 9. No helper path applies a plan to the game | Met; passive boundary retained, helper source unchanged |
+| 10. Empty/full, geometry, card and Windows checks are separately verifiable | Checks implemented; actual runs and remaining limits are stated in §24.4 |
+| 11. One aggregate reports failures and explicit skips | Met; `verify:all` retains independent suite execution and its external-check accounting |
+| 12. Reference snapshots have one runtime accessor | Met; current accessors/compiler and ownership checks retained |
+
+There are no remaining reproduced P1/P2 code findings from R1–R8 or the
+additional corrections above. This is bounded review evidence, not proof of
+an absence of defects. The earlier roadmap choices — porting every domain
+script to Vitest, moving all feature CSS into modules and splitting the helper
+into further packages — remain optional structural work, not hidden failures
+of the current acceptance criteria. Private chronology captures, installation
+on another Windows machine and production service-worker rollout remain
+separate forms of evidence; a local unit or browser pass cannot establish them.
+
+### 24.4 Final verification record
+
+Verification ran on November 14 against the user's already-running
+`http://localhost:3000/` server. An HTTP probe returned 200 and Playwright drove
+the rendered application. No second server was started, and the existing one
+needed no repair. Production was not used for verification or publication.
+
+- **Verification gates:** `npm run test:domain` passes from start to finish,
+  with the private artifact-chronology skip stated below. The domain and browser
+  suites were run in full independently, alongside TypeScript, lint, build and
+  unit checks. Their logs
+  are `work/architecture-domain-verified.log` and
+  `work/architecture-clean-e2e.log`. Earlier aggregate runs were interrupted
+  during correction; no successful `verify:all` run is claimed.
+- **TypeScript and unit checks:** `npx tsc --noEmit` and 100 tests in 21 Vitest
+  files pass, including the new boundary, persistence, projection and scheduling
+  regressions. Lint is clean and the production build succeeds. Lint includes
+  the whole import graph, pure-layer typecheck,
+  line endings and actual service-worker cache lookup tests. A separate
+  post-build `verify:service-worker` also validates the emitted current shell.
+- **Browser:** all 353 Playwright tests pass in the final full run. Empty and
+  populated Rune Optimization,
+  complete requirement panels, Engrave, Lock/Exclude, own presets, failure paths
+  and restoration are part of that suite. The Engrave screenshots before and
+  after the click were visually inspected; the header, action and rune-card
+  boxes retain their geometry while locations and action state change.
+- **Real export:** `audit:import-parity` passes against the local account
+  export, not a missing-capture skip. `verify:library-layout` and
+  `verify:recommendation-filters` pass against that export too, including empty
+  and imported states, table measure, filter geometry and reachable counts.
+  No private export or traffic data is committed.
+- **Actual graphics card:** `verify:rune-optimization-card` passes its
+  agreement gate and CPU/card comparison on 131 accounts, 402 result rows,
+  1,467 passes and 5,141,770 card-evaluated pairs.
+  `verify:craft-recommendations-card` passes agreement and exact rankings for
+  37,332 comparisons. No search arithmetic, packing or shader was changed.
+- **Helper:** `cargo test --manifest-path helper/src-tauri/Cargo.toml --lib`
+  passes all 144 tests, including its passive relay/service regressions.
+  Helper source was not changed, and its packaged-source/version check is
+  retained. No installer was rebuilt or published.
+- **Build footprint:** a read-only Vite comparison of the preceding committed
+  app sources and the final sources measured the complete statically reachable
+  JavaScript graph: 7,443,373 → 7,454,404 bytes, and 1,024,269 → 1,024,206 bytes
+  when each emitted chunk is gzipped. The emitted entry/chunk arrangement
+  changes, so entry size alone would have been misleading. This is an emitted
+  asset comparison, not a cold-load or execution benchmark. The existing
+  large-chunk warning remains; the reference-data footprint warrants separate
+  measured loading work rather than an invented performance claim.
+- **Limits:** no production service-worker upgrade/installation, installation
+  on another Windows machine, fresh private traffic chronology, slow `:large`
+  variants, stress campaign or new Clean-up equivalence baseline was run.
+  `verify:artifact-obtained-order` has no private chronology log and is an
+  explicit skip. The ordinary domain checks remain script aliases; the
+  Clean-up arithmetic was not changed. The aggregate's external-check omissions
+  remain explicit even where the corresponding real-export, card or Rust check
+  was run separately above.

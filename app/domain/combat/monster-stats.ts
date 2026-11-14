@@ -258,8 +258,18 @@ function numberValue(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+/** Missing facts must never become numerical answers or enter a reference average. */
+export function hasMonsterBaseStats(monster: RecordLike): boolean {
+  return ['con', 'atk', 'def', 'spd', 'critical_rate', 'critical_damage', 'resist', 'accuracy'].every((key) => {
+    const value = monster[key];
+    return typeof value === 'number' && Number.isFinite(value)
+      && (['con', 'atk', 'def', 'spd'].includes(key) ? value > 0 : value >= 0);
+  });
+}
+
 /** A copy's base stats, in `MonsterTotals` order, with nothing a fight adds. HP is the export's `con` × 15. */
 export function monsterBaseStats(monster: RecordLike): Float64Array {
+  if (!hasMonsterBaseStats(monster)) throw new Error('This monster’s base stats are unavailable. Import a complete account snapshot.');
   return Float64Array.of(
     numberValue(monster.con) * 15, numberValue(monster.atk), numberValue(monster.def), numberValue(monster.spd),
     numberValue(monster.critical_rate), numberValue(monster.critical_damage),

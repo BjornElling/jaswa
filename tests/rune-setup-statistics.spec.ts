@@ -162,6 +162,20 @@ test('gets stricter when broken runes are excluded', async ({ page }, testInfo) 
   test.setTimeout(120_000);
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  /* Isolate the gate from independent safeguards: a different Best role may
+     legitimately cross the user's Potential protection threshold. */
+  await page.evaluate(async () => {
+    const defaultsPath = '/app/domain/profiles/preference-defaults.ts';
+    const storagePath = '/app/platform/browser-storage.ts';
+    const { blankPreferences } = await import(defaultsPath);
+    const { savePreferences } = await import(storagePath);
+    const preferences = blankPreferences();
+    await savePreferences({ ...preferences, runePotential: { ...preferences.runePotential,
+      neverSellPotentialValue: false, neverSellPreGrindSpeed: false, neverSellReappTargets: false,
+      neverSellEngravedPlacements: false } });
+  });
+  await page.reload();
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
   await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();

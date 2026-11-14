@@ -26,7 +26,7 @@ try {
   /** A minimal account the reader accepts, so a test can spoil one field at a time. */
   const account = (artifacts) => ({
     wizard_id: 1,
-    unit_list: [{ unit_id: 10, wizard_id: 1, unit_master_id: 14314, artifacts }],
+    unit_list: [{ con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 10, wizard_id: 1, unit_master_id: 14314, artifacts }],
     /* `extra` is the rarity. The reader requires it, because a rune
        whose rarity the vocabulary does not cover is rejected rather than
        given a fallback (`AGENTS.md` §0.1). */

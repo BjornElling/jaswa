@@ -84,29 +84,34 @@ async function readPreferenceState(): Promise<{ preferences: unknown; commit: un
 }
 
 /* Settles when the transaction does, so a caller knows the change is stored. */
-async function change(apply: (store: IDBObjectStore) => void): Promise<void> {
+async function change(apply: (store: IDBObjectStore) => void, signal?: AbortSignal): Promise<void> {
   const database = await openDatabase();
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { database.close(); reject(new DOMException('Import cancelled.', 'AbortError')); return; }
     const transaction = database.transaction(storeName, 'readwrite');
+    const abort = () => transaction.abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    const close = () => { signal?.removeEventListener('abort', abort); database.close(); };
     try {
       apply(transaction.objectStore(storeName));
     } catch (error) {
       transaction.abort();
-      database.close();
+      close();
       reject(error);
       return;
     }
     transaction.oncomplete = () => {
-      database.close();
+      close();
       resolve();
     };
     transaction.onerror = () => {
-      database.close();
-      reject(transaction.error);
+      close();
+      reject(transaction.error ?? (signal?.aborted ? new DOMException('Import cancelled.', 'AbortError')
+        : new Error('The workspace transaction failed.')));
     };
     transaction.onabort = () => {
-      database.close();
-      reject(transaction.error);
+      close();
+      reject(transaction.error ?? new DOMException('Import cancelled.', 'AbortError'));
     };
   });
 }
@@ -208,8 +213,8 @@ export function loadImportedGame() {
   return readWorkspaceValue<unknown>(gameKey);
 }
 
-export function saveImportedGame(game: StoredGame) {
-  return writeWorkspaceValue(gameKey, game);
+export function saveImportedGame(game: StoredGame, signal?: AbortSignal) {
+  return change((store) => store.put(game, gameKey), signal);
 }
 
 export function clearImportedGame(): Promise<void> {

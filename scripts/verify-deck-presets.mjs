@@ -31,10 +31,11 @@ const sample = JSON.parse(readFileSync('tests/fixtures/craft-account.json', 'utf
    and 104 (slot 6) are in the inventory. Unit 3 is a third copy. */
 const thirdUnit = { ...sample.unit_list[1], unit_id: 3, runes: [] };
 const artifactId = 501;
+const artifact = { ...JSON.parse(readFileSync('tests/fixtures/synthetic-account.json', 'utf8')).artifacts[0], rid: artifactId };
 const deck = (type, seq, members, equip, extra = {}) => ({ deck_type: type, deck_seq: seq, unit_id_list: members, equip, ...extra });
 const gear = (unitId, runeIds, artifactIds = []) => ({ unit_id: unitId, rune_id_list: runeIds, artifact_id_list: artifactIds });
 const account = {
-  ...sample, unit_list: [...sample.unit_list, thirdUnit], artifacts: [{ rid: artifactId }],
+  ...sample, unit_list: [...sample.unit_list, thirdUnit], artifacts: [artifact],
   deck_list: [
     /* One rune, two decks, a different monster in each (§1 rule 3). Zeros are empty positions. */
     deck(1, 1, [1, 0, 2, 0], [gear(1, [101], [artifactId]), gear(2, [104])], { leader_unit_id: 1 }),
@@ -102,7 +103,7 @@ assert.deepEqual(readDeckPresets(only(deck(10, 1, [1], null), deck(10, 2, [77], 
 /* A Normal Sealed Shrine monster can stand in a saved deck, but no page reads
    it from there: it is missing, as it is from a preset built in JASWA. */
 const shrineMember = { ...only(deck(1, 1, [1, 88], [gear(1, [101]), gear(88, [])])), artifacts: [],
-  unit_storage_normal_list: [{ unit_id: 88, unit_master_id: 10111, unit_level: 40, class: 5 }] };
+  unit_storage_normal_list: [{ con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 88, unit_master_id: 10111, unit_level: 40, class: 5 }] };
 assert.equal(validateGameFile(shrineMember).valid, true, validateGameFile(shrineMember).message);
 assert.deepEqual(readDeckPresets(shrineMember)[0].missingUnitIds, ['88'], 'a Normal-shrine member of a game preset is missing');
 const shrinePresets = readPresets(createImportedGame('shrine.json', clone(shrineMember), validateGameFile(shrineMember)).data,
@@ -131,7 +132,7 @@ assert.equal(validateGameFile(only(deck(1, 1, [1, 2], [gear(1, [101])]))).valid,
 
 /* 2. The presets every page reads: Scenario first, then the game's by content, then the user's own. */
 const presetAccount = {
-  ...sample, unit_list: [...sample.unit_list, thirdUnit], artifacts: [{ rid: artifactId }],
+  ...sample, unit_list: [...sample.unit_list, thirdUnit], artifacts: [artifact],
   deck_list: [
     deck(99, 1, [3], null),
     deck(24, 101, [1, 2], null),
@@ -141,7 +142,7 @@ const presetAccount = {
   defense_deck_info: { unit_id_list: [1], equip: null },
 };
 /* The workspace reads the prepared account, whose rune list also holds every engraved rune. */
-const prepared = createImportedGame('presets.json', clone(presetAccount), validateGameFile({ ...presetAccount, artifacts: [] })).data;
+const prepared = createImportedGame('presets.json', clone(presetAccount), validateGameFile(presetAccount)).data;
 const ownStored = [
   { id: 'own-a', name: 'Draft', content: 'giants', members: ['1', '2'], leaderUnitId: '1', gear: null },
   { id: 'own-b', name: 'Geared', content: null, members: ['1'], leaderUnitId: null, gear: { 1: { runeIds: ['101'], artifactIds: [] } } },
@@ -563,7 +564,7 @@ console.log('Automatic team bonuses: all five sets, Intangible, own-set exclusio
    14404 CRI Rate 24 % everywhere, 12813 CRI Rate 10 %, 11801 SPD 19 %, 16714 CRI
    Dmg 25 %, 10101 RES 20 %, 14115 ATK 33 % in arena, 10502 ATK 30 % on Fire. */
 {
-  const unit = (unitId, masterId, attribute) => [unitId, { unit_id: Number(unitId), unit_master_id: masterId, attribute }];
+  const unit = (unitId, masterId, attribute) => [unitId, { con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: Number(unitId), unit_master_id: masterId, attribute }];
   const roster = new Map([
     unit('1', 14404, 4), unit('2', 11801, 1), unit('3', 16714, 4), unit('4', 10101, 1), unit('5', 14115, 5),
     unit('6', 10502, 2), unit('7', 12813, 2), unit('8', 99999, 1), unit('9', 10502, 1),

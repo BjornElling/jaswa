@@ -293,15 +293,26 @@ test('Scenario\'s list is built from the menu, ordered three ways, and kept', as
 });
 
 type SavedDeck = { deck_type: number; deck_seq: number; leader_unit_id?: number };
-/* The game's presets as the import now holds them in IndexedDB. */
-const savedDecks = (page: Page) => page.evaluate(async () => new Promise<SavedDeck[]>((resolve) => {
-  const request = indexedDB.open('jaswa-local', 1);
-  request.onsuccess = () => {
-    const db = request.result;
-    const read = db.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
-    read.onsuccess = () => { resolve(read.result.data.deck_list); db.close(); };
-  };
-}));
+/* Saved choices are read through the same restore boundary as a reload. Raw
+   IndexedDB data is the immutable observation, not the effective arrangement. */
+const savedAccount = <T,>(page: Page) => page.evaluate(async () => {
+  const readerPath = '/app/ingest/game-export.ts';
+  const { readStoredGame } = await import(readerPath);
+  return new Promise<T>((resolve, reject) => {
+    const request = indexedDB.open('jaswa-local', 1);
+    request.onsuccess = () => {
+      const db = request.result;
+      const read = db.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
+      read.onsuccess = () => {
+        const restored = readStoredGame(read.result);
+        db.close();
+        if (!restored) reject(new Error('The saved account could not be restored.'));
+        else resolve(restored.data);
+      };
+    };
+  });
+});
+const savedDecks = async (page: Page) => (await savedAccount<{ deck_list: SavedDeck[] }>(page)).deck_list;
 
 test('a game preset shows the game\'s monsters and gear; its order, leader and place are the user\'s', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -1103,14 +1114,7 @@ test('a rune engraved on a monster in another preset is free here, and an engrav
   expect(await box(detail.locator('.rune-build-circle'))).toEqual(circleBefore);
   await detail.screenshot({ path: testInfo.outputPath('preset-build-engraved.png') });
   type Data = { runes: Array<{ rune_id: number; occupied_type: number; occupied_id: number }>; deck_list: Array<{ deck_type: number; deck_seq: number; equip: Array<{ unit_id: number; rune_id_list: number[] }> | null }> };
-  const saved = await page.evaluate(async () => new Promise<Data>((resolve) => {
-    const request = indexedDB.open('jaswa-local', 1);
-    request.onsuccess = () => {
-      const db = request.result;
-      const read = db.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
-      read.onsuccess = () => { resolve(read.result.data); db.close(); };
-    };
-  }));
+  const saved = await savedAccount<Data>(page);
   const keep = saved.deck_list.find((entry) => entry.deck_type === 24 && entry.deck_seq === 101);
   expect(keep?.equip).toHaveLength(1);
   expect(keep?.equip?.[0].unit_id).toBe(11);
@@ -1221,14 +1225,8 @@ test('a rune another team of a team pool holds is withheld until included, names
   await expect(detail.getByRole('button', { name: 'Engraved', exact: true })).toBeDisabled();
   expect(await box(detail.locator('.rune-build-circle'))).toEqual(circleBefore);
   await detail.screenshot({ path: testInfo.outputPath('team-pool-engraved.png') });
-  const decks = await page.evaluate(async () => new Promise<Array<{ deck_seq: number; equip: Array<{ unit_id: number; rune_id_list: number[] }> }>>((resolve) => {
-    const request = indexedDB.open('jaswa-local', 1);
-    request.onsuccess = () => {
-      const read = request.result.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
-      read.onsuccess = () => { resolve(read.result.data.deck_list); request.result.close(); };
-    };
-  }));
-  const gearIn = (seq: number, unitId: number) => decks.find((entry) => entry.deck_seq === seq)?.equip.find((entry) => entry.unit_id === unitId)?.rune_id_list;
+  const decks = await savedDecks(page) as unknown as SavedTeam[];
+  const gearIn = (seq: number, unitId: number) => decks.find((entry) => entry.deck_seq === seq)?.equip?.find((entry) => entry.unit_id === unitId)?.rune_id_list;
   expect(gearIn(1, 11)).toEqual([]);
   expect([...gearIn(2, 12) ?? []].sort()).toEqual([...runeIds].sort());
 });
@@ -1285,14 +1283,8 @@ test('a rune two teams of a pool both carry is kept by neither until included, a
   await expect(detail.getByRole('button', { name: 'Engraved', exact: true })).toBeDisabled();
   expect(await box(detail.locator('.rune-build-circle'))).toEqual(circleBefore);
   await detail.screenshot({ path: testInfo.outputPath('team-overlap-engraved.png') });
-  const decks = await page.evaluate(async () => new Promise<Array<{ deck_seq: number; equip: Array<{ unit_id: number; rune_id_list: number[] }> }>>((resolve) => {
-    const request = indexedDB.open('jaswa-local', 1);
-    request.onsuccess = () => {
-      const read = request.result.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
-      read.onsuccess = () => { resolve(read.result.data.deck_list); request.result.close(); };
-    };
-  }));
-  const gearIn = (seq: number, unitId: number) => decks.find((entry) => entry.deck_seq === seq)?.equip.find((entry) => entry.unit_id === unitId)?.rune_id_list;
+  const decks = await savedDecks(page) as unknown as SavedTeam[];
+  const gearIn = (seq: number, unitId: number) => decks.find((entry) => entry.deck_seq === seq)?.equip?.find((entry) => entry.unit_id === unitId)?.rune_id_list;
   expect(gearIn(1, 11)).toEqual([]);
   expect([...gearIn(2, 12) ?? []].sort()).toEqual([...runeIds].sort());
 });

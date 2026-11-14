@@ -22,6 +22,7 @@ export type CraftRecommendationJob = { result: Promise<CraftRecommendations[]>; 
  */
 export function askCraftRecommendations(asks: readonly CraftRecommendationRequest[],
   onProgress: (fraction: number) => void): CraftRecommendationJob {
+  if (asks.length === 0) return { result: Promise.resolve([]), cancel: () => {} };
   let worker: Worker | null = null;
   let cancel = () => {};
   const result = new Promise<CraftRecommendations[]>((resolve, reject) => {

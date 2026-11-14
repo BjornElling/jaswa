@@ -13,8 +13,7 @@ const settleAfter = 1_500;
  * reads and waits in line, and takes over when the writer closes. Other tabs are
  * told only *that* something was committed, never what, and read it from storage.
  *
- * A browser without Web Locks cannot coordinate tabs at all; this tab then writes,
- * and the store says plainly that a second tab would compete with it.
+ * A browser without Web Locks can read its choices, but cannot safely write them.
  */
 export function createWriterCoordination(): WriterCoordination {
   const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
@@ -39,7 +38,7 @@ export function createWriterCoordination(): WriterCoordination {
   });
 
   if (!locks) {
-    become('writer');
+    become('reader');
   } else {
     const timer = setTimeout(() => become('reader'), settleAfter);
     /* Queued, not `ifAvailable`: a reader is simply next in line. The promise the
@@ -49,10 +48,10 @@ export function createWriterCoordination(): WriterCoordination {
       become('writer');
       return new Promise<never>(() => {});
     }).catch(() => {
-      /* A refused lock request coordinates nothing: this tab writes, and says so. */
+      /* A refused lock must never create an uncoordinated second writer. */
       clearTimeout(timer);
       coordinated = false;
-      become('writer');
+      become('reader');
     });
   }
 

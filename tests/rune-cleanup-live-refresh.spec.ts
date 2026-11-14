@@ -72,7 +72,7 @@ test('a sync updates Rune Clean-up rune by rune without moving the rows', async 
   await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await fileInput.setInputFiles(worked);
   await page.getByRole('button', { name: 'Replace data' }).click();
-  await expect(page.getByText('worked-account.json')).toBeVisible();
+  await expect(page.locator('p').filter({ hasText: /^worked-account\.json · imported/ })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
 
   /* The new rune has been judged and stands first; the four held rows follow in

@@ -5,17 +5,19 @@ import { isReadableEngravedConversionStone, readEngravedConversionStones } from 
 import { readCraftItem, readCraftItems } from '../domain/runes/craft/rune-craft-items';
 import { readRune, readRunes } from '../domain/runes/runes';
 import { readDeckPresets } from '../domain/placements/deck-presets';
-import { intangibleSetId } from '../domain/combat/monster-stats';
+import { hasMonsterBaseStats, intangibleSetId } from '../domain/combat/monster-stats';
+import { elementName } from '../domain/runes/rune-sets';
 import { hasMonsterCatalogEntry } from '../domain/monsters/monster-catalog';
 import { normalShrineList, normalShrineRecords, shrineMonsterRecords, summonedShrineList, summonedShrineRecords } from '../domain/account/sealed-shrine-storage';
 import { accountBuildingsProblem, readBuildingBonuses, readSkyTribeTotem } from '../domain/account/account-buildings';
 import { accountCounts } from '../domain/account/account-counts';
 import type { GameRecord } from '../domain/account/game-record';
 import { completeCoverage, readCaptureCoverage } from '../domain/account/account-snapshot';
-import type { AccountSnapshot, CaptureCoverage, MonsterCopy, SummonedStack } from '../domain/account/account-snapshot';
+import type { AccountSnapshot, CaptureCoverage, MonsterCopy, MonsterRecord, SummonedStack } from '../domain/account/account-snapshot';
 import { readLocalAccountChanges } from '../domain/account/local-account-changes';
 import { readPresets } from '../domain/placements/presets';
 import { readRuneLocks } from '../domain/placements/rune-locks';
+import { applyLocalProjection, captureLocalProjection } from './local-projection';
 
 const expectedSections = [
   'unit_list', 'unit_storage_list', 'unit_storage_normal_list', 'runes', 'artifacts', 'relics', 'rune_craft_item_list', 'artifact_crafts', 'inventory_info',
@@ -164,12 +166,17 @@ function isSkillList(value: unknown): boolean {
    by must be one JASWA can act on (`AGENTS.md` §0.1, part 3). The master id is
    what every catalogue, stat and family lookup keys on, so it is required; a
    grade, level or skill list the record carries must be one the game can
-   produce. A record that omits one of those three is still read, and the pages
-   show the gap as "—" rather than inventing a value. */
+   produce. Those three may be absent, shown as "—"; the eight numerical base
+   facts are required because every owned copy can enter a stat calculation. */
 function isValidUnitRecord(record: GameRecord): boolean {
-  return isWholeNumberBetween(record.unit_master_id, 1, Number.MAX_SAFE_INTEGER)
+  return hasMonsterBaseStats(record)
+    && isWholeNumberBetween(record.unit_id, 1, Number.MAX_SAFE_INTEGER)
+    && isWholeNumberBetween(record.unit_master_id, 1, Number.MAX_SAFE_INTEGER)
     && (record.class === undefined || isWholeNumberBetween(record.class, 1, 6))
     && (record.unit_level === undefined || isWholeNumberBetween(record.unit_level, 1, 40))
+    && (record.attribute === undefined || isWholeNumberBetween(record.attribute, 1, 5))
+    && (record.building_id === undefined || isWholeNumberBetween(record.building_id, 0, Number.MAX_SAFE_INTEGER))
+    && (record.name === undefined || typeof record.name === 'string')
     && (record.skills === undefined || isSkillList(record.skills));
 }
 
@@ -222,6 +229,40 @@ function firstMisplacedItem(
     const engraved = section === 'runes' ? entry.occupied_type === 1 : Number(entry.occupied_id) > 0;
     const on = carrier.get(String(entry[identifier]));
     if (engraved ? on !== String(entry.occupied_id) : on !== undefined) return { index, record: entry };
+  }
+  return undefined;
+}
+
+/** Repeated representations must describe one physical item, wherever it is engraved. */
+function contradictoryItem(value: GameRecord, units: readonly GameRecord[]): ImportIssue | undefined {
+  for (const section of ['runes', 'artifacts', 'relics'] as const) {
+    const identifier = section === 'runes' ? 'rune_id' : 'rid';
+    const reader = section === 'runes' ? readRune : section === 'artifacts' ? readArtifact : readRelic;
+    const seen = new Map<string, { facts: string; path: string }>();
+    const entries = [
+      ...recordCollection(value[section]).map((record, index) => ({ record, path: `${section}[${index}]` })),
+      ...units.flatMap((unit, unitIndex) => recordCollection(unit[section])
+        .map((record, index) => ({ record, path: `unit_list[${unitIndex}].${section}[${index}]` }))),
+    ];
+    for (const { record, path } of entries) {
+      const decoded = reader(record);
+      if (!decoded) continue; // The collection reader names malformed records.
+      const physical = { ...decoded } as Record<string, unknown>;
+      /* The score model deliberately drops an artifact's fixed main magnitude;
+         stat sheets still read the validated source magnitude. It must agree too. */
+      if (section === 'artifacts') physical.mainMagnitude = (record.pri_effect as unknown[])[1];
+      delete physical.occupiedId;
+      delete physical.occupiedType;
+      const facts = JSON.stringify(physical);
+      const id = String(record[identifier]);
+      const first = seen.get(id);
+      if (first && first.facts !== facts) return {
+        code: section === 'runes' ? 'unreadable-rune' : section === 'artifacts' ? 'unreadable-artifact' : 'unreadable-relic',
+        collection: section, sourcePath: path, field: identifier, entityId: id,
+        explanation: `The physical item facts disagree between ${first.path} and ${path}.`,
+      };
+      seen.set(id, { facts, path });
+    }
   }
   return undefined;
 }
@@ -424,6 +465,8 @@ function validateAccountCollections(value: GameRecord): ImportIssue | undefined 
       entityOf(repeatedArtifact.item, 'rid'),
     );
   }
+  const contradiction = contradictoryItem(value, units);
+  if (contradiction) return contradiction;
   const misplacedRune = firstMisplacedItem(value, units, 'runes', 'rune_id');
   if (misplacedRune) {
     return directImportIssue('rune-misplaced', 'runes', `runes[${misplacedRune.index}]`,
@@ -490,12 +533,17 @@ function completeEngravedCollections(data: GameRecord): GameRecord {
         return true;
       });
   };
+  const collections = { runes: complete('runes'), artifacts: complete('artifacts'), relics: complete('relics') };
+  const canonical = (section: 'runes' | 'artifacts' | 'relics') =>
+    new Map(collections[section].map((record) => [itemId(section, record), record]));
+  const bySection = { runes: canonical('runes'), artifacts: canonical('artifacts'), relics: canonical('relics') };
   const prepared: GameRecord = {
     ...data,
-    unit_list: units,
-    runes: complete('runes'),
-    artifacts: complete('artifacts'),
-    relics: complete('relics'),
+    ...collections,
+    unit_list: units.map((unit) => ({ ...unit, ...Object.fromEntries(
+      (['runes', 'artifacts', 'relics'] as const).filter((section) => Array.isArray(unit[section]))
+        .map((section) => [section, recordCollection(unit[section]).map((record) => bySection[section].get(itemId(section, record)))]),
+    ) })),
     rune_craft_item_list: recordCollection(data.rune_craft_item_list)
       .filter((record) => !isEmptyCraftRecord(record)),
   };
@@ -540,10 +588,11 @@ function readHelperSession(value: unknown): HelperSession | undefined | null {
 
 /** The stored form of an accepted import: its observation and local choices, never what derives from them. */
 export function storedGame(game: ImportedGame): StoredGame {
+  const localChanges = captureLocalProjection(game.observation ?? game.data, game.data, game.localChanges);
   return {
-    fileName: game.fileName, importedAt: game.importedAt, data: game.data, coverage: game.coverage,
+    fileName: game.fileName, importedAt: game.importedAt, data: game.observation ?? game.data, coverage: game.coverage,
     ...(game.helperSession ? { helperSession: game.helperSession } : {}),
-    ...(game.localChanges ? { localChanges: game.localChanges } : {}),
+    ...(localChanges ? { localChanges } : {}),
     ...(game.runeLocks ? { runeLocks: game.runeLocks } : {}),
   };
 }
@@ -566,24 +615,38 @@ export function readStoredGame(value: unknown): ImportedGame | null {
   const localChanges = readLocalAccountChanges(value.localChanges);
   const runeLocks = readRuneLocks(value.runeLocks);
   return withAccountSnapshot({
-    fileName: value.fileName, importedAt: value.importedAt, data: value.data, coverage, report,
+    fileName: value.fileName, importedAt: value.importedAt, observation: value.data,
+    data: applyLocalProjection(value.data, localChanges, (data) => validateGameFile(data).valid), coverage, report,
     ...(helperSession ? { helperSession } : {}),
     ...(localChanges ? { localChanges } : {}),
     ...(runeLocks ? { runeLocks } : {}),
   });
 }
 
-/* The snapshot is rebuilt only when the observation it reads changed: a lock or
-   a local-change record leaves `data` the same object and the snapshot with it. */
-const snapshots = new WeakMap<object, AccountSnapshot>();
+/* Capture metadata belongs to the snapshot too; reusing the same collections
+   must not retain another import's source or completeness report. */
+const snapshots = new WeakMap<object, { snapshot: AccountSnapshot; importedAt: string; fileName: string;
+  helperSession: HelperSession | undefined; coverage: CaptureCoverage }>();
+
+function freezeObservation<T>(value: T): T {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    for (const nested of Object.values(value)) freezeObservation(nested);
+    Object.freeze(value);
+  }
+  return value;
+}
 
 /** The game with its typed snapshot read from its current data. */
 export function withAccountSnapshot(game: Omit<ImportedGame, 'snapshot'> & { snapshot?: AccountSnapshot }): ImportedGame {
-  const held = snapshots.get(game.data);
+  const cached = snapshots.get(game.data);
+  const held = cached && cached.importedAt === game.importedAt && cached.fileName === game.fileName
+    && cached.helperSession === game.helperSession && cached.coverage === game.coverage ? cached.snapshot : undefined;
   if (held && game.snapshot === held) return game as ImportedGame;
   const snapshot = held ?? buildAccountSnapshot(game.data, game.importedAt, game.fileName, game.helperSession, game.coverage);
-  snapshots.set(game.data, snapshot);
-  return { ...game, snapshot };
+  snapshots.set(game.data, { snapshot, importedAt: game.importedAt, fileName: game.fileName,
+    helperSession: game.helperSession, coverage: game.coverage });
+  const observation = freezeObservation(game.observation ?? game.data);
+  return { ...game, observation, snapshot, localChanges: captureLocalProjection(observation, game.data, game.localChanges) };
 }
 
 export function validateGameFile(value: unknown): ImportReport {
@@ -614,6 +677,8 @@ export function validateGameFile(value: unknown): ImportReport {
 
 export function createImportedGame(fileName: string, data: Record<string, unknown>, report: ImportReport, helperSession?: HelperSession,
   coverage: CaptureCoverage = completeCoverage): ImportedGame {
+  report = validateGameFile(data);
+  if (!report.valid) throw new Error(report.message);
   const importedAt = new Date().toISOString();
   const prepared = completeEngravedCollections(removeExcludedKeys(data) as GameRecord);
   return withAccountSnapshot({
@@ -628,11 +693,15 @@ function monsterCopy(record: GameRecord): MonsterCopy | null {
   if ((typeof unitId !== 'number' && typeof unitId !== 'string')
     || (typeof speciesId !== 'number' && typeof speciesId !== 'string')) return null;
   const number = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) ? value : null;
+  const accepted = Object.fromEntries([
+    'unit_id', 'unit_master_id', 'con', 'atk', 'def', 'spd', 'critical_rate', 'critical_damage', 'resist', 'accuracy',
+    'name', 'attribute', 'unit_level', 'class', 'building_id', 'skills', 'runes', 'artifacts', 'relics',
+  ].filter((field) => record[field] !== undefined).map((field) => [field, record[field]])) as MonsterRecord;
   return {
     id: String(unitId), speciesId: String(speciesId),
     name: typeof record.name === 'string' ? record.name : null,
-    element: typeof record.attribute === 'string' ? record.attribute : null,
-    level: number(record.unit_level), grade: number(record.class), record,
+    element: elementName(record.attribute) ?? null,
+    level: number(record.unit_level), grade: number(record.class), record: accepted,
   };
 }
 

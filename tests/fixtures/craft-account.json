@@ -1,7 +1,7 @@
 {
  "_comment": "Six craft stacks against four runes, chosen so every placement rule in docs/RUNE-CRAFT-ITEMS.md has exactly one row that exercises it.",
  "unit_list": [
-  {
+  { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0,
    "unit_id": 1,
    "unit_master_id": 10131,
    "attribute": 1,
@@ -24,7 +24,7 @@
     }
    ]
   },
-  {
+  { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0,
    "unit_id": 2,
    "unit_master_id": 11111,
    "attribute": 4,

@@ -178,7 +178,7 @@ try {
   ];
   assert.deepEqual(monsterProfileAreas(teams, '17', 'deck-1-2').map((team) => team.id), ['scenario', 'deck-1-2'],
     'an area appears once and keeps the opened team as its gear source');
-  const names = monsterCopyNamesIn([{ unit_id: 17, unit_master_id: 10101 }], {
+  const names = monsterCopyNamesIn([{ con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 17, unit_master_id: 10101 }], {
     scenario: { 17: { unitId: '17', label: 'Scenario job' } },
     [arenaScope]: { 17: { unitId: '17', label: 'Area opener' } },
   }, teams);

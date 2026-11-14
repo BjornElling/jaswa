@@ -1,4 +1,5 @@
 import { workerFactories } from './worker-factories';
+import { registerAccountJobReset } from './account-job-memory';
 /**
  * The one way from Rune Settings to its fixed synthetic statistics.
  *
@@ -20,6 +21,12 @@ let active: { key: string; promise: Promise<RuneStatisticsOutcome> } | undefined
 
 export const rememberedRuneStatistics = (request: RuneStatisticsRequest): CompletedStatistics | undefined =>
   answers.read(runeCalculationKey(request));
+
+export function clearRuneStatistics(): void {
+  cancelRuneStatistics();
+  answers.clear();
+}
+registerAccountJobReset(clearRuneStatistics);
 
 let worker: Worker | undefined;
 let nextRequestId = 1;

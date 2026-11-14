@@ -1,4 +1,5 @@
 import { workerFactories } from './worker-factories';
+import { registerAccountJobReset } from './account-job-memory';
 /**
  * The main thread's one way to ask for a Rune Optimization calculation.
  *
@@ -40,6 +41,7 @@ export function cancelRuneOptimization(): void {
   for (const worker of workers) worker.terminate();
   settle({ status: 'superseded' });
 }
+registerAccountJobReset(cancelRuneOptimization);
 
 export function optimizeRuneBuilds(
   input: RuneOptimizationInput, preferWebGpu: boolean, onProgress?: (fraction: number) => void,

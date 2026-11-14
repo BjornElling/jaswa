@@ -3,6 +3,7 @@
 export function calculationMemory<T>(capacity: number) {
   const answers = new Map<string, T>();
   return {
+    clear(): void { answers.clear(); },
     read(key: string): T | undefined {
       const answer = answers.get(key);
       if (answer !== undefined) {

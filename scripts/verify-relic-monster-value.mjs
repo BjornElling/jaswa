@@ -17,7 +17,8 @@ const sixRunes = (...named) => {
    once: a need of 200 % HP and 120 % DEF, which is the documented 100:60 and
    its weights of 0.625 and 0.375. */
 const hpRune = { set_id: 13, pri_eff: [2, 100], prefix_eff: [6, 120], sec_eff: [[8, 100, 0, 0]] };
-const monster = { con: 800, atk: 800, def: 600, spd: 100, runes: sixRunes(hpRune) };
+const monster = { con: 800, atk: 800, def: 600, spd: 100,
+  critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, runes: sixRunes(hpRune) };
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-10, `${actual} differs from ${expected}`);
 const model = relicMonsterModel(monster);
 assert.equal(model.status, 'ready');

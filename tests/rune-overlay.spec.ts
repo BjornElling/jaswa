@@ -70,15 +70,15 @@ test('Improvements names the Gem and the stones the verdict counted', async ({ p
   const table = overlay.getByRole('table', { name: 'Sub properties' });
   await expect(table.getByRole('columnheader', { name: 'Improvements' })).toHaveAttribute('title', /Max value counts, for /);
   const maxOf = (line: RegExp) => table.locator('tbody tr').filter({ hasText: line }).locator('td').nth(3);
-  /* The Gem goes where it gains most, which here is the HP line, into CRI Rate; the
+  /* The Gem goes where it gains most, which here is the Resistance line, into CRI Rate; the
      grindable lines carry the canonical average Legend stone. Resistance takes none. */
   /* The Gem is named with the roll Max value counts for it, unsigned: it is what the
      line becomes, not something added to it. */
-  await expect(maxOf(/^HP/)).toHaveText(/^CRI Rate\s*8%$/);
-  await expect(maxOf(/^HP/).getByRole('img', { name: 'CRI Rate from an Enchanted Gem' })).toBeVisible();
+  await expect(maxOf(/^Resistance/)).toHaveText(/^CRI Rate\s*8%$/);
+  await expect(maxOf(/^Resistance/).getByRole('img', { name: 'CRI Rate from an Enchanted Gem' })).toBeVisible();
+  await expect(maxOf(/^HP/)).toHaveText('+8%');
   await expect(maxOf(/^ATK/)).toHaveText('+8%');
   await expect(maxOf(/^SPD/)).toHaveText('+5');
-  await expect(maxOf(/^Resistance/)).toHaveText('');
 });
 
 test('Evaluation explains Best role with every role\'s reading, at one height', async ({ page }) => {

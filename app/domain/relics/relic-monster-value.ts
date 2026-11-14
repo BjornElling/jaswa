@@ -2,7 +2,7 @@ import type { GameRecord } from '../account/game-record';
 import type { MainStatBasis } from '../combat/main-stat-model';
 import { copyMainStatNeed, mainStatCuts } from '../combat/main-stat-model';
 import type { DefaultEntry } from '../profiles/monster-defaults';
-import { calculateMonsterTotals, monsterBaseStats } from '../combat/monster-stats';
+import { calculateMonsterTotals, hasMonsterBaseStats, monsterBaseStats } from '../combat/monster-stats';
 import {
   relicMainPercent, relicMainPropertyOrder, relicMaximumLevel, relicProperties, relicThreshold, relicUniquePercent,
 } from './relic-properties';
@@ -11,10 +11,8 @@ import type { Relic } from './relics';
 
 export type RelicStatValues = Record<RelicSourceStat, number>;
 export type RelicStatWeights = Record<RelicMainProperty, number>;
-export type RelicMonsterModel = {
-  status: 'ready' | 'missing-stats' | 'no-priorities';
-  base: RelicStatValues;
-  totals: RelicStatValues;
+export type RelicMonsterModel = ({ status: 'missing-stats'; base: null; totals: null }
+  | { status: 'ready' | 'no-priorities'; base: RelicStatValues; totals: RelicStatValues }) & {
   /** Where the need came from, where one was found (`main-stat-model.ts`). */
   basis?: MainStatBasis;
   /** How far each stat is lifted above base, in percent of base. */
@@ -32,6 +30,9 @@ export type RelicMonsterModel = {
  * sets agree with the monster overlay.
  */
 export function relicMonsterModel(monster: GameRecord): RelicMonsterModel {
+  const missing = (): RelicMonsterModel => ({ status: 'missing-stats', base: null, totals: null,
+    need: { HP: 0, ATK: 0, DEF: 0 }, weights: { HP: 0, ATK: 0, DEF: 0 } });
+  if (!hasMonsterBaseStats(monster)) return missing();
   const rawBase = monsterBaseStats(monster);
   const base = { HP: rawBase[0], ATK: rawBase[1], DEF: rawBase[2], SPD: rawBase[3] };
   /* Candidate relics are compared against the same sheet before engraving;
@@ -41,9 +42,9 @@ export function relicMonsterModel(monster: GameRecord): RelicMonsterModel {
   const totals = { HP: sheet.hp, ATK: sheet.atk, DEF: sheet.def, SPD: sheet.spd };
   const need = { HP: 0, ATK: 0, DEF: 0 };
   const weights = { HP: 0, ATK: 0, DEF: 0 };
-  const model: RelicMonsterModel = { status: 'missing-stats', base, totals, need, weights };
+  const model: RelicMonsterModel = { status: 'no-priorities', base, totals, need, weights };
   if (Object.values(base).some((value) => !Number.isFinite(value) || value <= 0)
-    || Object.values(totals).some((value) => !Number.isFinite(value) || value <= 0)) return model;
+    || Object.values(totals).some((value) => !Number.isFinite(value) || value <= 0)) return missing();
 
   const found = copyMainStatNeed(monster);
   const investment = found === undefined ? 0 : found.need.HP + found.need.ATK + found.need.DEF;

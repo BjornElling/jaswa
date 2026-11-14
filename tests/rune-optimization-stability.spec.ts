@@ -74,13 +74,22 @@ test('worker allocation failures retry once and preserve the previous table', as
         if (created === 2) throw new Error('Simulated worker allocation failure');
         super(url, options);
       }
+      postMessage(message: unknown, transferOrOptions?: Transferable[] | StructuredSerializeOptions) {
+        const request = message as { type?: string; request?: { parts: number } };
+        if (request.type === 'calculate' && request.request?.parts === 1 && created > 1) {
+          document.documentElement.dataset.workerRetries = String(Number(document.documentElement.dataset.workerRetries ?? 0) + 1);
+        }
+        if (Array.isArray(transferOrOptions)) super.postMessage(message, transferOrOptions);
+        else super.postMessage(message, transferOrOptions);
+      }
     };
   });
   await open(page);
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Show build 1', exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: 'builds checked' })).toContainText('Processor');
-  expect(await page.locator('html').getAttribute('data-worker-allocations')).toBe('3');
+  expect(await page.locator('html').getAttribute('data-worker-retries')).toBe('1');
+  expect(Number(await page.locator('html').getAttribute('data-worker-allocations'))).toBeLessThanOrEqual(4);
   const table = page.getByRole('table', { name: 'Rune builds' });
   const panel = page.locator('.rune-optimization-monster-panel');
   const before = { table: await box(table), panel: await box(panel), rows: await table.getByRole('row').count() };
@@ -95,7 +104,7 @@ test('worker allocation failures retry once and preserve the previous table', as
     };
   });
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'could not hand this account' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: /could not (?:hand this account|start its rune search)/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeEnabled();
   expect(await table.getByRole('row').count()).toBe(before.rows);
   expect(await box(table)).toEqual(before.table);

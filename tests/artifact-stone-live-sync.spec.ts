@@ -6,7 +6,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
   test(`a spent last artifact stone invalidates an unchanged roll (${recalculate})`, async ({ page }, testInfo) => {
     const workers = await holdWorkerRequests(page);
     const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8'));
-    account.unit_list = [{ unit_id: 1, unit_master_id: 10131, attribute: 1, class: 6, unit_level: 40 }];
+    account.unit_list = [{ con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 1, unit_master_id: 10131, attribute: 1, class: 6, unit_level: 40 }];
     account.unit_list.push({ ...account.unit_list[0], unit_id: 2 }, { ...account.unit_list[0], unit_id: 3 });
     /* Engraved on the first copy, so it stands in that copy's list, as an export has it. */
     const engraved = { ...account.artifacts[0], occupied_id: 1,

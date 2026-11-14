@@ -1,4 +1,5 @@
 import { workerFactories } from './worker-factories';
+import { registerAccountJobReset } from './account-job-memory';
 /**
  * **The slot calibration, counted once and on every core.**
  *
@@ -38,6 +39,12 @@ type Count = {
 /* Counted populations are kept, most recent last; one in flight is never evicted. */
 const counts = new Map<string, Count>();
 const countsKept = 4;
+
+export function clearRuneCalibration(): void {
+  for (const count of counts.values()) count.finish(null);
+  counts.clear();
+}
+registerAccountJobReset(clearRuneCalibration);
 
 /**
  * **One pool for every count.** A box of six star classes is six counts, and a pool

@@ -1,13 +1,18 @@
 import type { ImportedGame, Preferences } from '../domain/model';
 import { blankPreferences } from '../domain/profiles/preference-defaults';
-import { readPresets } from '../domain/placements/presets';
+import { accountItems, monsterInPreset, readPresets, runesInPreset, teammateSetsInPreset } from '../domain/placements/presets';
 import type { OwnPreset, Preset } from '../domain/placements/presets';
-import { engraveImportedGame, engraveOwnPreset, runesWithLocked, runesWithout } from '../domain/placements/engrave-rune-build';
-import { carriedRuneLocks, heldRuneLocks, noRuneLocks, runeLockCount, runeLockScope, withRuneLock } from '../domain/placements/rune-locks';
+import { checkRuneBuild, engraveImportedGame, engraveOwnPreset, runesWithLocked, runesWithout } from '../domain/placements/engrave-rune-build';
+import { carriedRuneLocks, heldRuneLocks, noRuneLocks, runeLockScope, runeLocksFor, withRuneLock } from '../domain/placements/rune-locks';
+import { presetPriorityOf } from '../domain/profiles/monster-priority';
+import { withheldRunes } from '../domain/placements/rune-sources';
+import type { BuildEngraving } from '../domain/runes/optimization/rune-optimization-refresh';
 import type { RuneLock, RuneLocks } from '../domain/placements/rune-locks';
 import { alwaysSynchronizedReason } from '../domain/placements/always-synchronized';
 import { restoreWorkspace } from './restore';
 import { createSerializedWriter } from './serialized-writes';
+import { clearAccountJobMemory } from './jobs/account-job-memory';
+import { engravingQuestionKey } from './engraving-question';
 import { PreferenceMirrorUnavailable, PreferenceStoreUnreadable, WorkspaceReadOnly } from './ports';
 import type { WorkspaceRepository, WriterCoordination, WriterRole } from './ports';
 import { storedGame, withAccountSnapshot } from '../ingest/game-export';
@@ -36,7 +41,7 @@ const mirrorWarning: StorageNotice = { tone: 'warn', message: 'Your preferences 
 const unreadNotice: StorageNotice = { tone: 'bad', message: 'Reload to read your saved preferences before changing them.' };
 const readOnlyNotice: StorageNotice = { tone: 'warn', message: 'JASWA is open in another tab. This tab shows your workspace and takes over when that tab closes.' };
 const rolePendingNotice: StorageNotice = { tone: 'warn', message: 'JASWA is checking whether this tab may change the workspace.' };
-const uncoordinatedNotice: StorageNotice = { tone: 'warn', message: 'This browser cannot coordinate JASWA tabs. Keep JASWA open in one tab, or one tab may overwrite the other’s changes.' };
+const uncoordinatedNotice: StorageNotice = { tone: 'warn', message: 'This browser cannot coordinate JASWA tabs. Your workspace is read-only; use a browser with Web Locks to save changes.' };
 
 /* JASWA changes the account only while no live sync would put the game's own back. */
 export const canEngraveUnder = (preferences: Preferences) => preferences.importRoute === 'file' || preferences.directImportMode === 'on-load';
@@ -91,9 +96,25 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
   const listeners = new Set<() => void>();
   const accountWrite = createSerializedWriter();
   let restoreGeneration = 0;
+  let activeImport: AbortController | null = null;
+  const preferenceLoads: Array<{ edits: Array<(current: Preferences) => Preferences> }> = [];
 
   function set(update: Partial<WorkspaceState>) {
+    if (update.preferences && (update.preferences.importRoute !== state.preferences.importRoute
+      || update.preferences.directImportMode !== state.preferences.directImportMode)) activeImport?.abort();
+    const previous = state.game;
     state = { ...state, ...update };
+    const sameSourceSession = previous?.helperSession && update.game?.helperSession
+      && previous.helperSession.instanceId === update.game.helperSession.instanceId
+      && previous.helperSession.sessionId === update.game.helperSession.sessionId;
+    const sameUnidentifiedRoster = previous && update.game && !previous.helperSession && !update.game.helperSession
+      && previous.snapshot.accountId === null && update.game.snapshot.accountId === null
+      && JSON.stringify(previous.snapshot.monsters.map((copy) => [copy.id, copy.speciesId]).sort())
+        === JSON.stringify(update.game.snapshot.monsters.map((copy) => [copy.id, copy.speciesId]).sort());
+    if (update.game !== undefined && previous !== update.game
+      && (update.game === null || previous === null || previous.snapshot.accountId !== update.game.snapshot.accountId
+        || (update.game.snapshot.accountId === null && !sameSourceSession && !sameUnidentifiedRoster
+          && previous.observation !== update.game.observation))) clearAccountJobMemory();
     listeners.forEach((listener) => listener());
   }
 
@@ -101,9 +122,10 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
      also what stands once a save succeeds, so a lasting condition — an unread
      database, tabs this browser cannot coordinate — is never cleared by a click. */
   const roleNotice = (role: WriterRole): StorageNotice | null =>
-    role === 'reader' ? readOnlyNotice
+    !coordination.isCoordinated() ? uncoordinatedNotice
+      : role === 'reader' ? readOnlyNotice
       : !repository.canSavePreferences() ? unreadNotice
-      : !coordination.isCoordinated() ? uncoordinatedNotice : null;
+      : null;
 
   async function restore(roleOverride?: WriterRole) {
     const generation = ++restoreGeneration;
@@ -125,8 +147,10 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
   /* A reader shows what the writer committed; when it becomes the writer it reads
      once more, so it starts from the other tab's last word rather than its own. */
   coordination.onRoleChange((role) => {
-    set({ writer: role, storageNotice: roleNotice(role) });
-    if (role === 'writer') void restore(role);
+    restoreGeneration += 1;
+    set({ writer: role === 'writer' ? null : role, storageNotice: role === 'writer' ? rolePendingNotice : roleNotice(role) });
+    if (role === 'writer') void accountWrite(() => restore(role));
+    else void restore(role);
   });
   coordination.onRemoteCommit(() => {
     if (state.writer === 'reader') void restore();
@@ -137,9 +161,9 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
 
   async function requireWriter() {
     const role = coordination.getRole() ?? await coordination.ready();
-    if (role !== 'writer' || state.writer === 'reader') {
-      set({ storageNotice: readOnlyNotice });
-      throw new WorkspaceReadOnly();
+    if (role !== 'writer' || state.writer !== 'writer' || !state.ready || !coordination.isCoordinated()) {
+      set({ storageNotice: coordination.isCoordinated() ? readOnlyNotice : uncoordinatedNotice });
+      throw new WorkspaceReadOnly(coordination.isCoordinated() ? undefined : uncoordinatedNotice.message);
     }
   }
 
@@ -151,8 +175,8 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
      change applies to the latest choices, so rapid consecutive changes build on
      each other before any render; storage mirrors each one synchronously. */
   function queuePreferenceChange(change: (current: Preferences) => Preferences): Promise<boolean> {
-    if (state.writer !== 'writer') {
-      set({ storageNotice: state.writer === 'reader' ? readOnlyNotice : rolePendingNotice });
+    if (state.writer !== 'writer' || !state.ready || !coordination.isCoordinated()) {
+      set({ storageNotice: !coordination.isCoordinated() ? uncoordinatedNotice : state.writer === 'reader' ? readOnlyNotice : rolePendingNotice });
       return Promise.resolve(false);
     }
     let next: Preferences;
@@ -184,31 +208,44 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
   }
 
   function changePreferences(change: (current: Preferences) => Preferences): boolean {
-    if (state.writer !== 'writer') {
-      set({ storageNotice: state.writer === 'reader' ? readOnlyNotice : rolePendingNotice });
+    if (state.writer !== 'writer' || !state.ready || !coordination.isCoordinated()) {
+      set({ storageNotice: !coordination.isCoordinated() ? uncoordinatedNotice : state.writer === 'reader' ? readOnlyNotice : rolePendingNotice });
       return false;
     }
+    const pendingLoad = preferenceLoads.at(-1);
+    if (pendingLoad) { pendingLoad.edits.push(change); return true; }
     void queuePreferenceChange(change);
     return true;
   }
 
   /** A whole preference document from a `.sw` file, stored before it is shown. */
-  async function replacePreferences(next: Preferences): Promise<{ mirrorSaved: boolean }> {
-    await requireWriter();
-    let mirrorSaved = true;
-    try {
-      await repository.savePreferences(next);
-    } catch (error) {
-      if (!(error instanceof PreferenceMirrorUnavailable)) {
-        set({ storageNotice: { tone: 'bad', message: error instanceof PreferenceStoreUnreadable
-          ? unreadNotice.message : 'JASWA could not save these preferences. Please try again.' } });
-        throw error;
+  function replacePreferences(next: Preferences): Promise<{ mirrorSaved: boolean }> {
+    const pending = { edits: [] as Array<(current: Preferences) => Preferences> };
+    preferenceLoads.push(pending);
+    return accountWrite(async () => {
+      let mirrorSaved = true;
+      try {
+        await requireWriter();
+        try {
+          await repository.savePreferences(next);
+        } catch (error) {
+          if (!(error instanceof PreferenceMirrorUnavailable)) {
+            set({ storageNotice: { tone: 'bad', message: error instanceof PreferenceStoreUnreadable
+              ? unreadNotice.message : 'JASWA could not save these preferences. Please try again.' } });
+            throw error;
+          }
+          mirrorSaved = false;
+        }
+        publishPreferences(next, mirrorSaved ? roleNotice('writer') : mirrorWarning);
+        coordination.announceCommit();
+        return { mirrorSaved };
+      } finally {
+        /* Clicks belong after the last replacement requested before them. Each
+           load keeps its own tail even when another file is already queued. */
+        preferenceLoads.splice(preferenceLoads.indexOf(pending), 1);
+        for (const edit of pending.edits) await queuePreferenceChange(edit);
       }
-      mirrorSaved = false;
-    }
-    publishPreferences(next, mirrorSaved ? roleNotice('writer') : mirrorWarning);
-    coordination.announceCommit();
-    return { mirrorSaved };
+    });
   }
 
   /**
@@ -216,15 +253,35 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
    * route left direct import is dropped. Under live sync the same account's locks
    * carry to the new revision.
    */
-  function importAccount(imported: ImportedGame, options: { carryLiveLocks?: boolean } = {}): Promise<ImportedGame | null> {
+  function importAccount(imported: ImportedGame, options: { carryLiveLocks?: boolean; signal?: AbortSignal } = {}): Promise<ImportedGame | null> {
+    if (!state.ready || state.writer !== 'writer') return Promise.reject(new WorkspaceReadOnly());
     return accountWrite(async () => {
       await requireWriter();
       const { preferences, game } = state;
-      if (imported.helperSession && preferences.importRoute !== 'direct') return null;
+      if (options.signal?.aborted || (imported.helperSession && preferences.importRoute !== 'direct')) return null;
       const next = options.carryLiveLocks && preferences.directImportMode === 'live'
         ? withLiveRuneLocks(imported, game, preferences.presets) : imported;
       const accepted = withAccountSnapshot(next);
-      await repository.saveGame(storedGame(accepted));
+      const lifetime = new AbortController();
+      const abort = () => lifetime.abort();
+      options.signal?.addEventListener('abort', abort, { once: true });
+      if (imported.helperSession) activeImport = lifetime;
+      try {
+        await repository.saveGame(storedGame(accepted), lifetime.signal);
+        if (lifetime.signal.aborted) {
+          /* A repository must abort its transaction. This also keeps alternate
+             adapters coherent if cancellation arrives at their commit boundary. */
+          if (game) await repository.saveGame(storedGame(game));
+          else await repository.clearGame();
+          return null;
+        }
+      } catch (error) {
+        if (lifetime.signal.aborted) return null;
+        throw error;
+      } finally {
+        options.signal?.removeEventListener('abort', abort);
+        if (activeImport === lifetime) activeImport = null;
+      }
       set({ game: accepted });
       coordination.announceCommit();
       return accepted;
@@ -277,12 +334,34 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
   /* A build is engraved in one preset and nowhere else. A preset built in JASWA
      lives in the preferences, which no sync overwrites; Scenario and the game's
      presets live in the import, which live sync would put back. */
-  function engraveBuild(presetId: string, unitId: string, runeIds: readonly string[]): Promise<void> {
+  function engraveBuild(presetId: string, unitId: string, candidate: BuildEngraving): Promise<void> {
     return accountWrite(async () => {
       await requireWriter();
+      const { buildFollowable, currentBuilds } = await import('../domain/runes/optimization/rune-optimization-refresh');
       const { game, preferences } = state;
       const presets = readPresets(game?.data, preferences.presets);
       const preset = presets.find((entry) => entry.id === presetId);
+      if (!game || !preset || candidate.accountId !== game.snapshot.accountId) throw new Error('This build no longer belongs to the current account or preset.');
+      if (candidate.questionKey !== engravingQuestionKey(preferences, presets, presetId, unitId)) {
+        throw new Error('The profile or team changed while this build was waiting. Open it again before engraving.');
+      }
+      const runeIds = candidate.build.runes.map((rune) => rune.runeId);
+      if (runeIds.length !== 6) throw new Error('A build must contain one rune for each of the six slots.');
+      checkRuneBuild(game.data, unitId, runeIds);
+      const monster = game.snapshot.monsters.find((entry) => entry.id === unitId);
+      if (!monster || !preset.members.includes(unitId)) throw new Error('This monster is no longer in the selected preset.');
+      const locks = heldRuneLocks(game.runeLocks ?? noRuneLocks, presets);
+      const priority = presetPriorityOf(preset, preferences.monsterPriority, preferences.presetPriority);
+      const current = currentBuilds([candidate.build], {
+        unitId, monster: monsterInPreset(monster.record, preset, accountItems(game.data)),
+        requirements: { ...candidate.requirements, buildings: game.snapshot.buildings,
+          teammateSets: teammateSetsInPreset(preset, unitId, accountItems(game.data)) }, settings: preferences.runeOptimization,
+        before: candidate.before,
+        withheld: withheldRunes(preset, unitId, priority, preferences.runeOptimization, locks),
+        now: { runes: new Map(runesInPreset(game.snapshot.runes, preset).map((rune) => [rune.id, rune])),
+          items: new Map(game.snapshot.craftItems.map((item) => [item.id, item])), locks: runeLocksFor(locks, runeLockScope(preset), unitId) },
+      })[0];
+      if (!buildFollowable(current)) throw new Error('This build can no longer be followed. Check its runes and craft items before engraving.');
       if (preset?.kind === 'own') {
         const own = preferences.presets.find((entry) => entry.id === presetId);
         if (!own) throw new Error('This preset is no longer in your preferences.');
@@ -291,12 +370,7 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
         /* A lock the build moved away is over here too, as in a game preset: the
            preset and the locks that no longer hold are committed together. */
         const locks = game ? heldRuneLocks(game.runeLocks ?? noRuneLocks, readPresets(game.data, ownPresets)) : noRuneLocks;
-        if (game && runeLockCount(locks) !== runeLockCount(game.runeLocks ?? noRuneLocks)) {
-          await commitPair(withLocks(game, locks), preferences, { ...preferences, presets: ownPresets });
-          return;
-        }
-        const saved = await queuePreferenceChange((current) => ({ ...current, presets: current.presets.map((entry) => entry.id === presetId ? next : entry) }));
-        if (!saved) throw new Error('JASWA could not save this build. Please try again.');
+        await commitPair(withLocks(game, locks), preferences, { ...preferences, presets: ownPresets });
         return;
       }
       if (!game || !preset || !canEngraveUnder(preferences)) throw new Error('This build cannot be engraved in the current import mode.');

@@ -43,7 +43,8 @@ export type WorkspaceRepository = {
   loadPreferences(): Promise<unknown>;
   /** Whether the stored preferences were read, so a write cannot erase choices only the database holds. */
   canSavePreferences(): boolean;
-  saveGame(game: StoredGame): Promise<void>;
+  /** Aborting before the transaction completes leaves the preceding account intact. */
+  saveGame(game: StoredGame, signal?: AbortSignal): Promise<void>;
   clearGame(): Promise<void>;
   /**
    * Mirror first, then the database in order. `rebase` re-applies the same change
@@ -100,8 +101,8 @@ export class PairedCommitUnavailable extends Error {
 
 /** Another tab holds the writer role; this one shows the workspace but does not change it. */
 export class WorkspaceReadOnly extends Error {
-  constructor() {
-    super('JASWA is open in another tab. Close it to make changes here.');
+  constructor(message = 'JASWA is open in another tab. Close it to make changes here.') {
+    super(message);
     this.name = 'WorkspaceReadOnly';
   }
 }

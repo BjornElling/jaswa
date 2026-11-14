@@ -82,8 +82,11 @@ for (const [mode, label, total] of [
   await showEveryLevel(panel);
   if (mode === 'selected') await chooseItem(page, 'Violent', 'Grind', 'SPD');
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
-  const card = panel.locator('.craft-recommendation').first();
-  const after = card.locator('.craft-recommendation-lines td:nth-child(2) .rune-sub').first();
+  const card = panel.locator('.craft-recommendation')
+    .filter({ has: page.locator('.craft-rune-facts').getByText('+9', { exact: true }) })
+    .filter({ has: page.locator('.craft-recommendation-title').filter({ hasText: / · SPD(?: \(|$)/ }) }).first();
+  const after = card.locator('.craft-recommendation-lines td:nth-child(2) .rune-sub')
+    .filter({ has: page.locator('.rune-sub-name').getByText('SPD', { exact: true }) });
   await expect(after.locator('.rune-sub-value')).toHaveText('+5');
   await expect(after.locator('.rune-sub-grind-step')).toContainText('→');
   await expect(after.locator('.rune-sub-ground-figure')).toHaveText(total);
@@ -488,7 +491,7 @@ test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a s
     const verdicts: Record<string, ReturnType<typeof advice>> = {
       101: advice('keep'), 102: advice('power-up'), 103: advice('reapp', 'sell'), 104: advice('keep', 'sell'),
     };
-    rememberRuneAdvice({ data: { unit_list: game.data.unit_list }, settings: preferences.runePotential, roles: preferences.runeRoles },
+    rememberRuneAdvice({ data: game.data, settings: preferences.runePotential, roles: preferences.runeRoles },
       runes, new Map(runes.map((rune: { id: string }) => [rune.id, verdicts[rune.id]])));
   });
   await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
@@ -585,14 +588,16 @@ test('one Ignore list follows every Gems & Grinds view, survives reload and rese
 });
 
 /* RUNE-CRAFT-ITEMS.md §5.1: a Gem only with the stat the placement rule chooses.
-   With SPD ignored, CRI Dmg is next in the rule's order; the box holds none, so the
+   With SPD ignored, flat HP is next in the rule's order; the box holds none, so the
    held CRI Rate Gem is not suggested although it would raise the score. */
 test('ignoring the best Gem hands the rune to the next best stat, and without one held no Gem is suggested', async ({ page }, testInfo) => {
   let craftWorkers = 0;
   page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
   await openWorkspace(page);
   const account = JSON.parse(await readFile(craftAccount, 'utf8'));
-  // Both held Gems improve this rune's score, SPD the most and CRI Rate a little; CRI Dmg, not held, comes second.
+  /* Explicit reference facts make SPD first and an unheld flat-HP Gem second;
+     the held CRI Rate Gem must not jump that placement rule. */
+  for (const monster of account.unit_list) Object.assign(monster, { con: 700, atk: 700, def: 700, spd: 105 });
   account.runes.find((rune: { rune_id: number }) => rune.rune_id === 101).sec_eff =
     [[2, 8, 0, 0], [8, 5, 0, 0], [9, 6, 0, 0], [10, 5, 0, 0]];
   account.rune_craft_item_list.push({ craft_item_id: 9007, craft_type: 1, craft_type_id: 130905, amount: 1 });

@@ -61,6 +61,7 @@ import type { CraftItem, CraftRollAssumption } from '../../domain/runes/craft/ru
 import { estimateRuneOptimizationBuilds, figureIndex } from '../../domain/runes/optimization/rune-optimization-problem';
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../../domain/runes/optimization/rune-optimization-problem';
 import { buildFollowable, currentBuilds } from '../../domain/runes/optimization/rune-optimization-refresh';
+import { engravingQuestionKey } from '../../workspace/engraving-question';
 import type { CurrentBuild } from '../../domain/runes/optimization/rune-optimization-refresh';
 import { askable, profileRequirements } from '../../domain/runes/optimization/rune-optimization-requirements';
 import type { RequirementsDraft } from '../../domain/runes/optimization/rune-optimization-requirements';
@@ -191,7 +192,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   onUpdate: (update: Partial<RuneOptimizationSettings>) => void;
   /** Whether builds may be engraved in the game's presets and Scenario; a preset built in JASWA always may. */
   canEngrave: boolean;
-  onEngrave: (presetId: string, unitId: string, runeIds: readonly string[]) => Promise<void>;
+  onEngrave: (presetId: string, unitId: string, candidate: import('../../domain/runes/optimization/rune-optimization-refresh').BuildEngraving) => Promise<void>;
   /** Every lock that holds (`rune-locks.ts`). */
   runeLocks: RuneLocks;
   onLock: (presetId: string, unitId: string, runeId: string, lock: RuneLock | null) => Promise<void>;
@@ -850,7 +851,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       moves={builds[chosenBuild].moves} runes={builds[chosenBuild].runes}
       followable={buildFollowable(builds[chosenBuild])}
       runesById={runesById} presetId={activePresetId} loadedPlacements={game?.localChanges?.firstObservedPlacements?.[activePresetId]} scenarioPlaces={scenarioPlaces} poolPlaces={poolPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
-      general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId, runeIds) => onEngrave(activePresetId, engraveUnitId, runeIds)}
+      general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId) => {
+        if (!current || !tableLimits || !game) return Promise.reject(new Error('This build is no longer available.'));
+        return onEngrave(activePresetId, engraveUnitId, {
+          accountId: game.snapshot.accountId, questionKey: engravingQuestionKey(preferences, presets, activePresetId, engraveUnitId),
+          build: current.answer.builds[chosenBuild], requirements: tableLimits,
+          before: { runes: current.runes, items: current.items },
+        });
+      }}
       lockOf={(runeId) => (preset ? runeLockOf(runeLocks, runeLockScope(preset), buildMonster.unitId, runeId) : undefined)}
       onLock={(runeId, lock) => onLock(activePresetId, buildMonster.unitId, runeId, lock)}
       onClose={closeBuild} onOpenRune={onOpenRune} onOpenMonster={onOpenMonster} />}

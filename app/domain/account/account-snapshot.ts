@@ -12,6 +12,30 @@ export type AccountId = string;
 export type MonsterCopyId = string;
 export type MonsterSpeciesId = string;
 
+/** The accepted monster contract. Unused export fields stay at the observation boundary. */
+export type MonsterRecord = {
+  unit_id: number;
+  unit_master_id: number;
+  con: number;
+  atk: number;
+  def: number;
+  spd: number;
+  critical_rate: number;
+  critical_damage: number;
+  resist: number;
+  accuracy: number;
+  name?: string;
+  attribute?: number;
+  unit_level?: number;
+  class?: number;
+  building_id?: number;
+  skills?: readonly (readonly number[])[];
+  /** Canonical physical records, each accepted by its item reader. */
+  runes?: readonly GameRecord[];
+  artifacts?: readonly GameRecord[];
+  relics?: readonly GameRecord[];
+};
+
 /** A validated owned monster identity and the facts currently available for it. */
 export type MonsterCopy = {
   id: MonsterCopyId;
@@ -20,8 +44,7 @@ export type MonsterCopy = {
   element: string | null;
   level: number | null;
   grade: number | null;
-  /** Kept behind the ingestion-owned snapshot while consumers move off raw export fields. */
-  record: GameRecord;
+  record: MonsterRecord;
 };
 
 export type ShrineMonster = MonsterCopy;

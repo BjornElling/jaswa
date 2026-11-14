@@ -32,7 +32,7 @@ function remember(remembered: FirstObservedPlacements | undefined, presetId: str
 }
 
 /* Up to six runes, one per slot: a whole build, or a monster's runes with one locked in or excluded (`runesWithLocked`, `runesWithout`). */
-function checkBuild(data: GameRecord, unitId: string, runeIds: readonly string[]): void {
+export function checkRuneBuild(data: GameRecord, unitId: string, runeIds: readonly string[]): void {
   const units = data.unit_list;
   const records = data.runes;
   if (!Array.isArray(units) || !Array.isArray(records) || runeIds.length > 6 || new Set(runeIds).size !== runeIds.length
@@ -71,7 +71,7 @@ export function runesWithout(preset: Preset, unitId: string, runeId: string, slo
 /** Move a monster's runes — a build's six, or its own with one locked in or taken off — in Scenario, then rebuild each monster's runes from
  * the account list so every workspace reads the same placement. */
 export function engraveRuneBuild(data: GameRecord, unitId: string, runeIds: readonly string[]): GameRecord {
-  checkBuild(data, unitId, runeIds);
+  checkRuneBuild(data, unitId, runeIds);
   const units = data.unit_list as unknown[];
   const picked = new Set(runeIds);
   const runes = (data.runes as GameRecord[]).map((rune) => {
@@ -148,7 +148,7 @@ function withDeckGear(data: GameRecord, preset: Preset, equip: GameRecord[]): Ga
 export function engraveImportedGame(game: ImportedGame, preset: Preset, unitId: string, runeIds: readonly string[],
   claimed: readonly string[] = runeIds): ImportedGame {
   if (preset.kind === 'own') throw new Error('A preset built in JASWA is engraved in the preferences.');
-  checkBuild(game.data, unitId, runeIds);
+  checkRuneBuild(game.data, unitId, runeIds);
   if (preset.kind === 'scenario') {
     const data = engraveRuneBuild(game.data, unitId, runeIds);
     const owners = (records: unknown) => new Map((records as GameRecord[]).flatMap((record) => {

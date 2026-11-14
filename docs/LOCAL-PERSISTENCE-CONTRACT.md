@@ -1,7 +1,7 @@
 # Local Persistence Contract
 
 **Status:** Binding product contract
-**Reviewed:** November 5, 2026
+**Reviewed:** November 14, 2026
 
 ## Promise
 
@@ -24,6 +24,24 @@ mirror is a write-through safety copy for a tab closed before IndexedDB
 completes; IndexedDB remains the complete store. A folder handle is an
 IndexedDB record because browser handles cannot travel in an exported
 preferences file.
+
+The accepted observation is immutable. Runtime `ImportedGame.data` is its
+effective projection; `ImportedGame.observation` retains the accepted facts.
+Only the observation is stored in the account's `data`. `localChanges` stores
+explicit departures in `scenarioRuneOwners` and `gamePresets`: Scenario rune
+owners and, per game preset, positions, leader and gear, or deletion.
+`readLocalAccountChanges` validates these choices and `applyLocalProjection`
+reads them against the accepted observation. Restoration applies validated
+overrides to the observation; it never stores a second effective account. A malformed local
+context costs that context, retaining the other contexts and every preference.
+The first observed placements remain the source for the overlay's *Previously*.
+
+A tab taking over the writer lock cannot write until it has restored the
+preceding writer's committed state. Loading a `.sw` document and following
+preference clicks have one ordering: clicks apply after the latest document
+replacement requested before them, including when several loads are queued.
+Stopping direct import or changing its route/mode aborts an uncommitted
+helper-import transaction. Storage and the published account share that boundary.
 
 Preference copies written by the browser adapter carry a local write-order
 number. It orders the two storage copies independently of wall-clock ties or

@@ -22,6 +22,22 @@ describe('preference storage', () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
+  it('rolls back an active account transaction when its source is cancelled', async () => {
+    const before = account('before.json');
+    await saveImportedGame(before);
+    const lifetime = new AbortController();
+    const originalPut = FakeObjectStore.prototype.put;
+    const put = vi.spyOn(FakeObjectStore.prototype, 'put').mockImplementationOnce(function (this: IDBObjectStore, value, key) {
+      const request = originalPut.call(this, value, key);
+      lifetime.abort();
+      return request;
+    });
+    try {
+      await expect(saveImportedGame(account('cancelled.json'), lifetime.signal)).rejects.toMatchObject({ name: 'AbortError' });
+    } finally { put.mockRestore(); }
+    expect(await loadImportedGame()).toEqual(before);
+  });
+
   it('keeps consecutive choices in the synchronous mirror and database', async () => {
     const first = { ...blankPreferences(), hardwareAcceleration: false, updatedAt: '2026-11-13T10:00:00.000Z' };
     const second = { ...first, importRoute: 'direct' as const, updatedAt: '2026-11-13T10:00:01.000Z' };

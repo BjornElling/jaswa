@@ -280,23 +280,31 @@ test('engraving a build moves its runes into the saved account and survives relo
   await expect(previously).toHaveCount(moved);
   await page.keyboard.press('Escape');
   await expect(detail).toBeHidden();
-  const stored = await page.evaluate(async () => new Promise<{ runes: Array<{ rune_id: number; occupied_id: number; occupied_type: number }>; unit_list: Array<{ unit_id: number; runes: Array<{ rune_id: number }> }> }>((resolve) => {
+  const stored = await page.evaluate(async () => new Promise<{ runes: Array<{ rune_id: number; occupied_id: number; occupied_type: number }>; unit_list: Array<{ unit_id: number; runes: Array<{ rune_id: number }> }>; localChanges?: { scenarioRuneOwners?: Record<string, string | null> } }>((resolve) => {
     const request = indexedDB.open('jaswa-local', 1);
     request.onsuccess = () => {
       const db = request.result;
       const read = db.transaction('workspace', 'readonly').objectStore('workspace').get('imported-game');
-      read.onsuccess = () => { resolve(read.result.data); db.close(); };
+      read.onsuccess = () => { resolve({ ...read.result.data, localChanges: read.result.localChanges }); db.close(); };
     };
   }));
-  const onMonster = stored.runes.filter((rune) => rune.occupied_type === 1 && rune.occupied_id === 11);
+  const effectiveRunes = stored.runes.map((rune) => {
+    const owners = stored.localChanges?.scenarioRuneOwners ?? {};
+    if (!Object.hasOwn(owners, String(rune.rune_id))) return rune;
+    const owner = owners[String(rune.rune_id)];
+    return { ...rune, occupied_type: owner === null ? 2 : 1, occupied_id: owner === null ? 0 : Number(owner) };
+  });
+  const onMonster = effectiveRunes.filter((rune) => rune.occupied_type === 1 && rune.occupied_id === 11);
   expect(onMonster).toHaveLength(6);
   const original = JSON.parse(readFileSync(account, 'utf8')) as { unit_list: Array<{ runes: Array<{ rune_id: number; occupied_id: number }> }> };
   const imported = original.unit_list.flatMap((unit) => unit.runes);
   expect(onMonster.some((rune) => imported.some((old) => old.rune_id === rune.rune_id && old.occupied_id === 12))).toBe(true);
-  expect(stored.runes.some((rune) => rune.occupied_type === 2 && imported.some((old) =>
+  expect(effectiveRunes.some((rune) => rune.occupied_type === 2 && imported.some((old) =>
     old.rune_id === rune.rune_id && old.occupied_id === 11))).toBe(true);
-  expect(stored.unit_list.find((unit) => unit.unit_id === 11)?.runes.map((rune) => rune.rune_id).sort())
-    .toEqual(onMonster.map((rune) => rune.rune_id).sort());
+  const source = JSON.parse(readFileSync(account, 'utf8'));
+  const observed = new Map([...source.runes, ...source.unit_list.flatMap((unit: { runes: unknown[] }) => unit.runes)]
+    .map((rune) => [rune.rune_id, rune]));
+  expect(stored.runes).toEqual([...observed.values()]);
   for (const unit of stored.unit_list) expect(unit.runes.map((rune) => rune.rune_id).sort())
     .toEqual(stored.runes.filter((rune) => rune.occupied_type === 1 && rune.occupied_id === unit.unit_id)
       .map((rune) => rune.rune_id).sort());

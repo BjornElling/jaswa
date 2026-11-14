@@ -43,7 +43,7 @@ try {
       .map((slot) => ({ slot_no: slot, set_id: 0, pri_eff: blankMains[slot] }))];
   };
   /* Equal bases in percent terms: 1,500 HP, 100 ATK and 100 DEF are each 10 %. */
-  const even = { con: 1000, atk: 1000, def: 1000 };
+  const even = { con: 1000, atk: 1000, def: 1000, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0 };
   const copy = (runes, extra = {}) => ({ ...even, runes, ...extra });
   const bands = (advice) => advice.bands;
 
@@ -65,7 +65,7 @@ try {
   /* An artifact's fixed amount on a small base: 100 DEF on 400 DEF is 25 %,
      1,500 HP on 15,000 HP is 10 %, so DEF overtakes HP where a relic ranks them
      by need alone — 60 × 10 against 40 × 25. */
-  const smallDef = copyMainStatAdvice({ con: 1000, atk: 1000, def: 400, runes: build({ pri_eff: [2, 60] }, { pri_eff: [6, 40] }) });
+  const smallDef = copyMainStatAdvice({ ...even, def: 400, runes: build({ pri_eff: [2, 60] }, { pri_eff: [6, 40] }) });
   assert.deepEqual(bands(smallDef.relic), { HP: 'preferred', ATK: 'unwanted', DEF: 'acceptable' });
   assert.deepEqual(bands(smallDef.artifact), { HP: 'acceptable', ATK: 'unwanted', DEF: 'preferred' });
 

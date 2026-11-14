@@ -1,4 +1,5 @@
 import type { CraftCalculation } from '../../domain/runes/craft-advice/rune-craft-recommendations';
+import { registerAccountJobReset } from './account-job-memory';
 
 function resultMemory() {
   let latest: CraftCalculation | null = null;
@@ -18,3 +19,4 @@ export const craftResultMemory = resultMemory();
  * it keeps its own answer rather than overwriting the one the box's views share.
  */
 export const missingCraftResultMemory = resultMemory();
+registerAccountJobReset(() => { craftResultMemory.remember(null); missingCraftResultMemory.remember(null); });

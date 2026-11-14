@@ -71,6 +71,8 @@ export type StoredGame = {
 export type ImportedGame = {
   fileName: string; importedAt: string; data: Record<string, unknown>; helperSession?: HelperSession;
   coverage: CaptureCoverage;
+  /** Immutable accepted facts. `data` is the effective projection of these and local choices. */
+  observation?: Record<string, unknown>;
   /** Derived from `data` at the ingestion boundary and never stored. */
   snapshot: AccountSnapshot;
   /** Derived from `data` at the ingestion boundary and never stored. */

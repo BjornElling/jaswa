@@ -14,7 +14,7 @@
  * them both the same story.
  */
 import type { GameRecord } from '../account/game-record';
-import { monsterBaseStats } from '../combat/monster-stats';
+import { hasMonsterBaseStats, monsterBaseStats } from '../combat/monster-stats';
 import { monsterCatalogueArchetype, type MonsterArchetype } from '../monsters/monster-catalog';
 import type { RoleType } from '../profiles/rune-roles';
 import type { TargetStat } from '../runes/rune-properties';
@@ -78,6 +78,7 @@ export function referenceMonsters(data: GameRecord | undefined): GameRecord[] {
   if (!Array.isArray(units)) return [];
   return units.filter((unit): unit is GameRecord =>
     Boolean(unit) && typeof unit === 'object' && !Array.isArray(unit)
+    && hasMonsterBaseStats(unit as GameRecord)
     && numberValue((unit as GameRecord).unit_level) >= referenceMonsterLevel);
 }
 

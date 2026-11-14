@@ -9,6 +9,7 @@
  * so an unchanged import or a protection toggle cannot discard a useful answer.
  */
 import { runeCalculationKey } from '../../domain/runes/rune-calculation-inputs';
+import { registerAccountJobReset } from './account-job-memory';
 import { referenceLines } from '../../domain/reference/rune-reference-stats';
 import { runeAdviceKey } from '../../domain/runes/cleanup/rune-cleanup-refresh';
 import type { GameRecord } from '../../domain/account/game-record';
@@ -26,6 +27,9 @@ export type RuneAdviceInputs = {
 
 let remembered: { key: string; entries: Map<string, { rune: Rune; advice: RuneAdvice }> } | null = null;
 
+export function clearRuneAdviceMemory(): void { remembered = null; }
+registerAccountJobReset(clearRuneAdviceMemory);
+
 function inputsKey(inputs: RuneAdviceInputs): string {
   const lines = referenceLines(inputs.data);
   const base = lines ? new Map([...lines].map(([type, line]) => [type, line.stats])) : null;
@@ -40,9 +44,14 @@ export function rememberRuneAdvice(
 ): void {
   const key = inputsKey(inputs);
   if (remembered === null || remembered.key !== key) remembered = { key, entries: new Map() };
+  /* Sold runes must not accumulate when a new observation has the same reference
+     averages. The memory is bounded by the current account's physical stock. */
+  const owned = new Set(Array.isArray(inputs.data.runes) ? inputs.data.runes.map((record) =>
+    String((record as Record<string, unknown>).rune_id)) : []);
+  for (const id of remembered.entries.keys()) if (!owned.has(id)) remembered.entries.delete(id);
   for (const rune of runes) {
     const found = advice.get(rune.id);
-    if (found) remembered.entries.set(rune.id, { rune, advice: found });
+    if (found && owned.has(rune.id)) remembered.entries.set(rune.id, { rune, advice: found });
   }
 }
 

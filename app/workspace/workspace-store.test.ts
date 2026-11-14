@@ -88,12 +88,13 @@ describe('workspace store', () => {
     expect(saved.preferences).toEqual([]);
     expect(store.getSnapshot().preferences).toEqual({ ...blankPreferences(), updatedAt: store.getSnapshot().preferences.updatedAt });
   });
-  it('keeps saying tabs are uncoordinated after a successful save', async () => {
+  it('keeps uncoordinated tabs read-only instead of permitting competing saves', async () => {
     const { repository } = memoryRepository();
     const store = createWorkspaceStore(repository, fixedRole('writer', false).coordination);
     await store.restore();
     expect(store.getSnapshot().storageNotice?.message).toMatch(/cannot coordinate/);
-    store.changePreferences((current) => ({ ...current, hardwareAcceleration: false }));
+    expect(store.changePreferences((current) => ({ ...current, hardwareAcceleration: false }))).toBe(false);
+    await expect(store.importAccount(account)).rejects.toBeInstanceOf(WorkspaceReadOnly);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(store.getSnapshot().storageNotice?.message).toMatch(/cannot coordinate/);
   });

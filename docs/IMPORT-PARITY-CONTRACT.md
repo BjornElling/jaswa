@@ -1,7 +1,7 @@
 # Import and Count Parity Contract
 
 **Status:** Binding product contract — the one home of the parity promise
-**Reviewed:** October 20, 2026
+**Reviewed:** November 14, 2026
 
 ## 1. Promise
 
@@ -54,11 +54,17 @@ makes the filtering explicit.
   `GetUnitStorageList`. A root list wins, even when empty. The import validates
   the list it resolves and publishes it at the root, so the count, the table
   and the validation read one list.
-- **A monster record satisfies the unit contract**: a positive unique
+- **A monster record satisfies the unit contract**: a positive unique numeric
   `unit_id`, a positive integer `unit_master_id`, and — where present — `class`
   1–6, `unit_level` 1–40 and `skills` as `[id ≥ 1, level ≥ 1]` pairs. An absent
   field reads as "—" on screen. The Normal tab's units are held to the same
-  contract.
+  contract. The eight numerical base facts (`con`, `atk`, `def`, `spd`,
+  `critical_rate`, `critical_damage`, `resist`, `accuracy`) are required and
+  finite; HP's base constitution, ATK, DEF and SPD are positive, the other four
+  nonnegative. A missing or invalid base fact refuses the record with its source
+  path, rather than manufacturing a zero. Supplied element and building IDs
+  must also satisfy their readers. The snapshot publishes a closed
+  `MonsterRecord` contract, without unrelated raw unit fields.
 - **An uncatalogued monster is imported and named as such.** A `unit_master_id`
   the catalogue does not know is kept and warned about on Home and in the
   import dialog; the audit reports it (§5).
@@ -66,7 +72,9 @@ makes the filtering explicit.
   Runes and artifacts are counted once even when the export carries both
   copies; relics are counted once because the game permits one relic to be
   referenced by many monsters. In Scenario a rune or artifact listed under two
-  monsters is refused (`DECK-PRESETS.md` §1, rule 8).
+  monsters is refused (`DECK-PRESETS.md` §1, rule 8). Repeated rune, artifact
+  and relic records must agree on their decoded physical facts. A contradiction
+  names both source paths; monster gear then references the canonical collection.
 - A successful response can add a record only when it is in an account-owned
   container or is otherwise proven to belong to the current `wizard_id`.
   Preview, shop, opponent, definition, and unclaimed-reward containers are not

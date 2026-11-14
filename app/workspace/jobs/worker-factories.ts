@@ -6,6 +6,8 @@
  * transport, and only the composition root connects the two. A test supplies
  * its own factories, so a client can run without a browser.
  */
+import { budgetedWorker, createWorkerBudget } from './worker-budget';
+
 export type WorkerFactories = {
   artifactScore(): Worker;
   craftRecommendation(): Worker;
@@ -19,14 +21,17 @@ export type WorkerFactories = {
 };
 
 let provided: WorkerFactories | null = null;
+const cores = typeof navigator === 'undefined' ? 4 : navigator.hardwareConcurrency || 4;
+const budget = createWorkerBudget(Math.max(1, Math.min(8, cores - 1)));
 
 export function provideWorkerFactories(factories: WorkerFactories): void {
-  provided = factories;
+  provided = Object.fromEntries(Object.entries(factories).map(([name, create]) =>
+    [name, () => budgetedWorker(create, budget, name === 'runeCalibration' || name === 'runeOptimizationWork')])) as WorkerFactories;
 }
 
 /** Adds the development simulator once the shell has loaded it. */
 export function provideRuneSimulatorFactory(create: () => Worker): void {
-  if (provided) provided = { ...provided, runeSimulator: create };
+  if (provided) provided = { ...provided, runeSimulator: () => budgetedWorker(create, budget, true) };
 }
 
 export function workerFactories(): WorkerFactories {

@@ -116,6 +116,15 @@ export type RefreshContext = {
   now: { runes: ReadonlyMap<string, Rune>; items: ReadonlyMap<string, CraftItem>; locks: Readonly<Record<string, RuneLock>> };
 };
 
+/** The rendered question and original craft assumptions; current availability is read at commit. */
+export type BuildEngraving = {
+  accountId: string | null;
+  questionKey: string;
+  build: OptimizedBuild;
+  requirements: RefreshContext['requirements'];
+  before: RefreshContext['before'];
+};
+
 const sameLine = (left: EndStateLine | undefined, right: EndStateLine | undefined) => left !== undefined && right !== undefined
   && left.statId === right.statId && left.value === right.value && left.gemmed === right.gemmed && left.grind === right.grind;
 

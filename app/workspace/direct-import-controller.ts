@@ -26,7 +26,7 @@ export type DirectImportConfig = {
   readProfile(): Promise<HelperProfileResult>;
   helperStatusMessage(connection: HelperConnection): string;
   createImportedGame(profile: HelperProfile, connection: HelperConnection): ImportedGame;
-  importAccount(imported: ImportedGame, options: { carryLiveLocks: boolean }): Promise<ImportedGame | null>;
+  importAccount(imported: ImportedGame, options: { carryLiveLocks: boolean; signal: AbortSignal }): Promise<ImportedGame | null>;
   onAccepted(imported: ImportedGame, manual: boolean): void;
   onMessage(message: string): void;
 };
@@ -39,6 +39,7 @@ export type DirectImportConfig = {
 export function createDirectImportController(initialConnection: HelperConnection): DirectImportController {
   let state: DirectImportSnapshot = { connection: initialConnection, reloading: false, reloadError: null, importStopped: null };
   let config: DirectImportConfig | null = null;
+  let lifetime = new AbortController();
   let running = false;
   let refreshing = false;
   let reloadPending = false;
@@ -74,6 +75,7 @@ export function createDirectImportController(initialConnection: HelperConnection
 
   async function refresh(force = false): Promise<void> {
     const startedConfig = config;
+    const signal = lifetime.signal;
     if (!running || startedConfig === null || startedConfig.route !== 'direct') return;
     if (force) {
       update({ reloading: true, reloadError: null });
@@ -142,7 +144,7 @@ export function createDirectImportController(initialConnection: HelperConnection
         acceptedConnection = current;
       }
       const imported = startedConfig.createImportedGame(result.profile, acceptedConnection);
-      const next = await startedConfig.importAccount(imported, { carryLiveLocks: startedConfig.mode === 'live' });
+      const next = await startedConfig.importAccount(imported, { carryLiveLocks: startedConfig.mode === 'live', signal });
       if (!running || config !== startedConfig || next === null) return;
       acceptedRevision = result.profile.revision;
       acceptedSession = `${result.profile.instanceId}:${result.profile.sessionId}`;
@@ -175,6 +177,8 @@ export function createDirectImportController(initialConnection: HelperConnection
       return () => { listeners.delete(listener); };
     },
     start(nextConfig) {
+      lifetime.abort();
+      lifetime = new AbortController();
       if (timer !== null) clearInterval(timer);
       config = nextConfig;
       running = true;
@@ -188,6 +192,7 @@ export function createDirectImportController(initialConnection: HelperConnection
       timer = setInterval(() => void refresh(), 2_000);
     },
     stop() {
+      lifetime.abort();
       running = false;
       config = null;
       if (timer !== null) clearInterval(timer);

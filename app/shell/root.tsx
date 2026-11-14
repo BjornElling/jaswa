@@ -261,9 +261,9 @@ export default function Home() {
   }
 
   /* The store's commands decide; the shell only says where the user acted. */
-  async function engraveBuild(presetId: string, unitId: string, runeIds: readonly string[]): Promise<void> {
+  async function engraveBuild(presetId: string, unitId: string, candidate: import('../domain/runes/optimization/rune-optimization-refresh').BuildEngraving): Promise<void> {
     try {
-      await workspaceStore.engraveBuild(presetId, unitId, runeIds);
+      await workspaceStore.engraveBuild(presetId, unitId, candidate);
       setMessage('');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'JASWA could not save this build. Please try again.');

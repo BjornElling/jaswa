@@ -1,22 +1,22 @@
 {
   "wizard_id": 7,
   "unit_list": [
-    { "unit_id": 801, "wizard_id": 7, "unit_master_id": 10131, "unit_level": 40, "class": 4 },
-    { "unit_id": 802, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 1, "class": 3 },
-    { "unit_id": 805, "wizard_id": 7, "unit_master_id": 10111, "unit_level": 40, "class": 3 },
-    { "unit_id": 806, "wizard_id": 7, "unit_master_id": 10112, "unit_level": 40, "class": 3, "skills": [[1, 6]] },
-    { "unit_id": 807, "wizard_id": 7, "unit_master_id": 10112, "unit_level": 40, "class": 3 },
-    { "unit_id": 808, "wizard_id": 7, "unit_master_id": 10111, "unit_level": 1, "class": 3, "skills": [[1, 17]] },
-    { "unit_id": 809, "wizard_id": 7, "unit_master_id": 26611, "unit_level": 1, "class": 4 },
-    { "unit_id": 810, "wizard_id": 7, "unit_master_id": 26612, "unit_level": 1, "class": 4 },
-    { "unit_id": 811, "wizard_id": 7, "unit_master_id": 27113, "unit_level": 40, "class": 6 },
-    { "unit_id": 812, "wizard_id": 7, "unit_master_id": 27102, "unit_level": 1, "class": 4 },
-    { "unit_id": 813, "wizard_id": 7, "unit_master_id": 27102, "unit_level": 1, "class": 4 },
-    { "unit_id": 814, "wizard_id": 7, "unit_master_id": 27101, "unit_level": 1, "class": 4 }
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 801, "wizard_id": 7, "unit_master_id": 10131, "unit_level": 40, "class": 4 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 802, "wizard_id": 7, "unit_master_id": 10101, "unit_level": 1, "class": 3 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 805, "wizard_id": 7, "unit_master_id": 10111, "unit_level": 40, "class": 3 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 806, "wizard_id": 7, "unit_master_id": 10112, "unit_level": 40, "class": 3, "skills": [[1, 6]] },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 807, "wizard_id": 7, "unit_master_id": 10112, "unit_level": 40, "class": 3 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 808, "wizard_id": 7, "unit_master_id": 10111, "unit_level": 1, "class": 3, "skills": [[1, 17]] },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 809, "wizard_id": 7, "unit_master_id": 26611, "unit_level": 1, "class": 4 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 810, "wizard_id": 7, "unit_master_id": 26612, "unit_level": 1, "class": 4 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 811, "wizard_id": 7, "unit_master_id": 27113, "unit_level": 40, "class": 6 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 812, "wizard_id": 7, "unit_master_id": 27102, "unit_level": 1, "class": 4 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 813, "wizard_id": 7, "unit_master_id": 27102, "unit_level": 1, "class": 4 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 814, "wizard_id": 7, "unit_master_id": 27101, "unit_level": 1, "class": 4 }
   ],
   "unit_storage_normal_list": [
-    { "unit_id": 803, "wizard_id": 7, "unit_master_id": 10132, "unit_level": 1, "class": 3 },
-    { "unit_id": 804, "wizard_id": 7, "unit_master_id": 10132, "unit_level": 1, "class": 3 }
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 803, "wizard_id": 7, "unit_master_id": 10132, "unit_level": 1, "class": 3 },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 804, "wizard_id": 7, "unit_master_id": 10132, "unit_level": 1, "class": 3 }
   ],
   "runes": []
 }

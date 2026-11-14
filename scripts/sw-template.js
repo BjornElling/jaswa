@@ -96,8 +96,13 @@ self.addEventListener('fetch', (event) => {
      Artwork uses its stable cache so shell updates do not evict it. */
   const cacheName = isArtworkRequest(event.request) ? ARTWORK_CACHE : SHELL_CACHE;
   event.respondWith(
-    /* Any cache may hold it: the previous build's shell still serves a tab that runs it. */
-    caches.match(event.request).then((cached) => {
+    caches.open(cacheName).then(async (cache) => {
+      const current = await cache.match(event.request);
+      if (current) return current;
+      /* Stable public URLs belong to the active build. Only immutable chunks
+         may fall back to an older shell; artwork stays in its own cache. */
+      const cached = !isArtworkRequest(event.request) && requestUrl.pathname.startsWith('/assets/')
+        ? await caches.match(event.request) : undefined;
       if (cached) return cached;
       return fetch(event.request).then((response) => {
         if (shouldCache(event.request, response, self.location.origin)) {

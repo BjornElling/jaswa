@@ -36,6 +36,8 @@ import { accountBuildingsProblem, readBuildingBonuses, readSkyTribeTotem } from 
 import { calculateMonsterTotals, monsterSpeedParts } from '../app/domain/combat/monster-stats.ts';
 import { hasMonsterCatalogEntry } from '../app/domain/monsters/monster-catalog.ts';
 
+const baseFacts = { con: 600, atk: 600, def: 600, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0 };
+
 let checks = 0;
 function check(condition, message) {
   assert.ok(condition, message);
@@ -207,7 +209,7 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
 {
   /* The SPD UP Effect is read off the copy's own engraved artifacts. */
   const line = (id, value) => [id, value, 0, 0, 0];
-  const parts = monsterSpeedParts({ spd: 104, runes: [], artifacts: [
+  const parts = monsterSpeedParts({ ...baseFacts, spd: 104, runes: [], artifacts: [
     { pri_effect: [101, 100], sec_effects: [line(206, 12), line(210, 3), line(206, 6), line(219, 2)] },
     { pri_effect: [100, 1500], sec_effects: [line(206, 6), line(214, 3), line(215, 5), line(218, 0.2)] },
   ] });
@@ -326,7 +328,7 @@ check(accountBuildingsProblem({ deco_list: [{ master_id: 5, level: 99 }] }) === 
      reads Swift too, not ⌈B/4⌉ as flat rune speed (STAT-2). */
   const runes = [...[1, 2, 3].map((slot) => ({ set_id: 3, slot_no: slot, pri_eff: [8, 10], sec_eff: [] })),
     { set_id: 25, slot_no: 4, pri_eff: [8, 10], sec_eff: [] }];
-  const monster = { spd: 111, runes };
+  const monster = { ...baseFacts, spd: 111, runes };
   const parts = monsterSpeedParts(monster);
   check(parts.swift && parts.displaySpeed === calculateMonsterTotals(monster).spd && parts.displaySpeed === displaySpeed(111, true, 40),
     'three Swift and an Intangible make Swift, as the stat sheet counts it');
@@ -334,7 +336,7 @@ check(accountBuildingsProblem({ deco_list: [{ master_id: 5, level: 99 }] }) === 
     'its combat speed carries the exact quarter: ⌈111 × 1.25 + 40⌉ = 179');
 }
 {
-  const monster = { spd: 111, runes: [1, 2, 3, 4].map((slot) => ({ set_id: 3, slot_no: slot, pri_eff: [8, 10], sec_eff: [] })) };
+  const monster = { ...baseFacts, spd: 111, runes: [1, 2, 3, 4].map((slot) => ({ set_id: 3, slot_no: slot, pri_eff: [8, 10], sec_eff: [] })) };
   const parts = monsterSpeedParts(monster);
   check(parts.swift && parts.displaySpeed === calculateMonsterTotals(monster).spd && parts.displaySpeed === displaySpeed(111, true, 40),
     'display speed is the stat sheet\'s own figure');
@@ -420,7 +422,7 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
 {
   /* Stored, a what-if still never reaches a reading that is not handed it: the page judges the runes engraved. */
   const unitId = '1';
-  const monster = { unit_id: 1, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 40], sec_eff: [] }] };
+  const monster = { ...baseFacts, unit_id: 1, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 40], sec_eff: [] }] };
   const monsters = new Map([[unitId, monster]]);
   const preset = { id: 'deck-24-101', members: [unitId], leaderUnitId: null, content: presetContent('giants') };
   const plain = readSpeedTeam({ team: presetSpeedTeam(preset, undefined), monsters, totemPercent: 15 });
@@ -446,9 +448,9 @@ check(same(readSpeedTuningPreferences({ teams: [{ id: 'team-1', content: 'giants
      and is cut into before the same monsters. Its enemy is level with the
      team's first mover. */
   const monsters = new Map([
-    ['1', { unit_id: 1, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 42], sec_eff: [] }] }],
-    ['2', { unit_id: 2, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 10], sec_eff: [] }] }],
-    ['3', { unit_id: 3, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 30], sec_eff: [] }] }],
+    ['1', { ...baseFacts, unit_id: 1, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 42], sec_eff: [] }] }],
+    ['2', { ...baseFacts, unit_id: 2, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 10], sec_eff: [] }] }],
+    ['3', { ...baseFacts, unit_id: 3, unit_master_id: 14712, attribute: 2, spd: 100, skills: [], runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, 30], sec_eff: [] }] }],
   ]);
   const team = (content) => ({ id: `worst-${content}`, content, members: [{ unitId: '1' }, { unitId: '2' }, { unitId: '3' }], leaderUnitId: null, otherLeaders: [] });
   const siege = readSpeedTeam({ team: team('siege'), monsters, totemPercent: 15 });
@@ -511,7 +513,7 @@ for (let sample = 0; sample < 60; sample += 1) {
   for (let at = 0; at < size; at += 1) {
     const unitId = String(at + 1);
     monsters.set(unitId, {
-      unit_id: at + 1, unit_master_id: 14712, attribute: 2, spd: 95 + Math.floor(random() * 25),
+      ...baseFacts, unit_id: at + 1, unit_master_id: 14712, attribute: 2, spd: 95 + Math.floor(random() * 25),
       skills: skillSets[Math.floor(random() * skillSets.length)],
       runes: [{ set_id: 1, slot_no: 2, pri_eff: [8, Math.floor(random() * 90)], sec_eff: [] }],
     });

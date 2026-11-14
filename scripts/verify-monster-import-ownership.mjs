@@ -20,7 +20,7 @@ try {
     relics: [],
     rune_craft_item_list: [],
   });
-  const owned = { unit_id: 10, wizard_id: 7, unit_master_id: 14314, unit_level: 40 };
+  const owned = { con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 10, wizard_id: 7, unit_master_id: 14314, unit_level: 40 };
 
   assert.equal(validateGameFile(account([owned])).valid, true,
     'a snapshot containing this account\'s monster remains importable');
@@ -40,7 +40,7 @@ try {
 
   const twoLocations = validateGameFile({
     ...account([owned]),
-    unit_storage_normal_list: [{ unit_id: 10, unit_master_id: 14314, unit_level: 1 }],
+    unit_storage_normal_list: [{ con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 10, unit_master_id: 14314, unit_level: 1 }],
   });
   assert.equal(twoLocations.valid, false,
     'one unit id cannot describe both Inventory and the normal Sealed Shrine');
@@ -49,7 +49,7 @@ try {
 
   const foreign = validateGameFile(account([
     owned,
-    { unit_id: 11, wizard_id: 99, unit_master_id: 13815, unit_level: 40 },
+    { con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 11, wizard_id: 99, unit_master_id: 13815, unit_level: 40 },
   ]));
   assert.equal(foreign.valid, false,
     'a snapshot containing another wizard\'s monster is rejected');
@@ -58,7 +58,7 @@ try {
 
   const unverifiable = validateGameFile(account([
     owned,
-    { unit_id: 12, unit_master_id: 13815, unit_level: 40 },
+    { con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 12, unit_master_id: 13815, unit_level: 40 },
   ]));
   assert.equal(unverifiable.valid, false,
     'a snapshot containing a monster without an ownership identity is rejected');
@@ -76,7 +76,7 @@ try {
   }
   assert.equal(validateGameFile(account([{ ...owned, class: 6, skills: [[1, 1], [2, 5]] }])).valid, true,
     'a monster with a grade and skills the game can produce is read');
-  assert.equal(validateGameFile({ ...account([]), unit_storage_normal_list: [{ unit_id: 30, unit_master_id: 14314, unit_level: 99 }] }).valid, false,
+  assert.equal(validateGameFile({ ...account([]), unit_storage_normal_list: [{ con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 30, unit_master_id: 14314, unit_level: 99 }] }).valid, false,
     'a Normal Sealed Shrine unit is held to the same contract as a roster one');
 
   /* In Scenario a rune or artifact is engraved on one monster at most. */
@@ -129,7 +129,7 @@ try {
   assert.deepEqual(prepared.unit_storage_list, summonedShrineRecords(prepared), 'the table reads exactly what is counted');
   assert.equal(validateGameFile({ ...account([owned]), sealedShrineNormal: [{ unit_master_id: 'x' }] }).valid, true,
     'a key no capture shows is neither read nor validated');
-  assert.equal(accountCounts({ ...account([owned]), sealedShrineNormal: [{ unit_id: 40, unit_master_id: 10101 }] }).monsters, 1,
+  assert.equal(accountCounts({ ...account([owned]), sealedShrineNormal: [{ con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 40, unit_master_id: 10101 }] }).monsters, 1,
     'nor counted');
 
   console.log('Monster imports keep the account ownership boundary intact.');

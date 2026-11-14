@@ -122,28 +122,32 @@ test('changing the rune build changes the relic recommendation', async ({ page }
   await expect(mainStat(elucia)).toHaveText('18.00');
 });
 
-test('missing stats are explained, and a bare copy is read from its species statistics', async ({ page }) => {
+test('a bare copy is read from its species statistics', async ({ page }) => {
   await importAccount(page, (account) => {
     const monsters = account.unit_list as Record<string, unknown>[];
-    delete monsters[0].con;
     monsters[1].runes = [];
     monsters[3].runes = [];
   });
   await openUseForMons(page);
   await expect(destinations(page)).toHaveCount(4);
-  const missing = monsterRow(page, 'Elucia');
-  await expect(advice(missing)).toContainText('Import this monster’s base stats.');
   /* Bare of runes and without a floor, a captured species is read from its rune
      statistics and still gets a recommendation. A copy nothing can speak for is
      held in `verify:relic-monster-plan`: every species here is captured. */
   for (const name of ['Kaimann', 'Bulldozer']) {
     await expect(recommended(monsterRow(page, name))).not.toHaveText('—');
   }
-  await expect(recommended(missing)).toHaveText('—');
-  await expect(mainStat(missing)).toHaveText('—');
-  await expect(uniqueStat(missing)).toHaveText('—');
-  await expect(advice(missing)).toContainText('No recommendation');
-  await expect(advice(missing)).not.toContainText('No capacity');
+});
+
+test('missing base facts refuse the record and retain the preceding import', async ({ page }) => {
+  await importAccount(page);
+  await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
+  const account = JSON.parse(readFileSync(relicAccount, 'utf8'));
+  delete account.unit_list[0].con;
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'missing-base.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.getByText(/monster JASWA cannot read/)).toBeVisible();
+  await expect(page.getByText(basename(relicAccount))).toBeVisible();
 });
 
 test('saved relic choices constrain engraving and survive a reload', async ({ page }) => {

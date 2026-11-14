@@ -1,4 +1,5 @@
 import { workerFactories } from './worker-factories';
+import { registerAccountJobReset } from './account-job-memory';
 /**
  * The main thread's one way to ask for a Rune Clean-up calculation.
  *
@@ -171,6 +172,7 @@ export function calculateRuneAdvice(request: RuneAdviceRequest, onProgress?: (fr
   return cleanupChannel.calculate(request, onProgress, onCalibration);
 }
 export const cancelRuneAdvice = cleanupChannel.cancel;
+registerAccountJobReset(cancelRuneAdvice);
 
 /* Borrowing an idle worker saves the shared calibration, which costs much more
    than judging a changed rune. Concurrent work still has independent cancellation. */

@@ -73,7 +73,7 @@ try {
   /* An undecodable stone fails the import loudly, as an unreadable artifact
      does, rather than dropping out of every count. */
   const account = (crafts) => ({
-    unit_list: [{ unit_id: 1, unit_master_id: 10101, class: 6, unit_level: 40 }],
+    unit_list: [{ con: 600, atk: 600, def: 600, spd: 100, critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0, unit_id: 1, unit_master_id: 10101, class: 6, unit_level: 40 }],
     runes: [],
     artifact_crafts: crafts,
   });

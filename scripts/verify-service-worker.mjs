@@ -3,6 +3,8 @@ import { existsSync, statSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
+import assert from 'node:assert/strict';
 
 const repositoryRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const templatePath = resolve(repositoryRoot, 'scripts/sw-template.js');
@@ -17,6 +19,35 @@ const messageStart = template.indexOf("self.addEventListener('message'");
 if (installStart < 0 || messageStart < 0 || template.slice(installStart, messageStart).includes('skipWaiting()')) throw new Error('The install handler must not activate updates unconditionally.');
 if (!template.includes('function shouldCache(')) throw new Error('The worker must expose a pure response-cache decision.');
 if (!/older\.slice\(1\)/.test(template)) throw new Error('Activation must keep the previous build’s shell for tabs still running it.');
+
+/* Execute the actual fetch handler with two installed builds. Stable URLs must
+   read this build, while a running older tab may still load its hashed chunk. */
+const cacheContents = new Map([
+  ['jaswa-shell-1-old', new Map([['/manifest.webmanifest', 'old manifest'], ['/assets/previous-hash.js', 'previous chunk'], ['/old-icon.png', 'old icon']])],
+  ['jaswa-shell-2-current', new Map([['/manifest.webmanifest', 'current manifest']])],
+  ['jaswa-artwork', new Map([['/monster-images/test.png', 'artwork']])],
+]);
+const handlers = new Map();
+const pathOf = (request) => typeof request === 'string' ? request : new URL(request.url).pathname;
+runInNewContext(template.replace('__JASWA_PRECACHE_FILES__', '[]').replaceAll('__JASWA_PRECACHE_HASH__', 'current').replace('__JASWA_BUILD_ORDER__', '2'), {
+  URL,
+  self: { location: { origin: 'https://jaswa.test' }, addEventListener: (type, handler) => handlers.set(type, handler) },
+  caches: {
+    open: async (name) => ({ match: async (request) => cacheContents.get(name)?.get(pathOf(request)) }),
+    match: async (request) => [...cacheContents.values()].map((cache) => cache.get(pathOf(request))).find(Boolean),
+  },
+  fetch: async (request) => ({ ok: false, headers: new Headers(), value: `network:${pathOf(request)}` }),
+});
+async function fetchAsset(path) {
+  let answer;
+  handlers.get('fetch')({ request: { method: 'GET', url: `https://jaswa.test${path}`, mode: 'cors' },
+    respondWith: (value) => { answer = value; }, waitUntil: () => {} });
+  return answer;
+}
+assert.equal(await fetchAsset('/manifest.webmanifest'), 'current manifest');
+assert.equal(await fetchAsset('/assets/previous-hash.js'), 'previous chunk');
+assert.equal((await fetchAsset('/old-icon.png')).value, 'network:/old-icon.png');
+assert.equal(await fetchAsset('/monster-images/test.png'), 'artwork');
 
 /* This check runs inside `npm run lint`, where `dist/` may be missing or built
    from older sources. Neither is a failure of the sources; the build assertions

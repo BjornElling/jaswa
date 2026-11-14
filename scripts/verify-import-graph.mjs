@@ -40,6 +40,8 @@ const candidates = [
 function resolveSpecifier(from, specifier, line) {
   if (!specifier.startsWith('.')) return null;
   const base = posix.normalize(posix.join(posix.dirname(from), specifier.replace(/\?.*$/, '')));
+  if (isTest(from) && /^tests\/fixtures\/[^/]+\.json$/.test(base)
+    && existsSync(resolve(repositoryRoot, base))) return base;
   for (const extension of candidates) if (known.has(base + extension)) return base + extension;
   throw new Error(`${from}:${line}: cannot resolve ${specifier}`);
 }
