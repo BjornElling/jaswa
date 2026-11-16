@@ -68,10 +68,12 @@ function gapDetail(status: Pick<Status, 'missedChanges'>): string {
   const unread = of('unread');
   const sealed = nameSome(of('encrypted').map((command) => command === RAID_RESULT ? 'Rift Raid rewards' : `${command} answers`));
   if (unread.length === 0) {
-    return `${sealed} are encrypted on purpose by the game’s developer — a deliberate limit no helper update can get around. Everything else keeps arriving; restart Summoners War after your runs to load them.`;
+    return `${sealed} are encrypted with a private game-session key — no JASWA or helper update can read them passively. Everything else keeps arriving; restart Summoners War after your runs to load them.`;
   }
-  const also = sealed ? ` ${sealed} were missed too: the game’s developer encrypts them on purpose.` : '';
-  return `The game sent changes the helper cannot read yet (${nameSome(unread)}).${also} Everything else keeps arriving. Save an error report, then restart Summoners War when it suits you for a complete account.`;
+  if (sealed) {
+    return `${sealed} use a private key; no update can read them passively. Unread: ${nameSome(unread)}; save an error report. Import continues. Restart Summoners War for a complete account.`;
+  }
+  return `The game sent changes the helper cannot read yet (${nameSome(unread)}). Everything else keeps arriving. Save an error report, then restart Summoners War when it suits you for a complete account.`;
 }
 
 async function readStatus(): Promise<unknown> {

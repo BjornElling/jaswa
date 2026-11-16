@@ -125,7 +125,7 @@ test('a missed change is said on every page while import keeps moving', async ({
      names only its own kind — the Raid sentence once read as the reason a sale
      of summoning pieces was missed. */
   state.missed = [sealed('BattleRiftOfWorldsRaidResult'), sealed('BattleRiftOfWorldsRaidResult')];
-  await expect(gap).toContainText('Rift Raid rewards are encrypted on purpose by the game’s developer — a deliberate limit no JASWA update can get around.');
+  await expect(gap).toContainText('Rift Raid rewards are encrypted with a private game-session key — no JASWA or helper update can read them passively.');
   await expect(gap).toContainText('Restart Summoners War after your runs to load them.');
   await expect(gap).not.toContainText('BattleRiftOfWorldsRaidResult');
   await expect(gap).toHaveAttribute('data-notice-tone', 'warn');
@@ -133,7 +133,7 @@ test('a missed change is said on every page while import keeps moving', async ({
   expect(await gap.evaluate((card) => card.scrollWidth - card.clientWidth)).toBeLessThanOrEqual(0);
   await page.screenshot({ path: testInfo.outputPath('missed-raid.png') });
   state.missed = [sealed('BattleRiftOfWorldsRaidResult'), miss('sellSummonPieces')];
-  await expect(gap).toContainText('The helper cannot read sellSummonPieces yet — a JASWA update can fix that. Rift Raid rewards were missed too: the game’s developer encrypts them on purpose.');
+  await expect(gap).toContainText('The helper cannot read sellSummonPieces yet — a JASWA update can fix that. Rift Raid rewards were missed too: the game keeps their decryption key private; no JASWA or helper update can read them passively.');
   await expect(gap).toContainText('Restart Summoners War for a complete import.');
   await expect(gap).toHaveAttribute('data-notice-tone', 'warn');
   await expect(gap).not.toContainText('BattleRiftOfWorldsRaidResult');

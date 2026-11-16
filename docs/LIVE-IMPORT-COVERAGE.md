@@ -113,6 +113,14 @@ Summoned list under a command not known to send one. So is an answer that would
 leave a rune or artifact on two monsters. These are missed changes too, and
 capture goes on.
 
+An empty root `unit_storage_list` on a mutation names no touched Summoned
+stacks and does not prevent its other records from being read. It never clears
+the tab. This applies across mutation families, including `BuyShopItem`, rather
+than adding a separate exception for each purchase or craft. A request naming
+`source_storage_list` still needs a reader that checks every spent stack's
+remainder. Non-empty lists under unseen operations remain visible gaps: an
+empty-list fix is no evidence of what a non-empty list means.
+
 An unreadable answer to a mutation or current-state read is a missed change.
 An unreadable login is the one thing that stops capture: without it there is no
 account to update. The service uses the reader's request classification for
@@ -122,11 +130,11 @@ this decision; auxiliary chat and service lookups are not account data.
 
 | Surface | What it shows |
 | --- | --- |
-| `/health` | `missedChanges`: `{command, reason, cause}` per miss since the login, at most 50 |
+| `/health` | `missedChanges`: distinct `{command, reason, cause}` misses since the login, at most 50; repeat failures do not use more slots |
 | Helper window | *Following your account, with a gap*, naming each command once |
 | JASWA, every page | *Live import has a gap* under the import badge, naming up to three commands |
 | Diagnostic log | `Missed part of <command>: <reason>` |
-| Error report | The first missed exchange and the account before it, for replay |
+| Error report | The first reader failure and the account before it, for replay; an encrypted miss is kept until a reader failure supersedes it |
 
 ### Encrypted or unread
 
@@ -148,6 +156,13 @@ the marker is `unread`, and another command sealed with the session key is
 `encrypted` under its own name. When both kinds stand, each sentence names only
 its own commands: one sentence once followed the other's, and read as if a
 sale of summoning pieces were a Rift Raid reward.
+
+The private session key is named in both the encrypted-only and mixed notices:
+no technical change to JASWA or its helper can open these answers through
+passive import. That statement applies only to the proven encrypted cause.
+Unknown readable formats remain defects to investigate, never relabelled as
+impossible to read. A Raid miss must not take the report's only evidence slot
+away from a later readable failure such as `BuyShopItem`.
 
 **An encrypted miss that changes nothing JASWA models may be left unsaid.**
 `IRRELEVANT_ENCRYPTED_COMMANDS` in `profile.rs` lists such commands; one on it
@@ -313,7 +328,7 @@ source control.
 | Account data | Direct records | Reward records | Removal or movement |
 | --- | --- | --- | --- |
 | Monsters | `unit`, `unit_info`, `target_unit`, `unit_list` | Full unit records in a reward payload | `MoveUnitBuilding` (Monster Storage and back), any request naming a `building_id` and the units moving into it, `remove_unit_id_list`, sacrifice sources, sell requests, and the monsters a `ConvertUnitToItem` request names (crafting Engraved Stones answers with the item alone, so the request is the only record of what it spent; roster and Normal shrine copies both go, and a conversion naming no readable monster or spending an engraved one stops live import) |
-| Sealed Shrine | `unit_storage_normal_list` at the top of a response; `unit_storage_list` from `getUnitStorageList` and from the `GetUnitStorageList` inside `GetWizardDataPart1` | — | Those lists are the whole tab and replace the collection. `SacrificeUnit_V4` answers with only the Summoned stacks it fed from — an empty list when every fodder came from the roster — and updates those stacks alone; a fed stack its answer does not restate, or a top-level Summoned list under any other command, stops live import. `MoveStorageFromTo` is read side by side — see below |
+| Sealed Shrine | `unit_storage_normal_list` at the top of a response; `unit_storage_list` from `getUnitStorageList` and from the `GetUnitStorageList` inside `GetWizardDataPart1` | — | Those lists are the whole tab and replace the collection. `SacrificeUnit_V4` answers with only the Summoned stacks it fed from — an empty list when every fodder came from the roster — and updates those stacks alone; a fed stack its answer does not restate, or an unknown non-empty top-level Summoned list, leaves a visible gap. An empty mutation list with no named Shrine fodder preserves the tab and lets the other rewards arrive. `MoveStorageFromTo` is read side by side — see below |
 | Runes | `rune`, `rune_info`, `runes` | V2 `changed_item_list` type `8`; legacy `reward.crate.rune(s)`; shop and black-market responses | Upgrade, bulk power-up (`UpgradeRuneList`), confirmed rerolls, grind/Gem conversion, engrave/remove, sell and remove lists |
 | Artifacts | `artifact`, `artifact_info`, `artifacts` | V2 `changed_item_list` type `73`; legacy reward crates and quest/mail claims | Upgrade, engrave/remove, sell and remove lists |
 | Relics | `relic`, `relic_info`, `relics` | Relic-shaped `changed_item_list` records and reward crates | Power-up, engrave/remove on a unit, breakdown/sell and remove lists; the root relic stays present because one relic can be engraved on many monsters |

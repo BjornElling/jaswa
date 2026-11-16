@@ -196,8 +196,13 @@ impl ProfileStore {
         if cause == MissCause::Encrypted && IRRELEVANT_ENCRYPTED_COMMANDS.contains(&command) {
             return false;
         }
-        if self.profile.is_some() && self.missed_changes.len() < MISSED_CHANGES_KEPT {
-            self.missed_changes.push(MissedChange { command: command.to_owned(), reason: reason.to_owned(), cause });
+        let miss = MissedChange { command: command.to_owned(), reason: reason.to_owned(), cause };
+        // Repeat battles must not fill the bounded status with the same Raid
+        // limit and leave no room to say a later, fixable reader failed.
+        if self.profile.is_some() && self.missed_changes.len() < MISSED_CHANGES_KEPT
+            && !self.missed_changes.contains(&miss)
+        {
+            self.missed_changes.push(miss);
         }
         true
     }
@@ -996,6 +1001,15 @@ fn unmodeled_summoned_stacks(request: &Value, response: &Value) -> Option<String
                     .into(),
             );
         }
+        return None;
+    }
+    /* An empty delta names no touched stacks. Purchases and crafts can carry
+    it beside real rewards; refusing the whole answer loses those rewards.
+    This grants no meaning to a non-empty list under an unseen operation. */
+    if account_request(request) == AccountRequest::Mutation
+        && response.get("unit_storage_list").and_then(Value::as_array).is_some_and(Vec::is_empty)
+        && request.get("source_storage_list").is_none_or(|value| value.as_array().is_some_and(Vec::is_empty))
+    {
         return None;
     }
     if response.get("unit_storage_list").is_some() {
@@ -2953,7 +2967,7 @@ mod tests {
             )
             .is_some());
         assert!(store
-            .missed_by(&ok, &json!({"command": "ConvertUnitToItem", "unit_id_list": [{"unit_id": 1}]}))
+            .missed_by(&json!({"ret_code": 0, "unit_storage_list": [{"unit_master_id": 10101, "quantity": 1}]}), &json!({"command": "ConvertUnitToItem", "unit_id_list": [{"unit_id": 1}]}))
             .is_some_and(|reason| reason.contains("Summoned")));
         assert_eq!(
             store.missed_by(&ok, &json!({"command": "getUnitStorageList"})),
@@ -2963,6 +2977,37 @@ mod tests {
             store.missed_by(&json!({"ret_code": 0}), &json!({"command": "SummonUnit"})),
             None
         );
+    }
+
+    #[test]
+    fn empty_summoned_deltas_do_not_discard_purchases_or_other_live_rewards() {
+        for populated in [false, true] {
+            for command in ["BuyShopItem", "BuyShopItem_V9", "collabo_claimReward", "CraftRune", "BattleDungeonResult_V2"] {
+                let mut store = ProfileStore::default();
+                let stacks = if populated { json!([{"unit_master_id": 22401, "class": 3, "quantity": 148}]) } else { json!([]) };
+                assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": [], "unit_storage_list": stacks})));
+                let response = json!({"ret_code": 0, "unit_storage_list": [],
+                    "reward": {"crate": {"runes": [{"rune_id": 5, "set_id": 13}]}}});
+                let request = json!({"command": command});
+                assert!(store.apply_update(&response, &request), "{command}");
+                assert!(store.take_declined().missed.is_empty(), "{command}");
+                assert_eq!(store.read().unwrap().data["unit_storage_list"], stacks);
+                assert_eq!(store.read().unwrap().data["runes"][0]["rune_id"], 5);
+
+                // An unknown non-empty list still needs evidence of its meaning.
+                let before = store.read().unwrap().data;
+                let mut unknown = response.clone();
+                unknown["unit_storage_list"] = json!([{"unit_master_id": 22401, "quantity": 1}]);
+                assert!(!store.apply_update(&unknown, &request));
+                assert!(!store.take_declined().missed.is_empty());
+                assert_eq!(store.read().unwrap().data, before);
+
+                // Naming a spent Shrine stack without its remainder is a gap.
+                let spent = json!({"command": command, "source_storage_list": [{"unit_master_id": 22401, "quantity": 1}]});
+                assert!(!store.apply_update(&response, &spent));
+                assert!(!store.take_declined().missed.is_empty());
+            }
+        }
     }
 
     /* One monster or several, the request says the same thing: these units now
@@ -4729,7 +4774,11 @@ mod phantom_rune_regression {
             for _ in 0..MISSED_CHANGES_KEPT + 10 {
                 store.apply_update(&json!({"ret_code": 0, "gift_box": {"rune": rune(5)}}), &unknown);
             }
-            assert_eq!(store.status().missed_changes.len(), MISSED_CHANGES_KEPT);
+            assert_eq!(store.status().missed_changes.len(), 1, "repeated failures leave room for new commands");
+            for index in 0..MISSED_CHANGES_KEPT + 10 {
+                store.note_missed(&format!("FutureCommand{index}"), "unknown shape", MissCause::Unread);
+            }
+            assert_eq!(store.status().missed_changes.len(), MISSED_CHANGES_KEPT, "distinct failures stay bounded");
             assert!(store.accept_snapshot(login));
             assert!(store.status().missed_changes.is_empty());
         }

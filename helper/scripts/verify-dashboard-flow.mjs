@@ -243,7 +243,7 @@ try {
   await state(
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
       missedChanges: [encrypted('BattleRiftOfWorldsRaidResult'), encrypted('BattleRiftOfWorldsRaidResult')] },
-    'Following your account, with a gap', 'Rift Raid rewards are encrypted on purpose by the game’s developer — a deliberate limit no helper update can get around');
+    'Following your account, with a gap', 'Rift Raid rewards are encrypted with a private game-session key — no JASWA or helper update can read them passively');
   const raidDetail = await page.locator('.capture .detail').textContent();
   assert.ok(!raidDetail.includes('BattleRiftOfWorldsRaidResult') && !raidDetail.includes('error report'), raidDetail);
   assert.deepEqual(await boxes(), before);
@@ -251,7 +251,7 @@ try {
   await state(
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
       missedChanges: [encrypted('BattleRiftOfWorldsRaidResult'), missed('sellSummonPieces')] },
-    'Following your account, with a gap', '(sellSummonPieces). Rift Raid rewards were missed too: the game’s developer encrypts them on purpose.');
+    'Following your account, with a gap', 'Rift Raid rewards use a private key; no update can read them passively. Unread: sellSummonPieces; save an error report.');
   await page.screenshot({ path: resolve(output, 'helper-missed-raid-and-one.png'), fullPage: true });
   /* The cause, not the command, decides: a Raid result the helper merely failed
      to read is a reader to fix, and another command sealed with the session key
@@ -259,7 +259,7 @@ try {
   await state(
     { hasProfile: true, profileReady: true, restartRequired: false, gameStartedBeforeHelper: false, gameLoginPending: false, lastError: null, source: 'live',
       missedChanges: [missed('BattleRiftOfWorldsRaidResult'), encrypted('FutureSealedAnswer')] },
-    'Following your account, with a gap', '(BattleRiftOfWorldsRaidResult). FutureSealedAnswer answers were missed too');
+    'Following your account, with a gap', 'FutureSealedAnswer answers use a private key; no update can read them passively. Unread: BattleRiftOfWorldsRaidResult;');
   await state(
     { hasProfile: false, profileReady: false, restartRequired: true, gameStartedBeforeHelper: true, gameLoginPending: false, lastError: null, source: null },
     'Summoners War was already open', 'found Summoners War running as it started');

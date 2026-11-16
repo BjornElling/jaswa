@@ -1203,11 +1203,12 @@ fn capture(request: &[u8], response: &[u8], shared: &Shared) {
         }
         let before = profile.read().and_then(|value| serde_json::to_value(value).ok());
         drop(profile);
-        shared
-            .incidents
-            .lock()
-            .expect("incident lock poisoned")
-            .record(&reason, request, response, before);
+        let mut incidents = shared.incidents.lock().expect("incident lock poisoned");
+        if cause == MissCause::Encrypted {
+            incidents.record_encrypted(&reason, request, response, before);
+        } else {
+            incidents.record(&reason, request, response, before);
+        }
     };
     let Ok(request_text) = std::str::from_utf8(http_body(request)) else {
         unreadable(None, None, "The gateway request body was not text.");
@@ -1582,6 +1583,37 @@ mod tests {
             "a rejected login must not retain another account"
         );
         assert!(!status(&shared)["lastError"].is_null());
+    }
+
+    #[test]
+    fn a_raid_gap_does_not_hide_a_readable_shop_failure_in_the_report() {
+        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        let shared = shared_for_test();
+        start_game(&shared);
+        let login = message(&encoded(&json!({"command": "HubUserLogin"}), false));
+        let account = message(&encoded(&json!({"wizard_id": 7, "unit_list": [], "runes": [],
+            "unit_storage_list": [{"unit_master_id": 22401, "class": 3, "quantity": 148}]}), true));
+        capture(login.as_bytes(), account.as_bytes(), &shared);
+        let raid = message(&encoded(&json!({"command": "BattleRiftOfWorldsRaidResult"}), false));
+        let sealed = message(&format!("Vv2XRzS1O1AW8FuV{}", STANDARD.encode([41; 16])));
+        capture(raid.as_bytes(), sealed.as_bytes(), &shared);
+        let purchase = message(&encoded(&json!({"command": "BuyShopItem"}), false));
+        let answer = message(&encoded(&json!({"ret_code": 0, "unit_storage_list": [],
+            "reward": {"crate": {"runes": [{"rune_id": 5, "set_id": 13}]}}}), true));
+        capture(purchase.as_bytes(), answer.as_bytes(), &shared);
+        assert_eq!(status(&shared)["missedChanges"].as_array().unwrap().len(), 1);
+        assert_eq!(shared.profile.lock().unwrap().read().unwrap().data["runes"][0]["rune_id"], 5);
+
+        let unknown = message(&encoded(&json!({"ret_code": 0,
+            "unit_storage_list": [{"unit_master_id": 22401, "quantity": 147}]}), true));
+        capture(purchase.as_bytes(), unknown.as_bytes(), &shared);
+        capture(raid.as_bytes(), sealed.as_bytes(), &shared);
+        let report = shared.incidents.lock().unwrap().report();
+        assert_eq!(report["failureCount"], 3);
+        assert_eq!(report["firstFailure"]["requestBase64"], STANDARD.encode(purchase.as_bytes()));
+        assert_eq!(report["firstFailure"]["responseBase64"], STANDARD.encode(unknown.as_bytes()));
+        assert_eq!(report["firstFailure"]["profileBeforeFailure"]["data"]["runes"][0]["rune_id"], 5);
+        assert_eq!(status(&shared)["missedChanges"].as_array().unwrap().len(), 2);
     }
 
     #[test]

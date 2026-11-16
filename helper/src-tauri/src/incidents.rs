@@ -1,4 +1,4 @@
-//! Keep the first exchange JASWA could not take whole, as evidence for a report.
+//! Keep the first reader failure as evidence, ahead of a known sealed answer.
 //! Evidence stays in memory until the user explicitly saves a private report.
 //!
 //! Evidence is all it is. A missed change never pauses capture; only a login
@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 #[derive(Default)]
 pub struct Incidents {
     first: Option<Value>,
+    first_encrypted: bool,
     count: u64,
     login_failed: bool,
     /// A complete login since the evidence was taken: the next incident
@@ -24,13 +25,24 @@ impl Incidents {
         response: &[u8],
         profile: Option<Value>,
     ) {
+        self.record_with_cause(reason, request, response, profile, false);
+    }
+
+    pub fn record_encrypted(&mut self, reason: &str, request: &[u8], response: &[u8], profile: Option<Value>) {
+        self.record_with_cause(reason, request, response, profile, true);
+    }
+
+    fn record_with_cause(&mut self, reason: &str, request: &[u8], response: &[u8], profile: Option<Value>, encrypted: bool) {
         if self.superseded {
             self.first = None;
             self.count = 0;
             self.superseded = false;
         }
         self.count = self.count.saturating_add(1);
-        if self.first.is_none() {
+        // A repeated Raid limit must not hide the readable purchase whose
+        // missing path an error report could actually help us fix.
+        if self.first.is_none() || (self.first_encrypted && !encrypted) {
+            self.first_encrypted = encrypted;
             self.first = Some(json!({
                 "at": time::OffsetDateTime::now_utc().to_string(),
                 "reason": reason,
@@ -63,6 +75,24 @@ impl Incidents {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn a_known_encrypted_limit_never_hides_a_reader_failure() {
+        let mut incidents = Incidents::default();
+        incidents.record_encrypted("Raid", b"raid", b"sealed", None);
+        incidents.record_encrypted("Raid again", b"raid2", b"sealed2", None);
+        assert_eq!(incidents.report()["firstFailure"]["reason"], "Raid");
+        incidents.record("BuyShopItem", b"buy", b"readable", Some(json!({"data": {"runes": []}})));
+        incidents.record_encrypted("Raid later", b"raid3", b"sealed3", None);
+        incidents.record("another reader", b"other", b"other", None);
+        assert_eq!(incidents.report()["firstFailure"]["reason"], "BuyShopItem");
+        assert_eq!(incidents.report()["firstFailure"]["requestBase64"], STANDARD.encode(b"buy"));
+        assert!(incidents.report()["firstFailure"]["profileBeforeFailure"].is_object());
+        assert_eq!(incidents.report()["failureCount"], 5);
+        incidents.recover();
+        incidents.record_encrypted("new session", b"new", b"sealed", None);
+        assert_eq!(incidents.report()["firstFailure"]["reason"], "new session");
+        assert_eq!(incidents.report()["failureCount"], 1);
+    }
     #[test]
     fn preserves_the_first_exchange_and_counts_later_failures() {
         let mut incidents = Incidents::default();

@@ -25,11 +25,11 @@ export function missedChangesNotice(misses: readonly HelperMiss[]): { gap: strin
   const sealed = [...new Set(misses.filter((miss) => miss.cause === 'encrypted').map((miss) => miss.command))];
   const sealedNames = nameSome(sealed.map((command) => command === raidResultCommand ? 'Rift Raid rewards' : `${command} answers`));
   if (!unread.length) {
-    return { gap: `${sealedNames} are encrypted on purpose by the game’s developer — a deliberate limit no JASWA update can get around.`,
+    return { gap: `${sealedNames} are encrypted with a private game-session key — no JASWA or helper update can read them passively.`,
       next: 'Everything else keeps arriving. Restart Summoners War after your runs to load them.' };
   }
   const read = `The helper cannot read ${nameSome(unread)} yet — a JASWA update can fix that.`;
-  return { gap: sealed.length ? `${read} ${sealedNames} were missed too: the game’s developer encrypts them on purpose.` : read,
+  return { gap: sealed.length ? `${read} ${sealedNames} were missed too: the game keeps their decryption key private; no JASWA or helper update can read them passively.` : read,
     next: 'Everything else keeps arriving. Restart Summoners War for a complete import.' };
 }
 
