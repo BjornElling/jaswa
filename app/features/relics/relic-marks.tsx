@@ -63,7 +63,7 @@ export function RelicSynergyFilterMark({ band }: { band: RelicSynergyBand }) {
 }
 
 /**
- * Power-up attempts still available, as three pips.
+ * Remaining durability, as three pips.
  *
  * All three are always drawn: the spent ones are the reason a relic's level
  * will never move again, so they are as much of the answer as the ones left.
@@ -77,7 +77,7 @@ export function RelicDurabilityMark({ durability }: { durability: number }) {
         viewBox="0 0 16 16" focusable="false"
       ><circle cx="8" cy="8" r="4.5" /></svg>)}
     </span>
-    <span className="visually-hidden">{durability} of {relicMaximumDurability} attempts left</span>
+    <span className="visually-hidden">Durability: {durability} of {relicMaximumDurability}</span>
   </span>;
 }
 
@@ -91,7 +91,7 @@ export function RelicDurabilityMark({ durability }: { durability: number }) {
  */
 export function RelicLevelMark({ state }: { state: RelicLevelState }) {
   const label = state === 'maxed' ? 'At the maximum level'
-    : state === 'spent' ? 'No power-up attempts left' : 'Can still be powered up';
+    : state === 'spent' ? 'No durability left' : 'Can still be powered up';
   return <span className="relic-level-mark" data-state={state}>
     <span className="relic-mark-slot" aria-hidden="true">
       {state === 'maxed' && <svg className="relic-mark relic-mark-line" viewBox="0 0 16 16" focusable="false">

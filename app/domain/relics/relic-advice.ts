@@ -347,8 +347,9 @@ function decide({
     if (incumbent !== null && incumbentIsFull) {
       return { verdict: 'keep', reason: `The other copy is on ${relicEngravingLimit} monsters.` };
     }
-    if (incumbent !== null) return { verdict: 'sell', reason: `No power-ups left; the +${incumbent.level} copy stays.` };
-    return { verdict: 'keep', reason: 'No power-ups left.' };
+    const limit = relic.level >= relicMaximumLevel ? 'At the maximum level' : 'No durability left';
+    if (incumbent !== null) return { verdict: 'sell', reason: `${limit}; the +${incumbent.level} copy stays.` };
+    return { verdict: 'keep', reason: `${limit}.` };
   }
   /* The duplicate gate, and it is asked before the certain level below. A `+0`
      challenger standing beside a `+12` copy would otherwise be powered up on the

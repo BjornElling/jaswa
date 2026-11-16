@@ -301,16 +301,17 @@ investment weight (§8). *Use for mons* (§11) reads no synergy at all.
 
 ## 6. Level, durability and the difference between them
 
-A `+4` with attempts left is unfinished; a `+4` with none is final. The table
+A `+4` with durability remaining is unfinished; a `+4` with none is final. The table
 separates the three states (`RelicLevelState` in `relic-grid.ts`):
 
 | State | Meaning | Reads |
 | --- | --- | --- |
-| `open` | attempts left, below `+15` | full tone, no mark |
+| `open` | durability remaining, below `+15` | full tone, no mark |
 | `spent` | durability 0 | muted, barred-circle mark |
 | `maxed` | at `+15` | muted, ceiling mark |
 
-Durability is always three pips; spent ones stay as hollow rings.
+Durability is always three pips; spent ones stay as hollow rings. Its accessible
+label reads `Durability: <remaining> of 3`; a spent level reads `No durability left`.
 
 ## 7. Three recursions, exact
 
@@ -467,8 +468,9 @@ them; rule 3 is asked before rule 2, and their conditions are disjoint:
    stones.
 - **Rule 3 — a relic that cannot be powered up** (at `+15` or durability 0):
    - with a full incumbent (rule 0 below): keeps, `The other copy is on 150 monsters.`;
-   - with any other incumbent: sells, `No power-ups left; the +<level> copy stays.`;
-   - with none: keeps, `No power-ups left.`
+   - with any other incumbent: sells, `<Limit>; the +<level> copy stays.`;
+   - with none: keeps, `<Limit>.`
+   The limit reads `At the maximum level` at `+15`, otherwise `No durability left`.
 - **Rule 2 — the duplicate gate**, beside an incumbent that is not full, and it does not
    read the slider. An incumbent at `+15` cannot be passed: sell, `The other copy
    is +15 already.` Otherwise the chance to pass it, `P(l, d, h + 1)`, is compared with a

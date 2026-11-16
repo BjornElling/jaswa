@@ -151,17 +151,17 @@ test('a level says why it is where it is', async ({ page }) => {
   /* +15 and a spent relic are both dead ends, and the page has to tell them
      apart: one is finished, the other merely stopped. */
   await expect(rowFor(page, 'per 500 ATK')).toContainText('+15');
-  await expect(rowFor(page, 'per 500 ATK').getByText('At the maximum level')).toBeAttached();
-  await expect(rowFor(page, 'per 1,000 ATK').getByText('No power-up attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 500 ATK').getByText('At the maximum level', { exact: true })).toBeAttached();
+  await expect(rowFor(page, 'per 1,000 ATK').getByText('No durability left', { exact: true })).toBeAttached();
   await expect(rowFor(page, 'per 150 SPD').getByText('Can still be powered up')).toBeAttached();
 });
 
-test('durability is stated as attempts left, all three pips present', async ({ page }) => {
+test('durability is named explicitly, all three pips present', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  await expect(rowFor(page, 'per 2,500 ATK').getByText('3 of 3 attempts left')).toBeAttached();
-  await expect(rowFor(page, 'per 2,000 ATK').getByText('2 of 3 attempts left')).toBeAttached();
-  await expect(rowFor(page, 'per 125 SPD').getByText('0 of 3 attempts left')).toBeAttached();
+  await expect(rowFor(page, 'per 2,500 ATK').getByText('Durability: 3 of 3')).toBeAttached();
+  await expect(rowFor(page, 'per 2,000 ATK').getByText('Durability: 2 of 3')).toBeAttached();
+  await expect(rowFor(page, 'per 125 SPD').getByText('Durability: 0 of 3')).toBeAttached();
 });
 
 test('a finished relic is kept even though it can never reach +15', async ({ page }) => {
@@ -195,7 +195,7 @@ test('the advice shows a verdict with its short chance', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Power up', 'The next +1 is certain.']);
-  await expect(adviceFor(page, 'per 500 ATK')).toHaveText(['Keep', 'No power-ups left.']);
+  await expect(adviceFor(page, 'per 500 ATK')).toHaveText(['Keep', 'At the maximum level.']);
 });
 
 test('the visible advice shows the game chance, not the ranking conversion', async ({ page }) => {
@@ -302,7 +302,7 @@ test('the two strictest stops keep Excellent, then Good as well', async ({ page 
   await expect(good).toContainText('Good');
   await threshold.fill('1');
   await expect(adviceFor(page, 'per 1,000 ATK')).toHaveText(['Sell', 'Good fit, below the threshold.']);
-  await expect(adviceFor(page, 'per 125 SPD')).toHaveText(['Keep', 'No power-ups left.']);
+  await expect(adviceFor(page, 'per 125 SPD')).toHaveText(['Keep', 'No durability left.']);
   await threshold.fill('2');
   await expect(good).not.toContainText('Sell');
 });
