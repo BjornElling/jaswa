@@ -1,5 +1,6 @@
 {
   "name": "jaswa",
+  "license": "MIT",
   "private": true,
   "engines": {
     "node": ">=26"
