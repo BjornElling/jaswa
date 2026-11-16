@@ -1,921 +1,823 @@
-# Rune percentiles: an analytical replacement for quality calibration
+# Rune percentiles: a specialist-preserving analytical model
 
-**Status:** Design proposal; does not change the current contracts or application.
-**Date:** October 29, 2026.
-**Scope:** Rune Clean-up, Rune Simulator and their shared probability engine.
+**Status:** Revised design proposal; does not change binding contracts or the application.
+**Created:** October 29, 2026. **Revised:** November 16, 2026.
+**Scope:** Rune Clean-up, Rune Simulator, Statistics and their shared probability engine.
 
-**Critical review:** November 16, 2026. See [§16](#16-critical-review-before-implementation).
-The review qualifies the recommendation below: the mathematical direction is
-sound, but the proposal is not ready to implement as a reliable selling rule
-until the blocking decisions and counterexamples in §16 have been resolved.
+This revision incorporates the critical review into the model itself. It replaces
+one global maximum-score percentile with percentiles for individual useful
+role/build readings. It specifies crafting, numerical boundaries and failure
+behaviour. Section 16 records the changes and remaining acceptance gates.
+No production solver, performance result or real-account validation is claimed.
 
-## 1. Recommendation
+## 1. Decision and purpose
 
-Adopt the proposed direction: measure a finished rune against a defined population
-of runes in its slot, and express the quality requirement as a retained upper-tail
-share. Replace sampled slot-floor calibration with a discrete probability model.
-Keep the probability of reaching the requirement as a separate figure.
+The primary objective is to avoid selling a rune that is exceptional for a stated
+use. A fixed total retained share is secondary and is **not promised**. Adding a
+new use must not revoke an existing qualifying use when its targets, reference
+bases, build, policy and rune body remain unchanged.
 
-This is the best fit for the stated product goal. A percentage of a perfect rune
-answers a different question from a percentile. Converting the displayed number
-without replacing the decision rule would leave the original confusion intact.
+Adopt these rules together:
 
-The recommended design has three parts:
+1. Rank finished quality separately for each role/build reading against a declared
+   synthetic population in the rune's slot and star class.
+2. Preserve the original-drop denominator, including incompatible mains. Never
+   rank against imported inventory or survivors of earlier sales.
+3. Qualify if at least one permitted reading succeeds. For unfinished runes,
+   calculate the conditional probability of that **union** on shared futures.
+4. Use the shared canonical Gem/Grindstone valuation. Chance concerns power-up
+   randomness under that credit, not actual craft results or item ownership.
+5. Apply protections separately. Invalid inputs and unresolved calculations never
+   become numerical zeroes or Sell recommendations.
 
-1. **Quality:** how rarely an ordinary rune in this slot finishes at least this well
-   for the user's roles.
-2. **Chance:** the conditional probability that this unfinished rune reaches the
-   chosen quality requirement with the assumed craft items.
-3. **Retention policy:** widen or narrow the allowed tail for Intangible,
-   four-piece, accepted and broken runes. Keep those adjustments out of quality.
+Use finite enumeration, convolution and dynamic programming, with certified
+bounds where full enumeration is too expensive. Benchmark before promising
+interactive performance. Numerical precision does not establish unmeasured game
+probabilities or prove that the utility captures every useful build.
 
-Use analytical enumeration, convolution and dynamic programming, with certified
-probability bounds where complete enumeration is too expensive. Do not promise
-that arbitrary roles and all reference distributions can be evaluated exactly in
-interactive time before benchmarking them. This document establishes a complete
-mathematical target, not a measured production runtime.
+This is a retention model, not a complete-build optimizer. It cannot guarantee
+that a rune improves the account's best build, completes a set, is worth the mana,
+or is surplus. Rune Optimization continues to answer complete-build questions
+with complementary stats, placements and shared craft inventory.
 
-The feature described in the request belongs to **Rune Clean-up** in this checkout.
-Rune Optimization searches complete six-rune builds; it should continue to rank
-actual build results. A rune percentile is useful for retention, but cannot replace
-the optimizer's treatment of complementary stats, sets and shared craft inventory.
+## 2. Baseline and authoritative sources
 
-## 2. What the current implementation actually does
+The following were inspected together for this revision:
 
-The relevant sources were inspected together:
-
-| Source | Current responsibility |
+| Source | Responsibility |
 | --- | --- |
-| [RUNE-CLEANUP-MATH.md](RUNE-CLEANUP-MATH.md) §§5–9 | Value, future projection, gates and calibration |
-| `app/domain/runes/cleanup/rune-cleanup-model.ts` | Candidate scores, ceilings and diagnostic ordinary distributions |
-| `app/domain/runes/cleanup/rune-cleanup-advice.ts` | Shared slot floors, discounts, role choice and verdicts |
-| `app/domain/runes/rune-power-up-outcomes.ts` | Remaining events, bounds and deterministic sampling |
-| `app/domain/runes/rune-generation.ts` | Synthetic drop model shared with Simulator |
-| `app/domain/runes/craft/rune-craft-end-state.ts` | All legal Gem and Grindstone end states |
+| [RUNE-CANONICAL.md](RUNE-CANONICAL.md) | Game schedule, ranges, exclusions, lineages, sets and rerolls |
+| [RUNE-CLEANUP-MATH.md](RUNE-CLEANUP-MATH.md) | Current weights, utility, gates and calibration |
+| [RUNE-CLEANUP-INTERFACE.md](RUNE-CLEANUP-INTERFACE.md) | Saved choices, protections, refresh and presentation |
+| `app/domain/runes/cleanup/rune-cleanup-model.ts` | Readings, perfect-rune ratios and ordinary diagnostics |
+| `app/domain/runes/cleanup/rune-cleanup-advice.ts` | Calibration, chance gates, role choice and protections |
+| `app/domain/runes/rune-power-up-outcomes.ts` | Future events, bounds and deterministic sampling |
+| `app/domain/runes/rune-generation.ts` | Synthetic births and upgrades |
+| `app/domain/runes/craft/rune-craft-end-state.ts` | Shared Gem placement and legal craft valuation |
+| `app/domain/runes/rune-reapp-targets.ts` | Preservation targets, distinct from immediately legal stone use |
 
-Currently, Max value is the best reachable crafted score divided by a legal
-perfect-rune ceiling. The five quality anchors are 45%, 55%, 65%, 75% and 85%.
-The gate can raise these anchors separately by slot, using 600 synthetic drops
-per slot and star class, 128 completion samples per unfinished calibration rune,
-and a joint grid of 625 setting combinations. Calibration follows the same bodies
-through +0, +9 and +12. Candidate Chance normally uses 4,096 completions.
+The current engine displays a perfect-rune ratio, with quality anchors 45%, 55%,
+65%, 75% and 85%. Calibration uses 600 synthetic births per slot/star class, 128
+completions for unfinished calibration bodies and a 625-cell policy grid. It
+follows +0/+9/+12; candidate Chance normally uses 4,096 completions. `ordinaryBox`
+is a truncated Gaussian diagnostic, not a rare-tail percentile distribution.
 
-Intangible currently softens the correction above the anchor; the four-piece
-setting has its own fitted floors. Neither is a direct percentile multiplier.
-The diagnostic `ordinaryBox` is a truncated Gaussian mixture, not the actual
-calibration population. It is explicitly unsuitable for a rare-tail percentile.
+Intangible currently softens the correction above the anchor. **The inspected
+advice code has no separate four-piece retention control.** The earlier proposal's
+claim that such a control already had fitted floors was incorrect. This revision
+introduces no automatic premium for four-piece sets. A future set-scarcity policy
+needs its own explicit objective and controls.
 
-Consequently, two runes showing 80% can receive different advice in different
-slots even before ordinary explanations such as different Chance, role rank or
-protection apply. The numbers describe different denominators; the user's
-interpretation of one common quality scale is reasonable, but the scale does
-not currently provide it.
+Binding documents continue to govern the application until implementation changes
+their subjects deliberately. This proposal does not authorize duplicate craft,
+stat-sheet, placement, filter or acceleration rules.
 
-## 3. Specify the reference population before choosing a formula
+## 3. Reference population and uncertainty
 
-Let `D[s,k]` be an ordinary, unselected rune drop in slot `s`, star class `k`,
-powered through its final sub-property event and evaluated as a +15 projection.
-It is a probability distribution, not a materialized million-row sample.
+Let `D[s,k]` be a synthetic ordinary birth in slot `s`, star class `k`, taken
+through its last sub-property event and evaluated as a +15 projection. It is a
+finite probability distribution, not a materialized million-row sample or a
+measured mixture of every acquisition source in the game.
 
-For the first implementation, retain the canonical generator's assumptions:
-
-| Component | Proposed reference |
+| Component | Reference definition |
 | --- | --- |
-| Slot | Condition on the actual slot; compare slots through their ranks |
-| Stars | Condition on the rune's star class; Ancient uses ordinary six-star |
-| Main | Every legal main, uniformly weighted, including mains no role wants |
+| Slot | Actual slot, 1–6 |
+| Stars | Own class, 1–6; Ancient uses ordinary six-star reference |
+| Main | Uniform over every legal main, including unwanted mains |
 | Rarity | Odd: 75% Hero / 25% Legend; even: 25% Rare / 50% Hero / 25% Legend |
-| Innate | 50% probability, legal type selection and initial roll interval |
-| Types | Uniform legal selection without replacement |
-| Values and upgrade targets | Uniform within the canonical legal choices |
-| Lineage | Ordinary reference; actual Ancient candidate retains Ancient legality |
-| Craft credit | Fixed `canonicalCraftCredit`, including for all references |
-| Sets | Neutral set identity; preference affects retention, not the ruler |
-| Roles and reference monster bases | The user's current roles and roster reference averages |
+| Innate | 50% presence; uniform legal type and integer initial value |
+| Natural types | Uniform legal selection without replacement |
+| Values | Uniform integer choices from the canonical interval |
+| Upgrade targets | Uniform over the existing eligible lines |
+| Conditional draws | Independent given the legal state, as in the synthetic generator |
+| Craft | Ordinary `canonicalCraftCredit` and shared placement policy |
+| Sets | Neutral identity; no set-frequency distribution |
+| Utility | Each reading's fixed weights and roster reference averages |
 
-These are **model assumptions**, not newly established game drop rates. In
-particular, the differing odd/even rarity mixes already encode a product choice.
-Changing them changes percentiles. The interface must say "modelled ordinary
-runes in this slot", not "all real drops". Source-specific measured distributions
-would be a later explicit product decision, not an inferred fact.
+Rarity mix, innate rate and draw probabilities are model assumptions with the
+standing recorded in the canonical documents. Normal/Magic births and odd-slot
+Rare births have zero reference mass. Such **candidates remain supported**;
+zero birth mass in the ruler is not a reason to hide or reject an owned rune.
 
-Do not condition on the candidate's rarity, innate, main or rolled line types.
-Otherwise a weak Rare rune can become elite merely among Rare runes, an innate's
-advantage is normalized away, and wanted even-slot mains cease paying for the
-unwanted mains in the original drops. Do not rank against the imported inventory:
-selling, importing or filtering would move the standard under unchanged runes.
+Do not condition the ruler on a candidate's rarity, innate, rolled types or main.
+Main compatibility belongs to a reading's event (§4), not a renormalized pool.
+Ancient and already-modified candidates retain their actual properties; the
+reference remains ordinary and evaluated under its own canonical credit.
 
-Keeping star classes separate preserves the current contract. A 95th-percentile
-five-star rune is not thereby stronger than a six-star rune. Display the class in
-the explanation. If the desired product is absolute endgame strength instead,
-replace this with one six-star reference and rework the lower-star score units
-explicitly; do not silently mix those two meanings.
+Class-relative quality is deliberate: a high-ranked five-star rune need not be
+stronger than a six-star rune. Label the reference class where mixed classes are
+compared. A six-star absolute-strength ruler requires a deliberate redesign of
+lower-star units, not merely a changed label.
 
-No roles, no positive usable weights or no valid reference averages means no
-quality calculation. Explain what must be supplied; do not invent a distribution.
+Before replacement, report sensitivity to alternative rarity mixes (including
+Legend-only), innate rates and main frequencies. These are declared stress
+scenarios, not estimates of real rates. Record changed verdict categories and
+rare-tail changes. Agreement across a few scenarios is not proof against every
+possible distribution; disagreement must not disappear behind extra decimals.
+Never estimate acquisition rates from the selection-biased kept inventory.
 
-## 4. Define one ranking across all roles and builds
+## 4. One precise utility for each reading
 
-For a finished body `x`, a compatible reading `i` means one role and one of its
-main-stat builds. Define:
+A reading `i` identifies a role, one main-stat build, slot, reference class and
+the actual main it accepts in that slot. Its weights and reference monster base
+are fixed before inspecting a candidate.
 
-```text
-v_i(x; c) = best legal crafted weighted score of x under craft credit c
-           / that reading's fixed ordinary perfect-rune ceiling
-
-T(x) = max over compatible readings i of v_i(x; neutral credit)
-T(x) = -infinity if no useful compatible reading exists
-```
-
-Use the existing weights and ceilings initially. Their normalized scores make
-this an explicit product valuation, not a claim to measure optimal complete-build
-utility. Candidate sets never alter the weight vector. Ignore preferred/accepted/
-broken rank while constructing the neutral reference: all main-compatible useful
-readings compete. A blank main preference keeps its current meaning of no stated
-preference, rather than becoming a rejection.
-
-The reference survival function is:
+For an unstated main (`0` in the current build representation), expose one reading
+per legal actual main **without crediting it in the target subtraction**. The
+user stated no main there; expansion must not invent one in the requirement.
+Each expanded reading accepts only its named main. Its own unstated slot retains
+broken rank; another unstated slot does not lower rank, as in the existing
+build-rank rule. Odd slots use their fixed actual main.
 
 ```text
-A_s,k(t) = P[T(D[s,k]) >= t]
-Q_s,k(t) = 100 * (1 - A_s,k(t)) = 100 * P[T(D[s,k]) < t]
+u_i(x) = corrected shared canonical score of finished body x,
+         using i's fixed weights, actual lineage and observed grind floors
+
+H_i(x) = u_i(x), if x has i's actual main and u_i(x) > 0
+         -infinity, otherwise
 ```
 
-This uses the **inclusive upper tail** and the strict lower percentile. All
-identical scores receive the same rank. `Top 5%` means `A <= 0.05`, equivalently
-`Q >= 95`. Never say "top 95%" when the intended meaning is "95th percentile".
+Only legal readings with a positive finite scoring scale participate. A role
+with no positive targets supplies no reading. A role whose positive targets are
+already met retains the current fallback that prices its named stats alike;
+that is not an empty role. A zero-benefit body cannot qualify merely because
+its main is uncommon or the allowed tail is large.
 
-For a candidate reading, evaluate `Q(v_i(x; active credit))` against that same
-slot distribution. It is the percentile that this reading's result would achieve
-in the population ranked by its best neutral reading. Because `Q` is monotone,
-the best neutral reading reproduces `Q(T(x))`. Retain the individual readings for
-policy checks, so a strong rejected reading cannot lend its quality to a weaker
-permitted reading.
+Use the current weight model initially. Main builds, role artifact-main assumptions
+and roster bases remain inputs. Candidate sets, filters, inventory and owned craft
+items do not alter weights. Surplus continues to score as the current contract
+states; retention utility is not linear combat benefit beyond a game's stat cap.
 
-Why the maximum is inside the reference distribution matters. If two independent
-role scores each pass their own top-5% test, their union retains
-`1 - 0.95^2 = 9.75%`. Eight would retain `1 - 0.95^8 = 33.658%`.
-Real roles are correlated, so neither independence nor summing their tails is
-valid. Evaluating every reading on the **same finished body**, then taking its
-maximum, resolves that correlation. Duplicate roles leave the maximum unchanged.
+A perfect-rune denominator is unnecessary for the percentile: dividing scores by
+the same positive ceiling does not change their order within a reading. Use raw
+shared utility for tail queries, removing an extra rounding step. Retain the
+ordinary perfect-rune ratio as **Potential efficiency**, with its own name and
+safeguard (§8). Wildcard expansion fixes each reading's main and diagnostic ceiling.
 
-This neutral reference intentionally does not change when only a set or main rank
-changes from preferred to accepted. Rank edits affect policy directly. Changes
-to targets, build main combinations, role membership or reference bases can change
-the underlying utility and therefore require a new reference distribution.
+### 4.1 One canonical placement policy per lineage
 
-## 5. Ties, unavailable mains and what slot balance can promise
+`canonicalCraftCredit` credits an average Legend Gem and an average Legend
+Grindstone on each grindable line. The code rounds each midpoint to an integer:
+ordinary Legend SPD grind 4–5 credits 5, not the expectation 4.5. This is a
+**rounded-midpoint comparison credit**, not the expected result of one craft.
 
-A discrete distribution cannot generally retain exactly 5% while treating equal
-runes equally. Suppose score masses are:
+The current `craftedScore()` chooses placement on an ordinary canonical plan,
+then prices it on actual lineage. `craftedScoreCeiling()` optimizes at the actual
+plan but is only a bound. That discrepancy is not merely conservative: it can
+make an improved Ancient line score lower, as the second example below shows.
 
-| Score | Probability |
-| ---: | ---: |
-| 0 | 70% |
-| 1 | 20% |
-| 2 | 7% |
-| 3 | 3% |
+Regression example: slot-5 Ancient, no innate/grinds, unconverted CRI Rate, CRI Dmg,
+Resistance and Accuracy each at 6; raw-point prices SPD=1 and ATK %=0.7, all others
+zero. Ordinary credit values a new SPD line at 14 and ATK % at 13.3, selecting SPD.
+Ancient credit values them at 14 and 14.7. The current score is **14**, while its
+actual-plan bound is **14.7**.
 
-Score 3 has upper tail 3% and rank 97; score 2 has upper tail 10% and rank 90.
-A top-5% rule keeps 3%, not 5%. Including a fraction of score-2 runes requires
-random or identifier-based tie breaking. Reject that: identical rune bodies
-should receive identical advice. Do not interpolate probability mass inside a tie
-and then describe the interpolated result as a guaranteed retained fraction.
+Stronger regression: slot-5 Ancient Legend +12, no innate/grinds/conversion, SPD 7,
+ATK % 8, CRI Rate 30, Resistance 6, with the same prices. Increasing only ATK %
+from 8 to 9 switches the current Gem from ATK % to SPD and lowers score **26.7 to
+26.6**. Both bodies can arise legally: all four upgrades land on CRI Rate.
+This was reproduced through the current module. A percentile transformation
+cannot repair the underlying reversal and could turn a stronger rune into Sell.
 
-For `0 <= alpha < 1`, the neutral terminal selection satisfies:
+**Required shared-policy correction before the new model is usable:** choose the
+canonical Gem placement on `craftPlan(actualLineage, canonicalCraftCredit)`, not
+an always-ordinary plan. Enumerate legal realized bodies, including no Gem, and
+choose the highest canonical utility with stable ties. Reuse that one placement
+reference in every craft reader; a held item's grade/roll assumption must not
+choose a different reference. This keeps the reference independent of settings
+and owned inventory while respecting the candidate's fixed game lineage.
+
+Under the proposed corrected policy, the first example scores 14.7; the second
+retains ATK % Gem and scores 26.7 at both base values. These are toy utility units,
+not measured percentiles. Update the craft owner's contract and all consumers
+together; this proposal does not change them now. Never call the current upper
+bound the corrected score or build another Gem selector inside the percentile
+solver. Its shared kernel must evaluate the selected realized body consistently.
+
+With nonnegative weights and the same constraints, increasing one observed base
+value must not lower canonical utility or reading rank. Verify that property
+against full legal Gem enumeration and the actual numerical kernel, including
+placement switches. If future transition probabilities are unchanged, coupling
+the same future rolls must also prove that conditional Chance cannot decrease.
+This does not compare different innate types, conversion markers or lineages:
+changing those also changes the legal action set.
+
+The model credits craft types, not owned stocks, spending order or repeated
+attempts. Ancient takes Ancient items only; Intangible takes its own or Immemorial
+ordinary items. Never substitute ordinary items for missing Ancient ones.
+A union over readings permits choosing a use and craft after power-up rolls; it
+does not promise simultaneous Gem placements or one final rune for every role.
+
+## 5. Reading-local percentiles and their guarantees
+
+For each reading, define an inclusive upper tail and strict lower rank:
 
 ```text
-P[A(T(D)) <= alpha] <= alpha
+A_i(t) = P[H_i(D[s,k]) >= t], for finite t > 0
+Q_i(t) = 100 * (1 - A_i(t))
+
+Reading i qualifies if H_i(x) is finite AND A_i(u_i(x)) <= alpha_i.
 ```
 
-It equals `alpha` only when the discrete support permits it. Reject a body with
-no useful compatible reading even at `alpha = 1`; do not turn `-infinity` into
-an eligible score just because its tail is one.
+Incompatible mains retain their original mass with no success. Never query
+`A_i(-infinity)` to decide usability. An unusable reading has no rank. Every
+reported quality figure names the reading whose `Q_i` it uses.
 
-All mains remain in the original denominator. For an illustrative even slot with
-eight equally likely mains and only two usable mains, usable supply is 25%.
-A 5% original-drop allowance then corresponds to the best 20% of usable bodies,
-assuming their utility distribution permits that cut. Ranking only usable mains
-would instead retain `25% * 5% = 1.25%` of original drops. That is exactly the
-hidden difference the proposed denominator avoids.
-
-Thus common percentiles replace slot-specific score corrections. They align the
-intended terminal survival shares under the reference model, not the realized
-counts of a finite account. They do not guarantee equal counts when slots have
-different drop frequencies, ties, protections, preference multipliers or unusable
-supply. Actual counts of `n` independent reference drops have mean `n*p` and
-standard deviation `sqrt(n*p*(1-p))`; for one million at 5%, these are 50,000 and
-217.945. The million is an explanation of a distribution, not a required sample.
-
-## 6. Retention settings operate on tail shares
-
-Let `alpha` be the base allowed share, for example `0.05`. For a reading `i`:
+For a fixed reading and `0 < alpha_i <= 1`:
 
 ```text
-m = Intangible factor for Intangible, otherwise four-piece factor or 1
-a_i = preferred/accepted/broken retention factor, in [0,1]
-alpha_i = min(1, alpha * m * a_i)
+P[H_i(D) is finite AND A_i(H_i(D)) <= alpha_i] <= alpha_i
 ```
 
-Preserve the current rule that Intangible's set side is always preferred and that
-the four-piece multiplier does not also apply to it. Combine set and main rank
-through the existing worse-rank rule, once; do not accidentally discount twice.
-A forbidden rank is explicitly ineligible, including at a zero tail or endpoint.
+Ties can make this strict. With score masses 0:70%, 1:20%, 2:7%, 3:3%, score 3
+has tail 3% and rank 97; score 2 has tail 10% and rank 90. Top 5% admits 3%, not
+part of the score-2 atom. Never break ties by randomness or rune identifier.
 
-| Example, base top 5% | Allowed tail | Required percentile |
-| --- | ---: | ---: |
-| Preferred ordinary | 5% | 95 |
-| Accepted factor 0.5 | 2.5% | 97.5 |
-| Intangible factor 2 | 10% | 90 |
-| Intangible factor 2, accepted main factor 0.5 | 5% | 95 |
-| Four-piece factor 2 | 10% | 90 |
+For eight uniform mains with one compatible main, that reading's main supply is
+12.5%. A top-5% original-drop allowance can admit the best 40% of that supply if
+ties and zero-benefit bodies permit it. At allowance >=12.5%, every positive-score
+body of that main can qualify. Main scarcity is part of this measure, not proof
+of excellent substats. Main-conditioned quality would answer a different question.
 
-Multiply the **tail**, not the percentile. Doubling 95 is meaningless; doubling
-its 5% allowance gives a 90th-percentile requirement. A quality of 93 can therefore
-be kept as Intangible and sold as ordinary: the explanation shows its applicable
-top-10% versus top-5% allowance. Quality itself does not change.
+### 5.1 Why the former global maximum is rejected
 
-The factors describe allowed shares, not guaranteed count ratios. Ties, multiple
-readings, main-rank mixtures and limited useful supply prevent a promise of exactly
-twice as many. Rename any count promise accordingly when implementing.
+| Reference group | Mass | Reading A | Reading B |
+| --- | ---: | ---: | ---: |
+| Ordinary | 90% | 0.1 | 0.1 |
+| A specialists | 4% | 0.9 | 0.1 |
+| B specialists | 4% | 0.1 | 0.9 |
+| A maximum | 1% | 1.0 | 0.1 |
+| B maximum | 1% | 0.1 | 1.0 |
 
-Offer direct percentile choices, for example 80, 90, 95, 98 and 99, only as proposed
-starting values. These are product recommendations, not values fitted to the
-developer's account. The existing 45–85% anchors and 1.00–0.55 score discounts have
-no mathematical one-to-one conversion into these new meanings.
+An A specialist has tail 5% and rank 95 in A. Against `max(A,B)` its tail becomes
+10% and rank 90 when B is added. Its usefulness did not change. The revised
+reading-local tail stays 5%; adding B cannot revoke A's success. Both readings
+attain their normalized maxima; the effect is not caused by an invalid ceiling.
 
-Preserve the developer's saved selections individually. Retain existing controls'
-selected stops where they remain the same choice, explain their new tail meaning,
-and do not reinterpret a numeric 0.85 score discount as evidence for an equivalent
-15% count reduction. Any newly introduced field is independently validated and
-defaulted; no document-wide preference reset or migration/version machinery.
+This revision admits 10% for the two uses in this toy population. In general:
 
-## 7. Unfinished runes: quality and probability are different
+```text
+max_i P(E_i) <= P(any E_i) <= min(1, sum_i P(E_i))
+```
 
-Let `X_l` be the observed rune at level `l`, and `Y` a legal completion through +12.
-For each reading, the successful terminal event is:
+No global `P(selected) <= alpha` is claimed. Independent 5% events give 9.75% for
+two uses and 33.658% for eight. Real readings are correlated: compute their union
+on common bodies, never by independence or summing marginal tails.
+
+Duplicate events do not increase retention. Broad roles with many distinct builds
+can admit more than narrow ones; show their coverage in Statistics and stress-test
+this multiplicity. Neither "top 5% overall" nor "keeps 5% per role" is accurate:
+allowance is per reading with original-drop mass. A global cap or demand allocation
+would be another policy with an explicit coverage tradeoff.
+
+## 6. Retention policy and preserved choices
+
+A reading's rank combines the actual set and **whole build's** main preferences
+through the existing worse-rank rule. Intangible's set side is always preferred;
+its main/build rank still matters. Do not penalize set and main independently.
+
+```text
+m = selected Intangible factor for Intangible; otherwise 1
+r_i = selected preferred/accepted/broken tail factor for reading i
+alpha_i = min(1, alpha * m * r_i)
+```
+
+A forbidden rank fails permission; it is not a tail of zero. Even an
+above-reference candidate cannot qualify through it. Set identity never changes
+`Q_i`. No four-piece multiplier is introduced.
+
+Proposed definitions preserve each stored control's stop index. They are product
+choices, not equivalent numerical translations of old score discounts:
+
+| Stop | Base tail | Existing Chance requirement | Accepted factor | Broken factor | Intangible factor |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 20% | 1% | 1.00 | 0.90 | 1 |
+| 2 | 10% | 5% | 0.95 | 0.85 | 1.5 |
+| 3 | 5% | 20% | 0.85 | 0.80 | 2 |
+| 4 | 2% | 50% | 0.70 | 0.65 | 3.5 |
+| 5 | 1% | 80% | 0.55 | Forbidden | 5 |
+
+Columns are independent controls, not five combined presets. At base 5%, accepted
+factor 0.85 means top 4.25%; Intangible factor 2 means top 10%; together they mean
+top 8.5%. Multiply tails, never ranks. The Intangible premium is a chosen retention
+preference, not a measured scarcity ratio or promise of twice as many survivors.
+
+Keep the production domain `0 < alpha <= 1`, `0 < beta <= 1` and positive finite
+permitted factors. Rejection is explicit; do not use zero as a magic disable or
+allow-all value. At `alpha_i=1` a useful legal body can qualify, an unusable one
+cannot. A stronger Ancient or already-crafted body may have tail zero and rank
+100: above this reference support, not perfect or certain while unfinished.
+
+Keep the user's stored stop selections and explain their new numerical meaning.
+Never reinterpret a saved potential-efficiency percentage as a percentile.
+Validate each preference independently, preserve empty lists and blank versus
+explicit zero, and introduce no format/schema/database version machinery. New
+independent fields default independently; unrelated choices never reset.
+
+## 7. Conditional power-up Chance and displayed readings
+
+Let `X_l` be the observed rune at actual level `l`, and `Y` its legal terminal
+sub-property body projected to +15. For fixed calculation inputs:
 
 ```text
 E_i(Y) = reading i is permitted
-         AND A_s,k(v_i(Y; active credit)) <= alpha_i
+         AND H_i(Y) is finite
+         AND A_i(u_i(Y)) <= alpha_i
 
 C_i(X_l) = P[E_i(Y) | X_l]
-C_any(X_l) = P[there exists i: E_i(Y) | X_l]
-Q_best,i(X_l) = max over reachable Y of Q_s,k(v_i(Y; active credit))
+C_any(X_l) = P[any i: E_i(Y) | X_l]
+PotentialRank_i(X_l) = max over reachable useful Y of Q_i(u_i(Y))
 ```
 
-The proposed Power-up rule is `C_any >= beta`, where `beta` is the user's existing
-chance requirement. Max reachable quality remains useful as **Potential rank**;
-it is not the main quality measurement of an unfinished rune. A best possible
-rank of 99.9 with a 0.1% chance of reaching the requirement is a gamble, not an
-ordinary 99.9th-percentile finished rune.
+The unprotected chance gate is `C_any >= beta`. Retain positive beta; `0 >= 0`
+must never admit an impossible rune. No useful reachable reading is a valid
+unusable result, distinct from missing configuration or malformed data (§8).
 
-Use the union probability for the verdict. For two mutually exclusive successful
-roles at 3% each, `C_any = 6%`; `max(C_i) = 3%` incorrectly sells at a 5% chance
-requirement. When the events are identical, the union is 3%, not 6%. Count the
-shared completions once. This is a deliberate change from the present rule that
-one individual reading must clear both gates.
+For mutually exclusive events at 3% each, the union is 6%, not maximum 3%.
+For identical events it remains 3%. Different successful readings may require
+different Gem placements; their shared terminal body counts only once.
 
-Choose the displayed Best role from permitted readings using expected utility,
-with deterministic ties as today, and show its own potential and individual
-chance in the explanation. The table's Chance must explicitly mean **chance for
-any role**. Do not attach that union probability to the chosen role as though
-that role alone had it. Expected utility can be accumulated during the same
-analytical traversal, with craft chosen after the outcome is observed.
+Chance is **power-up success under canonical craft credit**. At +12 and above,
+valid Chance is 0 or 1 because no random sub-property events remain. Real crafts
+can still miss credited values. Actual craft success needs a separate distribution,
+budget and retry policy. Expected utility and Potential rank are not that chance.
 
-At +12 and above there are no remaining random sub-property events: `C_any` is
-exactly zero or one. Main-stat progress to +15 is deterministic. Keep the current
-Power up/Keep distinction at +13/+14 versus +12/+15. Keep safeguards as separate
-verdict overrides and name their reasons. A protected rune need not meet the
-quality requirement, and protected counts must not be described as calibrated
-quality survivors.
+For finished runes, display the best `Q_i` among permitted useful readings and
+identify its witness reading. For unfinished runes, display the maximum
+`PotentialRank_i`, also identifying its witness. The table's **Chance for any
+role/build** can be contributed by other readings. The explanation keeps every
+reading's own potential, Chance, cutoff and expected utility together.
 
-## 8. The power-up funnel cannot promise a final 5% inventory
+Choose a qualifying-use explanation from readings with `C_i > 0`, prioritizing
+higher `C_i`, then expected shared utility, then the existing role-order/build tie
+rule. It need not individually meet beta when the union does. If no reading has
+positive Chance, show the best permitted potential with the failure reason.
+An unrelated high rank must not be attached to the role justifying the verdict.
 
-Terminal top-5% quality and a power-up chance threshold are two independent
-choices. If the user sells a promising but unlikely +0 rune, its successful
-future branch is lost. Let `E` denote terminal qualification and `B_l` denote
-passing the chance rule at each chosen checkpoint:
+Keep current action levels: qualifying +12/+15 says Keep; +13/+14 says Power up
+for deterministic main progress; below +12 says Power up. +15 adds no sub roll.
+
+## 8. Verdicts, safeguards and unavailable calculations
+
+Return a structured state, not just convenient numerical fields:
+
+| State | Advice |
+| --- | --- |
+| Complete, union meets beta | Keep/Power up by existing level rule |
+| Complete, no permitted useful success or union below beta | Sell candidate, subject to protections |
+| Missing roles or necessary reference averages | Explain missing input; no calculated Sell |
+| Malformed or unmodelled rune mechanic | Visible diagnostic; no calculated Sell |
+| Unsettled bounds, worker failure or cancellation | Incomplete/unavailable; no calculated Sell |
+
+A proved successful reading can establish a passing union without resolving
+irrelevant readings. Selling requires a certified upper union bound below beta
+and no invalid unresolved reading that could supply an unmodelled use. Invalid
+readings with legitimate targets cannot silently become zero-weight roles.
+Valid intentionally empty roles contribute no event.
+
+During refresh/cancellation keep the previous body and answer together, labelled
+with their standards. Never present old advice as fresh for a changed body.
+Superseded work cannot commit after an import or edit.
+
+Apply shared protections without altering quality or Chance:
+
+- Pre-grind SPD uses the **observed sub-property base value only**. No innate,
+  main, projected upgrade or grind counts. Blank disables; explicit zero remains
+  a threshold requiring a SPD sub property.
+- Potential efficiency retains the perfect-rune ratio and 1% Chance condition.
+  Both belong to the same reading; B's union contribution cannot lend Chance to
+  A's efficiency. This 1% stays independent of selected beta.
+- Non-Scenario engraving reads the account-wide placement summary, not one preset
+  or `occupiedId` alone. Preserve manual holds, locks and Unsellable rules.
+- Re-app/Refine targets only replace a calculated sale, Refine before Re-app.
+  A protection is not a terminal quality survivor.
+
+A hold remains visible on an invalid/unresolved rune but does not validate its
+probability. Count overlapping protection reasons as one protected body.
+
+### 8.1 Reroll potential and craft sequencing
+
+Separate **preservation target** from **action legal now**. The current target
+contract can preserve a Legend with four visible lines below +12 while it climbs
+to the stone's required level. A lesser rarity's unseen lines must not be invented
+to make it a Refine target. An early target instruction must say it needs powering
+up, not that the stone can already be used.
+
+The analytical future includes power-up events and comparison craft, not random
+Reappraisal or Refinement outcomes. Reappraisal changes sub types and removes craft
+effects. Refinement keeps types and grinds, but is barred by a Gem, Ancient lineage
+or Intangible. Both have the canonical +12 usage requirement; Intangible permits
+neither. Refinement's acceptance/refusal behaviour is not established and must not
+be guessed.
+
+A projected Gem is not an observed conversion. Do not mutate imported markers,
+erase Refine protection, spend inventory or recommend a Gem before considering an
+applicable reroll target. A real Gem locks reconversion to its line and bars Refine;
+a Grindstone does not bar Refine. Action legality reads actual state and its owner.
+
+## 9. Exact candidate futures
+
+Read the canonical schedule, not current colour or guessed history. Rarity is
+original `extra`; `rank` is not rarity. Improvements precede additions, so a new
+line cannot receive a later improvement in the current schedule. With `b` held
+lines and `u` remaining improvements, allocation vector `n` has:
 
 ```text
-P[kept through the funnel] = P[E AND every B_l]
-                          <= P[E]
+sum_j n_j = u
+P(n) = u! / product_j(n_j!) * (1/b)^u
+number of allocations = choose(u+b-1, b-1)
 ```
 
-Simple exact example: 10% of drops are identifiable promising bodies at +0; each
-has a 50% chance to meet the terminal quality requirement; all others have zero.
-Terminal success is 5%. A 20% chance requirement retains those bodies and yields
-5%; an 80% requirement sells them all and yields 0%. It would be dishonest to
-label both policies "keeps 5%".
+Legend +0 has 35 allocations instead of 256 ordered target histories; Hero +0
+has 10 instead of 27; Rare +0 has 3 instead of 4. At `u=0`, use one no-upgrade
+allocation, including `b=0` for Normal. `b=0,u>0` is invalid, not division by zero.
 
-Recommend **quality defines the terminal top share; policy controls willingness
-to invest**. Report projected +0 investment and full-funnel retention separately.
-Do not refit quality when the power-up policy changes. Doing so would make a
-quality requirement mean a different finished rune after a risk-setting edit.
+Convolve each line's integer roll distribution `G_j(z)` to `G_j(z)^n_j`, shifted
+by observed base values. For `a` additions from `L` legal types, an unordered
+subset has probability `1/choose(L,a)`; integrate its initial values. An impossible
+addition count is invalid, not truncated to the pool size.
 
-For comparison, an alternative could solve for a score threshold whose complete
-funnel retention is 5%. That needs nested conditional probabilities, may have no
-solution under strict policy, and can weaken terminal quality to compensate for
-early sales. It recreates the present opaque coupling. It is not recommended.
+The pool excludes actual main, innate and held types, plus slot restrictions.
+Slot 1 forbids flat/percent DEF; slot 3 forbids flat/percent ATK. An innate never
+upgrades, takes no craft item and bars its stat from sub properties/conversions.
+Observed base and grind stay separate.
 
-An economically optimal investment policy would compare mana cost and opportunity
-cost against expected account/build improvement. Percentiles do not establish
-those costs. Keep the explicit chance policy until that different objective is
-specified and supported by data.
+Ancient born lines/innate have higher initial ranges; **every future addition and
+upgrade uses ordinary six-star ranges**. Observed born values are not redrawn.
+Lower-star ordinary candidates use their own ranges. No item-lineage fallback.
 
-## 9. Exact analytical calculation of a candidate's future
-
-The existing schedule provides the useful simplification: every remaining
-improvement happens before every remaining new line. A new line cannot receive
-an improvement. Use that structure instead of enumerating ordered histories.
-
-Suppose `b` existing lines can receive `u` improvements. A count vector
-`n = (n_1,...,n_b)`, with `sum(n)=u`, has probability:
+At every terminal vector evaluate permitted readings through the shared craft
+policy, query their individual tails, and accumulate the union once:
 
 ```text
-P(n) = u! / (product_j n_j!) * (1/b)^u
-number of count vectors = choose(u+b-1, b-1)
+C_any = sum_n P(n) * sum_B P(B) * sum_values P(values | n,B)
+        * indicator(any E_i(terminal vector))
 ```
 
-For a Legend +0, `b=4,u=4`: 35 vectors replace 256 target sequences. For Hero +0,
-`b=3,u=3`: 10 replace 27. For Rare +0, `b=2,u=2`: 3 replace 4. Handle `u=0`
-with one empty/no-improvement outcome, including a Normal rune with `b=0`.
+Do not merge states merely because scalar weighted scores match: Gem legality
+depends on the complete vector. Keep lineage, converted-line location and existing
+grinds. A merge requires identical future transitions and terminal readings.
+Historical roll counts may be absent; never infer a unique history from a total
+or require Simulator-only `rolls` metadata to judge an imported rune.
 
-If one roll of line `j` has integer probability generating polynomial
-`G_j(z) = sum_v P(V_j=v)*z^v`, the increment after `n_j` hits has distribution
-`G_j(z)^n_j`. Compute these tiny convolutions once per interval and hit count.
-Then combine their supports, shifted by the observed line values.
+Validate schedule line counts, legal ids, finite integer values, main/innate
+exclusions and conversion restrictions before solving. Multiple converted lines,
+a Gem below its legal level, a grind on an ungrindable stat or +12 with fewer
+than four lines is a diagnostic. Do not inherit `emptyInterval` or
+`Math.min(additions,pool.length)` repairs. Do not reject a valid rerolled body
+merely because it cannot be reconstructed as an untouched original birth.
+Unknown histories/reroll rules need evidence, not invented legality.
 
-If `a` new lines will be drawn from `L` remaining legal types, an unordered subset
-`B` has probability `1/choose(L,a)` under uniform selection without replacement.
-Combine its initial value distributions. Include actual slot, main, innate,
-existing line and converted-line exclusions before making this pool. For Ancient
-candidates, existing born values are already observed; future added values and
-upgrades use ordinary six-star ranges under the canonical contract.
+### 9.1 Rare-tail fixture
 
-For every joint terminal vector, evaluate the legal crafted result for every
-reading and then the union event. Accumulate its joint probability once:
+A Legend starts with SPD 4 and has four upgrades. Final raw SPD >=27 requires
+four SPD hits with increment sum >=23: four sixes, or three sixes and one five.
 
 ```text
-C_any = sum_n P(n)
-        * sum_B P(B)
-        * sum_value_vectors P(values | n,B)
-        * indicator(any permitted reading qualifies after its best legal craft)
+P = (1/4)^4 * 5/3^4 = 5/20,736 = 0.02411265432098765%
 ```
 
-Gems are an adaptive decision **after** rolls, not another random event in this
-model: `E[max_craft score]` is generally not `max_craft E[score]`.
-The shared craft module must evaluate the realized vector, including already
-converted lines, same-stat improvement legality and existing grind floors.
-Do not convolve only scalar weighted scores: two line vectors with the same
-plain score can have different legal or profitable Gem replacements.
+This is a conditional raw-SPD fixture, not a crafted percentile or drop rate.
+In 4,096 independent samples the probability of no success is about 37.24%.
+Zero sampled hits do not prove impossibility. Preserve the positive analytical
+mass; a Gaussian approximation is not an acceptable rare-tail substitute.
 
-Raw integer line values and legal metadata are sufficient DP keys for a fixed
-body. A state may be merged only if all future transitions and every reading's
-terminal craft decision are identical. Role-dependent weighted-score rounding is
-not an exact merge. Integer roll-count masses can be represented exactly where
-denominators agree; otherwise use rational weights or controlled floating-point
-accumulation with explicit error bounds. Being discrete does not make arbitrary
-JavaScript arithmetic symbolically exact.
+## 10. Reference queries and numerical certification
 
-### Worked rare-tail calculation
+Integrate main, rarity, innate, born types/values and the shared future solver.
+An incompatible main retains original mass with `H_i=-infinity`. Generator and
+solver use one finite distribution description, not copied probability tables.
 
-Condition on a slot-1 Legend whose SPD starts at 4, with four future upgrades,
-and consider a target requiring final raw SPD at least 27. Assume SPD roll values
-4, 5 and 6 and equal target probabilities, as in the canonical model. Only four
-SPD hits can reach it. Four upgrades must sum to at least 23; their successful
-sequences are four sixes or three sixes and one five:
+Reference tails are **marginal per reading**, with no global maximum-score CDF.
+Candidate/Statistics unions remain joint because readings share one body's future.
+Reuse legal structures, convolutions and identical utility queries; numerical
+deduplication never merges different permissions or removes role identities.
+
+### 10.1 Score equality
+
+Use the shared terminal kernel and current finite binary64 utility, with lines
+and sums in canonical stat-id order, fixed craft tie breaking and identical
+operand/order rules in candidate and reference. This defines score equality for
+the initial implementation. Bounds must enclose that **actual computation**,
+including intermediate rounding, not a different real-arithmetic expression.
+
+No general epsilon, rounded-score bucket or reference-only weight formula.
+Different summation orders can split a real-arithmetic tie; permuted equal bodies
+must use the same canonical kernel. Rational utility would be a deliberate change
+to the shared weight/craft contract, not a solver-only shortcut.
+
+Pruning encloses the corrected terminal score and craft choice, including placement
+and same-stat eligibility boundaries. Prove its monotonicity rather than inheriting
+the current engine's assumption: the current ordinary-choice/Ancient-pricing policy
+fails it (§4.1). Bound all possible placements where needed. Never print an
+optimistic score bound as the actual result.
+
+### 10.2 Probability bounds
+
+Use integer/rational masses where practical, otherwise directed numerical error
+bounds. Discrete states do not make arbitrary JavaScript arithmetic exact. Query
+upper tails directly; do not lose small positive mass by subtracting an almost-one
+lower CDF, underflow, or clamping to zero.
+
+For terminal score interval `[v_low,v_high]`, monotonicity gives:
 
 ```text
-P = (1/4)^4 * (1+4)/3^4 = 5/20,736
-  = 0.0002411265432098765 = 0.02411265432098765%
+A_i(v_high) <= A_i(u_i(Y)) <= A_i(v_low)
 ```
 
-This is a conditional toy threshold, not a measured unconditional drop rate or a
-full-role crafted percentile. It also reproduces the current contract's warning
-that a truncated Gaussian can report zero for a genuinely possible tail.
-In 4,096 independent samples, the chance of seeing no successes is
-`(1 - 5/20,736)^4096`, about 37.24%. Exact summation retains this mass.
+Include reference-query errors. A reading passes only when the upper tail bound
+is <= alpha_i, fails only when its lower bound is > alpha_i; otherwise its mass
+stays unresolved. Handle any interval crossing the useful-score boundary as
+unresolved until usefulness is proved. A body passes when any reading passes;
+it fails only when all permitted readings fail.
 
-## 10. Building the slot reference analytically
+Sum proved success into `C_low` and unresolved mass into `C_high-C_low`. Pass
+only if `C_low >= beta`; propose Sell only if `C_high < beta`. Equality belongs
+to passing. Resolve residual equality exactly under the defined kernel or report
+Calculation incomplete. Time/memory limits never justify Sell.
 
-The reference requires more work than a conditional candidate because it also
-integrates over born properties and their values. Enumerate the finite mixture:
+Tail bounds `[a_low,a_high]` imply rank bounds
+`[100*(1-a_high),100*(1-a_low)]`. Score error at an atom can move its **whole mass**,
+even with tiny probability-summing error. Independently test exact ties, nearly
+equal scores, alpha/beta equality and the usefulness boundary.
+
+### 10.3 Feasible computation
+
+Cache convolutions and reading queries. Use certified early decisions, state
+sharing and adaptive integer-range splitting near active thresholds. Thirty-five
+allocations do not mean thirty-five terminal vectors: flat HP ranges alone contain
+hundreds of values per roll. Avoid an unbounded Cartesian loop for every reading.
+
+Prototype in a cancellable CPU worker. Keep the common acceleration door and
+report which engine answered. A sampling shader is not an exact backend. Any
+future card implementation must prove kernel/bound agreement on the user's card.
+Measure worst cases before replacing the current engine.
+
+## 11. Statistics and the investment funnel
+
+Top 5% describes an individual terminal reading requirement, not 5% globally,
+of the current box, or surviving the investment policy. For terminal union `E`
+and chance gates `B_l` at the decision points:
 
 ```text
-P(T in region) = sum_main p(main)
-                * sum_rarity p(rarity | slot)
-                * sum_innate p(innate type and value or absence)
-                * sum_born_types p(legal born subset)
-                * sum_born_values p(values)
-                * P(T(final body) in region | born body)
+P(qualifying funnel survivors) = P(E AND every B_l) <= P(E)
 ```
 
-The last term is the same future solver. Sets need no frequency assumption because
-the ruler is set-neutral. Read mixture parameters from the canonical distribution
-description shared with the generator, not a copied table. For lower stars keep
-their own tables; for Ancient candidates keep the ordinary six-star reference.
+Example: 10% of births are promising with 50% terminal success each; all others
+have none. Terminal success is 5%. Beta 20% invests and can realize 5%; beta 80%
+sells all at the start. Neither changes the quality ruler. Do not refit ranks to
+compensate for early sales. Economic mana/opportunity costs remain unmodelled.
 
-Compute the joint body once and price every compatible reading against it. Store
-sorted score atoms with masses and suffix sums for `A(t)`, or retain certified
-intervals while resolving queries. Never multiply independently computed role
-CDFs: their scores share the same line types and rolls.
+Define the proposed full funnel at +0/+3/+6/+9/+12, checking policy after every
+new sub-property event. +15 adds deterministic main progress only. Existing
++0/+9/+12 summaries can remain summaries, but cannot be called an every-decision
+funnel while skipping +3/+6 sales. Condition off-checkpoint candidates on their
+actual observed states.
 
-Even after count-vector compression, a naive joint product can be large. For an
-illustrative four-line Legend with two value choices per initial roll and each
-upgrade, there are `2^8 * 4^4 = 65,536` ordered value/target histories before
-innates and type choices. Real flat-stat intervals can contain hundreds of values.
-The number 35 counts allocation vectors, not all terminal states. Replacing the
-current sampler with an unbounded Cartesian loop would ignore the reason it was
-introduced.
-
-The production algorithm should therefore combine:
-
-1. Cached convolution tables, legal line-up structure and shared candidate futures.
-2. Early acceptance/rejection when sound score envelopes prove all or none of a
-   branch passes. Use the shared craft rules and existing exact bounds.
-3. Aggregation of terminal states only under a proved equivalence relation.
-4. Adaptive splitting of integer-value ranges with retained probability mass.
-   Envelopes over all readings bound the maximum and each craft choice. A Gem's
-   same-stat eligibility boundary must be included in the bounds or split at.
-5. Query-driven refinement near the active quantiles, rather than resolving a
-   full high-resolution CDF that no displayed requirement uses.
-
-For a probability query, sum proved passing mass into `L` and unresolved mass
-into `U-L`; then `P` is in `[L,U]`. Tighten reference-tail and candidate-outcome
-bounds together. Pass only when the lower chance bound reaches `beta`; sell only
-when the upper bound is below it. For equality that remains ambiguous, enumerate
-the residual state space or use exact arithmetic; a work/time limit must expose
-"Calculation incomplete" and must never silently produce Sell.
-
-Likewise, a tail in `[a_low,a_high]` yields a percentile interval
-`[100*(1-a_high), 100*(1-a_low)]`. State a required display precision and refine
-until it is met, without using rounding to decide the verdict. An approximation
-that cannot certify its threshold comparison is not an exact analytical answer.
-
-Recommend a CPU worker first. Analytical branching and maps are not automatically
-good GPU work. Keep the common acceleration door; if a card backend is later
-justified by measurements, it must prove agreement on the user's card. Do not
-reuse a sampling shader and label its answer exact.
-
-## 11. Precision and sample-size comparisons
-
-The following are binomial illustrations under independent sampling, not measured
-errors of this checkout's deterministic stratified calibration:
-
-| Samples | True share | Expected hits | Approximate 95% half-width, percentage points |
-| ---: | ---: | ---: | ---: |
-| 600 | 5% | 30 | 1.744 |
-| 4,096 | 5% | 204.8 | 0.667 |
-| 1,000,000 | 5% | 50,000 | 0.0427 |
-
-Formula: `1.96*sqrt(p*(1-p)/N)*100`. Even a million samples has a finite tail
-resolution and sampling error. Analytical integration removes that sampling
-error, but cannot remove error in the assumed drop model or chosen utility.
-For a 5% probability and a desired 95% half-width of 0.1 percentage points,
-the same normal approximation requires `ceil(1.96^2*0.05*0.95/0.001^2)` =
-182,476 samples. This is why simply increasing the sample size is not the preferred
-long-term answer to the request.
-
-Do not use a Gaussian tail approximation to obtain rare percentiles; smoothness
-is not evidence of accuracy. Monte Carlo remains valuable as an independent
-validation oracle with stated uncertainty, not the definition of quality.
-
-## 12. Concrete implementation plan
-
-### Step 1: specify and expose the shared distribution
-
-Introduce a pure `rune-drop-distribution.ts` describing canonical finite choices
-and their probabilities. The generator samples it; the analytical solver sums it.
-Keep intervals and schedule in `rune-properties.ts`, and craft tables behind
-`rune-craft-end-state.ts`. No reader, import eligibility or placement rule changes
-are required for the mathematical prototype.
-
-### Step 2: implement the conditional analytical future
-
-Extend or replace the calculation inside `rune-power-up-outcomes.ts` behind one
-shared future contract. Provide terminal traversal, probability bounds, mean
-utility and attainable bounds. Prototype on fully known +12 bodies, then +9
-Hero/Rare reveals, then Legend and all earlier levels. Tests must compare against
-independently enumerated small event trees, not merely another caller of the DP.
-
-### Step 3: implement the joint slot distribution
-
-Add `rune-quality-distribution.ts` owning `T`, inclusive survival queries and
-quantile boundaries. Use one distribution per slot and reference star class.
-Cache by mathematical content: model parameters, roles' valuation/build content,
-reference averages, ceilings and fixed comparison credit. Exclude imported rune
-inventory, filters, placement, chance policy, tail multipliers, safeguards and
-hardware preference. Those do not change the neutral ruler. Deduplicate identical valuations/builds before computation.
-
-### Step 4: replace gate semantics in one place
-
-Change `rune-cleanup-advice.ts` to derive each `alpha_i`, ask the shared terminal
-union event, compare Chance to `beta`, and apply existing safeguards afterwards.
-Remove the 625-cell fitted slot-floor grid and retire `ordinaryBox` wherever it
-purports to provide the new percentile. Keep perfect-rune efficiency only as an
-optional diagnostic with its own name. Use identical results in table, overlay,
-Simulator and Statistics. A view never reconstructs its own percentile or gate.
-
-Keep the saved pre-grind SPD safeguard in its existing SPD units. Preserve the
-saved potential-value safeguard as an explicitly named **Potential efficiency**
-safeguard against the perfect-rune ratio, including its existing 1% Chance
-condition, evaluated for an individual reading under the new quality requirement.
-Do not silently turn its saved 90% efficiency threshold into the 90th percentile.
-It remains a separately explained safety override; a future rank safeguard would
-be a new independently saved choice. Preset, lock and re-app/refine protections
-keep their own meanings and precedence.
-
-### Step 5: make the interface explain the actual rule
-
-Recommended wording:
+Propagate **one latent body path**, selling branches when conditional union fails.
+Never multiply marginal checkpoint survival rates. Reusing a seed is insufficient
+if independent generation calls consume draws differently or omit state updates:
+each checkpoint must be a prefix of the same birth and roll history. For a fixed
+terminal event test the tower identity:
 
 ```text
-Quality requirement: Top 5%
+C(X_l) = sum_next P(next | X_l) * C(next)
+```
+
+Observed rolls can raise or lower Chance; the identity concerns its conditional
+expectation. Individual Chance is not monotone with power-up level.
+
+Report per-reading supply, role/build coverage, terminal union, investment per
+checkpoint, qualifying funnel survivors and extra protected survivors. Count
+bodies once. Apply synthetic protections only where their inputs exist. Actual
+locks, holds and Scenario/preset placements belong to current-account counts,
+not invented synthetic frequencies. Protection-reason counts are not additive.
+
+Terminal and conditional answers may be analytical while a costly funnel remains
+an explicitly labelled estimate. Sampling error, certified numerical bounds and
+uncertainty in game assumptions are distinct; identify each. Monte Carlo remains
+an independent validation tool, not the definition of quality.
+
+## 12. Presentation, state and caches
+
+Recommended wording, with reading details in the explanation:
+
+```text
+Quality requirement: Top 5% for a role/build
 Chance required: 20%
-Potential rank: 98.4
-Chance for any role: 37%
+Potential rank: 98.4 for Fast DD, ATK % / CRI Dmg / ATK %
+Chance for any role/build: 37%
 
-Explanation:
-Compared with modelled ordinary 6-star runes in slot 4.
-This Intangible rune may qualify within the top 10%.
-Its chance of reaching that requirement for at least one role is 37%.
+Compared with modelled ordinary 6-star births in slot 4.
+Each reading retains all legal mains in its reference denominator.
+This Intangible reading has a top-10% allowance.
+Chance covers power-up rolls with assumed Legend craft credit.
+It excludes the chance of obtaining or rolling those craft items.
 ```
 
-For finished runes use **Quality rank**. If unfinished runes need a present-day
-rank, it must be a separately defined diagnostic, not a re-labelled best case.
-Reserve fixed column widths and explanatory space; selection changes no layout.
-Keep actual selected filter controls unchanged when an empty group means all.
+Finished bodies say Quality rank. Potential rank is best reachable quality, not
+present strength, expected rank or probability. Expected rank and rank of expected
+utility are different diagnostics; do not substitute either silently.
 
-Avoid recreating the original confusion through rounding: a rank of 94.96 must
-not print 95.0 beside Sell at a 95 requirement. Round displayed ranks and Chance
-down at the displayed precision, compare unrounded quantities, and show enough
-precision in the explanation to distinguish a boundary case. Multiplied tail
-requirements can need extra decimal places too; reserve space for them and show
-the actual applicable cutoff. A certified interval spanning that cutoff remains
-unresolved, regardless of how its midpoint would print.
+Show each reading's own cutoff and Chance beside its quality. A high rank for a
+forbidden or stricter reading does not justify a verdict for another. Explain
+policy restrictions and unions instead of displaying apparently contradictory
+numbers. Several readings may jointly justify Power up without any one meeting beta.
 
-### Step 6: quantify the complete funnel separately
+Round displayed rank/Chance down at displayed precision; use unrounded certified
+comparisons and expose extra digits/intervals near boundaries. Rank 94.96 must
+not print 95.0 beside Sell at requirement 95. A tiny positive Chance is not an
+exact zero. Reserve space for precision, long names, missing states and explanations;
+selection never resizes/reflows neighbours. Inclusive filters keep actual selected
+controls and use the shared empty/whole-group interpretation.
 
-Statistics must show the original-drop denominator, terminal quality eligibility,
-probability of investment at each actual checkpoint, full-funnel survivors, and
-additional protected survivors. Terminal percentile and candidate Chance can be
-analytical even while a costly full-funnel statistic is still explicitly an
-estimate. Do not present an estimated Statistics percentage as exact.
+Cache each reading's distribution by slot/class, actual main compatibility,
+complete weights/reference bases, canonical scoring/placement contract and model
+parameters. Other roles, permission ranks, alpha/beta, filters, placements,
+protections and hardware preference do not move that reading's ruler. An import
+can change roster averages and invalidate affected readings even though rune
+inventory is excluded from the reference key.
 
-For an exact funnel, propagate mass forward over observed checkpoint states and
-discard a branch whenever its conditional union Chance fails. Continue the same
-body to the next checkpoint. Sum terminal qualifying survivors once and apply
-protections under their actual checkpoint rules. Do not multiply marginal
-checkpoint survival percentages; they are correlated.
+Cache futures by the relevant full body, including lineage, original rarity,
+level, main, innate, base values, conversion and observed grinds, not id alone.
+Permission/policy edits can reuse futures but recompute events. Retain role
+identities/tie order outside deduplicated numerical work. Never mix bodies,
+policies or reference inputs from separate requests.
 
-### Step 7: benchmark before replacing the current engine
+## 13. Implementation and acceptance evidence
 
-Measure cold/warm reference queries and candidate throughput on this machine for
-the shipped roles, one-stat roles, duplicate roles, broad multi-main roles, the
-canonical craft credit and none, all supported stars, ordinary/Ancient and all observed levels.
-Record state counts, unresolved mass, runtime, cancellation delay and memory.
-Use the real account locally when available, but never transmit it. Do not claim
-an implementation is optimal from state-count compression alone.
+1. Expose a shared finite distribution for generator/solver; retain existing
+   interval, schedule and craft-table owners. Prototype without import changes.
+2. Specify canonical kernel equality and sound bounds; reproduce ordinary/Ancient
+   craft cases before adding marginal tails.
+3. Implement reading tails and small candidate futures. Expand from finished
+   bodies/one event to all stars, levels and rarities, with independent ordered
+   trees as an oracle rather than another caller of the DP.
+4. Add common-body union and safeguards through one advice API. Retire fitted
+   floors and Gaussian percentile claims deliberately. Table, overlay, Simulator,
+   Statistics and craft consumers must agree on the shared question.
+5. Add Statistics and presentation/state contracts, preserve individual choices,
+   and update every label reference together.
+6. Benchmark and inspect changed-sale categories locally before replacement.
 
-Acceptance target proposed for evaluation: warm conditional judgments for 3,000
-runes within two seconds and cold selected reference queries within five seconds,
-with prompt cancellation. These are desired budgets, not measurements. If they
-are missed, optimize state sharing and certified range aggregation; ship the
-analytical model only when its correctness and user-visible latency are adequate.
-Do not silently substitute uncertified sampling to meet the budget.
-
-## 13. Verification required before implementation is accepted
+Proposed evaluation budgets: 3,000 warm judgments in two seconds, selected cold
+reference queries in five seconds, cancellation reported within 100 ms of the
+request on the benchmark machine, and a measured stated peak-memory budget.
+Cancellation checks/yields must also occur during cold reference work and inner
+loops; measuring only time after the next check would conceal blocking. These
+are targets, not results.
+Include flat-stat intervals, nearly identical readings, broad main choices, large
+atoms, all stars, Normal/Magic +0 and repeated edits during cold queries. Frequent
+incomplete results make the feature unready; do not substitute sampling silently.
 
 | Property | Required evidence |
 | --- | --- |
-| Probability conservation | Each transition and terminal mixture sums to one within a justified numerical bound |
-| Exact small cases | Independent ordered enumeration agrees with grouped DP, including the `5/20,736` tail |
-| Terminal determinism | Every +12/+15 candidate has Chance 0 or 1; +13/+14 adds no randomness |
-| Correlated roles | Identical, overlapping and disjoint successful events produce the correct union |
-| Duplicate roles | No change to ruler, Chance or verdict |
-| Main denominator | Unwanted mains retain their original mass; no useful reading remains explicitly unusable |
-| Ties | Equal terminal scores receive equal ranks and advice, irrespective of id or input order |
-| Monotonic controls | Lower allowed tail or higher chance requirement never admits a previously rejected rune |
-| Craft credit | More generous credit cannot lower eligibility or Chance under the fixed ruler |
-| Rank changes | Preferred to accepted changes policy, without refitting the neutral distribution |
-| Ancient/lower stars | Current lineage legality and explicit reference-class interpretation hold |
-| Reference calibration | Neutral terminal selection obeys `P[selected] <= alpha`, with tie deficits explained |
-| Funnel | Separate analytical examples verify early sales, shared bodies and safeguard counts |
-| Empty/full inputs | No import, no roles, blank/zero targets, all mains, many roles and long labels |
-| Preference survival | Unrelated saved settings, roles and presets survive independently |
-| Engine/view agreement | Worker, table, overlay, Simulator and Statistics ask the same mathematical contract |
-| Interval honesty | Unresolved comparisons remain incomplete; no approximate zero becomes impossibility |
+| Probability conservation | Birth/transition/terminal mass sums to one within certified bounds |
+| Small exact cases | Independent ordered trees agree, including `5/20,736`, no upgrades and multiple additions |
+| Reading calibration | Selected mass <= each reading allowance; global union reported separately |
+| Specialist preservation | Adding an unchanged use cannot revoke an existing event or reduce union Chance |
+| Breadth/deduplication | Identical events deduplicate; distinct builds expose combined coverage without a global count promise |
+| Correlation | Identical, overlapping and disjoint events; alternative Gem placements do not duplicate mass |
+| Main denominator | All mains retain mass; wildcard expansion preserves unstated-main weight semantics |
+| Usefulness | Zero-benefit, illegal scale and missing reference are distinct; rare mains cannot make zero benefit useful |
+| Terminal determinism | Valid +12–+15 Chance is 0/1 under credit, without implying deterministic real crafting |
+| Ties/bounds | Canonical ordering, close scores, atom boundaries, alpha/beta equality, usefulness boundary and sound pruning |
+| Policy monotonicity | Tighter allowances/higher beta never admit a previously failed unprotected rune under fixed inputs |
+| Rank changes | Preferred/accepted edits change policy, not an unchanged reading's ruler |
+| Craft agreement | Corrected shared policy versus exhaustive legal bodies, lineage, converted line, strict same-stat improvement and retained/lost grinds |
+| Body improvement | Increased base under fixed constraints never lowers utility/rank, or Chance with the same future kernel; Ancient 26.7→26.6 regression must pass after the shared-policy correction |
+| Ancient/lower stars | Born/future intervals, item lineage, class labels and above-reference rank 100 |
+| Rerolls | Early preservation versus +12 usage, no projected-Gem mutation, Refine/Re-app legality and precedence |
+| Protections | Same-reading efficiency/1% rule, observed sub SPD only, every placement and unique override counts |
+| Funnel | One path, all stated checkpoints, off-checkpoint states, tower identity and early sales |
+| Invalid/unavailable | Missing interval, insufficient pool, illegal types/counts/markers, failure and cancellation never fabricate Sell |
+| Cache agreement | Cached/uncached equality; changed body/base/policy cannot accept stale work |
+| Empty/full input | No import/roles, met targets, blank/zero fields, all mains, many readings, long names and large values |
+| Sensitivity | Declared alternative models expose verdict dependence on unsupported assumptions |
+| Preference survival | Unrelated saved choices survive; efficiency is never reinterpreted as percentile |
 
-The present slot-neutrality and calibration checks encode the current anchor/
-funnel contract. Replace their assertions deliberately alongside the contract;
-do not weaken them until a new invariant is proved. Also run the repository's
-required cleanup, probability, preference-monotonicity, craft-monotonicity and
-chance-stability checks, and capture the fresh equivalence baseline before the
-engine change. A changed result is expected, but every changed category needs an
-explanation. Run import parity if reader/vocabulary/eligibility changes enter the
-implementation; a missing capture remains a skip. Visual verification uses the
-local server and project Playwright, including empty and populated flows.
+Capture a fresh cleanup equivalence baseline before engine changes and explain
+each changed category. Run required weight, neutrality, craft, probability,
+monotonicity and chance-stability checks. Replace calibration assertions with
+proved reading-local/joint-event invariants; never weaken checks just to accept
+output. Existing craft-monotonicity obligations retain their own fixed-reference
+question; there is no new configurable Clean-up craft credit.
 
-## 14. Alternatives and the final design decision
+Use actual local runes for validation if available, especially newly sold SPD
+specialists, Ancient, converted/ground, low-star and reroll-target runes. Inventory
+is evidence, not the ruler. Record missing account evidence if none is available.
+No personal data is transmitted. Run import parity after reader/vocabulary/
+eligibility changes; absent capture is a skip. Implementation's visual checks use
+project Playwright at localhost:3000, empty/full flows and before/after layout checks.
+No game request, retry, changed response or automated game input is allowed.
 
-| Alternative | Assessment for this goal |
+## 14. Additional game-mechanic limits
+
+| Risk | Required boundary |
 | --- | --- |
-| Rename current Max value as a percentile | Incorrect: its denominator is a perfect rune, not a population |
-| Rank imported inventory | Unstable after import/sale and biased by previous retention |
-| One million synthetic runes | Straightforward reference experiment; expensive and still noisy in rare tails |
-| Gaussian mixture percentile | Fast, but unsupported rare-tail values and possible false zeroes |
-| Separate role percentiles followed by maximum | Inflates union retention and ignores correlation unless jointly recalibrated |
-| Calibrate the full funnel to an exact retained count | Couples quality to risk policy and can have no feasible solution |
-| Optimize expected complete-build improvement | Potentially better for a different account-allocation objective; needs costs and demand |
-| Joint discrete slot percentile plus conditional union Chance | Recommended: coherent quality meaning, explicit policy and analytical probabilities |
+| Intangible treated as universally usable | Preferred set rank is retention policy. A real build allows at most one; it supplies one missing piece, and several sets each one short can leave it completing none. Percentile does not certify build legality. |
+| Set size/battle effects become hidden bonuses | No invented universal utility for four-piece scarcity or Violent/Will/Despair effects. Actual completed sets remain build questions. |
+| Main projection becomes randomness | Main +15 is deterministic; present stats, finished-build valuation and action level remain distinct. |
+| Grinds counted twice or erased | Keep base and grind separate, preserve existing floors on same-stat Gems, lose them on changed type, then apply shared credited floor only. |
+| Gem goes on any weak line | An observed conversion locks reconversion to that line. Same-stat Gem strictly raises base; main/innate/other-line exclusions still hold. |
+| Retention score implies combat improvement | CRI Rate/RES/ACC caps, area ACC, actual bases, leader/team effects and exact speed thresholds belong to shared combat/build models. Linear retention surplus is no combat forecast. |
+| Family average guarantees every monster | Flat/percent value and needs depend on actual bases. Roster changes can legitimately change ranks; averages are declared surrogates. |
+| Reroll odds are assumed known | Use preservation rules only; do not invent outcome distributions, refusal behaviour or birth-history reconstruction of rerolled bodies. |
+| Candidates outside synthetic birth support disappear | Normal/Magic, odd Rare, Ancient and valid modified candidates remain reachable. Zero reference birth mass is not illegal ownership. |
+| Comparison craft becomes a spending instruction | Credited craft can be unavailable, costly or destructive of reroll options. Actual actions use shared craft/reroll legality and the observed body. |
 
-The user's intuition is the correct organizing idea. Its strongest implementation
-is a probability-weighted reference population, a joint rank across useful roles,
-tail-share retention controls, and an analytical conditional future. The important
-product commitment is precise: **Top 5% states a finished-quality requirement;
-Chance states the risk of reaching it.** Equal inventory counts and optimal mana
-spending are separate objectives and should not be smuggled into either number.
+No checklist proves every future mechanic covered. Unknown legal ids/ranges/states
+must surface and block a Sell calculation for the rune until passive evidence
+establishes the rule. Never manufacture requests, read game-process memory,
+negotiate keys or automate play to obtain it.
 
-## 15. Evidence, limits and reproducibility
+## 15. Evidence and reproducibility
 
-Game intervals, schedule and craft legality above are taken from the repository's
-[RUNE-CANONICAL.md](RUNE-CANONICAL.md), [RUNE-CRAFT-ITEMS.md](RUNE-CRAFT-ITEMS.md)
-and the shared modules inspected on the date above. The local working tree already
-contained changes, including craft modules; this proposal reads their current
-contract and does not modify them. Any later implementation must check the then
-current contract rather than freeze their internal APIs from this proposal.
+This revision follows [RUNE-CANONICAL.md](RUNE-CANONICAL.md),
+[RUNE-CRAFT-ITEMS.md](RUNE-CRAFT-ITEMS.md), the cleanup contracts and shared modules
+inspected November 16, 2026. It establishes no new game rule or drop rate; the
+canonical documents retain their evidence and unresolved details.
 
-[SWCalc's mechanics reference](https://swcalc.cz/game-mechanics), checked October
-29, 2026, covers damage and speed mechanics. It supplies no rune-drop percentile
-distribution for this proposal. No new game probability is inferred from it.
-Uniform choices and rarity/innate mixes retain the explicit modelled standing
-recorded in the local canonical and cleanup documents.
+[SWCalc's mechanics reference](https://swcalc.cz/game-mechanics) and
+[SW Exporter's mappings](https://github.com/Xzandro/sw-exporter/blob/master/app/mapping.js)
+were rechecked November 16, 2026. SWCalc supplies combat formulas and SWEX encoded
+vocabulary/tables; neither establishes the full joint birth distribution or
+validates this synthetic odd/even rarity mixture.
 
-The numerical results in §§4–11 are analytical examples, not measurements of a
-new engine or the account. They can be reproduced with this dependency-free
-JavaScript snippet; it enumerates the worked tail independently:
+The Ancient reversals in §4.1 were reproduced against the current module. Separate
+enumeration of legal realized Gem bodies under actual-lineage canonical credit
+confirmed proposed scores 14.7 and 26.7/26.7. This validates the worked examples,
+not the unimplemented general solver or every proposed monotonicity property.
+
+This dependency-free Node fixture checks the specialist example, union, tie
+deficit, main denominator and rare tail. It is not a production solver or benchmark:
 
 ```js
-const p = 5 / 20736;
+import assert from 'node:assert/strict';
+const bodies = [
+  { mass: 90, a: 0.1, b: 0.1 },
+  { mass: 4, a: 0.9, b: 0.1 },
+  { mass: 4, a: 0.1, b: 0.9 },
+  { mass: 1, a: 1.0, b: 0.1 },
+  { mass: 1, a: 0.1, b: 1.0 },
+];
+const mass = predicate => bodies.reduce((n, x) => n + (predicate(x) ? x.mass : 0), 0);
+const tail = (key, score) => mass(x => x[key] >= score);
+assert.equal(mass(() => true), 100);
+assert.equal(tail('a', 0.9), 5);
+assert.equal(mass(x => Math.max(x.a, x.b) >= 0.9), 10);
+const event = (key, x) => tail(key, x[key]) <= 5;
+assert.equal(mass(x => event('a', x)), 5);
+assert.equal(mass(x => event('a', x) || event('b', x)), 10);
+assert.equal(mass(x => event('a', x) || event('a', x)), 5);
+for (const allowance of [1, 2, 5, 10, 20, 100]) {
+  assert.ok(mass(x => tail('a', x.a) <= allowance) <= allowance);
+}
+const atoms = [{ score: 0, mass: 70 }, { score: 1, mass: 20 },
+  { score: 2, mass: 7 }, { score: 3, mass: 3 }];
+const atomTail = score => atoms.reduce((n, x) => n + (x.score >= score ? x.mass : 0), 0);
+assert.equal(atoms.reduce((n, x) => n + (atomTail(x.score) <= 5 ? x.mass : 0), 0), 3);
+assert.equal((1 / 8) * 0.4, 0.05);
 let successes = 0;
 for (let a = 4; a <= 6; a++)
   for (let b = 4; b <= 6; b++)
     for (let c = 4; c <= 6; c++)
       for (let d = 4; d <= 6; d++)
         if (a + b + c + d >= 23) successes++;
-console.assert(successes === 5);
-console.assert(successes / (3 ** 4 * 4 ** 4) === p);
-console.log({
-  rareTailPercent: 100 * p,
-  noHitAt4096: (1 - p) ** 4096,
-  unionTwo: 1 - 0.95 ** 2,
-  unionEight: 1 - 0.95 ** 8,
-  millionCountSD: Math.sqrt(1e6 * 0.05 * 0.95),
-  requiredSamples: Math.ceil(1.96 ** 2 * 0.05 * 0.95 / 0.001 ** 2),
-});
-for (const n of [600, 4096, 1000000]) {
-  console.log(n, 1.96 * Math.sqrt(0.05 * 0.95 / n) * 100);
-}
+assert.equal(successes, 5);
+assert.equal(successes / (3 ** 4 * 4 ** 4), 5 / 20736);
+console.log('Passed reading, union, tie, denominator and rare-tail fixtures.');
 ```
 
-No production solver, performance benchmark, real-account percentile distribution
-or new UI is implemented by this documentation change. Those are explicit
-implementation tasks, rather than fabricated evidence for the recommendation.
+For scale, independent sampling at true share 5% has approximate 95% half-width
+`1.96*sqrt(0.05*0.95/N)`: 1.744 percentage points at N=600, 0.667 at N=4,096,
+0.0427 at N=1,000,000. These are illustrations, not measured errors for current
+deterministic stratified calibration. Analytical integration removes sampling
+error, not uncertainty in the game model or utility.
 
-## 16. Critical review before implementation
+## 16. Review resolution and remaining gates
 
-**Reviewed:** November 16, 2026. This section records findings against the proposal,
-the current canonical documents and the current source. It changes no application
-behaviour and does not claim that the proposed engine has been tested.
-
-### 16.1 Assessment and scope of confidence
-
-The inclusive survival function, probability-weighted mixtures, conditional
-future and correlated union are mathematically appropriate for a narrowly defined
-goal: select unusually good finished bodies under a stated utility and reference
-population, then control investment risk separately. The worked `5/20,736` tail,
-multinomial allocation and unordered new-line subset probabilities are correct
-under the documented uniform, independent draw assumptions. Keeping full line
-vectors until crafting and refusing unresolved Sell decisions are sound choices.
-
-That does **not** establish the best possible model for avoiding regrettable sales.
-An exact percentile can rank the wrong utility with perfect numerical accuracy.
-The proposal already acknowledges build optimization and economic costs, but its
-claim to be the best fit is too strong without deciding whether scarce specialist
-runes or a fixed total retained share takes priority. These goals can conflict.
-The following blockers are requirements to settle before implementation, rather
-than reasons to abandon analytical conditional probabilities.
-
-### 16.2 Blocker: a global maximum can sacrifice specialists
-
-The normalized perfect-rune ratios in §4 are not role-specific rarity measures.
-Two roles may have quite different attainable distributions even after dividing
-by their ceilings. Taking their maximum gives an advantage to whichever utility
-has more mass near its ceiling; it does not give equal opportunity to every role.
-
-An exact toy counterexample uses two readings of the same reference bodies:
-
-| Body group | Mass | Reading A | Reading B |
-| --- | ---: | ---: | ---: |
-| Ordinary | 90% | 0.1 | 0.1 |
-| A specialists | 4% | 0.9 | 0.1 |
-| B specialists | 5% | 0.1 | 1.0 |
-| Exceptional for both | 1% | 1.0 | 1.0 |
-
-With only A, its specialists have `A(0.9)=0.05`, rank 95, and pass top 5%.
-After adding B, the same bodies have `A(0.9)=0.10`, rank 90, and fail. Their
-usefulness for A, stats, policy and crafting have not changed. This is a valid
-consequence of the proposed formula, not a numerical bug. Duplicating a role is
-harmless, but adding a different role is not monotone. In an extreme case one
-reading's maximum score lies below the global cutoff: **no rune can qualify for
-that reading**, even when it is the best possible specimen for that purpose.
-
-The problem also applies to a reference reading that the candidate's actual set
-can never use under the selected policy. It still raises the neutral bar. Keeping
-set ranks outside the ruler is deliberate, but the resulting lost specialist
-coverage must be accepted explicitly, rather than described only as correlation
-correction. A user who adds a role normally expects to find additional uses.
-
-**Required decision:** choose and document one of these objectives:
-
-- A global rarity budget, accepting that adding a role can sell an unchanged
-  specialist and that some roles may receive no qualifying supply.
-- Retain a rune that is exceptional for any permitted role, using per-reading
-  tails and their conditional union. Total retention then grows with the number
-  of distinct uses and is not bounded by the base tail share.
-- A role-coverage policy with explicit allocations or protections. Calibrating
-  the joint maximum of per-reading ranks can reduce unequal score-scale effects,
-  but still requires a tradeoff between coverage and a fixed global budget.
-
-For preventing regrettable sales, favour the second objective unless a fixed
-global share is the actual requirement. Do not silently substitute it: it changes
-the meaning of top 5% in §§4–5. First compare the alternatives on speed-only,
-balanced damage, tank and Accuracy roles, including a role with only one wanted
-stat. Report per-role attainable rank and qualifying supply, not just total Keep.
-Neither role count nor imported inventory size should become an unstated demand
-weight. Percentiles alone cannot tell whether the account needs one or twenty
-runes for a role, or whether a weaker complement completes an otherwise unusable
-set; preserve explicit safeguards for those separate concerns.
-
-### 16.3 Blocker: define crafting as a valuation, not an actual success probability
-
-In the current shared module, `canonicalCraftCredit` substitutes deterministic
-average Legend values. It does not integrate over the random result of spending
-one Gem or Grindstone. Thus a finished +12 rune can correctly have Chance 1 under
-the model even though a real craft roll can miss the quality requirement. The
-identity `P(score at average craft >= t) = P(actual crafted score >= t)` is false.
-Likewise, maximizing a score at average craft is not the expectation of the best
-score under random crafts. The current `craftRollValue()` rounds each midpoint
-to an integer: an ordinary Legend SPD Grindstone credits 5 from its 4–5 range,
-not the arithmetic expectation 4.5. Call this the canonical rounded-midpoint
-credit, not an exact expected craft result. Actual item availability, repeated
-attempts and their costs are absent.
-
-Keep the fixed credit, as the binding craft contract requires, but define Chance
-as **power-up success under credited average crafting** everywhere it appears.
-Explain that +12 determinism concerns remaining power-up randomness, not a
-guaranteed crafting result. A future actual-crafting probability would require a
-separate stochastic model, item budget and stopping policy. The union over roles
-also means a suitable role and its craft may be chosen after rolls are seen; it
-does not promise one Gem placement that simultaneously serves every role.
-
-There is a second, concrete mismatch with §4's phrase "best legal crafted score":
-`craftedScore()` chooses the Gem placement on the **ordinary** canonical reference
-plan (`choicePlan()`), then values that placement using the candidate's plan.
-For Ancient items, different stat intervals can make this differ from choosing
-the highest-value placement at Ancient credit. `craftedScoreCeiling()` optimizes
-at the actual plan, but is explicitly a bound, not the score a view may print.
-Using that bound as terminal utility would silently change the model.
-
-This mismatch is reproducible through the current shared module. Take a slot-5
-Ancient finished body with unconverted CRI Rate, CRI Dmg, Resistance and Accuracy
-lines each at 6, no innate or grinds, and only raw-point prices `SPD=1`, `ATK %=0.7`.
-Ordinary canonical credit prices a new SPD line at 14 and ATK % at 13.3, so the
-reference policy selects SPD. Ancient credit still values SPD at 14 but ATK % at
-14.7. `craftedScore()` returns 14; `craftedScoreCeiling()` returns 14.7. These are
-toy valuation units, not a measured account rank. The discrepancy was executed
-against the current module during this review.
-
-**Required correction:** define `v_i` by the shared placement policy, or change
-that policy deliberately in its owning contract and all consumers first. Do not
-promise an unconstrained best craft while calling a fixed-placement valuation.
-Require an Ancient case where ordinary-reference and Ancient-optimal placements
-differ, plus same-stat Gems below/equal/above the existing base, an already
-converted line, a kept same-stat grind and a lost different-stat grind.
-The terms "active credit" and configurable craft benchmarks in §§4, 7 and 12
-must not introduce a new Clean-up setting; noncanonical credit belongs to clearly
-separate diagnostics or the workspaces that already ask that question.
-
-### 16.4 Blocker: precision of the model is not evidence for the drop model
-
-The proposed odd/even rarity mix is a synthetic product distribution. It excludes
-Normal and Magic births and gives Rare zero mass in odd slots. That can be a
-legitimate ruler, but "ordinary, unselected rune drop" is insufficiently specific:
-it is not the distribution of every acquisition source or every supported rune.
-Candidates outside that birth mixture remain valid; they must still be judged
-and shown. A uniform main pool also includes unwanted flat mains by design.
-
-Exact integration cannot validate 50% innates, uniform main/type selection,
-uniform targets, independence of rolls or the synthetic rarity mixture. The
-repository marks these assumptions appropriately; presenting several decimal
-places must not imply measured game accuracy. Selection-biased kept inventory
-cannot establish acquisition frequencies. Source-specific distributions may
-change both percentile and verdict without any candidate stat changing.
-
-Before adopting Sell advice, run sensitivity comparisons against plausible
-alternative rarity mixes (including Legend-only acquisition), innate rates and
-main frequencies. These are stress scenarios, not claims about game rates.
-Record rank/verdict changes and identify which conclusions depend strongly on an
-unverified premise. Keep the canonical reference fixed until an explicit decision
-changes it; do not fit it to the user's retained inventory. The UI should identify
-the synthetic mixture and fixed craft assumption in its explanation.
-
-The review rechecked [SWCalc's mechanics reference](https://swcalc.cz/game-mechanics)
-and [SW Exporter's mappings](https://github.com/Xzandro/sw-exporter/blob/master/app/mapping.js).
-The former supplies combat formulas; the latter supplies encoded vocabulary and
-tables. Neither establishes the full joint drop distribution required here.
-This review establishes no new game drop probabilities. Canonical schedule,
-Ancient ranges and Gem/Grindstone restrictions remain the local source of truth;
-unknown future mechanics require evidence from passive sources.
-
-### 16.5 Blocker: score equality needs a numerical contract too
-
-§§9–10 discuss probability error, but not enough about score comparison error.
-Finite line values do not make role weights, reference averages, divisions by
-ceilings or craft-valued scores exact JavaScript numbers. Inclusive tails are
-discontinuous at atoms. An arbitrarily small score error at a large tie can move
-its **entire mass**, even when accumulated probability error is tiny.
-
-Specify one canonical score evaluation and comparison contract shared by
-reference queries, candidate traversal and all pruning. Include operation order,
-stable line ordering and tie representation. If using real-arithmetic intervals,
-overlapping score intervals must remain unresolved until comparison or equality
-is proved. A general epsilon or rounded score bucket is not a proof of equal
-utility and may erase a real difference. Rational comparison where practical, or
-a precisely specified floating-point score definition with sound bounds around
-that computation, are possible implementation choices.
-
-For reference-tail bounds `[a_low,a_high]`, a candidate terminal state is proved
-successful only if `a_high <= alpha_i`, and proved unsuccessful only if
-`a_low > alpha_i`. All other mass remains unresolved when bounding Chance. This
-must include uncertainty in the candidate score itself and in adaptive craft
-selection. Refining only probability sums cannot settle an uncertain score tie.
-Compare independently evaluated equal bodies in permuted line/role orders,
-nearly equal scores, exactly equal tail thresholds and equality at `beta`.
-Do not round or clamp a positive tail to zero through underflow or cancellation;
-query rare tails directly rather than subtracting an almost-one lower CDF.
-
-### 16.6 Additional contracts needed before coding
-
-| Gap | Required behaviour and adversarial check |
+| Finding | Incorporated response |
 | --- | --- |
-| Zero chance requirement | Existing controls use `beta >= 0.01`. Retain that domain or explicitly require attainable success as well as `C_any >= beta`; otherwise `0 >= 0` admits impossible and forbidden runes. Test both endpoints if the API permits them. |
-| Zero tail and rank 100 | A finite ordinary reference cannot admit its own maximum at `alpha=0`, but a stronger Ancient or already-crafted candidate can lie above the entire support and have tail zero. Define whether zero means literal zero reference mass or disable retention. Rank 100 means above reference support, not perfect or optimal. Never turn an unfinished Potential rank of 100 into certainty. |
-| All positive targets already met | The current weight contract deliberately scores named stats alike in this degenerate case. Distinguish it from no positive targets at all; preserve that fallback or explicitly change its owning contract. Test a met target beside blank and explicit-zero targets. |
-| Class-relative quality | A high-ranked low-star rune can be much weaker in absolute stats. Showing the class only in an explanation may be insufficient in a combined sortable table. Label class-relative ranks where users compare them and keep the existing low-star sale policy explicit. |
-| Best role and Potential rank | Selecting by expected utility can choose a role with zero qualifying chance while another reading makes the union pass. Define whether the main rank is that role's potential or the maximum over permitted readings. Explain the qualifying readings and keep each role's values together; never display one reading's score as another's justification. |
-| Potential-efficiency safeguard | Its potential efficiency and 1% Chance condition must refer to the same individual reading. A high potential in A cannot borrow the union Chance contributed only by B. Verify that changing the normal chance policy does not accidentally change the safeguard's own 1% rule. |
-| Deduplication | Identical valuations can share numerical work, but their policy masks can differ by set/main rank. Merge utility computations, not role identity or permission. Test duplicate valuations with one forbidden and one permitted reading, then reverse their order. |
-| Malformed future | A missing interval, too few legal additions, impossible born-line count or multiple converted lines is an explicit invalid calculation/import condition. Do not inherit `emptyInterval` or `Math.min(additions,pool.length)` fallbacks from the current future reader: they fabricate valid-looking probabilities from an invalid rune. Keep the rune visible with a diagnostic. |
-| Checkpoint consistency | Define whether Statistics sells only at +0/+9/+12 or at every actual decision opportunity. Include Magic, Normal and off-checkpoint levels. For a fixed terminal event verify `C(X_l) = sum P(next | X_l) * C(next)`; individual observed rolls may raise or lower Chance. |
-| Reference/candidate consistency | Under identical ordinary unmodified inputs and canonical credit, integrating conditional terminal outcomes over births must reproduce the reference tail. This checks the two solvers' agreement; it does not validate their shared game assumptions. |
-| Unavailable calculation | No valid roles/reference bases, a failed worker, cancellation or unresolved intervals produce an explicit unavailable/incomplete state, not zero Chance, rank zero or Sell. Preserve applicable user protections and keep every imported rune reachable. |
-| Cache freshness | An import can change roster reference averages even when inventory is excluded from the ruler key. Invalidate on every mathematical dependency, including build compatibility and star-specific tables. A worker answer started before an import/role edit must never overwrite the current calculation. |
+| Global maximum sacrifices specialists | Reading tails; monotone addition of uses; global retention guarantee removed (§§1, 5) |
+| Craft policy understates or reverses Ancient value | Required shared lineage-specific canonical placement; 14/14.7 and 26.7→26.6 regressions (§4.1) |
+| Chance implies real craft success | Rounded-midpoint credit distinguished from power-up randomness (§§4.1, 7) |
+| Unsupported probabilities look exact | Synthetic support/assumptions and sensitivity evidence explicit (§3) |
+| Score ties lack a numerical contract | Shared canonical kernel, error bounds and equality checks (§10) |
+| Best role borrows another's figures | Quality witness separated from union Chance; individual figures remain together (§7) |
+| Invalid data becomes Sell or disappears | Structured unavailable states; no silent future repairs (§§8–9) |
+| Safeguards mix units/chances | Existing units, same-reading 1% rule and separate unique override counts (§8) |
+| Further game/flow risks | Wildcard mains, reroll sequencing, every-event funnel, latent paths and caches (§§4, 8, 11–14) |
+| Unsupported current four-piece claim | Corrected baseline; no implicit set-size premium (§§2, 6) |
 
-### 16.7 Feasibility and a concrete acceptance gate
+These choices settle what this revision proposes. They do not prove that all
+blockers have been experimentally resolved. Implementation still requires a
+shared-kernel/bounds prototype, independent exact small-tree agreement, sensitivity
+results, worst-case performance/cancellation evidence and local-account changed-sale
+review where data is available.
 
-Analytical probability remains the recommended target, but §10 is an algorithm
-strategy rather than a demonstrated solution. Query-driven refinement across many
-distinct role/main weight vectors may resolve almost every branch. A time limit
-must leave an honest incomplete answer, and a selling feature that often remains
-incomplete is not yet usable. Measure worst cases as well as shipped-role averages:
-flat HP intervals, many nearly identical roles, narrow thresholds near large atoms,
-Normal +0 additions, all compatible mains and repeated edits during cold queries.
-Set memory and cancellation budgets as well as runtime budgets.
-
-Before approving implementation, require all of the following evidence:
-
-1. An explicit decision on specialist coverage versus a fixed global share, with
-   the §16.2 counterexample and representative role comparisons recorded.
-2. One executable utility specification resolving Gem placement and average-craft
-   semantics, agreed with the shared craft contract before any engine replacement.
-3. Independent small-tree probability checks, score-tie comparisons, the endpoint
-   and invalid-input matrix above, and sensitivity results for model assumptions.
-   Include bodies whose successful readings require different Gem placements;
-   count the body once without requiring both crafts to be made simultaneously.
-4. A bounded-error prototype that answers both the reference query and conditional
-   future, with measured worst-case memory, runtime and unresolved mass. A proof of
-   the 35 allocation vectors is not evidence for end-to-end interactive performance.
-5. An offline comparison on real locally held runes if available, reviewing every
-   newly proposed sale category, particularly specialist SPD, Ancient, already
-   Gem-converted/ground and lower-star runes. Inventory is validation material,
-   not the percentile denominator. If no export is available, record the missing
-   evidence. No automatic sale or game interaction is part of this work.
-
-**Review conclusion:** the probability architecture is credible and improves on
-sampled calibration, but the proposal is not yet a complete or demonstrably best
-retention model. Specialist coverage, crafting semantics, model sensitivity and
-score-boundary correctness are the main risks of confidently misleading advice.
-Settle those before investing in the full analytical reference solver. The rest
-of the original safeguards should remain; this review adds to them.
+Before replacement, update owning cleanup math/interface contracts, score and
+probability APIs, Statistics, safeguards and all consumer/test references together.
+Do not change the game canon to make a product policy look like a game rule.
+This revision changes the proposal only; production code/preferences are unchanged.
+No publication or game interaction is authorized by this document.
