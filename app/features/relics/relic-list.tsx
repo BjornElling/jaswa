@@ -372,22 +372,17 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
                   {relicVerdictLabels[row.advice.verdict]}
                 </span>
               </td>
-              {/* A verdict without its explanation asks the user to take the
-                  page on trust. The reason line is reserved in every row, so a
-                  threshold move that rewrites it moves nothing. Under it, the
-                  median of the landing distribution with the size of its own
-                  tail — a median is a statement about a tail, and the tail is
-                  never exactly a half. Whether that line is there follows the
-                  relic alone, never a control on the page. A Trash relic being
-                  sold keeps the line's box but draws nothing in it: the slider
-                  can move it in and out of the sale, and the row must not
-                  change height when it does. */}
+              {/* Reserve both lines even when the likely end is blank, so a
+                  changed verdict cannot resize the row. Centre the visible
+                  explanation within that space rather than above an empty line. */}
               <td className={relicCell('reason')}
                 title={relicHasLikelyEnd(row.levelState) && !row.advice.selfEvident ? likelyEndDetail(row) : undefined}>
-                <span className="relic-advice-reason">{row.advice.reason}</span>
-                {relicHasLikelyEnd(row.levelState) && <span className="relic-landing">
-                  {row.advice.selfEvident ? null : likelyEndText(row)}
-                </span>}
+                <span className="relic-reason-lines">
+                  <span className="relic-advice-reason">{row.advice.reason}</span>
+                  {relicHasLikelyEnd(row.levelState) && <span className="relic-landing">
+                    {row.advice.selfEvident ? null : likelyEndText(row)}
+                  </span>}
+                </span>
               </td>
             </tr>;
           }) : <tr>

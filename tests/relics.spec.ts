@@ -433,7 +433,7 @@ test('a saved cell is the band the library judges by, and it survives a reload',
   await expect(rowFor(page, 'per 2,500 ATK')).toContainText('Poor');
 });
 
-test('a Trash relic being sold needs no figures, and its row keeps its height', async ({ page }) => {
+test('a Trash relic centres its explanation without moving the table', async ({ page }, testInfo) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   /* The fixture's one Poor pair, a +5 with attempts left, so its likely end
@@ -441,7 +441,20 @@ test('a Trash relic being sold needs no figures, and its row keeps its height', 
   const row = rowFor(page, 'per 2,000 ATK');
   const reason = row.locator('td').last();
   await expect(reason.locator('.relic-landing')).not.toHaveText('');
-  const height = (await row.boundingBox())?.height;
+  const geometry = () => rows(page).evaluateAll((entries) => entries.map((entry) => {
+    const { x, y, width, height } = entry.getBoundingClientRect();
+    return { x, y, width, height };
+  }));
+  const centreOffset = () => reason.evaluate((entry) => {
+    const lines = [...entry.querySelectorAll('.relic-advice-reason, .relic-landing')]
+      .filter((line) => line.textContent?.trim())
+      .map((line) => line.getBoundingClientRect());
+    const box = entry.getBoundingClientRect();
+    return (lines[0].top + lines[lines.length - 1].bottom) / 2 - (box.top + box.bottom) / 2;
+  });
+  const before = await geometry();
+  expect(Math.abs(await centreOffset())).toBeLessThan(1);
+  await page.screenshot({ path: testInfo.outputPath('relic-reason-two-lines.png') });
 
   await openEditor(page);
   await cell(page, 'Sharp Timeless, DEF main: Poor').click();
@@ -451,7 +464,9 @@ test('a Trash relic being sold needs no figures, and its row keeps its height', 
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Sell', 'No further explanation needed.']);
   await expect(reason.locator('.relic-landing')).toHaveText('');
   await expect(reason).not.toHaveAttribute('title');
-  expect((await row.boundingBox())?.height).toBe(height);
+  expect(Math.abs(await centreOffset())).toBeLessThan(1);
+  expect(await geometry()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('relic-reason-one-line.png') });
 });
 
 test('Reset to defaults puts every shipped cell back once saved', async ({ page }) => {

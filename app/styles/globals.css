@@ -1127,6 +1127,15 @@ label[for] {
   white-space: nowrap;
 }
 
+/* The box reserves two lines; only visible text participates in centring. */
+.relic-reason-lines {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 32px;
+}
+.relic-reason-lines .relic-landing:empty { display: none; }
+
 /* What the relic is on the first row, with Family across two tracks, where its
    six chips have room; then the threshold beside the advice it moves, and what
    can still happen to the relic; then where it sits. Every group starting a row

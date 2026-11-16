@@ -495,9 +495,10 @@ them; rule 3 is asked before rule 2, and their conditions are disjoint:
 
 **A Trash relic that sells says nothing more.** Whichever rule sold it, its
 reason reads `No further explanation needed.` and the likely end
-under it stays blank, its line kept so the row does not change height when
-the slider moves the relic in or out of the sale. No chance about a relic headed
-for the shop changes what to do with it. The rules themselves are unchanged:
+stays blank. The Reason cell reserves two lines and vertically centres its
+visible text as one block, so a single explanation sits in the middle and the
+row does not change height when the slider moves the relic in or out of the
+sale. No chance about a relic headed for the shop changes what to do with it. The rules themselves are unchanged:
 under *Naive* a Trash relic passes the gate and is judged like any other.
 
 **Rule 0, the capacity exception.** The duplicate rules rest on one copy
