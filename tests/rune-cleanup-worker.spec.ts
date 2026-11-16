@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -119,7 +119,8 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
   await expect(working).toHaveText(/^Calibrating… \d+ %\nOnly needed once\.$/);
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('progress-calibrating.png') });
-  await expect(progress).toContainText(/Calculating… \d+ %/);
+  // This waits for calibration, whose duration is not the painting contract.
+  await expect(progress).toContainText(/Calculating… \d+ %/, { timeout: 120_000 });
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('progress-running.png') });
   await expect(page.locator('.calculation-status'))

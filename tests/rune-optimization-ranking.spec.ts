@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
 test('saturated Accuracy keeps move ties in the visible table and preserves raw figures', async ({ page }, testInfo) => {

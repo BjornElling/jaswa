@@ -7562,3 +7562,6 @@ th.align-center .rank-heading { justify-content: center; }
 .engraved-place-named { display: flex; min-width: 0; max-width: 100%; }
 .engraved-place-named .engraved-place-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .engraved-place-named .engraved-place-count { flex: none; min-width: 0; }
+
+/* Connection messages change independently of a click; the panel keeps its box. */
+.preference-sharing-status { height: 4lh; overflow: auto; color: var(--text-muted); }

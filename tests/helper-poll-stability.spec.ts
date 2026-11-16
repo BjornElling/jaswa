@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
 const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8'));
@@ -16,7 +16,7 @@ for (const populated of [false, true]) {
     let polls = 0;
     const headers = { 'Access-Control-Allow-Origin': '*' };
     const identity = () => ({ instanceId: 'stable-helper', sessionId, revision });
-    await page.route('http://127.0.0.1:37654/**', async (route) => {
+    await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), async (route) => {
       if (new URL(route.request().url()).pathname === '/health') {
         polls++;
         await route.fulfill({ headers, json: { ...identity(), running: true, version, profileReady: true,
@@ -102,7 +102,7 @@ for (const failure of ['HTTP', 'envelope'] as const) {
     let reads = 0;
     const headers = { 'Access-Control-Allow-Origin': '*' };
     const identity = { instanceId: 'retry-helper', sessionId: 1, revision: 1 };
-    await page.route('http://127.0.0.1:37654/**', async (route) => {
+    await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), async (route) => {
       if (new URL(route.request().url()).pathname === '/health') {
         await route.fulfill({ headers, json: { ...identity, running: true, version, profileReady: true,
           missedChanges: [], lastError: null, restartRequired: false, gameStartedBeforeHelper: false,

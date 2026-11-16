@@ -247,6 +247,34 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
     });
   }
 
+  /* A shared read is a document replacement too: clicks made during its round
+     trip belong afterwards, and paired account writes cannot pass it. */
+  function synchronizePreferences(exchange: (current: Preferences, game: ImportedGame | null) => Promise<{
+    preferences: Preferences; save: () => Promise<void>;
+  } | null>): Promise<void> {
+    const pending = { edits: [] as Array<(current: Preferences) => Preferences> };
+    preferenceLoads.push(pending);
+    return accountWrite(async () => {
+      try {
+        await requireWriter();
+        if (!repository.canSavePreferences()) throw new PreferenceStoreUnreadable();
+        const result = await exchange(state.preferences, state.game);
+        if (!result) return;
+        let notice = roleNotice('writer');
+        try { await result.save(); }
+        catch (error) {
+          if (!(error instanceof PreferenceMirrorUnavailable)) throw error;
+          notice = mirrorWarning;
+        }
+        publishPreferences(result.preferences, notice);
+        coordination.announceCommit();
+      } finally {
+        preferenceLoads.splice(preferenceLoads.indexOf(pending), 1);
+        for (const edit of pending.edits) await queuePreferenceChange(edit);
+      }
+    });
+  }
+
   /**
    * Store an accepted account, then show it. A helper snapshot arriving after the
    * route left direct import is dropped. Under live sync the same account's locks
@@ -467,6 +495,7 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
     restore,
     changePreferences,
     replacePreferences,
+    synchronizePreferences,
     importAccount,
     removeAccount,
     engraveBuild,

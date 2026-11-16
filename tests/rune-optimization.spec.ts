@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from './test-fixtures';
+import type { Locator, Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -324,7 +324,7 @@ test('engraving a build moves its runes into the saved account and survives relo
 
 test('live synchronization explains why engraving is unavailable', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), (route) => route.fulfill({ status: 503, body: '' }));
   await freshWorkspace(page);
   await page.evaluate(() => {
     const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');
@@ -946,7 +946,7 @@ test('Lock and Exclude on a build card bind one rune to this monster, move nothi
 
 test('while JASWA is synchronized with the game, Lock and Exclude still bind the search and move nothing', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
-  await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), (route) => route.fulfill({ status: 503, body: '' }));
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await page.evaluate(() => {

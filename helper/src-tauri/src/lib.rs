@@ -9,6 +9,7 @@ pub mod diagnostics;
 pub mod game_session;
 pub mod incidents;
 pub mod profile;
+pub mod preferences;
 pub mod protocol;
 pub mod service;
 pub mod traffic;

@@ -59,16 +59,21 @@ on disk. It needs `npx wrangler login` once on this machine.
 
 The helper accepts both `http://localhost:3000` and `https://jaswa.net`
 (`helper/src-tauri/src/config.rs`), so a local tab and a published one can both
-read the snapshot at once. Its tray item **Open JASWA** opens the local server
+read the snapshot at once and share personalization through the helper's local
+preference store. Its tray item **Open JASWA** opens the local server
 when one is listening and the published site otherwise, because the local
 server usually runs the newer JASWA.
 
 ## Two workspaces
 
-Browser storage belongs to one origin. Preferences saved at
-`http://localhost:3000` are not visible at `https://jaswa.net`, and the other
-way round (`LOCAL-PERSISTENCE-CONTRACT.md` § Origin). The `.sw` export is how
-preferences move between them.
+Browser storage belongs to one origin. Imported accounts, export-folder
+permissions and session state remain separate at `http://localhost:3000` and
+`https://jaswa.net`. Personalization is shared automatically through the
+running JASWA Helper (`LOCAL-PERSISTENCE-CONTRACT.md` § Origin); `.sw` remains
+the portable backup. Both applications must contain the sharing client, and
+the installed helper must support its preference endpoint. Building a new
+installer does not update an already installed helper, and a local change
+does not update the published site until an explicitly requested push.
 
 ## Cloudflare settings outside the repository
 

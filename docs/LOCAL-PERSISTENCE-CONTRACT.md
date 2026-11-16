@@ -1,13 +1,15 @@
 # Local Persistence Contract
 
 **Status:** Binding product contract
-**Reviewed:** November 14, 2026
+**Reviewed:** November 16, 2026
 
 ## Promise
 
 JASWA keeps committed user data on the same computer and in the same browser
 profile after a reload, a browser restart, or a development-server restart.
-It sends none of that data to a server. Session-scoped interface state is kept
+It sends none of that data to a remote server. JASWA Helper shares committed
+preferences locally between the development and published applications, as
+described under Origin. Session-scoped interface state is kept
 in the current browser tab only and is cleared when that tab closes.
 
 ## Durable data
@@ -15,8 +17,9 @@ in the current browser tab only and is cleared when that tab closes.
 | Record | Holds | Lives in |
 | --- | --- | --- |
 | The imported game | The prepared account collections the counts read (`IMPORT-PARITY-CONTRACT.md` §2), with the facts of its capture (file name, import time, helper session, `coverage` of changes the helper missed). The typed `AccountSnapshot` and the import report are derived from these on every restore and never stored (`readStoredGame`, `app/ingest/game-export.ts`); a stored import that no longer passes the import contract is not shown, and Home says to import again. The local projection under `localChanges` records where each moved rune sat when its preset build was first observed (`firstObservedPlacements`, the build overlay's *Previously*) and which game presets were removed locally; the runes locked to or excluded from monsters since (`runeLocks`, `rune-locks.ts`). Both go with the import, so the next one starts without — except that under *Always synchronized* the locks carry from one revision of the same account to the next | IndexedDB |
-| The preferences | Every saved choice, by section below | IndexedDB, with a `localStorage` mirror |
+| The preferences | Every saved choice, by section below | IndexedDB, with a `localStorage` mirror; shared through the local helper when available |
 | The export folder | The chosen folder handle, where the browser supports it | IndexedDB |
+| The sharing checkpoint | The last local interpretation and raw helper preference document acknowledged together. It distinguishes offline edits from incoming choices and retains fields another build does not understand. It is coordination metadata, never part of a `.sw` file | IndexedDB, committed with the corresponding preferences |
 
 The records live in the local `jaswa-local` IndexedDB database;
 `app/platform/browser-storage.ts` is the only module that opens it. The preferences
@@ -187,16 +190,69 @@ and validates every value read back. Components do not write to
 
 ## Origin
 
-Browser storage is isolated by origin, so there are two workspaces: the
+Browser storage is isolated by origin, so there are two browser workspaces: the
 development one at `http://localhost:3000` (AGENTS.md §1.1) and the published
-one at `https://jaswa.net` (`DEPLOYMENT-TARGET.md`). Neither sees the other's
-preferences. `npm run dev` uses a strict port and fails rather than move.
-`127.0.0.1`, another port, another browser profile, or private browsing is a
-different, empty workspace, as is clearing JASWA's site data. The `.sw` export is the user's portable, offline copy of preferences;
+one at `https://jaswa.net` (`DEPLOYMENT-TARGET.md`). `npm run dev` uses a strict
+port and fails rather than move. Imported accounts, export-folder permissions
+and session state remain private to each browser workspace. Another origin,
+browser profile, private window or cleared site storage starts a new browser
+workspace. The `.sw` export is the user's portable, offline copy of preferences;
 imports remain private to the browser unless the user exports their source
 JSON separately.
 
+### Automatic sharing through JASWA Helper
+
+The application's only preference exchange is with the loopback helper at
+`http://127.0.0.1:37654/preferences`. The helper persists one `preferences.json`
+in `%LOCALAPPDATA%/JASWA Helper`, independently of game capture and across helper
+restarts. No preference request reaches the game or a remote server. Any browser
+profile opening an approved JASWA origin can share this computer's choices.
+
+Open jaswa.net first to seed the helper with its existing personalization. An
+empty helper accepts the first browser's current preferences. A browser with
+unchanged defaults adopts the shared choices automatically; two already
+personalized copies that disagree require a one-time choice in Settings.
+Both copies remain intact until that choice. Settings offers the ordinary
+`.sw` download before the user chooses Use helper copy or Use this copy.
+
+`createPreferenceSharing` (`app/workspace/shared-preferences.ts`) polls every
+two seconds from the origin's writer tab, regardless of the game import route.
+The browser adapter is `app/platform/shared-preferences.ts`. A closed,
+unreachable or outdated helper leaves ordinary browser saves working; Settings
+reports that sharing is unavailable. On reconnection the checkpoint separates
+locally changed choices from shared changes. Independent object fields merge.
+Role, preset and other record lists with unique identifiers merge fields by
+identifier, with order treated as a separate choice. Lists without identifiers
+are indivisible; an edit that cannot preserve an unrecognized raw choice is a
+conflict rather than a guessed match. Conflicting edits to the same choice
+stay visible and require the same explicit choice of copy. Nothing is resolved
+by comparing clocks or by replacing a whole preferences document silently.
+
+The helper's GET returns the raw document and an opaque commit token; PUT
+requires that token and an approved Origin plus JSON content type. A stale
+token receives 409 and causes a reread, never a blind overwrite. A missing or
+unreadable saved helper file does not authorize replacing an acknowledged copy.
+The token identifies a write, not an application or document format. Atomic
+file replacement retains the preceding copy if a write fails.
+
+Incoming preferences use `readPreferences` against the current import, one
+choice at a time. The raw shared document stays in the checkpoint so a
+development-only choice survives a published build reading it. A shared
+replacement runs through the workspace's serialized command queue: clicks
+during the exchange apply afterwards, and account/preference paired commands
+cannot pass it. The browser commits the resulting preferences and checkpoint
+in one IndexedDB transaction; its synchronous mirror retains the recovery
+promise above. Session state, imported game data and folder handles never
+travel through this exchange.
+
 ## Verification gate
+
+Browser tests import `tests/test-fixtures.ts`, which intercepts the preference
+endpoint before navigation. The sharing tests replace that fallback with an
+in-memory helper. Standalone browser checks use
+`scripts/verification-browser.mjs` for the same isolation. Verification must
+never read or write the user's real helper personalization; game-data mocks
+match only `/health` and `/profile`, not this independent endpoint.
 
 `npm run verify:preference-survival` holds the one-choice-at-a-time reading and
 the former keys. For any persistence change, verify in the running app that a

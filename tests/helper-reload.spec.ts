@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
 const account = JSON.parse(readFileSync(new URL('./fixtures/synthetic-account.json', import.meta.url), 'utf8'));
@@ -12,7 +12,7 @@ test('on-demand reload keeps the corner cards aligned and preserves the selected
   let reads = 0;
   const pending = { delay: Promise.resolve(), release: () => {} };
   const identity = () => ({ instanceId: 'reload-helper', sessionId: 1, revision });
-  await page.route('http://127.0.0.1:37654/**', async (route) => {
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), async (route) => {
     const headers = { 'Access-Control-Allow-Origin': '*' };
     if (new URL(route.request().url()).pathname === '/health') {
       await route.fulfill({ headers, json: { ...identity(), running: true, version, profileReady: ready,

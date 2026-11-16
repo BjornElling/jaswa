@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 import { holdWorkerRequests } from './hold-worker-requests';
 
@@ -16,7 +16,7 @@ for (const recalculate of ['manual', 'on-change'] as const) {
       sec_effects: [[219, 12, 0, 1, 0], [220, 4, 1, 0, 0], [223, 16, 1, 0, 0], [300, 6, 1, 0, 0]] },
     { ...engraved, rid: 1003, occupied_id: 0, attribute: 98, pri_effect: [100, 1800] }];
     let revision = 0;
-    await page.route('http://127.0.0.1:37654/**', async (route) => {
+    await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), async (route) => {
       const identity = { instanceId: 'artifact-stone-live', sessionId: 1, revision };
       const headers = { 'Access-Control-Allow-Origin': '*' };
       await route.fulfill({ headers, json: new URL(route.request().url()).pathname === '/health'

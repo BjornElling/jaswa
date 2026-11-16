@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/empty-craft-stack-account.json', import.meta.url));

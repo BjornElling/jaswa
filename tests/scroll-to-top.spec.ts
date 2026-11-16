@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 
 /* The canvas' own width, so it is drawn at full size and its 1080px floor is
    really 1080px — a narrower window scales the whole composition down, and with

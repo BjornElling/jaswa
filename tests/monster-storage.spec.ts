@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 
 const normalShrineAccount = fileURLToPath(new URL('./fixtures/normal-sealed-shrine.json', import.meta.url));

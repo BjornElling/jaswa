@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from './test-fixtures';
+import type { Locator, Page } from './test-fixtures';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 

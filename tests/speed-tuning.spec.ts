@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from './test-fixtures';
+import type { Locator, Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
 /**
@@ -703,7 +703,7 @@ test('with live sync off the leader is chosen here, saved into the preset, and k
 });
 
 test('under live sync the leader is only reported: the game owns it', async ({ page }) => {
-  await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), (route) => route.fulfill({ status: 503, body: '' }));
   await freshWorkspace(page);
   await page.evaluate(() => {
     const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');

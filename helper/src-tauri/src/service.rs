@@ -4,6 +4,7 @@ use crate::{
     game_session::{Change, GameSession},
     incidents::Incidents,
     profile::{MissCause, ProfileStore, requires_account_response},
+    preferences::{PreferenceStore, WriteRequest},
     protocol::{decode_request, decode_response, session_encrypted},
     traffic::TrafficLog,
 };
@@ -62,6 +63,7 @@ struct Shared {
     /// tells the helper on its status poll and the helper makes no request of
     /// its own to find out.
     newer_release: Mutex<Option<Release>>,
+    preferences: Mutex<PreferenceStore>,
 }
 
 // Keep the bound listener while its accept loop is paused. Recovery must not
@@ -191,6 +193,7 @@ impl Service {
             incidents: Mutex::new(Incidents::default()),
             api_connections: AtomicUsize::new(0),
             newer_release: Mutex::new(None),
+            preferences: Mutex::new(PreferenceStore::new(data_directory())),
         });
         let service = Self {
             shared: Arc::clone(&shared),
@@ -492,6 +495,28 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
     }
     let (code, value) = if method == "OPTIONS" && permitted {
         (204, None)
+    } else if permitted && route == "/preferences" && method == "PUT" {
+        // JSON and an approved Origin are required before this local write can
+        // happen. Nothing on this route reaches a game connection.
+        let (head, body) = request.split_once("\r\n\r\n").unwrap_or(("", ""));
+        let json_content = head.split("\r\n").filter_map(|line| line.split_once(':'))
+            .any(|(name, value)| name.eq_ignore_ascii_case("content-type")
+                && value.trim().split(';').next().is_some_and(|kind| kind.eq_ignore_ascii_case("application/json")));
+        if !json_content {
+            (400, Some(json!({"error": "Personalization writes require application/json."})))
+        } else if let Ok(write) = serde_json::from_str::<WriteRequest>(body) {
+            if !write.preferences.is_object() {
+                (400, Some(json!({"error": "Personalization must be an object."})))
+            } else {
+                match shared.preferences.lock().expect("preference lock poisoned").write(write) {
+                    Ok(Ok(copy)) => (200, Some(serde_json::to_value(copy).expect("serializable preferences"))),
+                    Ok(Err(())) => (409, Some(json!({"error": "Shared personalization changed. Read it again before saving."}))),
+                    Err(_) => (500, Some(json!({"error": "Shared personalization could not be saved. The preceding copy was kept."}))),
+                }
+            }
+        } else {
+            (400, Some(json!({"error": "Unreadable personalization write."})))
+        }
     } else if method != "GET" {
         (
             405,
@@ -512,6 +537,11 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
             403,
             Some(json!({"error": "This page is not allowed to read JASWA Helper."})),
         )
+    } else if route == "/preferences" {
+        match shared.preferences.lock().expect("preference lock poisoned").read() {
+            Ok(copy) => (200, Some(serde_json::to_value(copy).expect("serializable preferences"))),
+            Err(_) => (500, Some(json!({"error": "Shared personalization could not be read. Its saved file was left unchanged."}))),
+        }
     } else if route == "/health" {
         (200, Some(status(&shared)))
     } else if route == "/profile" && status(&shared)["profileReady"] != true {
@@ -559,9 +589,12 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
     let reason = match code {
         200 => "OK",
         204 => "No Content",
+        400 => "Bad Request",
         403 => "Forbidden",
         404 => "Not Found",
         405 => "Method Not Allowed",
+        409 => "Conflict",
+        500 => "Internal Server Error",
         _ => "Error",
     };
     let body = value.map(|value| value.to_string()).unwrap_or_default();
@@ -573,7 +606,7 @@ fn respond_api(mut stream: TcpStream, shared: Arc<Shared>) -> io::Result<()> {
         headers.push_str(&format!("Access-Control-Allow-Origin: {origin}\r\nAccess-Control-Allow-Private-Network: true\r\nVary: Origin\r\n"));
     }
     if method == "OPTIONS" && permitted {
-        headers.push_str("Access-Control-Allow-Methods: GET, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\n");
+        headers.push_str("Access-Control-Allow-Methods: GET, PUT, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\n");
     }
     stream.write_all(
         format!("{headers}Content-Type: application/json; charset=utf-8\r\n\r\n{body}").as_bytes(),
@@ -2192,7 +2225,42 @@ mod tests {
             incidents: Mutex::new(Incidents::default()),
             api_connections: AtomicUsize::new(0),
             newer_release: Mutex::new(None),
+            preferences: Mutex::new(PreferenceStore::new(std::env::temp_dir().join(format!("jaswa-preferences-{}", uuid::Uuid::new_v4())))),
         }
+    }
+
+    #[test]
+    fn local_preferences_api_checks_origins_json_and_conditional_commits_without_game_capture() {
+        let directory = tempfile::tempdir().unwrap();
+        let shared = Arc::new(shared_for_test());
+        *shared.preferences.lock().unwrap() = PreferenceStore::new(directory.path().to_owned());
+        let exchange = |method: &str, origin: &str, content_type: &str, body: &str| {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+            let state = Arc::clone(&shared);
+            let worker = thread::spawn(move || respond_api(listener.accept().unwrap().0, state).unwrap());
+            client.write_all(format!("{method} /preferences HTTP/1.1\r\nOrigin: {origin}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\n\r\n{body}", body.len()).as_bytes()).unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).unwrap();
+            worker.join().unwrap();
+            response
+        };
+        let body = json!({"expectedToken": null, "preferences": {"runeRoles": []}}).to_string();
+        assert!(exchange("PUT", "https://evil.example", "application/json", &body).starts_with("HTTP/1.1 405"));
+        assert!(exchange("PUT", "null", "application/json", &body).starts_with("HTTP/1.1 405"));
+        assert!(shared.preferences.lock().unwrap().read().unwrap().is_none());
+        assert!(exchange("PUT", "https://jaswa.net", "text/plain", &body).starts_with("HTTP/1.1 400"));
+        assert!(exchange("PUT", "https://jaswa.net", "application/json", &body).starts_with("HTTP/1.1 200"));
+        let read = exchange("GET", "http://localhost:3000", "", "");
+        assert!(read.contains("Access-Control-Allow-Origin: http://localhost:3000"));
+        let copy: Value = serde_json::from_str(read.split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert_eq!(copy["preferences"]["runeRoles"], json!([]));
+        assert!(exchange("PUT", "https://jaswa.net", "application/json", &body).starts_with("HTTP/1.1 409"));
+        let next = json!({"expectedToken": copy["token"], "preferences": {"runeRoles": [], "general": {"numberFormat": "european"}}}).to_string();
+        assert!(exchange("PUT", "http://localhost:3000", "application/json", &next).starts_with("HTTP/1.1 200"));
+        assert!(exchange("GET", "https://jaswa.net", "", "").contains("european"));
+        assert!(exchange("GET", "https://jaswa.net.evil.example", "", "").starts_with("HTTP/1.1 403"));
+        assert!(shared.profile.lock().unwrap().read().is_none());
     }
 
     /// The game a test plays in: one that has connected to the redirect.

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 
 const mergeRows = fileURLToPath(new URL('./fixtures/monster-row-merge.json', import.meta.url));

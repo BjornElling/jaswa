@@ -14,6 +14,23 @@ one machine-wide change the helper makes: the temporary loopback gateway
 entries in the Windows hosts file. Tauri reduces installer size; Authenticode
 signing is still essential for Windows trust and reputation.
 
+## Shared personalization
+
+The helper also keeps one local preference file for localhost and jaswa.net.
+The applications exchange settings, roles and presets through
+`http://127.0.0.1:37654/preferences`, independently of game capture. The saved
+file is `%LOCALAPPDATA%/JASWA Helper/preferences.json`; stopping the helper or
+game does not remove it. Nothing from this exchange goes to the game or a
+remote server.
+
+Open the updated jaswa.net first to seed the file with its existing choices.
+Local browser saves continue while the helper is closed, and reconcile when
+it returns. Settings reports sharing status and offers an explicit choice
+when two existing copies disagree. Download a `.sw` backup before choosing
+which copy to keep. A fresh browser adopts shared choices automatically.
+The full conflict and persistence contract is
+[`LOCAL-PERSISTENCE-CONTRACT.md`](../docs/LOCAL-PERSISTENCE-CONTRACT.md#automatic-sharing-through-jaswa-helper).
+
 ## Versioning
 
 **Every change to the helper gets a new version, and the version is not

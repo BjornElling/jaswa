@@ -1,3 +1,4 @@
+import { isolatePersonalization } from './verification-browser.mjs';
 /**
  * **The Rune Optimization shader, run on this machine's own graphics card.**
  *
@@ -67,6 +68,7 @@ inputs.push(...Array.from({ length: 11 }, (_, index) => {
 const browser = await chromium.launch({ channel: 'chromium', headless: true, args: ['--enable-unsafe-webgpu'] });
 try {
   const page = await browser.newPage();
+  await isolatePersonalization(page.context());
   await page.goto(`${origin}/`);
   const report = await page.evaluate(async (cases) => {
     const { GpuContext } = await import('/app/platform/gpu/gpu-context.ts');

@@ -1,3 +1,4 @@
+import { isolatePersonalization } from './verification-browser.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -22,11 +23,12 @@ await mkdir('outputs/helper-hardening', { recursive: true });
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+  await isolatePersonalization(page.context());
   let mode = 'broken-profile';
   let instance = 'first-helper';
   let revision = 1;
   let version = outdated;
-  await page.route('http://127.0.0.1:37654/**', async (route) => {
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), async (route) => {
     const health = new URL(route.request().url()).pathname === '/health';
     const headers = { 'access-control-allow-origin': origin, 'access-control-allow-private-network': 'true' };
     const data = structuredClone(account);

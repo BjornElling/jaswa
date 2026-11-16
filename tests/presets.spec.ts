@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import { expect, test } from './test-fixtures';
+import type { Locator, Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
 /**
@@ -541,7 +541,7 @@ test('a preset built here is created, filled, led and deleted without moving the
 });
 
 test('a game preset cannot be deleted, led or changed while live sync owns it, and one of JASWA\'s can still be added', async ({ page }) => {
-  await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), (route) => route.fulfill({ status: 503, body: '' }));
   await freshWorkspace(page);
   await page.evaluate(() => {
     const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');
@@ -593,7 +593,7 @@ test('a game preset cannot be deleted, led or changed while live sync owns it, a
 });
 
 test('on Read on game start a game preset is the user\'s: led, added to, taken from and deleted', async ({ page }, testInfo) => {
-  await page.route('http://127.0.0.1:37654/**', (route) => route.fulfill({ status: 503, body: '' }));
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), (route) => route.fulfill({ status: 503, body: '' }));
   await freshWorkspace(page);
   await page.evaluate(() => {
     const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');

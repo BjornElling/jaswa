@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import { expect, test } from './test-fixtures';
+import type { Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 import { holdWorkerRequests } from './hold-worker-requests';
 
@@ -26,7 +26,7 @@ const tall = { ...account, runes: [...account.runes, ...Array.from({ length: 30 
 
 async function liveHelper(page: Page, change?: (data: typeof tall, revision: number) => void) {
   let revision = 1;
-  await page.route('http://127.0.0.1:37654/**', async (route) => {
+  await page.route((url) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile'), async (route) => {
     const headers = { 'Access-Control-Allow-Origin': '*' };
     const identity = { instanceId: 'craft-live', sessionId: 1, revision };
     if (new URL(route.request().url()).pathname === '/health') {

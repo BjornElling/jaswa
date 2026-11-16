@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 
 test('The Math sits under Technical and explains the gear recommendations', async ({ page }) => {
   await page.goto('/');

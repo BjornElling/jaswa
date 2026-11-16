@@ -1,7 +1,20 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { access, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createVerificationServer } from '../scripts/verification-server.mjs';
+
+test('verification browsers cannot read or publish the real shared personalization', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  const statuses = await page.evaluate(async () => {
+    const url = 'http://127.0.0.1:37654/preferences';
+    const read = await fetch(url);
+    // An incomplete document cannot write even if the isolation itself breaks.
+    const write = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    return [read.status, write.status];
+  });
+  expect(statuses).toEqual([404, 404]);
+});
 
 test('parallel module checks and generated HTML cannot reload a calculating browser', async ({ page }, testInfo) => {
   const reloads: string[] = [];

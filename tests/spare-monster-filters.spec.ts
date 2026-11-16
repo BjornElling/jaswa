@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/spare-monsters-account.json', import.meta.url));

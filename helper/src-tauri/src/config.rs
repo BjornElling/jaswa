@@ -40,8 +40,8 @@ pub const PUBLISHED_ORIGIN: &str = "https://jaswa.net";
 /// one — so the tray prefers it whenever it is up.
 pub const LOCAL_ORIGIN: &str = "http://localhost:3000";
 
-/// Both JASWAs read the snapshot at once: reading is all either can do, so a
-/// published tab and a local one never take anything from each other.
+/// Both JASWAs read the snapshot and share personalization locally. Preference
+/// writes compare commit tokens; neither page writes to the game.
 pub fn allowed_origin(origin: &str) -> bool {
     matches!(origin, LOCAL_ORIGIN | "http://127.0.0.1:3000" | PUBLISHED_ORIGIN)
         || std::env::var("JASWA_ALLOWED_ORIGINS")

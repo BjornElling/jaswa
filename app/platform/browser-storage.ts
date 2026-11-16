@@ -294,14 +294,14 @@ export function saveWorkspacePair(game: StoredGame, before: Preferences, after: 
   return operation;
 }
 
-export function savePreferences(preferences: Preferences, rebase?: (current: Preferences) => Preferences): Promise<void> {
+export function savePreferences(preferences: Preferences, rebase?: (current: Preferences) => Preferences, sharedCheckpoint?: unknown): Promise<void> {
   /* Standalone callers can write a complete document without first mounting the
      workspace. The interactive path has already restored, so it keeps its
      synchronous mirror. An unsuccessful read never permits a blind overwrite. */
   if (preferenceInitialization || !preferenceReadAttempted) {
     const snapshot = structuredClone(preferences);
     preferenceInitialization ??= loadPreferences().finally(() => { preferenceInitialization = null; });
-    return preferenceInitialization.then(() => savePreferences(snapshot, rebase));
+    return preferenceInitialization.then(() => savePreferences(snapshot, rebase, sharedCheckpoint));
   }
   if (!preferenceDatabaseRead) return Promise.reject(new PreferenceStoreUnreadable());
   const pending = activePairedCommit;
@@ -320,8 +320,10 @@ export function savePreferences(preferences: Preferences, rebase?: (current: Pre
     pending.after = pairedAfter;
   }
   const mirrored = writePreferencesMirror(pending ? pendingMirror(pending) : snapshot);
-  const writeNext = preferenceWriteTail.catch(() => undefined).then(() =>
-    writeWorkspaceValue(preferencesKey, pending?.committed && pairedAfter ? pairedAfter : snapshot));
+  const writeNext = preferenceWriteTail.catch(() => undefined).then(() => change((store) => {
+    store.put(pending?.committed && pairedAfter ? pairedAfter : snapshot, preferencesKey);
+    if (sharedCheckpoint !== undefined) store.put(sharedCheckpoint, 'shared-preference-checkpoint');
+  }));
   preferenceWriteTail = writeNext;
   return writeNext.then(() => {
     if (!mirrored) throw new PreferenceMirrorUnavailable();

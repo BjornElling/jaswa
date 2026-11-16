@@ -1,7 +1,7 @@
 import { IDBFactory, IDBObjectStore as FakeObjectStore } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { blankPreferences } from '../domain/profiles/preference-defaults';
-import { loadImportedGame, loadPreferences, saveImportedGame, savePreferences, saveWorkspacePair, writeWorkspaceValue } from './browser-storage';
+import { loadImportedGame, loadPreferences, readWorkspaceValue, saveImportedGame, savePreferences, saveWorkspacePair, writeWorkspaceValue } from './browser-storage';
 import { PairedCommitUnavailable, PreferenceMirrorUnavailable, PreferenceStoreUnreadable } from '../workspace/ports';
 import type { StoredGame } from '../domain/model';
 
@@ -21,6 +21,26 @@ describe('preference storage', () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it('commits the shared baseline with its preferences and rolls both database records back on failure', async () => {
+    const first = blankPreferences();
+    const base = { local: first, shared: first };
+    await savePreferences(first, undefined, base);
+    expect(await readWorkspaceValue('shared-preference-checkpoint')).toEqual(base);
+    const next = { ...first, runeRoles: [] };
+    const original = FakeObjectStore.prototype.put;
+    const put = vi.spyOn(FakeObjectStore.prototype, 'put');
+    put.mockImplementation(function (this: IDBObjectStore, value, key) {
+      if (key === 'shared-preference-checkpoint') throw new Error('Checkpoint write failed');
+      return original.call(this, value, key);
+    });
+    try {
+      await expect(savePreferences(next, undefined, { local: next, shared: next })).rejects.toThrow('Checkpoint write failed');
+    } finally { put.mockRestore(); }
+    expect(await readWorkspaceValue('shared-preference-checkpoint')).toEqual(base);
+    const stored = await readWorkspaceValue<Record<string, unknown>>('preferences');
+    expect(stored?.runeRoles).toEqual(first.runeRoles);
+  });
 
   it('rolls back an active account transaction when its source is cancelled', async () => {
     const before = account('before.json');

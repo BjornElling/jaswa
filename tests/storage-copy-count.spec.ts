@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 
 const duplicateCopies = fileURLToPath(new URL('./fixtures/duplicate-storage-copies.json', import.meta.url));

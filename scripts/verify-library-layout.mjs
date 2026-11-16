@@ -1,3 +1,4 @@
+import { isolatePersonalization } from './verification-browser.mjs';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
@@ -19,6 +20,7 @@ function nearlyEqual(left, right, allowance = 1) {
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 2000, height: 900 }, deviceScaleFactor: 1 });
+await isolatePersonalization(page.context());
 
 /* Scoped to the rail rather than the whole page: a sortable column heading is
    a button too, and the Stats table has one named "Artifacts", so an unscoped

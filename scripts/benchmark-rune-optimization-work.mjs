@@ -1,3 +1,4 @@
+import { isolatePersonalization } from './verification-browser.mjs';
 /** Local-only measurements; an optional captured optimization input never leaves this machine.
  * node --import ./scripts/json-module-hook.mjs scripts/benchmark-rune-optimization-work.mjs [input.json]
  * Set JASWA_BENCH_GPU=1 to exercise the normal graphics-card agreement gate.
@@ -37,6 +38,7 @@ const cases = [
 const browser = await chromium.launch({ channel: 'chromium', headless: true, args: ['--enable-unsafe-webgpu'] });
 try {
   const page = await browser.newPage();
+  await isolatePersonalization(page.context());
   await page.goto('http://localhost:3000/');
   for (const scenario of cases) {
     const report = await page.evaluate(async ({ input, preferWebGpu }) => {

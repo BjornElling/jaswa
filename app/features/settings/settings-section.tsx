@@ -2,8 +2,10 @@ import { WorkspacePage } from '../../ui/workspace-page';
 import { PageHeader } from '../../ui/page-chrome';
 import { GeneralSettings } from './general-settings';
 import type { GeneralSettings as GeneralSettingsValue } from '../../domain/model';
+import type { ReactNode } from 'react';
 
-export function SettingsSection({ general, saveFolder, canChooseFolder, onGeneralChange, onChooseFolder, onForgetFolder, onExport, onImport }: {
+export function SettingsSection({ general, saveFolder, canChooseFolder, onGeneralChange, onChooseFolder, onForgetFolder, onExport, onImport, sharing }: {
+  sharing?: ReactNode;
   general: GeneralSettingsValue;
   saveFolder: string | null;
   canChooseFolder: boolean;
@@ -28,5 +30,6 @@ export function SettingsSection({ general, saveFolder, canChooseFolder, onGenera
       onExport={onExport}
       onImport={onImport}
     />
+    {sharing}
   </WorkspacePage>;
 }

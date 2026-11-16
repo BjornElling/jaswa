@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+const gameHelperRequest = (url: URL) => url.origin === 'http://127.0.0.1:37654' && (url.pathname === '/health' || url.pathname === '/profile');
+import { expect, test, type Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
 /*
@@ -252,7 +253,7 @@ test('routine waiting and API failures never impersonate a red capture state', a
   expect(await pageBoxes(page)).toEqual(before);
 
   for (const failure of ['connectionrefused', 'http-error', 'invalid-health', 'startup', 'waiting']) {
-    await page.route('http://127.0.0.1:37654/**', route => {
+    await page.route(gameHelperRequest, route => {
       if (failure === 'connectionrefused') return route.abort('connectionrefused');
       if (failure === 'http-error') return route.fulfill({ status: 503, json: {} });
       if (failure === 'invalid-health') return route.fulfill({ json: {} });
@@ -268,7 +269,7 @@ test('routine waiting and API failures never impersonate a red capture state', a
     expect(await badge.textContent()).toBe(imported);
     expect(await pageBoxes(page)).toEqual(before);
     await page.screenshot({ path: testInfo.outputPath(`connection-${failure}.png`) });
-    await page.unroute('http://127.0.0.1:37654/**');
+    await page.unroute(gameHelperRequest);
   }
   state.ready = true;
   state.revision = 2;

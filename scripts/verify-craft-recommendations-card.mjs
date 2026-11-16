@@ -1,9 +1,11 @@
+import { isolatePersonalization } from './verification-browser.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
 const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-unsafe-webgpu'] });
 try {
   const page = await browser.newPage();
+  await isolatePersonalization(page.context());
   await page.goto('http://localhost:3000/');
   const report = await page.evaluate(async (large) => {
     const { GpuContext } = await import('/app/platform/gpu/gpu-context.ts');

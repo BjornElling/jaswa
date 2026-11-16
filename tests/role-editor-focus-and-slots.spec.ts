@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import { expect, test } from './test-fixtures';
+import type { Page } from './test-fixtures';
 
 /**
  * Two defects the role editor carried, held apart because they fail

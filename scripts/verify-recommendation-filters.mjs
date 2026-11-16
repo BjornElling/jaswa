@@ -1,3 +1,4 @@
+import { isolatePersonalization } from './verification-browser.mjs';
 /**
  * The recommendation view's filters and its slot summary, checked against a
  * real import (`ACCOUNT-TABLES.md` §5 and §6).
@@ -35,6 +36,7 @@ if (!existsSync(importPath)) {
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+await isolatePersonalization(page.context());
 const rowCount = () => page.locator('.artifact-recommendation-table tbody tr').count();
 const group = (label) => page.locator(`.filter-group[aria-label="${label}"]`);
 

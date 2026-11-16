@@ -5,6 +5,9 @@ import { CornerNotices, ImportBadge } from '../features/home/import-badge';
 import { DirectImportModeDialog, LoadPreferencesDialog, RemoveGameDataDialog, ReplaceImportDialog, ReportDialog } from '../features/home/import-dialogs';
 import { browserWorkspaceRepository } from '../platform/browser-storage';
 import { createWriterCoordination } from '../platform/writer-coordination';
+import { helperPreferenceSharing } from '../platform/shared-preferences';
+import { createPreferenceSharing } from '../workspace/shared-preferences';
+import { PreferenceSharingSettings } from '../features/settings/preference-sharing-settings';
 import { PreferenceStoreUnreadable } from '../workspace/ports';
 import { createImportedGame, validateGameFile } from '../ingest/game-export';
 import { downloadJson, fileToText } from '../platform/files';
@@ -56,6 +59,7 @@ provideWorkerFactories(featureWorkerFactories);
 /* Loaded only in development, so the simulator's worker never enters a production build. */
 if (import.meta.env.DEV) void import('../platform/rune-simulator-factory').then(({ createRuneSimulatorWorker }) => provideRuneSimulatorFactory(createRuneSimulatorWorker));
 const workspaceStore = createWorkspaceStore(browserWorkspaceRepository, createWriterCoordination());
+const preferenceSharing = createPreferenceSharing(workspaceStore, helperPreferenceSharing);
 const directImportController = createDirectImportController(silentHelper);
 
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
@@ -90,7 +94,16 @@ function WorkspaceLoading() {
 export default function Home() {
   const [page, setStoredPage] = useSessionStorageState<Page>('jaswa.navigation.page', 'home', isPage);
   const workspace = useSyncExternalStore(workspaceStore.subscribe, workspaceStore.getSnapshot, workspaceStore.getSnapshot);
-  const { game, preferences, storageNotice, ready } = workspace;
+  const { game, preferences, ready } = workspace;
+  const sharing = useSyncExternalStore(preferenceSharing.subscribe, preferenceSharing.getSnapshot, preferenceSharing.getSnapshot);
+  const storageNotice = workspace.storageNotice ?? (sharing.state === 'conflict'
+    ? { tone: 'warn' as const, message: 'Your local and shared personalization have conflicting choices. Open Settings to choose which copy to keep.' } : null);
+  useEffect(() => {
+    const poll = () => { void preferenceSharing.synchronize(); };
+    poll();
+    const timer = window.setInterval(poll, 2_000);
+    return () => window.clearInterval(timer);
+  }, [ready]);
   const runeCleanupAccount = game?.snapshot.accountId ?? null;
   const runeCleanupSession = useMemo(() => createRuneCleanupSession(runeCleanupAccount), [runeCleanupAccount]);
   const [pendingGame, setPendingGame] = useState<ImportedGame | null>(null);
@@ -717,6 +730,9 @@ export default function Home() {
       /></Suspense>}
 
       {page === 'settings' && <Suspense fallback={<WorkspaceLoading />}><SettingsSection
+        sharing={<PreferenceSharingSettings status={sharing}
+          disabled={workspace.writer !== 'writer'}
+          onChoose={(copy) => { void preferenceSharing.synchronize(copy); }} />}
         general={preferences.general}
         saveFolder={saveFolder?.name ?? null}
         canChooseFolder={canChooseSaveFolder()}

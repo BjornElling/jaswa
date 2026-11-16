@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
 test('updates changed standards in place and recalculates only affected sets', async ({ page }, testInfo) => {

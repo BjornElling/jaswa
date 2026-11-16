@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 
 const selectionAccount = fileURLToPath(new URL('./fixtures/monster-selection.json', import.meta.url));
