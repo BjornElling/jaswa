@@ -2980,6 +2980,69 @@ mod tests {
     }
 
     #[test]
+    fn tartarus_picks_read_the_committed_craft_stack_without_replaying_its_before_copy() {
+        let stone = |id, amount| json!({"craft_item_id": id, "wizard_id": 7,
+            "craft_type": 6, "craft_type_id": 50514, "amount": amount});
+        for populated in [false, true] {
+            for command in ["pickGuildMazeBattleClearReward", "pickGuildMazeBattleClearReward_v2"] {
+                for list in [false, true] {
+                    let mut store = ProfileStore::default();
+                    let crafts = if populated { json!([stone(30, 3), stone(31, 12)]) } else { json!([]) };
+                    assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": [], "rune_craft_item_list": crafts})));
+                    let entry = json!({"before": stone(30, 3), "after": stone(30, 4)});
+                    let response = json!({"ret_code": 0, "pick_changestone_list": if list { json!([entry]) } else { entry }});
+                    let request = json!({"command": command});
+                    assert!(store.apply_update(&response, &request), "{command}, populated {populated}, list {list}");
+                    assert!(store.take_declined().missed.is_empty());
+                    let data = store.read().unwrap().data;
+                    assert_eq!(data["rune_craft_item_list"][0]["amount"], 4, "the returned total replaces the old amount");
+                    assert_eq!(data["rune_craft_item_list"].as_array().unwrap().len(), if populated { 2 } else { 1 });
+                    if populated { assert_eq!(data["rune_craft_item_list"][1]["amount"], 12); }
+                    assert!(!store.apply_update(&response, &request), "repeated picks do not multiply the reward");
+                    assert!(store.take_declined().missed.is_empty());
+                    let failed = json!({"ret_code": 1, "pick_changestone_list": {"after": stone(30, 99)}});
+                    assert!(!store.apply_update(&failed, &request));
+                    assert_eq!(store.read().unwrap().data, data);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn tartarus_pick_paths_do_not_admit_previews_foreign_stacks_or_missing_totals() {
+        let stone = json!({"craft_item_id": 30, "wizard_id": 7, "craft_type": 6, "craft_type_id": 50514, "amount": 4});
+        for populated in [false, true] {
+            let mut store = ProfileStore::default();
+            assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": [],
+                "rune_craft_item_list": if populated { json!([stone.clone()]) } else { json!([]) }})));
+            let before = store.read().unwrap().data;
+            let request = json!({"command": "pickGuildMazeBattleClearReward"});
+            for amount in [None, Some(json!(-1)), Some(json!("5")), Some(json!(1.5))] {
+                let mut incomplete = stone.clone();
+                if let Some(amount) = amount { incomplete["amount"] = amount; }
+                else { incomplete.as_object_mut().unwrap().remove("amount"); }
+                assert!(!store.apply_update(&json!({"ret_code": 0, "pick_changestone_list": {"after": incomplete}}), &request));
+                assert!(store.take_declined().missed.iter().any(|reason| reason.contains("after is incomplete")));
+                assert_eq!(store.read().unwrap().data, before);
+            }
+            assert!(!store.apply_update(&json!({"ret_code": 0, "pick_changestone_list": {"before": stone}}), &request));
+            assert!(store.take_declined().missed.iter().any(|reason| reason.contains("after is missing")));
+            let mut foreign = stone.clone();
+            foreign["wizard_id"] = json!(8);
+            assert!(!store.apply_update(&json!({"ret_code": 0, "pick_changestone_list": {"after": foreign}}), &request));
+            for command in ["getGuildMazeBattleClearReward", "ConvertArtifactByPiece", "FutureCraftPreview"] {
+                assert!(!store.apply_update(&json!({"ret_code": 0,
+                    "pick_changestone_list": {"after": {"craft_item_id": 31, "wizard_id": 7,
+                        "craft_type": 6, "craft_type_id": 50514, "amount": 99}}}), &json!({"command": command})));
+                assert_eq!(store.read().unwrap().data, before, "{command} never acquires a preview");
+            }
+            assert!(!store.apply_update(&json!({"ret_code": 0, "archive": {
+                "pick_changestone_list": {"after": stone}}}), &request));
+            assert_eq!(store.read().unwrap().data, before, "a known name inside an unknown wrapper does not restart the read path");
+        }
+    }
+
+    #[test]
     fn empty_summoned_deltas_do_not_discard_purchases_or_other_live_rewards() {
         for populated in [false, true] {
             for command in ["BuyShopItem", "BuyShopItem_V9", "collabo_claimReward", "CraftRune", "BattleDungeonResult_V2"] {

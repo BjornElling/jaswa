@@ -56,6 +56,7 @@ this (`guild_boss_crate_history_cannot_restore_sold_runes`,
    `guildsiege_my_unit_list` in `BattleGuildSiegeStart_v2`, the root
    `upgrade_rune_list` of `UpgradeRuneList`, `result_from` of a Shrine move,
    `item_info` of `BuyBlackMarketItem` and `sellSummonPieces`,
+   `pick_changestone_list.after` of a successful `pickGuildMazeBattleClearReward`,
    and a bundled gear operation (for example `UpdateArtifactOccupation` inside
    `UpdateUnitEquip`) with its own successful `ret_code`. Only the mail entries
    a successful `ReceiveMail` names are opened; the rest of the inbox stays a
@@ -201,6 +202,16 @@ same case (November 8, 2026): `battleResultDimensionHoleRaid` answers with its
 Gem or Grindstone in `changed_item_list[].info` at the stack's new total, as a
 Rift Beast does, but a battle counted as a result only when its name *ended*
 in `result`. A name that starts with `battleresult` is now one too.
+
+Tartarus's selected Gem or Grindstone was another named-envelope gap
+(November 16, 2026): `pickGuildMazeBattleClearReward` was already a mutation,
+but the log reported its stack at `pick_changestone_list.after` as unread.
+Only that successful selection opens this path. Its `after` record states
+the committed stack total, which replaces the previous amount; its `before`
+copy is historical and is never imported. A missing identifier or total is a
+visible gap, including for a stack the account already knows. Other commands'
+`after` fields retain their candidate meaning, and an archive cannot reopen
+this path just by containing its name.
 
 ### Raid response-key negotiation
 

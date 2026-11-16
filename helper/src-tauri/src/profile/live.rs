@@ -126,6 +126,10 @@ struct Scope<'a> {
 }
 
 impl Scope<'_> {
+    fn picked_crafts(&self, path: &str) -> bool {
+        self.command == "pickguildmazebattleclearreward" && path == "pick_changestone_list"
+    }
+
     fn moves_gear(&self) -> bool {
         self.kind == AccountRequest::Mutation && gear_moving_command(&self.command)
     }
@@ -134,6 +138,9 @@ impl Scope<'_> {
     that change or restate it have any; the few command-specific envelopes are
     named here, beside the rule they extend, rather than discovered by shape. */
     fn root_edge(&self, key: &str, entry: &Value) -> bool {
+        if self.picked_crafts(key) {
+            return true;
+        }
         match self.command.as_str() {
             /* A World Guild Battle start answers with the attacking team. Its
             monsters are read; their gear is the preset's, and `apply_update`
@@ -269,6 +276,29 @@ impl Found {
 }
 
 fn walk(value: &Value, path: &str, parent: &str, scope: &Scope<'_>, found: &mut Found) {
+    /* Picking a Tartarus reward commits this stack's `after` total. A bare
+    `after` elsewhere may still be a proposal, so only this successful pick
+    opens it; its `before` copy can never restore the previous quantity. */
+    if scope.picked_crafts(path) {
+        if let Some(entries) = value.as_array() {
+            for entry in entries {
+                walk(entry, path, parent, scope, found);
+            }
+        } else if let Some(after) = value.get("after") {
+            let items = after.as_array().map(Vec::as_slice).unwrap_or_else(|| std::slice::from_ref(after));
+            for item in items {
+                if scope.foreign(item) { continue; }
+                if !valid_identifier(item, "craft_item_id") || item.get("amount").and_then(Value::as_u64).is_none() {
+                    found.missed.push("the selected Gem or Grindstone at pick_changestone_list.after is incomplete".into());
+                } else {
+                    found.take(scope, ENTITIES[4], item.clone(), "pick_changestone_list.after", true);
+                }
+            }
+        } else {
+            found.missed.push("the selected Gem or Grindstone at pick_changestone_list.after is missing".into());
+        }
+        return;
+    }
     /* A Black Market purchase and a sale of summoning pieces answer with the
     one inventory stack they changed, at its new total. */
     if matches!(scope.command.as_str(), "buyblackmarketitem" | "sellsummonpieces") && path == "item_info" {
@@ -379,7 +409,7 @@ fn unread(response: &Value, request: &Value, scope: &Scope<'_>, read_ids: &HashS
                     return;
                 }
                 for (key, entry) in map {
-                    if understood_elsewhere(key) {
+                    if understood_elsewhere(key) || (scope.picked_crafts(path) && key == "before") {
                         continue;
                     }
                     let child = if path.is_empty() { key.clone() } else { format!("{path}.{key}") };
