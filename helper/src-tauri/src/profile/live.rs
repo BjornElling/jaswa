@@ -68,7 +68,7 @@ pub(super) fn account_request(request: &Value) -> AccountRequest {
         return AccountRequest::CurrentState;
     }
     let verbs = [
-        "receive", "claim", "pick", "buy", "repurchase", "summon", "sell",
+        "receive", "claim", "reward", "pick", "buy", "repurchase", "summon", "sell",
         "upgrade", "awaken", "evolve", "evolution", "fuse", "fusion", "sacrifice",
         "convert", "amplify", "confirm", "craft", "create", "breakdown",
         "disassemble", "equip", "unequip",

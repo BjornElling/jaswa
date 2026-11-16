@@ -3043,6 +3043,50 @@ mod tests {
     }
 
     #[test]
+    fn daily_quest_claims_read_current_rewards_without_admitting_queries_or_archives() {
+        let rune = json!({"rune_id": 55, "wizard_id": 7, "set_id": 5});
+        let items = json!([
+            {"rid": 30, "item_master_id": 10002, "item_master_type": 29, "item_quantity": 5},
+            {"rid": 31, "item_master_id": 10003, "item_master_type": 29, "item_quantity": 8},
+            {"rid": 32, "item_master_id": 10004, "item_master_type": 29, "item_quantity": 12}
+        ]);
+        for populated in [false, true] {
+            for command in ["rewardDailyQuestPoint_v2", "RewardDailyQuest_v2"] {
+                let mut store = ProfileStore::default();
+                let baseline = if populated { json!([{"rune_id": 54, "set_id": 5}]) } else { json!([]) };
+                assert!(store.accept_snapshot(json!({"wizard_id": 7, "unit_list": [], "runes": baseline,
+                    "inventory_info": if populated { items.clone() } else { json!([]) }})));
+                let before = store.read().unwrap().data;
+                let response = json!({"ret_code": 0, "rune_list": [rune], "item_list": items});
+                let request = json!({"command": command});
+                assert!(requires_account_response(&request));
+                for query in ["get_rewardDailyQuestPoint_v2", "checkRewardDailyQuestPoint_v2"] {
+                    let query = json!({"command": query});
+                    assert!(!requires_account_response(&query));
+                    assert!(!store.apply_update(&response, &query));
+                    assert!(!store.take_declined().missed.is_empty());
+                    assert_eq!(store.read().unwrap().data, before);
+                }
+                let archive = json!({"ret_code": 0, "history": response});
+                assert!(!store.apply_update(&archive, &request));
+                assert!(!store.take_declined().missed.is_empty());
+                assert_eq!(store.read().unwrap().data, before);
+                let failed = json!({"ret_code": 1, "rune_list": [rune], "item_list": items});
+                assert!(!store.apply_update(&failed, &request));
+                assert_eq!(store.read().unwrap().data, before);
+                assert!(store.apply_update(&response, &request));
+                assert!(store.take_declined().missed.is_empty());
+                let after = store.read().unwrap().data;
+                assert_eq!(collection(&after, "runes").len(), if populated { 2 } else { 1 });
+                assert_eq!(after["inventory_info"], items);
+                assert!(!store.apply_update(&response, &request));
+                assert!(store.take_declined().missed.is_empty());
+                assert_eq!(store.read().unwrap().data, after);
+            }
+        }
+    }
+
+    #[test]
     fn empty_summoned_deltas_do_not_discard_purchases_or_other_live_rewards() {
         for populated in [false, true] {
             for command in ["BuyShopItem", "BuyShopItem_V9", "collabo_claimReward", "CraftRune", "BattleDungeonResult_V2"] {

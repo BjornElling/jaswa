@@ -213,6 +213,15 @@ visible gap, including for a stack the account already knows. Other commands'
 `after` fields retain their candidate meaning, and an archive cannot reopen
 this path just by containing its name.
 
+Daily quest claims use the same current-record boundary (November 16, 2026).
+The diagnostic log recorded three inventory records at `item_list` and one
+rune at `rune_list` missed by `rewardDailyQuestPoint_v2`: both paths were
+already readable, but `reward` was missing from the account-changing verbs.
+It now joins `receive` and `claim`; numeric suffixes and case follow the same
+classification. Queries and historical wrappers still cannot apply rewards,
+failed claims change nothing, and repeating a claim replaces totals rather
+than adding them again. Empty and populated account tests hold these boundaries.
+
 ### Raid response-key negotiation
 
 `PASSIVE-GAME-DATA-CONTRACT.md` is binding: substitute response keys, login
