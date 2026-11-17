@@ -84,31 +84,43 @@ function buildKey(build: Build): string {
     build.ranks[2], build.ranks[4], build.ranks[6]]);
 }
 
-function readingScoring(candidate: RunePercentileModel): Pick<PercentileReading,
-  'score' | 'utilityPrefix' | 'utilityLineComponents' | 'utilityKey' | 'weightsByStatId'> {
-  const prices = priceList(candidate.valuation);
+type ReadingScoring = Pick<PercentileReading,
+  'score' | 'utilityPrefix' | 'utilityLineComponents' | 'utilityKey' | 'weightsByStatId'>;
+const readingScores = new WeakMap<RunePercentileModel['valuation'], Map<string, ReadingScoring>>();
+
+function readingScoring(candidate: RunePercentileModel): ReadingScoring {
+  const { valuation, stars, main, rune: { slot } } = candidate;
+  let byCohort = readingScores.get(valuation);
+  if (!byCohort) {
+    byCohort = new Map();
+    readingScores.set(valuation, byCohort);
+  }
+  const cohort = `${slot}/${stars}/${main}`;
+  const known = byCohort.get(cohort);
+  if (known) return known;
+  const prices = priceList(valuation);
   const weightsByStatId = Object.fromEntries(runeStatIds.map((statId) => [statId, prices[statId] ?? 0]));
-  const { slot } = candidate.rune;
-  const utilityKey = JSON.stringify([slot, candidate.stars, candidate.main, [...prices]]);
+  const utilityKey = JSON.stringify([slot, stars, main, [...prices]]);
   const optionsByLineageAndInnate = new Map<number, ReturnType<typeof gemOptions>>();
+  const lineValues = new Float64Array(4);
   function readCraft(body: Rune) {
     const plan = craftPlan(body.ancient ? 'ancient' : 'standard', canonicalCraftCredit);
     const key = (body.ancient ? prices.length : 0) + (body.prefixStatId ?? 0);
     let options = optionsByLineageAndInnate.get(key);
     if (options === undefined) {
-      options = gemOptions(plan, prices, slot, candidate.main, body.prefixStatId);
+      options = gemOptions(plan, prices, slot, main, body.prefixStatId);
       optionsByLineageAndInnate.set(key, options);
     }
     return { plan, options };
   }
   const utilityPrefix = (body: Rune) => runeInnateScore(body, prices);
-  return {
+  const scoring: ReadingScoring = {
     utilityKey,
     weightsByStatId,
     score(body) {
-      if (body.slot !== slot || body.stars !== candidate.stars || body.mainStatId !== candidate.main) return null;
+      if (body.slot !== slot || body.stars !== stars || body.mainStatId !== main) return null;
       const { plan, options } = readCraft(body);
-      return craftedScore(plan, options, prices, body.subProperties, utilityPrefix(body));
+      return craftedScore(plan, options, prices, body.subProperties, utilityPrefix(body), lineValues);
     },
     utilityPrefix,
     utilityLineComponents(body, lineIndex) {
@@ -120,6 +132,8 @@ function readingScoring(candidate: RunePercentileModel): Pick<PercentileReading,
       };
     },
   };
+  byCohort.set(cohort, scoring);
+  return scoring;
 }
 
 /**

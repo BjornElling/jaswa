@@ -52,6 +52,8 @@ export type ReferenceDistribution = Readonly<{
   readingId: string;
   /** Aliased reading identities may share a certified numerical reference. */
   decisionIdentity?: object;
+  /** Certify the two sides of the policy boundary using reference outcomes only. */
+  qualityBoundary?(alpha: PolicyProbability): Promise<Readonly<{ failsAt: number; passesAt: number }>>;
   /** Query `P(score >= cutoff)` directly. Alpha never changes the reference ruler. */
   query(cutoff: number, alpha: PolicyProbability, precision?: 'decision' | 'full' | 'cached'): Promise<ReferenceTail>;
 }>;

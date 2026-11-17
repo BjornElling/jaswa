@@ -6,9 +6,9 @@ import type { RollRange } from '../rune-properties';
 import { runeRarities, slotAllowsSubStat } from '../runes';
 import type { Rune, RuneRarity, RuneSubProperty } from '../runes';
 import {
-  add, compare, complement, divide, gcd, multiply, ONE, policyProbability, probabilityBounds, percentileRankBounds, rational, rationalFromDecimal, subtract, ZERO,
+  add, compare, complement, divide, gcd, multiply, nextUp, ONE, policyProbability, probabilityBounds, percentileRankBounds, rational, rationalFromDecimal, subtract, ZERO,
 } from './probability';
-import type { Rational } from './probability';
+import type { PolicyProbability, Rational } from './probability';
 import {
   allocationMass, choose, combinations, compositions, lineRollSupport,
   splitSupport, wholeSupport,
@@ -38,6 +38,9 @@ export type ReferenceBuildOptions = Readonly<{
   assumptions?: ReferenceAssumptions;
   /** Only the shared canonical craft kernel may reuse bounds across price tables. */
   canonicalCraft?: boolean;
+  /** Account prototype: share one bounded reference preparation across candidate scores. */
+  prepareQualityBoundary?: boolean;
+  onQualityPreparation?: (durationMs: number) => void;
 }>;
 
 export class PercentileCancelledError extends Error {
@@ -266,6 +269,32 @@ function indexTail(index: TailIndex, cutoff: number): Rational {
   return index.masses[low];
 }
 
+// At the crossing atom the inclusive tail is still above alpha. A floating
+// successor expresses the strict side without rounding scores or splitting ties.
+function crossingAtom(index: TailIndex, allowance: Rational): number {
+  let low = 0;
+  let high = index.scores.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (compare(index.masses[middle + 1], allowance) > 0) high = middle;
+    else low = middle + 1;
+  }
+  return index.scores[low] ?? 0;
+}
+
+function usefulScore(reading: PercentileReading, body: Rune): number | null {
+  const score = reading.score(body);
+  if (score === null) return null;
+  if (!Number.isFinite(score)) throw new RangeError(`Reading ${reading.id} returned a non-finite score.`);
+  return score > 0 ? score : null;
+}
+
+function checkEndpoints(low: number | null, high: number | null): void {
+  if (low !== null && (high === null || high < low)) {
+    throw new RangeError('The shared terminal scorer is not monotone over a legal value interval.');
+  }
+}
+
 async function integrateStructure(
   options: ReferenceBuildOptions, structure: ReferenceStructure, cutoff: number, budget: { remaining: number; visited: number; yieldAt: number },
   localLimit = Number.POSITIVE_INFINITY,
@@ -286,10 +315,7 @@ async function integrateStructure(
     // its four lines across related endpoints instead of allocating per split.
     body.prefixValue = firstSub ? slices[0][endpoint] : 0;
     for (let line = 0; line < lines.length; line += 1) lines[line].value = slices[line + firstSub][endpoint];
-    const score = reading.score(body);
-    if (score === null) return null;
-    if (!Number.isFinite(score)) throw new RangeError(`Reading ${reading.id} returned a non-finite score.`);
-    return score > 0 ? score : null;
+    return usefulScore(reading, body);
   };
   const cooperate = async () => {
     if (signal?.aborted) throw new PercentileCancelledError();
@@ -314,12 +340,7 @@ async function integrateStructure(
 
     const lower = scoreAt('low');
     const upper = scoreAt('high');
-    if (lower !== null && upper === null) {
-      throw new RangeError('The shared terminal scorer became unusable as a legal value interval improved.');
-    }
-    if (lower !== null && upper !== null && upper < lower) {
-      throw new RangeError('The shared terminal scorer is not monotone over a legal value interval.');
-    }
+    checkEndpoints(lower, upper);
     if (lower !== null && lower >= cutoff) {
       result.passed = add(result.passed, mass);
       result.boxes.push({ low: lower, high: upper, mass });
@@ -427,6 +448,89 @@ export async function buildReferenceDistribution(options: ReferenceBuildOptions)
   const relations = new WeakMap<ReferencePeer, UtilityRelation | null>();
   const compatibleMainMass = assumptions.mainProbabilities?.get(reading.mainStatId)
     ?? rational(BigInt(1), BigInt(slotMainProperties[slot]?.length ?? 1));
+
+  type Boundary = Readonly<{ failsAt: number; passesAt: number }>;
+  const boundaries = new Map<string, Boundary>();
+  let preparedIndex: Promise<ReferenceIndex> | undefined;
+  const prepareIndex = async (): Promise<ReferenceIndex> => {
+    const knownStructures = structureCache?.key === structureKey ? structureCache.structures : null;
+    const newStructures: ReferenceStructure[] = [];
+    const boxes: ScoreBox[] = [];
+    const counts = new Map<bigint, bigint>();
+    const lines = Array.from({ length: 4 }, () => ({ statId: 0, value: 0, gemmed: false, grind: 0 }));
+    const body = makeRune(slot, stars, 'Normal', reading.mainStatId, null, 0, lines);
+    let yieldAt = performance.now() + 8;
+    let exhausted = true;
+    for (const structure of knownStructures ?? referenceStructures(slot, stars, reading.mainStatId, assumptions)) {
+      if (signal?.aborted) throw new PercentileCancelledError();
+      if (boxes.length === stateLimit) {
+        exhausted = false;
+        break;
+      }
+      if (boxes.length % 64 === 0 && performance.now() >= yieldAt) {
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        if (signal?.aborted) throw new PercentileCancelledError();
+        yieldAt = performance.now() + 8;
+      }
+      if (!knownStructures) newStructures.push(structure);
+      body.rarity = structure.rarity;
+      body.prefixStatId = structure.prefixStatId;
+      const { dimensions, mass } = structure;
+      const firstSub = structure.prefixStatId === null ? 0 : 1;
+      const prefix = firstSub ? dimensions[0].support.values : undefined;
+      body.prefixValue = prefix?.[0] ?? 0;
+      for (let at = 0; at < lines.length; at += 1) {
+        const dimension = dimensions[firstSub + at];
+        lines[at].statId = dimension.statId;
+        lines[at].value = dimension.support.values[0];
+      }
+      const low = usefulScore(reading, body);
+      body.prefixValue = prefix?.[prefix.length - 1] ?? 0;
+      for (let at = 0; at < lines.length; at += 1) {
+        const values = dimensions[firstSub + at].support.values;
+        lines[at].value = values[values.length - 1];
+      }
+      const high = usefulScore(reading, body);
+      checkEndpoints(low, high);
+      boxes.push({ low, high, mass });
+      counts.set(mass.denominator, (counts.get(mass.denominator) ?? BigInt(0)) + mass.numerator);
+    }
+    let visitedMass = ZERO;
+    for (const [denominator, numerator] of counts) visitedMass = add(visitedMass, rational(numerator, denominator));
+    const unseen = subtract(compatibleMainMass, visitedMass);
+    if (compare(unseen, ZERO) < 0 || (exhausted && compare(unseen, ZERO) !== 0)) {
+      throw new RangeError('Synthetic birth structure masses do not match the compatible-main population.');
+    }
+    if (compare(unseen, ZERO) > 0) boxes.push({ low: null, high: Infinity, mass: unseen });
+    else if (!knownStructures) structureCache = { key: structureKey, structures: newStructures };
+    const index = { lower: await makeTailIndex(boxes, 'low', signal), upper: await makeTailIndex(boxes, 'high', signal) };
+    retainIndex(indexSlot, index);
+    return index;
+  };
+
+  const qualityBoundary = async (alpha: PolicyProbability): Promise<Boundary> => {
+    if (signal?.aborted) throw new PercentileCancelledError();
+    const allowance = policyProbability(alpha);
+    if (compare(allowance, compatibleMainMass) >= 0) return { failsAt: 0, passesAt: Number.MIN_VALUE };
+    const key = `${allowance.numerator}/${allowance.denominator}`;
+    const known = boundaries.get(key);
+    if (known) return known;
+    const startPreparation = () => {
+      const started = performance.now();
+      return prepareIndex().finally(() => {
+        preparedIndex = undefined;
+        options.onQualityPreparation?.(performance.now() - started);
+      });
+    };
+    const index = indexSlot.index ?? await (preparedIndex ??= startPreparation());
+    const failsAt = crossingAtom(index.lower, allowance);
+    const passesAt = nextUp(crossingAtom(index.upper, allowance));
+    if (failsAt >= passesAt) throw new RangeError('The certified quality boundary is inverted.');
+    const result = { failsAt, passesAt };
+    if (boundaries.size >= 32) boundaries.delete(boundaries.keys().next().value!);
+    boundaries.set(key, result);
+    return result;
+  };
 
   const queryTail = async (cutoff: number, allowance: Rational, full: boolean, onlyCached: boolean): Promise<TailBounds> => {
     if (signal?.aborted) throw new PercentileCancelledError();
@@ -559,6 +663,7 @@ export async function buildReferenceDistribution(options: ReferenceBuildOptions)
 
   return {
     slot, stars, readingId: reading.id,
+    qualityBoundary: options.prepareQualityBoundary ? qualityBoundary : undefined,
     async query(cutoff, alpha, precision = 'decision'): Promise<ReferenceTail> {
       const allowance = policyProbability(alpha);
       const { low, high } = await queryTail(cutoff, allowance, precision === 'full', precision === 'cached');

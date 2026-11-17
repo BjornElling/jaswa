@@ -121,3 +121,58 @@ The proposal's time budgets remain targets: 3,000 warm
 judgments in two seconds, selected cold reference queries in five seconds and
 cancellation reported within 100 ms. Frequent incomplete results prevent replacing
 the production engine.
+
+## Shared quality boundary experiment
+
+The experiment computes a certified score bracket per numerical reference and
+policy allowance, then reuses it for every rune. The account fixture is the
+same 1,347 owned runes and the same baseline settings. Run the benchmark from
+the repository with the passive local export and saved baseline:
+
+```text
+node --import ./scripts/json-module-hook.mjs scripts/benchmark-rune-percentile-account.mjs --runes=1347 --warm=3000 --deadline-ms=150000 --warm-deadline-ms=30000 --decision-only --shared-boundary --interleave
+node --import ./scripts/json-module-hook.mjs scripts/benchmark-rune-percentile-account.mjs --statistics --deadline-ms=10000 --shared-boundary
+```
+
+The account benchmark reports finished sub-property bodies (+12 and above)
+separately from unfinished bodies. It replays attempted runes in the same
+reference scope for the warm measurement, with a separate warm deadline.
+Decision-only measurements omit resolved rank and expected utility details.
+The measured preparation time covers reference partitions and indexes,
+including any work interrupted by the deadline. Other work includes scoring
+the rune, traversing its possible futures and assembling the advice.
+
+With `--reference-states=1024`, the full scan took 69.0 seconds and left all
+1,347 runes unresolved, including 1,239 finished bodies and 108 unfinished
+bodies. Reference preparation took 2.45 seconds across 515 builds. The warm
+scan returned 103 judgments in 30 seconds, all unresolved, while building no
+new reference indexes. A small cold reference budget alone therefore leaves
+substantial candidate-side work and does not give usable verdicts.
+
+At the default reference budget, the interleaved scan returned 32 judgments
+in 150 seconds. Four of the 16 finished bodies and nine of the 16 unfinished
+bodies were unresolved. Reference preparation accounted for 144 seconds across
+415 builds. The warm repeat returned 175 judgments in 30 seconds with no new
+reference preparation, and 69 were unresolved. Peak RSS was 2,071,884 KiB.
+
+In import order, the three-minute run returned 136 finished-body judgments
+before reaching any unfinished bodies. It left 37 of the 136 unresolved. The
+warm repeat of only those bodies returned all 3,000 judgments in 3.01 seconds,
+with 816 unresolved. A separate warm repeat of one finished SPD specialist
+returned 3,000 certified Keep judgments in 3.37 seconds after two reference
+builds that took 321 ms in total. The runs replayed the same candidates and
+shared the machine with verification work. Neither run represents the full
+account at the default budget.
+
+The ten-second Statistics run tracked five checkpoints for each of 300 sampled
+paths. It certified three failures and left 297 paths unresolved at the
+terminal gate. The qualifying funnel left the same count unresolved. No
+terminal reading entered the per-reading catalogue before the deadline.
+At 30 seconds with up to 1.5 seconds per checkpoint, the same 297 terminal
+outcomes remained unresolved. The catalogue reached 172 rows and none was
+fully resolved.
+
+The experiment leaves the existing production path in service. The completed
+body repeat shows where sharing boundaries helps. The account and Statistics
+gates still need faster preparation of tighter reference brackets and less
+candidate-side work for unfinished bodies.

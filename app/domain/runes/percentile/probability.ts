@@ -119,7 +119,7 @@ export function policyProbability(value: PolicyProbability): Rational {
   return result;
 }
 
-function nextUp(value: number): number {
+export function nextUp(value: number): number {
   if (value === Infinity) return value;
   if (value === 0) return Number.MIN_VALUE;
   floatBits.setFloat64(0, value, false);

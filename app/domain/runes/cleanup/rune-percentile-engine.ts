@@ -62,14 +62,14 @@ export type RunePercentileAdvice = Readonly<{
 }>;
 
 /**
- * A per-calculation reference cache. The key deliberately contains the reading
- * identity, whose role/build/main/star fields are fixed for the request; policy,
- * set preference and inventory remain query inputs rather than moving the ruler.
+ * A per-calculation reference cache keyed by the numeric reading and its work
+ * budget. Policy and set preference choose a boundary on that ruler.
  */
 export type RunePercentileReferenceScope = {
   references: Map<string, Promise<ReferenceDistribution>>;
   models: ReturnType<typeof newRuneAdviceScope>;
   signal?: CancellationSignal;
+  onQualityPreparation?: (durationMs: number) => void;
 };
 
 export function newRunePercentileReferenceScope(): RunePercentileReferenceScope {
@@ -300,9 +300,10 @@ function referenceFor(
   scope: RunePercentileReferenceScope,
   signal?: CancellationSignal,
   stateLimit?: number,
+  prepareQualityBoundary?: boolean,
 ): Promise<ReferenceDistribution> {
   const { descriptor, candidate } = reading;
-  const key = JSON.stringify([descriptor.utilityKey, stateLimit]);
+  const key = JSON.stringify([descriptor.utilityKey, stateLimit, prepareQualityBoundary]);
   const known = scope.references.get(key);
   if (known) {
     scope.references.delete(key);
@@ -319,11 +320,13 @@ function referenceFor(
     canonicalCraft: true,
     signal,
     stateLimit,
+    prepareQualityBoundary,
+    onQualityPreparation: scope.onQualityPreparation,
   });
   scope.references.set(key, pending);
   /* Warm workers outlive settings edits. Older rulers are disposable and must
      not retain every numerical reading the user ever tried. */
-  if (scope.references.size > 128) {
+  if (scope.references.size > (prepareQualityBoundary ? 2048 : 128)) {
     const oldest = scope.references.keys().next();
     if (!oldest.done) scope.references.delete(oldest.value);
   }
@@ -341,6 +344,8 @@ type RunePercentileOptions = Readonly<{
   cachedRank?: boolean;
   stopOnUnionProof?: boolean;
   unionRequirement?: PolicyProbability;
+  prepareQualityBoundary?: boolean;
+  referenceStateLimit?: number;
 }>;
 
 /**
@@ -394,7 +399,8 @@ export async function judgeRunePercentile(
     readings = runePercentileReadings(rune, roles, base, settings, scope.models);
     for (const reading of readings) {
       if (!reading.descriptor.permitted) continue;
-      const reference = await referenceFor(reading, scope, options.signal, options.stateLimit);
+      const reference = await referenceFor(reading, scope, options.signal, options.referenceStateLimit ?? options.stateLimit,
+        options.prepareQualityBoundary);
       references.set(reading.descriptor.id, reference.readingId === reading.descriptor.id
         ? reference : { ...reference, readingId: reading.descriptor.id, decisionIdentity: reference });
     }

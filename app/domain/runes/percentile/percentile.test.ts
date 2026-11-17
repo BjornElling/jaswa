@@ -338,19 +338,23 @@ describe('rune percentile exact finite kernel', () => {
     expect(future.readings[0].chance.highFraction).toEqual({ numerator: '5', denominator: '20736' });
   });
 
-  it('unions same-body reading events once and preserves disjoint specialists', async () => {
+  it.each([false, true])('unions same-body events once with shared quality boundaries set to %s', async (shared) => {
     const rune = spdRune();
     const spd = reading('spd', 8);
     const duplicate = reading('spd-copy', 8);
     const hp = reading('hp', 2);
+    const referenceFor = (id: string, cutoff: number) => ({
+      ...fixedReference(id, cutoff),
+      qualityBoundary: shared ? async () => ({ failsAt: cutoff - 1, passesAt: cutoff }) : undefined,
+    });
     const same = await solveRuneFuture({
-      rune, readings: [spd, duplicate],
-      references: new Map([['spd', fixedReference('spd', 27)], ['spd-copy', fixedReference('spd-copy', 27)]]),
+      rune, readings: [spd, duplicate], decisionOnly: shared,
+      references: new Map([['spd', referenceFor('spd', 27)], ['spd-copy', referenceFor('spd-copy', 27)]]),
     });
     expect(same.unionChance?.lowFraction).toEqual({ numerator: '5', denominator: '20736' });
     const union = await solveRuneFuture({
-      rune, readings: [spd, hp],
-      references: new Map([['spd', fixedReference('spd', 27)], ['hp', fixedReference('hp', 37)]]),
+      rune, readings: [spd, hp], decisionOnly: shared,
+      references: new Map([['spd', referenceFor('spd', 27)], ['hp', referenceFor('hp', 37)]]),
     });
     const hpOnly = rational(1, 65_536);
     const expected = add(rational(5, 20_736), hpOnly);

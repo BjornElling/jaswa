@@ -254,7 +254,7 @@ export async function calculateRuneCleanupStatistics(
   roles: readonly RuneRole[],
   settings: RunePotentialSettings,
   base: ReadonlyMap<string, ReferenceStats>,
-  limits: Readonly<{ durationMs?: number; checkpointMs?: number }> = {},
+  limits: Readonly<{ durationMs?: number; checkpointMs?: number; prepareQualityBoundary?: boolean }> = {},
 ): Promise<RuneCleanupStatistics> {
   const startedAt = performance.now();
   const deadline = startedAt + (limits.durationMs ?? 10_000);
@@ -279,6 +279,7 @@ export async function calculateRuneCleanupStatistics(
         checkpointDeadline = Math.min(deadline, now + checkpointMs);
         const judgment = await judgeRunePercentile(rune, roles, settings, base, scope, {
           signal, decisionOnly: true, unionRequirement: level === 12 ? undefined : requirement,
+          prepareQualityBoundary: limits.prepareQualityBoundary,
         });
         path.checkpoints[level / 3] = { rune, level, advice: runePercentileAdvice(rune, judgment, settings) };
       }

@@ -60,3 +60,30 @@ it retains no rune body or role callback.
 scores, including subnormal products and placement changes. It also compares a
 reused SPD reference with an independent ordered-roll oracle and verifies that
 changing the rarity mixture prevents reuse of the old probability measure.
+
+## Shared policy boundaries
+
+The account experiment prepares a reference without using any candidate
+score. For each legal type and roll allocation it evaluates the lowest and
+highest terminal utility using the canonical scorer. The whole structure mass
+belongs to each endpoint index. The lower index bounds the inclusive tail from
+below and the upper index bounds it from above. Unvisited compatible mass
+has no positive lower endpoint and has an infinite upper endpoint.
+
+For each index, sort the actual scores descending and accumulate their exact
+masses. The crossing atom is the first atom whose cumulative mass is
+**greater** than the allowance. A score at or below the lower crossing atom
+fails. A score strictly above the upper crossing atom passes. We represent
+the latter comparison with the next binary64 score so ties stay together and
+an inclusive tail exactly equal to the allowance still passes. A missing
+crossing atom is represented by zero since only positive scores are useful.
+An infinite upper crossing atom establishes no finite passing score.
+
+The prototype reuses the bracket for every candidate with the same numerical
+reading and allowance. Candidate boxes between the two boundaries are
+unresolved. If a box is wholly inside that gap, subdividing its roll ranges
+cannot add a proof for that reading. For unfinished runes the solver still
+traverses one shared set of outcomes and counts an outcome once in the union.
+The remaining mass stays in the upper bound if an early stop proves the
+verdict. Display ranks in this mode can consult existing reference evidence
+without starting a candidate-specific tail traversal.

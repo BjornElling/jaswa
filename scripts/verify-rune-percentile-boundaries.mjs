@@ -148,6 +148,25 @@ const countMeasure = new ScoreDistribution([{ score: 1, mass: rational(20) },
 assert.deepEqual(countMeasure.query(1, 0.2), boundary.query(1, 0.2),
   'A count measure and its normalized measure must answer the same question.');
 
+let boundaryScores = 0;
+const constant = await buildReferenceDistribution({ slot: 4, stars: 6, prepareQualityBoundary: true, reading: {
+  ...reading, score() { boundaryScores += 1; return 1; },
+} });
+const bracket = await constant.qualityBoundary(rational(1, 20));
+assert.equal(bracket.failsAt, 1, 'The entire compatible atom fails at the tied score.');
+assert.equal(bracket.passesAt, 1 + Number.EPSILON, 'The first representable higher score passes.');
+const boundaryWork = boundaryScores;
+assert.deepEqual(await constant.qualityBoundary(0.05), bracket);
+assert.deepEqual(await constant.qualityBoundary(0.1), bracket);
+assert.deepEqual(await constant.qualityBoundary(rational(1, 8)), { failsAt: 0, passesAt: Number.MIN_VALUE });
+assert.equal(boundaryScores, boundaryWork, 'New allowances reuse the reference atoms and equal allowances reuse the bracket.');
+
+const limitedBoundary = await buildReferenceDistribution({
+  slot: 4, stars: 6, stateLimit: 1, prepareQualityBoundary: true, reading: { ...reading, score: () => 1 },
+});
+assert.deepEqual(await limitedBoundary.qualityBoundary(0.05), { failsAt: 0, passesAt: Infinity },
+  'An unseen compatible atom must remain unresolved at every finite score.');
+
 const large = BigInt('1' + '0'.repeat(400));
 for (const mass of [rational(1, 3), rational(1, 10), rational(5, 20736),
   rational(large + BigInt(1), BigInt(3) * large + BigInt(7))]) {

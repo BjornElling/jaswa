@@ -149,6 +149,7 @@ function terminalBody(rune: Rune, structure: FutureStructure, values: readonly n
 type DecisionCache = {
   failsAt: number;
   passesAt: number;
+  boundaryPrepared?: boolean;
 };
 
 const referenceDecisions = new WeakMap<object, Map<string, DecisionCache>>();
@@ -200,12 +201,16 @@ function knownDecision(cache: DecisionCache, score: number): boolean | null {
   return null;
 }
 
+function checkDecisionCache(cache: DecisionCache): void {
+  if (cache.failsAt >= cache.passesAt) throw new RangeError('Decisions for the same reference and allowance disagree.');
+}
+
 async function queryDecision(decision: Decision, score: number, precision: 'decision' | 'cached' = 'decision'): Promise<ReferenceTail> {
   const { cache } = decision;
   const tail = await decision.reference.query(score, decision.allowance, precision);
   if (tail.passes === true) cache.passesAt = Math.min(score, cache.passesAt);
   if (tail.passes === false) cache.failsAt = Math.max(score, cache.failsAt);
-  if (cache.failsAt >= cache.passesAt) throw new RangeError('Decisions for the same reference and allowance disagree.');
+  checkDecisionCache(cache);
   if (tail.passes === null && precision === 'decision') decision.unresolved.add(score);
   return tail;
 }
@@ -303,6 +308,7 @@ export async function solveRuneFuture(options: RuneFutureOptions): Promise<RuneF
   if (decisions.length === 0) {
     return { status: 'unusable', unionChance: probabilityBounds(ZERO), readings: readings.map(emptyReading), potentialWitness: null };
   }
+  const sharedBoundaries = decisions.every(({ reference }) => reference.qualityBoundary !== undefined);
 
   let remainingStates = stateLimit;
   const utilityWork = utilities.map(() => Math.max(32, Math.floor(10_000 / utilities.length)));
@@ -360,10 +366,22 @@ export async function solveRuneFuture(options: RuneFutureOptions): Promise<RuneF
           const scoreLow = endpoint(low, utility, false);
           if (scoreLow > scoreHigh) throw new RangeError('Reading ' + utilities[utility].reading.id + ' is not monotone over a legal future interval.');
           let lower = knownDecision(cache, scoreLow);
-          if (lower === null && !decision.unresolved.has(scoreLow)) lower = (await queryDecision(decision, scoreLow)).passes;
-          if (lower !== true && upper === null) {
-            upper = knownDecision(cache, scoreHigh);
-            if (upper === null && !decision.unresolved.has(scoreHigh)) upper = (await queryDecision(decision, scoreHigh)).passes;
+          if (decision.reference.qualityBoundary) {
+            if (lower !== true && !cache.boundaryPrepared) {
+              const boundary = await decision.reference.qualityBoundary(decision.allowance);
+              cache.failsAt = Math.max(cache.failsAt, boundary.failsAt);
+              cache.passesAt = Math.min(cache.passesAt, boundary.passesAt);
+              checkDecisionCache(cache);
+              cache.boundaryPrepared = true;
+              lower = knownDecision(cache, scoreLow);
+              upper = knownDecision(cache, scoreHigh);
+            }
+          } else {
+            if (lower === null && !decision.unresolved.has(scoreLow)) lower = (await queryDecision(decision, scoreLow)).passes;
+            if (lower !== true && upper === null) {
+              upper = knownDecision(cache, scoreHigh);
+              if (upper === null && !decision.unresolved.has(scoreHigh)) upper = (await queryDecision(decision, scoreHigh)).passes;
+            }
           }
           if (lower === true) {
             if (!passed && unionRequirement) {
@@ -384,17 +402,20 @@ export async function solveRuneFuture(options: RuneFutureOptions): Promise<RuneF
 
       let splitAt = -1;
       let largestSpan = -1;
-      if (!unionProven && remainingStates > 0 && unsettled.some((index) => {
-        const { utility } = decisions[index];
-        return low[utility] !== high[utility];
-      })) {
+      // Every score wholly inside a fixed bracket has the same unresolved answer.
+      const canNarrow = (index: number) => {
+        const { utility, cache, reference } = decisions[index];
+        return low[utility] !== high[utility] && (!reference.qualityBoundary
+          || low[utility] <= cache.failsAt || high[utility] >= cache.passesAt);
+      };
+      if (!unionProven && remainingStates > 0 && unsettled.some(canNarrow)) {
         for (let at = 0; at < slices.length; at += 1) {
           const slice = slices[at];
           if (slice.end - slice.start <= 1) continue;
           let slope = 0;
           for (const index of unsettled) {
             const utility = decisions[index].utility;
-            if (low[utility] !== high[utility]) {
+            if (canNarrow(index)) {
               slope = Math.max(slope, utilities[utility].reading.weightsByStatId[structure.dimensions[at].statId]);
             }
           }
@@ -487,19 +508,21 @@ export async function solveRuneFuture(options: RuneFutureOptions): Promise<RuneF
       // Every structure contributes to this maximum, even if its Chance box
       // later runs out of states. Only the final maximum needs a rank query.
       await cooperate();
-      const rank = decisionOnly || options.cachedRank ? unranked : (await queryDecision(decision, score)).rank;
+      const rank = decisionOnly || options.cachedRank || decision.reference.qualityBoundary
+        ? unranked : (await queryDecision(decision, score)).rank;
       decision.potential = { score, rank };
     }
     for (const future of futures) {
       await cooperate();
-      if (unionRequirement && compare(unionPass, unionRequirement) >= 0) break;
+      if (unionRequirement && (compare(unionPass, unionRequirement) >= 0
+        || (sharedBoundaries && compare(add(add(unionPass, unionUnknown), remainingMass), unionRequirement) < 0))) break;
       await processStructure(future);
       remainingMass = subtract(remainingMass, future.structure.mass);
     }
-    if (!decisionOnly && options.cachedRank) {
+    if (!decisionOnly && (options.cachedRank || decisions.some(({ reference }) => reference.qualityBoundary))) {
       for (const decision of decisions) {
         const score = utilities[decision.utility].maximum;
-        if (score <= 0) continue;
+        if (score <= 0 || (!options.cachedRank && !decision.reference.qualityBoundary)) continue;
         await cooperate();
         decision.potential = { score, rank: (await queryDecision(decision, score, 'cached')).rank };
       }
