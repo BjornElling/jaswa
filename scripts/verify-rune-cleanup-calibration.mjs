@@ -229,8 +229,8 @@ function verifyProbability(credit, label) {
  * Which line and which stat is then chosen on a fixed reference rune, not at the
  * credit (`RUNE-CLEANUP-MATH.md` §6.1): every grindable line raised by an average
  * Legend Grindstone where that raises it, each Gem an average Legend Gem ground
- * likewise, ordinary tables. The pair that gains most there is valued at the credit,
- * and kept only where it is legal and gains there too.
+ * likewise, using the rune's lineage tables. Every complete realized body, including
+ * no Gem, is summed by its resulting stat ids; the highest reference utility wins.
  */
 function independentEndState(rune, credit, valuation) {
   const lineage = rune.ancient ? 'ancient' : 'standard';
@@ -246,22 +246,33 @@ function independentEndState(rune, credit, valuation) {
   };
   const grindOf = stoneOf(credit.grind, lineage, credit.grindGrade);
   const gemOf = gemFrom(credit.gem, lineage, credit.gemGrade);
-  const referenceGrind = stoneOf('average', 'standard', 'Legend');
-  const referenceGem = gemFrom('average', 'standard', 'Legend');
+  const referenceGrind = stoneOf('average', lineage, 'Legend');
+  const referenceGem = gemFrom('average', lineage, 'Legend');
   const lines = rune.subProperties;
   const worthWith = (stone) => (statId, roll, ownGrind) => valuation.value(statId, roll + Math.max(ownGrind, stone(statId)));
   const worth = worthWith(grindOf);
   const referenceWorth = worthWith(referenceGrind);
   const held = lines.map((line) => worth(line.statId, line.value, line.grind));
+  const referenceHeld = lines.map((line) => referenceWorth(line.statId, line.value, line.grind));
   const prefix = rune.prefixStatId === null ? 0 : valuation.value(rune.prefixStatId, rune.prefixValue);
-  const plain = prefix + held.reduce((sum, value) => sum + value, 0);
+  const sumBody = (values, replaced = -1, replacementStat = -1, replacementValue = 0) => {
+    const order = lines.map((line, index) => ({ index,
+      statId: index === replaced ? replacementStat : line.statId,
+    })).sort((left, right) => left.statId - right.statId);
+    let total = prefix;
+    for (const { index } of order) total += index === replaced ? replacementValue : values[index];
+    return total;
+  };
+  const plain = sumBody(held);
+  const referencePlain = sumBody(referenceHeld);
   if (credit.gem === null) return plain;
 
   /* One converted line at a time, and a later Gem may only replace that one. */
   const converted = lines.findIndex((line) => line.gemmed);
   let chosen = null;
-  let chosenGain = 0;
-  for (let at = 0; at < lines.length; at += 1) {
+  let chosenScore = referencePlain;
+  const lineOrder = lines.map((line, index) => ({ line, index })).sort((left, right) => left.line.statId - right.line.statId);
+  for (const { line, index: at } of lineOrder) {
     if (converted !== -1 && at !== converted) continue;
     for (const statId of runeStatIds) {
       if (statId === rune.mainStatId || statId === rune.prefixStatId) continue;
@@ -274,16 +285,18 @@ function independentEndState(rune, credit, valuation) {
       /* The replaced line loses its rolls. It keeps its own stone only where the
          effect id is unchanged, and the new line may then be ground like any other. */
       const kept = statId === lines[at].statId ? lines[at].grind : 0;
-      const gain = referenceWorth(statId, roll, kept) - referenceWorth(lines[at].statId, lines[at].value, lines[at].grind);
-      if (gain > chosenGain) { chosenGain = gain; chosen = { at, statId, kept }; }
+      const value = referenceWorth(statId, roll, kept);
+      const score = sumBody(referenceHeld, at, statId, value);
+      if (score > chosenScore) { chosenScore = score; chosen = { at, statId, kept }; }
     }
   }
   if (!chosen) return plain;
   const roll = gemOf(chosen.statId);
   if (roll === null) return plain;
   if (chosen.statId === lines[chosen.at].statId && roll <= lines[chosen.at].value) return plain;
-  const gain = worth(chosen.statId, roll, chosen.kept) - held[chosen.at];
-  return gain > 0 ? plain + gain : plain;
+  const value = worth(chosen.statId, roll, chosen.kept);
+  const score = sumBody(held, chosen.at, chosen.statId, value);
+  return score > plain ? score : plain;
 }
 
 function verifyCraftEndState() {

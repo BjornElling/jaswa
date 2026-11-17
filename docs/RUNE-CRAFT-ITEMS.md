@@ -172,8 +172,9 @@ spend it, so no caller can read the two on different terms:
 - **A Gem** is judged on the placement rule's reference lines (§5.1): every
   grindable line carries an average Legend Grindstone where that raises it — before
   the Gem and after it alike — and a line already ground higher keeps its own. The
-  gain is therefore the Gem's alone, read on exactly the line-ups that chose its
-  stat; only the Gem's own roll is the item's, at the Assumed roll.
+  reference uses the rune's lineage, including the Ancient tables for an Ancient
+  rune. The gain is therefore the Gem's alone, read on exactly the line-ups that
+  chose its stat; only the Gem's own roll is the item's, at the Assumed roll.
 - **A Grindstone** is judged on the rune as it stands, because the stone is what is
   being judged.
 
@@ -233,9 +234,10 @@ a second Gem to undo. Waiting for the right stone is the better use of both.
 the one rule Rune Clean-up and the rune overlay apply too, so every view names
 the same stat. It is judged on a **reference rune**: the rune's lines as they
 stand, each grindable line raised by an average Legend Grindstone where that
-raises it, and each candidate Gem an average Legend Gem, ground likewise. Every
-legal `(line, stat)` pair is priced so in every role reading the rune is judged
-in (`gemChoiceLineUps`), and the stat whose best reference end state is worth
+raises it, and each candidate Gem an average Legend Gem, ground likewise. The
+reference uses ordinary items for an ordinary rune and Ancient items for an Ancient
+rune. Every legal `(line, stat)` pair is priced so in every role reading the rune
+is judged in (`gemChoiceLineUps`), and the stat whose best reference end state is worth
 most — and beats the same reading's reference rune without a Gem — is the one
 the rune wants. The ranking travels on every row of the rune (`gemChoice`), and
 `desirableGemStats` reads its top. Neither the grade held nor the Assumed roll
@@ -246,7 +248,7 @@ better roll of that stat. The reason above does not apply there — the user has
 already decided the stat stays — and read after the top, the two rules emptied
 the rune between them. Under Yes such a rune wants both: the rule's stat, and a
 better roll of the stat its Gem already holds, which closes nothing.
-The gain itself is read on the same reference lines (§5), so the line a Gem is
+The gain itself is read on the same-lineage reference lines (§5), so the line a Gem is
 shown on and the stat it was chosen for cannot disagree about the stones. A Hero Gem of the chosen stat is suggested like a Legend
 one, as long as it raises the rune.
 

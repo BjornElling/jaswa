@@ -38,7 +38,7 @@
  * model. A box a player has kept cannot confirm or refute either, because keeping is
  * a choice that skews every count in it.
  */
-import { runeMaximumLevel, slotAllowsSubStat } from '../runes';
+import { gemMinimumLevel, runeMaximumLevel, slotAllowsSubStat } from '../runes';
 import type { Rune } from '../runes';
 import { isIntangibleRuneSet, roleRuneSetNameList } from '../rune-sets';
 import {
@@ -54,7 +54,7 @@ import {
 import type { BuildMains, SubstatWeightScope, SubstatWeights } from '../rune-substat-weights';
 import type { Valuation } from '../rune-substat-weights';
 import {
-  canonicalCraftCredit, craftPlan, craftedScore, creditKey, gemOptions, grindCredit, priceList,
+  canonicalCraftCredit, craftPlan, craftedLines, craftedScore, creditKey, gemOptions, grindCredit, groundLines, priceList,
 } from '../craft/rune-craft-end-state';
 import type {
   CraftCredit, CraftPlan, CraftReport, EndStateLine, GemOptions, PriceList,
@@ -66,6 +66,7 @@ import {
 } from '../rune-power-up-outcomes';
 import type { CountingJob, EndStateScoring, RuneFuture, RuneRuns } from '../rune-power-up-outcomes';
 import { generateRuneBody, generatedRuneGrade, upgradeRuneBody } from '../rune-generation';
+import type { GeneratedRuneBody, RandomSource } from '../rune-generation';
 
 export type { CraftCredit } from '../craft/rune-craft-end-state';
 
@@ -729,8 +730,9 @@ function gaussianKernel(steps: number, offset: number): Float64Array {
  * same rune, and whether one of them keeps it depends on how its standings in all of
  * them move together — which no product of single boxes can say. The default is the
  * Legend-born reference of `ordinaryBox`; slot balance and Statistics ask for the
- * simulator's drop-grade mix. Both draw legal lines and uniform rolls. Each copy's
- * fixed stream gives the same body at +0, +9, +12 and +15.
+ * simulator's drop-grade mix. Both draw legal lines and uniform rolls. `ordinarySamplePaths`
+ * carries one generated body and its random stream forward through each checkpoint;
+ * `ordinarySample` remains the single-checkpoint projection used by existing callers.
  *
  * **Its sets are drawn evenly over the ordinary role set vocabulary**, and that is not a
  * detail. Several roles overlap on a rune only where they all want its set, so a
@@ -745,15 +747,26 @@ function gaussianKernel(steps: number, offset: number): Float64Array {
  */
 export type OrdinarySampleLevel = 0 | 3 | 6 | 9 | 12 | 15;
 
-export function ordinarySample(
-  slot: number, stars: number, count: number, level: OrdinarySampleLevel = 15,
-  population: 'legend' | 'drop' = 'legend', sampleOffset = 0,
-): Rune[] {
-  const runes: Rune[] = [];
+export type OrdinarySampleCheckpointLevel = 0 | 3 | 6 | 9 | 12;
+
+export type OrdinarySamplePath = Readonly<{
+  id: string;
+  checkpoints: readonly Readonly<{ level: OrdinarySampleCheckpointLevel; rune: Rune }>[];
+}>;
+
+type OrdinarySampleBirth = Readonly<{
+  index: number;
+  body: GeneratedRuneBody;
+  next: RandomSource;
+}>;
+
+function ordinarySampleBirths(
+  slot: number, stars: number, count: number, population: 'legend' | 'drop', sampleOffset: number,
+): OrdinarySampleBirth[] {
+  const births: OrdinarySampleBirth[] = [];
   for (let at = 0; at < count; at += 1) {
-    /* A per-rune stream keeps the +0, +9 and +12 views of a Rare or Hero body
-       identical up to each checkpoint. Advancing one shared stream to +15 without
-       adding future lines cannot do that: later draws would have a different pool. */
+    /* One stream belongs to one birth. Callers that need several checkpoints keep
+       advancing this stream with the same body, rather than reseeding each level. */
     let state = (0x9e3779b9 ^ Math.imul(slot, 0x85ebca6b) ^ Math.imul(stars, 0xc2b2ae35)
       ^ Math.imul(at + sampleOffset + 1, 0x27d4eb2d)) >>> 0;
     /* Avalanche neighbouring sample ids before the xorshift stream. Without this,
@@ -780,22 +793,58 @@ export function ordinarySample(
     const setIndex = (Math.floor(occurrence / 4) + mainIndex * 7 + gradeIndex * 5)
       % roleRuneSetNameList.length;
     const mainStatId = mains[mainIndex];
-    const body = upgradeRuneBody(generateRuneBody({
+    const body = generateRuneBody({
       setName: roleRuneSetNameList[setIndex] ?? null,
       slot, stars, rarity: population === 'drop'
         ? generatedRuneGrade(slot, () => (gradeIndex + 0.5) / 4) : 'Legend', mainStatId, random: next,
-    }), level, next);
-    const sampleId = `ordinary-sample:${population}:${slot}:${stars}:${level}:${at + sampleOffset}`;
-    runes.push({
-      id: sampleId, setId: 0, setName: body.setName ?? '', slot, stars,
-      ancient: false, rarity: body.rarity, level, mainStatId: body.mainStatId,
-      mainValue: level === runeMaximumLevel ? mainPropertyMaximum(stars, body.mainStatId) : 0,
-      prefixStatId: body.prefixStatId, prefixValue: body.prefixValue,
-      subProperties: body.subProperties.map(({ statId, value, gemmed, grind }) => ({ statId, value, gemmed, grind })),
-      occupiedId: null, obtainedOrder: 0,
     });
+    births.push({ index: sampleIndex, body, next });
   }
-  return runes;
+  return births;
+}
+
+function ordinarySampleRune(
+  body: GeneratedRuneBody, slot: number, stars: number, level: OrdinarySampleLevel, id: string,
+): Rune {
+  return {
+    id, setId: 0, setName: body.setName ?? '', slot, stars,
+    ancient: false, rarity: body.rarity, level, mainStatId: body.mainStatId,
+    mainValue: level === runeMaximumLevel ? mainPropertyMaximum(stars, body.mainStatId) : 0,
+    prefixStatId: body.prefixStatId, prefixValue: body.prefixValue,
+    subProperties: body.subProperties.map(({ statId, value, gemmed, grind }) => ({ statId, value, gemmed, grind })),
+    occupiedId: null, obtainedOrder: 0,
+  };
+}
+
+export function ordinarySample(
+  slot: number, stars: number, count: number, level: OrdinarySampleLevel = 15,
+  population: 'legend' | 'drop' = 'legend', sampleOffset = 0,
+): Rune[] {
+  return ordinarySampleBirths(slot, stars, count, population, sampleOffset).map(({ index, body, next }) => {
+    const atLevel = upgradeRuneBody(body, level, next);
+    const id = `ordinary-sample:${population}:${slot}:${stars}:${level}:${index}`;
+    return ordinarySampleRune(atLevel, slot, stars, level, id);
+  });
+}
+
+/**
+ * One birth carried forward through every sub-property decision point. Each saved
+ * rune is a snapshot of the same evolving body and random stream, so funnel outcomes
+ * preserve the conditioning from earlier investments.
+ */
+export function ordinarySamplePaths(
+  slot: number, stars: number, count: number, population: 'legend' | 'drop' = 'legend', sampleOffset = 0,
+): OrdinarySamplePath[] {
+  return ordinarySampleBirths(slot, stars, count, population, sampleOffset).map(({ index, body: birth, next }) => {
+    const pathId = `ordinary-sample-path:${population}:${slot}:${stars}:${index}`;
+    let body = birth;
+    const checkpoints = ([0, 3, 6, 9, 12] as const).map((level) => {
+      if (level > body.level) body = upgradeRuneBody(body, level, next);
+      const id = `ordinary-sample:${population}:${slot}:${stars}:${level}:${index}`;
+      return { level, rune: ordinarySampleRune(body, slot, stars, level, id) };
+    });
+    return { id: pathId, checkpoints };
+  });
 }
 
 /* ------------------------------------------------------------ the candidate */
@@ -836,6 +885,32 @@ export type RuneCandidate = {
   readonly scope: RuneAdviceScope;
 };
 
+/** The deterministic inputs shared by a single percentile reading. */
+export type RunePercentileModel = Readonly<{
+  rune: Rune;
+  role: RuneRole;
+  build: Build;
+  weights: SubstatWeights;
+  valuation: Valuation;
+  ceiling: number;
+  stars: number;
+  main: number;
+  rank: MatchRank;
+}>;
+
+/** The canonical craft display for this reading's rune, using the rune's lineage. */
+export function runePercentileCraftProjection(candidate: RunePercentileModel): EndStateLine[] {
+  const { rune, valuation } = candidate;
+  const plan = craftPlan(rune.ancient ? 'ancient' : 'standard', canonicalCraftCredit);
+  const scoring = endStateScoring(rune, valuation, plan);
+  const lines: EndStateLine[] = rune.subProperties.map(({ statId, value, gemmed, grind }) => ({
+    statId, value, gemmed, grind,
+  }));
+  return rune.level >= gemMinimumLevel
+    ? craftedLines(plan, scoring.options, scoring.prices, lines, scoring.prefixScore)
+    : groundLines(plan, lines);
+}
+
 /**
  * The scratchpad for one whole calculation.
  *
@@ -850,6 +925,7 @@ export type RuneCandidate = {
  * is exactly right for a single `judgeAgainstBuild` from a test or the oracle.
  */
 export type RuneAdviceScope = {
+  builds: WeakMap<RuneRole, readonly Build[]>;
   weights: SubstatWeightScope;
   /** The perfect rune of one slot, by valuation, craft credit, slot and main. */
   ceiling: Remembered;
@@ -868,7 +944,8 @@ export type RuneAdviceScope = {
 };
 
 export const newRuneAdviceScope = (): RuneAdviceScope => ({
-  weights: newSubstatWeightScope(), ceiling: new Map(), pricing: new Map(), ordinary: new Map(), futures: new Map(),
+  builds: new WeakMap(), weights: newSubstatWeightScope(), ceiling: new Map(), pricing: new Map(),
+  ordinary: new Map(), futures: new Map(),
 });
 
 /**
@@ -969,6 +1046,32 @@ export function prepareRuneCandidate(
     get best() { return best ??= bestEndState(future, scoring); },
     future, scoring, credit, plan,
     lineage, rank: worseRank(setRank, buildRank(build, rune.slot)), scope,
+  };
+}
+
+/**
+ * Prepare one reading without constructing the legacy chance future. Percentile
+ * references and exact candidate futures share these prices, while the potential
+ * efficiency safeguard still reads the ordinary perfect-rune ceiling.
+ */
+export function prepareRunePercentileModel(
+  rune: Rune, role: RuneRole, build: Build, base: ReferenceStats,
+  scope: RuneAdviceScope = newRuneAdviceScope(),
+): RunePercentileModel | null {
+  if (mainOfSlot(build, rune.slot) !== rune.mainStatId
+    && build.mains[rune.slot as 2 | 4 | 6] !== 0) return null;
+
+  const main = mainOfSlot(build, rune.slot) || rune.mainStatId;
+  const stars = referenceStars(rune);
+  const priced = buildPricing(role, build, base, rulerCredit, stars, scope);
+  if (!priced) return null;
+  const ceiling = cachedCeiling(priced.valuation, rune.slot, main, rulerCredit, stars, scope);
+  if (!(ceiling > 0) || !Number.isFinite(ceiling)) return null;
+
+  const rank = worseRank(runeSetMatchRank(role.sets, rune.setName), buildRank(build, rune.slot));
+  return {
+    rune, role, build, weights: priced.weights, valuation: priced.valuation,
+    ceiling, stars, main, rank,
   };
 }
 

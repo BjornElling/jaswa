@@ -13,13 +13,13 @@ import type { CountingJob, CountRuneChances } from '../../domain/runes/rune-powe
 import { runAccelerated } from './accelerated-calculation';
 import type { AcceleratedCalculation } from './accelerated-calculation';
 import {
-  countJobsOnGpu, runeChanceAgreement, runeChanceAgreementTolerance,
+  countJobsOnGpu, runeChanceAgreement, runeChancePolicyMargin,
 } from '../gpu/backends/webgpu-rune-chance-backend';
 import { combineCalculationBackends } from '../../domain/shared/calculation-summary';
 
-const runeChanceCalculation: AcceleratedCalculation<readonly CountingJob[], Float64Array> = {
+const runeChanceCalculation: AcceleratedCalculation<readonly CountingJob[], Awaited<ReturnType<typeof countJobsOnGpu>>> = {
   name: 'rune-chance',
-  cpu: (jobs) => countJobs(jobs),
+  cpu: (jobs) => ({ shares: countJobs(jobs), uncertain: [] }),
   gpu: (jobs, context) => countJobsOnGpu(jobs, context),
   agrees: runeChanceAgreement,
 };
@@ -30,8 +30,8 @@ export const countRuneChances: CountRuneChances = async (jobs, preferWebGpu, cha
      answered is the true statement. */
   if (jobs.length === 0) return { shares: new Float64Array(0), backend: 'cpu' };
   const answer = await runAccelerated(runeChanceCalculation, jobs, preferWebGpu);
-  if (answer.backend !== 'webgpu' || chanceBar === undefined) {
-    return { shares: answer.result, backend: answer.backend };
+  if (answer.backend !== 'webgpu') {
+    return { shares: answer.result.shares, backend: answer.backend };
   }
 
   /* The GPU agreement gate protects the estimate's arithmetic, but the policy
@@ -39,18 +39,18 @@ export const countRuneChances: CountRuneChances = async (jobs, preferWebGpu, cha
      active bar that single-precision drift could change the verdict. This keeps
      the GPU useful for the ordinary case and makes the policy decision independent
      of which engine answered. */
-  const sensitiveIndexes: number[] = [];
-  const sensitiveJobs: CountingJob[] = [];
-  for (let at = 0; at < jobs.length; at += 1) {
-    if (Math.abs(answer.result[at] - chanceBar) <= runeChanceAgreementTolerance) {
-      sensitiveIndexes.push(at);
-      sensitiveJobs.push(jobs[at]);
+  const sensitive = new Set(answer.result.uncertain);
+  if (chanceBar !== undefined) {
+    for (let at = 0; at < jobs.length; at += 1) {
+      if (Math.abs(answer.result.shares[at] - chanceBar) <= runeChancePolicyMargin) sensitive.add(at);
     }
   }
-  if (sensitiveIndexes.length === 0) return { shares: answer.result, backend: answer.backend };
+  if (sensitive.size === 0) return { shares: answer.result.shares, backend: answer.backend };
+  if (sensitive.size === jobs.length) return { shares: countJobs(jobs), backend: 'cpu' };
 
-  const shares = new Float64Array(answer.result);
-  const cpuShares = countJobs(sensitiveJobs);
+  const shares = new Float64Array(answer.result.shares);
+  const sensitiveIndexes = [...sensitive];
+  const cpuShares = countJobs(sensitiveIndexes.map((index) => jobs[index]));
   for (let at = 0; at < sensitiveIndexes.length; at += 1) {
     shares[sensitiveIndexes[at]] = cpuShares[at];
   }

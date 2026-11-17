@@ -20,6 +20,9 @@
  */
 import { runeStatIds, slotMainProperties } from './runes';
 import type { RuneRarity } from './runes';
+import { runeInnateFrequency } from './rune-birth-model';
+
+export { runeInnateFrequency };
 
 export { slotMainProperties };
 
@@ -142,7 +145,6 @@ export const addedSubPropertyRange = (stars: number, statId: number) =>
  * The canonical innate-generation rate used by every rune model. Rune type and
  * rarity do not create separate rates in JASWA's current game model.
  */
-export const runeInnateFrequency = 0.5;
 
 /** The best a single roll can be — the unit every demand and supply is counted in. */
 export const maximumRoll = (statId: number, stars = 6, ancient = false, kind: SubPropertyRollKind = 'upgrade'): number =>

@@ -317,8 +317,9 @@ user which build they intend — a role-model decision, not made here.
 - **One credit, and no setting.** Every rune judgement assumes an average Legend Gem and
   an average Legend Grindstone (`canonicalCraftCredit`): the candidate's projection, the
   ruler of §§4–5 and §9.1, the floor calibration, the Gem's placement (§6.1) and Gems &
-  Grinds' reading of a Gem (`RUNE-CRAFT-ITEMS.md` §5). Items are evaluated as legal
-  actions on actual lines, so an item helps only where the game would let it.
+  Grinds' reading of a Gem (`RUNE-CRAFT-ITEMS.md` §5). The Gem's placement reference uses
+  the candidate's lineage; the ordinary ruler and box remain ordinary. Items are evaluated
+  as legal actions on actual lines, so an item helps only where the game would let it.
 - **A Grindstone is credited on every grindable line** the rune holds, as `max(the stone
   already there, the canonical one)`, never added to it: a stone can always be topped up,
   and adding would pay the rune twice for one line.
@@ -329,10 +330,11 @@ user which build they intend — a role-model decision, not made here.
   placement (§6.1) at the credit, so considering a craft item can only raise a rune.
 - **A Gem is spent at `+12`, after every power-up.** The chance plays the remaining
   events out first and crafts what it actually got (§9.2).
-- **Lineage is legality, not reference.** A candidate's own craft tables follow its
-  lineage, so an Ancient rune takes Ancient Legend items. The ruler — the weights, the
-  perfect rune and the ordinary box — takes no lineage. It is priced inside
-  `prepareRuneCandidate` and is not a parameter, because a ruler a caller may choose is a
+- **The candidate's lineage sets its craft reference.** An Ancient candidate uses the
+  Ancient Gem and Grindstone tables both for its own credit and for choosing its one
+  canonical Gem placement. An ordinary candidate uses the ordinary tables. The weights,
+  perfect rune and reference box stay ordinary and take no lineage. They are priced inside
+  `prepareRuneCandidate` and are not a parameter, because a ruler a caller may choose is a
   ruler two callers can choose differently.
 
 **Why one credit.** Rune Clean-up once read a rune under three assumptions at once: its
@@ -343,23 +345,33 @@ about one rune's craft for reasons no player could see.
 
 ### 6.1 Which line the Gem replaces, and with which stat
 
-**Every line is offered every legal Gem, and the pair that gains most on a fixed
-reference rune is kept.** Which Gem is legal depends on which line is replaced — a Gem
+**Every line is offered every legal Gem, and the highest-scoring complete body on a
+fixed reference rune is kept, including the body with no Gem.** Which Gem is legal
+depends on which line is replaced — a Gem
 may not duplicate one of the *other* lines, so removing the SPD line is what makes a SPD
 Gem legal — so "offer the weakest line the best Gem" is a different and wrong rule.
 
 The reference is the rune's lines with every grindable line raised by an average Legend
 Grindstone where that raises it, and each candidate Gem an average Legend Gem, ground
-likewise (`canonicalCraftCredit`; ordinary Legend, never Ancient). The pair is chosen in
-the role's own prices on that rune and only then valued at the candidate's credit — the
-same credit for Clean-up, a held item's roll for Gems & Grinds; where that Gem could not
-legally take the line, or gains nothing there, the rune keeps no Gem. So which stat a
-rune should be gemmed with moves with the rune and the role, and with nothing else:
+likewise (`canonicalCraftCredit`; ordinary for ordinary runes, Ancient for Ancient
+runes). The pair is chosen in the role's own prices on that rune and only then valued at
+the candidate's credit — the same credit for Clean-up, a held item's roll for Gems &
+Grinds. A held item's grade or roll cannot choose a different placement. Where the chosen
+Gem could not legally take the line, or gains nothing at the reading's credit, the rune
+keeps no Gem. So which stat a rune should be gemmed with moves with the rune, its lineage
+and the role, and with nothing else:
 Rune Clean-up, the rune overlay and Gems & Grinds name the
 same stat (`RUNE-CRAFT-ITEMS.md` §5.1). Choosing at the credit instead was tried and
 removed: Gems & Grinds measured against the rune as it stands and credited an SPD Gem
 with the stone its line could take anyway, so the two views named different stats for
 one rune.
+
+The reference compares complete realized bodies, including the unchanged body with no
+Gem. It keeps the body with the highest canonical utility; an exact tie keeps no Gem,
+then the first line in ascending original stat id and the first Gem in canonical option
+order. Each total adds the innate contribution first, then sub-properties by their
+resulting stat id in ascending order, after a replacement. This gives one fixed sum
+order independent of how the export listed its lines.
 
 The projection, the ceiling, the box, the odds and the craft planner all read the one
 function, `craftedScore`, and the graphics card makes the same choice from the same
@@ -672,6 +684,25 @@ found.
 higher standing, then higher Chance, then the role id that sorts first. The answer never
 depends on enumeration order.
 
+### 9.7 Experimental reading-local percentile calculation
+
+`RUNE-PERCENTILE-PROPOSAL.md` owns the proposed policy and the evidence required
+before it replaces the fitted slot floors above. `RUNE-PERCENTILE-NUMERICS.md` owns
+the exact finite support and certified bounds. The prototype uses the same build
+weights and canonical craft policy for a rune and its ordinary reference births.
+The reference includes its slot's whole main distribution. The candidate contributes
+to a reading only on its actual compatible main. An unstated main does not reduce the
+weight of the targets it might supply.
+
+The reference tail includes all ties at the candidate's utility. Each permitted
+reading applies its own allowance to that tail. The candidate future counts the union
+of qualifying readings as one event per body, including when the readings assume
+different legal Gem placements. An exact lower bound at the Chance requirement can
+prove a pass. Sell requires a certified upper bound strictly below that requirement
+and a resolved protection decision. An invalid rune or role never proves a sale.
+Rank, expected utility, efficiency and Chance carry independent witnesses or bounds.
+The efficiency ratio uses its original perfect ordinary rune denominator, uncapped.
+
 ## 10. Checks
 
 | Check | Holds |
@@ -684,12 +715,15 @@ depends on enumeration order.
 | `verify:rune-cleanup-calibration` | An independent generator and the game's addition/upgrade loop with its own PRNG; the chance twice, with no craft and with the canonical items credited; and §6 against `RUNE-CANONICAL.md` §8 written out afresh, over every synthetic finished rune at six credits. `:large` is the 1,000-rune statistical run. |
 | `verify:rune-cleanup-probability` | The event order of §7.1 on hand-calculable fixtures with one valuable stat: a line still to come never receives an earlier improvement. |
 | `verify:rune-cleanup-ancient` | §7.4. |
+| `verify:rune-cleanup-statistics-funnel` | One birth advances through +0/+3/+6/+9/+12; checkpoint snapshots retain that body's state; terminal union, investment funnel and protections count each birth once; incomplete answers remain unresolved (§9.5). |
+| `verify:rune-craft-lineage-placement` | §6.1 complete-body placement, canonical stat-id sums, Ancient/ordinary lineage, no-Gem ties and the percentile Improvements projection. |
 | `verify:rune-cleanup-craft-monotonic` | A more generous credit never lowers what a rune can reach or its odds, and a stone spent up to the canonical one moves no row (§9.2). |
 | `verify:rune-cleanup-preference-monotonic` | A more lenient slider never sells a rune a stricter one keeps, over the whole recommendation funnel. |
 | `verify:rune-chance-stability` | §7.3: the box holds still across a sixty-fourfold resolution sweep, and two copies of one rune get one answer. |
 | `verify:rune-best-role` | §9.6. |
 | `verify:rune-craft-single-source` | Source text: only `rune-craft-items.ts` and `rune-craft-end-state.ts` read the §8 tables; the shader is the one sanctioned second implementation. |
 | `verify:rune-chance-layout` | The chance shader's offsets all come from `rune-chance-layout.ts` (§10.1). |
+| `verify:rune-chance-card` | The active WebGPU card flags score-cutoff atoms and exactly matches processor counts on the remaining agreement jobs (§10.1). |
 | `verify:rune-cleanup-equivalence` | Whether this build says what the last one did (below). |
 
 No caller of `prepareRuneCandidate` passes a ruler: it is the canonical one inside the
@@ -719,13 +753,13 @@ that answered. What does not move:
   Every certainty of §7, every threshold, gate and policy stays on the processor.
 - **The runs are identical**: every draw is integer arithmetic on both sides, the same
   hash of the same counter and the same multiply-high to a bound.
-- **The pricing is not identical**: single precision moves a score by about one part in
-  ten million, so a run at the bar may fall either side. The agreement gate allows up to
-  one percentage point of share difference, and jobs near the active policy bar are
-  rechecked on the processor before the verdict is settled.
-- **A card proves itself first.** `runeChanceAgreement` puts hand-built runes through
-  both engines; a card outside the tolerance is not used, and the status line says
-  `Processor`.
+- **Score-cutoff atoms are replayed.** Single precision can move a score across its
+  cutoff, including a score shared by many runs. The shader marks jobs whose score
+  comparisons intersect its rounding margin. The processor replays these jobs, as
+  well as jobs near the active policy chance bar.
+- **A card proves itself first.** `runeChanceAgreement` requires the boundary flag
+  and exact agreement on the remaining fixture jobs. The status names the engines
+  whose counts were ultimately used.
 
 ## 11. Change procedure
 

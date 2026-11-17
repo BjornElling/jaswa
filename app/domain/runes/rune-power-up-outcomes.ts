@@ -261,6 +261,10 @@ export type EndStateScoring = {
   readonly prefixScore: number;
 };
 
+export function runeInnateScore(rune: Pick<Rune, 'prefixStatId' | 'prefixValue'>, prices: PriceList): number {
+  return rune.prefixStatId === null ? 0 : rune.prefixValue * prices[rune.prefixStatId];
+}
+
 export function endStateScoring(rune: Rune, valuation: Valuation, plan: CraftPlan): EndStateScoring {
   const prices = priceList(valuation);
   return {
@@ -268,7 +272,7 @@ export function endStateScoring(rune: Rune, valuation: Valuation, plan: CraftPla
     prices,
     plan,
     options: gemOptions(plan, prices, rune.slot, rune.mainStatId, rune.prefixStatId),
-    prefixScore: rune.prefixStatId === null ? 0 : rune.prefixValue * prices[rune.prefixStatId],
+    prefixScore: runeInnateScore(rune, prices),
   };
 }
 

@@ -100,4 +100,4 @@ assert.ok(ordinaryAdded > 0.05 && ordinaryAdded < 0.95, `the added-line fixture 
 assert.ok(Math.abs(ancientAdded - ordinaryAdded) <= addedBand,
   `an Ancient rune's added lines must roll the ordinary table in Chance too: ${ordinaryAdded} -> ${ancientAdded}`);
 
-console.log('PASS: Ancient born lines use the Ancient interval and added lines the ordinary one, against ordinary references.');
+console.log('PASS: Ancient born lines use the Ancient interval, added lines the ordinary one, and craft tables follow rune lineage.');

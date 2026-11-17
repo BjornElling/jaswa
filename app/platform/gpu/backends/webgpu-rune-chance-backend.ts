@@ -16,12 +16,9 @@
  * line says Processor — a visible, honest failure rather than a table of quietly
  * wrong percentages.
  *
- * The tolerance is not zero and cannot be. The *runs* are bit-identical, because every
- * draw is integer arithmetic on both sides. What differs is the pricing: a card works
- * in single precision and the processor in double. The gate allows one percentage
- * point of share difference for accumulated rounding; the caller separately sends
- * jobs near the active policy bar back through the processor before settling the
- * verdict.
+ * The runs are bit-identical because every draw is integer arithmetic. Pricing in
+ * binary32 can move a whole atom at the cutoff, so the shader marks that job for
+ * CPU replay. The agreement gate requires exact counts on its unambiguous jobs.
  */
 import {
   countJobs, endStateScoring, playForward, runeFuture, runScore,
@@ -43,8 +40,8 @@ import {
 } from '../layouts/rune-chance-layout';
 import type { GpuContext } from '../gpu-context';
 
-/** What the two engines may differ by on one job's share before the card is refused. */
-export const runeChanceAgreementTolerance = 0.01;
+/** Policy margin for a separate processor recheck near the keep threshold. */
+export const runeChancePolicyMargin = 0.01;
 
 function packRune(into: Int32Array, at: number, future: RuneFuture): void {
   const { rune, held } = future;
@@ -90,11 +87,11 @@ function packRune(into: Int32Array, at: number, future: RuneFuture): void {
   }
 }
 
-/* The placement is chosen on the reference rune and valued at the credit, as
-   `craftedScore` does: the card is handed the reference's list and stones to choose
-   with, and the credit's roll per id to value the choice. */
+/* The placement is chosen on the same-lineage reference rune and valued at the
+   credit, as `craftedScore` does: the card is handed that reference's list and
+   stones to choose with, and the credit's roll per id to value the choice. */
 function packScoring(into: Float32Array, at: number, scoring: EndStateScoring): void {
-  const reference = craftPlan('standard', canonicalCraftCredit);
+  const reference = craftPlan(scoring.plan.lineage, canonicalCraftCredit);
   for (const statId of allStatIds) {
     into[at + scoringPricesAt + statId] = scoring.prices[statId];
     into[at + scoringGrindAt + statId] = scoring.plan.grind[statId];
@@ -164,9 +161,9 @@ const jobsPerPass = 65536;
 
 export async function countJobsOnGpu(
   jobs: readonly CountingJob[], context: GpuContext,
-): Promise<Float64Array> {
-  if (jobs.length === 0) return new Float64Array(0);
+): Promise<{ shares: Float64Array; uncertain: readonly number[] }> {
   const shares = new Float64Array(jobs.length);
+  const uncertain: number[] = [];
   for (let from = 0; from < jobs.length; from += jobsPerPass) {
     const slice = jobs.slice(from, from + jobsPerPass);
     const packed = pack(slice);
@@ -186,12 +183,15 @@ export async function countJobsOnGpu(
     }
     for (let at = 0; at < slice.length; at += 1) {
       let hits = 0;
+      let ambiguous = false;
       const runs = slice[at].runs;
-      if (!Number.isInteger(runs) || runs <= 0) {
+      if (!Number.isInteger(runs) || runs <= 0 || runs >= 0x80000000) {
         throw new Error('Rune chance jobs must have a positive integer run count.');
       }
       for (let lane = 0; lane < chanceLanes; lane += 1) {
-        const laneHits = counts[at * chanceLanes + lane];
+        const laneResult = counts[at * chanceLanes + lane];
+        if (laneResult >>> 31) ambiguous = true;
+        const laneHits = laneResult & 0x7fffffff;
         if (laneHits > runs) throw new Error('The graphics card returned too many rune chance hits.');
         hits += laneHits;
       }
@@ -200,9 +200,13 @@ export async function countJobsOnGpu(
         throw new Error('The graphics card returned an invalid rune chance.');
       }
       shares[from + at] = share;
+      const { plan } = slice[at].scoring;
+      // Comparing a different credit after choosing a Gem can magnify a tiny
+      // choice difference into a large valuation difference. That case stays CPU.
+      if (ambiguous || plan !== craftPlan(plan.lineage, canonicalCraftCredit)) uncertain.push(from + at);
     }
   }
-  return shares;
+  return { shares, uncertain };
 }
 
 /**
@@ -218,12 +222,17 @@ export async function countJobsOnGpu(
 export async function runeChanceAgreement(context: GpuContext): Promise<boolean> {
   const jobs = agreementJobs();
   if (jobs.length === 0) return false;
-  const theirs = await countJobsOnGpu(jobs, context);
+  const { shares: theirs, uncertain } = await countJobsOnGpu(jobs, context);
   const ours = countJobs(jobs);
+  const recheck = new Set(uncertain);
+  if (recheck.size === 0) return false;
+  let checked = 0;
   for (let at = 0; at < jobs.length; at += 1) {
-    if (!(Math.abs(theirs[at] - ours[at]) <= runeChanceAgreementTolerance)) return false;
+    if (recheck.has(at)) continue;
+    checked += 1;
+    if (theirs[at] !== ours[at]) return false;
   }
-  return true;
+  return checked > 0;
 }
 
 /** Every stat wanted, none of them alike, so a wrong effect id cannot go unnoticed. */
@@ -252,18 +261,15 @@ function agreementRune(
 }
 
 function agreementJobs(): CountingJob[] {
-  const plan = craftPlan('standard', {
-    gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
-  });
   /* Improvements only, additions only, both, and a rune already carrying a Gem. */
   const shapes: Array<[Rune['rarity'], number, number, boolean]> = [
-    ['Legend', 0, 4, false], ['Normal', 0, 0, false], ['Hero', 3, 3, false], ['Rare', 6, 2, true],
+    ['Legend', 0, 4, false], ['Normal', 0, 0, false], ['Hero', 3, 3, false], ['Rare', 12, 4, true],
   ];
   const jobs: CountingJob[] = [];
   for (const [index, [grade, level, lines, gemmed]] of shapes.entries()) {
     const rune = agreementRune(index, grade, level, lines, gemmed);
     const future = runeFuture(rune);
-    if (future.upgrades === 0 && future.additions === 0) continue;
+    const plan = craftPlan(rune.ancient ? 'ancient' : 'standard', canonicalCraftCredit);
     const scoring = endStateScoring(rune, agreementValuation, plan);
     /* Bars the rune clears in roughly a third, half and four fifths of its runs, so
        every job's answer is a share rather than a certainty and one run landing on
@@ -272,8 +278,17 @@ function agreementJobs(): CountingJob[] {
     const scores: number[] = [];
     for (let run = 0; run < sample.count; run += 1) scores.push(runScore(sample, scoring, run));
     scores.sort((left, right) => left - right);
+    if (scores[0] === scores[scores.length - 1]) {
+      jobs.push({ future, scoring, runs: 2048, wanted: scores[0] },
+        { future, scoring, runs: 2048, wanted: scores[0] - 0.01 },
+        { future, scoring, runs: 2048, wanted: scores[0] + 0.01 });
+      continue;
+    }
     for (const share of [0.8, 0.5, 0.2]) {
-      jobs.push({ future, scoring, runs: 2048, wanted: scores[Math.floor((1 - share) * scores.length)] });
+      const wanted = scores[Math.floor((1 - share) * scores.length)];
+      const next = scores.find(score => score > wanted + 0.0001);
+      jobs.push({ future, scoring, runs: 2048, wanted });
+      if (next !== undefined) jobs.push({ future, scoring, runs: 2048, wanted: (wanted + next) / 2 });
     }
   }
   return jobs;

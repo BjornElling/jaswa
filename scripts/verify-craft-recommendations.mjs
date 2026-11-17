@@ -91,11 +91,13 @@ function compare(actual, expected) {
   });
 }
 /* The premise, written out afresh rather than read from the engine: a Gem is judged on
-   lines every one of which carries an average Legend stone where that raises it, before
-   and after alike; a Grindstone on the rune as it stands. */
-const legendStones = craftPlan('standard', { ...canonicalCraftCredit, gem: null });
-const premised = (kind, lines) => kind === 'gem'
-  ? lines.map((line) => ({ ...line, grind: Math.max(line.grind, legendStones.grind[line.statId]) })) : lines;
+   lines every one of which carries an average Legend stone of the rune's lineage where
+   that raises it, before and after alike; a Grindstone on the rune as it stands. */
+const legendStones = new Map(['standard', 'ancient'].map((lineage) => [lineage,
+  craftPlan(lineage, { ...canonicalCraftCredit, gem: null })]));
+const premised = (kind, lines, rune) => kind === 'gem'
+  ? lines.map((line) => ({ ...line, grind: Math.max(line.grind,
+    legendStones.get(rune.ancient ? 'ancient' : 'standard').grind[line.statId]) })) : lines;
 let comparisons = 0;
 for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'maximum']) {
   const request = { runes, items: items.filter((item) => item.kind === kind), missing: [], roles, settings, base,
@@ -119,17 +121,17 @@ for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'max
   const actual = { ...craftRecommendationRankings(calculation.candidates, 10), backend: calculation.backend, comparisons: calculation.comparisons };
   const rows = [];
   for (const rune of runes) {
-    const before = evaluate({ ...rune, subProperties: premised(kind, rune.subProperties) });
+    const before = evaluate({ ...rune, subProperties: premised(kind, rune.subProperties, rune) });
     if (!before) continue;
     for (const item of request.items.filter((item) => lineageFits(item, rune))) {
       const comparison = craftComparison(item, rune, request.roll);
-      assert.deepEqual(comparison.baseline, premised(kind, rune.subProperties), 'the baseline left the premise');
+      assert.deepEqual(comparison.baseline, premised(kind, rune.subProperties, rune), 'the baseline left the premise');
       const applications = comparison.applications;
       const half = heldCraftHalf(kind, [{ item, stock: 0 }], request.roll);
       const variants = craftVariants({ gem: kind === 'gem' ? half : null, grind: kind === 'grindstone' ? half : null },
         rune.slot, rune.mainStatId, rune.prefixStatId, rune.subProperties, rune.level >= 12, () => true, true)
         .filter((variant) => variant.stock.includes(0));
-      assert.deepEqual(applications.map((app) => app.lines), variants.map((variant) => premised(kind, variant.lines)));
+      assert.deepEqual(applications.map((app) => app.lines), variants.map((variant) => premised(kind, variant.lines, rune)));
       for (const application of applications) {
         const after = evaluate({ ...rune, subProperties: application.lines });
         if (!after) continue;
@@ -241,9 +243,10 @@ assert.deepEqual(wantedCraftItems([], 5, benchmark), []);
    reading Gems & Grinds judges a rune in, and keeps the reading worth most: the
    rule Rune Clean-up applies, so the two views cannot name different stats. */
 assert.equal(desirableGemStats([]).size, 0);
-const referencePlan = craftPlan('standard', canonicalCraftCredit);
-const referenceBare = craftPlan('standard', { ...canonicalCraftCredit, gem: null });
 function ruleStat(rune) {
+  const lineage = rune.ancient ? 'ancient' : 'standard';
+  const referencePlan = craftPlan(lineage, canonicalCraftCredit);
+  const referenceBare = craftPlan(lineage, { ...canonicalCraftCredit, gem: null });
   let best = null;
   for (const { role, builds } of families) for (const build of builds) {
     const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);

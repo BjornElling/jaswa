@@ -7,19 +7,17 @@
  * caller owns a second copy of the rules or a stale pre-generated population.
  */
 import {
-  allStatIds, bornSubPropertyCount, remainingEvents, runeInnateFrequency, slotMainProperties, subPropertyRange,
+  allStatIds, bornSubPropertyCount, remainingEvents, slotMainProperties, subPropertyRange,
 } from './rune-properties';
 import type { RuneRarity } from './runes';
 import { slotAllowsSubStat } from './runes';
+import { runeInnateFrequency, sampleRuneBirthRarity } from './rune-birth-model';
 
 export type RandomSource = () => number;
 
 /** The drop mix used by Rune Simulator and the slot-balance population. */
 export function generatedRuneGrade(slot: number, random: RandomSource): RuneRarity {
-  const roll = Math.min(0.9999999999999999, Math.max(0, random()));
-  if (slot % 2 === 1) return roll < 0.75 ? 'Hero' : 'Legend';
-  if (roll < 0.25) return 'Rare';
-  return roll < 0.75 ? 'Hero' : 'Legend';
+  return sampleRuneBirthRarity(slot, random());
 }
 
 export type GeneratedRuneLine = {
