@@ -1,9 +1,10 @@
 # Rune percentiles, sampled: the problem and an implementation plan
 
-**Status:** Implementation plan. Supersedes the exact solver of
-`RUNE-PERCENTILE-PROPOSAL.md` §§9–10 and `RUNE-PERCENTILE-NUMERICS.md`; keeps that
-proposal's policy where §3 below says so.
-**Created:** November 18, 2026.
+**Status:** Approved implementation plan; not yet implemented. The production engine
+of `RUNE-CLEANUP-MATH.md` stays binding until this plan has been carried out.
+Supersedes `RUNE-PERCENTILE-PROPOSAL.md` where §3 below says so, and
+`RUNE-PERCENTILE-NUMERICS.md` entirely.
+**Created:** November 18, 2026. **Decisions approved:** November 18, 2026 (§3.3).
 **Scope:** Rune Clean-up, the rune overlay, Rune Simulator and the Statistics box,
 which all read `runeAdvice`.
 
@@ -127,23 +128,23 @@ the ordinary box and the whole exact engine are removed.
 - Sensitivity runs as a replacement gate. They can be run later as a script; they
   never block a verdict.
 
-### 3.3 Decisions to confirm before implementing
+### 3.3 Approved product decisions
 
-These are product choices. The plan below implements the **recommended** option.
-Each alternative changes one function.
+These three were open product choices. They were approved on November 18, 2026,
+and the rest of this plan assumes them.
 
-1. **Denominator: the rune's own main, not all mains.** *Recommended.* The proposal
-   kept every legal main of the slot in the denominator. With seven or eight mains in
-   slots 2, 4 and 6, that turns "top 5 %" into "top 35–40 % of the runes with this
-   main". At the lowest stop (20 %) **every** useful rune of a wanted main in an even
-   slot would pass (20 % ≥ 1/7). Measuring against runes of the same slot and main
-   means "top 5 %" reads the same in every slot: *better than 95 % of the runes of
-   this slot and main for this build*. A role that needs only one slot-2 main then
-   keeps few slot-2 runes, which is right: it needs few. The alternative is
-   `mainShare = 1 / slotMainProperties[slot].length` in §4.3. Nothing else changes.
+1. **Denominator: the rune's own slot and main.** A rune is compared with the runes of
+   the same slot, star class and main. "Top 5 %" means *better than 95 % of the runes
+   of this slot and main for this build*, and it reads the same in every slot.
+   This reverses `RUNE-PERCENTILE-PROPOSAL.md` §§1, 3 and 5, which kept every legal
+   main of the slot in the denominator. With seven or eight mains in slots 2, 4 and 6,
+   that turned "top 5 %" into "top 35–40 % of the runes with this main". At the
+   lowest stop (20 %) it would have kept **every** useful rune of a wanted main in an
+   even slot (20 % ≥ 1/7). Under the approved rule, a role that needs only one slot-2
+   main keeps few slot-2 runes, which is right: it needs few.
 2. **Sample size 16,384 per reading.** At the strictest reading (1 % × 0.55 =
-   0.55 %) the cutoff still sits among 90 samples. §7.3 makes the choice
-   verifiable.
+   0.55 %) the cutoff still sits among 90 samples. The sample-size sweep in §7.2
+   makes the choice verifiable.
 3. **Reason strings stay as they are** (`Below the floor`, the printed chance), so no
    repository-wide rename is needed (`AGENTS.md` §7 item 14). The slider keeps its
    name *Rune quality floor* and its stop labels; only the numbers behind the stops
@@ -219,17 +220,18 @@ scores  = Float64Array of all score_j, sorted ascending
 the candidate side makes through `EndStateScoring`. Candidate and reference therefore
 share one kernel, and equal bodies give bit-identical scores.
 
-With `mainShare = 1` (decision 3.3.1):
+The sample holds only the reading's own main (decision 3.3.1), so a share of the
+sample is a share of the runes the rune is compared with:
 
 ```text
-tail(u)   = mainShare × #{ j : scores[j] ≥ u } / N       // share of reference drops at least as good
-quality share of a rune = tail(its +15 projection)        // "Top 3.2 %"
+tail(u)   = #{ j : scores[j] ≥ u } / N                 // share of same-slot, same-main drops at least as good
+quality share of a rune = tail(its +15 projection)      // "Top 3.2 %"
 ```
 
 A reading with allowance α qualifies a score `u` when `u > 0` and `tail(u) ≤ α`.
-With `q = α / mainShare` and `k = floor(q × N)`:
+With `k = floor(α × N)`:
 
-- `q ≥ 1`: every useful score qualifies → `wanted = Number.MIN_VALUE`.
+- `α = 1`: every useful score qualifies → `wanted = Number.MIN_VALUE`.
 - otherwise: `tail(u) ≤ α` ⇔ `#{scores ≥ u} ≤ k` ⇔ `u > scores[N − 1 − k]` →
   `wanted = max(nextUp(scores[N − 1 − k]), Number.MIN_VALUE)`.
 
@@ -237,8 +239,9 @@ With `q = α / mainShare` and `k = floor(q × N)`:
 `shareReaching`, `countJobs`, the shader). `nextUp(x)` is the next representable
 double above `x`. Implement it with a shared `Float64Array`/`BigInt64Array` view: for
 finite `x ≥ 0`, add one to the bit pattern; for `x < 0`, `-nextDown(-x)`. Ties are
-therefore inclusive in the tail, as the proposal required: a rune that only equals the
-k-th best sample fails.
+therefore inclusive in the tail, as the proposal required: a rune whose score only
+equals the (k + 1)-th best sample fails, because that sample and the k above it would
+make k + 1 runes at least as good.
 
 `count(scores ≥ u)` is `N − lowerBound(scores, u)` by binary search.
 
@@ -321,7 +324,6 @@ export const referenceSampleSize = 16_384;
 
 export type QualityReference = Readonly<{
   key: string;              // `${slot}|${stars}|${main}|${prices.join(',')}`
-  mainShare: number;        // 1 with decision 3.3.1
   scores: Float64Array;     // ascending, length referenceSampleSize
 }>;
 
@@ -472,7 +474,7 @@ Write `rune-quality-reference.ts` (§5.1) with unit tests in
 - `qualityBar`/`qualityShare` on a hand-made sorted array with ties: `[0, 0, 1, 1, 1,
   2, 3]`, N = 7, for α at, just above and just below `k/N`. A score equal to a tied
   atom has the inclusive tail.
-- `q ≥ 1` gives `Number.MIN_VALUE`; a zero score never qualifies.
+- `α = 1` gives `Number.MIN_VALUE`; a zero score never qualifies.
 - Determinism: `referenceBodies` twice gives equal arrays; changing the piece order
   changes nothing.
 - Rarity strata sum to N; every body has four lines at +12 for Hero/Legend and Rare.
@@ -663,8 +665,8 @@ versioned (`AGENTS.md` §0). `npm run verify:preference-survival` must pass unch
 | Risk | Handling |
 | --- | --- |
 | Sampling noise moves a rune across a cutoff between two sample sizes | The sample is fixed, so the answer is deterministic. 7.2's size sweep bounds how many verdicts depend on the sample. A rune near its cutoff is near it whatever the method. |
-| Even slots keep fewer runes than under the original-drop denominator | That is decision 3.3.1's intent. 7.4 shows the counts. The alternative is one line. |
+| Even slots keep fewer runes than under the original-drop denominator | That is decision 3.3.1's intent: a slot keeps runes for the mains its roles use. 7.4 shows the counts. |
 | Many readings make the union lenient | That is the proposal's stated trade: each use keeps its share. The Statistics box shows the total keep rate live. |
-| A reading whose reference has almost no positive scores | `q`'s cutoff lands on 0; `wanted = MIN_VALUE` requires a positive score, so a useless body never passes. |
+| A reading whose reference has almost no positive scores | The cutoff lands on 0; `wanted = MIN_VALUE` requires a positive score, so a useless body never passes. |
 | Reference and candidate scoring drift apart | One `craftedScore`, one `priceList`, one `canonicalCraftCredit`. Step 1's bit-identity test holds it, and `verify:rune-craft-single-source` keeps the craft rules in one module. |
 | GPU per-reading counts and the CPU union use different runs | Same seed and draw functions on both. The `max ≤ U ≤ sum` assertion fails loudly if they ever diverge. |

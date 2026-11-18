@@ -1,8 +1,27 @@
 # Rune percentiles: a specialist-preserving analytical model
 
-**Status:** Revised design proposal; does not change binding contracts or the application.
+**Status:** Partly superseded on November 18, 2026 by
+[RUNE-PERCENTILE-SAMPLED-PLAN.md](RUNE-PERCENTILE-SAMPLED-PLAN.md), the approved
+implementation plan. Kept as the record of why the policy is reading-local.
 **Created:** October 29, 2026. **Revised:** November 16, 2026.
 **Scope:** Rune Clean-up, Rune Simulator, Statistics and their shared probability engine.
+
+> **What still stands and what does not.** The plan keeps this proposal's
+> reading-local percentiles, the union over readings, the policy stops and their
+> factors, the shared canonical craft placement (§4.1), Max value as an efficiency
+> figure and the safeguards (§§1, 4–8). It replaces the rest:
+>
+> - **Denominator.** A reading is ranked against the runes of the **same slot, star
+>   class and main**, not against every legal main of the slot. That reverses §1
+>   rule 2, the *Main* row of §3 and the main-scarcity discussion of §5.
+> - **Computation.** The exact finite enumeration, rational arithmetic and certified
+>   bounds of §§9–10 and §13's budgets are replaced by a fixed, deterministic sample
+>   of 16,384 bodies per reading and the existing 4,096-run chance count. There is no
+>   "unresolved" state.
+> - **Statistics.** The every-event funnel of §11 is not adopted; Statistics keeps
+>   its +0/+9/+12 funnel.
+>
+> Where this document and the plan disagree, the plan wins.
 
 This revision incorporates the critical review into the model itself. It replaces
 one global maximum-score percentile with percentiles for individual useful

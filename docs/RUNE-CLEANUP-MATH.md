@@ -686,6 +686,11 @@ depends on enumeration order.
 
 ### 9.7 Experimental reading-local percentile calculation
 
+**The approved replacement for §§9–9.4 is `RUNE-PERCENTILE-SAMPLED-PLAN.md`.** It
+ranks each reading against a fixed sample of same-slot, same-main runes and removes
+this prototype. Until it is implemented, the fitted slot floors above remain the
+contract, and this section describes the prototype still in the tree.
+
 `RUNE-PERCENTILE-PROPOSAL.md` owns the proposed policy and the evidence required
 before it replaces the fitted slot floors above. `RUNE-PERCENTILE-NUMERICS.md` owns
 the exact finite support and certified bounds. The prototype uses the same build

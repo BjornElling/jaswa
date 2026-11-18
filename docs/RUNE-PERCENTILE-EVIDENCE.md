@@ -1,7 +1,10 @@
 # Rune percentile implementation evidence
 
-**Status:** Experimental engine. The existing production advice remains in use.
-**Updated:** November 17, 2026.
+**Status:** Evidence for the experimental exact engine, which will not be adopted.
+The existing production advice remains in use. The approved replacement is
+[RUNE-PERCENTILE-SAMPLED-PLAN.md](RUNE-PERCENTILE-SAMPLED-PLAN.md); its measurements
+are added here when it is implemented (plan §6, steps 0 and 8).
+**Updated:** November 18, 2026.
 
 The acceptance contract is [RUNE-PERCENTILE-PROPOSAL.md](RUNE-PERCENTILE-PROPOSAL.md).
 This record separates measured results from targets. Personal account data stays

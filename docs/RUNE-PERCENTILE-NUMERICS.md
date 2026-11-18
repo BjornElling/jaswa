@@ -1,5 +1,10 @@
 # Certified rune reference reuse
 
+**Status:** Superseded on November 18, 2026 by
+[RUNE-PERCENTILE-SAMPLED-PLAN.md](RUNE-PERCENTILE-SAMPLED-PLAN.md), which replaces
+certified bounds with a fixed sample. It describes the experimental exact engine
+that is still in the tree, and is deleted with that engine (plan §6, step 6).
+
 The scoring and equality contract is still the shared canonical binary64 kernel.
 These bounds save work; they do not define another score or population.
 
