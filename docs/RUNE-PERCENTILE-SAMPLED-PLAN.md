@@ -79,6 +79,15 @@ main, a broad price list):
 That is about 0.8 µs per scored body. The cutoff at 8k and 65k samples agrees to
 0.15 %.
 
+> **Architecture review — evidence.** The measurements support abandoning the
+> certified solver. They do not establish the performance of the replacement.
+> The 415–515 references came from interrupted exact-engine scans. The timing
+> table covers one broad price list and its 5% tail. The 8,192-body scoring
+> rate is about 1.34 µs/body. The quoted 0.8 µs/body comes from the larger
+> run. Budget from a full inventory of distinct sampled references and measure
+> the 0.55% tail and new candidate workload. Keep a reproducible sampled
+> benchmark with the fixture, seed and timed phases.
+
 ---
 
 ## 2. The solution in one paragraph
@@ -94,6 +103,23 @@ clears its cutoff (the union), counted on the same runs. Bodies are shared per
 (slot, stars, main), scores per distinct price list, and both are cached across
 calls like today's calibration. The fitted slot floors, the 625-cell policy grid,
 the ordinary box and the whole exact engine are removed.
+
+> **Architecture review — recommendation.** Adopt the sampled, reading-local
+> cutoff and the shared-future union. This preserves specialists, lets finished
+> runes use one comparison and avoids certifying a synthetic drop model to
+> precision its assumptions cannot justify. A fitted global score would
+> sacrifice specialists. Exact enumeration of the reference alone brings back
+> the cold bottleneck. A checked-in table cannot serve arbitrary edited
+> pricing. Score buckets or a quantile sketch would add an approximation where
+> discrete ties and sparse tails matter most. Start with exact order statistics
+> of deterministic samples.
+>
+> Revise the execution architecture before rollout. Build a reference provider
+> keyed by numerical reading inputs and batch per-rune chance questions so they
+> retain joint outcomes where needed. Let Statistics, Simulator and advice
+> lease the same reference work. Prototype those seams and run §7.3 before
+> retiring the production engine. Use measured results to decide whether the
+> existing card path earns its place for multi-reading questions (§4.5).
 
 ---
 
@@ -128,6 +154,16 @@ the ordinary box and the whole exact engine are removed.
 - Sensitivity runs as a replacement gate. They can be run later as a script; they
   never block a verdict.
 
+> **Review — uncertainty.** A fixed seed gives reproducibility. At 0.55%, the
+> nominal 90 reference hits imply a binomial planning estimate of about 0.058
+> percentage points of standard error in tail mass, before stratification or
+> ties. At the 1% candidate gate, 4,096 runs give about 41 hits and about 0.155
+> percentage points of standard error by the same approximation. One hit can
+> change a verdict at any gate. Keep the deterministic point estimate for advice
+> and make seed/size sensitivity a release check on changed sales. Describe zero
+> hits as zero in the sample. Special handling for near-cutoff sales would be a
+> separate product decision.
+
 ### 3.3 Approved product decisions
 
 These three were open product choices. They were approved on November 18, 2026,
@@ -150,6 +186,13 @@ and the rest of this plan assumes them.
    name *Rune quality floor* and its stop labels; only the numbers behind the stops
    and their explanations change.
 
+> **Review — denominator.** Keep the approved same-main comparison. Each
+> allowance applies within a modelled slot, star class and main, for one
+> reading. It provides neither an overall retention quota nor a promise of
+> equal supply across slots. State this in the Math explanation. Ancient
+> candidates deliberately use their own lineage and an ordinary six-star
+> reference (`referenceStars`). Include an Ancient fixture for that asymmetry.
+
 ---
 
 ## 4. The model, precisely
@@ -171,6 +214,16 @@ The reading's **reference key** is
 `prices` is a `Float64Array` indexed by stat id. Two builds whose price lists are
 equal element by element share one reference. That covers builds differing only in
 slots where the role wants nothing, as the ledger already notices.
+
+> **Review — shared pricing seam.** Extract legality, actual-main resolution,
+> canonical ruler pricing and the positive slot-ceiling check into one path
+> used by `prepareRuneCandidate` and the reference planner. Calling
+> `buildPricing` in both places alone can schedule a reference for a build with
+> positive weights and a zero slot ceiling. Preserve blank-slot wildcards and
+> current set ranking. Keep reading identity (role, build, rank) apart from
+> reference identity. Share reference work by price vector and piece. Merge
+> chance events only when the scoring, future and event threshold agree, and
+> retain the mapping to original readings for Best role and the overlay.
 
 ### 4.2 The reference sample
 
@@ -204,6 +257,16 @@ type ReferenceBodies = {
   readonly lines: Int32Array;             // N × 4 × 2: statId, value
 };
 ```
+
+> **Review — sampling contract.** Derive strata from `runeBirthRarityMasses`
+> and mains from `slotMainProperties`. Allocate an exact integer count per
+> stratum for the supported sizes and reject sizes where the masses cannot be
+> represented, unless an allocation rule is documented. Give references a
+> seed namespace distinct from Statistics. Parameterize experimental holdout
+> seeds. Seed bodies by index within their stratum independently of total size
+> so size sweeps can reuse a nested sequence. Exercise independent seeds too.
+> Decode packed `-1` to `null` for `gemOptions` and use `runeInnateScore`
+> or its shared equivalent. Evaluating `0 * prices[-1]` produces `NaN`.
 
 ### 4.3 Scores, cutoff and quality share
 
@@ -245,6 +308,16 @@ make k + 1 runes at least as good.
 
 `count(scores ≥ u)` is `N − lowerBound(scores, u)` by binary search.
 
+> **Review — boundary contract.** The order statistic and inclusive tail are
+> correct. Require finite, nonnegative scores and a nonempty sample. Normalize
+> signed zero before incrementing the Float64 bit pattern. A nonnegative-only
+> successor helper is sufficient here. Compute `k` from exact integer policy
+> units (§4.4). Test immediately below, at and above the cutoff with an independent
+> literal tail count, including all-equal, all-zero and full-allowance fixtures.
+> For kernel equivalence, construct an actual finished rune candidate from a
+> reference body and compare its score. Replaying the reference loop tests the
+> same integration twice.
+
 ### 4.4 Allowance of a reading
 
 ```ts
@@ -261,6 +334,18 @@ A broken reading at factor 0 is **forbidden**: it takes part in nothing but the
 fallback naming of Best role, as now. These arrays replace `qualityThresholds`,
 `acceptedWorth`, `brokenWorth` and the advice file's `intangibleFactors`, and they
 are plain numbers. `rune-percentile-readings.ts` and its `Rational` copies go away.
+
+> **Review — separate allowance and role weighting.** Encode the multiplicands
+> in integer hundredths, multiply, then cap the numerator at the denominator
+> (1,000,000 for three factors). Compute `k = floor(N * numerator / denominator)`.
+> Use the same ratio for display and policy tests, with no epsilon at equality.
+> The merged plan also needs to specify what `mostExpected` discounts and what
+> Max value prints. Today both expectation and Max value use rank discounts,
+> and Max value feeds the Potential value safeguard. Preserve that behaviour
+> explicitly using the existing weights (including for the expectation's
+> bound), while the new factors govern allowance alone. If the intent is to
+> change the role weighting or print undiscounted efficiency, approve that as
+> a product change and show its separate impact on Best role and protections.
 
 ### 4.5 Chance and the union
 
@@ -294,6 +379,37 @@ pass of today's counting cost, and only for runes with two or more live readings
 unchanged). Level rules (`decide`) are unchanged: Power up below +12 and at +13/+14,
 Keep at +12/+15, otherwise Sell.
 
+> **Review — count by rune.** A second union pass after marginal counts can
+> repeat the expensive work and can exceed the *deduplicated* marginal count
+> if the union loops over raw readings. Group jobs by the shared future and
+> use one `playForward` per group. Settle proven zeros and ones first. Score
+> each live unique scoring once per outcome, comparing it with all relevant
+> bars if the same scoring has different bars. Accumulate integer hit counts
+> for each event and increment the union count once per outcome with any hit.
+> Fan counts back to the ledger's original reading IDs. If any event is
+> certainly true, the union is settled, but still count the marginals needed
+> for Best role, explanations and protection. A short circuit in the multi-event
+> loop is only safe once all requested marginal counts for that run are known.
+>
+> For initial acceleration, benchmark fused CPU groups against the existing
+> GPU marginal count plus CPU union. Route single-event groups through the
+> existing acceleration entry point. If multi-event groups need the card to
+> meet the gates, return bit-packed hit masks for their events from a batched
+> backend, OR the masks and popcount on the processor, and replay any
+> ambiguous job entirely on CPU before merging. Chunk buffers within the
+> hardware contract. Do not infer a union from marginals. Report CPU/GPU use
+> across the counting passes. Test per-run masks or exact hit counts against
+> a scalar CPU oracle. The union inequality alone cannot detect different
+> streams that coincidentally satisfy the bounds.
+>
+> Float32 can round `nextUp(cutoff)` back onto the tied score, and
+> `Number.MIN_VALUE` packs to zero. The current shader marks near-cutoff
+> observations ambiguous and the backend replays those jobs. Verify that on
+> the new bars, including exact ties, zero versus positive, both rarity
+> schedules and Ancient/crafted cases. Count the replay rate before assuming
+> the shader remains a performance win. Compare exact CPU and GPU-with-replay
+> outputs and verdicts near every gate, including the 1% protection check.
+
 ### 4.6 Best role and the printed figures
 
 - **Pool:** if cleared, the readings with `C_i > 0`; otherwise all allowed readings
@@ -309,6 +425,22 @@ Keep at +12/+15, otherwise Sell.
     must clear the stop exactly when the rune does (`runeChanceText` is unchanged).
   - `readingChance`: the chosen reading's own `C_i`, for the *Potential value*
     safeguard (§8).
+
+> **Review — explain the same build.** For the role selected as Best, use the
+> very same candidate/build in its overlay row. Today's per-role pool prefers
+> builds that individually clear beta. When only the union clears beta that
+> pool can show a zero-chance build instead of the contributing build marked
+> Best. For every other role prefer individually clearing permitted builds,
+> then positive-chance permitted builds, then the other permitted builds, and
+> finally the forbidden naming fallback. Make the shared final tie-break
+> canonical (role ID and slot 2/4/6 mains in a fixed order). Use the chosen
+> candidate's individual chance and potential share on its row. Show union
+> Chance separately, and distinguish best reachable quality on unfinished
+> runes from its likelihood. A sampled chance of zero cannot distinguish an
+> unreachable bar from a reachable bar with no hits. For forbidden or
+> unavailable readings render absent figures as a dash with the existing
+> explanation. Provide an explicit absence state so a real Top 100% remains
+> distinguishable from missing input.
 
 ---
 
@@ -356,6 +488,30 @@ export function qualityReferences(populationKey: string): QualityReferences;
 Settings (stops, policy) are **not** in any key: they only move `alpha` and so
 `qualityBar`, which is one array lookup.
 
+> **Review — cache ownership and working sets.** Within a fixed sampler
+> configuration, use `(slot, stars, main, prices)` as the sole score key.
+> Policy, role order, names, and unrelated roles or reference stats do not
+> alter a price vector. Key test samples separately by seed and count, or
+> bypass production caching in the harness. Intern the keys per planning
+> scope and account for bytes as well as entry count. The proposed 512-entry
+> LRU cannot serve a 515-key working set by recomputing only its three-entry
+> tail. A repeat in the same order can evict every key before it is reused.
+> Pin the prepared references for the current request. Reuse warm entries
+> across requests under a measured byte budget. For a request above that
+> budget, process key groups in bounded batches, attach the bar and the
+> candidate's tail to each reading, then release the arrays. Preserve
+> complete progress and results across those batches. Avoid eager eviction
+> during adoption and a second pass of lazy regeneration in advice.
+>
+> Full sorted arrays are a good first representation because the UI needs
+> ranks for arbitrary scores and settings can take effect immediately. If the
+> measured budget fails, try lossless run-length encoding of equal scores
+> with cumulative counts for discrete readings, where that reduces actual
+> byte use. A cutoff-only cache is an option only if arbitrary tail queries
+> have an explicit path. A shared body is 656 KiB using the listed arrays,
+> about 16.7 MiB for 26 mains/slots in one star class. Budget both caches
+> across browser threads and pending transfer or clone buffers.
+
 ### 5.2 `rune-power-up-outcomes.ts`: one addition
 
 ```ts
@@ -367,6 +523,13 @@ export function countUnion(future: RuneFuture, scorings: readonly EndStateScorin
 The loop is `shareReaching` with an inner loop over readings and `break` on the first
 hit. Nothing else in this file changes. The runs, seed, schedule and shader stay as
 they are, so `verify:rune-chance-layout` and `verify:rune-chance-card` are untouched.
+
+> **Review — implementation choice.** Put the grouped processor counter and
+> optional exact event-mask interface here (see §4.5). Reuse the existing
+> line decoder and score kernel. Specify that run count and stream both belong
+> to the group, and define zero/one handling before dispatch. Keep the
+> single-job count as a reference for tests. An inner loop that separately
+> calls `runScore` for each reading re-decodes the same body each time.
 
 ### 5.3 `rune-cleanup-model.ts`
 
@@ -381,6 +544,16 @@ they are, so `verify:rune-chance-layout` and `verify:rune-chance-card` are untou
   §6 step 4 has removed their last readers. Also remove `RunePercentileModel`,
   `prepareRunePercentileModel` and `runePercentileCraftProjection`.
 - Keep `ordinarySample`/`ordinarySamplePaths` (Statistics and scripts use them).
+
+> **Review — preserve the oracle.** Prefer a distinct raw-score entry point
+> for the new ask. Keep `judgeAgainstBuild` and fixture-facing
+> `candidateChance` in their existing Max-value units as narrow wrappers
+> through that ask, while the oracle still operates in those units.
+> This preserves a check independent of the percentile conversion. If all
+> callers are converted to raw units, update their source data and comparisons
+> explicitly and show that their expected odds are independent of the new
+> scorer. Multiplying a normalized threshold by the ceiling in new advice can
+> move it by an ULP and undo the tie rule.
 
 ### 5.4 `rune-cleanup-advice.ts`
 
@@ -417,6 +590,21 @@ informational; the verdict is the union.
 `qualityShare: number`, `requirement: number`, `readingChance: number`. Where no role
 can use the rune: `qualityShare = 1`, `requirement = 0`, `readingChance = 0`.
 
+> **Review — unavailable versus empty.** The current `decide` emits Sell
+> with “No role can use it.” Section 3.1 says to avoid an input-driven sale.
+> Define states before implementing the three passes. A configured calculation
+> with no permitted useful match can return a policy sale. No roles configured,
+> a required reference base missing for a potentially usable role, invalid
+> model input, or an incomplete reference/worker result needs an unavailable
+> result, outside the actionable Sell list. Use the existing failed/pending
+> calculation path for request-level failures and keep the prior completed
+> view with its original inputs. A deliberately targetless role adds no event.
+> Test the states separately, including Broken = No and an incomplete result
+> while another role would otherwise sell the rune. If empty configuration is
+> intended to be an actionable sale, resolve that contradiction explicitly
+> before implementation. Never encode missing reference work as `C_i = 0`
+> or let it trigger a reroll recommendation.
+
 ### 5.5 Threads: the calibration pool becomes the reference pool
 
 Today `rune-calibration-worker.ts` / `rune-calibration-client.ts` count calibration
@@ -447,11 +635,49 @@ references lazily inside `QualityReferences.get`.
 Rename the files to `rune-reference-worker.ts` / `rune-reference-client.ts` and the
 factory entry in `worker-factories.ts`. Their names are not user-visible.
 
+> **Review — reference requests and lifetime.** Reuse the worker factories,
+> bounded scheduling and lease/cancellation pattern. Replace whole-role,
+> whole-star cache identity with per-reference keys. Enumerate the exact
+> request keys using the shared pricing path before dispatch. If two callers
+> overlap, coalesce in-flight keys and lease unfinished work. A cancellation
+> releases only that caller's leases, terminates orphaned work and ignores late
+> results. A second caller needing more keys must enqueue the missing ones.
+> Report completed distinct requested keys over total, including hits, and
+> enter rune progress only after preparation. Give the overlay a foreground
+> path through the shared worker budget so it cannot queue behind all unrelated
+> misses. A worker may generate each piece's bodies once and score its missing
+> price vectors in batches to preserve responsiveness.
+>
+> Prefer one shared authority for cache retention across clients. Worker-to-owner
+> transfers detach the sender, so a worker cannot both transfer a buffer and
+> retain that buffer in its LRU. Reuse worker-local adopted arrays when available,
+> and send only missing keys to a consumer. Explicitly choose which side
+> retains a reusable copy, account for any structured clones, and charge pinned
+> or in-flight arrays to the memory budget. Adopt only known keys for the active
+> request, with correct length, finite nonnegative entries and monotonic order.
+> A missing piece may be retried through a bounded worker fallback or reported
+> as unavailable. Avoid restarting a valid whole population after one failure.
+> Cover reuse after a settings/role edit, simultaneous requests, factory failure,
+> cancellation during preparation and late messages after account reset.
+
 ### 5.6 Unchanged consumers
 
 `rune-cleanup-statistics.ts`, `rune-simulator.ts`, Gems & Grinds and Rune
 Optimization keep their code. The first two read `runeAdvice`; the last two use
 `prepareRuneCandidate` with `noCraftCredit` and never read a quality gate.
+
+> **Review — consumer paths.** Keep their decision logic on `runeAdvice`.
+> The worker wiring must change. Statistics runs in `rune-statistics-worker.ts`
+> with no access to the advice worker's module LRU. Simulator has a separate
+> worker, and repeated Statistics slider changes can terminate its worker and
+> discard a worker-local cache. Lease the shared provider from their clients,
+> pass the prepared view to their workers, and keep the synchronous provider
+> for in-process calls only. Statistics can plan keys from its actual synthetic
+> bodies, or from all legal six-star mains if measured. Simulator needs its
+> configured slot, star/Ancient and main combinations or the actual generated
+> set, with one view across checkpoints. Gems & Grinds does read Clean-up
+> keepers through `use-rune-keepers.ts`, even though its craft scoring uses
+> `noCraftCredit`. Verify that indirect flow and update its progress wording.
 
 ---
 
@@ -491,6 +717,22 @@ Rewrite `runeAdvice` and the policy arrays (§5.4) and change `candidateChanceAs
 (§5.3). Use `qualityReferences` lazily in-process. Delete the calibration code and
 the box diagnostics in the same step; nothing may keep reading them.
 
+> **Review — executable transition.** Step 3 still needs to typecheck with
+> older workers and interfaces in the tree. Either land the new path behind
+> a temporary internal entry point and switch all consumers together, or move
+> dependent field, protocol and test-fixture changes into the same step.
+> Shadow-run the baseline and replacement against the same frozen inputs
+> before deleting the exact experiment. Keep the funnel verification and
+> assert that each original birth has one identity at +0, +9 and +12,
+> with only survivors counted. Current Statistics regenerates its checkpoints
+> deterministically from the same birth seed. Assert equivalence with
+> `ordinarySamplePaths` or consume those paths explicitly. Exercise Simulator
+> checkpoint verdicts with the same inputs and craft sequencing.
+> Put the real account and Statistics performance checkpoint before Steps 5–6.
+> A prototype that drops per-reading details or craft recommendations may
+> isolate costs, but it does not qualify against the release gates.
+>
+
 **Step 4 — threads.**
 Convert the calibration pool (§5.5). Keep the rule that all references are ready
 before rune progress starts, so the status line never goes back from rune progress to
@@ -523,6 +765,22 @@ preparation.
 - `rune-potential-section.tsx`: stop labels and the slider name are unchanged. A
   stop's helper text, if it prints a percentage, reads the new allowance array.
 
+> **Review — presentation equality.** Compute the displayed ceiling
+> of the sample share from its integer hit count, and the printed requirement
+> independently from its exact policy ratio. Use at least one decimal and
+> enough decimals to express the requirement exactly. Test just below, at,
+> and above a stop, full allowance, zero hits, and the positive-score guard.
+> The printed equality claim applies to a usable reading's best score,
+> not to beta or the final protected verdict. For zero score under full
+> allowance, use the unavailable/zero-usefulness indication instead of
+> implying passage by showing two equal percentages. Size the column for
+> the maximum supported string (for example `Top 99.999 %`, wider than
+> `Top 100 %`), including the pending and unavailable states. Sort by the
+> raw share, with missing values last in both directions. Test the union-only
+> passing overlay and a role whose displayed build differs from its
+> expectation leader. Search for the old accessible label as required by
+> AGENTS.md even though the slider itself keeps its name.
+
 **Step 6 — remove the exact engine.**
 Delete:
 - `app/domain/runes/percentile/` (all files, including `percentile.test.ts`).
@@ -544,6 +802,17 @@ Adjust:
 - `scripts/verify-rune-craft-lineage-placement.mjs` lines 140–150: test the same
   Improvements projection through `finishedLines`'s path (`craftedLines` with the
   candidate's own `scoring`) instead of `runePercentileCraftProjection`.
+
+> **Review — removal and regression checks.** Audit symbols and imports
+> repo-wide. The existing simulator check reads
+> `floorMaxValue`. Craft-monotonicity reads `standing`, and several listed
+> checks pass normalized thresholds to `candidateChance`. The unbounded
+> check searches for the old calibrated-floor formula and the reuse check
+> exercises old sharing rules. Update them to protect the replacement
+> invariants. Include protocol, factory mocks, Gems & Grinds fixtures,
+> accessible labels, and the hardware contract's calibration row. An app
+> typecheck alone cannot catch broken script callers.
+>
 
 **Step 7 — checks.** See §7.
 
@@ -586,6 +855,33 @@ in `test:domain`):
    it", no exception; a role with no positive target → no reading; every stop at
    both extremes; Broken = No; every main of every slot.
 
+> **Review — statistical and structural acceptance.** An inclusive discrete
+> tail can undershoot the allowance by a large tie atom. A two-sided interval
+> around alpha would fail a correct SPD specialist or a distribution with many
+> zeros. For each supported reference, assert that its in-sample qualified
+> count is at most `k` and that lowering the bar to the next score atom
+> would exceed `k`, except at the positive-score floor. On holdout data use
+> a one-sided overshoot check and record the mass of the boundary atom and
+> legitimate undershoot. Calibrate the tolerance for both reference and holdout
+> variation. For continuous IID planning with equal sample sizes, their
+> difference has variance about `2 * alpha * (1 - alpha) / N`. Use repeated
+> independent stratified seed pairs for the actual acceptance band. Cover
+> the strictest 0.55% case, full allowance, wildcard and specialist builds,
+> multiple stars and all legal mains. A small deterministic fixture belongs
+> in `test:domain`. Run the full repeated catalogue sweep as release evidence.
+>
+> For Chance, compare each reading's hit count and the union with a scalar
+> oracle on the identical runs. Construct explicit identical, disjoint and
+> overlapping hit sequences. Different preferred stats do not guarantee
+> disjoint events. Compare integer hits and test beta and the 1% safeguard
+> at the adjacent hit counts. For monotonicity use unprotected outcomes
+> with the same rune, bodies, runs and original readings. Include Intangible
+> as a widening policy and Broken = No as removal of an event. Exercise
+> adding, reordering and duplicating an existing reading. When an observed
+> finished score improves, the numerical tail should be nonincreasing.
+> Check monotonicity through the Ancient/sub-property fixture and compare
+> without a rounding tolerance on the discrete tail count.
+
 ### 7.2 Existing checks to adapt
 
 | Check | Change |
@@ -620,6 +916,38 @@ references of readings that a candidate can still reach. A reading whose
 `reachableCeiling` is below the score at its *loosest* possible cutoff needs no exact
 cutoff. The second lever is to lower `referenceSampleSize`, if 7.2's sweep allows it.
 
+> **Review — performance gate design.** Use actual browser client/worker
+> requests on the local server for sign-off. A Node microbenchmark can
+> isolate generation and scoring but cannot capture queueing, cloning,
+> preparation reuse, cancellation or GPU replay. Record median and worst of
+> at least five runs per case on the reference machine with its core count,
+> browser and engine. Separate cold start, same-input recompute with the
+> result memo bypassed, a policy change, a role-price edit, and one overlay
+> opened cold and during account/Statistics work. Include Simulator and a
+> valid large all-mains role setup, concurrent Statistics/table work and
+> rapid replacement/cancel. In addition to the stated time limits, report
+> total retained and peak memory across the main thread and worker pool,
+> distinct keys, misses/recomputes, bytes copied, live jobs, card replays and
+> the union path's share of wall time. Confirm a cold miss, a warm hit and
+> cancellation by instrumentation. Under cancellation the user should regain
+> control within the earlier 100 ms target and a stale result must never commit.
+> Report card-enabled and processor-only timings separately. A cold result
+> below 10 s does not by itself demonstrate that 300 ms overlay latency or
+> 2 s Statistics refresh is realistic. Use the same full-detail request and
+> explicitly distinguish reference-cache hits from completed-result memo hits.
+>
+> The proposed first lever needs a cutoff before it can prune the reference.
+> A candidate ceiling alone cannot bound an unknown quantile. Prune only
+> provably unusable readings before planning, or use a cutoff already derived
+> from the very same sample. For a cold miss, optimize key sharing, scheduling
+> and scoring first, then compare sample sizes against §§7.1–7.2. Record the
+> verdict-flip rate under reference-only, candidate-only and combined seed
+> changes separately. Report paired flips by direction and margin to beta
+> or to the quality cutoff. Set a release tolerance before looking at the
+> account results. At minimum, require zero verdict flips outside the
+> holdout bands and review every seed-sensitive new sale among the SPD
+> specialist fixtures. Retention totals can conceal offsetting flips.
+
 ### 7.4 Account review
 
 Run the account before and after under the same settings and tabulate the changed
@@ -631,6 +959,17 @@ particular at:
 
 Record the aggregate counts only in `RUNE-PERCENTILE-EVIDENCE.md`; the export stays in
 `work/`. Run `npm run audit:import-parity` if any reader changed (none should).
+
+> **Review — verdict evidence.** Record all transition cells, including
+> Keep ↔ Power up, both calculated and protected. First compare with
+> safeguards off as in the historical benchmark, then with the user's
+> effective policy and protections. Separate cause categories such as same-main
+> denominator, former calibration gate, multi-reading union, allowance/rank
+> change, and changed Best-role witness. For the SPD case, report how many
+> of the 80 now have an applicable SPD use, clear it, or remain sold and why.
+> A high observed SPD can coexist with a main no role wants. Include at least
+> one designed specialist fixture whose rescue follows from the new rule.
+> Keep account records and identifiers out of the committed evidence.
 
 ### 7.5 Definition of done
 
@@ -649,6 +988,18 @@ efficiency figure and its chance must come from the same reading, and the union
 chance can be contributed by other readings (proposal §8). *Pre-grind SPD*,
 *Engraved in non-Scenario preset* and *Re-app/refine target* are unchanged.
 
+> **Review — meaning of Potential value.** Using the chosen reading's own
+> chance is required. Name it precisely as the chance of reaching that
+> reading's quality bar. That is a different event from clearing the old
+> Max-value floor, and from finishing above the user's Potential value
+> threshold. Keep the existing same-reading safeguard semantics if that is
+> intended. Decide explicitly whether only the chosen reading can protect
+> a sale (as the plan says) or any qualifying permitted reading can. Under
+> the chosen-reading rule a newly chosen Best role can remove a protection
+> while the unprotected union cannot decrease. Test both the cross-reading
+> borrowing counterexample and a change in Best role. Keep the protection
+> explanation, precedence and placement checks on the existing shared path.
+
 ---
 
 ## 9. Preferences
@@ -657,6 +1008,13 @@ No preference field is added, removed or renamed. `runeQuality`, `powerUpPolicy`
 `acceptedRunes`, `brokenRunes` and `intangibleRunes` keep their stored stop numbers
 1–5. Only what a stop means changes, and that lives in code. Nothing is migrated or
 versioned (`AGENTS.md` §0). `npm run verify:preference-survival` must pass unchanged.
+
+> **Review — preference and result lifetimes.** Preserve the exact stored
+> indices and per-choice readers. Invalidate in-memory answers when their
+> actual calculation inputs change. Policy changes invalidate advice while
+> the numerical reference keys continue to hit. Test protection-only refresh
+> paths and confirm that held results, overlay answers and the Statistics
+> memo do not apply stale advice to a changed rune or configuration.
 
 ---
 
@@ -670,3 +1028,12 @@ versioned (`AGENTS.md` §0). `npm run verify:preference-survival` must pass unch
 | A reading whose reference has almost no positive scores | The cutoff lands on 0; `wanted = MIN_VALUE` requires a positive score, so a useless body never passes. |
 | Reference and candidate scoring drift apart | One `craftedScore`, one `priceList`, one `canonicalCraftCredit`. Step 1's bit-identity test holds it, and `verify:rune-craft-single-source` keeps the craft rules in one module. |
 | GPU per-reading counts and the CPU union use different runs | Same seed and draw functions on both. The `max ≤ U ≤ sum` assertion fails loudly if they ever diverge. |
+
+> **Review — release decision.** Add cold-start regressions, cache churn after
+> a one-role edit, large tied atoms, and missing inputs that look like sales
+> to the risk register. The performance gate needs to cover the full user
+> workflow and browser memory, and the correctness gate needs to cover
+> exact event agreement on the sampled runs. Keep the cutover contingent on
+> those gates and the reviewed changed-sales evidence. A stable seed, a green
+> union-bounds assertion and passing kernel microbenchmarks are each useful
+> checks on one part of the system.
