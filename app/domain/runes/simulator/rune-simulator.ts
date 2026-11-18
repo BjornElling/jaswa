@@ -16,6 +16,8 @@ import { runeMaximumLevel, runeStatName } from '../runes';
 import type { Rune, RuneRarity } from '../runes';
 import { runeSetId } from '../rune-sets';
 import type { EndStateLine } from '../craft/rune-craft-end-state';
+import { qualityReferences } from '../cleanup/rune-quality-reference';
+import type { QualityReferences } from '../cleanup/rune-quality-reference';
 import { runeAdvice } from '../cleanup/rune-cleanup-advice';
 import type { RuneAdvice } from '../cleanup/rune-cleanup-advice';
 import type { RuneVerdict } from '../rune-verdict';
@@ -279,6 +281,10 @@ function generateRune(index: number, config: RuneSimulationConfig, random: Rando
   };
 }
 
+export function generateSimulationRunes(config: RuneSimulationConfig, random: RandomSource = defaultRandom): SimulatedRune[] {
+  return Array.from({ length: config.count }, (_, index) => generateRune(index, config, random));
+}
+
 function emptyStageRecord(): Record<SimulationStage, SimulationStageResult> {
   return {
     0: { level: 0, entries: [], reached: 0, survived: 0, sold: 0 },
@@ -299,7 +305,7 @@ function emptyStageRecord(): Record<SimulationStage, SimulationStageResult> {
 async function recommendationsFor(
   runes: readonly SimulatedRune[], stage: SimulationGateStage,
   config: RuneSimulationConfig, context: RuneSimulationContext,
-  engines: CalculationBackend[], countRuneChances: CountRuneChances,
+  engines: CalculationBackend[], countRuneChances: CountRuneChances, references: QualityReferences,
 ): Promise<ReadonlyMap<string, RuneAdvice> | null> {
   const { base } = context;
   if (base === null || context.roles.length === 0) {
@@ -318,7 +324,7 @@ async function recommendationsFor(
       const answer = await countRuneChances(jobs, context.preferWebGpu ?? false, chanceBar);
       engines.push(answer.backend);
       return answer.shares;
-    },
+    }, { references, onGroupedCount: () => { if (!engines.includes('cpu')) engines.push('cpu'); } },
   );
 }
 
@@ -332,6 +338,7 @@ async function recommendationsFor(
 export async function simulateRunes(
   config: RuneSimulationConfig, context: RuneSimulationContext, random: RandomSource = defaultRandom,
   countRuneChances: CountRuneChances = countRuneChancesOnProcessor,
+  { births, references = qualityReferences() }: { births?: readonly SimulatedRune[]; references?: QualityReferences } = {},
 ): Promise<RuneSimulationResult> {
   const startedAt = performance.now();
   const engines: CalculationBackend[] = [];
@@ -345,15 +352,15 @@ export async function simulateRunes(
     }
   }
   const stages = emptyStageRecord();
-  const generated = Array.from({ length: config.count }, (_, index) => generateRune(index, config, random));
+  const generated = births ?? generateSimulationRunes(config, random);
 
   stages[0] = stageResult(0, generated, generated.length, config,
-    await recommendationsFor(generated, 0, config, context, engines, countRuneChances));
+    await recommendationsFor(generated, 0, config, context, engines, countRuneChances, references));
   const afterZero = stages[0].entries.filter((entry) => !entry.sold).map((entry) => entry.rune);
 
   const atNine = afterZero.map((rune) => powerUpRune(rune, 9, random));
   stages[9] = stageResult(9, atNine, afterZero.length, config,
-    await recommendationsFor(atNine, 9, config, context, engines, countRuneChances));
+    await recommendationsFor(atNine, 9, config, context, engines, countRuneChances, references));
   const afterNine = stages[9].entries.filter((entry) => !entry.sold).map((entry) => entry.rune);
 
   /* Two asks at +12: the first says what the craft should be, the second judges the
@@ -362,12 +369,12 @@ export async function simulateRunes(
      verdict counted rather than the bare one from before. Without a
      role or a reference monster nothing says which Gem helps, so nothing is spent. */
   const poweredToTwelve = afterNine.map((rune) => powerUpRune(rune, 12, random));
-  const craftPlans = await recommendationsFor(poweredToTwelve, 12, config, context, engines, countRuneChances);
+  const craftPlans = await recommendationsFor(poweredToTwelve, 12, config, context, engines, countRuneChances, references);
   const atTwelve = poweredToTwelve.map((rune) => {
     const lines = craftPlans?.get(rune.id)?.craftedLines;
     return lines ? applyCraft(rune, lines) : rune;
   });
-  const adviceAtTwelve = await recommendationsFor(atTwelve, 12, config, context, engines, countRuneChances);
+  const adviceAtTwelve = await recommendationsFor(atTwelve, 12, config, context, engines, countRuneChances, references);
   stages[12] = stageResult(12, atTwelve, afterNine.length, config, adviceAtTwelve);
   const afterTwelve = stages[12].entries.filter((entry) => !entry.sold).map((entry) => entry.rune);
   const atFifteen = afterTwelve.map((rune) => powerUpRune(rune, 15, random));

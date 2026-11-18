@@ -484,7 +484,7 @@ parts an agent must not quietly break:
   happen to agree today are still two implementations.
   **And one assumption about them:** every rune judgement credits an average
   Legend Gem and an average Legend Grindstone (`canonicalCraftCredit`) — Rune
-  Clean-up's projection, its ruler and calibration, the Gem's placement, and Gems
+  Clean-up's projection, its perfect-rune scale and sampled reference, the Gem's placement, and Gems
   & Grinds' reading of a Gem, before and after alike (`craftComparison`). It is not
   a setting, and the ruler is not a parameter. Rune Optimization's own Gem and
   Grindstone choices are a different question — what to spend on one monster —
@@ -611,15 +611,18 @@ Before reporting a change complete, all of these hold:
     a change to the buildings, so does `npm run verify:monster-display-stats`.
     After a change to the PvE database or a refresh of it, both
     `npm run verify:pve-stages` and `npm run verify:speed-tick` pass.
-11. After a change to the Rune Clean-up engine, all of
+11. After a change to Rune Clean-up's engine, run `verify:rune-quality-reference`,
+    `verify:rune-slot-neutrality`, `verify:rune-slot-policy-matrix`,
+    `verify:rune-cleanup-statistics-funnel`, `verify:rune-best-role`,
     `verify:rune-substat-weights`, `verify:rune-set-neutrality`,
-    `verify:rune-slot-neutrality`, `verify:rune-craft-single-source`,
-    `verify:rune-cleanup-calibration`, `verify:rune-cleanup-probability`,
+    `verify:rune-craft-single-source`, `verify:rune-cleanup-calibration`
+    (the independent game oracle), `verify:rune-cleanup-probability`,
     `verify:rune-cleanup-craft-monotonic`,
-    `verify:rune-cleanup-preference-monotonic` (not in `npm test`) and
-    `verify:rune-chance-stability` pass, and a **fresh `verify:rune-cleanup-equivalence` baseline** is recorded
-    in the same commit — `work/` is not committed, so a baseline is always
-    captured deliberately before a change and never inherited.
+    `verify:rune-cleanup-preference-monotonic` and `verify:rune-chance-stability`.
+    Run `verify:rune-quality-sampling` on the passive account export when releasing a changed reference or future sampler.
+    Capture an equivalence baseline before changing the engine, review the
+    differences and record the new baseline with the verification evidence.
+    Keep private account data and rune identifiers in `work/`.
 12. After a change to the stat sheet or to anything under
     `app/domain/runes/optimization/`, `npm run verify:rune-optimization` passes.
     After a change to the search, its card backend, layout or shader, so does

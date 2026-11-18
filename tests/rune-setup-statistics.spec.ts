@@ -47,7 +47,7 @@ test('shows the synthetic statistics and recalculates them after a setting chang
 
   const accepted = page.locator('#accepted-runes');
   await expect(accepted).toHaveValue('3');
-  await accepted.fill('5');
+  await page.locator('#rune-quality').fill('5');
   await expect(status).toContainText('Calculating…');
   await expect(status).toContainText(/synthetic runes/, calculation);
   const after = await values.allTextContents();
@@ -60,7 +60,7 @@ test('reuses completed and unfinished statistics across navigation and restored 
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1600, height: 1000 });
   let workers = 0;
-  page.on('worker', (worker) => { if (worker.url().includes('rune-statistics-worker')) workers += 1; });
+  page.on('worker', (worker) => { if (worker.url().includes('rune-advice-worker')) workers += 1; });
   await page.addInitScript(() => {
     const OriginalWorker = window.Worker;
     const state = { requests: 0 };
@@ -68,9 +68,9 @@ test('reuses completed and unfinished statistics across navigation and restored 
     window.Worker = class extends OriginalWorker {
       constructor(url: string | URL, options?: WorkerOptions) {
         super(url, options);
-        if (!String(url).includes('rune-statistics-worker')) return;
+        if (!String(url).includes('rune-advice-worker')) return;
         const originalPost = this.postMessage.bind(this);
-        this.postMessage = (message) => { state.requests += 1; originalPost(message); };
+        this.postMessage = (message) => { if (message.request?.reuseOutcomeScores) state.requests += 1; originalPost(message); };
       }
     };
   });
@@ -84,12 +84,13 @@ test('reuses completed and unfinished statistics across navigation and restored 
   await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
   const status = page.locator('.statistics-meta');
   await expect(status).toContainText('Calculating…');
-  await expect.poll(() => workers).toBe(1);
+  await expect.poll(() => workers).toBeGreaterThan(0);
   await visit('Home');
   await visit('Rune Settings');
   await expect(status).toContainText('synthetic runes', { timeout: 90_000 });
-  expect(workers).toBe(1);
-  expect(await requests()).toBe(1);
+  const poolSize = workers;
+  const initialRequests = await requests();
+  expect(initialRequests).toBeGreaterThan(0);
   const values = await page.locator('.statistics dd').allTextContents();
   const box = await page.locator('.statistics').boundingBox();
   await page.screenshot({ path: testInfo.outputPath('statistics-before-navigation.png') });
@@ -99,7 +100,7 @@ test('reuses completed and unfinished statistics across navigation and restored 
   expect(await page.locator('.statistics dd').allTextContents()).toEqual(values);
   expect(await page.locator('.statistics').boundingBox()).toEqual(box);
   await page.screenshot({ path: testInfo.outputPath('statistics-after-navigation.png') });
-  expect(workers).toBe(1);
+  expect(workers).toBe(poolSize);
 
   const original = await page.locator('#rune-quality').inputValue();
   await page.locator('#rune-quality').fill(original === '1' ? '2' : '1');
@@ -108,14 +109,14 @@ test('reuses completed and unfinished statistics across navigation and restored 
   await page.locator('#rune-quality').fill(original);
   await expect(status).toContainText('synthetic runes');
   expect(await page.locator('.statistics dd').allTextContents()).toEqual(values);
-  expect(workers).toBe(1); // The same worker served the one changed calculation.
-  expect(await requests()).toBe(2);
+  expect(workers).toBe(poolSize); // The same worker served the one changed calculation.
+  expect(await requests()).toBe(initialRequests * 2);
 
   await visit('Rune Clean-up');
   await page.getByRole('textbox', { name: 'Minimum pre-grind SPD' }).fill('0');
   await visit('Rune Settings');
   await expect(status).toContainText('synthetic runes');
-  expect(await requests()).toBe(2);
+  expect(await requests()).toBe(initialRequests * 2);
   expect(await page.locator('.statistics dd').allTextContents()).not.toEqual(values);
   expect(await page.locator('.statistics').boundingBox()).toEqual(box);
   await visit('Rune Clean-up');
@@ -123,7 +124,7 @@ test('reuses completed and unfinished statistics across navigation and restored 
   await visit('Rune Settings');
   await expect(status).toContainText('synthetic runes');
   expect(await page.locator('.statistics dd').allTextContents()).toEqual(values);
-  expect(await requests()).toBe(2);
+  expect(await requests()).toBe(initialRequests * 2);
 });
 
 /* Rule 2: the box must not shrink while it calculates and grow when the figures

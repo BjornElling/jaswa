@@ -127,7 +127,7 @@ try {
   for (const [level, expected] of [[12, 'keep'], [13, 'power-up'], [14, 'power-up'], [15, 'keep']]) {
     const answer = (await runeAdvice([{ ...passingLevelFixture, id: `reported-${level}`, level }], support, craftedSettings, supportBase))
       .get(`reported-${level}`);
-    assert.ok(answer.maxValue >= answer.floorMaxValue && answer.chance === 1,
+    assert.ok(answer.qualityShare !== null && answer.qualityShare <= answer.requirement && answer.chance === 1,
       'the checkpoint fixture must actually clear the current quality gate');
     assert.equal(answer?.verdict, expected,
       `a passing rune at +${level} should be ${expected}, not ${answer?.verdict}`);

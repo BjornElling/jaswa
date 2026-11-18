@@ -11,16 +11,6 @@ export type RuneStatisticsRequest = {
   preferWebGpu: boolean;
 };
 
-export type RuneStatisticsWorkerRequest = {
-  type: 'calculate';
-  requestId: number;
-  request: RuneStatisticsRequest;
-};
-
-export type RuneStatisticsWorkerResponse =
-  | { type: 'result'; requestId: number; statistics: RuneCleanupStatistics; backend: CalculationBackend }
-  | { type: 'error'; requestId: number; message: string };
-
 export type RuneStatisticsOutcome =
   | { status: 'done'; statistics: RuneCleanupStatistics; backend: CalculationBackend }
   | { status: 'superseded' }

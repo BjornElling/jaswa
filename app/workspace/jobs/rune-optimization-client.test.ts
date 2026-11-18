@@ -28,8 +28,8 @@ describe('rune optimization client', () => {
     const workers: SearchWorker[] = [];
     const create = () => { const worker = new SearchWorker(); workers.push(worker); return worker as unknown as Worker; };
     provideWorkerFactories({
-      artifactScore: create, craftRecommendation: create, runeAdvice: create, runeCalibration: create,
-      runeOptimization: create, runeOptimizationWork: create, runeStatistics: create,
+      runeOptimization: create, runeOptimizationWork: create,
+      artifactScore: create, craftRecommendation: create, runeAdvice: create, runeReference: create,
     });
     const problem = { tieBreakers: [] } as never;
     const input = { requirements: { rankBy: 'spd' }, settings: { resultCount: 5 } } as never;

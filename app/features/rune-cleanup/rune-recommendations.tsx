@@ -27,7 +27,7 @@ import { engravingLines } from '../../domain/placements/presets';
 import { emptyRunePlacement, hasRunePlacement } from '../../domain/placements/rune-placement';
 import { usePresets } from '../../ui/presets-context';
 import type { MonsterPreferences } from '../../domain/profiles/monster-preferences';
-import { runeVerdictLabels, withRuneSellProtection } from '../../domain/runes/cleanup/rune-cleanup-advice';
+import { runeQualityText, runeVerdictLabels, withRuneSellProtection } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import type { RuneVerdict } from '../../domain/runes/rune-verdict';
 import {
   calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
@@ -94,7 +94,7 @@ const placeLabels: Readonly<Record<RunePlace, string>> = { engraved: 'Engraved',
 
 /* The Advice filter asks one question of the two rerolls: which runes go to a stone.
    Its `reapp` option stands for both, and the rows still say which stone. */
-const adviceFilterOptions: readonly RuneVerdict[] = ['power-up', 'keep', 'reapp', 'sell'];
+const adviceFilterOptions: readonly RuneVerdict[] = ['power-up', 'keep', 'reapp', 'sell', 'unavailable'];
 const adviceFilterLabel = (verdict: RuneVerdict) => (verdict === 'reapp' ? 'Re-app/refine' : runeVerdictLabels[verdict]);
 const adviceFilterOf = (verdict: RuneVerdict): RuneVerdict => (verdict === 'refine' ? 'reapp' : verdict);
 
@@ -148,6 +148,7 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
       compareRuneCleanupRows(left, right, key) || left.index - right.index,
     /* A dash is not a figure, so it sorts after every figure either way round. */
     absent: key === 'maxValue' ? (row: RuneCleanupRow) => !runeMaxValueShown(row)
+      : key === 'quality' ? (row: RuneCleanupRow) => row.advice.qualityShare === null
       : key === 'chance' ? (row: RuneCleanupRow) => !runeChanceShown(row) : undefined,
   });
   return [
@@ -159,8 +160,9 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('subs', 'Sub properties'),
     column('location', 'Location'),
     column('role', 'Best role'),
-    column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent. The quality floor you set is a share of the ordinary runes a slot produces, so the Max value it comes to differs from slot to slot">Max<br />value</span>),
-    column('chance', <span className="table-heading-two-line" aria-label="Chance to reach the final +15 quality floor; random substat rolls end at +12">Chance</span>),
+    column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent.">Max<br />value</span>),
+    column('quality', <span title="Top share for Best role at the best reachable +15 score">Quality</span>),
+    column('chance', <span className="table-heading-two-line" aria-label="Chance that at least one permitted build reaches its quality bar">Chance</span>),
     column('advice', 'Advice'),
     /* The game's own three orderings, driven by the Use game-sorting dropdown. They carry
        `header: false` for the reason `artifact-list.tsx` does: they stay in this
@@ -216,8 +218,8 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   const [result, setResult] = useState<RuneCleanupResult | null>(snapshot?.result ?? null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  /* How far through the calibration, or null when none is running. */
-  const [calibration, setCalibration] = useState<number | null>(null);
+  const [showQuality, setShowQuality] = useState(snapshot?.showQuality ?? false);
+  const [preparation, setPreparation] = useState<number | null>(null);
   const [progressKey, setProgressKey] = useState<string | null>(null);
   /* A failed input is retried only after another change or an explicit Calculate. */
   const [refreshFailedFor, setRefreshFailedFor] = useState<{ runes: readonly Rune[]; key: string } | null>(null);
@@ -283,14 +285,14 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     if (!canCalculate || !base) return;
     setBusy(true);
     setProgress(0);
-    setCalibration(null);
+    setPreparation(null);
     setProgressKey(standardsKey);
     setFailure(null);
     /* A whole calculation answers every rune, so a re-reading still in flight has
        nothing left to add. */
     cancelRuneAdviceRefresh();
     const outcome = await calculateRuneAdvice({ runes, roles, settings, base, preferWebGpu: hardwareAcceleration },
-      setProgress, setCalibration);
+      setProgress, setPreparation);
     /* A newer request has taken over the busy state and the table, so this one
        returns without touching either. */
     if (outcome.status === 'superseded') return;
@@ -321,7 +323,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
     setRefreshFailedFor(null);
   }
 
-  /* Role and reference changes can alter the shared calibration. Set-specific
+  /* Role and reference changes can alter the quality references. Set-specific
      preferences leave other sets valid, so only their rows enter the worker. */
   useEffect(() => {
     const { roles, settings, base, hardwareAcceleration } = readCalculationInputs();
@@ -455,7 +457,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   /* Save only committed screen state. The owner outlives navigation, while the
      page and its workers can still unmount normally. A cancelled request never
      replaces the last completed table or leaves the next visit busy. */
-  useLayoutEffect(() => { session.remember({ result, sort, arranged, failure }); }, [session, result, sort, arranged, failure]);
+  useLayoutEffect(() => { session.remember({ result, sort, showQuality, arranged, failure }); }, [session, result, sort, showQuality, arranged, failure]);
   if (held !== null && arranged?.key !== arrangement) {
     setArranged({ key: arrangement, ids: sorted.map((row) => row.rune.id), known: new Set(rowsById.keys()) });
   }
@@ -513,14 +515,16 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             ? { title: 'Nothing calculated yet.', detail: 'Press Calculate to put every rune on trial. The standards they are judged by live in Rune Settings.' }
             : null;
 
+  const displayedColumns = showQuality ? columns : columns.filter(({ key }) => key !== 'quality');
+  const tableLayout = showQuality ? runeCleanupTableColumns : runeCleanupTableColumns.filter(({ key }) => key !== 'quality');
   return <>
     <DataTablePage
         filterClassName="rune-filter-strip"
         tableClassName="rune-cleanup-grid"
         headerLabel="Rune verdict columns"
         tableLabel="Rune verdicts"
-        columnGroup={<TableColumnGroup columns={runeCleanupTableColumns} />}
-        header={<SortableHeader columns={columns} sort={sort} onToggle={toggle} />}
+        columnGroup={<TableColumnGroup columns={tableLayout} />}
+        header={<SortableHeader columns={displayedColumns} sort={sort} onToggle={toggle} />}
         filters={<>
           <div className="rune-filter-column">
             <div className="filter-group rune-filter-search">
@@ -664,6 +668,10 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                     {runeGameSortLabels[key]}
                   </option>)}
                 </Dropdown>
+                <FilterButton active={showQuality} onClick={() => {
+                  if (showQuality && sort.key === 'quality') setSort({ key: 'maxValue', direction: 'descending' });
+                  setShowQuality(!showQuality);
+                }}>Quality column</FilterButton>
               </div>
             </div>
           </div>
@@ -674,8 +682,8 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             calculateTitle={emptyState?.title} onCalculate={() => void calculate()} onCancel={cancel}
             canClear={held !== null || failure !== null} onClear={clear}
             status={reportingProgress
-              ? <CalculationNote tone="busy">{calibration !== null
-                ? `Calibrating… ${formatNumber(Math.round(calibration * 100), general)} %\nOnly needed once.`
+              ? <CalculationNote tone="busy">{preparation !== null
+                ? `Preparing quality references… ${formatNumber(Math.round(preparation * 100), general)} %`
                 : `Calculating… ${formatNumber(progressKey === standardsKey ? Math.round(progress * 100) : 0, general)} %`}</CalculationNote>
               : failure || (held && refreshFailed)
                 ? <CalculationNote tone="failed">{failure ?? 'JASWA could not update the rune verdicts. Calculate again to try again.'}</CalculationNote>
@@ -728,6 +736,9 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             <td className={cell('maxValue')}>
               {runeMaxValueShown(row) ? `${Math.round(row.advice.maxValue * 100)} %` : <span className="muted">—</span>}
             </td>
+            {showQuality && <td className={cell('quality', 'rune-quality-share')}>
+              {runeQualityText(row.advice.qualityShare, row.advice.requirement)}
+            </td>}
             {/* A rune at +12 has spent every substat upgrade it will ever get, so there is
                 nothing left to be uncertain about and no odds to print. A dash says
                 that; "100 %" beside a Keep would invite the reader to compare a
@@ -739,14 +750,14 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 repeating it underneath only said the same number twice. */}
             <td className={cell('advice')}>
               <span className="rune-verdict-line">
-                <span className="rune-verdict" data-verdict={shownRuneVerdict(row)}>
+                <span className="rune-verdict" data-verdict={shownRuneVerdict(row)} title={row.advice.verdict === 'unavailable' ? row.advice.reason : undefined}>
                   {shownRuneVerdictLabel(row)}
                 </span>
                 <FigureMarks marks={engravedSaleMarks(shownRuneVerdict(row), row.placement.count)} reserve={1} />
               </span>
             </td>
           </tr>) : <tr>
-            <td className="table-empty-state" colSpan={runeCleanupTableColumns.length}>
+            <td className="table-empty-state" colSpan={tableLayout.length}>
               {emptyState ? <>
                 <span>{emptyState.title}</span><br />
                 <span>{emptyState.detail}</span>

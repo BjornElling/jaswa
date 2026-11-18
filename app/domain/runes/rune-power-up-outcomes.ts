@@ -627,13 +627,100 @@ export type CountingJob = {
   readonly runs: number;
 };
 
-export function chanceStep(future: RuneFuture, scoring: EndStateScoring, wanted: number): ChanceStep {
+export function chanceStep(future: RuneFuture, scoring: EndStateScoring, wanted: number, runs = chanceRuns): ChanceStep {
   if (future.upgrades === 0 && future.additions === 0) {
     return { settled: bestEndState(future, scoring) >= wanted ? 1 : 0, job: null };
   }
   if (reachableCeiling(future, scoring) < wanted) return { settled: 0, job: null };
-  if (leastEndState(future, scoring) >= wanted) return { settled: 1, job: null };
-  return { settled: null, job: { future, scoring, wanted, runs: chanceRuns } };
+  // The cheap bound sums in a different order from the scorer. Leave borderline
+  // cases to the exact comparison on each sampled body.
+  const least = leastEndState(future, scoring);
+  if (least - least * Number.EPSILON * 8 >= wanted) return { settled: 1, job: null };
+  return { settled: null, job: { future, scoring, wanted, runs } };
+}
+
+/**
+ * Late upgrades revisit the same few bodies many times. Preserve their exact
+ * multiplicities so checking the bar still counts every run in the fixed stream.
+ */
+function repeatedOutcomes(runs: RuneRuns): Map<number, number> {
+  const width = runs.lineCount * 3;
+  const firstByHash = new Map<number, number>();
+  const counts = new Map<number, number>();
+  for (let offset = 0; offset < runs.lines.length; offset += width) {
+    let key = 0;
+    for (let at = 0; at < width; at += 1) key = Math.imul(key, 16777619) ^ runs.lines[offset + at];
+    let match = firstByHash.get(key);
+    while (match !== undefined) {
+      let at = 0;
+      while (at < width && runs.lines[match + at] === runs.lines[offset + at]) at += 1;
+      if (at === width) break;
+      key = (key + 1) | 0;
+      match = firstByHash.get(key);
+    }
+    if (match === undefined) firstByHash.set(key, offset);
+    const start = match ?? offset;
+    counts.set(start, (counts.get(start) ?? 0) + 1);
+  }
+  if (width === 0 && runs.count > 0) counts.set(0, runs.count);
+  return counts;
+}
+
+export type ChanceScoreCache = {
+  read: (scoring: EndStateScoring) => Float64Array | undefined;
+  hasRoom: () => boolean;
+  remember: (scoring: EndStateScoring, scores: Float64Array) => void;
+};
+
+/** Count the marginal events and their union on one shared stream of outcomes. */
+export function countChanceGroup(future: RuneFuture, jobs: readonly CountingJob[], cache?: ChanceScoreCache) {
+  const count = jobs[0]?.runs ?? 0;
+  type Bar = { wanted: number; index: number };
+  const byScoring = new Map<EndStateScoring, Bar[]>();
+  const hits = new Uint32Array(jobs.length);
+  for (const [index, job] of jobs.entries()) {
+    if (job.future !== future || job.runs !== count) throw new Error('Chance events must share their future and run count.');
+    const bars = byScoring.get(job.scoring) ?? [];
+    bars.push({ wanted: job.wanted, index });
+    byScoring.set(job.scoring, bars);
+  }
+
+  const scores = [...byScoring].map(([scoring, bars]) => {
+    const known = cache?.read(scoring);
+    return { scoring, bars, known, computed: !known && cache?.hasRoom() ? new Float64Array(count) : undefined };
+  });
+  const runs = scores.every(({ known }) => known) ? null : playForward(future, count);
+  const lines = lineUpBuffer(runs?.lineCount ?? 0);
+  for (let at = 0; at < lines.length; at += 1) lines[at].gemmed = at === runs?.gemmedAt;
+  const width = lines.length * 3;
+  let union = 0;
+  const scoreOutcome = (run: number, offset: number, weight: number) => {
+    if (runs) for (let at = 0; at < lines.length; at += 1) {
+      const read = offset + at * 3;
+      lines[at].statId = runs.lines[read];
+      lines[at].value = runs.lines[read + 1];
+      lines[at].grind = runs.lines[read + 2];
+    }
+    let reached = false;
+    for (const entry of scores) {
+      const { scoring, bars, known, computed } = entry;
+      const score = known?.[run] ?? craftedScore(scoring.plan, scoring.options, scoring.prices, lines, scoring.prefixScore, scratchValues);
+      if (computed) computed[run] = score;
+      for (const { wanted, index } of bars) {
+        if (score < wanted) continue;
+        hits[index] += weight;
+        reached = true;
+      }
+    }
+    if (reached) union += weight;
+  };
+  if (!cache && runs && count >= 512 && (future.additions === 0 || future.upgrades + future.additions <= 2)) {
+    for (const [offset, weight] of repeatedOutcomes(runs)) scoreOutcome(0, offset, weight);
+  } else {
+    for (let run = 0; run < count; run += 1) scoreOutcome(run, run * width, 1);
+  }
+  for (const { scoring, computed } of scores) if (computed) cache?.remember(scoring, computed);
+  return { hits, union };
 }
 
 /** The processor's answer to a batch of jobs, and the reference every other one

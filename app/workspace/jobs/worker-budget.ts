@@ -1,12 +1,15 @@
-/** One capacity budget across foreground calculations and background calibration. */
-export function createWorkerBudget(capacity: number) {
+/** One capacity budget across foreground calculations and background reference preparation. */
+export function createWorkerBudget(capacity: number, interactiveLane = false) {
   if (!Number.isSafeInteger(capacity) || capacity < 1) throw new Error('Worker capacity must be positive.');
   let active = 0;
-  const queue: Array<{ background: boolean; start: (release: () => void) => void }> = [];
+  const queue: Array<{ background: boolean; interactive: boolean; start: (release: () => void) => void }> = [];
   function drain() {
-    while (active < capacity && queue.length) {
-      const foreground = queue.findIndex((entry) => !entry.background);
-      const [entry] = queue.splice(foreground < 0 ? 0 : foreground, 1);
+    while (queue.length) {
+      const interactive = queue.findIndex((entry) => entry.interactive);
+      const regular = queue.findIndex((entry) => !entry.background);
+      if (active >= capacity && (!interactiveLane || active > capacity || interactive < 0)) break;
+      const next = interactive >= 0 ? interactive : Math.max(0, regular);
+      const [entry] = queue.splice(next, 1);
       active += 1;
       let held = true;
       entry.start(() => {
@@ -18,8 +21,8 @@ export function createWorkerBudget(capacity: number) {
     }
   }
   return {
-    request(start: (release: () => void) => void, background = false) {
-      const entry = { start, background };
+    request(start: (release: () => void) => void, background = false, interactive = false) {
+      const entry = { start, background, interactive };
       queue.push(entry);
       drain();
       return () => { const index = queue.indexOf(entry); if (index >= 0) queue.splice(index, 1); };
@@ -32,8 +35,8 @@ export type WorkerBudget = ReturnType<typeof createWorkerBudget>;
 
 /** Idle workers retain their bounded caches, but hold no processor reservation.
  * Each terminal reply returns capacity before the caller may enqueue more work,
- * so a calibration pool cannot reclaim every core ahead of a foreground job. */
-export function budgetedWorker(create: () => Worker, budget: WorkerBudget, background = false): Worker {
+ * so a reference pool cannot reclaim every core ahead of a foreground job. */
+export function budgetedWorker(create: () => Worker, budget: WorkerBudget, background = false, interactive = false): Worker {
   const target = new EventTarget();
   let native: Worker | undefined;
   let release: (() => void) | undefined;
@@ -91,7 +94,7 @@ export function budgetedWorker(create: () => Worker, budget: WorkerBudget, backg
           queued = [];
           for (const entry of messages) native.postMessage(entry);
         } catch { queueMicrotask(fail); }
-      }, background);
+      }, background, interactive);
       if (cancelWaiting) cancelWaiting = cancel;
     },
   };

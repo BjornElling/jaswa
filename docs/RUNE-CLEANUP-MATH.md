@@ -2,7 +2,7 @@
 
 **Status:** Binding contract for Rune Clean-up verdicts
 **Depends on:** `docs/RUNE-CANONICAL.md`
-**Reviewed:** October 20, 2026
+**Reviewed:** November 18, 2026
 
 This document describes the calculation, not the game rules. Game facts and their
 sources live in `RUNE-CANONICAL.md`; where the two differ on a game fact, the
@@ -15,8 +15,9 @@ refresh, the safeguard controls, the filter panel — is
 | `app/domain/runes/rune-substat-weights.ts` | What one sub property is worth to one role (§3–§4) |
 | `app/domain/runes/craft/rune-craft-end-state.ts` | What a Gem and a Grindstone do (§6) |
 | `app/domain/runes/rune-power-up-outcomes.ts` | What a rune may still become, and how likely (§7) |
-| `app/domain/runes/cleanup/rune-cleanup-model.ts` | Every other piece of arithmetic: the perfect rune, the ordinary box, a candidate (§5, §8, §9.1) |
-| `app/domain/runes/cleanup/rune-cleanup-advice.ts` | Policy: gates, calibration, Best role, verdicts, safeguards (§9) |
+| `app/domain/runes/cleanup/rune-cleanup-model.ts` | Every other piece of arithmetic: the perfect rune and a candidate (§5, §8, §9.1) |
+| `app/domain/runes/cleanup/rune-quality-reference.ts` | Stratified drops, exact sample ranks and score bars (§9.4) |
+| `app/domain/runes/cleanup/rune-cleanup-advice.ts` | Policy: allowances, union, Best role, verdicts, safeguards (§9) |
 | `app/platform/compute/rune-chance-engine.ts`, `app/platform/gpu/*/rune-chance-*` | Where the counting runs (§10.1) |
 
 §10 lists the checks that hold each part.
@@ -26,7 +27,7 @@ refresh, the safeguard controls, the filter panel — is
 | Matter | Status |
 | --- | --- |
 | Ordinary 1–6★ main and sub-property intervals | Verified tables: mains `RUNE-CANONICAL.md` §3, sub properties §7. |
-| Ancient runes | Main properties are the ordinary 6★ values at every level. Lines the rune was **born** with carry the Ancient interval; a line it gains by power-up, and every improvement, rolls from the ordinary 6★ table (`addedSubPropertyRange`; evidence in `RUNE-CANONICAL.md` §7). Weights, perfect rune and ordinary box stay ordinary. |
+| Ancient runes | Main properties are the ordinary 6★ values at every level. Lines the rune was **born** with carry the Ancient interval; a line it gains by power-up, and every improvement, rolls from the ordinary 6★ table (`addedSubPropertyRange`; evidence in `RUNE-CANONICAL.md` §7). Weights, perfect rune and sampled reference stay ordinary. |
 | Innate below 6★ | **Modelled**: a 4★ or 5★ innate takes that star class's sub-property range, in the perfect rune (§5) and in the generator. Only 6★ innates are measured (`RUNE-CANONICAL.md` §4). |
 | Gem and Grindstone legality and ranges | Verified: `RUNE-CANONICAL.md` §8 and `RUNE-CRAFT-ITEMS.md`. |
 | A value inside its legal integer interval | **Modelled** uniform; the 6★ distribution has a measured check. |
@@ -285,28 +286,19 @@ reads more, and keeps every recommendation that would lift it further. A cap mad
 rune above the mark look alike and left nothing to recommend for it.
 `verify:rune-substat-weights` holds both halves: the best maximal ordinary rune reads
 exactly 100 %, and a rising line keeps rising past it. Probabilities and shares — a
-Chance, a standing in the box — stay between 0 and 1, because they are not scores.
+Chance, a quality share — stay between 0 and 1, because they are not scores.
 
-**Max value is what the row prints, not what the gates read.** A ratio against the
-perfect rune of a slot describes one rune honestly but is not comparable between slots,
-because the perfect runes of two slots are not equally far above what those slots
-ordinarily produce. §9.1 states the floor the gates use.
+Max value is efficiency against the perfect ordinary rune. Accepted and Broken
+matches discount the figure and the expectation by the corresponding rank
+factor. The Potential value safeguard uses the discounted efficiency and the
+chance from the same reading. The verdict gate reads sampled quality (§9.1).
 
-### 5.1 Every build of a role is evaluated
+### 5.1 Every compatible build is evaluated
 
-A role describes a family of builds: the main-stat combinations it accepts in slots 2,
-4 and 6. Because main properties come off the requirement (§4.1), the same rune is worth
-different amounts to different builds, so every compatible build is prepared and each is
-a **complete reading** with its own Max value, floor and Chance. A reading clears only
-when its own Max value and its own Chance clear both gates; a high Max value from one
-build never borrows a passing Chance from another. Best role is then chosen among the
-readings (§9.6).
-
-A rune fits only the builds naming its own main, and it is played forward once however
-many builds ask about it: another build is another price list over the same runs. A
-build whose best end state misses its bar settles at zero without a run, and builds that
-price every line alike share one question. Narrowing the family would mean asking the
-user which build they intend — a role-model decision, not made here.
+A role describes a family of main-stat combinations in slots 2, 4 and 6. Each
+compatible build defines its own valuation, efficiency and quality bar. A blank
+slot accepts any legal main in that slot. Its reference uses the candidate's
+actual main, so that property still cannot appear as a sub property.
 
 ## 6. Gems and Grindstones
 
@@ -316,7 +308,7 @@ user which build they intend — a role-model decision, not made here.
 
 - **One credit, and no setting.** Every rune judgement assumes an average Legend Gem and
   an average Legend Grindstone (`canonicalCraftCredit`): the candidate's projection, the
-  ruler of §§4–5 and §9.1, the floor calibration, the Gem's placement (§6.1) and Gems &
+  ruler of §§4–5 and §9.1, the sampled references, the Gem's placement (§6.1) and Gems &
   Grinds' reading of a Gem (`RUNE-CRAFT-ITEMS.md` §5). The Gem's placement reference uses
   the candidate's lineage; the ordinary ruler and box remain ordinary. Items are evaluated
   as legal actions on actual lines, so an item helps only where the game would let it.
@@ -339,7 +331,7 @@ user which build they intend — a role-model decision, not made here.
 
 **Why one credit.** Rune Clean-up once read a rune under three assumptions at once: its
 own Gem and Grindstone sliders for the candidate, Hero items at three quarters for the
-ruler and the floor calibration, and average Legend items for the Gem's placement. Gems
+ruler and the sampled references, and average Legend items for the Gem's placement. Gems
 & Grinds read a fourth. Each was defensible alone; together they let two views disagree
 about one rune's craft for reasons no player could see.
 
@@ -383,8 +375,8 @@ without counting (§7, step 2). It is never a figure a view prints.
 
 ## 7. Chance: a certain no, a certain yes, or a count
 
-`Chance` is the probability that a rune's final `+15` Max projection reaches its
-reading's floor. The random part ends at `+12`; the deterministic main-stat increase to
+`Chance` is the share of futures where the rune reaches the quality bar for at
+least one permitted reading. The random part ends at `+12`; the deterministic main-stat increase to
 `+15` is included in the projection and adds no sub-property roll. It is answered in
 three steps, and the first two are exact:
 
@@ -396,7 +388,8 @@ three steps, and the first two are exact:
    bounds the chosen one.
 3. **Everything else is played forward and counted.** The rune is taken through its
    remaining events `chanceRuns` (4,096) times by the game's own loop, each run is
-   priced and crafted (§6), and the answer is the share that cleared the bar.
+   priced and crafted (§6), and the answer is the share where at least one reading cleared its own bar.
+   A future that clears several bars counts once.
 
 ### 7.1 Why it is counted rather than enumerated
 
@@ -423,7 +416,7 @@ bar on the processor so single precision cannot change a verdict (§10.1).
 **The printed Chance is whole percentage points rounded down**, so the number on screen
 clears a Power-up policy stop exactly when the rune does; rounded to the nearest point,
 a 79.6 % rune would print `80 %` beside a Sell. A real chance under one point prints
-`<1 %`; `0 %` is kept for a chance that is exactly zero. `runeChanceText` in
+`<1 %`; `0 %` means a settled zero or zero hits in the sample. `runeChanceText` in
 `rune-cleanup-advice.ts` is the one formatter: the table's Chance column
 (`rune-cleanup-grid.ts` re-exports it), Rune Simulator's Chance column and the advice
 `reason` it shows all print through it.
@@ -448,7 +441,7 @@ move: §7 step 1 settles them without a run.
 
 An Ancient candidate's born lines already carry their Ancient values. Every line it
 gains and every improvement is drawn from the ordinary six-star table (§1). The quality
-floor, the weights, the ordinary box and the perfect-rune denominator are ordinary, so an
+floor, the weights, the sampled reference and the perfect-rune denominator are ordinary, so an
 Ancient rune moves against a bar that does not. Its craft items are Ancient, because
 that is a legality rule (§6). `verify:rune-cleanup-ancient` holds this: an Ancient and
 an ordinary Magic rune with the same born line read the same Max value and the same
@@ -463,7 +456,7 @@ its own best legal end state before it is scored.
 | --- | --- |
 | Fewer than four sub properties | `RUNE-CANONICAL.md` §6 fixes which remaining events improve held lines and which add lines. Added lines are drawn without replacement from the ids the slot, the main and the innate leave legal; their order cannot matter, because no improvement follows them. Gem legality is settled on the final line-up. |
 | Improvements still to come | Every one lands on a line the rune already holds (§7.1). In the best case they concentrate on the held line worth most — a line-up's value is linear in the split and the Gem's gain convex in it, so the maximum is at a corner. |
-| Below six stars | Its own star class's intervals for every future roll, its lines priced in its own class's max rolls, measured against its own class's perfect rune and ordinary box (§2, §5). |
+| Below six stars | Its own star class's intervals for every future roll, its lines priced in its own class's max rolls, measured against its own class's perfect rune and sampled reference (§2, §5). |
 | Hero, Rare, Magic or Normal born | Its own rarity's schedule decides every remaining event, so its best end state and chance are its own. Measured against the Legend-born reference, a rune perfect for its rarity reads below 100 % (§4.2). |
 | Ancient | Born lines at their Ancient values; added lines, improvements, the weights, the box, the main property and the denominator ordinary six-star. Craft items Ancient (§7.4). |
 | At `+12` or above | No sub-property event left. The `+15` main is deterministic, so Max value is settled and Chance is 1 or 0. The row says `Main stat only`, `Already there` or `Below the floor` rather than dressing a certainty as a gamble. |
@@ -474,239 +467,80 @@ the floor's question, asked of the four-star population (§9.1).
 
 ## 9. Verdict and unbounded role matching
 
-**The population judged is every rune the import holds, and no setting narrows it.**
-Every rune is judged independently; an engraved rune and a rune at `+12` are judged like
-any other. Location, level and every other table filter are presentation applied after
-the engine has answered, and change no figure.
+At each sampled future, test the rune in every permitted build. Keep or power up
+when the share that reaches at least one bar meets the Power-up policy stop.
+A passing rune at +12 or +15 is Keep. A passing rune below +12 or at +13/+14 is
+Power up. An otherwise configured rune with no permitted use is Sell.
+A potentially usable role whose required reference stats are missing makes that
+rune unavailable. Worker failures keep the previous completed results.
 
-For every build of every role the engine applies the set/main rank discount, the
-Max-value quality floor, and then the Chance floor. Every viable reading competes: a
-preferred reading never suppresses an acceptable one, nor a broken one while *Broken
-runes* permits it. The rank makes that reading's own gates stricter or looser; it is not
-a priority between roles. At *Broken runes* = No, a broken reading is rejected outright.
+### 9.1 A same-main quality allowance
 
-**The quality floor is a minimum discounted Max value** (`qualityThresholds`):
+Each reading compares with ordinary drops of its own slot, star class and main.
+The base allowances are 20, 10, 5, 2 and 1 %. Preferred matches use the base
+allowance. Accepted factors are 1, 0.95, 0.85, 0.70 and 0.55. Broken factors
+are 0.90, 0.85, 0.80 and 0.65, followed by No, which removes the event.
+Intangible multiplies the allowance by 1, 1.5, 2, 3.5 or 5. Cap the resulting
+share at 100 %. The arithmetic uses integer millionths before choosing the
+sample index. Each allowance applies to one reading. Actual retention depends
+on the union of all permitted uses and the makeup of the account.
 
-| Stop | *Rune quality floor* | Minimum discounted Max value |
-| --- | --- | --- |
-| 1 | I'm a newbie | 45 % |
-| 2 | Been playing for a while | 55 % |
-| 3 | I've got good runes (default) | 65 % |
-| 4 | G1 baby | 75 % |
-| 5 | You've seen my replays | 85 % |
+The Power-up policy stops are 1, 5, 20, 50 and 80 %. Calculate each marginal
+and the union on the same 4,096 outcomes. Settle provable zeros and ones first.
+Use the fused processor counter for multiple live events on one future. One
+live event can use the existing chance card path. A certain hit settles the
+union, and any marginals required for the explanation or safeguard are still counted.
 
-These are quality anchors, not percentiles or promised keep rates. Slot balance may
-raise a floor, never lower it (§9.1). Accepted and Broken discounts apply before the
-comparison, and no set preference can undercut the minimum. The lower stops are a
-product judgement, aimed at a player holding five-star runes and some six-star Rare and
-Hero runes; they add no star- or rarity-specific exception to scoring.
+### 9.2 Safeguards
 
-**The Chance floor is one comparison**: the rune's chance in that same reading (§5.1)
-against the *Power-up policy* stop (`chanceThresholds`): Full YOLO 1 %, Adventurous 5 %,
-Balanced 20 %, Picky 50 %, Take no chances 80 %. The discounted floor is divided by the
-reading's discount to give the bar its Chance is counted against, so both gates describe
-one reading. Accepted worth is 1.00/0.95/0.85/0.70/0.55 (`acceptedWorth`); Broken worth
-0.90/0.85/0.80/0.65/0 (`brokenWorth`).
-
-**Verdicts.** A rune that passes at least one reading is **Power up** below `+12`,
-**Keep** at `+12`, **Power up** at `+13` and `+14`, and **Keep** at `+15`. Between `+12`
-and `+15` the action is deterministic main-stat investment. The `+12` and `+15` readings
-are the same finished projection; `+15` is a display checkpoint, not a second gate, so a
-rune that fails is **Sell** at `+12` and still shows **Sell** at `+15`. A rune that passes
-no reading is **Sell**, for the first applicable reason: `No role can use it`, `Broken:
-not wanted`, `Below the floor`, or its printed Chance.
-
-**Best role** is the passing reading the rune is expected to be worth most to, or, where
-none passes, the reading it is expected to be worth most to (§9.6). Max value and Chance
-always come from that same reading. It is the single source for every Best role label
-in Rune Clean-up and Rune Simulator, and it can never displace another rune or make a
-passing rune **Sell**.
-
-**Retention setting.** *Intangible runes* (×1, ×1½, ×2, ×3½, ×5) divides an Intangible
-rune's slot correction — the part of its floor above the chosen anchor — by its factor.
-It creates no role inventory, quota or one-rune-per-role assignment, and cannot undercut
-the quality minimum, so a verdict never depends on how many other runes match the same
-role.
-
-*Keep twice as many 4-set runes* was removed in November 2026. Fitted slot by slot it
-could not keep the slots level: a slot whose floor sat on the quality anchor had no
-four-piece runes to spare below it while the other five did — at the most lenient policy
-325 / 274 / 306 / 270 / 321 / 246 of 600 against 246 apiece without it. Fitted to keep
-them level it lowered no slot's floor at any setting, because the most lenient
-calibration always has a slot on the anchor and every stricter one inherits from it.
-
-**Safeguards change the verdict only.** *Never sell if…* holds four safeguards: *Pre-grind
-SPD ≥* (default on, 20), *Potential value ≥* (default on, 90 %, and only where Chance is at
-least 1 %), *Engraved in non-Scenario preset* (default on) and *Re-app/refine target*
-(default on). None changes Max value, Chance or Best role. A protected rune reads
-**Power up** below `+12` and at `+13`/`+14`, and **Keep** at `+12`/`+15`, with the reason
-`Pre-grind SPD protected`, `Potential value protected` or `Preset engraving protected`.
-A reroll is offered **only instead of a sale**: a re-app or refine target is asked only of
-a rune the engine would sell, Refine before Re-app, and its advice outranks the other
-safeguards. `withRuneSellProtection` applies all four; `rune-reapp-targets.ts` owns the
-target rule. Their exact conditions and controls are `RUNE-CLEANUP-INTERFACE.md` §3.
-Refine counts the actual sub-property types specified by the user against that rule's
-minimum. It does not rank types through a role or build; main and innate never count.
-
-### 9.1 A quality minimum and a complete selling funnel
-
-The perfect rune defines Max value (§5). The floor a reading must clear is the chosen
-anchor, raised per slot by **slot balance**: it is measured on an original generated
-population with equal numbers per slot and every legal main cycled evenly. A main no
-active role can use stays in the denominator and is sold. Each sample body is evaluated
-at `+0`, `+9` and `+12`; it must survive both power-up decisions and be kept at `+12`.
-The `+12` survivor count is divided by the original generated count.
-
-The ordinary Legend-only distribution (`ordinaryBox`) is a **diagnostic** standing and
-tie-breaker; it defines neither the gate nor the slot calibration. It is a Gaussian
-mixture on a grid, each kernel truncated at three standard deviations, so its rare tail
-can be underestimated or vanish. **A diagnostic zero is not impossibility.** Counter-
-example: for a speed-only role, a slot-1 Legend line-up starting at SPD +4 with the
-neutral SPD stone +4 reaches 90 % only if all four upgrades land on SPD and their rolls
-from {4, 5, 6} sum to at least 23 — five of 81 equally likely sequences (four sixes, or
-three sixes and a five). Its probability is `(1/4)^4 × 5/81 = 5/20,736` ≈ 0.024 %,
-strictly positive, while the diagnostic share at 90 % is exactly zero. So the rune
-overlay states the selected minimum and the actual required Max value, including any slot
-correction, and never translates them into a top percentile.
-
-### 9.2 One standard for every rune
-
-**Every rune — below, at and above `+12` — is judged on one question: what its Max value
-will be at `+15` with the canonical items credited.** Every grindable line carries the
-canonical Grindstone, the Gem goes where §6.1's reference rune says it gains most (and
-nowhere, if it would not beat the line it replaces), and a Gemmed line is ground too.
-The perfect rune and the ordinary box are priced with the same credit, and no setting
-moves either: the ruler under every rune stands still.
-
-A stone already spent is part of the rune and meets the credit through §6's `max`: a
-rune ground to no more than the canonical stone reads exactly as it did bare, and one
-ground past it can only rise — past 100 % where it gets there (§5).
-
-For a rune observed at level `l`, let `R_l(ω)` be one legal completion through `+12`.
-Every completion is crafted before it is valued:
-
-```
-S_l(ω)    = score(best legal craft(R_l(ω), canonical credit)) / ceiling   (uncapped)
-Max value = max_ω S_l(ω)
-Chance    = P(S_l(ω) ≥ the reading's floor)
-```
-
-This applies at `+0` and `+9` as well as `+12`. A fourth line is certain to appear, but
-its Grindstone benefit depends on its id: if SPD is one of seven legal reveals on a Hero
-`+9` rune and the only valuable stat, its expected future stone gain is
-`g_SPD × w_SPD / 7`. No separate level-based craft bonus exists.
+Pre-grind SPD, engraving outside Scenario and Re-app/refine targets retain their
+existing definitions. Potential value requires the chosen reading's discounted
+Max value to reach the user's minimum and its chance of reaching that reading's
+quality bar to reach 1 %. Safeguards run on the verdict supplied by the same
+engine and can be reapplied to held readings when preferences change.
 
 ### 9.3 All original drops count
 
-Equal initial counts per slot and equal final survival shares give roughly equal numbers
-of kept runes. Measuring only usable mains would hide the even-slot drops the roles cannot
-use. An unusable main is never made usable to fill a quota, and a slot that serves no role
-stays unusable.
+Statistics divides investment and retention counts by the number of original
+births. The model covers each legal main and uses the slot-dependent rarity
+weights in §1. A main no configured role accepts stays in the denominator.
 
-### 9.4 One calibration for every checkpoint and policy
+### 9.4 The reference sample and ties
 
-For every star class present in the calculation, the canonical generator supplies **600
-ordinary drops per slot** with the rarity mix of §1. `+0`, `+9` and `+12` are checkpoints
-of the same seeded bodies — **one population of 600 per slot at three checkpoints**. A
-`+0` or `+9` Sell cannot contribute to the final count. Every candidate is read with
-`canonicalCraftCredit`, as an account's own runes are.
+A reference holds 16,384 ordinary bodies, stratified by the shared rarity mix.
+Each body runs from birth to +12 through the shared generator and upgrade
+schedule. Its seed uses slot, star class, main, rarity stratum and its index
+within that stratum. Statistics uses a separate seed stream. Prices and body
+identity determine the sorted scores. Changing policy moves the bar within
+those scores.
 
-Each unfinished candidate is played forward **128 times** (`balanceRuns`), and those
-runs are read at every Power-up policy stop; a `+12` candidate is priced directly. For
-each stop the sample records the best passing score of its preferred, acceptable and
-broken readings, and the smallest checkpoint score is that body's complete-funnel limit.
+For a score `u`, the quality share is the fraction of sample scores greater
+than or equal to `u`. For allowance `α`, let `k = floor(α × N)`. If
+`k < N`, require a score strictly above the sample score at ascending index
+`N − 1 − k`. The next representable float is the first inclusive bar above
+that atom. A tied atom is either included or excluded whole. Every passing
+score is positive, even at full allowance. Half the smallest positive line
+price separates zero from the smallest positive score across both number
+formats used by the counters.
 
-All 625 combinations of the four five-stop controls (quality, policy, Accepted, Broken)
-are fitted as one ordered grid. A setting inherits the floors of its immediate less
-demanding neighbours, then raises the floors of overrepresented slots to the lowest
-survivor count. So a stricter quality, policy, Accepted or Broken choice cannot re-admit
-a rune, and every checkpoint and every view reads the same floor.
+### 9.5 The live Statistics box
 
-A zero count in a small sample does not establish a zero population: the fit keeps a
-one-observation tail allowance rather than emptying every slot. A structurally unusable
-slot remains a genuine limit; balancing cannot invent a useful stat or weaken the minimum.
-
-Every count here is of the calibration's generated sample, never of the user's runes, and
-it is the calculation's own verdict that is balanced: the sell safeguards (§9) protect a
-rune for what it holds, whatever its slot.
-
-The calibration depends on the roles, the reference lines and the policy, never on the
-runes asked about, so the engine keeps the last four calibrations by the content of those
-inputs. Its population is eighteen independent pieces — each slot at `+0`, `+9` and
-`+12` — each a function of those inputs and a fixed seed, so the page counts them on
-several cores at once and hands the result to every worker that asks
-(`countCalibrationPiece`, `adoptCalibrationPopulation`); the numbers are the ones one core
-would count. The floor grid is worked out lazily: a setting reads only the settings
-below it, so only those cells are computed. There is no serialized population to go stale: `ordinarySample` calls the
-generator in `rune-generation.ts`, which Rune Simulator also uses, so a corrected rule
-reaches the next calculation's population automatically.
-
-### 9.5 The live Statistics box is an estimate, not a second model
-
-Rune Settings's Statistics box asks two questions of one fixed synthetic population:
-
-- **Percent to roll**: the share at `+0` whose verdict is **Power up**.
-- **Percent to keep**: the share whose `+0` and `+9` verdicts are **Power up** and whose
-  `+12` verdict is **Keep** (or a re-app/refine target).
-
-The population is 50 six-star runes per slot (`runeStatisticsRunesPerSlot`), 300 at each
-checkpoint, with the generator's rarity mix and every legal main cycled evenly; `+0`, `+9`
-and `+12` are checkpoints of the same bodies. It runs the ordinary advice engine with the
-current roles and settings, follows the Simulator's funnel, and applies safeguards to the
-retained checkpoint answers without recalculating them. At a proportion of 50 %, 300
-observations give a standard error of about 2.9 points (95 % ≈ ±5.7): a comparable
-indicator of how settings move the verdicts, not evidence of a real drop rate.
+Each fixed birth has +0, +9 and +12 snapshots. The box counts a birth as rolled
+if +0 says Power up. It counts it as kept if it also survives +9 and the final
++12 answer keeps it, including either reroll recommendation. Statistics uses
+the same advice worker pool. Changing only a safeguard reapplies it to the
+checkpoint answers. A numerical policy change can reuse the fixed future
+scores.
 
 ### 9.6 Which role a rune is named for
 
-**Best role is the reading the rune is expected to be worth most to**, chosen first among
-the readings that clear both gates and, only where none does, among all permitted ones.
-That order is the promise: a reading that says **Sell** can never be named while another
-says **Keep** or **Power up**. `npm run verify:rune-best-role` holds it.
-
-Max value is the best case — every improvement on one line at its maximum — and naming
-by it flatters the role that prices one stat alone. Chance is a tail against a bar and
-rewards a wide distribution over a useful one. So the choice reads the **expectation at
-`+15`**, after the same accepted/broken discount as Max value and never above the rune's
-own Max value — no expectation can beat the best case. That bound is the rune's own, not
-100 %.
-
-**How the expectation is computed.** Without the Gem, an end state is linear in every
-roll, so its expectation is exact (`expectedPlainScore`): each improvement lands on each
-held line alike at its interval's midpoint, and each gained line is any legal id alike at
-its initial midpoint plus its stone. Only the Gem's gain is averaged, over the first 256
-of the rune's chance runs (`expectationRuns`, `meanGemGain`). The exact part plus the most
-a Gem can add (`gemGainBound`) bounds each reading without runs, so readings are walked in
-falling bound and the walk stops at the first whose bound is below the best expectation
-found.
-
-**Ties**, in this order (`mostExpected`): higher expectation, then higher Max value, then
-higher standing, then higher Chance, then the role id that sorts first. The answer never
-depends on enumeration order.
-
-### 9.7 Experimental reading-local percentile calculation
-
-**The approved replacement for §§9–9.4 is `RUNE-PERCENTILE-SAMPLED-PLAN.md`.** It
-ranks each reading against a fixed sample of same-slot, same-main runes and removes
-this prototype. Until it is implemented, the fitted slot floors above remain the
-contract, and this section describes the prototype still in the tree.
-
-`RUNE-PERCENTILE-PROPOSAL.md` owns the proposed policy and the evidence required
-before it replaces the fitted slot floors above. `RUNE-PERCENTILE-NUMERICS.md` owns
-the exact finite support and certified bounds. The prototype uses the same build
-weights and canonical craft policy for a rune and its ordinary reference births.
-The reference includes its slot's whole main distribution. The candidate contributes
-to a reading only on its actual compatible main. An unstated main does not reduce the
-weight of the targets it might supply.
-
-The reference tail includes all ties at the candidate's utility. Each permitted
-reading applies its own allowance to that tail. The candidate future counts the union
-of qualifying readings as one event per body, including when the readings assume
-different legal Gem placements. An exact lower bound at the Chance requirement can
-prove a pass. Sell requires a certified upper bound strictly below that requirement
-and a resolved protection decision. An invalid rune or role never proves a sale.
-Rank, expected utility, efficiency and Chance carry independent witnesses or bounds.
-The efficiency ratio uses its original perfect ordinary rune denominator, uncapped.
+If the union clears, choose among the individual readings that contribute a
+hit. Otherwise choose among all permitted readings. A forbidden reading can
+supply a name when no permitted one exists. Rank by discounted expected value,
+then Max value, smaller quality share, higher individual chance, role ID
+and the slot 2, 4 and 6 main IDs. The overlay's Best row uses the same candidate.
+For each other role, choose from individually clearing builds first, then
+positive-chance builds, then other permitted builds, then naming fallbacks.
 
 ## 10. Checks
 
@@ -714,17 +548,18 @@ The efficiency ratio uses its original perfect ordinary rune denominator, uncapp
 | --- | --- |
 | `verify:rune-substat-weights` | §§4–5 deterministically: a target is a weight, mains, artifacts and credited stones come off the requirement while a rune's set does not, a met target asks nothing, surplus keeps paying past 100 %, each star class is priced in its own rolls, a richer candidate credit moves only the rune and never reads lower, and an exhaustive search finds the best maximal ordinary rune at exactly 100 % in every star class, slot and build of every shipped role. |
 | `verify:rune-set-neutrality` | §4.3, paired: identical rune bodies under every set label give identical answers, and a role that does rank sets is still obeyed. |
-| `verify:rune-slot-neutrality` | The Max-value anchors, the mixed-rarity population, checkpoint identity, empty inputs and honest rejection of unusable mains (§9.1). |
-| `verify:rune-slot-policy-matrix` | 41 independent `+0 → +9 → +12` funnels against all original drops, counted by the calculation's own verdict past the sell safeguards; Pearson's χ² only where at least 30 survive (otherwise "balance unmeasured"); all 625 slider combinations structurally for minimum quality and monotone floors (§9.4). It does not establish statistical equality for every combination or for edited roles. |
+| `verify:rune-slot-neutrality` | Same-main allowances, mixed rarity, checkpoint identity, blank input and unusable mains. |
+| `verify:rune-slot-policy-matrix` | Adjacent policy monotonicity for all 625 combinations and role addition/reordering/duplication. |
 | `verify:rune-future-craft` | §9.2 on nine Rare/Hero/Legend checkpoints: a legal SPD Gem and its stone, a stone on a hidden SPD line weighted by its reveal probability, and no Gem bonus for a rune already better than the Gem. |
 | `verify:rune-cleanup-calibration` | An independent generator and the game's addition/upgrade loop with its own PRNG; the chance twice, with no craft and with the canonical items credited; and §6 against `RUNE-CANONICAL.md` §8 written out afresh, over every synthetic finished rune at six credits. `:large` is the 1,000-rune statistical run. |
 | `verify:rune-cleanup-probability` | The event order of §7.1 on hand-calculable fixtures with one valuable stat: a line still to come never receives an earlier improvement. |
 | `verify:rune-cleanup-ancient` | §7.4. |
-| `verify:rune-cleanup-statistics-funnel` | One birth advances through +0/+3/+6/+9/+12; checkpoint snapshots retain that body's state; terminal union, investment funnel and protections count each birth once; incomplete answers remain unresolved (§9.5). |
+| `verify:rune-cleanup-statistics-funnel` | One fixed birth at +0, +9 and +12 and survivor-only Statistics counts. |
 | `verify:rune-craft-lineage-placement` | §6.1 complete-body placement, canonical stat-id sums, Ancient/ordinary lineage, no-Gem ties and the percentile Improvements projection. |
 | `verify:rune-cleanup-craft-monotonic` | A more generous credit never lowers what a rune can reach or its odds, and a stone spent up to the canonical one moves no row (§9.2). |
 | `verify:rune-cleanup-preference-monotonic` | A more lenient slider never sells a rune a stricter one keeps, over the whole recommendation funnel. |
 | `verify:rune-chance-stability` | §7.3: the box holds still across a sixty-fourfold resolution sweep, and two copies of one rune get one answer. |
+| `verify:rune-quality-reference` | Exact tie bars, deterministic stratification, scoring identity, union counts and same-reading protection. |
 | `verify:rune-best-role` | §9.6. |
 | `verify:rune-craft-single-source` | Source text: only `rune-craft-items.ts` and `rune-craft-end-state.ts` read the §8 tables; the shader is the one sanctioned second implementation. |
 | `verify:rune-chance-layout` | The chance shader's offsets all come from `rune-chance-layout.ts` (§10.1). |

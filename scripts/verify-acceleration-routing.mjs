@@ -51,7 +51,7 @@ const deviceOwners = new Set([
 const processorOnlyWorkers = new Map([
   /* A piece of Rune Clean-up's slot calibration, counted on every core. The odds it
      feeds are reported by the chance worker that answers them. */
-  [join(compute, 'rune-calibration-worker.ts'), 'Rune Clean-up slot calibration'],
+  [join(compute, 'rune-reference-worker.ts'), 'Rune quality references'],
 ]);
 
 /** The one module allowed to decide whether the card is used at all. */

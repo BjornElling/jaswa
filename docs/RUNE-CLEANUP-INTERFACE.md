@@ -26,7 +26,7 @@ account clears the calculated session; preferences stay saved.
 | Scenario or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
 | Holds, rune locks, or any *Never sell if…* safeguard or threshold | Apply the current protection immediately to the held advice. |
 | *Power-up policy*, *Rune quality floor*, *Accepted runes*, *Broken runes*, *Intangible runes* | Keep the row order and replace the affected answers automatically. The Intangible setting rejudges only Intangible runes; the others rejudge every row. |
-| Role added, removed, reordered or edited — targets, type, artifacts, sets, slot choices | Keep the row order and rejudge every row automatically, because the shared slot calibration can change. |
+| Role added, removed, reordered or edited — targets, type, artifacts, sets, slot choices | Keep the row order and rejudge every row automatically, because any reading can contribute to the union. |
 | Reference averages change | Rejudge the list when a reference family a role uses changes. The averages depend on the level-40 roster, family classification and base stats, so a new, removed, awakened or levelled monster may change them even if no rune changed. Equal averages remain valid. |
 | Display formatting, hardware acceleration, craft inventory, buildings, artifacts or relics | Nothing to rejudge: formatting is read live, acceleration chooses an engine, and Clean-up uses assumed craft credit and roster base stats rather than owned items or a monster's engraved gear. |
 
@@ -40,22 +40,15 @@ when their standards change. No update silently mixes two standards in the compl
 list.
 
 The table, Statistics and the rune overlay key their answers with
-`rune-calculation-inputs.ts`. Rune bodies are compared separately from placement. Role
-order stays significant because it breaks ties; every used role and reference stays
-significant because they shape the shared calibration. Incremental replacement makes no
-approximation and draws no different sample.
+`rune-calculation-inputs.ts`. Rune bodies are compared separately from placement. Every role and used reference type can affect the reading weights or verdict.
+Incremental replacement uses the same reference and future streams.
 
-The slot calibration is counted once per session and shared: a pool of calibration
-workers, one per processor core but one, counts its eighteen pieces (six slots at three
-checkpoints) side by side, and the main thread keeps the last four counted populations
-(`rune-calibration-client.ts`). Every advice channel — the table, a refresh, the rune
-overlay — adopts that copy instead of counting its own, so opening a rune after
-Calculate costs the rune and not another calibration. A count is abandoned only when
-nobody waits for it any more. An idle advice worker stays available across navigation,
-keeping the floors it has read. An incremental refresh borrows the table's worker when it is idle;
-concurrent work uses a separate channel. Cancelling a refresh cannot cancel a whole
-calculation, and a whole calculation superseding a borrowed refresh clears that refresh's
-cancellation. Automatic standards updates report progress in the controls' reserved line
+The main thread's reference provider shares arrays by slot, star class, main
+and numerical prices. Rune Clean-up, its overlay, Statistics and Simulator lease
+the arrays before judging. Overlapping callers share unfinished references.
+Releasing the last lease cancels orphaned preparation. The pool transfers its
+reference scores to the owner, which sends only the pieces each advice worker
+needs. A request above the shared cache budget streams references by key in the advice workers and keeps the derived bars and shares. Concurrent advice channels have independent cancellation. Evaluation can use one interactive worker slot while the background pool is occupied. Automatic standards updates report progress in the controls' reserved line
 and commit their affected answers together, without rearranging the rows.
 
 **Statistics.** Rune Settings keeps the four most recently used completed Statistics
@@ -70,9 +63,7 @@ the one that produced the retained answer.
 
 Every rune the import holds is judged, always (`RUNE-CLEANUP-MATH.md` §9). No saved
 setting narrows the judged population; where a rune sits and how far it is powered up
-decide only what the table **shows**, through the Location and Level filters. A setting
-that held runes out of the engine would change the calibration and other runes' verdicts;
-a display filter cannot.
+decide what the table **shows** through Location and Level. A display filter leaves every rune’s verdict intact.
 
 ## 3. *Never sell if…*
 
@@ -280,13 +271,33 @@ bar.
 **Progress.** Two lines are reserved beneath Calculate in every state, so the line never
 moves the panel. While counting it reads `Calculating… X %`; the percentage counts two
 units per rune — preparing its readings and settling its verdict — and says how far
-through the work is, not how long is left. Calibration (`RUNE-CLEANUP-MATH.md` §9.4) is
-reported separately: every star class present is calibrated before rune progress starts,
-so a later class cannot send the line back, and the line reads `Calibrating… X %` above
-`Only needed once.`, the percentage counting the sample runes judged. A warm calculation
-skips it. The counted population belongs to the session and its calculation inputs, so
-changing those inputs or reloading the page requires calibration again.
+through the work is, not how long is left. A cold request first shows
+`Preparing quality references… X %`. The fraction counts distinct references
+ready for the request. A request whose references are cached starts with rune
+progress. Numerical price changes produce new references. Policy edits reuse
+the existing scores.
+
 
 **The rune overlay** says it is still working at the far end of the main property's
 line: a gold turning arc and `Calculating…` at body size. The mark is always laid out and
 only shown or hidden, so its coming and going moves nothing.
+
+
+## 6. Quality and the Best role reading
+
+The **Quality column** control reveals a sortable column next to Max value.
+The smallest sampled share sorts first. A dash follows values in both directions.
+Visibility and sorting follow the held table across navigation.
+Max value remains visible in the default table.
+
+Evaluation in the rune overlay shows **Selected Rune quality floor**,
+**Required quality for this rune**, **Quality of this rune** and **Chance across
+roles**. The Best role's row shows that same build and its own Chance. For an
+unfinished rune, Quality measures the best reachable end state and Chance
+reports how often the run reaches a qualifying end state. The overlay and table
+reserve width for the longest quality figure.
+
+A requirement prints its exact percent. Quality rounds the inclusive sample
+share up to the requirement's precision, with at least one decimal of precision.
+A score above every sample prints `Top 0 %`. Forbidden and unavailable
+readings have no quality or chance to print.

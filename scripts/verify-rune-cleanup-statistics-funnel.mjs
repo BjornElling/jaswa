@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import {
   ordinarySample, ordinarySamplePaths,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
-import {
-  calculateRuneCleanupSampledFunnel, runeCleanupStatisticsSamplePaths,
-} from '../app/domain/runes/cleanup/rune-percentile-statistics.ts';
+import { calculateRuneCleanupStatistics, runeStatisticsRunesPerSlot } from '../app/domain/runes/cleanup/rune-cleanup-statistics.ts';
+import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
+import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
+import { countJobs } from '../app/domain/runes/rune-power-up-outcomes.ts';
 
 const levels = [0, 3, 6, 9, 12];
 const paths = ordinarySamplePaths(1, 6, 5, 'drop');
@@ -35,72 +36,23 @@ for (let index = 0; index < paths.length; index += 1) {
   }
 }
 
-let calls = 0;
-const funnel = calculateRuneCleanupSampledFunnel(paths, (_rune, pathId, level) => {
-  calls += 1;
-  const index = Number(pathId.split(':').at(-1));
-  if (index === 4 && level === 6) return { calculated: null, protected: null };
-  if (level === 12) {
-    return {
-      calculated: index === 0 || index === 2 || index === 4,
-      protected: index === 0 || index === 2 || index === 3 || index === 4,
-      terminalReadings: [
-        { readingId: 'first', roleId: 'role-a', roleName: 'Role A', buildKey: 'open', buildLabel: 'Open build', qualifies: index === 0 || index === 2 },
-        { readingId: 'second', roleId: 'role-b', roleName: 'Role B', buildKey: 'open', buildLabel: 'Open build', qualifies: index === 0 || index === 4 },
-        { readingId: 'unsettled', roleId: 'role-c', roleName: 'Role C', buildKey: 'open', buildLabel: 'Open build', qualifies: index === 0 ? null : false },
-      ],
-    };
-  }
-  return {
-    calculated: !(index === 3 && level === 3) && !(index === 2 && level === 6),
-    protected: index !== 2 || !(level === 6),
-  };
-});
-
-assert.equal(calls, paths.length * levels.length, 'the callback sees each sequential checkpoint once');
-assert.equal(funnel.method, 'sequential-sampled');
-assert.equal(funnel.samplingUncertainty, 'descriptive-bernoulli-standard-error-not-certified');
-assert.equal(funnel.sampleSize, paths.length, 'the denominator counts births once');
-assert.deepEqual(funnel.investmentByCheckpoint.map(({ level }) => level), [0, 3, 6, 9]);
-assert.equal(funnel.terminalUnion.successes, 3);
-assert.equal(funnel.terminalUnion.unresolved, 0);
-assert.equal(funnel.terminalUnion.proportion, 3 / 5);
-assert.equal(funnel.terminalUnion.standardError, Math.sqrt((3 / 5) * (2 / 5) / 5));
-assert.equal(funnel.investmentByCheckpoint[2].calculated.successes, 3);
-assert.equal(funnel.investmentByCheckpoint[2].calculated.unresolved, 1);
-assert.equal(funnel.investmentByCheckpoint[2].calculated.proportion, null);
-assert.equal(funnel.qualifyingFunnel.successes, 1);
-assert.equal(funnel.qualifyingFunnel.unresolved, 1);
-assert.equal(funnel.qualifyingFunnel.proportion, null, 'an incomplete body is not counted as a failure');
-assert.equal(funnel.protectedSurvivors.successes, 2);
-assert.equal(funnel.extraProtectedSurvivors.successes, 1);
-assert.equal(funnel.extraProtectedSurvivors.unresolved, 1);
-assert.deepEqual(funnel.perReadingSupply.map(({ supply }) => [supply.successes, supply.unresolved]), [[2, 0], [2, 0], [0, 1]]);
-assert.deepEqual(funnel.roleBuildCoverage.map(({ terminalCoverage, funnelCoverage }) =>
-  [terminalCoverage.successes, terminalCoverage.unresolved, funnelCoverage.successes, funnelCoverage.unresolved]),
-[[2, 0, 1, 0], [2, 0, 1, 1], [0, 1, 0, 1]],
-'Overlapping reading events count each body once in the union and preserve each reading’s own evidence.');
-
-const failedDespiteUncertainty = calculateRuneCleanupSampledFunnel(paths.slice(0, 1), (_rune, _pathId, level) => {
-  if (level === 3) return { calculated: false, protected: false };
-  return { calculated: null, protected: null };
-});
-assert.equal(failedDespiteUncertainty.qualifyingFunnel.proportion, 0, 'a certified failure at +3 settles the joint gate');
-assert.equal(failedDespiteUncertainty.extraProtectedSurvivors.proportion, 0);
-
-assert.throws(() => calculateRuneCleanupSampledFunnel(paths.slice(0, 1), (_rune, _pathId, level) => level === 12
-  ? { calculated: true, protected: false }
-  : { calculated: false, protected: false }),
-  /protection result cannot undo a calculated pass/);
-
-const fixedPopulation = runeCleanupStatisticsSamplePaths();
-assert.equal(fixedPopulation.length, 300);
-assert.equal(new Set(fixedPopulation.map(({ id }) => id)).size, fixedPopulation.length);
-assert.ok(fixedPopulation.every(({ checkpoints }) => checkpoints.length === 5));
-
-const empty = calculateRuneCleanupSampledFunnel([], () => ({ calculated: null, protected: null }));
-assert.equal(empty.sampleSize, 0);
-assert.equal(empty.terminalUnion.proportion, null);
-assert.equal(empty.qualifyingFunnel.standardError, null);
-
-console.log('PASS: Statistics uses one sequential latent body, counts each birth once, and preserves incomplete solver mass.');
+const firstRole = defaultRuneRoles()[0];
+const base = new Map([[firstRole.type, { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }]]);
+const settings = { ...defaultRunePotentialSettings, runeQuality: 1, powerUpPolicy: 1 };
+const statistics = await calculateRuneCleanupStatistics([firstRole], settings, base, async (jobs) => countJobs(jobs));
+const [zero, nine, twelve] = statistics.checkpoints;
+assert.equal(statistics.sampleSize, runeStatisticsRunesPerSlot * 6);
+assert.deepEqual(statistics.checkpoints.map((rows) => rows.length), Array(3).fill(statistics.sampleSize));
+for (const [index, rows] of statistics.checkpoints.entries()) {
+  const expected = Array.from({ length: 6 }, (_, slot) =>
+    ordinarySample(slot + 1, 6, runeStatisticsRunesPerSlot, [0, 9, 12][index], 'drop')).flat();
+  assert.deepEqual(rows.map(({ rune }) => rune), expected);
+}
+const rolled = zero.filter(({ advice }) => advice.verdict === 'power-up').length;
+const kept = zero.filter(({ advice }, index) => advice.verdict === 'power-up'
+  && nine[index].advice.verdict === 'power-up'
+  && ['keep', 'refine', 'reapp'].includes(twelve[index].advice.verdict)).length;
+assert.ok(rolled > 0 && kept > 0);
+assert.equal(statistics.percentToRoll, rolled / zero.length * 100);
+assert.equal(statistics.percentToKeep, kept / zero.length * 100);
+console.log('PASS: each Statistics checkpoint reads one copy of the same birth, and only survivors count.');

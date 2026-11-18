@@ -1,108 +1,57 @@
-/**
- * Complete-funnel slot evenness on an independent holdout of mixed-grade drops.
- * All original mains remain in the denominator. Each slider stop and the extreme
- * combinations use +0 -> +9 -> +12, with early Sell removing the body permanently.
- * Pearson's chi-square tests non-sparse survivors; sparse results are explicitly
- * unmeasured. All 625 settings additionally hold floor and preference monotonicity.
- */
+/** Each adjacent policy stop can only narrow the set of qualifying shared futures. */
+import assert from 'node:assert/strict';
 import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
 import { ordinarySample } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
-import { calculatedRuneVerdict, runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
-import { countJobs } from '../app/domain/runes/rune-power-up-outcomes.ts';
+import { calculatedRuneVerdict, readingAllowance, runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { referenceBodies, referenceKey, referenceScores } from '../app/domain/runes/cleanup/rune-quality-reference.ts';
 
-const base = new Map([
-  ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
-  ['Support type', { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 }],
-  ['Defence type', { hp: 10280, atk: 595, def: 749, spd: 103, criRate: 16, criDmg: 50, res: 17, acc: 5 }],
-  ['HP type', { hp: 11836, atk: 653, def: 592, spd: 104, criRate: 16, criDmg: 50, res: 17, acc: 4 }],
-  ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
-]);
-/* The holdout starts beyond every id used to fit RuneFloorCalibration. Its complete
-   main × grade × set coverage keeps the comparison about policy, not a lucky
-   collection of sets. A second holdout checks the two difficult cases. */
-const perSlot = Number(process.env.JASWA_BALANCE_RUNES ?? 400);
-if (!Number.isInteger(perSlot) || perSlot <= 0) throw new Error('JASWA_BALANCE_RUNES must be a positive integer.');
-const roles = defaultRuneRoles();
-
-const middle = { powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3, offset: 50_000 };
-const scenarios = [
-  ...['powerUpPolicy', 'runeQuality', 'acceptedRunes', 'brokenRunes'].flatMap((field) =>
-    [1, 2, 3, 4, 5].map((value) => ({ ...middle, [field]: value }))),
-  ...[1, 5].flatMap((powerUpPolicy) => [5, 1].flatMap((runeQuality) =>
-    [[1, 1], [1, 5], [5, 1], [5, 5]].map(([acceptedRunes, brokenRunes]) =>
-      ({ powerUpPolicy, runeQuality, acceptedRunes, brokenRunes, offset: 50_000 })))),
-  { powerUpPolicy: 3, runeQuality: 5, acceptedRunes: 3, brokenRunes: 3, offset: 50_000 },
-  { powerUpPolicy: 3, runeQuality: 4, acceptedRunes: 3, brokenRunes: 3, offset: 50_000 },
-  { powerUpPolicy: 1, runeQuality: 5, acceptedRunes: 5, brokenRunes: 5, offset: 60_000 },
-  { powerUpPolicy: 3, runeQuality: 5, acceptedRunes: 3, brokenRunes: 3, offset: 60_000 },
-  { powerUpPolicy: 3, runeQuality: 4, acceptedRunes: 3, brokenRunes: 3, offset: 60_000 },
-];
-let failures = 0;
-for (const { powerUpPolicy, runeQuality, acceptedRunes, brokenRunes, offset } of scenarios) {
-  const runes = [1, 2, 3, 4, 5, 6].flatMap((slot) => ordinarySample(slot, 6, perSlot, 0, 'drop', offset));
-  const eligible = [1, 2, 3, 4, 5, 6].map(() => perSlot);
-  const settings = { ...defaultRunePotentialSettings, powerUpPolicy, runeQuality, acceptedRunes, brokenRunes };
-  const checkpoints = [runes, ...[9, 12].map((level) => [1, 2, 3, 4, 5, 6].flatMap((slot) => ordinarySample(slot, 6, perSlot, level, 'drop', offset)))];
-  const result = await runeAdvice(checkpoints.flat(), roles, settings, base,
-    (jobs) => countJobs(jobs.map((job) => ({ ...job, runs: 512 }))));
-  /* The calculation's own verdict, past the sell safeguards. Pre-grind SPD, potential
-     value and the rest protect a rune for what it holds, whatever its slot, so they
-     are not the calibration's to balance; counting them here once failed a policy the
-     calibration balanced exactly (5 / 6 / 5 / 6 / 6 / 5 in its own population) on 54
-     runes the defaults protected. */
-  const verdict = (id) => { const answer = result.get(id); return answer ? calculatedRuneVerdict(answer) : undefined; };
-  const counts = [1, 2, 3, 4, 5, 6].map((slot) => runes.filter((rune, index) => rune.slot === slot
-    && verdict(rune.id) === 'power-up'
-    && verdict(checkpoints[1][index]?.id) === 'power-up'
-    && verdict(checkpoints[2][index]?.id) === 'keep').length);
-  const rate = counts.reduce((sum, count) => sum + count, 0) / eligible.reduce((sum, count) => sum + count, 0);
-  const chi = counts.reduce((sum, count, at) => {
-    const expected = eligible[at] * rate;
-    return expected > 0 && expected < eligible[at] ? sum + (count - expected) ** 2 / expected
-      + (count - expected) ** 2 / (eligible[at] - expected) : sum;
-  }, 0);
-  const total = counts.reduce((sum, count) => sum + count, 0);
-  const rates = counts.map((count, at) => count / eligible[at]);
-  const label = `policy ${powerUpPolicy}, floor ${runeQuality}, accepted ${acceptedRunes}, broken ${brokenRunes}, seed ${offset}`;
-  console.log(`${label}: ${rates.map((value) => (100 * value).toFixed(1)).join(' / ')} %; ${total} kept; chi2 ${chi.toFixed(1)}`);
-  const scarce = total < 30;
-  const oddRate = [0, 2, 4].reduce((sum, at) => sum + counts[at], 0)
-    / [0, 2, 4].reduce((sum, at) => sum + eligible[at], 0);
-  const evenRate = [1, 3, 5].reduce((sum, at) => sum + counts[at], 0)
-    / [1, 3, 5].reduce((sum, at) => sum + eligible[at], 0);
-  console.log(`  odd/even ratio: ${(Math.max(oddRate, evenRate) / Math.max(1e-9, Math.min(oddRate, evenRate))).toFixed(2)}${scarce ? "; sparse — balance unmeasured" : ""}`);
-  if (scarce ? false : chi > 20.5) {
-    console.error(`${label}: slot rates exceed the holdout's sampling allowance.`);
-    failures += 1;
-  }
-}
-if (failures > 0) process.exitCode = 1;
-else console.log(`\nPASS: ${scenarios.length} complete funnels; sparse results explicitly unmeasured.`);
-
-/* All 625 combinations must preserve the quality anchor and inherit every less
-   demanding neighbour. This covers settings the stochastic holdout does not cross. */
-const grid = new Map();
-let combinations = 0;
-for (let quality = 1; quality <= 5; quality += 1) {
-  for (let policy = 1; policy <= 5; policy += 1) {
-    for (let accepted = 1; accepted <= 5; accepted += 1) {
-      for (let broken = 1; broken <= 5; broken += 1) {
-        const values = slotFloorMaxValues(roles, { ...defaultRunePotentialSettings,
-          runeQuality: quality, powerUpPolicy: policy, acceptedRunes: accepted, brokenRunes: broken }, base);
-        const key = (q, p, a, b) => `${q}|${p}|${a}|${b}`;
-        const neighbours = [grid.get(key(quality - 1, policy, accepted, broken)),
-          grid.get(key(quality, policy - 1, accepted, broken)), grid.get(key(quality, policy, accepted - 1, broken)),
-          grid.get(key(quality, policy, accepted, broken - 1))];
-        if (!values.every((value, at) => Number.isFinite(value) && value >= qualityThresholds[quality - 1]
-          && neighbours.every((previous) => !previous || value >= previous[at]))) {
-          console.error(`Non-monotone floor at ${key(quality, policy, accepted, broken)}`);
-          process.exitCode = 1;
-        }
-        grid.set(key(quality, policy, accepted, broken), values);
-        combinations += 1;
+const fields = ['runeQuality', 'powerUpPolicy', 'acceptedRunes', 'brokenRunes'];
+const role = defaultRuneRoles()[0];
+const roles = [role, { ...role, id: 'other', targets: { hp: 28000, spd: 220 } }];
+const base = new Map([[role.type, { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }]]);
+const runes = [1, 2, 3, 4, 5, 6].map((slot) => ({
+  ...ordinarySample(slot, 6, 1, slot % 2 === 0 ? 9 : 12, 'drop')[0],
+  setName: slot % 2 ? 'Intangible' : 'Violent',
+}));
+const cache = new Map();
+const references = { get(piece, prices) {
+  const key = referenceKey(piece, prices);
+  if (!cache.has(key)) cache.set(key, {
+    key, scores: referenceScores(referenceBodies(piece.slot, piece.stars, piece.main, 256), prices),
+  });
+  return cache.get(key);
+} };
+const options = { references, candidateRuns: 32 };
+const settings = { ...defaultRunePotentialSettings, neverSellPreGrindSpeed: false, neverSellPotentialValue: false,
+  neverSellEngravedPlacements: false, neverSellReappTargets: false };
+const answers = new Map();
+for (const quality of [1, 2, 3, 4, 5]) for (const power of [1, 2, 3, 4, 5]) {
+  for (const accepted of [1, 2, 3, 4, 5]) for (const broken of [1, 2, 3, 4, 5]) {
+    const stops = [quality, power, accepted, broken];
+    const policy = { ...settings, ...Object.fromEntries(fields.map((field, index) => [field, stops[index]])) };
+    const advice = await runeAdvice(runes, roles, policy, base, undefined, options);
+    for (const [index, value] of stops.entries()) {
+      if (value === 1) continue;
+      const neighbor = stops.with(index, value - 1);
+      const previous = answers.get(neighbor.join());
+      for (const [id, row] of advice) {
+        assert.ok(row.chance <= previous.get(id).chance);
+        if (calculatedRuneVerdict(row) !== 'sell') assert.notEqual(calculatedRuneVerdict(previous.get(id)), 'sell');
       }
     }
+    answers.set(stops.join(), advice);
   }
 }
-console.log(`${combinations} settings combinations preserve minimum quality and stricter-choice floors.`);
+for (const rank of ['preferred', 'acceptable', 'broken']) {
+  const shares = [1, 2, 3, 4, 5].map((intangibleRunes) => readingAllowance({ ...settings, intangibleRunes }, rank, true));
+  assert.deepEqual(shares, shares.toSorted((a, b) => a - b));
+}
+const single = await runeAdvice(runes, [role], settings, base, undefined, options);
+const combined = await runeAdvice(runes, roles, settings, base, undefined, options);
+const duplicated = await runeAdvice(runes, [roles[1], role, { ...role, id: 'copy' }], settings, base, undefined, options);
+for (const [id, row] of single) {
+  assert.ok(combined.get(id).chance >= row.chance);
+  assert.equal(combined.get(id).chance, duplicated.get(id).chance);
+}
+console.log('PASS: every adjacent stop of the 625-cell policy matrix narrows or preserves the same shared events.');

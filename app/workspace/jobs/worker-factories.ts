@@ -11,22 +11,21 @@ import { budgetedWorker, createWorkerBudget } from './worker-budget';
 export type WorkerFactories = {
   artifactScore(): Worker;
   craftRecommendation(): Worker;
-  runeAdvice(): Worker;
-  runeCalibration(): Worker;
+  runeAdvice(interactive?: boolean): Worker;
+  runeReference(interactive?: boolean): Worker;
   runeOptimization(): Worker;
   runeOptimizationWork(): Worker;
-  runeStatistics(): Worker;
   /** Development only: absent from a production build, so its worker never ships. */
   runeSimulator?(): Worker;
 };
 
 let provided: WorkerFactories | null = null;
 const cores = typeof navigator === 'undefined' ? 4 : navigator.hardwareConcurrency || 4;
-const budget = createWorkerBudget(Math.max(1, Math.min(8, cores - 1)));
+const budget = createWorkerBudget(Math.max(1, Math.min(8, cores - 2)), cores >= 4);
 
 export function provideWorkerFactories(factories: WorkerFactories): void {
   provided = Object.fromEntries(Object.entries(factories).map(([name, create]) =>
-    [name, () => budgetedWorker(create, budget, name === 'runeCalibration' || name === 'runeOptimizationWork')])) as WorkerFactories;
+    [name, (interactive = false) => budgetedWorker(create, budget, name === 'runeReference' || name === 'runeOptimizationWork', interactive)])) as WorkerFactories;
 }
 
 /** Adds the development simulator once the shell has loaded it. */

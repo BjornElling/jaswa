@@ -315,7 +315,7 @@ async function record(runes, roles, settings) {
     rows.push({
       id: rune.id, verdict: answer.verdict, reason: answer.reason,
       role: answer.role?.id ?? null, rank: answer.rank,
-      maxValue: answer.maxValue, standing: answer.standing, chance: answer.chance,
+      maxValue: answer.maxValue, qualityShare: answer.qualityShare, requirement: answer.requirement, chance: answer.chance, readingChance: answer.readingChance,
     });
     const key = `${answer.role?.id ?? '—'}/${answer.verdict}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -382,10 +382,7 @@ async function buildResults() {
 // Diffing
 // ---------------------------------------------------------------------------
 
-/* `standing` is held to bit equality alongside `maxValue`, and for the same reason:
-   it is a deterministic function of the role, the slot and the rune, so a refactor
-   has no business moving it. It is the one of the two the gates actually read. */
-const exactFields = ['verdict', 'reason', 'role', 'rank', 'maxValue', 'standing'];
+const exactFields = ['verdict', 'reason', 'role', 'rank', 'maxValue', 'qualityShare', 'requirement', 'readingChance'];
 
 function diff(before, after) {
   const problems = [];

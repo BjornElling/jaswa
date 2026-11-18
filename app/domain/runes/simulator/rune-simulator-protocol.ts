@@ -7,8 +7,9 @@
  * still call simulateRunes directly with a controlled source.
  */
 import type {
-  RuneSimulationConfig, RuneSimulationContext, RuneSimulationResult,
+  SimulatedRune, RuneSimulationConfig, RuneSimulationContext, RuneSimulationResult,
 } from './rune-simulator';
+import type { QualityReference } from '../cleanup/rune-quality-reference';
 import type { CalculationBackend } from '../../shared/calculation-summary';
 
 export type RuneSimulationWorkerRequest = {
@@ -16,6 +17,8 @@ export type RuneSimulationWorkerRequest = {
   requestId: number;
   config: RuneSimulationConfig;
   context: RuneSimulationContext;
+  births: readonly SimulatedRune[];
+  references: ReadonlyMap<string, QualityReference> | null;
 };
 
 export type RuneSimulationWorkerResponse =

@@ -7,9 +7,8 @@ export default defineConfig({
      tab in the same context on purpose. */
   fullyParallel: true,
   preserveOutput: 'always',
-  /* Each isolated browser calibrates the full mixed-grade rune funnel before
-     its first verdict. Two concurrent calibrations keep that CPU work realistic;
-     the wait covers the cold calculation, not a different interface contract. */
+  /* Keep two browser contexts in flight so their local worker pools can share
+     the processor while the suite drives real calculations. */
   workers: 2,
   timeout: 90_000,
   expect: { timeout: 60_000 },

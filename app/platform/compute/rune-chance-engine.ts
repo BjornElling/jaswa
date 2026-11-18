@@ -21,6 +21,9 @@ const runeChanceCalculation: AcceleratedCalculation<readonly CountingJob[], Awai
   name: 'rune-chance',
   cpu: (jobs) => ({ shares: countJobs(jobs), uncertain: [] }),
   gpu: (jobs, context) => countJobsOnGpu(jobs, context),
+  // Once shared futures moved to the fused processor counter, most remaining
+  // batches were too small to repay an upload and a readback.
+  gpuEligible: (jobs) => jobs.length >= 32,
   agrees: runeChanceAgreement,
 };
 

@@ -440,7 +440,7 @@ test('Only keep-runes asks Rune Clean-up and narrows Best use without moving a c
   await expect(panel.locator('.craft-best-use-results')).toBeVisible();
   await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
   const seen = await page.evaluate(() => (window as unknown as { statusSeen: string[] }).statusSeen);
-  expect(seen.some((text) => /^Calibrating Rune Clean-up… \d+ % · only needed once$/.test(text)), seen.join(' | ')).toBe(true);
+  expect(seen.some((text) => /^Preparing rune quality references… \d+ %$/.test(text)), seen.join(' | ')).toBe(true);
   expect(seen.some((text) => /^Asking Rune Clean-up which runes it keeps… \d+ %$/.test(text)), seen.join(' | ')).toBe(true);
   expect(await cards.count()).toBeLessThanOrEqual(all);
   expect(await boxes()).toEqual(before);
@@ -485,8 +485,7 @@ test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a s
     const game = await loadImportedGame();
     const preferences = blankPreferences();
     const runes = readRunes(game.data);
-    const advice = (verdict: string, unprotected?: string) => ({ verdict, reason: '', maxValue: 0, standing: 0, floorShare: 0,
-      floorMaxValue: 0, chance: 0, role: null, rank: 'broken', craftedLines: null, buildMains: null, readings: null,
+    const advice = (verdict: string, unprotected?: string) => ({ verdict, reason: '', maxValue: 0, qualityShare: null, requirement: null, readingChance: null, chance: 0, role: null, rank: 'broken', craftedLines: null, buildMains: null, readings: null,
       ...(unprotected ? { unprotectedAdvice: { verdict: unprotected, reason: '' } } : {}) });
     const verdicts: Record<string, ReturnType<typeof advice>> = {
       101: advice('keep'), 102: advice('power-up'), 103: advice('reapp', 'sell'), 104: advice('keep', 'sell'),

@@ -40,8 +40,8 @@ forbid('advice', /keepMoreForLargerSets|fourPiece/u,
 
 for (const required of [
   ['advice', /intangibleRunes/u, 'the Intangible retention preference must remain in the calculation.'],
-  ['advice', /qualityBar\s*\+\s*\(calibratedFloor\s*-\s*qualityBar\)\s*\/\s*retentionMultiplier/u,
-    'set preferences must soften slot correction without undercutting the quality minimum.'],
+  ['advice', /quality \* rankPercent \* setPercent/u,
+    'set preference must widen the same reading allowance.'],
 ]) {
   if (!required[1].test(source[required[0]])) failures.push(required[2]);
 }

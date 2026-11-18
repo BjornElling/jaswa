@@ -1,9 +1,8 @@
 # Rune percentiles, sampled: the problem and an implementation plan
 
-**Status:** Approved implementation plan; not yet implemented. The production engine
-of `RUNE-CLEANUP-MATH.md` stays binding until this plan has been carried out.
-Supersedes `RUNE-PERCENTILE-PROPOSAL.md` where §3 below says so, and
-`RUNE-PERCENTILE-NUMERICS.md` entirely.
+**Status:** Implemented November 18, 2026. The production contract is
+[RUNE-CLEANUP-MATH.md](RUNE-CLEANUP-MATH.md). Measurements and the account
+comparison are in [RUNE-PERCENTILE-EVIDENCE.md](RUNE-PERCENTILE-EVIDENCE.md).
 **Created:** November 18, 2026. **Decisions approved:** November 18, 2026 (§3.3).
 **Scope:** Rune Clean-up, the rune overlay, Rune Simulator and the Statistics box,
 which all read `runeAdvice`.

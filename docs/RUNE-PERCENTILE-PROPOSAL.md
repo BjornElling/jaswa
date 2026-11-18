@@ -1,8 +1,6 @@
 # Rune percentiles: a specialist-preserving analytical model
 
-**Status:** Partly superseded on November 18, 2026 by
-[RUNE-PERCENTILE-SAMPLED-PLAN.md](RUNE-PERCENTILE-SAMPLED-PLAN.md), the approved
-implementation plan. Kept as the record of why the policy is reading-local.
+**Status:** Superseded by [RUNE-PERCENTILE-SAMPLED-PLAN.md](RUNE-PERCENTILE-SAMPLED-PLAN.md) for the computation. §§1, 5–7 retain the reading-local policy, as amended by the plan.
 **Created:** October 29, 2026. **Revised:** November 16, 2026.
 **Scope:** Rune Clean-up, Rune Simulator, Statistics and their shared probability engine.
 

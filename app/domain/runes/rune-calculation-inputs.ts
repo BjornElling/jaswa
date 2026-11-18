@@ -18,9 +18,8 @@ export function runeCalculationSettingsKey(settings: RunePotentialSettings): str
   ]);
 }
 
-/** Role order breaks ties; only reference families used by those roles can matter.
- * All those roles and references also shape the shared slot calibration, so a
- * change to one cannot safely be limited to runes that name it as their winner. */
+/** Any role can contribute to the union, including one that was never named Best.
+ * Only reference families used by those roles can affect the answer. */
 export function runeCalculationKey({ roles, settings, base }: RuneCalculationInputs): string {
   const types = [...new Set(roles.map((role) => role.type))].sort();
   return JSON.stringify([roles, runeCalculationSettingsKey(settings),

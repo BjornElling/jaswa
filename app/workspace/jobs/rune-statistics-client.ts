@@ -1,26 +1,22 @@
-import { workerFactories } from './worker-factories';
 import { registerAccountJobReset } from './account-job-memory';
-/**
- * The one way from Rune Settings to its fixed synthetic statistics.
- *
- * Completed answers and in-flight work outlive navigation. A changed calculation
- * cancels the previous worker before starting the next one.
- * The page therefore never commits an older population answer after a newer
- * settings choice, and the processor remains available for the rest of JASWA.
- */
-import type {
-  RuneStatisticsOutcome, RuneStatisticsRequest, RuneStatisticsWorkerRequest, RuneStatisticsWorkerResponse,
-} from '../../domain/runes/cleanup/rune-statistics-protocol';
-
 import { calculationMemory } from './calculation-memory';
+import { runeAdviceChannel } from './rune-advice-client';
 import { runeCalculationKey } from '../../domain/runes/rune-calculation-inputs';
+import { runeStatisticsSamples, summarizeRuneStatistics } from '../../domain/runes/cleanup/rune-cleanup-statistics';
+import type { RuneStatisticsOutcome, RuneStatisticsRequest } from '../../domain/runes/cleanup/rune-statistics-protocol';
 
 type CompletedStatistics = Extract<RuneStatisticsOutcome, { status: 'done' }>;
 const answers = calculationMemory<CompletedStatistics>(4);
+const channel = runeAdviceChannel();
 let active: { key: string; promise: Promise<RuneStatisticsOutcome> } | undefined;
 
 export const rememberedRuneStatistics = (request: RuneStatisticsRequest): CompletedStatistics | undefined =>
   answers.read(runeCalculationKey(request));
+
+export function cancelRuneStatistics(): void {
+  active = undefined;
+  channel.cancel();
+}
 
 export function clearRuneStatistics(): void {
   cancelRuneStatistics();
@@ -28,71 +24,26 @@ export function clearRuneStatistics(): void {
 }
 registerAccountJobReset(clearRuneStatistics);
 
-let worker: Worker | undefined;
-let nextRequestId = 1;
-const waiting = new Map<number, (outcome: RuneStatisticsOutcome) => void>();
-
-function statisticsWorker(): Worker {
-  if (worker) return worker;
-  worker = workerFactories().runeStatistics();
-  return worker;
-}
-
-export function cancelRuneStatistics(): void {
-  active = undefined;
-  worker?.terminate();
-  worker = undefined;
-  const pending = [...waiting.values()];
-  waiting.clear();
-  for (const settle of pending) settle({ status: 'superseded' });
-}
-
 /** Navigation can rejoin unfinished work; a genuinely different request supersedes it. */
 export function calculateRuneStatistics(request: RuneStatisticsRequest): Promise<RuneStatisticsOutcome> {
   const key = runeCalculationKey(request);
   const known = answers.read(key);
-  if (known) return Promise.resolve(known);
+  if (known) {
+    if (active?.key !== key) cancelRuneStatistics();
+    return Promise.resolve(known);
+  }
   if (active?.key === key) return active.promise;
-  const promise = runStatistics(request).then((outcome) => {
-    if (outcome.status === 'done') answers.remember(key, outcome);
-    if (active?.promise === promise) active = undefined;
+  const startedAt = performance.now();
+  const stages = runeStatisticsSamples();
+  const promise = channel.calculate({ ...request, runes: stages.flat(), reuseOutcomeScores: true }).then((answer): RuneStatisticsOutcome => {
+    if (active?.promise !== promise) return { status: 'superseded' };
+    active = undefined;
+    if (answer.status !== 'done') return answer;
+    const statistics = summarizeRuneStatistics(stages, answer.advice, request.settings, performance.now() - startedAt);
+    const outcome = { status: 'done' as const, statistics, backend: answer.backend };
+    answers.remember(key, outcome);
     return outcome;
   });
   active = { key, promise };
   return promise;
-}
-
-function runStatistics(request: RuneStatisticsRequest): Promise<RuneStatisticsOutcome> {
-  if (waiting.size > 0) cancelRuneStatistics();
-  const requestId = nextRequestId;
-  nextRequestId += 1;
-  return new Promise<RuneStatisticsOutcome>((resolve) => {
-    const currentWorker = statisticsWorker();
-    const settle = (outcome: RuneStatisticsOutcome) => {
-      currentWorker.removeEventListener('message', onMessage);
-      currentWorker.removeEventListener('error', onError);
-      waiting.delete(requestId);
-      resolve(outcome);
-    };
-    const onMessage = (event: MessageEvent<RuneStatisticsWorkerResponse>) => {
-      if (event.data.requestId !== requestId) return;
-      settle(event.data.type === 'error'
-        ? { status: 'failed', message: event.data.message }
-        : { status: 'done', statistics: event.data.statistics, backend: event.data.backend });
-    };
-    const onError = () => {
-      currentWorker.terminate();
-      if (worker === currentWorker) worker = undefined;
-      settle({ status: 'failed', message: 'JASWA could not start its rune statistics calculation.' });
-    };
-    waiting.set(requestId, settle);
-    currentWorker.addEventListener('message', onMessage);
-    currentWorker.addEventListener('error', onError, { once: true });
-    try {
-      const message: RuneStatisticsWorkerRequest = { type: 'calculate', requestId, request };
-      currentWorker.postMessage(message);
-    } catch {
-      onError();
-    }
-  });
 }

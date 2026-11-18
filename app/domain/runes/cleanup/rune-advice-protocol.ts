@@ -13,7 +13,7 @@ import type { ReferenceStats } from '../../reference/rune-reference-stats';
 import type { RunePotentialSettings } from '../../model';
 import type { RuneAdvice } from './rune-cleanup-advice';
 import type { CalculationBackend } from '../../shared/calculation-summary';
-import type { CalibrationPopulation } from './rune-calibration-protocol';
+import type { QualityReference } from './rune-quality-reference';
 
 export type RuneAdviceRequest = {
   runes: readonly Rune[];
@@ -31,20 +31,19 @@ export type RuneAdviceRequest = {
   preferWebGpu: boolean;
   /** Whether each answer carries every role's reading (`RuneAdvice.readings`). */
   explain?: boolean;
+  /** Reuse the immutable score streams of the fixed Statistics population. */
+  reuseOutcomeScores?: boolean;
 };
 
 export type RuneAdviceWorkerRequest = {
   type: 'calculate';
   requestId: number;
   request: RuneAdviceRequest;
-  /** The calibration populations already counted on the main thread's pool, which
-      the worker adopts instead of counting them again (`rune-calibration-client.ts`). */
-  populations: readonly CalibrationPopulation[];
+  references: ReadonlyMap<string, QualityReference> | null;
 };
 
 export type RuneAdviceWorkerResponse =
-  /** `fraction` is how far through the calibration is; `null` says it is over. */
-  | { type: 'calibration'; requestId: number; fraction: number | null }
+  | { type: 'preparation'; requestId: number; fraction: number | null }
   | { type: 'progress'; requestId: number; fraction: number }
   | { type: 'result'; requestId: number; advice: Map<string, RuneAdvice>; backend: CalculationBackend }
   | { type: 'error'; requestId: number; message: string };

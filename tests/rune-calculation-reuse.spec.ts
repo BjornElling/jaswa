@@ -4,19 +4,22 @@ import { readFileSync } from 'node:fs';
 test('updates changed standards in place and recalculates only affected sets', async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1600, height: 1000 });
-  let workers = 0;
-  page.on('worker', (worker) => { if (worker.url().includes('rune-advice-worker')) workers += 1; });
   await page.addInitScript(() => {
     const OriginalWorker = window.Worker;
     const requests: string[][] = [];
-    Object.assign(window, { runeRequests: requests });
+    const work = { requests, workers: 0 };
+    Object.assign(window, { runeWork: work });
     window.Worker = class extends OriginalWorker {
       constructor(url: string | URL, options?: WorkerOptions) {
         super(url, options);
         if (!String(url).includes('rune-advice-worker')) return;
         const originalPost = this.postMessage.bind(this);
+        let counted = false;
         this.postMessage = (message) => {
-          requests.push(message.request.runes.map((rune: { id: string }) => rune.id));
+          if (!message.request.reuseOutcomeScores) {
+            requests.push(message.request.runes.map((rune: { id: string }) => rune.id));
+            if (!counted) { work.workers += 1; counted = true; }
+          }
           originalPost(message);
         };
       }
@@ -25,7 +28,9 @@ test('updates changed standards in place and recalculates only affected sets', a
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   const visit = async (name: string) => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
-  const requests = () => page.evaluate(() => (window as typeof window & { runeRequests: string[][] }).runeRequests);
+  const work = () => page.evaluate(() =>
+    (window as typeof window & { runeWork: { requests: string[][]; workers: number } }).runeWork);
+  const requests = async () => (await work()).requests;
   const raw = JSON.parse(readFileSync('tests/fixtures/craft-account.json', 'utf8'));
   raw.runes[0].set_id = 25; // One Intangible, two ordinary four-piece sets, one two-piece set.
   raw.runes[2].set_id = 1;
@@ -48,12 +53,12 @@ test('updates changed standards in place and recalculates only affected sets', a
   await expect.poll(async () => (await requests()).length).toBe(2);
   await expect(updating).toBeHidden();
   expect((await requests())[1]).toEqual(['101']);
-  expect(workers).toBe(1);
+  expect((await work()).workers).toBe(1);
   expect(await rowNames()).toEqual(originalOrder);
   expect(await controls()).toEqual(beforeBox);
   await page.screenshot({ path: testInfo.outputPath('after-settings-change.png') });
 
-  // A global quality change affects the shared calibration, including other sets.
+  // A global quality change affects every set while reusing the same numerical references.
   await visit('Rune Settings');
   await page.locator('#rune-quality').fill('1');
   await visit('Rune Clean-up');
@@ -71,5 +76,5 @@ test('updates changed standards in place and recalculates only affected sets', a
   await visit('Rune Clean-up');
   await expect(rows).toHaveCount(4);
   expect((await requests()).length).toBe(count);
-  expect(workers).toBe(1);
+  expect((await work()).workers).toBe(1);
 });

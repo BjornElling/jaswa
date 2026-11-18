@@ -4,7 +4,7 @@ import type { CraftApplication, EndStateLine } from '../craft/rune-craft-end-sta
 import type { CraftItem, CraftRollAssumption } from '../craft/rune-craft-items';
 import { newRuneAdviceScope, prepareRuneCandidate, roleBuilds } from '../cleanup/rune-cleanup-model';
 import type { MatchRank } from '../cleanup/rune-cleanup-model';
-import { acceptedWorth, brokenWorth } from '../cleanup/rune-cleanup-advice';
+import { runeRankWorth } from '../cleanup/rune-cleanup-advice';
 import type { ReferenceStats } from '../../reference/rune-reference-stats';
 import type { RoleType, RuneRole } from '../../profiles/rune-roles';
 import type { Rune } from '../runes';
@@ -453,8 +453,7 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
         for (const build of builds) {
           const candidate = prepareRuneCandidate(rune, role, build, base, noCraftCredit, scope);
           if (!candidate) continue;
-          const discount = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable'
-            ? acceptedWorth[request.settings.acceptedRunes - 1] : brokenWorth[request.settings.brokenRunes - 1];
+          const discount = runeRankWorth(request.settings, candidate.rank);
           if (discount === 0) continue;
           readings.push({ prices: Array.from({ length: craftScoreLayout.stats }, (_, stat) => candidate.valuation.value(stat, 1) / candidate.ceiling * 100),
             discount, role: role.name, rank: candidate.rank });

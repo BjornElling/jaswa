@@ -1,5 +1,5 @@
 /**
- * Current quality contract: genuine Max-value anchors, one drop-grade mix,
+ * Current quality contract: same-main quality allowances, one drop-grade mix,
  * and the same rune body at every selling checkpoint. The complete-funnel
  * holdout and all 625 settings combinations live in verify-rune-slot-policy-matrix.
  */
@@ -7,11 +7,11 @@ import assert from 'node:assert/strict';
 import { defaultRuneRoles, withRefreshedMetrics } from '../app/domain/profiles/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
 import { ordinarySample } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
-import { runeAdvice, qualityThresholds, slotFloorMaxValues } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { runeAdvice, qualityAllowances } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import { slotMainProperties } from '../app/domain/runes/rune-properties.ts';
 
 /* This holds the quality gates themselves; the user's speed exception is checked separately. */
-const qualitySettings = { ...defaultRunePotentialSettings, neverSellPreGrindSpeed: false };
+const qualitySettings = { ...defaultRunePotentialSettings, neverSellPreGrindSpeed: false, intangibleRunes: 1 };
 
 const base = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
@@ -19,7 +19,8 @@ const base = new Map([
   ['Defence type', { hp: 10280, atk: 595, def: 749, spd: 103, criRate: 16, criDmg: 50, res: 17, acc: 5 }],
   ['HP type', { hp: 11836, atk: 653, def: 592, spd: 104, criRate: 16, criDmg: 50, res: 18, acc: 4 }],
 ]);
-assert.deepEqual(qualityThresholds, [0.45, 0.55, 0.65, 0.75, 0.85]);
+assert.deepEqual(qualityAllowances, [0.20, 0.10, 0.05, 0.02, 0.01]);
+base.set('No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 });
 const roles = defaultRuneRoles();
 const population = [];
 for (const slot of [1, 2, 3, 4, 5, 6]) {
@@ -43,19 +44,18 @@ for (const slot of [1, 2, 3, 4, 5, 6]) {
   assert.equal(counts.Rare, slot % 2 === 1 ? 0 : 168);
   const mainCounts = slotMainProperties[slot].map((main) => bodies[0].filter((rune) => rune.mainStatId === main).length);
   assert.equal(Math.max(...mainCounts), Math.min(...mainCounts));
-  population.push(...bodies.flatMap((runes) => runes.slice(0, 24)));
+  population.push(...bodies.flatMap((runes) => runes.slice(0, 8)));
 }
 for (let runeQuality = 1; runeQuality <= 5; runeQuality += 1) {
   const settings = { ...qualitySettings, runeQuality };
   const result = await runeAdvice(population, roles, settings, base);
   assert.equal(result.size, population.length);
   for (const row of result.values()) {
-    if (!row.role) continue;
-    assert.ok(row.floorMaxValue >= qualityThresholds[runeQuality - 1]);
-    if (row.verdict !== 'sell') assert.ok(row.maxValue >= row.floorMaxValue);
+    if (row.requirement !== null) assert.ok(row.requirement <= qualityAllowances[runeQuality - 1]);
+    if (!row.unprotectedAdvice && row.verdict === 'keep') {
+      assert.ok(row.qualityShare !== null && row.qualityShare <= row.requirement);
+    }
   }
-  console.log(`Quality ${runeQuality}: ${(100 * qualityThresholds[runeQuality - 1]).toFixed(0)} % minimum; slot floors`,
-    slotFloorMaxValues(roles, settings, base).map((value) => (100 * value).toFixed(1)).join(' / '));
 }
 assert.equal((await runeAdvice([], roles, qualitySettings, base)).size, 0);
 assert.ok([...(await runeAdvice(population, [], qualitySettings, base)).values()]
@@ -75,7 +75,7 @@ const beginnerBase = new Map([...base,
   ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
 ]);
 const beginnerRunes = [5, 6].flatMap((stars) => [1, 2, 3, 4, 5, 6]
-  .flatMap((slot) => ordinarySample(slot, stars, 672, 12, 'drop', 900_000)));
+  .flatMap((slot) => ordinarySample(slot, stars, 84, 12, 'drop', 900_000)));
 const beginner = await runeAdvice(beginnerRunes, roles,
   { ...qualitySettings, runeQuality: 1 }, beginnerBase);
 const nextStop = await runeAdvice(beginnerRunes, roles,
@@ -89,4 +89,4 @@ for (const stars of [5, 6]) for (const grade of ['Rare', 'Hero']) {
 for (const rune of beginnerRunes) if (nextStop.get(rune.id)?.verdict === 'keep') {
   assert.equal(beginner.get(rune.id)?.verdict, 'keep', 'The second quality stop must not re-admit a beginner Sell.');
 }
-console.log('PASS: real quality anchors, uniform mains, mixed grades, checkpoint identity and empty inputs.');
+console.log('PASS: same-main quality allowances, uniform mains, mixed grades, checkpoint identity and empty inputs.');

@@ -1,181 +1,173 @@
 import { workerFactories } from './worker-factories';
 import { registerAccountJobReset } from './account-job-memory';
-/**
- * The main thread's one way to ask for a Rune Clean-up calculation.
- *
- * The page used to defer by `setTimeout(…, 0)` so the button could paint its busy
- * label, and then take the main thread for the whole calculation — which is what
- * made the browser report a hung page rather than a slow one. The arithmetic is
- * now fast enough that no account should get near that, but "fast enough" moves a
- * threshold where a worker removes the failure mode: an account several times the
- * size of anything measured, with thirty user roles, is still several seconds of
- * work, and several seconds of frozen page is a defect whatever the cause.
- *
- * Built on `artifact-score-client.ts`, which owns the same shape for the same
- * reason. One worker per channel, a request id per call, one promise back.
- *
- * **A channel per asker.** Rune Clean-up's table and the rune overlay both ask, and
- * each wants only its own newest answer. Sharing one worker made them one queue, so
- * opening a rune would have cancelled the table's calculation in flight. Two
- * channels are independent workers: neither can supersede the other. A table
- * refresh borrows the table's warm worker while it is idle, and has its own
- * worker when the table is already calculating.
- */
+import { leaseRuneReferences } from './rune-reference-client';
+import { planQualityReferences } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import { referenceStars } from '../../domain/runes/cleanup/rune-cleanup-model';
-import { leaseCalibration } from './rune-calibration-client';
-import type { CalibrationPopulation } from '../../domain/runes/cleanup/rune-calibration-protocol';
+import { referencePieceKey, retainedReferenceCount } from '../../domain/runes/cleanup/rune-quality-reference';
+import type { QualityReference } from '../../domain/runes/cleanup/rune-quality-reference';
+import { combineCalculationBackends } from '../../domain/shared/calculation-summary';
 import type {
   RuneAdviceOutcome, RuneAdviceRequest, RuneAdviceWorkerRequest, RuneAdviceWorkerResponse,
 } from '../../domain/runes/cleanup/rune-advice-protocol';
 
 export type RuneAdviceChannel = {
   isBusy: () => boolean;
-  /**
-   * Ask for a calculation. The newest request is the only one that may be committed.
-   *
-   * Latest-request-wins lives here rather than in the page, because it is a property
-   * of the boundary and not of one caller's bookkeeping: any second caller would
-   * otherwise have to reinvent it, and the failure when one forgets is silent — a
-   * late answer from an earlier settings state overwriting a newer table.
-   *
-   * Superseding also terminates the worker in flight. The worker is single-threaded
-   * and handles messages in order, so an abandoned calculation would otherwise have
-   * to run to completion before the request that matters could start.
-   */
   calculate: (request: RuneAdviceRequest, onProgress?: (fraction: number) => void,
-    onCalibration?: (fraction: number | null) => void) => Promise<RuneAdviceOutcome>;
-  /**
-   * Stop waiting for whatever is in flight.
-   *
-   * The worker is terminated rather than merely ignored, so a calculation the user
-   * has walked away from gives the processor back instead of finishing into a void.
-   * Every waiting call is answered `superseded` — a cancelled calculation is not a
-   * completed one and must never reach the table. An idle worker is kept: its
-   * bounded calibration cache is useful on the next page visit and costs no CPU.
-   */
+    onPreparation?: (fraction: number | null) => void) => Promise<RuneAdviceOutcome>;
   cancel: () => void;
 };
 
+type AdvicePartition = { runes: RuneAdviceRequest['runes'][number][]; pieces: Set<string>; work: number };
+
+function partitionRunes(runes: RuneAdviceRequest['runes'], statisticsReferences?: ReadonlyMap<string, QualityReference>): AdvicePartition[] {
+  const referenceCounts = new Map<string, number>();
+  for (const key of statisticsReferences?.keys() ?? []) {
+    const piece = key.slice(0, key.lastIndexOf('|'));
+    referenceCounts.set(piece, (referenceCounts.get(piece) ?? 0) + 1);
+  }
+  const pieces = new Map<string, AdvicePartition>();
+  let unfinished = 0;
+  for (const rune of runes) {
+    const key = referencePieceKey({ slot: rune.slot, stars: referenceStars(rune), main: rune.mainStatId });
+    const piece = pieces.get(key) ?? { runes: [], pieces: new Set([key]), work: 0 };
+    piece.runes.push(rune);
+    if (rune.level < 12) unfinished += 1;
+    const work = rune.level < 12 ? 1 + (12 - rune.level) * 4 : 1;
+    piece.work += work * (referenceCounts.get(key) ?? 1);
+    pieces.set(key, piece);
+  }
+  // Each piece belongs to one worker so a full reference array crosses the thread boundary once.
+  const cores = Math.max(1, (globalThis.navigator?.hardwareConcurrency || 4) - 1);
+  const count = unfinished >= 48 ? Math.max(1, Math.min(8, cores, pieces.size)) : 1;
+  const partitions: AdvicePartition[] = Array.from({ length: count }, () => ({ runes: [], pieces: new Set(), work: 0 }));
+  for (const piece of [...pieces.values()].sort((left, right) => right.work - left.work)) {
+    const partition = partitions.reduce((lightest, next) => next.work < lightest.work ? next : lightest);
+    partition.runes.push(...piece.runes);
+    for (const key of piece.pieces) partition.pieces.add(key);
+    partition.work += piece.work;
+  }
+  return partitions;
+}
+
+function referencesFor(partitions: readonly AdvicePartition[], references: ReadonlyMap<string, QualityReference>) {
+  const buffers = partitions.map(() => new Map<string, QualityReference>());
+  const owner = new Map(partitions.flatMap(({ pieces }, index) => [...pieces].map((piece) => [piece, index] as const)));
+  for (const [key, reference] of references) {
+    const piece = key.slice(0, key.lastIndexOf('|'));
+    const index = owner.get(piece);
+    if (index === undefined) throw new Error('A rune reference has no calculation partition.');
+    buffers[index].set(key, reference);
+  }
+  return buffers;
+}
+
+/** Each caller owns cancellation of its advice workers while sharing preparation leases. */
 export function runeAdviceChannel(): RuneAdviceChannel {
-  let worker: Worker | undefined;
+  const workers: Worker[] = [];
+  let active: (() => void) | undefined;
   let nextRequestId = 1;
-  /* Every call still waiting, so terminating the worker can answer them rather
-     than leaving the page with a promise that never settles. */
-  const waiting = new Map<number, (outcome: RuneAdviceOutcome) => void>();
-
-  function adviceWorker(): Worker {
-    if (worker) return worker;
-    worker = workerFactories().runeAdvice();
-    return worker;
-  }
-
-  /* Requests the worker has actually been sent. One still waiting on the shared
-     calibration has not reached it, and cancelling that one leaves the warm worker be. */
-  const posted = new Set<number>();
-
-  function cancel(): void {
-    if (waiting.size === 0) return;
-    if (posted.size > 0) {
-      worker?.terminate();
-      worker = undefined;
-    }
-    const pending = [...waiting.values()];
-    waiting.clear();
-    for (const settle of pending) settle({ status: 'superseded' });
-  }
 
   function calculate(request: RuneAdviceRequest, onProgress?: (fraction: number) => void,
-    onCalibration?: (fraction: number | null) => void): Promise<RuneAdviceOutcome> {
-    const requestId = nextRequestId;
-    nextRequestId += 1;
+    onPreparation?: (fraction: number | null) => void): Promise<RuneAdviceOutcome> {
     const startedAt = performance.now();
-    /* The calibration first, on the shared pool; every grade the runes are read in.
-       Leased before the superseded request lets go of its own, so opening a second
-       rune of the same grade mid-count carries the count on rather than restarting it. */
-    const grades = [...new Set(request.runes.map(referenceStars))];
-    const fractions = new Map<number, number>();
-    let calibrating = false;
-    const leases = grades.map((stars) => leaseCalibration(request.roles, request.base, stars, (fraction) => {
-      if (!waiting.has(requestId)) return;
-      fractions.set(stars, fraction);
-      calibrating = true;
-      onCalibration?.([...fractions.values()].reduce((sum, value) => sum + value, 0) / grades.length);
-    }));
-    if (waiting.size > 0) cancel();
+    const requestId = nextRequestId++;
+    const { runes, roles, settings, base } = request;
+    let lease: ReturnType<typeof leaseRuneReferences> | undefined;
+    try {
+      const references = planQualityReferences(runes, roles, base, settings);
+      if (references.length <= retainedReferenceCount) lease = leaseRuneReferences(references, onPreparation, request.explain);
+    } catch {
+      active?.();
+      return Promise.resolve({ status: 'failed', message: 'JASWA could not plan the rune quality references.' });
+    }
+    active?.();
+
     return new Promise<RuneAdviceOutcome>((resolve) => {
-      let detach = () => {};
-      const settle = (outcome: RuneAdviceOutcome) => {
-        detach();
-        for (const lease of leases) lease.release();
-        waiting.delete(requestId);
-        posted.delete(requestId);
+      const listeners: (() => void)[] = [];
+      const running = new Set<number>();
+      const stop = () => finish({ status: 'superseded' });
+      const finish = (outcome: RuneAdviceOutcome) => {
+        if (active !== stop) return;
+        active = undefined;
+        for (const detach of listeners) detach();
+        if (outcome.status !== 'done') {
+          for (const index of running) {
+            workers[index].terminate();
+            delete workers[index];
+          }
+        }
+        lease?.release();
         resolve(outcome);
       };
-      waiting.set(requestId, settle);
-      void Promise.all(leases.map((lease) => lease.ready)).then((populations) => {
-        if (!waiting.has(requestId)) return;
-        if (calibrating) onCalibration?.(null);
-        send(requestId, request, populations.filter((population) => population !== null), settle, onProgress, onCalibration,
-          (undo) => { detach = undo; }, startedAt);
-      });
+
+      active = stop;
+      void (lease?.ready ?? Promise.resolve(null)).then((references) => {
+        if (active !== stop) return;
+        const partitions = partitionRunes(runes, request.reuseOutcomeScores ? references ?? undefined : undefined);
+        const buffers = references ? referencesFor(partitions, references) : null;
+        const fractions = partitions.map(() => 0);
+        const preparation = partitions.map(() => 0);
+        const preparing = new Set(partitions.map((_, index) => index));
+        if (!buffers) onPreparation?.(0);
+        const outcomes = new Map<number, Extract<RuneAdviceWorkerResponse, { type: 'result' }>>();
+        const totalWork = partitions.reduce((sum, partition) => sum + partition.work, 0);
+        const fail = () => finish({ status: 'failed', message: 'JASWA could not complete its rune calculation.' });
+
+        partitions.forEach((partition, index) => {
+          if (active !== stop) return;
+          const worker = workers[index] ?? (workers[index] = workerFactories().runeAdvice(request.explain));
+          const onMessage = ({ data }: MessageEvent<RuneAdviceWorkerResponse>) => {
+            if (active !== stop || data.requestId !== requestId) return;
+            if (data.type === 'preparation') {
+              preparation[index] = data.fraction ?? 1;
+              if (data.fraction === null) preparing.delete(index);
+              onPreparation?.(preparing.size ? preparation.reduce((sum, value) => sum + value, 0) / preparation.length : null);
+            } else if (data.type === 'progress') {
+              fractions[index] = data.fraction;
+              if (!buffers && preparing.size) return;
+              onProgress?.(totalWork === 0 ? 1 : fractions.reduce(
+                (sum, fraction, at) => sum + fraction * partitions[at].work, 0,
+              ) / totalWork);
+            } else if (data.type === 'error') fail();
+            else {
+              running.delete(index);
+              outcomes.set(index, data);
+              if (outcomes.size !== partitions.length) return;
+              const byId = new Map([...outcomes.values()].flatMap(({ advice }) => [...advice]));
+              const advice = new Map(runes.map((rune) => [rune.id, byId.get(rune.id)!]));
+              if ([...advice.values()].some((answer) => !answer)) { fail(); return; }
+              finish({ status: 'done', advice, durationMs: performance.now() - startedAt,
+                backend: combineCalculationBackends([...outcomes.values()].map(({ backend }) => backend)) });
+            }
+          };
+          worker.addEventListener('message', onMessage);
+          worker.addEventListener('error', fail, { once: true });
+          listeners.push(() => {
+            worker.removeEventListener('message', onMessage);
+            worker.removeEventListener('error', fail);
+          });
+          running.add(index);
+          const message: RuneAdviceWorkerRequest = {
+            type: 'calculate', requestId, request: { ...request, runes: partition.runes }, references: buffers?.[index] ?? null,
+          };
+          worker.postMessage(message);
+        });
+      }).catch(() => finish({ status: 'failed', message: 'JASWA could not prepare the rune calculation.' }));
     });
   }
 
-  function send(requestId: number, request: RuneAdviceRequest, populations: CalibrationPopulation[],
-    settle: (outcome: RuneAdviceOutcome) => void, onProgress: ((fraction: number) => void) | undefined,
-    onCalibration: ((fraction: number | null) => void) | undefined, onDetach: (undo: () => void) => void,
-    startedAt: number): void {
-      const currentWorker = adviceWorker();
-      onDetach(() => {
-        currentWorker.removeEventListener('message', onMessage);
-        currentWorker.removeEventListener('error', onError);
-      });
-      const onMessage = (event: MessageEvent<RuneAdviceWorkerResponse>) => {
-        if (event.data.requestId !== requestId) return;
-        if (event.data.type === 'calibration') {
-          onCalibration?.(event.data.fraction);
-          return;
-        }
-        if (event.data.type === 'progress') {
-          onProgress?.(event.data.fraction);
-          return;
-        }
-        settle(event.data.type === 'error'
-          ? { status: 'failed', message: event.data.message }
-          /* Timed from the request, so the shared calibration it waited for is counted too. */
-          : { status: 'done', advice: event.data.advice, durationMs: performance.now() - startedAt, backend: event.data.backend });
-      };
-      const onError = () => {
-        currentWorker.terminate();
-        if (worker === currentWorker) worker = undefined;
-        settle({ status: 'failed', message: 'JASWA could not start its rune calculation.' });
-      };
-      currentWorker.addEventListener('message', onMessage);
-      currentWorker.addEventListener('error', onError, { once: true });
-      posted.add(requestId);
-      try {
-        const message: RuneAdviceWorkerRequest = { type: 'calculate', requestId, request, populations };
-        currentWorker.postMessage(message);
-      } catch {
-        onError();
-      }
-  }
-
-  return { calculate, cancel, isBusy: () => waiting.size > 0 };
+  return { calculate, cancel: () => active?.(), isBusy: () => active !== undefined };
 }
 
-/** Rune Clean-up's own channel, which its table has always used. */
 const cleanupChannel = runeAdviceChannel();
 export function calculateRuneAdvice(request: RuneAdviceRequest, onProgress?: (fraction: number) => void,
-  onCalibration?: (fraction: number | null) => void): Promise<RuneAdviceOutcome> {
+  onPreparation?: (fraction: number | null) => void): Promise<RuneAdviceOutcome> {
   if (activeRefresh?.channel === cleanupChannel) cancelRuneAdviceRefresh();
-  return cleanupChannel.calculate(request, onProgress, onCalibration);
+  return cleanupChannel.calculate(request, onProgress, onPreparation);
 }
 export const cancelRuneAdvice = cleanupChannel.cancel;
 registerAccountJobReset(cancelRuneAdvice);
 
-/* Borrowing an idle worker saves the shared calibration, which costs much more
-   than judging a changed rune. Concurrent work still has independent cancellation. */
 const refreshChannel = runeAdviceChannel();
 let activeRefresh: { channel: RuneAdviceChannel } | null = null;
 
@@ -183,6 +175,7 @@ export function cancelRuneAdviceRefresh(): void {
   activeRefresh?.channel.cancel();
   activeRefresh = null;
 }
+registerAccountJobReset(cancelRuneAdviceRefresh);
 
 export function refreshRuneAdvice(request: RuneAdviceRequest, onProgress?: (fraction: number) => void): Promise<RuneAdviceOutcome> {
   cancelRuneAdviceRefresh();

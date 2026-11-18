@@ -22,13 +22,14 @@ import assert from 'node:assert/strict';
 import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
 import {
-  acceptedWorth, brokenWorth, chanceThresholds, runeAdvice, slotFloorMaxValues,
+  chanceThresholds, readingAllowance, runeAdvice, runeRankWorth,
 } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
-  candidateChance, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
-  newRuneAdviceScope, ordinaryBox, ordinarySample, prepareRuneCandidate, roleBuilds, runeRuns,
-  slotMainFamily, standingIn,
+  candidateChanceAskAt, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
+  newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds, runeRuns,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { qualityBar, qualityReferences, qualityShare } from '../app/domain/runes/cleanup/rune-quality-reference.ts';
+import { countJobs } from '../app/domain/runes/rune-power-up-outcomes.ts';
 import { canonicalCraftCredit, craftedScore } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
 const base = new Map([
@@ -54,11 +55,8 @@ const check = (ok, message) => {
 };
 
 /** Every reading the engine weighs for one rune, rebuilt as `runeAdvice` builds them. */
-function readingsOf(rune, settings, shares, scope) {
+function readingsOf(rune, settings, scope, references) {
   const credit = canonicalCraftCredit;
-  const accepted = acceptedWorth[settings.acceptedRunes - 1];
-  const broken = brokenWorth[settings.brokenRunes - 1];
-  const worthOf = (rank) => (rank === 'preferred' ? 1 : rank === 'acceptable' ? accepted : broken);
   const readings = [];
   let runs = null;
   for (const role of roles) {
@@ -70,17 +68,22 @@ function readingsOf(rune, settings, shares, scope) {
       .map((build) => prepareRuneCandidate(rune, role, build, line, credit, scope))
       .filter(Boolean);
     if (family.length === 0) continue;
-    const box = ordinaryBox(slotMainFamily(role, builds, rune.slot, family[0].main, 6, line, scope));
-    const floor = shares[rune.slot - 1];
     for (const candidate of family) {
-      const worth = worthOf(candidate.rank);
+      const worth = runeRankWorth(settings, candidate.rank);
+      const allowance = readingAllowance(settings, candidate.rank, false);
       const maxValue = candidateMaxValue(candidate) * worth;
-      const threshold = worth > 0 ? floor / worth : Number.POSITIVE_INFINITY;
       const expected = candidateExpectedValue(candidate, () => (runs ??= runeRuns(candidate.future)));
+      let share = 2;
+      let chance = 0;
+      if (allowance !== null) {
+        const { prices } = candidate.scoring;
+        const reference = references.get({ slot: rune.slot, stars: candidate.stars, main: candidate.main }, prices);
+        if (candidate.best > 0) share = qualityShare(reference, candidate.best);
+        const step = candidateChanceAskAt(candidate, qualityBar(reference, allowance, prices));
+        chance = step.job ? countJobs([step.job])[0] : step.settled;
+      }
       readings.push({
-        role, candidate, rank: candidate.rank, maxValue, value: standingIn(box, maxValue),
-        passesValue: maxValue >= floor,
-        chance: candidateChance(candidate, threshold),
+        role, candidate, rank: candidate.rank, maxValue, share, chance, allowed: allowance !== null,
         expected: expected * worth, bound: candidateExpectedBound(candidate) * worth,
         rawExpected: expected, rawMax: candidateMaxValue(candidate),
       });
@@ -139,14 +142,13 @@ let choseAmongPassing = 0;
 let movedFromBestCase = 0;
 for (const [label, settings] of scenarios) {
   const advice = await runeAdvice(runes, roles, settings, base);
-  /* Below +12 a rune is held to the fresh-rune balance, so the floor is asked per level. */
-  const floors = slotFloorMaxValues(roles, settings, base);
+  const references = qualityReferences();
   const bar = chanceThresholds[settings.powerUpPolicy - 1];
   const scope = newRuneAdviceScope();
   for (const rune of runes) {
     const row = advice.get(rune.id);
     const qualityVerdict = row.unprotectedAdvice?.verdict ?? row.verdict;
-    const readings = readingsOf(rune, settings, floors, scope);
+    const readings = readingsOf(rune, settings, scope, references);
     if (readings.length === 0) { check(row.role === null, `${label} ${rune.id}: a role named with no reading`); continue; }
     for (const reading of readings) {
       check(reading.rawExpected <= reading.rawMax + 1e-12,
@@ -154,20 +156,22 @@ for (const [label, settings] of scenarios) {
       check(reading.expected <= reading.bound + 1e-12,
         `${label} ${rune.id} ${reading.role.name}: expectation ${reading.expected} above its bound ${reading.bound}`);
     }
-    const passing = readings.filter((reading) => reading.passesValue && reading.chance >= bar);
-    const pool = passing.length > 0 ? passing : readings;
+    const permitted = readings.filter((reading) => reading.allowed);
+    const contributing = permitted.filter((reading) => reading.chance > 0);
+    const cleared = row.chance >= bar;
+    const pool = cleared ? contributing : permitted.length ? permitted : readings;
     const top = [...pool].sort((left, right) => right.expected - left.expected
-      || right.maxValue - left.maxValue || right.value - left.value || right.chance - left.chance
-      || left.role.id.localeCompare(right.role.id))[0];
-    if (passing.length > 0) {
-      choseAmongPassing += 1;
-      check(passing.some((reading) => reading.role.id === row.role?.id && reading.maxValue === row.maxValue),
-        `${label} ${rune.id}: Best role ${row.role?.name} is not one of the readings that pass`);
-      check(qualityVerdict !== 'sell', `${label} ${rune.id}: sold although a reading passes`);
-    } else {
-      check(qualityVerdict === 'sell', `${label} ${rune.id}: kept although no reading passes`);
-    }
-    check(row.role?.id === top.role.id && row.maxValue === top.maxValue && row.chance === top.chance,
+      || right.maxValue - left.maxValue || left.share - right.share || right.chance - left.chance
+      || left.role.id.localeCompare(right.role.id)
+      || left.candidate.build.mains[2] - right.candidate.build.mains[2]
+      || left.candidate.build.mains[4] - right.candidate.build.mains[4]
+      || left.candidate.build.mains[6] - right.candidate.build.mains[6])[0];
+    check(Math.max(0, ...permitted.map(({ chance }) => chance)) <= row.chance
+      && row.chance <= Math.min(1, permitted.reduce((total, { chance }) => total + chance, 0)),
+      `${label} ${rune.id}: union outside the marginal bounds`);
+    if (cleared) choseAmongPassing += 1;
+    check(cleared === (qualityVerdict !== 'sell'), `${label} ${rune.id}: verdict disagrees with the union`);
+    check(row.role?.id === top.role.id && row.maxValue === top.maxValue && (row.readingChance ?? 0) === top.chance,
       `${label} ${rune.id}: chose ${row.role?.name} ${row.maxValue}, the highest expectation is `
       + `${top.role.name} ${top.maxValue} (${top.expected})`);
     const bestCase = [...pool].sort((left, right) => right.maxValue - left.maxValue)[0];

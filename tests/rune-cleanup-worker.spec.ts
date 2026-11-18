@@ -62,14 +62,13 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
         super(url, options);
         /* The calibration is counted on the shared pool, and the advice worker only
            judges; one that still calibrated on its own would report `calibration`. */
-        if (String(url).includes('rune-calibration-worker')) {
+        if (String(url).includes('rune-reference-worker')) {
           this.addEventListener('message', (event: MessageEvent<{ type: string }>) => {
-            counter.calculationPhases.push(event.data.type === 'result' ? 'calibrated' : 'calibrating');
+            counter.calculationPhases.push(event.data.type === 'prepared' ? 'prepared' : 'reference-error');
           });
         }
         if (!String(url).includes('rune-advice-worker')) return;
         this.addEventListener('message', (event: MessageEvent<{ type: string; fraction?: number | null }>) => {
-          if (event.data.type === 'calibration') counter.calculationPhases.push('advice-worker-calibrating');
           if (event.data.type === 'progress') counter.calculationPhases.push('calculating');
         });
       }
@@ -108,15 +107,15 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
     Object.assign(window, { jaswaProgress: percentages, jaswaCalibration: calibration });
     new MutationObserver(() => {
       if (!progress.querySelector('.calculation-note[data-busy]')) return;
-      const [, phase, digits] = progress.textContent?.match(/(Calibrating|Calculating)…\s*(\d+)\s*%/) ?? [];
+      const [, phase, digits] = progress.textContent?.match(/(Preparing quality references|Calculating)…\s*(\d+)\s*%/) ?? [];
       const value = Number(digits);
       if (!Number.isFinite(value)) return;
-      (phase === 'Calibrating' ? calibration : percentages).push(value);
+      (phase === 'Preparing quality references' ? calibration : percentages).push(value);
     }).observe(progress, { childList: true, subtree: true, characterData: true, attributes: true });
   });
   await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(working).toBeVisible();
-  await expect(working).toHaveText(/^Calibrating… \d+ %\nOnly needed once\.$/);
+  await expect(working).toHaveText(/^Preparing quality references… \d+ %$/);
   expect(await boxes()).toEqual(before);
   await page.screenshot({ path: testInfo.outputPath('progress-calibrating.png') });
   // This waits for calibration, whose duration is not the painting contract.
@@ -146,9 +145,9 @@ test('the page keeps painting while a large box is judged', async ({ page }, tes
   /* Calibration reports its way through on the pool, and only once it is over does
      the calculation count; the advice worker adopts it rather than calibrating again. */
   const firstCount = phases.indexOf('calculating');
-  expect(phases.filter((phase) => phase === 'calibrating').length).toBeGreaterThan(1);
-  expect(firstCount).toBeGreaterThan(phases.lastIndexOf('calibrated'));
-  expect(phases).not.toContain('advice-worker-calibrating');
+  expect(phases.filter((phase) => phase === 'prepared').length).toBeGreaterThan(1);
+  expect(firstCount).toBeGreaterThan(phases.lastIndexOf('prepared'));
+  expect(phases).not.toContain('reference-error');
   expect(phases.slice(firstCount).every((phase) => phase === 'calculating')).toBe(true);
   await page.evaluate(() => { (window as unknown as { calculationPhases: string[] }).calculationPhases = []; });
   await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();

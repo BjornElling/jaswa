@@ -16,7 +16,7 @@ import { runeAdviceChannel } from '../../workspace/jobs/rune-advice-client';
 import { rememberedRuneAdvice, rememberRuneAdvice } from '../../workspace/jobs/rune-advice-memory';
 import { runeCalculationKey } from '../../domain/runes/rune-calculation-inputs';
 import { runeAdviceKey } from '../../domain/runes/cleanup/rune-cleanup-refresh';
-import { qualityThresholds, runeCraftSteps } from '../../domain/runes/cleanup/rune-cleanup-advice';
+import { qualityAllowances, runeCraftSteps, runeQualityText } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import type { RoleReading, RuneAdvice, RuneCraftStep } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import type { MatchRank } from '../../domain/runes/cleanup/rune-cleanup-model';
 import { canLockRune } from '../../domain/profiles/rune-holds';
@@ -97,7 +97,7 @@ function useRuneAdvice(rune: Rune, game: GameRecord | undefined, settings: RuneP
   );
   const key = JSON.stringify([runeCalculationKey({ roles, settings, base }), runeAdviceKey(rune)]);
   const [asked, setAsked] = useState<{ key: string; explained: Explained } | null>(null);
-  const settled = known?.readings != null;
+  const settled = known?.readings != null || known?.verdict === 'unavailable';
   useEffect(() => {
     if (blocked !== null || settled || game === undefined || base === null) return undefined;
     let current = true;
@@ -117,7 +117,9 @@ function useRuneAdvice(rune: Rune, game: GameRecord | undefined, settings: RuneP
   /* Closing the overlay gives the worker back rather than finishing into a void. */
   useEffect(() => overlayChannel.cancel, []);
   if (blocked !== null) return { known: undefined, explained: { state: 'unavailable', reason: blocked } };
-  if (settled) return { known, explained: { state: 'ready', advice: known } };
+  if (settled) return { known, explained: known.verdict === 'unavailable'
+    ? { state: 'unavailable', reason: known.reason }
+    : { state: 'ready', advice: known } };
   return { known, explained: asked?.key === key ? asked.explained : { state: 'pending' } };
 }
 
@@ -160,8 +162,9 @@ function MatchMark({ rank }: { rank: MatchRank }) {
  * listed by its figures but never chosen. Roles that cannot read the rune close
  * the list in their own order.
  */
-function ranked(roles: readonly RuneRole[], readings: ReadonlyMap<string, RoleReading>) {
+function ranked(roles: readonly RuneRole[], readings: ReadonlyMap<string, RoleReading>, best: string | undefined) {
   return [...roles].sort((left, right) => {
+    if (left.id === best || right.id === best) return Number(right.id === best) - Number(left.id === best);
     const a = readings.get(left.id);
     const b = readings.get(right.id);
     if (!a || !b) return (a ? 0 : 1) - (b ? 0 : 1);
@@ -190,18 +193,15 @@ function Evaluation({ rune, roles, explained, quality }: {
   const facts = [
     { label: 'Best role for this rune', value: chosen?.name ?? placeholder },
     { label: 'Rune set and main stat desirability for this role', value: chosen && advice ? suitabilityLabels[advice.rank] : '—' },
-    /* The ordinary box approximates its tails; its diagnostic share cannot state
-       a population percentile. Explain the actual gate and its selected minimum. */
-    { label: 'Selected Rune quality floor', value: tenths(qualityThresholds[quality - 1]), opensGroup: true },
-    /* A floor that lets the whole box through has no cutoff to state, and says so
-       rather than printing the unbounded figure behind it. */
-    { label: 'Required Max value for this rune', value: !chosen || !advice ? '—'
-      : Number.isFinite(advice.floorMaxValue) ? tenths(advice.floorMaxValue) : 'None' },
+    { label: 'Selected Rune quality floor', value: runeQualityText(null, qualityAllowances[quality - 1], true) },
+    { label: 'Required quality for this rune', value: runeQualityText(null, advice?.requirement ?? null, true) },
+    { label: 'Quality of this rune', value: runeQualityText(advice?.qualityShare ?? null, advice?.requirement ?? null) },
+    { label: 'Chance across roles', value: oddsLeft && advice?.readingChance != null ? runeChanceText(advice.chance) : '—' },
   ];
   return <section className="rune-overlay-evaluation" aria-labelledby="rune-overlay-evaluation-title">
     <h3 id="rune-overlay-evaluation-title" className="overlay-block-title">Evaluation</h3>
     <dl className="rune-overlay-evaluation-facts">
-      {facts.map((fact) => <div key={fact.label} data-opens-group={('opensGroup' in fact) || undefined}>
+      {facts.map((fact) => <div key={fact.label}>
         <dt>{fact.label}</dt>
         <dd>{fact.value}</dd>
       </div>)}
@@ -211,6 +211,7 @@ function Evaluation({ rune, roles, explained, quality }: {
         <tr>
           <th scope="col">Role</th>
           <th scope="col" title="How the rune's set and main property answer the role: a tick where it prefers both, a ring where it only accepts one or both, nothing where it asked for neither">Match</th>
+          <th scope="col" className="rune-overlay-quality" title="Top share at the best reachable +15 score">Quality</th>
           <th scope="col">Max value</th>
           <th scope="col">Chance</th>
           <th scope="col" title="What the rune is worth on average once levelled to +15, against a perfect rune — the figure Best role is chosen on">Avg. at +15</th>
@@ -218,15 +219,18 @@ function Evaluation({ rune, roles, explained, quality }: {
         </tr>
       </thead>
       <tbody>
-        {ranked(roles, readings).map((role) => {
+        {ranked(roles, readings, chosen?.id).map((role) => {
           const reading = readings.get(role.id);
           const best = chosen?.id === role.id;
           return <tr key={role.id} data-best={best || undefined} aria-current={best ? 'true' : undefined}>
             <th scope="row" title={role.name}>{role.name}</th>
             <td>{reading && <MatchMark rank={reading.rank} />}</td>
-            <td>{reading ? tenths(reading.maxValue) : '—'}</td>
-            <td>{reading && oddsLeft ? runeChanceText(reading.chance) : '—'}</td>
-            <td>{reading ? tenths(reading.expected) : '—'}</td>
+            <td>{runeQualityText(reading?.qualityShare ?? null, reading?.requirement ?? null)}</td>
+            <td>{reading?.chance != null ? tenths(reading.maxValue) : '—'}</td>
+            <td title={reading?.reachable === false ? 'Quality bar is unreachable' : reading?.chance === 0 ? 'Zero hits in the sample' : undefined}>
+              {reading?.chance != null && oddsLeft ? runeChanceText(reading.chance) : '—'}
+            </td>
+            <td>{reading?.chance != null ? tenths(reading.expected) : '—'}</td>
             <td>{best && <StarIcon className="rune-overlay-best-mark" label="Best role" />}</td>
           </tr>;
         })}

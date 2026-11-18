@@ -104,7 +104,7 @@ test('Evaluation explains Best role with every role\'s reading, at one height', 
   await expect(best.getByRole('img', { name: 'Best role' })).toBeVisible();
   await expect(evaluation.getByText(roleName, { exact: true }).first()).toBeVisible();
   await expect(row).toContainText(roleName);
-  const bestMax = (await best.locator('td').nth(1).textContent())!;
+  const bestMax = (await best.locator('td').nth(2).textContent())!;
   /* A role that prefers or accepts the rune says so; one that cannot read it, nothing. */
   await expect(readings.getByRole('img', { name: /^(Preferred|Accepted)$/ }).first()).toBeVisible();
   await expect(readings.locator('tbody tr').last().locator('td').first()).toBeEmpty();
@@ -112,14 +112,14 @@ test('Evaluation explains Best role with every role\'s reading, at one height', 
   const facts = evaluation.locator('.rune-overlay-evaluation-facts dd');
   await expect(facts.nth(1)).toHaveText(/^(Preferred|Accepted|Broken)$/);
   /* The build's slot 2/4/6 mains are not repeated here: the line cost the overlay its fit. */
-  await expect(facts).toHaveCount(4);
+  await expect(facts).toHaveCount(6);
   await expect(evaluation.getByText('Selected Rune quality floor', { exact: true })).toBeVisible();
-  await expect(facts.nth(2)).toHaveText('65.0 %');
-  await expect(evaluation.getByText('Required Max value for this rune', { exact: true })).toBeVisible();
-  await expect(facts.nth(3)).toHaveText(/^(\d+\.\d %|None)$/);
+  await expect(facts.nth(2)).toHaveText('Top 5 %');
+  await expect(evaluation.getByText('Required quality for this rune', { exact: true })).toBeVisible();
+  await expect(facts.nth(3)).toHaveText(/^Top [\d.]+ %$/);
 });
 
-test('the strictest quality floor explains the value gate instead of a rounded zero percentile', async ({ page }, testInfo) => {
+test('the strictest quality floor explains the reading’s percentile bar', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -129,7 +129,7 @@ test('the strictest quality floor explains the value gate instead of a rounded z
     con: 700, atk: 700, def: 700, spd: 105,
     critical_rate: 15, critical_damage: 50, resist: 15, accuracy: 0,
   });
-  /* The former top-percentile label obscured this line-up's reachable value gate. */
+  /* This unfinished rune has a specific same-main reference in every reading. */
   game.runes.push({ rune_id: 999, set_id: 18, slot_no: 1, class: 6, rank: 5, extra: 5,
     upgrade_curr: 0, occupied_type: 2, occupied_id: 0, pri_eff: [3, 22], prefix_eff: [0, 0],
     sec_eff: [[8, 4, 0, 0], [11, 7, 0, 0], [12, 7, 0, 0], [4, 5, 0, 0]],
@@ -147,12 +147,13 @@ test('the strictest quality floor explains the value gate instead of a rounded z
   const dialog = page.getByRole('dialog', { name: 'Destroy', exact: true });
   const evaluation = dialog.getByRole('region', { name: 'Evaluation' });
   const facts = evaluation.locator('.rune-overlay-evaluation-facts dd');
-  await expect(facts.nth(0)).toHaveText('Def-tank');
-  await expect(facts.nth(2)).toHaveText('85.0 %');
-  await expect(facts.nth(3)).toHaveText(/^\d+\.\d %$/);
-  /* Slot correction may tighten the anchor; the two facts must not be conflated. */
-  expect(Number.parseFloat((await facts.nth(3).textContent())!)).toBeGreaterThanOrEqual(85);
-  await expect(evaluation.getByText(/among the best/)).toHaveCount(0);
+  await expect(facts.nth(0)).not.toHaveText('—');
+  await expect(facts.nth(2)).toHaveText('Top 1 %');
+  await expect(facts.nth(3)).toHaveText(/^Top [\d.]+ %$/);
+  const share = (text: string | null) => Number(text?.match(/^Top ([\d.]+) %$/)?.[1]);
+  expect(share(await facts.nth(3).textContent())).toBeLessThanOrEqual(1);
+  await expect(evaluation.getByText('Quality of this rune', { exact: true })).toBeVisible();
+  await expect(facts.nth(4)).toHaveText(/^Top [\d.]+ %$/);
   const box = await evaluation.boundingBox();
   await page.screenshot({ path: testInfo.outputPath('floor-ready.png') });
   await dialog.getByRole('checkbox', { name: 'Unsellable' }).check();

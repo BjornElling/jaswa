@@ -59,7 +59,7 @@ for (const level of [0, 9, 12, 13, 14, 15]) {
     [0.01, 0.9, true], [1, 1.2, true], [0.009999, 0.9, false],
     [0.01, 0.899999, false], [0, 0.8, false],
   ]) {
-    const raw = { ...original, chance, maxValue };
+    const raw = { ...original, chance, readingChance: chance, maxValue };
     const candidate = { ...rune, level };
     const answer = withRuneSellProtection(candidate, raw, potentialSettings);
     assert.equal(answer.verdict, protectedRune ? (level === 12 || level === 15 ? 'keep' : 'power-up') : 'sell');
@@ -87,7 +87,7 @@ assert.equal(kept.runePotential.neverSellPotentialValue, true);
 assert.equal(kept.runePotential.potentialValueMinimum, 90);
 assert.equal(kept.runePotential.neverSellPreGrindSpeed, false);
 assert.equal(kept.runePotential.powerUpPolicy, 2);
-const both = withRuneSellProtection(rune, { ...original, chance: 0.01, maxValue: 0.9 }, { ...settings, ...potentialSettings, neverSellPreGrindSpeed: true, preGrindSpeedMinimum: 6 });
+const both = withRuneSellProtection(rune, { ...original, chance: 0.01, readingChance: 0.01, maxValue: 0.9 }, { ...settings, ...potentialSettings, neverSellPreGrindSpeed: true, preGrindSpeedMinimum: 6 });
 assert.equal(both.reason, 'Pre-grind SPD protected');
 assert.equal(withRuneSellProtection(rune, both, potentialSettings).reason, 'Potential value protected');
 assert.equal(withRuneSellProtection(rune, both, { ...potentialSettings, neverSellPotentialValue: false }).verdict, 'sell');

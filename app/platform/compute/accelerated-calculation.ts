@@ -44,6 +44,8 @@ export type AcceleratedCalculation<TRequest, TResult> = {
   cpu(request: TRequest): TResult | Promise<TResult>;
   /** The card's answer, where one exists. Throwing means "the processor, then". */
   gpu?(request: TRequest, context: GpuContext): Promise<TResult>;
+  /** Whether the shape of this request warrants dispatch to the backend. */
+  gpuEligible?(request: TRequest): boolean;
   /**
    * Whether this card can be trusted with this calculation — run once per worker,
    * before any real answer is taken from it. A calculation without one is taking the
@@ -68,7 +70,7 @@ export async function runAccelerated<TRequest, TResult>(
   request: TRequest,
   preferGpu: boolean,
 ): Promise<AcceleratedAnswer<TResult>> {
-  if (preferGpu && calculation.gpu) {
+  if (preferGpu && calculation.gpu && (calculation.gpuEligible?.(request) ?? true)) {
     const context = sharedGpuContext();
     try {
       if (await context.ready() && await trusted(calculation, context)) {

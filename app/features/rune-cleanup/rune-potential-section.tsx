@@ -179,7 +179,7 @@ export function RuneSetupSection({ game, settings, roles, general, hardwareAccel
               stepLabels={potentialStepLabels.powerUpPolicy}
               onChange={(value) => void onUpdate({ powerUpPolicy: value })} />
             <PotentialSlider id="rune-quality" label="Rune quality floor" value={settings.runeQuality}
-              description="How high must a rune's projected +15 potential be before it earns a roll? The floor is calibrated per slot so a box does not starve slots 2, 4 or 6."
+              description="How high must a rune rank among drops of the same slot, stars and main property for a build?"
               stepLabels={potentialStepLabels.runeQuality}
               onChange={(value) => void onUpdate({ runeQuality: value })} />
             <PotentialSlider id="accepted-runes" label="Accepted runes" value={settings.acceptedRunes}

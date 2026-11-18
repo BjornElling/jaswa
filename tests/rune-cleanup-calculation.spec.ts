@@ -44,6 +44,21 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   await expect(page.getByRole('table', { name: 'Rune verdict columns' }).locator('thead th'))
     .toHaveText(['Set', 'Slot', 'Lv.', 'Main', 'Innate', 'Sub properties', 'Location', 'Best role', 'Maxvalue', 'Chance', 'Advice']);
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-calculated.png') });
+  const quality = cleanup.getByRole('button', { name: 'Quality column' });
+  await expect(quality).toHaveAttribute('aria-pressed', 'false');
+  await quality.click();
+  const heading = cleanup.getByRole('columnheader', { name: 'Quality', exact: true });
+  await expect(heading).toBeVisible();
+  await heading.getByRole('button').click();
+  await expect(heading).toHaveAttribute('aria-sort', 'ascending');
+  expect(await filterBoxes()).toEqual(beforeCalculation);
+  await page.screenshot({ path: testInfo.outputPath('rune-cleanup-quality-column.png') });
+  const navigation = page.getByRole('navigation');
+  await navigation.getByRole('button', { name: 'Home', exact: true }).click();
+  await navigation.getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
+  await expect(quality).toHaveAttribute('aria-pressed', 'true');
+  await expect(heading).toHaveAttribute('aria-sort', 'ascending');
+
 });
 
 /**

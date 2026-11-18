@@ -25,6 +25,7 @@ export type RuneCleanupArrangement = { key: string; ids: string[]; known: Set<st
 export type RuneCleanupSnapshot = {
   result: RuneCleanupResult | null;
   sort: SortState;
+  showQuality: boolean;
   arranged: RuneCleanupArrangement | null;
   failure: string | null;
 };

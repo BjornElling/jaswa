@@ -8,7 +8,7 @@ import {
 import type { ArtifactPropertyPreference } from '../../domain/artifacts/artifact-optimal-value';
 import { scorePercent } from '../../domain/artifacts/score/artifact-score-core';
 import { defaultArtifactSettings, defaultRunePotentialSettings } from '../../domain/profiles/preference-defaults';
-import { chanceThresholds, qualityThresholds } from '../../domain/runes/cleanup/rune-cleanup-advice';
+import { chanceThresholds, qualityAllowances } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import { statSetBonuses } from '../../domain/combat/monster-stats';
 import { swiftSetId } from '../../domain/runes/rune-sets';
 import {
@@ -486,7 +486,7 @@ export function TheMathSection() {
           Two things stay six-star on purpose. What the role still needs is worked out for a finished six-star build, main stats at <span className="math-relic-level">+15</span> included, because that is the build the runes are being collected for. And the conversion of a flat line into a share of the monster&rsquo;s base is the same at every star class; only the size of a maximum roll changes.
         </p>
         <p>
-          Ancient runes are six-star runes measured against the <i>ordinary</i> six-star reference. They use their higher verified <i>initial</i> substat interval in the Max-value and Chance projections; their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, reference box and denominator follow the ordinary rules, and they take Ancient craft items only. The projection finishes at <span className="math-relic-level">+15</span>; +12→+15 raises only the main stat. Because the denominator stays ordinary, a maximum Ancient result reads above 100 %.
+          Ancient runes are six-star runes measured against the <i>ordinary</i> six-star reference. They use their higher verified <i>initial</i> substat interval in the Max-value and Chance projections; their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, sampled reference and perfect-rune denominator follow the ordinary rules, and they take Ancient craft items only. The projection finishes at <span className="math-relic-level">+15</span>; +12→+15 raises only the main stat. Because the denominator stays ordinary, a maximum Ancient result reads above 100 %.
         </p>
 
         <h3 className="type-heading">Gems and Grindstones</h3>
@@ -506,26 +506,18 @@ export function TheMathSection() {
           The line it replaces is <b className="type-body-emphasis">whichever one gains the most</b> — not the weakest one, which is what JASWA used to look at. Those are different lines more often than they sound, because a Gem may not duplicate a stat one of the <i>other</i> lines is holding: removing the line that holds SPD is exactly what makes a SPD Gem legal at all. Reading the weakest line instead was worth up to nine per cent of a rune&rsquo;s whole score, and it went unnoticed because nothing in the test suite had ever spent a Gem.
         </p>
 
-        <h3 className="type-heading">Quality first, then slot balance</h3>
+        <h3 className="type-heading">How quality is ranked</h3>
         <p>
-          Rune quality floor requires at least <b className="type-body-emphasis">{listed(qualityThresholds.map(percent), 'or')} Max value</b>, after Accepted and Broken discounts. G1 baby asks for {percent(qualityThresholds[3])}; You’ve seen my replays asks for {percent(qualityThresholds[4])}. Slot balance can raise that minimum, and a set preference can soften the extra correction, but neither can undercut the quality you chose.
+          Rune quality floor asks for the top {listed(qualityAllowances.map(percent), 'or')} of ordinary drops of the same slot, stars and main property for one compatible build. Each reading uses a fixed sample of 16,384 drops, scored at +12 with the same craft credit. Ties count together. Ancient runes use Ancient craft and compare against the ordinary six-star sample.
         </p>
         <p>
-          The slots offer different legal substats and mains, so the same minimum can leave different numbers of survivors. JASWA checks a fixed sample with equal initial counts per slot and every legal main counted, including mains your roles cannot use. It uses 75 % Hero and 25 % Legend on odd slots; 25 % Rare, 50 % Hero and 25 % Legend on even slots. These are the simulator’s modelling assumptions.
+          Accepted and Broken matches narrow the share, while Intangible preference widens it. The allowance describes one build and one kind of drop. Actual keep rates depend on the builds your roles allow and which runes you own.
         </p>
         <p>
-          Each rune follows the same selling funnel: judge at +0, power survivors to +9, sell again, then power survivors to +12 and keep only passing runes. The final percentage divides +12 survivors by <b className="type-body-emphasis">all original drops</b>. Floors are fitted across every combination of quality, policy, Accepted and Broken; a stricter choice inherits its less demanding neighbours before overrepresented slots are tightened.
+          Max value measures the best reachable score against a perfect ordinary rune and includes the Accepted or Broken discount. The Potential value safeguard also requires at least a 1 % chance of reaching that same reading&rsquo;s quality bar. Quality measures the top share at the best reachable score.
         </p>
         <p>
-          The same floor applies at every checkpoint. Intangible preference changes only Intangible candidates; no setting favours a set for its size. At the highest quality levels, survivors can be too rare for this fixed sample to establish slot evenness. The quality minimum stays in place, with a one-observation tail allowance in the fit, rather than filling a slot with poor runes.
-        </p>
-
-        <h3 className="type-heading">The number the column prints</h3>
-        <p>
-          The Max value column is always the plain thing it says: how close this rune can get to a perfect rune for its slot. That is the honest description of one rune, and it is the number to compare two runes of the same slot with. The floor above is what it is measured against.
-        </p>
-        <p>
-          A role describes a <i>family</i> of builds, not one build, and the main stats of the other five slots change what a rune is worth — a build with HP % in slots 4 and 6 asks its runes for thousands less HP than one with ATK % there. So every compatible build is scored as one complete reading: its Max value and its Chance stay together. Best role is the passing reading the rune is expected to be worth most to once it is finished; if none pass, it is simply the reading with the highest expectation. A role that says Sell is never named while another says Keep or Power up. Max value is the best case — every roll landing on one line at its maximum — and a role that prices one stat alone wins that comparison on a rune whose other lines only another role can use, so it does not pick the role.
+          JASWA checks every compatible build on the same set of future rolls. If the joint chance passes, Best role is the reading with the highest expected value among readings that contribute a hit. Otherwise, each permitted reading can compete for Best role.
         </p>
         <p>
           That reads optimistically, and deliberately so: a rune with one excellent line will find the build whose other targets its main stats already cover, because that is the build where its one line counts for most. A PvP def rune carrying HP % and little else reaches 89 % against a DEF % / DEF % build and 77 % against an HP % / HP % one. Both are true of the build they describe, and your role says it will take either.
@@ -542,18 +534,11 @@ export function TheMathSection() {
           For everything in between, <b className="type-body-emphasis">JASWA plays the rune forward a few thousand times and counts how often it ends up good enough.</b> Each run follows the game&rsquo;s own schedule — which line each upgrade lands on, how big it rolls, which substat a new line turns out to be — then spends the Gem and the Grindstone wherever they would have helped, and checks the result against the bar. That is the whole of it, and it is deliberately something you can picture.
         </p>
         <p>
-          The alternative is to list every path instead of sampling them, and JASWA did that until it stopped being worth it: with four upgrades, four lines, every roll value each could take and a Gem decision that depends on all of them, one box of 1,500 runes took nine seconds to produce a column printed to the nearest per cent. Counting gives the same answer to within half a point, in two.
-        </p>
-        <p>
-          <b className="type-body-emphasis">The same rune always prints the same number.</b> The dice are a hash of the rune itself — its slot, its grade, its level, every line it carries — and not a running generator, so pressing Calculate twice gives an identical account, and <i>two identical runes are given identical odds</i>. Nor does the number of runes JASWA keeps move: counted at a quarter of the usual number of runs, at it, and at sixty-four times it, a box of three thousand kept the same final +15 decisions every time, in the same slots, under the same roles.
+          JASWA counts a hit when any permitted reading reaches its quality bar. A run that reaches several bars still counts once. The fixed 4,096 runs make the same rune and settings repeatable. Zero hits means zero in those runs.
         </p>
         <p>
           A future line is drawn without replacement from the legal missing effect ids, and every remaining upgrade lands on a line the rune already has — new lines arrive last, so nothing can improve a line that does not exist yet. Every realised roll contributes in full, weighted by its stat, including surplus SPD or Accuracy.
         </p>
-        <p>
-          Our <span className="math-relic-level">+6</span> rune above reaches 79 % at its ceiling, which is clear of even the strictest Fast DD slot 2 bar however the last upgrade falls — its chance is 100 % at all five floors. Give the same rune a middling SPD roll of <span className="math-table-rolled">+ 9</span> instead of <span className="math-table-rolled">+ 17</span> and its ceiling drops to 58 %: still certain at the four loosest floors, because a slot 2 rune with a main Fast DD wants is let well into its own box, and <span className="math-table-rolled">51 %</span> at the strictest.
-        </p>
-
         <h3 className="type-heading">What is measured and what is assumed</h3>
         <p>
           JASWA distinguishes the two, because a model that hides its assumptions is one you cannot argue with.
@@ -599,10 +584,10 @@ export function TheMathSection() {
 
         <h3 className="type-heading">The sliders, and how many runes survive</h3>
         <p>
-          <b className="type-body-emphasis">Rune quality floor</b> sets the minimum discounted Max value: {listed(qualityThresholds.map(percent), 'and')}, opening on <b className="type-body-emphasis">{percent(qualityThresholds[defaultRunePotentialSettings.runeQuality - 1])}</b>. Slot balance can tighten that minimum, as explained above. <b className="type-body-emphasis">Power-up policy</b> sets the Chance bar, and each stop means what it says: Full YOLO rolls a <b className="type-body-emphasis">{percent(chanceThresholds[0])}</b> shot, Adventurous {percent(chanceThresholds[1])}, Balanced {percent(chanceThresholds[2])}, Picky {percent(chanceThresholds[3])} and Take no chances only a rune <b className="type-body-emphasis">{percent(chanceThresholds[4])}</b> sure to get there. The verdict is that one comparison, and the Chance column prints whole points rounded down, so the number you read clears the bar exactly when the rune does. <b className="type-body-emphasis">Accepted</b> and <b className="type-body-emphasis">Broken runes</b> discount a rune whose set or main stat the role only tolerates, or never asked for — and at <i>No</i>, a broken rune is rejected outright whatever else is true of it.
+          <b className="type-body-emphasis">Rune quality floor</b> sets the base top share, opening at {percent(qualityAllowances[defaultRunePotentialSettings.runeQuality - 1])}. <b className="type-body-emphasis">Power-up policy</b> requires any permitted reading to reach its quality bar on {listed(chanceThresholds.map(percent), 'or')} of the shared future rolls. Chance rounds down to whole percentage points. <b className="type-body-emphasis">Broken runes</b> set to <i>No</i> excludes broken readings.
         </p>
         <p>
-          A rune that passes the quality and Chance gates is kept under its strongest matching role. Another rune cannot make it fail by reaching that role first; the verdict rests on the rune itself and the standards you set.
+          A rune that passes the Chance gate is named for the contributing reading with the highest expected value. Roles can keep any number of qualifying runes.
         </p>
 
         <h3 className="type-heading">The verdict</h3>
@@ -624,11 +609,11 @@ export function TheMathSection() {
                 <td className="align-left"><b className="type-body-emphasis">Sell</b> — broken, and you set Broken runes to No</td>
               </tr>
               <tr>
-                <th scope="row" className="align-left">Can it ever be good enough?</th>
-                <td className="align-left"><b className="type-body-emphasis">Sell</b> — below this reading’s Max-value floor</td>
+                <th scope="row" className="align-left">Does a finished rune reach any qualifying top share?</th>
+                <td className="align-left"><b className="type-body-emphasis">Sell</b> — below every permitted quality bar</td>
               </tr>
               <tr>
-                <th scope="row" className="align-left">Is it likely enough to get there?</th>
+                <th scope="row" className="align-left">Do enough futures reach at least one quality bar?</th>
                 <td className="align-left"><b className="type-body-emphasis">Sell</b> — Chance below your policy</td>
               </tr>
               <tr className="math-table-total">
@@ -639,10 +624,10 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          A rune is checked against <i>every</i> role and every compatible main-stat choice. If several roles accept it, the strongest match is shown. A passing rune is never sold because another rune reached the same role first.
+          Every compatible build gets a reading. The overlay shows which reading supplied Best role, its required quality and its chance of reaching that quality.
         </p>
         <p>
-          Every star class is rated, each against the best rune of its own class. An Ancient rune uses its higher verified initial-roll interval only in its Max-value and Chance projections; its role valuation, reference box and denominator use the ordinary 6★ rules. Ancient Gems and Grindstones use their own legal tables.
+          Every star class is rated, each against the best rune of its own class. An Ancient rune uses its higher verified initial-roll interval only in its Max-value and Chance projections; its role valuation, sampled reference and perfect-rune denominator use the ordinary 6★ rules. Ancient Gems and Grindstones use their own legal tables.
         </p>
       </div>
     </Disclosure>

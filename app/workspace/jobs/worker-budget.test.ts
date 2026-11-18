@@ -16,7 +16,7 @@ describe('shared worker capacity', () => {
     expect(await job.result).toEqual([]);
     job.cancel();
   });
-  it('bounds simultaneous jobs and lets foreground work precede queued calibration', () => {
+  it('bounds simultaneous jobs and lets foreground work precede queued reference preparation', () => {
     const budget = createWorkerBudget(2);
     const native: FakeWorker[] = [];
     const create = () => { const worker = new FakeWorker(); native.push(worker); return worker as unknown as Worker; };
@@ -35,6 +35,30 @@ describe('shared worker capacity', () => {
     expect(native).toHaveLength(4);
     background.forEach((worker) => worker.terminate());
     expect(budget.active()).toBe(0);
+  });
+
+  it('reserves one extra slot for an interactive request without admitting extra background work', () => {
+    const budget = createWorkerBudget(2, true);
+    const order: string[] = [];
+    const release = new Map<string, () => void>();
+    const queue = (name: string, interactive = false) => budget.request((done) => {
+      order.push(name);
+      release.set(name, done);
+    }, !interactive, interactive);
+    queue('a');
+    queue('b');
+    queue('queued background');
+    queue('overlay', true);
+    queue('second overlay', true);
+
+    expect(order).toEqual(['a', 'b', 'overlay']);
+    expect(budget.active()).toBe(3);
+    release.get('overlay')?.();
+    expect(order.at(-1)).toBe('second overlay');
+    release.get('b')?.();
+    expect(order).not.toContain('queued background');
+    release.get('second overlay')?.();
+    expect(order.at(-1)).toBe('queued background');
   });
 
   it('releases a warm worker between requests and keeps cancellation out of the queue', () => {

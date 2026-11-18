@@ -354,7 +354,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
           : keepers.state === 'pending'
             /* Clean-up's own words for its two phases, so the wait reads the same on both pages. */
             ? <CalculationNote tone="busy">{keepers.calibration !== null
-              ? `Calibrating Rune Clean-up… ${format(Math.round(keepers.calibration * 100))} % · only needed once`
+              ? `Preparing rune quality references… ${format(Math.round(keepers.calibration * 100))} %`
               : `Asking Rune Clean-up which runes it keeps… ${format(Math.floor(keepers.progress * 100))} %`}</CalculationNote>
             : <CalculationStatus twoLines durationMs={result.durationMs} backend={result.backend} general={general} detail={`${format(result.comparisons)} build comparisons`} />;
   /* Kept in the column before there is an answer, quiet until there is one, so

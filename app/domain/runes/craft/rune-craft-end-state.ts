@@ -86,7 +86,7 @@ export type CraftCredit = {
  * average Legend Gem, and an average Legend Grindstone on every grindable line.
  *
  * Rune Clean-up projects a rune with it, its ruler — the weights, the perfect rune,
- * the box of ordinary runes and the floor calibration — is priced with it, the Gem's
+ * the sampled reference — is priced with it, the Gem's
  * placement is chosen on it, and Gems & Grinds reads a Gem on lines ground by it. It
  * is not a setting. Clean-up once carried its own Gem and Grindstone sliders beside a
  * Hero-three-quarters ruler and this Legend reference, so one rune was read under
@@ -446,42 +446,55 @@ function sumLinesByStatIdWithReplacement(prefixScore: number, lines: readonly En
   return total;
 }
 
-type ReplacementChoice = Readonly<{ option: number; gap: number }>;
-const replacementChoices = new WeakMap<GemList, Map<number, ReplacementChoice[][]>>();
+/* A shape stores offsets followed by packed option/gap pairs in canonical line order.
+   The sampled ruler visits hundreds of shapes per price list, so retaining an object
+   for each possible Gem would dominate the reference workers' heap. */
+const replacementOrders = new Map<number, Map<number, Uint16Array>>();
+const replacementChoices = new WeakMap<GemList, Map<number, Uint16Array>>();
 
-function replacementChoicesFor(list: GemList, occupied: number, lines: readonly EndStateLine[]): ReplacementChoice[][] {
+function replacementChoicesFor(list: GemList, occupied: number, lines: readonly EndStateLine[],
+  ordered: Int32Array): Uint16Array {
   let byShape = replacementChoices.get(list);
   if (!byShape) {
-    byShape = new Map();
+    // Choice geometry uses the order of legal stat IDs. Different prices with
+    // the same order can reuse it, even across two calculations.
+    let orderKey = 0;
+    for (const id of list.statIds) orderKey = orderKey * 16 + id;
+    byShape = replacementOrders.get(orderKey);
+    if (!byShape) {
+      byShape = new Map();
+      if (replacementOrders.size >= 64) {
+        const oldest = replacementOrders.keys().next();
+        if (!oldest.done) replacementOrders.delete(oldest.value);
+      }
+      replacementOrders.set(orderKey, byShape);
+    }
     replacementChoices.set(list, byShape);
   }
   const cached = byShape.get(occupied);
   if (cached) return cached;
-  const result: ReplacementChoice[][] = [];
-  for (const line of lines) {
-    const survivors = occupied & ~(1 << line.statId);
-    const gaps = new Set<number>();
-    const candidates: ReplacementChoice[] = [];
-    for (let at = 0; at < list.statIds.length; at += 1) {
-      const statId = list.statIds[at];
-      if (!(survivors & (1 << statId))) {
-        const preceding = survivors & ((1 << statId) - 1);
-        // The sum is monotone in a replacement contribution at a fixed insertion
-        // position. Gems arrive in descending contribution order, so the first
-        // eligible option in each gap dominates all later options in that gap.
-        // The same-stat option carries a rune-specific grind and can beat
-        // the first different-stat option, so keep it separately.
-        if (statId !== line.statId) {
-          if (gaps.has(preceding)) continue;
-          gaps.add(preceding);
-        }
-        let gap = 0;
-        for (let earlier = preceding; earlier !== 0; earlier &= earlier - 1) gap += 1;
-        candidates.push({ option: at, gap });
+  const packed = Array<number>(lines.length + 1).fill(0);
+  for (let index = 0; index < lines.length; index += 1) {
+    packed[index] = packed.length;
+    const lineId = lines[ordered[index]].statId;
+    const survivors = occupied & ~(1 << lineId);
+    let usedGaps = 0;
+    for (let option = 0; option < list.statIds.length; option += 1) {
+      const statId = list.statIds[option];
+      if (survivors & (1 << statId)) continue;
+      let gap = 0;
+      for (let earlier = survivors & ((1 << statId) - 1); earlier !== 0; earlier &= earlier - 1) gap += 1;
+      // The first different-id Gem in each gap dominates later options in that gap.
+      // A same-id Gem may keep a better grind, so it has its own entry.
+      if (statId !== lineId) {
+        if (usedGaps & (1 << gap)) continue;
+        usedGaps |= 1 << gap;
       }
+      packed.push(option * 16 + gap + (statId === lineId ? 8 : 0));
     }
-    result[line.statId] = candidates;
   }
+  packed[lines.length] = packed.length;
+  const result = Uint16Array.from(packed);
   byShape.set(occupied, result);
   return result;
 }
@@ -509,7 +522,7 @@ function placement(
     occupied |= 1 << lines[at].statId;
     if (lines[at].gemmed && onlyAt === -1) onlyAt = at;
   }
-  const choices = replacementChoicesFor(list, occupied, lines);
+  const choices = replacementChoicesFor(list, occupied, lines, ordered);
 
   for (let index = 0; index < lines.length; index += 1) {
     const at = ordered[index];
@@ -520,17 +533,20 @@ function placement(
     const third = lineValues[ordered[index < 3 ? 3 : 2]];
     /* Compare each legal realized body in canonical order. A same-id Gem must raise
        the base roll before it can enter this comparison. */
-    for (const { option, gap } of choices[line.statId]) {
-      const statId = list.statIds[option];
-      if (!canGemReplaceValue(line, statId, list.rolls[option])) continue;
-      /* A same-stat Gem keeps its existing stone. Every different-stat Gem starts
-         with the reference stone already included in `list.values`. */
-      const value = statId === line.statId
-        ? groundValue(plan, statId, list.rolls[option], line.grind) * prices[statId]
-        : list.values[option];
+    for (let entry = choices[index]; entry < choices[index + 1]; entry += 1) {
+      const choice = choices[entry];
+      const option = choice >>> 4;
+      const gap = choice & 7;
+      let value = list.values[option];
+      if (choice & 8) {
+        const roll = list.rolls[option];
+        if (!canGemReplaceValue(line, line.statId, roll)) continue;
+        // Only a Gem that keeps the line's ID can inherit its existing stone.
+        value = groundValue(plan, line.statId, roll, line.grind) * prices[line.statId];
+      }
       let score: number;
       if (lines.length !== 4) {
-        score = sumLinesByStatIdWithReplacement(prefixScore, lines, lineValues, at, statId, value, ordered);
+        score = sumLinesByStatIdWithReplacement(prefixScore, lines, lineValues, at, list.statIds[option], value, ordered);
       } else if (gap === 0) score = prefixScore + value + first + second + third;
       else if (gap === 1) score = prefixScore + first + value + second + third;
       else if (gap === 2) score = prefixScore + first + second + value + third;
@@ -540,7 +556,7 @@ function placement(
       if (score > placedScore) {
         placedScore = score;
         placedAt = at;
-        placedStat = statId;
+        placedStat = list.statIds[option];
       }
     }
   }
@@ -632,8 +648,7 @@ function scoreEndState(
  *
  * `lineValues` is filled with each line's own scored contribution when it is passed,
  * so a caller that needs the breakdown does not price the lines twice. `report` is
- * for the callers that need to know *which* line the Gem took — the ordinary box,
- * whose spread has to drop the line that stopped varying, and `craftedLines`.
+ * for callers such as `craftedLines`, which need to know where the Gem landed.
  */
 export function craftedScore(
   plan: CraftPlan, options: GemOptions, prices: PriceList,

@@ -8,6 +8,7 @@
  * only the recommendation calls away and leaving the simulation itself blocking.
  */
 import { simulateRunes } from '../../domain/runes/simulator/rune-simulator';
+import { qualityReferences } from '../../domain/runes/cleanup/rune-quality-reference';
 import { countRuneChances } from './rune-chance-engine';
 import type {
   RuneSimulationWorkerRequest, RuneSimulationWorkerResponse,
@@ -19,7 +20,7 @@ self.onmessage = async (event: MessageEvent<RuneSimulationWorkerRequest>) => {
   try {
     const result = await simulateRunes(message.config, {
       ...message.context,
-    }, undefined, countRuneChances);
+    }, undefined, countRuneChances, { births: message.births, references: qualityReferences(message.references ?? undefined, false) });
     const backend = result.backend;
     const response: RuneSimulationWorkerResponse = {
       type: 'result', requestId: message.requestId, result, backend,

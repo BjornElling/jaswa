@@ -1,125 +1,125 @@
-/** Benchmark the public advice engine against a passive local account export. */
+import { chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { createImportedGame, validateGameFile } from '../app/ingest/game-export.ts';
-import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
-import { lastSubPropertyLevel } from '../app/domain/runes/rune-properties.ts';
-import { runeChanceRequirement } from '../app/domain/runes/cleanup/rune-percentile-readings.ts';
-import {
-  judgeRunePercentile, newRunePercentileReferenceScope, runePercentileAdvice,
-} from '../app/domain/runes/cleanup/rune-percentile-engine.ts';
-import { calculateRuneCleanupStatistics, withRuneStatisticsProtection } from '../app/domain/runes/cleanup/rune-percentile-statistics.ts';
+import { setTimeout as delay } from 'node:timers/promises';
 
-const option = (name, fallback) => process.argv.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
-const exportPath = process.env.JASWA_IMPORT ?? `${process.env.TEMP}/claude/shots/game.json`;
-const baselinePath = option('baseline', 'work/rune-percentile-account-before.json');
-const limit = Number(option('runes', '1'));
-const warmCount = Number(option('warm', '0'));
-const timeLimit = Number(option('deadline-ms', '30000'));
-const warmTimeLimit = Number(option('warm-deadline-ms', String(timeLimit)));
-const referenceStateLimit = Number(option('reference-states', '250000'));
-const decisionOnly = process.argv.includes('--decision-only');
-const prepareQualityBoundary = process.argv.includes('--shared-boundary');
-const statistics = process.argv.includes('--statistics');
-const interleave = process.argv.includes('--interleave');
-const checkpointMs = Number(option('checkpoint-ms', '350'));
-if (![limit, warmCount, timeLimit, warmTimeLimit, referenceStateLimit].every(Number.isSafeInteger)
-  || limit < 1 || warmCount < 0 || timeLimit < 1 || warmTimeLimit < 1 || referenceStateLimit < 1) {
-  throw new RangeError('Rune count, warm iterations and deadline must be valid integers.');
-}
+const file = process.argv[2];
+if (!file) throw new Error('Pass a local game export or tests/fixtures/craft-account.json.');
+const repetitions = Number(process.argv[3] ?? 5);
+const raw = JSON.parse(readFileSync(file, 'utf8'));
+const memory = process.argv.includes('--memory');
+const cases = process.argv.includes('--statistics') ? [true] : process.argv.includes('--account') ? [false] : [false, true];
+const browser = await chromium.launch({ channel: 'chromium', args: ['--enable-unsafe-webgpu'] });
+const cdp = memory ? await browser.newBrowserCDPSession() : null;
 
-const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
-const roles = defaultRuneRoles();
-const bases = new Map(baseline.bases);
-
-async function benchmarkStatistics() {
-  if (!Number.isSafeInteger(checkpointMs) || checkpointMs < 1) throw new RangeError('Invalid checkpoint budget.');
-  const started = performance.now();
-  const result = await calculateRuneCleanupStatistics(roles, baseline.settings, bases, {
-    durationMs: timeLimit, checkpointMs, prepareQualityBoundary,
-  });
-  const funnel = withRuneStatisticsProtection(result, baseline.settings);
-  const catalogue = funnel.perReadingSupply;
-  console.log(JSON.stringify({
-    durationMs: performance.now() - started, solverMs: result.durationMs, checkpointMs, prepareQualityBoundary,
-    checkpoints: funnel.investmentByCheckpoint.map(({ level, calculated }) => ({ level, ...calculated })),
-    terminalUnion: funnel.terminalUnion, qualifyingFunnel: funnel.qualifyingFunnel,
-    catalogueSeen: catalogue.length, catalogueFullyResolved: catalogue.filter(row => row.supply.unresolved === 0).length,
-    peakRssKiB: process.resourceUsage().maxRSS,
+async function sampleMemory() {
+  if (!cdp) return null;
+  const { targetInfos } = await cdp.send('Target.getTargets');
+  const targets = targetInfos.filter(({ type }) => type === 'worker' || type === 'page');
+  const samples = await Promise.all(targets.map(async ({ targetId, url }) => {
+    try {
+      const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: false });
+      let listener;
+      try {
+        const usage = new Promise((resolve) => {
+          listener = (event) => {
+            const response = JSON.parse(event.message);
+            if (event.sessionId === sessionId && response.id === 1) resolve(response.result);
+          };
+          cdp.on('Target.receivedMessageFromTarget', listener);
+        });
+        await cdp.send('Target.sendMessageToTarget', {
+          sessionId, message: JSON.stringify({ id: 1, method: 'Runtime.getHeapUsage' }),
+        });
+        const result = await Promise.race([usage, delay(300)]);
+        return { url, bytes: result ? result.usedSize + result.backingStorageSize : 0 };
+      } finally {
+        cdp.off('Target.receivedMessageFromTarget', listener);
+        await cdp.send('Target.detachFromTarget', { sessionId }).catch(() => {});
+      }
+    } catch { return { url, bytes: 0 }; }
   }));
+  return {
+    combined: samples.reduce((total, sample) => total + sample.bytes, 0),
+    advice: Math.max(0, ...samples.filter(({ url }) => url.includes('rune-advice-worker')).map(({ bytes }) => bytes)),
+  };
 }
 
-async function benchmarkAccount() {
-  const raw = JSON.parse(readFileSync(exportPath, 'utf8'));
-  const game = createImportedGame('local-verification.json', raw, validateGameFile(raw));
-  const previous = new Map(baseline.rows.map(row => [row.id, row.answer.verdict]));
-  const runes = game.snapshot.runes;
-  if (runes.length !== previous.size || runes.some(rune => !previous.has(rune.id))) {
-    throw new Error('The baseline must describe every rune in the benchmark export.');
+try {
+  console.log(JSON.stringify({ chromium: browser.version(), repetitions }));
+  for (const card of [false, true]) for (const statisticsFirst of cases) for (let repetition = 0; repetition < repetitions; repetition += 1) {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.route('http://127.0.0.1:37654/preferences', (route) => route.fulfill({ status: 404, json: {} }));
+    await page.goto('http://localhost:3000/');
+    await page.getByRole('navigation').waitFor();
+    let stopMemory = false;
+    const peak = { combined: 0, advice: 0 };
+    const sampling = cdp && (async () => {
+      while (!stopMemory) {
+        const sample = await sampleMemory();
+        if (sample) {
+          peak.combined = Math.max(peak.combined, sample.combined);
+          peak.advice = Math.max(peak.advice, sample.advice);
+        }
+        await delay(150);
+      }
+    })();
+    const timings = await page.evaluate(async ({ raw, card, statisticsFirst }) => {
+      const { createImportedGame, validateGameFile } = await import('/app/ingest/game-export.ts');
+      const { referenceLines } = await import('/app/domain/reference/rune-reference-stats.ts');
+      const { defaultRuneRoles } = await import('/app/domain/profiles/rune-roles.ts');
+      const { defaultRunePotentialSettings } = await import('/app/domain/profiles/preference-defaults.ts');
+      const { calculateRuneAdvice, cancelRuneAdvice, runeAdviceChannel } = await import('/app/workspace/jobs/rune-advice-client.ts');
+      const { calculateRuneStatistics } = await import('/app/workspace/jobs/rune-statistics-client.ts');
+      const game = createImportedGame('benchmark.json', raw, validateGameFile(raw));
+      const runes = game.snapshot.runes;
+      const roles = defaultRuneRoles();
+      const base = new Map([...referenceLines(game.data)].map(([type, line]) => [type, line.stats]));
+      const settings = { ...defaultRunePotentialSettings, powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3, intangibleRunes: 1,
+        neverSellPreGrindSpeed: false, neverSellPotentialValue: false, neverSellEngravedPlacements: false, neverSellReappTargets: false };
+      const request = { runes, roles, base, settings, preferWebGpu: card };
+      const stats = {};
+      const marks = [];
+      const time = async (label, call) => {
+        const start = performance.now();
+        const outcome = await call((progress) => { if (progress === null) marks.push(performance.now() - start); });
+        if (outcome.status !== 'done') throw new Error(label + ' ' + JSON.stringify(outcome));
+        stats[label] = { ms: Math.round(performance.now() - start), backend: outcome.backend,
+          preparationMs: Math.round(marks.pop() ?? 0) };
+      };
+      const statistics = async () => {
+        await time('statisticsFirst', () => calculateRuneStatistics(request));
+        await time('statisticsPolicyChange', () => calculateRuneStatistics({ ...request, settings: { ...settings, runeQuality: 4 } }));
+      };
+      if (statisticsFirst) {
+        await statistics();
+        return { runes: runes.length, cores: navigator.hardwareConcurrency, card, statisticsFirst, ...stats };
+      }
+      await time('accountFirst', (progress) => calculateRuneAdvice(request, undefined, progress));
+      await time('accountWarm', (progress) => calculateRuneAdvice(request, undefined, progress));
+      await time('accountPolicyChange', (progress) => calculateRuneAdvice({
+        ...request, settings: { ...settings, acceptedRunes: 4 },
+      }, undefined, progress));
+      const overlay = runeAdviceChannel();
+      const one = runes.find(({ level }) => level === 9) ?? runes[0];
+      await time('overlayWarm', (progress) => overlay.calculate({ ...request, runes: [one], explain: true }, undefined, progress));
+      await time('roleEdit', (progress) => calculateRuneAdvice({
+        ...request, roles: roles.map((role, at) => at === 0
+          ? { ...role, targets: { ...role.targets, hp: (role.targets.hp ?? 0) + 2000 } } : role),
+      }, undefined, progress));
+      let started;
+      const working = new Promise((resolve) => { started = resolve; });
+      const pending = calculateRuneAdvice(request, started);
+      await working;
+      const start = performance.now();
+      cancelRuneAdvice();
+      if ((await pending).status !== 'superseded') throw new Error('Cancelled advice returned an answer.');
+      return { runes: runes.length, cores: navigator.hardwareConcurrency, card, statisticsFirst,
+        ...stats, cancelMs: Math.round(performance.now() - start) };
+    }, { raw, card, statisticsFirst }).finally(() => { stopMemory = true; });
+    await sampling;
+    console.log(JSON.stringify({ ...timings, ...(memory ? { peak } : {}) }));
+    await page.close();
   }
-  const specialist = runes.find(rune => rune.level === 15 && previous.get(rune.id) === 'sell'
-    && rune.subProperties.some(line => line.statId === 8 && line.value >= 20));
-  let ordered = specialist ? [specialist, ...runes.filter(rune => rune !== specialist)] : runes;
-  if (interleave) {
-    const finished = ordered.filter(rune => rune.level >= lastSubPropertyLevel);
-    const unfinished = ordered.filter(rune => rune.level < lastSubPropertyLevel);
-    ordered = Array.from({ length: Math.max(finished.length, unfinished.length) }, (_, index) =>
-      [finished[index], unfinished[index]].filter(Boolean)).flat();
-  }
-  const candidates = ordered.slice(0, limit);
-  const scope = newRunePercentileReferenceScope();
-  let deadline = performance.now() + timeLimit;
-  const signal = { get aborted() { return performance.now() >= deadline; } };
-  const judge = rune => judgeRunePercentile(rune, roles, baseline.settings, bases, scope, {
-    signal,
-    decisionOnly,
-    prepareQualityBoundary,
-    referenceStateLimit,
-    unionRequirement: decisionOnly ? runeChanceRequirement(baseline.settings) : undefined,
-  });
-  const counts = new Map();
-  const coldStarted = performance.now();
-  let completed = 0;
-  let rankWitnesses = 0;
-  let warmCompleted = 0;
-  let warmUnresolved = 0;
-  let warmMs = null;
-  const judged = [];
-  const byCompletion = { finished: { completed: 0, unresolved: 0 }, unfinished: { completed: 0, unresolved: 0 } };
-  const preparation = { cold: { builds: 0, ms: 0 }, warm: { builds: 0, ms: 0 } };
-  let phase = preparation.cold;
-  scope.onQualityPreparation = (ms) => { phase.builds += 1; phase.ms += ms; };
-  for (const candidate of candidates) {
-    const judgment = await judge(candidate);
-    if (signal.aborted) break;
-    const advice = runePercentileAdvice(candidate, judgment, baseline.settings);
-    const transition = `${previous.get(candidate.id)} → ${advice.calculatedVerdict}`;
-    counts.set(transition, (counts.get(transition) ?? 0) + 1);
-    const group = candidate.level >= lastSubPropertyLevel ? byCompletion.finished : byCompletion.unfinished;
-    group.completed += 1;
-    if (advice.calculatedVerdict === 'unavailable') group.unresolved += 1;
-    if (advice.qualityWitness) rankWitnesses += 1;
-    completed += 1;
-    judged.push(candidate);
-  }
-  const coldMs = performance.now() - coldStarted;
-  const coldDeadlineReached = signal.aborted;
-  const warmStarted = performance.now();
-  deadline = warmStarted + warmTimeLimit;
-  phase = preparation.warm;
-  for (let at = 0; at < warmCount && judged.length > 0 && !signal.aborted; at += 1) {
-    const candidate = judged[at % judged.length];
-    const judgment = await judge(candidate);
-    if (signal.aborted) break;
-    const advice = runePercentileAdvice(candidate, judgment, baseline.settings);
-    warmCompleted += 1;
-    if (advice.calculatedVerdict === 'unavailable') warmUnresolved += 1;
-  }
-  if (warmCount > 0) warmMs = performance.now() - warmStarted;
-  console.log(JSON.stringify({ accountRunes: runes.length, requested: candidates.length, completed, coldMs, decisionOnly,
-    prepareQualityBoundary, referenceStateLimit, interleave, byCompletion, preparation,
-    warmRequested: warmCount, warmCompleted, warmUnresolved, warmMs, rankWitnesses, references: scope.references.size,
-    coldDeadlineReached, warmDeadlineReached: signal.aborted, peakRssKiB: process.resourceUsage().maxRSS,
-    verdictTransitions: Object.fromEntries(counts) }));
+} finally {
+  await browser.close();
 }
-
-await (statistics ? benchmarkStatistics() : benchmarkAccount());

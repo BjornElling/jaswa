@@ -1,14 +1,6 @@
-/**
- * The small population behind Rune Settings's Statistics box.
- *
- * This is not a second model and it is not a claim about the player's drop
- * history. It reuses the fixed ordinary-sample generator the Clean-up floor uses
- * for slot balance, asks the real advice engine about the same bodies at +0, +9
- * and +12, and reports the two funnel shares. Keeping the population fixed makes
- * a slider change comparable with the previous one; using the advice engine keeps
- * the box from drifting away from the table.
- */
-import { ordinarySample } from './rune-cleanup-model';
+/** A fixed set of synthetic rune births, judged at +0, +9 and +12. */
+import { ordinarySamplePaths } from './rune-cleanup-model';
+import type { QualityReferences } from './rune-quality-reference';
 import type { ChanceCounter } from './rune-cleanup-advice';
 import { runeAdvice, withRuneSellProtection } from './rune-cleanup-advice';
 import type { RuneAdvice } from './rune-cleanup-advice';
@@ -17,9 +9,6 @@ import type { RuneRole } from '../../profiles/rune-roles';
 import type { ReferenceStats } from '../../reference/rune-reference-stats';
 import type { RunePotentialSettings } from '../../model';
 
-/** Fifty runes per slot keeps the live estimate responsive while preserving the
- * same fixed, balanced population shape as the calibration sample. The calibration
- * population is larger because it is not recalculated on every slider movement. */
 export const runeStatisticsRunesPerSlot = 50;
 export const runeStatisticsStars = 6;
 export const runeStatisticsSlots = [1, 2, 3, 4, 5, 6] as const;
@@ -53,9 +42,10 @@ export function withRuneStatisticsProtection(statistics: RuneCleanupStatistics, 
   };
 }
 
-function syntheticCheckpoint(level: 0 | 9 | 12): ReturnType<typeof ordinarySample> {
-  return runeStatisticsSlots.flatMap((slot) =>
-    ordinarySample(slot, runeStatisticsStars, runeStatisticsRunesPerSlot, level, 'drop'));
+export function runeStatisticsSamples(): Rune[][] {
+  const paths = runeStatisticsSlots.flatMap((slot) =>
+    ordinarySamplePaths(slot, runeStatisticsStars, runeStatisticsRunesPerSlot, 'drop'));
+  return [0, 3, 4].map((index) => paths.map((path) => path.checkpoints[index].rune));
 }
 
 export async function calculateRuneCleanupStatistics(
@@ -63,13 +53,19 @@ export async function calculateRuneCleanupStatistics(
   settings: RunePotentialSettings,
   base: ReadonlyMap<string, ReferenceStats>,
   count: ChanceCounter,
+  references?: QualityReferences, onGroupedCount?: () => void,
 ): Promise<RuneCleanupStatistics> {
   const startedAt = performance.now();
-  const atZero = syntheticCheckpoint(0);
-  const atNine = syntheticCheckpoint(9);
-  const atTwelve = syntheticCheckpoint(12);
-  const advice = await runeAdvice([...atZero, ...atNine, ...atTwelve], roles, settings, base, count);
-  const checkpoints = [atZero, atNine, atTwelve].map((runes) => runes.map((rune) => {
+  const stages = runeStatisticsSamples();
+  const advice = await runeAdvice(stages.flat(), roles, settings, base, count, { references, onGroupedCount });
+  return summarizeRuneStatistics(stages, advice, settings, performance.now() - startedAt);
+}
+
+export function summarizeRuneStatistics(
+  stages: readonly (readonly Rune[])[], advice: ReadonlyMap<string, RuneAdvice>,
+  settings: RunePotentialSettings, durationMs: number,
+): RuneCleanupStatistics {
+  const checkpoints = stages.map((runes) => runes.map((rune) => {
     const answer = advice.get(rune.id);
     if (!answer) throw new Error(`Missing synthetic rune advice: ${rune.id}`);
     return { rune, advice: answer };
@@ -77,8 +73,8 @@ export async function calculateRuneCleanupStatistics(
   return withRuneStatisticsProtection({
     percentToRoll: 0,
     percentToKeep: 0,
-    sampleSize: atZero.length,
-    durationMs: performance.now() - startedAt,
+    sampleSize: stages[0]?.length ?? 0,
+    durationMs,
     checkpoints,
   }, settings);
 }

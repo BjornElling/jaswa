@@ -39,7 +39,6 @@
 import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import { chanceRuns } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
-import { countJobs } from '../app/domain/runes/rune-power-up-outcomes.ts';
 import {
   addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
@@ -160,9 +159,6 @@ const named = (bodies) => bodies.map((body) =>
  * engine's own questions at a resolution of its choosing without the engine knowing
  * or caring. That is the whole trick here, and it needs no hook inside the model.
  */
-const countingAt = (runs) => async (jobs) =>
-  countJobs(runs === chanceRuns ? jobs : jobs.map((job) => ({ ...job, runs })));
-
 /* A quarter of the shipped resolution, the shipped one, and several times it. */
 const resolutions = [chanceRuns / 4, chanceRuns, chanceRuns * heaviest];
 
@@ -184,7 +180,7 @@ for (const resolution of resolutions) {
   const stages = {};
   for (const [name, source] of [['+0', bodies], ['+9', atNine], ['+12', atTwelve], ['+15', atFifteen]]) {
     const runes = named(source);
-    const advice = await runeAdvice(runes, roles, settings, referenceStats, countingAt(resolution));
+    const advice = await runeAdvice(runes, roles, settings, referenceStats, undefined, { candidateRuns: resolution });
     const tally = {
       keep: 0, 'power-up': 0, sell: 0, retained: 0,
       preferred: 0, acceptable: 0, broken: 0,
@@ -206,9 +202,8 @@ for (const resolution of resolutions) {
       if (name === '+12' || name === '+15') {
         check(answer.chance === 1 || answer.chance === 0,
           `${name}: rune ${rune.id} was retained on a counted chance of ${answer.chance}`);
-        check(answer.standing >= 1 - answer.floorShare - 1e-9,
-          `${name}: rune ${rune.id} was retained at a standing of ${answer.standing.toFixed(4)},`
-          + ` below the floor it was judged against`);
+        if (!answer.unprotectedAdvice) check(answer.qualityShare !== null && answer.qualityShare <= answer.requirement,
+          `${name}: rune ${rune.id} was retained below its reading’s quality floor`);
       }
     }
     stages[name] = tally;

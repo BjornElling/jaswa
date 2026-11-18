@@ -39,6 +39,7 @@ type AcceleratedCalculation<TRequest, TResult> = {
   name: string;
   cpu(request): TResult | Promise<TResult>; // the reference
   gpu?(request, context): Promise<TResult>; // the card's version, where one exists
+  gpuEligible?(request): boolean;          // workload requirements for dispatch
   agrees?(context): Promise<boolean>;       // must it prove itself first
 };
 ```
@@ -114,11 +115,11 @@ gates on a real card; the same harness would run them.
 | Calculation | Where it runs |
 | --- | --- |
 | Artifact score matrix (`compute/artifact-score-*`) | Worker; card or processor |
-| Rune Clean-up odds (`compute/rune-chance-*`) | Worker; card or processor |
+| Rune Clean-up odds (`compute/rune-chance-*`) | Worker pool; shared futures on the processor, with batches of 32 or more independent events eligible for the card |
 | Rune Simulator experiment | Worker; processor, with each checkpoint's Clean-up odds on the card when allowed |
 | Rune Optimization search (`compute/rune-optimization-*`) | Up to eight workers; the tree on the processor, the tail's pairs on the card or processor (`RUNE-OPTIMIZATION.md` §7) |
 | Gems & Grinds Recommendations, Best use and What's missing | Dedicated worker; legal craft states on the processor, current-line role score matrix on the card or processor (`RUNE-CRAFT-ITEMS.md` §5) |
-| Rune Clean-up slot calibration (`compute/rune-calibration-*`) | Workers on every core; the processor only, so it reports no engine |
+| Rune quality references (`compute/rune-reference-worker.ts`) | Bounded processor pool shared by advice, Statistics and Simulator |
 | Everything else | The processor |
 
 Only work shaped for a card moves: the same short arithmetic many times, with no lane

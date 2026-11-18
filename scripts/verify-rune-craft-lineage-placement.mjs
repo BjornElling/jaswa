@@ -3,7 +3,8 @@
  * bodies in a permutation-independent, fixed stat-id order.
  */
 import assert from 'node:assert/strict';
-import { runePercentileCraftProjection } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { finishedLines } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { endStateScoring } from '../app/domain/runes/rune-power-up-outcomes.ts';
 import {
   canonicalCraftCredit, craftComparison, craftPlan, craftedLines, craftedScore,
   craftedScoreBreakdown, gemChoiceLineUps, gemLineContribution, gemOptions, grindCredit, noCraftCredit, priceList,
@@ -138,15 +139,17 @@ const placementRune = { ...rune, subProperties: lines };
 const ordinaryPlacementRune = { ...placementRune, ancient: false };
 const ordinaryRune = { ...rune, ancient: false };
 const projectionValuation = valuation('percentile-craft-projection', { 4: 0.7, 8: 1 });
-const ancientProjection = runePercentileCraftProjection({ rune: placementRune, valuation: projectionValuation });
+const project = (rune) => {
+  const plan = craftPlan(rune.ancient ? 'ancient' : 'standard', canonicalCraftCredit);
+  return finishedLines({ rune, scoring: endStateScoring(rune, projectionValuation, plan) });
+};
+const ancientProjection = project(placementRune);
 assert.equal(ancientProjection.find((line) => line.gemmed)?.statId, 4,
   'a percentile reading retains Ancient placement for the Improvements display');
-const ordinaryProjection = runePercentileCraftProjection({ rune: ordinaryPlacementRune, valuation: projectionValuation });
+const ordinaryProjection = project(ordinaryPlacementRune);
 assert.equal(ordinaryProjection.find((line) => line.gemmed)?.statId, 8,
   'the same reading uses ordinary placement for an ordinary rune');
-const unfinishedProjection = runePercentileCraftProjection({
-  rune: { ...placementRune, level: 9 }, valuation: projectionValuation,
-});
+const unfinishedProjection = project({ ...placementRune, level: 9 });
 assert.ok(unfinishedProjection.every((line) => !line.gemmed),
   'a pre-+12 Improvements display grounds lines without placing a Gem');
 const ordinaryItem = {

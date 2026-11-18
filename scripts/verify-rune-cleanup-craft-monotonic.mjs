@@ -325,14 +325,14 @@ for (const rune of standardRunes) {
   assert.ok(before && same && more, `${rune.id} lost its row when it was ground`);
   assert.equal(same.maxValue, before.maxValue,
     `${rune.id}: a stone no larger than the credited one moved Max value from ${before.maxValue} to ${same.maxValue}`);
-  assert.equal(same.standing, before.standing,
-    `${rune.id}: a stone no larger than the credited one moved the standing from ${before.standing} to ${same.standing}`);
+  assert.equal(same.qualityShare, before.qualityShare,
+    `${rune.id}: a stone no larger than the credited one moved the quality share from ${before.qualityShare} to ${same.qualityShare}`);
   assert.equal(same.role?.id, before.role?.id, `${rune.id}: grinding to the credit changed the role`);
   if (rune.level >= 12) {
     assert.equal(same.verdict, before.verdict,
       `${rune.id}: grinding to the credit turned ${before.verdict} into ${same.verdict}`);
-    assert.ok(more.standing + eps >= before.standing,
-      `${rune.id}: a stone past the credit lowered the standing from ${before.standing} to ${more.standing}`);
+    assert.ok((more.qualityShare ?? 1) <= (before.qualityShare ?? 1),
+      `${rune.id}: a stone past the credit worsened the quality share from ${before.qualityShare} to ${more.qualityShare}`);
     assert.ok(!(before.verdict === 'keep' && more.verdict === 'sell'),
       `${rune.id}: a stone past the credit turned a Keep into a Sell`);
   }
@@ -360,9 +360,10 @@ const bruiser = [withRefreshedMetrics({
 const shieldBare = (await runeAdvice([shield], bruiser, policySettings, baseByType)).get(shield.id);
 const shieldGround = (await runeAdvice([groundTo(shield, 0)], bruiser, policySettings, baseByType))
   .get(`${shield.id}-ground-0`);
-assert.equal(shieldBare.verdict, 'sell', 'the Shield regression rune is no longer the Sell it was');
-assert.equal(shieldGround.verdict, 'sell',
-  'the Shield regression rune was kept for a grind the credit had already counted');
+assert.equal(shieldGround.verdict, shieldBare.verdict,
+  'the Shield regression rune changed verdict after receiving a grind the credit had counted');
+assert.equal(shieldGround.qualityShare, shieldBare.qualityShare);
+assert.equal(shieldGround.chance, shieldBare.chance);
 
 /* Monte Carlo is not the production calculation; it is an independent guard that
    the adaptive exact result still describes the game's own level-up loop. */

@@ -4,7 +4,7 @@ import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScor
   gemOptions } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { defaultRuneRoles, createRuneRole } from '../app/domain/profiles/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
-import { acceptedWorth, brokenWorth } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { runeRankWorth } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 import { recommendRuneCraft as recommendWith, craftRecommendationRankings, craftMatchesChangeFilter, heldCraftBenchmark, isHeldCraft,
   wantedCraftItems, craftItemKey, craftRuneKey, reconcileCraftCalculation, craftExtensionRequests, extendCraftCalculation,
@@ -59,8 +59,7 @@ function evaluate(rune) {
   for (const { role, builds } of families) for (const build of builds) {
     const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);
     if (!candidate) continue;
-    const discount = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable'
-      ? acceptedWorth[settings.acceptedRunes - 1] : brokenWorth[settings.brokenRunes - 1];
+    const discount = runeRankWorth(settings, candidate.rank);
     if (discount === 0) continue;
     const { plan, options, prices, prefixScore } = candidate.scoring;
     const raw = craftedScore(plan, options, prices, rune.subProperties, prefixScore) / candidate.ceiling * 100;
@@ -251,8 +250,7 @@ function ruleStat(rune) {
   for (const { role, builds } of families) for (const build of builds) {
     const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);
     if (!candidate) continue;
-    const discount = candidate.rank === 'preferred' ? 1 : candidate.rank === 'acceptable'
-      ? acceptedWorth[settings.acceptedRunes - 1] : brokenWorth[settings.brokenRunes - 1];
+    const discount = runeRankWorth(settings, candidate.rank);
     if (discount === 0) continue;
     const { prices, prefixScore } = candidate.scoring;
     const onScale = (score) => score / candidate.ceiling * 100 * discount;

@@ -75,7 +75,7 @@ This selected subset starts with a previously sold SPD specialist. All its
 decisions came from the union gate without fully resolving quality witnesses.
 Repeating the subset reached 54 of 3,000 requested judgments in 58.8 seconds before
 the shared 90-second deadline. Peak RSS was 1,341,972 KiB. This repeated-workload
-benchmark is reproducible with `scripts/benchmark-rune-percentile-account.mjs`.
+benchmark was recorded with the exact-engine harness from the pre-sampling tree.
 
 The experimental Statistics worker used all five checkpoints on each latent
 path. On the local browser fixture, it certified three terminal failures and
@@ -129,8 +129,8 @@ the production engine.
 
 The experiment computes a certified score bracket per numerical reference and
 policy allowance, then reuses it for every rune. The account fixture is the
-same 1,347 owned runes and the same baseline settings. Run the benchmark from
-the repository with the passive local export and saved baseline:
+same 1,347 owned runes and the same baseline settings. The commands below were run on the exact-engine tree with the passive local export
+and saved baseline. The current harness measures the sampled implementation.
 
 ```text
 node --import ./scripts/json-module-hook.mjs scripts/benchmark-rune-percentile-account.mjs --runes=1347 --warm=3000 --deadline-ms=150000 --warm-deadline-ms=30000 --decision-only --shared-boundary --interleave
@@ -179,3 +179,158 @@ The experiment leaves the existing production path in service. The completed
 body repeat shows where sharing boundaries helps. The account and Statistics
 gates still need faster preparation of tighter reference brackets and less
 candidate-side work for unfinished bodies.
+
+## Sampled implementation
+
+### Account verdicts
+
+The same passive export supplied 1,347 runes, including 108 with sub-property
+events remaining. At the middle stops, Intangible ×1 and safeguards off, the
+planner found 517 distinct reference price vectors across the used pieces.
+
+| Before → after | Keep | Power up | Sell |
+| --- | ---: | ---: | ---: |
+| Keep | 386 | 0 | 4 |
+| Power up | 0 | 4 | 0 |
+| Sell | 686 | 70 | 197 |
+
+| Slot | Sell → Keep | Sell → Power up | Keep → Sell |
+| --- | ---: | ---: | ---: |
+| 1 | 137 | 15 | 0 |
+| 2 | 125 | 7 | 0 |
+| 3 | 141 | 19 | 0 |
+| 4 | 76 | 6 | 1 |
+| 5 | 124 | 16 | 0 |
+| 6 | 83 | 7 | 3 |
+
+| Sampled Best role | Sell → Keep | Sell → Power up | Keep → Sell |
+| --- | ---: | ---: | ---: |
+| Bomber | 89 | 8 | 0 |
+| Bruiser | 168 | 17 | 4 |
+| Def DD | 27 | 3 | 0 |
+| Def-tank | 41 | 1 | 0 |
+| Fast DD | 52 | 0 | 0 |
+| First-turn debuff | 58 | 15 | 0 |
+| HP tank | 97 | 25 | 0 |
+| No-spd bruiser | 27 | 0 | 0 |
+| Slow DD | 30 | 0 | 0 |
+| Support | 97 | 1 | 0 |
+
+All 80 former sales with at least 20 observed pre-grind SPD had an
+applicable SPD-priced reading, cleared one of those readings and became
+Keep. Bruiser and Support each supplied 26 of their Best readings. The four new
+sales were finished even-slot runes. Each missed all its permitted
+same-main bars. Across the account, 167 Best-role names changed. Among the
+overlapping craft and grade cohorts, 60 Ancient, 557 converted, 599 ground
+and one below-six-star rune moved from Sell to Keep. Two converted and two
+ground runes moved from Keep to Sell. The independent SPD-only fixture
+checks that a specialist clears on its own reading. The four even-slot
+runes with exactly one usable role were previously Sell. One became Keep,
+one became Power up and two remained Sell.
+
+The saved preferences were also read locally. The comparison
+used the same 12 roles, settings, preset placements and active safeguards
+on both builds. No account or preference data is included here.
+
+| Calculated before → after | Keep | Power up | Sell |
+| --- | ---: | ---: | ---: |
+| Keep | 546 | 0 | 20 |
+| Power up | 0 | 32 | 1 |
+| Sell | 508 | 70 | 170 |
+
+| Protected before → after | Keep | Power up | Sell | Re-app |
+| --- | ---: | ---: | ---: | ---: |
+| Keep | 906 | 0 | 17 | 2 |
+| Power up | 0 | 32 | 1 | 0 |
+| Sell | 217 | 70 | 99 | 0 |
+| Re-app | 2 | 0 | 0 | 1 |
+
+With these preferences, 162 Best-role names changed. The protected verdicts
+included 18 new sales, five from slot 4 and 13 from slot 6.
+
+### Sensitivity and equivalence
+
+Run `npm run verify:rune-quality-sampling -- <local-export> --catalogue` for independent
+holdouts and the paired account sweep. The acceptance bands are one-sided for
+the reference because tied atoms can leave the qualified mass below the
+allowance. Two independent holdout seeds covered every legal main in slots
+1–6 at five and six stars under broad and SPD-only pricing, and all 517
+price vectors used by the account. All 8,694 comparisons passed, including
+the 0.55 % allowance and the positive score guard at full allowance.
+
+| Variation from the 16,384-body reference | Sell → Keep | Keep → Sell | Sell → Power up |
+| --- | ---: | ---: | ---: |
+| 4,096 bodies, nested sample | 2 | 7 | 1 |
+| 65,536 bodies, nested sample | 2 | 1 | 0 |
+| Independent reference seed | 4 | 1 | 0 |
+| Independent candidate seed | 0 | 0 | 1 |
+| Both seeds independent | 4 | 1 | 1 |
+
+None of the variations introduced a sale with pre-grind SPD of 20 or more.
+The largest unfinished-rune flip was 0.74 percentage points from the policy
+gate. The sweep checks finished flips against every compatible reading,
+since Best role can change when the rune crosses the union gate. Every
+finished flip was within 32 % of its holdout band in at least one reading
+that crossed the cutoff. The largest tied boundary atom consumed 86.6 %
+of a specialist reference.
+
+The before and after equivalence baselines each covered the same 582
+synthetic runes in six scenarios. The comparison found the expected changes
+in Chance, verdict, Best role and the Best reading's discounted Max value.
+The fresh baseline includes quality share, requirement and marginal chance.
+The final scorer reproduced it exactly. The SHA-256 of the synthetic JSON
+baseline was `73fb472949c24a668746c3468dabb11b5aa188bb3f9f0826360f18c72df420dc`.
+
+### Browser timing
+
+Use `node scripts/benchmark-rune-percentile-account.mjs <local-export> 5`
+with JASWA running on `http://localhost:3000/`. A fresh page is used for
+each cold case. Warm account timings call the worker client again, and warm
+Statistics changes the quality stop so it bypasses the completed-result memo.
+The same command with a single repetition and `--memory` samples JavaScript
+heap and backing storage through Chromium's debugger.
+
+Chromium 159.0.8154.6 on 16 logical cores, five samples per cell. The times
+are median / worst. Other verification browsers ran alongside these checks.
+
+| Case | Processor setting | Card setting enabled |
+| --- | ---: | ---: |
+| Cold account, end to end | 6.97 / 8.32 s | 3.68 / 3.76 s |
+| Cold account, reference preparation | 2.05 / 3.05 s | 1.44 / 1.81 s |
+| Warm account | 2.25 / 3.27 s | 1.85 / 2.10 s |
+| Accepted policy edit | 2.20 / 2.42 s | 1.79 / 2.00 s |
+| Role HP target edit | 2.98 / 3.76 s | 2.35 / 2.72 s |
+| Warm overlay | 171 / 748 ms | 163 / 471 ms |
+| Cold Statistics | 4.64 / 5.67 s | 4.63 / 5.86 s |
+| Warm Statistics policy edit | 1.87 / 2.20 s | 1.99 / 2.20 s |
+
+The median passed each time gate. Worst samples under concurrent test load
+exceeded the warm-account, overlay and Statistics targets. All these account
+and Statistics requests reported Processor. The single-event batches in these
+requests were smaller than the 32-job dispatch threshold. The separate real
+card check verified exact sampled counts with replay at tied raw cutoffs.
+Cancellation of an in-flight answer settled as superseded within the timer's
+millisecond resolution.
+
+The peak sampled JavaScript heap plus buffer and string backing storage was
+about 109 MiB for an advice worker and 532 MiB across the worker pool and main
+page in the account runs. These figures exclude browser-native and graphics
+allocations. A valid all-mains configuration with 1,904 distinct references
+streamed its score arrays, answered all 16 requested runes and discarded a
+cancelled predecessor. The final foreground-lane smoke check completed
+a cold overlay in 597 ms while table and Statistics were preparing, and all
+three requests returned within 5.55 s. The 1,904-reference calculation then
+completed in 22.7 s.
+
+The old engine took 46.1 s for a cold in-process account run. Its separate
+in-process Statistics runs took 27.2 s cold and 5.1 s warm. Those runs
+measured the old Node path and provide orientation for the browser timings.
+
+Local Playwright runs captured Rune Clean-up before and after calculation,
+the Quality column and its sort, and the overlay before and after a hold.
+They exercised empty and imported accounts, the 3,001-rune table and the
+fully populated 1080p overlay. The real export passed import parity.
+
+The final `npm test` run passed the domain chain and all 362 browser tests.
+The TypeScript check, lint, production build, 128 unit tests, preference
+monotonicity and the real WebGPU chance check also passed.

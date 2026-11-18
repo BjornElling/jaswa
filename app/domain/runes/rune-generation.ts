@@ -122,7 +122,7 @@ export function upgradeRuneBody(
   if (targetLevel < rune.level) return cloneRuneBody(rune);
   const next = cloneRuneBody(rune);
   /* The schedule is `remainingEvents`', not a second copy of it: the Simulator, the
-     calibration population and Statistics all play their runes forward through here. */
+     reference sample and Statistics all play their runes forward through here. */
   const { events, levels } = remainingEvents(next.level, next.rarity);
   for (const [at, event] of events.entries()) {
     const level = levels[at];

@@ -19,16 +19,12 @@ export function createRuneAdviceWorker(): Worker {
   return new Worker(new URL('./compute/rune-advice-worker.ts', import.meta.url), { type: 'module' });
 }
 
-export function createRuneCalibrationWorker(): Worker {
-  return new Worker(new URL('./compute/rune-calibration-worker.ts', import.meta.url), { type: 'module' });
+export function createRuneReferenceWorker(): Worker {
+  return new Worker(new URL('./compute/rune-reference-worker.ts', import.meta.url), { type: 'module' });
 }
 
 export function createRuneOptimizationWorker(): Worker {
   return new Worker(new URL('./compute/rune-optimization-worker.ts', import.meta.url), { type: 'module' });
-}
-
-export function createRuneStatisticsWorker(): Worker {
-  return new Worker(new URL('./compute/rune-statistics-worker.ts', import.meta.url), { type: 'module' });
 }
 
 /** Every production worker, as the shell hands them to the job clients. The simulator's is added in development only. */
@@ -36,8 +32,7 @@ export const featureWorkerFactories: WorkerFactories = {
   artifactScore: createArtifactScoreWorker,
   craftRecommendation: createCraftRecommendationWorker,
   runeAdvice: createRuneAdviceWorker,
-  runeCalibration: createRuneCalibrationWorker,
+  runeReference: createRuneReferenceWorker,
   runeOptimization: createRuneOptimizationWorker,
   runeOptimizationWork: createRuneOptimizationWorkWorker,
-  runeStatistics: createRuneStatisticsWorker,
 };

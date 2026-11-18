@@ -301,7 +301,7 @@ app/
       reconcile-counts.ts           # Source-to-prepared parity report
     preferences/                   # Section readers and current choice validation
   algorithms/
-    rune-cleanup/                  # Weights, calibration, outcomes, verdict
+    rune-cleanup/                  # Weights, sampled quality, outcomes, verdict
     rune-optimization/              # Problem, exact reductions, cut, search, merge
     craft-advice/                   # Legal states and comparison/stock allocation
     speed-tuning/                   # Simulation questions and interval analysis
@@ -1346,7 +1346,7 @@ blueprint; a new developer should not reconstruct formulas from screen code.
 | `engrave-rune-build.ts`, `game-preset-edits.ts` | Application commands and pure local-change reducers | Existing local planning behaviour and atomic affected-context updates |
 | `monster-preferences.ts`, `monster-defaults.ts`, `monster-preference-resolution.ts` | Profiles and reference accessors | User-first resolution, content scopes, clears and provenance |
 | `monster-stats.ts`, bonuses, `main-stat-model.ts`, `speed-tick.ts` | Combat and main-stat/turn-clock owners | The existing single calculations and authority |
-| Rune cleanup/optimization/simulator modules | Rune domain plus focused algorithms | Craft credit, calibrated judgement, exact reductions and declared heuristics |
+| Rune cleanup/optimization/simulator modules | Rune domain plus focused algorithms | Craft credit, sampled quality, exact reductions and declared heuristics |
 | Artifact/relic modules | Their domain owners and calculation jobs | Shared score, conversion, allocation and power-up semantics |
 | `app/lib/compute/` | Compute runtime, typed jobs and GPU backends | Existing agreement gates, layouts, cancellation and actual backend reports |
 | `app/components/` | Features, shell and shared UI | Controlled editors and reusable visual/accessibility contracts |

@@ -6,6 +6,11 @@
  * recovered after a startup error, so the next run does not inherit a dead
  * Worker object.
  */
+import { generateSimulationRunes, simulationNoRuneType } from '../../domain/runes/simulator/rune-simulator';
+import { planQualityReferences } from '../../domain/runes/cleanup/rune-cleanup-advice';
+import { retainedReferenceCount } from '../../domain/runes/cleanup/rune-quality-reference';
+import { leaseRuneReferences } from './rune-reference-client';
+import { CalculationCancelled } from './cancellable-worker';
 import type { RuneSimulationResult } from '../../domain/runes/simulator/rune-simulator';
 import { createJobRuntime } from './job-runtime';
 import { workerFactories } from './worker-factories';
@@ -21,10 +26,27 @@ const job = createJobRuntime<Record<string, unknown>, RuneSimulationResult>(
 );
 
 /** An aborted `signal` rejects the run with `CalculationCancelled`. */
-export function calculateRuneSimulation(
+export async function calculateRuneSimulation(
   config: RuneSimulationWorkerRequest['config'],
   context: RuneSimulationWorkerRequest['context'],
   signal?: AbortSignal,
 ): Promise<RuneSimulationResult> {
-  return job.run({ type: 'simulate', config, context }, signal);
+  if (signal?.aborted) throw new CalculationCancelled();
+  const births = generateSimulationRunes(config);
+  const requests = context.base ? planQualityReferences(
+    births.map((rune) => ({ ...rune, setName: rune.setName ?? simulationNoRuneType, ancient: false })),
+    context.roles, context.base, context.settings,
+  ) : [];
+  const lease = requests.length <= retainedReferenceCount ? leaseRuneReferences(requests) : undefined;
+  if (lease) signal?.addEventListener('abort', lease.release, { once: true });
+  try {
+    const references = await (lease?.ready ?? null);
+    return await job.run({ type: 'simulate', config, context, births, references }, signal);
+  } catch (error) {
+    if (signal?.aborted) throw new CalculationCancelled();
+    throw error;
+  } finally {
+    if (lease) signal?.removeEventListener('abort', lease.release);
+    lease?.release();
+  }
 }

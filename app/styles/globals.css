@@ -5775,9 +5775,14 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   border-radius: var(--radius);
   background: var(--sunk);
 }
-.rune-overlay-evaluation-facts { display: grid; gap: var(--s1); margin: 0; }
+.rune-overlay-evaluation-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s1) var(--s6); margin: 0; }
 .rune-overlay-evaluation-facts > div { display: flex; justify-content: space-between; gap: var(--s4); }
-.rune-overlay-evaluation-facts > div[data-opens-group] { margin-top: var(--s3); }
+.rune-overlay-evaluation-facts > div:nth-child(-n+2) { grid-column: 1 / -1; }
+.rune-overlay-evaluation-facts > div:is(:nth-child(3), :nth-child(4)) { margin-top: var(--s3); }
+@media (max-width: 720px) {
+  .rune-overlay-evaluation-facts { grid-template-columns: minmax(0, 1fr); }
+  .rune-overlay-evaluation-facts > div:nth-child(4) { margin-top: 0; }
+}
 .rune-overlay-evaluation-facts dt { color: var(--text); }
 .rune-overlay-evaluation-facts dd {
   margin: 0;
@@ -5813,7 +5818,9 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
   vertical-align: bottom;
   color: var(--text-muted);
 }
-.rune-overlay-readings thead th:first-child { width: 32%; }
+.rune-overlay-readings thead th:first-child { width: 27%; }
+.rune-overlay-readings .rune-overlay-quality { width: 13ch; }
+.rune-quality-share { white-space: nowrap; }
 /* Ink, not weight, marks the best reading: bold would widen its row's text. */
 .rune-overlay-readings tr[data-best] :is(th, td) { color: var(--text-strong); }
 .rune-overlay-best-mark, .rune-overlay-match-mark { width: 12px; height: 12px; vertical-align: middle; }
