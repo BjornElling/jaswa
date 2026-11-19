@@ -34,7 +34,7 @@ import type { GeneralSettings, RunePotentialSettings } from '../../domain/model'
 /**
  * One rune, as a record of what it is: its set and slot, its main and innate
  * properties, and its four sub properties with whatever craft already sits on
- * them — and, beside those, the craft its Max value assumes is still to come.
+ * them — and, beside those, the craft its Potential assumes is still to come.
  *
  * That last column is not a projection of the overlay's own. It is Rune
  * Clean-up's verdict for this one rune, asked of the same engine with the same
@@ -130,7 +130,7 @@ function maxCraftOf(known: RuneAdvice | undefined, explained: Explained, rune: R
 }
 
 /** A fraction as a percentage to one decimal — finer than the table's whole points,
-    because here a Max value sits beside the cutoff it has to reach, and `74 %` against
+    because here Potential sits beside the cutoff it has to reach, and `74 %` against
     `74 %` beside a Sell would explain nothing. */
 const tenths = (fraction: number) => `${(fraction * 100).toFixed(1)} %`;
 
@@ -156,7 +156,7 @@ function MatchMark({ rank }: { rank: MatchRank }) {
 
 /**
  * The roles in the order Best role is decided in: the readings that clear both
- * gates before those that do not, then by average worth at +15, then Max value — so
+ * gates before those that do not, then by average worth at +15, then Potential — so
  * the starred row leads and no row above it can carry a higher average. The one
  * exception is Broken = No, where a role that reads the rune only as broken is
  * listed by its figures but never chosen. Roles that cannot read the rune close
@@ -212,7 +212,7 @@ function Evaluation({ rune, roles, explained, quality }: {
           <th scope="col">Role</th>
           <th scope="col" title="How the rune's set and main property answer the role: a tick where it prefers both, a ring where it only accepts one or both, nothing where it asked for neither">Match</th>
           <th scope="col" className="rune-overlay-quality" title="Top share at the best reachable +15 score">Quality</th>
-          <th scope="col">Max value</th>
+          <th scope="col">Potential</th>
           <th scope="col">Chance</th>
           <th scope="col" title="What the rune is worth on average once levelled to +15, against a perfect rune — the figure Best role is chosen on">Avg. at +15</th>
           <th scope="col">Best</th>
@@ -352,8 +352,8 @@ export function RuneOverlay({ rune, game, snapshot, profiles, general, settings,
   const figure = (value: number) => formatNumber(value, general);
   const maxHeading = maxCraft.state === 'ready'
     ? rune.level >= lastSubPropertyLevel
-      ? `The Gem and Grindstones Max value counts, for ${maxCraft.roleName}`
-      : `The Grindstones Max value counts, for ${maxCraft.roleName}. The Gem is decided at +${lastSubPropertyLevel}, when a Gem becomes legal`
+      ? `The Gem and Grindstones Potential assumes, for ${maxCraft.roleName}`
+      : `The Grindstones Potential assumes, for ${maxCraft.roleName}. The Gem is decided at +${lastSubPropertyLevel}, when a Gem becomes legal`
     : maxCraft.state === 'unavailable' ? maxCraft.reason : 'Calculating';
   const facts = [
     { label: 'Slot', value: String(rune.slot) },

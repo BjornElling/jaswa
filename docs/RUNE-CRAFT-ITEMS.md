@@ -352,7 +352,7 @@ counts it as done, and a missing item must beat it.
 **Only keep-runes** (Best use only) has one choice, Yes. Chosen, it keeps the
 runes whose *calculated* Rune Clean-up verdict is Keep and drops every other
 verdict — Power up, Sell, and the Re-app and Refine a reroll target puts on a
-sale. The sell safeguards (pre-grind SPD, potential value, preset engravings,
+sale. The sell safeguards (pre-grind SPD, potential, preset engravings,
 reroll targets) are read past through `calculatedRuneVerdict`: a rune kept only
 because the user protects it is not one the calculation keeps. The verdicts
 come from Clean-up's own engine (`use-rune-keepers.ts`): answers Clean-up

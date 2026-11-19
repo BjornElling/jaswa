@@ -89,7 +89,7 @@ assert.equal(kept.runePotential.neverSellPreGrindSpeed, false);
 assert.equal(kept.runePotential.powerUpPolicy, 2);
 const both = withRuneSellProtection(rune, { ...original, chance: 0.01, readingChance: 0.01, maxValue: 0.9 }, { ...settings, ...potentialSettings, neverSellPreGrindSpeed: true, preGrindSpeedMinimum: 6 });
 assert.equal(both.reason, 'Pre-grind SPD protected');
-assert.equal(withRuneSellProtection(rune, both, potentialSettings).reason, 'Potential value protected');
+assert.equal(withRuneSellProtection(rune, both, potentialSettings).reason, 'Potential protected');
 assert.equal(withRuneSellProtection(rune, both, { ...potentialSettings, neverSellPotentialValue: false }).verdict, 'sell');
 console.log('PASS: potential protection boundaries, both conditions, independent safeguards and preference survival.');
 

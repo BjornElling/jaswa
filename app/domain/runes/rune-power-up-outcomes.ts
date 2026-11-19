@@ -145,7 +145,7 @@ function drawBelow(seed: number, counter: number, bound: number): number {
  * which improvement lands where, so it cannot change what the rune may become. Taking
  * it in gave a rune ground to exactly the credited stone a different stream from the
  * same rune bare, and once the Gem's expectation began choosing Best role from that
- * stream, the grind moved the role and the Max value with it — against the one
+ * stream, the grind moved the role and the Potential with it — against the one
  * standard of `RUNE-CLEANUP-MATH.md` §9.2 that a stone the credit already counts
  * changes nothing.
  */
@@ -219,7 +219,7 @@ export function runeFuture(rune: Rune): RuneFuture {
     /* An Ancient rune's higher interval belongs to the lines it was born with. A line
        it gains by power-up rolls from the ordinary six-star table, as the user's own
        Hero and Rare Ancient runes show with added lines below the Ancient minimum
-       (`rune-properties.ts`). Reading the Ancient table here inflated the Max value
+       (`rune-properties.ts`). Reading the Ancient table here inflated the Potential
        and Chance of every unfinished non-Legend Ancient rune by about a roll-step per
        line still to come. */
     const initial = addedSubPropertyRange(rune.stars, statId);
@@ -315,7 +315,7 @@ function lineUpBuffer(size: number): EndStateLine[] {
 
 /**
  * **The best end state the rune can still reach**, every remaining roll at its
- * maximum: the Max value a view prints.
+ * maximum: the Potential a view prints.
  *
  * Two facts make this an enumeration of a few hundred arrangements rather than a
  * search over thousands:

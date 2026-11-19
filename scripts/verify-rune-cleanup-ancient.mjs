@@ -56,7 +56,7 @@ assert.ok(candidateMaxValue(ancient) > 1, 'an Ancient max roll is not capped at 
    dice, not the engine. Twenty SPD is comfortably inside what both can do, and the
    Ancient rune's extra point is worth a clear margin there.
 
-   `candidateChance` accepts the displayed, normalised Max-value threshold, so the
+   `candidateChance` accepts the displayed, normalised Potential threshold, so the
    shared raw score is converted back through this candidate's own denominator. */
 const threshold = ancient.valuation.value(8, 17) / ancient.ceiling;
 const ancientChance = candidateChance(ancient, threshold);
@@ -75,7 +75,7 @@ assert.ok(ancientChance > 0.05 && ancientChance < 0.95,
    So two Magic runes with the same born SPD line, one Ancient and one not, have the
    same future: one ordinary improvement and three ordinary additions. With the role
    paying for every type the slot allows, any Ancient interval on an addition would
-   lift the Ancient rune's Max value above the ordinary one's. */
+   lift the Ancient rune's Potential above the ordinary one's. */
 const everything = { ...role, id: 'ancient-added', targets: { hp: 1, atk: 1, spd: 1, criRate: 1, criDmg: 1, res: 1, acc: 1 } };
 const everyBuild = roleBuilds(everything)[0];
 const magic = (ancient) => ({ ...rune(ancient, 6, 'Magic'), subProperties: [rune(ancient, 6).subProperties[0]] });

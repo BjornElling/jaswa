@@ -154,7 +154,7 @@ export function compareRuneGameSort(
   return 0;
 }
 
-/** Whether the row prints a Max value: not where no role can use the rune. */
+/** Whether the row prints a Potential: not where no role can use the rune. */
 export const runeMaxValueShown = (row: RuneCleanupRow): boolean => row.advice.requirement !== null;
 
 /**

@@ -11,7 +11,7 @@
  *    to wins**, not the one with the best best-case.
  *
  * It also holds the arithmetic under the second promise: no reading's expectation
- * exceeds its own ceiling (`candidateExpectedBound`) or its Max value — the skip that
+ * exceeds its own ceiling (`candidateExpectedBound`) or its Potential — the skip that
  * makes the choice affordable is only sound while that holds — and on runes with one or
  * two substat events left, the expectation agrees with an exact enumeration of every
  * outcome.
@@ -153,7 +153,7 @@ for (const [label, settings] of scenarios) {
     if (readings.length === 0) { check(row.role === null, `${label} ${rune.id}: a role named with no reading`); continue; }
     for (const reading of readings) {
       check(reading.rawExpected <= reading.rawMax + 1e-12,
-        `${label} ${rune.id} ${reading.role.name}: expectation ${reading.rawExpected} above Max value ${reading.rawMax}`);
+        `${label} ${rune.id} ${reading.role.name}: expectation ${reading.rawExpected} above Potential ${reading.rawMax}`);
       check(reading.expected <= reading.bound + 1e-12,
         `${label} ${rune.id} ${reading.role.name}: expectation ${reading.expected} above its bound ${reading.bound}`);
     }

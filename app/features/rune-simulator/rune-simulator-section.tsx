@@ -388,7 +388,7 @@ function RuneSimulationResults({ result, stage, onStageChange, onOpenRune }: {
     </header>
 
     {unjudged && <p className="rune-simulator-stage-summary type-caption">
-      Best role, Max value, Chance and Action need an imported account with a level 40 monster and at least one Rune Clean-up role.
+      Best role, Potential, Chance and Action need an imported account with a level 40 monster and at least one Rune Clean-up role.
     </p>}
 
     <div className="table-wrap card rune-simulator-table-wrap">
@@ -405,7 +405,7 @@ function RuneSimulationResults({ result, stage, onStageChange, onOpenRune }: {
           <th scope="col" className={cell('subs')}>Substats</th>
           <th scope="col" className={cell('role')}>Best role</th>
           <th scope="col" className={cell('maxValue')}>
-            <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach against a perfect ordinary rune for that slot">Max<br />value</span>
+            <span className="table-heading-two-line" aria-label="Potential: the best end state it can reach against a perfect ordinary rune for that slot">Potential</span>
           </th>
           <th scope="col" className={cell('chance')}>
             <span aria-label="Chance to reach the final +15 quality floor; random substat rolls end at +12">Chance</span>

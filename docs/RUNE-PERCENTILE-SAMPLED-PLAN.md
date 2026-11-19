@@ -18,7 +18,7 @@ and function names refer to the tree at commit `6b7de60`.
 ### 1.1 What was wanted
 
 The production engine sells runes that are excellent for one use. The cause is its
-quality gate: a *Max value* floor (45–85 % of a perfect rune), calibrated per slot
+quality gate: a *Potential* floor (45–85 % of a perfect rune), calibrated per slot
 (`RuneFloorCalibration` in `rune-cleanup-advice.ts`). A SPD specialist that is
 mediocre against the perfect rune of its build is sold, although very few drops
 are as good for that role. The local account had 80 proposed sales with observed SPD
@@ -150,7 +150,7 @@ the ordinary box and the whole exact engine are removed.
 - **The shared canonical craft** (§4.1, already in production): the reference and
   the candidate are scored by the same `craftedScore` with `canonicalCraftCredit`.
   The reference uses ordinary lineage, the candidate its own.
-- **Max value survives as an efficiency figure**, and the *Potential value*
+- **Potential survives as an efficiency figure**, and the *Potential*
   safeguard keeps reading it (§8).
 - **Never sell on missing input**: a missing reference base or no usable reading
   gives the existing "No role can use it", never a computed sale from garbage.
@@ -385,20 +385,20 @@ are plain numbers. `rune-percentile-readings.ts` and its `Rational` copies go aw
 > (1,000,000 for three factors). Compute `k = floor(N * numerator / denominator)`.
 > Use the same ratio for display and policy tests, with no epsilon at equality.
 > The merged plan also needs to specify what `mostExpected` discounts and what
-> Max value prints. Today both expectation and Max value use rank discounts,
-> and Max value feeds the Potential value safeguard. Preserve that behaviour
+> Potential prints. Today both expectation and Potential use rank discounts,
+> and Potential feeds the Potential safeguard. Preserve that behaviour
 > explicitly using the existing weights (including for the expectation's
 > bound), while the new factors govern allowance alone. If the intent is to
 > change the role weighting or print undiscounted efficiency, approve that as
 > a product change and show its separate impact on Best role and protections.
 
 > **Assessment (Claude).** Agreed, and the second paragraph finds a real omission.
-> Today the printed Max value and the Best-role expectation (and its bound) are
+> Today the printed Potential and the Best-role expectation (and its bound) are
 > multiplied by `acceptedWorth`/`brokenWorth`. My plan deleted those arrays as if
 > they fed only the floor. The new factor tables are numerically identical to them.
 > I recommend one table per control, used for two things: the allowance factor, and,
-> unchanged, the discount on Max value, expectation and bound. Best role and the
-> Potential value safeguard then behave as today, and no second product decision is
+> unchanged, the discount on Potential, expectation and bound. Best role and the
+> Potential safeguard then behave as today, and no second product decision is
 > needed. Integer arithmetic: factors in hundredths (1.5 → 150), denominator 10⁶,
 > `k = floor(N · numerator / denominator)` in integers.
 
@@ -488,13 +488,13 @@ Keep at +12/+15, otherwise Sell.
 - **Choice:** `mostExpected` unchanged, except that the tie-break on `value`
   (standing) becomes "lower `qualityShare` first" (better quality wins).
 - **Row figures**, all from the chosen reading except Chance:
-  - `maxValue`: Max value (efficiency against the perfect rune), unchanged.
+  - `maxValue`: Potential (efficiency against the perfect rune), unchanged.
   - `qualityShare`: `tail(best)`, where `best = candidate.best` (the +15 projection
     for a finished rune, the best reachable for an unfinished one).
   - `requirement`: the chosen reading's `alpha`.
   - `chance`: **`U`**, because that is what the gate compared. The printed number
     must clear the stop exactly when the rune does (`runeChanceText` is unchanged).
-  - `readingChance`: the chosen reading's own `C_i`, for the *Potential value*
+  - `readingChance`: the chosen reading's own `C_i`, for the *Potential*
     safeguard (§8).
 
 > **Review — explain the same build.** For the role selected as Best, use the
@@ -625,7 +625,7 @@ they are, so `verify:rune-chance-layout` and `verify:rune-chance-card` are untou
 
 ### 5.3 `rune-cleanup-model.ts`
 
-- `candidateChanceAsk(candidate, threshold)` takes `threshold` in Max-value units
+- `candidateChanceAsk(candidate, threshold)` takes `threshold` in Potential units
   and multiplies by `ceiling`. Change it to take the **raw** bar (`wanted`), because
   cutoffs are raw scores, and drop the `±Infinity` special cases (the caller never
   asks for a forbidden reading). Update `candidateChance` and `judgeAgainstBuild` to
@@ -639,7 +639,7 @@ they are, so `verify:rune-chance-layout` and `verify:rune-chance-card` are untou
 
 > **Review — preserve the oracle.** Prefer a distinct raw-score entry point
 > for the new ask. Keep `judgeAgainstBuild` and fixture-facing
-> `candidateChance` in their existing Max-value units as narrow wrappers
+> `candidateChance` in their existing Potential units as narrow wrappers
 > through that ask, while the oracle still operates in those units.
 > This preserves a check independent of the percentile conversion. If all
 > callers are converted to raw units, update their source data and comparisons
@@ -648,7 +648,7 @@ they are, so `verify:rune-chance-layout` and `verify:rune-chance-card` are untou
 > move it by an ULP and undo the tie rule.
 
 > **Assessment (Claude).** Agreed. Keep `judgeAgainstBuild` and `candidateChance` in
-> Max-value units for the oracle scripts. Add a separate raw entry point, for example
+> Potential units for the oracle scripts. Add a separate raw entry point, for example
 > `candidateChanceAskAt(candidate, wanted)`, used only by the advice. That keeps the
 > independent oracle independent and avoids the ULP round trip through `ceiling`.
 
@@ -872,7 +872,7 @@ preparation.
 **Step 5 — interface.**
 - `rune-overlay.tsx` `Evaluation`:
   - *Selected Rune quality floor* → value `Top 5 %` (the base allowance).
-  - *Required Max value for this rune* → label **Required quality for this rune**,
+  - *Required Potential for this rune* → label **Required quality for this rune**,
     value `Top 4.25 %` (the chosen reading's α).
   - Add **Quality of this rune**: `Top 3.2 %` (`qualityShare`).
   - Readings table: replace nothing that exists. Add a column **Quality** (`Top x %`)
@@ -881,14 +881,15 @@ preparation.
   - These are new labels, not renames of a label a test addresses. Check
     `tests/rune-overlay.spec.ts:122` and update it to the new facts.
 - `rune-cleanup-grid.ts`: add a sortable **Quality** column (`qualityShare`,
-  ascending is best) beside *Max value*, hidden by default like *Max value*, with
+  ascending is best) beside *Potential*, hidden by default like *Potential*, with
   the same reserved-width rule.
 - **One formatter**, `runeQualityText(share, requirement)`, in
   `rune-cleanup-advice.ts` beside `runeChanceText`. It prints the requirement
   exactly (percent, at most three decimals, trailing zeros trimmed) and the share
-  **rounded up** to the same number of decimals, minimum one. Then the printed share
-  is ≤ the printed requirement exactly when the rune passes the reading. A share of 0
-  (above every sample) prints `Top 0 %`.
+  **rounded up** to the same number of decimals, minimum one, and two below 0.1 %.
+  Then the printed share is ≤ the printed requirement exactly when the rune passes
+  the reading. A share never prints below its last decimal, so a share of 0 (above
+  every sample) prints `Top 0.01 %`.
 - `the-math-section.tsx`: rewrite the *Rune quality floor* paragraph. Each stop is a
   top share of the runes of the same slot and main for one build; Accepted, Broken
   and Intangible widen or narrow that share; Power-up policy is the chance that any
@@ -913,7 +914,7 @@ preparation.
 > AGENTS.md even though the slider itself keeps its name.
 
 > **Assessment (Claude).** Agreed, including a correction of my own decision 3.3.3.
-> Replacing *Required Max value for this rune* is a rename of an accessible label, so
+> Replacing *Required Potential for this rune* is a rename of an accessible label, so
 > `AGENTS.md` §7 item 14's repository-wide grep applies. Reserving the column for
 > `Top 99.999 %` and sorting missing values last: agreed.
 
@@ -958,7 +959,7 @@ Adjust:
 **Step 7 — checks.** See §7.
 
 **Step 8 — documents.**
-- `RUNE-CLEANUP-MATH.md`: §5 calls Max value an efficiency figure that no gate reads
+- `RUNE-CLEANUP-MATH.md`: §5 calls Potential an efficiency figure that no gate reads
   except the safeguard. §9 and §9.1 state the quality gate of §4 here. §9.4 is
   replaced by the reference sample. §9.7 is removed. §10 gets the new check list.
 - `RUNE-CLEANUP-INTERFACE.md`: the overlay facts, the Quality column and the
@@ -1034,7 +1035,7 @@ in `test:domain`):
 
 | Check | Change |
 | --- | --- |
-| `verify:rune-slot-neutrality` | Its Max-value anchor and floor assertions go. Keep checkpoint identity, empty inputs and rejection of unusable mains. Add: the base allowance means the same share in every slot (from 7.1.1). |
+| `verify:rune-slot-neutrality` | Its Potential anchor and floor assertions go. Keep checkpoint identity, empty inputs and rejection of unusable mains. Add: the base allowance means the same share in every slot (from 7.1.1). |
 | `verify:rune-slot-policy-matrix` | Replace the 625-cell grid and the χ² floor balance with 7.1.3 over all 625 combinations: structural monotonicity only. |
 | `verify:rune-cleanup-calibration` | Keep the independent generator, chance and craft oracles. Drop any assertion on the fitted floor. `judgeAgainstBuild` callers pass raw bars. |
 | `verify:rune-chance-stability` | Unchanged in purpose. Add a sweep of `referenceSampleSize` at 4,096 / 16,384 / 65,536: totals by slot, role and rank hold still within the documented band. This is what makes decision 3.3.2 verifiable. |
@@ -1144,15 +1145,15 @@ shader is unchanged, so `verify:rune-chance-card` only needs to pass as before.
 ## 8. Safeguards
 
 `withRuneSellProtection` keeps its four safeguards and their order. One change:
-*Potential value ≥* reads `advice.readingChance ≥ 0.01` instead of `advice.chance`. The
+*Potential ≥* reads `advice.readingChance ≥ 0.01` instead of `advice.chance`. The
 efficiency figure and its chance must come from the same reading, and the union
 chance can be contributed by other readings (proposal §8). *Pre-grind SPD*,
 *Engraved in non-Scenario preset* and *Re-app/refine target* are unchanged.
 
-> **Review — meaning of Potential value.** Using the chosen reading's own
+> **Review — meaning of Potential.** Using the chosen reading's own
 > chance is required. Name it precisely as the chance of reaching that
 > reading's quality bar. That is a different event from clearing the old
-> Max-value floor, and from finishing above the user's Potential value
+> Potential floor, and from finishing above the user's Potential
 > threshold. Keep the existing same-reading safeguard semantics if that is
 > intended. Decide explicitly whether only the chosen reading can protect
 > a sale (as the plan says) or any qualifying permitted reading can. Under
@@ -1162,7 +1163,7 @@ chance can be contributed by other readings (proposal §8). *Pre-grind SPD*,
 > explanation, precedence and placement checks on the existing shared path.
 
 > **Assessment (Claude).** Agreed. I recommend keeping today's chosen-reading rule;
-> production already reads the chosen reading's Max value and chance. The plan should
+> production already reads the chosen reading's Potential and chance. The plan should
 > name the event precisely: the chance of reaching that reading's quality bar. With
 > the worth discount kept (§4.4 assessment), only the chance's event changes, from the
 > old floor to the reading's cutoff. The Best-role-change test is worth adding.
@@ -1219,7 +1220,7 @@ before implementation:
 1. **Pricing seam (§4.1):** the reference planner must share legality, main
    resolution and the zero-ceiling check with `prepareRuneCandidate`, through one
    function.
-2. **Worth discount (§4.4):** the accepted/broken discount on Max value and the
+2. **Worth discount (§4.4):** the accepted/broken discount on Potential and the
    expectation must be kept. The plan deleted it by accident.
 3. **Full-allowance bar (§4.5):** the positive-score guard must not be a subnormal
    that packs to zero in Float32.

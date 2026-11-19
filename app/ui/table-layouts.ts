@@ -162,7 +162,7 @@ export const artifactTableColumns: readonly TableColumn[] = [
 /**
  * The Rune Clean-up verdict table.
  *
- * The two figures the whole page exists for — Max value and Chance — sit beside
+ * The two figures the whole page exists for — Potential and Chance — sit beside
  * each other and beside the role they were measured against, because reading one
  * without the other two says nothing. The sub properties take the widest column:
  * they are what the player is actually judging when they disagree with the verdict.

@@ -155,7 +155,7 @@ for (const [ancient, stars] of [[false, 4], [false, 5], [false, 6], [true, 6]]) 
 runes.push(makeCraftedFixture());
 
 const eps = 1e-10;
-/* A score in the role's own units, as a threshold in one candidate's Max-value units.
+/* A score in the role's own units, as a threshold in one candidate's Potential units.
    Both credits share the one ruler, so this is the identity today; it is kept so the
    promise stays stated about one score rather than about one reading of a scale. */
 const atScore = (candidate, score) => score / candidate.ceiling;
@@ -286,7 +286,7 @@ assert.equal(candidateChance(toleranceCraftCandidate, craftedBar), withCraft,
  * stone between them. Credited, it read 70.9 % before the grind and 72.2 % after.
  *
  * So every fixture is ground for real, line by line, to exactly the credited stone and
- * then past it. At the credit the row must not move by a bit: Max value, standing,
+ * then past it. At the credit the row must not move by a bit: Potential, standing,
  * role, verdict — and chance, at `+12`, where it is settled rather than counted.
  * Past it the rune may only rise.
  */
@@ -324,7 +324,7 @@ for (const rune of standardRunes) {
   const more = pastCredit.get(`${rune.id}-ground-1`);
   assert.ok(before && same && more, `${rune.id} lost its row when it was ground`);
   assert.equal(same.maxValue, before.maxValue,
-    `${rune.id}: a stone no larger than the credited one moved Max value from ${before.maxValue} to ${same.maxValue}`);
+    `${rune.id}: a stone no larger than the credited one moved Potential from ${before.maxValue} to ${same.maxValue}`);
   assert.equal(same.qualityShare, before.qualityShare,
     `${rune.id}: a stone no larger than the credited one moved the quality share from ${before.qualityShare} to ${same.qualityShare}`);
   assert.equal(same.role?.id, before.role?.id, `${rune.id}: grinding to the credit changed the role`);

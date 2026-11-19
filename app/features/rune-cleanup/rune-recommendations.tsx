@@ -94,7 +94,7 @@ const placeLabels: Readonly<Record<RunePlace, string>> = { engraved: 'Engraved',
 
 /* The Advice filter asks one question of the two rerolls: which runes go to a stone.
    Its `reapp` option stands for both, and the rows still say which stone. */
-const adviceFilterOptions: readonly RuneVerdict[] = ['power-up', 'keep', 'reapp', 'sell', 'unavailable'];
+const adviceFilterOptions: readonly RuneVerdict[] = ['power-up', 'keep', 'reapp', 'sell'];
 const adviceFilterLabel = (verdict: RuneVerdict) => (verdict === 'reapp' ? 'Re-app/refine' : runeVerdictLabels[verdict]);
 const adviceFilterOf = (verdict: RuneVerdict): RuneVerdict => (verdict === 'refine' ? 'reapp' : verdict);
 
@@ -160,7 +160,7 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('subs', 'Sub properties'),
     column('location', 'Location'),
     column('role', 'Best role'),
-    column('maxValue', <span className="table-heading-two-line" aria-label="Max value: the best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent.">Max<br />value</span>),
+    column('maxValue', <span className="table-heading-two-line" aria-label="Potential: the best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent.">Potential</span>),
     column('quality', <span title="Top share for Best role at the best reachable +15 score">Quality</span>),
     column('chance', <span className="table-heading-two-line" aria-label="Chance that at least one permitted build reaches its quality bar">Chance</span>),
     column('advice', 'Advice'),
@@ -218,7 +218,6 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   const [result, setResult] = useState<RuneCleanupResult | null>(snapshot?.result ?? null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [showQuality, setShowQuality] = useState(snapshot?.showQuality ?? false);
   const [preparation, setPreparation] = useState<number | null>(null);
   const [progressKey, setProgressKey] = useState<string | null>(null);
   /* A failed input is retried only after another change or an explicit Calculate. */
@@ -457,7 +456,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   /* Save only committed screen state. The owner outlives navigation, while the
      page and its workers can still unmount normally. A cancelled request never
      replaces the last completed table or leaves the next visit busy. */
-  useLayoutEffect(() => { session.remember({ result, sort, showQuality, arranged, failure }); }, [session, result, sort, showQuality, arranged, failure]);
+  useLayoutEffect(() => { session.remember({ result, sort, arranged, failure }); }, [session, result, sort, arranged, failure]);
   if (held !== null && arranged?.key !== arrangement) {
     setArranged({ key: arrangement, ids: sorted.map((row) => row.rune.id), known: new Set(rowsById.keys()) });
   }
@@ -515,16 +514,14 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             ? { title: 'Nothing calculated yet.', detail: 'Press Calculate to put every rune on trial. The standards they are judged by live in Rune Settings.' }
             : null;
 
-  const displayedColumns = showQuality ? columns : columns.filter(({ key }) => key !== 'quality');
-  const tableLayout = showQuality ? runeCleanupTableColumns : runeCleanupTableColumns.filter(({ key }) => key !== 'quality');
   return <>
     <DataTablePage
         filterClassName="rune-filter-strip"
         tableClassName="rune-cleanup-grid"
         headerLabel="Rune verdict columns"
         tableLabel="Rune verdicts"
-        columnGroup={<TableColumnGroup columns={tableLayout} />}
-        header={<SortableHeader columns={displayedColumns} sort={sort} onToggle={toggle} />}
+        columnGroup={<TableColumnGroup columns={runeCleanupTableColumns} />}
+        header={<SortableHeader columns={columns} sort={sort} onToggle={toggle} />}
         filters={<>
           <div className="rune-filter-column">
             <div className="filter-group rune-filter-search">
@@ -613,15 +610,15 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               </div>
               <div className="filter-group-controls">
                 <div className="checkbox-row">
-                  <input id="rune-potential-protection" type="checkbox" aria-label="Potential value ≥"
+                  <input id="rune-potential-protection" type="checkbox" aria-label="Potential ≥"
                     checked={settings.neverSellPotentialValue}
                     onChange={(event) => onUpdate({ neverSellPotentialValue: event.target.checked })} />
                   <label htmlFor={settings.neverSellPotentialValue ? 'rune-potential-protection' : undefined}
-                    aria-disabled={!settings.neverSellPotentialValue}>Potential value ≥</label>
+                    aria-disabled={!settings.neverSellPotentialValue}>Potential ≥</label>
                 </div>
                 <input className="rune-speed-minimum type-body" type="text" inputMode="numeric" maxLength={3}
                   disabled={!settings.neverSellPotentialValue}
-                  aria-label="Minimum potential value" value={settings.potentialValueMinimum ?? ''}
+                  aria-label="Minimum potential" value={settings.potentialValueMinimum ?? ''}
                   onChange={(event) => {
                     const text = event.target.value;
                     if (text === '') { onUpdate({ potentialValueMinimum: null }); return; }
@@ -668,10 +665,6 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                     {runeGameSortLabels[key]}
                   </option>)}
                 </Dropdown>
-                <FilterButton active={showQuality} onClick={() => {
-                  if (showQuality && sort.key === 'quality') setSort({ key: 'maxValue', direction: 'descending' });
-                  setShowQuality(!showQuality);
-                }}>Quality column</FilterButton>
               </div>
             </div>
           </div>
@@ -736,9 +729,9 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
             <td className={cell('maxValue')}>
               {runeMaxValueShown(row) ? `${Math.round(row.advice.maxValue * 100)} %` : <span className="muted">—</span>}
             </td>
-            {showQuality && <td className={cell('quality', 'rune-quality-share')}>
+            <td className={cell('quality', 'rune-quality-share')}>
               {runeQualityText(row.advice.qualityShare, row.advice.requirement)}
-            </td>}
+            </td>
             {/* A rune at +12 has spent every substat upgrade it will ever get, so there is
                 nothing left to be uncertain about and no odds to print. A dash says
                 that; "100 %" beside a Keep would invite the reader to compare a
@@ -757,7 +750,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               </span>
             </td>
           </tr>) : <tr>
-            <td className="table-empty-state" colSpan={tableLayout.length}>
+            <td className="table-empty-state" colSpan={runeCleanupTableColumns.length}>
               {emptyState ? <>
                 <span>{emptyState.title}</span><br />
                 <span>{emptyState.detail}</span>

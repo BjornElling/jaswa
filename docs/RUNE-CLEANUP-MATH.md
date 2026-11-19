@@ -229,7 +229,7 @@ The stats no stone can touch weigh more against the ones it can.
 judged for the build it would join and that build completes the rune's set. The weights
 are the yardstick, and a recommendation compares runes across sets; giving each set its
 own yardstick retained identical rune bodies at different rates purely by their label,
-in both directions. Max value is a ratio, so no choice of denominator repairs a change
+in both directions. Potential is a ratio, so no choice of denominator repairs a change
 in the *shape* of the weight vector. Equal treatment across sets therefore requires
 weights that do not depend on the candidate's set at all.
 
@@ -265,7 +265,7 @@ an input, so this is the answer for every rune in that slot of that build.
 A maximum CRI Dmg roll is worth 2.8 maximum Accuracy rolls to this role, and a maximum
 SPD roll 6.3 of them.
 
-## 5. Value, Max value and the perfect rune
+## 5. Value, Potential and the perfect rune
 
 A rune's score is a plain sum over every line it carries, **the innate included**, plus
 its main's shortfall (§2), which is zero for a six-star or Ancient rune:
@@ -286,7 +286,7 @@ ordinary six-star rune for this role in this slot**, for every rune:
 - every duplication, main-property, innate and slot rule of `RUNE-CANONICAL.md` §§3–5.
 
 ```
-Max value = score / ceiling
+Potential = score / ceiling
 ```
 
 Both are in six-star max rolls (§2), so a perfect six-star rune reads 100 % and a
@@ -296,7 +296,7 @@ its main. There is no multiplicative main factor: a six-star main is what the
 requirement already counts (§4.1), and a lower-star main is charged only what it lacks
 of a stat the role pays for.
 
-**100 % is a reference point, never a ceiling.** No Max value, expectation or Gems &
+**100 % is a reference point, never a ceiling.** No Potential, expectation or Gems &
 Grinds score is capped anywhere. A rune that reads more than the perfect ordinary rune —
 an Ancient rune's higher born rolls, a line already ground past the canonical stone —
 reads more, and keeps every recommendation that would lift it further. A cap made every
@@ -305,9 +305,9 @@ rune above the mark look alike and left nothing to recommend for it.
 exactly 100 %, and a rising line keeps rising past it. Probabilities and shares — a
 Chance, a quality share — stay between 0 and 1, because they are not scores.
 
-Max value is efficiency against the perfect ordinary rune. Accepted and Broken
+Potential is efficiency against the perfect ordinary rune. Accepted and Broken
 matches discount the figure and the expectation by the corresponding rank
-factor. The Potential value safeguard uses the discounted efficiency and the
+factor. The Potential safeguard uses the discounted efficiency and the
 chance from the same reading. The verdict gate reads sampled quality (§9.1).
 
 ### 5.1 Every compatible build is evaluated
@@ -461,12 +461,12 @@ gains and every improvement is drawn from the ordinary six-star table (§1). The
 floor, the weights, the sampled reference and the perfect-rune denominator are ordinary, so an
 Ancient rune moves against a bar that does not. Its craft items are Ancient, because
 that is a legality rule (§6). `verify:rune-cleanup-ancient` holds this: an Ancient and
-an ordinary Magic rune with the same born line read the same Max value and the same
+an ordinary Magic rune with the same born line read the same Potential and the same
 Chance within the counting band.
 
 ## 8. Runes below +15 and below six stars
 
-A rune's Max value is what it can still become, so an unfinished rune is projected to
+A rune's Potential is what it can still become, so an unfinished rune is projected to
 its own best legal end state before it is scored.
 
 | The rune | What the projection does |
@@ -476,7 +476,7 @@ its own best legal end state before it is scored.
 | Below six stars | Its own star class's intervals for every future roll, because those are the rolls it can get. Its lines priced in six-star max rolls, its main's `+15` shortfall charged, and measured against the perfect six-star rune and six-star drops (§2, §5, §9.4). |
 | Hero, Rare, Magic or Normal born | Its own rarity's schedule decides every remaining event, so its best end state and chance are its own. Measured against the Legend-born reference, a rune perfect for its rarity reads below 100 % (§4.2). |
 | Ancient | Born lines at their Ancient values; added lines, improvements, the weights, the box, the main property and the denominator ordinary six-star. Craft items Ancient (§7.4). |
-| At `+12` or above | No sub-property event left. The `+15` main is deterministic, so Max value is settled and Chance is 1 or 0. The row says `Main stat only`, `Already there` or `Below the floor` rather than dressing a certainty as a gamble. |
+| At `+12` or above | No sub-property event left. The `+15` main is deterministic, so Potential is settled and Chance is 1 or 0. The row says `Main stat only`, `Already there` or `Below the floor` rather than dressing a certainty as a gamble. |
 
 The denominator and the sampled reference never move with the candidate's own rolls,
 star class, lineage or level. A four-star rune is asked the same question as a six-star
@@ -522,8 +522,8 @@ scores, because a later policy asks other bars of them.
 ### 9.2 Safeguards
 
 Pre-grind SPD, engraving outside Scenario and Re-app/refine targets retain their
-existing definitions. Potential value requires the chosen reading's discounted
-Max value to reach the user's minimum and its chance of reaching that reading's
+existing definitions. Potential requires the chosen reading's discounted
+Potential to reach the user's minimum and its chance of reaching that reading's
 quality bar to reach 1 %. Safeguards run on the verdict supplied by the same
 engine and can be reapplied to held readings when preferences change.
 
@@ -565,7 +565,7 @@ scores.
 If the union clears, choose among the individual readings that contribute a
 hit. Otherwise choose among all permitted readings. A forbidden reading can
 supply a name when no permitted one exists. Rank by discounted expected value,
-then Max value, smaller quality share, higher individual chance, role ID
+then Potential, smaller quality share, higher individual chance, role ID
 and the slot 2, 4 and 6 main IDs. The overlay's Best row uses the same candidate.
 For each other role, choose from individually clearing builds first, then
 positive-chance builds, then other permitted builds, then naming fallbacks.

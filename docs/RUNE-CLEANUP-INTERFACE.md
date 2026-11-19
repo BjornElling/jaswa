@@ -78,10 +78,10 @@ Unsellable keep their own labels.
   main SPD do not count. A blank threshold means no safeguard; an explicit zero protects
   every rune with a SPD sub property. Unchecked, its wording is dimmed and inactive, and
   its field is disabled with the chosen value kept. Reason: `Pre-grind SPD protected`.
-- **Potential value ≥** — on, at **90 %**. Protects a rune whose Chance is at least
-  **1 %** and whose Max value is at least the threshold, both inclusive and compared
+- **Potential ≥** — on, at **90 %**. Protects a rune whose Chance is at least
+  **1 %** and whose Potential is at least the threshold, both inclusive and compared
   before display rounding. Blank disables it; zero is a stated threshold. Its field behaves
-  as above. Reason: `Potential value protected`.
+  as above. Reason: `Potential protected`.
 - **Engraved in non-Scenario preset** — on. A rune engraved on a monster in any preset
   outside Scenario is never recommended for sale, even if that is its only placement.
   Scenario alone does not protect a rune. Location and protection read the same
@@ -285,10 +285,15 @@ only shown or hidden, so its coming and going moves nothing.
 
 ## 6. Quality and the Best role reading
 
-The **Quality column** control reveals a sortable column next to Max value.
-The smallest sampled share sorts first. A dash follows values in both directions.
-Visibility and sorting follow the held table across navigation.
-Max value remains visible in the default table.
+**Quality** is a sortable column beside Potential, always shown: a toggle for it
+was one more control for a figure the verdict rests on. The smallest sampled
+share sorts first. A dash follows values in both directions. Sorting follows the
+held table across navigation.
+
+The Advice filter offers Power up, Keep, Re-app/refine and Sell. It offers no
+*Unavailable*: the page calculates only with a reference line, and
+`referenceLines` gives every role type one — its family's, or the roster's — so
+no rune on this page can reach that verdict.
 
 Evaluation in the rune overlay shows **Selected Rune quality floor**,
 **Required quality for this rune**, **Quality of this rune** and **Chance across
@@ -298,6 +303,8 @@ reports how often the run reaches a qualifying end state. The overlay and table
 reserve width for the longest quality figure.
 
 A requirement prints its exact percent. Quality rounds the inclusive sample
-share up to the requirement's precision, with at least one decimal of precision.
-A score above every sample prints `Top 0 %`. Forbidden and unavailable
+share up to the requirement's precision, with at least one decimal of precision,
+and two below 0.1 %. A share never prints below its last decimal, so a score
+above every sample prints `Top 0.01 %`; `Top 0 %` read as no rank at all.
+Forbidden and unavailable
 readings have no quality or chance to print.

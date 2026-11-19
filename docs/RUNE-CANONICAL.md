@@ -27,7 +27,7 @@ A **roll** is either a sub property's first value or a later improvement of it
 at +3, +6, +9 or +12. +15 gives no sub-property roll; it improves the main
 property only.
 
-JASWA's projections, Max values and chances describe the finished rune at +15.
+JASWA's projections, Potentials and chances describe the finished rune at +15.
 Its sub properties are those at +12, since nothing rolls between +12 and +15;
 only the main property grows, deterministically, in that interval.
 
@@ -271,7 +271,7 @@ the ordinary 6★ table.** Evidence, the account export of October 19, 2026
   among them), which no born Ancient line can be.
 - Ancient runes at +9, before the Hero's fourth line arrives: none.
 
-Pricing every future roll from the Ancient table would raise both Max value and
+Pricing every future roll from the Ancient table would raise both Potential and
 Chance falsely.
 
 Ancient runes take their own **Ancient Enchanted Gems**, **Ancient

@@ -125,7 +125,7 @@ discounts as Clean-up.
 Score is the best current reading in percentage points of that fixed ruler,
 before and after separately. Gain is their difference, so a change of best role
 is counted. This is a current-line craft comparison, distinct from Clean-up's
-future Max value and expected-value verdict. `RUNE-CRAFT-ITEMS.md` section 5
+future Potential and expected-value verdict. `RUNE-CRAFT-ITEMS.md` section 5
 states the rankings and their resource scope.
 
 ## 6. Control against SWOP Pro

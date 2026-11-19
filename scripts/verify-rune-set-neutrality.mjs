@@ -116,7 +116,7 @@ function check(condition, message) {
 
 const random = makeRandom(seed);
 /* A spread of power-up levels, so the Chance half of a verdict is exercised too and
-   not only the deterministic Max value of finished runes. */
+   not only the deterministic Potential of finished runes. */
 const bodies = Array.from({ length: runeCount }, (_, id) =>
   powerUp(random, freshBody(random, id), [0, 6, 9, 12, 15][id % 5]));
 

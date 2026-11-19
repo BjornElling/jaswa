@@ -129,7 +129,10 @@ describe('sampled rune quality', () => {
     expect(runeQualityText(null, 0.0425, true)).toBe('Top 4.25 %');
     expect(runeQualityText(k / referenceSampleSize, 0.0425)).toBe('Top 4.25 %');
     expect(runeQualityText((k + 1) / referenceSampleSize, 0.0425)).toBe('Top 4.26 %');
-    expect(runeQualityText(0, 1)).toBe('Top 0 %');
+    expect(runeQualityText(0, 1)).toBe('Top 0.01 %');
+    expect(runeQualityText(1 / referenceSampleSize, 0.02)).toBe('Top 0.01 %');
+    expect(runeQualityText(10 / referenceSampleSize, 0.02)).toBe('Top 0.07 %');
+    expect(runeQualityText(17 / referenceSampleSize, 0.02)).toBe('Top 0.2 %');
     expect(runeQualityText(1, 1)).toBe('Top 100 %');
     expect(runeQualityText(null, 1)).toBe('—');
     expect(qualityHits(reference, 0)).toBe(7);

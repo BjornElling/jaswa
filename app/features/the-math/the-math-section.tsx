@@ -99,7 +99,7 @@ export function TheMathSection() {
     <Disclosure title="Rune Clean-up" sessionKey="the-math.runes" defaultOpen>
       <div className="math-copy">
         <p className="lead">
-          For every rune you own, JASWA answers one question: <b className="type-body-emphasis">Power up</b>, <b className="type-body-emphasis">Keep</b>, or <b className="type-body-emphasis">Sell</b>. The answer rests on two numbers, and a rune has to satisfy both. <b className="type-body-emphasis">Max value</b> is the best this rune could ever become. <b className="type-body-emphasis">Chance</b> is how likely its remaining upgrades are to reach the required quality.
+          For every rune you own, JASWA answers one question: <b className="type-body-emphasis">Power up</b>, <b className="type-body-emphasis">Keep</b>, or <b className="type-body-emphasis">Sell</b>. The answer rests on two numbers, and a rune has to satisfy both. <b className="type-body-emphasis">Potential</b> is the best this rune could ever become. <b className="type-body-emphasis">Chance</b> is how likely its remaining upgrades are to reach the required quality.
         </p>
         <p>
           Every rune you own is judged — the ones on your monsters and the ones already at +15 along with the rest. Each verdict depends on that rune, your roles and your settings. What the table <i>shows</i> is a separate matter, and the filters above it move no figure at all.
@@ -315,7 +315,7 @@ export function TheMathSection() {
           </table>
         </div>
         <p>
-          Note that it runs <i>both</i> ways, and that no player asked for or could predict that ordering. Nor can it be patched out by dividing differently: Max value is a ratio, so scaling the weights changes nothing, and the damage is a change in their <i>shape</i> — which moves each rune by an amount depending on what it happened to roll. Equal treatment across sets needs the weights to ignore the set entirely. That is arithmetic, not taste.
+          Note that it runs <i>both</i> ways, and that no player asked for or could predict that ordering. Nor can it be patched out by dividing differently: Potential is a ratio, so scaling the weights changes nothing, and the damage is a change in their <i>shape</i> — which moves each rune by an amount depending on what it happened to roll. Equal treatment across sets needs the weights to ignore the set entirely. That is arithmetic, not taste.
         </p>
         <p>
           A set decides a verdict through the role&rsquo;s preferred and acceptable lists, except that Intangible is a permanent rule: its set side is always preferred for every role and no setting can override it. The rune&rsquo;s main-stat preference remains separate. If you ever want set bonuses back in the requirement, the honest route is for a role to say which set <i>combination</i> its builds use; a combination you state is the same for every rune, so it can shape the requirement without tilting the comparison.
@@ -423,8 +423,8 @@ export function TheMathSection() {
               </tbody>
             </table>
           </div>
-          <p className="math-equation" aria-label="Max value: 4.01 divided by 6.41 equals 63 percent">
-            <span className="math-equation-label">Max value</span><span>4.01</span><span aria-hidden="true">/</span><span>6.41</span><span aria-hidden="true">=</span><b className="type-body-emphasis">63 %</b>
+          <p className="math-equation" aria-label="Potential: 4.01 divided by 6.41 equals 63 percent">
+            <span className="math-equation-label">Potential</span><span>4.01</span><span aria-hidden="true">/</span><span>6.41</span><span aria-hidden="true">=</span><b className="type-body-emphasis">63 %</b>
           </p>
           <p>
             The Accuracy line rolled near its maximum and still earns 0.139, while a slightly-above-average SPD line earns twenty times that. That is the whole point: the rune is good <i>because</i> of what it rolled into, not because it rolled into four things the role happens to mention.
@@ -433,7 +433,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Runes that are not finished yet</h3>
         <p>
-          Max value is what a rune <i>can become</i>, so an unfinished rune is projected forward to <span className="math-relic-level">+15</span> first. A Legend rune upgrades its existing lines at +3, +6, +9 and +12. Hero upgrades at the first three stops and reveals its fourth line at +12; Rare upgrades at +3 and +6, then reveals lines at +9 and +12. At +15 only the main stat grows.
+          Potential is what a rune <i>can become</i>, so an unfinished rune is projected forward to <span className="math-relic-level">+15</span> first. A Legend rune upgrades its existing lines at +3, +6, +9 and +12. Hero upgrades at the first three stops and reveals its fourth line at +12; Rare upgrades at +3 and +6, then reveals lines at +9 and +12. At +15 only the main stat grows.
         </p>
         <p>
           Take the same rune at <span className="math-relic-level">+6</span>, before it drew its HP line. Two events are left: one new line, and one upgrade.
@@ -486,7 +486,7 @@ export function TheMathSection() {
           Its main stat counts too. What the role still needs is worked out for a finished six-star build, main stats at <span className="math-relic-level">+15</span> included, so a five-star main that reaches <span className="math-table-rolled">ATK + 51 %</span> instead of <span className="math-table-rolled">63 %</span> leaves twelve points for the other runes to find. Those points are charged at what the role pays for ATK; a main the role does not want costs nothing. A perfect five-star rune therefore reads well below 100 %, and nearly every five-star rune sells once the floor sits a little above its minimum.
         </p>
         <p>
-          Ancient runes are six-star runes measured against the <i>ordinary</i> six-star reference. They use their higher verified <i>initial</i> substat interval in the Max-value and Chance projections; their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, sampled reference and perfect-rune denominator follow the ordinary rules, and they take Ancient craft items only. The projection finishes at <span className="math-relic-level">+15</span>; +12→+15 raises only the main stat. Because the denominator stays ordinary, a maximum Ancient result reads above 100 %.
+          Ancient runes are six-star runes measured against the <i>ordinary</i> six-star reference. They use their higher verified <i>initial</i> substat interval in the Potential and Chance projections; their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, sampled reference and perfect-rune denominator follow the ordinary rules, and they take Ancient craft items only. The projection finishes at <span className="math-relic-level">+15</span>; +12→+15 raises only the main stat. Because the denominator stays ordinary, a maximum Ancient result reads above 100 %.
         </p>
 
         <h3 className="type-heading">Gems and Grindstones</h3>
@@ -514,7 +514,7 @@ export function TheMathSection() {
           Accepted and Broken matches narrow the share, while Intangible preference widens it. The allowance describes one build and one kind of drop. Actual keep rates depend on the builds your roles allow and which runes you own.
         </p>
         <p>
-          Max value measures the best reachable score against a perfect ordinary rune and includes the Accepted or Broken discount. The Potential value safeguard also requires at least a 1 % chance of reaching that same reading&rsquo;s quality bar. Quality measures the top share at the best reachable score.
+          Potential measures the best reachable score against a perfect ordinary rune and includes the Accepted or Broken discount. The Potential safeguard also requires at least a 1 % chance of reaching that same reading&rsquo;s quality bar. Quality measures the top share at the best reachable score.
         </p>
         <p>
           JASWA checks every compatible build on the same set of future rolls. If the joint chance passes, Best role is the reading with the highest expected value among readings that contribute a hit. Otherwise, each permitted reading can compete for Best role.
@@ -627,7 +627,7 @@ export function TheMathSection() {
           Every compatible build gets a reading. The overlay shows which reading supplied Best role, its required quality and its chance of reaching that quality.
         </p>
         <p>
-          Every star class is rated against the best six-star rune, its main stat&rsquo;s shortfall included. An Ancient rune uses its higher verified initial-roll interval only in its Max-value and Chance projections; its role valuation, sampled reference and perfect-rune denominator use the ordinary 6★ rules. Ancient Gems and Grindstones use their own legal tables.
+          Every star class is rated against the best six-star rune, its main stat&rsquo;s shortfall included. An Ancient rune uses its higher verified initial-roll interval only in its Potential and Chance projections; its role valuation, sampled reference and perfect-rune denominator use the ordinary 6★ rules. Ancient Gems and Grindstones use their own legal tables.
         </p>
       </div>
     </Disclosure>

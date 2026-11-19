@@ -42,11 +42,10 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   expect(await filterBoxes()).toEqual(beforeCalculation);
   await expect(table.getByRole('img', { name: /quality$/ })).toHaveCount(4);
   await expect(page.getByRole('table', { name: 'Rune verdict columns' }).locator('thead th'))
-    .toHaveText(['Set', 'Slot', 'Lv.', 'Main', 'Innate', 'Sub properties', 'Location', 'Best role', 'Maxvalue', 'Chance', 'Advice']);
+    .toHaveText(['Set', 'Slot', 'Lv.', 'Main', 'Innate', 'Sub properties', 'Location', 'Best role', 'Potential', 'Quality', 'Chance', 'Advice']);
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-calculated.png') });
-  const quality = cleanup.getByRole('button', { name: 'Quality column' });
-  await expect(quality).toHaveAttribute('aria-pressed', 'false');
-  await quality.click();
+  await expect(cleanup.getByRole('button', { name: 'Quality column' })).toHaveCount(0);
+  await expect(cleanup.getByRole('button', { name: 'Unavailable', exact: true })).toHaveCount(0);
   const heading = cleanup.getByRole('columnheader', { name: 'Quality', exact: true });
   await expect(heading).toBeVisible();
   await heading.getByRole('button').click();
@@ -56,7 +55,6 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   const navigation = page.getByRole('navigation');
   await navigation.getByRole('button', { name: 'Home', exact: true }).click();
   await navigation.getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  await expect(quality).toHaveAttribute('aria-pressed', 'true');
   await expect(heading).toHaveAttribute('aria-sort', 'ascending');
 
 });
@@ -276,8 +274,8 @@ test('potential protection saves both choices and keeps independent filter colum
   await expect(page.getByText('craft-account.json')).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
-  const potential = page.getByRole('checkbox', { name: 'Potential value ≥' });
-  const minimum = page.getByRole('textbox', { name: 'Minimum potential value' });
+  const potential = page.getByRole('checkbox', { name: 'Potential ≥' });
+  const minimum = page.getByRole('textbox', { name: 'Minimum potential' });
   const speed = page.getByRole('checkbox', { name: 'Pre-grind SPD ≥' });
   await expect(potential).toBeChecked();
   await expect(minimum).toHaveValue('90');

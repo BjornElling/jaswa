@@ -351,7 +351,7 @@ function verifyOneSixStarScale() {
   check(shortfall < 0, 'a five-star ATK % main should cost a role that pays for ATK.');
   check(close(candidateMaxValue(five) - candidateMaxValue(six), shortfall, 1e-9),
     'a five-star rune with six-star lines should read lower by exactly its main shortfall.');
-  console.log(`A five-star ATK % main costs Fast DD ${(-shortfall * 100).toFixed(1)} points of Max value.`);
+  console.log(`A five-star ATK % main costs Fast DD ${(-shortfall * 100).toFixed(1)} points of Potential.`);
 
   /* An unfinished rune is scored on what it can still become, so the same lines at
      +0 must reach the same ceiling they reach at +12 — every remaining upgrade is

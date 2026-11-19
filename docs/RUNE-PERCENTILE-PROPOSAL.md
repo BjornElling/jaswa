@@ -6,7 +6,7 @@
 
 > **What still stands and what does not.** The plan keeps this proposal's
 > reading-local percentiles, the union over readings, the policy stops and their
-> factors, the shared canonical craft placement (§4.1), Max value as an efficiency
+> factors, the shared canonical craft placement (§4.1), Potential as an efficiency
 > figure and the safeguards (§§1, 4–8). It replaces the rest:
 >
 > - **Denominator.** A reading is ranked against the runes of the **same slot, star

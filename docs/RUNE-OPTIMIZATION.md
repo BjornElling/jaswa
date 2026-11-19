@@ -489,7 +489,7 @@ Identical candidates break the tie towards the rune already on the monster.
 Within one rune, equally useful Gem plans preserve its strongest matching role: when two
 or more replacement lines contribute to none of the monster's judged figures, the least
 valuable line for that role is offered first. The role comes from the user's saved roles
-and account reference stats, using the Clean-up engine's Max value ruler without assumed
+and account reference stats, using the Clean-up engine's Potential ruler without assumed
 Gems or Grindstones; both set and main must match. Monster figures, ranges, legal
 converted lines and held-item spend still decide dominance first. With no matching role or
 reference line, the ordinary stable order remains. Editing roles marks an existing

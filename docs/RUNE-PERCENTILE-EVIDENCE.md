@@ -276,7 +276,7 @@ of a specialist reference.
 
 The before and after equivalence baselines each covered the same 582
 synthetic runes in six scenarios. The comparison found the expected changes
-in Chance, verdict, Best role and the Best reading's discounted Max value.
+in Chance, verdict, Best role and the Best reading's discounted Potential.
 The fresh baseline includes quality share, requirement and marginal chance.
 The final scorer reproduced it exactly. The SHA-256 of the synthetic JSON
 baseline was `73fb472949c24a668746c3468dabb11b5aa188bb3f9f0826360f18c72df420dc`.

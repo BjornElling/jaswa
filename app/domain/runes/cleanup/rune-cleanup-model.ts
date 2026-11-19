@@ -2,10 +2,10 @@
  * **The single source of truth for what a rune is worth and what it may become.**
  *
  * `docs/RUNE-CLEANUP-MATH.md` owns the reasoning; this owns the arithmetic. Every
- * figure the Rune Clean-up page states — a rune's Max value, its chance of reaching a
+ * figure the Rune Clean-up page states — a rune's Potential, its chance of reaching a
  * threshold, which role suits it — is settled here and nowhere else. A second
  * implementation would not merely duplicate work: it would drift, and the page would
- * then state two Max values for the same rune without either being obviously wrong.
+ * then state two Potentials for the same rune without either being obviously wrong.
  *
  * Two modules are underneath it and own one question each, because both were being
  * answered in several places and two of the copies had already drifted:
@@ -591,7 +591,7 @@ export function candidateExpectedValue(candidate: RuneCandidate, runs: () => Run
 
 /**
  * **A ceiling on `candidateExpectedValue` that needs no runs**: the exact part plus the
- * most a Gem can add to any run, and never above the Max value, since no run beats the
+ * most a Gem can add to any run, and never above the Potential, since no run beats the
  * best end state. It is what lets Best role skip a reading without counting it.
  */
 export function candidateExpectedBound(candidate: RuneCandidate): number {
@@ -636,13 +636,13 @@ const settledAsk = (answer: number): ChanceAsk => ({ jobs: [], combine: () => an
 
 /**
  * One candidate against a raw score bar, as a sampled quality cutoff states it. Going
- * through Max value and back would multiply by the ceiling and could move the bar by
+ * through Potential and back would multiply by the ceiling and could move the bar by
  * an ulp, undoing the inclusive tie rule.
  */
 export const candidateChanceAskAt = (candidate: RuneCandidate, wanted: number, runs = chanceRuns) =>
   chanceStep(candidate.future, candidate.scoring, wanted, runs);
 
-/** One candidate against one threshold, in the Max-value units `candidateMaxValue` prints. */
+/** One candidate against one threshold, in the Potential units `candidateMaxValue` prints. */
 export function candidateChanceAsk(candidate: RuneCandidate, threshold: number): ChanceAsk {
   if (threshold === Number.NEGATIVE_INFINITY) return settledAsk(1);
   if (threshold === Number.POSITIVE_INFINITY) return settledAsk(0);

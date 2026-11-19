@@ -57,16 +57,22 @@ export function readingAllowance(settings: RunePotentialSettings, rank: MatchRan
   return Math.min(allowanceDenominator, quality * rankPercent * setPercent);
 }
 
-/** A tighter printed share never makes a failing sample rank look like a pass. */
+/**
+ * A tighter printed share never makes a failing sample rank look like a pass. A share
+ * under a tenth of a per cent takes a second decimal, and a share is never printed
+ * below its last decimal: `Top 0 %` read as no rank at all, where a score above every
+ * sample is in the top 0.01 % by any honest rounding up.
+ */
 export function runeQualityText(share: number | null, requirement: number | null, showRequirement = false): string {
   if (requirement === null || (!showRequirement && share === null)) return '—';
   const exact = Math.round(requirement * allowanceDenominator) / 10_000;
   if (showRequirement) return `Top ${exact} %`;
   if (share === null) return '—';
-  const decimals = Math.max(1, (String(exact).split('.')[1] ?? '').length);
-  const scale = 10 ** decimals;
   const hits = Math.round(share * referenceSampleSize);
-  return `Top ${Math.ceil(hits * 100 * scale / referenceSampleSize) / scale} %`;
+  const percent = hits * 100 / referenceSampleSize;
+  const decimals = Math.max(percent < 0.1 ? 2 : 1, (String(exact).split('.')[1] ?? '').length);
+  const scale = 10 ** decimals;
+  return `Top ${Math.max(1, Math.ceil(hits * 100 * scale / referenceSampleSize)) / scale} %`;
 }
 
 export type RoleReading = {
@@ -384,7 +390,7 @@ export function runeChanceText(chance: number): string {
   return points >= 1 ? `${points} %` : '<1 %';
 }
 
-/** The craft the row's Max value counted on the lines the rune shows: the whole of it
+/** The craft the row's Potential counted on the lines the rune shows: the whole of it
     from the Gem's own level, the stones alone below, where no Gem is legal yet. */
 export function finishedLines(candidate: RuneCandidate): EndStateLine[] {
   const { scoring } = candidate;
@@ -398,12 +404,12 @@ export function finishedLines(candidate: RuneCandidate): EndStateLine[] {
  * What a player still has to spend on each line to hold `craftedLines`: the Gem's new
  * id on the line it replaces, and a stone wherever the end state carries more than
  * the line already keeps. Read off the line-up the verdict counted rather than decided
- * again, so a line named here is exactly a line Max value assumed.
+ * again, so a line named here is exactly a line Potential assumed.
  */
 export type RuneCraftStep = {
   /** The id the Gem puts on this line, or `null` where no Gem is spent here. */
   gemStatId: number | null;
-  /** What Max value assumes that Gem rolls, its stone excluded; `null` where no Gem is spent. */
+  /** What Potential assumes that Gem rolls, its stone excluded; `null` where no Gem is spent. */
   gemValue: number | null;
   /** The stone the end state carries on this line, or `0` where none is spent. */
   grind: number;
@@ -468,6 +474,6 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
   return {
     ...advice, unprotectedAdvice: original,
     verdict: rune.level === lastSubPropertyLevel || rune.level >= runeMaximumLevel ? 'keep' : 'power-up',
-    reason: protectedSpeed ? 'Pre-grind SPD protected' : protectedPotential ? 'Potential value protected' : 'Preset engraving protected',
+    reason: protectedSpeed ? 'Pre-grind SPD protected' : protectedPotential ? 'Potential protected' : 'Preset engraving protected',
   };
 }
