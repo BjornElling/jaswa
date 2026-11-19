@@ -50,7 +50,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   expect(await boxes()).toEqual(beforeBoxes);
   await page.screenshot({ path: testInfo.outputPath('calculated-after-navigation.png') });
 
-  const warning = page.getByText('Standards changed. Updating the affected rune verdicts…');
+  const warning = page.getByText('The runes or their standards changed since the last calculation.');
   await expect(warning).toBeHidden();
   await page.getByRole('checkbox', { name: 'Pre-grind SPD ≥' }).uncheck();
   await expect(warning).toBeHidden();
@@ -60,14 +60,16 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   const quality = await page.locator('#rune-quality').inputValue();
   await page.locator('#rune-quality').fill(quality === '1' ? '2' : '1');
   await visit('Rune Clean-up');
-  await expect(warning).toBeHidden();
-  expect(await rows.allTextContents()).toHaveLength(4);
+  /* Only Calculate calculates: a changed standard empties the table. */
+  await expect(warning).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Rune verdicts' }).locator('.rune-link')).toHaveCount(0);
   expect(await boxes()).toEqual(beforeBoxes);
   await page.screenshot({ path: testInfo.outputPath('changed-standards.png') });
   await visit('Rune Settings');
   await page.locator('#rune-quality').fill(quality);
   await visit('Rune Clean-up');
   await expect(warning).toBeHidden();
+  await expect(rows).toHaveCount(4);
   const restoredStatus = await page.locator('.calculation-status').textContent();
 
   // A repeated export is compared by its meaningful content, not its identity.
@@ -87,10 +89,10 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   await fileInput.setInputFiles({ name: 'changed-reference.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(raw)) });
   await page.getByRole('button', { name: 'Replace data' }).click();
   await visit('Rune Clean-up');
-  await expect(warning).toBeHidden();
-  await expect(rows).toHaveCount(4);
+  await expect(warning).toBeVisible();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(warning).toBeHidden();
+  await expect(rows).toHaveCount(4);
 
   raw.wizard_id = 987654;
   for (const unit of raw.unit_list) unit.wizard_id = raw.wizard_id;

@@ -13,31 +13,29 @@ reuses what the engine answered.
 
 The application keeps the last completed Rune Clean-up result, its column sort, filters
 and arranged row order while the reader visits other workspaces. Leaving the page
-cancels unfinished work, not its last completed answer; returning resumes incremental
-refresh. A browser reload, removal of the imported account or a switch to another
+cancels unfinished work, not its last completed answer. A browser reload, removal of the imported account or a switch to another
 account clears the calculated session; preferences stay saved.
 
 | Change | What happens to the held list |
 | --- | --- |
 | Navigation, unchanged re-import, filters or sorting | Reuse the answers; filters and sorting only arrange what is shown. |
-| New rune | Judge that rune and add it above the held rows. No whole-list calculation. |
-| Level, stars, rarity, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Rejudge the affected rune under the current standards; keep its row in place. Until answered, show its previous rune and advice together. |
+| New rune, or a change to a rune's level, stars, rarity, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Empty the table until Calculate. |
 | Rune sold or removed | Keep its previous row marked Sold until Calculate removes it. |
 | Scenario or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
 | Holds, rune locks, or any *Never sell if…* safeguard or threshold | Apply the current protection immediately to the held advice. |
-| *Power-up policy*, *Rune quality floor*, *Accepted runes*, *Broken runes*, *Intangible runes* | Keep the row order and replace the affected answers automatically. The Intangible setting rejudges only Intangible runes; the others rejudge every row. |
-| Role added, removed, reordered or edited — targets, type, artifacts, sets, slot choices | Keep the row order and rejudge every row automatically, because any reading can contribute to the union. |
-| Reference averages change | Rejudge the list when a reference family a role uses changes. The averages depend on the level-40 roster, family classification and base stats, so a new, removed, awakened or levelled monster may change them even if no rune changed. Equal averages remain valid. |
+| *Power-up policy*, *Rune quality floor*, *Accepted runes*, *Broken runes*, *Intangible runes* | Empty the table until Calculate. |
+| Role added, removed, reordered or edited — targets, type, artifacts, sets, slot choices | Empty the table until Calculate. |
+| Reference averages change | Empty the table until Calculate. The averages depend on the level-40 roster, family classification and base stats, so a new, removed, awakened or levelled monster may change them even if no rune changed. Equal averages change nothing. |
 | Display formatting, hardware acceleration, craft inventory, buildings, artifacts or relics | Nothing to rejudge: formatting is read live, acceleration chooses an engine, and Clean-up uses assumed craft credit and roster base stats rather than owned items or a monster's engraved gear. |
 
-The update notice reserves its space even while the standards match, so it cannot move
-the table or its controls. Standards are compared by mathematical content, not object
-identity. A batch commits only while its inputs are still current; superseded work is
-cancelled. Until it commits, previous rune bodies and answers stay together and the
-notice names the changed standards. A failed update keeps the notice and offers
-Calculate again; missing roles or references say what is needed. Sold rows are rejudged too
-when their standards change. No update silently mixes two standards in the completed
-list.
+**Only Calculate calculates.** No change recalculates on its own, here or on any other
+page with a Calculate button. One calculation is held per account, with the standards
+and the rune bodies it read. It is shown only while all of them still hold: a verdict
+judged on other inputs is a wrong answer, not an approximate one. Otherwise the table
+holds no rows and its empty state says the runes or their standards changed; setting
+the standards back shows the held list again, because it then answers them once more.
+Standards are compared by mathematical content, not object identity. A calculation
+whose standards change while it runs reports that and commits nothing.
 
 The table, Statistics and the rune overlay key their answers with
 `rune-calculation-inputs.ts`. Rune bodies are compared separately from placement. Every role and used reference type can affect the reading weights or verdict.
@@ -48,8 +46,7 @@ prices; every reference is six-star (`RUNE-CLEANUP-MATH.md` §2). Rune Clean-up,
 the arrays before judging. Overlapping callers share unfinished references.
 Releasing the last lease cancels orphaned preparation. The pool transfers its
 reference scores to the owner, which sends only the pieces each advice worker
-needs. A request above the shared cache budget streams references by key in the advice workers and keeps the derived bars and shares. Concurrent advice channels have independent cancellation. Evaluation can use one interactive worker slot while the background pool is occupied. Automatic standards updates report progress in the controls' reserved line
-and commit their affected answers together, without rearranging the rows.
+needs. A request above the shared cache budget streams references by key in the advice workers and keeps the derived bars and shares. Concurrent advice channels have independent cancellation. Evaluation can use one interactive worker slot while the background pool is occupied.
 
 **Statistics.** Rune Settings keeps the four most recently used completed Statistics
 answers by the same inputs, in memory only. Navigation rejoins unfinished Statistics work

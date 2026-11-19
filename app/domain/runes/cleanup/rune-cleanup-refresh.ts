@@ -58,24 +58,6 @@ export function runesToJudgeAgain(held: ReadonlyMap<string, HeldRuneAdvice>, now
   });
 }
 
-/**
- * The held answers with fresh ones laid over them. A rune the answer has no entry
- * for keeps what it had, so a failed rune can never blank a row.
- */
-export function withFreshAdvice(
-  held: ReadonlyMap<string, HeldRuneAdvice>, runes: readonly Rune[], advice: ReadonlyMap<string, RuneAdvice>,
-): Map<string, HeldRuneAdvice> {
-  const next = new Map(held);
-  let nextIndex = Math.max(-1, ...[...held.values()].map((entry) => entry.index)) + 1;
-  for (const rune of runes) {
-    const answer = advice.get(rune.id);
-    if (!answer) continue;
-    const index = held.get(rune.id)?.index ?? nextIndex++;
-    next.set(rune.id, { rune, key: runeAdviceKey(rune), advice: answer, index });
-  }
-  return next;
-}
-
 /** A held answer as the table shows it: the rune as it now is wherever its answer still fits. */
 export type ShownRuneAdvice = { rune: Rune; advice: RuneAdvice; index: number; gone: boolean };
 

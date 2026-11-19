@@ -200,43 +200,6 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
   expect(outcomes.second).toBe('done');
 });
 
-test('a refresh reuses an idle worker and cannot cancel a concurrent whole calculation', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  const outcomes = await page.evaluate(async () => {
-    const OriginalWorker = window.Worker;
-    let constructed = 0;
-    window.Worker = class extends OriginalWorker {
-      constructor(url: string | URL, options?: WorkerOptions) {
-        super(url, options);
-        if (String(url).includes('rune-advice-worker')) constructed += 1;
-      }
-    };
-    const clientUrl: string = '/app/workspace/jobs/rune-advice-client.ts';
-    const settingsUrl: string = '/app/domain/profiles/preference-defaults.ts';
-    const client = await import(clientUrl) as typeof import('../app/workspace/jobs/rune-advice-client');
-    const { defaultRunePotentialSettings } = await import(settingsUrl) as typeof import('../app/domain/profiles/preference-defaults');
-    const request = { runes: [], roles: [], base: new Map(), preferWebGpu: false, settings: defaultRunePotentialSettings };
-    const initial = await client.calculateRuneAdvice(request);
-    client.cancelRuneAdvice(); // There is no unfinished work to abandon.
-    const warm = await client.refreshRuneAdvice(request);
-    const whole = client.calculateRuneAdvice(request);
-    const refresh = client.refreshRuneAdvice(request);
-    client.cancelRuneAdviceRefresh();
-    const parallel = { whole: (await whole).status, refresh: (await refresh).status };
-    const borrowed = client.refreshRuneAdvice(request);
-    const replacement = client.calculateRuneAdvice(request);
-    client.cancelRuneAdviceRefresh();
-    return { initial: initial.status, warm: warm.status, ...parallel,
-      borrowed: (await borrowed).status, replacement: (await replacement).status, constructed };
-  });
-  /* One advice worker: every request waits a tick for the shared calibration before it
-     reaches a worker, so the two cancelled here never reached one, and cancelling them
-     had no work in flight to throw away — nothing was terminated, nothing rebuilt. */
-  expect(outcomes).toEqual({ initial: 'done', warm: 'done', whole: 'done', refresh: 'superseded',
-    borrowed: 'superseded', replacement: 'done', constructed: 1 });
-});
-
 /**
  * Calculate is also the stop. While it works it names itself *Cancel
  * calculation*, offers that wording under the pointer in one unchanged box, and
