@@ -50,7 +50,7 @@ test('a changed standard empties the table and nothing recalculates until Calcul
   const original = await intangible.inputValue();
   await intangible.fill(original === '5' ? '1' : '5');
   await visit('Rune Clean-up');
-  const changed = page.getByText('The runes or their standards changed since the last calculation.');
+  const changed = page.getByText('Something changed since the last calculation.');
   await expect(changed).toBeVisible();
   await expect(rows).toHaveCount(0);
   /* Long enough for any automatic work to have started; none may. */
@@ -84,4 +84,18 @@ test('a changed standard empties the table and nothing recalculates until Calcul
   await visit('Rune Clean-up');
   await expect(rows).toHaveCount(4);
   expect(await requests()).toBe(count);
+
+  // A change in the game keeps the table: only the changed rune is judged again.
+  const order = await rows.locator('td:first-child').allTextContents();
+  raw.runes[1].upgrade_curr += 1;
+  await visit('Home');
+  await input.setInputFiles({ name: 'powered-up.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(raw)) });
+  await page.getByRole('button', { name: 'Replace data' }).click();
+  await visit('Rune Clean-up');
+  await expect(changed).toBeHidden();
+  await expect(rows).toHaveCount(4);
+  await expect.poll(requests).toBe(count + 1);
+  const asked = await page.evaluate(() => (window as typeof window & { runeRequests: string[][] }).runeRequests.at(-1));
+  expect(asked).toEqual([String(raw.runes[1].rune_id)]);
+  expect(await rows.locator('td:first-child').allTextContents()).toEqual(order);
 });

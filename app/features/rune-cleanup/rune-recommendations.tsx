@@ -30,15 +30,17 @@ import type { MonsterPreferences } from '../../domain/profiles/monster-preferenc
 import { runeVerdictLabels, withRuneSellProtection } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import type { RuneVerdict } from '../../domain/runes/rune-verdict';
 import {
-  calculateRuneAdvice, cancelRuneAdvice,
+  calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
 } from '../../workspace/jobs/rune-advice-client';
 import { rememberRuneAdvice } from '../../workspace/jobs/rune-advice-memory';
+import { calculationOutdated } from '../../ui/calculation-outdated';
+import { combineCalculationBackends } from '../../domain/shared/calculation-summary';
 import { noReferenceLineMessage, referenceLines } from '../../domain/reference/rune-reference-stats';
 import { runeCalculationKey } from '../../domain/runes/rune-calculation-inputs';
 import { runeCleanupStandardsChanged } from './rune-cleanup-session';
 import type { RuneCleanupArrangement, RuneCleanupResult, RuneCleanupSession } from './rune-cleanup-session';
 import {
-  heldRuneAdvice, inArrangedOrder, runesToJudgeAgain, shownRuneAdvice,
+  heldRuneAdvice, inArrangedOrder, runesToJudgeAgain, shownRuneAdvice, withFreshAdvice,
 } from '../../domain/runes/cleanup/rune-cleanup-refresh';
 import {
   compareRuneCleanupRows, compareRuneGameSort, defaultRuneCleanupSortDirections,
@@ -218,7 +220,9 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [preparation, setPreparation] = useState<number | null>(null);
-  /* A failed input is retried only after another change or an explicit Calculate. */
+  /* A failed update of synced runes is retried only after the runes change again or an explicit Calculate. */
+  const [refreshFailedFor, setRefreshFailedFor] = useState<readonly Rune[] | null>(null);
+  const [updating, setUpdating] = useState(false);
   /* A failed calculation says so and leaves the previous table standing. Clearing
      it would read as "no runes qualify", which is a different and wrong answer. */
   const [failure, setFailure] = useState<string | null>(snapshot?.failure ?? null);
@@ -261,18 +265,16 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
 
   /* Leaving the page mid-calculation gives the processor back rather than
      finishing into a void. */
-  useEffect(() => () => { cancelRuneAdvice(); }, []);
+  useEffect(() => () => { cancelRuneAdvice(); cancelRuneAdviceRefresh(); }, []);
 
   const account = game?.snapshot.accountId ?? '';
-  /* One calculation is kept, and it is shown only while everything it read still
-     holds: the standards on screen and every rune it judged. A verdict judged by
-     other inputs is a wrong answer, not an approximate one, and only Calculate
-     judges again — nothing here recalculates on its own. A sold rune changes no
-     input; its row stays, marked Sold. Setting the standards back shows the list
-     again, since it then answers them once more. */
+  /* Two kinds of change, and two answers (`AGENTS.md` §5). The standards are the
+     user's: one that changes empties the table until Calculate, and setting it back
+     shows the held list again. The runes are the game's: a new or changed rune is
+     judged on its own under the held standards and lands in place, and a sold one
+     stays marked Sold, so a sync never costs the reader the rest of the table. */
   const stored = game !== null && result !== null && result.account === account ? result : null;
-  const stale = stored !== null && (runeCleanupStandardsChanged(stored, roles, settings, base)
-    || runesToJudgeAgain(stored.entries, runes).length > 0);
+  const stale = stored !== null && runeCleanupStandardsChanged(stored, roles, settings, base);
   const held = stale ? null : stored;
   const runesById = useMemo(() => new Map(runes.map((rune) => [rune.id, rune])), [runes]);
 
@@ -312,9 +314,41 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   }
 
   function clear() {
+    cancelRuneAdviceRefresh();
     setResult(null);
     setFailure(null);
+    setRefreshFailedFor(null);
   }
+
+  /* Only the runes the game changed are judged again, under the standards the held
+     list already answers; everything else keeps its answer and its place. */
+  useEffect(() => {
+    if (held === null || busy || refreshFailedFor === runes) return;
+    const changed = runesToJudgeAgain(held.entries, runes);
+    if (changed.length === 0) return;
+    let disposed = false;
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      setUpdating(true);
+      setProgress(0);
+      void refreshRuneAdvice({ runes: changed, roles: held.roles, settings: held.settings, base: held.base, preferWebGpu: hardwareAcceleration },
+        (fraction) => { if (!disposed) setProgress(fraction); }).then((outcome) => {
+        settled = true;
+        if (disposed || outcome.status === 'superseded') return;
+        setUpdating(false);
+        if (outcome.status === 'failed') { setRefreshFailedFor(runes); return; }
+        setResult((previous) => previous === held
+          ? { ...previous, entries: withFreshAdvice(previous.entries, changed, outcome.advice),
+            backend: combineCalculationBackends([previous.backend, outcome.backend]) }
+          : previous);
+      });
+    }, 120);
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+      if (!settled) { cancelRuneAdviceRefresh(); setUpdating(false); }
+    };
+  }, [held, busy, runes, refreshFailedFor, hardwareAcceleration]);
 
 
   /* The overlay reads a rune's answer from here instead of asking for it again —
@@ -452,7 +486,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
         : !roles.length
           ? { title: 'There are no roles to judge runes against.', detail: 'Add one under Rune Settings to say what a rune should be worth.' }
           : stale
-            ? { title: 'The runes or their standards changed since the last calculation.', detail: 'Press Calculate to judge them again.' }
+            ? calculationOutdated
           : !held
             ? { title: 'Nothing calculated yet.', detail: 'Press Calculate to put every rune on trial. The standards they are judged by live in Rune Settings.' }
             : null;
@@ -613,12 +647,12 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
           <CalculationActions className="rune-filter-actions" busy={busy} canCalculate={canCalculate}
             calculateTitle={emptyState?.title} onCalculate={() => void calculate()} onCancel={cancel}
             canClear={stored !== null || failure !== null} onClear={clear}
-            status={busy
+            status={busy || updating
               ? <CalculationNote tone="busy">{preparation !== null
                 ? `Preparing quality references… ${formatNumber(Math.round(preparation * 100), general)} %`
-                : `Calculating… ${formatNumber(Math.round(progress * 100), general)} %`}</CalculationNote>
-              : failure
-                ? <CalculationNote tone="failed">{failure}</CalculationNote>
+                : `${busy ? 'Calculating' : 'Judging synced runes'}… ${formatNumber(Math.round(progress * 100), general)} %`}</CalculationNote>
+              : failure || (held && refreshFailedFor === runes)
+                ? <CalculationNote tone="failed">{failure ?? 'JASWA could not judge the synced runes. Calculate again to try again.'}</CalculationNote>
                 : held
                   ? <CalculationStatus twoLines
                     detail={<>{formatNumber(owned, general)} runes judged against {formatNumber(held.roles.length, general)} roles</>}

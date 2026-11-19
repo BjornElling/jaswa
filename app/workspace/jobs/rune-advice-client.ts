@@ -11,6 +11,7 @@ import type {
 } from '../../domain/runes/cleanup/rune-advice-protocol';
 
 export type RuneAdviceChannel = {
+  isBusy: () => boolean;
   calculate: (request: RuneAdviceRequest, onProgress?: (fraction: number) => void,
     onPreparation?: (fraction: number | null) => void) => Promise<RuneAdviceOutcome>;
   cancel: () => void;
@@ -155,13 +156,32 @@ export function runeAdviceChannel(): RuneAdviceChannel {
     });
   }
 
-  return { calculate, cancel: () => active?.() };
+  return { calculate, cancel: () => active?.(), isBusy: () => active !== undefined };
 }
 
 const cleanupChannel = runeAdviceChannel();
 export function calculateRuneAdvice(request: RuneAdviceRequest, onProgress?: (fraction: number) => void,
   onPreparation?: (fraction: number | null) => void): Promise<RuneAdviceOutcome> {
+  if (activeRefresh?.channel === cleanupChannel) cancelRuneAdviceRefresh();
   return cleanupChannel.calculate(request, onProgress, onPreparation);
 }
 export const cancelRuneAdvice = cleanupChannel.cancel;
 registerAccountJobReset(cancelRuneAdvice);
+
+const refreshChannel = runeAdviceChannel();
+let activeRefresh: { channel: RuneAdviceChannel } | null = null;
+
+export function cancelRuneAdviceRefresh(): void {
+  activeRefresh?.channel.cancel();
+  activeRefresh = null;
+}
+registerAccountJobReset(cancelRuneAdviceRefresh);
+
+export function refreshRuneAdvice(request: RuneAdviceRequest, onProgress?: (fraction: number) => void): Promise<RuneAdviceOutcome> {
+  cancelRuneAdviceRefresh();
+  const active = { channel: cleanupChannel.isBusy() ? refreshChannel : cleanupChannel };
+  activeRefresh = active;
+  return active.channel.calculate(request, onProgress).finally(() => {
+    if (activeRefresh === active) activeRefresh = null;
+  });
+}

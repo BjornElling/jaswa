@@ -19,21 +19,23 @@ account clears the calculated session; preferences stay saved.
 | Change | What happens to the held list |
 | --- | --- |
 | Navigation, unchanged re-import, filters or sorting | Reuse the answers; filters and sorting only arrange what is shown. |
-| New rune, or a change to a rune's level, stars, rarity, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Empty the table until Calculate. |
+| New rune | Judge that rune alone under the held standards and add it to the held rows. |
+| Level, stars, rarity, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Judge the changed rune alone under the held standards; keep its row in place. Until answered, show its previous rune and advice together. |
 | Rune sold or removed | Keep its previous row marked Sold until Calculate removes it. |
 | Scenario or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
 | Holds, rune locks, or any *Never sell if…* safeguard or threshold | Apply the current protection immediately to the held advice. |
 | *Power-up policy*, *Rune quality floor*, *Accepted runes*, *Broken runes*, *Intangible runes* | Empty the table until Calculate. |
 | Role added, removed, reordered or edited — targets, type, artifacts, sets, slot choices | Empty the table until Calculate. |
-| Reference averages change | Empty the table until Calculate. The averages depend on the level-40 roster, family classification and base stats, so a new, removed, awakened or levelled monster may change them even if no rune changed. Equal averages change nothing. |
+| Reference averages change | Empty the table until Calculate: they are part of the standards every rune is judged by, so no rune's answer survives them. The averages depend on the level-40 roster, family classification and base stats, so a new, removed, awakened or levelled monster may change them even if no rune changed. Equal averages change nothing. |
 | Display formatting, hardware acceleration, craft inventory, buildings, artifacts or relics | Nothing to rejudge: formatting is read live, acceleration chooses an engine, and Clean-up uses assumed craft credit and roster base stats rather than owned items or a monster's engraved gear. |
 
-**Only Calculate calculates.** No change recalculates on its own, here or on any other
-page with a Calculate button. One calculation is held per account, with the standards
-and the rune bodies it read. It is shown only while all of them still hold: a verdict
-judged on other inputs is a wrong answer, not an approximate one. Otherwise the table
-holds no rows and its empty state says the runes or their standards changed; setting
-the standards back shows the held list again, because it then answers them once more.
+**Two kinds of change** (`AGENTS.md` §5). A standard — a setting, a role, the reference
+averages — is the user's, and only Calculate judges by a new one: the table holds no
+rows and says *Something changed since the last calculation*, and setting the
+standards back shows the held list again, because it then answers them once more. A
+rune is the game's: a sync or an import that adds or changes runes judges just those,
+under the held standards, and leaves every other row and the row order alone; a
+failure says so and offers Calculate. One calculation is held per account.
 Standards are compared by mathematical content, not object identity. A calculation
 whose standards change while it runs reports that and commits nothing.
 

@@ -50,7 +50,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   expect(await boxes()).toEqual(beforeBoxes);
   await page.screenshot({ path: testInfo.outputPath('calculated-after-navigation.png') });
 
-  const warning = page.getByText('The runes or their standards changed since the last calculation.');
+  const warning = page.getByText('Something changed since the last calculation.');
   await expect(warning).toBeHidden();
   await page.getByRole('checkbox', { name: 'Pre-grind SPD ≥' }).uncheck();
   await expect(warning).toBeHidden();
