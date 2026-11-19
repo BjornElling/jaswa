@@ -916,7 +916,8 @@ needs a running dev server and a card, and is not part of `npm test`.
    and hold for every monster.
 3. **Status** — directly under *Calculate*, dimmed: the search's progress while it
    runs, then builds checked and runes considered on one line and time and engine on
-   the next. The stale warning sits beneath it; a search that stopped
+   the next. Beneath it, in space it always holds, *Something changed since the last
+   calculation* when the question on screen is not the one searched; a search that stopped
    at its limit says so above the table. A change to the runes or locks since the search
    is not announced here: the rows it touches say so (item 5).
 4. **Builds** — the current build pinned first as `Now`, then the ranked builds, in the
@@ -925,9 +926,9 @@ needs a running dev server and a card, and is not part of `npm test`.
    `Violent/Will (Spd/CtR%/Atk%)` — with `—` for a slot no rune fills; the set name
    ellipsizes before the mains do. The headers do not sort:
    the search holds only the best builds by that one figure, so ordering by another column
-   would rank a sample rather than the account. Another order is another search, and *Rank
-   by* starts it: with a table on screen or a search running, choosing a figure searches
-   again at once. With no table it only sets the figure for *Calculate*. Choosing a row
+   would rank a sample rather than the account. Another order is another question, and
+   like every question only *Calculate* answers it: choosing a figure in *Rank by* empties
+   the table, and choosing the searched figure again shows it again. Choosing a row
    opens the build in an overlay: its six runes in the game's rune circle — slot 1 at the
    top, the rest clockwise — each as it is in the account now, and beside the circle, slot
    by slot, the modifications the build assumes — which line a Gem replaces and with what,
@@ -972,27 +973,16 @@ needs a running dev server and a card, and is not part of `npm test`.
    engraved, so the work still planned on it is dropped. Where the figures fall below a
    target or above a ceiling, the overlay's *Targets* and the row's mark say which.
 
-   A build is held to the requirements and settings **on screen**, not those it was
-   searched under, by the same rules the search applies (`slotMainAllowed`,
-   `setRuleMissed`, `craftSupplies`, `countedMainValue`, `mayTakeFrom`). Narrowing the
-   question dims every row it now rules out, and widening it lifts the dimming:
-   - a stat range the figures now fall outside;
-   - **broken sets** refused while a set is broken, or a **build** taken away that the sets
-     were — named on the row;
-   - **Intangible runes** refused, or a **slot main** taken away, on the rune that breaks it
-     — never on a rune locked here or kept by *Just fill in empty slots*;
-   - *Only runes not engraved in preset*, the priority list, *Just fill in empty slots* or a
-     lower *Maximum changes*;
-   - a **Gem or Grindstone still to come** the settings no longer offer: none, owned only
-     where the plan assumed one, Immemorial items refused, a gemmed stat held, or a grade or
-     roll that no longer reaches the planned value.
-
-   *Count unfinished runes at their +15 main stat* and *Slot 1/3/5 only counts at +12*,
-   turned off, count a projected main as it stands; turned on, they raise nothing the search
-   did not count. Widening the question never adds a row: a better build is only found by
-   searching again. Listing fewer builds cuts the same table shorter. Changing any
-   requirement or search setting — or listing more builds than were searched — marks the
-   table as stale; a monster that left the account says so.
+   **The question is the user's** (`AGENTS.md` §5). The table shows only while the
+   monster, preset, requirements, search settings and priority list on screen are the ones
+   it was searched under, and listing more builds than were searched is a new question
+   too; listing fewer cuts the same table shorter. Any other change — a stat range, broken
+   sets, a build, a Gem setting, *Rank by* — empties the table and starts nothing, and
+   changing it back shows the held table again without a search. What the game sets is not
+   part of the question: the team's sets and leads, the buildings and which runes the
+   other monsters hold are followed as above. A monster that left the account says so.
+   Until November 19, 2026 a changed question kept the table and dimmed the rows it ruled
+   out, and *Rank by* searched again at once; neither waited for *Calculate*.
 
 Nothing a choice changes moves anything else (`AGENTS.md` §2): captions are reserved lines,
 the craft selects disable rather than disappear, the status line has its own reserved

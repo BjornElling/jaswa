@@ -439,7 +439,8 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   expect(await box(table)).toEqual(tableBefore);
 
   /* The table holds the best builds by one figure, so its headers do not sort it:
-     choosing another figure to rank by searches again, in place. */
+     another figure to rank by is another question. Choosing it empties the table and
+     starts nothing; Calculate answers it (`AGENTS.md` §5). */
   const ranked = (await table.getByRole('columnheader').allInnerTexts()).map((text) => text.trim());
   await expect(table.locator('thead th[aria-sort]')).toHaveCount(1);
   await expect(table.locator('thead button')).toHaveCount(0);
@@ -457,6 +458,14 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   const labelsBefore = await Promise.all((await table.locator('.rank-heading-label').all()).map(box));
   expect(await headingColour('Spd')).not.toBe(await headingColour('E.HP'));
   await page.getByLabel('Rank by', { exact: true }).selectOption('ehp');
+  await expect(table).toBeHidden();
+  await expect(page.locator('.rune-optimization-stale')).toHaveAttribute('data-shown', 'true');
+  /* Asking the SPD question again shows its table again, without a search. */
+  await page.getByLabel('Rank by', { exact: true }).selectOption('spd');
+  await expect(table).toBeVisible();
+  expect(await column(ehpAt)).toEqual(bySpeed);
+  await page.getByLabel('Rank by', { exact: true }).selectOption('ehp');
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(table.getByRole('columnheader', { name: 'E.HP', exact: true })).toHaveAttribute('aria-sort', 'descending');
   /* The clear ink and the mark move to the new column; no heading moves with them. */
   await expect(table.getByRole('columnheader', { name: 'Spd', exact: true })).not.toHaveAttribute('aria-sort');
@@ -501,11 +510,12 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   expect(await box(settings.locator('.rune-optimization-items'))).toEqual(itemControls);
   await expect.poll(async () => ((await storedPreferences(page))?.runeOptimization as Record<string, unknown>)?.allowGemSpeedRemoval).toBe(true);
   expect(await box(settings)).toEqual(settingsBefore);
-  /* The table stays; the warning beside Find builds says it answers the earlier
-     question, and appearing moves neither the button nor the table. */
-  await expect(page.getByText('You should rebuild.', { exact: false })).toBeVisible();
+  /* Settings are part of the question: the table leaves the page and the notice beside
+     Calculate says why, appearing without moving the button (`AGENTS.md` §5). */
+  await expect(page.getByText('Something changed since the last calculation.', { exact: false })).toBeVisible();
   expect(await box(page.getByRole('button', { name: 'Calculate', exact: true }))).toEqual(findBefore);
-  await expect(table.getByRole('row')).toHaveCount(rowsBefore);
+  await expect(table).toBeHidden();
+  expect(rowsBefore).toBeGreaterThan(0);
   await page.screenshot({ path: testInfo.outputPath('optimization-stale.png') });
   await expect.poll(async () => ((await storedPreferences(page))?.runeOptimization as Record<string, unknown>)?.gems).toBe('theoretical');
   await page.reload();
@@ -1373,29 +1383,18 @@ test('a lone four-set, a ceiling and a reset to the profile', async ({ page }, t
   }
   await page.screenshot({ path: testInfo.outputPath('optimization-ceiling.png'), fullPage: true });
 
-  /* A range moved after the search dims exactly the rows it now excludes, and
-     dims them in place: the table keeps its rows and its box. */
-  const spds: number[] = [];
-  for (let at = 0; at < count; at += 1) {
-    spds.push(Number((await rows.nth(at).getByRole('cell').nth(spdColumn).innerText()).replace(/\D/g, '')));
-  }
-  const tableBefore = await box(table);
-  const lowered = Math.max(...spds) - 1;
-  await page.getByLabel('Spd: at most').fill(String(lowered));
-  for (let at = 0; at < count; at += 1) {
-    if (spds[at] > lowered) await expect(rows.nth(at)).toHaveAttribute('data-stale', 'true');
-    else await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
-  }
-  expect(await box(table)).toEqual(tableBefore);
+  /* A range moved after the search is another question: the table leaves the page,
+     and moving the range back shows the same builds again without a search. */
+  const before = await rows.allInnerTexts();
+  const stale = page.locator('.rune-optimization-stale');
+  await page.getByLabel('Spd: at most').fill('169');
+  await expect(table).toBeHidden();
+  await expect(stale).toHaveAttribute('data-shown', 'true');
   await page.screenshot({ path: testInfo.outputPath('optimization-ceiling-lowered.png'), fullPage: true });
-  /* Back inside every range, nothing is dimmed; a floor above them all dims every row. */
   await page.getByLabel('Spd: at most').fill('170');
-  for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
-  await page.getByLabel('Spd: at least').fill(String(Math.max(...spds) + 1));
-  for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).toHaveAttribute('data-stale', 'true');
-  expect(await box(table)).toEqual(tableBefore);
-  await page.getByLabel('Spd: at least').fill('');
-  for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
+  await expect(table).toBeVisible();
+  await expect(stale).not.toHaveAttribute('data-shown', 'true');
+  expect(await rows.allInnerTexts()).toEqual(before);
 
   /* Resetting asks first, keeps everything on the safe answer, and only then puts the profile back. */
   await expect(reset).toBeEnabled();
@@ -1412,7 +1411,7 @@ test('a lone four-set, a ceiling and a reset to the profile', async ({ page }, t
   await expect(reset).toBeDisabled();
 });
 
-test('refusing broken sets after the search dims exactly the builds that break one, in place', async ({ page }, testInfo) => {
+test('refusing broken sets after the search hides the table until it is asked again', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
@@ -1429,28 +1428,22 @@ test('refusing broken sets after the search dims exactly the builds that break o
   const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: /^Show build \d+$/ }) });
   const count = await rows.count();
   for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
-  const tableBefore = await box(table);
+  const before = await rows.allInnerTexts();
+  const panel = await box(page.locator('.rune-optimization-actions'));
   await page.screenshot({ path: testInfo.outputPath('broken-allowed.png'), fullPage: true });
 
-  /* A dimmed row says why on its mark, and refusing broken sets is the only reason here. */
+  /* Refusing broken sets is another question: no search starts, the table leaves the
+     page, and the notice beside Calculate takes the space it always holds. */
   await broken.uncheck();
-  await expect(rows.and(page.locator('[data-stale="true"]')).first()).toBeVisible();
-  let dimmed = 0;
-  for (let at = 0; at < count; at += 1) {
-    const marks = rows.nth(at).getByRole('img');
-    const reading = await marks.count() ? await marks.first().getAttribute('aria-label') : '';
-    const stale = await rows.nth(at).getAttribute('data-stale');
-    expect(stale === 'true').toBe(reading === 'Broken sets are not allowed.');
-    if (stale === 'true') dimmed += 1;
-  }
-  expect(dimmed).toBeGreaterThan(0);
-  expect(await rows.count()).toBe(count);
-  expect(await box(table)).toEqual(tableBefore);
+  await expect(table).toBeHidden();
+  await expect(page.locator('.rune-optimization-stale')).toHaveAttribute('data-shown', 'true');
+  expect(await box(page.locator('.rune-optimization-actions'))).toEqual(panel);
   await page.screenshot({ path: testInfo.outputPath('broken-refused.png'), fullPage: true });
 
-  /* Allowing them again lifts every dimming: widening the question rules nothing out. */
+  /* Allowing them again shows the same builds, without a search. */
   await broken.check();
-  for (let at = 0; at < count; at += 1) await expect(rows.nth(at)).not.toHaveAttribute('data-stale', 'true');
+  await expect(table).toBeVisible();
+  expect(await rows.allInnerTexts()).toEqual(before);
 });
 
 test('owned craft work respects a tight ceiling and leaves full requirement panels in place', async ({ page }, testInfo) => {

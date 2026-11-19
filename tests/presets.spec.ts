@@ -898,19 +898,17 @@ test('Rune Optimization borrows teammate runes by priority, and the switch only 
   await page.screenshot({ path: testInfo.outputPath('priority-include-after.png'), fullPage: true });
   await include.uncheck();
 
-  /* A build found with higher-priority runes must not stay engravable after the switch is turned off. */
-  const protectedRow = page.locator('tr[data-stale="true"]').filter({
-    has: page.locator('[role="img"][aria-label*="other monsters’ runes are protected"]'),
-  }).first();
-  await expect(protectedRow).toBeVisible();
-  const protectedBuild = protectedRow.getByRole('button', { name: /^Show build \d+$/ });
-  await protectedBuild.click();
-  const protectedDialog = page.getByRole('dialog');
-  const engraveProtectedBuild = protectedDialog.getByRole('button', { name: 'Engrave on monster' });
-  await expect(engraveProtectedBuild).toBeDisabled();
-  await expect(engraveProtectedBuild).toHaveAttribute('title', 'A rune or set in this build no longer fits the current settings.');
-  await page.screenshot({ path: testInfo.outputPath('priority-protected-build.png'), fullPage: true });
-  await page.keyboard.press('Escape');
+  /* Turning the switch off asks another question, so builds found with higher-priority
+     runes leave the page and none can be engraved; turning it back on shows them again
+     without a search (`AGENTS.md` §5). */
+  const builds = page.getByRole('table', { name: 'Rune builds' });
+  await expect(builds).toBeHidden();
+  await expect(page.getByText('Something changed since the last calculation.')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('priority-switch-off.png'), fullPage: true });
+  await include.check();
+  await expect(builds).toBeVisible();
+  await include.uncheck();
+  await expect(builds).toBeHidden();
 
   /* Moving 11 above 12 makes 12's runes available without changing the switch. */
   await openPresets(page);

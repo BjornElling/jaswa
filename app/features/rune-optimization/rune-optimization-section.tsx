@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import type { ReactNode } from 'react';
 import { Button, InlineButton, LabelSwap } from '../../ui/button';
 import { CalculationActions, CalculationNote } from '../../ui/calculation-actions';
+import { calculationOutdated } from '../../ui/calculation-outdated';
 import { CalculationStatus } from '../../ui/calculation-status';
 import { FigureMarks } from '../../ui/figure-marks';
 import { buildIssueMarks, fightAddition } from '../../domain/shared/figure-marks';
@@ -371,29 +372,33 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   /* The question on screen. The account is never part of it: the player follows the
      table by moving, gemming, grinding and locking runes, and a sync or a lock that
      brings that back updates the builds (`rune-optimization-refresh.ts`). Listing
-     fewer builds is the same table cut shorter. */
+     fewer builds is the same table cut shorter. What the game sets — the team's
+     sets and leads, the buildings, which runes the other monsters hold — is read
+     from the account too, so it stays out of the key; the priority list and the
+     switches that decide whose runes may be taken are the user's and stay in. */
   const { resultCount, ...searchSettings } = settings;
-  const keyOf = (asked: RequirementsDraft | undefined) =>
-    JSON.stringify({ presetId: activePresetId, unitId, requirements: asked, settings: searchSettings, withheld,
+  const keyOf = (asked: RequirementsDraft | undefined) => {
+    const ownPart = asked && { ...asked, teammateSets: undefined, leadRules: undefined, automaticLeadLines: undefined,
+      buildings: undefined, leads: team.leads.scenario ? asked.leads : undefined,
+      alwaysElementAdvantage: team.elementAdvantage ? undefined : asked.alwaysElementAdvantage };
+    return JSON.stringify({ presetId: activePresetId, unitId, requirements: ownPart, settings: searchSettings, priority,
       gemRoles: preferences.runeRoles });
+  };
   const inputKey = keyOf(requirements);
-  /* A table stays on screen while its monster is chosen, whatever is changed above
-     it: it is still the answer to the question it was asked, read with that
-     question's own requirements, and the warning beside Calculate says the
-     question on screen is now a different one. */
+  /* Two kinds of change (`AGENTS.md` §5). The question is the user's: a table shows
+     only while the question on screen is the one it answers, and asking it again
+     — the same monster, requirements and settings — shows it again without a
+     search. The account is the game's, and `currentBuilds` follows it below. */
   const current = calculation !== undefined && calculation.unitId === unitId && calculation.presetId === activePresetId && selected ? calculation : undefined;
   const stale = current !== undefined && (current.inputKey !== inputKey || current.resultCount < resultCount);
-  /* Once the user has asked again, the warning has been acted on: a search running
-     under it would read as the new search answering the old question. */
+  const shown = stale ? undefined : current;
+  /* Once the user has asked again, the notice has been acted on. */
   const warnStale = stale && state !== 'calculating';
-  /* A build is held to the requirements and settings on screen, not to those it was
-     searched under: narrowing any of them after the search — a stat range, a slot
-     main, broken sets refused, a Gem the settings no longer offer — dims every row
-     it now rules out, so the table answers the question the player is looking at.
-     Widening one dims nothing and finds nothing new; the stale warning says so. Its
-     figures are still counted with the fight the search counted them in; a CRI
-     Rate range the Always crits switch has since set aside stops counting. */
-  const tableAlwaysCritsCount = current?.requirements.alwaysCrits;
+  /* A build is held to the requirements it was searched under — on screen only while
+     they are the ones shown — and to the account as it is now: a sync that moves,
+     gems or grinds a rune re-reads just the builds that hold it, and a build that
+     no longer holds is dimmed and marked rather than dropped. */
+  const tableAlwaysCritsCount = shown?.requirements.alwaysCrits;
   const tableLimits = useMemo(() => {
     if (tableAlwaysCritsCount === undefined || !requirements) return undefined;
     const withoutCriRate = (limits: Partial<Record<RankFigure, number>>) => {
@@ -407,28 +412,28 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       builds: requirements.builds, slotMains: requirements.slotMains,
       allowBroken: requirements.allowBroken, allowIntangible: requirements.allowIntangible,
       alwaysCrits: tableAlwaysCritsCount,
-      alwaysElementAdvantage: current?.requirements.alwaysElementAdvantage ?? false,
-      leads: current?.requirements.leads,
-      leadRules: current?.requirements.leadRules,
-      automaticLeadLines: current?.requirements.automaticLeadLines,
+      alwaysElementAdvantage: shown?.requirements.alwaysElementAdvantage ?? false,
+      leads: shown?.requirements.leads,
+      leadRules: shown?.requirements.leadRules,
+      automaticLeadLines: shown?.requirements.automaticLeadLines,
       teammateSets,
       buildings,
     };
-  }, [tableAlwaysCritsCount, requirements, alwaysCrits, current, teammateSets, buildings]);
-  const builds = useMemo(() => (current && selected && tableLimits
-    ? currentBuilds(current.answer.builds.slice(0, resultCount), {
+  }, [tableAlwaysCritsCount, requirements, alwaysCrits, shown, teammateSets, buildings]);
+  const builds = useMemo(() => (shown && selected && tableLimits
+    ? currentBuilds(shown.answer.builds.slice(0, resultCount), {
       unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings, withheld,
-      before: { runes: current.runes, items: current.items },
+      before: { runes: shown.runes, items: shown.items },
       now: { runes: runesById, items: itemsById, locks },
     })
-    : undefined), [current, selected, tableLimits, resultCount, settings, withheld, runesById, itemsById, locks]);
+    : undefined), [shown, selected, tableLimits, resultCount, settings, withheld, runesById, itemsById, locks]);
   const sheetNow = useCallback((bonuses: RequirementsDraft) => (selected ? monsterStatSheet(selected.record, bonuses) : undefined), [selected]);
   const currentSheet = useMemo(() => requirements ? sheetNow(requirements) : undefined, [sheetNow, requirements]);
   /* The table's `Now` row is counted the way its builds were. */
   const tableNowFigures = useMemo(() => {
-    const sheet = current ? sheetNow({ ...current.requirements, teammateSets, buildings }) : undefined;
+    const sheet = shown ? sheetNow({ ...shown.requirements, teammateSets, buildings }) : undefined;
     return sheet ? monsterStatTargetKeys.map((key) => sheet.figures[key]) : undefined;
-  }, [sheetNow, current, teammateSets, buildings]);
+  }, [sheetNow, shown, teammateSets, buildings]);
   const element = selected ? elementName(selected.record.attribute) : undefined;
   const ownSets = useMemo(() => completedTeamSets(selected?.record.runes as Record<string, unknown>[] ?? []), [selected]);
   const currentBuild = selected ? runeBuildName(activeRuneSets(selected.record).map((set) => set.name)) : '';
@@ -502,12 +507,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   }
 
   /* The table holds only the best builds by one figure, so another figure is another
-     search. With a table on screen, or a search under way, choosing it starts that search. */
+     question, answered by Calculate like any other (`AGENTS.md` §5). */
   function rankBy(figure: RankFigure | '') {
     if (!requirements || figure === '' || figure === requirements.rankBy) return;
     const next = { ...requirements, rankBy: figure };
     setEdits({ presetId: activePresetId, unitId, requirements: next });
-    if (current || state === 'calculating') void calculate(next);
   }
 
   if (!game) {
@@ -654,15 +658,15 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
             ? <CalculationNote tone="busy">{searchPhaseWords[phase]} {phase === 'searching' ? `${formatNumber(Math.round(progress * 100), general)} %` : ''}</CalculationNote>
             : state === 'error'
               ? <CalculationNote tone="failed">{error}</CalculationNote>
-              : current
-                ? <CalculationStatus twoLines durationMs={current.answer.durationMs} backend={current.answer.backend} general={general}
-                  detail={`${formatNumber(current.answer.combinations, general)} builds checked · ${formatNumber(current.answer.report.runes, general)} runes considered`} />
+              : shown
+                ? <CalculationStatus twoLines durationMs={shown.answer.durationMs} backend={shown.answer.backend} general={general}
+                  detail={`${formatNumber(shown.answer.combinations, general)} builds checked · ${formatNumber(shown.answer.report.runes, general)} runes considered`} />
                 : <CalculationNote>{selected ? 'Not calculated yet.' : ''}</CalculationNote>}
           /* Always in the panel and only shown when it applies, so nothing beside
              it moves (`AGENTS.md` §2). */
           notice={<p className="rune-optimization-stale" role="status" data-shown={warnStale ? 'true' : undefined}
             aria-hidden={warnStale ? undefined : true}>
-            The requirements or settings have changed since these builds were found. You should rebuild.
+            {calculationOutdated.title} {calculationOutdated.detail}
           </p>} />
       </div>
 
@@ -833,14 +837,14 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       {calculation && calculation.unitId === unitId && !selected && state !== 'calculating' && <p className="notice warning" role="status">
         This monster is no longer in the account, so its builds have nowhere to go. Choose another monster.
       </p>}
-      {current && !current.answer.complete && <p className="notice warning" role="status">
-        {current.answer.stoppedBy === 'user'
+      {shown && !shown.answer.complete && <p className="notice warning" role="status">
+        {shown.answer.stoppedBy === 'user'
           ? 'The search was stopped. The builds it found are kept below.'
           : 'The search reached its time limit. The builds it found are kept below.'}
         {' '}The remaining combinations have not been ruled out.
       </p>}
 
-      {current && builds && selected && tableNowFigures && <Results key={current.id} answer={current.answer} builds={builds} rankBy={current.requirements.rankBy}
+      {shown && builds && selected && tableNowFigures && <Results key={shown.id} answer={shown.answer} builds={builds} rankBy={shown.requirements.rankBy}
         currentBuild={currentBuild} currentMains={currentMains} currentFigures={tableNowFigures} general={general}
         describe={describeBuild} mainOf={mainOf}
         chosen={chosenBuild} onChoose={openBuild} />}
@@ -852,11 +856,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       followable={buildFollowable(builds[chosenBuild])}
       runesById={runesById} presetId={activePresetId} loadedPlacements={game?.localChanges?.firstObservedPlacements?.[activePresetId]} scenarioPlaces={scenarioPlaces} poolPlaces={poolPlaces} monster={buildMonster} engravedOn={(id) => monstersByUnitId.get(id)}
       general={general} canEngrave={canEngrave || preset?.kind === 'own'} onEngrave={(engraveUnitId) => {
-        if (!current || !tableLimits || !game) return Promise.reject(new Error('This build is no longer available.'));
+        if (!shown || !tableLimits || !game) return Promise.reject(new Error('This build is no longer available.'));
         return onEngrave(activePresetId, engraveUnitId, {
           accountId: game.snapshot.accountId, questionKey: engravingQuestionKey(preferences, presets, activePresetId, engraveUnitId),
-          build: current.answer.builds[chosenBuild], requirements: tableLimits,
-          before: { runes: current.runes, items: current.items },
+          build: shown.answer.builds[chosenBuild], requirements: tableLimits,
+          before: { runes: shown.runes, items: shown.items },
         });
       }}
       lockOf={(runeId) => (preset ? runeLockOf(runeLocks, runeLockScope(preset), buildMonster.unitId, runeId) : undefined)}
