@@ -157,7 +157,8 @@ function MatchMark({ rank }: { rank: MatchRank }) {
 /**
  * The roles in the order Best role is decided in: the readings that clear both
  * gates before those that do not, then by average worth at +15, then Potential — so
- * the starred row leads and no row above it can carry a higher average. The one
+ * the starred row leads and no row above it can carry a higher average. The average
+ * itself is not printed: it decides the order, and the order is what it means. The one
  * exception is Broken = No, where a role that reads the rune only as broken is
  * listed by its figures but never chosen. Roles that cannot read the rune close
  * the list in their own order.
@@ -214,7 +215,6 @@ function Evaluation({ rune, roles, explained, quality }: {
           <th scope="col" className="rune-overlay-quality" title="Top share at the best reachable +15 score">Quality</th>
           <th scope="col">Potential</th>
           <th scope="col">Chance</th>
-          <th scope="col" title="What the rune is worth on average once levelled to +15, against a perfect rune — the figure Best role is chosen on">Avg. at +15</th>
           <th scope="col">Best</th>
         </tr>
       </thead>
@@ -230,7 +230,6 @@ function Evaluation({ rune, roles, explained, quality }: {
             <td title={reading?.reachable === false ? 'Quality bar is unreachable' : reading?.chance === 0 ? 'Zero hits in the sample' : undefined}>
               {reading?.chance != null && oddsLeft ? runeChanceText(reading.chance) : '—'}
             </td>
-            <td>{reading?.chance != null ? tenths(reading.expected) : '—'}</td>
             <td>{best && <StarIcon className="rune-overlay-best-mark" label="Best role" />}</td>
           </tr>;
         })}
