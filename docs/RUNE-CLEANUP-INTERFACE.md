@@ -81,12 +81,13 @@ Unsellable keep their own labels.
   **1 %** and whose Potential is at least the threshold, both inclusive and compared
   before display rounding. Blank disables it; zero is a stated threshold. Its field behaves
   as above. Reason: `Potential protected`.
-- **Engraved in non-Scenario preset** — on. A rune engraved on a monster in any preset
-  outside Scenario is never recommended for sale, even if that is its only placement.
-  Scenario alone does not protect a rune. Location and protection read the same
+- **Engraved** — on. A rune engraved on a monster anywhere — Scenario or any preset —
+  is never recommended for sale. Until November 19, 2026 this was *Engraved in
+  non-Scenario preset*, and Scenario alone protected nothing; a rune on a monster is
+  one the player is using, wherever it sits. Location and protection read the same
   account-wide engraving index in `presets.ts`; a preset that saves only monsters uses
-  Scenario gear and creates no engraving of its own. No threshold. Reason: `Preset
-  engraving protected`.
+  Scenario gear and creates no engraving of its own. No threshold. Reason: `Engraved
+  protected`.
 - **Re-app/refine target** — on. Applies the targets of §3.1.
 
 ### 3.1 Re-app/refine targets

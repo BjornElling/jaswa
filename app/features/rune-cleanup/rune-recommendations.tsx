@@ -606,10 +606,10 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
               </div>
               <div className="filter-group-controls">
                 <div className="checkbox-row">
-                  <input id="rune-engraving-protection" type="checkbox" aria-label="Engraved in non-Scenario preset"
+                  <input id="rune-engraving-protection" type="checkbox" aria-label="Engraved"
                     checked={settings.neverSellEngravedPlacements}
                     onChange={(event) => onUpdate({ neverSellEngravedPlacements: event.target.checked })} />
-                  <label htmlFor="rune-engraving-protection">Engraved in non-Scenario preset</label>
+                  <label htmlFor="rune-engraving-protection">Engraved</label>
                 </div>
               </div>
               {/* The targets themselves are set in Rune Settings, under Re-app/refine target. */}

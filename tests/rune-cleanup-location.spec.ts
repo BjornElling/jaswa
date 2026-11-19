@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const account = JSON.parse(readFileSync(new URL('./fixtures/craft-account.json', import.meta.url), 'utf8'));
 
-test('Location names the Scenario monster and counts each other preset and protects any non-Scenario engraving', async ({ page }, testInfo) => {
+test('Location names the Scenario monster and counts each other preset and protects any engraved rune', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
@@ -11,7 +11,7 @@ test('Location names the Scenario monster and counts each other preset and prote
   await navigation.getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeDisabled();
   await page.screenshot({ path: testInfo.outputPath('empty.png') });
-  const emptyProtection = page.getByRole('checkbox', { name: 'Engraved in non-Scenario preset', exact: true });
+  const emptyProtection = page.getByRole('checkbox', { name: 'Engraved', exact: true });
   const emptyBox = await page.locator('.rune-filter-strip').boundingBox();
   await emptyProtection.uncheck();
   expect(await page.locator('.rune-filter-strip').boundingBox()).toEqual(emptyBox);
@@ -68,9 +68,9 @@ test('Location names the Scenario monster and counts each other preset and prote
 
   await location.getByRole('button', { name: 'Inventory', exact: true }).click();
   await expect(rows).toHaveCount(5);
-  const protection = page.getByRole('checkbox', { name: 'Engraved in non-Scenario preset', exact: true });
+  const protection = page.getByRole('checkbox', { name: 'Engraved', exact: true });
   await expect(protection).toBeChecked();
-  await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Keep', 'Power up', 'Keep']);
+  await expect(rows.locator('.rune-verdict')).toHaveText(['Keep', 'Sell', 'Keep', 'Power up', 'Keep']);
   const rowBoxes = () => rows.evaluateAll((entries) => entries.map((entry) => {
     const { x, y, width, height } = entry.getBoundingClientRect();
     return { x, y, width, height };
@@ -89,7 +89,7 @@ test('Location names the Scenario monster and counts each other preset and prote
   await page.locator('label[for="rune-engraving-protection"]').click();
   await expect(protection).toBeChecked();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
-  await expect(rows.locator('.rune-verdict')).toHaveText(['Sell', 'Sell', 'Keep', 'Power up', 'Keep']);
+  await expect(rows.locator('.rune-verdict')).toHaveText(['Keep', 'Sell', 'Keep', 'Power up', 'Keep']);
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await expect(protection).toBeChecked();

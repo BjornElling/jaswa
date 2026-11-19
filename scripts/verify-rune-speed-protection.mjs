@@ -5,7 +5,7 @@ import { readPreferences } from '../app/ingest/preferences.ts';
 import { defaultRunePotentialSettings, blankPreferences } from '../app/domain/profiles/preference-defaults.ts';
 import { readFileSync } from 'node:fs';
 import { defaultReappTargets, defaultRerollRules, newRerollRule, readRerollRules, rerollRuleProblems, isRerollTarget, rerollMainOptions, reappSetOptions } from '../app/domain/runes/rune-reapp-targets.ts';
-import { emptyRunePlacement, hasRunePlacementOutsideScenario, summarizeRunePlacement } from '../app/domain/placements/rune-placement.ts';
+import { emptyRunePlacement, hasRunePlacement, summarizeRunePlacement } from '../app/domain/placements/rune-placement.ts';
 
 
 const account = JSON.parse(readFileSync(new URL('../tests/fixtures/craft-account.json', import.meta.url), 'utf8'));
@@ -104,7 +104,7 @@ const placements = [[], places.slice(0, 1), places.slice(1, 2), places.slice(1),
 for (const level of [0, 9, 12, 13, 14, 15]) {
   const candidate = { ...rune, level };
   for (const placement of placements) {
-    const protectedRune = hasRunePlacementOutsideScenario(placement);
+    const protectedRune = hasRunePlacement(placement);
     const answer = withRuneSellProtection(candidate, original, engravingSettings, placement);
     assert.equal(answer.verdict, protectedRune
       ? level === 12 || level === 15 ? 'keep' : 'power-up' : 'sell');
@@ -113,7 +113,6 @@ for (const level of [0, 9, 12, 13, 14, 15]) {
     assert.equal(answer.role, original.role);
     assert.equal(withRuneSellProtection(candidate, answer, { ...engravingSettings, neverSellEngravedPlacements: false }, placement).verdict, 'sell');
     assert.equal(withRuneSellProtection(candidate, answer, engravingSettings, emptyRunePlacement).verdict, 'sell');
-    assert.equal(withRuneSellProtection(candidate, answer, engravingSettings, summarizeRunePlacement(places.slice(0, 1))).verdict, 'sell');
   }
 }
 for (const enabled of [true, false]) {
@@ -132,9 +131,9 @@ const retained = readPreferences({ ...blank, runePotential: missingEngraving }, 
 assert.equal(retained.runePotential.neverSellEngravedPlacements, true);
 assert.equal(retained.runePotential.neverSellPreGrindSpeed, false);
 assert.equal(retained.runePotential.powerUpPolicy, 2);
-assert.equal(withRuneSellProtection(rune, original, engravingSettings, summarizeRunePlacement(places.slice(0, 1))).verdict, 'sell');
-assert.equal(withRuneSellProtection(rune, original, engravingSettings, summarizeRunePlacement(places.slice(1, 2))).reason, 'Preset engraving protected');
-console.log('PASS: any non-Scenario engraving protects a rune, Scenario alone does not, placement changes reverse protection, and saved choices survive independently.');
+assert.equal(withRuneSellProtection(rune, original, engravingSettings, summarizeRunePlacement(places.slice(0, 1))).reason, 'Engraved protected');
+assert.equal(withRuneSellProtection(rune, original, engravingSettings, summarizeRunePlacement(places.slice(1, 2))).reason, 'Engraved protected');
+console.log('PASS: any engraving protects a rune, Scenario included, placement changes reverse protection, and saved choices survive independently.');
 
 /* Rules are alternatives, conditions within one rule are intersections. */
 const reappSettings = { ...engravingSettings, neverSellEngravedPlacements: false, rerollRules: [] };

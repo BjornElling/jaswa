@@ -1,6 +1,6 @@
 import type { RuneVerdict } from '../rune-verdict';
 import { gemMinimumLevel, runeMaximumLevel, slotAllowsSubStat } from '../runes';
-import { emptyRunePlacement, hasRunePlacementOutsideScenario } from '../../placements/rune-placement';
+import { emptyRunePlacement, hasRunePlacement } from '../../placements/rune-placement';
 import type { RunePlacementSummary } from '../../placements/rune-placement';
 import type { Rune } from '../runes';
 import type { RuneRole } from '../../profiles/rune-roles';
@@ -455,8 +455,9 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
   const protectedPotential = settings.neverSellPotentialValue && potentialMinimum !== null
     && Number.isInteger(potentialMinimum) && potentialMinimum >= 0 && potentialMinimum <= 999
     && (advice.readingChance ?? 0) >= 0.01 && advice.maxValue >= potentialMinimum / 100;
-  const protectedEngravings = settings.neverSellEngravedPlacements
-    && hasRunePlacementOutsideScenario(placement);
+  /* Engraved anywhere, Scenario included: a rune on a monster is one the player is
+     using, and selling it would strip a build. */
+  const protectedEngravings = settings.neverSellEngravedPlacements && hasRunePlacement(placement);
   /* A re-app or refine target is a way out of a sale and nothing else: it is
      only ever asked of a rune the engine would sell, so a rune worth powering up
      or keeping is never sent to a stone. Asked there, it names what to do rather
@@ -477,6 +478,6 @@ export function withRuneSellProtection(rune: Rune, advice: RuneAdvice, settings:
   return {
     ...advice, unprotectedAdvice: original,
     verdict: rune.level === lastSubPropertyLevel || rune.level >= runeMaximumLevel ? 'keep' : 'power-up',
-    reason: protectedSpeed ? 'Pre-grind SPD protected' : protectedPotential ? 'Potential protected' : 'Preset engraving protected',
+    reason: protectedSpeed ? 'Pre-grind SPD protected' : protectedPotential ? 'Potential protected' : 'Engraved protected',
   };
 }

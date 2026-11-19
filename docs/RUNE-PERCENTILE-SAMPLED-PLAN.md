@@ -1148,7 +1148,7 @@ shader is unchanged, so `verify:rune-chance-card` only needs to pass as before.
 *Potential ≥* reads `advice.readingChance ≥ 0.01` instead of `advice.chance`. The
 efficiency figure and its chance must come from the same reading, and the union
 chance can be contributed by other readings (proposal §8). *Pre-grind SPD*,
-*Engraved in non-Scenario preset* and *Re-app/refine target* are unchanged.
+*Engraved* and *Re-app/refine target* are unchanged.
 
 > **Review — meaning of Potential.** Using the chosen reading's own
 > chance is required. Name it precisely as the chance of reaching that

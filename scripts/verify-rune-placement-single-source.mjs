@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { summarizeRunePlacement, hasRunePlacement, hasRunePlacementOutsideScenario, runePlacementLabel } from '../app/domain/placements/rune-placement.ts';
+import { summarizeRunePlacement, hasRunePlacement, runePlacementLabel } from '../app/domain/placements/rune-placement.ts';
 
 const scenario = { presetId: 'scenario', unitId: '10' };
 const arena = { presetId: 'arena-1', unitId: '20' };
@@ -8,22 +8,18 @@ const raid = { presetId: 'raid-1', unitId: '30' };
 
 const none = summarizeRunePlacement([]);
 assert.equal(hasRunePlacement(none), false, 'a rune with no placements is in Inventory');
-assert.equal(hasRunePlacementOutsideScenario(none), false);
 assert.deepEqual(runePlacementLabel(none, () => ''), { label: 'Inventory', count: '' });
 
 const scenarioOnly = summarizeRunePlacement([scenario]);
 assert.equal(hasRunePlacement(scenarioOnly), true);
-assert.equal(hasRunePlacementOutsideScenario(scenarioOnly), false);
 assert.deepEqual(runePlacementLabel(scenarioOnly, () => 'Kaimann'), { label: 'Kaimann', count: '' });
 
 const shared = summarizeRunePlacement([scenario, arena, raid]);
 assert.equal(hasRunePlacement(shared), true);
-assert.equal(hasRunePlacementOutsideScenario(shared), true);
 assert.equal(shared.count, 3);
 assert.deepEqual(runePlacementLabel(shared, () => 'Kaimann'), { label: 'Kaimann', count: '(+ 2)' });
 
 const presetOnly = summarizeRunePlacement([arena]);
-assert.equal(hasRunePlacementOutsideScenario(presetOnly), true);
 assert.deepEqual(runePlacementLabel(presetOnly, () => ''), { label: 'Engraved', count: '× 1' });
 
 /* Standard readers may list every place for their hover, but cannot each decide

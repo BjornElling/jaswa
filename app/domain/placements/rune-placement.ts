@@ -22,10 +22,6 @@ export function hasRunePlacement(placement: RunePlacementSummary): boolean {
   return placement.count > 0;
 }
 
-export function hasRunePlacementOutsideScenario(placement: RunePlacementSummary): boolean {
-  return placement.elsewhere.length > 0;
-}
-
 /** The universal rune location reading: Scenario owner first, then the other placements. */
 export function runePlacementLabel(placement: RunePlacementSummary, scenarioName: (place: Engraving) => string): { label: string; count: string } {
   if (placement.count === 0) return { label: 'Inventory', count: '' };
