@@ -38,7 +38,10 @@ const brokenFactors = [90, 85, 80, 65, 0];
 const intangibleFactors = [100, 150, 200, 350, 500];
 
 export const qualityAllowances = qualityStops.map((stop) => stop / 100);
-export const chanceThresholds = [0.01, 0.05, 0.20, 0.50, 0.80];
+/* Balanced and Adventurous were 20 and 5 %. At the G1 quality floor that rolled 18 and
+   51 % of the Statistics births, where those stops mean about one rune in ten and one
+   in five; 30 and 15 % roll 9.7 and 20.7 % of the same births. */
+export const chanceThresholds = [0.01, 0.15, 0.30, 0.50, 0.80];
 
 function rankFactor(settings: RunePotentialSettings, rank: MatchRank): number {
   if (rank === 'preferred') return 100;

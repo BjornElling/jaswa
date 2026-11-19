@@ -4,7 +4,7 @@ import { defaultRuneRoles, withRefreshedMetrics } from '../../profiles/rune-role
 import { canonicalCraftCredit, craftPlan, craftedScore, gemOptions, noCraftCredit } from '../craft/rune-craft-end-state';
 import { countChanceGroup, endStateScoring, playForward, runeFuture, runScore } from '../rune-power-up-outcomes';
 import { ordinarySample, prepareRuneCandidate, roleBuilds } from './rune-cleanup-model';
-import { runeAdvice, runeQualityText, withRuneSellProtection } from './rune-cleanup-advice';
+import { chanceThresholds, runeAdvice, runeQualityText, withRuneSellProtection } from './rune-cleanup-advice';
 import {
   allowanceDenominator, nextUp, qualityBar, qualityHits, qualityShare, referenceBodies, referenceSampleSize, referenceScores,
 } from './rune-quality-reference';
@@ -109,7 +109,8 @@ describe('sampled rune quality', () => {
       if (!candidate) throw new Error('The specialist fixture needs a usable reading.');
       const runs = playForward(candidate.future, 4096);
       const scores = [...new Set(Array.from({ length: runs.count }, (_, run) => runScore(runs, candidate.scoring, run)))].sort((a, b) => a - b);
-      return scores[scores.length - 3];
+      /* High enough that each reading alone misses the Balanced stop and their union clears it. */
+      return scores[scores.length - 4];
     });
     const references = { get: (_: unknown, readingPrices: Float64Array) => {
       const index = readingPrices[8] > 0 ? 0 : 1;
@@ -117,9 +118,10 @@ describe('sampled rune quality', () => {
     } };
     const base = new Map([[source.type, baseStats]]);
     const [result] = (await runeAdvice([rune], roles, settings, base, undefined, { explain: true, references })).values();
+    const stop = chanceThresholds[settings.powerUpPolicy - 1];
     expect(result.verdict).toBe('power-up');
-    expect(result.chance).toBeGreaterThanOrEqual(0.2);
-    expect(result.readings?.every(({ chance }) => chance !== null && chance > 0 && chance < 0.2)).toBe(true);
+    expect(result.chance).toBeGreaterThanOrEqual(stop);
+    expect(result.readings?.every(({ chance }) => chance !== null && chance > 0 && chance < stop)).toBe(true);
     expect(result.readings?.find(({ roleId }) => roleId === result.role?.id)?.chance).toBe(result.readingChance);
   });
 

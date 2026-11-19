@@ -504,7 +504,11 @@ share at 100 %. The arithmetic uses integer millionths before choosing the
 sample index. Each allowance applies to one reading. Actual retention depends
 on the union of all permitted uses and the makeup of the account.
 
-The Power-up policy stops are 1, 5, 20, 50 and 80 %. Calculate each marginal
+The Power-up policy stops are 1, 15, 30, 50 and 80 %. Adventurous and Balanced
+were 5 and 20 % until November 19, 2026: at the *G1 baby* quality floor the
+Statistics births rolled 51 and 18 % at those stops, where the wording asks for
+about one rune in five and one in ten. At 15 and 30 % they roll 20.7 and 9.7 %
+(the user's own roles, settings and reference lines). Calculate each marginal
 and the union on the same 4,096 outcomes. Settle provable zeros and ones first.
 Use the fused processor counter for multiple live events on one future. One
 live event can use the existing chance card path. A certain hit settles the
