@@ -653,10 +653,15 @@ export type ChanceAsk = {
 
 const settledAsk = (answer: number): ChanceAsk => ({ jobs: [], combine: () => answer });
 
-/** One candidate against one threshold, in the Max-value units `candidateMaxValue` prints. */
+/**
+ * One candidate against a raw score bar, as a sampled quality cutoff states it. Going
+ * through Max value and back would multiply by the ceiling and could move the bar by
+ * an ulp, undoing the inclusive tie rule.
+ */
 export const candidateChanceAskAt = (candidate: RuneCandidate, wanted: number, runs = chanceRuns) =>
   chanceStep(candidate.future, candidate.scoring, wanted, runs);
 
+/** One candidate against one threshold, in the Max-value units `candidateMaxValue` prints. */
 export function candidateChanceAsk(candidate: RuneCandidate, threshold: number): ChanceAsk {
   if (threshold === Number.NEGATIVE_INFINITY) return settledAsk(1);
   if (threshold === Number.POSITIVE_INFINITY) return settledAsk(0);

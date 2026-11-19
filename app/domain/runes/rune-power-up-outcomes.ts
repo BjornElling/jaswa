@@ -64,7 +64,7 @@
 import { runeRarityOrder, slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
 import { addedSubPropertyRange, allStatIds, remainingEvents, subPropertyRange } from './rune-properties';
-import { craftedScore, craftedScoreCeiling, gemOptions, grindCredit, groundValue, priceList } from './craft/rune-craft-end-state';
+import { craftedScore, craftedScoreAgainst, craftedScoreCeiling, gemOptions, grindCredit, groundValue, priceList } from './craft/rune-craft-end-state';
 import type { CraftPlan, EndStateLine, GemOptions, PriceList } from './craft/rune-craft-end-state';
 import type { Valuation } from './rune-substat-weights';
 import type { CalculationBackend } from '../shared/calculation-summary';
@@ -505,8 +505,8 @@ export function shareReaching(runs: RuneRuns, scoring: EndStateScoring, wanted: 
       lines[at].grind = runs.lines[read + 2];
       read += 3;
     }
-    if (craftedScore(scoring.plan, scoring.options, scoring.prices,
-      lines, scoring.prefixScore, scratchValues) >= wanted) hits += 1;
+    if (craftedScoreAgainst(scoring.plan, scoring.options, scoring.prices,
+      lines, scoring.prefixScore, scratchValues, wanted, wanted) >= wanted) hits += 1;
   }
   return hits / runs.count;
 }
@@ -687,7 +687,11 @@ export function countChanceGroup(future: RuneFuture, jobs: readonly CountingJob[
 
   const scores = [...byScoring].map(([scoring, bars]) => {
     const known = cache?.read(scoring);
-    return { scoring, bars, known, computed: !known && cache?.hasRoom() ? new Float64Array(count) : undefined };
+    let lowest = Number.POSITIVE_INFINITY;
+    let highest = Number.NEGATIVE_INFINITY;
+    for (const { wanted } of bars) { lowest = Math.min(lowest, wanted); highest = Math.max(highest, wanted); }
+    return { scoring, bars, known, lowest, highest,
+      computed: !known && cache?.hasRoom() ? new Float64Array(count) : undefined };
   });
   const runs = scores.every(({ known }) => known) ? null : playForward(future, count);
   const lines = lineUpBuffer(runs?.lineCount ?? 0);
@@ -703,8 +707,12 @@ export function countChanceGroup(future: RuneFuture, jobs: readonly CountingJob[
     }
     let reached = false;
     for (const entry of scores) {
-      const { scoring, bars, known, computed } = entry;
-      const score = known?.[run] ?? craftedScore(scoring.plan, scoring.options, scoring.prices, lines, scoring.prefixScore, scratchValues);
+      const { scoring, bars, known, computed, lowest, highest } = entry;
+      /* A stored stream must hold exact scores, because a later policy asks other bars of it. */
+      const score = known?.[run] ?? (computed
+        ? craftedScore(scoring.plan, scoring.options, scoring.prices, lines, scoring.prefixScore, scratchValues)
+        : craftedScoreAgainst(scoring.plan, scoring.options, scoring.prices, lines, scoring.prefixScore,
+          scratchValues, lowest, highest));
       if (computed) computed[run] = score;
       for (const { wanted, index } of bars) {
         if (score < wanted) continue;

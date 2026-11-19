@@ -471,8 +471,10 @@ At each sampled future, test the rune in every permitted build. Keep or power up
 when the share that reaches at least one bar meets the Power-up policy stop.
 A passing rune at +12 or +15 is Keep. A passing rune below +12 or at +13/+14 is
 Power up. An otherwise configured rune with no permitted use is Sell.
-A potentially usable role whose required reference stats are missing makes that
-rune unavailable. Worker failures keep the previous completed results.
+A potentially usable role whose required reference stats are missing makes a
+rune the other roles would sell unavailable. A keep or power-up stands: the
+missing role could only add events, and adding an event never lowers the union.
+Worker failures keep the previous completed results.
 
 ### 9.1 A same-main quality allowance
 
@@ -490,6 +492,15 @@ and the union on the same 4,096 outcomes. Settle provable zeros and ones first.
 Use the fused processor counter for multiple live events on one future. One
 live event can use the existing chance card path. A certain hit settles the
 union, and any marginals required for the explanation or safeguard are still counted.
+
+Both processor counters answer each outcome through `craftedScoreAgainst`, which
+places the canonical Gem only for a body within a rounding margin of one of its
+bars. A plain body at or above every bar clears them, because the end state is
+never below it. Otherwise the best Gem body is found in real arithmetic, one
+best-first walk per line, and differs from the placement only by summation order.
+On the local account, fewer than one outcome in ten thousand needed the placement,
+and the advice pass took half the time. Stored Statistics streams keep exact
+scores, because a later policy asks other bars of them.
 
 ### 9.2 Safeguards
 
@@ -559,7 +570,7 @@ positive-chance builds, then other permitted builds, then naming fallbacks.
 | `verify:rune-cleanup-craft-monotonic` | A more generous credit never lowers what a rune can reach or its odds, and a stone spent up to the canonical one moves no row (§9.2). |
 | `verify:rune-cleanup-preference-monotonic` | A more lenient slider never sells a rune a stricter one keeps, over the whole recommendation funnel. |
 | `verify:rune-chance-stability` | §7.3: the box holds still across a sixty-fourfold resolution sweep, and two copies of one rune get one answer. |
-| `verify:rune-quality-reference` | Exact tie bars, deterministic stratification, scoring identity, union counts and same-reading protection. |
+| `verify:rune-quality-reference` | Exact tie bars, deterministic stratification, scoring identity, union counts, same-reading protection, missing input withholding only a sale, and `craftedScoreAgainst` agreeing with `craftedScore` at, beside and away from every bar at three credits and both lineages. |
 | `verify:rune-best-role` | §9.6. |
 | `verify:rune-craft-single-source` | Source text: only `rune-craft-items.ts` and `rune-craft-end-state.ts` read the §8 tables; the shader is the one sanctioned second implementation. |
 | `verify:rune-chance-layout` | The chance shader's offsets all come from `rune-chance-layout.ts` (§10.1). |

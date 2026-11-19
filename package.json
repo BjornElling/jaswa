@@ -51,7 +51,7 @@
     "verify:rune-optimization-card": "node --import ./scripts/json-module-hook.mjs scripts/verify-rune-optimization-card.mjs",
     "verify:rune-craft-single-source": "node scripts/verify-rune-craft-single-source.mjs",
     "verify:rune-craft-lineage-placement": "node --import ./scripts/json-module-hook.mjs scripts/verify-rune-craft-lineage-placement.mjs",
-    "verify:rune-quality-reference": "vitest run --config vitest.config.ts app/domain/runes/cleanup/rune-quality-reference.test.ts app/workspace/jobs/rune-reference-client.test.ts",
+    "verify:rune-quality-reference": "vitest run --config vitest.config.ts app/domain/runes/cleanup/rune-quality-reference.test.ts app/domain/runes/craft/rune-craft-band.test.ts app/workspace/jobs/rune-reference-client.test.ts",
     "verify:rune-quality-sampling": "node --import ./scripts/json-module-hook.mjs scripts/verify-rune-quality-sampling.mjs",
     "verify:rune-cleanup-statistics-funnel": "node --import ./scripts/json-module-hook.mjs scripts/verify-rune-cleanup-statistics-funnel.mjs",
     "verify:filter-selection": "vitest run --config vitest.config.ts app/domain/shared/filter-selection.test.ts",

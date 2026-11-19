@@ -223,7 +223,6 @@ export async function runeAdvice(
   onProgress?.(0);
 
   const prepared = plans.map(({ rune, readings, unavailable }, index) => {
-    if (unavailable) return { rune, readings, live: [], union: 0, unavailable };
     const events = new Map<string, Event>();
     const scorings = new Map<string, EndStateScoring>();
     const scoreKeys = new Map<EndStateScoring, string>();
@@ -292,13 +291,15 @@ export async function runeAdvice(
   }
 
   const result = new Map<string, RuneAdvice>();
-  for (const { rune, readings, live, union, unavailable } of prepared) {
+  for (const { rune, readings, live, union, unavailable: incomplete } of prepared) {
     for (const reading of readings) if (reading.event) reading.chance = reading.event.chance;
     const chance = live.length === 1 ? Math.max(union, live[0].chance) : union;
     const allowed = readings.filter((reading) => reading.chance !== null);
-    const cleared = !unavailable && chance >= chanceBar;
-    const pool = cleared ? allowed.filter((reading) => odds(reading) > 0) : allowed;
-    let runs: RuneRuns | null = null;
+    const cleared = chance >= chanceBar;
+    /* A role JASWA cannot read could only add events, and the union never falls when
+       one is added, so a keep or a power-up stands without it. Only a sale is in doubt. */
+    const unavailable = incomplete && !cleared;
+    const pool = cleared ? allowed.filter((reading) => odds(reading) > 0) : allowed;    let runs: RuneRuns | null = null;
     const expected = (reading: Answer) => worthOf(reading.rank) * candidateExpectedValue(
       reading.candidate, () => (runs ??= runeRuns(reading.candidate.future)),
     );
@@ -336,6 +337,10 @@ export async function runeAdvice(
 
 const odds = (reading: Answer): number => reading.chance ?? 0;
 
+/* The last tie-break must name one role on every thread and in every script, so it
+   compares code units rather than asking the host's locale how to collate. */
+const ordinal = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
+
 function mostExpected(pool: readonly Answer[], worthOf: (rank: MatchRank) => number, expected: (answer: Answer) => number): Answer | null {
   if (pool.length <= 1) return pool[0] ?? null;
   const byBound = pool.map((answer) => ({ answer, bound: worthOf(answer.rank) * candidateExpectedBound(answer.candidate) }))
@@ -354,7 +359,7 @@ function mostExpected(pool: readonly Answer[], worthOf: (rank: MatchRank) => num
       const mains = answer.candidate.build.mains;
       const order = value - bestExpected || answer.maxValue - best.maxValue
         || (best.qualityShare ?? 2) - (answer.qualityShare ?? 2) || odds(answer) - odds(best)
-        || best.role.id.localeCompare(answer.role.id) || current[2] - mains[2] || current[4] - mains[4] || current[6] - mains[6];
+        || ordinal(best.role.id, answer.role.id) || current[2] - mains[2] || current[4] - mains[4] || current[6] - mains[6];
       if (order <= 0) continue;
     }
     best = answer;

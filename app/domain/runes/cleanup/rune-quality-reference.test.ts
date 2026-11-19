@@ -146,7 +146,13 @@ describe('sampled rune quality', () => {
     expect(champion.verdict).toBe('keep');
     expect(champion.readingChance).toBe(1);
     expect(champion.readings?.find((row) => row.roleId === champion.role?.id)?.qualityShare).toBe(champion.qualityShare);
-    const [unavailable] = (await runeAdvice([rune], [role, missing], settings, base)).values();
+    /* An unreadable role could only add events, so a keep survives it and only a sale is withheld. */
+    const [kept] = (await runeAdvice([rune], [role, missing], settings, base)).values();
+    expect(kept.verdict).toBe('keep');
+    const weak = { ...rune, id: 'weak', subProperties: rune.subProperties.map((line) => ({ ...line, value: 1 })) };
+    const [sold] = (await runeAdvice([weak], [role], settings, base)).values();
+    expect(sold.verdict).toBe('sell');
+    const [unavailable] = (await runeAdvice([weak], [role, missing], settings, base)).values();
     expect(unavailable.verdict).toBe('unavailable');
     const [empty] = (await runeAdvice([rune], [], settings, base)).values();
     expect(empty.reason).toBe('No role can use it');

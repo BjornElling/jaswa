@@ -660,6 +660,76 @@ export function craftedScore(
 }
 
 /**
+ * **`craftedScore` as seen from a band of bars**: a number that compares with every
+ * bar in `[lowest, highest]` exactly as `craftedScore` would, without the canonical
+ * placement whenever the body is clear of every bar.
+ *
+ * The end state is never below the plain body — a Gem is never forced, and that
+ * baseline is summed in the order `craftedScore` sums it — so a plain body at or above
+ * `highest` clears every bar outright. A Gem body differs from the plain one by one
+ * line, so "weakest line out, best Gem in" (with any stone above the credit it may
+ * keep) bounds it, and a bound below `lowest` misses every bar; that holds at any
+ * credit, because the Gem is priced at the credit in `options.values`.
+ *
+ * At the reference credit the best Gem body is then found in real arithmetic: each
+ * replaceable line against the first legal Gem in the best-first list (which
+ * `placement` evaluates, and which dominates the other different-id Gems) and against
+ * re-rolling its own id. That differs from `craftedScore` only by the order of a
+ * five-term sum, far inside the margin, so a body clear of the margin on both sides
+ * answers every bar exactly as the placement would. Only a body within the margin of a
+ * bar pays for the placement, which was most of what counting a rune's union cost.
+ */
+export function craftedScoreAgainst(
+  plan: CraftPlan, options: GemOptions, prices: PriceList, lines: readonly EndStateLine[], prefixScore: number,
+  lineValues: Float64Array, lowest: number, highest: number,
+): number {
+  const plain = plainScore(plan, prices, lines, prefixScore, lineValues);
+  const list = options.choice;
+  if (!plan.hasGem || lines.length === 0 || list.statIds.length === 0 || plain >= highest) return plain;
+  let weakest = Number.POSITIVE_INFINITY;
+  let kept = 0;
+  let occupied = 0;
+  let onlyAt = -1;
+  for (let at = 0; at < lines.length; at += 1) {
+    const line = lines[at];
+    if (lineValues[at] < weakest) weakest = lineValues[at];
+    const excess = (line.grind - grindCredit(plan, line.statId)) * prices[line.statId];
+    if (excess > kept) kept = excess;
+    occupied |= 1 << line.statId;
+    if (line.gemmed && onlyAt === -1) onlyAt = at;
+  }
+  const best = options.values.length > 0 ? options.values[0] : 0;
+  /* Every term is nonnegative and at most `plain + best + kept`, so no order of
+     summing them strays from the real value by more than a few ulps of that. */
+  const margin = (plain + best + kept) * Number.EPSILON * 32;
+  const loose = plain - weakest + best + kept;
+  if (loose + margin < lowest) return Math.max(plain, loose);
+  if (plan !== choicePlan(plan.lineage)) return scoreEndState(plan, options, prices, lines, prefixScore, lineValues);
+
+  let body = plain;
+  for (let at = 0; at < lines.length; at += 1) {
+    const line = lines[at];
+    if (onlyAt !== -1 && at !== onlyAt) continue;
+    const survivors = occupied & ~(1 << line.statId);
+    let gem = Number.NEGATIVE_INFINITY;
+    for (let option = 0; option < list.statIds.length; option += 1) {
+      const statId = list.statIds[option];
+      if (statId === line.statId || survivors & (1 << statId)) continue;
+      gem = list.values[option];
+      break;
+    }
+    const own = list.indexByStat[line.statId];
+    if (own >= 0 && canGemReplaceValue(line, line.statId, list.rolls[own])) {
+      gem = Math.max(gem, groundValue(plan, line.statId, list.rolls[own], line.grind) * prices[line.statId]);
+    }
+    const replaced = plain - lineValues[at] + gem;
+    if (replaced > body) body = replaced;
+  }
+  if (body + margin < lowest || body - margin >= highest) return body;
+  return scoreEndState(plan, options, prices, lines, prefixScore, lineValues);
+}
+
+/**
  * The same terminal scorer as `craftedScore`, with its exact base/Gem decomposition
  * for callers that build a distribution over finished rune bodies.
  */
