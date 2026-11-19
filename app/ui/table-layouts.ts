@@ -190,7 +190,6 @@ export const runeCleanupTableColumns: readonly TableColumn[] = [
   { key: 'location', width: '11%', align: 'left' },
   { key: 'role', width: '8%', align: 'left' },
   { key: 'maxValue', width: '5%', align: 'right' },
-  { key: 'quality', width: '13ch', align: 'right' },
   { key: 'chance', width: '6%', align: 'right' },
   /* A verdict and its chance share this column, and its width is reserved for the
      longest reading so that moving a slider cannot reflow the table. */

@@ -27,7 +27,7 @@ import { engravingLines } from '../../domain/placements/presets';
 import { emptyRunePlacement, hasRunePlacement } from '../../domain/placements/rune-placement';
 import { usePresets } from '../../ui/presets-context';
 import type { MonsterPreferences } from '../../domain/profiles/monster-preferences';
-import { runeQualityText, runeVerdictLabels, withRuneSellProtection } from '../../domain/runes/cleanup/rune-cleanup-advice';
+import { runeVerdictLabels, withRuneSellProtection } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import type { RuneVerdict } from '../../domain/runes/rune-verdict';
 import {
   calculateRuneAdvice, cancelRuneAdvice, cancelRuneAdviceRefresh, refreshRuneAdvice,
@@ -148,7 +148,6 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
       compareRuneCleanupRows(left, right, key) || left.index - right.index,
     /* A dash is not a figure, so it sorts after every figure either way round. */
     absent: key === 'maxValue' ? (row: RuneCleanupRow) => !runeMaxValueShown(row)
-      : key === 'quality' ? (row: RuneCleanupRow) => row.advice.qualityShare === null
       : key === 'chance' ? (row: RuneCleanupRow) => !runeChanceShown(row) : undefined,
   });
   return [
@@ -161,7 +160,6 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('location', 'Location'),
     column('role', 'Best role'),
     column('maxValue', <span className="table-heading-two-line" aria-label="Potential: the best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent.">Potential</span>),
-    column('quality', <span title="Top share for Best role at the best reachable +15 score">Quality</span>),
     column('chance', <span className="table-heading-two-line" aria-label="Chance that at least one permitted build reaches its quality bar">Chance</span>),
     column('advice', 'Advice'),
     /* The game's own three orderings, driven by the Use game-sorting dropdown. They carry
@@ -728,9 +726,6 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 advice is arguable rather than something to be taken on trust. */}
             <td className={cell('maxValue')}>
               {runeMaxValueShown(row) ? `${Math.round(row.advice.maxValue * 100)} %` : <span className="muted">—</span>}
-            </td>
-            <td className={cell('quality', 'rune-quality-share')}>
-              {runeQualityText(row.advice.qualityShare, row.advice.requirement)}
             </td>
             {/* A rune at +12 has spent every substat upgrade it will ever get, so there is
                 nothing left to be uncertain about and no odds to print. A dash says

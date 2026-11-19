@@ -5820,7 +5820,6 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .rune-overlay-readings thead th:first-child { width: 27%; }
 .rune-overlay-readings .rune-overlay-quality { width: 13ch; }
-.rune-quality-share { white-space: nowrap; }
 /* Ink, not weight, marks the best reading: bold would widen its row's text. */
 .rune-overlay-readings tr[data-best] :is(th, td) { color: var(--text-strong); }
 .rune-overlay-best-mark, .rune-overlay-match-mark { width: 12px; height: 12px; vertical-align: middle; }

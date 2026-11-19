@@ -43,7 +43,7 @@ export const shownRuneVerdictLabel = (row: RuneCleanupRow): string =>
   row.hold ? runeHoldLabels[row.hold] : runeVerdictLabels[row.advice.verdict];
 
 export type RuneCleanupSortKey =
-  'set' | 'slot' | 'level' | 'main' | 'innate' | 'subs' | 'location' | 'role' | 'maxValue' | 'quality' | 'chance' | 'advice';
+  'set' | 'slot' | 'level' | 'main' | 'innate' | 'subs' | 'location' | 'role' | 'maxValue' | 'chance' | 'advice';
 
 /**
  * The orderings the game's own Manage panel offers, reproduced rather than
@@ -78,7 +78,7 @@ export const runeGameSortLabels: Readonly<Record<RuneGameSortKey, string>> = {
  */
 export const defaultRuneCleanupSortDirections: Readonly<Record<RuneCleanupSortKey, boolean>> = {
   set: true, slot: true, level: true, main: true, innate: true, subs: true, location: true,
-  role: true, maxValue: false, quality: true, chance: false, advice: true,
+  role: true, maxValue: false, chance: false, advice: true,
 };
 
 /**
@@ -219,7 +219,6 @@ export function compareRuneCleanupRows(
     case 'location': return left.location.localeCompare(right.location) || left.placement.count - right.placement.count;
     case 'role': return (left.advice.role?.name ?? '').localeCompare(right.advice.role?.name ?? '');
     case 'maxValue': return left.advice.maxValue - right.advice.maxValue;
-    case 'quality': return (left.advice.qualityShare ?? 0) - (right.advice.qualityShare ?? 0);
     case 'chance': return left.advice.chance - right.advice.chance;
     case 'advice': return adviceRank(left) - adviceRank(right);
     default: return 0;

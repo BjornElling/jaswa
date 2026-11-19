@@ -42,20 +42,19 @@ test('calculates and shows a verdict for every imported rune', async ({ page }, 
   expect(await filterBoxes()).toEqual(beforeCalculation);
   await expect(table.getByRole('img', { name: /quality$/ })).toHaveCount(4);
   await expect(page.getByRole('table', { name: 'Rune verdict columns' }).locator('thead th'))
-    .toHaveText(['Set', 'Slot', 'Lv.', 'Main', 'Innate', 'Sub properties', 'Location', 'Best role', 'Potential', 'Quality', 'Chance', 'Advice']);
+    .toHaveText(['Set', 'Slot', 'Lv.', 'Main', 'Innate', 'Sub properties', 'Location', 'Best role', 'Potential', 'Chance', 'Advice']);
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-calculated.png') });
   await expect(cleanup.getByRole('button', { name: 'Quality column' })).toHaveCount(0);
   await expect(cleanup.getByRole('button', { name: 'Unavailable', exact: true })).toHaveCount(0);
-  const heading = cleanup.getByRole('columnheader', { name: 'Quality', exact: true });
-  await expect(heading).toBeVisible();
+  const heading = cleanup.getByRole('columnheader', { name: /^Potential/ });
   await heading.getByRole('button').click();
-  await expect(heading).toHaveAttribute('aria-sort', 'ascending');
+  await expect(heading).toHaveAttribute('aria-sort', 'descending');
   expect(await filterBoxes()).toEqual(beforeCalculation);
-  await page.screenshot({ path: testInfo.outputPath('rune-cleanup-quality-column.png') });
+  await page.screenshot({ path: testInfo.outputPath('rune-cleanup-sorted.png') });
   const navigation = page.getByRole('navigation');
   await navigation.getByRole('button', { name: 'Home', exact: true }).click();
   await navigation.getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
-  await expect(heading).toHaveAttribute('aria-sort', 'ascending');
+  await expect(heading).toHaveAttribute('aria-sort', 'descending');
 
 });
 

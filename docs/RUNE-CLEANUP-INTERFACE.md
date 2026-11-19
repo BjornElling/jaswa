@@ -285,10 +285,10 @@ only shown or hidden, so its coming and going moves nothing.
 
 ## 6. Quality and the Best role reading
 
-**Quality** is a sortable column beside Potential, always shown: a toggle for it
-was one more control for a figure the verdict rests on. The smallest sampled
-share sorts first. A dash follows values in both directions. Sorting follows the
-held table across navigation.
+The verdict table has no Quality column. A rune's quality is read in its overlay,
+beside the bar it had to reach; in the table, an unfinished rune's best-case share
+put hundreds of runes in the top 0.1 % next to a Sell, which read as a
+contradiction rather than an explanation.
 
 The Advice filter offers Power up, Keep, Re-app/refine and Sell. It offers no
 *Unavailable*: the page calculates only with a reference line, and
@@ -299,8 +299,8 @@ Evaluation in the rune overlay shows **Selected Rune quality floor**,
 **Required quality for this rune**, **Quality of this rune** and **Chance across
 roles**. The Best role's row shows that same build and its own Chance. For an
 unfinished rune, Quality measures the best reachable end state and Chance
-reports how often the run reaches a qualifying end state. The overlay and table
-reserve width for the longest quality figure.
+reports how often the run reaches a qualifying end state. The overlay reserves
+width for the longest quality figure.
 
 A requirement prints its exact percent. Quality rounds the inclusive sample
 share up to the requirement's precision, with at least one decimal of precision,
