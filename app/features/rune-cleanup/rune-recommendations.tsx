@@ -158,8 +158,10 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
     column('subs', 'Sub properties'),
     column('location', 'Location'),
     column('role', 'Best role'),
-    column('maxValue', <span className="table-heading-two-line" aria-label="Potential: the best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent.">Potential</span>),
-    column('chance', <span className="table-heading-two-line" aria-label="Chance that at least one permitted build reaches its quality bar">Chance</span>),
+    /* One word each, so no two-line box: a block label in a right-aligned heading sat
+       left of its figures and spilled into the next column. */
+    column('maxValue', <span title="The best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent.">Potential</span>),
+    column('chance', <span title="Chance that at least one permitted build reaches its quality bar">Chance</span>),
     column('advice', 'Advice'),
     /* The game's own three orderings, driven by the Use game-sorting dropdown. They carry
        `header: false` for the reason `artifact-list.tsx` does: they stay in this

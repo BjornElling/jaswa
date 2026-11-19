@@ -177,7 +177,7 @@ export const artifactTableColumns: readonly TableColumn[] = [
  * not just `Determination`.
  */
 export const runeCleanupTableColumns: readonly TableColumn[] = [
-  { key: 'set', width: '12%', align: 'left' },
+  { key: 'set', width: '11%', align: 'left' },
   { key: 'slot', width: '3%', align: 'center' },
   { key: 'level', width: '4%', align: 'right' },
   { key: 'main', width: '7%', align: 'left' },
@@ -186,10 +186,13 @@ export const runeCleanupTableColumns: readonly TableColumn[] = [
      four the game can roll, signed and with their percent signs, not for four
      bare ones. It comes from the small figures either side, which never needed
      the room they had. */
-  { key: 'subs', width: '27%', align: 'left' },
-  { key: 'location', width: '11%', align: 'left' },
+  { key: 'subs', width: '26%', align: 'left' },
+  { key: 'location', width: '10%', align: 'left' },
   { key: 'role', width: '8%', align: 'left' },
-  { key: 'maxValue', width: '5%', align: 'right' },
+  /* Sized for its heading, not its figures: `Potential` and the sort mark beside it
+     are the widest thing in the column, and at 5 % the word ran into Chance and hid
+     its mark. */
+  { key: 'maxValue', width: '8%', align: 'right' },
   { key: 'chance', width: '6%', align: 'right' },
   /* A verdict and its chance share this column, and its width is reserved for the
      longest reading so that moving a slider cannot reflow the table. */
