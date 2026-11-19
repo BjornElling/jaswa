@@ -2,7 +2,7 @@ import { workerFactories } from './worker-factories';
 import { registerAccountJobReset } from './account-job-memory';
 import { leaseRuneReferences } from './rune-reference-client';
 import { planQualityReferences } from '../../domain/runes/cleanup/rune-cleanup-advice';
-import { referenceStars } from '../../domain/runes/cleanup/rune-cleanup-model';
+import { runeScaleStars } from '../../domain/runes/rune-substat-weights';
 import { referencePieceKey, retainedReferenceCount } from '../../domain/runes/cleanup/rune-quality-reference';
 import type { QualityReference } from '../../domain/runes/cleanup/rune-quality-reference';
 import { combineCalculationBackends } from '../../domain/shared/calculation-summary';
@@ -28,7 +28,7 @@ function partitionRunes(runes: RuneAdviceRequest['runes'], statisticsReferences?
   const pieces = new Map<string, AdvicePartition>();
   let unfinished = 0;
   for (const rune of runes) {
-    const key = referencePieceKey({ slot: rune.slot, stars: referenceStars(rune), main: rune.mainStatId });
+    const key = referencePieceKey({ slot: rune.slot, stars: runeScaleStars, main: rune.mainStatId });
     const piece = pieces.get(key) ?? { runes: [], pieces: new Set([key]), work: 0 };
     piece.runes.push(rune);
     if (rune.level < 12) unfinished += 1;

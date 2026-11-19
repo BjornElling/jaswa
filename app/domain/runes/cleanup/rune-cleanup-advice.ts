@@ -8,9 +8,10 @@ import type { RunePotentialSettings } from '../../model';
 import type { ReferenceStats } from '../../reference/rune-reference-stats';
 import {
   buildAccepts, buildRank, candidateChanceAskAt, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
-  newRuneAdviceScope, prepareRuneCandidate, readingScale, roleBuilds, referenceStars,
+  newRuneAdviceScope, prepareRuneCandidate, readingScale, roleBuilds,
   runeRuns, runeSetMatchRank, targetStats, worseRank,
 } from './rune-cleanup-model';
+import { runeScaleStars } from '../rune-substat-weights';
 import type { Build, MatchRank, RuneCandidate } from './rune-cleanup-model';
 import { chanceRuns, countChanceGroup, countJobs } from '../rune-power-up-outcomes';
 import type { CountingJob, EndStateScoring, RuneRuns } from '../rune-power-up-outcomes';
@@ -103,22 +104,22 @@ function configuredRoles(roles: readonly RuneRole[], base: ReadonlyMap<string, R
 }
 
 export function planQualityReferences(
-  runes: readonly Pick<Rune, 'slot' | 'stars' | 'mainStatId' | 'ancient' | 'setName'>[],
+  runes: readonly Pick<Rune, 'slot' | 'mainStatId' | 'setName'>[],
   roles: readonly RuneRole[], base: ReadonlyMap<string, ReferenceStats>, settings: RunePotentialSettings,
 ): ReferenceRequest[] {
   const requests = new Map<string, ReferenceRequest>();
   const pieces = new Map<string, typeof runes[number]>();
-  for (const rune of runes) pieces.set(`${rune.slot}|${referenceStars(rune)}|${rune.mainStatId}|${rune.setName}`, rune);
+  for (const rune of runes) pieces.set(`${rune.slot}|${rune.mainStatId}|${rune.setName}`, rune);
   const families = configuredRoles(roles, base);
   const scope = newRuneAdviceScope();
   for (const rune of pieces.values()) {
-    const piece = { slot: rune.slot, stars: referenceStars(rune), main: rune.mainStatId };
+    const piece = { slot: rune.slot, stars: runeScaleStars, main: rune.mainStatId };
     for (const family of families) {
       if (!family.base) continue;
       const setRank = runeSetMatchRank(family.role.sets, rune.setName);
       if (readingAllowance(settings, setRank, false) === null) continue;
       for (const build of family.builds) {
-        const scale = readingScale(family.role, build, family.base, piece.slot, piece.main, piece.stars, scope);
+        const scale = readingScale(family.role, build, family.base, piece.slot, piece.main, scope);
         if (!scale || readingAllowance(settings, worseRank(setRank, scale.rank), false) === null) continue;
         const key = referenceKey(piece, scale.prices);
         if (!requests.has(key)) requests.set(key, { ...piece, key, prices: scale.prices });
@@ -168,7 +169,7 @@ export async function runeAdvice(
   const singles: Event[] = [];
   const byReference = new Map<string, ReferenceReadings>();
   const plans = runes.map((rune) => {
-    const piece = { slot: rune.slot, stars: referenceStars(rune), main: rune.mainStatId };
+    const piece = { slot: rune.slot, stars: runeScaleStars, main: rune.mainStatId };
     const intangible = isIntangibleRuneSet(rune.setName);
     const readings: Answer[] = [];
     let unavailable = false;

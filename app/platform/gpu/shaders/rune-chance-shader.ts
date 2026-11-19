@@ -234,10 +234,12 @@ fn main(@builtin(global_invocation_id) invocation: vec3<u32>) {
         }
       }
     }
-    // A canonical body uses positive products and four additions. The margin
-    // of 64 binary32 unit roundoffs encloses the packing, multiplies and sums
-    // for both bodies and cutoff. An atom inside it is decided by the CPU.
-    let margin = max(max(total, wanted), 1.0) * 0.000003814697265625;
+    // A canonical body adds four positive products to the fixed part, which is
+    // negative on a lower-star rune. The margin of 64 binary32 unit roundoffs of
+    // the largest magnitude summed encloses the packing, multiplies and sums for
+    // both bodies and cutoff. An atom inside it is decided by the CPU.
+    let magnitude = abs(prefixScore) + abs(total - prefixScore);
+    let margin = max(max(magnitude, wanted), 1.0) * 0.000003814697265625;
     if (abs(total - wanted) <= margin) { ambiguous = true; }
     if (total >= wanted) { hits = hits + 1u; }
     run = run + WORKGROUP_SIZE;

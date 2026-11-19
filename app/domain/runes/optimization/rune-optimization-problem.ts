@@ -929,7 +929,7 @@ export function prepareRuneOptimization(
     artifacts: { hp: false, atk: false, def: false }, base: referenceBase,
     credit: { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' } });
   if (weights.weights.size > 0) {
-    const valuation = weightedValuation(referenceBase, weights, 6);
+    const valuation = weightedValuation(referenceBase, weights);
     const pressure = new Float64Array(effectSlotCount);
     for (const id of runeStatIds) pressure[effectSlotOf(id)] = valuation.value(id, 1);
     targetSlopes.push(pressure);

@@ -699,9 +699,10 @@ export function craftedScoreAgainst(
     if (line.gemmed && onlyAt === -1) onlyAt = at;
   }
   const best = options.values.length > 0 ? options.values[0] : 0;
-  /* Every term is nonnegative and at most `plain + best + kept`, so no order of
-     summing them strays from the real value by more than a few ulps of that. */
-  const margin = (plain + best + kept) * Number.EPSILON * 32;
+  /* No term exceeds `|prefixScore|` plus the lines and the best Gem in size — the fixed
+     part is negative on a lower-star rune — so no order of summing them strays from
+     the real value by more than a few ulps of that. */
+  const margin = (Math.abs(prefixScore) + (plain - prefixScore) + best + kept) * Number.EPSILON * 32;
   const loose = plain - weakest + best + kept;
   if (loose + margin < lowest) return Math.max(plain, loose);
   if (plan !== choicePlan(plan.lineage)) return scoreEndState(plan, options, prices, lines, prefixScore, lineValues);

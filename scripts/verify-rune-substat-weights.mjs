@@ -16,7 +16,7 @@ import {
   roleBuilds, prepareRuneCandidate, candidateMaxValue, newRuneAdviceScope,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 import { newSubstatWeightScope, substatWeights } from '../app/domain/runes/rune-substat-weights.ts';
-import { maximumRoll, slotMainProperties, subPropertyTargetStat } from '../app/domain/runes/rune-properties.ts';
+import { mainPropertyMaximum, maximumRoll, slotMainProperties, subPropertyTargetStat } from '../app/domain/runes/rune-properties.ts';
 import { runeStatIds, slotAllowsSubStat } from '../app/domain/runes/runes.ts';
 import { canonicalCraftCredit, noCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
@@ -218,16 +218,17 @@ function verifyMetTargetsAskForNothing() {
  * The perfect rune, found by brute force rather than rebuilt: every maximal ordinary
  * rune of the slot — any four legal lines at their maximum, any one of them carrying
  * all four later upgrades, any innate or none — read the way the page reads a rune,
- * with the canonical Gem and Grindstone. The best of them must read exactly 100 %:
+ * with the canonical Gem and Grindstone. The best six-star one must read exactly 100 %:
  * not less, or the denominator describes a rune no player can hold; not more, or it is
  * not the best one. That is what makes the number readable without a hidden per-slot
- * or per-role multiplier.
+ * or per-role multiplier. Every class is on that one scale, so the best five-star rune
+ * reads below it and the best four-star rune below that.
  */
 function verifyThePerfectRuneReadsFull() {
   let searched = 0;
   for (const entry of roles) {
     for (const build of roleBuilds(entry)) {
-      for (const stars of [4, 5, 6]) for (const slot of [1, 2, 3, 4, 5, 6]) {
+      for (const slot of [1, 2, 3, 4, 5, 6]) {
         const main = slot === 1 ? 3 : slot === 3 ? 5 : slot === 5 ? 1 : build.mains[slot];
         if (main === 0 || !slotMainProperties[slot].includes(main)) continue;
         const line = entry.type === 'Support type' ? supportBase : base;
@@ -237,28 +238,34 @@ function verifyThePerfectRuneReadsFull() {
           && (weights.weights.get(subPropertyTargetStat[statId]) ?? 0) > 0);
         if (legal.length < 4) continue;
 
-        let best = -Infinity;
-        const scope = newRuneAdviceScope();
-        for (const four of subsets(legal, 4)) for (const sink of four) for (const innate of [null, ...legal.filter((id) => !four.includes(id))]) {
-          const rune = {
-            id: 'perfect', setId: 13, setName: 'Violent', slot, stars, ancient: false,
-            rarity: 'Legend', level: 12, mainStatId: main, mainValue: 0,
-            prefixStatId: innate, prefixValue: innate === null ? 0 : maximumRoll(innate, stars),
-            subProperties: four.map((statId) => ({
-              statId, value: maximumRoll(statId, stars) * (statId === sink ? 5 : 1), gemmed: false, grind: 0,
-            })),
-            occupiedId: null, obtainedOrder: 1,
-          };
-          const candidate = prepareRuneCandidate(rune, entry, build, line, canonical, scope);
-          if (candidate) best = Math.max(best, candidateMaxValue(candidate));
+        const bestOf = new Map();
+        for (const stars of [6, 5, 4]) {
+          let best = -Infinity;
+          const scope = newRuneAdviceScope();
+          for (const four of subsets(legal, 4)) for (const sink of four) for (const innate of [null, ...legal.filter((id) => !four.includes(id))]) {
+            const rune = {
+              id: 'perfect', setId: 13, setName: 'Violent', slot, stars, ancient: false,
+              rarity: 'Legend', level: 12, mainStatId: main, mainValue: 0,
+              prefixStatId: innate, prefixValue: innate === null ? 0 : maximumRoll(innate, stars),
+              subProperties: four.map((statId) => ({
+                statId, value: maximumRoll(statId, stars) * (statId === sink ? 5 : 1), gemmed: false, grind: 0,
+              })),
+              occupiedId: null, obtainedOrder: 1,
+            };
+            const candidate = prepareRuneCandidate(rune, entry, build, line, canonical, scope);
+            if (candidate) best = Math.max(best, candidateMaxValue(candidate));
+          }
+          searched += 1;
+          bestOf.set(stars, best);
         }
-        searched += 1;
-        check(close(best, 1, 1e-9),
-          `${entry.name} slot ${slot} ${stars}★: the best maximal rune reads ${(best * 100).toFixed(3)} %, not 100 %.`);
+        check(close(bestOf.get(6), 1, 1e-9),
+          `${entry.name} slot ${slot}: the best maximal six-star rune reads ${(bestOf.get(6) * 100).toFixed(3)} %, not 100 %.`);
+        check(bestOf.get(5) < bestOf.get(6) && bestOf.get(4) < bestOf.get(5),
+          `${entry.name} slot ${slot}: a lower star class should read below the one above it on the six-star scale.`);
       }
     }
   }
-  console.log(`The best maximal rune reads exactly 100 % in all ${searched} slot, star class and build cases searched.`);
+  console.log(`The best six-star rune reads exactly 100 %, and each lower class below it, in all ${searched} cases searched.`);
 }
 
 function subsets(items, count) {
@@ -311,13 +318,12 @@ function verifySurplusKeepsPaying() {
 /* -------------------------------------------- 5. lower stars, unfinished runes */
 
 /**
- * **A rune is measured against the best rune of its own star class**
- * (`RUNE-CLEANUP-MATH.md` §2, §5). Its lines are priced in its own class's max rolls
- * and its perfect rune is one of its own class, so a perfect four-, five- or six-star
- * rune each reads 100 %. It used to read 45 %, 67 % and 99 % on one six-star scale,
- * which was the star tables talking rather than a judgement of the rune.
+ * **Every rune is weighed on one six-star scale** (`RUNE-CLEANUP-MATH.md` §2, §5). A
+ * point of a stat is worth the same on every star class, and a lower-star main costs
+ * exactly what it falls short of the six-star `+15` main, at the role's price for that
+ * stat, so the same lines read lower on a five-star rune by that amount and no more.
  */
-function verifyEachStarClassIsItsOwnScale() {
+function verifyOneSixStarScale() {
   const fastDd = role('fast-dd');
   const build = roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4);
   const make = (stars, level) => ({
@@ -332,15 +338,20 @@ function verifyEachStarClassIsItsOwnScale() {
     ],
     occupiedId: null, obtainedOrder: 1,
   });
-  /* Each class's perfect rune reading 100 % is section 3's search, which covers 4★,
-     5★ and 6★; here only the pricing of one line. */
-  /* And a five-star line is priced in five-star rolls: SPD +5 on a five-star rune is
-     one whole max roll, exactly as SPD +6 is on a six-star one. Read off the price,
-     because the perfect rune of each class carries the same canonical stones, which are
-     worth more of a smaller class's rolls. */
-  const price = (stars) => prepareRuneCandidate(make(stars, 12), fastDd, build, base, canonical).valuation;
-  check(close(price(5).value(8, maximumRoll(8, 5)), price(6).value(8, maximumRoll(8, 6)), 1e-9),
-    'one maximum SPD roll should be priced alike at five and six stars.');
+  /* A point is a point: SPD +5 on a five-star rune is five sixths of a six-star max roll. */
+  const read = (stars) => prepareRuneCandidate(make(stars, 12), fastDd, build, base, canonical);
+  check(close(read(5).valuation.value(8, 1), read(6).valuation.value(8, 1), 1e-12),
+    'one point of SPD should be priced alike at five and six stars.');
+
+  /* The same lines on a five-star body differ only by the main's +15 shortfall. */
+  const same = (stars) => ({ ...make(6, 12), stars });
+  const six = prepareRuneCandidate(same(6), fastDd, build, base, canonical);
+  const five = prepareRuneCandidate(same(5), fastDd, build, base, canonical);
+  const shortfall = (mainPropertyMaximum(5, 4) - mainPropertyMaximum(6, 4)) * six.scoring.prices[4] / six.ceiling;
+  check(shortfall < 0, 'a five-star ATK % main should cost a role that pays for ATK.');
+  check(close(candidateMaxValue(five) - candidateMaxValue(six), shortfall, 1e-9),
+    'a five-star rune with six-star lines should read lower by exactly its main shortfall.');
+  console.log(`A five-star ATK % main costs Fast DD ${(-shortfall * 100).toFixed(1)} points of Max value.`);
 
   /* An unfinished rune is scored on what it can still become, so the same lines at
      +0 must reach the same ceiling they reach at +12 — every remaining upgrade is
@@ -396,7 +407,7 @@ verifyGrindstonesComeOffTheRequirement();
 verifyMetTargetsAskForNothing();
 verifyThePerfectRuneReadsFull();
 verifySurplusKeepsPaying();
-verifyEachStarClassIsItsOwnScale();
+verifyOneSixStarScale();
 verifyCraftCreditMovesOnlyTheRune();
 newSubstatWeightScope();
 

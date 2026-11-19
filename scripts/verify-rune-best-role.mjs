@@ -30,6 +30,7 @@ import {
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 import { qualityBar, qualityReferences, qualityShare } from '../app/domain/runes/cleanup/rune-quality-reference.ts';
 import { countJobs } from '../app/domain/runes/rune-power-up-outcomes.ts';
+import { runeScaleStars } from '../app/domain/runes/rune-substat-weights.ts';
 import { canonicalCraftCredit, craftedScore } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
 const base = new Map([
@@ -77,7 +78,7 @@ function readingsOf(rune, settings, scope, references) {
       let chance = 0;
       if (allowance !== null) {
         const { prices } = candidate.scoring;
-        const reference = references.get({ slot: rune.slot, stars: candidate.stars, main: candidate.main }, prices);
+        const reference = references.get({ slot: rune.slot, stars: runeScaleStars, main: candidate.main }, prices);
         if (candidate.best > 0) share = qualityShare(reference, candidate.best);
         const step = candidateChanceAskAt(candidate, qualityBar(reference, allowance, prices));
         chance = step.job ? countJobs([step.job])[0] : step.settled;

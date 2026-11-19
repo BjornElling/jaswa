@@ -83,33 +83,41 @@ export type BuildMains = Readonly<Record<number, number>>;
 /* ------------------------------------------------------------- the currency */
 
 /**
- * What one max roll of a stat is worth **in that stat's own unit**, at one star class.
+ * **The one star class every rune is priced and measured in: six.**
+ *
+ * A rune's stats are measurable quantities, so every rune is weighed on one absolute
+ * scale: its lines in six-star max rolls, its main property's `+15` shortfall against
+ * the six-star main, and the whole against the perfect six-star rune and six-star
+ * drops. A five-star SPD line of 5 is five sixths of a max roll, not one.
+ *
+ * Measuring each class against its own best rune was tried and removed: it let a
+ * top-5 % five-star rune pass the quality floor as easily as a top-5 % six-star one,
+ * although the six-star rune is better at every one of the stats the role pays for.
+ * The developer's ruling, November 19, 2026: nearly every five-star rune should sell
+ * once the floor is set a little above its minimum, because nearly every one is worse.
+ */
+export const runeScaleStars = 6;
+
+/**
+ * What one six-star max roll of a stat is worth **in that stat's own unit**.
  *
  * HP, ATK and DEF are counted as percentage points of the monster's own base, so
  * one max roll of HP is 8 % of the reference monster's HP rather than a number of
  * points. The other five are already points and a max roll is the roll itself.
  */
-export function canonicalRollValue(stat: TargetStat, base: ReferenceStats, stars: number): number {
+export function canonicalRollValue(stat: TargetStat, base: ReferenceStats): number {
   const types = targetStatSubProperties[stat];
-  if (!scalesWithBase(stat)) return maximumRoll(types.flat ?? 0, stars);
-  return base[stat] * maximumRoll(types.percent ?? 0, stars) / 100;
+  if (!scalesWithBase(stat)) return maximumRoll(types.flat ?? 0, runeScaleStars);
+  return base[stat] * maximumRoll(types.percent ?? 0, runeScaleStars) / 100;
 }
 
 /**
- * What **one point** of `statId` is worth in max rolls of the stat it moves, at the
- * star class the rune being priced has.
+ * What **one point** of `statId` is worth in six-star max rolls of the stat it moves.
  *
  * A percent line divides by its own maximum. A flat HP, ATK or DEF line first becomes
  * percentage points of the reference monster's base stat and then divides by the
  * percent line's maximum — which is what lets `HP +375` be priced against `HP +8 %`
  * by division rather than by a made-up universal weight.
- *
- * **The maximum is the rune's own star class's**, so a five-star SPD line of 5 is one
- * whole max roll, exactly as a six-star line of 6 is. A rune is measured against the
- * best rune of its own class (`RUNE-CLEANUP-MATH.md` §2); pricing its lines in
- * six-star rolls instead would weigh its stats by how far each one's table happens
- * to shrink below six stars — CRI Dmg from 7 to 6 but SPD from 6 to 5 — which is a
- * fact about the tables and not about the rune.
  *
  * It is a **scale** rather than a conversion of one value on purpose. The
  * conversion is exactly linear, so the scale can be worked out once per effect id
@@ -117,62 +125,54 @@ export function canonicalRollValue(stat: TargetStat, base: ReferenceStats, stars
  * distribution's support — and there is still only one formula, because
  * `inMaxRolls` is that multiplication.
  */
-export function maxRollScale(statId: number, base: ReferenceStats, stars: number): number {
+export function maxRollScale(statId: number, base: ReferenceStats): number {
   const stat = subPropertyTargetStat[statId];
   if (!stat) return 0;
-  const size = canonicalRollValue(stat, base, stars);
+  const size = canonicalRollValue(stat, base);
   if (size <= 0) return 0;
   const perPoint = scalesWithBase(stat) && statId === targetStatSubProperties[stat].percent
     ? base[stat] / 100 : 1;
   return perPoint / size;
 }
 
-/**
- * A value of `statId` expressed in six-star max rolls of the stat it moves — the
- * unit a *requirement* is stated in, because the finished build is a six-star one.
- */
+/** A value of `statId` expressed in six-star max rolls of the stat it moves. */
 export function inMaxRolls(statId: number, value: number, base: ReferenceStats): number {
-  return value * maxRollScale(statId, base, 6);
+  return value * maxRollScale(statId, base);
 }
 
 /** The reference line, as a cache key. Only these three stats scale a flat roll. */
 export const baseKey = (base: ReferenceStats): string => `${base.hp}/${base.atk}/${base.def}`;
 
 /**
- * Max-roll equivalents of one star class, each stat multiplied by what this role is
- * paying for it.
- *
- * The weights are the role's and the same at every star class: they say what one max
- * roll of a stat is worth against one max roll of another. The max roll is the rune's
- * own (`maxRollScale`).
+ * Six-star max-roll equivalents, each stat multiplied by what this role is paying
+ * for it. The weights say what one max roll of a stat is worth against one max roll
+ * of another; `maxRollScale` says how many max rolls a point is.
  *
  * The eleven factors are worked out once here rather than on every line of every
  * rune. Pricing a line is the innermost operation the whole calculation has — every
  * point of every roll distribution passes through it — and re-deriving the currency
  * conversion there made it 10 % of a real account's run time on its own.
  */
-export function weightedValuation(base: ReferenceStats, weights: SubstatWeights, stars: number): Valuation {
-  let byStars = valuations.get(weights);
-  if (!byStars) { byStars = new Map(); valuations.set(weights, byStars); }
-  const cached = byStars.get(stars);
+export function weightedValuation(base: ReferenceStats, weights: SubstatWeights): Valuation {
+  const cached = valuations.get(weights);
   if (cached) return cached;
   const factors = new Map<number, number>();
   for (const statId of allStatIds) {
     const weight = weights.weights.get(subPropertyTargetStat[statId]) ?? 0;
-    if (weight > 0) factors.set(statId, maxRollScale(statId, base, stars) * weight);
+    if (weight > 0) factors.set(statId, maxRollScale(statId, base) * weight);
   }
   const valuation: Valuation = {
-    key: `weighted:${stars}:${baseKey(base)}:${weights.key}`,
+    key: `weighted:${baseKey(base)}:${weights.key}`,
     value: (statId, raw) => raw * (factors.get(statId) ?? 0),
   };
-  byStars.set(stars, valuation);
+  valuations.set(weights, valuation);
   return valuation;
 }
 
-/* One valuation per weight set and star class. The weights already carry the
-   reference line in their own key, so the weight object and the star class identify
-   the valuation completely, and a `WeakMap` on it needs no invalidation rule. */
-const valuations = new WeakMap<SubstatWeights, Map<number, Valuation>>();
+/* One valuation per weight set. The weights already carry the reference line in
+   their own key, so the weight object identifies the valuation completely, and a
+   `WeakMap` on it needs no invalidation rule. */
+const valuations = new WeakMap<SubstatWeights, Valuation>();
 
 /* ---------------------------------------------------- what the build brings */
 
@@ -181,11 +181,12 @@ const valuations = new WeakMap<SubstatWeights, Map<number, Valuation>>();
  *
  * Main properties are deterministic and the build they describe is a six-star one,
  * so this is the ordinary six-star `+15` value — a fact about the role, never about
- * the candidate rune, whose own star class is priced separately.
+ * the candidate rune, whose lower-star main is charged its shortfall separately
+ * (`runeFixedScore`).
  */
 function mainContribution(mainStatId: number, stat: TargetStat, base: ReferenceStats): number {
   if (mainStatId === 0 || subPropertyTargetStat[mainStatId] !== stat) return 0;
-  const value = mainPropertyMaximum(6, mainStatId);
+  const value = mainPropertyMaximum(runeScaleStars, mainStatId);
   return mainStatId === targetStatSubProperties[stat].percent ? base[stat] * value / 100 : value;
 }
 
@@ -451,7 +452,7 @@ export function substatWeights(
     for (const slot of slots) fromMains += mainContribution(input.mains[slot] ?? 0, stat, input.base);
     const fromArtifacts = artifactContribution(stat, input.artifacts);
     const needed = Math.max(0, target - fromBase - fromMains - fromArtifacts);
-    const rollValue = canonicalRollValue(stat, input.base, 6);
+    const rollValue = canonicalRollValue(stat, input.base);
     const rollsNeeded = rollValue > 0 ? needed / rollValue : 0;
     const relief = groundRelief(input.mains, stat, input.base, plan, rollsNeeded);
     const rollsToRoll = Math.max(0, rollsNeeded - relief.rolls);

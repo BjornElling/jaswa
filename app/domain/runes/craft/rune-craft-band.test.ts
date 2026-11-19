@@ -38,15 +38,20 @@ describe('craftedScoreAgainst', () => {
             grind: row % 5 === at ? 9 : 0,
             gemmed: row % 7 === at,
           }));
-          const prefixScore = prefix === null ? 0 : bodies.prefixValue[row] * prices[prefix];
-          const exact = craftedScore(plan, options, prices, lines, prefixScore);
-          const values = new Float64Array(lines.length);
-          for (const bar of [exact, nextUp(exact), below(exact), exact * 0.9, exact * 1.1, exact * 0.5, exact * 2, Number.MIN_VALUE]) {
-            for (const [lowest, highest] of [[bar, bar], [bar * 0.8, bar], [bar, bar * 1.25]]) {
-              const shortcut = craftedScoreAgainst(plan, options, prices, lines, prefixScore, values, lowest, highest);
-              for (const probe of [lowest, highest]) {
-                expect(shortcut >= probe).toBe(exact >= probe);
-                compared += 1;
+          const innate = prefix === null ? 0 : bodies.prefixValue[row] * prices[prefix];
+          /* A lower-star main makes the fixed part negative (`runeFixedScore`). */
+          for (const prefixScore of [innate, innate - 1.5]) {
+            const exact = craftedScore(plan, options, prices, lines, prefixScore);
+            const values = new Float64Array(lines.length);
+            for (const bar of [exact, nextUp(exact), below(exact), exact * 0.9, exact * 1.1, exact * 0.5, exact * 2, Number.MIN_VALUE]) {
+              for (const [one, other] of [[bar, bar], [bar * 0.8, bar], [bar, bar * 1.25]]) {
+                const lowest = Math.min(one, other);
+                const highest = Math.max(one, other);
+                const shortcut = craftedScoreAgainst(plan, options, prices, lines, prefixScore, values, lowest, highest);
+                for (const probe of [lowest, highest]) {
+                  expect(shortcut >= probe).toBe(exact >= probe);
+                  compared += 1;
+                }
               }
             }
           }
@@ -54,5 +59,5 @@ describe('craftedScoreAgainst', () => {
       }
     }
     expect(compared).toBeGreaterThan(100_000);
-  });
+  }, 60_000);
 });

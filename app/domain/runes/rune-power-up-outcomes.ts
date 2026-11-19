@@ -63,9 +63,10 @@
  */
 import { runeRarityOrder, slotAllowsSubStat } from './runes';
 import type { Rune } from './runes';
-import { addedSubPropertyRange, allStatIds, remainingEvents, subPropertyRange } from './rune-properties';
+import { addedSubPropertyRange, allStatIds, mainPropertyMaximum, remainingEvents, subPropertyRange } from './rune-properties';
 import { craftedScore, craftedScoreAgainst, craftedScoreCeiling, gemOptions, grindCredit, groundValue, priceList } from './craft/rune-craft-end-state';
 import type { CraftPlan, EndStateLine, GemOptions, PriceList } from './craft/rune-craft-end-state';
+import { runeScaleStars } from './rune-substat-weights';
 import type { Valuation } from './rune-substat-weights';
 import type { CalculationBackend } from '../shared/calculation-summary';
 
@@ -257,12 +258,31 @@ export type EndStateScoring = {
   readonly prices: PriceList;
   readonly plan: CraftPlan;
   readonly options: GemOptions;
-  /** The innate's contribution, which takes neither craft item and never changes. */
+  /** What never changes and takes no craft item: the innate, and the main's `+15` shortfall
+      against the six-star main (`runeFixedScore`). */
   readonly prefixScore: number;
 };
 
-export function runeInnateScore(rune: Pick<Rune, 'prefixStatId' | 'prefixValue'>, prices: PriceList): number {
-  return rune.prefixStatId === null ? 0 : rune.prefixValue * prices[rune.prefixStatId];
+/**
+ * **The part of a rune's score no roll or craft item moves**: its innate, plus what
+ * its main property falls short of the six-star main at `+15`.
+ *
+ * The requirement already counts every main at its six-star `+15` value, so a
+ * six-star rune's main adds nothing here. A five-star main delivers less of its stat,
+ * and that missing amount has to come from somewhere else in the build: it is priced
+ * at what the role pays for the stat, so a main the role does not care about costs
+ * nothing, and a five-star ATK % main costs a role that wants ATK the twelve points
+ * it lacks. A multiplicative main factor once did this job and read every lower-star
+ * rune at a fixed fraction whatever the role thought of its main; an Ancient rune's
+ * main is the ordinary six-star one and has no shortfall.
+ */
+export function runeFixedScore(
+  rune: Pick<Rune, 'stars' | 'mainStatId' | 'prefixStatId' | 'prefixValue'>, prices: PriceList,
+): number {
+  const innate = rune.prefixStatId === null ? 0 : rune.prefixValue * prices[rune.prefixStatId];
+  if (rune.stars === runeScaleStars) return innate;
+  const shortfall = mainPropertyMaximum(rune.stars, rune.mainStatId) - mainPropertyMaximum(runeScaleStars, rune.mainStatId);
+  return innate + shortfall * prices[rune.mainStatId];
 }
 
 export function endStateScoring(rune: Rune, valuation: Valuation, plan: CraftPlan): EndStateScoring {
@@ -272,7 +292,7 @@ export function endStateScoring(rune: Rune, valuation: Valuation, plan: CraftPla
     prices,
     plan,
     options: gemOptions(plan, prices, rune.slot, rune.mainStatId, rune.prefixStatId),
-    prefixScore: runeInnateScore(rune, prices),
+    prefixScore: runeFixedScore(rune, prices),
   };
 }
 
@@ -635,7 +655,7 @@ export function chanceStep(future: RuneFuture, scoring: EndStateScoring, wanted:
   // The cheap bound sums in a different order from the scorer. Leave borderline
   // cases to the exact comparison on each sampled body.
   const least = leastEndState(future, scoring);
-  if (least - least * Number.EPSILON * 8 >= wanted) return { settled: 1, job: null };
+  if (least - Math.abs(least) * Number.EPSILON * 8 >= wanted) return { settled: 1, job: null };
   return { settled: null, job: { future, scoring, wanted, runs } };
 }
 

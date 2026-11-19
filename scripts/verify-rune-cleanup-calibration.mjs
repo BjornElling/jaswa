@@ -12,7 +12,7 @@
 import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
-  addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
+  addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, mainPropertyMaximum, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
 } from '../app/domain/runes/rune-properties.ts';
 import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/domain/runes/runes.ts';
@@ -254,7 +254,11 @@ function independentEndState(rune, credit, valuation) {
   const referenceWorth = worthWith(referenceGrind);
   const held = lines.map((line) => worth(line.statId, line.value, line.grind));
   const referenceHeld = lines.map((line) => referenceWorth(line.statId, line.value, line.grind));
-  const prefix = rune.prefixStatId === null ? 0 : valuation.value(rune.prefixStatId, rune.prefixValue);
+  /* Every rune is scored on the six-star scale (`RUNE-CLEANUP-MATH.md` §2): a lower-star
+     main gives up what it lacks of the six-star +15 main, at the role's price. */
+  const shortfall = mainPropertyMaximum(rune.stars, rune.mainStatId) - mainPropertyMaximum(6, rune.mainStatId);
+  const prefix = (rune.prefixStatId === null ? 0 : valuation.value(rune.prefixStatId, rune.prefixValue))
+    + valuation.value(rune.mainStatId, shortfall);
   const sumBody = (values, replaced = -1, replacementStat = -1, replacementValue = 0) => {
     const order = lines.map((line, index) => ({ index,
       statId: index === replaced ? replacementStat : line.statId,

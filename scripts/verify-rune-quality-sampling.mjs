@@ -10,6 +10,7 @@ import { newRuneAdviceScope, prepareRuneCandidate, roleBuilds } from '../app/dom
 import { canonicalCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { isIntangibleRuneSet } from '../app/domain/runes/rune-sets.ts';
 import { slotMainProperties } from '../app/domain/runes/rune-properties.ts';
+import { runeScaleStars } from '../app/domain/runes/rune-substat-weights.ts';
 import {
   allowanceDenominator, qualityBar, qualityHits, referenceBodies, referenceKey, referencePieceKey,
   referenceSampleSize, referenceScores,
@@ -57,7 +58,7 @@ function holdoutCheck(reference, holdout, prices) {
   }
 }
 
-for (const stars of [5, 6]) for (const slot of [1, 2, 3, 4, 5, 6]) {
+for (const stars of [runeScaleStars]) for (const slot of [1, 2, 3, 4, 5, 6]) {
   for (const main of slotMainProperties[slot]) {
     for (const prices of [broad, speed]) {
       const bodies = referenceBodies(slot, stars, main, n, standardSeed);
@@ -106,7 +107,7 @@ function boundaryOf(rune, experimental, count) {
       if (!reading || reading.best <= 0) continue;
       const allowance = readingAllowance(settings, reading.rank, isIntangibleRuneSet(rune.setName));
       if (allowance === null) continue;
-      const piece = { slot: rune.slot, stars: reading.stars, main: reading.main };
+      const piece = { slot: rune.slot, stars: runeScaleStars, main: reading.main };
       const { prices } = reading.scoring;
       const reference = standard.get(piece, prices);
       const comparison = experimental.get(piece, prices);

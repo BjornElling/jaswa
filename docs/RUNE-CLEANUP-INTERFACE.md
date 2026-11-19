@@ -43,8 +43,8 @@ The table, Statistics and the rune overlay key their answers with
 `rune-calculation-inputs.ts`. Rune bodies are compared separately from placement. Every role and used reference type can affect the reading weights or verdict.
 Incremental replacement uses the same reference and future streams.
 
-The main thread's reference provider shares arrays by slot, star class, main
-and numerical prices. Rune Clean-up, its overlay, Statistics and Simulator lease
+The main thread's reference provider shares arrays by slot, main and numerical
+prices; every reference is six-star (`RUNE-CLEANUP-MATH.md` §2). Rune Clean-up, its overlay, Statistics and Simulator lease
 the arrays before judging. Overlapping callers share unfinished references.
 Releasing the last lease cancels orphaned preparation. The pool transfers its
 reference scores to the owner, which sends only the pieces each advice worker

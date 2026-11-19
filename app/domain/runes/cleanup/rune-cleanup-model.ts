@@ -17,8 +17,8 @@
  *
  * ## One currency, two questions
  *
- * Everything is counted in **max rolls** — how many best-possible sub-property rolls
- * of the rune's own star class a quantity is worth — and every max roll is then multiplied by
+ * Everything is counted in **max rolls** — how many best-possible six-star sub-property
+ * rolls a quantity is worth, whatever the rune's own star class — and every max roll is then multiplied by
  * what the role is actually paying for that stat. `rune-substat-weights.ts` owns
  * that multiplier and explains it; without it a maximum Accuracy roll and a maximum
  * SPD roll price identically for a role that wants 25 of one and 215 of the other,
@@ -48,7 +48,7 @@ import type { ReferenceStats } from '../../reference/rune-reference-stats';
 import type { RoleChoice, RuneRole } from '../../profiles/rune-roles';
 import { runeMainStatIds } from '../../profiles/rune-roles';
 import {
-  newSubstatWeightScope, substatWeights, targetStats, weightedValuation,
+  newSubstatWeightScope, runeScaleStars, substatWeights, targetStats, weightedValuation,
 } from '../rune-substat-weights';
 import type { BuildMains, SubstatWeightScope, SubstatWeights } from '../rune-substat-weights';
 import type { Valuation } from '../rune-substat-weights';
@@ -177,12 +177,12 @@ export type RuneOutcome = {
  * lines and a rune the game cannot produce. It made no difference while every stat
  * priced alike; with weights it flatters the second-best stat by two whole rolls.
  *
- * **The scale is the best ordinary rune of the candidate's own star class**, so a
- * perfect five-star rune reads 100 % exactly as a perfect six-star one does. It used
- * to be the six-star rune for everyone, with a main-property factor on top, which
- * read a perfect 5★ rune at 67 % and a perfect 4★ at 45 %: a statement about how far
- * the star tables shrink, printed as though it were a judgement of the rune. Whether
- * a lower-star rune is worth keeping at all is the quality floor's question, asked of the rune's own star class.
+ * **The scale is the best ordinary six-star rune, for every rune** (`runeScaleStars`).
+ * A perfect five-star rune reads well below 100 %: its rolls are smaller and its main
+ * falls short of the six-star `+15` main (`runeFixedScore`), and both are facts about
+ * what it gives the build. Each class was once measured against its own best rune, so
+ * a perfect 5★ rune read 100 % and a top-5 % five-star rune passed the floor as easily
+ * as a top-5 % six-star one.
  *
  * An Ancient rune is a six-star rune and is measured against the **ordinary**
  * six-star one: its higher initial interval may move its own score above the bar,
@@ -199,11 +199,11 @@ export type RuneOutcome = {
  * this takes no lineage.
  */
 export function slotCeiling(
-  valuation: Valuation, slot: number, main: number, credit: CraftCredit, stars: number,
+  valuation: Valuation, slot: number, main: number, credit: CraftCredit,
 ): number {
   const prices = priceList(valuation);
   const plan = craftPlan('standard', credit);
-  const most = (statId: number) => maximumRoll(statId, stars);
+  const most = (statId: number) => maximumRoll(statId, runeScaleStars);
   const ids = allStatIds.filter((statId) => statId !== main && slotAllowsSubStat(slot, statId))
     .filter((statId) => most(statId) * prices[statId] > 0);
   if (ids.length === 0) return 0;
@@ -381,8 +381,6 @@ export type RuneCandidate = {
   readonly main: number;
   /** The best legal end state the rune can still reach, in this role's units. */
   readonly best: number;
-  /** The star class its Max value is read in (`referenceStars`). */
-  readonly stars: number;
   /** What the rune may still become, which is a fact about the rune and not the role. */
   readonly future: RuneFuture;
   /** What this role pays, and what its craft items could do to this rune. */
@@ -401,7 +399,7 @@ export type RuneAdviceScope = {
   weights: SubstatWeightScope;
   /** The perfect rune of one slot, by valuation, craft credit, slot and main. */
   ceiling: Remembered;
-  /** One build's weights and valuation, by role, build, reference line, credit and stars. */
+  /** One build's weights and valuation, by role, build, reference line and credit. */
   pricing: Remembered;
   /**
    * What a rune may still become, which every role judging it asks the same way.
@@ -461,8 +459,7 @@ export function prepareRuneCandidate(
   rune: Rune, role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit,
   scope: RuneAdviceScope = newRuneAdviceScope(),
 ): RuneCandidate | null {
-  const stars = referenceStars(rune);
-  const scale = readingScale(role, build, base, rune.slot, rune.mainStatId, stars, scope);
+  const scale = readingScale(role, build, base, rune.slot, rune.mainStatId, scope);
   if (!scale) return null;
   const { valuation, weights, ceiling, rank: mainRank } = scale;
   const main = rune.mainStatId;
@@ -477,15 +474,13 @@ export function prepareRuneCandidate(
   /* Callers that only price a visible line do not need to enumerate future maxima. */
   let best: number | undefined;
 
-  /* No main-property factor. A rune is judged on its sub properties against the
-     best rune of its own star class, and its main property is the same at `+15`
-     whatever it rolled — it decides which build the rune belongs to, not how good a
-     member of it the rune is. The factor this replaced read a perfect five-star rune
-     at two thirds of a perfect six-star one, which is the star table talking. */
+  /* No main-property factor. A six-star main is what the requirement already counts,
+     and a lower-star main's shortfall is priced into the fixed part of the score
+     (`runeFixedScore`) at what the role pays for that stat. */
   const setRank = runeSetMatchRank(role.sets, rune.setName);
 
   return {
-    rune, valuation, weights, ceiling, build, main, stars,
+    rune, valuation, weights, ceiling, build, main,
     get best() { return best ??= bestEndState(future, scoring); },
     future, scoring, credit, plan,
     lineage, rank: worseRank(setRank, mainRank), scope,
@@ -494,13 +489,12 @@ export function prepareRuneCandidate(
 
 /** A blank build slot accepts the rune's actual main, which still excludes that sub property. */
 export function readingScale(
-  role: RuneRole, build: Build, base: ReferenceStats, slot: number, main: number,
-  stars: number, scope: RuneAdviceScope,
+  role: RuneRole, build: Build, base: ReferenceStats, slot: number, main: number, scope: RuneAdviceScope,
 ) {
   if (!slotMainProperties[slot]?.includes(main) || !buildAccepts(build, slot, main)) return null;
-  const priced = buildPricing(role, build, base, rulerCredit, stars, scope);
+  const priced = buildPricing(role, build, base, rulerCredit, scope);
   if (!priced) return null;
-  const ceiling = cachedCeiling(priced.valuation, slot, main, rulerCredit, stars, scope);
+  const ceiling = cachedCeiling(priced.valuation, slot, main, rulerCredit, scope);
   if (!Number.isFinite(ceiling) || ceiling <= 0) return null;
   return { ...priced, prices: priceList(priced.valuation), ceiling, rank: buildRank(build, slot) };
 }
@@ -527,28 +521,16 @@ export function buildRank(build: Build, slot: number): MatchRank {
   return rank;
 }
 
-/**
- * **The star class a rune is measured in: its own.** A five-star rune's lines are
- * priced in five-star max rolls, its perfect rune is a five-star one and its ordinary
- * box is five-star runes, so its efficiency, quality and chance all answer
- * "how good a five-star rune is this". An Ancient rune is a six-star rune measured
- * against the ordinary six-star reference (§5), which is why its higher initial
- * interval reads above 100 % — as any rune may.
- */
-export const referenceStars = (rune: Pick<Rune, 'ancient' | 'stars'>): number => (rune.ancient ? 6 : rune.stars);
-
-/** One build's weights and the valuation they price a rune of `stars` with. */
+/** One build's weights and the six-star valuation they price every rune with. */
 function buildPricing(
-  role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit, stars: number,
-  scope: RuneAdviceScope,
+  role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit, scope: RuneAdviceScope,
 ): { weights: SubstatWeights; valuation: Valuation } | null {
-  return remembered(scope.pricing, [role, build, base, credit, stars],
-    () => priceBuild(role, build, base, credit, stars, scope));
+  return remembered(scope.pricing, [role, build, base, credit],
+    () => priceBuild(role, build, base, credit, scope));
 }
 
 function priceBuild(
-  role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit, stars: number,
-  scope: RuneAdviceScope,
+  role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit, scope: RuneAdviceScope,
 ): { weights: SubstatWeights; valuation: Valuation } | null {
   /* The weights read nothing about the rune. Two runes that differ only in their set
      are scored identically, which is what lets the recommendation compare them; a set
@@ -560,18 +542,17 @@ function priceBuild(
     targets: role.targets, mains: buildMains(build), artifacts: role.artifacts, base, credit,
   }, scope.weights);
   if (weights.weights.size === 0) return null;
-  return { weights, valuation: weightedValuation(base, weights, stars) };
+  return { weights, valuation: weightedValuation(base, weights) };
 }
 
 function cachedCeiling(
-  valuation: Valuation, slot: number, main: number, credit: CraftCredit, stars: number, scope: RuneAdviceScope,
+  valuation: Valuation, slot: number, main: number, credit: CraftCredit, scope: RuneAdviceScope,
 ): number {
   /* The slot belongs in the path. Two slots can carry the same main property — ATK +
      is slot 1's fixed main and one of slot 2's choices — while forbidding different
-     sub properties, so a key without the slot handed slot 2 slot 1's ceiling. The
-     valuation already carries the star class. */
+     sub properties, so a key without the slot handed slot 2 slot 1's ceiling. */
   return remembered(scope.ceiling, [valuation, credit, slot, main],
-    () => slotCeiling(valuation, slot, main, credit, stars));
+    () => slotCeiling(valuation, slot, main, credit));
 }
 
 /** Whether a build accepts `main` in `slot`: its own choice there, or none stated. */

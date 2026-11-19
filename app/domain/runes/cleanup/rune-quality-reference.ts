@@ -3,7 +3,7 @@ import type { EndStateLine, GemOptions, PriceList } from '../craft/rune-craft-en
 import { runeBirthRarityMasses } from '../rune-birth-model';
 import { generateRuneBody, upgradeRuneBody } from '../rune-generation';
 import { slotMainProperties } from '../rune-properties';
-import { runeInnateScore } from '../rune-power-up-outcomes';
+import { runeFixedScore } from '../rune-power-up-outcomes';
 
 export const referenceSampleSize = 16_384;
 export const allowanceDenominator = 1_000_000;
@@ -100,8 +100,10 @@ export function referenceScores(bodies: ReferenceBodies, readingPrices: PriceLis
       buffer[line].value = bodies.lines[row * 8 + line * 2 + 1];
     }
     const lines = bodies.lineCount[row] === 4 ? buffer : buffer.slice(0, bodies.lineCount[row]);
-    const innate = runeInnateScore({ prefixStatId, prefixValue: bodies.prefixValue[row] }, prices);
-    scores[row] = craftedScore(plan, gems, prices, lines, innate, scratch);
+    const fixed = runeFixedScore({
+      stars: bodies.stars, mainStatId: bodies.main, prefixStatId, prefixValue: bodies.prefixValue[row],
+    }, prices);
+    scores[row] = craftedScore(plan, gems, prices, lines, fixed, scratch);
   }
   return scores.sort();
 }

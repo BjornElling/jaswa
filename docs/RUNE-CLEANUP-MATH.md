@@ -28,7 +28,7 @@ refresh, the safeguard controls, the filter panel — is
 | --- | --- |
 | Ordinary 1–6★ main and sub-property intervals | Verified tables: mains `RUNE-CANONICAL.md` §3, sub properties §7. |
 | Ancient runes | Main properties are the ordinary 6★ values at every level. Lines the rune was **born** with carry the Ancient interval; a line it gains by power-up, and every improvement, rolls from the ordinary 6★ table (`addedSubPropertyRange`; evidence in `RUNE-CANONICAL.md` §7). Weights, perfect rune and sampled reference stay ordinary. |
-| Innate below 6★ | **Modelled**: a 4★ or 5★ innate takes that star class's sub-property range, in the perfect rune (§5) and in the generator. Only 6★ innates are measured (`RUNE-CANONICAL.md` §4). |
+| Innate below 6★ | **Modelled**: a 4★ or 5★ innate takes that star class's sub-property range in the generator. Only 6★ innates are measured (`RUNE-CANONICAL.md` §4). |
 | Gem and Grindstone legality and ranges | Verified: `RUNE-CANONICAL.md` §8 and `RUNE-CRAFT-ITEMS.md`. |
 | A value inside its legal integer interval | **Modelled** uniform; the 6★ distribution has a measured check. |
 | Which line an upgrade improves, and a new line's type | **Modelled** uniform over the legal choices (`RUNE-CANONICAL.md` §7). |
@@ -45,26 +45,40 @@ the game's schedule rather than from that loop (§10).
 
 ## 2. One currency, including flat stats
 
-Every relevant sub property is converted to **maximum-roll equivalents of the rune's
-own star class**. A percent line divides by its own class's maximum. A flat HP, ATK or
-DEF line first becomes percentage points of the reference monster's base stat — the
-same conversion at every star class — and then divides by the matching percent line's
-maximum for the rune's class. For a six-star rune:
+Every relevant sub property is converted to **six-star maximum-roll equivalents,
+whatever the rune's star class** (`runeScaleStars`). A percent line divides by the
+six-star maximum of its stat. A flat HP, ATK or DEF line first becomes percentage
+points of the reference monster's base stat and then divides by the matching six-star
+percent maximum:
 
 ```
 flat HP contribution = (flat HP × 100 / reference HP) / 8
 HP % contribution    = HP % / 8
 ```
 
-SPD, CRI Rate, CRI Dmg, RES and ACC are native points and divide by their own class's
-maximum roll, so `SPD +5` on a five-star rune is one whole maximum roll, as `SPD +6` is
-on a six-star one. A rune is measured against the best rune of its own class (§5) and
-played forward with its own class's rolls (§7), so every figure on its row answers "how
-good a rune of this class is this" — not how far its class's tables happen to shrink.
+SPD, CRI Rate, CRI Dmg, RES and ACC are native points and divide by their six-star
+maximum roll, so `SPD +5` is five sixths of a maximum roll on any rune. A rune's stats
+are measurable quantities, so every rune is weighed on this one absolute scale: against
+the perfect six-star rune (§5) and against six-star drops (§9.4). A lower-star rune is
+still played forward with its own class's rolls (§7), because those are the rolls it
+can get.
+
+**A lower-star main costs its `+15` shortfall** (`runeFixedScore`). The requirement
+counts every main at its six-star `+15` value (§4.1). A five-star main delivers less of
+its stat, and the missing amount, in six-star rolls, is priced at the role's weight for
+that stat and added to the rune's score, where it is negative. A main the role does not
+pay for costs nothing; a five-star ATK % main (51 against 63) costs a role that wants
+ATK the twelve points it lacks. An Ancient rune's main is the ordinary six-star one.
+
+**This was decided on November 19, 2026.** Each star class used to be measured against
+its own best rune and its own drops, so a top-5 % five-star rune passed the quality
+floor as easily as a top-5 % six-star one, although it is worse at every stat the role
+pays for. On one scale, nearly every five-star rune sells once the floor sits a little
+above its minimum, which is the intended outcome.
 
 **What a role needs stays six-star** (§4). The finished build is a six-star one, so a
 requirement, the main properties and the Grindstones that come off it are counted in
-six-star rolls, and the resulting weights are the same for every star class.
+six-star rolls.
 
 The reference base is the average of the user's own level-40 monsters in the role's
 family. A missing family uses the account-wide level-40 average; with no level-40
@@ -253,15 +267,16 @@ SPD roll 6.3 of them.
 
 ## 5. Value, Max value and the perfect rune
 
-A rune's score is a plain sum over every line it carries, **the innate included**:
+A rune's score is a plain sum over every line it carries, **the innate included**, plus
+its main's shortfall (§2), which is zero for a six-star or Ancient rune:
 
 ```
 score = Σ over lines of (the line's value in max rolls × its stat's weight)
+      + (main at +15 − six-star main at +15) in max rolls × the main stat's weight
 ```
 
 Nothing is capped or discarded. The denominator is a concrete rune — **the best legal
-ordinary rune of the candidate's own star class for this role in this slot** (six-star
-for an Ancient rune):
+ordinary six-star rune for this role in this slot**, for every rune:
 
 - four sub properties at their maximum, on the four best-valued legal effect ids;
 - the most valuable of them carrying all four upgrades as well (five maximum rolls),
@@ -274,10 +289,12 @@ for an Ancient rune):
 Max value = score / ceiling
 ```
 
-Both are in the candidate's own class's max rolls (§2), so a perfect four-, five- or
-six-star rune reads 100 %. There is no main-property factor: a main decides which build
-a rune belongs to, not how good a member of it the rune is, and the requirement already
-counts every main at its six-star `+15` (§4.1).
+Both are in six-star max rolls (§2), so a perfect six-star rune reads 100 % and a
+perfect five-star rune reads less: its rolls are smaller, and its main falls short. A
+very weak lower-star rune can read below zero, which says its lines do not make up for
+its main. There is no multiplicative main factor: a six-star main is what the
+requirement already counts (§4.1), and a lower-star main is charged only what it lacks
+of a stat the role pays for.
 
 **100 % is a reference point, never a ceiling.** No Max value, expectation or Gems &
 Grinds score is capped anywhere. A rune that reads more than the perfect ordinary rune —
@@ -456,14 +473,14 @@ its own best legal end state before it is scored.
 | --- | --- |
 | Fewer than four sub properties | `RUNE-CANONICAL.md` §6 fixes which remaining events improve held lines and which add lines. Added lines are drawn without replacement from the ids the slot, the main and the innate leave legal; their order cannot matter, because no improvement follows them. Gem legality is settled on the final line-up. |
 | Improvements still to come | Every one lands on a line the rune already holds (§7.1). In the best case they concentrate on the held line worth most — a line-up's value is linear in the split and the Gem's gain convex in it, so the maximum is at a corner. |
-| Below six stars | Its own star class's intervals for every future roll, its lines priced in its own class's max rolls, measured against its own class's perfect rune and sampled reference (§2, §5). |
+| Below six stars | Its own star class's intervals for every future roll, because those are the rolls it can get. Its lines priced in six-star max rolls, its main's `+15` shortfall charged, and measured against the perfect six-star rune and six-star drops (§2, §5, §9.4). |
 | Hero, Rare, Magic or Normal born | Its own rarity's schedule decides every remaining event, so its best end state and chance are its own. Measured against the Legend-born reference, a rune perfect for its rarity reads below 100 % (§4.2). |
 | Ancient | Born lines at their Ancient values; added lines, improvements, the weights, the box, the main property and the denominator ordinary six-star. Craft items Ancient (§7.4). |
 | At `+12` or above | No sub-property event left. The `+15` main is deterministic, so Max value is settled and Chance is 1 or 0. The row says `Main stat only`, `Already there` or `Below the floor` rather than dressing a certainty as a gamble. |
 
-The denominator never moves with the candidate's own rolls, lineage or level; it moves
-with its star class and nothing else. Whether a four-star rune is worth keeping at all is
-the floor's question, asked of the four-star population (§9.1).
+The denominator and the sampled reference never move with the candidate's own rolls,
+star class, lineage or level. A four-star rune is asked the same question as a six-star
+one: whether it ranks among the best six-star drops for some use.
 
 ## 9. Verdict and unbounded role matching
 
@@ -478,8 +495,8 @@ Worker failures keep the previous completed results.
 
 ### 9.1 A same-main quality allowance
 
-Each reading compares with ordinary drops of its own slot, star class and main.
-The base allowances are 20, 10, 5, 2 and 1 %. Preferred matches use the base
+Each reading compares with ordinary six-star drops of its own slot and main,
+whatever the rune's own star class. The base allowances are 20, 10, 5, 2 and 1 %. Preferred matches use the base
 allowance. Accepted factors are 1, 0.95, 0.85, 0.70 and 0.55. Broken factors
 are 0.90, 0.85, 0.80 and 0.65, followed by No, which removes the event.
 Intangible multiplies the allowance by 1, 1.5, 2, 3.5 or 5. Cap the resulting
@@ -518,9 +535,9 @@ weights in §1. A main no configured role accepts stays in the denominator.
 
 ### 9.4 The reference sample and ties
 
-A reference holds 16,384 ordinary bodies, stratified by the shared rarity mix.
-Each body runs from birth to +12 through the shared generator and upgrade
-schedule. Its seed uses slot, star class, main, rarity stratum and its index
+A reference holds 16,384 ordinary six-star bodies, stratified by the shared
+rarity mix. Each body runs from birth to +12 through the shared generator and
+upgrade schedule. Its seed uses slot, star class, main, rarity stratum and its index
 within that stratum. Statistics uses a separate seed stream. Prices and body
 identity determine the sorted scores. Changing policy moves the bar within
 those scores.
@@ -557,7 +574,7 @@ positive-chance builds, then other permitted builds, then naming fallbacks.
 
 | Check | Holds |
 | --- | --- |
-| `verify:rune-substat-weights` | §§4–5 deterministically: a target is a weight, mains, artifacts and credited stones come off the requirement while a rune's set does not, a met target asks nothing, surplus keeps paying past 100 %, each star class is priced in its own rolls, a richer candidate credit moves only the rune and never reads lower, and an exhaustive search finds the best maximal ordinary rune at exactly 100 % in every star class, slot and build of every shipped role. |
+| `verify:rune-substat-weights` | §§4–5 deterministically: a target is a weight, mains, artifacts and credited stones come off the requirement while a rune's set does not, a met target asks nothing, surplus keeps paying past 100 %, a point is priced alike at every star class and a five-star main costs exactly its `+15` shortfall, a richer candidate credit moves only the rune and never reads lower, and an exhaustive search finds the best maximal six-star rune at exactly 100 %, and each lower class below the one above it, in every slot and build of every shipped role. |
 | `verify:rune-set-neutrality` | §4.3, paired: identical rune bodies under every set label give identical answers, and a role that does rank sets is still obeyed. |
 | `verify:rune-slot-neutrality` | Same-main allowances, mixed rarity, checkpoint identity, blank input and unusable mains. |
 | `verify:rune-slot-policy-matrix` | Adjacent policy monotonicity for all 625 combinations and role addition/reordering/duplication. |

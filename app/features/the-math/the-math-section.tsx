@@ -478,12 +478,12 @@ export function TheMathSection() {
           The new line has to be one the game would actually allow: not the main stat, not the innate, not a line the rune already carries, and legal in that slot. That restriction is the reason a rune with four useless lines and no additions left cannot improve, however much the role wants something else.
         </p>
 
-        <h3 className="type-heading">Every star class on its own scale</h3>
+        <h3 className="type-heading">Every star class on one scale</h3>
         <p>
-          A 4★ or 5★ rune is judged against <b className="type-body-emphasis">the best rune of its own star class</b>. Its lines are counted in its own class&rsquo;s maximum rolls &mdash; <span className="math-table-rolled">SPD + 5</span> is one whole maximum roll on a five-star rune, exactly as <span className="math-table-rolled">SPD + 6</span> is on a six-star one &mdash; its perfect rune is a five-star one, and its chance is played forward with five-star rolls. So a perfect five-star rune reads 100 %. The main stat plays no part: it decides which build a rune belongs to, not how good a member of it the rune is.
+          A 4★ or 5★ rune is weighed on <b className="type-body-emphasis">the same six-star scale</b> as every other rune. Its lines are counted in six-star maximum rolls &mdash; <span className="math-table-rolled">SPD + 5</span> is five sixths of one &mdash; it is measured against the perfect six-star rune and ranked among six-star drops. Its chance is still played forward with its own rolls, because those are the rolls it can get.
         </p>
         <p>
-          Two things stay six-star on purpose. What the role still needs is worked out for a finished six-star build, main stats at <span className="math-relic-level">+15</span> included, because that is the build the runes are being collected for. And the conversion of a flat line into a share of the monster&rsquo;s base is the same at every star class; only the size of a maximum roll changes.
+          Its main stat counts too. What the role still needs is worked out for a finished six-star build, main stats at <span className="math-relic-level">+15</span> included, so a five-star main that reaches <span className="math-table-rolled">ATK + 51 %</span> instead of <span className="math-table-rolled">63 %</span> leaves twelve points for the other runes to find. Those points are charged at what the role pays for ATK; a main the role does not want costs nothing. A perfect five-star rune therefore reads well below 100 %, and nearly every five-star rune sells once the floor sits a little above its minimum.
         </p>
         <p>
           Ancient runes are six-star runes measured against the <i>ordinary</i> six-star reference. They use their higher verified <i>initial</i> substat interval in the Max-value and Chance projections; their later <span className="math-relic-level">+3</span>/<span className="math-relic-level">+6</span>/<span className="math-relic-level">+9</span>/<span className="math-relic-level">+12</span> upgrades, role valuation, sampled reference and perfect-rune denominator follow the ordinary rules, and they take Ancient craft items only. The projection finishes at <span className="math-relic-level">+15</span>; +12→+15 raises only the main stat. Because the denominator stays ordinary, a maximum Ancient result reads above 100 %.
@@ -508,7 +508,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">How quality is ranked</h3>
         <p>
-          Rune quality floor asks for the top {listed(qualityAllowances.map(percent), 'or')} of ordinary drops of the same slot, stars and main property for one compatible build. Each reading uses a fixed sample of 16,384 drops, scored at +12 with the same craft credit. Ties count together. Ancient runes use Ancient craft and compare against the ordinary six-star sample.
+          Rune quality floor asks for the top {listed(qualityAllowances.map(percent), 'or')} of ordinary six-star drops of the same slot and main property for one compatible build. Each reading uses a fixed sample of 16,384 drops, scored at +12 with the same craft credit. Ties count together. Ancient runes use Ancient craft and compare against the ordinary six-star sample.
         </p>
         <p>
           Accepted and Broken matches narrow the share, while Intangible preference widens it. The allowance describes one build and one kind of drop. Actual keep rates depend on the builds your roles allow and which runes you own.
@@ -627,7 +627,7 @@ export function TheMathSection() {
           Every compatible build gets a reading. The overlay shows which reading supplied Best role, its required quality and its chance of reaching that quality.
         </p>
         <p>
-          Every star class is rated, each against the best rune of its own class. An Ancient rune uses its higher verified initial-roll interval only in its Max-value and Chance projections; its role valuation, sampled reference and perfect-rune denominator use the ordinary 6★ rules. Ancient Gems and Grindstones use their own legal tables.
+          Every star class is rated against the best six-star rune, its main stat&rsquo;s shortfall included. An Ancient rune uses its higher verified initial-roll interval only in its Max-value and Chance projections; its role valuation, sampled reference and perfect-rune denominator use the ordinary 6★ rules. Ancient Gems and Grindstones use their own legal tables.
         </p>
       </div>
     </Disclosure>
