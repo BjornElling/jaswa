@@ -391,6 +391,25 @@ parts an agent must not quietly break:
   started (Rune Optimization keeps the builds it found). A panel never draws
   a Calculate, a stop or a status line of its own, and a calculation it
   starts runs through something it can cancel.
+- **Only Calculate calculates, and there are two kinds of change.** Every
+  page with a Calculate button behaves alike:
+  - **A change the user makes** — a setting, a role, a requirement, the
+    selected subject, a filter the answer depends on — never starts a
+    calculation. The answer leaves the page, which says *Something changed
+    since the last calculation* (`app/ui/calculation-outdated.ts`, the one
+    wording), in space the page always holds. The last answer is kept with
+    the key of everything it read, and changing the input back shows it again
+    without calculating.
+  - **A change in the game** — a sync or an import that adds, changes or
+    removes runes, artifacts, monsters or items — never empties the table.
+    Only what changed is judged, under the held standards, and lands in
+    place; what left is marked or dropped; everything else keeps its answer
+    and its place. Figures every entity is judged by, such as the reference
+    averages, are standards, not entities.
+
+  A filter that only narrows what is shown is neither, and changes nothing.
+  Rune Clean-up, Rune Optimization, Rune Simulator, Gems & Grinds and the
+  three artifact views hold this; their own documents say how.
 - **An artifact's main stat is named, never quantified.** Every view says `HP`,
   `ATK` or `DEF` and stops there — no `+1,500`, no roll, no bar. The magnitude
   is fixed by grade and adds nothing to the judgement the user is making, so a
