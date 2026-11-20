@@ -435,8 +435,19 @@ test('Only keep-runes asks Rune Clean-up and narrows Best use without moving a c
     (window as unknown as { statusSeen: string[] }).statusSeen = seen;
     new MutationObserver(() => seen.push(status.textContent ?? '')).observe(status, { subtree: true, childList: true, characterData: true });
   });
+  /* Turning it on after an answer that never asked Rune Clean-up is a new question:
+     the answer leaves the page and nothing is asked until Calculate (`AGENTS.md` §5). */
   await keepOnly.getByRole('button', { name: 'Yes' }).click();
   await expect(keepOnly.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.locator('.craft-best-use-outdated')).toContainText('Something changed since the last calculation.');
+  await expect(panel.locator('.craft-best-use-results')).toBeHidden();
+  expect(await boxes()).toEqual(before);
+  await page.screenshot({ path: testInfo.outputPath('craft-keep-only-outdated.png'), fullPage: true });
+  await page.waitForTimeout(500);
+  expect((await page.evaluate(() => (window as unknown as { statusSeen: string[] }).statusSeen))
+    .some((text) => text.startsWith('Asking Rune Clean-up'))).toBe(false);
+  expect(craftWorkers).toBe(1);
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(panel.locator('.craft-best-use-results')).toBeVisible();
   await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
   const seen = await page.evaluate(() => (window as unknown as { statusSeen: string[] }).statusSeen);
@@ -449,7 +460,8 @@ test('Only keep-runes asks Rune Clean-up and narrows Best use without moving a c
   await expect(keepOnly.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'false');
   await showEveryLevel(panel);
   await expect(cards).toHaveCount(all);
-  expect(craftWorkers).toBe(1);
+  /* One per Calculate: the filter itself started none. */
+  expect(craftWorkers).toBe(2);
   /* Best use's own: the other views do not offer it. */
   await openSection(page, 'Recommendations');
   await expect(page.locator('[data-mode="recommendations"]').getByRole('group', { name: 'Only keep-runes' })).toHaveCount(0);
@@ -498,17 +510,20 @@ test('Only keep-runes keeps a calculated Keep and drops Power up, Re-app and a s
   const panel = page.locator('[data-mode="selected"]');
   /* Gems reach the three runes from +12 — the Keep, the Re-app and the safeguarded Keep. */
   await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+  const keepOnly = panel.getByRole('group', { name: 'Only keep-runes', exact: true }).getByRole('button', { name: 'Yes' });
+  await keepOnly.click();
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   const cards = panel.locator('.craft-recommendation');
   await expect(cards.first()).toBeVisible();
   const labels = async () => new Set(await cards.evaluateAll((elements) => elements.map((element) =>
     `${element.querySelector('.rune-link')?.getAttribute('aria-label')} ${element.querySelector('.craft-rune-facts')?.textContent}`)));
-  expect((await labels()).size).toBe(3);
-  await panel.getByRole('group', { name: 'Only keep-runes', exact: true }).getByRole('button', { name: 'Yes' }).click();
   await expect(panel.locator('.craft-best-use-results')).toBeVisible();
   const kept = [...await labels()];
   expect(kept).toHaveLength(1);
   expect(kept[0]).toMatch(/^Violent rune, slot 2 .*\+12$/);
+  /* Turning the filter off only widens the same answer: all three runes, nothing asked. */
+  await keepOnly.click();
+  await expect.poll(async () => (await labels()).size).toBe(3);
   /* Every rune was already judged, so nothing was asked again. */
   expect(adviceWorkers).toBe(0);
 });

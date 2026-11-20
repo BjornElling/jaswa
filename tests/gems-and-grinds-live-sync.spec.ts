@@ -139,12 +139,10 @@ for (const [title, mode] of [['Best use for this', 'selected'], ["What's missing
     /* The assumption this account's ranking was written for: a two-thirds roll. */
     await panel.getByRole('combobox', { name: 'How well the roll is assumed to land' }).selectOption('two-thirds');
     await panel.getByRole('slider', { name: 'Number of runes listed in each ranking' }).fill('2');
+    /* Chosen before Calculate, which then asks Rune Clean-up too (`AGENTS.md` §5). */
+    if (mode === 'selected') await panel.getByRole('group', { name: 'Only keep-runes', exact: true }).getByRole('button', { name: 'Yes' }).click();
     await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
-    await expect(panel.locator('.calculation-actions-status')).toContainText('Processor');
-    if (mode === 'selected') {
-      await panel.getByRole('group', { name: 'Only keep-runes', exact: true }).getByRole('button', { name: 'Yes' }).click();
-      await expect(panel.locator('.calculation-actions-status')).toContainText('Processor', { timeout: 120_000 });
-    }
+    await expect(panel.locator('.calculation-actions-status')).toContainText('Processor', { timeout: 120_000 });
     await expect(cards.first()).toBeVisible();
     await cards.last().scrollIntoViewIfNeeded();
     await page.evaluate(() => document.fonts.ready.then(() => undefined));

@@ -297,7 +297,9 @@ export function wantedCraftItems(rows: readonly CraftRecommendation[], count: nu
  * spent, a rune powered up, a live sync — costs only what is new to it
  * (`reconcileCraftCalculation`).
  */
-export type CraftCalculation = { key: string; items: readonly string[]; runes: readonly string[]; result: CraftRecommendations };
+/** `keepers`: whether the Calculate that made it also asked Rune Clean-up which runes it
+    keeps, so turning *Only keep-runes* on afterwards is a new question, not a new calculation. */
+export type CraftCalculation = { key: string; items: readonly string[]; runes: readonly string[]; result: CraftRecommendations; keepers?: boolean };
 
 /**
  * What an item contributes to the arithmetic: everything but how many are held.
@@ -374,6 +376,7 @@ export function extendCraftCalculation(calculation: CraftCalculation, added: rea
   }, items, runes).result;
   return {
     key: calculation.key,
+    keepers: calculation.keepers,
     items: items.map(craftItemKey),
     runes: runes.map(craftRuneKey),
     result: {

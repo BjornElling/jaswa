@@ -358,10 +358,14 @@ because the user protects it is not one the calculation keeps. The verdicts
 come from Clean-up's own engine (`use-rune-keepers.ts`): answers Clean-up
 already holds for these inputs are read from `rune-advice-memory.ts`, and only
 the runes it has not judged are asked of the advice worker, on a channel of
-their own, once a craft answer is on screen. While they are first asked, the
-status line says so and the rankings wait rather than show an unnarrowed list;
-once an answer exists, a later update narrows by it until the new one is in. This is
-the one filter that may start a worker, and it is never the craft worker.
+their own. Only *Calculate* asks them (`AGENTS.md` §5): a Calculate pressed while the filter is
+chosen asks Rune Clean-up after the craft answer, and the answer records that it did
+(`CraftCalculation.keepers`). Choosing the filter after an answer that never asked is a new
+question — the answer leaves the page behind *Something changed since the last calculation*
+until Calculate, and turning the filter off again shows it again; turning it off after one
+that did ask only widens it. While they are first asked, the status line says so and the
+rankings wait rather than show an unnarrowed list; a sync afterwards asks only the runes it
+changed and narrows by the previous answer until the new one is in.
 
 **Ignore** sits in the top-right corner of every card in Recommendations,
 Best use and What's missing. It waves away the card's rune together with the item's kind and stat:
@@ -389,8 +393,9 @@ Gem and Grindstone suggestions. If every improving alternative is ignored,
 there is no remaining suggestion to show until the list is reset.
 
 Assumed roll sits in the question panel as a calculation assumption. Changing them, the roles, scoring preferences or the account's
-Lv. 40 monsters requires a new calculation and cancels work answering the old
-question.
+Lv. 40 monsters is a new question: the answer leaves the page behind *Something changed
+since the last calculation* until Calculate, and asking the old question again shows it
+again.
 
 **A change to the box or the runes never does.** Every rune/item pair is judged
 on that rune and that item alone, so the remembered answer is keyed by

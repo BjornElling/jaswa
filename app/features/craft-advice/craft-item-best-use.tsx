@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { AncientName } from '../../ui/gear/ancient-mark';
 import { Button, FilterButton, InlineButton, LabelSwap } from '../../ui/button';
 import { CalculationActions, CalculationNote } from '../../ui/calculation-actions';
+import { calculationOutdated } from '../../ui/calculation-outdated';
 import { CalculationStatus } from '../../ui/calculation-status';
 import { Dropdown } from '../../ui/dropdown';
 import { EngravedPlace } from '../../ui/gear/engraved-place';
@@ -84,6 +85,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   onChoiceChange: (update: (current: CraftViewChoice) => CraftViewChoice) => void;
 }) {
   const choices = craftViewOffers[mode];
+  const keepWanted = mode === 'selected' && state.keepOnly;
   const kind = state.kind;
   const prefix = `craft-${mode}`;
   const alreadyLabel = kind === 'grindstone' ? 'Stat already grinded' : "Can change gem'ed stat?";
@@ -159,7 +161,8 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
     });
   }  function calculate() {
     if (!request) return;
-    run(request, [request], ([result]) => ({ key: calculationKey,
+    const keepers = keepWanted;
+    run(request, [request], ([result]) => ({ key: calculationKey, keepers,
       items: [...request.items, ...request.missing].map(craftItemKey), runes: request.runes.map(craftRuneKey), result }));
   }
   /* Only what the answer has never judged is asked, once per account state: a
@@ -197,13 +200,17 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
         title={title?.(value)} onClick={() => onToggle(value)}>{display(value)}</FilterButton>)}</div>
     </div>;
   /* Keep one complete answer on screen until every extension has finished,
-     including on failure. Clear and a different calculation question still
-     discard it explicitly. */
-  const result = reconciled ? extensions.length ? calculation?.result : reconciled.result : undefined;
+     including on failure. A different question hides it until Calculate
+     (`AGENTS.md` §5) — another roll, role or setting, or *Only keep-runes* turned on
+     after an answer that never asked Rune Clean-up — and asking the old one again
+     shows it again. */
+  const keepMissing = keepWanted && calculation !== null && !calculation.keepers;
+  const result = reconciled && !keepMissing ? extensions.length ? calculation?.result : reconciled.result : undefined;
+  const outdated = calculation !== null && result === undefined && !current?.busy;
   const adviceInputs = useMemo(() => ({ data: { unit_list: monsters } as GameRecord, settings, roles }), [monsters, settings, roles]);
-  /* Asked only once there is an answer to narrow, so the filter alone never
-     starts Rune Clean-up's worker on an empty page. */
-  const keepers = useRuneKeepers({ enabled: mode === 'selected' && state.keepOnly && result !== undefined,
+  /* Asked only for an answer whose Calculate included it, so the filter alone never
+     starts Rune Clean-up's worker; a sync afterwards asks only the runes it changed. */
+  const keepers = useRuneKeepers({ enabled: keepWanted && result !== undefined,
     runes, inputs: adviceInputs, base, hardwareAcceleration });
   /* The runes the rankings may show: Clean-up's answer, or while it is being
      brought up to date the one before it, so an update never empties the page. */
@@ -460,6 +467,10 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
         status={status} resets={resets} />
       {mode === 'missing' && wantedBox}
     </aside>
+    {outdated && <section className="empty-state craft-best-use-outdated">
+      <h2>{calculationOutdated.title}</h2>
+      <p className="next-step">{calculationOutdated.detail}</p>
+    </section>}
     {result && keepersSettled && <div className="craft-best-use-results" data-kind={kind}>
       {ranking('Highest score', rankings.highestScore)}{ranking('Highest gain', rankings.highestGain)}
       {kind === 'grindstone' && <div className="craft-stat-rankings">{rankings.highestStat.size ? [...rankings.highestStat].sort(([a], [b]) => a - b).map(([stat, rows]) =>
