@@ -94,6 +94,17 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   expect(before).not.toBeNull();
   expect(after).not.toBeNull();
   expect(after).toEqual(before);
+
+  /* Only Calculate generates: another slot hides the batch without generating, and
+     the slot it was generated for shows the same batch again (`AGENTS.md` §5). */
+  const firstRow = await rows.first().innerText();
+  await page.getByLabel('Slot', { exact: true }).selectOption('4');
+  await expect(page.getByRole('heading', { name: 'Something changed since the last calculation.', exact: true })).toBeVisible();
+  await expect(rows).toHaveCount(0);
+  expect(await filters.boundingBox()).toEqual(before);
+  await page.getByLabel('Slot', { exact: true }).selectOption('2');
+  await expect(page.getByRole('heading', { name: '200 runes', exact: true })).toBeVisible();
+  expect(await rows.first().innerText()).toBe(firstRow);
 });
 
 test('reads every checkpoint with Rune Clean-up and counts the keepers by role and slot', async ({ page }, testInfo) => {

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { FilterButton } from '../../ui/button';
 import { CalculationActions, CalculationNote } from '../../ui/calculation-actions';
+import { calculationOutdated } from '../../ui/calculation-outdated';
+import { runeCalculationKey } from '../../domain/runes/rune-calculation-inputs';
 import { CalculationStatus } from '../../ui/calculation-status';
 import { useCancellableRun } from '../../ui/use-cancellable-run';
 import { isCalculationCancelled } from '../../workspace/jobs/cancellable-worker';
@@ -66,7 +68,9 @@ const slots = [1, 2, 3, 4, 5, 6] as const;
 
 /** The roles a run was judged against, frozen with it so an edit afterwards cannot relabel it. */
 type RoleLabel = { id: string; name: string };
-type SimulationRun = { result: RuneSimulationResult; roles: readonly RoleLabel[] };
+/* `key` is everything the run read — the form, the roles, the settings and the
+   reference lines — so a run is shown only while those are what the page shows. */
+type SimulationRun = { result: RuneSimulationResult; roles: readonly RoleLabel[]; key: string };
 
 const cell = columnClasses(runeSimulatorTableColumns);
 
@@ -131,6 +135,10 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
   const requiresRecommendation = [form.gateZero, form.gateNine, form.gateTwelve]
     .some((policy) => policy === 'recommendation');
   const count = positiveCount(form.count);
+  /* Only Calculate generates (`AGENTS.md` §5): a changed form, role or setting hides
+     the batch, and changing it back shows the same batch again. */
+  const key = JSON.stringify({ form, standards: runeCalculationKey({ roles, settings, base }) });
+  const shown = run !== null && run.key === key ? run : null;
 
   function reset() {
     setForm(initialForm);
@@ -168,7 +176,7 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
         const result = await calculateRuneSimulation(toConfig(form, count), {
           roles, settings, base, preferWebGpu: hardwareAcceleration,
         }, signal);
-        setRun({ result, roles: judgedBy });
+        setRun({ result, roles: judgedBy, key });
         setStage(0);
       } catch (error) {
         /* Cancelled: the batch from before Generate stands, and so does its message. */
@@ -229,7 +237,7 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
           canClear={run !== null || message !== ''} onClear={clear}
           status={busy ? <CalculationNote tone="busy">Calculating…</CalculationNote>
             : message ? <CalculationNote tone="failed">{message}</CalculationNote>
-              : run ? <CalculationStatus twoLines durationMs={run.result.durationMs} backend={run.result.backend} general={general}
+              : shown ? <CalculationStatus twoLines durationMs={shown.result.durationMs} backend={shown.result.backend} general={general}
                 detail="Simulation and recommendation checks" />
                 : <CalculationNote>{''}</CalculationNote>}
           resets={<button type="button" className="filter-reset" onClick={reset}>Reset filters</button>} />
@@ -242,17 +250,18 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
       <GateSelect id="rune-simulator-gate-twelve" label="After +12" value={form.gateTwelve}
         className="rune-simulator-gate-twelve" onChange={(value) => setFormValue(setForm, 'gateTwelve', value)} />
 
-      <KeeperStatistics run={run} />
+      <KeeperStatistics run={shown} />
 
       <CraftSettingsReadout />
     </form>
 
-    {!run
+    {!shown
       ? <section className="empty-state rune-simulator-empty">
-        <h2>Nothing generated yet.</h2>
-        <p className="next-step">Choose the rune conditions above, then press Calculate to watch the batch move through +0, +9, +12 and +15.</p>
+        <h2>{run ? calculationOutdated.title : 'Nothing generated yet.'}</h2>
+        <p className="next-step">{run ? calculationOutdated.detail
+          : 'Choose the rune conditions above, then press Calculate to watch the batch move through +0, +9, +12 and +15.'}</p>
       </section>
-      : <RuneSimulationResults result={run.result} stage={stage} onStageChange={setStage} onOpenRune={onOpenRune} />}
+      : <RuneSimulationResults result={shown.result} stage={stage} onStageChange={setStage} onOpenRune={onOpenRune} />}
   </WorkspacePage>;
 }
 
