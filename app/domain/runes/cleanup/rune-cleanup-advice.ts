@@ -12,19 +12,20 @@ import {
   runeRuns, runeSetMatchRank, targetStats, worseRank,
 } from './rune-cleanup-model';
 import { runeScaleStars } from '../rune-substat-weights';
-import type { Build, MatchRank, RuneCandidate } from './rune-cleanup-model';
+import type { Build, MatchRank, RuneAdviceScope, RuneCandidate } from './rune-cleanup-model';
 import { chanceRuns, countChanceGroup, countJobs } from '../rune-power-up-outcomes';
 import type { CountingJob, EndStateScoring, RuneRuns } from '../rune-power-up-outcomes';
-import { allStatIds, lastSubPropertyLevel, subPropertyTargetStat } from '../rune-properties';
+import { allStatIds, lastSubPropertyLevel, slotMainProperties, subPropertyTargetStat } from '../rune-properties';
 import { runeAdviceKey } from './rune-cleanup-refresh';
 import { isIntangibleRuneSet } from '../rune-sets';
 import { canonicalCraftCredit, craftedLines, groundLines } from '../craft/rune-craft-end-state';
 import type { EndStateLine } from '../craft/rune-craft-end-state';
 import { isRerollTarget } from '../rune-reapp-targets';
 import {
-  allowanceDenominator, qualityBar, qualityReferences, qualityShare, referenceKey, referenceSampleSize,
+  allowanceDenominator, populationBar, populationShare, qualityReferences, referenceKey, referenceSampleSize,
 } from './rune-quality-reference';
-import type { QualityReferences, ReferenceRequest } from './rune-quality-reference';
+import type { PopulationReference, QualityReferences, ReferencePiece, ReferenceRequest } from './rune-quality-reference';
+import type { PriceList } from '../craft/rune-craft-end-state';
 
 export type ChanceCounter = (jobs: readonly CountingJob[], chanceBar?: number) => Promise<Float64Array>;
 
@@ -107,9 +108,51 @@ export type RuneAdvice = {
   readings: RoleReading[] | null;
 };
 
-function configuredRoles(roles: readonly RuneRole[], base: ReadonlyMap<string, ReferenceStats>) {
+type Family = {
+  role: RuneRole;
+  builds: Build[];
+  base: ReferenceStats | undefined;
+  byMains: Map<string, Build>;
+};
+
+const mainsKey = (mains: Build['mains']) => `${mains[2]}|${mains[4]}|${mains[6]}`;
+
+function configuredRoles(roles: readonly RuneRole[], base: ReadonlyMap<string, ReferenceStats>): Family[] {
   return roles.filter((role) => targetStats.some((stat) => (role.targets[stat] ?? 0) > 0))
-    .map((role) => ({ role, builds: roleBuilds(role), base: base.get(role.type) }));
+    .map((role) => {
+      const builds = roleBuilds(role);
+      return { role, builds, base: base.get(role.type), byMains: new Map(builds.map((build) => [mainsKey(build.mains), build])) };
+    });
+}
+
+type PopulationPart = { piece: ReferencePiece; prices: PriceList; scale: number };
+type Population = { key: string; parts: PopulationPart[]; zeros: number };
+
+/**
+ * Every drop of the rune's slot, as this role reads it in this position (§9.1 and
+ * `PopulationReference`): each legal main the role can put here, scored in the role's
+ * build that does, and every other main as drops worth nothing. Builds that differ
+ * only in this slot share one population, so a role naming two mains for a slot
+ * reads one allowance of that slot, not one per main.
+ */
+function slotPopulation(
+  family: Family, build: Build, slot: number, main: number, ceiling: number, scope: RuneAdviceScope,
+): Population {
+  const own = slot === 2 || slot === 4 || slot === 6 ? slot : null;
+  const parts: PopulationPart[] = [];
+  let zeros = 0;
+  for (const other of slotMainProperties[slot] ?? []) {
+    const piece = { slot, stars: runeScaleStars, main: other };
+    /* A blank slot already accepts every main in this very build. */
+    const position = other === main || own === null || build.mains[own] === 0 ? build
+      : family.byMains.get(mainsKey({ ...build.mains, [own]: other }));
+    const scale = position && family.base
+      ? readingScale(family.role, position, family.base, slot, other, scope) : null;
+    if (!scale) { zeros += referenceSampleSize; continue; }
+    parts.push({ piece, prices: scale.prices, scale: other === main ? 1 : ceiling / scale.ceiling });
+  }
+  const key = parts.map(({ piece, prices, scale }) => `${referenceKey(piece, prices)}*${scale}`).join(';') + `;0*${zeros}`;
+  return { key, parts, zeros };
 }
 
 export function planQualityReferences(
@@ -130,15 +173,17 @@ export function planQualityReferences(
       for (const build of family.builds) {
         const scale = readingScale(family.role, build, family.base, piece.slot, piece.main, scope);
         if (!scale || readingAllowance(settings, worseRank(setRank, scale.rank), false) === null) continue;
-        const key = referenceKey(piece, scale.prices);
-        if (!requests.has(key)) requests.set(key, { ...piece, key, prices: scale.prices });
+        for (const part of slotPopulation(family, build, piece.slot, piece.main, scale.ceiling, scope).parts) {
+          const key = referenceKey(part.piece, part.prices);
+          if (!requests.has(key)) requests.set(key, { ...part.piece, key, prices: part.prices });
+        }
       }
     }
   }
   return [...requests.values()];
 }
 
-type ReferenceReadings = ReferenceRequest & { readings: { answer: Answer; allowance: number }[] };
+type ReferenceReadings = { population: Population; prices: PriceList; readings: { answer: Answer; allowance: number }[] };
 
 type Event = { job: CountingJob; chance: number };
 // Only Statistics holds scores across policies. Each worker owns at most 18 MiB.
@@ -204,10 +249,10 @@ export async function runeAdvice(
         readings.push(answer);
         if (allowance === null) continue;
         const { prices } = candidate.scoring;
-        const key = referenceKey(piece, prices);
-        const group = byReference.get(key) ?? { ...piece, key, prices, readings: [] };
+        const population = slotPopulation(family, build, piece.slot, piece.main, candidate.ceiling, scope);
+        const group = byReference.get(population.key) ?? { population, prices, readings: [] };
         group.readings.push({ answer, allowance });
-        byReference.set(key, group);
+        byReference.set(population.key, group);
       }
     }
     return { rune, readings, unavailable };
@@ -216,15 +261,18 @@ export async function runeAdvice(
   // Batch the queries by score array so an oversized catalogue can stream the
   // references, keeping only the raw bar and tail needed by each candidate.
   let preparedReferenceCount = 0;
-  for (const group of byReference.values()) {
-    const reference = references.get(group, group.prices);
+  for (const [key, group] of byReference) {
+    const reference: PopulationReference = {
+      parts: group.population.parts.map(({ piece, prices, scale }) => ({ scores: references.get(piece, prices).scores, scale })),
+      zeros: group.population.zeros,
+    };
     const bars = new Map<number, number>();
     for (const { answer, allowance } of group.readings) {
       answer.requirement = allowance / allowanceDenominator;
-      if (answer.candidate.best > 0) answer.qualityShare = qualityShare(reference, answer.candidate.best);
-      const wanted = bars.get(allowance) ?? qualityBar(reference, allowance, group.prices);
+      if (answer.candidate.best > 0) answer.qualityShare = populationShare(reference, answer.candidate.best);
+      const wanted = bars.get(allowance) ?? populationBar(reference, allowance, group.prices);
       bars.set(allowance, wanted);
-      answer.bar = { key: group.key, wanted };
+      answer.bar = { key, wanted };
     }
     onLocalPreparation?.(++preparedReferenceCount / byReference.size);
   }

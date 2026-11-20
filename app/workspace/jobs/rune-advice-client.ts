@@ -2,8 +2,7 @@ import { workerFactories } from './worker-factories';
 import { registerAccountJobReset } from './account-job-memory';
 import { leaseRuneReferences } from './rune-reference-client';
 import { planQualityReferences } from '../../domain/runes/cleanup/rune-cleanup-advice';
-import { runeScaleStars } from '../../domain/runes/rune-substat-weights';
-import { referencePieceKey, retainedReferenceCount } from '../../domain/runes/cleanup/rune-quality-reference';
+import { retainedReferenceCount } from '../../domain/runes/cleanup/rune-quality-reference';
 import type { QualityReference } from '../../domain/runes/cleanup/rune-quality-reference';
 import { combineCalculationBackends } from '../../domain/shared/calculation-summary';
 import type {
@@ -19,16 +18,20 @@ export type RuneAdviceChannel = {
 
 type AdvicePartition = { runes: RuneAdviceRequest['runes'][number][]; pieces: Set<string>; work: number };
 
+/* A rune reads every main of its slot (`RUNE-CLEANUP-MATH.md` §9.1), so a slot is the
+   unit a worker owns: all of a slot's references cross to one worker, once. */
+const slotOfReference = (key: string) => key.slice(0, key.indexOf('|'));
+
 function partitionRunes(runes: RuneAdviceRequest['runes'], statisticsReferences?: ReadonlyMap<string, QualityReference>): AdvicePartition[] {
   const referenceCounts = new Map<string, number>();
   for (const key of statisticsReferences?.keys() ?? []) {
-    const piece = key.slice(0, key.lastIndexOf('|'));
-    referenceCounts.set(piece, (referenceCounts.get(piece) ?? 0) + 1);
+    const slot = slotOfReference(key);
+    referenceCounts.set(slot, (referenceCounts.get(slot) ?? 0) + 1);
   }
   const pieces = new Map<string, AdvicePartition>();
   let unfinished = 0;
   for (const rune of runes) {
-    const key = referencePieceKey({ slot: rune.slot, stars: runeScaleStars, main: rune.mainStatId });
+    const key = String(rune.slot);
     const piece = pieces.get(key) ?? { runes: [], pieces: new Set([key]), work: 0 };
     piece.runes.push(rune);
     if (rune.level < 12) unfinished += 1;
@@ -53,8 +56,7 @@ function referencesFor(partitions: readonly AdvicePartition[], references: Reado
   const buffers = partitions.map(() => new Map<string, QualityReference>());
   const owner = new Map(partitions.flatMap(({ pieces }, index) => [...pieces].map((piece) => [piece, index] as const)));
   for (const [key, reference] of references) {
-    const piece = key.slice(0, key.lastIndexOf('|'));
-    const index = owner.get(piece);
+    const index = owner.get(slotOfReference(key));
     if (index === undefined) throw new Error('A rune reference has no calculation partition.');
     buffers[index].set(key, reference);
   }

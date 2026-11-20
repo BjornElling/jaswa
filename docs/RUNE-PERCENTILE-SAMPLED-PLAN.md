@@ -187,6 +187,14 @@ the ordinary box and the whole exact engine are removed.
 These three were open product choices. They were approved on November 18, 2026,
 and the rest of this plan assumes them.
 
+> **Reversed November 20, 2026 — decision 1.** The same-main denominator is replaced
+> by the whole slot, every main counted (`RUNE-CLEANUP-MATH.md` §9.1). "It needs few"
+> confused need with supply: every monster needs one rune per slot, and a wanted
+> slot-4 main is an eighth of slot 4's drops. Measured on the shipped roles at *Top 2 %*,
+> slots 2, 4 and 6 kept 7.3, 4.2 and 4.6 % of their drops against 13.8–18.7 % in
+> slots 1, 3 and 5. The worry below about the loosest stop holds only for a main
+> few roles want, and keeps no more of a slot than slot 1 keeps at the same stop.
+
 1. **Denominator: the rune's own slot and main.** A rune is compared with the runes of
    the same slot, star class and main. "Top 5 %" means *better than 95 % of the runes
    of this slot and main for this build*, and it reads the same in every slot.

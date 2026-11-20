@@ -493,10 +493,34 @@ rune the other roles would sell unavailable. A keep or power-up stands: the
 missing role could only add events, and adding an event never lowers the union.
 Worker failures keep the previous completed results.
 
-### 9.1 A same-main quality allowance
+### 9.1 A whole-slot quality allowance
 
-Each reading compares with ordinary six-star drops of its own slot and main,
-whatever the rune's own star class. The base allowances are 20, 10, 5, 2 and 1 %. Preferred matches use the base
+Each reading compares with **every** ordinary six-star drop of its own slot, whatever
+the rune's own star class, as the reading's role sees that slot in the reading's
+position. Every legal main of the slot is born equally often and carries 16,384
+reference bodies. A main the role can put in this slot — the rune's own, or another
+the role names here while its other slots stay as the reading's build has them — is
+scored in that build and scaled onto the reading's ruler by the ratio of the two
+perfect runes (§5); the rune's own main keeps scale 1, so its own atoms keep the exact
+tie rule of §9.4. A main the role cannot use there is a drop worth nothing to it. A
+slot the role leaves blank reads every main in the reading's own build. Slots 1, 3 and
+5 have one main, so their population is their own reference, unchanged.
+`PopulationReference` in `rune-quality-reference.ts` owns the arithmetic.
+
+This replaces the same-main allowance of November 18, 2026
+(`RUNE-PERCENTILE-SAMPLED-PLAN.md` §3.3). A main is not priced — the build already
+counts it (§4.1) — so a same-main bar kept the same share of each main, and on slots
+2, 4 and 6 that is the share of a seventh or an eighth of the slot. On the shipped roles
+at the *Top 2 %* stop, 1,200 finished drops per slot kept 16.7, 13.8 and 18.7 % in
+slots 1, 3 and 5 against 7.3, 4.2 and 4.6 % in slots 2, 4 and 6; a slot-4 CRI Dmg rune
+had to beat other CRI Dmg runes, a seventh of the supply, for a place every monster
+needs once. Under the whole-slot rule the same drops keep 16.7, 17.6, 13.8, 14.3, 18.7
+and 14.2 %. A main no role can use never passes, so at the loosest stops slots 2, 4 and
+6 stay somewhat below the fixed slots, which is the supply they really have.
+Builds that differ only in the rune's own slot read one population, so a role naming
+two mains for a slot keeps one quota of that slot, not one per main.
+
+The base allowances are 20, 10, 5, 2 and 1 %. Preferred matches use the base
 allowance. Accepted factors are 1, 0.95, 0.85, 0.70 and 0.55. Broken factors
 are 0.90, 0.85, 0.80 and 0.65, followed by No, which removes the event.
 Intangible multiplies the allowance by 1, 1.5, 2, 3.5 or 5. Cap the resulting
@@ -580,7 +604,7 @@ positive-chance builds, then other permitted builds, then naming fallbacks.
 | --- | --- |
 | `verify:rune-substat-weights` | §§4–5 deterministically: a target is a weight, mains, artifacts and credited stones come off the requirement while a rune's set does not, a met target asks nothing, surplus keeps paying past 100 %, a point is priced alike at every star class and a five-star main costs exactly its `+15` shortfall, a richer candidate credit moves only the rune and never reads lower, and an exhaustive search finds the best maximal six-star rune at exactly 100 %, and each lower class below the one above it, in every slot and build of every shipped role. |
 | `verify:rune-set-neutrality` | §4.3, paired: identical rune bodies under every set label give identical answers, and a role that does rank sets is still obeyed. |
-| `verify:rune-slot-neutrality` | Same-main allowances, mixed rarity, checkpoint identity, blank input and unusable mains. |
+| `verify:rune-slot-neutrality` | Whole-slot allowances keep slots 2, 4 and 6 within reach of slots 1, 3 and 5, mixed rarity, checkpoint identity, blank input and unusable mains. |
 | `verify:rune-slot-policy-matrix` | Adjacent policy monotonicity for all 625 combinations and role addition/reordering/duplication. |
 | `verify:rune-future-craft` | §9.2 on nine Rare/Hero/Legend checkpoints: a legal SPD Gem and its stone, a stone on a hidden SPD line weighted by its reveal probability, and no Gem bonus for a rune already better than the Gem. |
 | `verify:rune-cleanup-calibration` | An independent generator and the game's addition/upgrade loop with its own PRNG; the chance twice, with no craft and with the canonical items credited; and §6 against `RUNE-CANONICAL.md` §8 written out afresh, over every synthetic finished rune at six credits. `:large` is the 1,000-rune statistical run. |

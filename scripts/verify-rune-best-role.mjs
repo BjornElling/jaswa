@@ -26,9 +26,12 @@ import {
 } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
   candidateChanceAskAt, candidateExpectedBound, candidateExpectedValue, candidateMaxValue,
-  newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds, runeRuns,
+  newRuneAdviceScope, ordinarySample, prepareRuneCandidate, readingScale, roleBuilds, runeRuns,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
-import { qualityBar, qualityReferences, qualityShare } from '../app/domain/runes/cleanup/rune-quality-reference.ts';
+import {
+  populationBar, populationShare, qualityReferences, referenceSampleSize,
+} from '../app/domain/runes/cleanup/rune-quality-reference.ts';
+import { slotMainProperties } from '../app/domain/runes/rune-properties.ts';
 import { countJobs } from '../app/domain/runes/rune-power-up-outcomes.ts';
 import { runeScaleStars } from '../app/domain/runes/rune-substat-weights.ts';
 import { canonicalCraftCredit, craftedScore } from '../app/domain/runes/craft/rune-craft-end-state.ts';
@@ -55,6 +58,27 @@ const check = (ok, message) => {
   if (!ok) { failures += 1; console.log(`  FAIL ${message}`); }
 };
 
+/**
+ * Every drop of the slot as one role reads it in the candidate's position (§9.1):
+ * each main the role puts here in a build that matches the candidate's other slots,
+ * on the candidate's ruler, and every other main as a drop worth nothing.
+ */
+function slotPopulationOf(slot, candidate, role, line, builds, scope, references) {
+  const parts = [];
+  let zeros = 0;
+  for (const main of slotMainProperties[slot]) {
+    const position = main === candidate.main || ![2, 4, 6].includes(slot) || candidate.build.mains[slot] === 0
+      ? candidate.build
+      : builds.find((build) => build.mains[slot] === main
+        && [2, 4, 6].every((at) => at === slot || build.mains[at] === candidate.build.mains[at]));
+    const scale = position && readingScale(role, position, line, slot, main, scope);
+    if (!scale) { zeros += referenceSampleSize; continue; }
+    const { scores } = references.get({ slot, stars: runeScaleStars, main }, scale.prices);
+    parts.push({ scores, scale: main === candidate.main ? 1 : candidate.ceiling / scale.ceiling });
+  }
+  return { parts, zeros };
+}
+
 /** Every reading the engine weighs for one rune, rebuilt as `runeAdvice` builds them. */
 function readingsOf(rune, settings, scope, references) {
   const credit = canonicalCraftCredit;
@@ -78,9 +102,9 @@ function readingsOf(rune, settings, scope, references) {
       let chance = 0;
       if (allowance !== null) {
         const { prices } = candidate.scoring;
-        const reference = references.get({ slot: rune.slot, stars: runeScaleStars, main: candidate.main }, prices);
-        if (candidate.best > 0) share = qualityShare(reference, candidate.best);
-        const step = candidateChanceAskAt(candidate, qualityBar(reference, allowance, prices));
+        const reference = slotPopulationOf(rune.slot, candidate, role, line, builds, scope, references);
+        if (candidate.best > 0) share = populationShare(reference, candidate.best);
+        const step = candidateChanceAskAt(candidate, populationBar(reference, allowance, prices));
         chance = step.job ? countJobs([step.job])[0] : step.settled;
       }
       readings.push({

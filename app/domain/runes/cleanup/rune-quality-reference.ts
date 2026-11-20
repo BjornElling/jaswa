@@ -140,6 +140,71 @@ export function qualityBar({ scores }: QualityReference, allowance: number, pric
   return Math.max(Number.MIN_VALUE, least / 2);
 }
 
+/**
+ * **Every ordinary drop of one slot, as one role in one position reads it** (§9.1).
+ *
+ * A slot carrying a choice of main is born with each legal main equally often, and
+ * a main never earns a score of its own: the build already counts it. Comparing a
+ * rune only with drops of its own main therefore kept the same share of each main,
+ * which on slots 2, 4 and 6 is that share of a fraction of the slot — measured on the
+ * shipped roles at the second-strictest stop, slot 4 kept 4.2 % of its drops where
+ * slot 1 kept 16.7 %. So the population holds every main of the slot. A main the role
+ * can use in this position is one part, scored in the build that puts it there and
+ * scaled onto the candidate's own ruler by the two perfect runes (`scale`); a main it
+ * cannot use is a drop that is worth nothing to it (`zeros`). The candidate's own part
+ * has scale 1 exactly, so its own atoms keep the exact tie rule of §9.4.
+ */
+export type PopulationReference = Readonly<{
+  parts: readonly Readonly<{ scores: Float64Array; scale: number }>[];
+  zeros: number;
+}>;
+
+const populationSize = ({ parts, zeros }: PopulationReference): number =>
+  parts.reduce((sum, { scores }) => sum + scores.length, zeros);
+
+function scaledHits(scores: Float64Array, scale: number, score: number): number {
+  let lo = 0;
+  let hi = scores.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (scores[mid] * scale < score) lo = mid + 1;
+    else hi = mid;
+  }
+  return scores.length - lo;
+}
+
+export function populationShare(population: PopulationReference, score: number): number {
+  let hits = score <= 0 ? population.zeros : 0;
+  for (const { scores, scale } of population.parts) hits += scaledHits(scores, scale, score);
+  return hits / populationSize(population);
+}
+
+/** `qualityBar` over the whole slot: strictly above the atom at ascending index `N − 1 − k`. */
+export function populationBar(population: PopulationReference, allowance: number, prices: PriceList): number {
+  const size = populationSize(population);
+  const k = Math.floor(size * allowance / allowanceDenominator);
+  if (k < size) {
+    /* Walk down from the top of every part at once; past them all, only zeros remain. */
+    const next = population.parts.map(({ scores }) => scores.length - 1);
+    let atom = 0;
+    for (let taken = 0; taken <= k; taken += 1) {
+      let pick = -1;
+      let value = 0;
+      population.parts.forEach(({ scores, scale }, at) => {
+        if (next[at] < 0) return;
+        const candidate = scores[next[at]] * scale;
+        if (pick === -1 || candidate > value) { pick = at; value = candidate; }
+      });
+      if (pick === -1 || value <= 0) { atom = 0; break; }
+      next[pick] -= 1;
+      atom = value;
+    }
+    if (atom > 0) return nextUp(atom);
+  }
+  const least = prices.reduce((smallest, price) => price > 0 ? Math.min(smallest, price) : smallest, Infinity);
+  return Math.max(Number.MIN_VALUE, least / 2);
+}
+
 export type QualityReferences = Readonly<{
   get(piece: ReferencePiece, prices: PriceList): QualityReference;
 }>;

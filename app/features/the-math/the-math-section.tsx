@@ -508,10 +508,10 @@ export function TheMathSection() {
 
         <h3 className="type-heading">How quality is ranked</h3>
         <p>
-          Rune quality floor asks for the top {listed(qualityAllowances.map(percent), 'or')} of ordinary six-star drops of the same slot and main property for one compatible build. Each reading uses a fixed sample of 16,384 drops, scored at +12 with the same craft credit. Ties count together. Ancient runes use Ancient craft and compare against the ordinary six-star sample.
+          Rune quality floor asks for the top {listed(qualityAllowances.map(percent), 'or')} of every ordinary six-star drop of the same slot, whatever its main property, as one role reads it in one position. A main the role can put there is scored in the build that puts it there; a main it cannot use counts as a drop worth nothing. So a slot-4 CRI Dmg rune competes with all slot-4 drops, not only the rare ones that share its main, and every slot keeps about the same share. Each main uses a fixed sample of 16,384 drops, scored at +12 with the same craft credit. Ties count together. Ancient runes use Ancient craft and compare against the ordinary six-star sample.
         </p>
         <p>
-          Accepted and Broken matches narrow the share, while Intangible preference widens it. The allowance describes one build and one kind of drop. Actual keep rates depend on the builds your roles allow and which runes you own.
+          Accepted and Broken matches narrow the share, while Intangible preference widens it. The allowance describes one role in one position and one slot&rsquo;s drops. Actual keep rates depend on the builds your roles allow and which runes you own.
         </p>
         <p>
           Potential measures the best reachable score against a perfect ordinary rune and includes the Accepted or Broken discount. The Potential safeguard also requires at least a 1 % chance of reaching that same reading&rsquo;s quality bar. Quality measures the top share at the best reachable score.

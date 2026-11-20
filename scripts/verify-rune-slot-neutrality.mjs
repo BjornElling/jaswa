@@ -1,5 +1,5 @@
 /**
- * Current quality contract: same-main quality allowances, one drop-grade mix,
+ * Current quality contract: whole-slot quality allowances, one drop-grade mix,
  * and the same rune body at every selling checkpoint. The complete-funnel
  * holdout and all 625 settings combinations live in verify-rune-slot-policy-matrix.
  */
@@ -23,6 +23,7 @@ assert.deepEqual(qualityAllowances, [0.20, 0.10, 0.05, 0.02, 0.01]);
 base.set('No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 });
 const roles = defaultRuneRoles();
 const population = [];
+const finished = [];
 for (const slot of [1, 2, 3, 4, 5, 6]) {
   const bodies = [0, 9, 12].map((level) => ordinarySample(slot, 6, 672, level, 'drop', 50_000));
   const counts = { Rare: 0, Hero: 0, Legend: 0 };
@@ -45,6 +46,24 @@ for (const slot of [1, 2, 3, 4, 5, 6]) {
   const mainCounts = slotMainProperties[slot].map((main) => bodies[0].filter((rune) => rune.mainStatId === main).length);
   assert.equal(Math.max(...mainCounts), Math.min(...mainCounts));
   population.push(...bodies.flatMap((runes) => runes.slice(0, 8)));
+  finished.push(bodies[2]);
+}
+/* A slot with a choice of main keeps about the share of its drops a fixed slot does
+   (§9.1). Comparing a rune only with its own main kept the allowance of each main,
+   which on slots 2, 4 and 6 was a quarter of what slots 1, 3 and 5 kept. Unusable
+   mains never pass, so the choice slots may sit a little lower, never far. */
+for (const runeQuality of [4, 5]) {
+  const settings = { ...qualitySettings, runeQuality };
+  const shares = [];
+  for (const runes of finished) {
+    const advice = await runeAdvice(runes, roles, settings, base);
+    shares.push(runes.filter((rune) => (advice.get(rune.id).unprotectedAdvice ?? advice.get(rune.id)).verdict !== 'sell').length / runes.length);
+  }
+  const fixed = (shares[0] + shares[2] + shares[4]) / 3;
+  console.log(`Quality stop ${runeQuality}: kept per slot ${shares.map((share) => `${(share * 100).toFixed(1)} %`).join(', ')}.`);
+  for (const slot of [2, 4, 6]) {
+    assert.ok(shares[slot - 1] >= 0.6 * fixed, `Slot ${slot} keeps ${shares[slot - 1]} against ${fixed} on the fixed slots.`);
+  }
 }
 for (let runeQuality = 1; runeQuality <= 5; runeQuality += 1) {
   const settings = { ...qualitySettings, runeQuality };
@@ -89,4 +108,4 @@ for (const stars of [5, 6]) for (const grade of ['Rare', 'Hero']) {
 for (const rune of beginnerRunes) if (nextStop.get(rune.id)?.verdict === 'keep') {
   assert.equal(beginner.get(rune.id)?.verdict, 'keep', 'The second quality stop must not re-admit a beginner Sell.');
 }
-console.log('PASS: same-main quality allowances, uniform mains, mixed grades, checkpoint identity and empty inputs.');
+console.log('PASS: whole-slot quality allowances, balanced slots, uniform mains, mixed grades, checkpoint identity and empty inputs.');
