@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Disclosure } from '../../ui/page-chrome';
 import { RelicSynergyMap } from './relic-synergy-map';
+import { SettingsCard } from './settings-card';
 import { resolveRelicSynergy, relicSynergyBandLabels } from '../../domain/relics/relic-synergy';
 import type { RelicSynergyChoices } from '../../domain/relics/relic-synergy';
 import {
@@ -29,26 +30,26 @@ export function RelicSettingsBar({ synergy, powerUpThreshold, onChangeSynergy, o
 
   return <Disclosure title="Relics" sessionKey="settings.relics">
     <div className="stack">
-      <div className="slider-grid relic-settings-threshold">
-        <div className="slider">
-          <label className="slider-label" htmlFor="relic-power-up-threshold">Power-up threshold</label>
-          <p className="slider-note">How picky should your power-up stones be?</p>
-          <input id="relic-power-up-threshold" type="range"
-            min={1} max={relicInvestmentSelectivityLevels.length} step={1}
-            value={powerUpThreshold}
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              if (isRelicInvestmentSelectivity(value)) onChangePowerUpThreshold(value);
-            }}
-            aria-valuetext={thresholdText(powerUpThreshold)}
-            aria-describedby="relic-power-up-threshold-choice" />
-          <p id="relic-power-up-threshold-choice" className="slider-choice" aria-live="polite">
-            {thresholdText(powerUpThreshold)}
-          </p>
+      <SettingsCard>
+        <div className="slider-grid">
+          <div className="slider">
+            <label className="slider-label" htmlFor="relic-power-up-threshold">Power-up threshold</label>
+            <p className="slider-note">How picky should your power-up stones be?</p>
+            <input id="relic-power-up-threshold" type="range"
+              min={1} max={relicInvestmentSelectivityLevels.length} step={1}
+              value={powerUpThreshold}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                if (isRelicInvestmentSelectivity(value)) onChangePowerUpThreshold(value);
+              }}
+              aria-valuetext={thresholdText(powerUpThreshold)}
+              aria-describedby="relic-power-up-threshold-choice" />
+            <p id="relic-power-up-threshold-choice" className="slider-choice" aria-live="polite">
+              {thresholdText(powerUpThreshold)}
+            </p>
+          </div>
         </div>
-      </div>
-
-      <div className="bar-divide" />
+      </SettingsCard>
 
       <RelicSynergyMap synergy={table} onChange={onChangeSynergy} />
     </div>

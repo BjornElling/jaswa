@@ -60,10 +60,10 @@ export function RelicSynergyMap({ synergy, onChange }: {
     onChange(relicSynergyChoices(withRelicSynergyCell(synergy, property.id, main, band)));
   }
 
-  return <section className="relic-synergy-map" aria-labelledby="relic-synergy-title" aria-describedby="relic-synergy-hint">
+  return <section className="settings-card relic-synergy-map" aria-labelledby="relic-synergy-title" aria-describedby="relic-synergy-hint">
     <header className="relic-synergy-head">
       <div className="relic-synergy-identity">
-        <h3 id="relic-synergy-title" className="slider-label">Synergy map</h3>
+        <h3 id="relic-synergy-title" className="settings-card-title">Synergy map</h3>
         <p id="relic-synergy-hint" className="slider-note relic-synergy-hint">
           Click a cell for the next band down; Shift-click for the next one up.
         </p>

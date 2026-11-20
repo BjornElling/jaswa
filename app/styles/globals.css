@@ -297,11 +297,11 @@ label[for] {
 
 /* Title — what a panel, card, dialog or disclosure is called. */
 .type-title, .block-title, .bar-head b, .dialog h2, .role-name, .reapp-name, .route-name,
-.route-body-title, .statistics h4, .acceleration-word, .handheld-brand,
+.route-body-title, .acceleration-word, .handheld-brand,
 .rune-simulator-count-input, .rune-simulator-stats-total, .rune-emblem.placeholder,
 /* Heading — a named block inside a panel, one step below a title. */
 .type-heading, .field-legend, .slider-label, .editor-block-title,
-.artifact-conversion-title, .artifact-scope-box h3, .artifact-scope-subheading,
+.settings-card-title,
 .drop-zone strong, .best-artifact-result h3, .best-artifact-current h3,
 .best-artifact-category h3, .best-artifact-current-slot-title,
 .best-monster-artifact-details h3, .empty-state h2,
@@ -322,7 +322,7 @@ label[for] {
 .rune-build-set, .overlay-toggle, .overlay-leads-fields, .overlay-lead, .overlay-team-lead, .overlay-accuracy-label, .overlay-accuracy-value,
 .engraved-rune-main, .engraved-rune-innate, .engraved-rune-subs, .engraved-artifact-main, .engraved-artifact-subs,
 .engraved-relic-main, .engraved-relic-unique,
-.checkbox-row, .editor-note, .route-links, .artifact-conversion-intro,
+.checkbox-row, .editor-note, .route-links, .preference-sharing-status,
 .statistics-lead, .best-artifact-ranking, .best-artifact-empty,
 .best-artifact-fact dt, .statistics dt, .empty-state p,
 .empty-state .next-step, .section-intro p, .relic-property,
@@ -1993,68 +1993,67 @@ label[for] {
 
 /* -------------------------------------------------------------- sliders */
 
-/* The judgement slider occupies half the row, while monster scope keeps its
-   existing one-third track; the remaining space creates breathing room
-   between two decisions that deserve different visual weight. */
-.artifact-general-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: var(--s5);
-  align-items: start;
-}
-.artifact-general-layout > .slider {
+/* ------------------------------------------------------- settings cards */
+
+/* Every group of controls inside an open Settings bar sits in one of these
+   (`app/features/settings/settings-card.tsx`), and nothing else frames a group
+   there: one ground, one edge, one padding, one title voice. The roles and
+   re-app rules are records rather than groups, and wear the same frame under
+   names of their own. A gold edge or ring is not part of it — gold means "act
+   on this", and a box of settings is not itself a control. */
+.settings-card {
   min-width: 0;
-  width: 75%;
-}
-.artifact-scope-box {
-  min-width: 0;
-  padding: var(--s4);
-  border: 1px solid var(--line-strong);
-  border-left: 2px solid var(--text-accent);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: var(--s5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: var(--sunk);
 }
-.artifact-scope-box h3 {
+.settings-card-title {
   margin: 0 0 var(--s3);
   line-height: 1.3;
   color: var(--text-strong);
 }
-.artifact-scope-box .artifact-scope-subheading { margin-top: var(--s5); }
-.artifact-scope-box .checkbox-row { color: var(--text-strong); }
-@media (min-width: 1921px) and (max-width: 1280px) {
-  .artifact-general-layout { grid-template-columns: minmax(0, 1fr); }
-  .artifact-general-layout > .slider { width: 100%; }
-}
+/* A second heading inside one card — Artifacts under Monster — starts a new
+   group, so it takes the gap a new card would. */
+.settings-card > * + .settings-card-title { margin-top: var(--s5); }
 
-/* The source choices fill their row; the shared stone-value question sits
-   below them at half width rather than looking like part of either card. */
+/* Two or three cards side by side. Stretched to the tallest, so a row reads
+   as one band rather than as boxes of different heights. */
+.settings-pair, .settings-trio {
+  display: grid;
+  gap: var(--s4);
+  align-items: stretch;
+}
+.settings-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.settings-trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* A card of controls with a narrow column of cards that report on them — the
+   rune statistics, the graphics card's verdict — beside it. */
+.settings-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: var(--s4);
+  align-items: stretch;
+}
+/* `minmax(0, …)` on the tracks: a grid item's automatic minimum is its
+   min-content width, so one unbreakable string inside — a graphics card that
+   names itself in one long word — widened the whole column past the 300px cap
+   its parent track sets, and the box changed width as the reported name
+   changed. The floor of zero lets the content wrap instead. */
+.settings-aside { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); align-content: start; min-width: 0; }
+
+.artifact-scope .checkbox-row { color: var(--text-strong); }
+
+/* The conversion sources fill their row; the roll-value slider sits below
+   them at half width, inside the same card, because it only means anything
+   once a source is chosen. */
 .artifact-conversion-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--s5);
+  gap: var(--s4);
   align-items: start;
 }
-
-/* Four controls answering one question — which conversions to assume, and how
-   well they roll — inside one frame, so the slider reads as part of the choice
-   above it rather than as an unrelated setting. */
-.artifact-conversion-box {
-  padding: var(--s4);
-  border: 1px solid var(--line-strong);
-  border-left: 2px solid var(--text-accent);
-  border-radius: 0 var(--radius) var(--radius) 0;
-  background: var(--sunk);
-}
-.artifact-conversion-title {
-  margin: 0;
-  line-height: 1.3;
-  color: var(--text-strong);
-}
-.artifact-conversion-intro {
-  margin: calc(var(--s5) * -1 + var(--s2)) 0 0;
-  color: var(--text);
-  line-height: 1.5;
-}
+.artifact-conversion-layout > .settings-card-title { margin: 0; }
 
 /* A disabled control dims and keeps every box it occupies, so switching the
    rule on and off never moves the content beside or beneath it (rule 2). */
@@ -2085,15 +2084,6 @@ label[for] {
   }
 }
 
-/* Sliders keep to two columns, so a group of four reads as a block rather
-   than a list; a hairline separates them from the aside that fills the space
-   left over beside them. */
-.settings-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 1px minmax(240px, 300px);
-  gap: var(--s5);
-  align-items: start;
-}
 /* Contrast against the panel: --line measured 1.21:1 and vanished, --text-muted
    2.70:1 and read as a hard border. This sits between them at 2.03:1 —
    present, but quieter than the content it separates. */
@@ -2106,30 +2096,15 @@ label[for] {
     var(--rule) 92%,
     transparent);
 }
-/* `minmax(0, …)` on the tracks: a grid item's automatic minimum is its
-   min-content width, so one unbreakable string inside — a graphics card that
-   names itself in one long word — widened the whole column past the 300px cap
-   its parent track sets, and the box changed width as the reported name
-   changed. The floor of zero lets the content wrap instead. */
-.settings-aside { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); align-content: start; min-width: 0; }
-/* Sits lower in the aside than the gap alone would put it — far enough from
-   the box above to be its own question, still clearly inside the column. */
-.aside-detached { margin-top: var(--s5); }
 
+/* Sliders keep to two columns, so a group of four reads as a block rather
+   than a list. */
 .slider-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s5);
 }
 
-@media (min-width: 1921px) and (max-width: 1280px) {
-  /* the aside drops beneath the sliders */
-  .settings-layout { grid-template-columns: minmax(0, 1fr); }
-  .settings-rule {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--rule) 4%, var(--rule) 96%, transparent);
-  }
-}
 @media (min-width: 1921px) and (max-width: 720px) {
   .slider-grid { grid-template-columns: minmax(0, 1fr); }
 }
@@ -3412,23 +3387,17 @@ label[for] {
 
 /* ----------------------------------------------------------- statistics */
 
-/* The one place on the page that reports back rather than takes input, so it
-   is ringed in the accent and given the largest numerals in the workspace. */
+/* A box that reports back rather than takes input, given the largest numerals
+   in the workspace. It once wore a gold ring of its own; on Settings it is one
+   card among the others (`.settings-card`), and the figures inside say what
+   the ring used to. */
 .statistics {
-  border: 1px solid var(--gold-edge);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background:
-    linear-gradient(180deg, rgba(217, 173, 82, .06), transparent 60%),
-    var(--sunk);
+  background: var(--sunk);
   padding: var(--s4);
-  box-shadow: inset 0 0 0 1px rgba(217, 173, 82, .06);
 }
-/* Set as .bar-head b is, so the box's heading and the heading of the bar it
-   sits in are the same size and cut — a peer, not a caption. */
-.statistics h4 {
-  margin: 0;
-  color: var(--text-accent);
-}
+.settings-card.statistics { padding: var(--s5); }
 .statistics-lead {
   margin: var(--s1) 0 var(--s4);
   min-height: calc(2 * 1.45em);
@@ -3474,41 +3443,26 @@ label[for] {
 /* Awaiting a calculation. Gold is for what the reader can act on and for a
    figure that means something; a dash here means neither yet. The block keeps
    its full height so the aside does not resize when the figures arrive. */
-.statistics.pending { border-color: var(--line); background: var(--sunk); }
 .statistics.pending dd { color: var(--text-muted); font-weight: 400; }
 
 /* ------------------------------------------- hardware acceleration status */
 
 /* The statistics box, reporting a verdict instead of a figure.
 
-   The border is the ordinary --line every box on the page carries, and the base
-   block's gold ring and wash are dropped with it: the edge says "this is a box",
-   the same as every other edge, and the mark and the word inside say what
-   happened. A ring that changed colour made the whole box the status light and
-   left the reader nothing quieter to read it against.
+   The border is the ordinary --line every box on the page carries: the edge
+   says "this is a box", the same as every other edge, and the mark and the
+   word inside say what happened. A ring that changed colour made the whole box
+   the status light and left the reader nothing quieter to read it against.
 
    Every part below is given its height rather than fitted to its content: the
    mark, the word and the lines under them are the same size in all four states,
    so the box neither grows nor shrinks as the browser answers, and nothing
    beside it is pushed by the reader's own click. */
-.statistics.acceleration {
-  --state: var(--text-muted);
-  border-color: var(--line);
-  background: var(--sunk);
-  box-shadow: none;
-}
+.statistics.acceleration { --state: var(--text-muted); }
 .statistics.acceleration.ready { --state: var(--state-good); }
 .statistics.acceleration.disabled { --state: var(--state-warn); }
 .statistics.acceleration.restart { --state: var(--state-warn); }
 .statistics.acceleration.unavailable { --state: var(--state-bad); }
-
-/* Two lines and a checkbox make a column far shorter than the status box beside
-   them, and that is left alone: prose written to fill a height is written to the
-   layout rather than to the reader.
-
-   The lead here used to be widened back out of `.lead`'s old 68ch cap. That cap
-   is gone — a lead fills its box — so there is nothing left to override. */
-.acceleration-choice { gap: var(--s4); }
 
 /* No heading above it any more, so the mark starts at the top of the box. The
    margin stays at --s3; the extra air under the verdict comes from the card
@@ -4304,8 +4258,8 @@ input[type='checkbox']:checked {
 .stack.tight { gap: var(--s2); }
 
 /* No width cap: a lead fills the content box it sits in. Where a particular
-   place wants a narrower measure, it says so itself — `.acceleration-choice
-   .lead` is one — rather than every lead in the app being half a column wide. */
+   place wants a narrower measure, it says so itself, rather than every lead
+   in the app being half a column wide. */
 .lead { margin: 0; color: var(--text); line-height: 1.6; }
 .meta-line {
   margin: 0;
@@ -7559,5 +7513,19 @@ th.align-center .rank-heading { justify-content: center; }
 .engraved-place-named .engraved-place-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .engraved-place-named .engraved-place-count { flex: none; min-width: 0; }
 
-/* Connection messages change independently of a click; the panel keeps its box. */
-.preference-sharing-status { height: 4lh; overflow: auto; color: var(--text-muted); }
+/* The sharing card: what the helper reports, and beside it the two ways out of
+   a conflict. The message keeps two lines whatever it says, and the buttons keep
+   their place hidden when there is nothing to choose, so neither a new message
+   nor resolving a conflict changes the card's size. A copy that needs the
+   user's choice is reported in the verdict colour for "something left to do". */
+.preference-sharing-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s5);
+}
+.preference-sharing-status { margin: 0; height: 2lh; overflow: auto; line-height: 1.6; color: var(--text); display: flex; align-items: center; }
+.preference-sharing-status[data-state='conflict'],
+.preference-sharing-status[data-state='local'] { color: var(--state-warn); }
+.preference-sharing-actions { flex-wrap: nowrap; }
+.preference-sharing-actions[data-idle='true'] { visibility: hidden; }

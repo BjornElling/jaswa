@@ -1,5 +1,5 @@
 import { isPreferencesDocument } from '../ingest/preferences';
-import { choiceObject } from '../workspace/preference-sharing';
+import { SharingUnavailable, choiceObject } from '../workspace/preference-sharing';
 import type { PreferenceSharingPort, SharedPreferenceCopy } from '../workspace/shared-preferences';
 import { readWorkspaceValue, savePreferences } from './browser-storage';
 
@@ -17,13 +17,13 @@ async function request(method: 'GET' | 'PUT', body?: unknown): Promise<Response>
       ...(method === 'PUT' ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
     });
   } catch {
-    throw new Error('Sharing is unavailable. Start JASWA Helper; your choices remain saved in this browser.');
+    throw new SharingUnavailable('Sharing is unavailable. Start JASWA Helper; your choices remain saved in this browser.');
   }
 }
 
 async function responseCopy(response: Response): Promise<SharedPreferenceCopy | null> {
   if (!response.ok) {
-    if (response.status === 404 || response.status === 405) throw new Error('Update JASWA Helper to share personalization. Your choices remain saved in this browser.');
+    if (response.status === 404 || response.status === 405) throw new SharingUnavailable('Update JASWA Helper to share personalization. Your choices remain saved in this browser.');
     throw new Error('The helper could not read or save shared personalization. Your browser’s copy was kept; JASWA will try again.');
   }
   const value: unknown = await response.json();

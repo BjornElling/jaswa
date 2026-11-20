@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { CheckboxRow } from '../../ui/form-controls';
-import { Disclosure } from '../../ui/page-chrome';
 import { disabledStatus } from '../../workspace/acceleration-status';
 import type { AccelerationStatus, GraphicsCardProbe } from '../../workspace/acceleration-status';
 import { StatusMark, accelerationLabels } from '../home/public';
+import { SettingsCard } from './settings-card';
 
 /**
  * Whether the heavy calculations may use the graphics card. Every calculating
  * page reads this one choice (`docs/HARDWARE-ACCELERATION.md`), so it sits on
- * Settings rather than on Home beside the import.
+ * Settings rather than on Home beside the import — first in General, since it
+ * is the one general setting that changes how fast every answer arrives.
  */
 export function HardwareAccelerationSettings({ hardwareAcceleration, onHardwareAcceleration, detectGraphicsCard }: {
   hardwareAcceleration: boolean;
@@ -30,9 +31,9 @@ export function HardwareAccelerationSettings({ hardwareAcceleration, onHardwareA
   const status: AccelerationStatus = !hardwareAcceleration ? disabledStatus
     : detected ?? { state: 'checking', adapterName: 'Asking the browser…', detail: 'Looking for a graphics card to compute on.' };
 
-  return <Disclosure title="Hardware acceleration" sessionKey="settings.hardware-acceleration">
-    <div className="settings-layout">
-      <div className="stack acceleration-choice">
+  return <div className="settings-columns">
+    <SettingsCard title="Hardware acceleration">
+      <div className="stack">
         <p className="lead">
           Graphics cards are designed to calculate thousands of little
           things simultaneously. Like runes.<br />
@@ -41,21 +42,17 @@ export function HardwareAccelerationSettings({ hardwareAcceleration, onHardwareA
         <CheckboxRow label="Use the graphics card for heavy calculations" checked={hardwareAcceleration}
           onChange={onHardwareAcceleration} />
       </div>
+    </SettingsCard>
 
-      <div className="settings-rule" role="presentation" />
-
-      <aside className="settings-aside">
-        <section className={`statistics acceleration ${status.state}`} role="status" aria-label="Graphics card connection">
-          <div className="acceleration-verdict">
-            <StatusMark state={status.state} />
-            <p className="acceleration-word">{accelerationLabels[status.state]}</p>
-          </div>
-          <p className="acceleration-adapter">
-            <span>Graphics card:</span>
-            <b>{status.adapterName}</b>
-          </p>
-        </section>
-      </aside>
-    </div>
-  </Disclosure>;
+    <section className={`settings-card statistics acceleration ${status.state}`} role="status" aria-label="Graphics card connection">
+      <div className="acceleration-verdict">
+        <StatusMark state={status.state} />
+        <p className="acceleration-word">{accelerationLabels[status.state]}</p>
+      </div>
+      <p className="acceleration-adapter">
+        <span>Graphics card:</span>
+        <b>{status.adapterName}</b>
+      </p>
+    </section>
+  </div>;
 }

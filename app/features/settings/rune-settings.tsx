@@ -21,6 +21,7 @@ import type { RuneCleanupStatistics } from '../../domain/runes/cleanup/rune-clea
 import { withRuneStatisticsProtection } from '../../domain/runes/cleanup/rune-cleanup-statistics';
 import { referenceLines } from '../../domain/reference/rune-reference-stats';
 import { ReappTargetList } from './reapp-target-list';
+import { SettingsCard } from './settings-card';
 import { useDragReorder } from '../../ui/use-drag-reorder';
 import type { ReorderEntryProps } from '../../ui/use-drag-reorder';
 import { moveItem } from '../../domain/shared/list-order';
@@ -164,8 +165,8 @@ export function RuneSettings({ game, settings, roles, general, hardwareAccelerat
 
   return <>
     <Disclosure title="Runes" sessionKey="settings.runes">
-      <div className="stack">
-        <div className="settings-layout">
+      <div className="settings-columns">
+        <SettingsCard>
           <div className="slider-grid">
             <PotentialSlider id="power-up-policy" label="Power-up policy" value={settings.powerUpPolicy}
               description="How willing are you to roll runes with potential?"
@@ -184,32 +185,33 @@ export function RuneSettings({ game, settings, roles, general, hardwareAccelerat
               stepLabels={potentialStepLabels.brokenRunes}
               onChange={(value) => void onUpdate({ brokenRunes: value })} />
           </div>
+        </SettingsCard>
 
-          <div className="settings-rule" role="presentation" />
+        <div className="settings-aside">
+          <section className={statisticsReady ? 'settings-card statistics' : 'settings-card statistics pending'}
+            aria-labelledby="rune-statistics-title">
+            <h3 className="settings-card-title" id="rune-statistics-title">Statistics</h3>
+            <p className="statistics-lead">{statisticsCopy}</p>
+            <p className="statistics-meta type-caption" aria-live="polite">{statisticsStatus}</p>
+            <dl>
+              <div>
+                <dt>Percent to roll</dt>
+                <dd>{statisticsReady ? <>{formatDecimal(readyStatistics.statistics.percentToRoll, general)}<span className="unit">%</span></> : '—'}</dd>
+              </div>
+              <div>
+                <dt>Percent to keep</dt>
+                <dd>{statisticsReady ? <>{formatDecimal(readyStatistics.statistics.percentToKeep, general)}<span className="unit">%</span></> : '—'}</dd>
+              </div>
+            </dl>
+          </section>
 
-          <aside className="settings-aside">
-            <section className={statisticsReady ? 'statistics' : 'statistics pending'}>
-              <h4>Statistics</h4>
-              <p className="statistics-lead">{statisticsCopy}</p>
-              <p className="statistics-meta type-caption" aria-live="polite">{statisticsStatus}</p>
-              <dl>
-                <div>
-                  <dt>Percent to roll</dt>
-                  <dd>{statisticsReady ? <>{formatDecimal(readyStatistics.statistics.percentToRoll, general)}<span className="unit">%</span></> : '—'}</dd>
-                </div>
-                <div>
-                  <dt>Percent to keep</dt>
-                  <dd>{statisticsReady ? <>{formatDecimal(readyStatistics.statistics.percentToKeep, general)}<span className="unit">%</span></> : '—'}</dd>
-                </div>
-              </dl>
-            </section>
-
+          <SettingsCard>
             <PotentialSlider id="intangible-runes" label="Intangible runes"
-                className="slider-compact aside-detached" value={settings.intangibleRunes}
-                description="How badly do you want them?"
-                stepLabels={potentialStepLabels.intangibleRunes}
-                onChange={(value) => void onUpdate({ intangibleRunes: value })} />
-          </aside>
+              className="slider-compact" value={settings.intangibleRunes}
+              description="How badly do you want them?"
+              stepLabels={potentialStepLabels.intangibleRunes}
+              onChange={(value) => void onUpdate({ intangibleRunes: value })} />
+          </SettingsCard>
         </div>
       </div>
     </Disclosure>

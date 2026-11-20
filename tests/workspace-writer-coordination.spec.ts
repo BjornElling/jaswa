@@ -26,7 +26,7 @@ test('one tab writes, readers receive the commit, and the next tab takes over', 
     await page.close();
     await expect(reader.getByText(readOnlyNotice)).toBeHidden({ timeout: 10_000 });
     await reader.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
-    await openSettingsBar(reader, 'Hardware acceleration');
+    await openSettingsBar(reader, 'General');
     const acceleration = reader.getByRole('checkbox', { name: 'Use the graphics card for heavy calculations' });
     await expect(acceleration).toBeChecked();
     await acceleration.uncheck();

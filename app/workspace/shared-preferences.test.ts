@@ -4,6 +4,7 @@ import type { Preferences } from '../domain/model';
 import type { WorkspaceRepository, WriterCoordination, WriterRole } from './ports';
 import { createWorkspaceStore } from './workspace-store';
 import { createPreferenceSharing } from './shared-preferences';
+import { SharingUnavailable } from './preference-sharing';
 import type { PreferenceCheckpoint, PreferenceSharingPort, SharedPreferenceCopy } from './shared-preferences';
 
 async function fixture(local = blankPreferences(), shared: SharedPreferenceCopy | null = null, writer: WriterRole = 'writer') {
@@ -81,6 +82,16 @@ describe('automatic local helper preference sharing', () => {
     f.store.changePreferences((p) => ({ ...p, general: { ...p.general, hourCycle: 'h12' } }));
     await f.sharing.synchronize();
     expect(f.remote().preferences.futureSetting).toEqual({ keep: true });
+  });
+
+  it('tells a missing helper apart from a helper whose copy could not be joined', async () => {
+    const f = await fixture();
+    f.port.read = async () => { throw new SharingUnavailable('Helper is closed'); };
+    await f.sharing.synchronize();
+    expect(f.sharing.getSnapshot().state).toBe('unavailable');
+    f.port.read = async () => { throw new Error('The helper returned unreadable personalization.'); };
+    await f.sharing.synchronize();
+    expect(f.sharing.getSnapshot().state).toBe('local');
   });
 
   it('detects same-field conflicts and supports an explicit choice of the local copy', async () => {

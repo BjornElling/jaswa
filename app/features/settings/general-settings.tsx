@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Button } from '../../ui/button';
 import { RadioLine } from '../../ui/form-controls';
 import { Dropdown } from '../../ui/dropdown';
+import { SettingsCard } from './settings-card';
 import { availableTimeZones, clockSample, dateSample, numberSample } from '../../domain/shared/regional-settings';
 import type {
   DateOrderChoice, GeneralSettings as GeneralSettingsValue, HourCycleChoice,
@@ -97,74 +98,76 @@ export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChang
   );
 
   /* Formats and Time first: they are the settings a user comes here to change.
-     The file questions below them are the ones you set once and then leave. */
+     The file questions below them are the ones you set once and then leave.
+     Each pair shares a row because the two answer neighbouring questions and
+     neither needs more than half the width. */
   return <>
-    <section className="panel">
-      <h3 className="block-title">Formats</h3>
-      <div className="stack">
-        <RadioLine<NumberFormatChoice>
-          name="number-format" legend="Numbers" options={numberOptions}
-          current={settings.numberFormat}
-          onChange={(value) => onChange({ numberFormat: value })} />
-        <RadioLine<DateOrderChoice>
-          name="date-order" legend="Dates" options={dateOptions}
-          current={settings.dateOrder}
-          onChange={(value) => onChange({ dateOrder: value })} />
-      </div>
-    </section>
-
-    <section className="panel">
-      <h3 className="block-title">Time</h3>
-      <div className="stack">
-        <RadioLine<HourCycleChoice>
-          name="hour-cycle" legend="Clock" options={clockOptions}
-          current={settings.hourCycle}
-          onChange={(value) => onChange({ hourCycle: value })} />
-        <RadioLine<TimeZoneChoice>
-          name="time-zone" legend="Time zone" options={zoneOptions}
-          current={settings.timeZone}
-          onChange={(value) => onChange({ timeZone: value })}
-          childrenAfter="manual">
-          {/* The select keeps its place on the line whichever option is chosen,
-              rather than appearing on selection and moving the row. Disabled,
-              it still shows the zone it would use. */}
-          <label className="zone-select">
-            <span className="visually-hidden">Time zone</span>
-            <Dropdown value={settings.manualTimeZone} disabled={settings.timeZone !== 'manual'}
-              onChange={(event) => onChange({ manualTimeZone: event.target.value })}>
-              {timeZones.map(({ zone, label }) => <option key={zone} value={zone}>{label}</option>)}
-            </Dropdown>
-          </label>
-        </RadioLine>
-      </div>
-    </section>
-
-    <section className="panel">
-      <h3 className="block-title">Export/import personalization</h3>
-      <div className="stack">
-        <p className="lead">
-          The browser remembers your personalized settings for rune and
-          artifact optimization, but in case you’d like an offline copy,
-          this is where the magic happens.
-        </p>
-        <div className="button-row">
-          <Button onClick={onExport}>Download .sw file</Button>
-          <Button onClick={onImport}>Load .sw file</Button>
+    <div className="settings-pair">
+      <SettingsCard title="Formats">
+        <div className="stack">
+          <RadioLine<NumberFormatChoice>
+            name="number-format" legend="Numbers" options={numberOptions}
+            current={settings.numberFormat}
+            onChange={(value) => onChange({ numberFormat: value })} />
+          <RadioLine<DateOrderChoice>
+            name="date-order" legend="Dates" options={dateOptions}
+            current={settings.dateOrder}
+            onChange={(value) => onChange({ dateOrder: value })} />
         </div>
-      </div>
-    </section>
+      </SettingsCard>
 
-    <section className="panel">
-      <h3 className="block-title">File location</h3>
-      <div className="stack">
-        <p className="lead">Where to store your .sw stash and go looking for JSON files.</p>
-        <SaveLocation
-          saveFolder={saveFolder}
-          canChooseFolder={canChooseFolder}
-          onChooseFolder={onChooseFolder}
-          onForgetFolder={onForgetFolder}
-        />
-      </div>
-    </section>
+      <SettingsCard title="Time">
+        <div className="stack">
+          <RadioLine<HourCycleChoice>
+            name="hour-cycle" legend="Clock" options={clockOptions}
+            current={settings.hourCycle}
+            onChange={(value) => onChange({ hourCycle: value })} />
+          <RadioLine<TimeZoneChoice>
+            name="time-zone" legend="Time zone" options={zoneOptions}
+            current={settings.timeZone}
+            onChange={(value) => onChange({ timeZone: value })}
+            childrenAfter="manual">
+            {/* The select keeps its place on the line whichever option is chosen,
+                rather than appearing on selection and moving the row. Disabled,
+                it still shows the zone it would use. */}
+            <label className="zone-select">
+              <span className="visually-hidden">Time zone</span>
+              <Dropdown value={settings.manualTimeZone} disabled={settings.timeZone !== 'manual'}
+                onChange={(event) => onChange({ manualTimeZone: event.target.value })}>
+                {timeZones.map(({ zone, label }) => <option key={zone} value={zone}>{label}</option>)}
+              </Dropdown>
+            </label>
+          </RadioLine>
+        </div>
+      </SettingsCard>
+    </div>
+
+    <div className="settings-pair">
+      <SettingsCard title="Export/import personalization">
+        <div className="stack">
+          <p className="lead">
+            The browser remembers your personalized settings for rune and
+            artifact optimization, but in case you’d like an offline copy,
+            this is where the magic happens.
+          </p>
+          <div className="button-row">
+            <Button onClick={onExport}>Download .sw file</Button>
+            <Button onClick={onImport}>Load .sw file</Button>
+          </div>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard title="File location">
+        <div className="stack">
+          <p className="lead">Where to store your .sw stash and go looking for JSON files.</p>
+          <SaveLocation
+            saveFolder={saveFolder}
+            canChooseFolder={canChooseFolder}
+            onChooseFolder={onChooseFolder}
+            onForgetFolder={onForgetFolder}
+          />
+        </div>
+      </SettingsCard>
+    </div>
   </>;
 }

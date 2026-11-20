@@ -1,12 +1,13 @@
 import type { ImportedGame, Preferences } from '../domain/model';
 import { blankPreferences } from '../domain/profiles/preference-defaults';
 import { isPreferencesDocument, readPreferences } from '../ingest/preferences';
-import { PreferenceConflict, choiceObject, mergePreferenceChoices, sameChoice, withoutPreferenceTime } from './preference-sharing';
+import { PreferenceConflict, SharingUnavailable, choiceObject, mergePreferenceChoices, sameChoice, withoutPreferenceTime } from './preference-sharing';
 import type { WorkspaceStore } from './workspace-store';
 
 export type SharedPreferenceCopy = { token: string; preferences: Record<string, unknown> };
 export type PreferenceCheckpoint = { local: Preferences; shared: Record<string, unknown> };
-export type SharingStatus = { state: 'checking' | 'local' | 'shared' | 'conflict' | 'reader'; message: string };
+/** `unavailable`: no helper to share with. `local`: a helper answered, but the copies could not be joined. */
+export type SharingStatus = { state: 'checking' | 'unavailable' | 'local' | 'shared' | 'conflict' | 'reader'; message: string };
 export type PreferenceSharingPort = {
   read(): Promise<SharedPreferenceCopy | null>;
   /** `null` means another page committed first; reread before attempting a merge. */
@@ -88,6 +89,7 @@ export function createPreferenceSharing(store: WorkspaceStore, port: PreferenceS
     } catch (error) {
       report(error instanceof PreferenceConflict
         ? { state: 'conflict', message: error.message }
+        : error instanceof SharingUnavailable ? { state: 'unavailable', message: error.message }
         : { state: 'local', message: error instanceof Error ? error.message : 'Sharing is unavailable. Your choices remain saved in this browser.' });
     } finally { busy = false; finish(); }
   }

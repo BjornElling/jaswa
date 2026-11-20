@@ -219,8 +219,11 @@ Both copies remain intact until that choice. Settings offers the ordinary
 `createPreferenceSharing` (`app/workspace/shared-preferences.ts`) polls every
 two seconds from the origin's writer tab, regardless of the game import route.
 The browser adapter is `app/platform/shared-preferences.ts`. A closed,
-unreachable or outdated helper leaves ordinary browser saves working; Settings
-reports that sharing is unavailable. On reconnection the checkpoint separates
+unreachable or outdated helper leaves ordinary browser saves working, and
+Settings shows no sharing card at all (`unavailable`): with nothing to share
+with there is nothing to report or choose. The card appears once a helper
+answers — shared, in conflict, or reachable but unable to join the copies
+(`local`). On reconnection the checkpoint separates
 locally changed choices from shared changes. Independent object fields merge.
 Role, preset and other record lists with unique identifiers merge fields by
 identifier, with order treated as a separate choice. Lists without identifiers

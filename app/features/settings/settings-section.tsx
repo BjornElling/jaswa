@@ -54,7 +54,7 @@ export function SettingsSection({
   return <WorkspacePage
     header={<PageHeader
       title="Settings"
-      tagline="Your safe haven, where you regain control after four hours of violent procs." />}
+      tagline="Your safe haven, where you regain control after four hours of mindnumbing vio procs." />}
   >
     <RuneSettings
       game={game}
@@ -72,11 +72,10 @@ export function SettingsSection({
     <RelicSettingsBar synergy={preferences.relicSynergy} powerUpThreshold={preferences.relicPowerUpThreshold}
       onChangeSynergy={onRelicSynergyChange} onChangePowerUpThreshold={onRelicPowerUpThresholdChange} />
 
-    <HardwareAccelerationSettings hardwareAcceleration={preferences.hardwareAcceleration}
-      onHardwareAcceleration={onHardwareAcceleration} detectGraphicsCard={detectGraphicsCard} />
-
     <Disclosure title="General" sessionKey="settings.general">
       <div className="stack">
+        <HardwareAccelerationSettings hardwareAcceleration={preferences.hardwareAcceleration}
+          onHardwareAcceleration={onHardwareAcceleration} detectGraphicsCard={detectGraphicsCard} />
         <GeneralSettings
           settings={preferences.general}
           saveFolder={saveFolder}

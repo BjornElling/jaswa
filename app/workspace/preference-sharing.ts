@@ -15,6 +15,9 @@ export class PreferenceConflict extends Error {
   constructor() { super('Both copies contain different choices. Download a .sw backup, then choose which copy to keep.'); }
 }
 
+/** No helper to share with — closed, or too old to know the route. Nothing to resolve, so Settings shows nothing. */
+export class SharingUnavailable extends Error {}
+
 function identifiedChoices(value: unknown[]): { order: string[]; entries: Map<string, unknown> } | null {
   const order: string[] = [];
   const entries = new Map<string, unknown>();

@@ -7,6 +7,7 @@ import { craftRollAssumptions } from '../../domain/runes/craft/rune-craft-items'
 import { engravedConversionStoneCounts } from '../../domain/artifacts/artifact-conversion-stones';
 import { formatNumber } from '../../domain/shared/formatting';
 import type { CraftRollAssumption } from '../../domain/runes/craft/rune-craft-items';
+import { SettingsCard } from './settings-card';
 
 /* The slider's stops are the stored percentages themselves
    (`ARTIFACT-CANONICAL.md` §19.6), so
@@ -58,45 +59,72 @@ export function ArtifactSettingsBar({ settings, data, general, onUpdate }: {
      a conversion to a property no monster wants. */
   const stoneCounts = engravedConversionStoneCounts(data);
 
+  /* The three questions of judgement share a row — what second choice is
+     worth, how small a difference still counts, and which monsters and
+     artifacts are judged at all — and Conversions takes the full width its
+     three sources need. */
   return <Disclosure title="Artifacts" sessionKey="settings.artifacts">
     <div className="stack">
-      <div className="artifact-general-layout">
-        <div className="slider">
-          <label className="slider-label" htmlFor="acceptable-worth">Acceptable stats ctr. preferred</label>
-          <p className="slider-note">What is second choice worth against first choice?</p>
-          <input id="acceptable-worth" type="range"
-            min={1} max={artifactAcceptableWorthChoices.length} step={1}
-            value={step + 1}
-            onChange={(event) => void onUpdate({
-              acceptableWorth: artifactAcceptableWorthChoices[Number(event.target.value) - 1],
-            })}
-            aria-describedby="acceptable-worth-choice" />
-          <p id="acceptable-worth-choice" className="slider-choice" aria-live="polite">
-            {acceptableWorthLabels[step]}
-          </p>
-        </div>
+      <div className="settings-trio">
+        <SettingsCard>
+          <div className="slider">
+            <label className="slider-label" htmlFor="acceptable-worth">Acceptable stats ctr. preferred</label>
+            <p className="slider-note">What is second choice worth against first choice?</p>
+            <input id="acceptable-worth" type="range"
+              min={1} max={artifactAcceptableWorthChoices.length} step={1}
+              value={step + 1}
+              onChange={(event) => void onUpdate({
+                acceptableWorth: artifactAcceptableWorthChoices[Number(event.target.value) - 1],
+              })}
+              aria-describedby="acceptable-worth-choice" />
+            <p id="acceptable-worth-choice" className="slider-choice" aria-live="polite">
+              {acceptableWorthLabels[step]}
+            </p>
+          </div>
+        </SettingsCard>
 
-        <section className="artifact-scope-box" aria-labelledby="artifact-scope-title">
-          <h3 id="artifact-scope-title">Monster</h3>
+        <SettingsCard>
+          {/* The threshold slider keeps its track and its label in every state
+              and only dims, so enabling the rule does not move anything. Its
+              stored value survives the switch, so turning the rule off and on
+              again returns the band the user chose. */}
+          <div className="slider" data-disabled={settings.ignoreInsignificantDifferences ? undefined : 'true'}>
+            <CheckboxRow label="Ignore differences smaller than" checked={settings.ignoreInsignificantDifferences}
+              onChange={(checked) => void onUpdate({ ignoreInsignificantDifferences: checked })} />
+            <p className="slider-note">
+              Below this, two results count as the same and no move is recommended.
+            </p>
+            <input id="insignificant-difference" type="range"
+              min={artifactInsignificantDifferenceRange.minimum} max={artifactInsignificantDifferenceRange.maximum} step={1}
+              value={settings.insignificantDifference} disabled={!settings.ignoreInsignificantDifferences}
+              aria-label="Smallest difference worth acting on, in percentage points"
+              onChange={(event) => void onUpdate({ insignificantDifference: Number(event.target.value) })}
+              aria-describedby="insignificant-difference-choice" />
+            <p id="insignificant-difference-choice" className="slider-choice" aria-live="polite">
+              {settings.ignoreInsignificantDifferences
+                ? `${settings.insignificantDifference} percentage points`
+                : 'Every difference counts.'}
+            </p>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard title="Monster" className="artifact-scope">
           <CheckboxRow label="Only factor in mons you own" checked={settings.onlyFactorInOwnedMonsters}
             onChange={(checked) => void onUpdate({ onlyFactorInOwnedMonsters: checked })} />
           <CheckboxRow label="Only factor in Lv. 40 mons" checked={settings.onlyLevel40Monsters}
             onChange={(checked) => void onUpdate({ onlyLevel40Monsters: checked })} />
-          <h3 className="artifact-scope-subheading">Artifacts</h3>
+          <h3 className="settings-card-title">Artifacts</h3>
           <CheckboxRow label="Include Intangible artifacts" checked={settings.includeIntangibleArtifacts}
             onChange={(checked) => void onUpdate({ includeIntangibleArtifacts: checked })} />
-        </section>
+        </SettingsCard>
       </div>
 
-      <div className="bar-divide" />
-
-      {/* One box, because these four controls answer one question: how much
+      {/* One card, because these four controls answer one question: how much
           conversion to assume. Splitting the sources from the roll value read
           as two unrelated settings, and the slider only means anything once a
           source has been chosen. */}
-      <section className="artifact-conversion-layout artifact-conversion-box" aria-labelledby="artifact-conversion-title">
-        <h3 id="artifact-conversion-title" className="artifact-conversion-title">Conversions</h3>
-        <p className="artifact-conversion-intro">
+      <SettingsCard title="Conversions" className="artifact-conversion-layout">
+        <p className="lead">
           How much credit an artifact gets for a conversion it has not had yet.
         </p>
         <div className="import-routes" role="radiogroup" aria-label="How to handle conversion stones">
@@ -171,34 +199,7 @@ export function ArtifactSettingsBar({ settings, data, general, onUpdate }: {
             </p>
           </div>
         </div>
-      </section>
-
-      <div className="bar-divide" />
-
-      <div className="artifact-general-layout">
-        {/* The threshold slider keeps its track and its label in every state
-            and only dims, so enabling the rule does not move the box beneath
-            it. Its stored value survives the switch, so turning the rule off
-            and on again returns the band the user chose. */}
-        <div className="slider" data-disabled={settings.ignoreInsignificantDifferences ? undefined : 'true'}>
-          <CheckboxRow label="Ignore differences smaller than" checked={settings.ignoreInsignificantDifferences}
-            onChange={(checked) => void onUpdate({ ignoreInsignificantDifferences: checked })} />
-          <p className="slider-note">
-            Below this, two results count as the same and no move is recommended.
-          </p>
-          <input id="insignificant-difference" type="range"
-            min={artifactInsignificantDifferenceRange.minimum} max={artifactInsignificantDifferenceRange.maximum} step={1}
-            value={settings.insignificantDifference} disabled={!settings.ignoreInsignificantDifferences}
-            aria-label="Smallest difference worth acting on, in percentage points"
-            onChange={(event) => void onUpdate({ insignificantDifference: Number(event.target.value) })}
-            aria-describedby="insignificant-difference-choice" />
-          <p id="insignificant-difference-choice" className="slider-choice" aria-live="polite">
-            {settings.ignoreInsignificantDifferences
-              ? `${settings.insignificantDifference} percentage points`
-              : 'Every difference counts.'}
-          </p>
-        </div>
-      </div>
+      </SettingsCard>
     </div>
   </Disclosure>;
 }

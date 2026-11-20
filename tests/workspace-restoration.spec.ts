@@ -76,7 +76,7 @@ test('reports a failed recovery copy on the page where the choice was made', asy
   await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   await openSettingsBar(page, 'General');
-  const panel = page.locator('details.bar').filter({ has: page.locator('summary', { hasText: 'General' }) }).locator('.panel').first();
+  const panel = page.locator('details.bar').filter({ has: page.locator('summary', { hasText: 'General' }) }).locator('.settings-card').first();
   const before = await panel.boundingBox();
   await page.screenshot({ path: testInfo.outputPath('before-mirror-failure.png') });
   await page.evaluate(() => {

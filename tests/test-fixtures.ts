@@ -17,7 +17,7 @@ export const test = base.extend<{ isolatePersonalization: void }>({
 export async function chooseGraphicsCard(page: Page, use: boolean) {
   const rail = page.getByRole('navigation');
   await rail.getByRole('button', { name: 'Settings', exact: true }).click();
-  await openSettingsBar(page, 'Hardware acceleration');
+  await openSettingsBar(page, 'General');
   const checkbox = page.getByRole('checkbox', { name: 'Use the graphics card for heavy calculations' });
   await checkbox.setChecked(use);
   await rail.getByRole('button', { name: 'Home', exact: true }).click();

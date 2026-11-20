@@ -51,12 +51,12 @@ test('two browser workspaces automatically share choices, retain offline edits a
     const panel = await settings(first);
     await expect(panel.getByRole('status')).toContainText('Personalization is shared');
     await first.screenshot({ path: testInfo.outputPath('empty-before.png'), fullPage: true });
-    const boxes = await first.locator('.panel').evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().toJSON()));
+    const boxes = await first.locator('.settings-card').evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().toJSON()));
     await first.locator('input[name="number-format"][value="european"]').check();
     await first.locator('input[name="hour-cycle"][value="h23"]').check();
     await expect.poll(() => (shared.get()?.preferences.general as { hourCycle?: string })?.hourCycle).toBe('h23');
     await first.screenshot({ path: testInfo.outputPath('empty-after.png'), fullPage: true });
-    expect(await first.locator('.panel').evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().toJSON()))).toEqual(boxes);
+    expect(await first.locator('.settings-card').evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().toJSON()))).toEqual(boxes);
 
     const second = await b.newPage();
     await settings(second);
@@ -85,6 +85,8 @@ test('a populated workspace resolves conflicting copies without moving the setti
     fileURLToPath(new URL('./fixtures/synthetic-account.json', import.meta.url)));
   await expect(page.getByText('synthetic-account.json')).toBeVisible();
   const panel = await settings(page);
+  /* With no helper to share with there is nothing to show. */
+  await expect(panel).toHaveCount(0);
   await page.locator('input[name="number-format"][value="european"]').check();
   await page.locator('input[name="hour-cycle"][value="h23"]').check();
   const rich = await stored(page);
@@ -106,15 +108,16 @@ test('a populated workspace resolves conflicting copies without moving the setti
   shared.setOnline(true);
   await expect(panel.getByRole('status')).toContainText('Both copies contain different choices');
   await page.screenshot({ path: testInfo.outputPath('populated-conflict.png'), fullPage: true });
-  const boxes = await inDocument(page.locator('.panel'));
-  const buttons = await inDocument(panel.getByRole('button'));
+  /* Every card, the sharing card included: resolving the conflict hides its
+     two buttons in place, so not even the card that was acted on resizes. */
+  const boxes = await inDocument(page.locator('.settings-card'));
   await panel.getByRole('button', { name: 'Use helper copy' }).click();
   await expect(panel.getByRole('status')).toContainText('Personalization is shared');
+  await expect(panel.getByRole('button')).toHaveCount(0);
   await expect(page.locator('input[name="number-format"][value="american"]')).toBeChecked();
   await expect(page.getByRole('complementary', { name: 'Imported game data' })).toContainText('2 monsters');
   await page.screenshot({ path: testInfo.outputPath('populated-shared.png'), fullPage: true });
-  expect(await inDocument(page.locator('.panel'))).toEqual(boxes);
-  expect(await inDocument(panel.getByRole('button'))).toEqual(buttons);
+  expect(await inDocument(page.locator('.settings-card'))).toEqual(boxes);
   await page.reload();
   await expect(page.locator('input[name="number-format"][value="american"]')).toBeChecked();
   await expect(page.getByRole('complementary', { name: 'Imported game data' })).toContainText('2 monsters');
