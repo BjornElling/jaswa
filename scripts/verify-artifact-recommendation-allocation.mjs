@@ -89,8 +89,12 @@ try {
      `obtainedOrder` and never from an index into the import. */
   for (const file of ['app/features/artifacts/artifact-maximum-values.tsx', 'app/features/artifacts/best-artifact-for-monster.tsx']) {
     const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-    assert.match(source, /artifacts\.map\(\(artifact\) => \[artifact\.id, artifact\.obtainedOrder\]\)/,
+    /* Either shape names the artifact's own order as the tiebreak: a lookup map, or
+       the row's `index` field that the ranking compares. */
+    assert.match(source, /artifacts\.map\(\(artifact\) => \[artifact\.id, artifact\.obtainedOrder\]\)|\bindex: artifact\.obtainedOrder\b/,
       `${file} must break score ties by the artifact's obtained order`);
+    assert.doesNotMatch(source, /\bindex: index\b/,
+      `${file} must not break score ties by the artifact's position in the import`);
     assert.doesNotMatch(source, /artifacts\.map\(\(artifact, index\) => \[artifact\.id, index\]\)/,
       `${file} must not break score ties by the artifact's position in the import`);
   }

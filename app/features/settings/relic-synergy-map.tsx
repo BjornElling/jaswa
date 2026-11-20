@@ -1,8 +1,6 @@
-import { useState } from 'react';
-import type { FormEvent, MouseEvent } from 'react';
+import type { MouseEvent } from 'react';
 import { Button } from '../../ui/button';
-import { Overlay, OverlayAction } from '../../ui/overlay';
-import { RelicSynergyMark } from './relic-marks';
+import { RelicSynergyMark } from '../relics/public';
 import {
   relicFamilyByGrant, relicMainPropertyOrder, relicProperties, relicSourceLabel,
 } from '../../domain/relics/relic-properties';
@@ -20,8 +18,8 @@ import type { RelicSynergyChoices, RelicSynergyTable } from '../../domain/relics
  *
  * **It edits the one table, not a copy of it.** What is saved here is the
  * `relicSynergy` preference that `resolveRelicSynergy` lays over the shipped
- * cells, and the page reads nothing else — so a cell changed here is the band
- * the library shows, filters by and judges with, the moment Save is pressed.
+ * cells, and Relic Optimization reads nothing else — so a cell changed here is
+ * the band the library shows, filters by and judges with.
  *
  * Laid out as the game's own Select Unique Property panel is, family by family,
  * with the three mains side by side, because that is the order a player already
@@ -29,11 +27,12 @@ import type { RelicSynergyChoices, RelicSynergyTable } from '../../domain/relics
  * click — down the scale, Trash wrapping round to Excellent — and Shift steps it
  * back up, so a cell is never more than two clicks from any band.
  *
- * Edits are a draft until Save, as in the monster profile: a stray Escape or a
- * click on the backdrop must not throw away a table half re-judged, and Reset
- * to defaults only puts the shipped cells into the draft. Reset is a worded
- * button beside the tally rather than a round mark on the edge: it is a way
- * back, so it stays quiet, but a bare circular arrow was too easy to miss.
+ * Each click is saved, as every other setting on the page is. It was a draft
+ * with a Save button while it lived in an overlay, where a stray Escape could
+ * throw a half re-judged table away; on a page there is nothing to dismiss, and
+ * a cell is a click from where it was. Reset to defaults is a worded button
+ * beside the tally rather than a round mark on the edge: it is a way back, so it
+ * stays quiet, but a bare circular arrow was too easy to miss.
  */
 
 /* Family by family, in the panel's own order, each family's members in id order. */
@@ -48,41 +47,29 @@ const families = (() => {
 
 const effectText = (property: RelicPropertyDefinition) => `${property.grants} per ${relicSourceLabel(property.per)}`;
 
-export function RelicSynergyOverlay({ synergy, onSave, onClose }: {
+export function RelicSynergyMap({ synergy, onChange }: {
   synergy: RelicSynergyTable;
-  onSave: (choices: RelicSynergyChoices) => void;
-  onClose: () => void;
+  onChange: (choices: RelicSynergyChoices) => void;
 }) {
-  const [draft, setDraft] = useState(synergy);
-  const dirty = !sameRelicSynergy(draft, synergy);
-  const atDefaults = sameRelicSynergy(draft, defaultRelicSynergy);
+  const atDefaults = sameRelicSynergy(synergy, defaultRelicSynergy);
   const tally = new Map(relicSynergyBandOrder.map((band) => [band, 0]));
-  for (const cell of relicSynergyCells(draft)) tally.set(cell.band, (tally.get(cell.band) ?? 0) + 1);
+  for (const cell of relicSynergyCells(synergy)) tally.set(cell.band, (tally.get(cell.band) ?? 0) + 1);
 
   function step(property: RelicPropertyDefinition, main: RelicMainProperty, event: MouseEvent<HTMLButtonElement>) {
-    const band = cycledRelicSynergyBand(relicSynergy(draft, main, property.id), event.shiftKey ? -1 : 1);
-    setDraft((current) => withRelicSynergyCell(current, property.id, main, band));
+    const band = cycledRelicSynergyBand(relicSynergy(synergy, main, property.id), event.shiftKey ? -1 : 1);
+    onChange(relicSynergyChoices(withRelicSynergyCell(synergy, property.id, main, band)));
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onSave(relicSynergyChoices(draft));
-    onClose();
-  }
-
-  return <Overlay labelledBy="relic-synergy-title" describedBy="relic-synergy-hint" className="relic-synergy-overlay"
-    dismissible={!dirty} onClose={onClose} onSubmit={submit}
-    actions={<OverlayAction kind="save" label="Save synergy" type="submit" disabled={!dirty} />}>
+  return <section className="relic-synergy-map" aria-labelledby="relic-synergy-title" aria-describedby="relic-synergy-hint">
     <header className="relic-synergy-head">
       <div className="relic-synergy-identity">
-        <p className="eyebrow">Relic Optimization</p>
-        <h2 id="relic-synergy-title">Synergy map</h2>
-        <p id="relic-synergy-hint" className="type-caption relic-synergy-hint">
+        <h3 id="relic-synergy-title" className="slider-label">Synergy map</h3>
+        <p id="relic-synergy-hint" className="slider-note relic-synergy-hint">
           Click a cell for the next band down; Shift-click for the next one up.
         </p>
       </div>
       <div className="relic-synergy-tools">
-        <Button size="compact" disabled={atDefaults} onClick={() => setDraft(defaultRelicSynergy)}>
+        <Button size="compact" disabled={atDefaults} onClick={() => onChange(relicSynergyChoices(defaultRelicSynergy))}>
           Reset to defaults
         </Button>
         <dl className="overlay-facts relic-synergy-tally" aria-label="Cells in each band">
@@ -94,7 +81,7 @@ export function RelicSynergyOverlay({ synergy, onSave, onClose }: {
       </div>
     </header>
 
-    <div className="overlay-body">
+    <div className="relic-synergy-body">
       <table className="relic-synergy-table" aria-label="Relic synergy by unique property and main stat">
         <colgroup>
           <col className="relic-synergy-family-column" />
@@ -116,8 +103,8 @@ export function RelicSynergyOverlay({ synergy, onSave, onClose }: {
               <span className="type-caption relic-synergy-property-effect">{effectText(property)}</span>
             </th>
             {relicMainPropertyOrder.map((main) => {
-              const band = relicSynergy(draft, main, property.id);
-              const changed = !isDefaultRelicSynergyCell(draft, property.id, main);
+              const band = relicSynergy(synergy, main, property.id);
+              const changed = !isDefaultRelicSynergyCell(synergy, property.id, main);
               const shipped = relicSynergyBandLabels[relicSynergy(defaultRelicSynergy, main, property.id)];
               return <td key={main}>
                 <button type="button" className="relic-synergy-cell" data-band={band}
@@ -137,5 +124,5 @@ export function RelicSynergyOverlay({ synergy, onSave, onClose }: {
         </tbody>)}
       </table>
     </div>
-  </Overlay>;
+  </section>;
 }
