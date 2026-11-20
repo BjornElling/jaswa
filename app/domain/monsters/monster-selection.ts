@@ -1,4 +1,4 @@
-import { monsterIdentity, monsterIdentityId } from './monster-identity';
+import { monsterIdentity } from './monster-identity';
 
 export type MonsterSelectionRecord = {
   masterId: unknown;
@@ -32,26 +32,27 @@ export type MonsterCopyIndex = {
 };
 
 /**
- * How many copies of one monster a set of records holds, under the same
- * identity rules as the conditions above: awakenings are the same monster; an
- * element sibling is not, and neither is a collaboration twin, which keeps its
- * own catalogue identity (`monster-identity.ts`, `MONSTER-SPECIES-DECISION.md`).
+ * How many copies of one exact form a set of records holds: one master id, so
+ * one element at one awakening stage. Separate entries and shrine stacks of that
+ * form add up; its other awakening stages do not.
  *
- * Which records are counted is the caller's question, and Storage's answer is
- * the monsters Storage lists. "Have ≥ 2" is read against the table it stands
- * beside, so counting a copy on the active roster would mark a row the user can
- * see only one of. The canonical identity helper keeps an unknown id on its own
- * raw key rather than making it unreachable or collapsing it into another
- * unknown monster.
+ * This is the one place the account is counted per form rather than per
+ * monster, and it is a developer decision (`ACCOUNT-TABLES.md` §4.1, November
+ * 20, 2026): "Have ≥ 4" beside a row reading ×1 must not pass because twelve
+ * unawakened copies sit in the Sealed Shrine. Every other condition — the
+ * selection index below, search — still folds awakenings into one monster.
+ *
+ * Which records are counted is the caller's question; Storage counts every
+ * location, so hiding one does not change what the account holds.
  */
 export function createMonsterCopyIndex(records: readonly MonsterCopyRecord[]): MonsterCopyIndex {
-  const copiesByIdentity = new Map<string, number>();
+  const copiesByForm = new Map<string, number>();
   for (const record of records) {
     const copies = Number.isSafeInteger(record.copies) && record.copies > 0 ? record.copies : 1;
-    const identity = monsterIdentityId(record.masterId);
-    copiesByIdentity.set(identity, (copiesByIdentity.get(identity) ?? 0) + copies);
+    const form = String(record.masterId);
+    copiesByForm.set(form, (copiesByForm.get(form) ?? 0) + copies);
   }
-  return { copies: (masterId) => copiesByIdentity.get(monsterIdentityId(masterId)) ?? 0 };
+  return { copies: (masterId) => copiesByForm.get(String(masterId)) ?? 0 };
 }
 
 /**

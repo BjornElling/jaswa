@@ -382,7 +382,7 @@ export function MonsterStorage({ monsters, snapshot, preferences, onOpenMonster 
      location, before any filter runs. A filter decides which rows are *shown*;
      it must not change what the account *contains*. Unchecking Inventory
      narrows the list, but a copy standing there still counts towards "Have ≥"
-     and still answers the two "Only show if" conditions, so the same row keeps
+     and still answers the "Only show if" conditions, so the same row keeps
      the same verdict however the Location boxes are set. Build either index
      from `visible` and that stops being true. */
   const monsterSelection = useMemo(() => createMonsterSelectionIndex(rows.map((row) => ({
@@ -392,10 +392,10 @@ export function MonsterStorage({ monsters, snapshot, preferences, onOpenMonster 
     copies: row.quantity,
   }))), [rows]);
 
-  /* `rows` is the unfiltered set, so the tally spans all four locations.
-     Awakening stages pool into it: `createMonsterCopyIndex` keys on the
-     monster's identity, so an unawakened, an awakened and a second awakened
-     copy count as three of the same monster. */
+  /* `rows` is the unfiltered set, so the tally spans all four locations. It
+     counts one exact form, though: an awakened copy does not inherit the
+     unawakened ones, unlike the "Only show if" conditions above
+     (`ACCOUNT-TABLES.md` §4.1). */
   const storageCopies = useMemo(() => createMonsterCopyIndex(
     rows.map((row) => ({ masterId: row.masterId, copies: row.quantity })),
   ), [rows]);
@@ -454,9 +454,9 @@ export function MonsterStorage({ monsters, snapshot, preferences, onOpenMonster 
          rather than about the account: a max-skilled copy is done, whatever
          other copies of the same monster still need. */
       if (needsSkillUps && row.maxSkilled) return false;
-      /* "Have ≥" asks about the monster, not about this one entry: a row's own
-         quantity counted a stack but missed a player holding the same monster
-         as several single entries. */
+      /* "Have ≥" asks about the form, not about this one entry: a row's own
+         quantity counted a stack but missed a player holding the same form as
+         several single entries. */
       if (minimumQuantityEnabled && storageCopies.copies(row.masterId) < minimumQuantity) return false;
       return searchedMasterIds === undefined || searchedMasterIds.has(row.masterId);
     }),

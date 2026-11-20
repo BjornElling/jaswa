@@ -3,24 +3,26 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * The Location filter chooses which rows are shown. It must not change what the
- * account is judged to contain: "Have ≥" and the two "Only show if" conditions
- * are answered across every location, and across every awakening stage, so a
- * row keeps the same verdict however the Location boxes are set.
+ * account is judged to contain: "Have ≥" and the "Only show if" conditions are
+ * answered across every location, so a row keeps the same verdict however the
+ * Location boxes are set. "Only show if" also reads every awakening stage;
+ * "Have ≥" counts the row's own form only (`ACCOUNT-TABLES.md` §4.1).
  *
  * The fixture splits three awakening stages of one monster across three
  * locations, with a Fire sibling standing by to prove the tally does not simply
  * count everything.
  */
 const account = fileURLToPath(new URL('./fixtures/storage-location-account.json', import.meta.url));
+const formCountAccount = fileURLToPath(new URL('./fixtures/storage-form-count-account.json', import.meta.url));
 
-async function openStorage(page: Page) {
+async function openStorage(page: Page, file = account) {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.evaluate(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await expect(page.getByText('storage-location-account.json')).toBeVisible();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(file);
+  await expect(page.getByText(file.split(/[\\/]/).pop()!)).toBeVisible();
   await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
 }
@@ -60,19 +62,21 @@ test('Location is first offered as Inventory and lists every place a monster can
   ]);
 });
 
-test('"Have ≥" counts every awakening stage across every location, shown or hidden', async ({ page }) => {
-  await openStorage(page);
+test('"Have ≥" counts one form across every location, shown or hidden', async ({ page }) => {
+  await openStorage(page, formCountAccount);
   const view = storage(page);
+  await expect(view.table.locator('tbody tr')).toHaveCount(4);
 
-  /* Three stages of one monster, so "have at least 3" keeps all three and
-     drops the Fire sibling, which the account holds only one of. */
+  /* Fairy is held three times, its two awakened forms once each. The awakened
+     rows must not inherit the unawakened copies (`ACCOUNT-TABLES.md` §4.1). */
   await view.haveAtLeast.check();
+  await view.quantity.fill('2');
+  expect(await view.names()).toEqual(['Fairy (Water)', 'Fairy (Water)']);
   await view.quantity.fill('3');
-  expect(await view.names()).toEqual(['Elucia', 'Elucia (2A)', 'Fairy (Water)']);
+  expect(await view.names()).toEqual(['Fairy (Water)', 'Fairy (Water)']);
 
-  /* Hiding two locations must not lower the tally: the one remaining row is
-     still a monster the account holds three of. */
-  await view.location(/^Storage$/).uncheck();
+  /* Hiding the shrine must not lower the tally: the Inventory copy is still
+     one of three. */
   await view.location('Sealed Shrine · Summoned').uncheck();
   expect(await view.names()).toEqual(['Fairy (Water)']);
 

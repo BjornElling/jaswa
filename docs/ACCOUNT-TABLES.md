@@ -1,7 +1,7 @@
 # Account tables and views
 
 **Status:** Binding interface contract for the account tables and the artifact workspace views
-**Reviewed:** November 19, 2026
+**Reviewed:** November 20, 2026
 **Code:** `app/ui/sortable-table.tsx`, `app/ui/use-sorted-rows.ts`,
 `app/ui/table-layouts.ts`, `app/domain/monsters/monster-identity.ts`,
 `app/domain/account/sealed-shrine-storage.ts`, `app/features/artifacts/artifact-maximum-values.tsx`,
@@ -77,9 +77,9 @@ is one element's chain, not the family: `Kyle` never answers `Todd`.
   filter — seeds the lineage (`shrineMonsterRecords`). What the search returns
   is bounded by the rows the page can list. No filter, Location box or the
   `Lvl. < 40` default decides what the account contains.
-- Identity (`monsterIdentityId`) **folds** a lineage into one key for counting
-  copies; this scope keeps stages **ordered**. "…or better" belongs here, "how
-  many" there. `verify:monster-awakening-scope` holds the direction, the
+- Identity (`monsterIdentityId`) **folds** a lineage into one key for the
+  *Only show if* conditions; this scope keeps stages **ordered**. "…or better"
+  belongs here, "what the account owns" there. *Have ≥* does neither (§4.1). `verify:monster-awakening-scope` holds the direction, the
   element boundary, and that a form the account does not hold is never
   conjured into a result.
 
@@ -96,6 +96,21 @@ Each keeps its own filters when navigation leaves and returns.
 - **A derived figure sits a step back.** `E.HP`, `E.HP D` and `DMG` are computed,
   not read off the export, so they take the muted tone; full tone is for what
   the game itself states (`AGENTS.md` §5's two-tone device, not a colour).
+
+### 4.1 *Have ≥* counts one form
+
+**Developer decision, November 20, 2026.** Usage's *Have ≥* counts copies of
+the row's exact form — one master id, so one element at one awakening stage.
+Separate entries and shrine stacks of that form add up, across every location
+whether shown or hidden. Its other awakening stages do not count.
+
+This is deliberately unlike every other monster condition, which folds
+awakenings into one monster (*Only show if*, search, fodder). The filter sits
+beside the Quantity column, and "Have ≥ 4" must not pass an awakened Adrian
+reading ×1 because twelve unawakened copies wait in the Sealed Shrine; those
+twelve pass on their own row. `createMonsterCopyIndex` (`monster-selection.ts`)
+is the count, `verify:monster-selection` and
+`tests/storage-filter-scope.spec.ts` hold it.
 
 ## 5. The artifact recommendation figures add up
 

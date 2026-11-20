@@ -39,9 +39,9 @@ try {
   assert.equal(noLevel40.matches(20002, familyMaxSkilled), false,
     'a family with no Lv. 40 monster must not pass merely because it is empty');
 
-  /* Copies are counted per monster, not per entry: separate single entries
+  /* Copies are counted per form, not per entry: separate single entries
      count together, a stack counts its quantity, and neither may leave a
-     monster the list demonstrably holds twice out of a "have two" list. */
+     form the list demonstrably holds twice out of a "have two" list. */
   assert.equal(createMonsterCopyIndex([{ masterId: 10101, copies: 1 }]).copies(10101), 1,
     'one entry of one copy is one copy');
   assert.equal(createMonsterCopyIndex([
@@ -50,22 +50,17 @@ try {
   ]).copies(10101), 2, 'two separate single entries of one monster are two copies');
   assert.equal(createMonsterCopyIndex([{ masterId: 10101, copies: 2 }]).copies(10101), 2,
     'a shrine stack of two is two copies');
-  assert.equal(createMonsterCopyIndex([
-    { masterId: 10101, copies: 1 },
-    { masterId: 10131, copies: 1 },
-  ]).copies(10101), 2, 'an awakening is a copy of the same monster');
-  /* All three stages of one monster at once — unawakened, awakened and second
-     awakened — count as three copies, and the tally reads the same whichever
-     stage asks for it. */
+  /* "Have ≥" counts one form, unlike every other condition here
+     (`ACCOUNT-TABLES.md` §4.1): an awakened copy does not inherit a shrine full
+     of unawakened ones, and each stage keeps its own tally. */
   const threeStages = createMonsterCopyIndex([
-    { masterId: 10101, copies: 1 },
+    { masterId: 10101, copies: 12 },
     { masterId: 10111, copies: 1 },
     { masterId: 10131, copies: 1 },
   ]);
-  for (const stage of [10101, 10111, 10131]) {
-    assert.equal(threeStages.copies(stage), 3,
-      `an unawakened, an awakened and a second awakened copy are three of the same monster, asked via ${stage}`);
-  }
+  assert.equal(threeStages.copies(10101), 12, 'the unawakened stack counts only itself');
+  assert.equal(threeStages.copies(10111), 1, 'an awakened copy does not count its unawakened stack');
+  assert.equal(threeStages.copies(10131), 1, 'a second awakening does not count its lesser stages');
   const awakened = createMonsterSelectionIndex([{ masterId: 10111, level: 40, maxSkilled: true, copies: 1 }]);
   assert.equal(awakened.matches(10101, both), true,
     'a Lv. 40 awakened copy must satisfy both conditions for its unawakened form');

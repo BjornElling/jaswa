@@ -1,0 +1,20 @@
+{
+  "_comment": [
+    "'Have >=' counts one form (ACCOUNT-TABLES.md 4.1). Fairy (Water, 10101) is held three",
+    "times across two locations: one Lv. 25 copy in Inventory and a stack of two in the",
+    "Sealed Shrine. Its awakened form Elucia (10111) is held once in Storage and must not",
+    "inherit the three, and Elucia (2A, 10131) is held once in the Sealed Shrine."
+  ],
+  "unit_list": [
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 1, "unit_master_id": 10101, "attribute": 1, "unit_level": 25, "class": 3, "skills": [[1, 1], [2, 1]] },
+    { "con": 600, "atk": 600, "def": 600, "spd": 100, "critical_rate": 15, "critical_damage": 50, "resist": 15, "accuracy": 0, "unit_id": 2, "unit_master_id": 10111, "attribute": 1, "unit_level": 40, "class": 5, "building_id": 3, "skills": [[1, 5], [2, 5], [3, 5], [4, 5]] }
+  ],
+  "unit_storage_list": [
+    { "class": 3, "quantity": 2, "unit_master_id": 10101 },
+    { "class": 5, "quantity": 1, "unit_master_id": 10131 }
+  ],
+  "runes": [],
+  "artifacts": [],
+  "relics": [],
+  "rune_craft_item_list": []
+}

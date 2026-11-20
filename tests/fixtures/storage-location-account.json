@@ -2,9 +2,9 @@
   "_comment": [
     "Three awakening stages of one monster (Fairy 10101 / Elucia 10111 / Elucia 2A 10131),",
     "deliberately split across locations: one in Inventory, one in Monster Storage, one in",
-    "the Sealed Shrine. The Location filter must be able to hide any of them while",
-    "'Have >=' still counts all three as copies of the same monster, and while the two",
+    "the Sealed Shrine. The Location filter must be able to hide any of them while the",
     "'Only show if' conditions still see the Lv. 40 max-skilled copy that sits in Storage.",
+    "'Have >=' counts one form, so each stage here is held once (ACCOUNT-TABLES.md 4.1).",
     "10132 is a Fire sibling: a different monster, so it must never join that tally.",
     "It is Lv. 40 and max-skilled on purpose. 'All lvl 40 of this family max skilled' is a",
     "family-wide question, and an element sibling is in the family, so one unskilled Lv. 40",
