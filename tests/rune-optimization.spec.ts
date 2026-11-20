@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { chooseGraphicsCard, expect, openSettingsBar, test } from './test-fixtures';
 import type { Locator, Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -123,7 +123,7 @@ async function rankUnranked(page: Page, figure = 'spd') {
 test('a Speed ceiling cannot be met by gemming the same stat down', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
-  await page.getByLabel('Use the graphics card for heavy calculations').uncheck();
+  await chooseGraphicsCard(page, false);
   const data = JSON.parse(readFileSync(account, 'utf8'));
   data.unit_list = data.unit_list.map((unit: Record<string, unknown>) => ({ ...unit, runes: [] }));
   data.runes = Array.from({ length: 6 }, (_, at) => ({
@@ -816,6 +816,7 @@ test('an own-preset lock saves its placement and lock together, including after 
   await expect.poll(() => page.evaluate(() => Boolean(JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').__jaswaPendingCommit))).toBe(true);
   await page.keyboard.press('Escape');
   await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await openSettingsBar(page, 'General');
   await page.locator('input[name="number-format"][value="american"]').check();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}')
     .__jaswaPendingCommit?.after?.general?.numberFormat)).toBe('american');
@@ -1305,7 +1306,7 @@ test('the build menu cascades three deep, past the edge of its own line, without
 test('all stat ranges keep an exact speed endpoint and fixed controls', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await freshWorkspace(page);
-  await page.getByLabel('Use the graphics card for heavy calculations').uncheck();
+  await chooseGraphicsCard(page, false);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await expect(page.getByText('rune-optimization-account.json').first()).toBeVisible();
   await openOptimization(page);

@@ -6,9 +6,9 @@ const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.me
 test('simulates random runes through +0, +9, +12 and +15, spending no craft without a role',async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  /* No Gem or Grindstone setting is left to change: Rune Settings offers none. */
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
-  await page.locator('details').filter({ hasText: 'Settings' }).locator('summary').click();
+  /* No Gem or Grindstone setting is left to change: Settings offers none. */
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
   await expect(page.locator('#enchanted-gems, #grindstones')).toHaveCount(0);
 
   /* The simulator is a Rune Clean-up tool, judged by the Clean-up engine beside it. */

@@ -6,6 +6,7 @@ import { defaultRuneRoles } from './rune-roles';
 import { blankGeneralSettings } from '../shared/regional-settings';
 import { blankSpeedTuningPreferences } from './speed-tuning-preferences';
 import { defaultRuneOptimizationSettings } from './rune-optimization-settings';
+import { defaultRelicInvestmentSelectivity } from '../relics/relic-advice';
 
 /* The starting choices a fresh workspace holds and a missing or rejected
    choice falls back to. The readers in `ingest/preferences.ts` judge what is
@@ -86,5 +87,6 @@ export function blankPreferences(): Preferences {
     presetPriority: {},
     runeOptimization: defaultRuneOptimizationSettings,
     relicSynergy: {},
+    relicPowerUpThreshold: defaultRelicInvestmentSelectivity,
   };
 }

@@ -1,5 +1,5 @@
 import { filterIncludes, filterPair } from '../../domain/shared/filter-selection';
-import { lazy, Suspense, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { FilterButton } from '../../ui/button';
 import type { OpenMonsterOverlay } from '../../ui/gear/monster-link';
@@ -9,9 +9,8 @@ import { FilterSummary } from '../../ui/filter-summary';
 import { SortableHeader } from '../../ui/sortable-table';
 import { useSortedRows } from '../../ui/use-sorted-rows';
 import type { SortableColumn } from '../../ui/use-sorted-rows';
-import { ValueSlider, RangeSlider } from '../../ui/range-slider';
+import { RangeSlider } from '../../ui/range-slider';
 import { RelicDurabilityMark, RelicLevelMark, RelicSynergyFilterMark, RelicSynergyMark } from './relic-marks';
-import { RelicSynergyOverlay } from './relic-synergy-overlay';
 import { WorkspacePage } from '../../ui/workspace-page';
 import { columnClasses, relicTableColumns } from '../../ui/table-layouts';
 import type { GameRecord } from '../../domain/account/game-record';
@@ -25,12 +24,9 @@ import {
 import { relicReachChance } from '../../domain/relics/relic-power-up-model';
 import type { RelicMainProperty } from '../../domain/relics/relic-properties';
 import { relicSynergy, relicSynergyBandLabels, relicSynergyBandOrder, resolveRelicSynergy } from '../../domain/relics/relic-synergy';
-import type { RelicSynergyBand, RelicSynergyChoices } from '../../domain/relics/relic-synergy';
-import {
-  defaultRelicInvestmentSelectivity, isRelicInvestmentSelectivity, relicAdvice, relicInvestmentSelectivityLabels,
-  relicVerdictLabels, relicVerdictOrder, relicMinimumSynergyBands, relicChancePercent,
-} from '../../domain/relics/relic-advice';
-import type { RelicInvestmentSelectivity, RelicVerdict } from '../../domain/relics/relic-advice';
+import type { RelicSynergyBand } from '../../domain/relics/relic-synergy';
+import { relicAdvice, relicVerdictLabels, relicVerdictOrder, relicChancePercent } from '../../domain/relics/relic-advice';
+import type { RelicVerdict } from '../../domain/relics/relic-advice';
 import {
   compareRelicRows, defaultRelicSortDirections, relicEffectText, relicHasLikelyEnd, relicLevelState,
 } from '../../domain/relics/relic-grid';
@@ -65,13 +61,6 @@ type RelicFilterState = {
   highestLevel: number;
   showEngraved: boolean;
   showInventory: boolean;
-  /**
-   * How much the user is willing to gamble on a power-up. It sits with the
-   * filters because it belongs to the same question the filters answer — what
-   * this table should be telling me — even though it changes the verdicts
-   * rather than which rows survive.
-   */
-  selectivity: RelicInvestmentSelectivity;
 };
 
 const defaultRelicFilters: RelicFilterState = {
@@ -84,7 +73,6 @@ const defaultRelicFilters: RelicFilterState = {
   highestLevel: relicMaximumLevel,
   showEngraved: true,
   showInventory: true,
-  selectivity: defaultRelicInvestmentSelectivity,
 };
 
 function isRelicFilterState(value: unknown): value is RelicFilterState {
@@ -105,8 +93,7 @@ function isRelicFilterState(value: unknown): value is RelicFilterState {
     && level(candidate.lowestLevel) && level(candidate.highestLevel)
     && (candidate.lowestLevel as number) <= (candidate.highestLevel as number)
     && typeof candidate.showEngraved === 'boolean'
-    && typeof candidate.showInventory === 'boolean'
-    && isRelicInvestmentSelectivity(candidate.selectivity);
+    && typeof candidate.showInventory === 'boolean';
 }
 
 const relicCell = columnClasses(relicTableColumns);
@@ -159,25 +146,25 @@ function likelyEndDetail(row: RelicRow): string {
     + `Chance of reaching +${tier}: ${relicChancePercent(relicReachChance(row.relic.level, row.relic.durability, tier))}.`;
 }
 
-export function RelicList({ game, monsters, preferences, onOpenMonster, onChangeRelicSynergy }: {
+export function RelicList({ game, monsters, preferences, onOpenMonster }: {
   game: ImportedGame | null;
   monsters: GameRecord[];
   preferences: Preferences;
   onOpenMonster: OpenMonsterOverlay;
-  onChangeRelicSynergy: (choices: RelicSynergyChoices) => void;
 }) {
   const [filters, setFilters] = useSessionStorageState(
     'jaswa.filters.relics', defaultRelicFilters, isRelicFilterState,
   );
   const { selectedFamilies, selectedMains, selectedBands, selectedVerdicts, selectedDurability,
-    lowestLevel, highestLevel, showEngraved, showInventory, selectivity } = filters;
-
-  const [editingSynergy, setEditingSynergy] = useState(false);
-  const synergyOpener = useRef<HTMLButtonElement>(null);
+    lowestLevel, highestLevel, showEngraved, showInventory } = filters;
+  /* What the verdicts are judged by — the threshold and the synergy table — is
+     on Settings (`relic-settings.tsx`): it changes every verdict, not which
+     rows survive, so it is not one of this page's filters. */
+  const selectivity = preferences.relicPowerUpThreshold;
 
   /* The one synergy table this page reads — the shipped cells with the user's
      own on top (`relic-synergy.ts`). The verdicts, the column and the filter all
-     take it from here, so an edit in the table reaches each of them at once. */
+     take it from here, so an edit to the map reaches each of them at once. */
   const synergy = useMemo(() => resolveRelicSynergy(preferences.relicSynergy), [preferences.relicSynergy]);
   const relics = game?.snapshot.relics ?? noRelicRecords;
   const engravings = useMemo(() => relicEngravingCounts(monsters), [monsters]);
@@ -250,11 +237,6 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
     </div>
   </div>;
 
-  function closeSynergyEditor() {
-    setEditingSynergy(false);
-    synergyOpener.current?.focus();
-  }
-
   const noRelics = <section className="empty-state">
     <h2>{game
       ? 'This import holds no relics JASWA can read.'
@@ -294,20 +276,6 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
             (band) => relicSynergyBandLabels[band])}
           {toggleGroup('Advice', 'Filter by advice', relicVerdictOrder, selectedVerdicts,
             'selectedVerdicts', (verdict) => relicVerdictLabels[verdict], 'relic-filter-advice')}
-          <div className="filter-group relic-filter-threshold" role="group" aria-label="Power-up threshold">
-            <span className="filter-label">Power-up threshold</span>
-            <div className="filter-group-controls">
-              <ValueSlider minimum={1} maximum={5} value={selectivity}
-                label="Power-up threshold, very restrictive to naive"
-                valueLabel={(value) => relicInvestmentSelectivityLabels[value as RelicInvestmentSelectivity]}
-                valueAbove
-                valueText={(value) => `${relicInvestmentSelectivityLabels[value as RelicInvestmentSelectivity]}; `
-                  + `${relicSynergyBandLabels[relicMinimumSynergyBands[value as RelicInvestmentSelectivity]]} synergy or better`}
-                onChange={(value) => setFilters((current) => ({
-                  ...current, selectivity: isRelicInvestmentSelectivity(value) ? value : current.selectivity,
-                }))} />
-            </div>
-          </div>
           <div className="filter-group relic-filter-level" role="group" aria-label="Filter by power-up level">
             <span className="filter-label">Level</span>
             <div className="filter-group-controls">
@@ -337,9 +305,7 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
             </div>
           </div>
           <FilterSummary visible={visible.length} total={rows.length} noun="relics"
-            onReset={() => setFilters(defaultRelicFilters)} className="relic-filter-status"
-            below={<button ref={synergyOpener} type="button" className="filter-reset relic-synergy-map"
-              aria-haspopup="dialog" onClick={() => setEditingSynergy(true)}>Synergy map</button>} />
+            onReset={() => setFilters(defaultRelicFilters)} className="relic-filter-status" />
         </>}
       >
         <tbody>
@@ -394,8 +360,6 @@ export function RelicList({ game, monsters, preferences, onOpenMonster, onChange
       </DataTablePage>
       </div>}
     </Disclosure>
-
-    {editingSynergy && <RelicSynergyOverlay synergy={synergy} onSave={onChangeRelicSynergy} onClose={closeSynergyEditor} />}
 
     <Disclosure title="Use for mons" sessionKey="relics.monsters" deferContent>
       {!relics.length ? noRelics

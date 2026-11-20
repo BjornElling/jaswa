@@ -90,11 +90,14 @@ test('a changed standard empties the plan; a re-import re-scores only the change
   const tableTop = (await placed(table)).y;
   await page.screenshot({ path: testInfo.outputPath('calculated.png'), fullPage: true });
 
-  /* A standard is the user's: the plan leaves, its notice takes the reserved
-     line, and nothing is calculated behind the reader's back. */
-  await page.locator('summary').filter({ hasText: 'Settings' }).click();
+  /* A standard is the user's, and it is set on Settings: back on the page the
+     plan has left, its notice takes the reserved line, and nothing was
+     calculated behind the reader's back. */
+  await visit('Settings');
+  await page.locator('main summary').filter({ hasText: 'Artifacts' }).click();
   const intangible = page.getByRole('checkbox', { name: 'Include Intangible artifacts' });
   await intangible.uncheck();
+  await visit('Artifact Optimization');
   await expect(outdated).toBeVisible();
   await expect(table).toHaveCount(0);
   await page.waitForTimeout(1500);
@@ -103,7 +106,9 @@ test('a changed standard empties the plan; a re-import re-scores only the change
   await page.screenshot({ path: testInfo.outputPath('standard-changed.png'), fullPage: true });
 
   /* Setting it back shows the held plan again, uncounted. */
+  await visit('Settings');
   await intangible.check();
+  await visit('Artifact Optimization');
   await expect(outdated).toBeHidden();
   await expect(rows).toHaveCount(3);
   expect(await rows.allTextContents()).toEqual(held);

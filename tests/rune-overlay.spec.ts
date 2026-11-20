@@ -137,8 +137,8 @@ test('the strictest quality floor explains the reading’s percentile bar', asyn
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'floor-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(game)),
   });
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
-  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
   await page.getByLabel('Rune quality floor', { exact: true }).fill('5');
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();

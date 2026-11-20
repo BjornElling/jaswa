@@ -1,10 +1,9 @@
-import { type DragEvent, useEffect, useState } from 'react';
+import type { DragEvent } from 'react';
 import { Button, LabelSwap } from '../../ui/button';
 import { WorkspacePage } from '../../ui/workspace-page';
-import { CheckboxRow, ImportRouteCard, RadioRow } from '../../ui/form-controls';
-import { disabledStatus } from '../../workspace/acceleration-status';
-import type { AccelerationState, AccelerationStatus, GraphicsCardProbe } from '../../workspace/acceleration-status';
-import { accelerationLabels, helperLabels } from './status-labels';
+import { ImportRouteCard, RadioRow } from '../../ui/form-controls';
+import { StatusMark } from './status-mark';
+import { helperLabels } from './status-labels';
 import { formatDateTime } from '../../domain/shared/formatting';
 import { HelperDownload } from './helper-download';
 import type { HelperConnection } from '../../workspace/ports';
@@ -12,23 +11,7 @@ import { helperStatusMessage } from '../../workspace/helper-status';
 import { recommendedHelperVersion } from '../../domain/shared/helper-version';
 import type { DirectImportMode, GeneralSettings, ImportRoute, ImportedGame } from '../../domain/model';
 
-function AccelerationMark({ state }: { state: AccelerationState | 'restart' }) {
-  /* An empty ring while the adapter is being asked for: at this moment JASWA
-     has no verdict, and any of the three marks would be a claim. */
-  const path = state === 'ready' ? 'M13 22.5 19.5 29 31 15'
-    : state === 'disabled' || state === 'restart' ? 'M22 12v13M22 30.5v.5'
-      : state === 'unavailable' ? 'M14 14 30 30M30 14 14 30'
-        : '';
-  return <span className={`acceleration-mark ${state}`} aria-hidden="true">
-    <svg viewBox="0 0 44 44" width="44" height="44" fill="none" stroke="currentColor"
-      strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="22" cy="22" r="19" strokeWidth="2" opacity=".45" />
-      {path && <path d={path} />}
-    </svg>
-  </span>;
-}
-
-export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, hardwareAcceleration, onHardwareAcceleration, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, detectGraphicsCard, general }: {
+export function HomeSection({ game, message, dragging, onPickFile, onDragOver, onDragLeave, onDrop, onRemove, directImportMode, onDirectImportMode, importRoute, onImportRoute, helperConnection, general }: {
   game: ImportedGame | null;
   general: GeneralSettings;
   message: string;
@@ -38,30 +21,13 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
   onDragLeave: () => void;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onRemove: () => void;
-  hardwareAcceleration: boolean;
-  onHardwareAcceleration: (enabled: boolean) => void;
   directImportMode: DirectImportMode;
   onDirectImportMode: (mode: DirectImportMode) => void;
   importRoute: ImportRoute;
   onImportRoute: (route: ImportRoute) => void;
   helperConnection: HelperConnection;
-  /** The browser's graphics-card probe, supplied by the shell; it describes the card and decides nothing. */
-  detectGraphicsCard: GraphicsCardProbe;
 }) {
   const unknownMonsterIds = game?.report.unknownMonsterIds ?? [];
-  /* What the card answered, kept apart from the setting: switching the setting
-     off must not throw away a verdict that is still true. */
-  const [detected, setDetected] = useState<AccelerationStatus | null>(null);
-
-  useEffect(() => {
-    if (!hardwareAcceleration || detected) return;
-    let current = true;
-    void detectGraphicsCard().then((status) => { if (current) setDetected(status); });
-    return () => { current = false; };
-  }, [hardwareAcceleration, detected, detectGraphicsCard]);
-
-  const status: AccelerationStatus = !hardwareAcceleration ? disabledStatus
-    : detected ?? { state: 'checking', adapterName: 'Asking the browser…', detail: 'Looking for a graphics card to compute on.' };
   const helperState = helperConnection.restartRequired ? 'restart' : helperConnection.state;
   const helperLabel = helperConnection.restartRequired ? 'Restart game' : helperLabels[helperConnection.state];
   const helperDownloadState = importRoute !== 'direct' ? 'unknown'
@@ -81,36 +47,6 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
       <p className="hero-quote">Roll. Sell. <span>Repeat.</span></p>
     </header>}
   >
-    <section className="panel">
-      <h3 className="block-title">Hardware acceleration</h3>
-      <div className="settings-layout">
-        <div className="stack acceleration-choice">
-          <p className="lead">
-            Graphics cards are designed to calculate thousands of little
-            things simultaneously. Like runes.<br />
-            You should utilize this, unless it causes the program to misbehave.
-          </p>
-          <CheckboxRow label="Use the graphics card for heavy calculations" checked={hardwareAcceleration}
-            onChange={onHardwareAcceleration} />
-        </div>
-
-        <div className="settings-rule" role="presentation" />
-
-        <aside className="settings-aside">
-          <section className={`statistics acceleration ${status.state}`} role="status" aria-label="Graphics card connection">
-            <div className="acceleration-verdict">
-              <AccelerationMark state={status.state} />
-              <p className="acceleration-word">{accelerationLabels[status.state]}</p>
-            </div>
-            <p className="acceleration-adapter">
-              <span>Graphics card:</span>
-              <b>{status.adapterName}</b>
-            </p>
-          </section>
-        </aside>
-      </div>
-    </section>
-
     <section className="panel">
       <h3 className="block-title">Game data</h3>
       <div className="stack">
@@ -173,7 +109,7 @@ export function HomeSection({ game, message, dragging, onPickFile, onDragOver, o
                 {helperConnection.version ? `v${helperConnection.version}` : '—'}
               </span>
               <div className="acceleration-verdict">
-                <AccelerationMark state={helperState} />
+                <StatusMark state={helperState} />
                 <p className="acceleration-word">{helperLabel}</p>
               </div>
               <p className="acceleration-adapter">

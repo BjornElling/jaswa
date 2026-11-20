@@ -1142,9 +1142,8 @@ label[for] {
    keeps the same divider as the rest. */
 .relic-filter-strip {
   grid-template-areas:
-    "family family main  synergy"
-    "risk   advice level durability"
-    "usage  .      .     .";
+    "family family main       synergy"
+    "advice level  durability usage";
 }
 .relic-filter-strip > .filter-group,
 .relic-filter-strip > .filter-group:nth-child(2n + 1),
@@ -1154,7 +1153,6 @@ label[for] {
   border-left: 1px solid var(--line);
 }
 .relic-filter-family { grid-area: family; }
-.relic-filter-threshold { grid-area: risk; }
 .relic-filter-main { grid-area: main; }
 .relic-filter-synergy { grid-area: synergy; }
 /* Synergy's marks and Durability's digits are both one glyph a chip, so both
@@ -1178,33 +1176,21 @@ label[for] {
 .relic-filter-durability { grid-area: durability; }
 .relic-filter-usage { grid-area: usage; }
 .relic-filter-status { bottom: 0; height: auto; }
-/* The synergy map sits at the foot of the status column, in Reset's own box:
-   it changes no rows, so it does not belong among the filters, and it is the
-   one place the judgement every verdict on the page rests on can be changed.
-   Unlike Reset it is a step forward rather than a way back, so it wears the
-   gold edge and ink at rest. */
-.relic-synergy-map {
-  margin-top: auto;
-  border-color: var(--gold-edge);
-  color: var(--text-accent);
-}
 @media (min-width: 1921px) and (max-width: 1700px) {
   .relic-filter-strip {
     grid-template-areas:
       "family main       synergy"
-      "risk   level      advice"
-      ".      durability usage";
+      "advice level      durability"
+      "usage  .          .";
   }
 }
 @media (min-width: 1921px) and (max-width: 1120px) {
   .relic-filter-strip {
     grid-template-areas:
-      "family main"
-      "risk   synergy"
-      ".      advice"
-      ".      level"
-      ".      durability"
-      ".      usage";
+      "family     main"
+      "synergy    advice"
+      "level      durability"
+      "usage      .";
   }
 }
 @media (min-width: 1921px) and (max-width: 760px) {
@@ -1212,7 +1198,6 @@ label[for] {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "family"
-      "risk"
       "main"
       "synergy"
       "advice"
@@ -1222,25 +1207,30 @@ label[for] {
   }
 }
 
-/* ------------------------------------------------ the synergy editor
-   All forty-eight cells at once, family by family as the game's own panel
+/* ------------------------------------------------ the synergy map
+   On Settings, under the power-up threshold whose bands it sets. All
+   forty-eight cells at once, family by family as the game's own panel
    lists them. Every cell is one fixed box whatever band it holds, so stepping a
    cell through the scale moves nothing beside it (`AGENTS.md` §2): the marks
    reserve both slots, the band names share one column width, and the mark that
    says a cell differs from the shipped judgement is always drawn and only
    shown. That mark is gold because it is the user's own choice — the one thing
    on the panel they made. */
+.relic-synergy-map { display: grid; gap: var(--s4); min-width: 0; }
 .relic-synergy-head {
   display: flex;
   justify-content: space-between;
   align-items: end;
   gap: var(--s5);
-  padding: var(--s5) var(--s5) var(--s4);
+  padding-bottom: var(--s4);
   border-bottom: 1px solid var(--line);
 }
 .relic-synergy-identity { display: grid; gap: var(--s1); min-width: 0; }
-.relic-synergy-head h2 { margin: 0; color: var(--text-accent); }
-.relic-synergy-hint { margin: 0; color: var(--text-muted); }
+.relic-synergy-head h3 { margin: 0; }
+.relic-synergy-hint { margin: 0; }
+/* The table keeps its own minimum on a narrow window and scrolls inside the
+   bar rather than pushing the page sideways. */
+.relic-synergy-body { min-width: 0; overflow-x: auto; }
 .relic-synergy-tools { flex: none; display: flex; align-items: end; gap: var(--s5); }
 .relic-synergy-tally { flex: none; }
 .relic-synergy-tally dd { min-width: 2ch; }

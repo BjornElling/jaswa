@@ -6,7 +6,7 @@ async function openRoles(page: import('@playwright/test').Page) {
   await page.evaluate(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.getByRole('button', { name: 'Rune Settings' }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('summary').filter({ hasText: 'Roles' }).click();
 }
 
@@ -63,7 +63,7 @@ test('a role card is dragged into place, and the drop is saved', async ({ page }
 
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.getByRole('button', { name: 'Rune Settings' }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   /* The Roles section stays open for the session, so the cards are there again. */
   await expect(names).toHaveText([initial[1], initial[0], ...initial.slice(2)]);
 });

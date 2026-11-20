@@ -3,6 +3,7 @@ import type { MonsterPriority, PresetPriority } from './profiles/monster-priorit
 import type { OwnPreset } from './placements/presets';
 import type { CraftRollAssumption } from './runes/craft/rune-craft-items';
 import type { RelicSynergyChoices } from './relics/relic-synergy';
+import type { RelicInvestmentSelectivity } from './relics/relic-advice';
 import type { RuneHolds } from './profiles/rune-holds';
 import type { CraftIgnores } from './profiles/craft-ignores';
 import type { CraftViewChoices } from './profiles/craft-view-choices';
@@ -184,4 +185,4 @@ export type ArtifactSettings = {
  * `runeRoles` was stored as `runePotentialPresets` when roles were called
  * presets; `readPreferences` still reads that key so the user's roles survive.
  */
-export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; craftIgnores: CraftIgnores; craftViews: CraftViewChoices; runePotential: RunePotentialSettings; runeRoles: RuneRole[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; presets: OwnPreset[]; presetPriority: PresetPriority; runeOptimization: RuneOptimizationSettings; relicSynergy: RelicSynergyChoices };
+export type Preferences = { updatedAt: string; hardwareAcceleration: boolean; importRoute: ImportRoute; directImportMode: DirectImportMode; general: GeneralSettings; monsterPreferences: MonsterPreferences; runeHolds: RuneHolds; craftIgnores: CraftIgnores; craftViews: CraftViewChoices; runePotential: RunePotentialSettings; runeRoles: RuneRole[]; artifacts: ArtifactSettings; speedTuning: SpeedTuningPreferences; monsterPriority: MonsterPriority; presets: OwnPreset[]; presetPriority: PresetPriority; runeOptimization: RuneOptimizationSettings; relicSynergy: RelicSynergyChoices; relicPowerUpThreshold: RelicInvestmentSelectivity };

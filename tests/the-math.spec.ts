@@ -1,6 +1,6 @@
 import { expect, test } from './test-fixtures';
 
-test('The Math sits under Technical and explains the gear recommendations', async ({ page }) => {
+test('The Math sits under Technical, Settings under General, and The Math explains the gear recommendations', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.evaluate(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
@@ -10,8 +10,9 @@ test('The Math sits under Technical and explains the gear recommendations', asyn
   await expect(page.locator('.rail-heading')).toHaveText([
     'General', 'Monsters', 'Rune Optimization', 'Rune Clean-up', 'Artifacts', 'Relics', 'Technical',
   ]);
+  const general = page.locator('.rail-group').first();
+  await expect(general.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
   const technical = page.locator('.rail-group').last();
-  await expect(technical.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
   await expect(technical.getByRole('button', { name: 'The Math', exact: true })).toBeVisible();
 
   await page.getByRole('navigation').getByRole('button', { name: 'The Math', exact: true }).click();

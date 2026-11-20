@@ -20,8 +20,9 @@ for (const populated of [false, true]) {
     await expect(group('Rune Optimization').getByRole('button')).toHaveText([
       '⇅Presets', '↝Speed tuning', '◈Optimization', '✦Gems & grinds',
     ]);
+    await expect(group('General').getByRole('button')).toHaveText(['⌂Home', '⚙Settings']);
     await expect(group('Rune Clean-up').getByRole('button')).toHaveText([
-      '⚙Settings', '◌Clean-up', '↻Simulator',
+      '◌Clean-up', '↻Simulator',
     ]);
 
     await rail.getByRole('button', { name: 'Monster Overview', exact: true }).click();
@@ -49,8 +50,8 @@ for (const populated of [false, true]) {
       await page.screenshot({ path: testInfo.outputPath('numbers-filtered.png') });
       expect(await filters.getByRole('checkbox').evaluateAll((controls) => controls.map((control) => control.getBoundingClientRect().toJSON()))).toEqual(positions);
     }
-    await rail.getByRole('button', { name: 'Rune Settings', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Rune Settings', exact: true })).toBeVisible();
+    await rail.getByRole('button', { name: 'Settings', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
     await rail.getByRole('button', { name: 'Rune Simulator', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Rune Simulator', exact: true })).toBeVisible();
   });

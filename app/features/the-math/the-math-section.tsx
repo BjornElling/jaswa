@@ -646,7 +646,7 @@ export function TheMathSection() {
           Every substat has its own maximum roll, and a line simply counts the maximum rolls it amounts to. <i>Additional Damage by ATK</i> rolls at most {additionalDamageByAtk} % at a time, so a line showing {additionalDamageByAtk * 3} % is three maximum rolls and earns 3 points. A line need not land on a whole number of rolls: where the maximum roll is {additionalDamageByAtk} % and the line shows {additionalDamageByAtk / 2} %, that is half a roll, so 0.5 points.
         </p>
         <p>
-          Acceptable substats are scored exactly like preferred ones and then reduced proportionally, by the tolerance you set for acceptable substats in Artifact settings. The default is {defaultArtifactSettings.acceptableWorth} %, so an acceptable substat that rolled half its maximum earns {points(0.5 * defaultAcceptableWeight)} points. An unwanted substat earns nothing at all.
+          Acceptable substats are scored exactly like preferred ones and then reduced proportionally, by the tolerance you set for acceptable substats under Settings. The default is {defaultArtifactSettings.acceptableWorth} %, so an acceptable substat that rolled half its maximum earns {points(0.5 * defaultAcceptableWeight)} points. An unwanted substat earns nothing at all.
         </p>
 
         <h3 className="type-heading">Main stat</h3>
@@ -770,7 +770,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">1. Is this pairing worth owning at all?</h3>
         <p>
-          A relic’s main stat and unique property are rated from Excellent down to Trash for account-wide investment, in one synergy table you can re-judge cell by cell from the page’s <b className="type-body-emphasis">Synergy map</b>. The <b className="type-body-emphasis">Power-up threshold</b> slider sets the weakest pairing you are willing to keep, and anything below it is sold.
+          A relic’s main stat and unique property are rated from Excellent down to Trash for account-wide investment, in one synergy table you can re-judge cell by cell in the <b className="type-body-emphasis">Synergy map</b> under Settings. The <b className="type-body-emphasis">Power-up threshold</b> slider beside it sets the weakest pairing you are willing to keep, and anything below it is sold.
         </p>
         <div className="math-table-scroll">
           <table className="math-table math-table-verdicts">

@@ -8,8 +8,8 @@ user switched it off or the card refused.** This document says what "heavy work"
 means, how a calculation states its two halves, and what a calculation may not do.
 
 `app/platform/compute/accelerated-calculation.ts` is the rule. `app/platform/gpu/`
-is the plumbing. `app/platform/hardware-acceleration.ts` is the detection the Home page
-shows, and it is display only — it never gates anything.
+is the plumbing. `app/platform/hardware-acceleration.ts` is the detection Settings shows
+under *Hardware acceleration*, and it is display only — it never gates anything.
 
 ---
 
@@ -29,7 +29,7 @@ the status line under its results says `Graphics card` or `Processor` — or
 `Graphics card + processor`, where one calculation answered in several passes and the
 card took some of them and refused the rest. That is the
 difference between "your card is working" and "your card is listed and doing nothing",
-and it is the only signal a user has — the Home page's *Connected* box asks the browser
+and it is the only signal a user has — the *Connected* box on Settings asks the browser
 a different question than the worker does, and the two can disagree.
 
 ## 2. What a calculation states

@@ -376,7 +376,7 @@ test('keeps the filter panel visible when calculation prerequisites are missing'
   await page.getByRole('navigation').getByRole('button', { name: 'Home', exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await page.getByRole('dialog').getByRole('button', { name: 'Replace data', exact: true }).click();
-  await page.getByRole('button', { name: 'Rune Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('summary').filter({ hasText: 'Roles' }).click();
   const roleNames = await page.locator('.role-card .role-name').allTextContents();
   expect(roleNames.length).toBeGreaterThan(0);

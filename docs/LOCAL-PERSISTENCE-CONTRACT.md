@@ -83,6 +83,7 @@ reader, one choice at a time (`app/domain/profiles/preference-reading.ts`, AGENT
 | `presets` | The presets built in JASWA: a name, a content, the monsters, the leader and, once engraved, every member's runes and artifacts (`DECK-PRESETS.md` §4) | `readOwnPresets` (`presets.ts`) |
 | `runeOptimization` | Rune Optimization settings, among them whether held Immemorial Gems and Grindstones may be spent, whether a Gem may change a gemmed line's property, and whether a Gem may replace Speed | `readSettings` |
 | `relicSynergy` | The relic synergy cells the user overruled, by unique-property id and then main — only cells that differ from the shipped table (`RELIC-CANONICAL.md` §5.3) | `readRelicSynergyChoices` (`relic-synergy.ts`) |
+| `relicPowerUpThreshold` | Relic Optimization's power-up threshold, stop 1 to 5 (`RELIC-CANONICAL.md` §9) | `readPreferences` |
 
 Two former keys are still read so the user's own choices survive their
 rename: `runePotentialPresets` holds the roles when no `runeRoles` key exists,

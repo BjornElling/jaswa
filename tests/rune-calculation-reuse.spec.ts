@@ -44,8 +44,8 @@ test('a changed standard empties the table and nothing recalculates until Calcul
   const beforeBox = await controls();
   await page.screenshot({ path: testInfo.outputPath('before-settings-change.png') });
 
-  await visit('Rune Settings');
-  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+  await visit('Settings');
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
   const intangible = page.locator('#intangible-runes');
   const original = await intangible.inputValue();
   await intangible.fill(original === '5' ? '1' : '5');
@@ -60,7 +60,7 @@ test('a changed standard empties the table and nothing recalculates until Calcul
   await page.screenshot({ path: testInfo.outputPath('after-settings-change.png') });
 
   // Setting the standard back shows the held list again, uncounted.
-  await visit('Rune Settings');
+  await visit('Settings');
   await intangible.fill(original);
   await visit('Rune Clean-up');
   await expect(rows).toHaveCount(4);
@@ -68,7 +68,7 @@ test('a changed standard empties the table and nothing recalculates until Calcul
   expect(await requests()).toBe(calculated);
 
   // A changed standard is judged by the next Calculate, and by nothing else.
-  await visit('Rune Settings');
+  await visit('Settings');
   await page.locator('#rune-quality').fill('1');
   await visit('Rune Clean-up');
   await expect(rows).toHaveCount(0);

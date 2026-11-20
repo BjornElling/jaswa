@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { chooseGraphicsCard, expect, test } from './test-fixtures';
 import type { Locator, Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,7 @@ async function open(page: Page) {
 
 test('all ten depths keep their box, expose their value, and survive a reload', async ({ page }, testInfo) => {
   await start(page);
-  await page.getByLabel('Use the graphics card for heavy calculations').check();
+  await chooseGraphicsCard(page, true);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await open(page);
   const depth = page.getByRole('slider', { name: 'Depth', exact: true });
@@ -57,7 +57,7 @@ test('all ten depths keep their box, expose their value, and survive a reload', 
 
 test('a huge impossible pool gets measured without a false time warning or moving the panel', async ({ page }, testInfo) => {
   await start(page);
-  await page.getByLabel('Use the graphics card for heavy calculations').uncheck();
+  await chooseGraphicsCard(page, false);
   const data = JSON.parse(readFileSync(account, 'utf8'));
   const templates = data.runes;
   data.runes = Array.from({ length: 60 }, (_, copy) => templates.map((rune: Record<string, unknown>, at: number) => ({
@@ -105,7 +105,7 @@ test('an unavailable trial leaves the real search usable and its boxes fixed', a
     };
   });
   await start(page);
-  await page.getByLabel('Use the graphics card for heavy calculations').uncheck();
+  await chooseGraphicsCard(page, false);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
   await open(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');

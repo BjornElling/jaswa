@@ -16,10 +16,10 @@ function percentage(value: string): number {
 test('keeps the statistics box honest without an account reference', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
-  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
 
-  const statistics = page.locator('.statistics');
+  const statistics = page.locator('.statistics:not(.acceleration)');
   await expect(statistics.locator('.statistics-lead')).toContainText('Import an account with a level 40 monster');
   await expect(statistics.locator('dd')).toHaveText(['—', '—']);
   await expect(statistics.locator('.statistics-meta')).toHaveText('Waiting for an account');
@@ -31,10 +31,10 @@ test('shows the synthetic statistics and recalculates them after a setting chang
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
-  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
 
-  const statistics = page.locator('.statistics');
+  const statistics = page.locator('.statistics:not(.acceleration)');
   const status = statistics.locator('.statistics-meta');
   const values = statistics.locator('dd');
   /* Recalculation needs a populated tail: the stricter middle quality stop can
@@ -80,25 +80,25 @@ test('reuses completed and unfinished statistics across navigation and restored 
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   const visit = async (name: string) => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await visit('Rune Settings');
-  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+  await visit('Settings');
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
   const status = page.locator('.statistics-meta');
   await expect(status).toContainText('Calculating…');
   await expect.poll(() => workers).toBeGreaterThan(0);
   await visit('Home');
-  await visit('Rune Settings');
+  await visit('Settings');
   await expect(status).toContainText('synthetic runes', { timeout: 90_000 });
   const poolSize = workers;
   const initialRequests = await requests();
   expect(initialRequests).toBeGreaterThan(0);
   const values = await page.locator('.statistics dd').allTextContents();
-  const box = await page.locator('.statistics').boundingBox();
+  const box = await page.locator('.statistics:not(.acceleration)').boundingBox();
   await page.screenshot({ path: testInfo.outputPath('statistics-before-navigation.png') });
   await visit('Home');
-  await visit('Rune Settings');
+  await visit('Settings');
   await expect(status).toContainText('synthetic runes');
   expect(await page.locator('.statistics dd').allTextContents()).toEqual(values);
-  expect(await page.locator('.statistics').boundingBox()).toEqual(box);
+  expect(await page.locator('.statistics:not(.acceleration)').boundingBox()).toEqual(box);
   await page.screenshot({ path: testInfo.outputPath('statistics-after-navigation.png') });
   expect(workers).toBe(poolSize);
 
@@ -114,14 +114,14 @@ test('reuses completed and unfinished statistics across navigation and restored 
 
   await visit('Rune Clean-up');
   await page.getByRole('textbox', { name: 'Minimum pre-grind SPD' }).fill('0');
-  await visit('Rune Settings');
+  await visit('Settings');
   await expect(status).toContainText('synthetic runes');
   expect(await requests()).toBe(initialRequests * 2);
   expect(await page.locator('.statistics dd').allTextContents()).not.toEqual(values);
-  expect(await page.locator('.statistics').boundingBox()).toEqual(box);
+  expect(await page.locator('.statistics:not(.acceleration)').boundingBox()).toEqual(box);
   await visit('Rune Clean-up');
   await page.getByRole('textbox', { name: 'Minimum pre-grind SPD' }).fill('20');
-  await visit('Rune Settings');
+  await visit('Settings');
   await expect(status).toContainText('synthetic runes');
   expect(await page.locator('.statistics dd').allTextContents()).toEqual(values);
   expect(await requests()).toBe(initialRequests * 2);
@@ -134,10 +134,10 @@ test('keeps the statistics box the same height while it calculates', async ({ pa
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
-  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
 
-  const statistics = page.locator('.statistics').first();
+  const statistics = page.locator('.statistics:not(.acceleration)').first();
   const status = statistics.locator('.statistics-meta');
   const height = async () => (await statistics.boundingBox())?.height;
   await expect(status).toContainText(/synthetic runes/, calculation);
@@ -178,10 +178,10 @@ test('gets stricter when broken runes are excluded', async ({ page }, testInfo) 
   await page.reload();
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
-  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
 
-  const statistics = page.locator('.statistics');
+  const statistics = page.locator('.statistics:not(.acceleration)');
   const status = statistics.locator('.statistics-meta');
   const values = statistics.locator('dd');
   const broken = page.locator('#broken-runes');

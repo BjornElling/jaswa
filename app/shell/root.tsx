@@ -37,6 +37,7 @@ import type { OwnPreset, Preset } from '../domain/placements/presets';
 import type { PresetWrites } from '../features/presets/presets-section';
 import { profilesIn, withProfile } from '../domain/profiles/monster-preferences';
 import type { RelicSynergyChoices } from '../domain/relics/relic-synergy';
+import type { RelicInvestmentSelectivity } from '../domain/relics/relic-advice';
 import type { RuneHold } from '../domain/profiles/rune-holds';
 import { runeHoldVerdict } from '../domain/profiles/rune-holds';
 import type { CraftIgnore } from '../domain/profiles/craft-ignores';
@@ -71,7 +72,6 @@ const MonsterStats = lazy(() => import('../features/monsters/monster-stats').the
 const MonsterNumbers = lazy(() => import('../features/monsters/monster-numbers').then(({ MonsterNumbers: component }) => ({ default: component })));
 const RelicList = lazy(() => import('../features/relics/relic-list').then(({ RelicList: component }) => ({ default: component })));
 const RunePotentialSection = lazy(() => import('../features/rune-cleanup/rune-potential-section').then(({ RunePotentialSection: component }) => ({ default: component })));
-const RuneSetupSection = lazy(() => import('../features/rune-cleanup/rune-potential-section').then(({ RuneSetupSection: component }) => ({ default: component })));
 const SettingsSection = lazy(() => import('../features/settings/settings-section').then(({ SettingsSection: component }) => ({ default: component })));
 const TheMathSection = lazy(() => import('../features/the-math/the-math-section').then(({ TheMathSection: component }) => ({ default: component })));
 const RuneSimulatorSection = import.meta.env.DEV ? lazy(() => import('../features/rune-simulator/rune-simulator-section').then(({ RuneSimulatorSection: component }) => ({ default: component }))) : null;
@@ -497,6 +497,10 @@ export default function Home() {
     changePreferences((current) => ({ ...current, relicSynergy }));
   }
 
+  function updateRelicPowerUpThreshold(relicPowerUpThreshold: RelicInvestmentSelectivity) {
+    changePreferences((current) => ({ ...current, relicPowerUpThreshold }));
+  }
+
   function updateArtifactSettings(update: Partial<ArtifactSettings>) {
     changePreferences((current) => ({
       ...current,
@@ -677,14 +681,11 @@ export default function Home() {
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         onRemove={() => setRemoveGameDataPrompt(true)}
-        hardwareAcceleration={preferences.hardwareAcceleration}
-        onHardwareAcceleration={updateHardwareAcceleration}
         directImportMode={preferences.directImportMode}
         onDirectImportMode={updateDirectImportMode}
         importRoute={preferences.importRoute}
         onImportRoute={updateImportRoute}
         helperConnection={helperConnection}
-        detectGraphicsCard={detectGraphicsCard}
         general={preferences.general}
       />}
 
@@ -692,16 +693,6 @@ export default function Home() {
       {page === 'monster-numbers' && <Suspense fallback={<WorkspaceLoading />}><MonsterNumbers monsters={monsters} snapshot={game?.snapshot} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
-
-      {page === 'rune-setup' && <Suspense fallback={<WorkspaceLoading />}><RuneSetupSection
-        game={game}
-        settings={preferences.runePotential}
-        roles={preferences.runeRoles}
-        general={preferences.general}
-        hardwareAcceleration={preferences.hardwareAcceleration}
-        onUpdate={updateRunePotentialSettings}
-        onWriteRoles={writeRoles}
-      /></Suspense>}
 
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
         key={String(runeCleanupAccount)}
@@ -726,17 +717,24 @@ export default function Home() {
         scenarioProfiles={profilesIn(preferences.monsterPreferences, scenarioPresetId)}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
-        onUpdate={updateArtifactSettings}
       /></Suspense>}
 
       {page === 'settings' && <Suspense fallback={<WorkspaceLoading />}><SettingsSection
         sharing={<PreferenceSharingSettings status={sharing}
           disabled={workspace.writer !== 'writer'}
           onChoose={(copy) => { void preferenceSharing.synchronize(copy); }} />}
-        general={preferences.general}
+        preferences={preferences}
+        game={game}
         saveFolder={saveFolder?.name ?? null}
         canChooseFolder={canChooseSaveFolder()}
+        detectGraphicsCard={detectGraphicsCard}
         onGeneralChange={updateGeneralSettings}
+        onRunePotentialChange={updateRunePotentialSettings}
+        onWriteRoles={writeRoles}
+        onArtifactChange={updateArtifactSettings}
+        onRelicSynergyChange={updateRelicSynergy}
+        onRelicPowerUpThresholdChange={updateRelicPowerUpThreshold}
+        onHardwareAcceleration={updateHardwareAcceleration}
         onChooseFolder={() => void pickSaveFolder()}
         onForgetFolder={() => void dropSaveFolder()}
         onExport={() => void saveFile('jaswa-preferences.sw', JSON.stringify(preferences, null, 2))}
@@ -754,8 +752,7 @@ export default function Home() {
         onOpenRune={openRuneOverlay}
       /></Suspense>}
 
-      {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay}
-        onChangeRelicSynergy={updateRelicSynergy} /></Suspense>}
+      {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'gems' && <Suspense fallback={<WorkspaceLoading />}><GemsSection
         game={game}

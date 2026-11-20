@@ -40,7 +40,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
     (button as HTMLButtonElement).click();
     (homeButton as HTMLButtonElement | null)?.click();
   }, home);
-  for (const name of ['Home', 'Rune Settings', 'Monster Overview', 'Rune Optimization']) await visit(name);
+  for (const name of ['Home', 'Settings', 'Monster Overview', 'Rune Optimization']) await visit(name);
   await visit('Rune Clean-up');
   await expect(page.getByRole('button', { name: 'Calculate', exact: true })).toBeVisible();
   await expect(rows).toHaveCount(4);
@@ -55,8 +55,8 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   await page.getByRole('checkbox', { name: 'Pre-grind SPD ≥' }).uncheck();
   await expect(warning).toBeHidden();
   expect(await boxes()).toEqual(beforeBoxes);
-  await visit('Rune Settings');
-  await page.locator('main details').filter({ hasText: 'Settings' }).locator('summary').click();
+  await visit('Settings');
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
   const quality = await page.locator('#rune-quality').inputValue();
   await page.locator('#rune-quality').fill(quality === '1' ? '2' : '1');
   await visit('Rune Clean-up');
@@ -65,7 +65,7 @@ test('keeps the calculated list and its arrangement across navigation', async ({
   await expect(page.getByRole('table', { name: 'Rune verdicts' }).locator('.rune-link')).toHaveCount(0);
   expect(await boxes()).toEqual(beforeBoxes);
   await page.screenshot({ path: testInfo.outputPath('changed-standards.png') });
-  await visit('Rune Settings');
+  await visit('Settings');
   await page.locator('#rune-quality').fill(quality);
   await visit('Rune Clean-up');
   await expect(warning).toBeHidden();

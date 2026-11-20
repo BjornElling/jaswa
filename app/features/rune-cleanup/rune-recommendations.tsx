@@ -183,8 +183,8 @@ const columns: readonly SortableColumn<RuneCleanupRow>[] = (() => {
 /**
  * The verdict table — the answer the whole workspace exists to give.
  *
- * It is the answer the user came for; the Rune Settings workspace holds the
- * controls that shape it. The calculation waits for the button rather than
+ * It is the answer the user came for; Settings holds the controls that shape
+ * it. The calculation waits for the button rather than
  * running as sliders move: it reads every rune against every role and every
  * build, and a table that re-ran itself under a dragging thumb would be a table
  * nobody could read. What the player does in the game is different: a sync judges
@@ -484,11 +484,11 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
       : !base
         ? { title: 'No monster has reached level 40.', detail: noReferenceLineMessage }
         : !roles.length
-          ? { title: 'There are no roles to judge runes against.', detail: 'Add one under Rune Settings to say what a rune should be worth.' }
+          ? { title: 'There are no roles to judge runes against.', detail: 'Add one under Settings to say what a rune should be worth.' }
           : stale
             ? calculationOutdated
           : !held
-            ? { title: 'Nothing calculated yet.', detail: 'Press Calculate to put every rune on trial. The standards they are judged by live in Rune Settings.' }
+            ? { title: 'Nothing calculated yet.', detail: 'Press Calculate to put every rune on trial. The standards they are judged by live in Settings.' }
             : null;
 
   return <DataTablePage
@@ -612,7 +612,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                   <label htmlFor="rune-engraving-protection">Engraved</label>
                 </div>
               </div>
-              {/* The targets themselves are set in Rune Settings, under Re-app/refine target. */}
+              {/* The targets themselves are set on Settings, under Re-app/refine target. */}
               <div className="filter-group-controls">
                 <div className="checkbox-row">
                   <input id="rune-reapp-protection" type="checkbox" aria-label="Re-app/refine target"

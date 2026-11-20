@@ -1,6 +1,6 @@
 # Rune Clean-up — the page
 
-**Status:** Binding contract for the Rune Clean-up page and its Rune Settings controls
+**Status:** Binding contract for the Rune Clean-up page and its controls on Settings
 **Depends on:** `docs/RUNE-CLEANUP-MATH.md`
 **Reviewed:** October 20, 2026
 
@@ -50,7 +50,7 @@ Releasing the last lease cancels orphaned preparation. The pool transfers its
 reference scores to the owner, which sends only the pieces each advice worker
 needs. A request above the shared cache budget streams references by key in the advice workers and keeps the derived bars and shares. Concurrent advice channels have independent cancellation. Evaluation can use one interactive worker slot while the background pool is occupied.
 
-**Statistics.** Rune Settings keeps the four most recently used completed Statistics
+**Statistics.** The *Runes* bar on Settings keeps the four most recently used completed Statistics
 answers by the same inputs, in memory only. Navigation rejoins unfinished Statistics work
 or reads a completed answer at once, and returning to a cached setting reuses it.
 Safeguards, formatting, placement, owned craft items and engine preference are not
@@ -92,7 +92,7 @@ Unsellable keep their own labels.
 
 ### 3.1 Re-app/refine targets
 
-Rune Settings holds two columns under **Re-app/refine target**: **Re-app** on the
+Settings holds two columns under **Re-app/refine target**: **Re-app** on the
 left and **Refine** on the right. Each has its own **Add Re-app rule** or
 **Add Refine rule** button and independent empty state. Add, edit or delete any number
 of rules. The stone is decided when a rule is added; the editor has no Target

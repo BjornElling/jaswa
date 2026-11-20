@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { expect, openSettingsBar, test } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 
 const syntheticAccount = fileURLToPath(new URL('./fixtures/synthetic-account.json', import.meta.url));
@@ -25,6 +25,8 @@ test('one tab writes, readers receive the commit, and the next tab takes over', 
 
     await page.close();
     await expect(reader.getByText(readOnlyNotice)).toBeHidden({ timeout: 10_000 });
+    await reader.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+    await openSettingsBar(reader, 'Hardware acceleration');
     const acceleration = reader.getByRole('checkbox', { name: 'Use the graphics card for heavy calculations' });
     await expect(acceleration).toBeChecked();
     await acceleration.uncheck();

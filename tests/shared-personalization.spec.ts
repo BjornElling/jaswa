@@ -1,5 +1,5 @@
-import { expect, test } from './test-fixtures';
-import type { BrowserContext, Page } from './test-fixtures';
+import { expect, openSettingsBar, test } from './test-fixtures';
+import type { BrowserContext, Locator, Page } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 
 type SharedCopy = { token: string; preferences: Record<string, unknown> };
@@ -29,8 +29,15 @@ async function settings(page: Page) {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await openSettingsBar(page, 'General');
   return page.getByRole('region', { name: 'Shared personalization' });
 }
+/* The panel sits inside the General bar, below the fold, and the click scrolls to its
+   button: measure against the document, so a scroll is not read as the layout moving. */
+const inDocument = (locator: Locator) => locator.evaluateAll((elements) => elements.map((el) => {
+  const { left, top, width, height } = el.getBoundingClientRect();
+  return { left: left + scrollX, top: top + scrollY, width, height };
+}));
 const stored = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}') as Record<string, unknown>);
 
 test('two browser workspaces automatically share choices, retain offline edits and survive reloads', async ({ browser }, testInfo) => {
@@ -99,15 +106,15 @@ test('a populated workspace resolves conflicting copies without moving the setti
   shared.setOnline(true);
   await expect(panel.getByRole('status')).toContainText('Both copies contain different choices');
   await page.screenshot({ path: testInfo.outputPath('populated-conflict.png'), fullPage: true });
-  const boxes = await page.locator('.panel').evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().toJSON()));
-  const buttons = await panel.getByRole('button').evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().toJSON()));
+  const boxes = await inDocument(page.locator('.panel'));
+  const buttons = await inDocument(panel.getByRole('button'));
   await panel.getByRole('button', { name: 'Use helper copy' }).click();
   await expect(panel.getByRole('status')).toContainText('Personalization is shared');
   await expect(page.locator('input[name="number-format"][value="american"]')).toBeChecked();
   await expect(page.getByRole('complementary', { name: 'Imported game data' })).toContainText('2 monsters');
   await page.screenshot({ path: testInfo.outputPath('populated-shared.png'), fullPage: true });
-  expect(await page.locator('.panel').evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().toJSON()))).toEqual(boxes);
-  expect(await panel.getByRole('button').evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().toJSON()))).toEqual(buttons);
+  expect(await inDocument(page.locator('.panel'))).toEqual(boxes);
+  expect(await inDocument(panel.getByRole('button'))).toEqual(buttons);
   await page.reload();
   await expect(page.locator('input[name="number-format"][value="american"]')).toBeChecked();
   await expect(page.getByRole('complementary', { name: 'Imported game data' })).toContainText('2 monsters');

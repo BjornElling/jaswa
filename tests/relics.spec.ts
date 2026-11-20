@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { expect, openSettingsBar, test } from './test-fixtures';
 import type { Page } from './test-fixtures';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +22,21 @@ async function importAccount(page: Page, file: string) {
 async function openRelics(page: Page) {
   await page.getByRole('button', { name: 'Relic Optimization', exact: true }).click();
   await expect(page.getByRole('table', { name: 'Relic library', exact: true })).toBeVisible();
+}
+
+/* What the verdicts are judged by — the threshold and the synergy map — is on
+   Settings, so a test goes there to change it and comes back to read it. */
+async function openRelicSettings(page: Page) {
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await openSettingsBar(page, 'Relics');
+}
+
+const threshold = (page: Page) => page.getByRole('slider', { name: 'Power-up threshold', exact: true });
+
+async function setThreshold(page: Page, stop: string) {
+  await openRelicSettings(page);
+  await threshold(page).fill(stop);
+  await openRelics(page);
 }
 
 const rows = (page: Page) => page.getByRole('table', { name: 'Relic library', exact: true }).locator('tbody tr');
@@ -213,12 +228,11 @@ test('the duplicate gate ignores the slider at every stop', async ({ page }) => 
   await importAccount(page, relicAccount);
   await openRelics(page);
   const challenger = rowFor(page, 'per 150 SPD');
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
   const advice = adviceFor(page, 'per 150 SPD');
   await expect(challenger).toContainText('Excellent');
 
   for (const stop of ['1', '2', '3', '4', '5']) {
-    await threshold.fill(stop);
+    await setThreshold(page, stop);
     await expect(advice).toHaveText(['Sell', '4.8% chance to pass the +12 copy']);
   }
 });
@@ -226,20 +240,21 @@ test('the duplicate gate ignores the slider at every stop', async ({ page }) => 
 test('the score threshold gates the minimum synergy band without wasting a tier', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
   const poor = rowFor(page, 'per 2,000 ATK');
   /* The default, Balanced, keeps Niche and better, so a Poor pair is sold. */
-  await expect(threshold).toHaveValue('3');
+  await openRelicSettings(page);
+  await expect(threshold(page)).toHaveValue('3');
+  await openRelics(page);
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Sell', 'Poor fit, below the threshold.']);
-  await threshold.fill('4');
+  await setThreshold(page, '4');
   /* Poor is admitted at Optimistic, and this +5 → +6 success also improves its
      unique property. The hard gate still rejects it at the stricter settings;
      once admitted, JASWA must not stop one level before the tier it is buying. */
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Power up', '60% chance of the next +1']);
-  await threshold.fill('1');
+  await setThreshold(page, '1');
   await expect(poor).toContainText('Sell');
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Sell', 'Poor fit, below the threshold.']);
-  await threshold.fill('5');
+  await setThreshold(page, '5');
   await expect(poor).toContainText('Power up');
 });
 
@@ -247,14 +262,13 @@ test('changing the score threshold leaves the table geometry fixed', async ({ pa
   await importAccount(page, relicAccount);
   await openRelics(page);
   const table = page.getByRole('table', { name: 'Relic library', exact: true });
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
   const before = await table.locator('tbody tr').evaluateAll((cells) => cells.map((cell) => {
     const { x, y, width, height } = cell.getBoundingClientRect();
     return { x, y, width, height };
   }));
   await page.screenshot({ path: testInfo.outputPath('relic-threshold-before.png') });
 
-  await threshold.fill('5');
+  await setThreshold(page, '5');
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Power up', '60% chance of the next +1']);
   await page.screenshot({ path: testInfo.outputPath('relic-threshold-after.png') });
 
@@ -282,13 +296,12 @@ test('a certain level powers up once the pair is one the setting keeps', async (
 test('the synergy gate outranks the certain level below +3', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
   const fresh = rowFor(page, 'per 2,500 ATK');
   await expect(fresh).toContainText('Niche');
 
-  await threshold.fill('2');
+  await setThreshold(page, '2');
   await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Sell', 'Niche fit, below the threshold.']);
-  await threshold.fill('3');
+  await setThreshold(page, '3');
   await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Power up', 'The next +1 is certain.']);
 });
 
@@ -297,13 +310,12 @@ test('the synergy gate outranks the certain level below +3', async ({ page }) =>
 test('the two strictest stops keep Excellent, then Good as well', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
   const good = rowFor(page, 'per 1,000 ATK');
   await expect(good).toContainText('Good');
-  await threshold.fill('1');
+  await setThreshold(page, '1');
   await expect(adviceFor(page, 'per 1,000 ATK')).toHaveText(['Sell', 'Good fit, below the threshold.']);
   await expect(adviceFor(page, 'per 125 SPD')).toHaveText(['Keep', 'No durability left.']);
-  await threshold.fill('2');
+  await setThreshold(page, '2');
   await expect(good).not.toContainText('Sell');
 });
 
@@ -318,20 +330,21 @@ test('a relic engraved on monsters counts them, and one in the inventory says so
 test('filters narrow the table and Reset puts every one of them back', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const threshold = page.getByRole('slider', { name: 'Power-up threshold, very restrictive to naive' });
 
   /* Balanced, the default, rejects the account's Poor pair, which is what gives
      the two filters below something to narrow. */
-  await threshold.fill('3');
+  await setThreshold(page, '3');
   await page.getByRole('group', { name: 'Filter by advice' }).getByRole('button', { name: 'Sell' }).click();
   await expect(rows(page)).toHaveCount(2);
   await page.getByRole('group', { name: 'Filter by main stat' }).getByRole('button', { name: 'ATK' }).click();
   await expect(rows(page)).toHaveCount(1);
-  await threshold.fill('5');
+  await setThreshold(page, '5');
 
   await page.getByRole('button', { name: 'Reset relics filters' }).click();
   await expect(rows(page)).toHaveCount(6);
-  await expect(threshold).toHaveValue('3');
+  /* The threshold is a setting, not a filter: Reset leaves it where it was. */
+  await openRelicSettings(page);
+  await expect(threshold(page)).toHaveValue('5');
 });
 
 test('the headings say what their column holds', async ({ page }) => {
@@ -356,39 +369,28 @@ test('a filter click never moves the columns under the user', async ({ page }) =
   expect(after).toEqual(before);
 });
 
-/* ------------------------------------------------------------- the editor */
+/* ------------------------------------------------------------- the synergy map */
 
-const editor = (page: Page) => page.getByRole('dialog', { name: 'Synergy map' });
-const cell = (page: Page, name: string) => editor(page).getByRole('button', { name, exact: true });
+const map = (page: Page) => page.getByRole('region', { name: 'Synergy map' });
+const cell = (page: Page, name: string) => map(page).getByRole('button', { name, exact: true });
 
-async function openEditor(page: Page) {
-  await page.getByRole('button', { name: 'Synergy map', exact: true }).click();
-  await expect(editor(page)).toBeVisible();
-}
-
-test('the synergy map opens over the page with every pair in it', async ({ page }) => {
+test('the synergy map sits on Settings with every pair in it', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
-  const opener = page.getByRole('button', { name: 'Synergy map', exact: true });
-  await expect(opener).toHaveAttribute('aria-haspopup', 'dialog');
-  await openEditor(page);
-  await expect(editor(page).locator('.relic-synergy-cell')).toHaveCount(48);
+  /* Relic Optimization judges by the map; it does not edit it. */
+  await expect(page.getByRole('button', { name: 'Synergy map', exact: true })).toHaveCount(0);
+  await openRelicSettings(page);
+  await expect(map(page).locator('.relic-synergy-cell')).toHaveCount(48);
   await expect(cell(page, 'Sharp Conquest, ATK main: Excellent')).toBeVisible();
   await expect(cell(page, 'Solid Resolute, HP main: Trash')).toBeVisible();
-  /* Nothing has been changed, so there is nothing to reset or save. */
-  await expect(editor(page).getByRole('button', { name: 'Reset to defaults' })).toBeDisabled();
-  await expect(editor(page).getByRole('button', { name: 'Save synergy' })).toBeDisabled();
-  await expect(page.getByRole('table', { name: 'Relic library', exact: true })).toBeAttached();
-  await editor(page).getByRole('button', { name: 'Close' }).click();
-  await expect(editor(page)).toBeHidden();
-  await expect(opener).toBeFocused();
+  /* Nothing has been changed, so there is nothing to reset. */
+  await expect(map(page).getByRole('button', { name: 'Reset to defaults' })).toBeDisabled();
 });
 
 test('a click steps a cell down the scale, Shift steps it back, and the cell never moves', async ({ page }, testInfo) => {
   await importAccount(page, relicAccount);
-  await openRelics(page);
-  await openEditor(page);
-  const cells = editor(page).locator('.relic-synergy-cell');
+  await openRelicSettings(page);
+  const cells = map(page).locator('.relic-synergy-cell');
   const boxes = () => cells.evaluateAll((entries) => entries.map((entry) => {
     const { x, y, width, height } = entry.getBoundingClientRect();
     return { x, y, width, height };
@@ -408,20 +410,16 @@ test('a click steps a cell down the scale, Shift steps it back, and the cell nev
   expect(await boxes()).toEqual(before);
 });
 
-test('a saved cell is the band the library judges by, and it survives a reload', async ({ page }) => {
+test('a changed cell is the band the library judges by, and it survives a reload', async ({ page }) => {
   await importAccount(page, relicAccount);
   await openRelics(page);
   const fresh = rowFor(page, 'per 2,500 ATK');
   await expect(fresh).toContainText('Niche');
   await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Power up', 'The next +1 is certain.']);
 
-  await openEditor(page);
+  await openRelicSettings(page);
   await cell(page, 'Sharp Conquest, DEF main: Niche').click();
-  /* A draft holding edits does not go on a stray Escape. */
-  await page.keyboard.press('Escape');
-  await expect(editor(page)).toBeVisible();
-  await editor(page).getByRole('button', { name: 'Save synergy' }).click();
-  await expect(editor(page)).toBeHidden();
+  await openRelics(page);
 
   await expect(fresh).toContainText('Poor');
   await expect(adviceFor(page, 'per 2,500 ATK')).toHaveText(['Sell', 'Poor fit, below the threshold.']);
@@ -456,10 +454,9 @@ test('a Trash relic centres its explanation without moving the table', async ({ 
   expect(Math.abs(await centreOffset())).toBeLessThan(1);
   await page.screenshot({ path: testInfo.outputPath('relic-reason-two-lines.png') });
 
-  await openEditor(page);
+  await openRelicSettings(page);
   await cell(page, 'Sharp Timeless, DEF main: Poor').click();
-  await editor(page).getByRole('button', { name: 'Save synergy' }).click();
-  await expect(editor(page)).toBeHidden();
+  await openRelics(page);
 
   await expect(adviceFor(page, 'per 2,000 ATK')).toHaveText(['Sell', 'No further explanation needed.']);
   await expect(reason.locator('.relic-landing')).toHaveText('');
@@ -469,22 +466,21 @@ test('a Trash relic centres its explanation without moving the table', async ({ 
   await page.screenshot({ path: testInfo.outputPath('relic-reason-one-line.png') });
 });
 
-test('Reset to defaults puts every shipped cell back once saved', async ({ page }) => {
+test('Reset to defaults puts every shipped cell back', async ({ page }) => {
   await importAccount(page, relicAccount);
-  await openRelics(page);
-  await openEditor(page);
+  await openRelicSettings(page);
   await cell(page, 'Sharp Conquest, DEF main: Niche').click();
   await cell(page, 'Nimble Primal, HP main: Excellent').click();
-  await editor(page).getByRole('button', { name: 'Save synergy' }).click();
+  await openRelics(page);
   await expect(rowFor(page, 'per 150 SPD')).toContainText('Good');
 
-  await openEditor(page);
+  await openRelicSettings(page);
   await expect(cell(page, 'Nimble Primal, HP main: Good, default Excellent')).toBeVisible();
-  await editor(page).getByRole('button', { name: 'Reset to defaults' }).click();
+  await map(page).getByRole('button', { name: 'Reset to defaults' }).click();
   await expect(cell(page, 'Nimble Primal, HP main: Excellent')).toBeVisible();
   await expect(cell(page, 'Sharp Conquest, DEF main: Niche')).toBeVisible();
-  await expect(editor(page).getByRole('button', { name: 'Reset to defaults' })).toBeDisabled();
-  await editor(page).getByRole('button', { name: 'Save synergy' }).click();
+  await expect(map(page).getByRole('button', { name: 'Reset to defaults' })).toBeDisabled();
+  await openRelics(page);
   await expect(rowFor(page, 'per 150 SPD')).toContainText('Excellent');
   await expect(rowFor(page, 'per 2,500 ATK')).toContainText('Niche');
 });

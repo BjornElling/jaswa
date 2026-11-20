@@ -10,8 +10,9 @@ probability), `app/domain/relics/relic-synergy.ts` (the 48 cells and the user's 
 `app/domain/relics/relic-monster-fit.ts`, `app/domain/relics/relic-monster-grid.ts`; the stat sheet
 `app/domain/combat/monster-stats.ts`, the main-stat model `app/domain/combat/main-stat-model.ts`,
 eligibility `app/domain/monsters/monster-engrave-eligibility.ts`; the pages
-`app/features/relics/relic-list.tsx`, `app/features/relics/relic-synergy-overlay.tsx` and
-`app/features/relics/relic-monster-list.tsx`
+`app/features/relics/relic-list.tsx` and `app/features/relics/relic-monster-list.tsx`;
+the settings `app/features/settings/relic-settings.tsx` and
+`app/features/settings/relic-synergy-map.tsx`
 **Checks:** `verify:relic-synergy`, `verify:relic-maths`,
 `verify:relic-monster-value`, `verify:relic-monster-plan`
 
@@ -59,7 +60,8 @@ on `rid`, as for artifacts.
 - **Relic Power-up Stones** are account inventory, not craft items:
   `inventory_info[item_master_type = 6, item_master_id = 19].item_quantity`.
   JASWA does not read them: the balance once stood under Reset filters, and
-  that place went to the Synergy map (§5.3) in November 2026.
+  that place went to the Synergy map (§5.3) in November 2026, which has since
+  moved to Settings.
 
 ### 2.1 How a relic enters the stat sheet
 
@@ -272,18 +274,20 @@ that use, and its caveat, are in `ENGRAVING-STATISTICS.md` §10.
 
 ### 5.3 The user's own cells
 
-The **Synergy map** button under Reset filters opens the whole table over the page
-(`relic-synergy-overlay.tsx`), family by family as the game's Select Unique
-Property panel lists them, HP, ATK and DEF side by side. A click steps a cell
+The **Synergy map** stands on Settings, in the *Relics* bar under the power-up
+threshold (`relic-synergy-map.tsx`): the whole table, family by family as the
+game's Select Unique Property panel lists them, HP, ATK and DEF side by side.
+It is a setting because every verdict on Relic Optimization rests on it, and
+that page only reads it. A click steps a cell
 one band down — Trash wrapping round to Excellent — and Shift-click one band up. A
 cell that differs from the shipped one carries a gold dot, and its accessible
 name and title state the shipped band.
 
-The edits are a draft until **Save**, as in the monster profile: while the draft
-differs, Escape, the backdrop and the back button do not close the panel.
-**Reset to defaults**, a quiet worded button left of the band tally in the
-panel's head, puts the shipped cells into the draft; saving that stores no
-choices at all.
+Each click is saved, as every other setting is. It was a draft with a Save
+button while it opened over the library, where a stray Escape could throw away a
+half re-judged table; on a page there is nothing to dismiss.
+**Reset to defaults**, a quiet worded button left of the band tally, puts the
+shipped cells back and stores no choices at all.
 
 What is saved is the `relicSynergy` preference
 (`LOCAL-PERSISTENCE-CONTRACT.md`): by property id and then main, **only the
@@ -530,7 +534,7 @@ and then refuse to spend on any of it.
 
 - **The slider opens on stop 3, *Balanced***
   (`defaultRelicInvestmentSelectivity`), the ordinary judgement in the middle of
-  the scale; Reset returns it there.
+  the scale.
 - **The scale sits one notch more sceptical than it did until November 2026**:
   every stop moved one step stricter, a *Very restrictive* stop keeping Excellent
   alone was added at the cautious end, and the old boldest stop (threshold 20)
@@ -538,7 +542,10 @@ and then refuse to spend on any of it.
   design; *Picky* is the cautious stop that keeps Good pairs too.
 - Every stop keeps exactly one band more than the stop before it, so no two
   stops share a gate.
-- The slider sits in the filter strip because it changes verdicts, not rows.
+- The slider is **Power-up threshold** in the *Relics* bar on Settings, saved as
+  the `relicPowerUpThreshold` preference (`LOCAL-PERSISTENCE-CONTRACT.md`). It
+  once sat in the filter strip for the session only; it changes verdicts, not
+  rows, so it is a setting, and Reset filters leaves it where it is.
 
 ## 10. Parity: what the importer enforces
 

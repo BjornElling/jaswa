@@ -155,9 +155,10 @@ try {
     }
   }
 
-  await railButton('Artifact Optimization').click();
-  await page.getByText('Settings', { exact: true }).click();
+  await railButton('Settings').click();
+  await page.locator('main summary').filter({ hasText: 'Artifacts' }).click();
   await assert.doesNotReject(() => page.locator('#conversion-stone-value').waitFor());
+  await railButton('Artifact Optimization').click();
 
   /* The recommendation table has to hold its content inside the page at every
      width. It was previously pinned to a px width computed against

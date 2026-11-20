@@ -20,7 +20,7 @@ export function AppRail({ page, onNavigate, onReport }: {
         aria-current={page === item.id ? 'page' : undefined}
         /* The visible label leans on the heading above it, which a screen
            reader reading one control at a time does not carry along. Three
-           entries are called "Optimization" and two "Settings", so without
+           entries are called "Optimization", so without
            this the announced name would not say which. */
         aria-label={item.name === item.label ? undefined : item.name}
       >

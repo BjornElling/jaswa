@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { chooseGraphicsCard, expect, test } from './test-fixtures';
 import type { Locator, Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
@@ -18,7 +18,7 @@ async function open(page: Page, wide = false) {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
-  await page.getByLabel('Use the graphics card for heavy calculations').uncheck();
+  await chooseGraphicsCard(page, false);
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'open-sets.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(wide ? wideAccount : fixture)),
   });

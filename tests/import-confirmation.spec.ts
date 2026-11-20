@@ -10,6 +10,9 @@ const syntheticAccount = fileURLToPath(new URL('./fixtures/synthetic-account.jso
 test.use({ launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } });
 
 test('confirms a JSON import in the viewport without moving the page', async ({ page }, testInfo) => {
+  /* Short enough that the drop zone sits below the fold, so the import is made
+     from a scrolled page. */
+  await page.setViewportSize({ width: 1280, height: 560 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.evaluate(() => document.fonts.ready.then(() => undefined));

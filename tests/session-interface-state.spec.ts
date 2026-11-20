@@ -76,7 +76,7 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
     await expect(newTab.getByRole('button', { name: 'Home', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(newTab.locator('details[open]')).toHaveCount(0);
     const runeGroup = newTab.locator('.rail-group').filter({ has: newTab.locator('.rail-heading', { hasText: 'Rune Clean-up' }) });
-    await expect(runeGroup.locator('.rail-item').first()).toHaveAttribute('aria-label', 'Rune Settings');
+    await expect(runeGroup.locator('.rail-item').first()).toHaveAttribute('aria-label', 'Rune Clean-up');
     await newTab.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
     await expect(newTab.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
     await expect(newTab.locator('details[open]')).toHaveCount(0);
@@ -93,12 +93,12 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
        there is nothing on this page for a choice made in the first tab to have
        opened or shut. */
     await expect(newTab.locator('details')).toHaveCount(0);
-    await expect(newTab.locator('summary').filter({ hasText: 'Settings' })).toHaveCount(0);
+    await expect(newTab.locator('summary').filter({ hasText: 'Runes' })).toHaveCount(0);
     await expect(newTab.locator('summary').filter({ hasText: 'Roles' })).toHaveCount(0);
-    await newTab.getByRole('button', { name: 'Rune Settings', exact: true }).click();
-    await expect(newTab.getByRole('heading', { name: 'Rune Settings', exact: true })).toBeVisible();
-    await expect(newTab.locator('details').filter({ hasText: 'Settings' })).toHaveCount(1);
-    await expect(newTab.locator('details').filter({ hasText: 'Roles' })).toHaveCount(1);
+    await newTab.getByRole('button', { name: 'Settings', exact: true }).click();
+    await expect(newTab.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await expect(newTab.locator('main summary').filter({ hasText: 'Runes' })).toHaveCount(1);
+    await expect(newTab.locator('main summary').filter({ hasText: 'Roles' })).toHaveCount(1);
   } finally {
     await newTab.close();
   }

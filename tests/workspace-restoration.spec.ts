@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { expect, openSettingsBar, test } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
 for (const populated of [false, true]) {
@@ -15,6 +15,7 @@ for (const populated of [false, true]) {
     }
     await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await openSettingsBar(page, 'General');
     await page.screenshot({ path: testInfo.outputPath('settings-before.png') });
     await page.locator('input[name="number-format"][value="european"]').check();
     await page.locator('input[name="number-format"][value="american"]').check();
@@ -50,6 +51,7 @@ test('shows recovered choices without overwriting an unread database', async ({ 
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await openSettingsBar(page, 'General');
   await page.locator('input[name="number-format"][value="american"]').check();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}').general?.numberFormat)).toBe('american');
   await page.addInitScript(() => {
@@ -73,7 +75,8 @@ test('reports a failed recovery copy on the page where the choice was made', asy
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
-  const panel = page.locator('.panel').first();
+  await openSettingsBar(page, 'General');
+  const panel = page.locator('details.bar').filter({ has: page.locator('summary', { hasText: 'General' }) }).locator('.panel').first();
   const before = await panel.boundingBox();
   await page.screenshot({ path: testInfo.outputPath('before-mirror-failure.png') });
   await page.evaluate(() => {

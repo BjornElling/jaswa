@@ -23,6 +23,14 @@ async function openArtifactOptimization(page: Page) {
   }
 }
 
+/* The conversion assumption is a setting, so it is made on Settings before the
+   page that reads it is opened. */
+async function assumeTheoreticalConversions(page: Page) {
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('main summary').filter({ hasText: 'Artifacts' }).click();
+  await page.locator('input[name="artifact-conversion-stone-mode"][value="theoretical"]').check();
+}
+
 /** What a run of text is set in, as one comparable string. */
 const voiceOf = `(el) => {
   const style = getComputedStyle(el);
@@ -179,10 +187,8 @@ test('artifact entries name an empty improvements result', async ({ page }, test
 
 test('current artifact conversions use the muted substat voice', async ({ page }) => {
   await importAccount(page, artifactAccount);
+  await assumeTheoreticalConversions(page);
   await openArtifactOptimization(page);
-
-  await page.locator('summary').filter({ hasText: 'Settings' }).click();
-  await page.locator('input[name="artifact-conversion-stone-mode"][value="theoretical"]').check();
 
   const panel = page.locator('.best-artifact-for-monster');
   await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
@@ -204,10 +210,8 @@ test('current artifact conversions use the muted substat voice', async ({ page }
 
 test('artifact recommendation columns share their intended baselines', async ({ page }) => {
   await importAccount(page, artifactAccount);
+  await assumeTheoreticalConversions(page);
   await openArtifactOptimization(page);
-
-  await page.locator('summary').filter({ hasText: 'Settings' }).click();
-  await page.locator('input[name="artifact-conversion-stone-mode"][value="theoretical"]').check();
 
   const panel = page.locator('.best-artifact-for-monster');
   await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });
@@ -264,10 +268,8 @@ test('artifact recommendation columns share their intended baselines', async ({ 
 
 test('expanding conversions keeps the toggle clear of the score and evenly spaced', async ({ page }, testInfo) => {
   await importAccount(page, artifactAccount);
+  await assumeTheoreticalConversions(page);
   await openArtifactOptimization(page);
-
-  await page.locator('summary').filter({ hasText: 'Settings' }).click();
-  await page.locator('input[name="artifact-conversion-stone-mode"][value="theoretical"]').check();
 
   const panel = page.locator('.best-artifact-for-monster');
   await page.getByRole('combobox', { name: 'Choose a monster for artifact recommendations' }).selectOption({ index: 1 });

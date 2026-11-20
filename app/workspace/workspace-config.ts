@@ -1,4 +1,4 @@
-export type Page = 'home' | 'monster-stats' | 'monster-numbers' | 'artifact-list' | 'optimizer' | 'speed' | 'presets' | 'rune-setup' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math' | 'rune-simulator';
+export type Page = 'home' | 'monster-stats' | 'monster-numbers' | 'artifact-list' | 'optimizer' | 'speed' | 'presets' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math' | 'rune-simulator';
 export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 
 /* `label` is what the rail shows, under a heading that supplies the subject.
@@ -17,10 +17,12 @@ export type NavigationItem = { id: Page; label: string; name: string; glyph: str
 export const navigationGroups: Array<{ heading: string; items: NavigationItem[] }> = [
   {
     /* Not a subject but the things that sit outside the optimizing: how the
-       account gets in, and how the app is set up to read it. */
+       account gets in, and what every page below judges by. A setting that
+       reaches more than one page lives on Settings rather than on any of them. */
     heading: 'General',
     items: [
       { id: 'home', label: 'Home', name: 'Home', glyph: '⌂' },
+      { id: 'settings', label: 'Settings', name: 'Settings', glyph: '⚙' },
     ],
   },
   {
@@ -44,10 +46,9 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   {
     heading: 'Rune Clean-up',
     items: [
-      { id: 'rune-setup', label: 'Settings', name: 'Rune Settings', glyph: '⚙' },
       { id: 'potential', label: 'Clean-up', name: 'Rune Clean-up', glyph: '◌' },
       /* An experiment on runes nobody owns yet, judged by the same Clean-up
-         engine as the ones above — it belongs with them, not with the settings. */
+         engine as the verdicts above — it belongs with them. */
       ...(import.meta.env.DEV ? [{ id: 'rune-simulator' as const, label: 'Simulator', name: 'Rune Simulator', glyph: '↻' }] : []),
     ],
   },
@@ -70,7 +71,6 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   {
     heading: 'Technical',
     items: [
-      { id: 'settings', label: 'Settings', name: 'Settings', glyph: '⚙' },
       /* A geometric mark rather than a maths operator. ∑ ƒ ∫ are set on the
          maths axis with extenders below the baseline, so beside the rail's
          centred glyphs one entry hung low and read a size larger than the

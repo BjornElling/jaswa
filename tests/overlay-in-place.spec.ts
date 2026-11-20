@@ -23,8 +23,8 @@ const account = {
 };
 
 /* Every page the rail offers, by the name its button carries. */
-const pages = ['Home', 'Monster Overview', 'Monster Usage', 'Presets', 'Speed Tuning', 'Rune Optimization', 'Gems & Grinds',
-  'Rune Settings', 'Rune Clean-up', 'Artifacts', 'Artifact Optimization', 'Relic Optimization', 'Settings', 'The Math'];
+const pages = ['Home', 'Settings', 'Monster Overview', 'Monster Usage', 'Presets', 'Speed Tuning', 'Rune Optimization', 'Gems & Grinds',
+  'Rune Clean-up', 'Artifacts', 'Artifact Optimization', 'Relic Optimization', 'The Math'];
 
 /* The openers each of these pages is known to carry, so the sweep can never pass by finding none. */
 const expected: Record<string, readonly RegExp[]> = {

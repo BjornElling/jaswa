@@ -64,6 +64,7 @@ try {
     presetPriority: { 'deck-1-4': ['18', '17'], 'deck-24-101': ['17'] },
     runeOptimization: { ...blank.runeOptimization, includeHigherPriority: true },
     relicSynergy: { 2: { DEF: 'trash' }, 14: { ATK: 'excellent', DEF: 'niche' } },
+    relicPowerUpThreshold: 2,
   };
 
   assert.deepEqual(readPreferences(chosen, null), chosen, 'a complete stored document must read back unchanged');
@@ -273,6 +274,11 @@ try {
   } }, null);
   assert.deepEqual(synergy.relicSynergy, chosen.relicSynergy, 'an unreadable synergy cell costs only itself');
   assert.deepEqual(readPreferences({ ...chosen, relicSynergy: [] }, null).relicSynergy, {}, 'a synergy record that is not one reads as the shipped table');
+  for (const unreadable of [0, 6, 2.5, '2', null]) {
+    const read = readPreferences({ ...chosen, relicPowerUpThreshold: unreadable }, null);
+    assert.equal(read.relicPowerUpThreshold, blank.relicPowerUpThreshold, `a power-up threshold of ${JSON.stringify(unreadable)} reads as the default`);
+    assert.deepEqual(read.relicSynergy, chosen.relicSynergy, 'an unreadable power-up threshold costs only itself');
+  }
 
   /* A team's speed tuning that fails costs that team; inside one, a what-if
      that fails costs only itself. */

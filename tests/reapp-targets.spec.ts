@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 async function openTargets(page: Page) {
-  await page.getByRole('navigation').getByRole('button', { name: 'Rune Settings', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
   const disclosure = page.locator('details.bar').filter({ has: page.locator('summary', { hasText: /^›?Re-app\/refine target$/ }) });
   if (await disclosure.getAttribute('open') === null) await disclosure.locator('summary').click();
   return page.locator('.reapp-card');
