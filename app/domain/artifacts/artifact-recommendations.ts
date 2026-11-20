@@ -10,21 +10,15 @@ import type { GameRecord } from '../account/game-record';
 import type { ArtifactSettings } from '../model';
 
 /**
- * The settings that decide what a calculation *produces*, for the key each
- * recommendation view compares a held result against (`ACCOUNT-TABLES.md`
- * §7).
- *
- * `recalculate` is dropped because it only decides *when* a table re-runs. Left
- * in, switching the mode would mark every held result stale — and in the
- * on-change mode that reads as the setting recalculating the page merely by
- * being chosen. One function rather than three spreads, so a setting added
- * later cannot be scoring input in one view and not in another.
+ * The settings that decide what a calculation *produces*, for the standards key
+ * each recommendation view compares a held result against (`ACCOUNT-TABLES.md`
+ * §7). One function rather than three spreads, so a setting added later cannot
+ * be scoring input in one view and not in another.
  */
-export function scoringSettings(settings: ArtifactSettings): Omit<ArtifactSettings, 'recalculate'> {
-  /* Listed rather than spread-minus-one, so the compiler makes a setting added
-     later be classified on purpose: `Omit` fails the return type until the new
-     field is either named here as scoring input or excluded like `recalculate`.
-     A rest spread would have quietly swept it in. */
+export function scoringSettings(settings: ArtifactSettings): ArtifactSettings {
+  /* Listed rather than spread, so a setting added later is classified on
+     purpose: the return type fails until the new field is named here, and a
+     setting that only steers the page would then have to say so in the type. */
   return {
     acceptableWorth: settings.acceptableWorth,
     onlyFactorInOwnedMonsters: settings.onlyFactorInOwnedMonsters,

@@ -2,10 +2,10 @@ import { filterIncludes } from '../../domain/shared/filter-selection';
 import { type ReactNode, useMemo, useState } from 'react';
 import { FilterButton } from '../../ui/button';
 import { CalculationActions, CalculationNote } from '../../ui/calculation-actions';
+import { GameRefreshNote, OutdatedNotice } from './calculation-notices';
 import { CalculationStatus } from '../../ui/calculation-status';
 import { useCancellableRun } from '../../ui/use-cancellable-run';
 import { isCalculationCancelled } from '../../workspace/jobs/cancellable-worker';
-import { SettledCalculation } from '../../ui/settled-calculation';
 import { Dropdown } from '../../ui/dropdown';
 import { ConvertedArtifactMark } from '../../ui/gear/converted-artifact-mark';
 import { UnrefinedArtifactMark } from '../../ui/gear/unrefined-artifact-mark';
@@ -18,7 +18,9 @@ import type { CalculationBackend } from '../../domain/shared/calculation-summary
 import { buildArtifactScoreRequests, buildArtifactScoreRequestsForMonsterIds } from '../../domain/artifacts/score/artifact-score-input';
 import { ConversionList } from './conversion-list';
 import { isWorthwhileGain, scoringSettings } from '../../domain/artifacts/artifact-recommendations';
-import { useAutoRecalculate } from '../../ui/use-auto-recalculate';
+import { artifactScoreChanges, artifactScoreUpdateRequests } from '../../domain/artifacts/score/artifact-score-refresh';
+import { useArtifactViewState } from './artifact-view-session';
+import { useGameRefresh } from './use-game-refresh';
 import type { SortableColumn } from '../../ui/use-sorted-rows';
 import { artifactCategoryLabel, artifactEngraveClassLabel, artifactValueTint, displaySubProperty } from '../../domain/artifacts/artifact-grid';
 import { artifactArchetypes, artifactCategoryLabels, artifactElements, artifactGradeOrder, artifactIntangibleLabel, artifactMainPropertyOrder } from '../../domain/artifacts/artifact-properties';
@@ -30,7 +32,7 @@ import type { MonsterCopyName } from '../../domain/monsters/monster-names';
 import type { MonsterProfiles } from '../../domain/profiles/monster-preferences';
 import { monsterNameCollator } from '../../domain/monsters/monster-grid';
 import type { ArtifactCategory, ArtifactGrade, ArtifactMainProperty } from '../../domain/artifacts/artifact-properties';
-import type { ArtifactMaximumScore } from '../../domain/artifacts/score/artifact-score-protocol';
+import type { ArtifactMaximumScore, ArtifactScoreRequest, ArtifactScoreResult } from '../../domain/artifacts/score/artifact-score-protocol';
 import type { Artifact } from '../../domain/artifacts/artifacts';
 import type { EngravedConversionStone } from '../../domain/artifacts/artifact-conversion-stones';
 import type { GameRecord } from '../../domain/account/game-record';
@@ -69,8 +71,19 @@ type MonsterOption = {
   archetype: MonsterArchetype | undefined;
 };
 
+/* The user's choices the answer was calculated under, apart from the game it was
+   calculated from (`ACCOUNT-TABLES.md` §7). The tables are drawn from the
+   artifact, roster and engraved slots the answer scored, so while a game change
+   is being merged in they show the held answer whole. */
 type Calculation = {
-  inputKey: string;
+  standardsKey: string;
+  data: GameRecord;
+  artifact: Artifact;
+  stones: readonly EngravedConversionStone[];
+  ownMonsters: readonly MonsterOption[];
+  engravedSlots: ReadonlyMap<string, ReadonlySet<ArtifactCategory>>;
+  scopeRequests: readonly ArtifactScoreRequest[];
+  ownedRequests: readonly ArtifactScoreRequest[];
   scopeScores: ArtifactMaximumScore[];
   ownedScores: Map<string, ArtifactMaximumScore>;
   backend: CalculationBackend;
@@ -95,6 +108,30 @@ function artifactSortKey(artifact: Artifact): string {
 
 function scoreMap(scores: readonly ArtifactMaximumScore[]): Map<string, ArtifactMaximumScore> {
   return new Map(scores.map((score) => [score.monsterId, score]));
+}
+
+/**
+ * One artifact's scores brought up to date with the game: the rows a change
+ * touched — every row, if the artifact itself changed — are scored again and
+ * every other row keeps its held score. A row the game removed goes with it.
+ */
+async function refreshedScores(
+  requests: readonly ArtifactScoreRequest[],
+  heldRequests: readonly ArtifactScoreRequest[],
+  held: ReadonlyMap<string, ArtifactMaximumScore>,
+  score: (request: ArtifactScoreRequest) => Promise<ArtifactScoreResult>,
+): Promise<{ scores: ArtifactMaximumScore[]; results: ArtifactScoreResult[] }> {
+  const updates = requests.flatMap((request) => artifactScoreUpdateRequests(request,
+    artifactScoreChanges(heldRequests.find((entry) => entry.artifacts[0]?.category === request.artifacts[0]?.category), request)))
+    .map((update) => ({ ...update, includeAllScores: true }));
+  const results = await Promise.all(updates.map(score));
+  const rescored = new Set(updates.flatMap((update) => update.monsters.map((monster) => monster.id)));
+  const fresh = scoreMap(results.flatMap((result) => result.allScores));
+  const scores = requests.flatMap((request) => request.monsters.flatMap((monster) => {
+    const found = rescored.has(monster.id) ? fresh.get(monster.id) : held.get(monster.id);
+    return found ? [found] : [];
+  }));
+  return { scores, results };
 }
 
 /* `names` covers the whole roster, so a copy keeps its number when the
@@ -138,7 +175,8 @@ function ResultCard({ title, description, children, empty }: {
   </section>;
 }
 
-export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
+export function BestMonsterForArtifact({ account, data, artifacts, stones, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
+  account: string | null;
   data: GameRecord;
   artifacts: readonly Artifact[];
   stones: readonly EngravedConversionStone[];
@@ -148,8 +186,8 @@ export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scen
   general: GeneralSettings;
   hardwareAcceleration: boolean;
 }) {
-  const [filters, setFilters] = useState<ArtifactFilters>(defaultFilters);
-  const [calculation, setCalculation] = useState<Calculation | undefined>();
+  const [filters, setFilters] = useArtifactViewState<ArtifactFilters>('best-monster.filters', account, defaultFilters);
+  const [calculation, setCalculation] = useArtifactViewState<Calculation | undefined>('best-monster.calculation', account, undefined);
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const subPropertyOptions = useMemo(() => {
     const definitions = new Map<number, { id: number; name: string }>();
@@ -188,27 +226,27 @@ export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scen
     }
     return slots;
   }, [artifacts]);
-  const artifactInput = artifacts.map((artifact) => [artifact.id, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex,
-    ...artifact.subProperties.map((subProperty) => [subProperty.definition.id, subProperty.valueHundredths, subProperty.maximumHundredths])]);
-  const inputKey = JSON.stringify({ artifactInput, stones: settings.conversionStoneMode === 'owned' ? stones : [],
-    monsterIds: ownMonsters.map((monster) => [monster.unitId, monster.speciesId]), scenarioProfiles, selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
-  const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
-  const run = useCancellableRun(inputKey);
-  const owner = selectedArtifact?.occupiedId === null || selectedArtifact === undefined
-    ? undefined : ownMonsters.find((monster) => monster.unitId === selectedArtifact.occupiedId);
+  /* The user's choices only; the game's records are merged, not compared. */
+  const standardsKey = JSON.stringify({ scenarioProfiles, selectedArtifactId: filters.selectedArtifactId, settings: scoringSettings(settings) });
+  const currentCalculation = calculation?.standardsKey === standardsKey ? calculation : undefined;
+  const run = useCancellableRun(standardsKey);
+  const scoredArtifact = currentCalculation?.artifact;
+  const scoredMonsters = currentCalculation?.ownMonsters ?? [];
+  const owner = scoredArtifact?.occupiedId === null || scoredArtifact === undefined
+    ? undefined : scoredMonsters.find((monster) => monster.unitId === scoredArtifact.occupiedId);
   /* A copy that wants something its species does not is scored under its own
      row (§19.2); every other copy answers to its species'. */
   const ownedScore = (monster: MonsterOption) =>
     currentCalculation?.ownedScores.get(monster.unitId) ?? currentCalculation?.ownedScores.get(monster.speciesId);
   const currentScore = owner ? ownedScore(owner) : undefined;
-  const slotlessRows = ownMonsters.filter((monster) => selectedArtifact !== undefined
-    && !engravedSlots.get(monster.unitId)?.has(selectedArtifact.category))
+  const slotlessRows = scoredMonsters.filter((monster) => scoredArtifact !== undefined
+    && !currentCalculation?.engravedSlots.get(monster.unitId)?.has(scoredArtifact.category))
     .map((monster) => ({ monster, score: ownedScore(monster) }))
     .sort((left, right) => (right.score?.value ?? -1) - (left.score?.value ?? -1) || left.monster.name.localeCompare(right.monster.name))
     .slice(0, 10);
   /* §17.2 and §17.3: only a destination that genuinely beats the artifact's
      current home, by more than the band the user called meaningful. */
-  const improvementRows = ownMonsters.map((monster) => ({ monster, score: ownedScore(monster) }))
+  const improvementRows = scoredMonsters.map((monster) => ({ monster, score: ownedScore(monster) }))
     .filter((row) => currentScore !== undefined && row.score !== undefined
       && isWorthwhileGain(row.score.value, currentScore.value, settings))
     .sort((left, right) => (right.score?.value ?? 0) - (left.score?.value ?? 0) || left.monster.name.localeCompare(right.monster.name))
@@ -259,21 +297,26 @@ export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scen
     }));
   }
 
+  /* The chooser is one of the user's standards, so clearing it sets the held
+     answer aside like any other change; choosing the artifact again brings it
+     back. */
   function resetFilters() {
     setFilters(defaultFilters);
-    /* The selected artifact is part of the calculation key. Once Reset clears
-       it, the old result no longer answers the panel's question either. */
-    setCalculation(undefined);
-    setState('idle');
   }
+
+  const scoreRequests = (artifact: Artifact) => {
+    const selected = new Set([artifact.id]);
+    return {
+      scopeRequests: buildArtifactScoreRequests(data, monsters, settings, selected, scenarioProfiles)
+        .map((request) => ({ ...request, includeAllScores: true })),
+      ownedRequests: buildArtifactScoreRequestsForMonsterIds(data, ownMonsters.map((monster) => monster.speciesId), settings, selected, scenarioProfiles)
+        .map((request) => ({ ...request, includeAllScores: true })),
+    };
+  };
 
   async function calculate() {
     if (!selectedArtifact) return;
-    const selected = new Set([selectedArtifact.id]);
-    const scopeRequests = buildArtifactScoreRequests(data, monsters, settings, selected, scenarioProfiles)
-      .map((request) => ({ ...request, includeAllScores: true }));
-    const ownedRequests = buildArtifactScoreRequestsForMonsterIds(data, ownMonsters.map((monster) => monster.speciesId), settings, selected, scenarioProfiles)
-      .map((request) => ({ ...request, includeAllScores: true }));
+    const { scopeRequests, ownedRequests } = scoreRequests(selectedArtifact);
     if (!scopeRequests.length) {
       setCalculation(undefined);
       setState('error');
@@ -288,7 +331,7 @@ export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scen
         Promise.all(ownedRequests.map((request) => calculateArtifactScores(request, hardwareAcceleration, signal))),
       ]);
       setCalculation({
-        inputKey,
+        standardsKey, data, artifact: selectedArtifact, stones, ownMonsters, engravedSlots, scopeRequests, ownedRequests,
         scopeScores: scopeResults.flatMap((result) => result.allScores),
         ownedScores: scoreMap(ownedResults.flatMap((result) => result.allScores)),
         backend: combineCalculationBackends([...scopeResults, ...ownedResults].map((result) => result.backend)),
@@ -309,11 +352,35 @@ export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scen
     setState('idle');
   }
 
-  useAutoRecalculate({
-    mode: settings.recalculate,
-    stale: calculation !== undefined && currentCalculation === undefined && !run.cancelledHere,
-    calculating: state === 'calculating',
-    calculate: () => void calculate(),
+  /* A change in the game re-scores what it touched: every monster if the
+     artifact itself changed, otherwise only the monsters whose rows moved. The
+     answer is about one artifact, so an artifact the game removed takes the
+     answer with it. */
+  async function refresh(held: Calculation, signal: AbortSignal): Promise<Calculation | undefined> {
+    const artifact = artifacts.find((entry) => entry.id === held.artifact.id);
+    if (!artifact) return undefined;
+    const { scopeRequests, ownedRequests } = scoreRequests(artifact);
+    const score = (request: ArtifactScoreRequest) => calculateArtifactScores(request, hardwareAcceleration, signal);
+    const [scope, owned] = await Promise.all([
+      refreshedScores(scopeRequests, held.scopeRequests, scoreMap(held.scopeScores), score),
+      refreshedScores(ownedRequests, held.ownedRequests, held.ownedScores, score),
+    ]);
+    const ran = [...scope.results, ...owned.results];
+    return {
+      ...held, data, artifact, stones, ownMonsters, engravedSlots, scopeRequests, ownedRequests,
+      scopeScores: scope.scores,
+      ownedScores: scoreMap(owned.scores),
+      ...(ran.length > 0 ? {
+        backend: combineCalculationBackends(ran.map((result) => result.backend)),
+        evaluatedPairs: ran.reduce((total, result) => total + result.evaluatedPairs, 0),
+        durationMs: ran.reduce((total, result) => total + result.durationMs, 0),
+      } : {}),
+    };
+  }
+
+  const gameRefresh = useGameRefresh({
+    held: currentCalculation, data, busy: state === 'calculating', refresh,
+    onRefreshed: (from, next) => setCalculation((current) => current === from ? next : current),
   });
 
   const buttonGroup =<T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
@@ -371,6 +438,7 @@ export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scen
         canClear={calculation !== undefined || state === 'error'} onClear={clear}
         status={state === 'calculating' ? <CalculationNote tone="busy">Calculating…</CalculationNote>
           : state === 'error' ? <CalculationNote tone="failed">JASWA could not calculate monster fits for this artifact from the imported data.</CalculationNote>
+            : gameRefresh !== 'current' ? <GameRefreshNote state={gameRefresh} />
             : currentCalculation && selectedArtifact
               ? <CalculationStatus twoLines evaluatedPairs={currentCalculation.evaluatedPairs} durationMs={currentCalculation.durationMs}
                 backend={currentCalculation.backend} general={general} />
@@ -400,16 +468,11 @@ export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scen
       </ul>
     </section>}
 
-    {/* As in the other two views (`ACCOUNT-TABLES.md` §7): a held result that no longer answers
-        the current settings says so instead of disappearing. */}
-    <p className="notice warning" role="status" style={{ visibility: calculation && !currentCalculation ? 'visible' : 'hidden' }}
-      aria-hidden={!calculation || Boolean(currentCalculation)}>{settings.recalculate === 'on-change'
-      ? 'Settings or imported data changed. Refreshing these results…'
-      : 'Settings or imported data changed. Calculate again to refresh these results.'}</p>
+    {/* As in the other two views (`ACCOUNT-TABLES.md` §7): a held result that no
+        longer answers the user's standards says so instead of disappearing. */}
+    <OutdatedNotice shown={calculation !== undefined && currentCalculation === undefined} />
 
-    <SettledCalculation key={filters.selectedArtifactId} current={Boolean(currentCalculation)}
-      retain={Boolean(calculation) && settings.recalculate === 'on-change'}>
-    {currentCalculation && selectedArtifact && <>
+    {currentCalculation && scoredArtifact && selectedArtifact && <>
       <div className="best-monster-results">
         <ResultCard title="No artifact in this slot" description="The ten strongest eligible monsters with no artifact in this category engraved yet."
           empty={slotlessRows.length ? undefined : 'Every monster already has an artifact in this slot.'}>
@@ -418,7 +481,7 @@ export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scen
             <tbody>{slotless.sorted.map(({ monster, score }) => <tr key={monster.unitId}>
               <td className={monsterCell('monster')}>{monster.name}</td>
               <td className={monsterCell('score')}><b><Score score={score} general={general} /></b></td>
-              <td className={monsterCell('conversion')}>{score ? <ConversionList conversions={score.conversions} artifact={selectedArtifact} stones={stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
+              <td className={monsterCell('conversion')}>{score ? <ConversionList conversions={score.conversions} artifact={scoredArtifact} stones={currentCalculation.stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
             </tr>)}</tbody>
           </table>
         </ResultCard>
@@ -441,12 +504,11 @@ export function BestMonsterForArtifact({ data, artifacts, stones, monsters, scen
             <tbody>{scope.sorted.map(({ score }) => <tr key={score.monsterId}>
               <td className={scopeCell('monster')}>{score.monsterName}</td>
               <td className={scopeCell('score')}><b><Score score={score} general={general} /></b></td>
-              <td className={scopeCell('conversion')}>{score ? <ConversionList conversions={score.conversions} artifact={selectedArtifact} stones={stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
+              <td className={scopeCell('conversion')}>{score ? <ConversionList conversions={score.conversions} artifact={scoredArtifact} stones={currentCalculation.stones} mode={settings.conversionStoneMode} /> : <span className="muted">Not judged</span>}</td>
             </tr>)}</tbody>
           </table>
         </ResultCard>
       </div>
     </>}
-    </SettledCalculation>
   </div>;
 }

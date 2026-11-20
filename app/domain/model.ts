@@ -149,13 +149,6 @@ export type GeneralSettings = { numberFormat: NumberFormatChoice; dateOrder: Dat
  * this project keeps out. One factor for the whole account, not one per monster
  * — the user is stating a general tolerance, not tuning each row.
  */
-/**
- * What a calculated table does when its inputs move underneath it
- * (`ACCOUNT-TABLES.md` §7). `manual` keeps the result the user asked
- * for and says it is out of date; `on-change` re-runs the calculation so the
- * table on screen always answers the current settings and import.
- */
-export type ArtifactRecalculateMode = 'manual' | 'on-change';
 export type ArtifactSettings = {
   acceptableWorth: number;
   onlyFactorInOwnedMonsters: boolean;
@@ -182,14 +175,6 @@ export type ArtifactSettings = {
    * the three recommendation pages cannot disagree about the same account.
    */
   includeIntangibleArtifacts: boolean;
-  /**
-   * Whether a stale table re-runs on its own or waits to be asked
-   * (`ACCOUNT-TABLES.md` §7). It steers *when* a calculation happens
-   * and never what it produces, so the recommendation views deliberately keep
-   * it out of the key that decides whether a held result is still current —
-   * changing this answer must not itself invalidate the table it governs.
-   */
-  recalculate: ArtifactRecalculateMode;
 };
 /**
  * The roles are part of the user's own preferences rather than of the

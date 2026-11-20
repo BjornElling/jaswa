@@ -48,7 +48,7 @@ try {
     },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, intangibleRunes: 4 },
     runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
-    artifacts: { ...blank.artifacts, acceptableWorth: 75, recalculate: 'on-change' },
+    artifacts: { ...blank.artifacts, acceptableWorth: 75 },
     speedTuning: {
       teams: [
         { content: 'giants', members: [{ masterId: '14712' }, { masterId: '14713', whatIfDisplaySpeed: 140 }], orderStated: true, noSpeedTuning: false },
@@ -87,6 +87,10 @@ try {
   assert.equal(retiredField.runePotential.powerUpPolicy, 2, 'an unreadable Rune Clean-up setting must not reset its neighbours');
   assert.equal(retiredField.runePotential.runeQuality, blank.runePotential.runeQuality, 'the unreadable setting starts from its default');
   assert.ok(!('retiredSetting' in retiredField.runePotential), 'a setting the contract no longer names is not carried');
+  /* The artifact pages' retired Re-calculate mode is one such setting: a copy
+     saved while it existed keeps every artifact choice beside it. */
+  const retiredMode = readPreferences({ ...chosen, artifacts: { ...chosen.artifacts, recalculate: 'on-change' } }, null);
+  assert.deepEqual(retiredMode.artifacts, chosen.artifacts, 'the retired Re-calculate mode is ignored and costs nothing');
 
   /* A role the contract has grown past still keeps what the user wrote in it. */
   const { artifacts: _artifacts, ...roleWithoutArtifacts } = chosen.runeRoles[0];

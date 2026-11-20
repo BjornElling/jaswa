@@ -1,14 +1,14 @@
 # Account tables and views
 
 **Status:** Binding interface contract for the account tables and the artifact workspace views
-**Reviewed:** October 20, 2026
+**Reviewed:** November 19, 2026
 **Code:** `app/ui/sortable-table.tsx`, `app/ui/use-sorted-rows.ts`,
 `app/ui/table-layouts.ts`, `app/domain/monsters/monster-identity.ts`,
 `app/domain/account/sealed-shrine-storage.ts`, `app/features/artifacts/artifact-maximum-values.tsx`,
-`app/ui/use-auto-recalculate.ts`
+`app/features/artifacts/use-game-refresh.ts`, `app/domain/artifacts/score/artifact-score-refresh.ts`
 **Checks:** `tests/table-sorting.spec.ts`, `tests/awakening-search.spec.ts`,
-`verify:monster-awakening-scope`, `verify:recommendation-filters`,
-`verify:artifact-recalculate-mode`, `verify:library-layout`
+`tests/artifact-calculation-reuse.spec.ts`, `tests/artifact-stone-live-sync.spec.ts`,
+`verify:monster-awakening-scope`, `verify:recommendation-filters`, `verify:library-layout`
 
 How the account's tables sort and search, and how the artifact workspace reports
 a result. Game rules and scores live in `ARTIFACT-CANONICAL.md`; layout
@@ -139,33 +139,47 @@ computed over the whole library. These filters read the advice, so they narrow
 rows and never change it.
 `verify:recommendation-filters` drives them on a real import.
 
-## 7. A stale result says so, and the user chooses who refreshes it
+## 7. Only Calculate answers the user; the game is answered at once
 
-In owned-stone mode, every artifact recommendation view includes the stone
-inventory in its calculation input. Spending the last stone invalidates its
-recommendations even when the attempted conversion leaves the artifact unchanged.
-Theoretical and no-conversion modes do not depend on the stone inventory.
+Every artifact recommendation view holds its last answer and tells two kinds of
+change apart, as Rune Clean-up does:
 
-A calculated table answers the settings and import it was calculated from.
-When either moves, it is marked **out of date** in every view, never presented
-as current. **Re-calculate** in Settings (`ArtifactSettings.recalculate`) has
-exactly one of two values:
+- **The user's standards** — the artifact Settings (`scoringSettings()`), the
+  Scenario profiles, and the chosen monster or artifact. A change here
+  calculates nothing. The result leaves the page and `calculationOutdated`
+  takes its place: *Something changed since the last calculation.* The held
+  answer stays in memory, so changing the standard back shows it again without
+  a new calculation. The notice reserves its line in every state, so nothing
+  under it moves when it appears.
+- **The game** — artifacts, monsters and engraved conversion stones arriving
+  by import or live sync. The table stays. Only what changed is scored again,
+  at once, and merged into the held answer: a new artifact is scored and added,
+  a changed one is re-scored, a removed one leaves the table, and every other
+  row keeps its figure. While the update runs, the held answer stays on screen
+  whole — drawn from the records it scored, never old scores beside new
+  records — and the report line reads *Catching up with the game…*.
 
-- **Manually** (default) — the result is kept and marked stale; Calculate
-  remains the way to a fresh one. A whole-library calculation is work the user
-  asked for.
-- **On change** — the calculation re-runs itself; the notice reports the
-  refresh under way. The complete previous result remains in place until its
-  replacement is ready, including the records and conversion inventory that
-  produced it. Never combine old scores with newly imported records or hide
-  rows during the wait. The notice reserves its space in every state. Choosing
-  another monster or artifact, clearing results and a failed calculation still
-  discard that result. All three artifact recommendation views share
-  `SettledCalculation` for this pending presentation.
+What a game change touches is decided pair by pair
+(`artifact-score-refresh.ts`): a pair is scored again when its packed artifact,
+its packed monster row, or — in owned-stone mode only — the stones engraved for
+the artifact's class moved. Spending the last stone therefore re-scores that
+class's artifacts even when the conversion left them unchanged; the
+theoretical and no-conversion modes never read the stone inventory. Each view
+merges at its own grain:
 
-The mode is not scoring input: `scoringSettings()` excludes it from the key a
-view compares its held result against, and lists its fields so a new setting
-must be classified on purpose. Auto-refresh never starts a *first* calculation,
-never runs while one is in flight, and never retries a failed one — an error
-clears the held result (`use-auto-recalculate.ts`,
-`verify:artifact-recalculate-mode`).
+- **Recommendations** re-scores the changed pairs into the held score matrix,
+  then runs the allocation again over the whole merged matrix, because one new
+  artifact can move another to a different monster and the plan must show it.
+- **Best artifact for this monster** re-scores the changed artifacts — all of
+  them if the chosen copy's own row moved — and re-ranks.
+- **Best monster for this artifact** re-scores the changed monster rows — all
+  of them if the artifact itself changed. The answer is about one artifact, so
+  an artifact the game removed takes the answer with it.
+
+An update never starts a first calculation, never runs beside Calculate, and a
+failed one is not retried until the game moves again; the report says so and
+Calculate remains the way past it. Clearing results and a failed Calculate
+discard the held answer. Leaving the page keeps each view's choices and answer
+for the session (`artifact-view-session.ts`), so a re-import from Home lands in
+the held table; another account or a reload starts afresh, and nothing
+calculated is written to preferences.

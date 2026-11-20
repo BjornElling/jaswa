@@ -93,7 +93,6 @@ try {
       ignoreInsignificantDifferences: false,
       insignificantDifference: 3,
       includeIntangibleArtifacts: true,
-      recalculate: 'manual',
     };
     const requests = buildArtifactScoreRequestsForMonsterIds(game, [...bySpecies.keys()], settings);
 

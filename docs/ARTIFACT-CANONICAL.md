@@ -856,7 +856,8 @@ page's whole job.
 ### 17.8 Views and tables
 
 The table, filter and staleness contracts of the artifact pages —
-sorting, the summary figures, Location before/after, Re-calculate — are in
+sorting, the summary figures, Location before/after, what a change does to a
+held result — are in
 `ACCOUNT-TABLES.md`. A backend that cannot answer must never answer zero:
 `HARDWARE-ACCELERATION.md`.
 

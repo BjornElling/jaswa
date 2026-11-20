@@ -1,4 +1,4 @@
-import type { ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, DirectImportMode, ImportRoute, Preferences, RunePotentialSettings } from '../model';
+import type { ArtifactConversionStoneMode, ArtifactSettings, DirectImportMode, ImportRoute, Preferences, RunePotentialSettings } from '../model';
 import { blankCraftIgnores } from './craft-ignores';
 import { blankCraftViewChoices } from './craft-view-choices';
 import { defaultRerollRules } from '../runes/rune-reapp-targets';
@@ -35,7 +35,6 @@ export const defaultRunePotentialSettings: RunePotentialSettings = {
    preferred/acceptable distinction stops meaning anything. */
 export const artifactAcceptableWorthChoices = [0, 25, 50, 75, 100] as const;
 export const artifactConversionStoneModes: ArtifactConversionStoneMode[] = ['none', 'owned', 'theoretical'];
-export const artifactRecalculateModes: ArtifactRecalculateMode[] = ['manual', 'on-change'];
 /* The band the significance rule uses, in whole percentage points of the score
    (`ARTIFACT-CANONICAL.md` §17.3). One point is the smallest difference the
    integer scores can express, so the range starts there rather than at zero:
@@ -56,11 +55,6 @@ export const defaultArtifactSettings: ArtifactSettings = {
   /* On: an Intangible fits the chosen monster like any other artifact, so
      excluding it would understate what the account can actually engrave. */
   includeIntangibleArtifacts: true,
-  /* Manual: a calculation over the whole library is work the user asked for,
-     and re-running it on every slider nudge would spend it without being
-     asked. The stale notice says the table is out of date; the button remains
-     the way to pay for a fresh one. */
-  recalculate: 'manual',
 };
 
 /* Live sync is what a user connecting the helper came for: the workspace shows

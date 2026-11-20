@@ -2,10 +2,10 @@ import { filterIncludes, filterIsUnrestricted } from '../../domain/shared/filter
 import { Fragment, useMemo, useState } from 'react';
 import { FilterButton } from '../../ui/button';
 import { CalculationActions, CalculationNote } from '../../ui/calculation-actions';
+import { GameRefreshNote, OutdatedNotice } from './calculation-notices';
 import { CalculationStatus } from '../../ui/calculation-status';
 import { useCancellableRun } from '../../ui/use-cancellable-run';
 import { isCalculationCancelled } from '../../workspace/jobs/cancellable-worker';
-import { SettledCalculation } from '../../ui/settled-calculation';
 import { Dropdown } from '../../ui/dropdown';
 import { ConvertedArtifactMark } from '../../ui/gear/converted-artifact-mark';
 import { UnrefinedArtifactMark } from '../../ui/gear/unrefined-artifact-mark';
@@ -19,7 +19,9 @@ import { buildArtifactScoreRequestsForMonsterIds } from '../../domain/artifacts/
 import { ConversionList } from './conversion-list';
 import { QualityRule } from '../../ui/quality-rule';
 import { qualityRuleHost } from '../../ui/quality-rule-host';
-import { useAutoRecalculate } from '../../ui/use-auto-recalculate';
+import { artifactScoreChanges, artifactScoreUpdateRequests, mergedArtifactScoreMatrix } from '../../domain/artifacts/score/artifact-score-refresh';
+import { useArtifactViewState } from './artifact-view-session';
+import { useGameRefresh } from './use-game-refresh';
 import { artifactPairScore, scoringSettings } from '../../domain/artifacts/artifact-recommendations';
 import { allocateArtifactPlacements } from '../../domain/artifacts/artifact-recommendation-allocation';
 import type { SortableColumn } from '../../ui/use-sorted-rows';
@@ -76,11 +78,22 @@ type ArtifactFilters = {
   adviceJoin: 'and' | 'or';
 };
 type OwnedMonster = { unitId: string; masterId: string; name: string };
-type CategoryCalculation = { request: ArtifactScoreRequest; result: ArtifactScoreResult };
+type CategoryCalculation = { request: ArtifactScoreRequest; matrix: Float32Array };
 type Allocation = { monster: OwnedMonster; value: number; conversions: readonly ArtifactConversion[] };
 type MonsterSlot = { monster: OwnedMonster; category: ArtifactCategory };
 type UnscoredSlot = MonsterSlot & { status: 'missing' | 'empty' };
-type Calculation = { inputKey: string; backend: CalculationBackend; durationMs: number; evaluatedPairs: number; ownedConversionCount: number; categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: readonly MonsterSlot[]; slotCount: number; unscoredSlots: readonly UnscoredSlot[] };
+/* `standardsKey` names the user's choices the answer was calculated under, and
+   `data` and `artifacts` the game it was calculated from. They are kept apart
+   because the two kinds of change are answered apart (`ACCOUNT-TABLES.md` §7).
+   The table is drawn from the artifacts the answer scored, so while a game
+   change is being merged in it shows the held answer whole, never old scores
+   beside new records. */
+type Calculation = {
+  standardsKey: string; data: GameRecord; artifacts: readonly Artifact[]; stones: readonly EngravedConversionStone[];
+  backend: CalculationBackend; durationMs: number; evaluatedPairs: number; ownedConversionCount: number;
+  categories: CategoryCalculation[]; allocations: Map<string, Allocation>; unfilledSlots: readonly MonsterSlot[];
+  slotCount: number; unscoredSlots: readonly UnscoredSlot[];
+};
 /* The view opens on the artifacts the plan would engrave. The pieces to sell
    stay one click away in the panel rather than filling the first screen with
    rows carrying no action. It is an ordinary filter, so toggling it off
@@ -158,8 +171,7 @@ function allocateArtifacts(
     allocation: Allocation;
   }> = [];
   for (const calculation of categories) {
-    const matrix = calculation.result.scoreMatrix;
-    if (!matrix) continue;
+    const matrix = calculation.matrix;
     /* A copy with a row of its own is read from it (§19.2); every other copy
        from its species' row. */
     const speciesIndexes = new Map<string, number>();
@@ -221,6 +233,11 @@ function allocateArtifacts(
   return { allocations, unfilledSlots, slotCount: slots.length };
 }
 
+function scoreMatrixOf(result: ArtifactScoreResult): Float32Array {
+  if (!result.scoreMatrix) throw new Error('An allocation request came back without its score matrix.');
+  return result.scoreMatrix;
+}
+
 function unscoredArtifactSlots(monsters: readonly OwnedMonster[]): UnscoredSlot[] {
   return monsters.flatMap((monster) => categoryOrder.flatMap((category) => {
     const status = artifactPreferenceStatus(monster.masterId, category);
@@ -267,8 +284,9 @@ function Score({ value, general }: { value: number | undefined; general: General
   return value === undefined ? '—' : <span {...artifactValueTint(value)}>{formatNumber(value, general)} %</span>;
 }
 
-export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
-  data: GameRecord | undefined;
+export function ArtifactMaximumValues({ account, data, artifacts, stones, monsters, scenarioProfiles, settings, general, hardwareAcceleration }: {
+  account: string | null;
+  data: GameRecord;
   artifacts: readonly Artifact[];
   stones: readonly EngravedConversionStone[];
   monsters: readonly GameRecord[];
@@ -277,8 +295,8 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
   general: GeneralSettings;
   hardwareAcceleration: boolean;
 }) {
-  const [filters, setFilters] = useState<ArtifactFilters>(defaultFilters);
-  const [calculation, setCalculation] = useState<Calculation | undefined>();
+  const [filters, setFilters] = useArtifactViewState<ArtifactFilters>('maximum-values.filters', account, defaultFilters);
+  const [calculation, setCalculation] = useArtifactViewState<Calculation | undefined>('maximum-values.calculation', account, undefined);
   const [state, setState] = useState<'idle' | 'calculating' | 'error'>('idle');
   const [error, setError] = useState<string | undefined>();
   /* The tiebreak is the artifact's own order (§17.1), never its position in the
@@ -297,14 +315,13 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
     return [...definitions.values()].sort((left, right) => monsterNameCollator.compare(left.name, right.name) || left.id - right.id);
   }, [artifacts]);
   const selectedSubPropertyId = subPropertyOptions.some((option) => String(option.id) === filters.subPropertyId) ? filters.subPropertyId : '';
-  const inputKey = JSON.stringify({
-    stones: settings.conversionStoneMode === 'owned' ? stones : [],
-    artifacts: artifacts.map((artifact) => [artifact.id, artifact.category, artifact.occupiedId, artifact.mainProperty, artifact.convertedPropertyIndex, ...artifact.subProperties.map((property) => [property.definition.id, property.valueHundredths, property.maximumHundredths])]),
-    monsters: scopedMonsters.map((monster) => [monster.unitId, monster.masterId]), scenarioProfiles, settings: scoringSettings(settings),
-  });
-  const currentCalculation = calculation?.inputKey === inputKey ? calculation : undefined;
-  const run = useCancellableRun(inputKey);
-  const visibleArtifacts = useMemo(() => artifacts.filter((artifact) => {
+  /* The user's choices only. The game's records are not part of it: a change
+     there is merged into the held answer rather than setting it aside. */
+  const standardsKey = JSON.stringify({ scenarioProfiles, settings: scoringSettings(settings) });
+  const currentCalculation = calculation?.standardsKey === standardsKey ? calculation : undefined;
+  const run = useCancellableRun(standardsKey);
+  const scoredArtifacts = currentCalculation?.artifacts ?? artifacts;
+  const visibleArtifacts = useMemo(() => scoredArtifacts.filter((artifact) => {
     const restriction = artifactEngraveClassLabel(artifact);
     return filterIncludes(filters.categories, artifact.category, categoryOrder)
       && filterIncludes(filters.restrictions, restriction, restrictionOptions)
@@ -312,7 +329,7 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
       && filterIncludes(filters.mainProperties, artifact.mainProperty, artifactMainPropertyOrder)
       && (!selectedSubPropertyId || artifact.subProperties.some((property) => String(property.definition.id) === selectedSubPropertyId))
       && filterIncludes(filters.locations, artifact.occupiedId === null ? 'inventory' : 'engraved', artifactLocations);
-  }), [artifacts, filters, selectedSubPropertyId]);
+  }), [scoredArtifacts, filters, selectedSubPropertyId]);
 
   function toggle(key: keyof ArtifactFilters, value: string) {
     setFilters((current) => ({ ...current, [key]: (current[key] as string[]).includes(value)
@@ -328,9 +345,16 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
     setState('idle');
   }
 
+  const scoreRequests = () => buildArtifactScoreRequestsForMonsterIds(data, scopedMonsters.map((monster) => monster.masterId), settings, undefined, scenarioProfiles)
+    .map((request) => ({ ...request, includeScoreMatrix: true }));
+  const plan = (categories: readonly CategoryCalculation[]) => ({
+    ownedConversionCount: Math.max(0, ...categories.map(({ request }) => request.ownedConversionPropertyIndexes.length)),
+    ...allocateArtifacts(categories, scopedMonsters, artifactOrder),
+    unscoredSlots: unscoredArtifactSlots(scopedMonsters),
+  });
+
   async function calculate() {
-    const requests = buildArtifactScoreRequestsForMonsterIds(data, scopedMonsters.map((monster) => monster.masterId), settings, undefined, scenarioProfiles)
-      .map((request) => ({ ...request, includeScoreMatrix: true }));
+    const requests = scoreRequests();
     if (!requests.length || !scopedMonsters.length) {
       setCalculation(undefined);
       setError('There is not enough artifact or monster data to make recommendations yet.');
@@ -343,16 +367,14 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
     setError(undefined);
     try {
       const results = await Promise.all(requests.map((request) => calculateArtifactScores(request, hardwareAcceleration, signal)));
-      const categories = requests.map((request, index) => ({ request, result: results[index] }));
+      const categories = requests.map((request, index) => ({ request, matrix: scoreMatrixOf(results[index]) }));
       setCalculation({
-        inputKey,
+        standardsKey, data, artifacts, stones,
         backend: combineCalculationBackends(results.map((result) => result.backend)),
         durationMs: results.reduce((total, result) => total + result.durationMs, 0),
         evaluatedPairs: results.reduce((total, result) => total + result.evaluatedPairs, 0),
-        ownedConversionCount: Math.max(...results.map((result) => result.ownedConversionCount)),
         categories,
-        ...allocateArtifacts(categories, scopedMonsters, artifactOrder),
-        unscoredSlots: unscoredArtifactSlots(scopedMonsters),
+        ...plan(categories),
       });
       setState('idle');
     } catch (failure) {
@@ -368,11 +390,41 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
     }
   }
 
-  useAutoRecalculate({
-    mode: settings.recalculate,
-    stale: calculation !== undefined && currentCalculation === undefined && !run.cancelledHere,
-    calculating: state === 'calculating',
-    calculate: () => void calculate(),
+  /* A change in the game re-scores only the pairs it touched — a new or changed
+     artifact against every monster, a new or changed monster row against every
+     artifact — and reads the rest from the held matrix. The allocation answers
+     for the whole library, so it runs again over the merged scores: that is how
+     one new artifact can move another to a different monster, and the table
+     shows it. */
+  async function refresh(held: Calculation, signal: AbortSignal): Promise<Calculation> {
+    const work = scoreRequests().map((request) => {
+      const before = held.categories.find((entry) => entry.request.artifacts[0]?.category === request.artifacts[0]?.category);
+      const updates = artifactScoreUpdateRequests(request, artifactScoreChanges(before?.request, request));
+      return { request, before, updates };
+    });
+    const results = await Promise.all(work.map(({ updates }) =>
+      Promise.all(updates.map((update) => calculateArtifactScores(update, hardwareAcceleration, signal)))));
+    const categories = work.map(({ request, before, updates }, index) => ({
+      request,
+      matrix: mergedArtifactScoreMatrix(before, request,
+        updates.map((update, at) => ({ request: update, matrix: scoreMatrixOf(results[index][at]) }))),
+    }));
+    const ran = results.flat();
+    return {
+      ...held, data, artifacts, stones, categories, ...plan(categories),
+      /* The report names the work this update did; an update with nothing to
+         score keeps the report of the run before it. */
+      ...(ran.length > 0 ? {
+        backend: combineCalculationBackends(ran.map((result) => result.backend)),
+        durationMs: ran.reduce((total, result) => total + result.durationMs, 0),
+        evaluatedPairs: ran.reduce((total, result) => total + result.evaluatedPairs, 0),
+      } : {}),
+    };
+  }
+
+  const gameRefresh = useGameRefresh({
+    held: currentCalculation, data, busy: state === 'calculating', refresh,
+    onRefreshed: (from, next) => setCalculation((current) => current === from ? next : current),
   });
 
   const buttonGroup =<T extends string>(label: string, key: keyof ArtifactFilters, values: readonly T[], display: (value: T) => string, className: string, dividerIndexes: readonly number[] = []) => <div className={`filter-group ${className}`} role="group" aria-label={label}>
@@ -540,6 +592,7 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
         canClear={calculation !== undefined || state === 'error'} onClear={clear}
         status={state === 'calculating' ? <CalculationNote tone="busy">Calculating…</CalculationNote>
           : state === 'error' ? <CalculationNote tone="failed">{error}</CalculationNote>
+            : gameRefresh !== 'current' ? <GameRefreshNote state={gameRefresh} />
             : currentCalculation
               /* The slot figures have to add up on the page: the total is every
                  slot the scope has, and the parts not filled are named beside
@@ -553,14 +606,7 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
         resets={<button type="button" className="filter-reset" aria-label="Reset recommendation filters"
           onClick={() => setFilters(defaultFilters)}>Reset filters</button>} />
     </div>
-    {/* In the on-change mode the recalculation is already under way, so the
-        notice reports it rather than asking for a button the user has told
-        JASWA not to make them press. */}
-    <p className="notice warning" role="status" style={{ visibility: calculation && !currentCalculation ? 'visible' : 'hidden' }}
-      aria-hidden={!calculation || Boolean(currentCalculation)}>{settings.recalculate === 'on-change'
-      ? 'Settings or imported data changed. Refreshing these recommendations…'
-      : 'Settings or imported data changed. Calculate again to refresh these recommendations.'}</p>
-    <SettledCalculation current={Boolean(currentCalculation)} retain={Boolean(calculation) && settings.recalculate === 'on-change'}>
+    <OutdatedNotice shown={calculation !== undefined && currentCalculation === undefined} />
     {currentCalculation && <>
       {/* "Left", not "found": the artifacts that would suit these slots
           usually exist, and the ranked pass gave them to monsters they suit
@@ -598,7 +644,7 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
           <td className={cellClass('value')}><Score value={row.allocation?.value} general={general} /></td>
           <td className={cellClass('conversion', row.allocation?.conversions.length ? '' : row.allocation ? 'artifact-recommendation-no-conversion' : 'muted')}>
             {row.allocation ? <ConversionList conversions={row.allocation.conversions} artifact={row.artifact}
-              stones={stones} mode={settings.conversionStoneMode} emptyClassName="artifact-recommendation-no-conversion" /> : '—'}
+              stones={currentCalculation.stones} mode={settings.conversionStoneMode} emptyClassName="artifact-recommendation-no-conversion" /> : '—'}
           </td>
           <td className={cellClass('refinement', 'artifact-recommendation-flag')}><UnrefinedArtifactMark unrefined={row.artifact.unrefined} /></td>
         </tr>)}</tbody>
@@ -614,6 +660,5 @@ export function ArtifactMaximumValues({ data, artifacts, stones, monsters, scena
             : 'Every artifact matching these filters is already where it does most good.'}
       </p>}
     </>}
-    </SettledCalculation>
   </div>;
 }

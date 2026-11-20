@@ -1,11 +1,11 @@
 import { WorkspacePage } from '../../ui/workspace-page';
 import { Disclosure, PageHeader } from '../../ui/page-chrome';
-import { CheckboxRow, OptionCard, RadioLine } from '../../ui/form-controls';
+import { CheckboxRow, OptionCard } from '../../ui/form-controls';
 import { ArtifactMaximumValues } from './artifact-maximum-values';
 import { BestArtifactForMonster } from './best-artifact-for-monster';
 import { BestMonsterForArtifact } from './best-monster-for-artifact';
 import { artifactAcceptableWorthChoices, artifactInsignificantDifferenceRange } from '../../domain/profiles/preference-defaults';
-import type { ArtifactConversionStoneMode, ArtifactRecalculateMode, ArtifactSettings, GeneralSettings } from '../../domain/model';
+import type { ArtifactConversionStoneMode, ArtifactSettings, GeneralSettings } from '../../domain/model';
 import type { GameRecord } from '../../domain/account/game-record';
 import type { AccountSnapshot } from '../../domain/account/account-snapshot';
 import type { Artifact } from '../../domain/artifacts/artifacts';
@@ -44,14 +44,6 @@ const conversionRollLabels: Readonly<Record<CraftRollAssumption, string>> = {
   maximum: 'Maximum — the best a conversion can roll',
 };
 
-/* Named for what the user does, not for what the program does: "On change" is
-   the event they can point at, and "Manually" is the answer they are choosing
-   between. The default sits second because it is the quieter of the two. */
-const recalculateOptions: Array<{ value: ArtifactRecalculateMode; label: string }> = [
-  { value: 'on-change', label: 'On change' },
-  { value: 'manual', label: 'Manually' },
-];
-
 /* The library is deliberately separate from this workspace: it answers what
    the account owns, while this page will answer what to change. Keeping those
    questions apart leaves the optimizer room for a clear, decision-first draft. */
@@ -80,6 +72,7 @@ export function ArtifactsSection({ settings, data, snapshot, monsters, scenarioP
      out would understate what the user holds, while valuing them would credit
      a conversion to a property no monster wants. */
   const stoneCounts = engravedConversionStoneCounts(data);
+  const account = snapshot?.accountId ?? null;
 
   return <WorkspacePage
     header={<PageHeader
@@ -92,17 +85,17 @@ export function ArtifactsSection({ settings, data, snapshot, monsters, scenarioP
     </section>}
 
     <Disclosure title="Recommendations" sessionKey="artifacts.recommendations">
-      {data ? <ArtifactMaximumValues data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
+      {data ? <ArtifactMaximumValues account={account} data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then ask every artifact where it can shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best monster for this artifact" sessionKey="artifacts.best-monster">
-      {data ? <BestMonsterForArtifact data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
+      {data ? <BestMonsterForArtifact account={account} data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then find the monster that can make an artifact shine.</p>}
     </Disclosure>
 
     <Disclosure title="Best artifact for this monster" sessionKey="artifacts.best-artifact">
-      {data ? <BestArtifactForMonster data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
+      {data ? <BestArtifactForMonster account={account} data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then compare artifacts against one monster at a time.</p>}
     </Disclosure>
 
@@ -247,24 +240,6 @@ export function ArtifactsSection({ settings, data, snapshot, monsters, scenarioP
             </p>
           </div>
         </div>
-
-        <div className="bar-divide" />
-
-        {/* Last, and on its own: every setting above states what a score means,
-            while this one only decides when the tables go and fetch it. */}
-        <section className="artifact-scope-box" aria-labelledby="artifact-recalculate-title">
-          <h3 id="artifact-recalculate-title">Results</h3>
-          <RadioLine<ArtifactRecalculateMode>
-            name="artifact-recalculate" legend="Re-calculate"
-            options={recalculateOptions}
-            current={settings.recalculate}
-            onChange={(value) => void onUpdate({ recalculate: value })} />
-          <p className="slider-note">
-            {settings.recalculate === 'on-change'
-              ? 'A calculated table re-runs itself whenever your settings or imported data change, so what you see is always current.'
-              : 'A calculated table is kept as it was and marked out of date when something changes, until you ask for it again.'}
-          </p>
-        </section>
       </div>
     </Disclosure>
   </WorkspacePage>;

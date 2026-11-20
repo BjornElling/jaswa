@@ -18,7 +18,7 @@ import type { FormerPresetTeam } from '../domain/profiles/speed-tuning-preferenc
 import { runeOptimizationSettingChecks } from '../domain/profiles/rune-optimization-settings';
 import { isBoolean, isOneOf, isWholeNumberIn, readSettings } from '../domain/profiles/preference-reading';
 import type { FieldChecks } from '../domain/profiles/preference-reading';
-import { artifactAcceptableWorthChoices, artifactConversionStoneModes, artifactRecalculateModes, artifactInsignificantDifferenceRange, blankPreferences } from '../domain/profiles/preference-defaults';
+import { artifactAcceptableWorthChoices, artifactConversionStoneModes, artifactInsignificantDifferenceRange, blankPreferences } from '../domain/profiles/preference-defaults';
 
 function isRecord(value: unknown): value is GameRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -41,7 +41,6 @@ const artifactSettingChecks: FieldChecks<ArtifactSettings> = {
   ignoreInsignificantDifferences: isBoolean,
   insignificantDifference: isWholeNumberIn(artifactInsignificantDifferenceRange.minimum, artifactInsignificantDifferenceRange.maximum),
   includeIntangibleArtifacts: isBoolean,
-  recalculate: isOneOf(artifactRecalculateModes),
 };
 
 /* Rules have a field-by-field reader of their own. */
