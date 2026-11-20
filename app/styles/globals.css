@@ -1820,7 +1820,10 @@ label[for] {
   text-align: center;
   transition: transform .16s ease, color .12s;
 }
-.bar[open] .bar-chevron { transform: rotate(90deg); color: var(--text-accent); }
+/* `>` rather than a descendant selector: a bar can hold bars (Relic
+   Optimization inside Artifact Optimization), and an open outer bar must not
+   paint its closed children as open. */
+.bar[open] > .bar-head .bar-chevron { transform: rotate(90deg); color: var(--text-accent); }
 .bar-head:hover .bar-chevron { color: var(--text); }
 
 .bar-head b {
@@ -1828,12 +1831,14 @@ label[for] {
   min-width: 0;
   color: var(--text-strong);
 }
-.bar[open] .bar-head b { color: var(--text-accent); }
+.bar[open] > .bar-head b { color: var(--text-accent); }
 
 .bar-body {
   padding: var(--s5);
   border-top: 1px solid var(--line);
 }
+/* Bars inside a bar: the same column rhythm as the page, one step apart. */
+.bar-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); min-width: 0; }
 
 /* The examples get their own quiet plate so an equation is easy to find without
    turning the page into a second kind of dashboard. The copy itself takes the
@@ -6544,7 +6549,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
    the space that follows. The column is wide enough for the longest legend so
    every row's options start at the same x, and the whole panel reads as a
    short list of questions rather than three stacked blocks of prose. */
-.setting-line, .radio-line {
+.radio-line {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr);
   align-items: center;
@@ -6620,44 +6625,42 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 }
 .jaswa-select:disabled:hover { background-color: var(--sunk); }
 
-/* .text-link is written for an anchor, which carries no chrome of its own. As
-   a button it needs the browser's default box taken back off before the link
-   treatment reads. */
-.setting-line .text-link {
-  background: none;
-  border: 0;
-  padding: 0;
-  font-size: var(--type-body);
-  cursor: pointer;
-}
-/* Nothing to reset to: the control keeps its box and says so by weight, so the
-   row does not resize when a folder is chosen. */
-.setting-line .text-link:disabled {
-  color: var(--text-muted);
-  text-decoration-color: var(--text-muted);
-  cursor: not-allowed;
-}
-.setting-line .text-link:disabled:hover { color: var(--text-muted); }
-/* A reserved column, not a content-sized box: the name changes with every
-   folder the user picks and gains "(default)" when there is none, and anything
-   after it on the row would otherwise sit in a different place each time. Wide
-   enough for the longest state it shows by default; a longer name wraps inside
-   the box rather than widening it. */
-.folder-name {
-  flex: 0 0 auto;
-  width: 30ch;
+/* The save folder reads as a path field with its actions beside it. The field
+   is the flexible part and the buttons are fixed, so a folder name of any
+   length — or "(default)" coming and going — never moves Choose or Reset. */
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
   min-width: 0;
-  overflow-wrap: anywhere;
-  color: var(--text);
 }
+.folder-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 0 var(--s3);
+  background: var(--sunk);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-strong);
+}
+.folder-field-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-icon {
+  flex: 0 0 auto;
+  width: 16px; height: 16px;
+  fill: none; stroke: var(--text-muted); stroke-width: 1.25; stroke-linejoin: round;
+}
+.folder-row > .button { flex: 0 0 auto; }
 /* The parenthetical is a note about the value, not part of it. */
 .value-note { color: var(--text-muted); }
-
-@media (min-width: 1921px) and (max-width: 760px) {
-  /* Below the fold of the fixed column the row stacks anyway, so the reserved
-     width would only force a horizontal scroll. */
-  .folder-name { width: auto; }
-}
 
 /* The value a setting currently holds, set in the figure face the rest of the
    app uses for data. */
@@ -6681,7 +6684,7 @@ tr[data-opens-row] .monster-link:hover:not(:focus-visible) .monster-name { color
 /* Narrow: the legend takes its own line above the options rather than
    squeezing them into what is left of the row. */
 @media (min-width: 1921px) and (max-width: 760px) {
-  .setting-line, .radio-line { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
+  .radio-line { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
   .zone-select .jaswa-select { width: 100%; }
 }
 

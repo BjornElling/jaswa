@@ -3,7 +3,7 @@ import type { Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
 /**
- * Monster Stats reads one context at a time (`docs/DECK-PRESETS.md` §5): it
+ * Monster Overview reads one context at a time (`docs/DECK-PRESETS.md` §5): it
  * opens on Scenario, and a chosen preset lists its own team with the runes each
  * member carries there, never Scenario's.
  */
@@ -45,7 +45,7 @@ test('opens on Scenario and reads a chosen preset from its own runes', async ({ 
     name: 'preset-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(withDeck)),
   });
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Monster Overview', exact: true })).toBeVisible();
 
   const content = page.getByLabel('Content', { exact: true });
   const area = page.getByLabel('Area', { exact: true });

@@ -13,7 +13,7 @@ export function MonsterNumbers(props: {
   onOpenMonster: OpenMonsterOverlay;
 }) {
   return <WorkspacePage header={<PageHeader
-    title="Monster Numbers"
+    title="Monster Usage"
     tagline="A menagerie of statistics, storage, and questionable life choices." />}
   >
     <MonsterStorage {...props} />

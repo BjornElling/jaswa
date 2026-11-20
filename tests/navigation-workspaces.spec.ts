@@ -18,15 +18,16 @@ for (const populated of [false, true]) {
     });
     await expect(group('Monsters').getByRole('button')).toHaveText(['♜Overview', '♜Usage']);
     await expect(group('Rune Optimization').getByRole('button')).toHaveText([
-      '⇅Presets', '↝Speed tuning', '◈Optimization', '✦Gems & grinds',
+      '◈Optimization', '⇅Presets', '↝Speed tuning', '✦Gems & grinds',
     ]);
     await expect(group('General').getByRole('button')).toHaveText(['⌂Home', '⚙Settings']);
-    await expect(group('Rune Clean-up').getByRole('button')).toHaveText([
-      '◌Clean-up', '↻Simulator',
-    ]);
+    await expect(group('Rune Clean-up').getByRole('button')).toHaveText(['◌Clean-up']);
+    await expect(group('Artifacts').getByRole('button')).toHaveText(['◇Overview', '◆Optimization']);
+    await expect(group('Technical').getByRole('button')).toHaveText(['※The Math', '↻Simulator']);
+    await expect(rail.locator('.rail-heading', { hasText: 'Relics' })).toHaveCount(0);
 
     await rail.getByRole('button', { name: 'Monster Overview', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Monster Overview', exact: true })).toBeVisible();
     await expect(page.locator('summary')).toHaveCount(0);
     if (populated) await expect(page.getByRole('table', { name: 'Monster stats', exact: true })).toBeVisible();
     else await expect(page.getByText('Nothing to show until a game file is imported.')).toBeVisible();
@@ -34,7 +35,7 @@ for (const populated of [false, true]) {
     await page.screenshot({ path: testInfo.outputPath('stats-before.png') });
 
     await rail.getByRole('button', { name: 'Monster Usage', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Monster Numbers', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Monster Usage', exact: true })).toBeVisible();
     await expect(page.locator('summary')).toHaveCount(0);
     if (populated) await expect(page.getByRole('table', { name: 'Monster numbers', exact: true })).toBeVisible();
     else await expect(page.getByText('Import your game data first. Your monsters will appear here when JASWA has an account to inspect.')).toBeVisible();

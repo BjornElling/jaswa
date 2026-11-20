@@ -6,7 +6,7 @@
  * Arena defense (`deck-presets.ts`) — or the crown's on a preset built here, so
  * the only lead the user still types is Scenario's, which is no team and has no
  * leader. Every reader of a preset's fight takes its leads from here: the
- * profile's *Leads and bonuses*, the composites on Monster Stats, Rune
+ * profile's *Leads and bonuses*, the composites on Monster Overview, Rune
  * Optimization, and the speed leads Speed Tuning counts.
  */
 import { areaElementAdvantage } from './element-advantage';

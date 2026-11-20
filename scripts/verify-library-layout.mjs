@@ -30,8 +30,8 @@ const railButton = (name) => page.getByRole('navigation').getByRole('button', { 
 try {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
 
-  for (const pageName of ['Monster Stats', 'Artifacts', 'Gems & Grinds']) {
-    await railButton(pageName === 'Monster Stats' ? 'Monster Overview' : pageName).click();
+  for (const pageName of ['Monster Overview', 'Artifacts', 'Gems & Grinds']) {
+    await railButton(pageName).click();
     await page.getByRole('heading', { name: pageName, exact: true }).waitFor();
     await assert.doesNotReject(() => page.getByText('Nothing to show until a game file is imported.').first().waitFor());
   }
@@ -46,8 +46,8 @@ try {
     await page.setViewportSize({ width, height: 900 });
     /* The toggle is whichever filter chip that page keeps in its strip: every
        library must be able to take a click on one without its heading moving. */
-    for (const [pageName, toggleName] of [['Monster Stats', 'Storage'], ['Artifacts', 'Engraved'], ['Gems & Grinds', 'Usable']]) {
-      await railButton(pageName === 'Monster Stats' ? 'Monster Overview' : pageName).click();
+    for (const [pageName, toggleName] of [['Monster Overview', 'Storage'], ['Artifacts', 'Engraved'], ['Gems & Grinds', 'Usable']]) {
+      await railButton(pageName).click();
       /* Gems & Grinds keeps its table under Your box, closed until opened. */
       if (pageName === 'Gems & Grinds') {
         const box = page.locator('details.bar').filter({ has: page.locator('summary', { hasText: 'Your box' }) });
@@ -182,7 +182,7 @@ try {
   assert(!recommendationHeaders.includes('#'),
     'The recommendation table must not show an artifact number.');
 
-  console.log('Verified empty and imported library states across Monster Stats, Artifacts and Gems & Grinds, shared table measure, fixed filter interaction, the Include group beside Location, artifact settings, and the recommendation table fitting its container.');
+  console.log('Verified empty and imported library states across Monster Overview, Artifacts and Gems & Grinds, shared table measure, fixed filter interaction, the Include group beside Location, artifact settings, and the recommendation table fitting its container.');
 } finally {
   await browser.close();
 }

@@ -11,9 +11,9 @@ test('simulates random runes through +0, +9, +12 and +15, spending no craft with
   await page.locator('main summary').filter({ hasText: 'Runes' }).click();
   await expect(page.locator('#enchanted-gems, #grindstones')).toHaveCount(0);
 
-  /* The simulator is a Rune Clean-up tool, judged by the Clean-up engine beside it. */
-  const runes = page.locator('.rail-group').filter({ has: page.locator('.rail-heading', { hasText: 'Rune Clean-up' }) });
-  await runes.getByRole('button', { name: 'Rune Simulator', exact: true }).click();
+  /* The simulator is a workbench for the Clean-up engine, so it sits under Technical. */
+  const technical = page.locator('.rail-group').filter({ has: page.locator('.rail-heading', { hasText: 'Technical' }) });
+  await technical.getByRole('button', { name: 'Rune Simulator', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Rune Simulator', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Nothing generated yet.', exact: true })).toBeVisible();
   /* The one canonical credit, the same in every rune judgement. */

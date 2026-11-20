@@ -1,4 +1,4 @@
-import { expect, openSettingsBar, test } from './test-fixtures';
+import { expect, openRelicOptimization, openSettingsBar, test } from './test-fixtures';
 import type { Page } from './test-fixtures';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,7 @@ async function importAccount(page: Page, file: string) {
 }
 
 async function openRelics(page: Page) {
-  await page.getByRole('button', { name: 'Relic Optimization', exact: true }).click();
+  await openRelicOptimization(page);
   await expect(page.getByRole('table', { name: 'Relic library', exact: true })).toBeVisible();
 }
 
@@ -439,9 +439,11 @@ test('a Trash relic centres its explanation without moving the table', async ({ 
   const row = rowFor(page, 'per 2,000 ATK');
   const reason = row.locator('td').last();
   await expect(reason.locator('.relic-landing')).not.toHaveText('');
+  /* In page coordinates: the relic bars sit low on Artifact Optimization, so
+     the window's scroll on return is not the table's doing. */
   const geometry = () => rows(page).evaluateAll((entries) => entries.map((entry) => {
     const { x, y, width, height } = entry.getBoundingClientRect();
-    return { x, y, width, height };
+    return { x: x + window.scrollX, y: y + window.scrollY, width, height };
   }));
   const centreOffset = () => reason.evaluate((entry) => {
     const lines = [...entry.querySelectorAll('.relic-advice-reason, .relic-landing')]

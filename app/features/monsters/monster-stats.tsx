@@ -378,7 +378,7 @@ export function MonsterStats({ monsters, gameData, snapshot, presets, preference
 
   return <WorkspacePage
     header={<PageHeader
-      title="Monster Stats"
+      title="Monster Overview"
       tagline="Everything wrong with your monsters, gathered in one place." />}
   >
       {!monsters.length ? <section className="empty-state">

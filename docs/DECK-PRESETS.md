@@ -355,7 +355,7 @@ and Scenario have separate profiles, even when they hold the same copy.
 - Removing a monster from a team or deleting a team leaves its area profile
   intact, including when it was the area's last team, so re-importing the team
   uses the user's choices again.
-- Presets, Monster Stats, Rune Optimization and Speed Tuning resolve nicknames
+- Presets, Monster Overview, Rune Optimization and Speed Tuning resolve nicknames
   and profile choices through the team's content-area. Scenario-only artifact,
   relic and rune workspaces read Scenario's profile.
 - The overlay's *Build for* offers Scenario and each area once, without a team
@@ -407,14 +407,14 @@ an import, and are checked one preset at a time on load.
   only on Scenario and on a preset with no monsters.
 
 **Opening a monster.** A monster opened from a place about one preset — a
-preset's list, a Speed Tuning team, a row of Monster Stats, a rune engraved in
+preset's list, a Speed Tuning team, a row of Monster Overview, a rune engraved in
 one preset, a build — opens its overlay on that preset, and *Save and
 optimize* there opens Rune Optimization on it. A monster opened from a place
-about no preset — Monster Numbers, an artifact, a relic — opens on Scenario,
+about no preset — Monster Usage, an artifact, a relic — opens on Scenario,
 which is what those pages show. Opening the overlay leaves the preset chosen
 across the program alone; only *Save and optimize* changes it.
 
-**Choosing a gear context.** Presets and Monster Stats share *Content*, *Area*
+**Choosing a gear context.** Presets and Monster Overview share *Content*, *Area*
 and *Preset*: `PresetChooser` draws the fields and `preset-choice.ts` resolves
 the choice. Rune Optimization offers Scenario and every preset in one list.
 A page that makes presets — Presets — offers every content, empty ones
@@ -476,14 +476,14 @@ page lays out and judges a team is `SPEED-TICK-CANONICAL.md` §9.
 Artifact Optimization and its value columns plan Scenario: which artifact a
 monster carries in Scenario and what to engrave, keep or sell there.
 
-**Monster Stats** reads one context at a time. The chooser sits above the
+**Monster Overview** reads one context at a time. The chooser sits above the
 filters, ruled off from them, offering only contents with presets, and the page
 opens on Scenario. The table lists the chosen preset's team in its own order,
 each copy with the runes and artifacts it carries there and Scenario's relic, so
 sets, stats and composites are the preset's and never Scenario's. The choice is
 not a filter: *Reset filters* leaves it alone.
 
-**Monster Numbers** shows Scenario and the number of presets each monster
+**Monster Usage** shows Scenario and the number of presets each monster
 belongs to.
 
 ## 6. Verification

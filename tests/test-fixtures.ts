@@ -28,3 +28,9 @@ export async function openSettingsBar(page: Page, title: string) {
   const bar = page.locator('main details.bar').filter({ has: page.locator('summary', { hasText: title }) }).first();
   if (!await bar.evaluate((element) => (element as HTMLDetailsElement).open)) await bar.locator('summary').click();
 }
+
+/* Relic Optimization is the last bar on Artifact Optimization, not a page. */
+export async function openRelicOptimization(page: Page) {
+  await page.getByRole('navigation').getByRole('button', { name: 'Artifact Optimization', exact: true }).click();
+  await openSettingsBar(page, 'Relic Optimization');
+}

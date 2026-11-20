@@ -30,9 +30,10 @@ const zoneOptions: Array<{ value: TimeZoneChoice; label: string }> = [
 ];
 
 /**
- * Where exported files are written. The folder is shown before the button that
- * changes it: the current state is what the user came to check, and the action
- * follows from it.
+ * Where exported files are written, read like a path field: the folder in a
+ * sunk box, and the two ways of changing it beside it on the same line. It sits
+ * where the Export/import card beside it keeps its buttons, so the pair reads
+ * as one row of actions under two short explanations.
  */
 function SaveLocation({ saveFolder, canChooseFolder, onChooseFolder, onForgetFolder }: {
   saveFolder: string | null;
@@ -46,31 +47,28 @@ function SaveLocation({ saveFolder, canChooseFolder, onChooseFolder, onForgetFol
       downloads. Chrome and Edge support it; Firefox and Safari do not.
     </p>;
   }
-  return <div className="stack tight">
-    <p className="setting-line">
-      <span className="radio-line-legend">Current</span>
-      <span className="radio-line-options">
-        {/* The name column is reserved rather than content-sized: a folder can
-            be called anything, and "(default)" is present in one state only, so
-            a box that fitted its contents would put Reset in a different place
-            for every folder the user picks. */}
-        <span className="sample-value folder-name">
-          {saveFolder ?? 'Browser downloads'}
-          {/* Marks the state the app falls back to when no folder is set. */}
-          {!saveFolder && <span className="value-note"> (default)</span>}
-        </span>
-        {/* Present in both states so the row does not resize on the day a
-            folder is chosen; without one there is nothing to reset to. */}
-        <button className="text-link" onClick={onForgetFolder} disabled={!saveFolder}>Reset</button>
+  return <div className="folder-row">
+    {/* The field takes what the buttons leave and ellipsises a long name, so
+        no folder the user picks can move the buttons after it. */}
+    <span className="folder-field" title={saveFolder ?? 'Browser downloads'}>
+      <FolderIcon />
+      <span className="folder-field-name" aria-label="Current file location">
+        {saveFolder ?? 'Browser downloads'}
+        {/* Marks the state the app falls back to when no folder is set. */}
+        {!saveFolder && <span className="value-note"> (default)</span>}
       </span>
-    </p>
-    <p className="setting-line">
-      <span className="radio-line-legend" />
-      <span className="radio-line-options">
-        <Button size="compact" onClick={onChooseFolder}>Choose folder…</Button>
-      </span>
-    </p>
+    </span>
+    <Button onClick={onChooseFolder}>Choose folder…</Button>
+    {/* Present in both states so the row does not resize on the day a folder
+        is chosen; without one there is nothing to reset to. */}
+    <Button onClick={onForgetFolder} disabled={!saveFolder}>Reset</Button>
   </div>;
+}
+
+function FolderIcon() {
+  return <svg className="folder-icon" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M1.5 4.5v8h13v-6.5h-6.5l-1.5-1.5z" />
+  </svg>;
 }
 
 export function GeneralSettings({ settings, saveFolder, canChooseFolder, onChange, onChooseFolder, onForgetFolder, onExport, onImport }: {

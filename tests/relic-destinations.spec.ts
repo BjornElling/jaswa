@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { expect, openRelicOptimization, test } from './test-fixtures';
 import type { Locator, Page } from './test-fixtures';
 import { basename } from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -18,7 +18,7 @@ async function importAccount(page: Page, variant?: (account: Record<string, unkn
     name: basename(relicAccount), mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
   });
   await expect(page.getByText(basename(relicAccount))).toBeVisible();
-  await page.getByRole('button', { name: 'Relic Optimization', exact: true }).click();
+  await openRelicOptimization(page);
   await expect(page.getByRole('table', { name: 'Relic library', exact: true })).toBeVisible();
 }
 

@@ -39,7 +39,7 @@ async function importAccount(page: Page, variant?: (account: Record<string, unkn
 
 async function monsterLinks(page: Page): Promise<Locator> {
   await page.getByRole('button', { name: 'Monster Overview', exact: true }).first().click();
-  await expect(page.getByRole('heading', { name: 'Monster Stats' }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Monster Overview' }).first()).toBeVisible();
   const links = page.locator('.monster-link');
   await expect(links.first()).toBeVisible();
   return links;

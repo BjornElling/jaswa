@@ -10,7 +10,7 @@ test('opens an empty local workspace and preserves navigation layout', async ({ 
   await expect(page.getByRole('heading', { name: 'Just Another Summoners War App' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Monster Overview', exact: true })).toBeVisible();
 
   await expect(page.getByText('Nothing to show until a game file is imported.')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('empty-monsters.png') });

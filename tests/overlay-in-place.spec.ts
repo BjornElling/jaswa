@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { expect, openSettingsBar, test } from './test-fixtures';
 import type { Locator, Page } from './test-fixtures';
 import { readFileSync } from 'node:fs';
 
@@ -24,7 +24,7 @@ const account = {
 
 /* Every page the rail offers, by the name its button carries. */
 const pages = ['Home', 'Settings', 'Monster Overview', 'Monster Usage', 'Presets', 'Speed Tuning', 'Rune Optimization', 'Gems & Grinds',
-  'Rune Clean-up', 'Artifacts', 'Artifact Optimization', 'Relic Optimization', 'The Math'];
+  'Rune Clean-up', 'Artifacts', 'Artifact Optimization', 'The Math'];
 
 /* The openers each of these pages is known to carry, so the sweep can never pass by finding none. */
 const expected: Record<string, readonly RegExp[]> = {
@@ -106,6 +106,12 @@ test('every overlay opener opens its overlay over the page it sits on', async ({
 
   for (const name of pages) {
     await goTo(page, name);
+    /* Relic Optimization lives in bars at the foot of this page; open them so
+       its monster links are swept with the rest. */
+    if (name === 'Artifact Optimization') {
+      await openSettingsBar(page, 'Relic Optimization');
+      await openSettingsBar(page, 'Use for mons');
+    }
     for (const pattern of expected[name] ?? []) {
       await expect(page.locator('main').getByRole('button', { name: pattern }).first(), `${name} carries ${pattern}`).toBeEnabled();
     }

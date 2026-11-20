@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { WorkspacePage } from '../../ui/workspace-page';
 import { Disclosure, PageHeader } from '../../ui/page-chrome';
 import { ArtifactMaximumValues } from './artifact-maximum-values';
@@ -20,7 +21,10 @@ const noConversionStones: readonly EngravedConversionStone[] = [];
    library and the monster overlay read the same settings, so they belong to
    no one page. */
 
-export function ArtifactsSection({ settings, data, snapshot, monsters, scenarioProfiles, general, hardwareAcceleration }: {
+export function ArtifactsSection({ settings, data, snapshot, monsters, scenarioProfiles, general, hardwareAcceleration, relics }: {
+  /** Relic Optimization, supplied by the shell so this page does not have to
+      carry everything the relic views read. */
+  relics: ReactNode;
   settings: ArtifactSettings;
   data: GameRecord | undefined;
   snapshot: AccountSnapshot | undefined;
@@ -56,6 +60,13 @@ export function ArtifactsSection({ settings, data, snapshot, monsters, scenarioP
     <Disclosure title="Best artifact for this monster" sessionKey="artifacts.best-artifact">
       {data ? <BestArtifactForMonster account={account} data={data} artifacts={artifacts} stones={conversionStones} monsters={monsters} scenarioProfiles={scenarioProfiles} settings={settings} general={general}
         hardwareAcceleration={hardwareAcceleration} /> : <p className="lead">Import your game data first, then compare artifacts against one monster at a time.</p>}
+    </Disclosure>
+
+    {/* Last, because it answers about other gear. `deferContent` keeps the
+        relic code — and the engraving statistics behind its roster — unloaded
+        until the bar is opened. */}
+    <Disclosure title="Relic Optimization" sessionKey="artifacts.relics" deferContent>
+      {relics}
     </Disclosure>
   </WorkspacePage>;
 }

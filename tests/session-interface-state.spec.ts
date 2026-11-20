@@ -18,7 +18,7 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
 
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Monster Overview', exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Filter monsters by name or set' }).fill('water');
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
   await page.getByRole('textbox', { name: 'Filter Numbers monsters by name' }).fill('fairy');
@@ -62,7 +62,7 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
   await expect(page.getByRole('textbox', { name: 'Filter artifacts by monster or property' })).toHaveValue('hp');
 
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Monster Overview', exact: true })).toBeVisible();
   await expect(page.locator('summary').filter({ hasText: 'Stats' })).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Filter monsters by name or set' })).toHaveValue('water');
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
@@ -78,7 +78,7 @@ test('keeps navigation, disclosures, and table filters in the current tab only',
     const runeGroup = newTab.locator('.rail-group').filter({ has: newTab.locator('.rail-heading', { hasText: 'Rune Clean-up' }) });
     await expect(runeGroup.locator('.rail-item').first()).toHaveAttribute('aria-label', 'Rune Clean-up');
     await newTab.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
-    await expect(newTab.getByRole('heading', { name: 'Monster Stats', exact: true })).toBeVisible();
+    await expect(newTab.getByRole('heading', { name: 'Monster Overview', exact: true })).toBeVisible();
     await expect(newTab.locator('details[open]')).toHaveCount(0);
 
     await expect(newTab.getByRole('textbox', { name: 'Filter monsters by name or set' })).toHaveValue('');

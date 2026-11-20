@@ -1,11 +1,11 @@
-import { expect, test } from './test-fixtures';
+import { expect, openSettingsBar, test } from './test-fixtures';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-const cases = [
+const cases: Array<{ name: string; fixture: string; nav: string; bar?: string; group: string; table: string; first: string; second: string }> = [
   { name: 'Stats', fixture: 'storage-location-account.json', nav: 'Monster Overview', group: 'Choose which monsters to include', table: 'Monster stats', first: 'Monsters outside Monster Storage', second: 'Storage' },
   { name: 'Artifacts', fixture: 'awakening-search-account.json', nav: 'Artifacts', group: 'Choose artifact locations', table: 'Artifact library', first: 'Engraved', second: 'Inventory' },
-  { name: 'Relics', fixture: 'relic-account.json', nav: 'Relic Optimization', group: 'Filter by engraved', table: 'Relic library', first: 'Yes', second: 'No' },
+  { name: 'Relics', fixture: 'relic-account.json', nav: 'Artifact Optimization', bar: 'Relic Optimization', group: 'Filter by engraved', table: 'Relic library', first: 'Yes', second: 'No' },
 ];
 for (const entry of cases) test(`${entry.name}: no Location choice and both choices show the same rows`, async ({ page }, testInfo) => {
   await page.goto('/');
@@ -17,6 +17,7 @@ for (const entry of cases) test(`${entry.name}: no Location choice and both choi
   });
   await expect(page.locator('.import-badge')).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: entry.nav, exact: true }).click();
+  if (entry.bar) await openSettingsBar(page, entry.bar);
   const group = page.getByRole('group', { name: entry.group, exact: true });
   const rows = page.getByRole('table', { name: entry.table, exact: true }).locator('tbody tr');
   await expect(rows.first()).toBeVisible();

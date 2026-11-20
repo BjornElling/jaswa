@@ -3,7 +3,7 @@ import { lazy, Suspense, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { FilterButton } from '../../ui/button';
 import type { OpenMonsterOverlay } from '../../ui/gear/monster-link';
-import { Disclosure, PageHeader } from '../../ui/page-chrome';
+import { Disclosure } from '../../ui/page-chrome';
 import { DataTablePage, TableColumnGroup } from '../../ui/data-table-page';
 import { FilterSummary } from '../../ui/filter-summary';
 import { SortableHeader } from '../../ui/sortable-table';
@@ -11,7 +11,6 @@ import { useSortedRows } from '../../ui/use-sorted-rows';
 import type { SortableColumn } from '../../ui/use-sorted-rows';
 import { RangeSlider } from '../../ui/range-slider';
 import { RelicDurabilityMark, RelicLevelMark, RelicSynergyFilterMark, RelicSynergyMark } from './relic-marks';
-import { WorkspacePage } from '../../ui/workspace-page';
 import { columnClasses, relicTableColumns } from '../../ui/table-layouts';
 import type { GameRecord } from '../../domain/account/game-record';
 import type { ImportedGame, Preferences } from '../../domain/model';
@@ -250,13 +249,10 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
      account and answers keep, power up, or sell; the roster asks which relic
      each monster should have engraved. They share the relics and nothing else —
      different rows, different filters, different arithmetic — so they are
-     separate disclosures rather than one table with a mode switch. */
-  return <WorkspacePage
-    header={<PageHeader
-      title="Relic Optimization"
-      tagline={"I'm only required to judge your relics. Silently judging your life choices "
-        + 'at the same time is voluntary.'} />}
-  >
+     separate disclosures rather than one table with a mode switch. Both sit
+     inside Artifact Optimization's Relic Optimization bar, which supplies the
+     frame (`artifacts-section.tsx`). */
+  return <div className="bar-stack">
     <Disclosure title="Power up/Keep/Sell" sessionKey="relics.library" defaultOpen>
       {!relics.length ? noRelics : <div className="relic-library">
       <DataTablePage
@@ -367,5 +363,5 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
           <RelicMonsterList relics={relics} monsters={monsters} preferences={preferences} onOpenMonster={onOpenMonster} />
         </Suspense>}
     </Disclosure>
-  </WorkspacePage>;
+  </div>;
 }

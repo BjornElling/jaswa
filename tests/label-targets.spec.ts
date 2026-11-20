@@ -18,7 +18,10 @@ async function importAccount(page: Page, file: string) {
 async function openEverything(page: Page, name: string) {
   await page.getByRole('button', { name }).first().click();
   await expect(page.getByRole('heading', { name })).toBeVisible();
-  for (const bar of await page.locator('summary').all()) await bar.click().catch(() => {});
+  /* Until none is shut: opening a bar can reveal bars inside it, such as
+     Relic Optimization's two on Artifact Optimization. */
+  const shut = page.locator('main details:not([open]) > summary');
+  for (let left = 40; left > 0 && await shut.count() > 0; left -= 1) await shut.first().click();
 }
 
 /**
@@ -37,7 +40,7 @@ test('no label claims hover and clicks for a control across empty space', async 
   await importAccount(page, artifactAccount);
 
   const offenders: string[] = [];
-  for (const name of ['Artifacts', 'Artifact Optimization', 'Rune Clean-up', 'Relic Optimization', 'Settings']) {
+  for (const name of ['Artifacts', 'Artifact Optimization', 'Rune Clean-up', 'Settings']) {
     await openEverything(page, name);
     offenders.push(...await page.evaluate((where) => {
       const found: string[] = [];

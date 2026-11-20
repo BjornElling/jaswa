@@ -717,6 +717,9 @@ export default function Home() {
         scenarioProfiles={profilesIn(preferences.monsterPreferences, scenarioPresetId)}
         general={preferences.general}
         hardwareAcceleration={preferences.hardwareAcceleration}
+        relics={<Suspense fallback={<p className="lead">Reading your relics…</p>}>
+          <RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} />
+        </Suspense>}
       /></Suspense>}
 
       {page === 'settings' && <Suspense fallback={<WorkspaceLoading />}><SettingsSection
@@ -751,8 +754,6 @@ export default function Home() {
         hardwareAcceleration={preferences.hardwareAcceleration}
         onOpenRune={openRuneOverlay}
       /></Suspense>}
-
-      {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'gems' && <Suspense fallback={<WorkspaceLoading />}><GemsSection
         game={game}

@@ -1,4 +1,4 @@
-export type Page = 'home' | 'monster-stats' | 'monster-numbers' | 'artifact-list' | 'optimizer' | 'speed' | 'presets' | 'potential' | 'artifacts' | 'gems' | 'relics' | 'settings' | 'the-math' | 'rune-simulator';
+export type Page = 'home' | 'monster-stats' | 'monster-numbers' | 'artifact-list' | 'optimizer' | 'speed' | 'presets' | 'potential' | 'artifacts' | 'gems' | 'settings' | 'the-math' | 'rune-simulator';
 export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 
 /* `label` is what the rail shows, under a heading that supplies the subject.
@@ -11,7 +11,7 @@ export type NavigationItem = { id: Page; label: string; name: string; glyph: str
 
 /* The rail groups by subject, so each entry only has to name what it does to
    that subject: the heading above it supplies the noun. `label` is therefore
-   short enough to repeat across groups — three of them are "Optimization" —
+   short enough to repeat across groups — two of them are "Optimization" —
    and it is the page's own heading, not this label, that states the full name
    for a reader who has scrolled past the rail. */
 export const navigationGroups: Array<{ heading: string; items: NavigationItem[] }> = [
@@ -35,9 +35,11 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
   {
     heading: 'Rune Optimization',
     items: [
+      /* The build search leads: it is what the group is named after, and
+         Presets and Speed tuning are the inputs it reads. */
+      { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
       { id: 'presets', label: 'Presets', name: 'Presets', glyph: '⇅' },
       { id: 'speed', label: 'Speed tuning', name: 'Speed Tuning', glyph: '↝' },
-      { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
       /* Spending gems and grindstones is finishing a build, so it sits beside
          the build search rather than with the clean-up that sells runes. */
       { id: 'gems', label: 'Gems & grinds', name: 'Gems & Grinds', glyph: '✦' },
@@ -47,12 +49,12 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     heading: 'Rune Clean-up',
     items: [
       { id: 'potential', label: 'Clean-up', name: 'Rune Clean-up', glyph: '◌' },
-      /* An experiment on runes nobody owns yet, judged by the same Clean-up
-         engine as the verdicts above — it belongs with them. */
-      ...(import.meta.env.DEV ? [{ id: 'rune-simulator' as const, label: 'Simulator', name: 'Rune Simulator', glyph: '↻' }] : []),
     ],
   },
   {
+    /* Relic Optimization is a section at the foot of Artifact Optimization:
+       both judge the gear engraved beside the runes, and one relic tool did
+       not earn a heading of its own. */
     heading: 'Artifacts',
     items: [
       /* The library's hollow diamond against the workspace's filled one: a
@@ -63,12 +65,6 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     ],
   },
   {
-    /* One entry under its own heading, so that a second relic tool lands in a
-       place that already exists rather than reshaping the rail. */
-    heading: 'Relics',
-    items: [{ id: 'relics', label: 'Optimization', name: 'Relic Optimization', glyph: '▣' }],
-  },
-  {
     heading: 'Technical',
     items: [
       /* A geometric mark rather than a maths operator. ∑ ƒ ∫ are set on the
@@ -77,6 +73,9 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
          rest. ※ is the reference mark — the note the figures are worked out
          in — and it sits in the same box as ✦ and ◈. */
       { id: 'the-math', label: 'The Math', name: 'The Math', glyph: '※' },
+      /* An experiment on runes nobody owns yet: a workbench for checking the
+         Clean-up engine, not a page for deciding about the account. */
+      ...(import.meta.env.DEV ? [{ id: 'rune-simulator' as const, label: 'Simulator', name: 'Rune Simulator', glyph: '↻' }] : []),
     ],
   },
 ];

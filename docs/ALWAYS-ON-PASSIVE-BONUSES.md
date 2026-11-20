@@ -9,7 +9,7 @@
 
 This document decides which automatic passive effects enter JASWA's fight
 figures and why. A lead is not the only source of a stat a monster fights with.
-The same resolved bonuses feed the profile, Monster Stats, Rune Optimization,
+The same resolved bonuses feed the profile, Monster Overview, Rune Optimization,
 and the optimization shader.
 
 ## 1. Rule
