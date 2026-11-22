@@ -792,7 +792,7 @@ assert.ok(sameStatKept > 0, 'no account re-rolled a held gemmed property');
 console.log(`PASS: holding the gemmed stat refused property swaps in ${statChangeRefused} accounts, kept same-property re-rolls in ${sameStatKept} and touched nothing else.`);
 
 /* Speed stays when its current line is gemmed, even if a previous Gem put it there. */
-const bestLegend = { grade: 'Legend', roll: 'maximum', rounding: 'nearest' };
+const bestLegend = { grade: 'Legend', roll: 'maximum', rounding: 'up' };
 const speedGemSupply = { gem: assumedCraftHalf('gem', 'standard', bestLegend), grind: null };
 const speedLines = [
   { statId: 8, value: 4, grind: 0, gemmed: false },

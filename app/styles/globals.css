@@ -2052,9 +2052,11 @@ label[for] {
 /* Grade, roll and rounding side by side, each a third of the card, so a long
    option in one cannot push the others. A kind set to None dims its two
    dependants in place rather than hiding them. */
+/* Each card has a row of its own, so the three choices keep a dropdown's measure
+   rather than stretching across the whole row. */
 .craft-credit-choices {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 12rem));
   gap: var(--s3);
 }
 .craft-credit-choices .jaswa-select { width: 100%; }
@@ -2740,11 +2742,9 @@ label[for] {
   white-space: nowrap;
 }
 /* A build the account has moved out from under: still there to read, in the dimmed
-   ink of the house's two-tone device, with the mark saying why. A sold rune in
-   Rune Clean-up is the same fact and wears the same ink, its verdict and gold
-   lines included, with Sold where it sits. */
-.rune-optimization-table tbody tr[data-stale='true'] td,
-.rune-cleanup-grid tbody tr[data-stale='true'] :is(td, td *) { color: var(--text-muted); }
+   ink of the house's two-tone device, with the mark saying why. A sold item is
+   not this: it leaves every table it was in. */
+.rune-optimization-table tbody tr[data-stale='true'] td { color: var(--text-muted); }
 
 /* ------------------------------------------------------ rune build overlay */
 /* The overlay keeps the frame's full measure: the circle takes two thirds and
@@ -5017,6 +5017,8 @@ input[type='checkbox']:checked {
   line-height: 1.55;
 }
 .notice.warning { border-left-color: var(--text-muted); }
+.notice > p { margin: 0; }
+.notice > p + p { margin-top: var(--s2); }
 .notice-link {
   padding: 0; border: 0; background: transparent;
   color: var(--text-accent);

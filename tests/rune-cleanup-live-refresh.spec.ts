@@ -36,7 +36,7 @@ function workedAccount(): RawAccount {
 
 /**
  * A sync after Calculate re-reads only the runes the game changed, and the list
- * the player is working down stays where it was: a sold rune keeps its row, dimmed,
+ * the player is working down stays where it was: a sold rune leaves the table,
  * a changed rune is answered in place, and a new rune lands above the rest.
  */
 test('a sync updates Rune Clean-up rune by rune without moving the rows', async ({ page }, testInfo) => {
@@ -75,39 +75,36 @@ test('a sync updates Rune Clean-up rune by rune without moving the rows', async 
   await expect(page.locator('p').filter({ hasText: /^worked-account\.json · imported/ })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Clean-up', exact: true }).click();
 
-  /* The new rune has been judged and stands first; the four held rows follow in
-     the order they had, the powered-up one at its new level. */
-  await expect(rows).toHaveCount(5, { timeout: 60_000 });
+  /* The new rune has been judged and stands first; the three held rows still in
+     the account follow in the order they had, the powered-up one at its new level.
+     The sold rune has left the table, and no row is dimmed. */
+  await expect(rows).toHaveCount(4, { timeout: 60_000 });
   await expect(levels.first()).toHaveText('+0');
   const after = await levels.allTextContents();
-  expect(after.slice(1)).toEqual(before.map((level) => (level === '+9' ? '+12' : level)));
+  const soldLevel = `+${soldRuneLevel()}`;
+  const held = [...before];
+  held.splice(held.indexOf(soldLevel), 1);
+  expect(after.slice(1)).toEqual(held.map((level) => (level === '+9' ? '+12' : level)));
 
-  const sold = rows.filter({ hasText: 'Sold' });
-  await expect(sold).toHaveCount(1);
-  await expect(sold).toHaveAttribute('data-stale', 'true');
-  /* Dimmed throughout, its verdict colour included. */
-  const soldInk = await sold.evaluate((row) => [...row.querySelectorAll('td, td *')]
-    .filter((node) => node.textContent?.trim()).map((node) => getComputedStyle(node).color));
-  expect(new Set(soldInk).size).toBe(1);
-  await expect(page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr[data-stale]')).toHaveCount(1);
+  await expect(page.getByRole('table', { name: 'Rune verdicts' }).locator('tbody tr[data-stale]')).toHaveCount(0);
+  await expect(rows.filter({ hasText: 'Sold' })).toHaveCount(0);
   await expect(rows.filter({ hasText: 'Inventory' })).toHaveCount(4);
   await expect(cleanup.getByRole('status', { name: '4 of 4 runes shown' })).toBeVisible();
   /* Answered rune by rune: the whole calculation's own status line stands. */
   await expect(status).toHaveText(statusBefore ?? '');
   await page.screenshot({ path: testInfo.outputPath('rune-cleanup-after-sync.png'), fullPage: true });
 
-  /* The sold rune still opens, as it last was. */
-  await sold.getByRole('button').first().click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await page.keyboard.press('Escape');
-
-  /* Arranging the table again sorts every row, the sold one included. */
+  /* Arranging the table again sorts every row. */
   await page.getByRole('columnheader', { name: 'Lv.' }).getByRole('button').click();
-  await expect(rows).toHaveCount(5);
+  await expect(rows).toHaveCount(4);
   expect(await levels.allTextContents()).not.toEqual(after);
 
-  /* A new calculation answers the account as it is, and the sold rune is gone. */
+  /* A new calculation answers the account as it is. */
   await cleanup.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(rows).toHaveCount(4, { timeout: 60_000 });
-  await expect(rows.filter({ hasText: 'Sold' })).toHaveCount(0);
 });
+
+function soldRuneLevel(): number {
+  const account = JSON.parse(readFileSync(accountPath, 'utf8')) as RawAccount;
+  return (account.runes.find((rune) => rune.rune_id === 104) as RawRune).upgrade_curr;
+}

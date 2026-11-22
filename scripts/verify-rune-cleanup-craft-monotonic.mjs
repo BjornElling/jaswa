@@ -48,7 +48,7 @@ const baseByType = new Map([
 
 const grades = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
 const assumptions = ['minimum', 'one-third', 'average', 'two-thirds', 'three-quarters', 'maximum'];
-const item = (grade, roll, rounding = 'nearest') => ({ grade, roll, rounding });
+const item = (grade, roll, rounding = 'up') => ({ grade, roll, rounding });
 const off = item('none', 'average');
 const hero = (roll, rounding) => item('Hero', roll, rounding);
 const neutral = { gem: off, grind: off };

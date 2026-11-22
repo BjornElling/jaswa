@@ -325,8 +325,9 @@ actual main, so that property still cannot appear as a sub property.
 
 - **One credit, chosen once by the user.** Every rune judgement assumes the one Gem and
   Grindstone set on Settings › Gems & Grindstones (`RunePotentialSettings.craftCredit`):
-  each a grade (or *None*), a roll and a rounding, starting at an average Legend roll
-  rounded up (`defaultCraftCredit`). It prices the candidate's projection, the ruler of
+  each a grade (or *None*), a roll and a rounding — *Up* or *Down*; *Nearest* is not
+  offered, since the word does not say which way a half goes — starting at an average
+  Legend roll rounded up (`defaultCraftCredit`). It prices the candidate's projection, the ruler of
   §§4–5 and §9.1, the sampled references, the Gem's placement (§6.1), Gems & Grinds'
   reading of a Gem (`RUNE-CRAFT-ITEMS.md` §5) and Rune Optimization's *Theoretical*
   items. The candidate's own craft uses its lineage's tables; the ordinary ruler and box

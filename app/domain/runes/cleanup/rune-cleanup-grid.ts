@@ -25,12 +25,10 @@ export type RuneCleanupRow = {
    * Its canonical Scenario-first reading, also used by the location cell,
    * filters, ordering and sell mark.
    */
-  location: 'Engraved' | 'Inventory' | 'Sold';
+  location: 'Engraved' | 'Inventory';
   placement: RunePlacementSummary;
   /** The places in words — "monster — preset" — so a search finds a rune by where it is. */
   placeText: string;
-  /** Sold since the calculation: the row stays, as the rune last was, so the rows around it do not move. */
-  gone: boolean;
   /** The user's own word over the advice. Read beside the held result rather than
       into it, so locking a rune changes its row at once without a recalculation. */
   hold: RuneHoldVerdict | null;

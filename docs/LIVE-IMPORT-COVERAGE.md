@@ -691,8 +691,9 @@ that the candidate is committed inventory.
 
 `tests/helper-bulk-sale.spec.ts` generates snapshots with that Rust replay tool
 and serves them through the helper polling route. It checks the empty workspace,
-the populated Rune Clean-up table, Sold rows after a sale, and the next reward.
-Before/after screenshots and row-box comparisons hold the layout still. The
+the populated Rune Clean-up table, the sold runes leaving it after a sale, and
+the next reward. Before/after screenshots and row-box comparisons hold the
+remaining rows' measure. The
 test requires the Rust toolchain in addition to the project's Playwright setup.
 
 Connection recovery is covered by local TCP/TLS tests in `service.rs`: empty

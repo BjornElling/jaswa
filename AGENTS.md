@@ -403,8 +403,9 @@ parts an agent must not quietly break:
   - **A change in the game** — a sync or an import that adds, changes or
     removes runes, artifacts, monsters or items — never empties the table.
     Only what changed is judged, under the held standards, and lands in
-    place; what left is marked or dropped; everything else keeps its answer
-    and its place. Figures every entity is judged by, such as the reference
+    place; a rune, artifact, relic, Gem, Grindstone or anything else that left
+    the account — sold, fed, spent — leaves every table at once and is never
+    kept as a dimmed row; everything else keeps its answer and its place. Figures every entity is judged by, such as the reference
     averages, are standards, not entities.
 
   A filter that only narrows what is shown is neither, and changes nothing.

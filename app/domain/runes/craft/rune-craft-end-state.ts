@@ -58,7 +58,7 @@
  */
 import { craftRollValue, craftValueRange, grindableStatIds } from './rune-craft-items';
 import type {
-  CraftItem, CraftKind, CraftLineage, CraftRollAssumption, CraftRounding, CraftValueRange,
+  CraftCreditRounding, CraftItem, CraftKind, CraftLineage, CraftRollAssumption, CraftRounding, CraftValueRange,
 } from './rune-craft-items';
 import { allStatIds } from '../rune-properties';
 import { gemMinimumLevel, runeSpeedStatId, slotAllowsSubStat } from '../runes';
@@ -76,7 +76,7 @@ export type CraftCreditGrade = ItemGrade | 'none';
 export type CraftAssumption = {
   grade: CraftCreditGrade;
   roll: CraftRollAssumption;
-  rounding: CraftRounding;
+  rounding: CraftCreditRounding;
 };
 
 /**

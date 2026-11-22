@@ -21,7 +21,7 @@ account clears the calculated session; preferences stay saved.
 | Navigation, unchanged re-import, filters or sorting | Reuse the answers; filters and sorting only arrange what is shown. |
 | New rune | Judge that rune alone under the held standards and add it to the held rows. |
 | Level, stars, rarity, lineage, set, slot, main, innate, sub properties, Gem, Grindstone or reappraisal | Judge the changed rune alone under the held standards; keep its row in place. Until answered, show its previous rune and advice together. |
-| Rune sold or removed | Keep its previous row marked Sold until Calculate removes it. |
+| Rune sold or removed | Drop its row at once. Every other row keeps its place; a sold rune is never shown dimmed. |
 | Scenario or preset placement, preset membership or name, monster nickname | Read the current location and engraving count without recalculating scores. |
 | Holds, rune locks, or any *Never sell if…* safeguard or threshold | Apply the current protection immediately to the held advice. |
 | *Power-up policy*, *Rune quality floor*, *Accepted runes*, *Broken runes*, *Intangible runes* | Empty the table until Calculate. |

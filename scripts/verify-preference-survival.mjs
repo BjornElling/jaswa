@@ -48,7 +48,7 @@ try {
     },
     runePotential: { ...blank.runePotential, powerUpPolicy: 2, intangibleRunes: 4, craftCredit: {
       gem: { grade: 'none', roll: 'maximum', rounding: 'down' },
-      grind: { grade: 'Hero', roll: 'two-thirds', rounding: 'nearest' },
+      grind: { grade: 'Hero', roll: 'two-thirds', rounding: 'down' },
     } },
     runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75 },
@@ -95,14 +95,15 @@ try {
     'an unreadable Rune Clean-up setting must not reset the craft credit');
   /* The craft credit is six choices: a Gem's grade, roll and rounding, and the
      Grindstone's. One that cannot be read starts from its default alone, and a
-     Gem switched off keeps the roll and rounding it would come back with. */
+     Gem switched off keeps the roll and rounding it would come back with. Nearest
+     is no longer offered, so a stored one is such a choice. */
   const credit = readPreferences({ ...chosen, runePotential: { ...chosen.runePotential, craftCredit: {
-    gem: { ...chosen.runePotential.craftCredit.gem, rounding: 'sideways' },
+    gem: { ...chosen.runePotential.craftCredit.gem, rounding: 'nearest' },
     grind: { ...chosen.runePotential.craftCredit.grind, grade: 'Mythic' },
   } } }, null).runePotential;
   assert.deepEqual(credit.craftCredit.gem, { grade: 'none', roll: 'maximum', rounding: blank.runePotential.craftCredit.gem.rounding },
     'an unreadable rounding costs only the rounding');
-  assert.deepEqual(credit.craftCredit.grind, { grade: blank.runePotential.craftCredit.grind.grade, roll: 'two-thirds', rounding: 'nearest' },
+  assert.deepEqual(credit.craftCredit.grind, { grade: blank.runePotential.craftCredit.grind.grade, roll: 'two-thirds', rounding: 'down' },
     'an unreadable grade costs only the grade');
   assert.equal(credit.powerUpPolicy, 2, 'an unreadable craft choice must not reset the Rune Clean-up settings');
   const { craftCredit: _credit, ...withoutCredit } = chosen.runePotential;

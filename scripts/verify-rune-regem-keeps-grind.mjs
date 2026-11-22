@@ -18,7 +18,7 @@ const craftCandidate = (item, rune, roll) => craftComparison(item, rune, roll, d
 const ATK_PERCENT = 4;
 const HP_PERCENT = 2;
 const SPD = 8;
-const heroGem = (roll) => ({ grade: 'Hero', roll, rounding: 'nearest' });
+const heroGem = (roll) => ({ grade: 'Hero', roll, rounding: 'up' });
 const credit = { gem: heroGem('maximum'), grind: { grade: 'none', roll: 'average', rounding: 'up' } };
 const gemRoll = craftValueRange('gem', 'standard', ATK_PERCENT, 'Hero').maximum;
 /* A Legend stone's ceiling: Gems & Grinds reads a Gem on lines ground by the craft

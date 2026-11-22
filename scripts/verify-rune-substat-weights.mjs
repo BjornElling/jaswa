@@ -160,7 +160,7 @@ function verifyArtifactsComeOffTheRequirement() {
 function verifyGrindstonesComeOffTheRequirement() {
   const fastDd = role('fast-dd');
   const mains = mainsOf(roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
-  const ground = { gem: noCraft.gem, grind: { grade: 'Hero', roll: 'three-quarters', rounding: 'nearest' } };
+  const ground = { gem: noCraft.gem, grind: { grade: 'Hero', roll: 'three-quarters', rounding: 'up' } };
   const of = (credit) => substatWeights({ targets: fastDd.targets, mains, artifacts: fastDd.artifacts, base, credit });
   const bare = of(noCraft);
   const withStones = of(ground);
@@ -386,7 +386,7 @@ function verifyCraftCreditMovesOnlyTheRune() {
     occupiedId: null, obtainedOrder: 1,
   };
   let previous = 0;
-  const bestLegend = { grade: 'Legend', roll: 'maximum', rounding: 'nearest' };
+  const bestLegend = { grade: 'Legend', roll: 'maximum', rounding: 'up' };
   const named = (assumption) => (assumption.grade === 'none' ? 'none' : `${assumption.grade} ${assumption.roll}`);
   for (const credit of [
     noCraft,

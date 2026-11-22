@@ -17,8 +17,9 @@
  *   recalculation would give;
  * - until that answer arrives the row keeps its old rune *and* its old advice, so a
  *   row never shows a new level beside a verdict read off the old one;
- * - a rune that has left the account keeps its row as it last was, flagged gone,
- *   so the rows around it stay where they were.
+ * - a rune that has left the account — sold or fed — leaves the table. Every other
+ *   row keeps its place; only the rows below close the gap, and the row that left
+ *   is the one the player acted on.
  *
  * Changed standards use the same replacement path. The caller compares the
  * mathematical dependencies of each set, and sends every affected rune together;
@@ -76,15 +77,19 @@ export function withFreshAdvice(
   return next;
 }
 
-/** A held answer as the table shows it: the rune as it now is wherever its answer still fits. */
-export type ShownRuneAdvice = { rune: Rune; advice: RuneAdvice; index: number; gone: boolean };
+/**
+ * A held answer as the table shows it: the rune as it now is wherever its answer
+ * still fits. A rune no longer in the account has no row: a sold rune is not
+ * something the player can act on, so showing it would only be clutter.
+ */
+export type ShownRuneAdvice = { rune: Rune; advice: RuneAdvice; index: number };
 
 export function shownRuneAdvice(held: ReadonlyMap<string, HeldRuneAdvice>, now: ReadonlyMap<string, Rune>): ShownRuneAdvice[] {
-  return [...held.values()].map((entry) => {
+  return [...held.values()].flatMap((entry) => {
     const current = now.get(entry.rune.id);
-    if (current === undefined) return { rune: entry.rune, advice: entry.advice, index: entry.index, gone: true };
+    if (current === undefined) return [];
     const fits = current === entry.rune || runeAdviceKey(current) === entry.key;
-    return { rune: fits ? current : entry.rune, advice: entry.advice, index: entry.index, gone: false };
+    return [{ rune: fits ? current : entry.rune, advice: entry.advice, index: entry.index }];
   });
 }
 

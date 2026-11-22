@@ -212,6 +212,15 @@ export const craftRoundingLabels: Readonly<Record<CraftRounding, string>> = {
   up: 'Up', nearest: 'Nearest', down: 'Down',
 };
 
+/**
+ * The roundings the user may choose for the assumed Gem and Grindstone. Nearest is
+ * not one of them: whether it takes a half up or down cannot be read off the word,
+ * and Up and Down say plainly what they do. It stays for a held item's roll, where
+ * no rounding is offered at all (`heldItemRounding`).
+ */
+export type CraftCreditRounding = Exclude<CraftRounding, 'nearest'>;
+export const craftCreditRoundings: readonly CraftCreditRounding[] = ['up', 'down'];
+
 /** Round a craft value to a whole number without biasing negative halves inward. */
 export function roundAwayFromZero(value: number): number {
   return value < 0 ? -Math.round(-value) : Math.round(value);

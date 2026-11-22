@@ -1,6 +1,6 @@
 import { isOneOf, isRecord, readSettings } from './preference-reading';
 import type { FieldChecks } from './preference-reading';
-import { craftRollAssumptions, craftRoundings, itemGrades } from '../runes/craft/rune-craft-items';
+import { craftCreditRoundings, craftRollAssumptions, itemGrades } from '../runes/craft/rune-craft-items';
 import { defaultCraftCredit } from '../runes/craft/rune-craft-end-state';
 import type { CraftAssumption, CraftCredit, CraftCreditGrade } from '../runes/craft/rune-craft-end-state';
 
@@ -10,7 +10,8 @@ export const craftCreditGrades: readonly CraftCreditGrade[] = ['none', ...itemGr
 const assumptionChecks: FieldChecks<CraftAssumption> = {
   grade: isOneOf(craftCreditGrades),
   roll: isOneOf(craftRollAssumptions),
-  rounding: isOneOf(craftRoundings),
+  /* A stored Nearest, no longer offered, resets the rounding alone to Up. */
+  rounding: isOneOf(craftCreditRoundings),
 };
 
 /**

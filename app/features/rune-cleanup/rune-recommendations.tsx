@@ -249,10 +249,10 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   /* Every place a rune is engraved, in Scenario and in each preset, read from
      the one resolution the page made (`presets-context.ts`). */
   const monsterName = useCallback((unitId: string, presetId: string) => namesIn(unitId, presetId) ?? 'A monster not in this import', [namesIn]);
-  const placeOf = useCallback((runeId: string, gone: boolean) => {
-    const placement = gone ? emptyRunePlacement : reading.runes.get(runeId) ?? emptyRunePlacement;
+  const placeOf = useCallback((runeId: string) => {
+    const placement = reading.runes.get(runeId) ?? emptyRunePlacement;
     return {
-      location: gone ? 'Sold' as const : hasRunePlacement(placement) ? 'Engraved' as const : 'Inventory' as const,
+      location: hasRunePlacement(placement) ? 'Engraved' as const : 'Inventory' as const,
       placement,
       placeText: engravingLines(placement.places, reading.presets, monsterName).join(' '),
     };
@@ -272,7 +272,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      user's: one that changes empties the table until Calculate, and setting it back
      shows the held list again. The runes are the game's: a new or changed rune is
      judged on its own under the held standards and lands in place, and a sold one
-     stays marked Sold, so a sync never costs the reader the rest of the table. */
+     leaves the table, so a sync never costs the reader the rest of it. */
   const stored = game !== null && result !== null && result.account === account ? result : null;
   const stale = stored !== null && runeCleanupStandardsChanged(stored, roles, settings, base);
   const held = stale ? null : stored;
@@ -356,7 +356,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      whose answer still fits it. */
   useEffect(() => {
     if (held === null || !game?.data) return;
-    const fitting = shownRuneAdvice(held.entries, runesById).filter((entry) => !entry.gone && runesById.get(entry.rune.id) === entry.rune);
+    const fitting = shownRuneAdvice(held.entries, runesById).filter((entry) => runesById.get(entry.rune.id) === entry.rune);
     rememberRuneAdvice({ data: game.data, settings, roles }, fitting.map((entry) => entry.rune),
       new Map(fitting.map((entry) => [entry.rune.id, entry.advice])));
   }, [held, game, roles, settings, runesById]);
@@ -365,18 +365,18 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
      on every change rather than frozen into it at Calculate. Where the rune sits is
      read the same way: moving it updates the engraving safeguard immediately. */
   const rows = useMemo<RuneCleanupRow[]>(
-    () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index, gone }) => {
-      const place = placeOf(rune.id, gone);
+    () => (held === null ? [] : shownRuneAdvice(held.entries, runesById)).map(({ rune, advice, index }) => {
+      const place = placeOf(rune.id);
       return {
-        rune, advice: withRuneSellProtection(rune, advice, settings, place.placement), index, gone,
+        rune, advice: withRuneSellProtection(rune, advice, settings, place.placement), index,
         ...place,
-        hold: gone ? null : runeHoldVerdict(runeHolds[rune.id], lockedRunes.has(rune.id)),
+        hold: runeHoldVerdict(runeHolds[rune.id], lockedRunes.has(rune.id)),
       };
     }),
     [held, runesById, placeOf, runeHolds, lockedRunes, settings],
   );
   const rowsById = useMemo(() => new Map(rows.map((row) => [row.rune.id, row])), [rows]);
-  const owned = held ? rows.filter((row) => !row.gone).length : runes.length;
+  const owned = held ? rows.length : runes.length;
   /* Offered from the account's own runes, so a filter never names a set or a main
      stat that no row can carry. */
   const setOptions = useMemo(
@@ -438,7 +438,6 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
   const shown = held !== null && arranged?.key === arrangement
     ? inArrangedOrder(sorted, rowsById, arranged, (row) => row.rune.id)
     : sorted;
-  const shownOwned = shown.filter((row) => !row.gone).length;
 
   const sortingByGame = runeGameSortKeys.includes(sort.key as RuneGameSortKey);
   useEffect(() => {
@@ -658,17 +657,15 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                     detail={<>{formatNumber(owned, general)} runes judged against {formatNumber(held.roles.length, general)} roles</>}
                     durationMs={held.durationMs} backend={held.backend} general={general} />
                   : <CalculationNote>{''}</CalculationNote>}
-            resets={<FilterSummary visible={shownOwned} total={owned} noun="runes"
+            resets={<FilterSummary visible={shown.length} total={owned} noun="runes"
               onReset={() => setFilters(defaultRuneFilters)} className="rune-filter-status" />} />
         </>}
       >
         <tbody>
-          {shown.length ? shown.map((row) => <tr key={row.rune.id} {...rowOpener}
-            data-stale={row.gone ? 'true' : undefined}>
+          {shown.length ? shown.map((row) => <tr key={row.rune.id} {...rowOpener}>
             <td className={cell('set', qualityRuleHost)}>
-              {/* A sold rune opens as it last was: the account has no rune by that id to open. */}
               <RuneLink
-                target={row.gone ? { kind: 'generated', rune: row.rune } : { kind: 'account', runeId: row.rune.id }}
+                target={{ kind: 'account', runeId: row.rune.id }}
                 label={`${row.rune.setName} rune, slot ${row.rune.slot}`}
                 onOpen={onOpenRune}
               >
@@ -692,7 +689,7 @@ export function RuneRecommendations({ game, profiles, runeHolds, lockedRunes, se
                 : row.rune.subProperties.map((property, at) => <RuneSubLine key={at} property={property} />)}
             </td>
             <td className={cell('location')}>
-              <EngravedPlace runePlacement={row.placement} sold={row.gone} presets={reading.presets} monsterName={monsterName} />
+              <EngravedPlace runePlacement={row.placement} presets={reading.presets} monsterName={monsterName} />
             </td>
             <td className={cell('role', !row.advice.role && 'muted')}>
               {row.advice.role?.name ?? '—'}

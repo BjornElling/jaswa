@@ -71,19 +71,21 @@ test('the Rust sale response reaches Rune Clean-up and the next reward still arr
   }));
   await page.screenshot({ path: testInfo.outputPath('bulk-sale-before.png'), fullPage: true });
 
+  /* The sold runes leave the table; the rows that stay keep their measure, and
+     only the rows below a sold one close the gap it left. */
   state.profile = profiles[1];
-  await expect(rows.filter({ hasText: 'Sold' })).toHaveCount(2);
+  await expect(rows).toHaveCount(2);
   await expect(section.getByRole('status', { name: '2 of 2 runes shown' })).toBeVisible();
   await expect(page.getByRole('status', { name: 'Live import stopped' })).toHaveCount(0);
-  expect(await rows.evaluateAll((elements) => elements.map((element) => {
-    const { x, y, width, height } = element.getBoundingClientRect();
-    return { x, y, width, height };
-  }))).toEqual(boxes);
+  const kept = await rows.evaluateAll((elements) => elements.map((element) => {
+    const { x, width, height } = element.getBoundingClientRect();
+    return { x, width, height };
+  }));
+  for (const box of kept) expect(boxes.map(({ x, width, height }) => ({ x, width, height }))).toContainEqual(box);
   await page.screenshot({ path: testInfo.outputPath('bulk-sale-after.png'), fullPage: true });
 
   state.profile = profiles[2];
-  await expect(rows).toHaveCount(5);
-  await expect(rows.filter({ hasText: 'Sold' })).toHaveCount(2);
+  await expect(rows).toHaveCount(3);
   await expect(section.getByRole('status', { name: '3 of 3 runes shown' })).toBeVisible();
   await expect(page.getByRole('status', { name: 'Live import stopped' })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('bulk-sale-next-reward.png'), fullPage: true });

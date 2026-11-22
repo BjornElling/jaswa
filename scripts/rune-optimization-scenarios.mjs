@@ -169,8 +169,8 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
       },
       /* What Theoretical spends: the grades these scenarios have always assumed. */
       craftCredit: {
-        gem: { grade: 'Legend', roll: defaultRuneOptimizationSettings.gemRollAssumption, rounding: 'nearest' },
-        grind: { grade: 'Hero', roll: defaultRuneOptimizationSettings.grindRollAssumption, rounding: 'nearest' },
+        gem: { grade: 'Legend', roll: defaultRuneOptimizationSettings.gemRollAssumption, rounding: 'up' },
+        grind: { grade: 'Hero', roll: defaultRuneOptimizationSettings.grindRollAssumption, rounding: 'up' },
       },
     };
     /* The team's priority comes from the index alone, without drawing on the
