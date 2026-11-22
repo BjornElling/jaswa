@@ -55,7 +55,7 @@ this (`guild_boss_crate_history_cannot_restore_sold_runes`,
    `Scope::root_edge`: the attacking team of `battleGuildRivalStart`, Siege's
    `guildsiege_my_unit_list` in `BattleGuildSiegeStart_v2`, the root
    `upgrade_rune_list` of `UpgradeRuneList`, `result_from` of a Shrine move,
-   `item_info` of `BuyBlackMarketItem` and `sellSummonPieces`,
+   `item_info` of `BuyBlackMarketItem`, `sellSummonPieces` and `RevalueRune`,
    `pick_changestone_list.after` of a successful `pickGuildMazeBattleClearReward`,
    and a bundled gear operation (for example `UpdateArtifactOccupation` inside
    `UpdateUnitEquip`) with its own successful `ret_code`. Only the mail entries
@@ -221,6 +221,19 @@ It now joins `receive` and `claim`; numeric suffixes and case follow the same
 classification. Queries and historical wrappers still cannot apply rewards,
 failed claims change nothing, and repeating a claim replaces totals rather
 than adding them again. Empty and populated account tests hold these boundaries.
+
+Reappraisal Stones were the same kind of gap (November 22, 2026). The
+diagnostic log reported *1 inventory record at item_info was not read; 1 rune
+record at rune was not read* on every `RevalueRune`, because no verb in its
+name was known. Its answer carries two different things. `item_info` is the
+Reappraisal Stone stack (`item_master_type` 37) at its new total, and is read
+as `BuyBlackMarketItem`'s is. `rune` is a candidate: the game then sends
+`ConfirmRune` with `before_after` 1 to keep the rune as it was or 2 to take
+the roll, and answers with the committed rune, which the existing confirm
+reading applies. The candidate is therefore never read and never reported;
+read as current, a declined roll would have replaced the rune the player
+kept. A captured session of ten rolls on two runes, with both choices,
+established both halves.
 
 ### Raid response-key negotiation
 

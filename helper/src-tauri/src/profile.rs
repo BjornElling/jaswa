@@ -4523,6 +4523,77 @@ mod phantom_rune_regression {
         }
     }
 
+    /* A Reappraisal Stone (`RevalueRune`) answers with the stone stack at its
+    new total and a candidate rune; `ConfirmRune` commits the rune the player
+    chose. Unknown as a command, every roll opened a gap (November 22, 2026). */
+    #[test]
+    fn reappraisal_spends_the_stone_and_keeps_the_rune_until_confirmed() {
+        let kept = json!([[1, 875, 0, 0], [2, 14, 0, 0], [3, 39, 0, 0], [6, 6, 0, 0]]);
+        let rolled = json!([[6, 13], [12, 19], [11, 7], [8, 10]]);
+        let committed = json!([[6, 13, 0, 0], [12, 19, 0, 0], [11, 7, 0, 0], [8, 10, 0, 0]]);
+        let rune = |id: u64, occupied: u64, subs: &Value| json!({"rune_id": id, "wizard_id": 7, "set_id": 15,
+            "slot_no": 6, "rank": 5, "class": 6, "upgrade_curr": 12, "pri_eff": [4, 47], "prefix_eff": [10, 5],
+            "sec_eff": subs, "occupied_type": if occupied == 0 { 2 } else { 1 }, "occupied_id": occupied});
+        let stone = |quantity: u64| json!({"rid": 30, "wizard_id": 7, "item_master_type": 37, "item_master_id": 1,
+            "item_quantity": quantity});
+        let rune_in = |data: &Value, id: u64| -> Value {
+            collection(data, "runes").iter()
+                .chain(collection(data, "unit_list").iter().flat_map(|unit| collection(unit, "runes")))
+                .find(|rune| rune["rune_id"] == id).unwrap().clone()
+        };
+        for populated in [false, true] {
+            for engraved in [false, true] {
+                let mut store = ProfileStore::default();
+                let target = rune(5, if engraved { 1 } else { 0 }, &kept);
+                let mut runes = if engraved { vec![] } else { vec![target.clone()] };
+                let mut inventory = vec![];
+                if populated {
+                    runes.push(rune(6, 0, &kept));
+                    inventory.push(stone(43));
+                    inventory.push(json!({"rid": 31, "wizard_id": 7, "item_master_type": 9, "item_master_id": 2, "item_quantity": 11}));
+                }
+                let unit_runes = if engraved { json!([target.clone()]) } else { json!([]) };
+                assert!(store.accept_snapshot(json!({"wizard_id": 7, "runes": runes, "inventory_info": inventory,
+                    "unit_list": [{"unit_id": 1, "wizard_id": 7, "unit_master_id": 10101, "runes": unit_runes}]})));
+                let revalue = json!({"command": "RevalueRune", "rune_id": 5, "wizard_id": 7});
+                let confirm = |choice: u64| json!({"command": "ConfirmRune", "rune_id": 5, "before_after": choice});
+                let roll = |quantity: u64| json!({"ret_code": 0, "item_info": stone(quantity),
+                    "rune": rune(5, if engraved { 1 } else { 0 }, &rolled), "wizard_info": {"wizard_id": 7}});
+
+                assert!(store.apply_update(&roll(42), &revalue));
+                assert!(store.take_declined().missed.is_empty());
+                assert!(store.status().missed_changes.is_empty(), "a read reappraisal is no gap");
+                let data = store.read().unwrap().data;
+                let stones = collection(&data, "inventory_info");
+                assert_eq!(stones.iter().find(|stack| stack["rid"] == 30).unwrap()["item_quantity"], 42);
+                assert_eq!(stones.len(), if populated { 2 } else { 1 });
+                assert_eq!(rune_in(&data, 5)["sec_eff"], kept, "an unconfirmed roll never replaces the rune");
+
+                // Declined: the game restates the rune as it was.
+                store.apply_update(&json!({"ret_code": 0, "rune": target}), &confirm(1));
+                assert_eq!(rune_in(&store.read().unwrap().data, 5)["sec_eff"], kept);
+
+                assert!(store.apply_update(&roll(41), &revalue));
+                assert!(store.apply_update(&json!({"ret_code": 0,
+                    "rune": rune(5, if engraved { 1 } else { 0 }, &committed)}), &confirm(2)));
+                assert!(store.status().missed_changes.is_empty());
+                let data = store.read().unwrap().data;
+                assert_eq!(rune_in(&data, 5)["sec_eff"], committed, "a taken roll is the rune's new state");
+                assert_eq!(collection(&data, "runes").len(), if engraved { 0 } else { 1 } + usize::from(populated),
+                    "a confirmed engraved rune stays on its monster");
+                if populated { assert_eq!(rune_in(&data, 6)["sec_eff"], kept); }
+
+                let mut malformed = stone(40);
+                malformed.as_object_mut().unwrap().remove("item_quantity");
+                assert!(!store.apply_update(&json!({"ret_code": 0, "item_info": malformed, "rune": rune(5, 0, &rolled)}), &revalue));
+                assert!(store.take_declined().missed.iter().any(|reason| reason.contains("item_info is incomplete")),
+                    "a stone spent without its new total is said, not guessed");
+                assert!(!store.apply_update(&json!({"ret_code": 1, "item_info": stone(0)}), &revalue));
+                assert_eq!(store.read().unwrap().data, data, "a failed or incomplete roll changes nothing");
+            }
+        }
+    }
+
     /* A sale of summoning pieces answers with the stack it sold from, at its new
     total; read as a miss (November 3, 2026), it opened a gap on every page for
     a stack the account already listed. Selling the last piece leaves a zero

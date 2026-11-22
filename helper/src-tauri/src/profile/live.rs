@@ -72,6 +72,9 @@ pub(super) fn account_request(request: &Value) -> AccountRequest {
         "upgrade", "awaken", "evolve", "evolution", "fuse", "fusion", "sacrifice",
         "convert", "amplify", "confirm", "craft", "create", "breakdown",
         "disassemble", "equip", "unequip",
+        /* A Reappraisal Stone re-rolls a rune's sub properties (`RevalueRune`);
+        the player keeps or takes the result in a separate `ConfirmRune`. */
+        "revalue",
         /* Turning crafting materials into Gems or Grindstones of a chosen set
         (`combineSelectRuneCraft`): the materials' remaining stack arrives in
         `item_list`, the new stones in `reward.crate.changestones`. */
@@ -130,6 +133,20 @@ impl Scope<'_> {
         self.command == "pickguildmazebattleclearreward" && path == "pick_changestone_list"
     }
 
+    /* Answers that state the one inventory stack they spent from or added to,
+    at its new total, in a root `item_info`. */
+    fn states_one_stack(&self) -> bool {
+        matches!(self.command.as_str(), "buyblackmarketitem" | "sellsummonpieces" | "revaluerune")
+    }
+
+    /* A reappraised rune is a proposal: `RevalueRune` answers with the new sub
+    properties, and `ConfirmRune` then commits either them (`before_after` 2)
+    or the rune as it was (1), answering with the committed record. Read as
+    current, a declined roll would have replaced the rune the player kept. */
+    fn reappraisal_candidate(&self, path: &str) -> bool {
+        self.command == "revaluerune" && path == "rune"
+    }
+
     fn moves_gear(&self) -> bool {
         self.kind == AccountRequest::Mutation && gear_moving_command(&self.command)
     }
@@ -149,7 +166,9 @@ impl Scope<'_> {
             // Siege names its attacking monsters separately from its opponents.
             "battleguildsiegestart" => return key == "guildsiege_my_unit_list",
             "upgraderunelist" if key == "upgrade_rune_list" => return true,
-            "buyblackmarketitem" | "sellsummonpieces" if key == "item_info" => return true,
+            // Its rune is a candidate; the stone it spent is all it commits.
+            "revaluerune" => return key == "item_info",
+            _ if self.states_one_stack() && key == "item_info" => return true,
             "movestoragefromto" if key == "result_from" => return true,
             _ => {}
         }
@@ -299,9 +318,9 @@ fn walk(value: &Value, path: &str, parent: &str, scope: &Scope<'_>, found: &mut 
         }
         return;
     }
-    /* A Black Market purchase and a sale of summoning pieces answer with the
-    one inventory stack they changed, at its new total. */
-    if matches!(scope.command.as_str(), "buyblackmarketitem" | "sellsummonpieces") && path == "item_info" {
+    /* A Black Market purchase, a sale of summoning pieces and a reappraisal
+    answer with the one inventory stack they changed, at its new total. */
+    if scope.states_one_stack() && path == "item_info" {
         if scope.foreign(value) { return; }
         // The answer must state the new stock total, even for a known item;
         // merging an identifier alone would keep yesterday's quantity silently.
@@ -409,7 +428,10 @@ fn unread(response: &Value, request: &Value, scope: &Scope<'_>, read_ids: &HashS
                     return;
                 }
                 for (key, entry) in map {
-                    if understood_elsewhere(key) || (scope.picked_crafts(path) && key == "before") {
+                    if understood_elsewhere(key)
+                        || (scope.picked_crafts(path) && key == "before")
+                        || (path.is_empty() && scope.reappraisal_candidate(key))
+                    {
                         continue;
                     }
                     let child = if path.is_empty() { key.clone() } else { format!("{path}.{key}") };
