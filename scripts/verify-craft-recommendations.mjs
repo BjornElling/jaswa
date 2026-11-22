@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readCraftItem, missingCraftItems, missingCraftGrades, missingCraftLineages } from '../app/domain/runes/craft/rune-craft-items.ts';
 import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, noCraftCredit,
-  gemOptions } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+  gemOptions, rulerCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { defaultRuneRoles, createRuneRole } from '../app/domain/profiles/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
 import { runeRankWorth } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
@@ -53,7 +53,7 @@ for (const grinded of [[], ['yes'], ['no'], ['yes', 'no']]) {
   assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 8 }, choice), grinded.length !== 1 || grinded[0] === 'yes');
   assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 2 }, choice), grinded.length !== 1 || grinded[0] === 'no');
 }
-const scope = newRuneAdviceScope(credit);
+const scope = newRuneAdviceScope(rulerCraftCredit);
 const families = roles.map((role) => ({ role, builds: roleBuilds(role) }));
 function evaluate(rune) {
   let best = null;

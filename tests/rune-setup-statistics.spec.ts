@@ -127,6 +127,40 @@ test('reuses completed and unfinished statistics across navigation and restored 
   expect(await requests()).toBe(initialRequests * 2);
 });
 
+/* A Gem is spent only where it gains, so assuming a better one can only help a rune.
+   While the ruler followed the assumed Gem, Statistics kept 5.7 % with Legend, 6.0 %
+   with Normal and 7.0 % with none: the better Gem lifted the drops a rune is ranked
+   among further than it lifted the rune. */
+test('never rolls or keeps less for a better assumed Gem', async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.locator('main summary').filter({ hasText: 'Runes' }).click();
+  await page.locator('main summary').filter({ hasText: 'Gems & Grindstones' }).click();
+
+  const statistics = page.locator('.statistics:not(.acceleration)');
+  const status = statistics.locator('.statistics-meta');
+  const values = statistics.locator('dd');
+  const grade = page.locator('#craft-credit-gem-grade');
+  await page.locator('#rune-quality').fill('1');
+  const shares: number[][] = [];
+  for (const choice of ['none', 'Normal', 'Legend']) {
+    if (await grade.inputValue() !== choice) {
+      await grade.selectOption(choice);
+      await expect(status).toContainText('Calculating…');
+    }
+    await expect(status).toContainText(/synthetic runes/, calculation);
+    shares.push((await values.allTextContents()).map(percentage));
+    await page.screenshot({ path: testInfo.outputPath(`gem-credit-${choice}.png`), fullPage: true });
+  }
+  for (let at = 1; at < shares.length; at += 1) {
+    expect(shares[at][0]).toBeGreaterThanOrEqual(shares[at - 1][0]);
+    expect(shares[at][1]).toBeGreaterThanOrEqual(shares[at - 1][1]);
+  }
+});
+
 /* Rule 2: the box must not shrink while it calculates and grow when the figures
    arrive — a dash and a percentage get the same room. */
 test('keeps the statistics box the same height while it calculates', async ({ page }) => {

@@ -24,12 +24,12 @@ import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
   candidateChance, candidateMaxValue, newRuneAdviceScope, prepareRuneCandidate as prepare, roleBuilds,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
-import { craftPlan, defaultCraftCredit, grindCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { craftPlan, grindCredit, rulerCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
 
-/* Every candidate below is read on one ruler, Settings' starting credit, so a credit
-   can only move the rune against it: the promises are about the rune. */
-const prepareRuneCandidate = (...args) => prepare(...args, newRuneAdviceScope(defaultCraftCredit));
+/* Every candidate below is read on the one fixed ruler, so a credit can only move the
+   rune against it: the promises are about the rune. */
+const prepareRuneCandidate = (...args) => prepare(...args, newRuneAdviceScope(rulerCraftCredit));
 import {
   addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
@@ -353,6 +353,45 @@ for (const credit of [policySettings.craftCredit, { gem: hero('two-thirds', 'dow
     }
   }
 }
+/**
+ * **A better credit on Settings never keeps less** — the whole policy, not one
+ * candidate. The rune that exposed it was every rune: while the ruler followed the
+ * user's credit, a Legend Gem lifted the sampled drops and the perfect rune past what
+ * it lifted a middling rune, and Statistics kept 5.7 % with Legend, 6.0 % with Normal
+ * and 7.0 % with none. Each step below only raises the Gem or the stone, so a rune's
+ * odds may only rise and a rune powered up or kept may never turn into a sale.
+ */
+const ladder = [
+  { gem: off, grind: off },
+  { gem: item('Normal', 'average'), grind: off },
+  { gem: item('Normal', 'average'), grind: item('Normal', 'average') },
+  { gem: item('Hero', 'average'), grind: item('Normal', 'average') },
+  { gem: item('Legend', 'average'), grind: item('Hero', 'average') },
+  { gem: item('Legend', 'average'), grind: item('Legend', 'average') },
+  { gem: item('Legend', 'maximum'), grind: item('Legend', 'maximum') },
+];
+const ladderRunes = [...standardRunes, ...runes.filter((rune) => rune.ancient)];
+let ladderSteps = 0;
+for (const policy of [{ powerUpPolicy: 3, runeQuality: 3 }, { powerUpPolicy: 4, runeQuality: 4 }]) {
+  let previous = null;
+  for (const credit of ladder) {
+    const advice = await runeAdvice(ladderRunes, roles, { ...policySettings, ...policy, craftCredit: credit }, baseByType);
+    if (previous) {
+      for (const rune of ladderRunes) {
+        const before = previous.advice.get(rune.id);
+        const after = advice.get(rune.id);
+        const step = `${JSON.stringify(previous.credit)} -> ${JSON.stringify(credit)}`;
+        assert.ok(after.chance + eps >= before.chance,
+          `${rune.id}: a better credit lowered its odds from ${before.chance} to ${after.chance} (${step})`);
+        assert.ok(!(before.verdict !== 'sell' && after.verdict === 'sell'),
+          `${rune.id}: a better credit turned ${before.verdict} into a sale (${step})`);
+        ladderSteps += 1;
+      }
+    }
+    previous = { credit, advice };
+  }
+}
+
 /* The Shield rune's own verdict is asked of the role it was sold for alone. Across
    every shipped role its answer is whatever those roles make of it — the Support
    that replaced the old one wants its 18 SPD and keeps it — and that is not the
@@ -422,5 +461,6 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
 }
 
 console.log(`PASS: ${comparisons.toLocaleString('en')} craft monotonicity comparisons across`
-  + ` ${runes.length} legal fixtures, and ${standardRunes.length} runes ground to the credit`
-  + ' read exactly as they did bare.');
+  + ` ${runes.length} legal fixtures, ${standardRunes.length} runes ground to the credit`
+  + ` read exactly as they did bare, and ${ladderSteps.toLocaleString('en')} rune steps up the credit ladder`
+  + ' never kept less.');

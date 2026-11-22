@@ -55,7 +55,7 @@ import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import { defaultRuneOptimizationSettings } from '../app/domain/profiles/rune-optimization-settings.ts';
 import { gemRemovalPrices } from '../app/domain/runes/optimization/rune-optimization-gem-preference.ts';
 import {
-  assumedCraftHalf, craftVariants, defaultCraftCredit, noCraftCredit,
+  assumedCraftHalf, craftVariants, noCraftCredit,
 } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import {
   calculateMonsterTotals, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys,
@@ -974,11 +974,11 @@ console.log('PASS: refreshed builds identify newly occupied slots and changes be
   const rune = { ...input.runes.find((rune) => rune.slot === 2), setId: 4, setName: 'Blade',
     mainStatId: 4, mainValue: 63, prefixStatId: null, prefixValue: 0, level: 15, occupiedId: null,
     subProperties: [[2, 6], [5, 34], [9, 17], [11, 6]].map(([statId, value]) => ({ statId, value, grind: 0, gemmed: false })) };
-  const prices = gemRemovalPrices([{ role, base }], defaultCraftCredit)(rune);
+  const prices = gemRemovalPrices([{ role, base }])(rune);
   assert.ok(prices[0] > prices[3], 'HP must be worth keeping for Slow DD');
   assert.ok(prices[1] > prices[3], 'DEF must be worth keeping for Slow DD');
-  assert.equal(gemRemovalPrices([], defaultCraftCredit)(rune), undefined, 'cleared roles must not acquire shipped replacements');
-  assert.equal(gemRemovalPrices([{ role: { ...role, targets: {} }, base }], defaultCraftCredit)(rune), undefined);
+  assert.equal(gemRemovalPrices([])(rune), undefined, 'cleared roles must not acquire shipped replacements');
+  assert.equal(gemRemovalPrices([{ role: { ...role, targets: {} }, base }])(rune), undefined);
   input.runes = [...input.runes.filter((entry) => entry.slot !== 2), rune]; input.locks = {}; input.withheld = {};
   input.requirements = { ...input.requirements, builds: [], allowBroken: true, allowIntangible: false,
     slotMains: { slot2: [], slot4: [], slot6: [] }, rankBy: 'dmg', targets: {}, ceilings: {} };

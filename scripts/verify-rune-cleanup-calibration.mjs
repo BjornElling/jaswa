@@ -330,7 +330,8 @@ function verifyCraftEndState() {
     });
     if (!build || !base) continue;
     for (const credit of credits) {
-      /* The ruler is the credit too, as Rune Clean-up reads every rune. */
+      /* The ruler is the credit too, which no page does: here it exercises the
+         arithmetic of every ruler, not only the one the pages hold fixed. */
       const candidate = prepareRuneCandidate(rune, role, build, base, credit, newRuneAdviceScope(credit));
       if (!candidate) continue;
       const expected = independentEndState(rune, credit, candidate.valuation);

@@ -66,7 +66,7 @@ describe('sampled rune quality', () => {
       }).sort();
     };
     expect(referenceScores(first, prices, defaultCraftCredit)).toEqual(oracleOf(defaultCraftCredit));
-    /* The reference follows the user's credit: none of it, and the sample is the lines as rolled. */
+    /* The reference follows the credit it is given: none of it, and the sample is the lines as rolled. */
     const none = referenceScores(first, prices, noCraftCredit);
     expect(none).toEqual(oracleOf(noCraftCredit));
     expect(none).not.toEqual(oracleOf(defaultCraftCredit));

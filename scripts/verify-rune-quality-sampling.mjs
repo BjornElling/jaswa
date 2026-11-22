@@ -7,7 +7,7 @@ import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import { referenceLines } from '../app/domain/reference/rune-reference-stats.ts';
 import { runeAdvice, planQualityReferences, readingAllowance } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import { newRuneAdviceScope, prepareRuneCandidate, roleBuilds } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
-import { defaultCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { defaultCraftCredit, rulerCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { isIntangibleRuneSet } from '../app/domain/runes/rune-sets.ts';
 import { slotMainProperties } from '../app/domain/runes/rune-properties.ts';
 import { runeScaleStars } from '../app/domain/runes/rune-substat-weights.ts';
@@ -97,13 +97,13 @@ function experimentalReferences(count, seed) {
 
 function boundaryOf(rune, experimental, count) {
   const standard = experimentalReferences(n, standardSeed);
-  const scope = newRuneAdviceScope(settings.craftCredit);
+  const scope = newRuneAdviceScope(rulerCraftCredit);
   let closest = Infinity;
   for (const role of roles) {
     const stats = base.get(role.type);
     if (!stats) continue;
     for (const build of roleBuilds(role)) {
-      const reading = prepareRuneCandidate(rune, role, build, stats, scope.ruler, scope);
+      const reading = prepareRuneCandidate(rune, role, build, stats, settings.craftCredit, scope);
       if (!reading || reading.best <= 0) continue;
       const allowance = readingAllowance(settings, reading.rank, isIntangibleRuneSet(rune.setName));
       if (allowance === null) continue;

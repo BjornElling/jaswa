@@ -12,7 +12,7 @@ const gradeLabel = (grade: CraftCreditGrade) => (grade === 'none' ? 'None' : gra
 
 /**
  * **The one Gem and Grindstone every rune judgement assumes**, chosen here and read
- * everywhere: Rune Clean-up's projection and its ruler, Gems & Grinds' premise and
+ * everywhere: Rune Clean-up's projection (never its ruler), Gems & Grinds' premise and
  * Gem placement, the Rune Simulator, the rune overlay and Rune Optimization's
  * *Theoretical* items (`RunePotentialSettings.craftCredit`). A page that asks about
  * items the account actually holds keeps its own roll for those, because that is a

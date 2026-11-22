@@ -1,5 +1,5 @@
 import {
-  craftComparison, creditKey, creditedGrade, gemChoiceLineUps, lineageFits, noCraftCredit,
+  craftComparison, creditKey, creditedGrade, gemChoiceLineUps, lineageFits, noCraftCredit, rulerCraftCredit,
 } from '../craft/rune-craft-end-state';
 import { filterIncludes } from '../../shared/filter-selection';
 import type { CraftApplication, CraftCredit, EndStateLine } from '../craft/rune-craft-end-state';
@@ -432,7 +432,7 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
   progress?: (fraction: number) => void): Promise<CraftRecommendations> {
   const started = performance.now();
   const credit = request.settings.craftCredit;
-  const scope = newRuneAdviceScope(credit);
+  const scope = newRuneAdviceScope(rulerCraftCredit);
   const families = request.roles.map((role) => ({ role, builds: roleBuilds(role) }));
   const engines: CalculationBackend[] = [];
   const candidates: CraftRecommendation[] = [];

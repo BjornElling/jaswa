@@ -18,7 +18,7 @@ import type { CountingJob, EndStateScoring, RuneRuns } from '../rune-power-up-ou
 import { allStatIds, lastSubPropertyLevel, slotMainProperties, subPropertyTargetStat } from '../rune-properties';
 import { runeAdviceKey } from './rune-cleanup-refresh';
 import { isIntangibleRuneSet } from '../rune-sets';
-import { craftedLines, groundLines } from '../craft/rune-craft-end-state';
+import { craftedLines, groundLines, rulerCraftCredit } from '../craft/rune-craft-end-state';
 import type { EndStateLine } from '../craft/rune-craft-end-state';
 import { isRerollTarget } from '../rune-reapp-targets';
 import {
@@ -164,7 +164,7 @@ export function planQualityReferences(
   const pieces = new Map<string, typeof runes[number]>();
   for (const rune of runes) pieces.set(`${rune.slot}|${rune.mainStatId}|${rune.setName}`, rune);
   const families = configuredRoles(roles, base);
-  const scope = newRuneAdviceScope(settings.craftCredit);
+  const scope = newRuneAdviceScope(rulerCraftCredit);
   for (const rune of pieces.values()) {
     const piece = { slot: rune.slot, stars: runeScaleStars, main: rune.mainStatId };
     for (const family of families) {
@@ -219,7 +219,7 @@ export async function runeAdvice(
 ): Promise<Map<string, RuneAdvice>> {
   const chanceBar = chanceThresholds[settings.powerUpPolicy - 1] ?? chanceThresholds[2];
   const families = configuredRoles(roles, base);
-  const scope = newRuneAdviceScope(settings.craftCredit);
+  const scope = newRuneAdviceScope(rulerCraftCredit);
   const worthOf = (rank: MatchRank) => runeRankWorth(settings, rank);
   const singles: Event[] = [];
   const byReference = new Map<string, ReferenceReadings>();
@@ -239,7 +239,7 @@ export async function runeAdvice(
               && (family.role.targets[subPropertyTargetStat[statId]] ?? 0) > 0);
           continue;
         }
-        const candidate = prepareRuneCandidate(rune, family.role, build, family.base, scope.ruler, scope);
+        const candidate = prepareRuneCandidate(rune, family.role, build, family.base, settings.craftCredit, scope);
         if (!candidate) continue;
         const { rank } = candidate;
         const allowance = readingAllowance(settings, rank, intangible);

@@ -397,10 +397,11 @@ export type RuneCandidate = {
 export type RuneAdviceScope = {
   /**
    * **The one ruler every rune in this reading is measured against** — the weights,
-   * the perfect rune and the sampled reference — priced with the user's craft credit
-   * (`RunePotentialSettings.craftCredit`). It is fixed for the scope's life and no
-   * candidate passes its own, because a ruler a caller may choose is a ruler two
-   * callers can choose differently.
+   * the perfect rune and the sampled reference. Every page passes `rulerCraftCredit`,
+   * never the user's credit: a ruler that moved with the credit kept fewer runes for a
+   * better Gem. It is fixed for the scope's life and no candidate passes its own,
+   * because a ruler a caller may choose is a ruler two callers can choose differently.
+   * Checks pass other rulers only to exercise the arithmetic.
    */
   ruler: CraftCredit;
   builds: WeakMap<RuneRole, readonly Build[]>;
@@ -452,7 +453,7 @@ function remembered<T>(tree: Remembered, path: readonly unknown[], make: () => T
  * The deterministic half: everything that does not depend on the threshold.
  *
  * `credit` is the candidate's own craft: what the rune's end state is projected with.
- * Rune Clean-up passes the scope's ruler, the user's credit; Gems & Grinds and Rune
+ * Rune Clean-up passes the user's credit; Gems & Grinds and Rune
  * Optimization pass `noCraftCredit`, because they price the lines in front of them
  * and add the items they judge themselves. The ruler is the scope's for all three.
  */

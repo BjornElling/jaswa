@@ -505,13 +505,17 @@ parts an agent must not quietly break:
   **And one assumption about them, chosen once:** every rune judgement credits
   the one Gem and Grindstone the user sets on Settings › Gems & Grindstones
   (`RunePotentialSettings.craftCredit`, starting at an average Legend roll,
-  rounded up) — Rune Clean-up's projection, its perfect-rune scale and sampled
-  reference, the Gem's placement, Gems & Grinds' reading of a Gem, before and
-  after alike (`craftComparison`), the Rune Simulator, the rune overlay and Rune
-  Optimization's *Theoretical* items. No calculation reads a credit of its own or
-  a hard-coded one in its place: the ruler travels in the calculation's scope
-  (`newRuneAdviceScope(ruler)`), and `defaultCraftCredit` is only what Settings
-  starts from. What stays a page's own is the roll of an item the account
+  rounded up) — Rune Clean-up's projection, the Gem's placement, Gems & Grinds'
+  reading of a Gem, before and after alike (`craftComparison`), the Rune
+  Simulator, the rune overlay and Rune Optimization's *Theoretical* items. No
+  calculation reads a credit of its own or a hard-coded one in its place, and
+  `defaultCraftCredit` is only what Settings starts from. **The ruler is not the
+  credit:** the weights, the perfect rune and the sampled drops a rune is ranked
+  among are finished with `rulerCraftCredit`, fixed, on every page
+  (`newRuneAdviceScope(rulerCraftCredit)`). A ruler that followed the credit
+  kept fewer runes for a better Gem, though a Gem can only help a rune;
+  `verify:rune-cleanup-craft-monotonic` holds that a better credit never keeps
+  less (`RUNE-CLEANUP-MATH.md` §6). What stays a page's own is the roll of an item the account
   actually holds — Gems & Grinds' roll and Rune Optimization's *Owned only* —
   because that is a question about the box, not about what a rune could become.
 - **100 % is a mark, never a ceiling.** A perfect-rune or benchmark score of 100 %

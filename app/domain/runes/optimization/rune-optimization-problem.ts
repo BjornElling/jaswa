@@ -103,7 +103,7 @@ export type RuneOptimizationInput = {
   settings: RuneOptimizationSettings;
   /**
    * The user's one craft assumption (`RunePotentialSettings.craftCredit`): what a
-   * *Theoretical* item is, and the ruler Clean-up's roles read a Gem plan with.
+   * *Theoretical* item is.
    */
   craftCredit: CraftCredit;
   /** The user's roles with account reference lines; absent where no role context is available. */
@@ -743,7 +743,7 @@ export function prepareRuneOptimization(
     .flatMap((figure) => figureEffectSlots(figure, requirements.alwaysCrits)))];
   const relevantSlots = new Uint8Array(effectSlotCount);
   for (const slot of relevant) relevantSlots[slot] = 1;
-  const removalPrices = gemRemovalPrices(input.gemPreservationRoles ?? [], input.craftCredit);
+  const removalPrices = gemRemovalPrices(input.gemPreservationRoles ?? []);
   const wanted = (statId: number) => {
     const slot = effectSlotOf(statId);
     return slot >= 0 && relevantSlots[slot] === 1;

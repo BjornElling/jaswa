@@ -89,13 +89,14 @@ export type CraftAssumption = {
  *
  * **Every rune judgement reads one of these, and it is the user's** — chosen once,
  * on Settings › Gems & Grindstones (`RunePotentialSettings.craftCredit`). Rune
- * Clean-up projects a rune with it; its ruler — the weights, the perfect rune, the
- * sampled reference — is priced with it; the Gem's placement is chosen on it; and
- * Gems & Grinds reads a Gem on lines ground by it. Clean-up once carried its own
- * sliders beside a fixed ruler and a third, placement reference, so one rune was
- * read under three assumptions at once and two views could disagree about the same
- * craft. One choice, read everywhere, is what keeps that from coming back; the
- * choice being the user's does not change it.
+ * Clean-up projects a rune with it; the Gem's placement is chosen on it; and Gems &
+ * Grinds reads a Gem on lines ground by it. Clean-up once carried its own sliders
+ * beside a third, placement reference, so one rune was read under several
+ * assumptions at once and two views could disagree about the same craft. One
+ * choice, read everywhere, is what keeps that from coming back.
+ *
+ * The ruler a rune is measured against is not a craft assumption and does not read
+ * it (`rulerCraftCredit`).
  *
  * The grade, roll and rounding are the assumption; the items themselves follow the
  * rune's lineage, for legality and for the tables (`craftPlan`).
@@ -108,6 +109,26 @@ export type CraftCredit = { gem: CraftAssumption; grind: CraftAssumption };
  * user's choice.
  */
 export const defaultCraftCredit: CraftCredit = {
+  gem: { grade: 'Legend', roll: 'average', rounding: 'up' },
+  grind: { grade: 'Legend', roll: 'average', rounding: 'up' },
+};
+
+/**
+ * **The ruler's craft: fixed, and deliberately not the user's.** The weights, the
+ * perfect rune and the sampled drops a rune is ranked among are all finished with
+ * this one average Legend Gem and Grindstone, whatever Settings says.
+ *
+ * The ruler once followed the user's credit, and that broke the one promise a craft
+ * assumption has to keep: crediting a better Gem can only help a rune, because a Gem
+ * is spent only where it gains. A Legend Gem lifts the top of the drops — and the
+ * perfect rune — further than it lifts a middling rune, so moving the ruler with the
+ * credit kept *fewer* runes with a Legend Gem than with a Normal one, and most with
+ * none. On Statistics' births the Gem alone took the keep share from 7.0 % with
+ * none to 6.0 % with Normal and 5.7 % with Legend. With the ruler fixed, the user's
+ * credit moves the rune and nothing else, and `verify:rune-cleanup-craft-monotonic`
+ * holds that a better credit never keeps less.
+ */
+export const rulerCraftCredit: CraftCredit = {
   gem: { grade: 'Legend', roll: 'average', rounding: 'up' },
   grind: { grade: 'Legend', roll: 'average', rounding: 'up' },
 };

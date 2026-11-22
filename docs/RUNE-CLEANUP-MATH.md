@@ -327,11 +327,10 @@ actual main, so that property still cannot appear as a sub property.
   Grindstone set on Settings › Gems & Grindstones (`RunePotentialSettings.craftCredit`):
   each a grade (or *None*), a roll and a rounding — *Up* or *Down*; *Nearest* is not
   offered, since the word does not say which way a half goes — starting at an average
-  Legend roll rounded up (`defaultCraftCredit`). It prices the candidate's projection, the ruler of
-  §§4–5 and §9.1, the sampled references, the Gem's placement (§6.1), Gems & Grinds'
-  reading of a Gem (`RUNE-CRAFT-ITEMS.md` §5) and Rune Optimization's *Theoretical*
-  items. The candidate's own craft uses its lineage's tables; the ordinary ruler and box
-  remain ordinary. Items are evaluated as legal actions on actual lines, so an item helps
+  Legend roll rounded up (`defaultCraftCredit`). It prices the candidate's projection,
+  the Gem's placement (§6.1), Gems & Grinds' reading of a Gem (`RUNE-CRAFT-ITEMS.md` §5)
+  and Rune Optimization's *Theoretical* items — never the ruler (below). The candidate's
+  own craft uses its lineage's tables; the ordinary ruler and box remain ordinary. Items are evaluated as legal actions on actual lines, so an item helps
   only where the game would let it.
 - **A Grindstone is credited on every grindable line** the rune holds, as `max(the stone
   already there, the credited one)`, never added to it: a stone can always be topped up,
@@ -346,10 +345,11 @@ actual main, so that property still cannot appear as a sub property.
 - **The candidate's lineage sets its craft tables.** An Ancient candidate uses the
   Ancient Gem and Grindstone tables both for its own credit and for choosing its one Gem
   placement. An ordinary candidate uses the ordinary tables. The weights, perfect rune and
-  reference box stay ordinary and take no lineage. They are priced with the scope's ruler
-  (`newRuneAdviceScope(ruler)`), fixed for the whole calculation, and no candidate passes
-  one of its own, because a ruler a caller may choose is a ruler two callers can choose
-  differently.
+  reference box stay ordinary and take no lineage. They are priced with the one fixed
+  ruler, `rulerCraftCredit` — an average Legend Gem and Grindstone, rounded up — whatever
+  the user's credit says. Every page passes it to `newRuneAdviceScope`, and no candidate
+  passes one of its own, because a ruler a caller may choose is a ruler two callers can
+  choose differently.
 
 **Why one credit.** Rune Clean-up once read a rune under three assumptions at once: its
 own Gem and Grindstone sliders for the candidate, Hero items at three quarters for the
@@ -358,6 +358,17 @@ ruler and the sampled references, and average Legend items for the Gem's placeme
 about one rune's craft for reasons no player could see. The credit became the user's
 choice in November 2026, and that changed none of this: it is still one credit, read by
 every view at once, and a change to it is a change every view's answer waits on.
+
+**Why the ruler does not follow the credit.** For a few hours it did: the weights, the
+perfect rune and the sampled drops were finished with the user's Gem and Grindstone. A
+credit is an assumption about what a rune may become, and a Gem is spent only where it
+gains, so a better credit can only help a rune. With the ruler moving too, it hurt: a
+Legend Gem lifts the top of the drops and the perfect rune further than it lifts a
+middling rune, and Statistics kept 5.7 % of its births with a Legend Gem, 6.0 % with a
+Normal one and 7.0 % with none. The ruler is a yardstick, not an assumption, so it
+stands still; the credit moves the rune and nothing else.
+`verify:rune-cleanup-craft-monotonic` walks a ladder of ever better credits over the
+whole policy and fails if any rune's odds fall or any power-up or keep turns into a sale.
 
 **The choice and what it moves.** A richer credit raises the rune and the perfect rune
 alike, so Potential moves less than either; the sampled quality share moves with the box,
@@ -628,7 +639,7 @@ positive-chance builds, then other permitted builds, then naming fallbacks.
 | `verify:rune-cleanup-ancient` | §7.4. |
 | `verify:rune-cleanup-statistics-funnel` | One fixed birth at +0, +9 and +12 and survivor-only Statistics counts. |
 | `verify:rune-craft-lineage-placement` | §6.1 complete-body placement, canonical stat-id sums, Ancient/ordinary lineage, no-Gem ties and the percentile Improvements projection. |
-| `verify:rune-cleanup-craft-monotonic` | A more generous credit never lowers what a rune can reach or its odds, and a stone spent up to the credited one moves no row (§9.2), under Settings' starting credit and a smaller one rounded down. |
+| `verify:rune-cleanup-craft-monotonic` | A more generous credit never lowers what a rune can reach or its odds, and a stone spent up to the credited one moves no row (§9.2), under Settings' starting credit and a smaller one rounded down; and over the whole policy, a ladder of ever better credits never lowers a rune's odds or turns a power-up or keep into a sale (§6). |
 | `verify:rune-cleanup-preference-monotonic` | A more lenient slider never sells a rune a stricter one keeps, over the whole recommendation funnel. |
 | `verify:rune-chance-stability` | §7.3: the box holds still across a sixty-fourfold resolution sweep, and two copies of one rune get one answer. |
 | `verify:rune-quality-reference` | Exact tie bars, deterministic stratification, scoring identity, union counts, same-reading protection, missing input withholding only a sale, and `craftedScoreAgainst` agreeing with `craftedScore` at, beside and away from every bar at three credits and both lineages. |
@@ -638,8 +649,8 @@ positive-chance builds, then other permitted builds, then naming fallbacks.
 | `verify:rune-chance-card` | The active WebGPU card flags score-cutoff atoms and exactly matches processor counts on the remaining agreement jobs (§10.1). |
 | `verify:rune-cleanup-equivalence` | Whether this build says what the last one did (below). |
 
-No candidate passes a ruler of its own: it is the scope's, the user's credit, fixed for
-the calculation (`newRuneAdviceScope(ruler)`). A check that needs exact arithmetic
+No candidate passes a ruler of its own: it is the scope's, `rulerCraftCredit`, fixed
+for every calculation (§6). A check that needs exact arithmetic
 states its bar in the stat's own units and puts it on the candidate's scale, rather than
 choosing a different ruler.
 
