@@ -1,4 +1,4 @@
-export type Page = 'home' | 'monster-stats' | 'monster-numbers' | 'artifact-list' | 'optimizer' | 'speed' | 'presets' | 'potential' | 'artifacts' | 'gems' | 'settings' | 'the-math' | 'rune-simulator';
+export type Page = 'home' | 'monster-stats' | 'monster-numbers' | 'optimizer' | 'speed' | 'presets' | 'potential' | 'artifacts' | 'relics' | 'gems' | 'settings' | 'the-math' | 'rune-simulator';
 export type ReportCategory = 'Monster' | 'Rune' | 'Gem' | 'Grindstone' | 'Artifact' | 'Relic' | 'Other';
 
 /* `label` is what the rail shows, under a heading that supplies the subject.
@@ -11,7 +11,7 @@ export type NavigationItem = { id: Page; label: string; name: string; glyph: str
 
 /* The rail groups by subject, so each entry only has to name what it does to
    that subject: the heading above it supplies the noun. `label` is therefore
-   short enough to repeat across groups — two of them are "Optimization" —
+   short enough to repeat across groups — several are "Optimization" —
    and it is the page's own heading, not this label, that states the full name
    for a reader who has scrolled past the rail. */
 export const navigationGroups: Array<{ heading: string; items: NavigationItem[] }> = [
@@ -33,10 +33,10 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     ],
   },
   {
-    heading: 'Rune Optimization',
+    heading: 'Runes',
     items: [
-      /* The build search leads: it is what the group is named after, and
-         Presets and Speed tuning are the inputs it reads. */
+      { id: 'potential', label: 'Clean-up', name: 'Rune Clean-up', glyph: '◌' },
+      /* Presets and Speed tuning follow the build search that reads them. */
       { id: 'optimizer', label: 'Optimization', name: 'Rune Optimization', glyph: '◈' },
       { id: 'presets', label: 'Presets', name: 'Presets', glyph: '⇅' },
       { id: 'speed', label: 'Speed tuning', name: 'Speed Tuning', glyph: '↝' },
@@ -46,22 +46,15 @@ export const navigationGroups: Array<{ heading: string; items: NavigationItem[] 
     ],
   },
   {
-    heading: 'Rune Clean-up',
+    heading: 'Artifacts',
     items: [
-      { id: 'potential', label: 'Clean-up', name: 'Rune Clean-up', glyph: '◌' },
+      { id: 'artifacts', label: 'Optimization', name: 'Artifact Optimization', glyph: '◆' },
     ],
   },
   {
-    /* Relic Optimization is a section at the foot of Artifact Optimization:
-       both judge the gear engraved beside the runes, and one relic tool did
-       not earn a heading of its own. */
-    heading: 'Artifacts',
+    heading: 'Relics',
     items: [
-      /* The library's hollow diamond against the workspace's filled one: a
-         plain list of what the account holds, then the judgement read against
-         it. Neither borrows the Rune Optimization mark. */
-      { id: 'artifact-list', label: 'Overview', name: 'Artifacts', glyph: '◇' },
-      { id: 'artifacts', label: 'Optimization', name: 'Artifact Optimization', glyph: '◆' },
+      { id: 'relics', label: 'Optimization', name: 'Relic Optimization', glyph: '◇' },
     ],
   },
   {

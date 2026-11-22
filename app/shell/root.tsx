@@ -35,7 +35,7 @@ import { PresetsContext } from '../ui/presets-context';
 import { summarizeRunePlacement } from '../domain/placements/rune-placement';
 import type { OwnPreset, Preset } from '../domain/placements/presets';
 import type { PresetWrites } from '../features/presets/presets-section';
-import { profilesIn, withProfile } from '../domain/profiles/monster-preferences';
+import { withProfile } from '../domain/profiles/monster-preferences';
 import type { RelicSynergyChoices } from '../domain/relics/relic-synergy';
 import type { RelicInvestmentSelectivity } from '../domain/relics/relic-advice';
 import type { RuneHold } from '../domain/profiles/rune-holds';
@@ -65,7 +65,6 @@ const directImportController = createDirectImportController(silentHelper);
 
 const isPage = (value: unknown): value is Page => typeof value === 'string' && pageChoices.includes(value as Page);
 const isString = (value: unknown): value is string => typeof value === 'string';
-const ArtifactList = lazy(() => import('../features/artifacts/artifact-list').then(({ ArtifactList: component }) => ({ default: component })));
 const ArtifactsSection = lazy(() => import('../features/artifacts/artifacts-section').then(({ ArtifactsSection: component }) => ({ default: component })));
 const GemsSection = lazy(() => import('../features/craft-advice/gems-section').then(({ GemsSection: component }) => ({ default: component })));
 const MonsterStats = lazy(() => import('../features/monsters/monster-stats').then(({ MonsterStats: component }) => ({ default: component })));
@@ -692,8 +691,6 @@ export default function Home() {
       {page === 'monster-stats' && <Suspense fallback={<WorkspaceLoading />}><MonsterStats monsters={monsters} gameData={game?.data ?? {}} snapshot={game?.snapshot} presets={presets} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
       {page === 'monster-numbers' && <Suspense fallback={<WorkspaceLoading />}><MonsterNumbers monsters={monsters} snapshot={game?.snapshot} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
-      {page === 'artifact-list' && <Suspense fallback={<WorkspaceLoading />}><ArtifactList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
-
       {page === 'potential' && <Suspense fallback={<WorkspaceLoading />}><RunePotentialSection
         key={String(runeCleanupAccount)}
         session={runeCleanupSession}
@@ -709,18 +706,8 @@ export default function Home() {
         onOpenRune={openRuneOverlay}
       /></Suspense>}
 
-      {page === 'artifacts' && <Suspense fallback={<WorkspaceLoading />}><ArtifactsSection
-        settings={preferences.artifacts}
-        data={game?.data}
-        snapshot={game?.snapshot}
-        monsters={monsters}
-        scenarioProfiles={profilesIn(preferences.monsterPreferences, scenarioPresetId)}
-        general={preferences.general}
-        hardwareAcceleration={preferences.hardwareAcceleration}
-        relics={<Suspense fallback={<p className="lead">Reading your relics…</p>}>
-          <RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} />
-        </Suspense>}
-      /></Suspense>}
+      {page === 'artifacts' && <Suspense fallback={<WorkspaceLoading />}><ArtifactsSection game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
+      {page === 'relics' && <Suspense fallback={<WorkspaceLoading />}><RelicList game={game} monsters={monsters} preferences={preferences} onOpenMonster={openMonsterOverlay} /></Suspense>}
 
       {page === 'settings' && <Suspense fallback={<WorkspaceLoading />}><SettingsSection
         sharing={<PreferenceSharingSettings status={sharing}

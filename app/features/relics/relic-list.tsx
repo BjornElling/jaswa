@@ -3,7 +3,8 @@ import { lazy, Suspense, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { FilterButton } from '../../ui/button';
 import type { OpenMonsterOverlay } from '../../ui/gear/monster-link';
-import { Disclosure } from '../../ui/page-chrome';
+import { Disclosure, PageHeader } from '../../ui/page-chrome';
+import { WorkspacePage } from '../../ui/workspace-page';
 import { DataTablePage, TableColumnGroup } from '../../ui/data-table-page';
 import { FilterSummary } from '../../ui/filter-summary';
 import { SortableHeader } from '../../ui/sortable-table';
@@ -249,10 +250,11 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
      account and answers keep, power up, or sell; the roster asks which relic
      each monster should have engraved. They share the relics and nothing else —
      different rows, different filters, different arithmetic — so they are
-     separate disclosures rather than one table with a mode switch. Both sit
-     inside Artifact Optimization's Relic Optimization bar, which supplies the
-     frame (`artifacts-section.tsx`). */
-  return <div className="bar-stack">
+     separate disclosures. */
+  return <WorkspacePage header={<PageHeader
+    title="Relic Optimization"
+    tagline="See which relics to improve and which monsters can use them." />}
+  >
     <Disclosure title="Power up/Keep/Sell" sessionKey="relics.library" defaultOpen>
       {!relics.length ? noRelics : <div className="relic-library">
       <DataTablePage
@@ -363,5 +365,5 @@ export function RelicList({ game, monsters, preferences, onOpenMonster }: {
           <RelicMonsterList relics={relics} monsters={monsters} preferences={preferences} onOpenMonster={onOpenMonster} />
         </Suspense>}
     </Disclosure>
-  </div>;
+  </WorkspacePage>;
 }

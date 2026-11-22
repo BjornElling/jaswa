@@ -22,17 +22,27 @@ const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 2000, height: 900 }, deviceScaleFactor: 1 });
 await isolatePersonalization(page.context());
 
-/* Scoped to the rail rather than the whole page: a sortable column heading is
-   a button too, and the Stats table has one named "Artifacts", so an unscoped
-   lookup for the Artifacts page matched both. */
 const railButton = (name) => page.getByRole('navigation').getByRole('button', { name, exact: true });
+const libraries = [
+  { pageName: 'Monster Overview', toggleName: 'Storage' },
+  { pageName: 'Artifact Optimization', bar: 'Overview', toggleName: 'Engraved' },
+  { pageName: 'Gems & Grinds', bar: 'Your box', toggleName: 'Usable' },
+];
+
+async function openLibrary({ pageName, bar }) {
+  await railButton(pageName).click();
+  await page.getByRole('heading', { name: pageName, exact: true }).waitFor();
+  if (bar) {
+    const summary = page.locator('main summary').filter({ hasText: bar });
+    if (!await summary.evaluate((element) => element.parentElement.open)) await summary.click();
+  }
+}
 
 try {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
 
-  for (const pageName of ['Monster Overview', 'Artifacts', 'Gems & Grinds']) {
-    await railButton(pageName).click();
-    await page.getByRole('heading', { name: pageName, exact: true }).waitFor();
+  for (const library of libraries) {
+    await openLibrary(library);
     await assert.doesNotReject(() => page.getByText('Nothing to show until a game file is imported.').first().waitFor());
   }
 
@@ -46,13 +56,9 @@ try {
     await page.setViewportSize({ width, height: 900 });
     /* The toggle is whichever filter chip that page keeps in its strip: every
        library must be able to take a click on one without its heading moving. */
-    for (const [pageName, toggleName] of [['Monster Overview', 'Storage'], ['Artifacts', 'Engraved'], ['Gems & Grinds', 'Usable']]) {
-      await railButton(pageName).click();
-      /* Gems & Grinds keeps its table under Your box, closed until opened. */
-      if (pageName === 'Gems & Grinds') {
-        const box = page.locator('details.bar').filter({ has: page.locator('summary', { hasText: 'Your box' }) });
-        if (!await box.evaluate((details) => details.open)) await box.locator('summary').click();
-      }
+    for (const library of libraries) {
+      const { pageName, toggleName } = library;
+      await openLibrary(library);
       /* Other pages keep their tables mounted and hidden, so the page shown is the visible one. */
       const tablePage = page.locator('.data-table-page:visible').first();
       await tablePage.waitFor();
@@ -75,7 +81,7 @@ try {
       assert(summary && firstLabel && strip && nearlyEqual(summary.y, firstLabel.y)
         && nearlyEqual(summary.x + summary.width, strip.x + strip.width),
       `${pageName} result summary is not aligned with the filter headings at ${width}px.`);
-      if (pageName === 'Artifacts' && width === 2000) {
+      if (pageName === 'Artifact Optimization' && width === 2000) {
         const headers = await page.locator('.artifact-grid thead th').evaluateAll((cells) =>
           cells.map((cell) => cell.textContent?.replace(/\s+/g, ' ').trim()));
         const mainStatColumn = headers.indexOf('Main stat') + 1;
@@ -182,7 +188,7 @@ try {
   assert(!recommendationHeaders.includes('#'),
     'The recommendation table must not show an artifact number.');
 
-  console.log('Verified empty and imported library states across Monster Overview, Artifacts and Gems & Grinds, shared table measure, fixed filter interaction, the Include group beside Location, artifact settings, and the recommendation table fitting its container.');
+  console.log('Verified empty and imported library states across Monster Overview, Artifact Optimization › Overview and Gems & Grinds, shared table measure, fixed filter interaction, the Include group beside Location, artifact settings, and the recommendation table fitting its container.');
 } finally {
   await browser.close();
 }

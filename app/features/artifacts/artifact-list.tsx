@@ -1,7 +1,6 @@
 import { filterIncludes, filterPair } from '../../domain/shared/filter-selection';
 import { type ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { FilterButton } from '../../ui/button';
-import { PageHeader } from '../../ui/page-chrome';
 import { DataTablePage, TableColumnGroup } from '../../ui/data-table-page';
 import { FilterSummary } from '../../ui/filter-summary';
 import { SortableHeader } from '../../ui/sortable-table';
@@ -35,7 +34,6 @@ import { profilesIn } from '../../domain/profiles/monster-preferences';
 import { usePresets } from '../../ui/presets-context';
 import { formatNumber } from '../../domain/shared/formatting';
 import { useSessionStorageState } from '../../ui/session-state';
-import { WorkspacePage } from '../../ui/workspace-page';
 
 const categoryOrder: readonly ArtifactCategory[] = ['attribute', 'type'];
 const elementOrder = Object.values(artifactElements);
@@ -372,12 +370,7 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
   </div>;
   const abbreviate = (option: string) => option.slice(0, 3).toUpperCase();
 
-  return <WorkspacePage
-    header={<PageHeader
-      title="Artifacts"
-      tagline="A museum of tiny stat sticks. Some are priceless. Most are taking up space." />}
-  >
-    {!artifacts.length ? <section className="empty-state">
+  return !artifacts.length ? <section className="empty-state">
       <h2>{game
         ? 'This import holds no artifacts JASWA can read.'
         : 'Nothing to show until a game file is imported.'}</h2>
@@ -515,6 +508,5 @@ export function ArtifactList({ game, monsters, preferences, onOpenMonster }: {
           </tr>}
       </tbody>
       </DataTablePage>
-    </div>}
-  </WorkspacePage>;
+    </div>;
 }

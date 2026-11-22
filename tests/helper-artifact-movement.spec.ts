@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { expect, openArtifactOverview, test } from './test-fixtures';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -57,8 +57,8 @@ test('a compound artifact move preserves inventory and the next live update', as
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.locator('input[name="import-route"][value="direct"]').check();
-  await page.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
+  await openArtifactOverview(page);
+  await expect(page.getByRole('heading', { name: 'Artifact Optimization', exact: true })).toBeVisible();
   await expect(page.getByText('Nothing to show until a game file is imported.')).toBeVisible();
   const table = page.getByRole('table', { name: 'Artifact library', exact: true });
   await expect(table).toHaveCount(0);

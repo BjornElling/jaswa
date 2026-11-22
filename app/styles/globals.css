@@ -1820,9 +1820,7 @@ label[for] {
   text-align: center;
   transition: transform .16s ease, color .12s;
 }
-/* `>` rather than a descendant selector: a bar can hold bars (Relic
-   Optimization inside Artifact Optimization), and an open outer bar must not
-   paint its closed children as open. */
+/* An open bar styles only its own heading. */
 .bar[open] > .bar-head .bar-chevron { transform: rotate(90deg); color: var(--text-accent); }
 .bar-head:hover .bar-chevron { color: var(--text); }
 
@@ -1837,8 +1835,6 @@ label[for] {
   padding: var(--s5);
   border-top: 1px solid var(--line);
 }
-/* Bars inside a bar: the same column rhythm as the page, one step apart. */
-.bar-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); min-width: 0; }
 
 /* The examples get their own quiet plate so an equation is easy to find without
    turning the page into a second kind of dashboard. The copy itself takes the

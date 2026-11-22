@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from './test-fixtures';
+import { expect, openArtifactOverview, test, type Locator, type Page } from './test-fixtures';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -73,8 +73,8 @@ test('every column of every account table sorts, in both directions', async ({ p
     },
     {
       open: async () => {
-        await page.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
-        await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
+        await openArtifactOverview(page);
+        await expect(page.getByRole('heading', { name: 'Artifact Optimization', exact: true })).toBeVisible();
       },
       header: headerTables.artifacts,
       body: 'Artifact library',
@@ -113,8 +113,8 @@ test('the sort arrow sits on the outside of the heading text', async ({ page }) 
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
 
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'Artifacts', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
+  await openArtifactOverview(page);
+  await expect(page.getByRole('heading', { name: 'Artifact Optimization', exact: true })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Monster Overview', exact: true }).click();
 
   for (const label of [headerTables.roster, headerTables.storage]) {

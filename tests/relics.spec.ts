@@ -439,8 +439,7 @@ test('a Trash relic centres its explanation without moving the table', async ({ 
   const row = rowFor(page, 'per 2,000 ATK');
   const reason = row.locator('td').last();
   await expect(reason.locator('.relic-landing')).not.toHaveText('');
-  /* In page coordinates: the relic bars sit low on Artifact Optimization, so
-     the window's scroll on return is not the table's doing. */
+  /* Measure relative to the document so scrolling does not affect the comparison. */
   const geometry = () => rows(page).evaluateAll((entries) => entries.map((entry) => {
     const { x, y, width, height } = entry.getBoundingClientRect();
     return { x: x + window.scrollX, y: y + window.scrollY, width, height };

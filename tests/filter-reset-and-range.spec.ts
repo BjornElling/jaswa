@@ -1,4 +1,4 @@
-import { expect, test } from './test-fixtures';
+import { expect, openArtifactOverview, test } from './test-fixtures';
 import type { Locator, Page } from './test-fixtures';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -162,7 +162,7 @@ test('Reset filters puts one page’s filters back and leaves the other alone', 
 
 test('Reset filters restores the artifact library defaults', async ({ page }) => {
   await importAccount(page, artifactAccount);
-  await page.getByRole('button', { name: 'Artifacts', exact: true }).click();
+  await openArtifactOverview(page);
 
   const strip = page.locator('.artifact-filter-strip');
   const summary = strip.locator('.filter-summary');
