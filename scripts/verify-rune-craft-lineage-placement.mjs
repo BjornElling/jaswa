@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { finishedLines } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import { endStateScoring } from '../app/domain/runes/rune-power-up-outcomes.ts';
 import {
-  canonicalCraftCredit, craftComparison, craftPlan, craftedLines, craftedScore,
+  defaultCraftCredit, craftComparison, craftPlan, craftedLines, craftedScore,
   craftedScoreBreakdown, gemChoiceLineUps, gemLineContribution, gemOptions, grindCredit, noCraftCredit, priceList,
 } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
@@ -21,19 +21,19 @@ const lines = [
   { statId: 11, value: 6, gemmed: false, grind: 0 },
   { statId: 12, value: 6, gemmed: false, grind: 0 },
 ];
-const ancientPlan = craftPlan('ancient', canonicalCraftCredit);
-const ordinaryPlan = craftPlan('standard', canonicalCraftCredit);
+const ancientPlan = craftPlan('ancient', defaultCraftCredit);
+const ordinaryPlan = craftPlan('standard', defaultCraftCredit);
 
 /* The ordinary Legend reference prefers SPD (14 vs 13.3); the Ancient reference
    prefers ATK % (14.7 vs 14). An Ancient candidate must use the second answer. */
 const firstPrices = pricesFor('ancient-placement-first', { 4: 0.7, 8: 1 });
 const ordinaryOptions = gemOptions(ordinaryPlan, firstPrices, 5, 1, null);
 const ancientOptions = gemOptions(ancientPlan, firstPrices, 5, 1, null);
-assert.equal(ordinaryOptions.choice.statIds[0], 8, 'ordinary canonical credit prefers SPD');
-assert.equal(ancientOptions.choice.statIds[0], 4, 'Ancient canonical credit prefers ATK %');
-assert.equal(gemLineContribution(ordinaryPlan, ordinaryOptions, firstPrices, lines, 0), ordinaryOptions.choice.values[0],
+assert.equal(ordinaryOptions.statIds[0], 8, 'ordinary canonical credit prefers SPD');
+assert.equal(ancientOptions.statIds[0], 4, 'Ancient canonical credit prefers ATK %');
+assert.equal(gemLineContribution(ordinaryPlan, ordinaryOptions, firstPrices, lines, 0), ordinaryOptions.values[0],
   'the ordinary per-line ceiling uses its canonical legal options');
-assert.equal(gemLineContribution(ancientPlan, ancientOptions, firstPrices, lines, 0), ancientOptions.choice.values[0],
+assert.equal(gemLineContribution(ancientPlan, ancientOptions, firstPrices, lines, 0), ancientOptions.values[0],
   'the Ancient per-line ceiling uses Ancient canonical legal options');
 const first = craftedScoreBreakdown(ancientPlan, ancientOptions, firstPrices, lines, 0);
 assert.equal(first.score, 14.7, "the Ancient body's selected canonical utility is 14.7");
@@ -43,8 +43,8 @@ assert.equal(first.statId, 4, 'the actual Ancient plan places its Gem on ATK %')
    positive gain. An id already on a neighbour and a converted neighbour are barred. */
 const atkOnlyPrices = pricesFor('gem-line-contribution-atk', { 4: 1 });
 const atkOnlyOptions = gemOptions(ancientPlan, atkOnlyPrices, 5, 1, null);
-const atkOnlyAt = atkOnlyOptions.choice.indexByStat[4];
-const atkGemRoll = atkOnlyOptions.choice.rolls[atkOnlyAt];
+const atkOnlyAt = atkOnlyOptions.indexByStat[4];
+const atkGemRoll = atkOnlyOptions.rolls[atkOnlyAt];
 assert.ok(atkOnlyAt >= 0 && atkGemRoll > 0);
 const sameStatLines = [
   { statId: 4, value: 8, gemmed: false, grind: 12 },
@@ -132,7 +132,7 @@ const rune = {
   rarity: 'Legend', level: 12, mainStatId: 1, mainValue: 0, prefixStatId: null, prefixValue: 0,
   subProperties: body(8), occupiedId: null, obtainedOrder: 1,
 };
-const lineUps = gemChoiceLineUps(rune);
+const lineUps = gemChoiceLineUps(rune, defaultCraftCredit);
 assert.equal(lineUps?.base.find((line) => line.statId === 4)?.grind, 9,
   'Ancient Gem advice grounds its reference line with an Ancient Legend stone');
 const placementRune = { ...rune, subProperties: lines };
@@ -140,7 +140,7 @@ const ordinaryPlacementRune = { ...placementRune, ancient: false };
 const ordinaryRune = { ...rune, ancient: false };
 const projectionValuation = valuation('percentile-craft-projection', { 4: 0.7, 8: 1 });
 const project = (rune) => {
-  const plan = craftPlan(rune.ancient ? 'ancient' : 'standard', canonicalCraftCredit);
+  const plan = craftPlan(rune.ancient ? 'ancient' : 'standard', defaultCraftCredit);
   return finishedLines({ rune, scoring: endStateScoring(rune, projectionValuation, plan) });
 };
 const ancientProjection = project(placementRune);
@@ -159,10 +159,14 @@ const ordinaryItem = {
 const ancientItem = {
   ...ordinaryItem, id: 'ancient-gem', lineage: 'ancient', range: { minimum: 9, maximum: 15 },
 };
-assert.equal(craftComparison(ordinaryItem, ordinaryRune, 'average').baseline
+assert.equal(craftComparison(ordinaryItem, ordinaryRune, 'average', defaultCraftCredit).baseline
   .find((line) => line.statId === 4)?.grind, 8);
-assert.equal(craftComparison(ancientItem, rune, 'average').baseline
+assert.equal(craftComparison(ancientItem, rune, 'average', defaultCraftCredit).baseline
   .find((line) => line.statId === 4)?.grind, 9);
+/* The premise is the user's stone: a Hero one rounded down grinds the same line less. */
+const heroDown = { ...defaultCraftCredit, grind: { grade: 'Hero', roll: 'average', rounding: 'down' } };
+assert.equal(craftComparison(ordinaryItem, ordinaryRune, 'average', heroDown).baseline
+  .find((line) => line.statId === 4)?.grind, 5, 'a Hero ATK % stone of 4–7 at the average, rounded down, is 5');
 
 /* Equal realized scores settle by canonical option order; an all-zero reading keeps
    the no-Gem body instead of reporting a tie as an improvement. */

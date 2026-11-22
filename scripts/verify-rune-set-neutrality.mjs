@@ -123,6 +123,10 @@ const bodies = Array.from({ length: runeCount }, (_, id) =>
 const everySet = { preferred: roleRuneSetNameList, acceptable: [] };
 const openRoles = defaultRuneRoles().map((role) => ({ ...role, sets: everySet }));
 const settings = {
+  craftCredit: {
+    gem: { grade: 'Legend', roll: 'average', rounding: 'up' },
+    grind: { grade: 'Legend', roll: 'average', rounding: 'up' },
+  },
   powerUpPolicy: 3, runeQuality: 2, acceptedRunes: 3, brokenRunes: 3, intangibleRunes: 1,
 };
 

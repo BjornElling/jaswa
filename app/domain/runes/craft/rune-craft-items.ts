@@ -201,6 +201,17 @@ export const craftRollDescriptions: Readonly<Record<CraftRollAssumption, string>
   maximum: 'the best its grade allows',
 };
 
+/**
+ * Which whole number a roll that lands between two is taken as. Every rune value
+ * is whole, so a fraction of the way up a range has to be rounded one way or the
+ * other, and which way is part of the assumption. `nearest` takes a half upward.
+ */
+export type CraftRounding = 'up' | 'nearest' | 'down';
+export const craftRoundings: readonly CraftRounding[] = ['up', 'nearest', 'down'];
+export const craftRoundingLabels: Readonly<Record<CraftRounding, string>> = {
+  up: 'Up', nearest: 'Nearest', down: 'Down',
+};
+
 /** Round a craft value to a whole number without biasing negative halves inward. */
 export function roundAwayFromZero(value: number): number {
   return value < 0 ? -Math.round(-value) : Math.round(value);
@@ -210,13 +221,22 @@ const craftRollFractions: Readonly<Record<CraftRollAssumption, number>> = {
   minimum: 0, 'one-third': 1 / 3, average: 0.5, 'two-thirds': 2 / 3, 'three-quarters': 0.75, maximum: 1,
 };
 
+/* A third of a span of 3 is 1, and floating point says 0.9999999999999999: a
+   fraction that is meant to be whole must stay whole before it is rounded up or
+   down, or Up would add a point nobody assumed. */
+const wholeWithin = 1e-9;
+
 /** The value a roll is assumed to land on. Whole, as every rune value is. */
-export function craftRollValue(bounds: CraftValueRange, assumption: CraftRollAssumption): number {
+export function craftRollValue(bounds: CraftValueRange, assumption: CraftRollAssumption, rounding: CraftRounding): number {
   const span = bounds.maximum - bounds.minimum;
   if (assumption === 'minimum') return bounds.minimum;
   if (assumption === 'maximum') return bounds.maximum;
-  const fraction = craftRollFractions[assumption];
-  return roundAwayFromZero(bounds.minimum + span * fraction);
+  const exact = bounds.minimum + span * craftRollFractions[assumption];
+  const whole = Math.round(exact);
+  if (Math.abs(exact - whole) < wholeWithin) return whole;
+  if (rounding === 'up') return Math.ceil(exact);
+  if (rounding === 'down') return Math.floor(exact);
+  return roundAwayFromZero(exact);
 }
 
 function numberOrNull(value: unknown): number | null {

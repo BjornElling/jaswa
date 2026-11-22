@@ -9,7 +9,10 @@ which all read `runeAdvice`.
 
 This document is meant to be enough on its own: an experienced developer should be
 able to implement the change from it without reading the earlier proposal. Module
-and function names refer to the tree at commit `6b7de60`.
+and function names refer to the tree at commit `6b7de60`. Since November 22, 2026
+the craft credit is the user's (Settings › Gems & Grindstones): `canonicalCraftCredit`
+below is now the scope's ruler, `newRuneAdviceScope(settings.craftCredit).ruler`, and
+a reference request carries it (`RUNE-CLEANUP-MATH.md` §6).
 
 ---
 

@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import {
-  candidateChance, candidateMaxValue, chanceRuns, prepareRuneCandidate, roleBuilds,
+  candidateChance, candidateMaxValue, chanceRuns, newRuneAdviceScope, prepareRuneCandidate, roleBuilds,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { defaultCraftCredit, noCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
-/* The product's one canonical credit, the same as the ruler's. */
-const credit = { gem: 'average', gemGrade: 'Legend', grind: 'average', grindGrade: 'Legend' };
+/* Settings' starting credit, and the ruler's, as Rune Clean-up reads a rune. */
+const credit = defaultCraftCredit;
+const scope = () => newRuneAdviceScope(defaultCraftCredit);
 const base = { hp: 0, atk: 0, def: 0, spd: 0, criRate: 0, criDmg: 0, res: 0, acc: 0 };
 const role = {
   id: 'ancient-rolls', name: 'Ancient rolls', type: 'No type',
@@ -35,8 +37,8 @@ function rune(ancient, firstValue, rarity = 'Legend') {
 }
 
 /* Read the way the page reads it, where a perfect ordinary line is exactly 100 %. */
-const ordinary = prepareRuneCandidate(rune(false, 6), role, build, base, credit);
-const ancient = prepareRuneCandidate(rune(true, 7), role, build, base, credit);
+const ordinary = prepareRuneCandidate(rune(false, 6), role, build, base, credit, scope());
+const ancient = prepareRuneCandidate(rune(true, 7), role, build, base, credit, scope());
 assert.ok(ordinary);
 assert.ok(ancient);
 assert.equal(candidateMaxValue(ordinary), 1, 'an ordinary max roll stays at 100 %');
@@ -82,9 +84,9 @@ const magic = (ancient) => ({ ...rune(ancient, 6, 'Magic'), subProperties: [rune
 /* Read bare: an Ancient rune takes Ancient craft items, which is a legality rule of
    its own and would move the two apart for a reason that has nothing to do with
    which table an added line rolls from. */
-const bare = { gem: null, gemGrade: 'Legend', grind: null, grindGrade: 'Legend' };
-const ordinaryMagic = prepareRuneCandidate(magic(false), everything, everyBuild, base, bare);
-const ancientMagic = prepareRuneCandidate(magic(true), everything, everyBuild, base, bare);
+const bare = noCraftCredit;
+const ordinaryMagic = prepareRuneCandidate(magic(false), everything, everyBuild, base, bare, scope());
+const ancientMagic = prepareRuneCandidate(magic(true), everything, everyBuild, base, bare, scope());
 assert.ok(ordinaryMagic);
 assert.ok(ancientMagic);
 assert.ok(Math.abs(candidateMaxValue(ancientMagic) - candidateMaxValue(ordinaryMagic)) < 1e-12,

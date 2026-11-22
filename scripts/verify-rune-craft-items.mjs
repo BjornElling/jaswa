@@ -91,12 +91,22 @@ try {
     'Ancient does not make an ungrindable stat grindable');
 
   const spd = { minimum: 7, maximum: 10 };
-  assert.equal(craftRollValue(spd, 'minimum'), 7);
-  assert.equal(craftRollValue(spd, 'one-third'), 8);
-  assert.equal(craftRollValue({ minimum: 2, maximum: 7 }, 'one-third'), 4, 'one third rounds to the nearest whole, like every stop');
-  assert.equal(craftRollValue(spd, 'average'), 9);
-  assert.equal(craftRollValue(spd, 'three-quarters'), 9);
-  assert.equal(craftRollValue(spd, 'maximum'), 10);
+  assert.equal(craftRollValue(spd, 'minimum', 'nearest'), 7);
+  assert.equal(craftRollValue(spd, 'one-third', 'nearest'), 8);
+  assert.equal(craftRollValue({ minimum: 2, maximum: 7 }, 'one-third', 'nearest'), 4, 'nearest takes 3⅔ to 4');
+  assert.equal(craftRollValue(spd, 'average', 'nearest'), 9, 'nearest takes a half upward');
+  assert.equal(craftRollValue(spd, 'three-quarters', 'nearest'), 9);
+  assert.equal(craftRollValue(spd, 'maximum', 'nearest'), 10);
+  /* Rounding is part of the user's assumption: up and down take every fraction one way. */
+  assert.equal(craftRollValue(spd, 'average', 'up'), 9, 'up takes 8.5 to 9');
+  assert.equal(craftRollValue(spd, 'average', 'down'), 8, 'down takes 8.5 to 8');
+  assert.equal(craftRollValue({ minimum: 2, maximum: 7 }, 'one-third', 'down'), 3, 'down takes 3⅔ to 3');
+  assert.equal(craftRollValue({ minimum: 2, maximum: 7 }, 'two-thirds', 'up'), 6, 'up takes 5⅓ to 6');
+  assert.equal(craftRollValue({ minimum: 1, maximum: 4 }, 'one-third', 'up'), 2,
+    'a fraction meant to be whole stays whole: ⅓ of 3 is 1, not 1.0000000001 rounded up');
+  assert.equal(craftRollValue({ minimum: 4, maximum: 6 }, 'average', 'down'), 5, 'a whole midpoint needs no rounding');
+  assert.equal(craftRollValue(spd, 'minimum', 'up'), 7);
+  assert.equal(craftRollValue(spd, 'maximum', 'down'), 10);
   assert.equal(roundAwayFromZero(1.5), 2);
   assert.equal(roundAwayFromZero(-1.5), -2);
 

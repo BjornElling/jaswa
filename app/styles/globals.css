@@ -344,7 +344,7 @@ label[for] {
 .rune-overlay-innate, .rune-overlay-busy, .rune-overlay-subs, .rune-overlay-evaluation-facts,
 .rune-overlay-readings, .rune-overlay-readings tbody th,
 .rune-build-card-innate, .rune-build-card-subs, .rune-build-change-list, .rune-build-change-none,
-.rune-build-missing, .rune-build-card-where-value, .rune-optimization-choose,
+.rune-build-missing, .rune-build-card-where-value, .rune-optimization-choose, .rune-optimization-craft-assumed,
 .speed-summary, .speed-basis-level, .speed-basis-bonus, .speed-dungeon-facts dd,
 .monster-priority-place, .monster-priority-empty, .monster-priority-about, .monster-priority-count,
 .monster-priority-note, .preset-team-option {
@@ -2049,6 +2049,17 @@ label[for] {
 
 .artifact-scope .checkbox-row { color: var(--text-strong); }
 
+/* Grade, roll and rounding side by side, each a third of the card, so a long
+   option in one cannot push the others. A kind set to None dims its two
+   dependants in place rather than hiding them. */
+.craft-credit-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+}
+.craft-credit-choices .jaswa-select { width: 100%; }
+.craft-credit-choices .filter-group[data-disabled] .filter-label { color: var(--text-muted); }
+
 /* The conversion sources fill their row; the roll-value slider sits below
    them at half width, inside the same card, because it only means anything
    once a source is chosen. */
@@ -2680,6 +2691,19 @@ label[for] {
 }
 .rune-optimization-craft-choices { display: flex; gap: var(--s2); }
 .rune-optimization-craft-choices .jaswa-select { width: 16ch; }
+/* Settings' theoretical item, shown in the box a select would take so the row keeps
+   its shape; only its tone says whether Theoretical is the choice. */
+.rune-optimization-craft-assumed {
+  display: flex;
+  align-items: center;
+  width: 16ch;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+}
+.rune-optimization-craft-assumed.active { color: var(--text); }
 
 .rune-optimization-results { display: grid; gap: var(--s2); }
 .rune-optimization-results > h3 { margin: 0; }

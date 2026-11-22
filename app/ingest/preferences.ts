@@ -1,6 +1,7 @@
 import type { ArtifactSettings, DirectImportMode, ImportRoute, ImportedGame, Preferences, RunePotentialSettings } from '../domain/model';
 import { readMonsterPreferences } from '../domain/profiles/monster-preferences';
 import { readRuneHolds } from '../domain/profiles/rune-holds';
+import { readCraftCredit } from '../domain/profiles/craft-credit-settings';
 import { readCraftIgnores } from '../domain/profiles/craft-ignores';
 import { readCraftViewChoices } from '../domain/profiles/craft-view-choices';
 import { readStoredRerollRules } from '../domain/runes/rune-reapp-targets';
@@ -44,9 +45,9 @@ const artifactSettingChecks: FieldChecks<ArtifactSettings> = {
   includeIntangibleArtifacts: isBoolean,
 };
 
-/* Rules have a field-by-field reader of their own. */
-type RerollTargetKeys = 'rerollRules';
-const runePotentialSettingChecks: FieldChecks<Omit<RunePotentialSettings, RerollTargetKeys>> = {
+/* Rules and the craft credit have field-by-field readers of their own. */
+type OwnReaderKeys = 'rerollRules' | 'craftCredit';
+const runePotentialSettingChecks: FieldChecks<Omit<RunePotentialSettings, OwnReaderKeys>> = {
   powerUpPolicy: isWholeNumberIn(1, 5),
   runeQuality: isWholeNumberIn(1, 5),
   acceptedRunes: isWholeNumberIn(1, 5),
@@ -62,7 +63,8 @@ const runePotentialSettingChecks: FieldChecks<Omit<RunePotentialSettings, Reroll
 
 function readRunePotentialSettings(value: unknown, fallback: RunePotentialSettings): RunePotentialSettings {
   return {
-    ...readSettings<Omit<RunePotentialSettings, RerollTargetKeys>>(value, fallback, runePotentialSettingChecks),
+    ...readSettings<Omit<RunePotentialSettings, OwnReaderKeys>>(value, fallback, runePotentialSettingChecks),
+    craftCredit: readCraftCredit(isRecord(value) ? value.craftCredit : undefined),
     rerollRules: readStoredRerollRules(value),
   };
 }

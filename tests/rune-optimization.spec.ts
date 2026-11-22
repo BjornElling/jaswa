@@ -136,14 +136,14 @@ test('a Speed ceiling cannot be met by gemming the same stat down', async ({ pag
   await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
     name: 'same-stat-gem.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(data)),
   });
+  await setCraftCredit(page, 'Enchanted Gem', 'Hero', 'maximum');
   await openOptimization(page);
   await page.getByLabel('Monster', { exact: true }).selectOption('11');
   const requirements = page.getByRole('region', { name: 'Requirements for this calculation' });
   for (const input of await requirements.locator('.stat-ranges input[type="number"]').all()) await input.fill('');
   await rankUnranked(page);
   await page.getByRole('complementary', { name: 'Settings' }).getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
-  await page.getByLabel('Gems: grade', { exact: true }).selectOption('Hero');
-  await page.getByLabel('Gems: roll', { exact: true }).selectOption('maximum');
+  await expect(page.getByLabel('Gems: theoretical item', { exact: true })).toHaveText('Hero · Best');
   await page.getByLabel('Allow changing a gemmed stat').uncheck();
   await page.getByLabel('Can gem away speed').uncheck();
   await page.getByRole('button', { name: 'Calculate', exact: true }).click();
@@ -186,6 +186,16 @@ async function freshWorkspace(page: Page) {
 async function openOptimization(page: Page) {
   await page.getByRole('navigation').getByRole('button', { name: 'Rune Optimization' }).click();
   await expect(page.getByRole('heading', { name: 'Rune Optimization', exact: true })).toBeVisible();
+}
+
+/* A Theoretical item is Settings' craft credit, so a calculation that needs a
+   particular one sets it there, as the user would. */
+async function setCraftCredit(page: Page, kind: 'Enchanted Gem' | 'Grindstone', grade: string, roll?: string) {
+  await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
+  await openSettingsBar(page, 'Gems & Grindstones');
+  const card = page.getByRole('region', { name: kind, exact: true });
+  await card.getByLabel('Grade', { exact: true }).selectOption(grade);
+  if (roll) await card.getByLabel('Roll', { exact: true }).selectOption(roll);
 }
 
 /* In page coordinates, not the viewport's: Playwright scrolls a control into view
@@ -490,8 +500,10 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
 
   /* The page's settings are the user's and are kept; changing one says the table is stale. */
   const settings = page.getByRole('complementary', { name: 'Settings' });
-  const gradeSelect = settings.getByLabel('Gems: grade');
-  await expect(gradeSelect).toBeDisabled();
+  /* The held roll answers only Owned only; Theoretical shows Settings' credit instead. */
+  const rollSelect = settings.getByLabel('Gems: roll');
+  await expect(rollSelect).toBeDisabled();
+  await expect(settings.getByLabel('Gems: theoretical item')).toHaveText('Legend · Average');
   const settingsBefore = await box(settings);
   const findBefore = await box(page.getByRole('button', { name: 'Calculate', exact: true }));
   const rowsBefore = await table.getByRole('row').count();
@@ -501,7 +513,8 @@ test('finds builds from the profile, keeps the profile untouched, and moves noth
   await expect(speedGem).not.toBeChecked();
   await expect(speedGem).toBeDisabled();
   await settings.getByRole('radio', { name: 'Theoretical' }).first().check();
-  await expect(gradeSelect).toBeEnabled();
+  await expect(rollSelect).toBeDisabled();
+  await expect(settings.getByLabel('Gems: theoretical item')).toHaveClass(/\bactive\b/);
   await expect(settings.getByLabel('Allow changing a gemmed stat')).toBeEnabled();
   await expect(speedGem).toBeEnabled();
   await expect(speedGem).not.toBeChecked();
@@ -608,8 +621,9 @@ test('an open build follows the runes as the player works on them', async ({ pag
   await expect(slot4.locator('[data-kind="gem"]')).toContainText(/Resistance\s*\+4%/);
   const rowBefore = await table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Show build 1', exact: true }) }).innerText();
 
-  /* The player gems the line in the game, rolls SPD +5 rather than the +7 the search
-     assumed, and the sync brings it back while the overlay is still open. */
+  /* The player gems the line in the game, rolls SPD +5 rather than the +9 the search
+     assumed (Settings' average Legend Gem, rounded up), and the sync brings it back
+     while the overlay is still open. */
   const rune = game.runes.find((entry) => entry.rune_id === 5037);
   if (!rune) throw new Error('the fixture no longer holds rune 5037');
   const replaced = rune.sec_eff.findIndex(([statId]) => statId === 11);
@@ -1529,9 +1543,9 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await settings.getByLabel('Count unfinished runes at their +15 main stat').check();
   await settings.getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
   await settings.getByRole('radio', { name: 'Theoretical', exact: true }).last().check();
-  await settings.getByLabel('Gems: grade').selectOption('Legend');
-  await settings.getByLabel('Grindstones: grade').selectOption('Legend');
+  await settings.getByRole('radio', { name: 'Owned only', exact: true }).first().check();
   await settings.getByLabel('Gems: roll').selectOption('maximum');
+  await settings.getByRole('radio', { name: 'Theoretical', exact: true }).first().check();
   expect(await box(settings)).toEqual(before);
   expect(await Promise.all((await fields.all()).map(box))).toEqual(positions);
   await page.screenshot({ path: testInfo.outputPath('selection-after.png'), fullPage: true });
@@ -1552,7 +1566,7 @@ test('selection and adjustment choices keep their boxes and survive a reload', a
   await expect(settings.getByLabel('Include runes already engraved in Scenario')).toBeDisabled();
   await expect(settings.getByLabel('Include runes already engraved in Scenario')).not.toBeChecked();
   await expect(settings.getByLabel('Maximum changes')).toHaveValue('6');
-  await expect(settings.getByLabel('Gems: grade')).toHaveValue('Legend');
+  await expect(settings.getByLabel('Gems: roll')).toHaveValue('maximum');
   await maximum.fill('');
   await settings.getByLabel('Limit changes').uncheck();
   await page.reload();

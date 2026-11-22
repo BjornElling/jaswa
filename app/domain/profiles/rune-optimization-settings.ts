@@ -1,8 +1,7 @@
 import { isBoolean, isOneOf } from './preference-reading';
 import type { FieldChecks } from './preference-reading';
-import { craftRollAssumptions, defaultCraftRollAssumption, itemGrades } from '../runes/craft/rune-craft-items';
+import { craftRollAssumptions, defaultCraftRollAssumption } from '../runes/craft/rune-craft-items';
 import type { CraftRollAssumption } from '../runes/craft/rune-craft-items';
-import type { ItemGrade } from '../model';
 
 /**
  * How Rune Optimization calculates, as opposed to *what for*.
@@ -12,12 +11,13 @@ import type { ItemGrade } from '../model';
  * These settings belong to the calculation and hold for every monster: which craft
  * items may be counted, where runes may be taken from, and how hard to look.
  *
- * **Deliberately not Rune Clean-up's craft credit.** Clean-up asks what a rune
- * could become if the player chose to invest in it, always with the canonical average
- * Legend items; the optimizer asks what build a monster can take, and that Clean-up
- * assumes Legend Gems to decide what to keep does not say the player will spend them
- * on this monster tonight. One assumption answering both questions would make each
- * wrong for the other.
+ * **Whether to count craft items is the optimizer's own question; what an assumed
+ * one is, is not.** Clean-up asks what a rune could become if the player chose to
+ * invest in it; the optimizer asks what build a monster can take, and that Clean-up
+ * assumes Gems to decide what to keep does not say the player will spend them on this
+ * monster tonight — so *None*, *Owned only* and *Theoretical* stay here. But a
+ * theoretical item is the one Settings assumes (`RunePotentialSettings.craftCredit`),
+ * so the program never holds two answers to "what would an assumed Gem roll".
  */
 
 /**
@@ -90,17 +90,19 @@ export const runeOptimizationResultCounts = [10, 20, 50, 100] as const;
 export type RuneOptimizationResultCount = typeof runeOptimizationResultCounts[number];
 
 export type RuneOptimizationSettings = {
-  gems: CraftUse;
-  /** The grade a theoretical Gem is assumed to be. Held while Gems are off, as `manualTimeZone` is. */
-  gemGrade: ItemGrade;
   /**
-   * Where in its range any Gem — held or theoretical — is assumed to land. Named for
-   * the five-choice vocabulary with two thirds as its default; a value stored under an
-   * earlier name is not read, so every saved choice starts again from two thirds.
+   * *Theoretical* is the Gem Settings › Gems & Grindstones assumes for every rune
+   * judgement (`RunePotentialSettings.craftCredit`) — its grade, roll and rounding —
+   * so the optimizer never assumes a second, different item of its own.
+   */
+  gems: CraftUse;
+  /**
+   * Where in its range a *held* Gem is assumed to land: what the account owns is this
+   * page's question, so its luck is this page's choice. Held while Gems are not
+   * *Owned only*, as `manualTimeZone` is.
    */
   gemRollAssumption: CraftRollAssumption;
   grinds: CraftUse;
-  grindGrade: ItemGrade;
   grindRollAssumption: CraftRollAssumption;
   /**
    * Whether a held Immemorial Gem or Grindstone — which fits a rune of any set —
@@ -166,10 +168,8 @@ export type RuneOptimizationSettings = {
  */
 export const defaultRuneOptimizationSettings: RuneOptimizationSettings = {
   gems: 'none',
-  gemGrade: 'Hero',
   gemRollAssumption: defaultCraftRollAssumption,
   grinds: 'none',
-  grindGrade: 'Hero',
   grindRollAssumption: defaultCraftRollAssumption,
   allowImmemorial: true,
   allowGemStatChange: true,
@@ -186,10 +186,8 @@ export const defaultRuneOptimizationSettings: RuneOptimizationSettings = {
 
 export const runeOptimizationSettingChecks: FieldChecks<RuneOptimizationSettings> = {
   gems: isOneOf(craftUses),
-  gemGrade: isOneOf<ItemGrade>(itemGrades),
   gemRollAssumption: isOneOf(craftRollAssumptions),
   grinds: isOneOf(craftUses),
-  grindGrade: isOneOf<ItemGrade>(itemGrades),
   grindRollAssumption: isOneOf(craftRollAssumptions),
   allowImmemorial: isBoolean,
   allowGemStatChange: isBoolean,

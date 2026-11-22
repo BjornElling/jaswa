@@ -2,6 +2,7 @@ import type { MonsterPreferences } from './profiles/monster-preferences';
 import type { MonsterPriority, PresetPriority } from './profiles/monster-priority';
 import type { OwnPreset } from './placements/presets';
 import type { CraftRollAssumption } from './runes/craft/rune-craft-items';
+import type { CraftCredit } from './runes/craft/rune-craft-end-state';
 import type { RelicSynergyChoices } from './relics/relic-synergy';
 import type { RelicInvestmentSelectivity } from './relics/relic-advice';
 import type { RuneHolds } from './profiles/rune-holds';
@@ -91,8 +92,11 @@ export type ImportedGame = {
 /** The five item grades from `docs/RUNE-CANONICAL.md`, shared by gems and grindstones. */
 export type ItemGrade = 'Normal' | 'Magic' | 'Rare' | 'Hero' | 'Legend';
 export type ArtifactConversionStoneMode = 'none' | 'owned' | 'theoretical';
-/** No Gem or Grindstone setting: every rune is judged with `canonicalCraftCredit`. */
-export type RunePotentialSettings = { powerUpPolicy: number; runeQuality: number; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null; neverSellEngravedPlacements: boolean; neverSellReappTargets: boolean; rerollRules: readonly RerollRule[] };
+/**
+ * `craftCredit` is the one Gem and Grindstone every rune judgement assumes
+ * (Settings › Gems & Grindstones); Rune Optimization's *Theoretical* items read it too.
+ */
+export type RunePotentialSettings = { craftCredit: CraftCredit; powerUpPolicy: number; runeQuality: number; acceptedRunes: number; brokenRunes: number; intangibleRunes: number; neverSellPreGrindSpeed: boolean; preGrindSpeedMinimum: number | null; neverSellPotentialValue: boolean; potentialValueMinimum: number | null; neverSellEngravedPlacements: boolean; neverSellReappTargets: boolean; rerollRules: readonly RerollRule[] };
 /**
  * How the companion program is allowed to feed JASWA once it is connected.
  *

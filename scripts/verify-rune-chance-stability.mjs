@@ -85,6 +85,10 @@ const referenceStats = new Map([
    at the default it keeps too few of them for a spread to be measured at all
    (the population check at the end). */
 const settings = {
+  craftCredit: {
+    gem: { grade: 'Legend', roll: 'average', rounding: 'up' },
+    grind: { grade: 'Legend', roll: 'average', rounding: 'up' },
+  },
   powerUpPolicy: 3, runeQuality: 2, acceptedRunes: 3, brokenRunes: 3,
   intangibleRunes: 1,
 };

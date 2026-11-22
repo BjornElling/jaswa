@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { referenceKey, referenceSampleSize } from '../../domain/runes/cleanup/rune-quality-reference';
+import { defaultCraftCredit } from '../../domain/runes/craft/rune-craft-end-state';
 import type { RuneReferenceWorkerRequest } from '../../domain/runes/cleanup/rune-reference-protocol';
 import { clearAccountJobMemory } from './account-job-memory';
 import { leaseRuneReferences } from './rune-reference-client';
@@ -8,7 +9,7 @@ import { provideWorkerFactories } from './worker-factories';
 const piece = { slot: 1, stars: 6, main: 3 };
 const request = (price: number) => {
   const prices = Float64Array.of(0, price);
-  return { ...piece, prices, key: referenceKey(piece, prices) };
+  return { ...piece, prices, credit: defaultCraftCredit, key: referenceKey(piece, prices, defaultCraftCredit) };
 };
 
 class ReferenceWorker extends EventTarget {

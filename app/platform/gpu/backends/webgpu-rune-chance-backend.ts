@@ -24,7 +24,7 @@ import {
   countJobs, endStateScoring, playForward, runeFuture, runScore,
 } from '../../../domain/runes/rune-power-up-outcomes';
 import type { CountingJob, EndStateScoring, RuneFuture } from '../../../domain/runes/rune-power-up-outcomes';
-import { craftPlan, canonicalCraftCredit } from '../../../domain/runes/craft/rune-craft-end-state';
+import { craftPlan, defaultCraftCredit } from '../../../domain/runes/craft/rune-craft-end-state';
 import { allStatIds } from '../../../domain/runes/rune-properties';
 import type { Rune, RuneSubProperty } from '../../../domain/runes/runes';
 import type { Valuation } from '../../../domain/runes/rune-substat-weights';
@@ -87,19 +87,18 @@ function packRune(into: Int32Array, at: number, future: RuneFuture): void {
   }
 }
 
-/* The placement is chosen on the same-lineage reference rune and valued at the
-   credit, as `craftedScore` does: the card is handed that reference's list and
-   stones to choose with, and the credit's roll per id to value the choice. */
+/* The placement is chosen and valued on the one credit, as `craftedScore` does. The
+   layout still carries a choice-stone table beside the valuing one; both are the
+   credit's, so the shader's choosing and valuing passes read the same stones. */
 function packScoring(into: Float32Array, at: number, scoring: EndStateScoring): void {
-  const reference = craftPlan(scoring.plan.lineage, canonicalCraftCredit);
   for (const statId of allStatIds) {
     into[at + scoringPricesAt + statId] = scoring.prices[statId];
     into[at + scoringGrindAt + statId] = scoring.plan.grind[statId];
     into[at + scoringGemRollsAt + statId] = scoring.plan.hasGem ? scoring.plan.gem[statId] : -1;
-    into[at + scoringChoiceGrindAt + statId] = reference.grind[statId];
+    into[at + scoringChoiceGrindAt + statId] = scoring.plan.grind[statId];
   }
   into[at + scoringPrefixAt] = scoring.prefixScore;
-  const { choice } = scoring.options;
+  const choice = scoring.options;
   const count = scoring.plan.hasGem ? choice.statIds.length : 0;
   into[at + scoringGemCountAt] = count;
   for (let index = 0; index < count; index += 1) {
@@ -200,10 +199,7 @@ export async function countJobsOnGpu(
         throw new Error('The graphics card returned an invalid rune chance.');
       }
       shares[from + at] = share;
-      const { plan } = slice[at].scoring;
-      // Comparing a different credit after choosing a Gem can magnify a tiny
-      // choice difference into a large valuation difference. That case stays CPU.
-      if (ambiguous || plan !== craftPlan(plan.lineage, canonicalCraftCredit)) uncertain.push(from + at);
+      if (ambiguous) uncertain.push(from + at);
     }
   }
   return { shares, uncertain };
@@ -269,7 +265,9 @@ function agreementJobs(): CountingJob[] {
   for (const [index, [grade, level, lines, gemmed]] of shapes.entries()) {
     const rune = agreementRune(index, grade, level, lines, gemmed);
     const future = runeFuture(rune);
-    const plan = craftPlan(rune.ancient ? 'ancient' : 'standard', canonicalCraftCredit);
+    /* A battery, not a judgement: it needs a Gem and a stone credited so the craft
+       branch runs, and Settings' starting credit is one that does. */
+    const plan = craftPlan(rune.ancient ? 'ancient' : 'standard', defaultCraftCredit);
     const scoring = endStateScoring(rune, agreementValuation, plan);
     /* Bars the rune clears in roughly a third, half and four fifths of its runs, so
        every job's answer is a share rather than a certainty and one run landing on

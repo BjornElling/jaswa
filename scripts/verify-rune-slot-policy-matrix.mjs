@@ -15,10 +15,10 @@ const runes = [1, 2, 3, 4, 5, 6].map((slot) => ({
   setName: slot % 2 ? 'Intangible' : 'Violent',
 }));
 const cache = new Map();
-const references = { get(piece, prices) {
-  const key = referenceKey(piece, prices);
+const references = { get(piece, prices, credit) {
+  const key = referenceKey(piece, prices, credit);
   if (!cache.has(key)) cache.set(key, {
-    key, scores: referenceScores(referenceBodies(piece.slot, piece.stars, piece.main, 256), prices),
+    key, scores: referenceScores(referenceBodies(piece.slot, piece.stars, piece.main, 256), prices, credit),
   });
   return cache.get(key);
 } };

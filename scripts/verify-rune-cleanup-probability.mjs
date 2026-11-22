@@ -8,11 +8,12 @@
  */
 import assert from 'node:assert/strict';
 import {
-  candidateChance, chanceRuns, prepareRuneCandidate, roleBuilds,
+  candidateChance, chanceRuns, newRuneAdviceScope, prepareRuneCandidate, roleBuilds,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { defaultCraftCredit, noCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { remainingEvents } from '../app/domain/runes/rune-properties.ts';
 
-const credit = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
+const credit = noCraftCredit;
 const base = { hp: 0, atk: 0, def: 0, spd: 0, criRate: 0, criDmg: 0, res: 0, acc: 0 };
 const role = {
   id: 'probability-order', name: 'Probability order', type: 'No type',
@@ -51,9 +52,9 @@ for (const grade of Object.keys(expectedEvents)) {
     occupiedId: null, obtainedOrder: 1,
   };
   /* The rune is read bare, and the bar is stated in SPD — 7.5 points, a quarter of
-     five maximum rolls — then put on the candidate's own scale, whatever the canonical
+     five maximum rolls — then put on the candidate's own scale, whatever the
      ruler's perfect rune carries. The rationals depend on the SPD and nothing else. */
-  const candidate = prepareRuneCandidate(rune, role, build, base, credit);
+  const candidate = prepareRuneCandidate(rune, role, build, base, credit, newRuneAdviceScope(defaultCraftCredit));
   assert.ok(candidate, `${grade} fixture should be judgeable`);
   /* The starting SPD line is 4 points. Reaching 7.5 therefore requires at least one
      later SPD improvement; an added SPD line rolls at most 6. Additions are worth zero

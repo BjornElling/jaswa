@@ -51,7 +51,7 @@ import { slotAllowsSubStat } from './runes';
 import type { ReferenceStats } from '../reference/rune-reference-stats';
 import type { RoleArtifacts, RoleTargets } from '../profiles/rune-roles';
 import { artifactMainValue, artifactsPerMonster } from '../artifacts/artifact-properties';
-import { craftPlan, grindCredit } from './craft/rune-craft-end-state';
+import { craftPlan, creditKey, grindCredit, noCraftCredit } from './craft/rune-craft-end-state';
 import type { CraftCredit, CraftPlan } from './craft/rune-craft-end-state';
 
 /**
@@ -438,7 +438,7 @@ export function substatWeights(
   const key = `${slots.map((slot) => input.mains[slot] ?? 0).join('.')}`
     + `|${input.artifacts.hp ? 'h' : ''}${input.artifacts.atk ? 'a' : ''}${input.artifacts.def ? 'd' : ''}`
     + `|${targetsKey(input.targets)}|${baseKey(input.base)}`
-    + `|${input.credit.grind ?? '-'}/${input.credit.grindGrade}`;
+    + `|${creditKey({ gem: noCraftCredit.gem, grind: input.credit.grind })}`;
   const cached = scope.weights.get(key);
   if (cached) return cached;
   const plan = craftPlan('standard', input.credit);

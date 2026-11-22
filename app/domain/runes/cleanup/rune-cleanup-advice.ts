@@ -18,7 +18,7 @@ import type { CountingJob, EndStateScoring, RuneRuns } from '../rune-power-up-ou
 import { allStatIds, lastSubPropertyLevel, slotMainProperties, subPropertyTargetStat } from '../rune-properties';
 import { runeAdviceKey } from './rune-cleanup-refresh';
 import { isIntangibleRuneSet } from '../rune-sets';
-import { canonicalCraftCredit, craftedLines, groundLines } from '../craft/rune-craft-end-state';
+import { craftedLines, groundLines } from '../craft/rune-craft-end-state';
 import type { EndStateLine } from '../craft/rune-craft-end-state';
 import { isRerollTarget } from '../rune-reapp-targets';
 import {
@@ -151,7 +151,8 @@ function slotPopulation(
     if (!scale) { zeros += referenceSampleSize; continue; }
     parts.push({ piece, prices: scale.prices, scale: other === main ? 1 : ceiling / scale.ceiling });
   }
-  const key = parts.map(({ piece, prices, scale }) => `${referenceKey(piece, prices)}*${scale}`).join(';') + `;0*${zeros}`;
+  const key = parts.map(({ piece, prices, scale }) => `${referenceKey(piece, prices, scope.ruler)}*${scale}`).join(';')
+    + `;0*${zeros}`;
   return { key, parts, zeros };
 }
 
@@ -163,7 +164,7 @@ export function planQualityReferences(
   const pieces = new Map<string, typeof runes[number]>();
   for (const rune of runes) pieces.set(`${rune.slot}|${rune.mainStatId}|${rune.setName}`, rune);
   const families = configuredRoles(roles, base);
-  const scope = newRuneAdviceScope();
+  const scope = newRuneAdviceScope(settings.craftCredit);
   for (const rune of pieces.values()) {
     const piece = { slot: rune.slot, stars: runeScaleStars, main: rune.mainStatId };
     for (const family of families) {
@@ -174,8 +175,8 @@ export function planQualityReferences(
         const scale = readingScale(family.role, build, family.base, piece.slot, piece.main, scope);
         if (!scale || readingAllowance(settings, worseRank(setRank, scale.rank), false) === null) continue;
         for (const part of slotPopulation(family, build, piece.slot, piece.main, scale.ceiling, scope).parts) {
-          const key = referenceKey(part.piece, part.prices);
-          if (!requests.has(key)) requests.set(key, { ...part.piece, key, prices: part.prices });
+          const key = referenceKey(part.piece, part.prices, scope.ruler);
+          if (!requests.has(key)) requests.set(key, { ...part.piece, key, prices: part.prices, credit: scope.ruler });
         }
       }
     }
@@ -218,7 +219,7 @@ export async function runeAdvice(
 ): Promise<Map<string, RuneAdvice>> {
   const chanceBar = chanceThresholds[settings.powerUpPolicy - 1] ?? chanceThresholds[2];
   const families = configuredRoles(roles, base);
-  const scope = newRuneAdviceScope();
+  const scope = newRuneAdviceScope(settings.craftCredit);
   const worthOf = (rank: MatchRank) => runeRankWorth(settings, rank);
   const singles: Event[] = [];
   const byReference = new Map<string, ReferenceReadings>();
@@ -238,7 +239,7 @@ export async function runeAdvice(
               && (family.role.targets[subPropertyTargetStat[statId]] ?? 0) > 0);
           continue;
         }
-        const candidate = prepareRuneCandidate(rune, family.role, build, family.base, canonicalCraftCredit, scope);
+        const candidate = prepareRuneCandidate(rune, family.role, build, family.base, scope.ruler, scope);
         if (!candidate) continue;
         const { rank } = candidate;
         const allowance = readingAllowance(settings, rank, intangible);
@@ -263,7 +264,9 @@ export async function runeAdvice(
   let preparedReferenceCount = 0;
   for (const [key, group] of byReference) {
     const reference: PopulationReference = {
-      parts: group.population.parts.map(({ piece, prices, scale }) => ({ scores: references.get(piece, prices).scores, scale })),
+      parts: group.population.parts.map(({ piece, prices, scale }) => ({
+        scores: references.get(piece, prices, scope.ruler).scores, scale,
+      })),
       zeros: group.population.zeros,
     };
     const bars = new Map<number, number>();

@@ -169,12 +169,14 @@ at the item's maximum, independent of the assumed-roll rankings.
 `craftComparison` returns the rune before the item together with every way to
 spend it, so no caller can read the two on different terms:
 
-- **A Gem** is judged on the placement rule's reference lines (§5.1): every
-  grindable line carries an average Legend Grindstone where that raises it — before
-  the Gem and after it alike — and a line already ground higher keeps its own. The
-  reference uses the rune's lineage, including the Ancient tables for an Ancient
-  rune. The gain is therefore the Gem's alone, read on exactly the line-ups that
-  chose its stat; only the Gem's own roll is the item's, at the Assumed roll.
+- **A Gem** is judged on the placement rule's lines (§5.1): every grindable line
+  carries the Grindstone of the user's craft credit (Settings › Gems &
+  Grindstones) where that raises it — before the Gem and after it alike — and a
+  line already ground higher keeps its own. The stone uses the rune's lineage,
+  including the Ancient tables for an Ancient rune. The gain is therefore the Gem's
+  alone, read on exactly the line-ups that chose its stat; only the Gem's own roll
+  is the item's, at the Assumed roll. A credit whose Grindstone is *None* reads the
+  Gem on the rune as it stands.
 - **A Grindstone** is judged on the rune as it stands, because the stone is what is
   being judged.
 
@@ -186,7 +188,7 @@ the same stone on ATK was worth more — and the Gem's right line was CRI Dmg.
 `verify:craft-recommendations` holds that rune.
 
 Each before and after line-up meets every allowed build of every role. The
-valuation and fixed canonical ceiling are Clean-up's `prepareRuneCandidate`
+valuation and the ceiling of the user's credit are Clean-up's `prepareRuneCandidate`
 reading, with the same accepted/broken discounts. The score prices the sub
 properties and innate as the premise leaves them: no imagined power-ups.
 The best reading is chosen separately before and after; its role may change.
@@ -232,13 +234,15 @@ a second Gem to undo. Waiting for the right stone is the better use of both.
 
 *Most desirable* is the Gem placement rule of `RUNE-CLEANUP-MATH.md` §6.1 —
 the one rule Rune Clean-up and the rune overlay apply too, so every view names
-the same stat. It is judged on a **reference rune**: the rune's lines as they
-stand, each grindable line raised by an average Legend Grindstone where that
-raises it, and each candidate Gem an average Legend Gem, ground likewise. The
-reference uses ordinary items for an ordinary rune and Ancient items for an Ancient
-rune. Every legal `(line, stat)` pair is priced so in every role reading the rune
-is judged in (`gemChoiceLineUps`), and the stat whose best reference end state is worth
-most — and beats the same reading's reference rune without a Gem — is the one
+the same stat. It is judged at the **user's craft credit**: the rune's lines as
+they stand, each grindable line raised by the credited Grindstone where that
+raises it, and each candidate Gem the credited Gem, ground likewise — ordinary
+items for an ordinary rune and Ancient items for an Ancient rune. Where the credit's
+Gem is *None* the rule has no Gem to choose with: it names no stat (`gemChoice` is
+`null`), and every held Gem that raises its rune is shown on its own gain. Every
+legal `(line, stat)` pair is priced so in every role reading the rune
+is judged in (`gemChoiceLineUps`), and the stat whose best end state is worth
+most — and beats the same reading's rune without a Gem — is the one
 the rune wants. The ranking travels on every row of the rune (`gemChoice`), and
 `desirableGemStats` reads its top. Neither the grade held nor the Assumed roll
 enters it: those decide what a Gem is shown to gain, not which stat it should be.

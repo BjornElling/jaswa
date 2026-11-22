@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { defaultRunePotentialSettings } from '../../profiles/preference-defaults';
 import { defaultRuneRoles, withRefreshedMetrics } from '../../profiles/rune-roles';
-import { canonicalCraftCredit, craftPlan, craftedScore, gemOptions, noCraftCredit } from '../craft/rune-craft-end-state';
+import { craftPlan, craftedScore, defaultCraftCredit, gemOptions, noCraftCredit } from '../craft/rune-craft-end-state';
 import { countChanceGroup, endStateScoring, playForward, runeFuture, runScore } from '../rune-power-up-outcomes';
-import { ordinarySample, prepareRuneCandidate, roleBuilds } from './rune-cleanup-model';
+import { newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds } from './rune-cleanup-model';
 import { chanceThresholds, runeAdvice, runeQualityText, withRuneSellProtection } from './rune-cleanup-advice';
 import {
   allowanceDenominator, nextUp, qualityBar, qualityHits, qualityShare, referenceBodies, referenceSampleSize, referenceScores,
@@ -55,15 +55,21 @@ describe('sampled rune quality', () => {
       expect(small.lines.slice(shortStart * 8, (shortStart + length) * 8))
         .toEqual(first.lines.slice(longStart * 8, (longStart + length) * 8));
     }
-    const plan = craftPlan('standard', canonicalCraftCredit);
-    const oracle = Float64Array.from(first.prefixStatId, (id, index) => {
-      const lines = Array.from({ length: 4 }, (_, at) => ({
-        statId: first.lines[index * 8 + at * 2], value: first.lines[index * 8 + at * 2 + 1], grind: 0, gemmed: false,
-      }));
-      const gems = gemOptions(plan, prices, first.slot, first.main, id < 0 ? null : id);
-      return craftedScore(plan, gems, prices, lines, id < 0 ? 0 : first.prefixValue[index] * prices[id]);
-    }).sort();
-    expect(referenceScores(first, prices)).toEqual(oracle);
+    const oracleOf = (credit: typeof defaultCraftCredit) => {
+      const plan = craftPlan('standard', credit);
+      return Float64Array.from(first.prefixStatId, (id, index) => {
+        const lines = Array.from({ length: 4 }, (_, at) => ({
+          statId: first.lines[index * 8 + at * 2], value: first.lines[index * 8 + at * 2 + 1], grind: 0, gemmed: false,
+        }));
+        const gems = gemOptions(plan, prices, first.slot, first.main, id < 0 ? null : id);
+        return craftedScore(plan, gems, prices, lines, id < 0 ? 0 : first.prefixValue[index] * prices[id]);
+      }).sort();
+    };
+    expect(referenceScores(first, prices, defaultCraftCredit)).toEqual(oracleOf(defaultCraftCredit));
+    /* The reference follows the user's credit: none of it, and the sample is the lines as rolled. */
+    const none = referenceScores(first, prices, noCraftCredit);
+    expect(none).toEqual(oracleOf(noCraftCredit));
+    expect(none).not.toEqual(oracleOf(defaultCraftCredit));
   });
 
   it('counts identical, disjoint and overlapping events exactly on each shared future', () => {
@@ -105,7 +111,8 @@ describe('sampled rune quality', () => {
         slot6: { preferred: [], acceptable: [] } },
     }));
     const atoms = roles.map((role) => {
-      const candidate = prepareRuneCandidate(rune, role, roleBuilds(role)[0], baseStats, canonicalCraftCredit);
+      const candidate = prepareRuneCandidate(rune, role, roleBuilds(role)[0], baseStats, defaultCraftCredit,
+        newRuneAdviceScope(defaultCraftCredit));
       if (!candidate) throw new Error('The specialist fixture needs a usable reading.');
       const runs = playForward(candidate.future, 4096);
       const scores = [...new Set(Array.from({ length: runs.count }, (_, run) => runScore(runs, candidate.scoring, run)))].sort((a, b) => a - b);

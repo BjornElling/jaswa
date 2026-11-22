@@ -54,7 +54,9 @@ import { compareRankedFigures, requestedTieBreakers } from '../app/domain/runes/
 import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import { defaultRuneOptimizationSettings } from '../app/domain/profiles/rune-optimization-settings.ts';
 import { gemRemovalPrices } from '../app/domain/runes/optimization/rune-optimization-gem-preference.ts';
-import { assumedCraftHalf, craftVariants } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import {
+  assumedCraftHalf, craftVariants, defaultCraftCredit, noCraftCredit,
+} from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import {
   calculateMonsterTotals, intangibleCompletion, intangibleSetId, monsterTargetFigures, setIdBound, targetFigureKeys,
 } from '../app/domain/combat/monster-stats.ts';
@@ -380,7 +382,8 @@ for (let index = 0; index < scenarios; index += 1) {
   }));
   /* One re-reading of a build against the account `runes`, the locks and the items. */
   const reread = (build, runes, { locks = input.locks, items = itemsById } = {}) => currentBuilds([build], {
-    unitId: input.unitId, monster: input.monster, requirements: input.requirements, settings: input.settings, withheld: input.withheld,
+    unitId: input.unitId, monster: input.monster, requirements: input.requirements, settings: input.settings,
+    craftCredit: input.craftCredit, withheld: input.withheld,
     before: { runes: runesById, items: itemsById }, now: { runes, items, locks },
   })[0];
   const issues = (build) => build.runes.flatMap((picked) => (picked.issue ? [`${picked.slot}:${picked.issue.kind}`] : []));
@@ -478,7 +481,7 @@ for (let index = 0; index < scenarios; index += 1) {
        narrowing names exactly the runes or the sets it now rules out. */
     const narrowed = (requirements, settings = {}) => currentBuilds([build], {
       unitId: input.unitId, monster: input.monster, requirements: { ...input.requirements, ...requirements },
-      settings: { ...input.settings, ...settings }, withheld: input.withheld,
+      settings: { ...input.settings, ...settings }, craftCredit: input.craftCredit, withheld: input.withheld,
       before: { runes: runesById, items: itemsById }, now: { runes: resent, items: itemsById, locks: input.locks },
     })[0];
     const setCounts = new Map();
@@ -789,7 +792,8 @@ assert.ok(sameStatKept > 0, 'no account re-rolled a held gemmed property');
 console.log(`PASS: holding the gemmed stat refused property swaps in ${statChangeRefused} accounts, kept same-property re-rolls in ${sameStatKept} and touched nothing else.`);
 
 /* Speed stays when its current line is gemmed, even if a previous Gem put it there. */
-const speedGemSupply = { gem: assumedCraftHalf('gem', 'standard', 'Legend', 'maximum'), grind: null };
+const bestLegend = { grade: 'Legend', roll: 'maximum', rounding: 'nearest' };
+const speedGemSupply = { gem: assumedCraftHalf('gem', 'standard', bestLegend), grind: null };
 const speedLines = [
   { statId: 8, value: 4, grind: 0, gemmed: false },
   { statId: 2, value: 8, grind: 0, gemmed: false },
@@ -805,12 +809,13 @@ assert.ok(convertedSpeedGems.length > 0 && convertedSpeedGems.every((candidate) 
 assert.ok(speedLineGems(speedLines, true).some((candidate) => candidate.lines[0].statId !== 8),
   'turning Can gem away speed on must permit a different Gem property');
 const keepGemmedStatSettings = {
-  ...defaultRuneOptimizationSettings, gems: 'theoretical', gemGrade: 'Legend', gemRollAssumption: 'maximum',
+  ...defaultRuneOptimizationSettings, gems: 'theoretical',
   allowGemStatChange: false, allowGemSpeedRemoval: true,
 };
 const speedRune = { ancient: false, setId: 13, slot: 2, mainStatId: 3, prefixStatId: null,
   subProperties: speedLines.map((line, index) => index === 0 ? { ...line, gemmed: true } : line) };
-const keptGemmedStat = craftVariants(craftSupplies(keepGemmedStatSettings, [])(speedRune), 2, 3, null,
+const bestLegendCredit = { gem: bestLegend, grind: noCraftCredit.grind };
+const keptGemmedStat = craftVariants(craftSupplies(keepGemmedStatSettings, bestLegendCredit, [])(speedRune), 2, 3, null,
   speedLines.map((line, index) => index === 0 ? { ...line, gemmed: true } : line), true, () => true, true)
   .filter((candidate) => candidate.gemmedAt === 0);
 assert.ok(keptGemmedStat.length > 0 && keptGemmedStat.every((candidate) => candidate.lines[0].statId === 8),
@@ -879,12 +884,12 @@ for (const filled of [0, 1, 3, 5, 6]) {
   assert.ok(build.runes.some((picked) => picked.runeId === shared.id), 'a lock here keeps the shared rune in the search');
   const runesById = new Map(input.runes.map((rune) => [rune.id, rune]));
   const reread = currentBuilds([build], { unitId: input.unitId, monster: input.monster, requirements: input.requirements,
-    settings: { ...input.settings, fillEmptySlotsOnly: false }, withheld: input.withheld,
+    settings: { ...input.settings, fillEmptySlotsOnly: false }, craftCredit: input.craftCredit, withheld: input.withheld,
     before: { runes: runesById, items: new Map() }, now: { runes: runesById, items: new Map(), locks: {} } })[0];
   assert.deepEqual(reread.runes.find((picked) => picked.runeId === shared.id).issue, { kind: 'engraved-elsewhere', engravedOn: '99' },
     'a build keeping the shared rune is dimmed');
   const lockedHere = currentBuilds([build], { unitId: input.unitId, monster: input.monster, requirements: input.requirements,
-    settings: { ...input.settings, fillEmptySlotsOnly: false }, withheld: input.withheld,
+    settings: { ...input.settings, fillEmptySlotsOnly: false }, craftCredit: input.craftCredit, withheld: input.withheld,
     before: { runes: runesById, items: new Map() }, now: { runes: runesById, items: new Map(), locks: { [shared.id]: 'locked' } } })[0];
   assert.equal(lockedHere.runes.find((picked) => picked.runeId === shared.id).issue, null, 'unless the user locked it here');
 }
@@ -949,7 +954,7 @@ console.log('PASS: 36 change-limited searches match exhaustive enumeration, spli
   const now = new Map([...before].map(([id, rune]) => [id, { ...rune,
     occupiedId: rune.slot <= 2 ? null : rune.occupiedId }]));
   const context = { unitId: input.unitId, monster: input.monster, requirements: input.requirements,
-    settings: { ...input.settings, limitChanges: true, maxChanges: 1 }, withheld: {},
+    settings: { ...input.settings, limitChanges: true, maxChanges: 1 }, craftCredit: input.craftCredit, withheld: {},
     before: { runes: before, items: new Map() }, now: { runes: now, items: new Map(), locks: {} } };
   const limited = currentBuilds([build], context)[0];
   assert.equal(limited.moves, 2);
@@ -969,11 +974,11 @@ console.log('PASS: refreshed builds identify newly occupied slots and changes be
   const rune = { ...input.runes.find((rune) => rune.slot === 2), setId: 4, setName: 'Blade',
     mainStatId: 4, mainValue: 63, prefixStatId: null, prefixValue: 0, level: 15, occupiedId: null,
     subProperties: [[2, 6], [5, 34], [9, 17], [11, 6]].map(([statId, value]) => ({ statId, value, grind: 0, gemmed: false })) };
-  const prices = gemRemovalPrices([{ role, base }])(rune);
+  const prices = gemRemovalPrices([{ role, base }], defaultCraftCredit)(rune);
   assert.ok(prices[0] > prices[3], 'HP must be worth keeping for Slow DD');
   assert.ok(prices[1] > prices[3], 'DEF must be worth keeping for Slow DD');
-  assert.equal(gemRemovalPrices([])(rune), undefined, 'cleared roles must not acquire shipped replacements');
-  assert.equal(gemRemovalPrices([{ role: { ...role, targets: {} }, base }])(rune), undefined);
+  assert.equal(gemRemovalPrices([], defaultCraftCredit)(rune), undefined, 'cleared roles must not acquire shipped replacements');
+  assert.equal(gemRemovalPrices([{ role: { ...role, targets: {} }, base }], defaultCraftCredit)(rune), undefined);
   input.runes = [...input.runes.filter((entry) => entry.slot !== 2), rune]; input.locks = {}; input.withheld = {};
   input.requirements = { ...input.requirements, builds: [], allowBroken: true, allowIntangible: false,
     slotMains: { slot2: [], slot4: [], slot6: [] }, rankBy: 'dmg', targets: {}, ceilings: {} };

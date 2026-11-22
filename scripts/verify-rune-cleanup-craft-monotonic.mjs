@@ -6,7 +6,7 @@
  * 1. **A credited Gem or Grindstone is never forced.** It must never turn a legal end
  *    state into a worse score, or make a fixed score less likely to be reached.
  * 2. **One standard for every rune** (`RUNE-CLEANUP-MATH.md` §9.2). A stone the player
- *    has actually spent, no larger than the canonical one, changes nothing
+ *    has actually spent, no larger than the credited one, changes nothing
  *    at all; a larger one can only raise the rune.
  *
  * The policy compares the candidate's projection against a ruler no caller chooses,
@@ -22,9 +22,14 @@ import assert from 'node:assert/strict';
 import { defaultRuneRoles, withRefreshedMetrics } from '../app/domain/profiles/rune-roles.ts';
 import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
-  candidateChance, candidateMaxValue, prepareRuneCandidate, roleBuilds,
+  candidateChance, candidateMaxValue, newRuneAdviceScope, prepareRuneCandidate as prepare, roleBuilds,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
-import { canonicalCraftCredit, craftPlan, grindCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { craftPlan, defaultCraftCredit, grindCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
+
+/* Every candidate below is read on one ruler, Settings' starting credit, so a credit
+   can only move the rune against it: the promises are about the rune. */
+const prepareRuneCandidate = (...args) => prepare(...args, newRuneAdviceScope(defaultCraftCredit));
 import {
   addedSubPropertyRange, bornSubPropertyCount, initialSubPropertyRange, runeInnateFrequency, slotMainProperties,
   subPropertyLevels, upgradeSubPropertyRange,
@@ -43,23 +48,26 @@ const baseByType = new Map([
 
 const grades = ['Normal', 'Magic', 'Rare', 'Hero', 'Legend'];
 const assumptions = ['minimum', 'one-third', 'average', 'two-thirds', 'three-quarters', 'maximum'];
-const hero = { gemGrade: 'Hero', grindGrade: 'Hero' };
-const neutral = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
-/* Every candidate is read on the product's one ruler, which no caller chooses, so a
-   credit can only move the rune against it: the promises are about the rune. */
+const item = (grade, roll, rounding = 'nearest') => ({ grade, roll, rounding });
+const off = item('none', 'average');
+const hero = (roll, rounding) => item('Hero', roll, rounding);
+const neutral = { gem: off, grind: off };
 const credits = [
   neutral,
-  { gem: 'minimum', ...hero, grind: null },
-  { gem: 'three-quarters', ...hero, grind: null },
-  { gem: 'maximum', ...hero, grind: null },
-  { gem: null, ...hero, grind: 'minimum' },
-  { gem: null, ...hero, grind: 'three-quarters' },
-  { gem: null, ...hero, grind: 'maximum' },
-  { gem: 'minimum', ...hero, grind: 'maximum' },
-  { gem: 'three-quarters', ...hero, grind: 'three-quarters' },
-  { gem: 'maximum', ...hero, grind: 'minimum' },
-  { gem: 'three-quarters', gemGrade: 'Normal', grind: 'three-quarters', grindGrade: 'Legend' },
-  { gem: 'three-quarters', gemGrade: 'Legend', grind: 'three-quarters', grindGrade: 'Normal' },
+  { gem: hero('minimum'), grind: off },
+  { gem: hero('three-quarters'), grind: off },
+  { gem: hero('maximum'), grind: off },
+  { gem: off, grind: hero('minimum') },
+  { gem: off, grind: hero('three-quarters') },
+  { gem: off, grind: hero('maximum') },
+  { gem: hero('minimum'), grind: hero('maximum') },
+  { gem: hero('three-quarters'), grind: hero('three-quarters') },
+  { gem: hero('maximum'), grind: hero('minimum') },
+  { gem: item('Normal', 'three-quarters'), grind: item('Legend', 'three-quarters') },
+  { gem: item('Legend', 'three-quarters'), grind: item('Normal', 'three-quarters') },
+  /* Rounding is the user's choice too, and down is the one that gives least. */
+  { gem: hero('two-thirds', 'down'), grind: hero('one-third', 'down') },
+  { gem: hero('two-thirds', 'up'), grind: hero('one-third', 'up') },
 ];
 
 function makeRandom(seed) {
@@ -231,7 +239,7 @@ const pvpBase = pvp && baseByType.get(pvp.type);
 assert.ok(pvp && pvpBuild && pvpBase);
 const toleranceNeutralCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, pvpBase, neutral);
 const toleranceCraftCandidate = prepareRuneCandidate(tolerance, pvp, pvpBuild, pvpBase, {
-  gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero',
+  gem: hero('three-quarters'), grind: hero('three-quarters'),
 });
 assert.ok(toleranceNeutralCandidate && toleranceCraftCandidate);
 const toleranceBar = 0.7 * toleranceNeutralCandidate.ceiling;
@@ -291,7 +299,7 @@ assert.equal(candidateChance(toleranceCraftCandidate, craftedBar), withCraft,
  * Past it the rune may only rise.
  */
 const policySettings = {
-  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2,
+  craftCredit: defaultRunePotentialSettings.craftCredit, powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 2, brokenRunes: 2,
   intangibleRunes: 1,
 };
 const shield = {
@@ -305,36 +313,44 @@ const shield = {
   ],
   occupiedId: null, obtainedOrder: 1001,
 };
-/* The page credits the canonical stone; grinding to it must move nothing. */
-const creditedPlan = craftPlan('standard', canonicalCraftCredit);
-const groundTo = (rune, extra) => ({
-  ...rune, id: `${rune.id}-ground-${extra}`,
-  subProperties: rune.subProperties.map((line) => {
-    const stone = grindCredit(creditedPlan, line.statId);
-    return stone > 0 ? { ...line, grind: Math.max(line.grind, stone + extra) } : line;
-  }),
-});
+/* The page credits the user's stone; grinding to it must move nothing, whichever
+   stone the user assumes — Settings' starting one, and a smaller one rounded down. */
+const groundToWith = (credit) => {
+  const creditedPlan = craftPlan('standard', credit);
+  return (rune, extra) => ({
+    ...rune, id: `${rune.id}-ground-${extra}`,
+    subProperties: rune.subProperties.map((line) => {
+      const stone = grindCredit(creditedPlan, line.statId);
+      return stone > 0 ? { ...line, grind: Math.max(line.grind, stone + extra) } : line;
+    }),
+  });
+};
+const groundTo = groundToWith(policySettings.craftCredit);
 const standardRunes = [...runes.filter((rune) => !rune.ancient), shield];
-const bare = await runeAdvice(standardRunes, roles, policySettings, baseByType);
-const atCredit = await runeAdvice(standardRunes.map((rune) => groundTo(rune, 0)), roles, policySettings, baseByType);
-const pastCredit = await runeAdvice(standardRunes.map((rune) => groundTo(rune, 1)), roles, policySettings, baseByType);
-for (const rune of standardRunes) {
-  const before = bare.get(rune.id);
-  const same = atCredit.get(`${rune.id}-ground-0`);
-  const more = pastCredit.get(`${rune.id}-ground-1`);
-  assert.ok(before && same && more, `${rune.id} lost its row when it was ground`);
-  assert.equal(same.maxValue, before.maxValue,
-    `${rune.id}: a stone no larger than the credited one moved Potential from ${before.maxValue} to ${same.maxValue}`);
-  assert.equal(same.qualityShare, before.qualityShare,
-    `${rune.id}: a stone no larger than the credited one moved the quality share from ${before.qualityShare} to ${same.qualityShare}`);
-  assert.equal(same.role?.id, before.role?.id, `${rune.id}: grinding to the credit changed the role`);
-  if (rune.level >= 12) {
-    assert.equal(same.verdict, before.verdict,
-      `${rune.id}: grinding to the credit turned ${before.verdict} into ${same.verdict}`);
-    assert.ok((more.qualityShare ?? 1) <= (before.qualityShare ?? 1),
-      `${rune.id}: a stone past the credit worsened the quality share from ${before.qualityShare} to ${more.qualityShare}`);
-    assert.ok(!(before.verdict === 'keep' && more.verdict === 'sell'),
-      `${rune.id}: a stone past the credit turned a Keep into a Sell`);
+for (const credit of [policySettings.craftCredit, { gem: hero('two-thirds', 'down'), grind: hero('one-third', 'down') }]) {
+  const settingsWith = { ...policySettings, craftCredit: credit };
+  const groundToCredit = groundToWith(credit);
+  const bare = await runeAdvice(standardRunes, roles, settingsWith, baseByType);
+  const atCredit = await runeAdvice(standardRunes.map((rune) => groundToCredit(rune, 0)), roles, settingsWith, baseByType);
+  const pastCredit = await runeAdvice(standardRunes.map((rune) => groundToCredit(rune, 1)), roles, settingsWith, baseByType);
+  for (const rune of standardRunes) {
+    const before = bare.get(rune.id);
+    const same = atCredit.get(`${rune.id}-ground-0`);
+    const more = pastCredit.get(`${rune.id}-ground-1`);
+    assert.ok(before && same && more, `${rune.id} lost its row when it was ground`);
+    assert.equal(same.maxValue, before.maxValue,
+      `${rune.id}: a stone no larger than the credited one moved Potential from ${before.maxValue} to ${same.maxValue}`);
+    assert.equal(same.qualityShare, before.qualityShare,
+      `${rune.id}: a stone no larger than the credited one moved the quality share from ${before.qualityShare} to ${same.qualityShare}`);
+    assert.equal(same.role?.id, before.role?.id, `${rune.id}: grinding to the credit changed the role`);
+    if (rune.level >= 12) {
+      assert.equal(same.verdict, before.verdict,
+        `${rune.id}: grinding to the credit turned ${before.verdict} into ${same.verdict}`);
+      assert.ok((more.qualityShare ?? 1) <= (before.qualityShare ?? 1),
+        `${rune.id}: a stone past the credit worsened the quality share from ${before.qualityShare} to ${more.qualityShare}`);
+      assert.ok(!(before.verdict === 'keep' && more.verdict === 'sell'),
+        `${rune.id}: a stone past the credit turned a Keep into a Sell`);
+    }
   }
 }
 /* The Shield rune's own verdict is asked of the role it was sold for alone. Across
@@ -382,14 +398,14 @@ for (const rune of runes) {
 }
 for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
   for (const credit of [
-    { gem: 'three-quarters', gemGrade: 'Hero', grind: null, grindGrade: 'Hero' },
-    { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' },
+    { gem: hero('three-quarters'), grind: off },
+    { gem: hero('three-quarters'), grind: hero('three-quarters') },
   ]) {
     const candidate = prepareRuneCandidate(fixture.rune, fixture.role, fixture.build,
       fixture.base, credit);
     assert.ok(candidate);
     const expected = candidateChance(candidate, 0.7);
-    const randomTrial = makeRandom(0xabc00000 + fixtureIndex * 97 + (credit.grind ? 1 : 0));
+    const randomTrial = makeRandom(0xabc00000 + fixtureIndex * 97 + (credit.grind.grade !== 'none' ? 1 : 0));
     let hits = 0;
     const trials = 800;
     for (let trial = 0; trial < trials; trial += 1) {
@@ -401,7 +417,7 @@ for (const [fixtureIndex, fixture] of oracleFixtures.entries()) {
     const observed = hits / trials;
     const tolerance = 5 * Math.sqrt(Math.max(0.0001, expected * (1 - expected)) / trials) + 0.05;
     assert.ok(Math.abs(observed - expected) <= tolerance,
-      `craft oracle ${fixtureIndex}/${credit.grind ?? 'gem-only'}: model ${expected}, observed ${observed}`);
+      `craft oracle ${fixtureIndex}/${credit.grind.grade === 'none' ? 'gem-only' : 'gem-and-stone'}: model ${expected}, observed ${observed}`);
   }
 }
 

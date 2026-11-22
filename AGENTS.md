@@ -501,13 +501,18 @@ parts an agent must not quietly break:
   nothing failing. `npm run verify:rune-craft-single-source` is the check, and it
   reads source text rather than behaviour, because two implementations that
   happen to agree today are still two implementations.
-  **And one assumption about them:** every rune judgement credits an average
-  Legend Gem and an average Legend Grindstone (`canonicalCraftCredit`) — Rune
-  Clean-up's projection, its perfect-rune scale and sampled reference, the Gem's placement, and Gems
-  & Grinds' reading of a Gem, before and after alike (`craftComparison`). It is not
-  a setting, and the ruler is not a parameter. Rune Optimization's own Gem and
-  Grindstone choices are a different question — what to spend on one monster —
-  and stay its own.
+  **And one assumption about them, chosen once:** every rune judgement credits
+  the one Gem and Grindstone the user sets on Settings › Gems & Grindstones
+  (`RunePotentialSettings.craftCredit`, starting at an average Legend roll,
+  rounded up) — Rune Clean-up's projection, its perfect-rune scale and sampled
+  reference, the Gem's placement, Gems & Grinds' reading of a Gem, before and
+  after alike (`craftComparison`), the Rune Simulator, the rune overlay and Rune
+  Optimization's *Theoretical* items. No calculation reads a credit of its own or
+  a hard-coded one in its place: the ruler travels in the calculation's scope
+  (`newRuneAdviceScope(ruler)`), and `defaultCraftCredit` is only what Settings
+  starts from. What stays a page's own is the roll of an item the account
+  actually holds — Gems & Grinds' roll and Rune Optimization's *Owned only* —
+  because that is a question about the box, not about what a rune could become.
 - **100 % is a mark, never a ceiling.** A perfect-rune or benchmark score of 100 %
   is a reference point. No rune, artifact or relic score is capped at it, and
   anything that would lift a score past it is still recommended. Only shares and

@@ -4,10 +4,13 @@
  * hand-calculable, independently of the future sampler.
  */
 import assert from 'node:assert/strict';
-import { prepareRuneCandidate, roleBuilds, candidateMaxValue, candidateChance,
-  candidateExpectedValue, runeRuns } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { prepareRuneCandidate as prepare, roleBuilds, candidateMaxValue, candidateChance,
+  candidateExpectedValue, newRuneAdviceScope, runeRuns } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 import { playForward, runScore } from '../app/domain/runes/rune-power-up-outcomes.ts';
-import { craftItemRoll } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { craftItemRoll, defaultCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+
+/* Read on Settings' starting ruler, as Rune Clean-up would with the default credit. */
+const prepareRuneCandidate = (...args) => prepare(...args, newRuneAdviceScope(defaultCraftCredit));
 import { initialSubPropertyRange } from '../app/domain/runes/rune-properties.ts';
 
 const role = { id: 'future-craft', name: 'Future craft', type: 'Support type',
@@ -17,15 +20,16 @@ const role = { id: 'future-craft', name: 'Future craft', type: 'Support type',
   targets: { spd: 200 }, artifacts: { hp: false, atk: false, def: false } };
 const base = { hp: 10000, atk: 600, def: 600, spd: 100, criRate: 15, criDmg: 50, res: 15, acc: 0 };
 const build = roleBuilds(role)[0];
-const neutral = { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' };
+const none = { grade: 'none', roll: 'three-quarters', rounding: 'nearest' };
+const bestHero = { grade: 'Hero', roll: 'maximum', rounding: 'nearest' };
 const credits = {
-  neither: { ...neutral, gem: null, grind: null },
-  grind: { ...neutral, gem: null, grind: 'maximum' },
-  gem: { ...neutral, gem: 'maximum', grind: null },
-  both: { ...neutral, gem: 'maximum', grind: 'maximum' },
+  neither: { gem: none, grind: none },
+  grind: { gem: none, grind: bestHero },
+  gem: { gem: bestHero, grind: none },
+  both: { gem: bestHero, grind: bestHero },
 };
-const gem = craftItemRoll('gem', 'standard', 8, 'Hero', 'maximum');
-const grind = craftItemRoll('grindstone', 'standard', 8, 'Hero', 'maximum');
+const gem = craftItemRoll('gem', 'standard', 8, 'Hero', 'maximum', 'nearest');
+const grind = craftItemRoll('grindstone', 'standard', 8, 'Hero', 'maximum', 'nearest');
 assert.ok(gem >= initialSubPropertyRange(6, 8, false).maximum);
 assert.ok(grind > 0);
 const expected = (candidate) => candidateExpectedValue(candidate, () => runeRuns(candidate.future));

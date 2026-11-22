@@ -3,6 +3,7 @@ import { Disclosure, PageHeader } from '../../ui/page-chrome';
 import { GeneralSettings } from './general-settings';
 import { HardwareAccelerationSettings } from './hardware-acceleration-settings';
 import { RuneSettings } from './rune-settings';
+import { CraftCreditSettings } from './craft-credit-settings';
 import { ArtifactSettingsBar } from './artifact-settings';
 import { RelicSettingsBar } from './relic-settings';
 import type {
@@ -19,7 +20,8 @@ import type { ReactNode } from 'react';
  *
  * A setting belongs here when changing it changes answers on pages other than
  * the one it would otherwise sit on: the rune standards, roles and re-app
- * targets (Clean-up, Gems & Grinds, the Simulator, the rune overlay), the
+ * targets (Clean-up, Gems & Grinds, the Simulator, the rune overlay), the Gem
+ * and Grindstone every rune judgement assumes (those and Rune Optimization), the
  * artifact settings (all three artifact views, the library and the monster
  * overlay), what relics are judged by, the graphics card and the formats.
  * What one calculation asks — Rune Optimization's own switches, a page's
@@ -65,6 +67,9 @@ export function SettingsSection({
       onUpdate={onRunePotentialChange}
       onWriteRoles={onWriteRoles}
     />
+
+    <CraftCreditSettings credit={preferences.runePotential.craftCredit}
+      onChange={(craftCredit) => onRunePotentialChange({ craftCredit })} />
 
     <ArtifactSettingsBar settings={preferences.artifacts} data={game?.data} general={preferences.general}
       onUpdate={onArtifactChange} />

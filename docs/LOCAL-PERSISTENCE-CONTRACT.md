@@ -74,7 +74,7 @@ reader, one choice at a time (`app/domain/profiles/preference-reading.ts`, AGENT
 | `runeHolds` | Runes the user made unsellable | `readRuneHolds` (`rune-holds.ts`) |
 | `craftIgnores` | One shared list of Gems & Grinds suggestions waved away with Ignore: a `rune_id`, an item kind and the item's stat | `readCraftIgnores` (`craft-ignores.ts`) |
 | `craftViews` | Per Gems & Grinds view — Recommendations, Best use and What's missing — the question (item kind, chosen stack, assumed roll) and the filters | `readCraftViewChoices` (`craft-view-choices.ts`) |
-| `runePotential` | Rune Clean-up settings, with its reroll rules | `readSettings`; `readStoredRerollRules` (`rune-reapp-targets.ts`) |
+| `runePotential` | Rune Clean-up settings, with its reroll rules and the craft credit (Settings › Gems & Grindstones) | `readSettings`; `readStoredRerollRules` (`rune-reapp-targets.ts`); `readCraftCredit` (`craft-credit-settings.ts`), one grade, roll and rounding at a time |
 | `runeRoles` | Rune Clean-up roles | `readRuneRoles` (`rune-roles.ts`) |
 | `artifacts` | Artifact Optimization settings: owned or Lv. 40 monsters only, how conversion stones are sourced, the assumed stone value, the acceptable-property factor, whether insignificant differences are ignored and their band, whether Intangible artifacts are included, and whether results re-calculate on change | `readSettings` |
 | `speedTuning` | Per team — preset content and species (`unit_master_id`): whether the turn order is stated and, if so, the order; what-if display speeds; *No speed tuning*. The per-preset section kept before November 14, 2026 is carried over against the import it is read with | `readSpeedTuningPreferences` (`speed-tuning-preferences.ts`) |

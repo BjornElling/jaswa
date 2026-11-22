@@ -3,6 +3,7 @@ import type { RuneRole } from '../profiles/rune-roles';
 import type { RunePotentialSettings } from '../model';
 import type { Rune } from './runes';
 import { isIntangibleRuneSet } from './rune-sets';
+import { creditKey } from './craft/rune-craft-end-state';
 
 export type RuneCalculationInputs = {
   roles: readonly RuneRole[];
@@ -13,7 +14,7 @@ export type RuneCalculationInputs = {
 /** Protection and presentation are applied to the answer, never counted into it. */
 export function runeCalculationSettingsKey(settings: RunePotentialSettings): string {
   return JSON.stringify([
-    settings.powerUpPolicy, settings.runeQuality,
+    creditKey(settings.craftCredit), settings.powerUpPolicy, settings.runeQuality,
     settings.acceptedRunes, settings.brokenRunes, settings.intangibleRunes,
   ]);
 }

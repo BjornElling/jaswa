@@ -22,8 +22,12 @@ try {
   assert.equal(simulationGradeForSlot(2, () => 0.749999), 'Hero');
   assert.equal(simulationGradeForSlot(2, () => 0.75), 'Legend');
 
-  /* Gems and Grindstones are always the canonical credit; there is nothing to set. */
+  /* Gems and Grindstones are the user's one craft credit; Settings' starting one here. */
   const craftedSettings = {
+    craftCredit: {
+      gem: { grade: 'Legend', roll: 'average', rounding: 'up' },
+      grind: { grade: 'Legend', roll: 'average', rounding: 'up' },
+    },
     powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3,
     brokenRunes: 3, intangibleRunes: 1,
   };

@@ -28,12 +28,11 @@ import {
 import { simulationKeeperCounts } from '../../domain/runes/simulator/rune-simulator-keeper-counts';
 import { runeChanceText, runeVerdictLabels } from '../../domain/runes/cleanup/rune-cleanup-advice';
 import { calculateRuneSimulation } from '../../workspace/jobs/rune-simulator-client';
-import type { GeneralSettings, ImportedGame, ItemGrade, RunePotentialSettings } from '../../domain/model';
+import type { GeneralSettings, ImportedGame, RunePotentialSettings } from '../../domain/model';
 import type { RuneRole } from '../../domain/profiles/rune-roles';
 import { referenceLines, noReferenceLineMessage } from '../../domain/reference/rune-reference-stats';
-import { craftRollDescriptions, craftRollLabels } from '../../domain/runes/craft/rune-craft-items';
-import type { CraftRollAssumption } from '../../domain/runes/craft/rune-craft-items';
-import { canonicalCraftCredit } from '../../domain/runes/craft/rune-craft-end-state';
+import { craftRollDescriptions, craftRollLabels, craftRoundingLabels } from '../../domain/runes/craft/rune-craft-items';
+import type { CraftAssumption, CraftCredit } from '../../domain/runes/craft/rune-craft-end-state';
 import { columnClasses, runeSimulatorTableColumns } from '../../ui/table-layouts';
 import { RuneLink } from '../../ui/gear/rune-link';
 import type { OpenRuneOverlay } from '../../ui/gear/rune-link';
@@ -252,7 +251,7 @@ export function RuneSimulatorSection({ game, settings, roles, general, hardwareA
 
       <KeeperStatistics run={shown} />
 
-      <CraftSettingsReadout />
+      <CraftSettingsReadout credit={settings.craftCredit} />
     </form>
 
     {!shown
@@ -301,30 +300,29 @@ function KeeperStatistics({ run }: { run: SimulationRun | null }) {
   </section>;
 }
 
-function craftSettingValue(assumption: CraftRollAssumption | null, grade: ItemGrade): string {
-  return `${assumption === null ? 'Off' : craftRollLabels[assumption]} · ${grade}`;
+function craftSettingValue(assumption: CraftAssumption): string {
+  return assumption.grade === 'none' ? 'None' : `${craftRollLabels[assumption.roll]} · ${assumption.grade}`;
 }
 
-function craftSettingNote(assumption: CraftRollAssumption | null): string {
-  return assumption === null
+function craftSettingNote(assumption: CraftAssumption): string {
+  return assumption.grade === 'none'
     ? 'No item is applied.'
-    : `Rolls at ${craftRollDescriptions[assumption]}; rounded away from zero.`;
+    : `Rolls at ${craftRollDescriptions[assumption.roll]}; rounded ${craftRoundingLabels[assumption.rounding].toLowerCase()}.`;
 }
 
-/* The one credit every rune judgement makes; there is nothing to set, only to show. */
-function CraftSettingsReadout() {
-  const credit = canonicalCraftCredit;
+/* The one credit every rune judgement makes, chosen on Settings; here it is only shown. */
+function CraftSettingsReadout({ credit }: { credit: CraftCredit }) {
   return <div className="rune-simulator-craft-readout" aria-label="Rune Clean-up craft credit">
     <div className="rune-simulator-readout">
       <span className="filter-label">Enchanted Gem</span>
-      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(credit.gem, credit.gemGrade)}</output>
-      <span className="type-caption">The same in every rune judgement</span>
+      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(credit.gem)}</output>
+      <span className="type-caption">Set in Settings › Gems &amp; Grindstones</span>
       <span className="type-caption">{craftSettingNote(credit.gem)}</span>
     </div>
     <div className="rune-simulator-readout">
       <span className="filter-label">Grindstone</span>
-      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(credit.grind, credit.grindGrade)}</output>
-      <span className="type-caption">The same in every rune judgement</span>
+      <output className="rune-simulator-readout-value type-body-emphasis">{craftSettingValue(credit.grind)}</output>
+      <span className="type-caption">Set in Settings › Gems &amp; Grindstones</span>
       <span className="type-caption">{craftSettingNote(credit.grind)}</span>
     </div>
     <p className="rune-simulator-craft-note type-caption">

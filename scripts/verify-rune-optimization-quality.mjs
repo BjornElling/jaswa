@@ -261,7 +261,8 @@ for (const depth of ['quick', 'complete']) {
   assert.equal(spent.filter((at) => at === 1).length, 5);
 }
 
-supplyInput.settings = { ...supplyInput.settings, depth: 'quick', grinds: 'theoretical', grindGrade: 'Hero' };
+supplyInput.settings = { ...supplyInput.settings, depth: 'quick', grinds: 'theoretical' };
+supplyInput.craftCredit = { ...supplyInput.craftCredit, grind: { grade: 'Hero', roll: 'maximum', rounding: 'nearest' } };
 supplyInput.requirements.ceilings = { spd: 111 };
 supplyInput.runes = supplyInput.runes.map((rune) => ({ ...rune,
   subProperties: [{ statId: 8, value: 1, grind: 0, gemmed: false }],
@@ -270,7 +271,8 @@ const ceilingCraft = prepareRuneOptimization(supplyInput);
 assert.equal(searchRuneBuilds(ceilingCraft).builds[0]?.figures[figureIndex('spd')], 111,
   'a theoretical stone must remain optional under a ceiling');
 
-const removingGem = craftVariants({ gem: assumedCraftHalf('gem', 'standard', 'Legend', 'maximum'), grind: null },
+const removingGem = craftVariants({
+  gem: assumedCraftHalf('gem', 'standard', { grade: 'Legend', roll: 'maximum', rounding: 'nearest' }), grind: null },
   3, 5, null, [{ statId: 8, value: 20, grind: 0, gemmed: false }], true,
   (stat) => stat === 8, true, (stat) => stat === 8);
 assert.ok(removingGem.every((variant) => variant.lines[0].statId !== 8 || variant.lines[0].value >= 20),

@@ -36,29 +36,30 @@
  *
  * ## Which line, and which stat
  *
- * **The placement is chosen on one fixed reference rune per lineage, never on the settings.**
- * Every grindable line is ground by an average Legend Grindstone where that raises
- * it, the Gem is an average Legend Gem, ground likewise, and the `(line, stat)` pair
- * that gives the highest complete-body score is the one a Gem takes
- * (`canonicalCraftCredit`), with no Gem included and stable ties. The candidate's
- * lineage supplies those reference tables: an Ancient rune is compared with an
- * Ancient Gem and Grindstone. Only then is the placement valued at the credit
- * the caller assumes — for Rune Clean-up that is the same credit, for Gems & Grinds a
- * held item's own roll.
+ * **The placement is chosen on the credit itself: the user's one craft assumption.**
+ * Every grindable line is ground by the credited Grindstone where that raises it, the
+ * Gem is the credited Gem, ground likewise, and the `(line, stat)` pair that gives the
+ * highest complete-body score is the one a Gem takes, with no Gem included and stable
+ * ties. The candidate's lineage supplies the tables: an Ancient rune is compared with
+ * an Ancient Gem and Grindstone. Gems & Grinds asks the same question of a held Gem
+ * (`gemChoiceLineUps`, `craftComparison`): the lines around it are ground by the
+ * credit, and only the Gem's own roll is the item's.
  *
  * Two readings of this question used to stand side by side, and they disagreed. Rune
  * Clean-up ground every line first and put the Gem where it gained most at its own
  * credit; Gems & Grinds measured against the rune as it stands, so an SPD Gem on an
- * SPD line was paid for the stone that line could take anyway, and won. A fixed
- * reference is what makes the choice one answer in every view: it moves with the rune
- * and the role, and with nothing a slider or a held item says.
+ * SPD line was paid for the stone that line could take anyway, and won. One credit
+ * read in both is what makes the choice one answer in every view: it moves with the
+ * rune, the role and the user's assumption, and with nothing a held item says.
  *
  * And the rule that follows from all four: **a Gem is never forced.** The end state
  * is whichever of "no Gem" and the chosen placement scores higher at the credit, so
  * considering a craft item can only ever raise a rune, never lower it.
  */
 import { craftRollValue, craftValueRange, grindableStatIds } from './rune-craft-items';
-import type { CraftItem, CraftKind, CraftLineage, CraftRollAssumption, CraftValueRange } from './rune-craft-items';
+import type {
+  CraftItem, CraftKind, CraftLineage, CraftRollAssumption, CraftRounding, CraftValueRange,
+} from './rune-craft-items';
 import { allStatIds } from '../rune-properties';
 import { gemMinimumLevel, runeSpeedStatId, slotAllowsSubStat } from '../runes';
 import type { Rune, RuneSubProperty } from '../runes';
@@ -66,46 +67,71 @@ import type { ItemGrade } from '../../model';
 import type { Valuation } from '../rune-substat-weights';
 
 /**
+ * One kind of craft item assumed to be available: its grade, where in that grade's
+ * range it lands, and which way a roll between two whole numbers is taken. A grade
+ * of `none` credits no item of the kind; its roll and rounding are still held, so
+ * choosing a grade again brings back what the user had chosen before.
+ */
+export type CraftCreditGrade = ItemGrade | 'none';
+export type CraftAssumption = {
+  grade: CraftCreditGrade;
+  roll: CraftRollAssumption;
+  rounding: CraftRounding;
+};
+
+/**
  * A Gem and a Grindstone assumed to be available, rather than items the account is
  * known to hold.
  *
  * One Gem, because a rune carries one converted line at a time; a Grindstone for
  * every grindable line, because a line holds one stone and nothing stops a player
- * spending one on each. `null` credits none of that kind: Gems & Grinds and Rune
- * Optimization read a rune's current lines that way and add the items they judge.
+ * spending one on each.
+ *
+ * **Every rune judgement reads one of these, and it is the user's** — chosen once,
+ * on Settings › Gems & Grindstones (`RunePotentialSettings.craftCredit`). Rune
+ * Clean-up projects a rune with it; its ruler — the weights, the perfect rune, the
+ * sampled reference — is priced with it; the Gem's placement is chosen on it; and
+ * Gems & Grinds reads a Gem on lines ground by it. Clean-up once carried its own
+ * sliders beside a fixed ruler and a third, placement reference, so one rune was
+ * read under three assumptions at once and two views could disagree about the same
+ * craft. One choice, read everywhere, is what keeps that from coming back; the
+ * choice being the user's does not change it.
+ *
+ * The grade, roll and rounding are the assumption; the items themselves follow the
+ * rune's lineage, for legality and for the tables (`craftPlan`).
  */
-export type CraftCredit = {
-  gem: CraftRollAssumption | null;
-  gemGrade: ItemGrade;
-  grind: CraftRollAssumption | null;
-  grindGrade: ItemGrade;
+export type CraftCredit = { gem: CraftAssumption; grind: CraftAssumption };
+
+/**
+ * What Settings starts from: an average Legend Gem and Grindstone, a half rounded
+ * up. A starting value, not a constant any calculation may read in place of the
+ * user's choice.
+ */
+export const defaultCraftCredit: CraftCredit = {
+  gem: { grade: 'Legend', roll: 'average', rounding: 'up' },
+  grind: { grade: 'Legend', roll: 'average', rounding: 'up' },
 };
 
 /**
- * **The one assumption about Gems and Grindstones every rune judgement makes:** an
- * average Legend Gem, and an average Legend Grindstone on every grindable line.
- *
- * Rune Clean-up projects a rune with it, its ruler — the weights, the perfect rune,
- * the sampled reference — is priced with it, the Gem's
- * placement is chosen on it, and Gems & Grinds reads a Gem on lines ground by it. It
- * is not a setting. Clean-up once carried its own Gem and Grindstone sliders beside a
- * Hero-three-quarters ruler and this Legend reference, so one rune was read under
- * three assumptions at once, and two views could disagree about the same craft for
- * no reason a player could see.
- *
- * The grade and the roll are the assumption; the items themselves follow the rune's
- * lineage both for legality and for the placement reference (`craftPlan`). The choice
- * therefore follows the candidate's game lineage, never a held item or setting.
+ * Credits nothing: a rune's lines exactly as they stand. Gems & Grinds and Rune
+ * Optimization project a rune this way and add the items they judge themselves.
  */
-export const canonicalCraftCredit: CraftCredit = {
-  gem: 'average', gemGrade: 'Legend', grind: 'average', grindGrade: 'Legend',
+export const noCraftCredit: CraftCredit = {
+  gem: { grade: 'none', roll: 'average', rounding: 'up' },
+  grind: { grade: 'none', roll: 'average', rounding: 'up' },
 };
 
-/** Credits nothing: a rune's lines exactly as they stand. */
-export const noCraftCredit: CraftCredit = { gem: null, gemGrade: 'Legend', grind: null, grindGrade: 'Legend' };
+/** The grade of an assumption that credits an item, or `null` where it credits none. */
+export const creditedGrade = (assumption: CraftAssumption): ItemGrade | null =>
+  assumption.grade === 'none' ? null : assumption.grade;
+
+/* A kind credited with nothing has one key whatever its held roll and rounding say,
+   so switching a grade off and on again cannot make two plans of one arithmetic. */
+const assumptionKey = (assumption: CraftAssumption): string =>
+  assumption.grade === 'none' ? '-' : `${assumption.grade}/${assumption.roll}/${assumption.rounding}`;
 
 export const creditKey = (credit: CraftCredit): string =>
-  `${credit.gem ?? '-'}/${credit.gemGrade}/${credit.grind ?? '-'}/${credit.grindGrade}`;
+  `${assumptionKey(credit.gem)}|${assumptionKey(credit.grind)}`;
 
 /** The highest effect id the game uses, so a table can be a flat array. */
 export const statIdBound = 13;
@@ -165,11 +191,18 @@ export function craftItemRange(
 /** What such an item is assumed to roll, or `null` where no such item exists. */
 export function craftItemRoll(
   kind: CraftKind, lineage: CraftLineage, statId: number, grade: ItemGrade,
-  assumption: CraftRollAssumption,
+  assumption: CraftRollAssumption, rounding: CraftRounding,
 ): number | null {
   const range = craftItemRange(kind, lineage, statId, grade);
-  return range ? craftRollValue(range, assumption) : null;
+  return range ? craftRollValue(range, assumption, rounding) : null;
 }
+
+/**
+ * Where a held item is assumed to land is the page's own choice (Gems & Grinds' and
+ * Rune Optimization's roll); which way a fraction is taken is not offered there, so a
+ * held item keeps the rounding it always had: the nearest whole value, a half upward.
+ */
+export const heldItemRounding: CraftRounding = 'nearest';
 
 /**
  * What the credited items would put on each effect id — the whole of rules 1 and 3's
@@ -199,17 +232,19 @@ export function craftPlan(lineage: CraftLineage, credit: CraftCredit): CraftPlan
   if (found) return found;
   const grind = new Float64Array(statIdBound);
   const gem = new Float64Array(statIdBound).fill(-1);
+  const grindGrade = creditedGrade(credit.grind);
+  const gemGrade = creditedGrade(credit.gem);
   for (const statId of allStatIds) {
-    if (credit.grind !== null && isGrindableStatId(statId)) {
-      const range = craftValueRange('grindstone', lineage, statId, credit.grindGrade);
-      if (range) grind[statId] = craftRollValue(range, credit.grind);
+    if (grindGrade !== null && isGrindableStatId(statId)) {
+      const range = craftValueRange('grindstone', lineage, statId, grindGrade);
+      if (range) grind[statId] = craftRollValue(range, credit.grind.roll, credit.grind.rounding);
     }
-    if (credit.gem !== null) {
-      const range = craftValueRange('gem', lineage, statId, credit.gemGrade);
-      if (range) gem[statId] = craftRollValue(range, credit.gem);
+    if (gemGrade !== null) {
+      const range = craftValueRange('gem', lineage, statId, gemGrade);
+      if (range) gem[statId] = craftRollValue(range, credit.gem.roll, credit.gem.rounding);
     }
   }
-  const plan: CraftPlan = { lineage, credit, key, hasGem: credit.gem !== null, grind, gem };
+  const plan: CraftPlan = { lineage, credit, key, hasGem: gemGrade !== null, grind, gem };
   plans.set(key, plan);
   return plan;
 }
@@ -258,28 +293,17 @@ export type GemList = {
 };
 
 /**
- * The legal Gems twice over: priced at the caller's credit, and priced on the
- * reference the placement is chosen on (`canonicalCraftCredit`). The ids are the same;
- * only the order and the values differ.
+ * The legal Gems at the plan's credit, best first: what `craftedScore` chooses from
+ * and values with. One list, because the placement is chosen on the same credit it
+ * is valued at; there used to be a second list priced on a fixed reference, and two
+ * prices for one choice were what the sixth copy of these rules would have hidden in.
  */
-export type GemOptions = GemList & {
-  /** The same legal ids on the reference, best first: what `craftedScore` chooses from. */
-  readonly choice: GemList;
-};
+export type GemOptions = GemList;
 
-const emptyGemList: GemList = {
+const emptyGemOptions: GemOptions = {
   statIds: new Int32Array(0), values: new Float64Array(0), rolls: new Float64Array(0),
   indexByStat: new Int32Array(statIdBound).fill(-1),
 };
-const emptyGemOptions: GemOptions = { ...emptyGemList, choice: emptyGemList };
-
-/** The reference plan for each lineage, whose grind table is what "every line ground" means. */
-const referencePlans = new Map<CraftLineage, CraftPlan>();
-function choicePlan(lineage: CraftLineage): CraftPlan {
-  let plan = referencePlans.get(lineage);
-  if (!plan) { plan = craftPlan(lineage, canonicalCraftCredit); referencePlans.set(lineage, plan); }
-  return plan;
-}
 
 /**
  * The legal Gems for one rune in one role, best first.
@@ -302,19 +326,12 @@ export function gemOptions(
   const key = (slot * statIdBound + mainStatId) * (statIdBound + 1) + (prefixStatId ?? statIdBound);
   const known = byRune.get(key);
   if (known) return known;
-  const found = legalGems(plan, prices, slot, mainStatId, prefixStatId);
+  const found = gemList(plan, prices, slot, mainStatId, prefixStatId);
   byRune.set(key, found);
   return found;
 }
 
 const rememberedGems = new WeakMap<PriceList, WeakMap<CraftPlan, Map<number, GemOptions>>>();
-
-function legalGems(
-  plan: CraftPlan, prices: PriceList, slot: number, mainStatId: number, prefixStatId: number | null,
-): GemOptions {
-  return { ...gemList(plan, prices, slot, mainStatId, prefixStatId),
-    choice: gemList(choicePlan(plan.lineage), prices, slot, mainStatId, prefixStatId) };
-}
 
 function gemList(
   plan: CraftPlan, prices: PriceList, slot: number, mainStatId: number, prefixStatId: number | null,
@@ -358,7 +375,7 @@ export const canGemReplaceValue = (line: Pick<EndStateLine, 'statId' | 'value'>,
 
 /**
  * The greatest legal Gem-result contribution for one particular line, without
- * choosing which line receives the rune's one Gem. `options.choice` supplies ids
+ * choosing which line receives the rune's one Gem. `options` supplies ids
  * already legal for this rune's main, innate, slot and lineage; this finishes the
  * line-dependent checks against its neighbours and any existing converted line.
  *
@@ -376,16 +393,16 @@ export function gemLineContribution(
   if (!Number.isInteger(lineIndex) || lineIndex < 0 || lineIndex >= lines.length) {
     throw new RangeError(`A Gem contribution needs a line index in 0..${lines.length - 1}.`);
   }
-  if (!plan.hasGem || options.choice.statIds.length === 0) return null;
+  if (!plan.hasGem || options.statIds.length === 0) return null;
   const convertedAt = lines.findIndex((line) => line.gemmed);
   if (convertedAt !== -1 && convertedAt !== lineIndex) return null;
 
   const line = lines[lineIndex];
   if (!line) throw new RangeError(`A Gem contribution has no line at index ${lineIndex}.`);
   let best: number | null = null;
-  for (let optionAt = 0; optionAt < options.choice.statIds.length; optionAt += 1) {
-    const statId = options.choice.statIds[optionAt];
-    const roll = options.choice.rolls[optionAt];
+  for (let optionAt = 0; optionAt < options.statIds.length; optionAt += 1) {
+    const statId = options.statIds[optionAt];
+    const roll = options.rolls[optionAt];
     if (statId === undefined || roll === undefined) continue;
     if (lines.some((other, at) => at !== lineIndex && other.statId === statId)) continue;
     if (!canGemReplaceValue(line, statId, roll)) continue;
@@ -405,7 +422,6 @@ let placedAt = -1;
 let placedStat = -1;
 let placedScore = 0;
 let placementBaseline = 0;
-let choiceValues = new Float64Array(8);
 let orderedLineIndexes = new Int32Array(8);
 
 /** The legal line order is fixed by stat id, so sums and exact ties ignore input order. */
@@ -598,53 +614,27 @@ function scoreEndState(
 ): number {
   if (report) { report.replaced = -1; report.statId = -1; }
   if (parts) parts.gemGain = 0;
-  if (!plan.hasGem || lines.length === 0 || options.choice.statIds.length === 0) {
+  if (!plan.hasGem || lines.length === 0 || options.statIds.length === 0) {
     const plain = plainScore(plan, prices, lines, prefixScore, lineValues);
     if (parts) parts.plainScore = plain;
     return plain;
   }
-  /* Both line-ups in one pass: this is the innermost loop of the chance calculation. */
-  const reference = choicePlan(plan.lineage);
-  const sameCredit = plan === reference;
-  if (choiceValues.length < lines.length) choiceValues = new Float64Array(lines.length);
   for (let at = 0; at < lines.length; at += 1) {
     const { statId, value, grind } = lines[at];
-    const price = prices[statId];
-    lineValues[at] = (value + Math.max(grind, grindCredit(plan, statId))) * price;
-    if (!sameCredit) choiceValues[at] = (value + Math.max(grind, grindCredit(reference, statId))) * price;
+    lineValues[at] = (value + Math.max(grind, grindCredit(plan, statId))) * prices[statId];
   }
-  placement(reference, options.choice, prices, lines, sameCredit ? lineValues : choiceValues, prefixScore);
-  if (sameCredit) {
-    if (report) { report.replaced = placedAt; report.statId = placedStat; }
-    if (parts) { parts.plainScore = placementBaseline; parts.gemGain = placedScore - placementBaseline; }
-    return placedScore;
-  }
-  const plain = sumLinesByStatId(prefixScore, lines, lineValues);
-  if (parts) parts.plainScore = plain;
-  if (placedAt < 0) return plain;
-
-  const line = lines[placedAt];
-  const roll = gemCredit(plan, placedStat);
-  if (roll === null || !canGemReplaceValue(line, placedStat, roll)) return plain;
-  /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
-  const kept = placedStat === line.statId ? line.grind : 0;
-  const gemValue = (roll + Math.max(kept, grindCredit(plan, placedStat))) * prices[placedStat];
-  const score = sumLinesByStatIdWithReplacement(prefixScore, lines, lineValues, placedAt, placedStat, gemValue,
-    orderedLineIndexes);
-  if (score <= plain) return plain;
+  placement(plan, options, prices, lines, lineValues, prefixScore);
   if (report) { report.replaced = placedAt; report.statId = placedStat; }
-  if (parts) parts.gemGain = score - plain;
-  return score;
+  if (parts) { parts.plainScore = placementBaseline; parts.gemGain = placedScore - placementBaseline; }
+  return placedScore;
 }
 
 /**
  * **The end state of a finished line-up, in this role's units.**
  *
  * Rule 4 in one expression: score the lines as they stand at the credit, choose the
- * Gem's placement on the same-lineage reference rune (`canonicalCraftCredit`), and
- * score the complete realized body at the credit — or keep the plain body where
- * that placement scores no higher, or where
- * the credited Gem of that stat could not legally take the line.
+ * Gem's placement on the same credit, and score the complete realized body — or keep
+ * the plain body where no legal placement scores higher.
  *
  * `lineValues` is filled with each line's own scored contribution when it is passed,
  * so a caller that needs the breakdown does not price the lines twice. `report` is
@@ -661,7 +651,7 @@ export function craftedScore(
 
 /**
  * **`craftedScore` as seen from a band of bars**: a number that compares with every
- * bar in `[lowest, highest]` exactly as `craftedScore` would, without the canonical
+ * bar in `[lowest, highest]` exactly as `craftedScore` would, without the full
  * placement whenever the body is clear of every bar.
  *
  * The end state is never below the plain body — a Gem is never forced, and that
@@ -671,7 +661,7 @@ export function craftedScore(
  * keep) bounds it, and a bound below `lowest` misses every bar; that holds at any
  * credit, because the Gem is priced at the credit in `options.values`.
  *
- * At the reference credit the best Gem body is then found in real arithmetic: each
+ * The best Gem body is then found in real arithmetic: each
  * replaceable line against the first legal Gem in the best-first list (which
  * `placement` evaluates, and which dominates the other different-id Gems) and against
  * re-rolling its own id. That differs from `craftedScore` only by the order of a
@@ -684,7 +674,7 @@ export function craftedScoreAgainst(
   lineValues: Float64Array, lowest: number, highest: number,
 ): number {
   const plain = plainScore(plan, prices, lines, prefixScore, lineValues);
-  const list = options.choice;
+  const list = options;
   if (!plan.hasGem || lines.length === 0 || list.statIds.length === 0 || plain >= highest) return plain;
   let weakest = Number.POSITIVE_INFINITY;
   let kept = 0;
@@ -705,7 +695,6 @@ export function craftedScoreAgainst(
   const margin = (Math.abs(prefixScore) + (plain - prefixScore) + best + kept) * Number.EPSILON * 32;
   const loose = plain - weakest + best + kept;
   if (loose + margin < lowest) return Math.max(plain, loose);
-  if (plan !== choicePlan(plan.lineage)) return scoreEndState(plan, options, prices, lines, prefixScore, lineValues);
 
   let body = plain;
   for (let at = 0; at < lines.length; at += 1) {
@@ -777,9 +766,9 @@ export type CraftReport = { replaced: number; statId: number };
  * Simulator used to: it gemmed a random line into a random id and ground one random
  * line, and so showed a rune that a DEF % line had been swapped for CRI Rate beside a
  * fresh Resistance, three stones left unspent, and a verdict that had assumed none of
- * that. Rule 1 grinds *every* grindable line, and the Gem goes where it gains most on
- * the reference rune — which is the weakest line only when nothing blocks the best id
- * from taking it.
+ * that. Rule 1 grinds *every* grindable line, and the Gem goes where it gains most at
+ * the credit — which is the weakest line only when nothing blocks the best id from
+ * taking it.
  */
 const groundLine = (plan: CraftPlan, line: EndStateLine): EndStateLine =>
   ({ ...line, grind: Math.max(line.grind, grindCredit(plan, line.statId)) });
@@ -810,17 +799,18 @@ export function craftedLines(
 
 /**
  * **The placement rule asked per stat**, for a view that scores a rune in units of its
- * own: every legal Gem on this finished rune as the reference line-up it would leave
- * (`canonicalCraftCredit`), beside the reference line-up with no Gem. Priced in one role,
- * the best of these that beats `base` is the placement `craftedScore` chooses in that
- * role; Gems & Grinds reads them across every role it judges a rune in. `null` below
- * `+12`, where no Gem may go on yet.
+ * own: every legal Gem on this finished rune as the line-up it would leave at the
+ * credit, beside the same line-up with no Gem. Priced in one role, the best of these
+ * that beats `base` is the placement `craftedScore` chooses in that role; Gems &
+ * Grinds reads them across every role it judges a rune in. `null` below `+12`, where
+ * no Gem may go on yet; no Gems where the credit names none.
  */
-export function gemChoiceLineUps(rune: Pick<Rune, 'slot' | 'mainStatId' | 'prefixStatId' | 'subProperties' | 'level' | 'ancient'>):
-  { base: EndStateLine[]; gems: Array<{ statId: number; lines: EndStateLine[] }> } | null {
+export function gemChoiceLineUps(
+  rune: Pick<Rune, 'slot' | 'mainStatId' | 'prefixStatId' | 'subProperties' | 'level' | 'ancient'>, credit: CraftCredit,
+): { base: EndStateLine[]; gems: Array<{ statId: number; lines: EndStateLine[] }> } | null {
   const lines = rune.subProperties;
   if (rune.level < gemMinimumLevel || lines.length === 0) return null;
-  const reference = choicePlan(rune.ancient ? 'ancient' : 'standard');
+  const reference = craftPlan(rune.ancient ? 'ancient' : 'standard', credit);
   const base = groundLines(reference, lines);
   const gems: Array<{ statId: number; lines: EndStateLine[] }> = [];
   for (let at = 0; at < lines.length; at += 1) {
@@ -866,20 +856,20 @@ export type CraftSupply = { readonly gem: CraftHalf | null; readonly grind: Craf
 const assumedHalves = new Map<string, CraftHalf>();
 
 /**
- * The half the settings assume: one item of this kind, grade and lineage for every
- * effect id the game makes one for, landing where `assumption` says. It is the same
- * credit `craftPlan` gives Clean-up, read per kind because the optimizer's two
- * halves are set independently.
+ * The half the credit assumes: one item of this kind and lineage for every effect id
+ * the game makes one for, at the credited grade, roll and rounding. It is the same
+ * credit `craftPlan` gives Clean-up, read per kind because the optimizer offers the
+ * two halves independently. `null` where the credit names no item of the kind.
  */
-export function assumedCraftHalf(
-  kind: CraftKind, lineage: CraftLineage, grade: ItemGrade, assumption: CraftRollAssumption,
-): CraftHalf {
-  const key = `${kind}|${lineage}|${grade}|${assumption}`;
+export function assumedCraftHalf(kind: CraftKind, lineage: CraftLineage, assumption: CraftAssumption): CraftHalf | null {
+  const grade = creditedGrade(assumption);
+  if (grade === null) return null;
+  const key = `${kind}|${lineage}|${assumptionKey(assumption)}`;
   const found = assumedHalves.get(key);
   if (found) return found;
   const choices: CraftChoice[][] = Array.from({ length: statIdBound }, () => []);
   for (const statId of allStatIds) {
-    const roll = craftItemRoll(kind, lineage, statId, grade, assumption);
+    const roll = craftItemRoll(kind, lineage, statId, grade, assumption.roll, assumption.rounding);
     if (roll !== null) choices[statId].push({ value: roll, stock: -1 });
   }
   const half = { choices };
@@ -909,7 +899,7 @@ function craftHalfOf(
   const choices: CraftChoice[][] = Array.from({ length: statIdBound }, () => []);
   for (const { item, stock: index } of items) {
     if (item.kind !== kind || item.statId < 0 || item.statId >= statIdBound) continue;
-    const roll = craftItemRoll(kind, item.lineage, item.statId, item.grade, assumption);
+    const roll = craftItemRoll(kind, item.lineage, item.statId, item.grade, assumption, heldItemRounding);
     if (roll === null) continue;
     choices[item.statId].push({ value: roll, stock: index });
   }
@@ -1027,9 +1017,9 @@ export type CraftApplication = {
  * lost to HP +385 ground to +755, although ATK ground by the same stone was worth
  * more, and the Gem was put on the wrong line besides.
  *
- * **A Gem is read on the placement rule's reference rune** (`canonicalCraftCredit`):
- * every grindable line, before and after alike, carries an average Legend
- * Grindstone where that raises it, and a line already ground higher keeps its own.
+ * **A Gem is read on lines ground by the credit**, the user's one craft assumption:
+ * every grindable line, before and after alike, carries the credited Grindstone
+ * where that raises it, and a line already ground higher keeps its own.
  * The gain is then the Gem's alone, and it is measured on exactly the line-ups that
  * chose the Gem's stat (`gemChoiceLineUps`); only the Gem's own roll is the item's.
  * **A Grindstone is read on the rune as it stands**, because the stone is the thing
@@ -1046,8 +1036,10 @@ export type CraftComparison = {
   applications: CraftApplication[];
 };
 
-export function craftComparison(item: CraftItem, rune: Rune, roll: CraftRollAssumption): CraftComparison {
-  const stones = item.kind === 'gem' ? choicePlan(rune.ancient ? 'ancient' : 'standard') : null;
+export function craftComparison(
+  item: CraftItem, rune: Rune, roll: CraftRollAssumption, credit: CraftCredit,
+): CraftComparison {
+  const stones = item.kind === 'gem' ? craftPlan(rune.ancient ? 'ancient' : 'standard', credit) : null;
   const premise = (lines: readonly EndStateLine[]) => stones ? groundLines(stones, lines) : lines;
   const baseline = premise(rune.subProperties);
   if (!lineageFits(item, rune)) return { premise: item.kind, baseline, applications: [] };
@@ -1128,7 +1120,7 @@ export function lineageFits(item: CraftItem, rune: Pick<Rune, 'ancient' | 'setId
  */
 export function craftItemFit(item: CraftItem, rune: Rune): CraftFit {
   if (!lineageFits(item, rune)) return { fits: false, block: 'set' };
-  const maximum = craftItemRoll(item.kind, item.lineage, item.statId, item.grade, 'maximum');
+  const maximum = craftItemRoll(item.kind, item.lineage, item.statId, item.grade, 'maximum', heldItemRounding);
   if (maximum === null) return { fits: false, block: 'target' };
 
   if (item.kind === 'grindstone') {

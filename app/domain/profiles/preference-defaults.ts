@@ -2,6 +2,7 @@ import type { ArtifactConversionStoneMode, ArtifactSettings, DirectImportMode, I
 import { blankCraftIgnores } from './craft-ignores';
 import { blankCraftViewChoices } from './craft-view-choices';
 import { defaultRerollRules } from '../runes/rune-reapp-targets';
+import { defaultCraftCredit } from '../runes/craft/rune-craft-end-state';
 import { defaultRuneRoles } from './rune-roles';
 import { blankGeneralSettings } from '../shared/regional-settings';
 import { blankSpeedTuningPreferences } from './speed-tuning-preferences';
@@ -16,6 +17,7 @@ import { defaultRelicInvestmentSelectivity } from '../relics/relic-advice';
    The starting point is the middle of every ladder, plus a mild taste for
    Intangible runes (×1½). */
 export const defaultRunePotentialSettings: RunePotentialSettings = {
+  craftCredit: defaultCraftCredit,
   powerUpPolicy: 3,
   runeQuality: 3,
   acceptedRunes: 3,

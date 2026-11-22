@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readCraftItem, missingCraftItems, missingCraftGrades, missingCraftLineages } from '../app/domain/runes/craft/rune-craft-items.ts';
-import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, canonicalCraftCredit,
+import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScore, craftPlan, noCraftCredit,
   gemOptions } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { defaultRuneRoles, createRuneRole } from '../app/domain/profiles/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
@@ -28,6 +28,7 @@ const base = new Map(['Attack type', 'Support type', 'Defence type', 'HP type', 
   [type, { hp: 11000, atk: 700, def: 650, spd: 104, criRate: 15, criDmg: 50, res: 15, acc: 0 }]));
 const roles = defaultRuneRoles();
 const settings = defaultRunePotentialSettings;
+const credit = settings.craftCredit;
 const runes = [1, 2, 3, 4, 5, 6].flatMap((slot) => [0, 9, 12, 15].flatMap((level) =>
   ordinarySample(slot, 6, 2, level).map((rune, at) => ({ ...rune, id: `${slot}:${level}:${at}`,
     setId: 13, setName: 'Violent', ancient: at === 1 }))));
@@ -36,7 +37,7 @@ const items = [1, 2, 5, 6].flatMap((type) => [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12
   .filter((stat) => type % 2 || stat <= 8).map((stat) => readCraftItem({
     craft_item_id: ++id, craft_type: type, craft_type_id: 130000 + stat * 100 + (type >= 5 ? 15 : 5), amount: 1,
   })));
-const noCraft = { gem: null, grind: null, gemGrade: 'Hero', grindGrade: 'Hero' };
+const noCraft = noCraftCredit;
 const marked = { subProperties: [{ statId: 8, value: 5, grind: 3, gemmed: true }, { statId: 2, value: 8, grind: 0, gemmed: false }] };
 for (const gemChange of ['yes', 'no']) {
   const choice = { grinded: [], gemChange };
@@ -52,7 +53,7 @@ for (const grinded of [[], ['yes'], ['no'], ['yes', 'no']]) {
   assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 8 }, choice), grinded.length !== 1 || grinded[0] === 'yes');
   assert.equal(craftMatchesChangeFilter(marked, { kind: 'grindstone', statId: 2 }, choice), grinded.length !== 1 || grinded[0] === 'no');
 }
-const scope = newRuneAdviceScope();
+const scope = newRuneAdviceScope(credit);
 const families = roles.map((role) => ({ role, builds: roleBuilds(role) }));
 function evaluate(rune) {
   let best = null;
@@ -90,10 +91,10 @@ function compare(actual, expected) {
   });
 }
 /* The premise, written out afresh rather than read from the engine: a Gem is judged on
-   lines every one of which carries an average Legend stone of the rune's lineage where
+   lines every one of which carries the credited stone of the rune's lineage where
    that raises it, before and after alike; a Grindstone on the rune as it stands. */
 const legendStones = new Map(['standard', 'ancient'].map((lineage) => [lineage,
-  craftPlan(lineage, { ...canonicalCraftCredit, gem: null })]));
+  craftPlan(lineage, { ...credit, gem: noCraftCredit.gem })]));
 const premised = (kind, lines, rune) => kind === 'gem'
   ? lines.map((line) => ({ ...line, grind: Math.max(line.grind,
     legendStones.get(rune.ancient ? 'ancient' : 'standard').grind[line.statId]) })) : lines;
@@ -123,7 +124,7 @@ for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'max
     const before = evaluate({ ...rune, subProperties: premised(kind, rune.subProperties, rune) });
     if (!before) continue;
     for (const item of request.items.filter((item) => lineageFits(item, rune))) {
-      const comparison = craftComparison(item, rune, request.roll);
+      const comparison = craftComparison(item, rune, request.roll, credit);
       assert.deepEqual(comparison.baseline, premised(kind, rune.subProperties, rune), 'the baseline left the premise');
       const applications = comparison.applications;
       const half = heldCraftHalf(kind, [{ item, stock: 0 }], request.roll);
@@ -163,7 +164,7 @@ assert.equal((await recommendRuneCraft(emptyRequest)).candidates.length, 0);
 assert.equal((await recommendRuneCraft({ ...emptyRequest, runes, items })).candidates.length, 0);
 const nonImproving = { ...runes[0], subProperties: [{ statId: 8, value: 30, grind: 5, gemmed: false }] };
 assert.equal(craftComparison(items.find((item) => item.kind === 'grindstone' && item.statId === 8 && item.lineage === 'standard'),
-  nonImproving, emptyRequest.roll).applications.length, 0);
+  nonImproving, emptyRequest.roll, credit).applications.length, 0);
 
 /* The case that exposed the unequal premise: a Bruiser SPD rune with ATK 8 %. ATK
    ground by the same stone outweighs HP + ground, so an HP + Gem must not take the ATK
@@ -244,8 +245,8 @@ assert.deepEqual(wantedCraftItems([], 5, benchmark), []);
 assert.equal(desirableGemStats([]).size, 0);
 function ruleStat(rune) {
   const lineage = rune.ancient ? 'ancient' : 'standard';
-  const referencePlan = craftPlan(lineage, canonicalCraftCredit);
-  const referenceBare = craftPlan(lineage, { ...canonicalCraftCredit, gem: null });
+  const referencePlan = craftPlan(lineage, credit);
+  const referenceBare = craftPlan(lineage, { ...credit, gem: noCraftCredit.gem });
   let best = null;
   for (const { role, builds } of families) for (const build of builds) {
     const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);
@@ -318,6 +319,27 @@ for (const row of whole.candidates) if (row.item.kind === 'gem') {
    never steered onto a line whose stat it repeats unless that is the best stat. */
 assert.ok(runes.every((rune) => rune.subProperties.every((line) => !line.gemmed)), 'the sample runes must carry no Gem');
 assert.deepEqual(desirableGemStats(whole.candidates, undefined, 'no'), desirable, 'No changed the Gem stat of a rune that carries no Gem');
+
+/* The craft credit is the user's (Settings › Gems & Grindstones). Where it assumes no
+   Gem, the placement rule has no Gem to choose with: it names no stat, so every held
+   Gem that raises its rune stands on its own gain instead of vanishing. A Gem is then
+   judged on lines ground by the credit's stone alone. */
+{
+  const noGem = { ...settings, craftCredit: { ...credit, gem: { ...credit.gem, grade: 'none' } } };
+  const gemsOnly = box.filter((item) => item.kind === 'gem');
+  const answer = await recommendRuneCraft({ ...emptyRequest, runes, items: gemsOnly, missing, roles, settings: noGem, roll: 'two-thirds' });
+  assert.ok(answer.candidates.length > 0, 'a credit without a Gem left nothing to judge');
+  assert.ok(answer.candidates.every((row) => row.gemChoice === null), 'a credit without a Gem still named a Gem stat');
+  const open = desirableGemStats(answer.candidates);
+  assert.ok(answer.candidates.every((row) => onDesirableGemStat(row, open)), 'a Gem was hidden by a rule that names no stat');
+  /* And the premise follows the credit's stone: none of it, and the Gem is read on the rune as it stands. */
+  const bare = { ...settings, craftCredit: noCraftCredit };
+  const plain = await recommendRuneCraft({ ...emptyRequest, runes, items: gemsOnly, roles, settings: bare, roll: 'two-thirds' });
+  for (const row of plain.candidates) {
+    assert.deepEqual(craftComparison(row.item, row.rune, 'two-thirds', noCraftCredit).baseline, row.rune.subProperties,
+      'with no stone credited a Gem was read on ground lines');
+  }
+}
 
 /* A changed account is answered from what is already known — the box and the
    runes alike, as live sync changes both. A stack gone takes its rows, a stack

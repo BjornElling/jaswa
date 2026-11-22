@@ -163,9 +163,14 @@ export function scenarioGenerator(firstSeed = 20260930, runesPerSlot = [3, 5]) {
         allowBroken, allowIntangible, alwaysCrits, alwaysElementAdvantage, leads, targets, ceilings, rankBy,
       },
       settings: {
-        ...defaultRuneOptimizationSettings, gems, grinds, gemGrade: 'Legend', grindGrade: 'Hero', allowImmemorial,
+        ...defaultRuneOptimizationSettings, gems, grinds, allowImmemorial,
         runesOnOtherMonsters: random() < 0.7, unfinishedAtMaximum: random() < 0.5,
         depth: 'complete', resultCount: 5,
+      },
+      /* What Theoretical spends: the grades these scenarios have always assumed. */
+      craftCredit: {
+        gem: { grade: 'Legend', roll: defaultRuneOptimizationSettings.gemRollAssumption, rounding: 'nearest' },
+        grind: { grade: 'Hero', roll: defaultRuneOptimizationSettings.grindRollAssumption, rounding: 'nearest' },
       },
     };
     /* The team's priority comes from the index alone, without drawing on the

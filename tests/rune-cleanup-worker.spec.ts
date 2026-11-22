@@ -181,6 +181,10 @@ test('a superseded calculation cannot commit its result', async ({ page }) => {
     const request: import('../app/domain/runes/cleanup/rune-advice-protocol').RuneAdviceRequest = {
       runes: [], roles: [], base: new Map(), preferWebGpu: false,
       settings: {
+        craftCredit: {
+          gem: { grade: 'Legend', roll: 'average', rounding: 'up' },
+          grind: { grade: 'Legend', roll: 'average', rounding: 'up' },
+        },
         powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3,
         intangibleRunes: 1,
         neverSellPreGrindSpeed: false, preGrindSpeedMinimum: null,

@@ -234,6 +234,11 @@ function namedFixtures(random) {
 // ---------------------------------------------------------------------------
 
 const baseSettings = {
+  /* Settings' starting craft credit, written out: the gate holds the calculation as the default user sees it. */
+  craftCredit: {
+    gem: { grade: 'Legend', roll: 'average', rounding: 'up' },
+    grind: { grade: 'Legend', roll: 'average', rounding: 'up' },
+  },
   powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3,
   intangibleRunes: 1,
   // This gate holds the calculation itself; safeguard boundaries have their own check.

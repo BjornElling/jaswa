@@ -595,8 +595,9 @@ algorithm:
   a depth cut or time stop must never be presented as a proof of a global best.
 - **Rune Clean-up:** derive role weights and calibration, evaluate current and
   potential value, count deterministic seeded outcomes where needed, then
-  apply verdict and sale protection. Canonical average Legend craft credit
-  belongs to this judgement, not to a user toggle. Protections can change a
+  apply verdict and sale protection. The craft credit is one user setting
+  (Settings › Gems & Grindstones) read by every rune judgement at once, never
+  a per-page toggle. Protections can change a
   sell decision without invalidating the underlying mathematical answer.
 - **Craft advice:** enumerate legal states through the craft owner, compare
   before and after using the same ruler, then allocate/recommend under the

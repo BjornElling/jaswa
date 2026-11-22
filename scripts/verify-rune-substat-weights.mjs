@@ -13,20 +13,22 @@
  */
 import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import {
-  roleBuilds, prepareRuneCandidate, candidateMaxValue, newRuneAdviceScope,
+  roleBuilds, prepareRuneCandidate as prepare, candidateMaxValue, newRuneAdviceScope,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 import { newSubstatWeightScope, substatWeights } from '../app/domain/runes/rune-substat-weights.ts';
 import { mainPropertyMaximum, maximumRoll, slotMainProperties, subPropertyTargetStat } from '../app/domain/runes/rune-properties.ts';
 import { runeStatIds, slotAllowsSubStat } from '../app/domain/runes/runes.ts';
-import { canonicalCraftCredit, noCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { defaultCraftCredit, noCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
 const base = { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 };
 const supportBase = { hp: 10856, atk: 639, def: 648, spd: 104, criRate: 15, criDmg: 50, res: 18, acc: 3 };
 const noCraft = noCraftCredit;
-/* The ruler is the product's one canonical credit and no caller can choose another,
-   so the scale is read the way the page reads it: the rune crafted with that credit
+/* The ruler is the user's one craft credit, and Settings starts it here, so the scale
+   is read the way the page reads it by default: the rune crafted with that credit
    too. A rune read bare is read against the same ruler and simply reads lower. */
-const canonical = canonicalCraftCredit;
+const canonical = defaultCraftCredit;
+const prepareRuneCandidate = (rune, role, build, line, credit, scope = newRuneAdviceScope(canonical)) =>
+  prepare(rune, role, build, line, credit, scope);
 
 let failures = 0;
 function check(condition, message) {
@@ -158,7 +160,7 @@ function verifyArtifactsComeOffTheRequirement() {
 function verifyGrindstonesComeOffTheRequirement() {
   const fastDd = role('fast-dd');
   const mains = mainsOf(roleBuilds(fastDd).find((candidate) => candidate.mains[2] === 4));
-  const ground = { gem: null, gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' };
+  const ground = { gem: noCraft.gem, grind: { grade: 'Hero', roll: 'three-quarters', rounding: 'nearest' } };
   const of = (credit) => substatWeights({ targets: fastDd.targets, mains, artifacts: fastDd.artifacts, base, credit });
   const bare = of(noCraft);
   const withStones = of(ground);
@@ -241,7 +243,7 @@ function verifyThePerfectRuneReadsFull() {
         const bestOf = new Map();
         for (const stars of [6, 5, 4]) {
           let best = -Infinity;
-          const scope = newRuneAdviceScope();
+          const scope = newRuneAdviceScope(canonical);
           for (const four of subsets(legal, 4)) for (const sink of four) for (const innate of [null, ...legal.filter((id) => !four.includes(id))]) {
             const rune = {
               id: 'perfect', setId: 13, setName: 'Violent', slot, stars, ancient: false,
@@ -384,17 +386,19 @@ function verifyCraftCreditMovesOnlyTheRune() {
     occupiedId: null, obtainedOrder: 1,
   };
   let previous = 0;
+  const bestLegend = { grade: 'Legend', roll: 'maximum', rounding: 'nearest' };
+  const named = (assumption) => (assumption.grade === 'none' ? 'none' : `${assumption.grade} ${assumption.roll}`);
   for (const credit of [
     noCraft,
-    { gem: null, gemGrade: 'Hero', grind: 'maximum', grindGrade: 'Legend' },
-    { gem: 'maximum', gemGrade: 'Legend', grind: 'maximum', grindGrade: 'Legend' },
+    { gem: noCraft.gem, grind: bestLegend },
+    { gem: bestLegend, grind: bestLegend },
   ]) {
     const value = candidateMaxValue(prepareRuneCandidate(rune, fastDd, build, base, credit));
-    check(value > 0, `a credited ${credit.gem ? 'Gem and ' : ''}Grindstone put the rune at ${(value * 100).toFixed(2)} %.`);
+    check(value > 0, `a credited ${credit.gem.grade !== 'none' ? 'Gem and ' : ''}Grindstone put the rune at ${(value * 100).toFixed(2)} %.`);
     check(value + 1e-12 >= previous,
-      `a richer credit (gem ${String(credit.gem)}, grind ${String(credit.grind)}) read the rune lower on the fixed ruler.`);
+      `a richer credit (gem ${named(credit.gem)}, grind ${named(credit.grind)}) read the rune lower on the fixed ruler.`);
     previous = value;
-    console.log(`  gem ${String(credit.gem)}, grind ${String(credit.grind)} -> ${(value * 100).toFixed(2)} %`);
+    console.log(`  gem ${named(credit.gem)}, grind ${named(credit.grind)} -> ${(value * 100).toFixed(2)} %`);
   }
 }
 

@@ -57,7 +57,9 @@ import { elementAdvantageHeld } from '../../domain/combat/element-advantage';
 import type { Preset } from '../../domain/placements/presets';
 import { runeLockOf, runeLockScope, runeLocksFor } from '../../domain/placements/rune-locks';
 import type { RuneLock, RuneLocks } from '../../domain/placements/rune-locks';
-import { craftRollAssumptions, craftRollLabels, itemGrades } from '../../domain/runes/craft/rune-craft-items';
+import { craftRollAssumptions, craftRollLabels, craftRoundingLabels } from '../../domain/runes/craft/rune-craft-items';
+import { creditKey } from '../../domain/runes/craft/rune-craft-end-state';
+import type { CraftAssumption } from '../../domain/runes/craft/rune-craft-end-state';
 import type { CraftItem, CraftRollAssumption } from '../../domain/runes/craft/rune-craft-items';
 import { estimateRuneOptimizationBuilds, figureIndex } from '../../domain/runes/optimization/rune-optimization-problem';
 import type { RankFigure, RuneOptimizationInput, RuneOptimizationRequirements } from '../../domain/runes/optimization/rune-optimization-problem';
@@ -80,7 +82,7 @@ import { readRune } from '../../domain/runes/runes';
 import type { Rune } from '../../domain/runes/runes';
 import { useSessionStorageState } from '../../ui/session-state';
 import { runeOptimizationTableColumns, columnClasses, sortMarkSide } from '../../ui/table-layouts';
-import type { ImportedGame, ItemGrade, Preferences } from '../../domain/model';
+import type { ImportedGame, Preferences } from '../../domain/model';
 
 /**
  * **Rune Optimization — the page.** `docs/RUNE-OPTIMIZATION.md` is its contract.
@@ -364,9 +366,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       return base ? [{ role, base }] : [];
     });
   }, [game, preferences.runeRoles]);
+  const craftCredit = preferences.runePotential.craftCredit;
   const input = useMemo<RuneOptimizationInput | undefined>(() => (selected && question && (!settings.limitChanges || settings.maxChanges !== undefined) ? {
-    unitId: selected.unitId, monster: selected.record, runes, locks, withheld, craftItems, requirements: question, settings, gemPreservationRoles,
-  } : undefined), [selected, question, runes, locks, withheld, craftItems, settings, gemPreservationRoles]);
+    unitId: selected.unitId, monster: selected.record, runes, locks, withheld, craftItems, requirements: question, settings,
+    craftCredit, gemPreservationRoles,
+  } : undefined), [selected, question, runes, locks, withheld, craftItems, settings, craftCredit, gemPreservationRoles]);
   const estimate = useMemo(() => (input ? estimateRuneOptimizationBuilds(input) : undefined), [input]);
   const trial = useRuneOptimizationWork(input, preferences.hardwareAcceleration, state === 'calculating');
   /* The question on screen. The account is never part of it: the player follows the
@@ -382,7 +386,7 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
       buildings: undefined, leads: team.leads.scenario ? asked.leads : undefined,
       alwaysElementAdvantage: team.elementAdvantage ? undefined : asked.alwaysElementAdvantage };
     return JSON.stringify({ presetId: activePresetId, unitId, requirements: ownPart, settings: searchSettings, priority,
-      gemRoles: preferences.runeRoles });
+      gemRoles: preferences.runeRoles, craftCredit: creditKey(craftCredit) });
   };
   const inputKey = keyOf(requirements);
   /* Two kinds of change (`AGENTS.md` §5). The question is the user's: a table shows
@@ -422,11 +426,11 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
   }, [tableAlwaysCritsCount, requirements, alwaysCrits, shown, teammateSets, buildings]);
   const builds = useMemo(() => (shown && selected && tableLimits
     ? currentBuilds(shown.answer.builds.slice(0, resultCount), {
-      unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings, withheld,
+      unitId: selected.unitId, monster: selected.record, requirements: tableLimits, settings, craftCredit, withheld,
       before: { runes: shown.runes, items: shown.items },
       now: { runes: runesById, items: itemsById, locks },
     })
-    : undefined), [shown, selected, tableLimits, resultCount, settings, withheld, runesById, itemsById, locks]);
+    : undefined), [shown, selected, tableLimits, resultCount, settings, craftCredit, withheld, runesById, itemsById, locks]);
   const sheetNow = useCallback((bonuses: RequirementsDraft) => (selected ? monsterStatSheet(selected.record, bonuses) : undefined), [selected]);
   const currentSheet = useMemo(() => requirements ? sheetNow(requirements) : undefined, [sheetNow, requirements]);
   /* The table's `Now` row is counted the way its builds were. */
@@ -808,10 +812,12 @@ export function RuneOptimizationSection({ game, monsters, preferences, presets, 
               disabled={settings.gems === 'none'}
               onChange={(allowGemSpeedRemoval) => onUpdate({ allowGemSpeedRemoval })} />
           </div>
-          <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} grade={settings.gemGrade} roll={settings.gemRollAssumption}
-            onUse={(gems) => onUpdate({ gems })} onGrade={(gemGrade) => onUpdate({ gemGrade })} onRoll={(gemRollAssumption) => onUpdate({ gemRollAssumption })} />
-          <CraftSetting legend="Grindstones" name="rune-optimization-grinds" use={settings.grinds} grade={settings.grindGrade} roll={settings.grindRollAssumption}
-            onUse={(grinds) => onUpdate({ grinds })} onGrade={(grindGrade) => onUpdate({ grindGrade })} onRoll={(grindRollAssumption) => onUpdate({ grindRollAssumption })} />
+          <CraftSetting legend="Gems" name="rune-optimization-gems" use={settings.gems} assumed={craftCredit.gem}
+            roll={settings.gemRollAssumption}
+            onUse={(gems) => onUpdate({ gems })} onRoll={(gemRollAssumption) => onUpdate({ gemRollAssumption })} />
+          <CraftSetting legend="Grindstones" name="rune-optimization-grinds" use={settings.grinds} assumed={craftCredit.grind}
+            roll={settings.grindRollAssumption}
+            onUse={(grinds) => onUpdate({ grinds })} onRoll={(grindRollAssumption) => onUpdate({ grindRollAssumption })} />
         </aside>
       </section>}
 
@@ -874,28 +880,33 @@ function OptimizationHeader() {
     tagline="Six slots, thousands of runes. Let your computer do the arithmetic so you can go back to pretending it was intuition." />;
 }
 
-function CraftSetting({ legend, name, use, grade, roll, onUse, onGrade, onRoll }: {
+function CraftSetting({ legend, name, use, assumed, roll, onUse, onRoll }: {
   legend: string;
   name: string;
   use: CraftUse;
-  grade: ItemGrade;
+  /** Settings' craft credit for this kind: what *Theoretical* spends. */
+  assumed: CraftAssumption;
   roll: CraftRollAssumption;
   onUse: (use: CraftUse) => void;
-  onGrade: (grade: ItemGrade) => void;
   onRoll: (roll: CraftRollAssumption) => void;
 }) {
-  /* Both selects stay mounted and only disable, so choosing None cannot close up
-     the row under the click (`AGENTS.md` §2). A grade is only a question for a
-     theoretical item — a held one has its own. */
+  /* The theoretical item is Settings' and only shown here; the roll is a held item's,
+     so it answers only for Owned only. Both stay mounted and change tone or disable,
+     so no choice can close up the row under the click (`AGENTS.md` §2). */
+  const theoretical = assumed.grade === 'none' ? 'None'
+    : `${assumed.grade} · ${craftRollLabels[assumed.roll]}`;
+  const rounded = assumed.grade === 'none' ? ''
+    : `, rounded ${craftRoundingLabels[assumed.rounding].toLowerCase()}`;
   return <div className={`filter-group rune-optimization-craft ${name}`}>
     <RadioLine name={name} legend={legend} current={use}
       options={craftUses.map((value) => ({ value, label: craftUseLabels[value] }))} onChange={onUse} />
     <div className="rune-optimization-craft-choices">
-      <Dropdown aria-label={`${legend}: grade`} value={grade} disabled={use !== 'theoretical'}
-        onChange={(event) => onGrade(event.target.value as ItemGrade)}>
-        {itemGrades.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
-      </Dropdown>
-      <Dropdown aria-label={`${legend}: roll`} value={roll} disabled={use === 'none'}
+      <output className={use === 'theoretical' ? 'rune-optimization-craft-assumed active' : 'rune-optimization-craft-assumed'}
+        aria-label={`${legend}: theoretical item`}
+        title={`Theoretical: ${theoretical}${rounded}. Set in Settings › Gems & Grindstones.`}>
+        {theoretical}
+      </output>
+      <Dropdown aria-label={`${legend}: roll`} value={roll} disabled={use !== 'owned'}
         onChange={(event) => onRoll(event.target.value as CraftRollAssumption)}>
         {craftRollAssumptions.map((entry) => <option key={entry} value={entry}>{craftRollLabels[entry]} roll</option>)}
       </Dropdown>

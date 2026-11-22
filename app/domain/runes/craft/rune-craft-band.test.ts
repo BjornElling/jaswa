@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  canonicalCraftCredit, craftPlan, craftedScore, craftedScoreAgainst, gemOptions, noCraftCredit,
+  craftPlan, craftedScore, craftedScoreAgainst, defaultCraftCredit, gemOptions, noCraftCredit,
 } from './rune-craft-end-state';
 import type { CraftCredit, EndStateLine } from './rune-craft-end-state';
 import { nextUp, referenceBodies } from '../cleanup/rune-quality-reference';
@@ -13,11 +13,12 @@ const priceLists = [
   Float64Array.from({ length: 13 }, (_, id) => (id === 8 ? 0.17 : 0)),
   Float64Array.of(0, 0.004, 0.01, 0.05, 0.02, 0.06, 0.01, 0, 0.03, 0.01, 0.02, 0.09, 0.08),
 ];
-/* The reference credit takes the exact path; any other re-prices the Gem and must
-   fall back on the looser bound. */
+/* Settings' starting credit, none, a lopsided one and rounding down, so the bound is
+   held whatever the user assumes. */
 const credits: CraftCredit[] = [
-  canonicalCraftCredit, noCraftCredit,
-  { gem: 'maximum', gemGrade: 'Hero', grind: 'minimum', grindGrade: 'Hero' },
+  defaultCraftCredit, noCraftCredit,
+  { gem: { grade: 'Hero', roll: 'maximum', rounding: 'up' }, grind: { grade: 'Hero', roll: 'minimum', rounding: 'up' } },
+  { gem: { grade: 'Rare', roll: 'one-third', rounding: 'down' }, grind: { grade: 'none', roll: 'average', rounding: 'up' } },
 ];
 
 describe('craftedScoreAgainst', () => {

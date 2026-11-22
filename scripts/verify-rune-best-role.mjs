@@ -34,7 +34,7 @@ import {
 import { slotMainProperties } from '../app/domain/runes/rune-properties.ts';
 import { countJobs } from '../app/domain/runes/rune-power-up-outcomes.ts';
 import { runeScaleStars } from '../app/domain/runes/rune-substat-weights.ts';
-import { canonicalCraftCredit, craftedScore } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { craftedScore } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
 const base = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
@@ -73,7 +73,7 @@ function slotPopulationOf(slot, candidate, role, line, builds, scope, references
         && [2, 4, 6].every((at) => at === slot || build.mains[at] === candidate.build.mains[at]));
     const scale = position && readingScale(role, position, line, slot, main, scope);
     if (!scale) { zeros += referenceSampleSize; continue; }
-    const { scores } = references.get({ slot, stars: runeScaleStars, main }, scale.prices);
+    const { scores } = references.get({ slot, stars: runeScaleStars, main }, scale.prices, scope.ruler);
     parts.push({ scores, scale: main === candidate.main ? 1 : candidate.ceiling / scale.ceiling });
   }
   return { parts, zeros };
@@ -81,7 +81,7 @@ function slotPopulationOf(slot, candidate, role, line, builds, scope, references
 
 /** Every reading the engine weighs for one rune, rebuilt as `runeAdvice` builds them. */
 function readingsOf(rune, settings, scope, references) {
-  const credit = canonicalCraftCredit;
+  const credit = scope.ruler;
   const readings = [];
   let runs = null;
   for (const role of roles) {
@@ -169,7 +169,7 @@ for (const [label, settings] of scenarios) {
   const advice = await runeAdvice(runes, roles, settings, base);
   const references = qualityReferences();
   const bar = chanceThresholds[settings.powerUpPolicy - 1];
-  const scope = newRuneAdviceScope();
+  const scope = newRuneAdviceScope(settings.craftCredit);
   for (const rune of runes) {
     const row = advice.get(rune.id);
     const qualityVerdict = row.unprotectedAdvice?.verdict ?? row.verdict;

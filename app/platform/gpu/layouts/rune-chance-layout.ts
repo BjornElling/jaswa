@@ -81,12 +81,12 @@ export const scoringPricesAt = 0;
 export const scoringGrindAt = statIdBound;
 /** What the credited Gem rolls on each effect id, `-1` where none exists. */
 export const scoringGemRollsAt = statIdBound * 2;
-/** The same-lineage reference rune's Grindstone on each effect id (`canonicalCraftCredit`). */
+/** The Grindstone the placement is chosen with on each effect id: the credit's own, as at `scoringGrindAt`. */
 export const scoringChoiceGrindAt = statIdBound * 3;
 export const scoringPrefixAt = statIdBound * 4;
-/** How many reference Gems follow; `0` where the credit carries no Gem at all. */
+/** How many legal Gems follow; `0` where the credit carries no Gem at all. */
 export const scoringGemCountAt = statIdBound * 4 + 1;
-/** The legal Gems on the reference, best first: what the placement is chosen from. */
+/** The legal Gems at the credit, best first: what the placement is chosen from. */
 export const scoringGemsAt = statIdBound * 4 + 2;
 
 /** 4×13 + 2 + 11×3 = 87, rounded up to 128 for the same reason. */

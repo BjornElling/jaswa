@@ -7,7 +7,7 @@ self.onmessage = ({ data }: MessageEvent<RuneReferenceWorkerRequest>) => {
   try {
     const references = data.requests.map((request) => ({
       key: request.key,
-      scores: referenceScores(cachedReferenceBodies(request), request.prices),
+      scores: referenceScores(cachedReferenceBodies(request), request.prices, request.credit),
     }));
     const response: RuneReferenceWorkerResponse = { type: 'prepared', references };
     self.postMessage(response, references.map(({ scores }) => scores.buffer));

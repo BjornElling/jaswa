@@ -9,19 +9,21 @@
  * from the line itself.
  */
 import assert from 'node:assert/strict';
-import { assumedCraftHalf, heldCraftHalf, craftedLines, craftedScore, craftPlan, craftVariants, gemOptions, priceList }
-  from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { assumedCraftHalf, heldCraftHalf, craftedLines, craftedScore, craftPlan, craftVariants, defaultCraftCredit,
+  gemOptions, priceList } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { craftValueRange } from '../app/domain/runes/craft/rune-craft-items.ts';
 import { craftComparison, craftItemFit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
-const craftCandidate = (item, rune, roll) => craftComparison(item, rune, roll).applications[0] ?? null;
+const craftCandidate = (item, rune, roll) => craftComparison(item, rune, roll, defaultCraftCredit).applications[0] ?? null;
 
 const ATK_PERCENT = 4;
 const HP_PERCENT = 2;
 const SPD = 8;
-const credit = { gem: 'maximum', gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
+const heroGem = (roll) => ({ grade: 'Hero', roll, rounding: 'nearest' });
+const credit = { gem: heroGem('maximum'), grind: { grade: 'none', roll: 'average', rounding: 'up' } };
 const gemRoll = craftValueRange('gem', 'standard', ATK_PERCENT, 'Hero').maximum;
-/* A Legend stone's ceiling: Gems & Grinds reads a Gem on lines ground by an average
-   Legend stone, so only a stone at least that high can show it was kept. */
+/* A Legend stone's ceiling: Gems & Grinds reads a Gem on lines ground by the craft
+   credit — Settings' starting average Legend stone here — so only a stone at least
+   that high can show it was kept. */
 const stone = craftValueRange('grindstone', 'standard', ATK_PERCENT, 'Legend').maximum;
 
 const line = (statId, value, gemmed = false, grind = 0) => ({ statId, value, gemmed, grind });
@@ -46,7 +48,7 @@ for (const [label, first] of [
   assert.deepEqual(ended[0], line(ATK_PERCENT, gemRoll, true, stone), `${label}: Clean-up dropped the stone`);
   assert.equal(craftedScore(plan, options, prices, lines, 0), gemRoll + stone + 0, `${label}: Clean-up priced the line bare`);
 
-  const variant = craftVariants({ gem: assumedCraftHalf('gem', 'standard', 'Hero', 'maximum'), grind: null },
+  const variant = craftVariants({ gem: assumedCraftHalf('gem', 'standard', heroGem('maximum')), grind: null },
     1, 3, null, lines, true, (statId) => statId === ATK_PERCENT, false)
     .find((each) => each.gemmedAt === 0 && each.lines[0].statId === ATK_PERCENT);
   assert.ok(variant, `${label}: the optimizer offered no same-property Gem`);
@@ -94,7 +96,7 @@ for (const gemmed of [false, true]) for (const grind of [0, 5]) {
       statId: SPD, statName: 'SPD', grade: 'Hero', amount: 1,
       range: craftValueRange('gem', 'standard', SPD, 'Hero') };
     for (const roll of ['minimum', 'average', 'maximum']) {
-      const supplies = [assumedCraftHalf('gem', 'standard', 'Hero', roll),
+      const supplies = [assumedCraftHalf('gem', 'standard', heroGem(roll)),
         heldCraftHalf('gem', [{ item, stock: 0 }], roll)];
       for (const gem of supplies) for (const ceiling of [false, true]) {
         const variants = craftVariants({ gem, grind: null }, 1, 3, null, lines, true,
@@ -110,7 +112,7 @@ for (const gemmed of [false, true]) for (const grind of [0, 5]) {
       const candidate = craftCandidate(item, rune(lines), roll);
       if (candidate) assert.ok(candidate.result.value > value, 'the craft planner offered a non-improving same-stat Gem');
       const prices = priceList(valuing(SPD));
-      const localPlan = craftPlan('standard', { ...credit, gem: roll });
+      const localPlan = craftPlan('standard', { ...credit, gem: heroGem(roll) });
       const ended = craftedLines(localPlan, gemOptions(localPlan, prices, 1, 3, null), prices, lines, 0);
       assert.ok(ended[0].value >= value, 'Clean-up lowered a same-stat base value');
       assert.equal(ended[0].grind, grind);

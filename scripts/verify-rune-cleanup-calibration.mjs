@@ -18,7 +18,7 @@ import {
 import { runeRarities, runeStatIds, slotAllowsSubStat } from '../app/domain/runes/runes.ts';
 import { craftRollValue, craftValueRange } from '../app/domain/runes/craft/rune-craft-items.ts';
 import {
-  chanceRuns, judgeAgainstBuild, prepareRuneCandidate, roleBuilds,
+  chanceRuns, judgeAgainstBuild, newRuneAdviceScope, prepareRuneCandidate, roleBuilds,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 
 const args = new Map(process.argv.slice(2).filter((arg) => arg.startsWith('--') && arg.includes('='))
@@ -60,17 +60,20 @@ const referenceStats = new Map([
   ['HP type', { hp: 11836, atk: 653, def: 592, spd: 104, criRate: 16, criDmg: 50, res: 18, acc: 4 }],
   ['No type', { hp: 10404, atk: 720, def: 608, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }],
 ]);
-const settings = {
-  powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3,
-  intangibleRunes: 1,
-};
-const noCraft = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
+/** One kind of craft item as the user's credit states it, written out here rather than imported. */
+const item = (grade, roll, rounding = 'up') => ({ grade, roll, rounding });
+const none = item('none', 'average');
+const noCraft = { gem: none, grind: none };
 /* The chance oracle is run twice: once with the substat RNG on its own, and once
    with both craft items credited, so the Gem decision is inside the probability
    rather than beside it. It used to run only the first, which left every path
    through `rune-craft-end-state.ts` unchecked by any simulation. The credited run is
-   the product's one canonical credit, written out here rather than imported. */
-const fullCraft = { gem: 'average', gemGrade: 'Legend', grind: 'average', grindGrade: 'Legend' };
+   Settings' starting credit, written out here rather than imported. */
+const fullCraft = { gem: item('Legend', 'average'), grind: item('Legend', 'average') };
+const settings = {
+  craftCredit: fullCraft, powerUpPolicy: 3, runeQuality: 3, acceptedRunes: 3, brokenRunes: 3,
+  intangibleRunes: 1,
+};
 
 function initialRank(random, slot) {
   const value = random();
@@ -183,7 +186,7 @@ function verifyProbability(credit, label) {
     const base = referenceStats.get(role.type);
     const threshold = .20 + attempt % 13 * .045;
     if (!build || !base) continue;
-    const outcome = judgeAgainstBuild(rune, role, build, base, threshold, credit, true);
+    const outcome = judgeAgainstBuild(rune, role, build, base, threshold, credit, fullCraft, true);
     if (outcome && outcome.chance > .03 && outcome.chance < .97) {
       fixtures.push({ rune, role, build, base, threshold, expected: outcome.chance });
     }
@@ -197,7 +200,7 @@ function verifyProbability(credit, label) {
     for (let trial = 0; trial < rolloutCount; trial += 1) {
       const finalRune = powerUp(randomTrial, clone(fixture.rune), 12);
       const outcome = judgeAgainstBuild(finalRune, fixture.role, fixture.build, fixture.base,
-        fixture.threshold, credit, false);
+        fixture.threshold, credit, fullCraft, false);
       if (outcome && outcome.maxValue + 1e-12 >= fixture.threshold) hits += 1;
     }
     const observed = hits / rolloutCount;
@@ -226,34 +229,29 @@ function verifyProbability(credit, label) {
  * barred by an effect id one of the other lines is holding. Nothing caught it,
  * because the only simulation in this file passed no credit.
  *
- * Which line and which stat is then chosen on a fixed reference rune, not at the
- * credit (`RUNE-CLEANUP-MATH.md` §6.1): every grindable line raised by an average
- * Legend Grindstone where that raises it, each Gem an average Legend Gem ground
+ * Which line and which stat is chosen at the credit itself — the user's one craft
+ * assumption (`RUNE-CLEANUP-MATH.md` §6.1): every grindable line raised by the
+ * credited Grindstone where that raises it, each Gem the credited Gem ground
  * likewise, using the rune's lineage tables. Every complete realized body, including
- * no Gem, is summed by its resulting stat ids; the highest reference utility wins.
+ * no Gem, is summed by its resulting stat ids; the highest wins.
  */
 function independentEndState(rune, credit, valuation) {
   const lineage = rune.ancient ? 'ancient' : 'standard';
-  const stoneOf = (assumption, tables, grade) => (statId) => {
-    if (assumption === null || !grindableInScript.includes(statId)) return 0;
+  const stoneOf = ({ grade, roll, rounding }, tables) => (statId) => {
+    if (grade === 'none' || !grindableInScript.includes(statId)) return 0;
     const range = craftValueRange('grindstone', tables, statId, grade);
-    return range ? craftRollValue(range, assumption) : 0;
+    return range ? craftRollValue(range, roll, rounding) : 0;
   };
-  const gemFrom = (assumption, tables, grade) => (statId) => {
-    if (assumption === null) return null;
+  const gemFrom = ({ grade, roll, rounding }, tables) => (statId) => {
+    if (grade === 'none') return null;
     const range = craftValueRange('gem', tables, statId, grade);
-    return range ? craftRollValue(range, assumption) : null;
+    return range ? craftRollValue(range, roll, rounding) : null;
   };
-  const grindOf = stoneOf(credit.grind, lineage, credit.grindGrade);
-  const gemOf = gemFrom(credit.gem, lineage, credit.gemGrade);
-  const referenceGrind = stoneOf('average', lineage, 'Legend');
-  const referenceGem = gemFrom('average', lineage, 'Legend');
+  const grindOf = stoneOf(credit.grind, lineage);
+  const gemOf = gemFrom(credit.gem, lineage);
   const lines = rune.subProperties;
-  const worthWith = (stone) => (statId, roll, ownGrind) => valuation.value(statId, roll + Math.max(ownGrind, stone(statId)));
-  const worth = worthWith(grindOf);
-  const referenceWorth = worthWith(referenceGrind);
+  const worth = (statId, roll, ownGrind) => valuation.value(statId, roll + Math.max(ownGrind, grindOf(statId)));
   const held = lines.map((line) => worth(line.statId, line.value, line.grind));
-  const referenceHeld = lines.map((line) => referenceWorth(line.statId, line.value, line.grind));
   /* Every rune is scored on the six-star scale (`RUNE-CLEANUP-MATH.md` §2): a lower-star
      main gives up what it lacks of the six-star +15 main, at the role's price. */
   const shortfall = mainPropertyMaximum(rune.stars, rune.mainStatId) - mainPropertyMaximum(6, rune.mainStatId);
@@ -268,13 +266,12 @@ function independentEndState(rune, credit, valuation) {
     return total;
   };
   const plain = sumBody(held);
-  const referencePlain = sumBody(referenceHeld);
-  if (credit.gem === null) return plain;
+  if (credit.gem.grade === 'none') return plain;
 
   /* One converted line at a time, and a later Gem may only replace that one. */
   const converted = lines.findIndex((line) => line.gemmed);
   let chosen = null;
-  let chosenScore = referencePlain;
+  let chosenScore = plain;
   const lineOrder = lines.map((line, index) => ({ line, index })).sort((left, right) => left.line.statId - right.line.statId);
   for (const { line, index: at } of lineOrder) {
     if (converted !== -1 && at !== converted) continue;
@@ -282,36 +279,32 @@ function independentEndState(rune, credit, valuation) {
       if (statId === rune.mainStatId || statId === rune.prefixStatId) continue;
       if (!slotAllowsSubStat(rune.slot, statId)) continue;
       if (lines.some((line, index) => index !== at && line.statId === statId)) continue;
-      const roll = referenceGem(statId);
+      const roll = gemOf(statId);
       if (roll === null) continue;
       /* A same-stat Gem must raise the base value. */
       if (statId === lines[at].statId && roll <= lines[at].value) continue;
       /* The replaced line loses its rolls. It keeps its own stone only where the
          effect id is unchanged, and the new line may then be ground like any other. */
       const kept = statId === lines[at].statId ? lines[at].grind : 0;
-      const value = referenceWorth(statId, roll, kept);
-      const score = sumBody(referenceHeld, at, statId, value);
-      if (score > chosenScore) { chosenScore = score; chosen = { at, statId, kept }; }
+      const score = sumBody(held, at, statId, worth(statId, roll, kept));
+      if (score > chosenScore) { chosenScore = score; chosen = { at, statId }; }
     }
   }
-  if (!chosen) return plain;
-  const roll = gemOf(chosen.statId);
-  if (roll === null) return plain;
-  if (chosen.statId === lines[chosen.at].statId && roll <= lines[chosen.at].value) return plain;
-  const value = worth(chosen.statId, roll, chosen.kept);
-  const score = sumBody(held, chosen.at, chosen.statId, value);
-  return score > plain ? score : plain;
+  return chosen ? chosenScore : plain;
 }
 
 function verifyCraftEndState() {
   const random = makeRandom(seed ^ 0x43524654);
   const roles = defaultRuneRoles();
+  /* Every credit a user can choose is one the engine must answer for, rounding included. */
   const credits = [
     noCraft,
-    { gem: null, gemGrade: 'Hero', grind: 'maximum', grindGrade: 'Legend' },
-    { gem: 'maximum', gemGrade: 'Legend', grind: null, grindGrade: 'Hero' },
-    { gem: 'average', gemGrade: 'Normal', grind: 'maximum', grindGrade: 'Legend' },
-    { gem: 'three-quarters', gemGrade: 'Hero', grind: 'three-quarters', grindGrade: 'Hero' },
+    { gem: none, grind: item('Legend', 'maximum') },
+    { gem: item('Legend', 'maximum'), grind: none },
+    { gem: item('Normal', 'average'), grind: item('Legend', 'maximum') },
+    { gem: item('Hero', 'three-quarters', 'nearest'), grind: item('Hero', 'three-quarters', 'nearest') },
+    { gem: item('Rare', 'two-thirds', 'down'), grind: item('Legend', 'one-third', 'up') },
+    { gem: item('Legend', 'average', 'down'), grind: item('Legend', 'average', 'down') },
     fullCraft,
   ];
   let compared = 0;
@@ -337,15 +330,15 @@ function verifyCraftEndState() {
     });
     if (!build || !base) continue;
     for (const credit of credits) {
-      const candidate = prepareRuneCandidate(rune, role, build, base, credit);
+      /* The ruler is the credit too, as Rune Clean-up reads every rune. */
+      const candidate = prepareRuneCandidate(rune, role, build, base, credit, newRuneAdviceScope(credit));
       if (!candidate) continue;
       const expected = independentEndState(rune, credit, candidate.valuation);
       const difference = Math.abs(candidate.best - expected);
       compared += 1;
       if (difference > largest) {
         largest = difference;
-        worstCase = 'rune ' + rune.id + ' slot ' + rune.slot + ', gem ' + credit.gem
-          + '/' + credit.gemGrade + ', grind ' + credit.grind + '/' + credit.grindGrade
+        worstCase = 'rune ' + rune.id + ' slot ' + rune.slot + ', credit ' + JSON.stringify(credit)
           + ': engine ' + candidate.best.toFixed(9) + ', the rules ' + expected.toFixed(9);
       }
     }
@@ -389,7 +382,7 @@ async function verifyVariants() {
 async function verifyMixedBox() {
   const random = makeRandom(seed);
   const source = Array.from({ length: runeCount }, (_, id) => freshRune(random, 'mixed-' + id));
-  /* The page always credits the canonical Gem and Grindstone; the separate
+  /* The page credits the user's Gem and Grindstone, Settings' starting ones here; the separate
      probability oracle covers both bare and crafted runes. */
   const retained = await policy(source, defaultRuneRoles(), random, settings);
   const rate = retained.length / source.length;

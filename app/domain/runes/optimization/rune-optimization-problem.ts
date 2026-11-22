@@ -30,8 +30,8 @@ import {
   figuresInto, intangibleCompletion, intangibleSetId, setIdBound,
   statSetBonuses, targetFigureCount, targetFigureKeys, totalCount, totalsInto,
 } from '../../combat/monster-stats';
-import { assumedCraftHalf, craftVariants, heldCraftHalf, lineageFits } from '../craft/rune-craft-end-state';
-import type { CraftHalf, CraftSupply, EndStateLine } from '../craft/rune-craft-end-state';
+import { assumedCraftHalf, craftVariants, heldCraftHalf, lineageFits, noCraftCredit } from '../craft/rune-craft-end-state';
+import type { CraftAssumption, CraftCredit, CraftHalf, CraftSupply, EndStateLine } from '../craft/rune-craft-end-state';
 import type { CraftItem } from '../craft/rune-craft-items';
 import type { RuneLock } from '../../placements/rune-locks';
 import { runeOptimizationDepthPlans } from '../../profiles/rune-optimization-settings';
@@ -101,6 +101,11 @@ export type RuneOptimizationInput = {
   craftItems: readonly CraftItem[];
   requirements: RuneOptimizationRequirements;
   settings: RuneOptimizationSettings;
+  /**
+   * The user's one craft assumption (`RunePotentialSettings.craftCredit`): what a
+   * *Theoretical* item is, and the ruler Clean-up's roles read a Gem plan with.
+   */
+  craftCredit: CraftCredit;
   /** The user's roles with account reference lines; absent where no role context is available. */
   gemPreservationRoles?: readonly GemPreservationRole[];
 };
@@ -419,15 +424,18 @@ export function setRuleMissed(
 
 /** The settings that decide which Gems and Grindstones a build may count on. */
 export type CraftSettings = Pick<RuneOptimizationSettings,
-  'gems' | 'grinds' | 'gemGrade' | 'grindGrade' | 'gemRollAssumption' | 'grindRollAssumption' | 'allowImmemorial' | 'allowGemStatChange' | 'allowGemSpeedRemoval'>;
+  'gems' | 'grinds' | 'gemRollAssumption' | 'grindRollAssumption' | 'allowImmemorial' | 'allowGemStatChange' | 'allowGemSpeedRemoval'>;
 
 /**
  * The Gems and Grindstones the settings offer one rune, with each held choice's
  * `stock` an index into `craftItems`. One reading for the search and for the
  * re-reading of a found build, so a row is never dimmed for an item the search
- * itself would have counted.
+ * itself would have counted. A *Theoretical* item is the user's craft credit, and a
+ * kind the credit names no grade for offers nothing.
  */
-export function craftSupplies(settings: CraftSettings, craftItems: readonly CraftItem[]): (rune: Rune) => CraftSupply {
+export function craftSupplies(
+  settings: CraftSettings, credit: CraftCredit, craftItems: readonly CraftItem[],
+): (rune: Rune) => CraftSupply {
   const heldItems = craftItems.map((item, index) => ({ item, stock: index }))
     .filter(({ item }) => settings.allowImmemorial || item.lineage !== 'immemorial');
   const halves = new Map<string, CraftHalf | null>();
@@ -441,13 +449,15 @@ export function craftSupplies(settings: CraftSettings, craftItems: readonly Craf
       : `${plan.kind}|${plan.use}|${lineage}${rune.setId}`;
     if (halves.has(key)) return halves.get(key) ?? null;
     const found = plan.use === 'theoretical'
-      ? assumedCraftHalf(plan.kind, rune.ancient ? 'ancient' : 'standard', plan.grade, plan.roll)
+      ? assumedCraftHalf(plan.kind, rune.ancient ? 'ancient' : 'standard', plan.assumed)
       : heldCraftHalf(plan.kind, heldItems.filter(({ item }) => lineageFits(item, rune)), plan.roll);
     halves.set(key, found);
     return found;
   }
-  const gemPlan: SupplyPlan = { use: settings.gems, kind: 'gem', grade: settings.gemGrade, roll: settings.gemRollAssumption };
-  const grindPlan: SupplyPlan = { use: settings.grinds, kind: 'grindstone', grade: settings.grindGrade, roll: settings.grindRollAssumption };
+  const gemPlan: SupplyPlan = { use: settings.gems, kind: 'gem', assumed: credit.gem, roll: settings.gemRollAssumption };
+  const grindPlan: SupplyPlan = {
+    use: settings.grinds, kind: 'grindstone', assumed: credit.grind, roll: settings.grindRollAssumption,
+  };
   /* With the gemmed property held, only Gems of that property are offered: which line
      a Gem may replace stays `craftVariants`'s rule, and this narrows only what lands. */
   function gemHalf(rune: Rune): CraftHalf | null {
@@ -693,7 +703,9 @@ function cut(
 type SupplyPlan = {
   use: CraftUse;
   kind: 'gem' | 'grindstone';
-  grade: RuneOptimizationSettings['gemGrade'];
+  /** The credit's item of this kind: what *Theoretical* spends. */
+  assumed: CraftAssumption;
+  /** Where a held item lands: what *Owned only* spends. */
   roll: RuneOptimizationSettings['gemRollAssumption'];
 };
 
@@ -731,7 +743,7 @@ export function prepareRuneOptimization(
     .flatMap((figure) => figureEffectSlots(figure, requirements.alwaysCrits)))];
   const relevantSlots = new Uint8Array(effectSlotCount);
   for (const slot of relevant) relevantSlots[slot] = 1;
-  const removalPrices = gemRemovalPrices(input.gemPreservationRoles ?? []);
+  const removalPrices = gemRemovalPrices(input.gemPreservationRoles ?? [], input.craftCredit);
   const wanted = (statId: number) => {
     const slot = effectSlotOf(statId);
     return slot >= 0 && relevantSlots[slot] === 1;
@@ -754,7 +766,7 @@ export function prepareRuneOptimization(
   /* Held stacks are numbered once, so every candidate names its spend by index and
      the search counts it in a flat array. */
   const stock = input.craftItems.map((item) => ({ itemId: item.id, amount: item.amount, kind: item.kind, statId: item.statId }));
-  const supplyOf = craftSupplies(settings, input.craftItems);
+  const supplyOf = craftSupplies(settings, input.craftCredit, input.craftItems);
 
   const bySlot: Candidate[][] = [[], [], [], [], [], []];
   const locked = [false, false, false, false, false, false];
@@ -927,7 +939,7 @@ export function prepareRuneOptimization(
   }));
   const weights = substatWeights({ targets: pressureTargets, mains: mainPlan as BuildMains,
     artifacts: { hp: false, atk: false, def: false }, base: referenceBase,
-    credit: { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' } });
+    credit: noCraftCredit });
   if (weights.weights.size > 0) {
     const valuation = weightedValuation(referenceBase, weights);
     const pressure = new Float64Array(effectSlotCount);

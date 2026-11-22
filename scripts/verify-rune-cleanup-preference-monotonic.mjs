@@ -12,6 +12,7 @@ import { runeAdvice } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import {
   newRuneAdviceScope, ordinarySample, prepareRuneCandidate, roleBuilds,
 } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
+import { noCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 
 const base = new Map([
   ['Attack type', { hp: 9708, atk: 808, def: 568, spd: 105, criRate: 18, criDmg: 50, res: 15, acc: 4 }],
@@ -31,11 +32,11 @@ const runes = [1, 2, 3, 4, 5, 6].flatMap((slot) =>
     { ...rune, id: `${rune.id}:intangible`, setName: 'Intangible' },
   ]));
 const roles = defaultRuneRoles();
-const noCraft = { gem: null, gemGrade: 'Hero', grind: null, grindGrade: 'Hero' };
+const noCraft = noCraftCredit;
 const builds = roles.map((role) => [role, roleBuilds(role)]);
 
 function hasCandidateAtRank(rune, wantedRank) {
-  const scope = newRuneAdviceScope();
+  const scope = newRuneAdviceScope(defaultRunePotentialSettings.craftCredit);
   return builds.some(([role, roleBuildsForRune]) => {
     const line = base.get(role.type);
     return line !== undefined && roleBuildsForRune.some((build) =>

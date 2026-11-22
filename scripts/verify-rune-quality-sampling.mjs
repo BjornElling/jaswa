@@ -7,7 +7,7 @@ import { defaultRuneRoles } from '../app/domain/profiles/rune-roles.ts';
 import { referenceLines } from '../app/domain/reference/rune-reference-stats.ts';
 import { runeAdvice, planQualityReferences, readingAllowance } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import { newRuneAdviceScope, prepareRuneCandidate, roleBuilds } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
-import { canonicalCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
+import { defaultCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { isIntangibleRuneSet } from '../app/domain/runes/rune-sets.ts';
 import { slotMainProperties } from '../app/domain/runes/rune-properties.ts';
 import { runeScaleStars } from '../app/domain/runes/rune-substat-weights.ts';
@@ -62,9 +62,9 @@ for (const stars of [runeScaleStars]) for (const slot of [1, 2, 3, 4, 5, 6]) {
   for (const main of slotMainProperties[slot]) {
     for (const prices of [broad, speed]) {
       const bodies = referenceBodies(slot, stars, main, n, standardSeed);
-      const reference = { scores: referenceScores(bodies, prices) };
+      const reference = { scores: referenceScores(bodies, prices, defaultCraftCredit) };
       for (const seed of holdoutSeeds) {
-        const holdout = { scores: referenceScores(referenceBodies(slot, stars, main, n, seed), prices) };
+        const holdout = { scores: referenceScores(referenceBodies(slot, stars, main, n, seed), prices, defaultCraftCredit) };
         holdoutCheck(reference, holdout, prices);
       }
     }
@@ -74,8 +74,8 @@ if (process.argv.includes('--catalogue')) {
   const training = experimentalReferences(n, standardSeed);
   const holdouts = holdoutSeeds.map((seed) => experimentalReferences(n, seed));
   for (const piece of planned.toSorted((left, right) => referencePieceKey(left).localeCompare(referencePieceKey(right)))) {
-    const reference = training.get(piece, piece.prices);
-    for (const sample of holdouts) holdoutCheck(reference, sample.get(piece, piece.prices), piece.prices);
+    const reference = training.get(piece, piece.prices, piece.credit);
+    for (const sample of holdouts) holdoutCheck(reference, sample.get(piece, piece.prices, piece.credit), piece.prices);
   }
 }
 console.log(JSON.stringify({ holdoutComparisons: buckets, greatestAtom, greatestOvershoot, greatestUndershoot }));
@@ -84,33 +84,33 @@ function experimentalReferences(count, seed) {
   let key;
   let bodies;
   return {
-    get(piece, prices) {
+    get(piece, prices, credit) {
       const pieceKey = referencePieceKey(piece);
       if (key !== pieceKey) {
         key = pieceKey;
         bodies = referenceBodies(piece.slot, piece.stars, piece.main, count, seed);
       }
-      return { key: referenceKey(piece, prices), scores: referenceScores(bodies, prices) };
+      return { key: referenceKey(piece, prices, credit), scores: referenceScores(bodies, prices, credit) };
     },
   };
 }
 
 function boundaryOf(rune, experimental, count) {
   const standard = experimentalReferences(n, standardSeed);
-  const scope = newRuneAdviceScope();
+  const scope = newRuneAdviceScope(settings.craftCredit);
   let closest = Infinity;
   for (const role of roles) {
     const stats = base.get(role.type);
     if (!stats) continue;
     for (const build of roleBuilds(role)) {
-      const reading = prepareRuneCandidate(rune, role, build, stats, canonicalCraftCredit, scope);
+      const reading = prepareRuneCandidate(rune, role, build, stats, scope.ruler, scope);
       if (!reading || reading.best <= 0) continue;
       const allowance = readingAllowance(settings, reading.rank, isIntangibleRuneSet(rune.setName));
       if (allowance === null) continue;
       const piece = { slot: rune.slot, stars: runeScaleStars, main: reading.main };
       const { prices } = reading.scoring;
-      const reference = standard.get(piece, prices);
-      const comparison = experimental.get(piece, prices);
+      const reference = standard.get(piece, prices, scope.ruler);
+      const comparison = experimental.get(piece, prices, scope.ruler);
       const alpha = allowance / allowanceDenominator;
       const original = qualityHits(reference, reading.best) / n;
       const changed = qualityHits(comparison, reading.best) / count;

@@ -53,7 +53,7 @@ import {
 import type { BuildMains, SubstatWeightScope, SubstatWeights } from '../rune-substat-weights';
 import type { Valuation } from '../rune-substat-weights';
 import {
-  canonicalCraftCredit, craftPlan, craftedScore, gemOptions, grindCredit, priceList,
+  craftPlan, craftedScore, gemOptions, grindCredit, priceList,
 } from '../craft/rune-craft-end-state';
 import type {
   CraftCredit, CraftPlan, EndStateLine,
@@ -162,7 +162,7 @@ export type RuneOutcome = {
 /**
  * The best score an ordinary rune in this slot reaches — the denominator that makes a
  * perfect ordinary rune read 100 %. It is a reference point and not a limit: an
- * Ancient rune, or a line already ground past the canonical stone, reads above it.
+ * Ancient rune, or a line already ground past the credited stone, reads above it.
  *
  * A perfect rune is a concrete arrangement, not a formula: **four sub properties at
  * their maximum, the most valuable of them carrying all four later upgrades as well,
@@ -395,6 +395,14 @@ export type RuneCandidate = {
 
 /** The deterministic inputs shared by a single percentile reading. */
 export type RuneAdviceScope = {
+  /**
+   * **The one ruler every rune in this reading is measured against** — the weights,
+   * the perfect rune and the sampled reference — priced with the user's craft credit
+   * (`RunePotentialSettings.craftCredit`). It is fixed for the scope's life and no
+   * candidate passes its own, because a ruler a caller may choose is a ruler two
+   * callers can choose differently.
+   */
+  ruler: CraftCredit;
   builds: WeakMap<RuneRole, readonly Build[]>;
   weights: SubstatWeightScope;
   /** The perfect rune of one slot, by valuation, craft credit, slot and main. */
@@ -411,8 +419,8 @@ export type RuneAdviceScope = {
   futures: Map<string, RuneFuture>;
 };
 
-export const newRuneAdviceScope = (): RuneAdviceScope => ({
-  builds: new WeakMap(), weights: newSubstatWeightScope(), ceiling: new Map(), pricing: new Map(),
+export const newRuneAdviceScope = (ruler: CraftCredit): RuneAdviceScope => ({
+  ruler, builds: new WeakMap(), weights: newSubstatWeightScope(), ceiling: new Map(), pricing: new Map(),
   futures: new Map(),
 });
 
@@ -441,23 +449,15 @@ function remembered<T>(tree: Remembered, path: readonly unknown[], make: () => T
 }
 
 /**
- * **The one ruler every rune is read against** — the weights and the perfect rune — priced with `canonicalCraftCredit` and with nothing a caller passes.
- * It is not a parameter, because a ruler a caller may choose is a ruler two callers
- * can choose differently.
- */
-const rulerCredit = canonicalCraftCredit;
-
-/**
  * The deterministic half: everything that does not depend on the threshold.
  *
  * `credit` is the candidate's own craft: what the rune's end state is projected with.
- * Rune Clean-up passes `canonicalCraftCredit`; Gems & Grinds and Rune Optimization
- * pass `noCraftCredit`, because they price the lines in front of them and add the
- * items they judge themselves. The ruler is the same for all three.
+ * Rune Clean-up passes the scope's ruler, the user's credit; Gems & Grinds and Rune
+ * Optimization pass `noCraftCredit`, because they price the lines in front of them
+ * and add the items they judge themselves. The ruler is the scope's for all three.
  */
 export function prepareRuneCandidate(
-  rune: Rune, role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit,
-  scope: RuneAdviceScope = newRuneAdviceScope(),
+  rune: Rune, role: RuneRole, build: Build, base: ReferenceStats, credit: CraftCredit, scope: RuneAdviceScope,
 ): RuneCandidate | null {
   const scale = readingScale(role, build, base, rune.slot, rune.mainStatId, scope);
   if (!scale) return null;
@@ -492,9 +492,9 @@ export function readingScale(
   role: RuneRole, build: Build, base: ReferenceStats, slot: number, main: number, scope: RuneAdviceScope,
 ) {
   if (!slotMainProperties[slot]?.includes(main) || !buildAccepts(build, slot, main)) return null;
-  const priced = buildPricing(role, build, base, rulerCredit, scope);
+  const priced = buildPricing(role, build, base, scope.ruler, scope);
   if (!priced) return null;
-  const ceiling = cachedCeiling(priced.valuation, slot, main, rulerCredit, scope);
+  const ceiling = cachedCeiling(priced.valuation, slot, main, scope.ruler, scope);
   if (!Number.isFinite(ceiling) || ceiling <= 0) return null;
   return { ...priced, prices: priceList(priced.valuation), ceiling, rank: buildRank(build, slot) };
 }
@@ -563,7 +563,7 @@ export function buildAccepts(build: Build, slot: number, main: number): boolean 
 }
 
 /**
- * **One standard for every rune: its `+15` projection with the canonical items spent,
+ * **One standard for every rune: its `+15` projection with the credited items spent,
  * against the ruler priced with the same items.** Uncapped (`onScale`).
  * `RUNE-CLEANUP-MATH.md` §9.2.
  */
@@ -604,7 +604,7 @@ export function candidateExpectedBound(candidate: RuneCandidate): number {
 /**
  * **The perfect rune is a reference point, never a ceiling.** 100 % says "as good as
  * the best ordinary rune of this class"; a rune that reads more — an Ancient rune's
- * higher initial rolls, a stone already ground past the canonical one — reads more,
+ * higher initial rolls, a stone already ground past the credited one — reads more,
  * and keeps every recommendation that would lift it further. A cap here once made
  * every rune above the mark look alike and left nothing to recommend for them.
  */
@@ -682,13 +682,13 @@ export type { CountingJob } from '../rune-power-up-outcomes';
  */
 export function judgeAgainstBuild(
   rune: Rune, role: RuneRole, build: Build, base: ReferenceStats,
-  threshold: number, credit: CraftCredit,
+  threshold: number, credit: CraftCredit, ruler: CraftCredit,
   /* The chance is still the expensive half, and most builds are rejected on their
      ceiling long before anyone needs it. So it is only worked out when the caller
      says it will be used, which is what makes checking every build affordable. */
   withChance = true,
 ): RuneOutcome | null {
-  const candidate = prepareRuneCandidate(rune, role, build, base, credit);
+  const candidate = prepareRuneCandidate(rune, role, build, base, credit, newRuneAdviceScope(ruler));
   if (!candidate) return null;
   return {
     maxValue: candidateMaxValue(candidate),

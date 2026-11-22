@@ -420,10 +420,14 @@ prefix only when its selected runes plus the minimum changes in every remaining 
 already exceed it, and it is checked before admitting results or raising a shared
 ranking bar, for processor and card answers alike.
 
-**Gems and Grindstones** have their own settings, deliberately not Rune Clean-up's:
-*None*, *Owned only* (the account's own stacks, each spendable as often as it is deep)
-or *Theoretical* (an assumed item of a named grade), and for both the roll assumed —
-worst, one third, average, two thirds (the default), three quarters, best. `craftVariants`
+**Gems and Grindstones** each choose *None*, *Owned only* (the account's own stacks,
+each spendable as often as it is deep) or *Theoretical*. Whether to count craft items is
+this page's question; what an assumed item is, is not: *Theoretical* spends the one Gem
+and Grindstone of the user's craft credit — grade, roll and rounding, set on Settings ›
+Gems & Grindstones — so the program never holds two answers to what an assumed Gem rolls,
+and a kind the credit sets to *None* offers nothing here either. The page's own roll —
+worst, one third, average, two thirds (the default), three quarters, best — is the roll
+of a *held* item, and answers only under *Owned only*. `craftVariants`
 in `rune-craft-end-state.ts` produces every legal end state: every wanted line ground, and
 from `+12` one Gem into every legal wanted stat. A Gem or stone on a stat nothing in the
 calculation reads is not offered.

@@ -383,6 +383,7 @@ export function createWorkspaceStore(repository: WorkspaceRepository, coordinati
         unitId, monster: monsterInPreset(monster.record, preset, accountItems(game.data)),
         requirements: { ...candidate.requirements, buildings: game.snapshot.buildings,
           teammateSets: teammateSetsInPreset(preset, unitId, accountItems(game.data)) }, settings: preferences.runeOptimization,
+        craftCredit: preferences.runePotential.craftCredit,
         before: candidate.before,
         withheld: withheldRunes(preset, unitId, priority, preferences.runeOptimization, locks),
         now: { runes: new Map(runesInPreset(game.snapshot.runes, preset).map((rune) => [rune.id, rune])),

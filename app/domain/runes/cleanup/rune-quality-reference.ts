@@ -1,5 +1,5 @@
-import { canonicalCraftCredit, craftPlan, craftedScore, gemOptions } from '../craft/rune-craft-end-state';
-import type { EndStateLine, GemOptions, PriceList } from '../craft/rune-craft-end-state';
+import { craftPlan, craftedScore, creditKey, gemOptions } from '../craft/rune-craft-end-state';
+import type { CraftCredit, EndStateLine, GemOptions, PriceList } from '../craft/rune-craft-end-state';
 import { runeBirthRarityMasses } from '../rune-birth-model';
 import { generateRuneBody, upgradeRuneBody } from '../rune-generation';
 import { slotMainProperties } from '../rune-properties';
@@ -9,7 +9,8 @@ export const referenceSampleSize = 16_384;
 export const allowanceDenominator = 1_000_000;
 
 export type ReferencePiece = Readonly<{ slot: number; stars: number; main: number }>;
-export type ReferenceRequest = ReferencePiece & Readonly<{ key: string; prices: PriceList }>;
+/** `credit` is the ruler's: the sampled drops are finished with the same items the candidates are. */
+export type ReferenceRequest = ReferencePiece & Readonly<{ key: string; prices: PriceList; credit: CraftCredit }>;
 export type ReferenceBodies = ReferencePiece & Readonly<{
   count: number;
   prefixStatId: Int32Array;
@@ -22,13 +23,13 @@ export type QualityReference = Readonly<{ key: string; scores: Float64Array }>;
 export const referencePieceKey = ({ slot, stars, main }: ReferencePiece): string => [slot, stars, main].join('|');
 
 const priceKeys = new WeakMap<PriceList, string>();
-export function referenceKey(piece: ReferencePiece, prices: PriceList): string {
+export function referenceKey(piece: ReferencePiece, prices: PriceList, credit: CraftCredit): string {
   let key = priceKeys.get(prices);
   if (key === undefined) {
     key = prices.join(',');
     priceKeys.set(prices, key);
   }
-  return referencePieceKey(piece) + '|' + key;
+  return referencePieceKey(piece) + '|' + key + '|' + creditKey(credit);
 }
 
 function birthRandom({ slot, stars, main }: ReferencePiece, stratum: number, index: number, seed: number) {
@@ -79,8 +80,8 @@ export function referenceBodies(
   return { ...piece, count, prefixStatId, prefixValue, lineCount, lines };
 }
 
-const plan = craftPlan('standard', canonicalCraftCredit);
-export function referenceScores(bodies: ReferenceBodies, readingPrices: PriceList): Float64Array {
+export function referenceScores(bodies: ReferenceBodies, readingPrices: PriceList, credit: CraftCredit): Float64Array {
+  const plan = craftPlan('standard', credit);
   // The placement cache warms during this reference and can be collected with it.
   const prices = readingPrices.slice();
   const scores = new Float64Array(bodies.count);
@@ -206,7 +207,7 @@ export function populationBar(population: PopulationReference, allowance: number
 }
 
 export type QualityReferences = Readonly<{
-  get(piece: ReferencePiece, prices: PriceList): QualityReference;
+  get(piece: ReferencePiece, prices: PriceList, credit: CraftCredit): QualityReference;
 }>;
 
 export function rememberReference<T>(cache: Map<string, T>, key: string, value: T, limit: number): void {
@@ -228,14 +229,15 @@ export function cachedReferenceBodies(piece: ReferencePiece): ReferenceBodies {
 
 export function qualityReferences(prepared?: ReadonlyMap<string, QualityReference>, retain = true): QualityReferences {
   return {
-    get(piece, prices) {
-      const key = referenceKey(piece, prices);
+    get(piece, prices, credit) {
+      const key = referenceKey(piece, prices, credit);
       if (prepared) {
         const reference = prepared.get(key);
         if (!reference) throw new Error('A prepared rune quality reference is missing.');
         return reference;
       }
-      const reference = scoreCache.get(key) ?? { key, scores: referenceScores(cachedReferenceBodies(piece), prices) };
+      const reference = scoreCache.get(key)
+        ?? { key, scores: referenceScores(cachedReferenceBodies(piece), prices, credit) };
       if (retain) rememberReference(scoreCache, key, reference, retainedReferenceCount);
       return reference;
     },

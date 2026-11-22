@@ -46,7 +46,10 @@ try {
         level: { minimum: 3, maximum: 9 } },
       missing: { ...blank.craftViews.missing, grades: ['Legend'], already: ['no'], count: 100, level: { minimum: 0, maximum: 15 } },
     },
-    runePotential: { ...blank.runePotential, powerUpPolicy: 2, intangibleRunes: 4 },
+    runePotential: { ...blank.runePotential, powerUpPolicy: 2, intangibleRunes: 4, craftCredit: {
+      gem: { grade: 'none', roll: 'maximum', rounding: 'down' },
+      grind: { grade: 'Hero', roll: 'two-thirds', rounding: 'nearest' },
+    } },
     runeRoles: [withRefreshedMetrics({ ...firstRole, name: 'My nuker', targets: { ...firstRole.targets, atk: 3100 } }), otherRoles[0]],
     artifacts: { ...blank.artifacts, acceptableWorth: 75 },
     speedTuning: {
@@ -88,6 +91,24 @@ try {
   assert.equal(retiredField.runePotential.powerUpPolicy, 2, 'an unreadable Rune Clean-up setting must not reset its neighbours');
   assert.equal(retiredField.runePotential.runeQuality, blank.runePotential.runeQuality, 'the unreadable setting starts from its default');
   assert.ok(!('retiredSetting' in retiredField.runePotential), 'a setting the contract no longer names is not carried');
+  assert.deepEqual(retiredField.runePotential.craftCredit, chosen.runePotential.craftCredit,
+    'an unreadable Rune Clean-up setting must not reset the craft credit');
+  /* The craft credit is six choices: a Gem's grade, roll and rounding, and the
+     Grindstone's. One that cannot be read starts from its default alone, and a
+     Gem switched off keeps the roll and rounding it would come back with. */
+  const credit = readPreferences({ ...chosen, runePotential: { ...chosen.runePotential, craftCredit: {
+    gem: { ...chosen.runePotential.craftCredit.gem, rounding: 'sideways' },
+    grind: { ...chosen.runePotential.craftCredit.grind, grade: 'Mythic' },
+  } } }, null).runePotential;
+  assert.deepEqual(credit.craftCredit.gem, { grade: 'none', roll: 'maximum', rounding: blank.runePotential.craftCredit.gem.rounding },
+    'an unreadable rounding costs only the rounding');
+  assert.deepEqual(credit.craftCredit.grind, { grade: blank.runePotential.craftCredit.grind.grade, roll: 'two-thirds', rounding: 'nearest' },
+    'an unreadable grade costs only the grade');
+  assert.equal(credit.powerUpPolicy, 2, 'an unreadable craft choice must not reset the Rune Clean-up settings');
+  const { craftCredit: _credit, ...withoutCredit } = chosen.runePotential;
+  assert.deepEqual(readPreferences({ ...chosen, runePotential: withoutCredit }, null).runePotential,
+    { ...chosen.runePotential, craftCredit: blank.runePotential.craftCredit },
+    'a stored copy without a craft credit keeps every other rune setting');
   /* The artifact pages' retired Re-calculate mode is one such setting: a copy
      saved while it existed keeps every artifact choice beside it. */
   const retiredMode = readPreferences({ ...chosen, artifacts: { ...chosen.artifacts, recalculate: 'on-change' } }, null);
@@ -250,7 +271,7 @@ try {
   assert.deepEqual(readPreferences({ ...chosen, monsterPriority: [] }, null).monsterPriority, [], 'a priority list the user emptied stays empty');
 
   const optimization = { ...chosen.runeOptimization, fillEmptySlotsOnly: true, oddSlotsAtTwelve: true,
-    limitChanges: true, maxChanges: 6, gems: 'theoretical', gemGrade: 'Legend' };
+    limitChanges: true, maxChanges: 6, gems: 'theoretical', gemRollAssumption: 'maximum' };
   assert.deepEqual(readPreferences({ ...chosen, runeOptimization: optimization }, null).runeOptimization,
     optimization, 'every optimization choice survives');
   for (const bad of [0, 7, 1.5, '3', null]) {

@@ -41,7 +41,7 @@
 import type { OptimizedBuild, PickedRune } from './rune-optimization-protocol';
 import type { GameRecord } from '../../account/game-record';
 import { intangibleSetId, targetFigureKeys } from '../../combat/monster-stats';
-import type { CraftSupply, EndStateLine } from '../craft/rune-craft-end-state';
+import type { CraftCredit, CraftSupply, EndStateLine } from '../craft/rune-craft-end-state';
 import type { CraftItem } from '../craft/rune-craft-items';
 import type { RuneLock } from '../../placements/rune-locks';
 import {
@@ -108,6 +108,8 @@ export type RefreshContext = {
     | 'buildings' | 'builds' | 'slotMains' | 'allowBroken' | 'allowIntangible'>;
   settings: Pick<RuneOptimizationSettings, 'fillEmptySlotsOnly' | 'limitChanges' | 'maxChanges'
     | 'unfinishedAtMaximum' | 'oddSlotsAtTwelve'> & CraftSettings;
+  /** What a *Theoretical* item is, as `RuneOptimizationInput.craftCredit`. */
+  craftCredit: CraftCredit;
   /** The runes that may not be taken, as `RuneOptimizationInput.withheld`. */
   withheld: Readonly<Record<string, string>>;
   /** The runes and held items the search read. */
@@ -333,6 +335,6 @@ export function currentBuilds(builds: readonly OptimizedBuild[], context: Refres
   /* The held items as the search read them: whether one is still in stock is the
      item check's question, not the settings'. */
   const offered = [...context.before.items.values()];
-  const supplyOf = craftSupplies(context.settings, offered);
+  const supplyOf = craftSupplies(context.settings, context.craftCredit, offered);
   return builds.map((build) => readBuild(build, context, lockedSlots, supplyOf, offered));
 }

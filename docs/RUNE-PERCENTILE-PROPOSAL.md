@@ -18,6 +18,11 @@
 >   "unresolved" state.
 > - **Statistics.** The every-event funnel of §11 is not adopted; Statistics keeps
 >   its +0/+9/+12 funnel.
+> - **Craft credit.** Since November 22, 2026 the credit is the user's one choice on
+>   Settings › Gems & Grindstones (`RunePotentialSettings.craftCredit`), and the
+>   placement is chosen on that same credit rather than on a fixed reference.
+>   `canonicalCraftCredit` below names what is now `defaultCraftCredit`, the value
+>   Settings starts from (`RUNE-CLEANUP-MATH.md` §6).
 >
 > Where this document and the plan disagree, the plan wins.
 
