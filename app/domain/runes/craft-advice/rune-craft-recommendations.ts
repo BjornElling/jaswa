@@ -28,16 +28,21 @@ export type CraftRecommendationRequest = {
   roll: CraftRollAssumption; preferGpu: boolean;
 };
 export type CraftEvaluation = { score: number; role: string; rank: MatchRank };
-/** One Gem stat as the placement rule ranks it on one rune: its best score on the reference rune. */
-export type GemStatChoice = { statId: number; score: number };
+/**
+ * One Gem stat as the placement rule ranks it on one rune: its best score on the
+ * reference rune, and the sub line (`subProperties` index) that score replaces —
+ * `-1` where two lines serve the stat equally, so the rule names no one line.
+ */
+export type GemStatChoice = { statId: number; score: number; line: number };
 export type CraftRecommendation = {
   rune: Rune; item: CraftItem; application: CraftApplication;
   before: CraftEvaluation; after: CraftEvaluation; gain: number; stat: number;
   /**
    * The Gem stats the placement rule would put on this rune, best first, each only
    * where it beats the rune without a Gem. Read from the rune, its roles and the craft
-   * credit and quality policy, so every Gem row of a rune carries the same list.
-   * For Grindstones and a credit with no Gem, this is `null`.
+   * credit and quality policy, so every row of a rune carries the same list —
+   * Grindstone rows too, because a stone on a line the Gem will replace is lost
+   * (`onDesirableGemStat`). For a credit with no Gem, this is `null`.
    */
   gemChoice: readonly GemStatChoice[] | null;
   /**
@@ -141,22 +146,26 @@ export function heldCraftBenchmark(rows: readonly CraftRecommendation[]): CraftB
  * still offered the better roll.
  * A rune with no Gem is untouched: No permits every first Gem, so it still takes
  * only the stat the placement rule chooses.
+ *
+ * Each stat keeps the line it would replace, which is what keeps a Grindstone off
+ * that line (`onDesirableGemStat`).
  */
+export type DesirableGems = ReadonlyMap<string, readonly GemStatChoice[] | null>;
 export function desirableGemStats(rows: readonly CraftRecommendation[],
   waived: (runeId: string, statId: number) => boolean = () => false,
-  gemChange: 'yes' | 'no' = 'yes'): ReadonlyMap<string, ReadonlySet<number> | null> {
-  const desirable = new Map<string, ReadonlySet<number> | null>();
+  gemChange: 'yes' | 'no' = 'yes'): DesirableGems {
+  const desirable = new Map<string, readonly GemStatChoice[] | null>();
   const topOf = (row: CraftRecommendation, choices: readonly GemStatChoice[], change: 'yes' | 'no') => {
     const open = choices.filter((choice) => !waived(row.rune.id, choice.statId)
       && craftMatchesChangeFilter(row.rune, { kind: 'gem', statId: choice.statId }, { grinded: [], gemChange: change }));
     const top = open.length ? open[0].score : -Infinity;
-    return open.filter((choice) => choice.score === top).map((choice) => choice.statId);
+    return open.filter((choice) => choice.score === top);
   };
   for (const row of rows) {
-    if (row.item.kind !== 'gem' || desirable.has(row.rune.id)) continue;
+    if (desirable.has(row.rune.id)) continue;
     const choices = row.gemChoice;
     desirable.set(row.rune.id, choices === null ? null
-      : new Set([...topOf(row, choices, 'no'), ...(gemChange === 'yes' ? topOf(row, choices, 'yes') : [])]));
+      : [...new Set([...topOf(row, choices, 'no'), ...(gemChange === 'yes' ? topOf(row, choices, 'yes') : [])])]);
   }
   return desirable;
 }
@@ -170,27 +179,35 @@ function gemChoiceOf(rune: Rune, readings: readonly CraftReading[], credit: Craf
   if (creditedGrade(credit.gem) === null) return null;
   const lineUps = gemChoiceLineUps(rune, credit);
   if (!lineUps || !readings.length) return [];
-  const best = new Map<number, number>();
+  const best = new Map<number, GemStatChoice>();
   for (const reading of readings) {
     const base = craftScore({ ...reading, values: valuesOf(rune, lineUps.base) });
     for (const gem of lineUps.gems) {
       const score = craftScore({ ...reading, values: valuesOf(rune, gem.lines) });
-      if (score > base && score > (best.get(gem.statId) ?? -Infinity)) best.set(gem.statId, score);
+      if (score <= base) continue;
+      const previous = best.get(gem.statId);
+      if (!previous || score > previous.score) best.set(gem.statId, { statId: gem.statId, score, line: gem.at });
+      else if (score === previous.score && previous.line !== gem.at) best.set(gem.statId, { ...previous, line: -1 });
     }
   }
-  return [...best].map(([statId, score]) => ({ statId, score }))
-    .sort((left, right) => right.score - left.score || left.statId - right.statId);
+  return [...best.values()].sort((left, right) => right.score - left.score || left.statId - right.statId);
 }
 
 /**
- * A Grindstone always passes; a Gem only with its rune's most desirable stat, or
- * every Gem where the credit assumes none and the rule therefore names no stat.
+ * A Gem passes only with its rune's most desirable stat, or every Gem where the
+ * credit assumes none and the rule therefore names no stat.
+ *
+ * A Grindstone passes unless a desirable Gem would put another stat on its line:
+ * the Gem then replaces the line, and the stone goes with it. Re-rolling the line's
+ * own stat keeps the stone, so that Gem blocks nothing. A line already ground is
+ * exempt: its stone is spent either way, and topping it up is the user's call.
  */
-export function onDesirableGemStat(row: CraftRecommendation,
-  desirable: ReadonlyMap<string, ReadonlySet<number> | null>): boolean {
-  if (row.item.kind !== 'gem') return true;
-  const stats = desirable.get(row.rune.id);
-  return stats === null || (stats?.has(row.item.statId) ?? false);
+export function onDesirableGemStat(row: CraftRecommendation, desirable: DesirableGems): boolean {
+  const choices = desirable.get(row.rune.id);
+  if (row.item.kind === 'gem') return choices === null || (choices?.some((choice) => choice.statId === row.item.statId) ?? false);
+  const { index, property } = row.application.target;
+  return property.grind > 0 || !choices
+    || choices.every((choice) => choice.line !== index || choice.statId === property.statId);
 }
 
 /**
@@ -444,8 +461,11 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
     else { const set = bySet.get(item.setId) ?? []; set.push(item); bySet.set(item.setId, set); }
   }
   const itemsFor = (rune: Rune) => [...(bySet.get(rune.setId) ?? []), ...anySet];
+  /* The Gem the credit assumes is asked about even where the box holds none: a
+     Grindstone on the line it will replace is a stone thrown away. */
+  const creditGem = creditedGrade(credit.gem) !== null;
   const gemRunes = request.roles.length ? request.runes.filter((rune) => rune.level >= gemMinimumLevel
-    && itemsFor(rune).some((item) => item.kind === 'gem' && craftItemFit(item, rune).fits)) : [];
+    && itemsFor(rune).some((item) => (creditGem || item.kind === 'gem') && craftItemFit(item, rune).fits)) : [];
   /* A Gem can erase the stat that made a rune worth keeping. Use Clean-up's
      qualifying build for both sides of the comparison and for the stat choice. */
   const advice = gemRunes.length ? await runeAdvice(gemRunes, request.roles, request.settings, request.base, undefined, {
@@ -496,8 +516,7 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
       }
     }
     scope.futures.clear();
-    return { rune, states, readings, gemReadings,
-      gemChoice: baselines.has('gem') ? gemChoiceOf(rune, gemReadings, credit) : null };
+    return { rune, states, readings, gemReadings, gemChoice: gemChoiceOf(rune, gemReadings, credit) };
   }
   // Combine small rune matrices before dispatch: thousands of tiny readbacks cost
   // more than their arithmetic. Both the retained plans and the score buffer stay bounded.
@@ -532,7 +551,7 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
         const { item, application } = state.recommendation;
         return [{ rune, item, application, before, after: state.evaluation,
           gain: state.evaluation.score - before.score, stat: runeSubValue(application.result),
-          gemChoice: item.kind === 'gem' ? gemChoice : null, readings: item.kind === 'gem' ? gemReadings : readings }];
+          gemChoice, readings: item.kind === 'gem' ? gemReadings : readings }];
       });
       // A pair's baseline is fixed, so its best target wins score and gain alike.
       // Retain every pair, not just today's top N: tomorrow's filter may need any of them.

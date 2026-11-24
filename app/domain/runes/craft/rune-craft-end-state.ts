@@ -824,16 +824,17 @@ export function craftedLines(
  * credit, beside the same line-up with no Gem. Priced in one role, the best of these
  * that beats `base` is the placement `craftedScore` chooses in that role; Gems &
  * Grinds reads them across every role it judges a rune in. `null` below `+12`, where
- * no Gem may go on yet; no Gems where the credit names none.
+ * no Gem may go on yet; no Gems where the credit names none. `at` is the line each
+ * Gem replaces, so a view can tell which line the chosen Gem would take.
  */
 export function gemChoiceLineUps(
   rune: Pick<Rune, 'slot' | 'mainStatId' | 'prefixStatId' | 'subProperties' | 'level' | 'ancient'>, credit: CraftCredit,
-): { base: EndStateLine[]; gems: Array<{ statId: number; lines: EndStateLine[] }> } | null {
+): { base: EndStateLine[]; gems: Array<{ statId: number; at: number; lines: EndStateLine[] }> } | null {
   const lines = rune.subProperties;
   if (rune.level < gemMinimumLevel || lines.length === 0) return null;
   const reference = craftPlan(rune.ancient ? 'ancient' : 'standard', credit);
   const base = groundLines(reference, lines);
-  const gems: Array<{ statId: number; lines: EndStateLine[] }> = [];
+  const gems: Array<{ statId: number; at: number; lines: EndStateLine[] }> = [];
   for (let at = 0; at < lines.length; at += 1) {
     for (const statId of allStatIds) {
       if (!legalGemTarget(rune.slot, rune.mainStatId, rune.prefixStatId, lines, at, statId)) continue;
@@ -842,7 +843,7 @@ export function gemChoiceLineUps(
       /* Re-rolling a line's own id keeps its stone (rule 3); any other id starts bare. */
       const kept = statId === lines[at].statId ? lines[at].grind : 0;
       const gemmed: EndStateLine = { statId, value: roll, gemmed: true, grind: Math.max(kept, grindCredit(reference, statId)) };
-      gems.push({ statId, lines: base.map((line, index) => index === at ? gemmed : line) });
+      gems.push({ statId, at, lines: base.map((line, index) => index === at ? gemmed : line) });
     }
   }
   return { base, gems };

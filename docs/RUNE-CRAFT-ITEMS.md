@@ -276,11 +276,11 @@ ignored on a rune is the one exception: Ignore says the user does not want that
 stat there, so it leaves that rune's choice and the next stat in the rule's
 order stands in.
 
-Grindstones are deliberately outside the rule. A stone takes no place of its
-own: every grindable line can carry one, and a better stone later simply
-replaces it, so grinding a lesser line never closes the rune to a better one.
-Nor does the inventory's *Can improve*, which counts runes an item can
-mechanically raise rather than recommending anything.
+A Grindstone's stat is outside the rule. A stone takes no place of its own:
+every grindable line can carry one, and a better stone later simply replaces
+it, so grinding a lesser line never closes the rune to a better one. Nor does
+the inventory's *Can improve*, which counts runes an item can mechanically
+raise rather than recommending anything.
 
 Ties use rune id, item id and the replaced stat's ID, following Rune Clean-up's
 placement order. The calculation retains the best
@@ -292,6 +292,25 @@ set, stat, Location, Level, already-crafted state, Only keep-runes and count nev
 invalidate an answer or start the craft worker.
 The two disclosures share one answer through `compute/craft-result-memory.ts`,
 including after workspace navigation. Reset filters resets only filters.
+
+### 5.2 No Grindstone on a line the Gem will replace
+
+**A Grindstone is not suggested on an unground line that the rune's most
+desirable Gem would replace with another stat.** The Gem takes the line, and
+the stone goes with it (`RUNE-CANONICAL.md` §8), so the stone is thrown away. A Gem that
+re-rolls the line's own stat keeps the stone, so it withholds nothing; and a
+line already ground is exempt, because its stone is spent whatever the Gem
+does and topping it up is the user's call.
+
+The line is the placement rule's own (§5.1): each stat in `gemChoice` carries
+the line its best end state replaces (`gemChoiceLineUps`), and
+`onDesirableGemStat` applies both halves of the rule — the Gem's stat and the
+Grindstone's line — from the same `desirableGemStats` answer, so an Ignore or
+*Can change gem'ed stat?* that changes the Gem changes the line it guards.
+Where two lines serve the stat equally, the rule names no line and no stone is
+withheld. The rule reads the credited Gem, not the box: a rune whose Gem the
+box lacks still keeps its stones off that line, because the Gem is still the
+rune's plan. Where the credit assumes no Gem, nothing is withheld.
 
 ### What's missing
 

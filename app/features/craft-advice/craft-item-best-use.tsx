@@ -33,7 +33,7 @@ import type { Rune } from '../../domain/runes/runes';
 import type { RuneRole } from '../../domain/profiles/rune-roles';
 import type { GeneralSettings, RunePotentialSettings } from '../../domain/model';
 import { referenceLines } from '../../domain/reference/rune-reference-stats';
-import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations } from '../../domain/runes/craft-advice/rune-craft-recommendations';
+import type { CraftBenchmark, CraftRecommendation, CraftRecommendationRequest, CraftCalculation, CraftRecommendations, GemStatChoice } from '../../domain/runes/craft-advice/rune-craft-recommendations';
 import { grindLines, grindPlan, craftCalculationKey, craftExtensionRequests, craftItemKey, craftRecommendationRankings, craftRuneKey, craftMatchesChangeFilter,
   desirableGemStats, extendCraftCalculation, heldCraftBenchmark, reconcileCraftCalculation,
   isHeldCraft, onDesirableGemStat, runeAsItStands, wantedCraftItems } from '../../domain/runes/craft-advice/rune-craft-recommendations';
@@ -229,7 +229,7 @@ export function CraftItemBestUse({ mode, items, runes, monsters, profiles, roles
   }, [ignores]);
   const desirable = useMemo(() => result
     ? desirableGemStats(result.candidates, (runeId, statId) => ignored.has(craftIgnoreKey({ runeId, kind: 'gem', statId })), state.gemChange)
-    : new Map<string, ReadonlySet<number>>(),
+    : new Map<string, readonly GemStatChoice[]>(),
   [result, ignored, state.gemChange]);
   /* The box's best on each rune comes from the whole answer, so a filter that
      hides a held item cannot lower the bar a missing one has to clear. A held Gem

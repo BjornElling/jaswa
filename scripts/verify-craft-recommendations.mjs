@@ -271,6 +271,9 @@ function ruleStat(rune) {
   const referencePlan = craftPlan(lineage, credit);
   const referenceBare = craftPlan(lineage, { ...credit, gem: noCraftCredit.gem });
   let best = null;
+  /* Every line the rule gives each stat in some reading: Gems & Grinds reads the
+     Gem in Clean-up's qualifying build, which this oracle does not narrow to. */
+  const lines = new Map();
   for (const { role, builds } of families) for (const build of builds) {
     const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);
     if (!candidate) continue;
@@ -283,23 +286,52 @@ function ruleStat(rune) {
     const gemmed = onScale(craftedScore(referencePlan, options, prices, rune.subProperties, prefixScore, undefined, report));
     const bare = onScale(craftedScore(referenceBare, options, prices, rune.subProperties, prefixScore));
     if (report.statId < 0 || gemmed <= bare) continue;
+    lines.set(report.statId, (lines.get(report.statId) ?? new Set()).add(report.replaced));
     if (!best || gemmed > best.score + 1e-9) best = { score: gemmed, stats: new Set([report.statId]) };
     else if (Math.abs(gemmed - best.score) <= 1e-9) best.stats.add(report.statId);
   }
-  return best?.stats ?? new Set();
+  return { stats: best?.stats ?? new Set(), lines };
 }
 const desirable = desirableGemStats(whole.candidates);
 let judged = 0;
-for (const [runeId, stats] of desirable) {
+for (const [runeId, choices] of desirable) {
   const rune = runes.find((entry) => entry.id === runeId);
+  const stats = new Set(choices.map((choice) => choice.statId));
   if (rune.level < 12) { assert.equal(stats.size, 0, 'a Gem stat was chosen below +12'); continue; }
   const expected = ruleStat(rune);
-  assert.ok([...stats].every((stat) => expected.has(stat)) && (stats.size > 0) === (expected.size > 0),
-    `${runeId}: Gems & Grinds chose ${[...stats]}, the placement rule ${[...expected]}`);
+  assert.ok([...stats].every((stat) => expected.stats.has(stat)) && (stats.size > 0) === (expected.stats.size > 0),
+    `${runeId}: Gems & Grinds chose ${[...stats]}, the placement rule ${[...expected.stats]}`);
+  /* The line a chosen Gem replaces is a line the placement rule replaces for that stat. */
+  for (const choice of choices) if (choice.line >= 0) {
+    assert.ok(expected.lines.get(choice.statId)?.has(choice.line), `${runeId}: the ${choice.statId} Gem was put on a line the rule never gives it`);
+  }
   judged += stats.size > 0 ? 1 : 0;
 }
 assert.ok(judged > 10, 'too few runes had a Gem stat to compare');
-assert.ok(whole.candidates.filter((row) => row.item.kind === 'grindstone').every((row) => onDesirableGemStat(row, desirable)));
+/* A Grindstone is never suggested on an unground line a desirable Gem will replace
+   with another stat: the stone goes with the line. Every other stone stands. */
+const grinds = whole.candidates.filter((row) => row.item.kind === 'grindstone');
+const gemmedAway = (row) => row.application.target.property.grind === 0 && (desirable.get(row.rune.id) ?? []).some((choice) =>
+  choice.line === row.application.target.index && choice.statId !== row.application.target.property.statId);
+for (const row of grinds) assert.equal(onDesirableGemStat(row, desirable), !gemmedAway(row), `${row.rune.id}: the Grindstone rule misread its line`);
+const thrownAway = grinds.find(gemmedAway);
+assert.ok(thrownAway, 'no Grindstone landed on a line the Gem will replace; the rule is untested');
+assert.ok(grinds.some((row) => row.rune.level >= 12 && !gemmedAway(row) && onDesirableGemStat(row, desirable)),
+  'every Grindstone on a gemmable rune was withheld');
+/* A line already ground is exempt: its stone is spent whatever the Gem does. */
+{
+  const target = { ...thrownAway.application.target, property: { ...thrownAway.application.target.property, grind: 1 } };
+  assert.equal(onDesirableGemStat({ ...thrownAway, application: { ...thrownAway.application, target } }, desirable), true,
+    'a Grindstone on a line already ground was withheld');
+}
+/* Re-rolling the line's own stat keeps its stone, so that Gem withholds nothing. */
+{
+  const own = { statId: thrownAway.application.target.property.statId, score: 1, line: thrownAway.application.target.index };
+  assert.equal(onDesirableGemStat(thrownAway, new Map([[thrownAway.rune.id, [own]]])), true,
+    'a same-stat Gem withheld the stone its line keeps');
+  /* And a credit with no Gem names no line, so it withholds nothing either. */
+  assert.equal(onDesirableGemStat(thrownAway, new Map([[thrownAway.rune.id, null]])), true);
+}
 /* Neither the page's roll, the grind after, nor the box decides the stat. */
 const choiceOf = (answer) => JSON.stringify([...new Map(answer.candidates.filter((row) => row.item.kind === 'gem')
   .map((row) => [row.rune.id, row.gemChoice])).entries()].sort());
@@ -309,10 +341,10 @@ assert.equal(choiceOf(otherAsk), choiceOf(whole), 'the roll or the grind after m
 const ranked = whole.candidates.find((row) => row.gemChoice?.length > 1 && row.gemChoice[0].score > row.gemChoice[1].score);
 assert.ok(ranked, 'no rune ranks two Gem stats');
 const waived = desirableGemStats(whole.candidates, (runeId, statId) => runeId === ranked.rune.id && statId === ranked.gemChoice[0].statId);
-assert.equal(waived.get(ranked.rune.id)?.has(ranked.gemChoice[1].statId), true, 'ignoring the chosen stat did not promote the next one');
+assert.equal(waived.get(ranked.rune.id)?.some((choice) => choice.statId === ranked.gemChoice[1].statId), true, 'ignoring the chosen stat did not promote the next one');
 /* A held Gem of any other stat is never suggested. */
 for (const row of whole.candidates) if (row.item.kind === 'gem') {
-  assert.equal(onDesirableGemStat(row, desirable), desirable.get(row.rune.id)?.has(row.item.statId) ?? false);
+  assert.equal(onDesirableGemStat(row, desirable), desirable.get(row.rune.id)?.some((choice) => choice.statId === row.item.statId) ?? false);
 }
 /* Can change gem'ed stat? No narrows the choice before its top is read. The rune
    that exposed it: an ancient Blade CRI Dmg rune with a CRI Rate 5 Gem, where the
@@ -334,7 +366,7 @@ for (const row of whole.candidates) if (row.item.kind === 'gem') {
      better roll No offers. Read as the rule alone, Yes showed nothing here. */
   assert.equal(onDesirableGemStat(row, desirableGemStats(answer.candidates, undefined, 'yes')), true,
     'Yes hid a better roll of the gem\'ed stat that No suggests');
-  assert.equal(desirableGemStats(answer.candidates, undefined, 'yes').get(row.rune.id)?.has(8), true,
+  assert.equal(desirableGemStats(answer.candidates, undefined, 'yes').get(row.rune.id)?.some((choice) => choice.statId === 8), true,
     'Yes no longer offers the placement rule\'s own stat');
   assert.equal(onDesirableGemStat(row, desirableGemStats(answer.candidates, undefined, 'no')), true,
     'No must leave a better roll of the gem\'ed stat as the rune\'s choice');
