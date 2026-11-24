@@ -390,10 +390,9 @@ The body is the rune's lines with every grindable line raised by the credited Gr
 where that raises it, and each candidate Gem the credited Gem, ground likewise (ordinary
 tables for ordinary runes, Ancient for Ancient runes). The pair is chosen in the role's
 own prices on that body. Gems & Grinds asks the same question of a held Gem: its lines
-are ground by the credit, and only the Gem's own roll is the item's, so a held item's
-grade or roll cannot choose a different placement. So which stat a rune should be gemmed
-with moves with the rune, its lineage, the role and the user's credit, and with nothing
-else: Rune Clean-up, the rune overlay and Gems & Grinds name the same stat
+are ground by the credit, and only the Gem's own roll is the item's. When the rune
+clears the quality floor, Gems & Grinds uses the role and build Rune Clean-up
+chose, so the recommendation follows the rune overlay's placement
 (`RUNE-CRAFT-ITEMS.md` §5.1). Measuring a held Gem against the rune as it stands was
 tried and removed: it credited an SPD Gem with the stone its line could take anyway, so
 the two views named different stats for one rune.

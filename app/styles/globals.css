@@ -1487,7 +1487,9 @@ label[for] {
     grid-template-areas: "family grade" "location level" "set stat" "already count" "keep .";
   }
 }
-.craft-best-use-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); align-items: start; }
+/* A live sync can re-rank a card without changing the list's height. Keep the
+   viewport in place when the card that would anchor it changes rank. */
+.craft-best-use-results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); align-items: start; overflow-anchor: none; }
 .craft-wanted .statistics-lead { margin-bottom: var(--s3); }
 .craft-wanted-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .craft-wanted-table col, .craft-wanted-table th:first-child { width: auto; }

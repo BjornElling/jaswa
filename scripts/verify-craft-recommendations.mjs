@@ -4,7 +4,7 @@ import { craftComparison, craftVariants, heldCraftHalf, lineageFits, craftedScor
   gemOptions, rulerCraftCredit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { defaultRuneRoles, createRuneRole } from '../app/domain/profiles/rune-roles.ts';
 import { defaultRunePotentialSettings } from '../app/domain/profiles/preference-defaults.ts';
-import { runeRankWorth } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
+import { runeAdvice, runeRankWorth } from '../app/domain/runes/cleanup/rune-cleanup-advice.ts';
 import { ordinarySample, prepareRuneCandidate, roleBuilds, newRuneAdviceScope } from '../app/domain/runes/cleanup/rune-cleanup-model.ts';
 import { recommendRuneCraft as recommendWith, craftRecommendationRankings, craftMatchesChangeFilter, heldCraftBenchmark, isHeldCraft,
   wantedCraftItems, craftItemKey, craftRuneKey, reconcileCraftCalculation, craftExtensionRequests, extendCraftCalculation,
@@ -55,9 +55,11 @@ for (const grinded of [[], ['yes'], ['no'], ['yes', 'no']]) {
 }
 const scope = newRuneAdviceScope(rulerCraftCredit);
 const families = roles.map((role) => ({ role, builds: roleBuilds(role) }));
-function evaluate(rune) {
+function evaluate(rune, advice) {
   let best = null;
   for (const { role, builds } of families) for (const build of builds) {
+    if (advice?.readingChance === 1 && (role.id !== advice.role.id
+      || [2, 4, 6].some((slot) => build.mains[slot] !== advice.buildMains[slot]))) continue;
     const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);
     if (!candidate) continue;
     const discount = runeRankWorth(settings, candidate.rank);
@@ -99,6 +101,7 @@ const premised = (kind, lines, rune) => kind === 'gem'
   ? lines.map((line) => ({ ...line, grind: Math.max(line.grind,
     legendStones.get(rune.ancient ? 'ancient' : 'standard').grind[line.statId]) })) : lines;
 let comparisons = 0;
+const quality = await runeAdvice(runes.filter((rune) => rune.level >= 12), roles, settings, base);
 for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'maximum']) {
   const request = { runes, items: items.filter((item) => item.kind === kind), missing: [], roles, settings, base,
     roll, preferGpu: false };
@@ -121,7 +124,8 @@ for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'max
   const actual = { ...craftRecommendationRankings(calculation.candidates, 10), backend: calculation.backend, comparisons: calculation.comparisons };
   const rows = [];
   for (const rune of runes) {
-    const before = evaluate({ ...rune, subProperties: premised(kind, rune.subProperties, rune) });
+    const advice = kind === 'gem' ? quality.get(rune.id) : undefined;
+    const before = evaluate({ ...rune, subProperties: premised(kind, rune.subProperties, rune) }, advice);
     if (!before) continue;
     for (const item of request.items.filter((item) => lineageFits(item, rune))) {
       const comparison = craftComparison(item, rune, request.roll, credit);
@@ -133,7 +137,7 @@ for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'max
         .filter((variant) => variant.stock.includes(0));
       assert.deepEqual(applications.map((app) => app.lines), variants.map((variant) => premised(kind, variant.lines, rune)));
       for (const application of applications) {
-        const after = evaluate({ ...rune, subProperties: application.lines });
+        const after = evaluate({ ...rune, subProperties: application.lines }, advice);
         if (!after) continue;
         rows.push({ rune, item, application, before, after, gain: after.score - before.score,
           stat: application.result.value + application.result.grind });
@@ -278,11 +282,12 @@ for (const [runeId, stats] of desirable) {
 assert.ok(judged > 10, 'too few runes had a Gem stat to compare');
 assert.ok(whole.candidates.filter((row) => row.item.kind === 'grindstone').every((row) => onDesirableGemStat(row, desirable)));
 /* Neither the page's roll, the grind after, nor the box decides the stat. */
-const choiceOf = (answer) => JSON.stringify([...new Map(answer.candidates.map((row) => [row.rune.id, row.gemChoice])).entries()].sort());
+const choiceOf = (answer) => JSON.stringify([...new Map(answer.candidates.filter((row) => row.item.kind === 'gem')
+  .map((row) => [row.rune.id, row.gemChoice])).entries()].sort());
 const otherAsk = await recommendRuneCraft({ ...emptyRequest, runes, items: box, missing, roles, roll: 'minimum', grindAfter: { grade: 'Hero' } });
 assert.equal(choiceOf(otherAsk), choiceOf(whole), 'the roll or the grind after moved the Gem stat');
 /* Ignoring the chosen stat on a rune hands the choice to the next stat in the rule's order. */
-const ranked = whole.candidates.find((row) => row.gemChoice.length > 1 && row.gemChoice[0].score > row.gemChoice[1].score);
+const ranked = whole.candidates.find((row) => row.gemChoice?.length > 1 && row.gemChoice[0].score > row.gemChoice[1].score);
 assert.ok(ranked, 'no rune ranks two Gem stats');
 const waived = desirableGemStats(whole.candidates, (runeId, statId) => runeId === ranked.rune.id && statId === ranked.gemChoice[0].statId);
 assert.equal(waived.get(ranked.rune.id)?.has(ranked.gemChoice[1].statId), true, 'ignoring the chosen stat did not promote the next one');

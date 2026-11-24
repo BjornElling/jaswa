@@ -187,13 +187,16 @@ HP + Gem took ATK 8 % because HP +385 ground to +755 beat the bare ATK line, tho
 the same stone on ATK was worth more — and the Gem's right line was CRI Dmg.
 `verify:craft-recommendations` holds that rune.
 
-Each before and after line-up meets every allowed build of every role. The
-valuation and the ceiling of the user's credit are Clean-up's `prepareRuneCandidate`
-reading, with the same accepted/broken discounts. The score prices the sub
-properties and innate as the premise leaves them: no imagined power-ups.
-The best reading is chosen separately before and after; its role may change.
-This current-line reading is distinct from Clean-up's future-value verdict.
-Both use the same ruler; neither a filter nor the item moves it.
+For a Gem on a rune that clears the quality floor, both line-ups use the role
+and build Rune Clean-up and the overlay chose. This keeps a Gem from trading
+away a line that makes the rune worth keeping for a raw score gain in a role
+that falls below the floor. With no qualifying build, a Gem can improve the
+best of the allowed builds. Grindstones also compare across all allowed builds
+because they leave the rune's stats in place. In those comparisons the best
+reading can change before and after. Each score uses Clean-up's
+`prepareRuneCandidate` valuation, ceiling and accepted/broken discounts.
+It prices the sub properties and innate on the comparison's premise at the rune's
+current level. The ruler stays fixed across items and filters.
 
 - **Highest score:** the distinct runes with a positive score gain, ordered by
   score after spending the item.
@@ -240,10 +243,10 @@ raises it, and each candidate Gem the credited Gem, ground likewise — ordinary
 items for an ordinary rune and Ancient items for an Ancient rune. Where the credit's
 Gem is *None* the rule has no Gem to choose with: it names no stat (`gemChoice` is
 `null`), and every held Gem that raises its rune is shown on its own gain. Every
-legal `(line, stat)` pair is priced so in every role reading the rune
-is judged in (`gemChoiceLineUps`), and the stat whose best end state is worth
-most — and beats the same reading's rune without a Gem — is the one
-the rune wants. The ranking travels on every row of the rune (`gemChoice`), and
+legal `(line, stat)` pair is priced in the same readings as the held Gem
+(`gemChoiceLineUps`). The rune wants the stat whose best end state is worth
+most and beats the same reading's rune without a Gem. The ranking travels on
+every Gem row of the rune (`gemChoice`), and
 `desirableGemStats` reads its top. Neither the grade held nor the Assumed roll
 enters it: those decide what a Gem is shown to gain, not which stat it should be.
 *Can change gem'ed stat?* No does: it removes from the ranking every stat it

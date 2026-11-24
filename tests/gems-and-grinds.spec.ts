@@ -185,6 +185,71 @@ test('gems are read on Legend-ground lines and keep only two result columns', as
   await expect(panel.locator('.craft-recommendation').first()).toBeVisible();
 });
 
+test('a Gem recommendation preserves the role that clears the rune quality floor', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openWorkspace(page);
+  const panel = page.locator('[data-mode="recommendations"]');
+  await expect(page.getByRole('heading', { name: 'Nothing to show until a game file is imported.' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('gem-quality-empty.png') });
+
+  const account = JSON.parse(await readFile(craftAccount, 'utf8'));
+  account.runes = [{ ...account.runes[0], set_id: 14, slot_no: 5, pri_eff: [1, 1800],
+    sec_eff: [[9, 10, 0, 0], [8, 6, 0, 0], [6, 6, 0, 0], [11, 28, 0, 0]] }];
+  account.rune_craft_item_list = [2, 8].map((stat) => ({
+    craft_item_id: stat, craft_type: 1, craft_type_id: 140004 + stat * 100, amount: 1,
+  }));
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'nemesis-craft-account.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await expect(page.locator('.import-badge')).toBeVisible();
+  await page.evaluate(async () => {
+    const storagePath = '/app/platform/browser-storage.ts', defaultsPath = '/app/domain/profiles/preference-defaults.ts';
+    const { savePreferences } = await import(storagePath);
+    const { blankPreferences } = await import(defaultsPath);
+    const preferences = blankPreferences();
+    const tank = preferences.runeRoles.find((role: { name: string }) => role.name === 'Def-tank');
+    const bruiser = preferences.runeRoles.find((role: { name: string }) => role.name === 'No-spd bruiser');
+    const slots = (main: string) => ({
+      slot2: { preferred: ['Spd'], acceptable: [] },
+      slot4: { preferred: [main], acceptable: [] },
+      slot6: { preferred: [main], acceptable: [] },
+    });
+    preferences.runeRoles = [
+      { ...bruiser, name: 'Juno bruiser', slots: slots('HP%'), targets: { hp: 46000, atk: 900, def: 1300, spd: 180, criRate: 100 } },
+      { ...tank, slots: slots('Def%'), targets: { hp: 24000, def: 2400, spd: 180, res: 100 } },
+    ];
+    preferences.runePotential.brokenRunes = 4;
+    await savePreferences(preferences);
+  });
+  await page.reload();
+  await page.getByRole('navigation').getByRole('button', { name: 'Gems & Grinds' }).click();
+  await panel.getByRole('button', { name: 'Enchanted gem', exact: true }).click();
+  await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const card = panel.locator('.craft-recommendation').first();
+  await expect(card.locator('.craft-recommendation-title')).toContainText('Nemesis · HP %');
+  const link = card.getByRole('button', { name: 'Nemesis rune, slot 5', exact: true });
+  const filters = panel.locator('.filter-group');
+  const filterBoxes = () => filters.evaluateAll((elements) => elements.map((element) => {
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return { x: x + window.scrollX, y: y + window.scrollY, width, height };
+  }));
+  const boxes = await filterBoxes();
+  await page.screenshot({ path: testInfo.outputPath('gem-quality-results.png') });
+  await link.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Best role for this rune')).toBeVisible();
+  const tankReading = dialog.getByRole('row').filter({ hasText: 'Def-tank' });
+  await expect(tankReading.getByLabel('Best role', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('row').filter({ hasText: 'Juno bruiser' })).toContainText('Top 22.1 %');
+  await page.screenshot({ path: testInfo.outputPath('gem-quality-overlay.png') });
+  await page.keyboard.press('Escape');
+  await expect(link).toBeFocused();
+  expect(await filterBoxes()).toEqual(boxes);
+  await expect(card.locator('.craft-recommendation-lines tr').filter({ hasText: 'Resistance' }).locator('td').last()).toHaveText('—', { timeout: 2000 });
+  await expect(card.locator('.craft-recommendation-lines tr').filter({ hasText: 'CRI Rate' }).locator('td').last()).toContainText('HP');
+  await expect(card.getByText('Def-tank', { exact: true })).toBeVisible();
+});
+
 test('Recommendations filters the complete held box without another calculation', async ({ page }, testInfo) => {
   let craftWorkers = 0;
   page.on('worker', (worker) => { if (worker.url().includes('craft-recommendation-worker')) craftWorkers += 1; });
