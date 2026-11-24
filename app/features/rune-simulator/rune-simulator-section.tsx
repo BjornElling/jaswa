@@ -411,7 +411,7 @@ function RuneSimulationResults({ result, stage, onStageChange, onOpenRune }: {
           <th scope="col" className={cell('subs')}>Substats</th>
           <th scope="col" className={cell('role')}>Best role</th>
           <th scope="col" className={cell('maxValue')}>
-            <span className="table-heading-two-line" aria-label="Potential: the best end state it can reach against a perfect ordinary rune for that slot">Potential</span>
+            <span className="table-heading-two-line" title="The best end state it can reach against a perfect ordinary rune for that slot. An Ancient rune can exceed 100 per cent.">Potential</span>
           </th>
           <th scope="col" className={cell('chance')}>
             <span title="Chance that at least one permitted build reaches its quality bar">Chance</span>

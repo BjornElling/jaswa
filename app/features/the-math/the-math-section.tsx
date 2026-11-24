@@ -513,7 +513,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">How quality is ranked</h3>
         <p>
-          Rune quality floor asks for the top {listed(qualityAllowances.map(percent), 'or')} of ordinary six-star drops of the same slot, across all main properties. A main the role can use is scored in the build that uses it. A main the role cannot use scores zero. Each main uses a fixed sample of {referenceSampleSize.toLocaleString('en-US')} drops, scored at +12 using the fixed reference&rsquo;s craft items. Ties count together. Ancient runes use Ancient craft and compare against the ordinary six-star sample.
+          Rune quality floor asks for the top {listed(qualityAllowances.map(percent), 'or')} of ordinary six-star drops of the same slot, across all main properties. A main the role can use is scored in the build that uses it. A main the role cannot use scores zero. So a slot-4 CRI Dmg rune competes with all slot-4 drops, not only the rare ones that share its main, and every slot keeps about the same share. Each main uses a fixed sample of {referenceSampleSize.toLocaleString('en-US')} drops, scored at +12 using the fixed reference&rsquo;s craft items. Ties count together. Ancient runes use Ancient craft and compare against the ordinary six-star sample.
         </p>
         <p>
           Accepted and Broken matches narrow the share, while Intangible preference widens it. The allowance describes one role in one position and one slot&rsquo;s drops. Actual keep rates depend on the builds your roles allow and which runes you own.
@@ -656,7 +656,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Main stat</h3>
         <p>
-          A preferred main stat counts as {artifactMainPropertyPoints} points, the same as {artifactMainPropertyPoints} maximum rolls into a preferred substat. An acceptable main stat earns the same fraction of those points as an acceptable substat earns of its own. An unwanted main earns zero points. The substat points count in every case.
+          A preferred main stat counts as {artifactMainPropertyPoints} points, the same as {artifactMainPropertyPoints} maximum rolls into a preferred substat. A more exact value would depend heavily on the monster&rsquo;s own skills &mdash; for an attack-based main stat, on how many hits each individual monster lands. Two maximum rolls is a good, defensible compromise. An acceptable main stat earns the same fraction of those points as an acceptable substat earns of its own. An unwanted main earns zero points. The substat points count in every case.
         </p>
 
         <h3 className="type-heading">Normalisation</h3>

@@ -7,7 +7,7 @@ import { RuneEmblem } from '../../ui/gear/rune-emblem';
 import { RuneInnateLine, RuneSubLine } from '../../ui/gear/rune-sub-line';
 import { StarIcon } from '../../ui/star-icon';
 import { formatNumber } from '../../domain/shared/formatting';
-import { runeChanceText } from '../../domain/runes/cleanup/rune-cleanup-grid';
+import { runeChanceShown, runeChanceText } from '../../domain/runes/cleanup/rune-cleanup-grid';
 import type { AccountSnapshot } from '../../domain/account/account-snapshot';
 import type { GameRecord } from '../../domain/account/game-record';
 import { monsterCopyNamesIn } from '../../domain/monsters/monster-names';
@@ -197,7 +197,7 @@ function Evaluation({ rune, roles, explained, quality }: {
     { label: 'Selected Rune quality floor', value: runeQualityText(null, qualityAllowances[quality - 1], true) },
     { label: 'Required quality for this rune', value: runeQualityText(null, advice?.requirement ?? null, true) },
     { label: 'Quality of this rune', value: runeQualityText(advice?.qualityShare ?? null, advice?.requirement ?? null) },
-    { label: 'Chance across roles', value: oddsLeft && advice?.readingChance != null ? runeChanceText(advice.chance) : '—' },
+    { label: 'Chance across roles', value: advice && runeChanceShown({ advice, rune }) ? runeChanceText(advice.chance) : '—' },
   ];
   return <section className="rune-overlay-evaluation" aria-labelledby="rune-overlay-evaluation-title">
     <h3 id="rune-overlay-evaluation-title" className="overlay-block-title">Evaluation</h3>

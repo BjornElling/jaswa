@@ -65,8 +65,8 @@ function valuesOf(rune: Rune, lines: readonly EndStateLine[] = rune.subPropertie
   for (const line of lines) values[line.statId] += runeSubValue(line);
   return values;
 }
-/* Tied replacements follow Clean-up's original stat order even when the
-   export lists the sub properties in a different order. */
+/* Tied replacements follow Clean-up's canonical stat-id order, so the export's
+   line order never decides which stat a Gem replaces. */
 const tie = (a: CraftRecommendation, b: CraftRecommendation) => a.rune.id.localeCompare(b.rune.id)
   || a.item.id.localeCompare(b.item.id) || a.application.target.property.statId - b.application.target.property.statId;
 /* Two runes worth the same can differ in the last bit of their arithmetic; within a
