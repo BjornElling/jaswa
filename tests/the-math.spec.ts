@@ -1,6 +1,7 @@
 import { expect, test } from './test-fixtures';
 
-test('The Math sits under Technical, Settings under General, and The Math explains the gear recommendations', async ({ page }) => {
+test('The Math sits under Technical, Settings under General, and The Math explains the gear recommendations', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
   await page.evaluate(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
@@ -21,7 +22,16 @@ test('The Math sits under Technical, Settings under General, and The Math explai
     '›Rune Clean-up', '›Artifact Optimization', '›Relic Optimization', '›Power up, Keep or Sell',
   ]);
 
+  await expect(page.getByText('Settings › Gems & Grindstones', { exact: true })).toBeVisible();
+  const reference = page.getByText('The role weights, the perfect six-star rune', { exact: false });
+  await expect(reference).toContainText('fixed reference with an average Legend Gem and Grindstone');
+  await reference.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('math-rune-reference.png') });
   await page.locator('summary').filter({ hasText: 'Artifact Optimization' }).click();
+  const artifactScale = page.getByText('Its points are shown as a percentage of the benchmark', { exact: false });
+  await expect(artifactScale).toContainText('can score above 100 %');
+  await artifactScale.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('math-artifact-benchmark.png') });
   await expect(page.locator('[aria-label="4 plus 1.5 plus 2 equals 7.5 points"]')).toBeVisible();
   await page.locator('summary').filter({ hasText: 'Relic Optimization' }).click();
   await expect(page.locator('[aria-label="9.375 main points plus 1.5 unique points equals 10.875 score points"]')).toBeVisible();

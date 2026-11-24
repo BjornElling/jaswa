@@ -3,6 +3,45 @@ import { fileURLToPath } from 'node:url';
 
 const account = fileURLToPath(new URL('./fixtures/craft-account.json', import.meta.url));
 
+test('a rune with only a disallowed role shows no Potential or Chance', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('/');
+  await expect(page.getByText('Preparing your local workspace…')).toBeHidden();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(account);
+  await expect(page.getByText('craft-account.json')).toBeVisible();
+  await page.evaluate(async () => {
+    const storagePath = '/app/platform/browser-storage.ts';
+    const defaultsPath = '/app/domain/profiles/preference-defaults.ts';
+    const { savePreferences } = await import(storagePath);
+    const { blankPreferences } = await import(defaultsPath);
+    const preferences = blankPreferences();
+    preferences.runeRoles = preferences.runeRoles.filter((role: { name: string }) => role.name === 'Def-tank');
+    preferences.runePotential.brokenRunes = 5;
+    preferences.runePotential.neverSellPreGrindSpeed = false;
+    preferences.runePotential.neverSellReappTargets = false;
+    await savePreferences(preferences);
+  });
+  await page.reload();
+  await page.getByRole('navigation').getByRole('button', { name: 'Rune Simulator', exact: true }).click();
+  const filters = page.locator('.rune-simulator-filters');
+  const bounds = await filters.boundingBox();
+  await page.screenshot({ path: testInfo.outputPath('simulator-broken-empty.png') });
+  await page.getByLabel('Quantity').fill('12');
+  await page.getByLabel('Rune set', { exact: true }).selectOption('Fatal');
+  await page.getByLabel('Slot', { exact: true }).selectOption('5');
+  await page.getByLabel('Stars', { exact: true }).selectOption('6');
+  for (const gate of ['After +0', 'After +9', 'After +12']) {
+    await page.getByLabel(gate).selectOption('keep-all');
+  }
+  await page.getByRole('button', { name: 'Calculate', exact: true }).click();
+  const row = page.locator('.rune-simulator-table tbody tr').first();
+  await expect(row.getByText('Broken: not wanted')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('simulator-broken-results.png') });
+  await expect(row.locator('td').nth(9)).toHaveText('—', { timeout: 2000 });
+  await expect(row.locator('td').nth(10)).toHaveText('—');
+  expect(await filters.boundingBox()).toEqual(bounds);
+});
+
 test('simulates random runes through +0, +9, +12 and +15, spending no craft without a role',async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page.getByText('Preparing your local workspace…')).toBeHidden();

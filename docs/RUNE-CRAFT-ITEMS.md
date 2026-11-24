@@ -282,7 +282,8 @@ replaces it, so grinding a lesser line never closes the rune to a better one.
 Nor does the inventory's *Can improve*, which counts runes an item can
 mechanically raise rather than recommending anything.
 
-Ties use rune id, item id and target index. The calculation retains the best
+Ties use rune id, item id and the replaced stat's ID, following Rune Clean-up's
+placement order. The calculation retains the best
 target for **every rune/item pair**, including pairs below the current shortlist.
 Score and gain share that best target because the pair's baseline is fixed.
 Filtering and ranking are immediate projections of this complete answer; each

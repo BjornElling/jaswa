@@ -15,7 +15,6 @@ import { TableColumnGroup } from '../../ui/data-table-page';
 import { useRowOpener } from '../../ui/use-row-opener';
 import { WorkspacePage } from '../../ui/workspace-page';
 import { allRuneSetNames } from '../../domain/runes/rune-sets';
-import { lastSubPropertyLevel } from '../../domain/runes/rune-properties';
 import type {
   RuneSimulationConfig, RuneSimulationResult, SimulationEntry, SimulationStage,
   SimulationCheckpointPolicy,
@@ -415,7 +414,7 @@ function RuneSimulationResults({ result, stage, onStageChange, onOpenRune }: {
             <span className="table-heading-two-line" aria-label="Potential: the best end state it can reach against a perfect ordinary rune for that slot">Potential</span>
           </th>
           <th scope="col" className={cell('chance')}>
-            <span aria-label="Chance to reach the final +15 quality floor; random substat rolls end at +12">Chance</span>
+            <span title="Chance that at least one permitted build reaches its quality bar">Chance</span>
           </th>
           <th scope="col" className={cell('action')}>Action</th>
         </tr></thead>
@@ -466,10 +465,10 @@ function SimulationRow({ entry, onOpenRune }: { entry: SimulationEntry; onOpenRu
     {/* The same two figures, printed the same way, as Rune Clean-up's own table:
         a simulated rune is judged by that engine and should read like it. */}
     <td className={cell('maxValue')}>
-      {judged ? `${Math.round(verdict.maxValue * 100)} %` : <span className="muted">—</span>}
+      {verdict?.maxValue != null ? `${Math.round(verdict.maxValue * 100)} %` : <span className="muted">—</span>}
     </td>
     <td className={cell('chance')}>
-      {judged && rune.level < lastSubPropertyLevel ? runeChanceText(verdict.chance) : <span className="muted">—</span>}
+      {verdict?.chance != null ? runeChanceText(verdict.chance) : <span className="muted">—</span>}
     </td>
     <td className={cell('action', verdict === null && 'muted')}>
       {verdict === null

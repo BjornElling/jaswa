@@ -9,6 +9,8 @@ import type { ArtifactPropertyPreference } from '../../domain/artifacts/artifact
 import { scorePercent } from '../../domain/artifacts/score/artifact-score-core';
 import { defaultArtifactSettings, defaultRunePotentialSettings } from '../../domain/profiles/preference-defaults';
 import { chanceThresholds, qualityAllowances } from '../../domain/runes/cleanup/rune-cleanup-advice';
+import { referenceSampleSize } from '../../domain/runes/cleanup/rune-quality-reference';
+import { chanceRuns } from '../../domain/runes/rune-power-up-outcomes';
 import { statSetBonuses } from '../../domain/combat/monster-stats';
 import { swiftSetId } from '../../domain/runes/rune-sets';
 import {
@@ -266,7 +268,7 @@ export function TheMathSection() {
           Watch what the artifacts did: they found 200 of the 514 ATK the build was short of, which moved ATK from 0.66 to 0.40 &mdash; from above CRI Dmg to below it. Naming an artifact stat in a role is not decoration.
         </p>
         <p>
-          <b className="type-body-emphasis">Grindstones come off the same way.</b> JASWA reads the finished build as holding just enough lines of a stat to meet what is missing &mdash; each worth an ordinary line&rsquo;s rolls plus its stone, and never more lines than the six slots may legally hold. With the average Legend stones every rune judgement assumes, Fast DD&rsquo;s 18.3 SPD rolls put SPD on all six runes and the six stones find 5.0 of them; its 4.9 ATK rolls take about three lines, whose stones find 1.9; its 1.9 DEF rolls take one line. CRI Rate, CRI Dmg and Accuracy take no stone at all, so they now weigh more against SPD: CRI Rate rises from 0.66 to 0.90, ATK falls from 0.40 to 0.33.
+          <b className="type-body-emphasis">Grindstones come off the same way.</b> JASWA counts just enough lines to meet each missing stat, up to the number the six slots can hold. Each line contributes its ordinary rolls and a stone. With the reference&rsquo;s average Legend stones, Fast DD&rsquo;s 18.3 SPD rolls put SPD on all six runes and the stones cover 5.0 rolls. ATK needs 4.9 rolls across about three lines, with stones covering 1.9 rolls. DEF needs 1.9 rolls on one line. CRI Rate, CRI Dmg and Accuracy take no stone, so they weigh more against SPD. CRI Rate rises from 0.66 to 0.90 and ATK falls from 0.40 to 0.33.
         </p>
         <p>
           One consequence worth spelling out: <b className="type-body-emphasis">a target the build already meets asks the runes for nothing</b>. No-spd bruiser wants 100 SPD and the reference monster already has 104, so SPD lines earn No-spd bruiser nothing at all.
@@ -491,7 +493,10 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Gems and Grindstones</h3>
         <p>
-          Every rune judgement assumes one Gem and one Grindstone, and neither is a setting: an <b className="type-body-emphasis">average Legend Gem and an average Legend Grindstone</b>. They price the rune’s completed future, including at +0 and +9, they price the perfect ordinary reference it is measured against, and Gems &amp; Grinds reads a Gem on lines ground by the same stone. Grinding a line to no more than that stone changes nothing.
+          <b className="type-body-emphasis">Settings › Gems &amp; Grindstones</b> controls which items JASWA credits when projecting a rune&rsquo;s future. Gems &amp; Grinds uses the chosen Grindstone on both sides of a Gem comparison. Grinding a line up to the credited amount leaves its projected value as it was.
+        </p>
+        <p>
+          The role weights, the perfect six-star rune and the sampled drops use a <b className="type-body-emphasis">fixed reference</b> with an average Legend Gem and Grindstone, rounded up. Your craft settings change the projected rune while keeping that reference steady.
         </p>
         <p>
           The reference reads 100 %, and <b className="type-body-emphasis">100 % is a mark, not a ceiling</b>. A rune ground past the reference stone, or an Ancient rune’s higher initial interval, reads above it, and anything that would lift it further is still recommended.
@@ -508,7 +513,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">How quality is ranked</h3>
         <p>
-          Rune quality floor asks for the top {listed(qualityAllowances.map(percent), 'or')} of every ordinary six-star drop of the same slot, whatever its main property, as one role reads it in one position. A main the role can put there is scored in the build that puts it there; a main it cannot use counts as a drop worth nothing. So a slot-4 CRI Dmg rune competes with all slot-4 drops, not only the rare ones that share its main, and every slot keeps about the same share. Each main uses a fixed sample of 16,384 drops, scored at +12 with the same craft credit. Ties count together. Ancient runes use Ancient craft and compare against the ordinary six-star sample.
+          Rune quality floor asks for the top {listed(qualityAllowances.map(percent), 'or')} of ordinary six-star drops of the same slot, across all main properties. A main the role can use is scored in the build that uses it. A main the role cannot use scores zero. Each main uses a fixed sample of {referenceSampleSize.toLocaleString('en-US')} drops, scored at +12 using the fixed reference&rsquo;s craft items. Ties count together. Ancient runes use Ancient craft and compare against the ordinary six-star sample.
         </p>
         <p>
           Accepted and Broken matches narrow the share, while Intangible preference widens it. The allowance describes one role in one position and one slot&rsquo;s drops. Actual keep rates depend on the builds your roles allow and which runes you own.
@@ -534,7 +539,7 @@ export function TheMathSection() {
           For everything in between, <b className="type-body-emphasis">JASWA plays the rune forward a few thousand times and counts how often it ends up good enough.</b> Each run follows the game&rsquo;s own schedule — which line each upgrade lands on, how big it rolls, which substat a new line turns out to be — then spends the Gem and the Grindstone wherever they would have helped, and checks the result against the bar. That is the whole of it, and it is deliberately something you can picture.
         </p>
         <p>
-          JASWA counts a hit when any permitted reading reaches its quality bar. A run that reaches several bars still counts once. The fixed 4,096 runs make the same rune and settings repeatable. Zero hits means zero in those runs.
+          JASWA counts a hit when any permitted reading reaches its quality bar. A run that reaches several bars still counts once. The fixed {chanceRuns.toLocaleString('en-US')} runs make the same rune and settings repeatable. Zero hits means zero in those runs.
         </p>
         <p>
           A future line is drawn without replacement from the legal missing effect ids, and every remaining upgrade lands on a line the rune already has — new lines arrive last, so nothing can improve a line that does not exist yet. Every realised roll contributes in full, weighted by its stat, including surplus SPD or Accuracy.
@@ -635,7 +640,7 @@ export function TheMathSection() {
     <Disclosure title="Artifact Optimization" sessionKey="the-math.artifacts">
       <div className="math-copy">
         <p className="lead">
-          JASWA checks every artifact that fits the monster’s category and engrave class. Each one earns a number of points, which is then converted into a score on a 0–100 % scale.
+          JASWA checks every artifact that fits the monster’s category and engrave class. Its points are shown as a percentage of the benchmark, so an artifact can score above 100 %.
         </p>
 
         <h3 className="type-heading">Substats</h3>
@@ -651,7 +656,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Main stat</h3>
         <p>
-          A preferred main stat counts as {artifactMainPropertyPoints} points, so the calculation treats it as being worth the same as {artifactMainPropertyPoints} maximum rolls into a preferred substat. A more exact value would depend heavily on the monster’s own skills — for an attack-based main stat, on how many hits each individual monster lands. Two maximum rolls is a good, defensible compromise. The main stat is added to the score, so an artifact carrying the wrong main stat keeps everything its substats earned and forfeits only these {artifactMainPropertyPoints} points.
+          A preferred main stat counts as {artifactMainPropertyPoints} points, the same as {artifactMainPropertyPoints} maximum rolls into a preferred substat. An acceptable main stat earns the same fraction of those points as an acceptable substat earns of its own. An unwanted main earns zero points. The substat points count in every case.
         </p>
 
         <h3 className="type-heading">Normalisation</h3>

@@ -153,15 +153,15 @@ export function compareRuneGameSort(
 }
 
 /** Whether the row prints a Potential: not where no role can use the rune. */
-export const runeMaxValueShown = (row: RuneCleanupRow): boolean => row.advice.requirement !== null;
+export const runeMaxValueShown = ({ advice }: Pick<RuneCleanupRow, 'advice'>): boolean => advice.requirement !== null;
 
 /**
  * Whether the row prints a Chance. A rune at `+12` has no substat upgrades left and no odds
  * to quote — its chance is a certainty, 1 or 0, which the verdict already states —
  * so it prints a dash, and a dash is not 100 %.
  */
-export const runeChanceShown = (row: RuneCleanupRow): boolean =>
-  row.advice.readingChance !== null && row.rune.level < lastSubPropertyLevel;
+export const runeChanceShown = ({ advice, rune }: Pick<RuneCleanupRow, 'advice'> & { rune: Pick<Rune, 'level'> }): boolean =>
+  advice.readingChance !== null && rune.level < lastSubPropertyLevel;
 
 /** The chance as the column prints it — the advice's own formatter, so the two cannot differ. */
 export { runeChanceText } from './rune-cleanup-advice';

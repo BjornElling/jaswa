@@ -72,7 +72,7 @@ function evaluate(rune, advice) {
   return best;
 }
 const tie = (a, b) => a.rune.id.localeCompare(b.rune.id) || a.item.id.localeCompare(b.item.id)
-  || a.application.target.index - b.application.target.index;
+  || a.application.target.property.statId - b.application.target.property.statId;
 /* The engine and this oracle price a rune in different orders of arithmetic, so two
    runes worth the same can differ in the last bit; within a billionth they are a tie. */
 function rank(rows, metric, count) {
@@ -166,6 +166,25 @@ for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'max
 const emptyRequest = { runes: [], items: [], missing: [], roles: [], settings, base, roll: 'maximum', preferGpu: false };
 assert.equal((await recommendRuneCraft(emptyRequest)).candidates.length, 0);
 assert.equal((await recommendRuneCraft({ ...emptyRequest, runes, items })).candidates.length, 0);
+{
+  const role = { ...roles[0], targets: { spd: 220 }, slots: {
+    slot2: { preferred: ['HP%'], acceptable: [] },
+    slot4: { preferred: ['HP%'], acceptable: [] },
+    slot6: { preferred: ['HP%'], acceptable: [] },
+  }, sets: { preferred: ['Violent'], acceptable: [] } };
+  const source = runes.find((rune) => rune.slot === 5 && rune.level === 12 && !rune.ancient);
+  const item = items.find((item) => item.kind === 'gem' && item.statId === 8 && item.lineage === 'standard');
+  const lines = [12, 11, 10, 9].map((statId) => ({ statId, value: 6, grind: 0, gemmed: false }));
+  for (const subProperties of [lines, [...lines].reverse()]) {
+    const rune = { ...source, prefixStatId: null, prefixValue: 0, subProperties };
+    const advice = (await runeAdvice([rune], [role], settings, base)).get(rune.id);
+    const at = advice.craftedLines.findIndex((line) => line.gemmed && line.statId === item.statId);
+    assert.equal(rune.subProperties[at]?.statId, 9, 'Clean-up breaks the tie by the original stat ID');
+    const result = await recommendRuneCraft({ ...emptyRequest, runes: [rune], items: [item], roles: [role] });
+    const row = craftRecommendationRankings(result.candidates, 1).highestScore[0];
+    assert.equal(row?.application.target.property.statId, 9, 'the Gem must take the same tied line as Clean-up');
+  }
+}
 const nonImproving = { ...runes[0], subProperties: [{ statId: 8, value: 30, grind: 5, gemmed: false }] };
 assert.equal(craftComparison(items.find((item) => item.kind === 'grindstone' && item.statId === 8 && item.lineage === 'standard'),
   nonImproving, emptyRequest.roll, credit).applications.length, 0);

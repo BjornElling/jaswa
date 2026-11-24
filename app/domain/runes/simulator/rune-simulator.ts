@@ -20,6 +20,7 @@ import { qualityReferences } from '../cleanup/rune-quality-reference';
 import type { QualityReferences } from '../cleanup/rune-quality-reference';
 import { runeAdvice } from '../cleanup/rune-cleanup-advice';
 import type { RuneAdvice } from '../cleanup/rune-cleanup-advice';
+import { runeChanceShown, runeMaxValueShown } from '../cleanup/rune-cleanup-grid';
 import type { RuneVerdict } from '../rune-verdict';
 import type { RuneRole } from '../../profiles/rune-roles';
 import type { ReferenceStats } from '../../reference/rune-reference-stats';
@@ -104,8 +105,8 @@ export type SimulatedRune = {
 export type SimulationVerdict = {
   verdict: RuneVerdict;
   reason: string;
-  maxValue: number;
-  chance: number;
+  maxValue: number | null;
+  chance: number | null;
   roleId: string | null;
   roleName: string | null;
 };
@@ -237,12 +238,12 @@ export function simulationRuneToCleanupRune(rune: SimulatedRune, obtainedOrder =
   };
 }
 
-function verdictFor(advice: RuneAdvice): SimulationVerdict {
+function verdictFor(advice: RuneAdvice, rune: SimulatedRune): SimulationVerdict {
   return {
     verdict: advice.verdict,
     reason: advice.reason,
-    maxValue: advice.maxValue,
-    chance: advice.chance,
+    maxValue: runeMaxValueShown({ advice }) ? advice.maxValue : null,
+    chance: runeChanceShown({ advice, rune }) ? advice.chance : null,
     roleId: advice.role?.id ?? null,
     roleName: advice.role?.name ?? null,
   };
@@ -262,7 +263,7 @@ function stageResult(
     }
     return {
       rune,
-      verdict: advice ? verdictFor(advice) : null,
+      verdict: advice ? verdictFor(advice, rune) : null,
       sold: acts && advice?.verdict === 'sell',
     };
   });
