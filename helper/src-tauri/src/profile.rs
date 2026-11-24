@@ -4632,6 +4632,51 @@ mod phantom_rune_regression {
         }
     }
 
+    /* Summoning from pieces answers with the new monster in `unit_info` and
+    the pieces' stack in `item_list` at its new total (captured November 24,
+    2026: 593 pieces, 40 spent, 553 stated). Unread until `assemble` joined
+    the account-changing verbs, every summon left a gap. A failed summon and
+    another account's records change nothing. */
+    #[test]
+    fn summoning_from_pieces_reads_the_monster_and_the_remaining_stack() {
+        for populated in [false, true] {
+            let mut store = ProfileStore::default();
+            let mut units = Vec::new();
+            let mut inventory = vec![json!({"rid":30,"wizard_id":7,"item_master_type":12,"item_master_id":20802,"item_quantity":120})];
+            if populated {
+                units = (1..=100).map(|id| json!({"unit_id":id,"wizard_id":7,"unit_master_id":20802,"building_id":0})).collect();
+                inventory.push(json!({"rid":31,"wizard_id":7,"item_master_type":12,"item_master_id":13103,"item_quantity":12}));
+            }
+            assert!(store.accept_snapshot(json!({"wizard_id":7,"unit_list":units,"runes":[],"inventory_info":inventory})));
+            let request = json!({"command":"AssembleUnit_V2","item_master_id":20802,"item_quantity":40,"almighty_qty":0,"building_id":0});
+            for (summon, remaining) in [(1001, 80), (1002, 40), (1003, 0)] {
+                let answer = json!({"ret_code":0,
+                    "unit_info":{"unit_id":summon,"wizard_id":7,"unit_master_id":20802,"class":3,"unit_level":1,"building_id":0,"runes":[],"artifacts":[]},
+                    "item_list":[{"rid":30,"wizard_id":7,"item_master_type":12,"item_master_id":20802,"item_quantity":remaining}]});
+                assert!(store.apply_update(&answer, &request));
+                assert!(store.take_declined().missed.is_empty());
+                assert!(store.status().missed_changes.is_empty(), "a read summon is no gap");
+                let data = store.read().unwrap().data;
+                assert!(collection(&data, "unit_list").iter().any(|unit| unit["unit_id"] == summon));
+                let stacks = collection(&data, "inventory_info");
+                assert_eq!(stacks.iter().find(|stack| stack["rid"] == 30).unwrap()["item_quantity"], remaining);
+                if populated { assert_eq!(stacks.iter().find(|stack| stack["rid"] == 31).unwrap()["item_quantity"], 12); }
+            }
+            let data = store.read().unwrap().data;
+            assert_eq!(collection(&data, "unit_list").len(), if populated { 103 } else { 3 });
+            let foreign = json!({"ret_code":0,
+                "unit_info":{"unit_id":2001,"wizard_id":8,"unit_master_id":20802},
+                "item_list":[{"rid":30,"wizard_id":8,"item_master_type":12,"item_master_id":20802,"item_quantity":5}]});
+            assert!(!store.apply_update(&foreign, &request));
+            assert_eq!(store.read().unwrap().data, data, "another account's summon is never read");
+            let failed = json!({"ret_code":1,
+                "unit_info":{"unit_id":2002,"wizard_id":7,"unit_master_id":20802},
+                "item_list":[{"rid":30,"wizard_id":7,"item_master_type":12,"item_master_id":20802,"item_quantity":5}]});
+            assert!(!store.apply_update(&failed, &request));
+            assert_eq!(store.read().unwrap().data, data, "a failed summon changes nothing");
+        }
+    }
+
     #[test]
     fn unknown_actions_cannot_spend_or_remove_current_inventory() {
         let mut store = ProfileStore::default();

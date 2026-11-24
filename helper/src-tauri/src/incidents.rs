@@ -6,10 +6,20 @@
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 
+/* Enough for one evening's distinct gaps; a repeating failure takes no slot. */
+const LATER_FAILURES_KEPT: usize = 8;
+
 #[derive(Default)]
 pub struct Incidents {
     first: Option<Value>,
     first_encrypted: bool,
+    /// The first exchange of each further reader failure with a reason not
+    /// seen before. Keeping the first failure alone lost the evidence of
+    /// every later one: a session that missed `AssembleUnit_V2` and then
+    /// `BuyShopItem` saved a report with nothing of the second (November 24,
+    /// 2026). The account copy stays with `first` only, since one is
+    /// megabytes and the answer's shape is what a reader is written from.
+    later: Vec<Value>,
     count: u64,
     login_failed: bool,
     /// A complete login since the evidence was taken: the next incident
@@ -35,21 +45,33 @@ impl Incidents {
     fn record_with_cause(&mut self, reason: &str, request: &[u8], response: &[u8], profile: Option<Value>, encrypted: bool) {
         if self.superseded {
             self.first = None;
+            self.later.clear();
             self.count = 0;
             self.superseded = false;
         }
         self.count = self.count.saturating_add(1);
+        let exchange = || json!({
+            "at": time::OffsetDateTime::now_utc().to_string(),
+            "reason": reason,
+            "requestBase64": STANDARD.encode(request),
+            "responseBase64": STANDARD.encode(response),
+        });
         // A repeated Raid limit must not hide the readable purchase whose
         // missing path an error report could actually help us fix.
         if self.first.is_none() || (self.first_encrypted && !encrypted) {
             self.first_encrypted = encrypted;
-            self.first = Some(json!({
-                "at": time::OffsetDateTime::now_utc().to_string(),
-                "reason": reason,
-                "requestBase64": STANDARD.encode(request),
-                "responseBase64": STANDARD.encode(response),
-                "profileBeforeFailure": profile,
-            }));
+            let mut first = exchange();
+            first["profileBeforeFailure"] = json!(profile);
+            self.first = Some(first);
+            return;
+        }
+        let seen = |entry: &Value| entry["reason"] == reason;
+        if !encrypted
+            && self.later.len() < LATER_FAILURES_KEPT
+            && !self.first.as_ref().is_some_and(seen)
+            && !self.later.iter().any(seen)
+        {
+            self.later.push(exchange());
         }
     }
 
@@ -68,7 +90,8 @@ impl Incidents {
     }
 
     pub fn report(&self) -> Value {
-        json!({"firstFailure": self.first, "failureCount": self.count, "loginFailed": self.login_failed})
+        json!({"firstFailure": self.first, "laterFailures": self.later,
+            "failureCount": self.count, "loginFailed": self.login_failed})
     }
 }
 
@@ -110,6 +133,33 @@ mod tests {
         incidents.record("after login", b"new", b"new", None);
         assert_eq!(incidents.report()["firstFailure"]["reason"], "after login");
         assert_eq!(incidents.report()["failureCount"], 1);
+    }
+
+    #[test]
+    fn each_distinct_later_failure_keeps_its_own_exchange() {
+        let mut incidents = Incidents::default();
+        assert_eq!(incidents.report()["laterFailures"], json!([]));
+        incidents.record("AssembleUnit_V2: unread", b"assemble", b"a", Some(json!({"runes": []})));
+        for _ in 0..15 {
+            incidents.record("AssembleUnit_V2: unread", b"assemble2", b"a2", None);
+        }
+        assert_eq!(incidents.report()["laterFailures"], json!([]), "a repeat takes no slot");
+        incidents.record_encrypted("Raid", b"raid", b"sealed", None);
+        incidents.record("BuyShopItem: shrine list", b"buy", b"b", Some(json!({"runes": []})));
+        let report = incidents.report();
+        assert_eq!(report["firstFailure"]["reason"], "AssembleUnit_V2: unread");
+        let later = report["laterFailures"].as_array().unwrap();
+        assert_eq!(later.len(), 1, "a sealed answer is no evidence for a reader");
+        assert_eq!(later[0]["requestBase64"], STANDARD.encode(b"buy"));
+        assert!(later[0].get("profileBeforeFailure").is_none());
+        for index in 0..100 {
+            incidents.record(&format!("Future{index}: unread"), b"f", b"f", None);
+        }
+        assert_eq!(incidents.report()["laterFailures"].as_array().unwrap().len(), LATER_FAILURES_KEPT);
+        assert_eq!(incidents.report()["failureCount"], 118);
+        incidents.recover();
+        incidents.record("after login", b"new", b"new", None);
+        assert_eq!(incidents.report()["laterFailures"], json!([]));
     }
 
     #[test]

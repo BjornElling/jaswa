@@ -135,7 +135,7 @@ this decision; auxiliary chat and service lookups are not account data.
 | Helper window | *Following your account, with a gap*, naming each command once |
 | JASWA, every page | *Live import has a gap* under the import badge, naming up to three commands |
 | Diagnostic log | `Missed part of <command>: <reason>` |
-| Error report | The first reader failure and the account before it, for replay; an encrypted miss is kept until a reader failure supersedes it |
+| Error report | The first reader failure and the account before it, for replay; an encrypted miss is kept until a reader failure supersedes it. `laterFailures` keeps the exchange of each further reader failure with a new reason, at most eight and without an account copy, so a second gap in one session is not lost behind the first |
 
 ### Encrypted or unread
 
@@ -234,6 +234,27 @@ reading applies. The candidate is therefore never read and never reported;
 read as current, a declined roll would have replaced the rune the player
 kept. A captured session of ten rolls on two runes, with both choices,
 established both halves.
+
+Summoning a monster from its pieces was the same kind of gap again (November
+24, 2026). Every `AssembleUnit_V2` was reported as *1 inventory record at
+item_list was not read; 1 monster record at unit_info was not read*, because
+no verb in its name was known. Both paths were already read: `unit_info` is
+the new monster, carrying this account's `wizard_id`, and `item_list` holds the
+pieces' stack (`item_master_type` 12) at its new total — 593 before, 40 spent,
+553 stated in the saved report. `assemble` now joins the account-changing
+verbs; replaying the report adds the one monster and lands the stack at 553
+with no miss. The request also names `almighty_qty`, the universal pieces
+spent beside the monster's own; the captured summon spent none, so whether
+the answer restates that stack too is not yet established, and if it does not,
+the stack keeps its count until the next login.
+
+The same evening, crafting Engraved Conversion Stones raised *BuyShopItem
+answered with a Summoned shrine list*: the craft spends Summoned stacks, and a
+non-empty top-level `unit_storage_list` under an unseen operation stays a gap
+until a capture shows whether it is the whole tab or the stacks touched. That
+gap is still open. Its answer was lost because the error report kept only the
+first failure of the session, which was `AssembleUnit_V2`; the report now keeps
+each later distinct failure too, so the next craft's report carries it.
 
 ### Raid response-key negotiation
 

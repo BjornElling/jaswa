@@ -79,6 +79,10 @@ pub(super) fn account_request(request: &Value) -> AccountRequest {
         (`combineSelectRuneCraft`): the materials' remaining stack arrives in
         `item_list`, the new stones in `reward.crate.changestones`. */
         "combine",
+        /* Summoning a monster from its pieces (`AssembleUnit_V2`): the new
+        monster arrives in `unit_info`, the pieces' remaining stack in
+        `item_list` at its new total. */
+        "assemble",
     ];
     /* A battle's result is a battle's result whichever end of its name the word
     stands at: the Dimensional Predator raid answers `battleResultDimensionHoleRaid`
