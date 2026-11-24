@@ -7284,10 +7284,8 @@ th.align-center .rank-heading { justify-content: center; }
 .speed-col-speed { width: 15ch; }
 /* Fits the widest range, "999 – 999", at the data voice. */
 .speed-col-interval { width: 13ch; }
-/* The field keeps its 10ch; the column adds the air that holds it off the
-   display speed beside it, so the imported figure and the experiment read
-   apart, and room for its heading's trailing dots. */
-.speed-col-what-if { width: calc(12ch + var(--s4)); }
+/* Leave room for the help mark and keep the field apart from the interval. */
+.speed-col-what-if { width: calc(12ch + 2 * var(--s4)); }
 .speed-team-table td.speed-what-if-cell { padding-left: calc(2ch + var(--s4)); }
 .speed-col-controls { width: 108px; }
 .speed-team-table thead th.align-center { text-align: center; }
@@ -7345,6 +7343,24 @@ th.align-center .rank-heading { justify-content: center; }
 .speed-monster-name { display: block; }
 .speed-figure { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
 .speed-combat { color: var(--text-strong); }
+/* Display speed is read off the combat speed, never set here, so it takes the
+   muted tone the page gives what stands beside a figure rather than a figure
+   itself: strong combat speed, plain interval, muted display speed. */
+.speed-display { color: var(--text-muted); }
+.speed-head-with-info { position: relative; display: inline-flex; align-items: center; gap: var(--s1); white-space: nowrap; }
+.speed-info-mark { display: inline-block; flex: 0 0 auto; width: var(--s4); height: var(--s4); color: var(--text-muted); cursor: help; }
+.speed-info-mark svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+.speed-info-mark:hover { color: var(--text); }
+.speed-info-mark:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; border-radius: 50%; }
+.speed-info-tooltip {
+  position: absolute; inset: 100% 0 auto auto; z-index: 2;
+  width: 28ch; padding: var(--s2);
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--raise); color: var(--text);
+  text-align: left; white-space: normal; visibility: hidden;
+}
+.speed-head-with-info:hover .speed-info-tooltip,
+.speed-head-with-info:focus-within .speed-info-tooltip { visibility: visible; }
 .speed-what-if {
   width: 100%;
   height: 28px;

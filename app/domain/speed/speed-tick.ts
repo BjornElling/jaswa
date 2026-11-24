@@ -156,9 +156,8 @@ export function displaySpeed(baseSpeed: number, swift: boolean, runeSpeed: numbe
 }
 
 /**
- * The flat rune speed behind a display speed. A what-if display speed is
- * turned back into rune speed here, so an experiment changes the runes and
- * nothing else — base speed, Swift and every percentage stay the monster's own.
+ * The flat rune speed behind a display speed: what puts a display speed beside
+ * a combat speed, base speed, Swift and every percentage staying the monster's own.
  */
 export function runeSpeedForDisplay(baseSpeed: number, swift: boolean, shownDisplaySpeed: number): number {
   return shownDisplaySpeed - baseSpeed - (swift ? displayedSwiftBonus(baseSpeed) : 0);

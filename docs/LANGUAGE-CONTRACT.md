@@ -44,7 +44,7 @@ panels. JASWA uses it alone. The full table:
 | A monster's stated job in Scenario or one content-area | **profile** | preset |
 | A rune's drop tier (Normal … Legend) | **rarity** | quality, grade |
 | A standard setting or starting value | **default** | the Scenario placement context |
-| A speed | its form: **display**, **arena**, **dungeon**, **raid**, **guild** or **combat speed** (`SPEED-TICK-CANONICAL.md` §1) | bare "speed"; a rune line's value is **SPD** |
+| A speed | **display speed** or **combat speed** (`SPEED-TICK-CANONICAL.md` §1) | bare "speed"; a rune line's value is **SPD** |
 
 An artifact's tier (Normal … Legend) reads *Grade* on some pages and *Quality*
 on others; which word wins is open (`DECK-PRESETS.md` §7). Language keywords,

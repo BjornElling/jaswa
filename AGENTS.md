@@ -576,7 +576,7 @@ parts an agent must not quietly break:
   of the game's turn order — combat speed, the tick, a boost, a buff, a tie.
   `speed-tuning-analysis.ts` decides what to simulate and reports it; it never
   restates a rule, and an interval is found by running that one clock at every
-  candidate display speed rather than by a second formula. Every speed on
+  candidate combat speed rather than by a second formula. Every speed on
   screen names its form, and there are two: *display speed*, as the game's
   monster screen shows it, and *combat speed*, the speed in a fight — one name
   in every content, never arena, dungeon, raid or guild speed

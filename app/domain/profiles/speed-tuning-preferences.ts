@@ -1,6 +1,6 @@
 /**
  * What the user has stated on the Speed Tuning page, team by team: the order a
- * team's monsters should move in, the what-if display speeds tried on them, and
+ * team's monsters should move in, the what-if combat speeds tried on them, and
  * whether the team is speed tuned at all.
  *
  * A statement belongs to a team, not to a preset: to one content and one set of
@@ -25,7 +25,7 @@ import { isRecord } from './preference-reading';
 export type SpeedTuningContent = PresetContentId | 'unnamed';
 
 /**
- * One monster's place in a team, its species, and the what-if display speed the
+ * One monster's place in a team, its species, and the what-if combat speed the
  * user tried on it, if any. The what-if is kept so the experiment is there next
  * time the team is opened, but it is read only inside the team's overlay: the
  * page and everything else judge the runes engraved, and never see it.
@@ -34,7 +34,7 @@ export type SpeedTeamMember = {
   unitId: string;
   /** The species, or `null` for a member the import does not hold. */
   masterId: string | null;
-  whatIfDisplaySpeed?: number;
+  whatIfCombatSpeed?: number;
 };
 
 /** A preset as Speed Tuning reads it. */
@@ -70,7 +70,7 @@ export type SpeedTeam = {
 };
 
 /** A stored member: a species, and the what-if tried on it. */
-export type TeamTuningMember = { masterId: string; whatIfDisplaySpeed?: number };
+export type TeamTuningMember = { masterId: string; whatIfCombatSpeed?: number };
 
 /**
  * The user's word on one team. `members` names the team — its species, a
@@ -90,15 +90,15 @@ export function blankSpeedTuningPreferences(): SpeedTuningPreferences {
   return { teams: [] };
 }
 
-/** The highest display speed the editor accepts as a what-if. Far above any rune build. */
-export const whatIfDisplaySpeedMaximum = 999;
+/** The highest combat speed the editor accepts as a what-if. Far above any rune build and lead. */
+export const whatIfCombatSpeedMaximum = 999;
 
 function isIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 64;
 }
 
-function isWhatIfDisplaySpeed(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= whatIfDisplaySpeedMaximum;
+function isWhatIfCombatSpeed(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= whatIfCombatSpeedMaximum;
 }
 
 function isTuningContent(value: unknown): value is SpeedTuningContent {
@@ -129,7 +129,7 @@ export function canKeepSpeedTuning(team: Pick<SpeedTeam, 'tuningContent' | 'memb
 
 /* Whether an entry states anything at all; one that does not is not stored. */
 function statesAnything(entry: TeamSpeedTuning): boolean {
-  return entry.orderStated || entry.noSpeedTuning || entry.members.some((member) => member.whatIfDisplaySpeed !== undefined);
+  return entry.orderStated || entry.noSpeedTuning || entry.members.some((member) => member.whatIfCombatSpeed !== undefined);
 }
 
 /* The species are the team's identity, so one the contract refuses refuses the
@@ -140,8 +140,8 @@ function readTeamSpeedTuning(value: unknown): TeamSpeedTuning | null {
   const members: TeamTuningMember[] = [];
   for (const member of value.members) {
     if (!isRecord(member) || !isIdentifier(member.masterId)) return null;
-    members.push(isWhatIfDisplaySpeed(member.whatIfDisplaySpeed)
-      ? { masterId: member.masterId, whatIfDisplaySpeed: member.whatIfDisplaySpeed } : { masterId: member.masterId });
+    members.push(isWhatIfCombatSpeed(member.whatIfCombatSpeed)
+      ? { masterId: member.masterId, whatIfCombatSpeed: member.whatIfCombatSpeed } : { masterId: member.masterId });
   }
   /* Anything but an explicit yes is the default: the order the team moves in, and tuned. */
   return { content: value.content, members, orderStated: value.orderStated === true, noSpeedTuning: value.noSpeedTuning === true };
@@ -154,8 +154,8 @@ export function isSpeedTuningPreferences(value: unknown): value is SpeedTuningPr
   return value.teams.every((entry) => {
     if (!isRecord(entry) || Object.keys(entry).sort().join() !== 'content,members,noSpeedTuning,orderStated') return false;
     if (typeof entry.orderStated !== 'boolean' || typeof entry.noSpeedTuning !== 'boolean' || !Array.isArray(entry.members)) return false;
-    if (!entry.members.every((member) => isRecord(member) && Object.keys(member).every((key) => key === 'masterId' || key === 'whatIfDisplaySpeed')
-      && (!('whatIfDisplaySpeed' in member) || isWhatIfDisplaySpeed(member.whatIfDisplaySpeed)))) return false;
+    if (!entry.members.every((member) => isRecord(member) && Object.keys(member).every((key) => key === 'masterId' || key === 'whatIfCombatSpeed')
+      && (!('whatIfCombatSpeed' in member) || isWhatIfCombatSpeed(member.whatIfCombatSpeed)))) return false;
     const read = readTeamSpeedTuning(entry);
     if (read === null || !statesAnything(read) || keys.has(storedKey(read))) return false;
     keys.add(storedKey(read));
@@ -182,12 +182,8 @@ function formerTeams(value: unknown, presetTeam: (presetId: string) => FormerPre
       typeof unitId === 'string' && team.members.some((member) => member.unitId === unitId));
     const unique = [...new Set(stated)];
     const order = [...unique, ...team.members.map((member) => member.unitId).filter((unitId) => !unique.includes(unitId))];
-    const whatIfs = isRecord(entry.whatIfs) ? entry.whatIfs : {};
-    const members = order.map((unitId) => {
-      const masterId = team.members.find((member) => member.unitId === unitId)?.masterId as string;
-      const whatIf = whatIfs[unitId];
-      return isWhatIfDisplaySpeed(whatIf) ? { masterId, whatIfDisplaySpeed: whatIf } : { masterId };
-    });
+    /* The old what-ifs measured display speed, so only the order and tuning switch carry over. */
+    const members = order.map((unitId) => ({ masterId: team.members.find((member) => member.unitId === unitId)?.masterId as string }));
     const read: TeamSpeedTuning = { content: team.content, members, orderStated: unique.length > 0, noSpeedTuning: entry.noSpeedTuning === true };
     return statesAnything(read) ? [read] : [];
   });
@@ -251,9 +247,9 @@ export function presetSpeedTeam(
   const free = [...preset.members];
   const stated = (tuning?.members ?? []).flatMap((entry) => {
     const at = free.findIndex((unitId) => masterOf(unitId) === entry.masterId);
-    return at === -1 ? [] : [{ unitId: free.splice(at, 1)[0], whatIfDisplaySpeed: entry.whatIfDisplaySpeed }];
+    return at === -1 ? [] : [{ unitId: free.splice(at, 1)[0], whatIfCombatSpeed: entry.whatIfCombatSpeed }];
   });
-  const whatIfs = new Map(stated.flatMap((entry) => entry.whatIfDisplaySpeed === undefined ? [] : [[entry.unitId, entry.whatIfDisplaySpeed] as const]));
+  const whatIfs = new Map(stated.flatMap((entry) => entry.whatIfCombatSpeed === undefined ? [] : [[entry.unitId, entry.whatIfCombatSpeed] as const]));
   const orderStated = tuning?.orderStated === true;
   const first = orderStated ? stated.map((entry) => entry.unitId) : fallbackOrder.filter((unitId) => preset.members.includes(unitId));
   const order = [...first, ...preset.members.filter((unitId) => !first.includes(unitId))];
@@ -264,7 +260,7 @@ export function presetSpeedTeam(
     members: order.map((unitId) => {
       const whatIf = whatIfs.get(unitId);
       const masterId = masterOf(unitId);
-      return whatIf === undefined ? { unitId, masterId } : { unitId, masterId, whatIfDisplaySpeed: whatIf };
+      return whatIf === undefined ? { unitId, masterId } : { unitId, masterId, whatIfCombatSpeed: whatIf };
     }),
     orderStated,
     leaderUnitId: preset.leaderUnitId,
@@ -285,8 +281,8 @@ export function withTeamSpeedTuning(preferences: SpeedTuningPreferences, team: S
   if (key === null) return preferences;
   const entry: TeamSpeedTuning = {
     content: team.tuningContent,
-    members: team.members.map((member) => member.whatIfDisplaySpeed === undefined
-      ? { masterId: member.masterId as string } : { masterId: member.masterId as string, whatIfDisplaySpeed: member.whatIfDisplaySpeed }),
+    members: team.members.map((member) => member.whatIfCombatSpeed === undefined
+      ? { masterId: member.masterId as string } : { masterId: member.masterId as string, whatIfCombatSpeed: member.whatIfCombatSpeed }),
     orderStated: team.orderStated,
     noSpeedTuning: team.noSpeedTuning,
   };

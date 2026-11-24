@@ -612,7 +612,7 @@ algorithm:
   distribution from one power-up model; derive verdicts and monster plans from
   those answers. Keep user synergy overrides separate from the shipped table.
 - **Speed Tuning:** compose a team snapshot and the question to investigate;
-  run the shared turn clock at candidate display speeds to derive intervals.
+  run the shared turn clock at candidate combat speeds to derive intervals.
   Do not replace simulation with an independent interval formula.
 - **Rune Simulator:** generate legal drops, then invoke the real Clean-up
   pipeline at checkpoints. It must not become an alternative verdict model.

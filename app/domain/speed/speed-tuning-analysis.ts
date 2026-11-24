@@ -1,13 +1,15 @@
 /**
  * Reads one saved team against the current import: each member's combat
  * speed, the order the team really moves in, what is wrong with it,
- * when an enemy first moves, and the display speeds that put each member
+ * when an enemy first moves, and the combat speeds that put each member
  * between its neighbours in the order (`tuningRange`).
  *
  * Every rule comes from `speed-tick.ts`. This module decides what to simulate
  * and how to report it, and states no rule of the game of its own — an
- * interval is found by running the same clock at each candidate display speed,
- * so rounding, Swift and boosts are all answered by the one implementation.
+ * interval is found by running the same clock at each candidate combat speed,
+ * and the display speed beside a combat speed is found by asking `combatSpeed`
+ * at each candidate display speed, so rounding, Swift and boosts are all
+ * answered by the one implementation.
  */
 import { formatNumber } from '../shared/formatting';
 import type { GameRecord } from '../account/game-record';
@@ -24,11 +26,11 @@ import {
 } from './speed-tick';
 import type { BattleTrace, SpeedLeaderSkill, SpeedSheet, TickRule, TickUnit, TurnEvent } from './speed-tick';
 import type { SpeedTeam } from '../profiles/speed-tuning-preferences';
-import { whatIfDisplaySpeedMaximum } from '../profiles/speed-tuning-preferences';
+import { whatIfCombatSpeedMaximum } from '../profiles/speed-tuning-preferences';
 import type { GeneralSettings } from '../model';
 
-/** A range of display speeds; `maximum` is `null` where every faster value works too. */
-export type DisplaySpeedInterval = { minimum: number; maximum: number | null };
+/** A range of combat speeds; `maximum` is `null` where every faster value works too. */
+export type CombatSpeedInterval = { minimum: number; maximum: number | null };
 
 /**
  * Where a member's first turn falls among the team's first turns, against the
@@ -54,14 +56,20 @@ export type MemberReading = {
   element: string | null;
   baseSpeed: number;
   swift: boolean;
-  /** The display speed the import gives this copy. */
-  importedDisplaySpeed: number;
-  /** The display speed the team is read at: the what-if where one is typed. */
-  displaySpeed: number;
-  whatIf: boolean;
-  leaderPercent: number;
-  /** Combat speed, with the leads and totem of the team's content. */
+  /** Combat speed on the runes engraved, with the leads and totem of the team's content. */
+  importedCombatSpeed: number;
+  /** The combat speed the team is read at: the what-if where one is typed. */
   combatSpeed: number;
+  whatIf: boolean;
+  /** The combat speed on bare runes: the slowest the member can be, where its interval search starts. */
+  lowestCombatSpeed: number;
+  /**
+   * The display speed that goes with `combatSpeed`: the import's, or for a
+   * what-if the lowest display speed whose combat speed reaches it. `null`
+   * where the what-if is under bare runes.
+   */
+  displaySpeed: number | null;
+  leaderPercent: number;
   profile: SpeedSkillProfile;
   /**
    * Where its turns fall among every turn on the field, from 1, enemies'
@@ -88,12 +96,12 @@ export type MemberReading = {
    */
   cutInAt: readonly number[];
   /**
-   * The display speeds that put its first turn between the members placed
+   * The combat speeds that put its first turn between the members placed
    * just above and just below it with no enemy turn before it
    * (`tuningRange`), or `null` where none will or none was asked for.
    */
-  range: DisplaySpeedInterval | null;
-  /** Whether the display speed it is read at is one of them. */
+  range: CombatSpeedInterval | null;
+  /** Whether the combat speed it is read at is one of them. */
   inRange: boolean;
 };
 
@@ -134,23 +142,28 @@ export type TeamReading = {
 
 type Candidate = {
   unitId: string;
+  masterId: string;
+  element: string | null;
+  importedDisplaySpeed: number;
   profile: SpeedSkillProfile;
   speedBuffPercent: number;
   leaderPercent: number;
   base: Omit<SpeedSheet, 'runeSpeed'>;
-  runeSpeed: number;
+  /** Combat speed on the runes engraved. */
+  imported: number;
+  /** The combat speed it is read at: its what-if where one is typed, else `imported`. */
+  speed: number;
 };
 
-function sheetOf(candidate: Candidate, runeSpeed = candidate.runeSpeed): SpeedSheet {
-  return { ...candidate.base, runeSpeed };
-}
-
-function tickUnit(candidate: Candidate, runeSpeed?: number): TickUnit {
-  const sheet = sheetOf(candidate, runeSpeed);
+/* A what-if is a combat speed and goes to the clock as it stands: the clock
+   reads nothing of a unit's speed but its combat speed, so no rune speed has to
+   be invented to reach it, and a value no rune build hits exactly is still a
+   fair question. */
+function tickUnit(candidate: Candidate, speed = candidate.speed): TickUnit {
   return {
     key: candidate.unitId,
     side: 'ally',
-    speed: combatSpeed(sheet),
+    speed,
     speedBuffPercent: candidate.speedBuffPercent,
     effects: candidate.profile.effects,
     similarBoostPassive: candidate.profile.similarBoostPassive,
@@ -200,9 +213,33 @@ function relation(first: Map<string, TurnEvent>, events: readonly TurnEvent[], e
   return a.tiedWith.includes(later) ? 'tie' : 'before';
 }
 
-function unitsAt(candidates: readonly Candidate[], shown: readonly number[]): TickUnit[] {
-  return candidates.map((candidate, at) => tickUnit(candidate,
-    runeSpeedForDisplay(candidate.base.baseSpeed, candidate.base.swift, shown[at])));
+function unitsAt(candidates: readonly Candidate[], speeds: readonly number[]): TickUnit[] {
+  return candidates.map((candidate, at) => tickUnit(candidate, speeds[at]));
+}
+
+/* The combat speed a candidate has at one display speed, every other term its own. */
+function combatAtDisplay(candidate: Candidate, shown: number): number {
+  return combatSpeed({ ...candidate.base, runeSpeed: runeSpeedForDisplay(candidate.base.baseSpeed, candidate.base.swift, shown) });
+}
+
+function lowestCombat(candidate: Candidate): number {
+  return combatSpeed({ ...candidate.base, runeSpeed: 0 });
+}
+
+/*
+ * The display speed that goes with a combat speed: the lowest whose combat
+ * speed reaches it, or `null` under bare runes. Asked of `combatSpeed` at each
+ * display speed from bare runes up rather than turned around by a formula, so
+ * the rounding stays `speed-tick.ts`'s alone. Each step adds a whole point of
+ * flat rune speed, so the walk is never longer than the gap it closes.
+ */
+function displaySpeedFor(candidate: Candidate, target: number): number | null {
+  if (lowestCombat(candidate) > target) return null;
+  const lowest = displaySpeed(candidate.base.baseSpeed, candidate.base.swift, 0);
+  for (let shown = lowest; shown <= lowest + target; shown += 1) {
+    if (combatAtDisplay(candidate, shown) >= target) return shown;
+  }
+  return null;
 }
 
 /** One line-up of enemies the team meets: their combat speeds and names, in one order. */
@@ -217,7 +254,7 @@ type Opposition = { speeds: readonly number[]; names: readonly string[] };
  * attacker (`SPEED-TICK-CANONICAL.md` §3.2). Anything faster could win the
  * opening outright; anything slower cuts in no earlier. Under Leo's cap the
  * first mover goes at no more than Leo's own combat speed. It follows the team,
- * so a search re-asks it at every display speed it tries. On a floor it is
+ * so a search re-asks it at every combat speed it tries. On a floor it is
  * every stage's enemies.
  */
 function oppositionOf(units: readonly TickUnit[], content: SpeedContent, trace: BattleTrace): Opposition[] {
@@ -267,10 +304,10 @@ function enemyGetsInBefore(allies: readonly TickUnit[], oppositions: readonly Op
 }
 
 /*
- * The display speeds at which the member at `index` has its first turn
+ * The combat speeds at which the member at `index` has its first turn
  * strictly after the member placed just above it and strictly before the
  * member placed just below it, with no enemy turn before it, every other
- * member at the display speed it is read at — its what-if where one is typed.
+ * member at the combat speed it is read at — its what-if where one is typed.
  * A tie with either neighbour counts against it: no order may hang on pick
  * order the page cannot see.
  *
@@ -280,17 +317,17 @@ function enemyGetsInBefore(allies: readonly TickUnit[], oppositions: readonly Op
  * The enemies are those `oppositionOf` sets against the team at each value, so
  * a worst case that follows the first mover follows it here too.
  *
- * Every display speed from bare runes up is run on the clock, because a boost
+ * Every combat speed from bare runes up is run on the clock, because a boost
  * aimed at the lowest bar can make a faster monster move later and leave the
  * values that fit in more than one stretch. The stretch holding the value the
  * member is read at is the answer, or failing that the stretch nearest it.
- * A stretch that reaches the highest display speed a what-if takes is open.
+ * A stretch that reaches the highest combat speed a what-if takes is open.
  */
-function tuningRange(candidates: readonly Candidate[], shown: readonly number[], index: number, content: SpeedContent): DisplaySpeedInterval | null {
+function tuningRange(candidates: readonly Candidate[], speeds: readonly number[], index: number, content: SpeedContent): CombatSpeedInterval | null {
   const self = candidates[index].unitId;
   const above = candidates[index - 1]?.unitId;
   const below = candidates[index + 1]?.unitId;
-  const config = [...shown];
+  const config = [...speeds];
   const fits = (value: number) => {
     config[index] = value;
     const units = unitsAt(candidates, config);
@@ -301,21 +338,21 @@ function tuningRange(candidates: readonly Candidate[], shown: readonly number[],
       && !enemyGetsInBefore(units, oppositionOf(units, content, trace), content, self);
   };
 
-  const lowest = displaySpeed(candidates[index].base.baseSpeed, candidates[index].base.swift, 0);
-  const stretches: DisplaySpeedInterval[] = [];
+  const lowest = lowestCombat(candidates[index]);
+  const stretches: CombatSpeedInterval[] = [];
   let start: number | null = null;
-  for (let value = lowest; value <= whatIfDisplaySpeedMaximum + 1; value += 1) {
-    const holds = value <= whatIfDisplaySpeedMaximum && fits(value);
+  for (let value = lowest; value <= whatIfCombatSpeedMaximum + 1; value += 1) {
+    const holds = value <= whatIfCombatSpeedMaximum && fits(value);
     if (holds && start === null) start = value;
     if (!holds && start !== null) {
-      stretches.push({ minimum: start, maximum: value - 1 === whatIfDisplaySpeedMaximum ? null : value - 1 });
+      stretches.push({ minimum: start, maximum: value - 1 === whatIfCombatSpeedMaximum ? null : value - 1 });
       start = null;
     }
   }
-  const current = shown[index];
-  const distance = (stretch: DisplaySpeedInterval) => current < stretch.minimum ? stretch.minimum - current
+  const current = speeds[index];
+  const distance = (stretch: CombatSpeedInterval) => current < stretch.minimum ? stretch.minimum - current
     : stretch.maximum !== null && current > stretch.maximum ? current - stretch.maximum : 0;
-  return stretches.reduce<DisplaySpeedInterval | null>((nearest, stretch) =>
+  return stretches.reduce<CombatSpeedInterval | null>((nearest, stretch) =>
     nearest === null || distance(stretch) < distance(nearest) ? stretch : nearest, null);
 }
 
@@ -389,7 +426,7 @@ function enemyStages(units: readonly TickUnit[], content: SpeedContent, trace: B
 }
 
 /* Each present member as the clock reads it, in the team's order: its leads,
-   the totem, and its display speed — the what-if where one is typed. */
+   the totem, and its runes — or the combat speed of its what-if where one is typed. */
 function candidatesOf(team: SpeedTeam, monsters: ReadonlyMap<string, GameRecord>, totemPercent: number,
   whatIfs: ReadonlyMap<string, number> | undefined): Candidate[] {
   const content = speedContent(team.content);
@@ -404,20 +441,25 @@ function candidatesOf(team: SpeedTeam, monsters: ReadonlyMap<string, GameRecord>
     if (!monster) return [];
     const parts = monsterSpeedParts(monster);
     const element = elementName(monster.attribute) ?? null;
-    const shown = whatIfs?.get(member.unitId) ?? parts.displaySpeed;
     const leaderPercent = battleSpeedPercent(speedLeads, content.area, element);
+    const base = {
+      baseSpeed: parts.baseSpeed,
+      swift: parts.swift,
+      passiveFlatSpeed: parts.passiveFlatSpeed,
+      percentOfBase: totemPercent + leaderPercent + parts.passiveSpeedPercent,
+    };
+    const imported = combatSpeed({ ...base, runeSpeed: runeSpeedForDisplay(parts.baseSpeed, parts.swift, parts.displaySpeed) });
     return [{
       unitId: member.unitId,
+      masterId: String(monster.unit_master_id ?? ''),
+      element,
+      importedDisplaySpeed: parts.displaySpeed,
       profile: speedSkillProfile(monster),
       speedBuffPercent: speedBuffPotency(parts.speedUpEffect),
       leaderPercent,
-      base: {
-        baseSpeed: parts.baseSpeed,
-        swift: parts.swift,
-        passiveFlatSpeed: parts.passiveFlatSpeed,
-        percentOfBase: totemPercent + leaderPercent + parts.passiveSpeedPercent,
-      },
-      runeSpeed: runeSpeedForDisplay(parts.baseSpeed, parts.swift, shown),
+      base,
+      imported,
+      speed: whatIfs?.get(member.unitId) ?? imported,
     }];
   });
 }
@@ -452,14 +494,14 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   monsters: ReadonlyMap<string, GameRecord>;
   totemPercent: number;
   /**
-   * What-if display speeds, by unit id. Only the team's overlay passes them;
+   * What-if combat speeds, by unit id. Only the team's overlay passes them;
    * the team stores them, but every other reader judges the runes engraved and
    * leaves this out, so a what-if never reaches a figure outside the overlay.
    */
   whatIfs?: ReadonlyMap<string, number>;
   /**
    * Whether to search each member's tuning range. Only the overlay states a
-   * range, and the search runs the clock once per display speed, so the page,
+   * range, and the search runs the clock once per combat speed, so the page,
    * which reads every team at once and shows none, leaves it out: there every
    * `range` is `null` and every `inRange` false.
    */
@@ -469,7 +511,6 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   /* What the team is measured against: nothing at all where the user says it
      is not speed tuned, so its places, ranges and verdicts are its own order's. */
   const faced: SpeedContent = team.noSpeedTuning ? { ...content, opponent: 'none' } : content;
-  const present = team.members.filter((member) => monsters.has(member.unitId));
   const missingUnitIds = team.members.filter((member) => !monsters.has(member.unitId)).map((member) => member.unitId);
   const leaderMonster = team.leaderUnitId === null ? undefined : monsters.get(team.leaderUnitId);
   const leaderSkill = leaderMonster ? speedLeaderSkill(leaderMonster.unit_master_id) : null;
@@ -486,7 +527,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const orderEvents = worstStage === null ? trace.events : enemies[worstStage].trace.events;
   const lastFirstTurn = Math.max(-1, ...units.map((unit) => orderEvents.findIndex((event) => event.key === unit.key)));
   const opening = orderEvents.slice(0, lastFirstTurn + 1);
-  const shownSpeeds = present.map((member) => whatIfs?.get(member.unitId) ?? monsterSpeedParts(monsters.get(member.unitId) as GameRecord).displaySpeed);
+  const speeds = candidates.map((candidate) => candidate.speed);
 
   /* The user's order is the authority: a member whose first turn is not the
      one its place asks for is out of place, whichever monster put it there,
@@ -505,32 +546,31 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   });
 
   const members: MemberReading[] = candidates.map((candidate, index) => {
-    const member = present[index];
-    const monster = monsters.get(member.unitId) as GameRecord;
-    const parts = monsterSpeedParts(monster);
-    const shown = shownSpeeds[index];
+    const { unitId, masterId, element, speed } = candidate;
+    const whatIf = whatIfs?.has(unitId) ?? false;
     const verdict = verdicts[index];
-    const range = ranges ? tuningRange(candidates, shownSpeeds, index, faced) : null;
+    const range = ranges ? tuningRange(candidates, speeds, index, faced) : null;
     return {
-      unitId: member.unitId,
+      unitId,
       wantedPosition: index + 1,
-      masterId: String(monster.unit_master_id ?? ''),
-      element: elementName(monster.attribute) ?? null,
-      baseSpeed: parts.baseSpeed,
-      swift: parts.swift,
-      importedDisplaySpeed: parts.displaySpeed,
-      displaySpeed: shown,
-      whatIf: whatIfs?.has(member.unitId) ?? false,
+      masterId,
+      element,
+      baseSpeed: candidate.base.baseSpeed,
+      swift: candidate.base.swift,
+      importedCombatSpeed: candidate.imported,
+      combatSpeed: speed,
+      whatIf,
+      lowestCombatSpeed: lowestCombat(candidate),
+      displaySpeed: whatIf ? displaySpeedFor(candidate, speed) : candidate.importedDisplaySpeed,
       leaderPercent: candidate.leaderPercent,
-      combatSpeed: units[index].speed,
       profile: candidate.profile,
-      turnPositions: opening.flatMap((event, at) => event.key === member.unitId ? [at + 1] : []),
-      firstTurnTick: first.get(member.unitId)?.tick ?? Number.POSITIVE_INFINITY,
-      firstAllyBoosts: (first.get(member.unitId)?.allyBoosts ?? []).map(({ key, amount }) => ({ unitId: key, amount })),
+      turnPositions: opening.flatMap((event, at) => event.key === unitId ? [at + 1] : []),
+      firstTurnTick: first.get(unitId)?.tick ?? Number.POSITIVE_INFINITY,
+      firstAllyBoosts: (first.get(unitId)?.allyBoosts ?? []).map(({ key, amount }) => ({ unitId: key, amount })),
       verdict,
-      cutInAt: enemies.flatMap((stage, at) => stage.cutsBefore.includes(member.unitId) ? [at + 1] : []),
+      cutInAt: enemies.flatMap((stage, at) => stage.cutsBefore.includes(unitId) ? [at + 1] : []),
       range,
-      inRange: range !== null && shown >= range.minimum && (range.maximum === null || shown <= range.maximum),
+      inRange: range !== null && speed >= range.minimum && (range.maximum === null || speed <= range.maximum),
     };
   });
 
@@ -552,11 +592,11 @@ export function outOfPlaceCount(reading: TeamReading): number {
   return reading.members.filter((member) => member.verdict.kind === 'early' || member.verdict.kind === 'late').length;
 }
 
-/** What an interval asks for, in the words a team's member and a standing rule both use, or `null` where no display speed of that monster alone puts it right: then the line says nothing more. */
-export function displaySpeedIntervalText(interval: DisplaySpeedInterval | null, general: GeneralSettings): string | null {
+/** What an interval asks for, in the words a member's verdict line uses, or `null` where no combat speed of that monster alone puts it right: then the line says nothing more. */
+export function combatSpeedIntervalText(interval: CombatSpeedInterval | null, general: GeneralSettings): string | null {
   if (interval === null) return null;
   const minimum = formatNumber(interval.minimum, general);
-  if (interval.maximum === null) return `needs ${minimum}+ display speed`;
-  if (interval.maximum === interval.minimum) return `needs exactly ${minimum} display speed`;
-  return `needs ${minimum}–${formatNumber(interval.maximum, general)} display speed`;
+  if (interval.maximum === null) return `needs ${minimum}+ combat speed`;
+  if (interval.maximum === interval.minimum) return `needs exactly ${minimum} combat speed`;
+  return `needs ${minimum}–${formatNumber(interval.maximum, general)} combat speed`;
 }

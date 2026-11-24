@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from '../../ui/button';
 import { CheckboxRow } from '../../ui/form-controls';
@@ -13,9 +13,9 @@ import type { MonsterCopyName } from '../../domain/monsters/monster-names';
 import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortAllyBoost, shortLeaderSkill, shortTurnEffect } from '../../domain/speed/speed-skills';
 import type { SpeedOpponent } from '../../domain/speed/speed-contents';
 import { leaderAreaReaches } from '../../domain/speed/speed-tick';
-import { displaySpeedIntervalText } from '../../domain/speed/speed-tuning-analysis';
-import type { DisplaySpeedInterval, MemberReading, TeamReading } from '../../domain/speed/speed-tuning-analysis';
-import { canKeepSpeedTuning, whatIfDisplaySpeedMaximum } from '../../domain/profiles/speed-tuning-preferences';
+import { combatSpeedIntervalText } from '../../domain/speed/speed-tuning-analysis';
+import type { CombatSpeedInterval, MemberReading, TeamReading } from '../../domain/speed/speed-tuning-analysis';
+import { canKeepSpeedTuning, whatIfCombatSpeedMaximum } from '../../domain/profiles/speed-tuning-preferences';
 import type { SpeedTeam } from '../../domain/profiles/speed-tuning-preferences';
 import type { GeneralSettings } from '../../domain/model';
 
@@ -36,7 +36,7 @@ function movesText(positions: readonly number[]): string {
 /**
  * The one line under a member that says whether its first turn is the one its
  * place asks for, where to tune it, and last, which enemy gets in before it.
- * The fix quotes the Interval column's range and nothing else: the display
+ * The fix quotes the Interval column's range and nothing else: the combat
  * speeds that put it between the members placed just above and below it, with
  * no enemy turn before it.
  */
@@ -48,7 +48,7 @@ function verdictText(member: MemberReading, names: Record<string, MonsterCopyNam
     : opponent === 'worst-case' ? 'worst-case enemy cuts in'
       : `enemy cuts in (stage${stages.length === 1 ? '' : 's'} ${stages.join(', ')})`;
   if (tiedWith !== null) return `Tied with ${names[tiedWith]?.name ?? 'a teammate'}. Position decides.${enemy === null ? '' : ` · ${enemy}`}`;
-  const fix = member.inRange ? null : displaySpeedIntervalText(member.range, general);
+  const fix = member.inRange ? null : combatSpeedIntervalText(member.range, general);
   const moves = movesText(member.turnPositions);
   /* In its place but cut into, the enemy is the fault and leads the line,
      rather than an "In place" the red would contradict. */
@@ -62,7 +62,7 @@ function verdictText(member: MemberReading, names: Record<string, MonsterCopyNam
 
 /* Red for a first turn out of its place or an enemy getting in before it;
    yellow for a tie, or a member in place that is not between its neighbours'
-   display speeds; green only with none of them. */
+   combat speeds; green only with none of them. */
 function verdictState(member: MemberReading, enemiesKnown: boolean): 'good' | 'warn' | 'bad' {
   if (enemiesKnown && member.cutInAt.length > 0) return 'bad';
   switch (member.verdict.kind) {
@@ -81,25 +81,30 @@ export function BoostMark({ label, tone }: { label: string; tone: 'team' | 'own'
   </span>;
 }
 
-function WhatIfField({ member, label, disabled, onChange }: {
+const whatIfHint = 'Enter a combat speed with the totem and leader skills already counted.';
+const displayHint = 'The display speed for the entered combat speed or, if the field is empty, for the engraved runes.';
+
+function WhatIfField({ member, label, describedBy, disabled, onChange }: {
   member: MemberReading;
   label: string;
+  describedBy: string;
   disabled: boolean;
   onChange: (value: number | undefined) => void;
 }) {
   /* Held as text while it is typed, so an empty field is "no experiment" rather
      than a zero, and a half-typed number is not read until it is a number.
-     Empty until typed in: the imported figure sits one column to the left. */
+     Empty until typed in: the combat speed on the runes leads the row. */
   const [draft, setDraft] = useState<string | null>(null);
-  const value = draft ?? (member.whatIf ? String(member.displaySpeed) : '');
+  const value = draft ?? (member.whatIf ? String(member.combatSpeed) : '');
   return <input className="speed-what-if" type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3}
-    autoComplete="off" aria-label={label} value={value} disabled={disabled}
+    autoComplete="off" aria-label={label} aria-describedby={describedBy} value={value} disabled={disabled}
     onChange={(event) => {
-      const digits = event.target.value.replace(/\D/g, '');
+      const digits = event.target.value;
+      if (!/^\d*$/.test(digits)) return;
       setDraft(digits);
       if (digits === '') { onChange(undefined); return; }
       const parsed = Number(digits);
-      if (Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= whatIfDisplaySpeedMaximum) onChange(parsed);
+      if (Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= whatIfCombatSpeedMaximum) onChange(parsed);
     }}
     onBlur={() => setDraft(null)} />;
 }
@@ -127,11 +132,11 @@ type EditorProps = {
 };
 
 /**
- * The display speeds that put a member between its neighbours, as the
+ * The combat speeds that put a member between its neighbours, as the
  * Interval column states them: a closed range, an open one, or a dash where
  * none will do.
  */
-function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings): string {
+function rangeText(range: CombatSpeedInterval | null, general: GeneralSettings): string {
   if (range === null) return '—';
   const minimum = formatNumber(range.minimum, general);
   return range.maximum === null ? `${minimum}+` : `${minimum} – ${formatNumber(range.maximum, general)}`;
@@ -145,6 +150,7 @@ function rangeText(range: DisplaySpeedInterval | null, general: GeneralSettings)
  */
 export function SpeedTeamEditor({ reading, title, names, general, onChange, onWhatIf, onOpenMonster, turnOrderAction, enemiesKnown = true, leading }: EditorProps) {
   const { team, content } = reading;
+  const whatIfHintId = useId();
   /* What is stated here is kept for the team's species; a member the import
      does not hold leaves them unknown, so nothing here could be kept. */
   const keepable = canKeepSpeedTuning(team);
@@ -170,14 +176,28 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         <col className="speed-col-speed" /><col className="speed-col-interval" /><col className="speed-col-what-if" /><col className="speed-col-speed" />
         <col className="speed-col-controls" />
       </colgroup>
+      {/* Combat speed leads: it is the speed the turn order is decided by, so
+          the interval and the what-if speak it too. Display speed comes last
+          and muted, as a reading of the combat speed beside it rather than a
+          figure of its own. */}
       <thead><tr>
         <th scope="col">#</th>
         <th scope="col">Monster</th>
         <th scope="col" className="align-center">Leader</th>
-        <th scope="col" className="align-right">Display speed</th>
-        <th scope="col" className="align-right">Interval</th>
-        <th scope="col" className="align-right">What if...</th>
         <th scope="col" className="align-right">Combat speed</th>
+        <th scope="col" className="align-right">Interval</th>
+        {/* Named on its own, so the column is "What if..." to a screen reader;
+            the mark still says its piece when focused, and every field's own
+            label says combat speed. */}
+        <th scope="col" className="align-right" aria-label="What if...">
+          <span className="speed-head-with-info">What if...
+            <span className="speed-info-mark" tabIndex={0} role="img" aria-label="About what-if combat speed" aria-describedby={whatIfHintId}>
+              <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><path d="M8 7.2v3.5M8 5.1h.01" /></svg>
+            </span>
+            <span id={whatIfHintId} className="speed-info-tooltip type-caption" role="tooltip">{whatIfHint}</span>
+          </span>
+        </th>
+        <th scope="col" className="align-right speed-display-head" title={displayHint}>Display speed</th>
         <th scope="col"><span className="visually-hidden">Move</span></th>
       </tr></thead>
       {/* One body per slot, two rows each: the name, and under it the
@@ -270,16 +290,21 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
                 </span>
               </label>
             </td>
-            <td className="speed-figure" rowSpan={2}>{formatNumber(monster.importedDisplaySpeed, general)}</td>
+            <td className="speed-figure speed-combat" rowSpan={2} title={`${formatNumber(monster.importedCombatSpeed, general)} combat speed${monster.leaderPercent > 0
+              ? `, including +${monster.leaderPercent} % SPD from leader skills` : ''}`}>
+              {formatNumber(monster.importedCombatSpeed, general)}
+            </td>
             <td className="speed-figure speed-slot-range" rowSpan={2}
-              title={noRange ? `No display speed of ${name} moves it between the monsters placed beside it${reading.enemies.length > 0 ? ' ahead of the enemy' : ''}` : undefined}>{range}</td>
+              title={noRange ? `No combat speed of ${name} moves it between the monsters placed beside it${reading.enemies.length > 0 ? ' ahead of the enemy' : ''}` : undefined}>{range}</td>
             <td className="speed-figure speed-what-if-cell" rowSpan={2}>
-              <WhatIfField member={monster} label={`What-if display speed for ${name} in ${title}`} disabled={!keepable}
+              <WhatIfField member={monster} label={`What-if combat speed for ${name} in ${title}`} describedBy={whatIfHintId} disabled={!keepable}
                 onChange={(value) => onWhatIf(member.unitId, value)} />
             </td>
-            <td className="speed-figure speed-combat" rowSpan={2} title={`${formatNumber(monster.combatSpeed, general)} combat speed${monster.leaderPercent > 0
-              ? `, with a +${monster.leaderPercent} % SPD lead${team.otherLeaders.length > 0 ? ` from the leaders of ${[title, ...team.otherLeaders.map((leader) => leader.presetName)].join(', ')}` : ''}` : ''}`}>
-              {formatNumber(monster.combatSpeed, general)}
+            <td className="speed-figure speed-display" rowSpan={2}
+              title={monster.displaySpeed === null
+                ? `No display speed of ${name} gives ${formatNumber(monster.combatSpeed, general)} combat speed`
+                : `${formatNumber(monster.displaySpeed, general)} display speed gives ${name} ${formatNumber(monster.combatSpeed, general)} combat speed`}>
+              {monster.displaySpeed === null ? '—' : formatNumber(monster.displaySpeed, general)}
             </td>
             {controls}
           </tr>

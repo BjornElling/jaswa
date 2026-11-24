@@ -82,7 +82,7 @@ export function SpeedTeamOverlay({ initial, slots, title, monsters, totemShare, 
      next time it is opened, and typing one is an edit like any other. But only
      this overlay reads them: the page judges the runes engraved and never passes them. */
   const whatIfs = useMemo(() => new Map(draft.members.flatMap((member) =>
-    member.whatIfDisplaySpeed === undefined ? [] : [[member.unitId, member.whatIfDisplaySpeed] as const])), [draft]);
+    member.whatIfCombatSpeed === undefined ? [] : [[member.unitId, member.whatIfCombatSpeed] as const])), [draft]);
   const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare, whatIfs, ranges: true }),
     [draft, whatIfs, monsters, totemShare]);
   const dungeon = isDungeonId(draft.content) ? draft.content : null;
@@ -106,7 +106,7 @@ export function SpeedTeamOverlay({ initial, slots, title, monsters, totemShare, 
     change((team) => ({
       ...team,
       members: team.members.map((member) => member.unitId !== unitId ? member
-        : value === undefined ? { unitId: member.unitId, masterId: member.masterId } : { ...member, whatIfDisplaySpeed: value }),
+        : value === undefined ? { unitId: member.unitId, masterId: member.masterId } : { ...member, whatIfCombatSpeed: value }),
     }));
   }
 

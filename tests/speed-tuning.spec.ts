@@ -366,8 +366,8 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(card.locator('.speed-verdict[data-state="bad"]')).toHaveText([
     /* Stage 2's three enemies move before the third member and are counted.
        Only the third can still get ahead of them between its neighbours, so
-       only it is told the display speed that does; the last two have none. */
-    'Enemy cuts in (stage 2) · moves 6th · needs exactly 103 display speed',
+       only it is told the combat speed that does; the last two have none. */
+    'Enemy cuts in (stage 2) · moves 6th · needs exactly 118 combat speed',
     'Enemy cuts in (stage 2) · moves 7th',
     'Enemy cuts in (stage 2) · moves 8th',
   ]);
@@ -428,24 +428,51 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   const megan = saved.locator('.speed-slot').nth(1);
   /* Her range puts her between Bernard and Lushen #1 as they stand, and the
      enemy getting in comes last. */
-  await expect(megan.locator('.speed-verdict')).toHaveText('Too slow · moves 8th · needs 105–154 display speed · enemy cuts in (stage 2)');
+  await expect(megan.locator('.speed-verdict')).toHaveText('Too slow · moves 8th · needs 120–169 combat speed · enemy cuts in (stage 2)');
   await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'bad');
-  await expect(saved.locator('.speed-slot').nth(3).locator('.speed-verdict')).toHaveText('Too fast · moves 6th · needs exactly 103 display speed · enemy cuts in (stage 2)');
+  await expect(saved.locator('.speed-slot').nth(3).locator('.speed-verdict')).toHaveText('Too fast · moves 6th · needs exactly 118 combat speed · enemy cuts in (stage 2)');
   await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(4);
   expectSameHeight((await box(saved.locator('.speed-team-editor'))).height, startBox.height);
   await saved.screenshot({ path: testInfo.outputPath('speed-team-out-of-order.png') });
 
   /* A what-if starts empty, fixes the whole team from inside the interval, and
      empty goes back to the import. */
-  const whatIf = saved.getByLabel("What-if display speed for Megan (2A) in Giant's Keep 1");
+  const whatIf = saved.getByLabel("What-if combat speed for Megan (2A) in Giant's Keep 1");
   await expect(whatIf).toHaveValue('');
   await expect(whatIf).not.toHaveAttribute('placeholder');
-  await whatIf.fill('120');
+  const help = saved.getByRole('img', { name: 'About what-if combat speed' });
+  await help.focus();
+  await expect(saved.getByRole('tooltip')).toBeVisible();
+  await expect(whatIf).toHaveAccessibleDescription('Enter a combat speed with the totem and leader skills already counted.');
+  await whatIf.focus();
+  await expect(saved.getByRole('tooltip')).toBeHidden();
+
+  const fields = await saved.getByRole('textbox', { name: /^What-if combat speed for/ }).all();
+  expect(fields).toHaveLength(5);
+  const table = saved.locator('.speed-team-table');
+  const measured = [table, enemyTurns, ...fields];
+  const emptyBoxes = await Promise.all(measured.map(box));
+  await saved.screenshot({ path: testInfo.outputPath('speed-what-ifs-empty.png') });
+  await whatIf.fill('-1');
+  await expect(whatIf).toHaveValue('');
+  await whatIf.fill('1');
+  await expect(megan.locator('.speed-display')).toHaveText('—');
+  for (const field of fields) await field.fill('999');
+  expect(await Promise.all(measured.map(box))).toEqual(emptyBoxes);
+  await saved.screenshot({ path: testInfo.outputPath('speed-what-ifs-full.png') });
+  for (const field of fields) await field.fill('');
+  expect(await Promise.all(measured.map(box))).toEqual(emptyBoxes);
+
+  /* The what-if is a combat speed: the runes' figure stays where it is, and
+     the display speed beside it follows, as the one that gives it. */
+  const meganCombat = await megan.locator('.speed-combat').textContent();
+  await whatIf.fill('135');
   await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(0);
-  await expect(megan.locator('.speed-combat')).toHaveText('135');
+  await expect(megan.locator('.speed-combat')).toHaveText(meganCombat ?? '');
+  await expect(megan.locator('.speed-display')).toHaveText('120');
   await whatIf.fill('');
   await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(4);
-  await whatIf.fill('120');
+  await whatIf.fill('135');
 
   /* The preset names no leader, so none is chosen; with live sync off one can be. */
   const verdehileLeads = saved.getByRole('checkbox', { name: "Verdehile leads Giant's Keep 1" });
@@ -456,7 +483,7 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(verdehileLead).toHaveText('SPD 28 % · Dungeon');
   await expect(verdehileLead).toHaveAttribute('data-state', 'idle');
 
-  /* Every slot states the display speeds that put it between its neighbours,
+  /* Every slot states the combat speeds that put it between its neighbours,
      a slot none can a dash. */
   await expect(saved.getByRole('columnheader', { name: 'Interval' })).toBeVisible();
   await expect(saved.locator('.speed-slot-range')).toHaveText(Array(5).fill(/^(\d+ – \d+|\d+\+|—)$/));
@@ -506,14 +533,14 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
      preset: the order wanted, and Megan's what-if. */
   expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning)).toEqual({ teams: [{
     content: 'giants',
-    members: [{ masterId: '11533' }, { masterId: '15931', whatIfDisplaySpeed: 120 }, { masterId: '13413' }, { masterId: '19215' }, { masterId: '14712' }],
+    members: [{ masterId: '11533' }, { masterId: '15931', whatIfCombatSpeed: 135 }, { masterId: '13413' }, { masterId: '19215' }, { masterId: '14712' }],
     orderStated: true,
     noSpeedTuning: false,
   }] });
   await page.screenshot({ path: testInfo.outputPath('speed-page-one-team.png') });
   /* Opened again, the what-if is still there, and the overlay reads it. */
   await line.click();
-  await expect(saved.getByLabel("What-if display speed for Megan (2A) in Giant's Keep 1")).toHaveValue('120');
+  await expect(saved.getByLabel("What-if combat speed for Megan (2A) in Giant's Keep 1")).toHaveValue('135');
   await expect(saved.locator('.speed-verdict[data-state="bad"]')).toHaveCount(0);
   await saved.getByRole('button', { name: 'Close' }).click();
   await expect(line.locator('.speed-summary-state')).toHaveText('4 of 5 out of place · Enemy can cut in (stage 2)');
@@ -541,7 +568,7 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(line.locator('.speed-summary-name')).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
   await page.screenshot({ path: testInfo.outputPath('speed-page-out-of-tune.png') });
   await line.click();
-  await expect(saved.getByLabel("What-if display speed for Megan (2A) in Giant's Keep 1")).toHaveValue('120');
+  await expect(saved.getByLabel("What-if combat speed for Megan (2A) in Giant's Keep 1")).toHaveValue('135');
   await expect(saved.locator('.speed-monster .monster-name')).toHaveText(['Bernard (2A)', 'Megan (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
   /* Reset hands the order back to the runes: the team stands as it moves at
      once, and only the what-if is kept. */
@@ -552,7 +579,7 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   await expect(line.locator('.speed-summary-name')).toHaveText(moving);
   await expect.poll(async () => page.evaluate(() => JSON.parse(window.localStorage.getItem('jaswa-preferences') ?? '{}').speedTuning?.teams))
     .toEqual([{ content: 'giants', members: moving.map((name) => name === 'Megan (2A)'
-      ? { masterId: '15931', whatIfDisplaySpeed: 120 } : { masterId: { 'Bernard (2A)': '11533', 'Lushen #1': '13413', Veromos: '19215', Verdehile: '14712' }[name] }),
+      ? { masterId: '15931', whatIfCombatSpeed: 135 } : { masterId: { 'Bernard (2A)': '11533', 'Lushen #1': '13413', Veromos: '19215', Verdehile: '14712' }[name] }),
     orderStated: false, noSpeedTuning: false }]);
   /* Another preset of the same dungeon, with other monsters, is untouched by this one's tuning. */
   await expect(presetLine(dungeons, "Giant's Keep 2").locator('.speed-summary-name')).toHaveText(['Lushen #1', 'Lushen #2']);
@@ -615,7 +642,8 @@ test('an order kept by preset before teams carries over to its team', async ({ p
   const line = presetLine(page.getByRole('region', { name: 'Dungeons', exact: true }), "Giant's Keep 1");
   await expect(line.locator('.speed-summary-name')).toHaveText(['Megan (2A)', 'Bernard (2A)', 'Lushen #1', 'Veromos', 'Verdehile']);
   await line.click();
-  await expect(page.getByLabel("What-if display speed for Megan (2A) in Giant's Keep 1")).toHaveValue('150');
+  /* Its what-ifs were display speeds, which no combat speed stands in for: the order alone carries over. */
+  await expect(page.getByLabel("What-if combat speed for Megan (2A) in Giant's Keep 1")).toHaveValue('');
 });
 
 test('a preset that holds fewer monsters than its content keeps the card\'s size', async ({ page }, testInfo) => {
@@ -751,11 +779,11 @@ test('arena presets face a worst-case enemy', async ({ page }, testInfo) => {
   await expect(megan.locator('.speed-verdict')).toHaveText('Worst-case enemy cuts in · moves 5th');
   await expect(megan.locator('.speed-verdict')).toHaveAttribute('data-state', 'bad');
   /* Behind Lushen #2 she is always behind the worst case too, which is level
-     with the opener: no display speed holds her place, so she has no range. */
+     with the opener: no combat speed holds her place, so she has no range. */
   await expect(megan.locator('.speed-slot-range')).toHaveText('—');
   const tiedBox = await box(card.locator('.speed-team-editor'));
   await card.screenshot({ path: testInfo.outputPath('speed-arena-tied.png') });
-  const tiedWhatIf = card.getByLabel('What-if display speed for Lushen #2 in Arena Attack 1');
+  const tiedWhatIf = card.getByLabel('What-if combat speed for Lushen #2 in Arena Attack 1');
   await tiedWhatIf.fill('1');
   await expect(card.locator('.speed-slot').nth(1).locator('.speed-verdict')).not.toContainText('Tied with');
   expectSameHeight((await box(card.locator('.speed-team-editor'))).height, tiedBox.height);
@@ -861,17 +889,17 @@ test('a boost to one ally names who gets it: the lowest bar, as auto battle send
 
   /* Behind both Lushens, Konamiya fills the one that moved last: its bar has
      had the fewest ticks since it emptied. */
-  await draft.getByLabel("What-if display speed for Konamiya in Giant's Keep 1").fill('100');
+  await draft.getByLabel("What-if combat speed for Konamiya in Giant's Keep 1").fill('117');
   await expect(caster.locator('.speed-boost-tag')).toHaveText('+100 % ATB → Lushen #2');
   expectSameHeight((await box(caster)).height, slotBox.height);
   await draft.screenshot({ path: testInfo.outputPath('speed-one-ally-after.png') });
 
   /* Fast enough to keep every enemy out, and filled straight after its own
      turn, Lushen #2 moves again before Veromos has moved at all. */
-  await draft.getByLabel("What-if display speed for Lushen #1 in Giant's Keep 1").fill('260');
-  await draft.getByLabel("What-if display speed for Lushen #2 in Giant's Keep 1").fill('250');
-  await draft.getByLabel("What-if display speed for Konamiya in Giant's Keep 1").fill('240');
-  await draft.getByLabel("What-if display speed for Veromos in Giant's Keep 1").fill('200');
+  await draft.getByLabel("What-if combat speed for Lushen #1 in Giant's Keep 1").fill('276');
+  await draft.getByLabel("What-if combat speed for Lushen #2 in Giant's Keep 1").fill('266');
+  await draft.getByLabel("What-if combat speed for Konamiya in Giant's Keep 1").fill('257');
+  await draft.getByLabel("What-if combat speed for Veromos in Giant's Keep 1").fill('215');
   await expect(verdicts.nth(2)).toContainText('moves 2nd and 4th');
   await expect(verdicts.nth(3)).toContainText('moves 5th');
   await draft.screenshot({ path: testInfo.outputPath('speed-one-ally-twice.png') });
@@ -899,7 +927,7 @@ test('the Ticks view draws every boost as the jump it makes, named for whoever g
   await expect(lanes.locator('.speed-lane-row[data-enemy] .speed-lane-boost')).toHaveCount(0);
 });
 
-test('each slot states the display speeds that hold it, and a what-if is selected rather than dragged', async ({ page }, testInfo) => {
+test('each slot states the combat speeds that hold it, and a what-if is selected rather than dragged', async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   await freshWorkspace(page);
   await importAccount(page);
@@ -919,13 +947,13 @@ test('each slot states the display speeds that hold it, and a what-if is selecte
 
   /* In order, every first turn is in its place; stage 2's enemy getting in
      before the last three is what is red. Each range puts its monster between
-     the ones placed beside it, at the display speeds they have now, with no
+     the ones placed beside it, at the combat speeds they have now, with no
      enemy turn before it: the first is open above, as nobody is placed before
      it, but must open ahead of stage 2's fastest enemy; Veromos holds off stage
-     2 only at 103; Verdehile and Megan cannot between their neighbours. */
+     2 only at 118; Verdehile and Megan cannot between their neighbours. */
   await expect(draft.locator('.speed-verdict[data-state="bad"]')).toHaveCount(3);
   const ranges = draft.locator('.speed-slot-range');
-  await expect(ranges).toHaveText(['152+', '103 – 153', '103 – 103', '—', '—']);
+  await expect(ranges).toHaveText(['169+', '119 – 169', '118 – 118', '—', '—']);
 
   /* Out of order, both monsters out of their places are red: Verdehile, below,
      moving first, and Megan, above, moving after it. */
@@ -939,7 +967,7 @@ test('each slot states the display speeds that hold it, and a what-if is selecte
   await draft.getByRole('button', { name: 'Move Megan (2A) later' }).click();
 
   /* Pressing in a what-if and moving selects its digits; the slot stays put. */
-  const whatIf = draft.getByLabel("What-if display speed for Lushen #1 in Giant's Keep 1");
+  const whatIf = draft.getByLabel("What-if combat speed for Lushen #1 in Giant's Keep 1");
   await whatIf.fill('123');
   const field = await box(whatIf);
   await page.mouse.move(field.x + field.width - 4, field.y + field.height / 2);

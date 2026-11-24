@@ -28,9 +28,19 @@ earlier "arena speed", "dungeon speed", "raid speed" and "guild speed" made
 the reader ask whether they were four different things. Where the team fights
 decides which leads count, never what the figure is called.
 
-A what-if value is always a display speed. It is turned back into flat rune
-speed (`runeSpeedForDisplay`), so an experiment changes the runes and nothing
-else: base speed, Swift, totem, leader and passive stay the monster's own. It is saved
+**Speed Tuning speaks combat speed** (the user's decision of November 24,
+2026): the turn order is decided by it, so a team's overlay leads with it, its
+interval (§7.1) is a range of combat speeds and a what-if is typed as one.
+The *Combat speed* column always shows the figure from the engraved runes.
+Beside the what-if field, *Display speed* shows the display speed from the
+runes while the field is blank. Once a combat speed is entered, it shows the
+lowest display speed that reaches it, found by asking `combatSpeed` at each
+display speed from bare runes up. A combat speed under bare runes gets a dash.
+
+A what-if value is always a combat speed and goes to the clock as it stands:
+the clock reads nothing of a unit's speed but its combat speed, so no rune
+speed is invented to reach it. It is the speed the monster fights at, totem
+and leads included, so a new leader does not move it. It is saved
 with the team, so the experiment is there when the team is opened again, but
 only the team's overlay reads it: the page behind it, its verdicts and every
 other figure judge the runes engraved.
@@ -453,18 +463,18 @@ place only says where on the field that turn falls.
 
 ### 7.1 The interval — between the neighbours, ahead of the enemy
 
-**Binding rule (the user's, October 11, 2026, widened November 11, 2026): a
-member's interval is the display speeds at which its first turn comes strictly
-after that of the member placed just above it and strictly before that of the
-member placed just below it, with no enemy turn before it, every other member
-at the display speed it has now — its what-if where one is typed.** Both places
-that offer display speeds quote it: the overlay's *Interval* column, beside
-display speed, and the `needs … display speed` on the verdict line, which
-quotes it only where the current value lies outside it. They cannot disagree,
-because they are the same figure.
+**Binding rule (the user's, October 11, 2026, widened November 11, 2026, in
+combat speed since November 24, 2026): a member's interval is the combat speeds
+at which its first turn comes strictly after that of the member placed just
+above it and strictly before that of the member placed just below it, with no
+enemy turn before it, every other member at the combat speed it has now — its
+what-if where one is typed.** Both places that offer combat speeds quote it:
+the overlay's *Interval* column, beside combat speed, and the `needs … combat
+speed` on the verdict line, which quotes it only where the current value lies
+outside it. They cannot disagree, because they are the same figure.
 
 The interval answers one question: where this monster holds its place, as the
-team stands now. It is not the display speed the monster would need for the
+team stands now. It is not the combat speed the monster would need for the
 whole team to come right, and it does not look past its two neighbours and the
 enemy; a neighbour out of its own place, or cut into, says so on its own line,
 with its own interval. No member but the two neighbours plays a part, except
@@ -473,7 +483,7 @@ through the clock: their boosts and buffs still move the bars.
 **The enemy is the one the reading meets.** `oppositionOf`
 (`speed-tuning-analysis.ts`) is the one place a team's enemies are set up — the
 worst case of Arena and Siege Battle, a floor's stages, or nobody — and both the
-reading (§6, §7.2) and the interval search ask it, at every display speed tried.
+reading (§6, §7.2) and the interval search ask it, at every combat speed tried.
 The worst case follows the team's first mover, so a member that slows enough to
 hand another the opening meets an enemy level with that one. On a floor, a
 value fits only if no stage's enemy gets in before the member. With *No speed
@@ -487,13 +497,13 @@ last member has nobody below it. Without a booster, a worst case level with the
 opener gets in before every later member, so their intervals are mostly a dash:
 the page then says what the opening really is.
 
-Every display speed from bare runes up to the highest a what-if takes is run
-on the team's clock, so boosts, buffs, Leo's cap and rounding are answered by
+Every combat speed from bare runes up to the highest a what-if takes is run
+on the team's clock, so boosts, buffs and Leo's cap are answered by
 the one implementation, with nothing restated. A boost aimed at the lowest bar
 can make a faster monster move later, so the values that fit may lie in more
 than one stretch; the stretch holding the member's current value is shown, or
 failing that the stretch nearest it. The interval is shown as `xx – yy`, `xx+`
-where the stretch reaches the highest display speed, or a dash where no display
+where the stretch reaches the highest combat speed, or a dash where no combat
 speed puts the member between its neighbours ahead of the enemy — for instance
 where the one above is slower than the one below.
 
@@ -501,7 +511,7 @@ The verifier (`verify:speed-tick`) re-reads every sampled team off its own
 trace, apart from the module: each member is too fast or too slow exactly when
 its first turn ranks elsewhere than its place; and for a third of the sweep
 each interval is typed in across its width, both edges included, and one
-display speed past either edge must not fit — between the neighbours on the
+combat speed past either edge must not fit — between the neighbours on the
 team's trace and with no enemy turn before it on the drawn enemy traces —
 while a dash must not fit at a spread of values. The sweep covers a dungeon,
 Arena and Siege Battle.
@@ -544,7 +554,7 @@ Which presets are teams, and whose monsters, gear and leader they carry, is
 - Every team opens and is tuned alike. A content without enemy data is tuned
   for its own turn order, its leads counted by its area (§2.2); a preset whose
   content is not yet named counts only the leads that count everywhere.
-- The user states the turn order wanted and the what-if display speeds. They
+- The user states the turn order wanted and the what-if combat speeds. They
   are kept for the **team**, not the preset: its preset content (Arena Attack,
   Tower of Fire …, or *unnamed*) and its monsters by species
   (`unit_master_id`), whatever slots they stand in

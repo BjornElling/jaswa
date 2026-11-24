@@ -54,7 +54,7 @@ try {
     artifacts: { ...blank.artifacts, acceptableWorth: 75 },
     speedTuning: {
       teams: [
-        { content: 'giants', members: [{ masterId: '14712' }, { masterId: '14713', whatIfDisplaySpeed: 140 }], orderStated: true, noSpeedTuning: false },
+        { content: 'giants', members: [{ masterId: '14712' }, { masterId: '14713', whatIfCombatSpeed: 140 }], orderStated: true, noSpeedTuning: false },
         { content: 'arena-attack', members: [{ masterId: '14713' }], orderStated: false, noSpeedTuning: true },
       ],
     },
@@ -303,11 +303,12 @@ try {
   }
 
   /* A team's speed tuning that fails costs that team; inside one, a what-if
-     that fails costs only itself. */
+     that fails costs only itself — a display-speed what-if, which no combat
+     speed stands in for, included. */
   const [ordered, untuned] = chosen.speedTuning.teams;
   const speed = readPreferences({ ...chosen, speedTuning: { teams: [
     'not a tuning',
-    { ...ordered, members: [{ masterId: '14712', whatIfDisplaySpeed: 0 }, ordered.members[1]], marginEnabled: true },
+    { ...ordered, members: [{ masterId: '14712', whatIfCombatSpeed: 0, whatIfDisplaySpeed: 150 }, ordered.members[1]], marginEnabled: true },
     { ...ordered, noSpeedTuning: true },
     { ...untuned, noSpeedTuning: true, orderStated: 'no' },
   ] } }, null);
