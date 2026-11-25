@@ -2,7 +2,7 @@
  * The game's turn-order rules, and the only place JASWA states them.
  *
  * Everything Speed Tuning shows — a combat speed, who moves when, an interval
- * of display speeds — is computed here or from what this
+ * of combat speeds — is computed here or from what this
  * module returns. `docs/SPEED-TICK-CANONICAL.md` is the written form of the same
  * rules, with their sources and the points the sources leave open; a rule
  * changed here is changed there in the same commit.
@@ -309,8 +309,8 @@ export type BattleTrace = { events: TurnEvent[]; snapshots: TickSnapshot[] };
  * `units` lists allies in the user's intended order, which is that last resort.
  * The loop stops when `done` says so or at `tickLimit`.
  * `snapshots: false` leaves the per-tick bars out: a search that only reads
- * the order of turns runs the clock hundreds of times, and copying every bar
- * on every tick was most of its cost. The turns are the same either way.
+ * the order of turns can also skip ticks on which nobody can move. The turns
+ * are the same either way.
  */
 export function simulateBattle(units: readonly TickUnit[], options: {
   done: (events: readonly TurnEvent[]) => boolean;
@@ -343,7 +343,20 @@ export function simulateBattle(units: readonly TickUnit[], options: {
 
   for (let tick = 1; tick <= tickLimit && !options.done(events); tick += 1) {
     const fills = units.map((unit) => tickRate * currentSpeed(unit));
-    units.forEach((unit, at) => bars.set(unit.key, (bars.get(unit.key) ?? 0) + fills[at]));
+    let elapsed = 1;
+    if (!recording) {
+      // Bars fill at the same rate until someone acts. A very low combat
+      // speed under Leo can leave hundreds of empty ticks between turns.
+      elapsed = units.reduce((earliest, unit, at) => {
+        const fill = fills[at];
+        const remaining = fullBar - (bars.get(unit.key) ?? 0);
+        if (fill >= remaining) return 1;
+        return fill > 0 ? Math.min(earliest, Math.ceil(remaining / fill)) : earliest;
+      }, Number.POSITIVE_INFINITY);
+      if (tick + elapsed - 1 > tickLimit) break;
+      tick += elapsed - 1;
+    }
+    units.forEach((unit, at) => bars.set(unit.key, (bars.get(unit.key) ?? 0) + fills[at] * elapsed));
     const ready = units.filter((unit) => (bars.get(unit.key) ?? 0) >= fullBar);
     const snapshot: TickSnapshot | null = recording ? {
       tick,

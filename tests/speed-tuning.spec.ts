@@ -73,6 +73,29 @@ async function box(locator: Locator) {
   return measured;
 }
 
+async function keyToNextFrame(field: Locator, key: string): Promise<number> {
+  await field.evaluate((input) => {
+    input.removeAttribute('data-next-frame-ms');
+    input.addEventListener('keydown', () => {
+      const started = performance.now();
+      requestAnimationFrame(() => input.setAttribute('data-next-frame-ms', String(performance.now() - started)));
+    }, { once: true });
+  });
+  await field.press(key);
+  await expect(field).toHaveAttribute('data-next-frame-ms', /\d/);
+  return Number(await field.getAttribute('data-next-frame-ms'));
+}
+
+async function keepSpeedOrder(page: Page, content: 'giants' | 'unnamed', masterIds: number[]) {
+  await page.evaluate(({ content, members }) => {
+    const preferences = JSON.parse(localStorage.getItem('jaswa-preferences') ?? '{}');
+    localStorage.setItem('jaswa-preferences', JSON.stringify({ ...preferences, speedTuning: {
+      teams: [{ content, orderStated: true, noSpeedTuning: false, members }],
+    }, updatedAt: new Date(Date.now() + 1000).toISOString() }));
+  }, { content, members: masterIds.map((masterId) => ({ masterId: String(masterId) })) });
+  await page.reload();
+}
+
 test('an empty workspace says what Speed Tuning needs', async ({ page }, testInfo) => {
   await freshWorkspace(page);
   await openSpeedTuning(page);
@@ -925,6 +948,78 @@ test('the Ticks view draws every boost as the jump it makes, named for whoever g
   /* The buff is not drawn, but a cell under it says so to a screen reader. */
   await expect(lane('Veromos').getByRole('cell', { name: /under speed buff/ }).first()).toBeAttached();
   await expect(lanes.locator('.speed-lane-row[data-enemy] .speed-lane-boost')).toHaveCount(0);
+});
+
+test("typing the last what-if in Giant's Keep keeps every keystroke responsive", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await freshWorkspace(page);
+  const species = [
+    [25613, 3, 104], [13911, 1, 103], [24811, 1, 105], [25711, 1, 102], [32613, 3, 101],
+  ];
+  await keepSpeedOrder(page, 'giants', species.map(([masterId]) => masterId));
+  await importAccount(page, {
+    ...base,
+    unit_list: species.map(([unit_master_id, attribute, spd], at) => ({
+      ...base.unit_list[1], unit_id: at + 1, unit_master_id, attribute, spd,
+      skills: unit_master_id === 32613 ? [[22013, 2]] : [],
+    })),
+    deck_list: [deck(24, 101, [1, 2, 3, 4, 5], { leader_unit_id: 3 })],
+  });
+  await openSpeedTuning(page);
+  await presetLine(page, "Giant's Keep 1").click();
+  const draft = page.getByRole('dialog', { name: "Giant's Keep 1" });
+  const fields = draft.getByRole('textbox', { name: /^What-if combat speed for/ });
+  await expect(fields.nth(4)).toHaveAccessibleName(/Vermilion Bird Dancer/);
+  for (const field of await fields.all()) await expect(field).toHaveValue('');
+  await expect(draft.locator('.speed-slot-range').first()).toHaveText('169+');
+  const slots = await draft.locator('.speed-slot').all();
+  const before = await Promise.all(slots.map(box));
+  await draft.screenshot({ path: testInfo.outputPath('speed-what-if-empty.png') });
+  for (const [index, speed] of ['224', '200', '199', '170'].entries()) await fields.nth(index).fill(speed);
+
+  const last = fields.nth(4);
+  const frameTimes: number[] = [];
+  for (const key of '200') {
+    const elapsed = await keyToNextFrame(last, key);
+    frameTimes.push(Math.round(elapsed));
+    expect(elapsed, `time to render after typing ${key}`).toBeLessThan(1000);
+  }
+  await testInfo.attach('milliseconds to the next frame after each digit', {
+    body: JSON.stringify(frameTimes), contentType: 'application/json',
+  });
+  await expect(last).toHaveValue('200');
+  await expect(slots[4].locator('.speed-verdict')).toContainText('needs exactly 169 combat speed');
+  expect(await Promise.all(slots.map(box))).toEqual(before);
+  await draft.screenshot({ path: testInfo.outputPath('speed-what-if-full.png') });
+
+  for (const field of await fields.all()) await field.fill('999');
+  await expect(draft.locator('.speed-slot-range')).toHaveText(['—', '—', '—', '—', '169 – 998']);
+  expect(await Promise.all(slots.map(box))).toEqual(before);
+});
+
+test('a slow search under two Leos yields to the next edit', async ({ page }) => {
+  await freshWorkspace(page);
+  const species = [[16613, 3, 99], [11533, 3, 111], [13413, 3, 103], [19215, 5, 100], [16613, 3, 99]];
+  await keepSpeedOrder(page, 'unnamed', species.map(([masterId]) => masterId));
+  await importAccount(page, {
+    ...base,
+    unit_list: species.map(([unit_master_id, attribute, spd], at) => ({
+      ...base.unit_list[1], unit_id: at + 1, unit_master_id, attribute, spd,
+      skills: unit_master_id === 16613 ? [[7813, 1]] : [],
+    })),
+    deck_list: [deck(99, 1, [1, 2, 3, 4, 5])],
+  });
+  await openSpeedTuning(page);
+  await presetLine(page, 'Preset 99 · 1').click();
+  const draft = page.getByRole('dialog', { name: 'Preset 99 · 1' });
+  const fields = draft.getByRole('textbox', { name: /^What-if combat speed for/ });
+  const last = fields.last();
+  await expect(last).toHaveAccessibleName(/Leo #2/);
+  for (const [index, speed] of ['999', '1', '1', '1'].entries()) await fields.nth(index).fill(speed);
+  expect(await keyToNextFrame(last, '1')).toBeLessThan(1000);
+  await last.fill('150');
+  await fields.nth(2).fill('200');
+  await expect(draft.locator('.speed-slot-range')).toHaveText(['114+', '201+', '—', '151 – 199', '—']);
 });
 
 test('each slot states the combat speeds that hold it, and a what-if is selected rather than dragged', async ({ page }, testInfo) => {

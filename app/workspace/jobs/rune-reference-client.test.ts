@@ -32,7 +32,7 @@ function factories(fail = false) {
     return worker as unknown as Worker;
   };
   provideWorkerFactories({ artifactScore: create, craftRecommendation: create, runeAdvice: create,
-    runeReference: create, runeOptimization: create, runeOptimizationWork: create });
+    runeReference: create, runeOptimization: create, runeOptimizationWork: create, speedIntervals: create });
   return workers;
 }
 

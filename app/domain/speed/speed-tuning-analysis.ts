@@ -6,7 +6,7 @@
  *
  * Every rule comes from `speed-tick.ts`. This module decides what to simulate
  * and how to report it, and states no rule of the game of its own — an
- * interval is found by running the same clock at each candidate combat speed,
+ * interval is found by running the same clock at the candidate combat speeds,
  * and the display speed beside a combat speed is found by asking `combatSpeed`
  * at each candidate display speed, so rounding, Swift and boosts are all
  * answered by the one implementation.
@@ -25,12 +25,10 @@ import {
   runeSpeedForDisplay, simulateBattle, speedBuffPotency,
 } from './speed-tick';
 import type { BattleTrace, SpeedLeaderSkill, SpeedSheet, TickRule, TickUnit, TurnEvent } from './speed-tick';
+import { enemyUnit, firstTurns, readSpeedIntervals, relation, worstCaseEnemySpeed } from './speed-tuning-intervals';
+import type { CombatSpeedInterval, SpeedIntervalSearch } from './speed-tuning-intervals';
 import type { SpeedTeam } from '../profiles/speed-tuning-preferences';
-import { whatIfCombatSpeedMaximum } from '../profiles/speed-tuning-preferences';
 import type { GeneralSettings } from '../model';
-
-/** A range of combat speeds; `maximum` is `null` where every faster value works too. */
-export type CombatSpeedInterval = { minimum: number; maximum: number | null };
 
 /**
  * Where a member's first turn falls among the team's first turns, against the
@@ -138,6 +136,8 @@ export type TeamReading = {
   enemies: EnemyStageReading[];
   /** The index in `enemies` of the stage whose first enemy turn comes earliest, which members' places are read from; `null` without enemies. */
   worstStage: number | null;
+  /** The clock's inputs for the interval search, with no account records. */
+  intervalSearch: SpeedIntervalSearch;
 };
 
 type Candidate = {
@@ -159,22 +159,16 @@ type Candidate = {
    reads nothing of a unit's speed but its combat speed, so no rune speed has to
    be invented to reach it, and a value no rune build hits exactly is still a
    fair question. */
-function tickUnit(candidate: Candidate, speed = candidate.speed): TickUnit {
+function tickUnit(candidate: Candidate): TickUnit {
   return {
     key: candidate.unitId,
     side: 'ally',
-    speed,
+    speed: candidate.speed,
     speedBuffPercent: candidate.speedBuffPercent,
     effects: candidate.profile.effects,
     similarBoostPassive: candidate.profile.similarBoostPassive,
     capsOthersSpeed: candidate.profile.capsOthersSpeed,
   };
-}
-
-function firstTurns(events: readonly TurnEvent[]): Map<string, TurnEvent> {
-  const first = new Map<string, TurnEvent>();
-  for (const event of events) if (!first.has(event.key)) first.set(event.key, event);
-  return first;
 }
 
 /* A drawn trace runs on past the verdict's stop until every member has had a
@@ -197,24 +191,6 @@ function teamTrace(units: readonly TickUnit[], tick: TickRule, drawn = true): Ba
   const keys = units.map((unit) => unit.key);
   const settled = everyoneMoved(keys);
   return simulateBattle(units, { done: drawn ? drawnUntil(keys, settled) : settled, snapshots: drawn, tick });
-}
-
-/* Whether `earlier` really moves before `later`, and whether only pick order
-   decided it: a tie on the bar a faster start speed settled is no tie. A unit that never moved inside the tick limit moves after
-   every unit that did. */
-function relation(first: Map<string, TurnEvent>, events: readonly TurnEvent[], earlier: string, later: string): 'before' | 'tie' | 'after' {
-  const a = first.get(earlier);
-  const b = first.get(later);
-  if (!a) return 'after';
-  if (!b) return 'before';
-  const aIndex = events.indexOf(a);
-  const bIndex = events.indexOf(b);
-  if (aIndex > bIndex) return 'after';
-  return a.tiedWith.includes(later) ? 'tie' : 'before';
-}
-
-function unitsAt(candidates: readonly Candidate[], speeds: readonly number[]): TickUnit[] {
-  return candidates.map((candidate, at) => tickUnit(candidate, speeds[at]));
 }
 
 /* The combat speed a candidate has at one display speed, every other term its own. */
@@ -261,23 +237,13 @@ function oppositionOf(units: readonly TickUnit[], content: SpeedContent, trace: 
   if (units.length === 0) return [];
   switch (content.opponent) {
     case 'none': return [];
-    case 'worst-case': {
-      const opener = trace.events[0]?.key;
-      const leoSpeeds = units.filter((unit) => unit.capsOthersSpeed).map((unit) => unit.speed);
-      const openingSpeed = Math.min(units.find((unit) => unit.key === opener)?.speed ?? 1, ...leoSpeeds);
-      return [{ speeds: [openingSpeed], names: ['Enemy'] }];
-    }
+    case 'worst-case': return [{ speeds: [worstCaseEnemySpeed(units, trace.events[0]?.key)], names: ['Enemy'] }];
     case 'stages': return content.stages.map((stage) => ({ speeds: stage.speeds, names: enemyNamesOf(stage) }));
   }
 }
 
-/* Leo's cap spares a boss, and a dungeon stage does not say which of its
-   enemies is one, so on a stage every enemy is read as uncapped: the
-   pessimistic reading. Another player's team has no bosses. */
 function enemyUnits(opposition: Opposition, opponent: SpeedContent['opponent']): TickUnit[] {
-  return opposition.speeds.map((speed, at) => ({
-    key: `enemy-${at + 1}`, side: 'enemy', speed, effects: [], exemptFromCap: opponent === 'stages',
-  }));
+  return opposition.speeds.map((speed, at) => enemyUnit(speed, at, opponent));
 }
 
 /* The team's members whose first turn the first enemy turn comes before. Both
@@ -287,73 +253,6 @@ function cutInto(events: readonly TurnEvent[], allyKeys: readonly string[]): str
   if (firstEnemy === -1) return [];
   const movedBefore = new Set(events.slice(0, firstEnemy).map((event) => event.key));
   return allyKeys.filter((key) => !movedBefore.has(key));
-}
-
-/* Whether an enemy of any line-up gets a turn before `key`'s first. The clock
-   stops at the first of the two, as nothing after it changes the answer. */
-function enemyGetsInBefore(allies: readonly TickUnit[], oppositions: readonly Opposition[],
-  content: SpeedContent, key: string): boolean {
-  return oppositions.some((opposition) => {
-    const { events } = simulateBattle([...allies, ...enemyUnits(opposition, content.opponent)], {
-      done: (moved) => moved.some((event) => event.key === key || event.side === 'enemy'),
-      snapshots: false,
-      tick: content.tick,
-    });
-    return cutInto(events, [key]).length > 0;
-  });
-}
-
-/*
- * The combat speeds at which the member at `index` has its first turn
- * strictly after the member placed just above it and strictly before the
- * member placed just below it, with no enemy turn before it, every other
- * member at the combat speed it is read at — its what-if where one is typed.
- * A tie with either neighbour counts against it: no order may hang on pick
- * order the page cannot see.
- *
- * The range answers one question, where this monster holds its place as the
- * team stands now, and not where it would need to be for the whole team to come
- * right: a neighbour out of its own place, or cut into, says so on its own line.
- * The enemies are those `oppositionOf` sets against the team at each value, so
- * a worst case that follows the first mover follows it here too.
- *
- * Every combat speed from bare runes up is run on the clock, because a boost
- * aimed at the lowest bar can make a faster monster move later and leave the
- * values that fit in more than one stretch. The stretch holding the value the
- * member is read at is the answer, or failing that the stretch nearest it.
- * A stretch that reaches the highest combat speed a what-if takes is open.
- */
-function tuningRange(candidates: readonly Candidate[], speeds: readonly number[], index: number, content: SpeedContent): CombatSpeedInterval | null {
-  const self = candidates[index].unitId;
-  const above = candidates[index - 1]?.unitId;
-  const below = candidates[index + 1]?.unitId;
-  const config = [...speeds];
-  const fits = (value: number) => {
-    config[index] = value;
-    const units = unitsAt(candidates, config);
-    const trace = teamTrace(units, content.tick, false);
-    const first = firstTurns(trace.events);
-    return (above === undefined || relation(first, trace.events, above, self) === 'before')
-      && (below === undefined || relation(first, trace.events, self, below) === 'before')
-      && !enemyGetsInBefore(units, oppositionOf(units, content, trace), content, self);
-  };
-
-  const lowest = lowestCombat(candidates[index]);
-  const stretches: CombatSpeedInterval[] = [];
-  let start: number | null = null;
-  for (let value = lowest; value <= whatIfCombatSpeedMaximum + 1; value += 1) {
-    const holds = value <= whatIfCombatSpeedMaximum && fits(value);
-    if (holds && start === null) start = value;
-    if (!holds && start !== null) {
-      stretches.push({ minimum: start, maximum: value - 1 === whatIfCombatSpeedMaximum ? null : value - 1 });
-      start = null;
-    }
-  }
-  const current = speeds[index];
-  const distance = (stretch: CombatSpeedInterval) => current < stretch.minimum ? stretch.minimum - current
-    : stretch.maximum !== null && current > stretch.maximum ? current - stretch.maximum : 0;
-  return stretches.reduce<CombatSpeedInterval | null>((nearest, stretch) =>
-    nearest === null || distance(stretch) < distance(nearest) ? stretch : nearest, null);
 }
 
 /* One line-up drawn in full: the trace the Ticks view shows, and what it says. */
@@ -527,7 +426,17 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
   const orderEvents = worstStage === null ? trace.events : enemies[worstStage].trace.events;
   const lastFirstTurn = Math.max(-1, ...units.map((unit) => orderEvents.findIndex((event) => event.key === unit.key)));
   const opening = orderEvents.slice(0, lastFirstTurn + 1);
-  const speeds = candidates.map((candidate) => candidate.speed);
+  // Every dungeon enemy starts empty and uncapped. Until the first enemy
+  // turn they cannot affect the allies, so the fastest enemy is enough to
+  // decide whether any stage cuts in. The overlay still draws every stage.
+  const fastest = faced.opponent === 'stages' ? Math.max(0, ...enemies.map((stage) => stage.enemySpeed)) : 0;
+  const intervalSearch: SpeedIntervalSearch = {
+    allies: units,
+    minimums: candidates.map(lowestCombat),
+    tick: content.tick,
+    opponent: faced.opponent,
+    dungeonEnemy: fastest > 0 ? enemyUnit(fastest, 0, faced.opponent) : undefined,
+  };
 
   /* The user's order is the authority: a member whose first turn is not the
      one its place asks for is out of place, whichever monster put it there,
@@ -549,7 +458,6 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     const { unitId, masterId, element, speed } = candidate;
     const whatIf = whatIfs?.has(unitId) ?? false;
     const verdict = verdicts[index];
-    const range = ranges ? tuningRange(candidates, speeds, index, faced) : null;
     return {
       unitId,
       wantedPosition: index + 1,
@@ -560,7 +468,7 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
       importedCombatSpeed: candidate.imported,
       combatSpeed: speed,
       whatIf,
-      lowestCombatSpeed: lowestCombat(candidate),
+      lowestCombatSpeed: intervalSearch.minimums[index],
       displaySpeed: whatIf ? displaySpeedFor(candidate, speed) : candidate.importedDisplaySpeed,
       leaderPercent: candidate.leaderPercent,
       profile: candidate.profile,
@@ -569,12 +477,12 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
       firstAllyBoosts: (first.get(unitId)?.allyBoosts ?? []).map(({ key, amount }) => ({ unitId: key, amount })),
       verdict,
       cutInAt: enemies.flatMap((stage, at) => stage.cutsBefore.includes(unitId) ? [at + 1] : []),
-      range,
-      inRange: range !== null && speed >= range.minimum && (range.maximum === null || speed <= range.maximum),
+      range: null,
+      inRange: false,
     };
   });
 
-  return {
+  const reading: TeamReading = {
     team,
     content,
     members,
@@ -584,6 +492,19 @@ export function readSpeedTeam({ team, monsters, totemPercent, whatIfs, ranges = 
     perfect: members.length > 0 && members.every((member) => member.verdict.kind === 'in-place' && member.cutInAt.length === 0),
     enemies,
     worstStage,
+    intervalSearch,
+  };
+  return ranges ? withSpeedIntervals(reading, readSpeedIntervals(intervalSearch)) : reading;
+}
+
+export function withSpeedIntervals(reading: TeamReading, ranges: readonly (CombatSpeedInterval | null)[]): TeamReading {
+  return {
+    ...reading,
+    members: reading.members.map((member, index) => {
+      const range = ranges[index] ?? null;
+      const speed = member.combatSpeed;
+      return { ...member, range, inRange: range !== null && speed >= range.minimum && (range.maximum === null || speed <= range.maximum) };
+    }),
   };
 }
 

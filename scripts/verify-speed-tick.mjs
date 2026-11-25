@@ -28,6 +28,7 @@ import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, sp
 import { dungeonIds, fastestEnemySpeed, speedContent, speedContents } from '../app/domain/speed/speed-contents.ts';
 import { accuracyCeilings, usefulAccuracy } from '../app/domain/combat/accuracy-ceiling.ts';
 import { enemyNamesOf, gameTurnOrder, readSpeedTeam } from '../app/domain/speed/speed-tuning-analysis.ts';
+import { readSpeedIntervals } from '../app/domain/speed/speed-tuning-intervals.ts';
 import { presetContent, presetContents } from '../app/domain/placements/preset-contents.ts';
 import {
   canKeepSpeedTuning, isSpeedTuningPreferences, presetSpeedTeam, readSpeedTuningPreferences, teamSpeedTuning, withTeamSpeedTuning,
@@ -236,6 +237,44 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
     && twoLeos.events.find((event) => event.key === 'leo-2').tick === 12, 'the slowest Leo sets the cap, and a Leo is not capped by another');
   const boss = simulateBattle([leo, unit('boss', 300, [], 'enemy', { exemptFromCap: true })], { done: everyoneMoved(['leo', 'boss']) });
   check(boss.events[0].key === 'boss' && boss.events[0].tick === 5, 'a boss is out of the cap\'s reach');
+}
+{
+  const units = [
+    unit('leo', 1, [], 'ally', { capsOthersSpeed: true }),
+    unit('booster', 200, [
+      { kind: 'ally-attack-bar', amount: 10_000, target: 'lowest-attack-bar' },
+      { kind: 'ally-speed-buff', turns: 2, target: 'lowest-attack-bar' },
+    ]),
+    unit('ally', 150),
+  ];
+  for (const [tick, opening] of [['standard', 1429], ['raid', 2223]]) {
+    for (const tickLimit of [opening - 1, opening, opening + 10]) {
+      const options = { done: () => false, tick, tickLimit };
+      const drawn = simulateBattle(units, options);
+      const search = simulateBattle(units, { ...options, snapshots: false });
+      assert.deepEqual(search.events, drawn.events, `${tick} at tick limit ${tickLimit}: skipping empty ticks preserves every turn`);
+      checks += 1;
+    }
+  }
+}
+
+{
+  const selfBoost = [{ kind: 'self-attack-bar', amount: 5_000 }];
+  const searchAt = (speed) => readSpeedIntervals({
+    allies: [
+      unit('booster', 328, [{ kind: 'ally-attack-bar', amount: 10_000, target: 'lowest-attack-bar' }]),
+      unit('above', 346, selfBoost),
+      unit('subject', speed, selfBoost),
+      unit('below', 323),
+      unit('other', 309, selfBoost),
+    ],
+    minimums: [100, 100, 100, 100, 100],
+    opponent: 'none',
+    tick: 'standard',
+  })[2];
+  assert.deepEqual(searchAt(250), { minimum: 119, maximum: 176 }, 'the slower interval wins at equal distance');
+  assert.deepEqual(searchAt(251), { minimum: 324, maximum: 345 }, 'one point faster makes the upper interval nearer');
+  checks += 2;
 }
 
 /* 3. The data. */

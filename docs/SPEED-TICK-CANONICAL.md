@@ -483,9 +483,9 @@ through the clock: their boosts and buffs still move the bars.
 **The enemy is the one the reading meets.** `oppositionOf`
 (`speed-tuning-analysis.ts`) is the one place a team's enemies are set up — the
 worst case of Arena and Siege Battle, a floor's stages, or nobody — and both the
-reading (§6, §7.2) and the interval search ask it, at every combat speed tried.
-The worst case follows the team's first mover, so a member that slows enough to
-hand another the opening meets an enemy level with that one. On a floor, a
+reading (§6, §7.2) and the interval search face the same opponents.
+The worst case follows the team's first mover at every speed tried, so a member
+that hands another the opening meets an enemy level with that one. On a floor, a
 value fits only if no stage's enemy gets in before the member. With *No speed
 tuning* the team faces nobody, and the interval is the order's alone.
 
@@ -497,12 +497,18 @@ last member has nobody below it. Without a booster, a worst case level with the
 opener gets in before every later member, so their intervals are mostly a dash:
 the page then says what the opening really is.
 
-Every combat speed from bare runes up to the highest a what-if takes is run
-on the team's clock, so boosts, buffs and Leo's cap are answered by
-the one implementation, with nothing restated. A boost aimed at the lowest bar
-can make a faster monster move later, so the values that fit may lie in more
-than one stretch; the stretch holding the member's current value is shown, or
-failing that the stretch nearest it. The interval is shown as `xx – yy`, `xx+`
+The search tries whole combat speeds between bare runes and the highest value
+a what-if takes, starting nearest the current value and trying the lower
+speed first at equal distance. A boost aimed at the lowest bar can make a
+faster monster move later, so the search tries each speed in that order until
+one fits, then checks consecutive speeds to find both edges of its stretch.
+Each trial uses the same clock and stops when the relevant turns settle the
+answer. For dungeon cut-ins, the floor's fastest enemy settles whether any
+stage can cut in, since all enemies start with empty bars, are uncapped, and
+can affect the team only after taking a turn. Searches skip ticks where
+nobody can act. The Ticks view still draws every tick of every stage.
+
+The interval is shown as `xx – yy`, `xx+`
 where the stretch reaches the highest combat speed, or a dash where no combat
 speed puts the member between its neighbours ahead of the enemy — for instance
 where the one above is slower than the one below.
@@ -516,8 +522,11 @@ team's trace and with no enemy turn before it on the drawn enemy traces —
 while a dash must not fit at a spread of values. The sweep covers a dungeon,
 Arena and Siege Battle.
 
-The interval is searched only in the overlay, which shows it; the page reads
-every team at once without it.
+The overlay runs its interval search on a worker. Typing another value or
+closing the overlay cancels the previous search. The turn verdict and cut-in
+table read the current speeds immediately. The interval cells show an ellipsis
+while the search runs and the verdict adds the suggested speed when it arrives.
+The page reads every team at once without searching its intervals.
 
 ### 7.2 Enemy cut in
 

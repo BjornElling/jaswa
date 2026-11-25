@@ -11,9 +11,11 @@ import type { MonsterCopyName } from '../../domain/monsters/monster-names';
 import { formatNumber } from '../../domain/shared/formatting';
 import { fastestEnemySpeed, isDungeonId } from '../../domain/speed/speed-contents';
 import { usefulAccuracy } from '../../domain/combat/accuracy-ceiling';
-import { gameTurnOrder, readSpeedTeam } from '../../domain/speed/speed-tuning-analysis';
+import { gameTurnOrder, readSpeedTeam, withSpeedIntervals } from '../../domain/speed/speed-tuning-analysis';
+import type { CombatSpeedInterval, SpeedIntervalSearch } from '../../domain/speed/speed-tuning-intervals';
 import type { SpeedTeam } from '../../domain/profiles/speed-tuning-preferences';
 import type { GeneralSettings } from '../../domain/model';
+import { calculateSpeedIntervals } from '../../workspace/jobs/speed-interval-client';
 
 /** Attack bars at uneven fill: what the tick-by-tick view draws. */
 function TicksIcon() {
@@ -83,8 +85,24 @@ export function SpeedTeamOverlay({ initial, slots, title, monsters, totemShare, 
      this overlay reads them: the page judges the runes engraved and never passes them. */
   const whatIfs = useMemo(() => new Map(draft.members.flatMap((member) =>
     member.whatIfCombatSpeed === undefined ? [] : [[member.unitId, member.whatIfCombatSpeed] as const])), [draft]);
-  const reading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare, whatIfs, ranges: true }),
+  const liveReading = useMemo(() => readSpeedTeam({ team: draft, monsters, totemPercent: totemShare, whatIfs }),
     [draft, whatIfs, monsters, totemShare]);
+  const search = liveReading.intervalSearch;
+  const [finished, setFinished] = useState<{ search: SpeedIntervalSearch; ranges: readonly (CombatSpeedInterval | null)[] | null } | null>(null);
+  useEffect(() => {
+    if (search.allies.length === 0) return;
+    const controller = new AbortController();
+    // A partially typed value can be much slower than the final one. Cancel
+    // its search on the next edit so the latest value does not wait behind it.
+    void calculateSpeedIntervals(search, controller.signal).then(
+      (ranges) => { if (!controller.signal.aborted) setFinished({ search, ranges }); },
+      () => { if (!controller.signal.aborted) setFinished({ search, ranges: null }); },
+    );
+    return () => controller.abort();
+  }, [search]);
+  const current = finished?.search === search ? finished : null;
+  const reading = useMemo(() => current?.ranges ? withSpeedIntervals(liveReading, current.ranges) : liveReading, [liveReading, current]);
+  const intervalState = current === null ? 'pending' : current.ranges === null ? 'failed' : 'ready';
   const dungeon = isDungeonId(draft.content) ? draft.content : null;
 
   /* A team with no order of the user's stands in the order it moves in, and a
@@ -142,7 +160,7 @@ export function SpeedTeamOverlay({ initial, slots, title, monsters, totemShare, 
             <PencilIcon /><span>Edit preset</span>
           </Button>
         </div>
-        <SpeedTeamEditor reading={reading} title={title} names={names} general={general}
+        <SpeedTeamEditor reading={reading} title={title} names={names} general={general} intervalState={intervalState}
           turnOrderAction={<Button ref={turnOrderOpener} tone="important" size="prominent" className="speed-ticks-button"
             disabled={reading.members.length === 0} onClick={() => setShowTurnOrder(true)}>
             <TicksIcon />Ticks

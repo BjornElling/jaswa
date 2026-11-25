@@ -27,6 +27,10 @@ export function createRuneOptimizationWorker(): Worker {
   return new Worker(new URL('./compute/rune-optimization-worker.ts', import.meta.url), { type: 'module' });
 }
 
+function createSpeedIntervalWorker(): Worker {
+  return new Worker(new URL('./compute/speed-interval-worker.ts', import.meta.url), { type: 'module' });
+}
+
 /** Every production worker, as the shell hands them to the job clients. The simulator's is added in development only. */
 export const featureWorkerFactories: WorkerFactories = {
   artifactScore: createArtifactScoreWorker,
@@ -35,4 +39,5 @@ export const featureWorkerFactories: WorkerFactories = {
   runeReference: createRuneReferenceWorker,
   runeOptimization: createRuneOptimizationWorker,
   runeOptimizationWork: createRuneOptimizationWorkWorker,
+  speedIntervals: createSpeedIntervalWorker,
 };

@@ -14,7 +14,8 @@ import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, sho
 import type { SpeedOpponent } from '../../domain/speed/speed-contents';
 import { leaderAreaReaches } from '../../domain/speed/speed-tick';
 import { combatSpeedIntervalText } from '../../domain/speed/speed-tuning-analysis';
-import type { CombatSpeedInterval, MemberReading, TeamReading } from '../../domain/speed/speed-tuning-analysis';
+import type { MemberReading, TeamReading } from '../../domain/speed/speed-tuning-analysis';
+import type { CombatSpeedInterval } from '../../domain/speed/speed-tuning-intervals';
 import { canKeepSpeedTuning, whatIfCombatSpeedMaximum } from '../../domain/profiles/speed-tuning-preferences';
 import type { SpeedTeam } from '../../domain/profiles/speed-tuning-preferences';
 import type { GeneralSettings } from '../../domain/model';
@@ -111,6 +112,7 @@ function WhatIfField({ member, label, describedBy, disabled, onChange }: {
 
 type EditorProps = {
   reading: TeamReading;
+  intervalState: 'pending' | 'ready' | 'failed';
   title: string;
   names: Record<string, MonsterCopyName>;
   general: GeneralSettings;
@@ -148,7 +150,7 @@ function rangeText(range: CombatSpeedInterval | null, general: GeneralSettings):
  * preset's, so the turn order wanted, the what-ifs and — where the preset is
  * the user's to change — the leader are what is changed here.
  */
-export function SpeedTeamEditor({ reading, title, names, general, onChange, onWhatIf, onOpenMonster, turnOrderAction, enemiesKnown = true, leading }: EditorProps) {
+export function SpeedTeamEditor({ reading, intervalState, title, names, general, onChange, onWhatIf, onOpenMonster, turnOrderAction, enemiesKnown = true, leading }: EditorProps) {
   const { team, content } = reading;
   const whatIfHintId = useId();
   /* What is stated here is kept for the team's species; a member the import
@@ -249,8 +251,8 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
         const tiedWith = monster.verdict.kind === 'tie' ? monster.verdict.with
           : reading.members.find((other) => other.verdict.kind === 'tie' && other.verdict.with === monster.unitId)?.unitId ?? null;
         const verdict = verdictText(monster, names, content.opponent, enemiesKnown, general, tiedWith);
-        const range = rangeText(monster.range, general);
-        const noRange = monster.range === null;
+        const intervalStatus = intervalState === 'pending' ? 'Calculating interval' : intervalState === 'failed' ? 'Interval calculation failed' : undefined;
+        const range = intervalState === 'pending' ? '…' : intervalState === 'failed' ? '!' : rangeText(monster.range, general);
         const verdictTone = verdictState(monster, enemiesKnown);
         /* What this monster's turn does to the other bars, hung on the line
            below its slot. A boost to the whole team is named by its size; a
@@ -294,8 +296,9 @@ export function SpeedTeamEditor({ reading, title, names, general, onChange, onWh
               ? `, including +${monster.leaderPercent} % SPD from leader skills` : ''}`}>
               {formatNumber(monster.importedCombatSpeed, general)}
             </td>
-            <td className="speed-figure speed-slot-range" rowSpan={2}
-              title={noRange ? `No combat speed of ${name} moves it between the monsters placed beside it${reading.enemies.length > 0 ? ' ahead of the enemy' : ''}` : undefined}>{range}</td>
+            <td className="speed-figure speed-slot-range" rowSpan={2} aria-label={intervalStatus}
+              title={intervalStatus ?? (monster.range === null
+                ? `No combat speed of ${name} moves it between the monsters placed beside it${reading.enemies.length > 0 ? ' ahead of the enemy' : ''}` : undefined)}>{range}</td>
             <td className="speed-figure speed-what-if-cell" rowSpan={2}>
               <WhatIfField member={monster} label={`What-if combat speed for ${name} in ${title}`} describedBy={whatIfHintId} disabled={!keepable}
                 onChange={(value) => onWhatIf(member.unitId, value)} />

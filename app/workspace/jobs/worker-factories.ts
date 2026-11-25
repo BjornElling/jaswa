@@ -15,6 +15,7 @@ export type WorkerFactories = {
   runeReference(interactive?: boolean): Worker;
   runeOptimization(): Worker;
   runeOptimizationWork(): Worker;
+  speedIntervals(interactive?: boolean): Worker;
   /** Development only: absent from a production build, so its worker never ships. */
   runeSimulator?(): Worker;
 };
