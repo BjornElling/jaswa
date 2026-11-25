@@ -11,7 +11,7 @@ import { qualityReferences } from '../cleanup/rune-quality-reference';
 import type { ReferenceStats } from '../../reference/rune-reference-stats';
 import type { RoleType, RuneRole } from '../../profiles/rune-roles';
 import type { Rune } from '../runes';
-import { gemMinimumLevel, runeSubValue } from '../runes';
+import { runeSubValue } from '../runes';
 import type { RunePotentialSettings } from '../../model';
 import { craftScore } from './craft-score';
 import type { CraftScoreJob, ScoreCraftJobs } from './craft-score';
@@ -46,7 +46,7 @@ export type CraftRecommendation = {
    */
   gemChoice: readonly GemStatChoice[] | null;
   /**
-   * Every role reading the rune was judged in, shared by all its rows, so a plan
+   * The readings of the rune's Best role it was judged in, shared by all its rows, so a plan
    * of several stones is priced on exactly the terms each stone was (`grindPlans`).
    */
   readings: readonly CraftReading[];
@@ -461,14 +461,15 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
     else { const set = bySet.get(item.setId) ?? []; set.push(item); bySet.set(item.setId, set); }
   }
   const itemsFor = (rune: Rune) => [...(bySet.get(rune.setId) ?? []), ...anySet];
-  /* The Gem the credit assumes is asked about even where the box holds none: a
-     Grindstone on the line it will replace is a stone thrown away. */
-  const creditGem = creditedGrade(credit.gem) !== null;
-  const gemRunes = request.roles.length ? request.runes.filter((rune) => rune.level >= gemMinimumLevel
-    && itemsFor(rune).some((item) => (creditGem || item.kind === 'gem') && craftItemFit(item, rune).fits)) : [];
-  /* A Gem can erase the stat that made a rune worth keeping. Use Clean-up's
-     qualifying build for both sides of the comparison and for the stat choice. */
-  const advice = gemRunes.length ? await runeAdvice(gemRunes, request.roles, request.settings, request.base, undefined, {
+  /* **One Best role, the one Clean-up and the overlay name.** It is chosen on the
+     finished rune — the credited Gem and Grindstones in — so it already says what
+     the rune is for once crafted. Every item is judged in that role's reading only,
+     Gems and Grindstones alike: a stone once took whichever role scored highest on
+     the bare rune, and the card then named a role the overlay did not. Judging a Gem
+     in its own best role could also trade away the stat the rune is kept for. */
+  const fitting = request.roles.length
+    ? request.runes.filter((rune) => itemsFor(rune).some((item) => craftItemFit(item, rune).fits)) : [];
+  const advice = fitting.length ? await runeAdvice(fitting, request.roles, request.settings, request.base, undefined, {
     references: qualityReferences(undefined, false),
     onLocalPreparation: (fraction) => { if (fraction !== null) progress?.(fraction / 4); },
     onProgress: (fraction) => progress?.((1 + fraction) / 4),
@@ -493,14 +494,17 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
       }
     }
     const readings: CraftReading[] = [];
-    const gemReadings: CraftReading[] = [];
     const answer = advice?.get(rune.id);
-    const mains = answer?.readingChance === 1 ? answer.buildMains : null;
+    /* Where Clean-up names no role — a role it cannot read leaves a sale in doubt —
+       there is no Best role to agree with, and every role still competes. */
+    const best = answer?.role ?? null;
+    const mains = answer?.buildMains ?? null;
     if (states.length > 1) {
       for (const { role, builds } of families) {
         const base = request.base.get(role.type);
-        if (!base) continue;
+        if (!base || (best && role.id !== best.id)) continue;
         for (const build of builds) {
+          if (best && mains && (build.mains[2] !== mains[2] || build.mains[4] !== mains[4] || build.mains[6] !== mains[6])) continue;
           const candidate = prepareRuneCandidate(rune, role, build, base, noCraftCredit, scope);
           if (!candidate) continue;
           const discount = runeRankWorth(request.settings, candidate.rank);
@@ -508,15 +512,11 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
           const reading = { prices: Array.from({ length: craftScoreLayout.stats }, (_, stat) => candidate.valuation.value(stat, 1) / candidate.ceiling * 100),
             discount, role: role.name, rank: candidate.rank };
           readings.push(reading);
-          if (!mains || (role.id === answer?.role?.id
-            && build.mains[2] === mains[2] && build.mains[4] === mains[4] && build.mains[6] === mains[6])) {
-            gemReadings.push(reading);
-          }
         }
       }
     }
     scope.futures.clear();
-    return { rune, states, readings, gemReadings, gemChoice: gemChoiceOf(rune, gemReadings, credit) };
+    return { rune, states, readings, gemChoice: gemChoiceOf(rune, readings, credit) };
   }
   // Combine small rune matrices before dispatch: thousands of tiny readbacks cost
   // more than their arithmetic. Both the retained plans and the score buffer stay bounded.
@@ -538,20 +538,20 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
       });
       jobs = []; destinations = [];
     }
-    for (const { states, readings, gemReadings } of plans) for (const state of states) for (const reading of (state.kind === 'gem' ? gemReadings : readings)) {
+    for (const { states, readings } of plans) for (const state of states) for (const reading of readings) {
       jobs.push({ ...reading, values: state.values }); destinations.push(state);
       // At most 16,384 jobs: every storage binding is smaller than 2 MiB.
       if (jobs.length === 16384) await flush();
     }
     await flush();
-    for (const { rune, states, readings, gemReadings, gemChoice } of plans) {
+    for (const { rune, states, readings, gemChoice } of plans) {
       const rows: CraftRecommendation[] = states.flatMap((state) => {
         const before = state.recommendation?.baseline.evaluation;
         if (!state.recommendation || !state.evaluation || !before) return [];
         const { item, application } = state.recommendation;
         return [{ rune, item, application, before, after: state.evaluation,
           gain: state.evaluation.score - before.score, stat: runeSubValue(application.result),
-          gemChoice, readings: item.kind === 'gem' ? gemReadings : readings }];
+          gemChoice, readings }];
       });
       // A pair's baseline is fixed, so its best target wins score and gain alike.
       // Retain every pair, not just today's top N: tomorrow's filter may need any of them.

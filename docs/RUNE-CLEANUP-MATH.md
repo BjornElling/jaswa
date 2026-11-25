@@ -390,9 +390,9 @@ The body is the rune's lines with every grindable line raised by the credited Gr
 where that raises it, and each candidate Gem the credited Gem, ground likewise (ordinary
 tables for ordinary runes, Ancient for Ancient runes). The pair is chosen in the role's
 own prices on that body. Gems & Grinds asks the same question of a held Gem: its lines
-are ground by the credit, and only the Gem's own roll is the item's. When the rune
-clears the quality floor, Gems & Grinds uses the role and build Rune Clean-up
-chose, so the recommendation follows the rune overlay's placement
+are ground by the credit, and only the Gem's own roll is the item's. Gems & Grinds
+judges every item in the Best role Rune Clean-up chose (§9.6), and in its build where
+the chosen reading names one, so the recommendation follows the rune overlay's placement
 (`RUNE-CRAFT-ITEMS.md` §5.1). Measuring a held Gem against the rune as it stands was
 tried and removed: it credited an SPD Gem with the stone its line could take anyway, so
 the two views named different stats for one rune.
@@ -620,7 +620,8 @@ If the union clears, choose among the individual readings that contribute a
 hit. Otherwise choose among all permitted readings. A forbidden reading can
 supply a name when no permitted one exists. Rank by discounted expected value,
 then Potential, smaller quality share, higher individual chance, role ID
-and the slot 2, 4 and 6 main IDs. The overlay's Best row uses the same candidate.
+and the slot 2, 4 and 6 main IDs. The overlay's Best row uses the same candidate, and Gems & Grinds judges every
+Gem and Grindstone in it (`RUNE-CRAFT-ITEMS.md` §5), so no view names another role.
 For each other role, choose from individually clearing builds first, then
 positive-chance builds, then other permitted builds, then naming fallbacks.
 

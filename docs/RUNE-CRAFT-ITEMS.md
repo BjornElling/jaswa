@@ -187,14 +187,30 @@ HP + Gem took ATK 8 % because HP +385 ground to +755 beat the bare ATK line, tho
 the same stone on ATK was worth more — and the Gem's right line was CRI Dmg.
 `verify:craft-recommendations` holds that rune.
 
-For a Gem on a rune that clears the quality floor, both line-ups use the role
-and build Rune Clean-up and the overlay chose. This keeps a Gem from trading
-away a line that makes the rune worth keeping for a raw score gain in a role
-that falls below the floor. With no qualifying build, a Gem can improve the
-best of the allowed builds. Grindstones also compare across all allowed builds
-because they leave the rune's stats in place. In those comparisons the best
-reading can change before and after. Each score uses Clean-up's
-`prepareRuneCandidate` valuation, ceiling and accepted/broken discounts.
+**A rune has one Best role, and every view names the same one.** Every item,
+Gem and Grindstone alike, is judged in the role Rune Clean-up and the overlay
+chose — and in its build, where Clean-up's chosen reading names one. That role
+is chosen on the finished rune, with the credited Gem and Grindstones in
+(`RUNE-CLEANUP-MATH.md` §6.1 and §9.6), so it already says what the rune is for once
+crafted; before and after read the same role, and the card's *Best role* is the
+overlay's. Only where Clean-up names no role — a role it cannot read leaves the
+rune's advice unavailable — does every allowed build still compete.
+
+What stays on its own premise is the *Score*: it measures the item, so it reads
+the lines the item is spent on (above), not the credited finished rune. The
+overlay's Potential and a card's Score are therefore different figures about
+the same role. Reading a Grindstone against the credited rune would let the
+credited stone absorb it: the credit starts at an average Legend roll, so a
+held Hero stone would never seem to add anything.
+
+Choosing a Grindstone's role by the highest score on the bare rune was tried
+and removed. A stone on a +12 Revenge rune then named Juno Bruiser, whose
+flat-ATK weight is zero, while the overlay named Kaki Bruiser, the role the
+credited Gem puts first. The stone also showed no score gain at all, though it
+lifted the rune's real role by 3.7 points. One role also keeps a Gem from
+trading away a line that makes the rune worth keeping for a raw gain in a role
+below the floor. Each score uses Clean-up's `prepareRuneCandidate` valuation,
+ceiling and accepted/broken discounts.
 It prices the sub properties and innate on the comparison's premise at the rune's
 current level. The ruler stays fixed across items and filters.
 

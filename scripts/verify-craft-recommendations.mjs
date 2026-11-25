@@ -58,8 +58,9 @@ const families = roles.map((role) => ({ role, builds: roleBuilds(role) }));
 function evaluate(rune, advice) {
   let best = null;
   for (const { role, builds } of families) for (const build of builds) {
-    if (advice?.readingChance === 1 && (role.id !== advice.role.id
-      || [2, 4, 6].some((slot) => build.mains[slot] !== advice.buildMains[slot]))) continue;
+    /* Every item, Gem or Grindstone, is judged in Clean-up's Best role alone. */
+    if (advice?.role && (role.id !== advice.role.id
+      || (advice.buildMains && [2, 4, 6].some((slot) => build.mains[slot] !== advice.buildMains[slot])))) continue;
     const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);
     if (!candidate) continue;
     const discount = runeRankWorth(settings, candidate.rank);
@@ -101,7 +102,7 @@ const premised = (kind, lines, rune) => kind === 'gem'
   ? lines.map((line) => ({ ...line, grind: Math.max(line.grind,
     legendStones.get(rune.ancient ? 'ancient' : 'standard').grind[line.statId]) })) : lines;
 let comparisons = 0;
-const quality = await runeAdvice(runes.filter((rune) => rune.level >= 12), roles, settings, base);
+const quality = await runeAdvice(runes, roles, settings, base);
 for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'maximum']) {
   const request = { runes, items: items.filter((item) => item.kind === kind), missing: [], roles, settings, base,
     roll, preferGpu: false };
@@ -124,7 +125,7 @@ for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'max
   const actual = { ...craftRecommendationRankings(calculation.candidates, 10), backend: calculation.backend, comparisons: calculation.comparisons };
   const rows = [];
   for (const rune of runes) {
-    const advice = kind === 'gem' ? quality.get(rune.id) : undefined;
+    const advice = quality.get(rune.id);
     const before = evaluate({ ...rune, subProperties: premised(kind, rune.subProperties, rune) }, advice);
     if (!before) continue;
     for (const item of request.items.filter((item) => lineageFits(item, rune))) {
@@ -143,6 +144,12 @@ for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'max
           stat: application.result.value + application.result.grind });
       }
     }
+  }
+  /* The card names the role the overlay and Clean-up name, before and after alike. */
+  for (const row of calculation.candidates) {
+    const named = quality.get(row.rune.id)?.role?.name;
+    if (named) assert.deepEqual([row.before.role, row.after.role], [named, named],
+      `${kind} on ${row.rune.id}: the card left Clean-up's Best role`);
   }
   const positive = rows.filter((row) => row.gain > 1e-10);
   compare(actual.highestScore, rank(positive, (row) => row.after.score, 10));
@@ -272,7 +279,7 @@ function ruleStat(rune) {
   const referenceBare = craftPlan(lineage, { ...credit, gem: noCraftCredit.gem });
   let best = null;
   /* Every line the rule gives each stat in some reading: Gems & Grinds reads the
-     Gem in Clean-up's qualifying build, which this oracle does not narrow to. */
+     Gem in Clean-up's Best role, which this oracle does not narrow to. */
   const lines = new Map();
   for (const { role, builds } of families) for (const build of builds) {
     const candidate = prepareRuneCandidate(rune, role, build, base.get(role.type), noCraft, scope);
