@@ -27,6 +27,20 @@ describe('game export validation issues', () => {
     expect(referenceMonsters({ unit_list: [unit] })).toEqual([]);
   });
 
+  it('keeps an awarded Rainbowmon and its zero base speed', () => {
+    const data = minimalExport();
+    const rainbowmon = {
+      ...stats, unit_id: 2, unit_master_id: 14314, unit_level: 1, class: 4,
+      con: 4, atk: 4, def: 4, spd: 0, critical_rate: 0, critical_damage: 0, resist: 0,
+    };
+    const account = { ...data, unit_list: [...data.unit_list, rainbowmon] };
+    const report = validateGameFile(account);
+    expect(report.valid).toBe(true);
+    expect(createImportedGame('test.json', account, report).data.unit_list).toContainEqual(expect.objectContaining(rainbowmon));
+    expect(monsterBaseStats(rainbowmon)[3]).toBe(0);
+    expect(validateGameFile({ ...account, unit_list: [{ ...rainbowmon, spd: undefined }] }).valid).toBe(false);
+  });
+
   it('refuses contradictory physical copies with both source paths', () => {
     const engraved = { ...rune, occupied_type: 1, occupied_id: 1 };
     const data = { ...minimalExport(), unit_list: [{ ...minimalExport().unit_list[0], runes: [engraved] }],

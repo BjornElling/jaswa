@@ -5,6 +5,7 @@ import {
 } from '../runes/rune-sets';
 import { swiftPercent } from '../speed/speed-tick';
 import { spdUpEffectPropertyId } from '../artifacts/artifact-properties';
+import { isRainbowmon } from '../monsters/monster-catalog';
 import { personalPassiveStatBonus } from './passive-stat-bonuses';
 import type { AutomaticStatLine, PassiveStatRule } from './passive-stat-bonuses';
 
@@ -262,8 +263,10 @@ function numberValue(value: unknown): number {
 export function hasMonsterBaseStats(monster: RecordLike): boolean {
   return ['con', 'atk', 'def', 'spd', 'critical_rate', 'critical_damage', 'resist', 'accuracy'].every((key) => {
     const value = monster[key];
-    return typeof value === 'number' && Number.isFinite(value)
-      && (['con', 'atk', 'def', 'spd'].includes(key) ? value > 0 : value >= 0);
+    if (typeof value !== 'number' || !Number.isFinite(value)) return false;
+    // Subjugation's Rainbowmons have zero base speed and still count as owned copies.
+    if (key === 'spd') return value > 0 || (value === 0 && isRainbowmon(monster.unit_master_id));
+    return ['con', 'atk', 'def'].includes(key) ? value > 0 : value >= 0;
   });
 }
 

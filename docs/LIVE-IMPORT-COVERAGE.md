@@ -449,6 +449,13 @@ model does not know this command yet" read differently.
   raising the helper's count to 1,664. The archive is excluded whether nested
   in the guild response or returned directly; fresh claimed rewards still
   enter through their account reward records.
+- `getGuildBossReceiveRewardCrate` claims Monster Subjugation rewards. In the
+  November 26, 2026 capture, its root `changed_item_list` supplied the
+  awarded runes and monsters and the new Gem, Grindstone and inventory stack
+  totals. `clear_reward_crate_info` populated the crate panel, repeating
+  gear and stacks and describing awarded monsters without account unit IDs.
+  The claim reads the root list alone. If that list is missing, account records
+  in the crate panel still surface as unread.
 - `getServerArenaRewardInfoForNoti_v2` is a historical award notification,
   never an account mutation. Its `user_reward_info.reward_result` repeats
   `changed_item_list` records from when the rewards were awarded; replaying

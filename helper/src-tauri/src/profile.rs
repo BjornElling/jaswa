@@ -4784,6 +4784,61 @@ mod phantom_rune_regression {
     }
 
     #[test]
+    fn subjugation_claim_applies_current_rewards_and_leaves_the_crate_panel_alone() {
+        let request = json!({"command": "getGuildBossReceiveRewardCrate", "reward_index_list": [1, 2]});
+        assert!(requires_account_response(&request));
+        let rune = |id| json!({"rune_id": id, "wizard_id": 7, "set_id": 13});
+        let monster = json!({"unit_id": 11, "wizard_id": 7, "unit_master_id": 10101});
+        let craft = |amount| json!({
+            "craft_item_id": 12, "wizard_id": 7, "craft_type": 1, "craft_type_id": 101001, "amount": amount
+        });
+        let stack = |quantity| json!({
+            "rid": 13, "wizard_id": 7, "item_master_type": 29, "item_master_id": 2, "item_quantity": quantity
+        });
+        let panel = json!({"reward_crate_list": [{"reward_list": [
+            {"changed_item": {"type": 8, "info": rune(99)}},
+            {"changed_item": {"type": 29, "info": stack(4)}}
+        ]}]});
+        let response = json!({
+            "ret_code": 0,
+            "changed_item_list": [
+                {"type": 8, "info": rune(10), "view": {"rune_set_id": 13}},
+                {"type": 1, "info": monster},
+                {"type": 27, "info": craft(3)},
+                {"type": 29, "info": stack(8)},
+                {"type": 29, "info": stack(8)}
+            ],
+            "clear_reward_crate_info": panel
+        });
+        for populated in [false, true] {
+            let mut store = ProfileStore::default();
+            let mut baseline = json!({
+                "wizard_id": 7, "unit_list": [], "runes": [], "artifacts": [], "relics": [],
+                "rune_craft_item_list": [], "inventory_info": []
+            });
+            if populated {
+                baseline["runes"] = json!([rune(5)]);
+                baseline["rune_craft_item_list"] = json!([craft(2)]);
+                baseline["inventory_info"] = json!([stack(6)]);
+            }
+            assert!(store.accept_snapshot(baseline));
+            let failed = json!({"ret_code": 1, "changed_item_list": response["changed_item_list"]});
+            assert!(!store.apply_update(&failed, &request));
+            assert!(!store.apply_update(&json!({"ret_code": 0, "clear_reward_crate_info": panel}), &request));
+            assert!(!store.take_declined().missed.is_empty());
+            assert!(store.apply_update(&response, &request));
+            assert!(store.take_declined().missed.is_empty());
+            let profile = store.read().unwrap().data;
+            assert_eq!(profile["runes"], if populated { json!([rune(5), rune(10)]) } else { json!([rune(10)]) });
+            assert_eq!(profile["unit_list"], json!([monster]));
+            assert_eq!(profile["rune_craft_item_list"], json!([craft(3)]));
+            assert_eq!(profile["inventory_info"], json!([stack(8)]));
+            assert!(!store.apply_update(&response, &request));
+            assert!(store.take_declined().missed.is_empty());
+        }
+    }
+
+    #[test]
     fn arena_reward_notification_cannot_replay_old_inventory() {
         let old_rune = |id| {
             json!({

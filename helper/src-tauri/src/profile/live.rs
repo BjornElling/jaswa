@@ -23,6 +23,8 @@ use super::{
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+const SUBJUGATION_CLAIM: &str = "getguildbossreceiverewardcrate";
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum AccountRequest {
     SeparateInventory,
@@ -62,6 +64,10 @@ pub(super) fn account_request(request: &Value) -> AccountRequest {
     }
     if base == "getserverarenarewardinfofornoti" {
         return AccountRequest::History;
+    }
+    // The game uses a get prefix for this claim as well as for crate queries.
+    if base == SUBJUGATION_CLAIM {
+        return AccountRequest::Mutation;
     }
     if matches!(base, "getunitstoragelist" | "getunitinfo"
         | "battleguildsiegestart" | "battleguildrivalstart") || base.starts_with("getwizarddata") {
@@ -431,10 +437,14 @@ fn unread(response: &Value, request: &Value, scope: &Scope<'_>, read_ids: &HashS
                 if record {
                     return;
                 }
+                // The crate panel includes display copies; the root list holds the committed rewards.
+                let has_subjugation_rewards = path.is_empty() && scope.command == SUBJUGATION_CLAIM
+                    && value.get("changed_item_list").is_some_and(Value::is_array);
                 for (key, entry) in map {
                     if understood_elsewhere(key)
                         || (scope.picked_crafts(path) && key == "before")
                         || (path.is_empty() && scope.reappraisal_candidate(key))
+                        || (has_subjugation_rewards && key == "clear_reward_crate_info")
                     {
                         continue;
                     }

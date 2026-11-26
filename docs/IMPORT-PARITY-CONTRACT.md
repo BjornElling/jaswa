@@ -93,6 +93,11 @@ states how the prepared account is stored: the durable snapshot keeps exactly
 the collections the counts above read. `DECK-PRESETS.md` states how saved decks
 and their placements are read.
 
+Rainbowmons can arrive as owned roster copies with zero base speed, as seen
+in the Monster Subjugation reward capture on November 26, 2026. The recorded
+speed stays zero in the stat sheet. Combat monsters still require positive
+base speed.
+
 ## 5. Verification
 
 `npm run audit:import-parity` reconciles a captured `HubUserLogin` against what
