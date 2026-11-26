@@ -450,10 +450,9 @@ export function MonsterStorage({ monsters, snapshot, preferences, onOpenMonster 
         notNeeded,
         candidateLevel: row.level,
       })) return false;
-      /* Unlike the two conditions above, this one asks about the row itself
-         rather than about the account: a max-skilled copy is done, whatever
-         other copies of the same monster still need. */
-      if (needsSkillUps && row.maxSkilled) return false;
+      /* Skill-ups are a priority for the copies the user has raised to Lv. 40.
+         Each copy's own skills decide whether it is finished. */
+      if (needsSkillUps && (row.level !== storageMaximumLevel || row.maxSkilled)) return false;
       /* "Have ≥" asks about the form, not about this one entry: a row's own
          quantity counted a stack but missed a player holding the same form as
          several single entries. */

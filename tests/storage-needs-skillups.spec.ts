@@ -1,34 +1,42 @@
 import { expect, test } from './test-fixtures';
-import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 
-const selectionAccount = fileURLToPath(new URL('./fixtures/monster-selection.json', import.meta.url));
+const selectionAccount = new URL('./fixtures/monster-selection.json', import.meta.url);
 
-/**
- * "Needs skill-ups" asks about the row in front of the user rather than about
- * the account, which is what separates it from the two conditions above it: a
- * max-skilled copy is finished whatever other copies of the same monster still
- * need. A row whose maximum the catalogue does not know keeps its place, so the
- * filter only withdraws a monster it can positively confirm is done.
- */
-test('"Needs skill-ups" hides only the max-skilled copies', async ({ page }) => {
+test('"Needs skill-ups" shows only unfinished Lv. 40 copies', async ({ page }, testInfo) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
-  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles(selectionAccount);
-  await page.getByRole('button', { name: 'Monster Overview', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'Monster Usage', exact: true }).click();
+  const rail = page.getByRole('navigation');
+  const usage = rail.getByRole('button', { name: 'Monster Usage', exact: true });
+  await usage.click();
+  await expect(page.getByText('Import your game data first.')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('empty.png') });
+
+  const account = JSON.parse(await readFile(selectionAccount, 'utf8'));
+  account.unit_list[2].unit_level = 40;
+  account.unit_list[3].unit_level = 39;
+  await rail.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.locator('input[type="file"][accept="application/json,.json"]').setInputFiles({
+    name: 'monster-selection.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(account)),
+  });
+  await usage.click();
 
   const summary = page.locator('.storage-filter-strip .filter-summary');
   const storage = page.locator('.storage-grid tbody');
+  const filter = page.getByRole('checkbox', { name: 'Needs skill-ups' });
   await expect(summary).toContainText('4 of 4 shown');
-
-  /* The two Lv. 40 monsters in Inventory are max skilled; the two stored
-     monsters are not, and stay. */
-  await page.getByRole('checkbox', { name: 'Needs skill-ups' }).check();
-  await expect(summary).toContainText('2 of 4 shown');
-  await expect(storage).toContainText('Neostone Fighter (Fire)');
   await expect(storage).toContainText('Striker (Fire)');
-  await expect(storage).not.toContainText('MAX');
+  await expect(storage).toContainText('MAX');
+  await page.screenshot({ path: testInfo.outputPath('unfiltered.png') });
 
-  await page.getByRole('checkbox', { name: 'Needs skill-ups' }).uncheck();
+  await filter.check();
+  await expect(summary).toContainText('1 of 4 shown');
+  await expect(storage).toContainText('Neostone Fighter (Fire)');
+  await expect(storage).not.toContainText('Striker (Fire)');
+  await expect(storage).not.toContainText('MAX');
+  await page.screenshot({ path: testInfo.outputPath('filtered.png') });
+
+  await filter.uncheck();
   await expect(summary).toContainText('4 of 4 shown');
 });

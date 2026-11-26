@@ -104,13 +104,18 @@ the row's exact form — one master id, so one element at one awakening stage.
 Separate entries and shrine stacks of that form add up, across every location
 whether shown or hidden. Its other awakening stages do not count.
 
-This is deliberately unlike every other monster condition, which folds
-awakenings into one monster (*Only show if*, search, fodder). The filter sits
-beside the Quantity column, and "Have ≥ 4" must not pass an awakened Adrian
-reading ×1 because twelve unawakened copies wait in the Sealed Shrine; those
-twelve pass on their own row. `createMonsterCopyIndex` (`monster-selection.ts`)
+The account-wide ownership conditions fold awakenings into one monster.
+*Have ≥* sits beside the Quantity column, and "Have ≥ 4" must not pass an
+awakened Adrian reading ×1 because twelve unawakened copies wait in the Sealed
+Shrine; those twelve pass on their own row. `createMonsterCopyIndex` (`monster-selection.ts`)
 is the count, `verify:monster-selection` and
 `tests/storage-filter-scope.spec.ts` hold it.
+
+### 4.2 *Needs skill-ups* checks each Lv. 40 copy
+
+Usage shows a copy only when its level is 40 and its own skills do not confirm
+it is max skilled. Other copies of the same monster have no bearing on the match.
+`tests/storage-needs-skillups.spec.ts` drives the filter.
 
 ## 5. The artifact recommendation figures add up
 
