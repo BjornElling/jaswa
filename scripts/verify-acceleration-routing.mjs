@@ -46,12 +46,13 @@ const deviceOwners = new Set([
  * Workers with no card path at all, each with its reason. Rule 3 is about a fall back
  * the user cannot see; a worker that only ever runs on the processor has none, and a
  * `backend` it could only ever fill with one value would be the hard-coding rule 3
- * forbids. Each belongs under "Everything else" in the contract's §5.
+ * forbids. The contract's §5 lists these calculations.
  */
 const processorOnlyWorkers = new Map([
   /* A piece of Rune Clean-up's slot calibration, counted on every core. The odds it
      feeds are reported by the chance worker that answers them. */
   [join(compute, 'rune-reference-worker.ts'), 'Rune quality references'],
+  [join(compute, 'speed-interval-worker.ts'), 'Speed Tuning intervals'],
 ]);
 
 /** The one module allowed to decide whether the card is used at all. */

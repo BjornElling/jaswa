@@ -120,6 +120,7 @@ gates on a real card; the same harness would run them.
 | Rune Optimization search (`compute/rune-optimization-*`) | Up to eight workers; the tree on the processor, the tail's pairs on the card or processor (`RUNE-OPTIMIZATION.md` §7) |
 | Gems & Grinds Recommendations, Best use and What's missing | Dedicated worker; legal craft states on the processor, current-line role score matrix on the card or processor (`RUNE-CRAFT-ITEMS.md` §5) |
 | Rune quality references (`compute/rune-reference-worker.ts`) | Bounded processor pool shared by advice, Statistics and Simulator |
+| Speed Tuning intervals (`compute/speed-interval-worker.ts`) | Dedicated processor worker so interval searches leave input responsive |
 | Everything else | The processor |
 
 Only work shaped for a card moves: the same short arithmetic many times, with no lane
