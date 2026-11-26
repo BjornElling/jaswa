@@ -155,8 +155,10 @@ explain it in red and block Save until the user changes it. Never silently lower
 the threshold. Errors keep their reserved space and scroll if needed.
 
 All conditions within one rule must hold; any rule of that stone is enough. Empty
-inclusive groups mean any value, as does selecting every option. Intangible is not
-offered among rune sets. Every main stat is named precisely, including flat versus
+inclusive groups mean any eligible value, as does selecting every option. The game
+bars Intangible runes from both stones (`RUNE-CANONICAL.md` §9), so neither rule
+offers them. To find owned Intangible runes, use the Rune Clean-up table's **Set**
+filter. Every main stat is named precisely, including flat versus
 percentage ATK, DEF and HP; odd slots retain their fixed flat main.
 
 The editor keeps choices visible and never removes one to make another fit. Every
