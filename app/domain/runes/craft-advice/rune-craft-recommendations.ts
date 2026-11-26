@@ -1,5 +1,5 @@
 import {
-  craftComparison, craftItemFit, creditKey, creditedGrade, gemChoiceLineUps, lineageFits, noCraftCredit, rulerCraftCredit,
+  craftComparison, craftItemFit, creditKey, creditedGrade, gemChoiceLineUps, noCraftCredit, rulerCraftCredit,
 } from '../craft/rune-craft-end-state';
 import { filterIncludes } from '../../shared/filter-selection';
 import type { CraftApplication, CraftCredit, EndStateLine } from '../craft/rune-craft-end-state';
@@ -60,7 +60,7 @@ export type CraftRecommendations = {
   comparisons: number; durationMs: number;
 };
 export type CraftReading = { prices: number[]; discount: number; role: string; rank: MatchRank };
-type State = { kind: CraftItem['kind']; values: number[]; evaluation: CraftEvaluation | null;
+type State = { values: number[]; evaluation: CraftEvaluation | null;
   recommendation?: { item: CraftItem; application: CraftApplication; baseline: State } };
 
 /** Rank only visible lines, on Clean-up's fixed ruler, without hypothetical power-ups: the craft is whatever `craftComparison` put in the lines. */
@@ -475,22 +475,17 @@ export async function recommendRuneCraft(request: CraftRecommendationRequest, sc
     onProgress: (fraction) => progress?.((1 + fraction) / 4),
   }) : null;
   function prepare(rune: Rune) {
-    const items = itemsFor(rune).filter((item) => lineageFits(item, rune));
     const states: State[] = [];
-    /* One baseline per premise, read from the same comparison as the applications
-       measured against it — never a rune "as it stands" picked up separately. */
-    const baselines = new Map<string, State>();
-    for (const item of items) {
-      const comparison = craftComparison(item, rune, request.roll, credit);
+    let baseline: State | undefined;
+    for (const item of itemsFor(rune)) {
+      const comparison = craftComparison(item, rune, request.roll);
       if (!comparison.applications.length) continue;
-      let baseline = baselines.get(comparison.premise);
       if (!baseline) {
-        baseline = { kind: item.kind, values: valuesOf(rune, comparison.baseline), evaluation: null };
-        baselines.set(comparison.premise, baseline);
+        baseline = { values: valuesOf(rune, comparison.baseline), evaluation: null };
         states.push(baseline);
       }
       for (const application of comparison.applications) {
-        states.push({ kind: item.kind, values: valuesOf(rune, application.lines), evaluation: null, recommendation: { item, application, baseline } });
+        states.push({ values: valuesOf(rune, application.lines), evaluation: null, recommendation: { item, application, baseline } });
       }
     }
     const readings: CraftReading[] = [];

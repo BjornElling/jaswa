@@ -165,27 +165,13 @@ lineage and set restrictions, and excludes a stone whose assumed roll cannot
 beat the current bonus. The inventory's *Can improve* remains a potential count
 at the item's maximum, independent of the assumed-roll rankings.
 
-**Before and after stand on one premise, and come from one function.**
-`craftComparison` returns the rune before the item together with every way to
-spend it, so no caller can read the two on different terms:
-
-- **A Gem** is judged on the placement rule's lines (§5.1): every grindable line
-  carries the Grindstone of the user's craft credit (Settings › Gems &
-  Grindstones) where that raises it — before the Gem and after it alike — and a
-  line already ground higher keeps its own. The stone uses the rune's lineage,
-  including the Ancient tables for an Ancient rune. The gain is therefore the Gem's
-  alone, read on exactly the line-ups that chose its stat; only the Gem's own roll
-  is the item's, at the Assumed roll. A credit whose Grindstone is *None* reads the
-  Gem on the rune as it stands.
-- **A Grindstone** is judged on the rune as it stands, because the stone is what is
-  being judged.
-
-There is no control for the premise. *Then grind it* once ground the Gem's own line
-by an assumed stone while the rune it was measured against stood unground, so a Gem
-won on a stone its replaced line could have taken too: on a Bruiser SPD rune, an
-HP + Gem took ATK 8 % because HP +385 ground to +755 beat the bare ATK line, though
-the same stone on ATK was worth more — and the Gem's right line was CRI Dmg.
-`verify:craft-recommendations` holds that rune.
+**The imported rune is the baseline for every card and Score.**
+`craftComparison` returns that baseline together with the legal results of
+applying the named item at the Assumed roll. A Gem that keeps a line's stat
+keeps its existing grind. A Gem that changes the stat starts the new line
+bare. A Grindstone raises only its own line. Recommendations and Best use
+compare held items this way. What's missing compares one absent item with
+the same baseline and uses the best comparable held item as its benchmark.
 
 **A rune has one Best role, and every view names the same one.** Every item,
 Gem and Grindstone alike, is judged in the role Rune Clean-up and the overlay
@@ -271,14 +257,9 @@ better roll of that stat. The reason above does not apply there — the user has
 already decided the stat stays — and read after the top, the two rules emptied
 the rune between them. Under Yes such a rune wants both: the rule's stat, and a
 better roll of the stat its Gem already holds, which closes nothing.
-The gain itself is read on the same-lineage reference lines (§5), so the line a Gem is
-shown on and the stat it was chosen for cannot disagree about the stones. A Hero Gem of the chosen stat is suggested like a Legend
-one, as long as it raises the rune.
-
-Measuring against the rune as it stands was tried and removed. It paid a Gem
-for the stone its line could take anyway, so an SPD Gem on an SPD line won
-from the Grindstone the line was still missing, while Rune Clean-up — which
-grinds every line first — chose another stat for the same rune.
+For a Gem of the chosen stat, the card shows the legal target with the best
+Score from applying that Gem to the imported rune (§5). A Hero Gem of the
+chosen stat is suggested like a Legend one, as long as it raises the rune.
 
 The rule covers every Gem view. In Recommendations and Best use a Gem of
 another stat is dropped before the rankings. In What's missing only absent Gems
@@ -340,11 +321,11 @@ only rolls less. An Immemorial item rolls what the set's own item of that grade
 rolls, so it is never a third choice: one held covers the set's item for every
 ordinary set, and a listed set item says on its title that an Immemorial one
 fits too. Whether an item is held is not a placement rule, so
-`craftItemApplications` judges an absent item exactly as a held one.
+`craftComparison` judges an absent item exactly as a held one.
 
 Only absent items are shown, and each must clear a bar: the best the box's own
-items of the same kind reach on that rune, or the rune before the item — on the
-same premise (§5) — where none does (`heldCraftBenchmark`). The bar is read from the whole answer, so a filter
+items of the same kind reach on that rune, or the imported rune where none
+improves it (`heldCraftBenchmark`). The bar is read from the whole answer, so a filter
 cannot lower it. Highest score and Highest gain list the runes an absent item
 lifts past that bar, Highest gain by the distance past it; Highest stat lists
 stones whose final value beats the best held stone of that stat. Each card adds

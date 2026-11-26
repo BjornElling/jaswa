@@ -505,9 +505,10 @@ parts an agent must not quietly break:
   **And one assumption about them, chosen once:** every rune judgement credits
   the one Gem and Grindstone the user sets on Settings › Gems & Grindstones
   (`RunePotentialSettings.craftCredit`, starting at an average Legend roll,
-  rounded up) — Rune Clean-up's projection, the Gem's placement, Gems & Grinds'
-  reading of a Gem, before and after alike (`craftComparison`), the Rune
-  Simulator, the rune overlay and Rune Optimization's *Theoretical* items. No
+  rounded up) — Rune Clean-up's projection, the theoretical Gem placement, the
+  Rune Simulator, the rune overlay and Rune Optimization's *Theoretical* items.
+  Gems & Grinds uses this credit to choose Best role and the preferred Gem stat.
+  Its card and Score start with the imported rune and apply the named items. No
   calculation reads a credit of its own or a hard-coded one in its place, and
   `defaultCraftCredit` is only what Settings starts from. **The ruler is not the
   credit:** the weights, the perfect rune and the sampled drops a rune is ranked

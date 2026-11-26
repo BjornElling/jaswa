@@ -41,16 +41,9 @@
  * Gem is the credited Gem, ground likewise, and the `(line, stat)` pair that gives the
  * highest complete-body score is the one a Gem takes, with no Gem included and stable
  * ties. The candidate's lineage supplies the tables: an Ancient rune is compared with
- * an Ancient Gem and Grindstone. Gems & Grinds asks the same question of a held Gem
- * (`gemChoiceLineUps`, `craftComparison`): the lines around it are ground by the
- * credit, and only the Gem's own roll is the item's.
- *
- * Two readings of this question used to stand side by side, and they disagreed. Rune
- * Clean-up ground every line first and put the Gem where it gained most at its own
- * credit; Gems & Grinds measured against the rune as it stands, so an SPD Gem on an
- * SPD line was paid for the stone that line could take anyway, and won. One credit
- * read in both is what makes the choice one answer in every view: it moves with the
- * rune, the role and the user's assumption, and with nothing a held item says.
+ * an Ancient Gem and Grindstone. Gems & Grinds uses this projection for its Gem
+ * preference (`gemChoiceLineUps`). Its item comparison starts from the imported rune
+ * and applies only the item being judged (`craftComparison`).
  *
  * And the rule that follows from all four: **a Gem is never forced.** The end state
  * is whichever of "no Gem" and the chosen placement scores higher at the credit, so
@@ -1029,55 +1022,32 @@ export type CraftApplication = {
 };
 
 /**
- * **One item on one rune: the rune before it and every legal way to spend it, read
- * on one premise.** Before and after leave this function together so that nothing
- * can price them on different terms.
- *
- * They once were. A Gem's line was ground by an assumed follow-up Grindstone while
- * the rune it was measured against stood unground, so the gain paid the Gem for a
- * stone the replaced line could have taken just as well: a Bruiser's ATK 8 % line
- * lost to HP +385 ground to +755, although ATK ground by the same stone was worth
- * more, and the Gem was put on the wrong line besides.
- *
- * **A Gem is read on lines ground by the credit**, the user's one craft assumption:
- * every grindable line, before and after alike, carries the credited Grindstone
- * where that raises it, and a line already ground higher keeps its own.
- * The gain is then the Gem's alone, and it is measured on exactly the line-ups that
- * chose the Gem's stat (`gemChoiceLineUps`); only the Gem's own roll is the item's.
- * **A Grindstone is read on the rune as it stands**, because the stone is the thing
- * being judged and crediting one beforehand would judge it against itself.
- *
- * `premise` names the baseline, so a caller judging many items on one rune prices
- * each baseline once. Whether the box holds the item is not asked here: What's
- * missing judges the items an account lacks by exactly the rules that place the
- * ones it has.
+ * A recommendation compares the imported rune with the result of spending one
+ * item. A Gem can retain a stone already on the line when it keeps the stat.
+ * What's missing applies the same comparison to the one item it asks about.
  */
 export type CraftComparison = {
-  premise: CraftKind;
   baseline: readonly EndStateLine[];
   applications: CraftApplication[];
 };
 
 export function craftComparison(
-  item: CraftItem, rune: Rune, roll: CraftRollAssumption, credit: CraftCredit,
+  item: CraftItem, rune: Rune, roll: CraftRollAssumption,
 ): CraftComparison {
-  const stones = item.kind === 'gem' ? craftPlan(rune.ancient ? 'ancient' : 'standard', credit) : null;
-  const premise = (lines: readonly EndStateLine[]) => stones ? groundLines(stones, lines) : lines;
-  const baseline = premise(rune.subProperties);
-  if (!lineageFits(item, rune)) return { premise: item.kind, baseline, applications: [] };
+  const baseline = rune.subProperties;
+  if (!lineageFits(item, rune)) return { baseline, applications: [] };
   const held = craftHalfOf(item.kind, [{ item, stock: 0 }], roll);
   const variants = craftVariants({
     gem: item.kind === 'gem' ? held : null,
     grind: item.kind === 'grindstone' ? held : null,
-  }, rune.slot, rune.mainStatId, rune.prefixStatId, rune.subProperties,
+  }, rune.slot, rune.mainStatId, rune.prefixStatId, baseline,
   rune.level >= gemMinimumLevel, () => true, true);
   const applications = variants.filter((variant) => variant.stock.includes(0)).map((variant) => {
     const index = item.kind === 'gem' ? variant.gemmedAt
-      : variant.lines.findIndex((line, at) => line.grind !== rune.subProperties[at].grind);
-    const lines = premise(variant.lines);
-    return { target: { index, property: rune.subProperties[index] }, result: lines[index], lines };
+      : variant.lines.findIndex((line, at) => line.grind !== baseline[at].grind);
+    return { target: { index, property: baseline[index] }, result: variant.lines[index], lines: variant.lines };
   });
-  return { premise: item.kind, baseline, applications };
+  return { baseline, applications };
 }
 
 /**

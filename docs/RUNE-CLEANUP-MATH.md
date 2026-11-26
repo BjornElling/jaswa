@@ -389,13 +389,11 @@ different and wrong rule.
 The body is the rune's lines with every grindable line raised by the credited Grindstone
 where that raises it, and each candidate Gem the credited Gem, ground likewise (ordinary
 tables for ordinary runes, Ancient for Ancient runes). The pair is chosen in the role's
-own prices on that body. Gems & Grinds asks the same question of a held Gem: its lines
-are ground by the credit, and only the Gem's own roll is the item's. Gems & Grinds
-judges every item in the Best role Rune Clean-up chose (§9.6), and in its build where
-the chosen reading names one, so the recommendation follows the rune overlay's placement
-(`RUNE-CRAFT-ITEMS.md` §5.1). Measuring a held Gem against the rune as it stands was
-tried and removed: it credited an SPD Gem with the stone its line could take anyway, so
-the two views named different stats for one rune.
+own prices on that body. Gems & Grinds uses this rule to find the preferred
+Gem stat (`RUNE-CRAFT-ITEMS.md` §5.1). It judges each item in the Best role
+Rune Clean-up chose (§9.6), and in its build where the chosen reading names
+one. The card and Score show the result of applying the named item or
+Grindstone plan to the imported rune.
 
 Until November 2026 the placement was chosen on a fixed average-Legend reference and
 then valued at the reading's credit, because the credit and the reference could differ.

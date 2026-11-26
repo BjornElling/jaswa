@@ -93,14 +93,6 @@ function compare(actual, expected) {
     assert.ok(row.item.kind === 'grindstone' || row.rune.level >= 12);
   });
 }
-/* The premise, written out afresh rather than read from the engine: a Gem is judged on
-   lines every one of which carries the credited stone of the rune's lineage where
-   that raises it, before and after alike; a Grindstone on the rune as it stands. */
-const legendStones = new Map(['standard', 'ancient'].map((lineage) => [lineage,
-  craftPlan(lineage, { ...credit, gem: noCraftCredit.gem })]));
-const premised = (kind, lines, rune) => kind === 'gem'
-  ? lines.map((line) => ({ ...line, grind: Math.max(line.grind,
-    legendStones.get(rune.ancient ? 'ancient' : 'standard').grind[line.statId]) })) : lines;
 let comparisons = 0;
 const quality = await runeAdvice(runes, roles, settings, base);
 for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'maximum']) {
@@ -126,19 +118,19 @@ for (const kind of ['gem', 'grindstone']) for (const roll of ['two-thirds', 'max
   const rows = [];
   for (const rune of runes) {
     const advice = quality.get(rune.id);
-    const before = evaluate({ ...rune, subProperties: premised(kind, rune.subProperties, rune) }, advice);
+    const before = evaluate(rune, advice);
     if (!before) continue;
     for (const item of request.items.filter((item) => lineageFits(item, rune))) {
-      const comparison = craftComparison(item, rune, request.roll, credit);
-      assert.deepEqual(comparison.baseline, premised(kind, rune.subProperties, rune), 'the baseline left the premise');
+      const comparison = craftComparison(item, rune, request.roll);
+      assert.deepEqual(comparison.baseline, rune.subProperties, 'the baseline changed the imported rune');
       const applications = comparison.applications;
       const half = heldCraftHalf(kind, [{ item, stock: 0 }], request.roll);
       const variants = craftVariants({ gem: kind === 'gem' ? half : null, grind: kind === 'grindstone' ? half : null },
         rune.slot, rune.mainStatId, rune.prefixStatId, rune.subProperties, rune.level >= 12, () => true, true)
         .filter((variant) => variant.stock.includes(0));
-      assert.deepEqual(applications.map((app) => app.lines), variants.map((variant) => premised(kind, variant.lines, rune)));
-      for (const application of applications) {
-        const after = evaluate({ ...rune, subProperties: application.lines }, advice);
+      assert.deepEqual(applications.map((app) => app.lines), variants.map((variant) => variant.lines));
+      for (const [index, application] of applications.entries()) {
+        const after = evaluate({ ...rune, subProperties: variants[index].lines }, advice);
         if (!after) continue;
         rows.push({ rune, item, application, before, after, gain: after.score - before.score,
           stat: application.result.value + application.result.grind });
@@ -194,12 +186,9 @@ assert.equal((await recommendRuneCraft({ ...emptyRequest, runes, items })).candi
 }
 const nonImproving = { ...runes[0], subProperties: [{ statId: 8, value: 30, grind: 5, gemmed: false }] };
 assert.equal(craftComparison(items.find((item) => item.kind === 'grindstone' && item.statId === 8 && item.lineage === 'standard'),
-  nonImproving, emptyRequest.roll, credit).applications.length, 0);
+  nonImproving, emptyRequest.roll).applications.length, 0);
 
-/* The case that exposed the unequal premise: a Bruiser SPD rune with ATK 8 %. ATK
-   ground by the same stone outweighs HP + ground, so an HP + Gem must not take the ATK
-   line, and every Gem gain must be the Gem's own — never a stone the replaced line
-   could have taken too. */
+/* A flat HP Gem must earn its gain on a Bruiser rune from the Gem roll alone. */
 {
   const bruiser = roles.find((role) => role.id === 'bruiser');
   const blade = { id: 'bruiser-blade', setId: 4, setName: 'Blade', slot: 2, stars: 6, ancient: false, rarity: 'Hero',
@@ -211,8 +200,9 @@ assert.equal(craftComparison(items.find((item) => item.kind === 'grindstone' && 
     'the fixture item is not a Hero Blade HP + Gem');
   const bruiserBase = new Map([['No type', { hp: 10435, atk: 718, def: 611, spd: 104, criRate: 17, criDmg: 50, res: 17, acc: 4 }]]);
   const answer = await recommendRuneCraft({ ...emptyRequest, runes: [blade], items: [hpGem], roles: [bruiser], base: bruiserBase, roll: 'average' });
-  assert.deepEqual(answer.candidates.map((row) => row.application.target.index), [1],
-    'the HP + Gem belongs on the CRI Dmg line; on ATK % it only won the stone ATK could have had');
+  assert.deepEqual(answer.candidates.map((row) => row.application.target.index), [3],
+    'the held Gem replaces the ATK % line at its imported value');
+  assert.equal(answer.candidates[0].application.result.grind, 0, 'the held Gem added an assumed Grindstone');
 }
 // Stat ranks must not accidentally become a third score ranking.
 const hpRole = { ...createRuneRole('HP and SPD'), targets: { hp: 50000, spd: 180 },
@@ -385,8 +375,7 @@ assert.deepEqual(desirableGemStats(whole.candidates, undefined, 'no'), desirable
 
 /* The craft credit is the user's (Settings › Gems & Grindstones). Where it assumes no
    Gem, the placement rule has no Gem to choose with: it names no stat, so every held
-   Gem that raises its rune stands on its own gain instead of vanishing. A Gem is then
-   judged on lines ground by the credit's stone alone. */
+   Gem that raises its rune stands on its own gain instead of vanishing. */
 {
   const noGem = { ...settings, craftCredit: { ...credit, gem: { ...credit.gem, grade: 'none' } } };
   const gemsOnly = box.filter((item) => item.kind === 'gem');
@@ -395,13 +384,6 @@ assert.deepEqual(desirableGemStats(whole.candidates, undefined, 'no'), desirable
   assert.ok(answer.candidates.every((row) => row.gemChoice === null), 'a credit without a Gem still named a Gem stat');
   const open = desirableGemStats(answer.candidates);
   assert.ok(answer.candidates.every((row) => onDesirableGemStat(row, open)), 'a Gem was hidden by a rule that names no stat');
-  /* And the premise follows the credit's stone: none of it, and the Gem is read on the rune as it stands. */
-  const bare = { ...settings, craftCredit: noCraftCredit };
-  const plain = await recommendRuneCraft({ ...emptyRequest, runes, items: gemsOnly, roles, settings: bare, roll: 'two-thirds' });
-  for (const row of plain.candidates) {
-    assert.deepEqual(craftComparison(row.item, row.rune, 'two-thirds', noCraftCredit).baseline, row.rune.subProperties,
-      'with no stone credited a Gem was read on ground lines');
-  }
 }
 
 /* A changed account is answered from what is already known — the box and the

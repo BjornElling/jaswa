@@ -159,14 +159,12 @@ const ordinaryItem = {
 const ancientItem = {
   ...ordinaryItem, id: 'ancient-gem', lineage: 'ancient', range: { minimum: 9, maximum: 15 },
 };
-assert.equal(craftComparison(ordinaryItem, ordinaryRune, 'average', defaultCraftCredit).baseline
-  .find((line) => line.statId === 4)?.grind, 8);
-assert.equal(craftComparison(ancientItem, rune, 'average', defaultCraftCredit).baseline
-  .find((line) => line.statId === 4)?.grind, 9);
-/* The premise is the user's stone: a Hero one rounded down grinds the same line less. */
-const heroDown = { ...defaultCraftCredit, grind: { grade: 'Hero', roll: 'average', rounding: 'down' } };
-assert.equal(craftComparison(ordinaryItem, ordinaryRune, 'average', heroDown).baseline
-  .find((line) => line.statId === 4)?.grind, 5, 'a Hero ATK % stone of 4–7 at the average, rounded down, is 5');
+for (const [item, imported] of [[ordinaryItem, ordinaryRune], [ancientItem, rune]]) {
+  const comparison = craftComparison(item, imported, 'average');
+  assert.deepEqual(comparison.baseline, imported.subProperties);
+  assert.ok(comparison.applications.length > 0);
+  for (const { target, result } of comparison.applications) assert.equal(result.grind, target.property.grind);
+}
 
 /* Equal realized scores settle by canonical option order; an all-zero reading keeps
    the no-Gem body instead of reporting a tie as an improvement. */

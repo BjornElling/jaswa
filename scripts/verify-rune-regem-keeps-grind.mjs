@@ -9,11 +9,11 @@
  * from the line itself.
  */
 import assert from 'node:assert/strict';
-import { assumedCraftHalf, heldCraftHalf, craftedLines, craftedScore, craftPlan, craftVariants, defaultCraftCredit,
+import { assumedCraftHalf, heldCraftHalf, craftedLines, craftedScore, craftPlan, craftVariants,
   gemOptions, priceList } from '../app/domain/runes/craft/rune-craft-end-state.ts';
 import { craftValueRange } from '../app/domain/runes/craft/rune-craft-items.ts';
 import { craftComparison, craftItemFit } from '../app/domain/runes/craft/rune-craft-end-state.ts';
-const craftCandidate = (item, rune, roll) => craftComparison(item, rune, roll, defaultCraftCredit).applications[0] ?? null;
+const craftCandidate = (item, rune, roll) => craftComparison(item, rune, roll).applications[0] ?? null;
 
 const ATK_PERCENT = 4;
 const HP_PERCENT = 2;
@@ -21,10 +21,8 @@ const SPD = 8;
 const heroGem = (roll) => ({ grade: 'Hero', roll, rounding: 'up' });
 const credit = { gem: heroGem('maximum'), grind: { grade: 'none', roll: 'average', rounding: 'up' } };
 const gemRoll = craftValueRange('gem', 'standard', ATK_PERCENT, 'Hero').maximum;
-/* A Legend stone's ceiling: Gems & Grinds reads a Gem on lines ground by the craft
-   credit — Settings' starting average Legend stone here — so only a stone at least
-   that high can show it was kept. */
-const stone = craftValueRange('grindstone', 'standard', ATK_PERCENT, 'Legend').maximum;
+/* Keep a real grind below the default theoretical amount to catch a credit leaking into the card. */
+const stone = 4;
 
 const line = (statId, value, gemmed = false, grind = 0) => ({ statId, value, gemmed, grind });
 const rune = (subProperties) => ({

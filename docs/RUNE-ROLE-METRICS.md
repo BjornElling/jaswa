@@ -112,21 +112,16 @@ whole number (`figureOf`).
 
 ## 5. Gems & Grinds craft score
 
-Gems & Grinds judges current sub properties and the innate against every allowed
-build of every role. The weights, main-stat matching and fixed canonical perfect-rune
-ceiling come from `prepareRuneCandidate` in `rune-cleanup-model.ts`. It credits no
-future power-up rolls. A Grindstone is judged on the rune as it stands; a Gem on the
-placement rule's lines, every grindable line carrying the user's credited
-Grindstone before and after alike, so the gain is the Gem's own
-(`craftComparison`, `RUNE-CRAFT-ITEMS.md` §5). The main property selects the ruler;
-it is not part of the scored budget. Accepted and broken readings take the same
-discounts as Clean-up.
+Gems & Grinds uses the projected Best role from Rune Clean-up and its build
+when available. If Clean-up names no role, every allowed build competes. The
+weights, main-stat matching and fixed perfect-rune ceiling come from
+`prepareRuneCandidate` in `rune-cleanup-model.ts`. The main property selects
+the ruler. Accepted and broken readings take the same discounts as Clean-up.
 
-Score is the best current reading in percentage points of that fixed ruler,
-before and after separately. Gain is their difference, so a change of best role
-is counted. This is a current-line craft comparison, distinct from Clean-up's
-future Potential and expected-value verdict. `RUNE-CRAFT-ITEMS.md` section 5
-states the rankings and their resource scope.
+Score prices the imported sub properties and innate on that fixed ruler, then
+prices the result of applying the named items at the Assumed roll. Gain is the
+difference. `RUNE-CRAFT-ITEMS.md` §5 states the rankings and their resource
+scope.
 
 ## 6. Control against SWOP Pro
 

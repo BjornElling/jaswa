@@ -149,14 +149,12 @@ test('a Grindstone card is the rune\'s whole plan: every stone alike, one score 
   await page.screenshot({ path: testInfo.outputPath('one-grind.png'), fullPage: true });
 });
 
-test('gems are read on Legend-ground lines and keep only two result columns', async ({ page }, testInfo) => {
+test('Best use shows the held Gem without an assumed Grindstone', async ({ page }, testInfo) => {
   await openWorkspace(page);
   await importCraftAccount(page);
   await openSection(page, 'Best use for this');
   const panel = page.locator('[data-mode="selected"]');
   await chooseItem(page, 'Violent', 'Gem', 'SPD', 'Legend');
-  /* One premise and no control for it: every grindable line carries an average Legend
-     stone before and after the Gem (RUNE-CRAFT-ITEMS.md §5). */
   await expect(panel.getByRole('group', { name: /grind/i })).toHaveCount(0);
   await panel.getByRole('button', { name: 'Calculate', exact: true }).click();
   await expect(panel.locator('.craft-ranking')).toHaveCount(2);
@@ -172,11 +170,11 @@ test('gems are read on Legend-ground lines and keep only two result columns', as
     return [main ? parseFloat(getComputedStyle(main).fontSize) : 0, sub ? parseFloat(getComputedStyle(sub).fontSize) : 0];
   });
   expect(sizes[0]).toBe(sizes[1]);
-  await expect(card.locator('.rune-sub-grind-step')).toContainText('→');
-  await expect(card.locator('.rune-sub-ground-figure')).toHaveText('+14');
+  await expect(card.locator('.craft-recommendation-lines td:nth-child(2) .rune-sub-value')).toHaveText('+9');
+  await expect(card.locator('.rune-sub-grind-step')).toHaveCount(0);
   await expect(panel.getByText('Selected item', { exact: true })).toHaveCount(0);
   await expect(panel.getByText('Provisional score.', { exact: true })).toHaveCount(0);
-  await page.screenshot({ path: testInfo.outputPath('craft-gem-after-grind.png'), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('craft-gem-from-inventory.png'), fullPage: true });
   const scope = panel.getByRole('group', { name: 'Choose rune locations' });
   await scope.getByRole('button', { name: 'Engraved' }).click();
   await scope.getByRole('button', { name: 'Inventory' }).click();

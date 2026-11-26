@@ -493,7 +493,7 @@ export function TheMathSection() {
 
         <h3 className="type-heading">Gems and Grindstones</h3>
         <p>
-          <b className="type-body-emphasis">Settings › Gems &amp; Grindstones</b> controls which items JASWA credits when projecting a rune&rsquo;s future. Gems &amp; Grinds uses the chosen Grindstone on both sides of a Gem comparison. Grinding a line up to the credited amount leaves its projected value as it was.
+          <b className="type-body-emphasis">Settings › Gems &amp; Grindstones</b> controls which items JASWA credits when projecting a rune&rsquo;s future, including its Best role. Gems &amp; Grinds scores the imported rune before and after applying the items named on the card. Grinding a line up to the credited amount leaves its projected value as it was.
         </p>
         <p>
           The role weights, the perfect six-star rune and the sampled drops use a <b className="type-body-emphasis">fixed reference</b> with an average Legend Gem and Grindstone, rounded up. Your craft settings change the projected rune while keeping that reference steady.
