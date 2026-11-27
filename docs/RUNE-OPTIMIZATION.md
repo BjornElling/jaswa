@@ -441,6 +441,13 @@ question otherwise ignores is retained where removing an existing contribution c
 meet a ceiling. An item that changes no read
 figure and removes no ceiling contribution is omitted.
 
+**Gems & Grinds' Ignore does not reach the search, and must not.** A Gem or
+Grindstone the user has ignored on a rune in Gems & Grinds (`craftIgnores`,
+`RUNE-CRAFT-ITEMS.md`) is still offered on that rune here, under *Owned only* and
+*Theoretical* alike, and a build that is best with it recommends it. An ignore
+hides a suggestion on that page; it is not a restriction on the rune. The only
+settings that withhold a craft variant from the search are this page's own.
+
 Before craft expansion, the six slot/set lists are reconciled against the finished set
 rules: a set identity with no valid six-slot assignment is removed. The traversal stops
 when every identity has support, or after 50,000 visits; exceeding that budget keeps every

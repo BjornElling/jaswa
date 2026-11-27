@@ -416,6 +416,15 @@ and only if the box holds one; it never removes the rune itself or its other
 Gem and Grindstone suggestions. If every improving alternative is ignored,
 there is no remaining suggestion to show until the list is reset.
 
+**An ignore belongs to Gems & Grinds alone, and must stay that way.** It answers
+"stop suggesting this here", not "this rune may never take this item". Rune
+Optimization never reads `craftIgnores`: with Gems or Grindstones counted, a
+build may still place the ignored Gem or Grindstone on that rune when it is what
+makes the best build (`RUNE-OPTIMIZATION.md`, *Gems and Grindstones*). Nothing
+else under `app/` may read the list either; only the Gems & Grinds views read it
+and only `root.tsx` writes it. `npm run verify:rune-craft-single-source` fails if
+any other module names it.
+
 Assumed roll sits in the question panel as a calculation assumption. Changing them, the roles, scoring preferences or the account's
 Lv. 40 monsters is a new question: the answer leaves the page behind *Something changed
 since the last calculation* until Calculate, and asking the old question again shows it

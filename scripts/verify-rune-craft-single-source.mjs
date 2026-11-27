@@ -84,6 +84,26 @@ for (const required of ['craftedScore', 'gemOptions', 'groundValue', 'isGrindabl
   }
 }
 
+/* **Gems & Grinds' Ignore stays on Gems & Grinds** (`docs/RUNE-CRAFT-ITEMS.md`). It
+   hides a suggestion there; it does not forbid the item on the rune, so Rune
+   Optimization must still be free to place an ignored Gem where it makes the best
+   build. Only the preference plumbing and the Gems & Grinds views may name the list. */
+const ignoreReaders = [
+  join('app', 'domain', 'profiles', 'craft-ignores.ts'),
+  join('app', 'domain', 'profiles', 'preference-defaults.ts'),
+  join('app', 'domain', 'model.ts'),
+  join('app', 'ingest', 'preferences.ts'),
+  join('app', 'shell', 'root.tsx'),
+  join('app', 'features', 'craft-advice') + sep,
+];
+for (const path of everyFile(searched)) {
+  const name = relative(root, path).split('/').join(sep);
+  if (ignoreReaders.some((allowed) => name === allowed || name.startsWith(allowed))) continue;
+  if (/craftIgnore|craft-ignores/i.test(readFileSync(path, 'utf8'))) {
+    offences.push(`${name} reads Gems & Grinds' ignore list, which belongs to that page alone`);
+  }
+}
+
 if (offences.length > 0) {
   console.error('The Gem and Grindstone rules have started to spread:');
   for (const offence of offences) console.error(`  ${offence}`);
