@@ -109,6 +109,9 @@ const pullWordings = [
   [/attacks the enemy target with (?:two|2) other allies/i, () => 2],
   [/attacks the enemy target together with the target allies/i, () => 2],
   [/calls \d to (\d) allies to attack together/i, (match) => Number(match[1])],
+  /* Every other ally of a team of five. */
+  [/all allies, except yourself, attack/i, () => 4],
+  [/up to (\d) allies will attack/i, (match) => Number(match[1])],
 ];
 /* "Up to 3 according to your Defense" outranks the one ally it starts from. */
 const pullUpTo = /number of allies you attack together increases up to (\d)/i;
@@ -125,7 +128,7 @@ const notAPull = [
   /(?:can't|cannot) (?:counterattack or )?(?:attack together|team up)/i,
   /from attacking together|attacking together and the attack|attack together or counterattack/i,
 ];
-const pullHint = /together|teams? up|cooperative attack|with (?:another|an) ally\b|with (?:two|2) other allies/i;
+const pullHint = /together|teams? up|cooperative attack|with (?:another|an) ally\b|with (?:two|2) other allies|allies(?:, except yourself,)? (?:will )?attack (?:random|the|an) enem/i;
 
 function pulledAllies(skill) {
   const description = typeof skill.description === 'string' ? skill.description : '';

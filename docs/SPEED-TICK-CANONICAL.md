@@ -303,7 +303,8 @@ Verdehile's Boiling Blood passes over allies that carry a similar passive
 
 Some skills make other allies attack together with the caster during its
 turn: Icaru's and Raoq's *Team Up*, *Group Hunt*, *Attack Command*, *Violent
-Friends*, *Band of Blades* and the rest. Swarfarm has no skill effect for this,
+Friends*, *Band of Blades*, *Assailing Horn* ("all allies, except yourself,
+attack"), *Rock On* and the rest. Swarfarm has no skill effect for this,
 so `refresh-swarfarm-speed-data.mjs` reads it from the description, with the
 number of allies each wording names (`pulls`), and fails on a wording about
 attacking together it cannot place. A pair that only ever pulls its own partner
@@ -330,10 +331,14 @@ the battle's choice.
 From Swarfarm's skill data (`skill-effects` 17 *Increase ATB* and 5 *Increase
 ATK SPD*), matched to the copy's own skills and skill levels from the export.
 
-### 5.1 Every boost lands, a cooldown once
+### 5.1 Only what happens on the turn, a cooldown once
 
-The user's instruction for tuning: a boost behind a chance, a critical hit or
-a kill is assumed to land. A skill behind a cooldown (Swarfarm's `cooltime`,
+A boost counts only where it actually happens on the monster's own turn (the
+user's decision of November 27, 2026, which replaced the earlier "every boost
+lands"). A critical hit of the monster's own is assumed — Verdehile's *Boiling
+Blood* is the reference — but a kill, a percentage chance, the target's or the
+team's state, or a harmful effect the enemy may resist is not, and a boost
+behind one is not counted (§5.3). A skill behind a cooldown (Swarfarm's `cooltime`,
 kept as `cooldown`) counts on the monster's **first turn only** — the user's
 decision of November 27, 2026: the turns the page draws rarely reach a second
 use, and counting it on every turn moved bars the game never moves. No
@@ -372,6 +377,32 @@ the target: "all allies", "an ally", or otherwise the monster itself.
 
 The page shows a speed buff as `SPD buff`, and as `+p % SPD` only where one
 recipient's potency is known (`shortTurnEffect`).
+
+### 5.3 Reading decisions
+
+Swarfarm's figures and target flags are wrong for a known set of skills, and
+the game's own wording misleads for others. `speed-skill-readings.ts` records
+a decision for each, with the reason beside it, and it outranks Swarfarm's
+reading: a figure taken from the heal beside the boost (Mobilize), a boost
+filed on the wrong recipient (Horn of Charge, Wise Owl Soul), an enemy's
+lowered bar filed as a boost to allies, a rise in speed by points or percent
+read as the speed buff with its figure as turns, and multi-hit skills whose
+boost comes per critical hit. Per the rule of §5.1:
+
+- **Not counted:** anything set off by another unit's action — being attacked
+  or hit, a fatal blow (Garo's *Narrow Escape*), a death, a revive, an enemy's
+  buff or heal — and anything behind a condition the turn does not guarantee.
+  The mark beside the monster names such a skill under *Not included in the
+  calculations*.
+- **Counted on exactly those turns:** a boost set off by another unit simply
+  taking a turn, which the clock knows (`attack-bar-on-turn-of`): *Outlaw* and
+  *Thrill of War* on every other unit's turn, *Tip of the Spear* on enemy turns
+  only. It never lands on the holder's own turn, and an enemy-turn boost never
+  lands on an ally's.
+
+`verify:speed-tick` fails when the snapshot holds a skill whose wording
+(`wordingNeedingDecision`) or counted figure calls for a decision and none is
+recorded, so a refresh cannot bring a new misreading in unreviewed.
 
 ## 6. What the team faces
 

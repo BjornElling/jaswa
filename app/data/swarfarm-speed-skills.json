@@ -1,6 +1,6 @@
 {
  "source": "https://swarfarm.com/api/v2/",
- "retrievedAt": "2026-11-27T14:30:09.855Z",
+ "retrievedAt": "2026-11-27T15:19:08.754Z",
  "minimumDelayMs": 3000,
  "leaders": [
   [
@@ -14061,7 +14061,7 @@
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 25,
+     "quantity": 35,
      "aoe": false,
      "self": true,
      "single": false,
@@ -14928,7 +14928,7 @@
    "effects": [
     {
      "effect": "attack-bar",
-     "quantity": 10,
+     "quantity": 20,
      "aoe": true,
      "self": false,
      "single": false,
@@ -18517,7 +18517,7 @@
    "slot": 3,
    "passive": false,
    "cooldown": true,
-   "pulls": 0,
+   "pulls": 4,
    "description": "Increases all allies' Attack Power for 3 turns and Attack Bar by 30%. Afterwards, all allies, except yourself, attack random enemies.",
    "recoveryUpgrades": [
     0
@@ -18706,7 +18706,7 @@
    "slot": 3,
    "passive": false,
    "cooldown": true,
-   "pulls": 0,
+   "pulls": 4,
    "description": "Increases all allies' Attack Power for 3 turns and Attack Bar by 30%. Afterwards, all allies, except yourself, attack random enemies.",
    "recoveryUpgrades": [
     0
@@ -20662,7 +20662,7 @@
    "effects": [
     {
      "effect": "speed-buff",
-     "quantity": 3,
+     "quantity": 2,
      "aoe": false,
      "self": true,
      "single": false,
@@ -20854,7 +20854,7 @@
    "effects": [
     {
      "effect": "speed-buff",
-     "quantity": 3,
+     "quantity": 2,
      "aoe": false,
      "self": true,
      "single": false,
@@ -22955,6 +22955,20 @@
      "chance": 100
     }
    ]
+  },
+  {
+   "com2usId": 10243030,
+   "name": "Rock On",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 3,
+   "description": "Increases the Attack Power of all allies for 2 turns. After that, up to 3 allies will attack the enemy target.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
   },
   {
    "com2usId": 10253010,

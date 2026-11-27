@@ -217,14 +217,20 @@ export type TurnEffect =
   /** The acting monster's own bar, after its turn has emptied it. */
   | { kind: 'self-attack-bar'; amount: number }
   /** A speed buff for a number of the recipient's own turns. */
-  | { kind: 'allies-speed-buff'; turns: number }
+  /** Every ally's speed buff, the caster's too unless the skill excludes it. */
+  | { kind: 'allies-speed-buff'; turns: number; excludesCaster?: boolean }
   | { kind: 'ally-speed-buff'; turns: number; target: AllyTarget }
   | { kind: 'self-speed-buff'; turns: number }
   /**
    * Up to `count` other allies attack together with the acting monster, each
    * bringing its `jointAttack` effects. Only the acting monster pulls.
    */
-  | { kind: 'pull-allies'; count: number };
+  | { kind: 'pull-allies'; count: number }
+  /**
+   * The holder's own bar, on every turn of the units named and never on its
+   * own: `others` is every other unit, `enemies` the other side's only.
+   */
+  | { kind: 'attack-bar-on-turn-of'; of: 'others' | 'enemies'; amount: number };
 
 /**
  * Which ally a one-ally effect lands on (`SPEED-TICK-CANONICAL.md` §4): the
@@ -253,6 +259,8 @@ export type TickUnit = {
   laterTurns: readonly TurnEffect[];
   /** What the unit brings when another ally pulls it into a joint attack: its first skill and its attack passives. */
   jointAttack?: readonly TurnEffect[];
+  /** Boosts to its own bar set off by other units' turns (`attack-bar-on-turn-of`). */
+  onTurnsOf?: readonly TurnEffect[];
   /** Carries a team attack-bar passive, so a `skipsSimilar` boost passes it over. */
   similarBoostPassive?: boolean;
   /** Leo's Eye of the Storm: every other unit on the field moves no faster than this one. */
@@ -432,7 +440,7 @@ export function simulateBattle(units: readonly TickUnit[], options: {
             boost(caster.key, effect.amount);
             break;
           case 'allies-speed-buff':
-            grantBuff(caster.key, effect.turns);
+            if (!effect.excludesCaster) grantBuff(caster.key, effect.turns);
             for (const ally of allies) grantBuff(ally.key, effect.turns);
             break;
           case 'ally-speed-buff': {
@@ -453,10 +461,20 @@ export function simulateBattle(units: readonly TickUnit[], options: {
               }
             }
             break;
+          case 'attack-bar-on-turn-of':
+            /* Set off by other units' turns, below; never by the holder's own. */
+            break;
         }
       }
     };
     apply(mover, turn === 1 ? mover.firstTurn : mover.laterTurns);
+    /* Whoever counts this turn as one of "others" or "enemies" gains on it. */
+    for (const unit of units) {
+      if (unit.key === mover.key) continue;
+      for (const effect of unit.onTurnsOf ?? []) {
+        if (effect.kind === 'attack-bar-on-turn-of' && (effect.of === 'others' || unit.side !== mover.side)) boost(unit.key, effect.amount);
+      }
+    }
     /* A buff counts down at the end of its holder's own turn — but not the
        turn that granted it, which is the one it was cast in. */
     if (hadBuff && !refreshedOwnBuff) buffTurns.set(mover.key, (buffTurns.get(mover.key) ?? 0) - 1);

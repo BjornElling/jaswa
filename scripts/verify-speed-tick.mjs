@@ -25,6 +25,8 @@ import {
   runeSpeedForDisplay, simulateBattle, speedBuffPotency, ticksToFirstTurn, totemPercentByLevel,
 } from '../app/domain/speed/speed-tick.ts';
 import { describeTurnEffect, leaderSkill, shortLeaderSkill, speedLeaderSkill, speedSkillProfile } from '../app/domain/speed/speed-skills.ts';
+import { skillReadings, wordingNeedingDecision } from '../app/domain/speed/speed-skill-readings.ts';
+import speedSkillData from '../app/data/swarfarm-speed-skills.json' with { type: 'json' };
 import { dungeonIds, fastestEnemySpeed, speedContent, speedContents } from '../app/domain/speed/speed-contents.ts';
 import { accuracyCeilings, usefulAccuracy } from '../app/domain/combat/accuracy-ceiling.ts';
 import { enemyNamesOf, gameTurnOrder, readSpeedTeam } from '../app/domain/speed/speed-tuning-analysis.ts';
@@ -328,8 +330,8 @@ check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is
   const konamiya = speedSkillProfile({ skills: [[1901, 9], [1906, 3], [1911, 6]] });
   check(konamiya.uncounted.length === 0 && konamiya.effects.length === 1 && konamiya.effects[0].kind === 'ally-attack-bar'
     && konamiya.effects[0].amount === 10_000 && konamiya.effects[0].target === 'lowest-attack-bar', 'Resurge fills the lowest ally\'s bar');
-  const swordOfJustice = speedSkillProfile({ skills: [[23501, 1]] });
-  check(swordOfJustice.effects.some((effect) => effect.kind === 'ally-attack-bar' && effect.target === 'highest-attack-bar'),
+  const tacticalBomb = speedSkillProfile({ skills: [[17211, 1]] });
+  check(tacticalBomb.effects.some((effect) => effect.kind === 'ally-attack-bar' && effect.target === 'highest-attack-bar'),
     'a skill naming the highest attack bar keeps its own target');
   const breeze = speedSkillProfile({ skills: [[11801, 1]] });
   check(breeze.effects.some((effect) => effect.kind === 'ally-attack-bar' && effect.target === 'lowest-attack-bar'),
@@ -353,6 +355,43 @@ check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is
     'Verdehile brings Boiling Blood into a joint attack');
   check(speedSkillProfile({ skills: [[11801, 1]] }).jointAttack.length === 1, 'a first skill with a boost is brought into a joint attack');
   check(speedSkillProfile({ skills: [[12312, 1]] }).jointAttack.length === 0, 'a passive bound to its own turn is not');
+}
+{
+  /* §5.3: a boost counts only where it happens on the monster's own turn. */
+  const effectsOf = (id) => speedSkillProfile({ skills: [[id, 1]] }).effects;
+  check(effectsOf(4812).length === 0, 'Narrow Escape needs a fatal blow from the enemy and is not counted');
+  check(effectsOf(10015).length === 0, 'Conversion of Magic depends on harmful effects on the team and is not counted');
+  check(effectsOf(2059).length === 0 && effectsOf(3156).length === 0, 'a boost behind the target\'s state or a kill is not counted');
+  check(effectsOf(2064)[0]?.amount === 3_000, 'Mobilize fills 30 %, not the 35 % of its heal');
+  check(effectsOf(7101)[0]?.amount === 3_000, 'Passing Time counts 10 % on each of its three critical hits');
+  check(effectsOf(14612).length === 0, 'an enemy\'s lowered bar is not a boost to allies');
+  /* A boost on other units' turns lands on exactly those turns. */
+  const outlaw = speedSkillProfile({ skills: [[18014, 1]] });
+  check(outlaw.firstTurn.length === 0 && outlaw.laterTurns.length === 0 && outlaw.onTurnsOf[0]?.amount === 1_000,
+    'Outlaw gains on other units\' turns, never on its own');
+  const onTurns = (of) => simulateBattle([
+    unit('watcher', 100, [], 'ally', { onTurnsOf: [{ kind: 'attack-bar-on-turn-of', of, amount: 1_000 }] }),
+    unit('friend', 300), unit('enemy', 290, [], 'enemy'),
+  ], { done: (events) => events.length >= 2 });
+  const gain = (trace, at) => trace.snapshots[trace.events[at].tick - 1].after.watcher - trace.snapshots[trace.events[at].tick - 1].bars.watcher;
+  const others = onTurns('others');
+  const enemies = onTurns('enemies');
+  check(others.events[0].key === 'friend' && gain(others, 0) === 1_000 && gain(others, 1) === 1_000,
+    'a boost on everybody else\'s turns lands on an ally\'s turn and an enemy\'s');
+  check(gain(enemies, 0) === 0 && gain(enemies, 1) === 1_000, 'a boost on enemy turns does not land on an ally\'s turn');
+  /* Every skill whose wording or figure needs a decision has one, so a
+     refresh cannot bring a new misreading in unreviewed. */
+  const undecided = speedSkillData.skills.filter((skill) => skill.effects.length > 0 && !skillReadings.has(skill.com2usId)).filter((skill) => {
+    const read = speedSkillProfile({ skills: [[skill.com2usId, 1]] }).used.flatMap((used) => used.effects);
+    const figureMissing = read.some((effect) => ('amount' in effect && effect.amount !== 10_000
+      && !new RegExp(`(?:^|[^0-9.])${effect.amount / 100} ?%`).test(skill.description))
+      || ('turns' in effect && !new RegExp(`(?:^|[^0-9])${effect.turns} turns?`).test(skill.description)));
+    return figureMissing || wordingNeedingDecision.test(skill.description);
+  });
+  check(undecided.length === 0, `every skill that needs a reading decision has one in speed-skill-readings.ts; missing: ${undecided.map((skill) => `${skill.com2usId} ${skill.name}`).join(', ')}`);
+  const known = new Set(speedSkillData.skills.map((skill) => skill.com2usId));
+  const stale = [...skillReadings.keys()].filter((id) => !known.has(id));
+  check(stale.length === 0, `every reading decision names a skill in the snapshot; unknown: ${stale.join(', ')}`);
 }
 for (const id of dungeonIds) {
   const content = speedContent(id);

@@ -168,6 +168,7 @@ function tickUnit(candidate: Candidate): TickUnit {
     firstTurn: candidate.profile.firstTurn,
     laterTurns: candidate.profile.laterTurns,
     jointAttack: candidate.profile.jointAttack.flatMap((skill) => skill.effects),
+    onTurnsOf: candidate.profile.onTurnsOf,
     similarBoostPassive: candidate.profile.similarBoostPassive,
     capsOthersSpeed: candidate.profile.capsOthersSpeed,
   };
