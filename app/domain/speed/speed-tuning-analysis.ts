@@ -165,7 +165,9 @@ function tickUnit(candidate: Candidate): TickUnit {
     side: 'ally',
     speed: candidate.speed,
     speedBuffPercent: candidate.speedBuffPercent,
-    effects: candidate.profile.effects,
+    firstTurn: candidate.profile.firstTurn,
+    laterTurns: candidate.profile.laterTurns,
+    jointAttack: candidate.profile.jointAttack.flatMap((skill) => skill.effects),
     similarBoostPassive: candidate.profile.similarBoostPassive,
     capsOthersSpeed: candidate.profile.capsOthersSpeed,
   };
@@ -335,6 +337,10 @@ function candidatesOf(team: SpeedTeam, monsters: ReadonlyMap<string, GameRecord>
      too; one speed lead counts, as one of any attribute does (`leadReaches`). */
   const speedLeads = [leaderSkill, ...team.otherLeaders.map((leader) => speedLeaderSkill(leader.masterId))]
     .filter((lead): lead is SpeedLeaderSkill => lead !== null);
+  const teammates = team.members.flatMap((member): GameRecord[] => {
+    const monster = monsters.get(member.unitId);
+    return monster ? [monster] : [];
+  });
   return team.members.flatMap((member) => {
     const monster = monsters.get(member.unitId);
     if (!monster) return [];
@@ -353,7 +359,7 @@ function candidatesOf(team: SpeedTeam, monsters: ReadonlyMap<string, GameRecord>
       masterId: String(monster.unit_master_id ?? ''),
       element,
       importedDisplaySpeed: parts.displaySpeed,
-      profile: speedSkillProfile(monster),
+      profile: speedSkillProfile(monster, teammates),
       speedBuffPercent: speedBuffPotency(parts.speedUpEffect),
       leaderPercent,
       base,

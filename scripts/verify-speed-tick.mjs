@@ -110,7 +110,7 @@ for (const [speed, ticks] of [[1429, 1], [715, 2], [477, 3], [358, 4], [286, 5],
 for (const [speed, ticks] of [[2223, 1], [2222, 2], [1112, 2], [741, 3], [300, 8]]) {
   check(ticksToFirstTurn(speed, 'raid') === ticks, `${speed} combat speed needs ${ticks} raid ticks`);
 }
-const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, side, speed, effects, ...extra });
+const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, side, speed, firstTurn: effects, laterTurns: effects, ...extra });
 {
   const trace = simulateBattle([unit('slow', 280), unit('fast', 300)], { done: everyoneMoved(['slow', 'fast']) });
   check(trace.events[0].key === 'fast' && trace.events[1].key === 'slow', 'the fuller bar moves first');
@@ -206,6 +206,35 @@ const unit = (key, speed, effects = [], side = 'ally', extra = {}) => ({ key, si
   const turnTick = drawn.snapshots[drawn.events[0].tick - 1];
   check(!turnTick.buffed.includes('Agrius') && turnTick.after.Agrius === 0 && turnTick.after.ally === turnTick.bars.ally + 2_000,
     'a turn records the bars it leaves: the mover emptied, the boost landed');
+}
+{
+  /* §5.1: a skill behind a cooldown acts on the first turn only. */
+  const boost = [{ kind: 'allies-attack-bar', amount: 3_000, skipsSimilar: false }];
+  const trace = simulateBattle([unit('booster', 300, boost, 'ally', { laterTurns: [] }), unit('ally', 100)],
+    { done: (events) => events.filter((event) => event.key === 'booster').length >= 2 });
+  const [first, second] = trace.events.filter((event) => event.key === 'booster')
+    .map((event) => trace.snapshots[event.tick - 1]);
+  check(first.after.ally === first.bars.ally + 3_000 && second.after.ally === second.bars.ally,
+    'a cooldown boost lands on the first turn and not on the second');
+}
+{
+  /* §4.1: a joint attack brings the pulled ally's boost into the puller's turn.
+     The pulled ally's "all allies" reaches the puller, whose bar has emptied,
+     and the ally listed first with something to bring is the one pulled. */
+  const pull = [{ kind: 'pull-allies', count: 1 }];
+  const boiling = [{ kind: 'allies-attack-bar', amount: 2_000, skipsSimilar: true }];
+  const trace = simulateBattle([
+    unit('puller', 300, pull, 'ally', { laterTurns: [] }),
+    unit('plain', 120),
+    unit('booster', 100, [], 'ally', { jointAttack: boiling, similarBoostPassive: true }),
+    unit('other', 110),
+  ], { done: (events) => events.length >= 1 });
+  const turn = trace.snapshots[trace.events[0].tick - 1];
+  check(turn.after.puller === 2_000 && turn.after.plain === turn.bars.plain + 2_000 && turn.after.other === turn.bars.other + 2_000
+    && turn.after.booster === turn.bars.booster, 'a pulled booster boosts every other ally, the puller included, and passes over itself');
+  const withoutPartner = simulateBattle([unit('puller', 300, pull), unit('plain', 120)], { done: (events) => events.length >= 1 });
+  const alone = withoutPartner.snapshots[withoutPartner.events[0].tick - 1];
+  check(alone.after.puller === 0 && alone.after.plain === alone.bars.plain, 'a pull with nobody to bring a boost changes no bar');
 }
 {
   /* The SPD UP Effect is read off the copy's own engraved artifacts. */
@@ -305,6 +334,25 @@ check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is
   const breeze = speedSkillProfile({ skills: [[11801, 1]] });
   check(breeze.effects.some((effect) => effect.kind === 'ally-attack-bar' && effect.target === 'lowest-attack-bar'),
     'a skill naming the lowest attack bar goes there');
+  /* §5.1: Bernard's Tailwind has a cooldown and counts on his first turn only;
+     Verdehile's Boiling Blood has none and counts on every one. */
+  check(bernard.firstTurn.some((effect) => effect.kind === 'allies-attack-bar')
+    && !bernard.laterTurns.some((effect) => effect.kind === 'allies-attack-bar'), 'Tailwind counts on the first turn only');
+  check(verdehile.firstTurn.length === 1 && verdehile.laterTurns.length === 1, 'Boiling Blood counts on every turn');
+  /* §4.1: Icaru (Water, 2A) pulls up to three allies with Team Up — only where
+     a teammate has a boost to bring, and only on his first turn. Verdehile
+     brings Boiling Blood, as it fires on any critical hit of hers. */
+  const icaru = { skills: [[2051, 1], [2056, 1], [2061, 1]] };
+  const verdehileCopy = { skills: [[6502, 1], [6507, 1], [6512, 1]] };
+  const raoq = { skills: [[2052, 1], [2057, 1], [2062, 1]] };
+  const pulling = speedSkillProfile(icaru, [icaru, verdehileCopy]);
+  check(pulling.firstTurn.some((effect) => effect.kind === 'pull-allies' && effect.count === 3)
+    && !pulling.laterTurns.some((effect) => effect.kind === 'pull-allies'), 'Team Up pulls on the first turn only');
+  check(speedSkillProfile(icaru, [icaru, raoq]).effects.length === 0, 'a pull with no teammate to bring a boost is not counted');
+  check(speedSkillProfile(verdehileCopy).jointAttack.some((skill) => skill.effects.some((effect) => effect.kind === 'allies-attack-bar' && effect.amount === 2_000)),
+    'Verdehile brings Boiling Blood into a joint attack');
+  check(speedSkillProfile({ skills: [[11801, 1]] }).jointAttack.length === 1, 'a first skill with a boost is brought into a joint attack');
+  check(speedSkillProfile({ skills: [[12312, 1]] }).jointAttack.length === 0, 'a passive bound to its own turn is not');
 }
 for (const id of dungeonIds) {
   const content = speedContent(id);

@@ -396,9 +396,11 @@ test('tunes a dungeon preset, explains every miss, and keeps the card still', as
   ]);
   await expect(card.locator('.speed-team-status')).toHaveCount(0);
   /* Each stage names the turn its first enemy follows: whose, and which of
-     theirs — a first turn too, since another stage's is a second. */
+     theirs — a first turn too, since another stage's is a second. Tailwind's
+     cooldown leaves Lushen no boosted second turn, so stage 1's enemy follows
+     Bernard's own second turn. */
   await expect(enemyTurns.locator('tbody tr').nth(1)).toHaveText('2Lushen #1 (1st turn)');
-  await expect(enemyTurns.locator('tbody tr').first().locator('.speed-enemy-after')).toHaveText('Lushen #1 (2nd turn)');
+  await expect(enemyTurns.locator('tbody tr').first().locator('.speed-enemy-after')).toHaveText('Bernard (2A) (2nd turn)');
   /* Each stage ends on whether its first enemy moves before every monster has moved. */
   const cutMarks = enemyTurns.locator('.speed-cut-mark');
   await expect(cutMarks.nth(0)).toHaveAttribute('data-state', 'clear');

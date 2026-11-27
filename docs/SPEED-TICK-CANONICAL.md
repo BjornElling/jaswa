@@ -299,18 +299,54 @@ table names the recipient of a member's first turn in the tag under it:
 Verdehile's Boiling Blood passes over allies that carry a similar passive
 (`skipsSimilar`), as its text says.
 
+### 4.1 Joint attacks
+
+Some skills make other allies attack together with the caster during its
+turn: Icaru's and Raoq's *Team Up*, *Group Hunt*, *Attack Command*, *Violent
+Friends*, *Band of Blades* and the rest. Swarfarm has no skill effect for this,
+so `refresh-swarfarm-speed-data.mjs` reads it from the description, with the
+number of allies each wording names (`pulls`), and fails on a wording about
+attacking together it cannot place. A pair that only ever pulls its own partner
+species (Chakram Dancer and Boomerang Warrior), a boss's skill, and skills that
+forbid attacking together pull nobody here.
+
+A pulled ally attacks with its first skill, so it brings that skill's speed
+effects and those of its passives that fire on an attack of its own wherever
+it is made — "Your Critical Hits …", "with each attack", "after attacking" —
+but not one bound to its own turn (`jointAttack`). Verdehile's *Boiling Blood*
+is the clear case. Its bar and its cooldowns are untouched: the turn is still
+the puller's.
+
+**Modelled:** auto battle's choice of partner is not visible, so the allies
+that bring a boost are assumed to be the ones pulled, the first listed first.
+A pull counts only where a teammate has a boost to bring, and then it is the
+puller's first-turn skill. A pulled ally's "all allies" and one-ally effects
+reach the puller, whose bar has just emptied. Effects that lower an enemy's
+attack bar are never counted, whoever casts them: which enemy they land on is
+the battle's choice.
+
 ## 5. Which effects a monster has
 
 From Swarfarm's skill data (`skill-effects` 17 *Increase ATB* and 5 *Increase
 ATK SPD*), matched to the copy's own skills and skill levels from the export.
 
-### 5.1 Every boost on every turn
+### 5.1 Every boost lands, a cooldown once
 
-The user's instruction for tuning: every attack-bar effect a monster has counts
-on every one of its turns. A boost behind a cooldown, a chance, a critical hit
-or a kill is assumed to land. A monster still uses one active skill per turn —
-its strongest speed skill (team boost first, then speed buff, then its own bar)
-— plus every passive.
+The user's instruction for tuning: a boost behind a chance, a critical hit or
+a kill is assumed to land. A skill behind a cooldown (Swarfarm's `cooltime`,
+kept as `cooldown`) counts on the monster's **first turn only** — the user's
+decision of November 27, 2026: the turns the page draws rarely reach a second
+use, and counting it on every turn moved bars the game never moves. No
+cooldown skill-up takes a skill below two turns, so the flag cannot be undone
+by the copy's skill level. A skill without a cooldown — Verdehile's *Boiling
+Blood* — counts on every turn.
+
+A monster uses one active skill per turn: on its first turn its strongest
+speed skill (a joint attack that brings a teammate's boost first, §4.1, then
+team boost, speed buff, its own bar), and on every later turn its strongest
+without a cooldown. Every passive counts on top, a passive behind a cooldown on
+the first turn only. The mark beside the monster names each counted skill with
+its turns: `every turn`, `first turn only` or `later turns`.
 
 Skill-ups reading "Attack Bar Recovery +N%" strengthen the boost by that share
 of itself, counted only up to the copy's own skill level: Bernard's 30 % at

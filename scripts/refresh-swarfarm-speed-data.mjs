@@ -2,8 +2,8 @@
 
 /**
  * Creates the checked-in snapshot that Speed Tuning reads: every monster's
- * leader skill, and every skill that moves an attack bar or grants a speed
- * buff. The enemies it tunes against are the PvE database's
+ * leader skill, and every skill that moves an attack bar, grants a speed buff
+ * or makes allies attack along — with whether it sits behind a cooldown. The enemies it tunes against are the PvE database's
  * (`refresh-swarfarm-pve-stages.mjs`).
  *
  * Like `refresh-swarfarm-monsters.mjs`, this is a human-triggered maintenance
@@ -94,8 +94,56 @@ async function readExisting() {
   }
 }
 
+/*
+ * A skill that makes other allies attack with the caster — Icaru's and Raoq's
+ * Team Up, Group Hunt, Attack Command. Swarfarm has no skill effect for it, so
+ * the description is read, and each wording names how many allies come along.
+ * A pulled ally attacks with its first skill, so a boost on that skill or on an
+ * attack passive lands during the caster's turn (`SPEED-TICK-CANONICAL.md` §4.1).
+ */
+const pullWordings = [
+  [/teams? up with (?:another|the) ally/i, () => 1],
+  [/(?:attacks?|attack) the enemy with (?:another|an) ally/i, () => 1],
+  [/teams? up with (?:two|2) other allies/i, () => 2],
+  [/cooperative attack with (?:two|2) (?:fellow|other) allies/i, () => 2],
+  [/attacks the enemy target with (?:two|2) other allies/i, () => 2],
+  [/attacks the enemy target together with the target allies/i, () => 2],
+  [/calls \d to (\d) allies to attack together/i, (match) => Number(match[1])],
+];
+/* "Up to 3 according to your Defense" outranks the one ally it starts from. */
+const pullUpTo = /number of allies you attack together increases up to (\d)/i;
+/* Wordings about attacking together that pull no ally of the player's choice:
+   a pair that only ever pulls its own partner species, a boss's, the caster's
+   own spheres or incarnations, a friendship, and skills that forbid it. */
+const notAPull = [
+  /(?:Boomerang Warrior|Chakram Dancer)/,
+  /together with (?:Hollow|Void)/,
+  /all other allies team up/i,
+  /two incarnations/,
+  /remaining spheres/,
+  /best friends with an ally/i,
+  /(?:can't|cannot) (?:counterattack or )?(?:attack together|team up)/i,
+  /from attacking together|attacking together and the attack|attack together or counterattack/i,
+];
+const pullHint = /together|teams? up|cooperative attack|with (?:another|an) ally\b|with (?:two|2) other allies/i;
+
+function pulledAllies(skill) {
+  const description = typeof skill.description === 'string' ? skill.description : '';
+  const upTo = pullUpTo.exec(description);
+  if (upTo) return Number(upTo[1]);
+  for (const [wording, count] of pullWordings) {
+    const match = wording.exec(description);
+    if (match) return count(match);
+  }
+  if (pullHint.test(description) && !notAPull.some((wording) => wording.test(description))) {
+    throw new Error(`Swarfarm skill ${skill.com2us_id} (${skill.name}) may make allies attack together in a wording this script does not read: ${JSON.stringify(description)}. The existing snapshot was kept.`);
+  }
+  return 0;
+}
+
 /* "Attack Bar Recovery +{0}%" is the one skill-up that changes a boost; the
-   others (damage, cooldown) do not touch a turn order and are dropped. */
+   others do not touch a turn order and are dropped. A cooldown skill-up never
+   takes a skill below two turns, so it cannot make one usable on every turn. */
 function attackBarRecoveryUpgrades(skill) {
   return (Array.isArray(skill.upgrades) ? skill.upgrades : [])
     .map((upgrade) => (typeof upgrade?.effect === 'string' && upgrade.effect.startsWith('Attack Bar Recovery')
@@ -115,12 +163,20 @@ function compactSkill(skill) {
       onCrit: entry.on_crit,
       chance: entry.chance,
     }));
-  if (effects.length === 0) return null;
+  const pulls = pulledAllies(skill);
+  if (effects.length === 0 && pulls === 0) return null;
+  if (skill.cooltime !== null && !(Number.isInteger(skill.cooltime) && skill.cooltime >= 0)) {
+    throw new Error(`Swarfarm gives skill ${skill.com2us_id} (${skill.name}) an unreadable cooldown, ${JSON.stringify(skill.cooltime)}. The existing snapshot was kept.`);
+  }
   return {
     com2usId: skill.com2us_id,
     name: skill.name,
     slot: skill.slot,
     passive: skill.passive,
+    /* Behind a cooldown: Speed Tuning counts it on the monster's first turn only. */
+    cooldown: (skill.cooltime ?? 0) > 0,
+    /* How many allies attack along with the caster; 0 for none. */
+    pulls,
     description: skill.description,
     recoveryUpgrades: attackBarRecoveryUpgrades(skill),
     effects,

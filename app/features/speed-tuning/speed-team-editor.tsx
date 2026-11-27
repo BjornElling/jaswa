@@ -10,7 +10,7 @@ import { alwaysSynchronizedReason } from '../../domain/placements/always-synchro
 import { formatNumber } from '../../domain/shared/formatting';
 import { moveItem } from '../../domain/shared/list-order';
 import type { MonsterCopyName } from '../../domain/monsters/monster-names';
-import { boostsAllies, describeLeaderSkill, describeTurnEffect, leaderSkill, shortAllyBoost, shortLeaderSkill, shortTurnEffect } from '../../domain/speed/speed-skills';
+import { boostsAllies, describeLeaderSkill, describeSpeedSkill, describeTurnEffect, leaderSkill, shortAllyBoost, shortLeaderSkill, shortTurnEffect } from '../../domain/speed/speed-skills';
 import type { SpeedOpponent } from '../../domain/speed/speed-contents';
 import { leaderAreaReaches } from '../../domain/speed/speed-tick';
 import { combatSpeedIntervalText } from '../../domain/speed/speed-tuning-analysis';
@@ -243,9 +243,10 @@ export function SpeedTeamEditor({ reading, intervalState, title, names, general,
         const lead = leaderSkill(monster.masterId);
         const leads = team.leaderUnitId === member.unitId;
         const reaches = lead !== null && leaderAreaReaches(lead.area, content.area);
-        const { used, uncounted } = monster.profile;
+        const { used, jointAttack, uncounted } = monster.profile;
         const boostLabel = [
-          used.length ? `${used.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')} — counted on every turn` : '',
+          used.length ? used.map(describeSpeedSkill).join('; ') : '',
+          jointAttack.length ? `When attacking together: ${jointAttack.map((skill) => `${skill.name}: ${skill.effects.map(describeTurnEffect).join(', ')}`).join('; ')}` : '',
           uncounted.length ? `Not included in the calculations: ${uncounted.join(', ')}` : '',
         ].filter(Boolean).join('. ');
         const tiedWith = monster.verdict.kind === 'tie' ? monster.verdict.with
@@ -273,7 +274,7 @@ export function SpeedTeamEditor({ reading, intervalState, title, names, general,
                 {/* The mark's box is always there, so a team gaining a booster
                     does not shift the name beside it. */}
                 <span className="speed-boost-slot">
-                  {(used.length > 0 || uncounted.length > 0) && <BoostMark label={`${name} — ${boostLabel}`}
+                  {(used.length > 0 || jointAttack.length > 0 || uncounted.length > 0) && <BoostMark label={`${name} — ${boostLabel}`}
                     tone={boostsAllies(monster.profile) ? 'team' : 'own'} />}
                 </span>
               </span>

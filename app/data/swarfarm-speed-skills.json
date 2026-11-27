@@ -1,6 +1,6 @@
 {
  "source": "https://swarfarm.com/api/v2/",
- "retrievedAt": "2026-10-08T18:27:01.582Z",
+ "retrievedAt": "2026-11-27T14:30:09.855Z",
  "minimumDelayMs": 3000,
  "leaders": [
   [
@@ -3211,8 +3211,8 @@
   ],
   [
    18404,
-   "Critical Rate",
-   17,
+   "HP",
+   22,
    "General",
    null
   ],
@@ -3232,8 +3232,8 @@
   ],
   [
    18414,
-   "Critical Rate",
-   17,
+   "HP",
+   22,
    "General",
    null
   ],
@@ -10887,6 +10887,272 @@
    38,
    "Guild",
    null
+  ],
+  [
+   36201,
+   "Defense",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   36211,
+   "Defense",
+   44,
+   "Dungeon",
+   null
+  ],
+  [
+   36301,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   36302,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   36303,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   36304,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   36305,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   36311,
+   "Attack Power",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   36312,
+   "HP",
+   44,
+   "Arena",
+   null
+  ],
+  [
+   36313,
+   "Resistance",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   36314,
+   "Accuracy",
+   55,
+   "Arena",
+   null
+  ],
+  [
+   36315,
+   "Critical Rate",
+   33,
+   "Arena",
+   null
+  ],
+  [
+   36401,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   36403,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   36404,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   36411,
+   "Attack Power",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   36412,
+   "Accuracy",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   36413,
+   "HP",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   36414,
+   "Resistance",
+   48,
+   "Guild",
+   null
+  ],
+  [
+   36415,
+   "Defense",
+   38,
+   "Guild",
+   null
+  ],
+  [
+   36502,
+   "Defense",
+   28,
+   "General",
+   null
+  ],
+  [
+   36503,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   36505,
+   "Attack Speed",
+   21,
+   "General",
+   null
+  ],
+  [
+   36511,
+   "Critical Rate",
+   21,
+   "General",
+   null
+  ],
+  [
+   36512,
+   "Defense",
+   28,
+   "General",
+   null
+  ],
+  [
+   36513,
+   "HP",
+   28,
+   "General",
+   null
+  ],
+  [
+   36514,
+   "Accuracy",
+   35,
+   "General",
+   null
+  ],
+  [
+   36515,
+   "Attack Speed",
+   21,
+   "General",
+   null
+  ],
+  [
+   36701,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   36702,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   36703,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   36704,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   36705,
+   "Critical Rate",
+   24,
+   "General",
+   null
+  ],
+  [
+   36711,
+   "Resistance",
+   41,
+   "General",
+   null
+  ],
+  [
+   36712,
+   "Defense",
+   33,
+   "General",
+   null
+  ],
+  [
+   36713,
+   "HP",
+   33,
+   "General",
+   null
+  ],
+  [
+   36714,
+   "Attack Power",
+   33,
+   "General",
+   null
+  ],
+  [
+   36715,
+   "Critical Rate",
+   24,
+   "General",
+   null
   ]
  ],
  "skills": [
@@ -10895,6 +11161,8 @@
    "name": "Purify",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on the target ally, increases the target's Attack Bar by 25% and recovers its HP. The recovery amount is proportionate to the Attack Power.",
    "recoveryUpgrades": [
     0,
@@ -10918,6 +11186,8 @@
    "name": "Icy Spear",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy with a spear and increases the Attack Speed for 2 turns if you get a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -10945,6 +11215,8 @@
    "name": "Fiery Spear",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy with a spear and increases the Attack Speed for 2 turns if you get a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -10972,6 +11244,8 @@
    "name": "Lightning Spear",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy with a spear and increases the Attack Speed for 2 turns if you get a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -10999,6 +11273,8 @@
    "name": "Holy Spear",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy with a spear and increases the Attack Speed for 2 turns if you get a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -11026,6 +11302,8 @@
    "name": "Dark Spear",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy with a spear and increases the Attack Speed for 2 turns if you get a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -11053,6 +11331,8 @@
    "name": "Hostility (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "You reflect 10% of damage back to the enemy and fill up your Attack Bar by 30% every time you're attacked. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -11072,6 +11352,8 @@
    "name": "Ambush",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy and increases your Attack Speed for 2 turns. Damage increases according to your Attack Speed.",
    "recoveryUpgrades": [
     0,
@@ -11096,6 +11378,8 @@
    "name": "Ambush",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy and increases your Attack Speed for 2 turns. Damage increases according to your Attack Speed.",
    "recoveryUpgrades": [
     0,
@@ -11116,10 +11400,26 @@
    ]
   },
   {
+   "com2usId": 1511,
+   "name": "Group Hunt",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 2,
+   "description": "Performs a fierce cooperative attack with two fellow allies.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 1556,
    "name": "Ambush",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy and increases your Attack Speed for 2 turns. The damage increases according to your Attack Speed, and the damage dealt increases by 30% for each harmful effect granted on the enemy.",
    "recoveryUpgrades": [
     0,
@@ -11142,6 +11442,8 @@
    "name": "Ambush",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy and increases your Attack Speed for 2 turns. Damage increases according to your Attack Speed.",
    "recoveryUpgrades": [
     0,
@@ -11160,10 +11462,25 @@
    ]
   },
   {
+   "com2usId": 1561,
+   "name": "Group Hunt",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 2,
+   "description": "Performs a fierce cooperative attack with 2 other allies to leave a Branding effect for 2 turns.",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 1565,
    "name": "Spurt (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Speed by 25, and increases your Attack Speed more as your HP status worsens. In addition, increases your Critical Rate by 30% when attacking enemies with lower Attack Speed than yours. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -11179,10 +11496,25 @@
    ]
   },
   {
+   "com2usId": 1576,
+   "name": "Group Hunt",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 2,
+   "description": "Performs a fierce cooperative attack with 2 other allies to leave a Branding effect for 2 turns.",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 1614,
    "name": "Alert",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 30% and decreases the chances of being hit with a Critical Hit by 50% for 3 turns.",
    "recoveryUpgrades": [
     0,
@@ -11205,6 +11537,8 @@
    "name": "Solid Blades",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Power and Critical Rate for 3 turns. Additionally, your Attack Bar increases by 50%.",
    "recoveryUpgrades": [
     0
@@ -11226,6 +11560,8 @@
    "name": "Solid Blades",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Power and Critical Rate for 3 turns. Additionally, your Attack Bar increases by 50%.",
    "recoveryUpgrades": [
     0
@@ -11247,6 +11583,8 @@
    "name": "Resurge",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills up an ally target's Attack Bar and strengthens their Attack Power for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -11269,6 +11607,8 @@
    "name": "Resurge",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills up an ally target's Attack Bar and strengthens their Attack Power for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -11291,6 +11631,8 @@
    "name": "Rapidity",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills the Attack Bar of all allies by 30% and increases their Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -11318,10 +11660,51 @@
    ]
   },
   {
+   "com2usId": 2006,
+   "name": "Team Up",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Teams up with another ally to attack an enemy.",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 2007,
+   "name": "Team Up",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Teams up with another ally to attack an enemy.",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 2010,
+   "name": "Team Up",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Teams up with another ally to attack an enemy.",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 2014,
    "name": "Mobilize",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fill the Attack Bar of all allies by 30% and recovers their HP by 30%.",
    "recoveryUpgrades": [
     0,
@@ -11341,10 +11724,40 @@
    ]
   },
   {
+   "com2usId": 2056,
+   "name": "Team Up",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 3,
+   "description": "Teams up with another ally to attack an enemy. The number of allies you attack together increases up to 3 according to your Defense.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 2057,
+   "name": "Team Up",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 2,
+   "description": "Teams up with two other allies to attack an enemy.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 2059,
    "name": "Seize",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy and removes all beneficial effects on the target. Recovers your Attack Bar by 30% if you attack the enemy with no beneficial effects.",
    "recoveryUpgrades": [
     0,
@@ -11363,10 +11776,26 @@
    ]
   },
   {
+   "com2usId": 2060,
+   "name": "Team Up",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Teams up with another ally to attack an enemy. The damage increases by 20% for each harmful effect on the enemy, and this effect also applies to the ally who attacks together.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 2064,
    "name": "Mobilize",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills the Attack Bar of all allies by 30% and recovers their HP by 35%.",
    "recoveryUpgrades": [
     0,
@@ -11385,10 +11814,54 @@
    ]
   },
   {
+   "com2usId": 2071,
+   "name": "Team Up",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 3,
+   "description": "Teams up with another ally to attack an enemy. The number of allies you attack together increases up to 3 according to your Defense.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 2072,
+   "name": "Team Up",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 2,
+   "description": "Teams up with two other allies to attack an enemy.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 2075,
+   "name": "Team Up",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Teams up with another ally to attack an enemy. The damage increases by 20% for each harmful effect on the enemy, and this effect also applies to the ally who attacks together.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 2211,
    "name": "Cleanse",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Inflicts damage to all enemies and removes beneficial effects on all enemies. Removes 1 harmful effect of allies afterwards and increases the Attack Bar of allies without harmful effects to be removed by 15% each.",
    "recoveryUpgrades": [
     0,
@@ -11413,6 +11886,8 @@
    "name": "Iron Defense",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases Defense for 3 turns and gives you Immunity against harmful effects. Additionally your Attack Bar increases by 50%.",
    "recoveryUpgrades": [
     0
@@ -11434,6 +11909,8 @@
    "name": "Iron Defense",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases Defense for 3 turns and gives you Immunity against harmful effects. Additionally your Attack Bar increases by 50%.",
    "recoveryUpgrades": [
     0
@@ -11455,6 +11932,8 @@
    "name": "Tailwind",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 30%, and also increases their Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -11486,6 +11965,8 @@
    "name": "Body Slam",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy with a body slam and weakens their Attack Power and Defense for 2 turns. After the attack, your Attack Bar increases by 30% for each harmful effect granted on the enemy target.",
    "recoveryUpgrades": [
     5,
@@ -11508,6 +11989,8 @@
    "name": "Tailwind",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 30%, and also increases their Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     5,
@@ -11539,6 +12022,8 @@
    "name": "Ice Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks an enemy with a strong smashing blow. On Critical Hit, this attack will increase your Attack Bar by 30%.",
    "recoveryUpgrades": [
     0,
@@ -11563,6 +12048,8 @@
    "name": "Fire Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks an enemy with a strong smashing blow. On Critical Hit, this attack will increase your Attack Bar by 30%.",
    "recoveryUpgrades": [
     0,
@@ -11587,6 +12074,8 @@
    "name": "Thunder Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks an enemy with a strong smashing blow. On Critical Hit, this attack will increase your Attack Bar by 30%.",
    "recoveryUpgrades": [
     0,
@@ -11611,6 +12100,8 @@
    "name": "Holy Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks an enemy with a strong smashing blow. On Critical Hit, this attack will increase your Attack Bar by 30%.",
    "recoveryUpgrades": [
     0,
@@ -11635,6 +12126,8 @@
    "name": "Dark Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks an enemy with a strong smashing blow. On Critical Hit, this attack will increase your Attack Bar by 30%.",
    "recoveryUpgrades": [
     0,
@@ -11659,6 +12152,8 @@
    "name": "Adrenaline",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills the Attack Bars of all allies by 50% and increases their Critical Rate for 3 turns.",
    "recoveryUpgrades": [
     0,
@@ -11681,6 +12176,8 @@
    "name": "Ice Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy and increases your Attack Bar by 30% if the attack lands as a Critical Hit. This attack receives a 50% Critical Rate bonus.",
    "recoveryUpgrades": [
     0,
@@ -11703,6 +12200,8 @@
    "name": "Fire Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy and increases your Attack Bar by 30% if the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -11725,6 +12224,8 @@
    "name": "Thunder Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy and increases your Attack Bar by 30% if the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -11747,6 +12248,8 @@
    "name": "Holy Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy and increases your Attack Bar by 30% if the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -11769,6 +12272,8 @@
    "name": "Dark Smash",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to provoke for 1 turn with an 80% chance. Increases your Attack Bar by 30% if the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -11791,6 +12296,8 @@
    "name": "Adrenaline",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills the Attack Bars of all allies by 50% and increases their Critical Rate for 3 turns.",
    "recoveryUpgrades": [
     10
@@ -11812,6 +12319,8 @@
    "name": "Turbulence",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Causes turbulence to set the enemy's Attack Bar to 0 and increases your Attack Bar by 50%.",
    "recoveryUpgrades": [
     0,
@@ -11835,6 +12344,8 @@
    "name": "God of Fire",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Power and Attack Speed of all allies for 2 turns, and becomes invincible for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -11853,10 +12364,25 @@
    ]
   },
   {
+   "com2usId": 3113,
+   "name": "Concentrated Attack",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Attack the enemy with an ally. This attack always lands as a Critical Hit.",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 3156,
    "name": "Tectonic Shift",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Strikes the enemy with an attack strong enough to split the Earth, inflicting significant damage that ignores the enemy's Defense. Recovers the Attack Bar by 30% if the enemy gets defeated by this skill.",
    "recoveryUpgrades": [
     0,
@@ -11879,6 +12405,8 @@
    "name": "God of Fire",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Power and Attack Speed of all allies for 2 turns, and becomes invincible for 2 turns.",
    "recoveryUpgrades": [],
    "effects": [
@@ -11898,6 +12426,8 @@
    "name": "Concentrated Attack",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 1,
    "description": "Attacks the enemy with an ally at the same time with [Cross Attack]. You and the ally's attack will always land as a Critical Hit, and the ally's Attack Bar will be recovered by 30%.",
    "recoveryUpgrades": [
     10,
@@ -11920,6 +12450,8 @@
    "name": "Purifying Blaze",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes the beneficial effects of all enemies with holy fire, weakens the Defense for 2 turns and inflicts damage. Afterwards, increases the Attack Bar of all allies by 15%.",
    "recoveryUpgrades": [
     0,
@@ -11944,6 +12476,8 @@
    "name": "Fiery Dance",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers HP of all allies by 30% each and increases their Attack Power for 3 turns. Afterwards, increases the Attack Bar of the allies with full HP by 15% each.",
    "recoveryUpgrades": [
     10
@@ -11961,10 +12495,40 @@
    ]
   },
   {
+   "com2usId": 3465,
+   "name": "Violent Friends",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 3,
+   "description": "Attacks the enemy 4 times to decrease Defense for 2 turns with a 30% chance each, and calls 2 to 3 allies to attack together.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 3480,
+   "name": "Violent Friends",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 3,
+   "description": "Attacks the enemy 4 times to decrease Defense for 2 turns with a 30% chance each, and calls 2 to 3 allies to attack together.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 4206,
    "name": "Squall",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "The faster your Attack Speed, the greater the damage becomes. Attack Speed is increased for 2 turns if you get a Critical Hit. The attack will always land as a Critical Hit if the target's Attack Speed is slower than yours.",
    "recoveryUpgrades": [
     0,
@@ -11988,6 +12552,8 @@
    "name": "Squall",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "The faster your Attack Speed, the greater the damage becomes. Attack Speed is increased for 2 turns if you get a Critical Hit. The attack will always land as a Critical Hit if the target's Attack Speed is slower than yours.",
    "recoveryUpgrades": [
     0,
@@ -12011,6 +12577,8 @@
    "name": "Squall",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "The faster your Attack Speed, the greater the damage becomes. Attack Speed is increased for 2 turns if you get a Critical Hit. The attack will always land as a Critical Hit if the target's Attack Speed is slower than yours.",
    "recoveryUpgrades": [
     0,
@@ -12034,6 +12602,8 @@
    "name": "Holy Calling",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Stuns all enemies with an 80% chance, increases the Attack Speed of all allies for 2 turns. In addition, increases the Attack Bar of all allies by 25% and decreases the Attack Bar of all enemies by 25%.",
    "recoveryUpgrades": [
     0,
@@ -12066,6 +12636,8 @@
    "name": "Attack!",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy target and recovers the HP and Attack Bar of the ally with the lowest HP ratio by 15%.",
    "recoveryUpgrades": [
     0,
@@ -12089,6 +12661,8 @@
    "name": "Attack! Heal!",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy target and recovers the HP of all allies by 50% of the damage dealt. Absorbs the target's Attack Bar by 25% to increase the Attack Bar of all allies.",
    "recoveryUpgrades": [
     0
@@ -12110,6 +12684,8 @@
    "name": "Attack!",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy target and recovers the HP and Attack Bar of the ally with the lowest HP ratio by 15%.",
    "recoveryUpgrades": [
     0,
@@ -12133,6 +12709,8 @@
    "name": "Clear Water (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Reduces the odds of receiving a Critical Hit by 50% and increases your Resistance by 50%. In addition, increases your Attack Bar by 20% whenever you get attacked by non critical hits from the enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12152,6 +12730,8 @@
    "name": "Narrow Escape (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Offsets a single fatal damage and increases your Attack Bar by 50%. This effect is activated only once between your turns. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12171,6 +12751,8 @@
    "name": "Simple Solution",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy target 4 consecutive times, with each attack having a 50% chance to weaken the Defense for 2 turns. Your Attack Bar increases by 25% for each attack that lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -12194,6 +12776,8 @@
    "name": "Dreamy Invitation",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks without waking up the enemy that's under Sleep. Puts the target to Sleep for 1 turn with a 50% chance. Recovers the Attack Bar by 50% if the enemy falls asleep after the attack.",
    "recoveryUpgrades": [
     0,
@@ -12220,6 +12804,8 @@
    "name": "Dreamy Invitation",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks without waking up the enemy that's under Sleep. Puts the target to Sleep for 1 turn with a 50% chance. Recovers the Attack Bar by 50% if the enemy falls asleep after the attack.",
    "recoveryUpgrades": [
     0,
@@ -12246,6 +12832,8 @@
    "name": "Dreamy Invitation",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks without waking up the enemy that's under Sleep. Puts the target to Sleep for 1 turn with a 50% chance. Recovers the Attack Bar by 50% if the enemy falls asleep after the attack.",
    "recoveryUpgrades": [
     0,
@@ -12272,6 +12860,8 @@
    "name": "Dreamy Invitation",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks without waking up the enemy that's under Sleep. Puts the target to Sleep for 1 turn with a 50% chance. Recovers the Attack Bar by 50% if the enemy falls asleep after the attack.",
    "recoveryUpgrades": [
     0,
@@ -12298,6 +12888,8 @@
    "name": "Dreamy Invitation",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks without waking up the enemy that's under Sleep. Puts the target to Sleep for 1 turn with a 50% chance. Recovers the Attack Bar by 50% if the enemy falls asleep after the attack.",
    "recoveryUpgrades": [
     0,
@@ -12324,6 +12916,8 @@
    "name": "Multiple Throw",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Throws 3 axes at an enemy. Your Attack Bar increases by 15% if this attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -12347,6 +12941,8 @@
    "name": "Multiple Throw",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Throws 3 axes at an enemy. Your Attack Bar increases by 15% if this attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -12370,6 +12966,8 @@
    "name": "Shout of Victory",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills up the Attack Bar of all allies by 50% and recovers 15% of their HP.",
    "recoveryUpgrades": [
     0,
@@ -12396,6 +12994,8 @@
    "name": "Furious March",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Revives all fallen allies with little HP and increases all allies' Attack Speed for 2 turns. Increases the allies' Attack Bar by 30% each according to the no. of revived allies.",
    "recoveryUpgrades": [
     0,
@@ -12431,6 +13031,8 @@
    "name": "Air Slash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Inflicts damage with a sharp attack and recovers your HP by 50% of the damage dealt. Increases your Attack Bar by 100% if your HP is full after the attack.",
    "recoveryUpgrades": [
     0,
@@ -12454,6 +13056,8 @@
    "name": "Air Slash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Inflicts damage with a sharp attack and recovers your HP by 50% of the damage dealt. Increases your Attack Bar by 100% if your HP is full after the attack.",
    "recoveryUpgrades": [
     0,
@@ -12477,7 +13081,9 @@
    "name": "Wheel of Fire",
    "slot": 3,
    "passive": false,
-   "description": "Attacks all enemies 3 times with a spinning circle of fire, with each strike having a 30% chance to remove one beneficial effect and stun the enemy for 1 turn. Increases your Attack Speed for 2 turns after the attack when used with full HP.",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Attacks all enemies 4 times with a spinning circle of fire. Each hit removes 1 beneficial effect with a 30% chance and stuns for 1 turn with a 30% chance. Increases your Attack Speed for 2 turns after the attack when used with full HP.",
    "recoveryUpgrades": [
     0,
     0,
@@ -12501,6 +13107,8 @@
    "name": "Rapid Fire",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 5 times to inflict big damage and creates a shield by 50% of the damage dealt to yourself for 2 turns. Increases your Attack Bar by 10% for every Critical Hit. If you have full HP when using this attack, this attack will not go on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -12524,6 +13132,8 @@
    "name": "Dark Force",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Locks down the enemy target with the power of darkness to inflict damage that's proportionate to the enemy's MAX HP and decreases the target's Attack Bar by 50%. This attack recovers your attack Bar by 100% when used with full HP.",
    "recoveryUpgrades": [
     0,
@@ -12547,6 +13157,8 @@
    "name": "Predator's Cry",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the HP of all allies by 15% each and increases their Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -12571,6 +13183,8 @@
    "name": "Predator's Cry",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the HP of all allies by 15% each and increases their Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -12595,6 +13209,8 @@
    "name": "Predator's Cry",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the HP of all allies by 20% each and increases their Attack Speed for 2 turns. In addition, decreases the chances of allies receiving Critical Hits for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -12616,6 +13232,8 @@
    "name": "Predator's Cry",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the HP of all allies by 20% and their Attack Bar by 15%. Also increases their Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -12646,6 +13264,8 @@
    "name": "Quality of Phantom (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 50% when the enemy target is defeated or stunned after an attack. Deals 100% more damage if the enemy's HP is higher than your HP. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12665,6 +13285,8 @@
    "name": "God's Shield (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Calls upon the power of the divine shield, gaining immunity against all effects. Additionally, the chance of allies receiving a Critical Hit is reduced by 15%. Increases your Attack Bar by 5%, up to 20%, every time an ally is hit by a non-Critical Hit. The effect is not accumulated with other Critical Hit reduction effects. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12684,6 +13306,8 @@
    "name": "Counterattack",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the critical rate for 2 turns and counterattacks when attacked. The Attack Bar is increased by 50%, and the damage you receive will be reduced by half when you get attacked while this skill is on cooldown.",
    "recoveryUpgrades": [
     0
@@ -12705,6 +13329,8 @@
    "name": "Counterattack",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the critical rate for 2 turns and counterattacks when attacked. The Attack Bar is increased by 50%, and the damage you receive will be reduced by half when you get attacked while this skill is on cooldown.",
    "recoveryUpgrades": [
     0
@@ -12726,6 +13352,8 @@
    "name": "Eye For An Eye (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the attacker with a critical hit to inflict damage that's proportionate to your Attack Power and Stuns the target for 1 turn with a 40% chance when attacked with a critical hit. Additionally, your Attack Bar increases by 40%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12745,6 +13373,8 @@
    "name": "Counterattack",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the critical rate for 3 turns and counterattacks when attacked. The Attack Bar is increased by 50%, and the damage you receive will be reduced by half when you get attacked while this skill is on cooldown.",
    "recoveryUpgrades": [
     5,
@@ -12767,6 +13397,8 @@
    "name": "Counterattack",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the critical rate for 2 turns and counterattacks when attacked. The Attack Bar is increased by 50%, and the damage you receive will be reduced by half when you get attacked while this skill is on cooldown.",
    "recoveryUpgrades": [
     5,
@@ -12789,6 +13421,8 @@
    "name": "Eye For An Eye (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When you are attacked with a Critical Hit, increases your Attack Bar by 40% and counterattacks the attacker with 100% Critical Rate. You won't get defeated with Critical Hit attacks. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12808,6 +13442,8 @@
    "name": "Eye For An Eye (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When you are attacked with a Critical Hit, increases your Attack Bar by 40% and counterattacks the attacker with 100% Critical Rate. You won't get defeated with Critical Hit attacks. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12827,6 +13463,8 @@
    "name": "Doomsday",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Meteorites of doomsday fall on to the enemies and the inflicted damage increases with time. Stuns the target for 1 turn and recovers your Attack Bar by 20% each if the enemy is under Continuous Damage.",
    "recoveryUpgrades": [
     0,
@@ -12849,6 +13487,8 @@
    "name": "Doomsday",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Meteorites of doomsday fall on to the enemies and the inflicted damage increases with time. Stuns the target for 1 turn and recovers your Attack Bar by 20% each if the enemy is under Continuous Damage.",
    "recoveryUpgrades": [
     0,
@@ -12871,6 +13511,8 @@
    "name": "Holy Water",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects granted on all allies and recovers their HP by 50% each. In addition, increases the Attack Bar of all allies by 20% each and recovers 15% HP each turn for 3 turns by the no. of harmful effects removed on the allies who had their harmful effects removed.",
    "recoveryUpgrades": [
     0,
@@ -12894,6 +13536,8 @@
    "name": "Sanctuary",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on all allies, granting them Immunity for 3 turns, and increasing the Attack Bar by 30%.",
    "recoveryUpgrades": [
     0,
@@ -12916,6 +13560,8 @@
    "name": "Judge (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When you or an ally is attacked with a Critical Hit, counterattacks the enemy with an attack that always lands as a Critical Hit and increases your Attack Bar by 10%. Increases your Defense by 10% each whenever [Judge (Passive)] is activated (accumulates up to 10 times). [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12935,6 +13581,8 @@
    "name": "Boiling Blood (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Your Critical Hits increase the Attack Bars of all allies by 20%. This effect does not have effect on allies that have similar skill effects. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12954,6 +13602,8 @@
    "name": "Wanderer (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Decreases the chances of receiving critical hits by 50%, and decreases the cooldown of your skill each time you're attacked. In addition, increases your Attack Bar by 30% if you get attacked by non critical hits. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -12973,6 +13623,8 @@
    "name": "Delicate Whip",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy and increases your Attack Bar by the proportion of the enemy's HP lost by this attack. Guarantees to stun the target for 1 turn if the attack lands as a Critical Hit, and decreases the cooldown of [Delicate Whip] by 1 turn if you defeat the enemy.",
    "recoveryUpgrades": [
     0,
@@ -12997,6 +13649,8 @@
    "name": "Arrow of Purification",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy with an arrow to remove 1 beneficial effect granted on the target. Your Attack Bar will be increased by 50% after the attack.",
    "recoveryUpgrades": [
     0,
@@ -13020,6 +13674,8 @@
    "name": "Arrow of Purification",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy with an arrow to remove 1 beneficial effect granted on the target. Your Attack Bar will be increased by 50% after the attack.",
    "recoveryUpgrades": [
     0,
@@ -13043,6 +13699,8 @@
    "name": "Ready to Ambush",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bars of all allies by 30%, also increasing their Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -13074,6 +13732,8 @@
    "name": "Trigger Happy",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Unleashes a relentless attack with arrows on random enemies (4 hits total) and increases the ally’s Attack Bar by 25% after the attack.",
    "recoveryUpgrades": [
     0,
@@ -13098,6 +13758,8 @@
    "name": "Passing Time",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times and recovers 10% of the Attack Bar each time the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13121,6 +13783,8 @@
    "name": "Passing Time",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times and recovers 10% of the Attack Bar each time the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13144,6 +13808,8 @@
    "name": "Passing Time",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times and recovers 10% of the Attack Bar each time the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13167,6 +13833,8 @@
    "name": "Passing Time",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times and recovers 10% of the Attack Bar each time the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13190,6 +13858,8 @@
    "name": "Passing Time",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times and recovers 10% of the Attack Bar each time the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13213,6 +13883,8 @@
    "name": "Daydream",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the HP of all allies by 50% and puts yourself to an irresistible sleep for 1 turn. In addition, increases the Attack Speed of all allies for 2 turns and decreases their skill cooldowns by 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -13237,6 +13909,8 @@
    "name": "Loss of Cause and Effect (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Speed for 2 turns if you get a harmful effect. Removes all harmful effects if you start the turn with harmful effects. Recovers HP of all allies by 10% of your MAX HP for each removed harmful effect. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -13256,6 +13930,8 @@
    "name": "Wind Guardian Angel",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 3 times. Each attack decreases their Attack Bar by 30% and increases their chance of landing a Glancing Hit for 2 turns with a 40% chance. Afterwards, increases the Attack Bar of all allies by 40%.",
    "recoveryUpgrades": [
     0,
@@ -13280,6 +13956,8 @@
    "name": "Light Guardian Angel",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Defense of all allies for 1 turn and Attack Speed for 1 turn. Afterwards, attacks all enemies 3 times to inflict damage that increases according to your MAX HP and Defense. Each attack has a 35% chance to remove 1 beneficial effect.",
    "recoveryUpgrades": [
     0,
@@ -13304,6 +13982,8 @@
    "name": "Spell of Strengthening",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 20% and increases their Attack Power and Defense for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -13325,6 +14005,8 @@
    "name": "Spell of Strengthening",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 20% and increases their Attack Power and Defense for 2 turns each.",
    "recoveryUpgrades": [
     10
@@ -13346,6 +14028,8 @@
    "name": "Trade",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Changes the HP ratio and harmful effects with the enemy target (boss excluded) and the ally with the worst HP condition and increases the Attack Bar of all allies by 20%.",
    "recoveryUpgrades": [
     5,
@@ -13370,7 +14054,9 @@
    "name": "End of Evolution (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "Gains immunity against inability effects and decreases the chances of being attacked with a Critical Hit by 30%. In addition, increases your Attack Bar by 25% whenever you get attacked by non critical hits from the enemy. [Automatic Effect]",
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Gains immunity against inability effects and decreases the chance of receiving a Critical Hit by 30%. In addition, increases your Attack Bar by 35% whenever hit by a non-Critical Hit. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
     {
@@ -13389,6 +14075,8 @@
    "name": "Tooth For a Tooth (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Decreases the damage taken from enemies by 10%. Also Increases the Attack Bar of all allies by 10% if an ally receives a Critical Hit. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -13408,6 +14096,8 @@
    "name": "All or Nothing",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies and stuns them for 1 turn with a 75% chance. Increases your Attack Bar by 25% per stunned enemy after the attack.",
    "recoveryUpgrades": [
     0,
@@ -13432,6 +14122,8 @@
    "name": "Lightning Monkey Wand",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks and decreases the Defense for 2 turns with a 75% chance and recovers your Attack Bar by 50%.",
    "recoveryUpgrades": [
     0,
@@ -13457,6 +14149,8 @@
    "name": "All or Nothing",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies and stuns them for 1 turn with a 75% chance. Increases your Attack Bar by 25% per stunned enemy after the attack.",
    "recoveryUpgrades": [
     0,
@@ -13481,6 +14175,8 @@
    "name": "Air Slash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Shoots a sharp energy from the sword to attack and increases your Attack Speed for 2 turns. This skill has a 30% chance to activate the Sword of the Supreme Sky Wolf after using the skill on your turn, and the activation chance increases by 20% additionally when you land a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13505,6 +14201,8 @@
    "name": "Air Slash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Shoots a sharp energy from the sword to attack and increases your Attack Speed for 2 turns. This skill has a 30% chance to activate the Sword of the Supreme Sky Wolf after using the skill on your turn, and the activation chance increases by 20% additionally when you land a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13529,6 +14227,8 @@
    "name": "Air Slash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Shoots a sharp energy from the sword to attack and increases your Attack Speed for 2 turns. This skill has a 30% chance to activate the Sword of the Supreme Sky Wolf after using the skill on your turn, and the activation chance increases by 20% additionally when you land a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13553,6 +14253,8 @@
    "name": "Air Slash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Shoots a sharp energy from the sword to attack and increases your Attack Speed for 2 turns. This skill has a 30% chance to activate the Sword of the Supreme Sky Wolf after using the skill on your turn, and the activation chance increases by 20% additionally when you land a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13577,6 +14279,8 @@
    "name": "Air Slash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Shoots a sharp energy from the sword to attack and increases your Attack Speed for 2 turns. This skill has a 30% chance to activate the Sword of the Supreme Sky Wolf after using the skill on your turn, and the activation chance increases by 20% additionally when you land a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13601,6 +14305,8 @@
    "name": "Air Slash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Shoots a sharp energy from the sword to attack and increases your Attack Speed for 2 turns. This skill has a 30% chance to activate the Sword of the Supreme Sky Wolf after using the skill on your turn, and the activation chance increases by 20% additionally when you land a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13625,6 +14331,8 @@
    "name": "Seal Punch",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy with a swift attack. Increases the Attack Bar of all allies by 15% each and Attack Speed for 2 turns. Gets drunk and attacks a random enemy with [Rolling Punch] with a 50% chance afterwards.",
    "recoveryUpgrades": [
     0,
@@ -13658,6 +14366,8 @@
    "name": "Trick of Water",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies with a spell that summons the power of water to decrease their Attack Speed for 2 turns with an 80% chance and increases the Attack Bar of all allies by 25%. The damage is proportionate to your MAX HP.",
    "recoveryUpgrades": [
     0,
@@ -13684,6 +14394,8 @@
    "name": "Chop",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks with an axe and decreases the target's Attack Bar to 0. Additionally, your Attack Bar will be increased proportionate to the reduced Attack Bar if you land a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13707,6 +14419,8 @@
    "name": "Chop",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks with an axe and decreases the target's Attack Bar to 0. Additionally, your Attack Bar will be increased proportionate to the reduced Attack Bar if you land a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13730,6 +14444,8 @@
    "name": "Harmless Prank",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Randomly selects an enemy 4 times to grant one of the following effects: remove 2 beneficial effects, stun for 1 turn, decrease Defense for 2 turns, or Oblivion for 1 turn. Afterwards, increases the Attack Bar of all allies by 30%.",
    "recoveryUpgrades": [
     0,
@@ -13752,6 +14468,8 @@
    "name": "Whistle",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Blows a whistle to recover 30% of the Attack Bar of all allies, increases their Attack Speed for 1 turn and grants Immunity for 2 turns. Grants either Increase ATK or Increase DEF for 1 turn afterwards.",
    "recoveryUpgrades": [
     0
@@ -13782,6 +14500,8 @@
    "name": "Time Bomb",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Installs a bomb that detonates after 2 turns on all enemies and increases your Attack Bar by 50%. In addition, increases your Attack Bar by 15% for each bomb you install.",
    "recoveryUpgrades": [
     0,
@@ -13815,6 +14535,8 @@
    "name": "Time Bomb",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Installs a bomb that detonates after 2 turns on all enemies and increases your Attack Bar by 50%. In addition, increases your Attack Bar by 15% for each bomb you install.",
    "recoveryUpgrades": [
     0,
@@ -13848,6 +14570,8 @@
    "name": "Time Bomb",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Installs a bomb that detonates after 2 turns on all enemies and increases your Attack Bar by 50%. In addition, increases your Attack Bar by 15% for each bomb you install.",
    "recoveryUpgrades": [
     0,
@@ -13881,6 +14605,8 @@
    "name": "Shatter",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 times with a sharp wind and weakens the Defense for 2 turns with a 50% chance for each attack. Your Attack Bar will increase by 15% each when the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13906,6 +14632,8 @@
    "name": "Shatter",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 times with a sharp wind and weakens the Defense for 2 turns with a 50% chance for each attack. Your Attack Bar will increase by 15% each when the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13931,6 +14659,8 @@
    "name": "Shatter",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 times with a sharp wind and weakens the Defense for 2 turns with a 50% chance for each attack. Your Attack Bar will increase by 15% each when the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -13956,6 +14686,8 @@
    "name": "Crumble",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 3 times to weaken the Defense and inflicts continuous damage for 2 turns. Increases your Attack Bar by 10% per Continuous Damage granted on the enemies after the attack.",
    "recoveryUpgrades": [
     0,
@@ -13979,6 +14711,8 @@
    "name": "Shatter",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 times with a sharp wind to steal 1 beneficial effect with a 50% chance each and to decrease the Defense for 2 turns with a 50% chance each. Your Attack Bar will increase by 15% each when the attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -14004,6 +14738,8 @@
    "name": "Blade Fan",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Throws a fan to attack the enemy 3 times, with each attack having a 50% chance to remove one of the enemy's beneficial effects. Increases the Attack Bar of all allies by 15% each per beneficial effect removed. The damage is proportionate to the attack speed.",
    "recoveryUpgrades": [
     0,
@@ -14028,6 +14764,8 @@
    "name": "Blade Fan",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Throws a fan to attack the enemy 3 times, with each attack having a 50% chance to remove one of the enemy's beneficial effects. Increases the Attack Bar of all allies by 15% each per beneficial effect removed. The damage is proportionate to the attack speed.",
    "recoveryUpgrades": [
     0,
@@ -14052,6 +14790,8 @@
    "name": "Pride Will Fall",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Dances to attack the enemies randomly and decreases their Defense for 2 turns with a 30% chance each and increases Attack Power of all allies for 2 turns. In addition, increases the Attack Bar of all allies by 10% every time you attack the enemy with Defense decreased.",
    "recoveryUpgrades": [
     0,
@@ -14075,6 +14815,8 @@
    "name": "Fallen Blossoms",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Balances the HP and the Attack Bar of the target ally and your HP to a higher amount than before.",
    "recoveryUpgrades": [
     0
@@ -14096,6 +14838,8 @@
    "name": "Charge Vitality",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills up the Attack Bar of an ally target and yourself and recovers HP by 50%.",
    "recoveryUpgrades": [
     0,
@@ -14119,6 +14863,8 @@
    "name": "Amuse",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the HP of all allies and increases their Attack Power for 2 turns. In addition, increases the Attack Bar of the allies with full HP by 25%. The recovery amount is proportional to the Attack Power.",
    "recoveryUpgrades": [
     0,
@@ -14143,6 +14889,8 @@
    "name": "Blade Fan",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times with an attack that always lands as a Critical Hit, with each attack having a 50% chance to remove one of the enemy's beneficial effects. Increases the Attack Bar of all allies by 15% each per beneficial effect removed. The damage is proportionate to the attack speed.",
    "recoveryUpgrades": [
     0,
@@ -14167,7 +14915,9 @@
    "name": "Destruct Evil",
    "slot": 3,
    "passive": false,
-   "description": "Attacks the enemy 4 times. Each hit has a 35% chance to remove 1 beneficial effect and decrease its Defense for 2 turns. Afterwards, increases the Attack Bar of all allies by 10%.",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Attacks the enemy 4 times. Each hit has a 35% chance to remove 1 beneficial effect and decrease its Defense for 2 turns. Afterwards, increases the Attack Bar of all allies by 20%.",
    "recoveryUpgrades": [
     0,
     0,
@@ -14192,6 +14942,8 @@
    "name": "Destruction Wedge",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy with an arrow that can't be removed and removes all beneficial effects granted on the enemy, weakens Defense for 2 turns and increases the chances of landing a glancing hit for 2 turns with a 90% chance each. In addition, increases your Attack Bar by 50% if you attack with a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -14217,6 +14969,8 @@
    "name": "Inhale Magic",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to steal their HP by 15% of your MAX HP and steal all beneficial effects on all enemies. Afterwards, increases the Attack Bar of all allies by 10%, and additionally by 10% if you successfully steal beneficial effects.",
    "recoveryUpgrades": [
     0
@@ -14247,6 +15001,8 @@
    "name": "Wings of Wind",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes one harmful effect from all allies, decreases their skill cool time by 1 turn each, and increases their Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -14268,6 +15024,8 @@
    "name": "Ready to Attack",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on all allies and increases the attack gauge by at least 15%. The attack gauge is increased additionally by 5% for each removed harmful effect.",
    "recoveryUpgrades": [
     0
@@ -14289,6 +15047,8 @@
    "name": "Wrathful Attack",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy with a wrathful axe, leaving a Branding Effect for 2 turns, and increasing your Attack Bar by 50%. While under [Berserk] state, additionally decreases the enemy's Attack Bar by 50%.",
    "recoveryUpgrades": [
     0,
@@ -14313,6 +15073,8 @@
    "name": "Wrathful Attack",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy with a wrathful axe, leaving a Branding Effect for 2 turns, and increasing your Attack Bar by 50%. While under [Berserk] state, additionally decreases the enemy's Attack Bar by 50%.",
    "recoveryUpgrades": [
     0,
@@ -14337,6 +15099,8 @@
    "name": "Wrathful Attack",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy with a wrathful axe, leaving a Branding Effect for 2 turns, and increasing your Attack Bar by 50%. While under [Berserk] state, additionally decreases the enemy's Attack Bar by 50%.",
    "recoveryUpgrades": [
     0,
@@ -14361,6 +15125,8 @@
    "name": "Resentment",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Becomes possessed with unstoppable rage and attacks all enemies. Increases the Attack Power and Attack Speed of all allies for 2 turns. Goes under [Berserk] state for 3 turns afterwards. Under Berserk state, the Defense is decreased by 30%, damage dealt to enemies is increased by 100%, Attack Speed is increased by 20% and HP is recovered by 10% of the damage dealt.",
    "recoveryUpgrades": [
     0,
@@ -14384,6 +15150,8 @@
    "name": "Aura of Dawn",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to decrease their Attack Power and increases the enemy's chance to land a Glancing Hit for 2 turns with an 80% chance each. In addition, your Attack Bar increases by 10% per harmful effect granted on the enemy.",
    "recoveryUpgrades": [
     0,
@@ -14408,6 +15176,8 @@
    "name": "Aura of Dawn",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to decrease their Attack Power and increases the enemy's chance to land a Glancing Hit for 2 turns with an 80% chance each. In addition, your Attack Bar increases by 10% per harmful effect granted on the enemy.",
    "recoveryUpgrades": [
     0,
@@ -14432,6 +15202,8 @@
    "name": "Wind of Changes",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful and beneficial effects of all allies and enemies and increases the Attack Bar of all allies by 30%. This effect can't be resisted.",
    "recoveryUpgrades": [
     0,
@@ -14450,10 +15222,29 @@
    ]
   },
   {
+   "com2usId": 9812,
+   "name": "Enter Battlefield",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Attacks the enemy with another ally to decrease its Defense for 2 turns with a 75% chance. The damage is proportionate to your MAX HP.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 9813,
    "name": "Echo of Earth",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 40% and removes all harmful effects.",
    "recoveryUpgrades": [
     0
@@ -14475,6 +15266,8 @@
    "name": "Elemental King (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Always gains attribute advantage when attacking an enemy. When you take fatal damage, increases your Attack Power for 2 turns, grants yourself Endure for 1 turn, and increases your Attack Bar by 30%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -14494,6 +15287,8 @@
    "name": "Master of Magic Power (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "After attacking, steals one beneficial effect from the target and applies it to all allies, and absorbs the Attack Bar by 20%. Also increases your Attack Power by 30% for each beneficial effect you are granted with, and increases your Attack Speed by 5 for each beneficial effect granted on the allies, up to 100. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -14513,6 +15308,8 @@
    "name": "Conversion of Magic (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Removes a harmful effect, except inability effects, on all allies each turn and the allies will recover their HP by 5% for each harmful effect removed. In addition, your Attack Bar increases by 15% for each harmful effect remaining on the ally after attacking each turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -14532,6 +15329,8 @@
    "name": "Full Speed Ahead",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 50% each, and reduces the cool time of their skills by 1 turn each. Decreases the cooldown of [Full Speed Ahead] by 2 turns if an enemy is defeated while the skill is on cooldown.",
    "recoveryUpgrades": [
     0
@@ -14553,6 +15352,8 @@
    "name": "Spiritism",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Calls upon the power of the sea to increase the Attack Power and Attack Speed for 3 turns. You instantly gain another turn after using this ability.",
    "recoveryUpgrades": [
     0,
@@ -14575,6 +15376,8 @@
    "name": "Feast(Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Recovers the HP by 30% and the Attack Bar by 50% whenever you kill an enemy on your turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -14594,6 +15397,8 @@
    "name": "Grant Life",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the ally target's HP and Attack Bar by 40% each. If the skill is used on the dead ally, the ally will be revived with 40% HP and 40% Attack Bar but adds 2 turns of cooldown time.",
    "recoveryUpgrades": [
     0,
@@ -14617,6 +15422,8 @@
    "name": "Grant Life",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the ally target's HP and Attack Bar by 40% each. If the skill is used on the dead ally, the ally will be revived with 40% HP and 40% Attack Bar but adds 2 turns of cooldown time.",
    "recoveryUpgrades": [
     0,
@@ -14640,6 +15447,8 @@
    "name": "Deadly Seduction(Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Decreases the HP recovery amount that all Monsters receive by 50%. Increases your Attack Bar by 15%, up to 60%, whenever an enemy recovers HP. After enemies recover HP 5 times, you will inflict damage that ignores the enemy's Defense on your next turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -14659,6 +15468,8 @@
    "name": "Dagger Dash",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times with attacks that always land as Critical Hits to disturb HP recovery for 2 turns each. Increases your Attack Bar by the proportion of the enemy's HP lost from your attack.",
    "recoveryUpgrades": [
     0,
@@ -14683,6 +15494,8 @@
    "name": "Cutting Magic",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks an enemy and then removes all beneficial effects on the target. If there are 2 or more beneficial effects removed, the Attack Bar of all allies will be increased by 20% each.",
    "recoveryUpgrades": [
     0,
@@ -14707,6 +15520,8 @@
    "name": "Cutting Magic",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks an enemy and then removes all beneficial effects on the target. If there are 2 or more beneficial effects removed, the Attack Bar of all allies will be increased by 20% each.",
    "recoveryUpgrades": [
     0,
@@ -14731,6 +15546,8 @@
    "name": "Briefing",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on an ally target and fills up the ally's Attack Bar. If the target has no harmful effects to remove, grants Recovery for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -14753,6 +15570,8 @@
    "name": "Briefing",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on an ally target and fills up the ally's Attack Bar. If the target has no harmful effects to remove, grants Recovery for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -14775,6 +15594,8 @@
    "name": "Cutting Magic",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks an enemy and then removes all beneficial effects on the target. If there are 2 or more beneficial effects removed, the Attack Bar of all allies will be increased by 20% each.",
    "recoveryUpgrades": [
     0,
@@ -14795,10 +15616,26 @@
    ]
   },
   {
+   "com2usId": 10912,
+   "name": "Attack Command",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 2,
+   "description": "Removes all harmful effects on all allies, and attacks the enemy target with 2 other allies. If there are no harmful effects to remove from allies, recovers the HP of all allies by 15%.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 11013,
    "name": "Qinggong",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Speed for 2 turns with quick footwork. Attacks the enemy to inflict damage proportionate to your Attack Speed. The Attack Bar will be increased by 50% after the attack.",
    "recoveryUpgrades": [
     0,
@@ -14833,6 +15670,8 @@
    "name": "Underworld King's Return(Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": true,
+   "pulls": 0,
    "description": "At the moment of death, revives with 30% HP and full Attack Bar. In addition, uses [Brand of Hell] on the enemy that killed you. The Attack Power also increases by 100% each whenever revived. (Accumulates up to 3 times) [Automatic Effect]",
    "recoveryUpgrades": [
     0,
@@ -14856,6 +15695,8 @@
    "name": "Deadly Wrath",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies with a deadly wrath, dealing damage proportionate to your MAX HP 2 times, and Brands them for 2 turns. In addition, creates a shield that's equivalent to 10% of the inflicted damage on all allies for 2 turns. The cooldown of [Deadly Wrath] will be reset and your Attack Bar will be increased by 50% if an ally or enemy gets defeated while the skill is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -14879,6 +15720,8 @@
    "name": "Oasis's Blessing",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 30%, increases their Attack Power for 3 turns, and creates a Shield for 3 turns. The Shield amount is proportionate to your level.",
    "recoveryUpgrades": [
     0,
@@ -14902,6 +15745,8 @@
    "name": "Marching Shout",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Defense and Critical Rate of all allies for 2 turns, and fully fills up the target ally's Attack Bar.",
    "recoveryUpgrades": [
     0,
@@ -14924,6 +15769,8 @@
    "name": "Duty of the Monarch(Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the Attack Bar of allies by 10% whenever your turn ends. Additionally increases the Attack Bar by 5% based on the number of beneficial effects granted on the target, up to 20%. If the other allies have harmful effects, increases their HP by 5% based on the no. of harmful effects, up to 30%. This effect does not have an effect on allies that have similar skill effects. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -14952,6 +15799,8 @@
    "name": "Tip of the Spear(Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Each attack removes one beneficial effect from the enemy with a 30% chance. Increases your Attack Bar by 25% each time the enemy's turn ends. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -14971,6 +15820,8 @@
    "name": "Song of the Night Wind",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Speed and Critical Rate of all allies for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -14992,6 +15843,8 @@
    "name": "Song of the Night Wind",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Speed and Critical Rate of all allies for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -15013,6 +15866,8 @@
    "name": "Song of the Night Wind",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Speed and Critical Rate of all allies for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -15034,6 +15889,8 @@
    "name": "The Cunning (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Steals a beneficial effect from the enemy target when landing an attack. Your Attack Speed increases according to the number of beneficial effects currently on you. In addition, recovers your HP by 10% whenever you steal one beneficial effect from the enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15053,6 +15910,8 @@
    "name": "Twisted Senses (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Becomes immune against Defense decreasing effects. Your Attack Bar is filled up by 30% when you get hit by a critical hit from the enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15072,6 +15931,8 @@
    "name": "Strange Reversible Reaction (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Your Defense is increased by 25% for every beneficial effect on you and your Attack Speed is increased by 25 for every harmful effect you suffer. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15091,6 +15952,8 @@
    "name": "Twisted Senses (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Becomes immune against Defense decreasing effects. Your Attack Bar increases by 30% when you get hit by a Critical Hit from the enemy. In addition, your Attack Bar is filled up if the damage received is 50% or higher than your MAX HP. [Automatic Effect]",
    "recoveryUpgrades": [
     5,
@@ -15122,6 +15985,8 @@
    "name": "Strange Reversible Reaction (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Your Defense is increased by 25% for every beneficial effect granted on yourself and your Attack Speed is increased by 25 for every harmful effect you suffer. In addition, your Attack Bar increases by 20% whenever you're granted with beneficial or harmful effects. The Attack Bar increase does not apply to the effects you receive at the start of the battle. [Automatic Effect]",
    "recoveryUpgrades": [
     5,
@@ -15153,6 +16018,8 @@
    "name": "Twisted Senses (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Becomes immune against Defense decreasing effects. Your Attack Bar increases by 30% when you get hit by a Critical Hit from the enemy. In addition, your Attack Bar is filled up if the damage received is 50% or higher than your MAX HP. [Automatic Effect]",
    "recoveryUpgrades": [
     5,
@@ -15184,6 +16051,8 @@
    "name": "Strange Reversible Reaction (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Your Defense is increased by 25% for every beneficial effect granted on yourself and your Attack Speed is increased by 25 for every harmful effect you suffer. In addition, your Attack Bar increases by 20% whenever you're granted with beneficial or harmful effects. The Attack Bar increase does not apply to the effects you receive at the start of the battle. [Automatic Effect]",
    "recoveryUpgrades": [
     5,
@@ -15215,6 +16084,8 @@
    "name": "Path of the Forest",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Speed and Critical Rate of all allies for 3 turns.",
    "recoveryUpgrades": [
     0,
@@ -15237,6 +16108,8 @@
    "name": "Evasive Maneuver(Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When being attacked, the damage you receive will be decreased by half and your Attack Power and Attack Speed will be increased for 1 turn. This effect will only activate once per turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15256,6 +16129,8 @@
    "name": "Breeze",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the target and increases the Attack Bar of the ally with the lowest Attack Bar by 15%.",
    "recoveryUpgrades": [
     0,
@@ -15282,6 +16157,8 @@
    "name": "Breeze",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the target and increases the Attack Bar of the ally with the lowest Attack Bar by 15%.",
    "recoveryUpgrades": [
     0,
@@ -15308,6 +16185,8 @@
    "name": "Breeze",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the target and increases the Attack Bar of the ally with the lowest Attack Bar by 15%.",
    "recoveryUpgrades": [
     0,
@@ -15334,6 +16213,8 @@
    "name": "Breeze",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the target and increases the Attack Bar of the ally with the lowest Attack Bar by 15%.",
    "recoveryUpgrades": [
     0,
@@ -15360,6 +16241,8 @@
    "name": "Breeze",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the target and increases the Attack Bar of the ally with the lowest Attack Bar by 15%.",
    "recoveryUpgrades": [
     0,
@@ -15386,6 +16269,8 @@
    "name": "Rabbit's Agility",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills up an ally's Attack Bar to the MAX and increases the target's Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -15417,6 +16302,8 @@
    "name": "Rabbit's Agility",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills up an ally's Attack Bar to the MAX and increases the target's Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -15448,6 +16335,8 @@
    "name": "Owl's Hoot",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Speed of all allies and recovers their HP by 15% in each turn for 3 turns. Gains a turn instantly after using the skill.",
    "recoveryUpgrades": [
     0,
@@ -15470,6 +16359,8 @@
    "name": "Discernment (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "With the power of a piercing gaze, decreases the chance of allies being granted with harmful effects by 30% and increases the Attack Bar of all allies by 10% if an ally is not granted with harmful effects due to [Discernment (Passive)]. In addition, increases the duration of harmful effects, excluding inability effects, that allies grant on enemies by 1 turn each. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15489,6 +16380,8 @@
    "name": "Winds and Clouds (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "The damage received from the enemy with lower Defense than yours decreases by 20%, and your Attack Bar increases by 20% whenever you are attacked. Your attacks will inflict additional damage that is proportionate to your Defense whenever you attack.",
    "recoveryUpgrades": [
     0,
@@ -15513,6 +16406,8 @@
    "name": "Strong Energy (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "The effect of all Attack Bar increasing skills of both allies and enemies will be decreased by 50%. Your Attack Bar will increase by 15% whenever an enemy uses an Attack Bar increasing skill. This skill will not apply to an opponent that has the same skill or Boss skills. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15532,6 +16427,8 @@
    "name": "To Live or To Die (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Rolls 2 dice every turn to recover your HP, and revives 1 dead ally if you get the same number. The larger the sum of the dice, the more HP you recover and the more HP the revived ally will have. The smaller the sum of the dice, the larger the increase in the revived ally's Attack Bar. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15551,6 +16448,8 @@
    "name": "Returned Dice",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Makes the Attack Bar of all enemies and all allies change to 0, increases the Attack Speed of all other allies except yourself for 1 turn and stuns yourself for 1 turn. This effect can't be resisted and ignores the immunity.",
    "recoveryUpgrades": [
     0,
@@ -15573,6 +16472,8 @@
    "name": "Song of Switched Destiny",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Switches the current Attack Bar and HP of the enemy, excluding the Boss, or another ally target and puts yourself to sleep for 1 turn and increases the Attack Bar of all allies by 15% each. This effect can't be resisted and ignores immunity.",
    "recoveryUpgrades": [
     0,
@@ -15604,6 +16505,8 @@
    "name": "Eternal Flame (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Recovers your HP and Attack Bar by 20% each when you attack on your turn. Reduces the damage dealt by Water attribute by 50%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15623,6 +16526,8 @@
    "name": "Messenger of the Wind (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 15% each when other allies are attacked. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15642,6 +16547,8 @@
    "name": "Swaying Flame",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to decrease their Defense for 2 turns and their Attack Bar by 25% each. Additionally, increases your Attack Bar by 15%, up to 150%, for every enemy with harmful effects that you attack.",
    "recoveryUpgrades": [
     0,
@@ -15667,6 +16574,8 @@
    "name": "Soaring Wings (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 25% with each attack if you land a Critical Hit. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15686,6 +16595,8 @@
    "name": "Soaring Wings (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 25% with each attack if you land a Critical Hit. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15705,6 +16616,8 @@
    "name": "Soaring Wings (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 25% with each attack if you land a Critical Hit. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15724,6 +16637,8 @@
    "name": "Lightning Flash",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to inflict damage that's proportionate to your attack speed and increases your Attack Bar by 10% each when you land a Critical Hit. Chakram Dancer's Attack Bar will increase by 20% each when her attack lands as a Critical Hit while they attack together.",
    "recoveryUpgrades": [
     0,
@@ -15756,6 +16671,8 @@
    "name": "Flower Fog",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to decrease their beneficial effect duration by 2 turns each. Increases the beneficial effect duration of all allies by 1 turn and increases their Attack Bar by 15%.",
    "recoveryUpgrades": [
     0,
@@ -15781,6 +16698,8 @@
    "name": "Wild Cure",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the HP of all allies by 30% and increases their Attack Bar by 15%. In addition, when used in Druid Form, transforms into Beast Form afterwards and provokes all enemies for 1 turn with a 70% chance.",
    "recoveryUpgrades": [
     0,
@@ -15805,6 +16724,8 @@
    "name": "Wild Cure",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the HP of all allies by 30% and increases their Attack Bar by 15%. In addition, when used in Druid Form, transforms into Beast Form afterwards and provokes all enemies for 1 turn with a 70% chance.",
    "recoveryUpgrades": [
     0,
@@ -15829,6 +16750,8 @@
    "name": "Druid's Wit (Passive)",
    "slot": 4,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Removes all harmful effects granted on yourself and increases your Attack Bar by 100% if an ally's HP falls to 40% or below by receiving damage from an enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15848,6 +16771,8 @@
    "name": "Druid's Agility (Passive)",
    "slot": 4,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Counterattacks the target that attacked you with a 40% chance when you get attacked by the enemy. In addition, increases your Attack Bar by 20% after attacking. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15867,6 +16792,8 @@
    "name": "Druid's Wisdom (Passive)",
    "slot": 4,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 20% when the beneficial effects granted on yourself get removed. Removes all of your harmful effects if you're under inability effect at the start of each turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15886,6 +16813,8 @@
    "name": "Endurance of Beast (Passive)",
    "slot": 4,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 15% when you're attacked. Also recovers the HP of all allies by 10% every turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15905,6 +16834,8 @@
    "name": "Veteran (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the Attack Bar by 100% and increases the Attack Power for 1 turn whenever the enemy's attack lands as a Glancing Hit. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15924,6 +16855,8 @@
    "name": "Snipe Preparation (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the Attack Bar by 25% whenever an enemy gains a beneficial effect from a skill and increases your Attack Power for 1 turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15943,6 +16876,8 @@
    "name": "Reloading (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Maintains the [Hidden Aim] pose and increases the Attack Bar by 50% when you defeat an enemy while in the pose. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -15962,6 +16897,8 @@
    "name": "Devil's Bargain",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Absorbs all other allies' HP by 10% to attack all enemies dealing damage that's proportionate to the absorbed HP. Recovers the Attack Bar of all allies by 20% afterwards.",
    "recoveryUpgrades": [
     0,
@@ -15988,6 +16925,8 @@
    "name": "Devil's Bargain",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Absorbs all other allies' HP by 10% to attack all enemies dealing damage that's proportionate to the absorbed HP. Recovers the Attack Bar of all allies by 20% afterwards.",
    "recoveryUpgrades": [
     0,
@@ -16014,6 +16953,8 @@
    "name": "Devil's Bargain",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Absorbs all other allies' HP by 10% to attack all enemies dealing damage that's proportionate to the absorbed HP. Recovers the Attack Bar of all allies by 20% afterwards.",
    "recoveryUpgrades": [
     0,
@@ -16040,6 +16981,8 @@
    "name": "Red Battlefield (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "The Attack Bar of all allies will be increased by the proportion to the damage dealt, and the damage they deal on enemies will be increased by 50% at the most whenever all enemies and allies on the battlefield receive damage. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16059,6 +17002,8 @@
    "name": "Purgatory (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": true,
+   "pulls": 0,
    "description": "When an enemy is defeated by your attack, revives one ally with HP equal to the damage dealt to the target. If an ally dies while you are dead, you will be revived with little HP, the cooldown of [Madness Judgement] will be reset, and your Attack Bar will be filled up. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16078,6 +17023,8 @@
    "name": "Repeated Nightmare (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Revives with little HP and fills up your Attack Bar by 100% if allies and enemies act for 12 turns when you are dead. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16097,6 +17044,8 @@
    "name": "Start of Attacking",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy with the beast 2 times. The beast's attack removes all beneficial effects granted on the enemy, and the rider's attack ignores the enemy's Defense by 35% for each beneficial effect the beast removed. Afterwards, increases the Attack Bar of other allies by up to 50% in proportion to the HP the enemy lost from this attack.",
    "recoveryUpgrades": [
     0,
@@ -16120,6 +17069,8 @@
    "name": "Wild Steps (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains Immunity effect for 1 turn when you attack on your turn, and decreases the effect of Attack Bar decreasing skills received from the enemy by 50%. Also, your Attack Speed increases by 10% whenever an ally's Attack Bar decreases due to enemy skills, up to 5 times. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16139,6 +17090,8 @@
    "name": "Gigantic Roar",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "The rider increases the Attack Speed of all allies for 2 turns, and the beast attacks all enemies. Weakens the enemy's Defense for 2 turns if the enemy's Defense is lower than your Attack Power, and decreases the enemy's Attack Bar by 75% if the enemy's Attack Speed is slower than yours.",
    "recoveryUpgrades": [
     0,
@@ -16162,6 +17115,8 @@
    "name": "Wild Chase (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "The Attack Speed increases by 20% for each time an enemy gains a turn, up to 5 times. The increased Attack Speed resets when your turn ends. In addition, increases your Attack Speed for 1 turn and decreases the enemy's Defense for 1 turn with each attack. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16190,6 +17145,8 @@
    "name": "Art of Blank Space (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When enemies or allies remove harmful effects, the Attack Bar of all allies will be increased by 20%. When enemies remove beneficial effects of allies, all harmful effects on the ally with removed beneficial effects will be removed and the Attack Bar will be increased by 20%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16218,6 +17175,8 @@
    "name": "Blossom Painting",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to remove all of their beneficial effects. In addition, increases the Attack Power of all allies for 2 turns and their Attack Bar by 10%.",
    "recoveryUpgrades": [
     0,
@@ -16242,6 +17201,8 @@
    "name": "Millennium Melody",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Plays a song that increases the Attack Bar of all allies, excluding yourself, by 15% each and then recovers the HP of the ally that gets a turn by 15% each and increases the Attack Power for 1 turn until the next turn starts. You become immune to inability effects, your Attack Speed gets slowed down by half and you cannot attack together or counterattack while playing the song.",
    "recoveryUpgrades": [
     0,
@@ -16264,6 +17225,8 @@
    "name": "Solo String (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Your Attack Bar is decreased by 10% when an enemy gains a turn while playing the song. Your Attack Bar is increased by 20% when an enemy gains a turn while not playing the song. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16283,6 +17246,8 @@
    "name": "Cursed Music",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Plays a song that increases the Attack Speed of all allies, excluding yourself, for 2 turns and increases the damage of all allies and enemies by 30% until your next turn starts. While playing the song, you gain immunity against inability effects, your Attack Speed is decreased by half, and you cannot attack together or counterattack.",
    "recoveryUpgrades": [
     0,
@@ -16305,6 +17270,8 @@
    "name": "Mind's Eye (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": true,
+   "pulls": 0,
    "description": "If you receive damage during the turn of the enemy, offsets that damage, fills up your Attack Bar, and increases your Attack Power for 1 turn. [Automatic Effect]",
    "recoveryUpgrades": [
     0
@@ -16326,6 +17293,8 @@
    "name": "Psycho Power",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Absorbs the HP of all allies by 30% each and HP of all enemies by 15% each. Afterwards, increases the Attack Bar of all allies by 40% each, increases the Attack Power for 2 turns and Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -16357,6 +17326,8 @@
    "name": "Black Moons (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "The damage you receive will decrease by 40% and your Attack Bar will fill up if you get attacked during the turn of the provoked enemy. In addition, the duration of harmful effects you grant with skills will be increased by 1 turn each. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16376,6 +17347,8 @@
    "name": "Yoga's Arcana (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Recovers the Attack Bar of all allies, except yourself, in proportion to the no. of harmful effects granted on yourself each turn. Also ignores all harmful effects excluding the Oblivion effect and inability effects granted on yourself. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16395,6 +17368,8 @@
    "name": "Renkiko",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 30% and increases the Attack Speed and Critical Rate for 2 turns each.",
    "recoveryUpgrades": [
     0
@@ -16425,6 +17400,8 @@
    "name": "Overdrive (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": true,
+   "pulls": 0,
    "description": "If you receive damage during the turn of the enemy, offsets that damage, fills up your Attack Bar, and increases your Attack Power for 1 turn. [Automatic Effect]",
    "recoveryUpgrades": [
     0
@@ -16446,6 +17423,8 @@
    "name": "Sword Rain",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 3 times to inflict damage proportional to your MAX HP. Also, each attack decreases the Attack Bar by 15%, decreases the Attack Speed for 2 turns, and Stuns them for 1 turn with a 50% chance respectively.",
    "recoveryUpgrades": [
     0,
@@ -16469,6 +17448,8 @@
    "name": "Devil's Grace",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Absorbs the HP of all allies by 30% each and HP of all enemies by 15% each. Afterwards, increases the Attack Bar of all allies by 40% each, increases the Attack Power for 2 turns and Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -16500,6 +17481,8 @@
    "name": "Ruler of Pain (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "The damage you receive will decrease by 40% and your Attack Bar will fill up if you get attacked during the turn of the provoked enemy. In addition, the duration of harmful effects you grant with skills will be increased by 1 turn each. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16519,6 +17502,8 @@
    "name": "Almighty Mask (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Recovers the Attack Bar of all allies, except yourself, in proportion to the no. of harmful effects granted on yourself each turn. Also ignores all harmful effects excluding the Oblivion effect and inability effects granted on yourself. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16538,6 +17523,8 @@
    "name": "Almighty Mask (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Recovers the Attack Bar of all allies, except yourself, in proportion to the no. of harmful effects granted on yourself each turn. Also ignores all harmful effects excluding the Oblivion effect and inability effects granted on yourself. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16557,6 +17544,8 @@
    "name": "Full Moon",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 30% and increases the Attack Speed and Critical Rate for 2 turns each.",
    "recoveryUpgrades": [
     0
@@ -16587,6 +17576,8 @@
    "name": "Karma",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy target to remove 1 beneficial effect, and suppresses the target (boss excluded) for 2 turns. Additionally increases your Attack Bar by 100% after using a skill. The suppressed target will have the HP reduced by 50% if the target uses a skill with cooldown time, and the used skill's cooldown time will be increased by 3 turns more than the maximum cooldown time.",
    "recoveryUpgrades": [
     0,
@@ -16610,6 +17601,8 @@
    "name": "Karma",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy target to remove 1 beneficial effect, and suppresses the target (boss excluded) for 2 turns. Additionally increases your Attack Bar by 100% after using a skill. The suppressed target will have the HP reduced by 50% if the target uses a skill with cooldown time, and the used skill's cooldown time will be increased by 3 turns more than the maximum cooldown time.",
    "recoveryUpgrades": [
     0,
@@ -16633,6 +17626,8 @@
    "name": "Karma",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy target to remove 1 beneficial effect, and suppresses the target (boss excluded) for 2 turns. Additionally increases your Attack Bar by 100% after using a skill. The suppressed target will have the HP reduced by 50% if the target uses a skill with cooldown time, and the used skill's cooldown time will be increased by 3 turns more than the maximum cooldown time.",
    "recoveryUpgrades": [
     0,
@@ -16656,6 +17651,8 @@
    "name": "Comeuppance (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 35% and decreases the cooldown time of [Karma] by 1 turn whenever enemies use a skill with cooldown time. Deals additional damage that's proportional to the enemy's MAX HP and increases the skill activation rate by 40% when attacking the suppressed Monster. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16675,6 +17672,8 @@
    "name": "Chaos Magic Circle",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Summons 5 magic spheres, which each can inflict damage equal to 150% of your Attack Power. If you get attacked from an enemy while you still have magic spheres, uses 1 magic sphere to counterattack, recovers your HP by the counterattack damage dealt, and increases your Attack Bar by 50%. When you attack on your turn, all remaining spheres will attack the enemy target together.",
    "recoveryUpgrades": [
     0,
@@ -16697,6 +17696,8 @@
    "name": "Jet Engine (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Speed by 5%, up to 100%, for each beneficial effect granted on the enemies and allies. In addition, inflicts additional damage that ignores Defense in proportion to your Attack Speed when you attack the enemy on your turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16716,7 +17717,9 @@
    "name": "Mega Impulse Gun",
    "slot": 3,
    "passive": false,
-   "description": "Attacks the enemy to increase the target's skill cooldown time by 2 turns and decreases the Attack Bar by 90%. In addition, increases your Attack Bar in proportion to the reduced Attack Bar and decreases your skill cooldown time by 2 turns if you successfully increased the skill cooldown time.",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Attacks the enemy to increase its skill cooldown by 2 turns and decreases its Attack Bar by 80%. In addition, increases your Attack Bar by the amount decreased and decreases your skill cooldown by 2 turns if you successfully increased the skill cooldown.",
    "recoveryUpgrades": [
     0,
     0
@@ -16738,6 +17741,8 @@
    "name": "Synergistic Effect (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "If an enemy decreases the Attack Bar of an ally on its turn, increases your Attack Bar by 50% and the Attack Bar of all other allies by 15%. In addition, increases the effect of Attack Bar increasing skills of all allies by 50%. This effect does not accumulate and does not apply in battle against bosses. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16766,6 +17771,8 @@
    "name": "Power Charge (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 25% when an enemy gets an additional turn, decreases the skill cooldown of [Blade Crush] by 1 turn, and increases the effect activation chance by 50% when you attack on your turn. The effect activation chance resets after attacking. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16785,6 +17792,8 @@
    "name": "Energy Release (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 50% and decreases the Attack Bar of all enemies by 50% at the moment of death. This effect cannot be resisted. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16804,6 +17813,8 @@
    "name": "Energy Bolt",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to deal damage that increases according to your MAX HP and increases your Attack Speed for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -16828,6 +17839,8 @@
    "name": "Wise Owl Soul",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Resets the cooldown time of the ally target and increases your and the target's Attack Bar by 50% each. However, [Wise Owl Soul] will not be affected by cooldown reducing or increasing skills.",
    "recoveryUpgrades": [
     0,
@@ -16850,6 +17863,8 @@
    "name": "Wise Owl Soul",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Resets the cooldown time of the ally target and increases your and the target's Attack Bar by 50% each. However, [Wise Owl Soul] will not be affected by cooldown reducing or increasing skills.",
    "recoveryUpgrades": [
     0,
@@ -16872,6 +17887,8 @@
    "name": "Collect Weapons (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When an enemy or ally dies, removes inability effects granted on yourself and increases your Attack Bar by 100%. In addition, increases your Attack Power by half of the defeated target's Attack Power, up to 300%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16891,6 +17908,8 @@
    "name": "Shadow Tie",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy to deal damage, ties the target's shadow, and increases your Attack Bar by 100%. Whenever the target is hit with a single-target attack, 50% of the damage from the first hit is dealt to all other enemies. The tie effect can be applied to one target at a time, and gets untied if either the tied enemy or you get defeated. It does not apply to boss battles.",
    "recoveryUpgrades": [
     0,
@@ -16913,6 +17932,8 @@
    "name": "Shadow Tie",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy to deal damage, ties the target's shadow, and increases your Attack Bar by 100%. Whenever the target is hit with a single-target attack, 50% of the damage from the first hit is dealt to all other enemies. The tie effect can be applied to one target at a time, and gets untied if either the tied enemy or you get defeated. It does not apply to boss battles.",
    "recoveryUpgrades": [
     0,
@@ -16935,6 +17956,8 @@
    "name": "Half Asleep (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When you wake up from sleep from taking damage, recovers Attack Bar by 50% and recovers HP by 30% of the damage you deal to the enemy on the next turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -16954,6 +17977,8 @@
    "name": "Jet Attack",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy to decrease Defense for 3 turns. Afterwards, increases your Attack Bar by 50% and additionally increases your Attack Bar by up to 50% in proportion to the enemy's HP lost by this attack.",
    "recoveryUpgrades": [
     0,
@@ -16986,6 +18011,8 @@
    "name": "Evasion (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "The faster you are than the enemy, the chance of receiving a Glancing Hit from the enemy increases by up to 50%, and the damage dealt increases by up to 50%. In addition, recovers your Attack Bar by 50% if the enemy's attack you receive lands as a Glancing Hit. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17005,6 +18032,8 @@
    "name": "The Bravest Cookie (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Your Attack Speed increases as your HP condition is better, and your Attack Power increases as your HP condition is worse. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17024,6 +18053,8 @@
    "name": "Determination of the Vanilla Kingdom",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Grants Increase Attack Power, Increase Attack Speed, and Immunity on all allies for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -17045,6 +18076,8 @@
    "name": "Caffeine (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against Sleep. In addition, grants one of the following effects to all allies for 2 turns whenever you gain a turn: Increase Attack Power, Increase Defense, or Increase Attack Speed. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17064,6 +18097,8 @@
    "name": "Perish!",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Power and Critical Rate of all allies for 2 turns and Attack Bar by 15%.",
    "recoveryUpgrades": [
     0
@@ -17085,6 +18120,8 @@
    "name": "Determination of Dessert Kingdom",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Grants Increase Attack Power, Increase Attack Speed, and Immunity on all allies for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -17106,6 +18143,8 @@
    "name": "Mind and Body Rest (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against Sleep. In addition, grants one of the following effects to all allies for 2 turns whenever you gain a turn: Increase Attack Power, Increase Defense, or Increase Attack Speed. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17125,6 +18164,8 @@
    "name": "Chivalry of the Dessert Kingdom",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Power and Critical Rate of all allies for 2 turns and Attack Bar by 15%.",
    "recoveryUpgrades": [
     0
@@ -17146,6 +18187,8 @@
    "name": "Improvise",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Decreases the skill cooldown time of the ally target by 1 turn and increases the Attack Speed for 1 turn. In addition, increases the ally's Attack Bar by 50%.",
    "recoveryUpgrades": [
     0,
@@ -17177,6 +18220,8 @@
    "name": "Improvise",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Decreases the skill cooldown time of the ally target by 1 turn and increases the Attack Speed for 1 turn. In addition, increases the ally's Attack Bar by 50%.",
    "recoveryUpgrades": [
     0,
@@ -17208,6 +18253,8 @@
    "name": "Puppet Ball",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Power of all allies and grants immunity for 3 turns each. Additionally, increases their Attack Bar by 20%.",
    "recoveryUpgrades": [
     0,
@@ -17230,6 +18277,8 @@
    "name": "Marionette (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "You will gain immunity against Attack Bar decreasing effects. In addition, removes all inability effects on the allies at the start of each turn, and increases the Attack Bar of the allies with the removed inability effects by 30%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17249,6 +18298,8 @@
    "name": "Tactical Bomb",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to remove all beneficial effects. Afterwards, increases the Attack Bar of the ally with the highest Attack Bar by 25% and the Attack Power of the ally with the second highest Attack Bar for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -17273,6 +18324,8 @@
    "name": "Air Assassination",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Inflicts damage that ignores the enemy's Defense, and fills up your Attack Bar if the enemy gets defeated. Additionally, passive skills of all enemies excluding the boss are not activated.",
    "recoveryUpgrades": [
     0,
@@ -17297,6 +18350,8 @@
    "name": "Elite Ambusher",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Shoots 4 arrows to attack the enemy, each arrow decreasing the enemy's Attack Bar by 25% with an 80% chance. Your Attack Bar increases by the enemy's Attack Bar decreased. The damage increases according to your MAX HP.",
    "recoveryUpgrades": [
     0,
@@ -17321,6 +18376,8 @@
    "name": "Elite Ambusher",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Shoots 4 arrows to attack the enemy, each arrow decreasing the enemy's Attack Bar by 25% with an 80% chance. Your Attack Bar increases by the enemy's Attack Bar decreased. The damage increases according to your MAX HP.",
    "recoveryUpgrades": [
     0,
@@ -17345,6 +18402,8 @@
    "name": "Sickle Blade (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Inflicts Continuous Damage on the enemy for 3 turns when attacking. Inflicts additional damage that's 7% of your MAX HP when you attack on your turn. In addition, increases your Attack Bar by 10% whenever the enemy is inflicted with Continuous Damage on the enemy's turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17364,7 +18423,9 @@
    "name": "Vision of Athena",
    "slot": 2,
    "passive": false,
-   "description": "Decreases the Defense of all enemies for 2 turns with a 60% chance. Increases your Attack Bar by 100% after using the skill.",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Decreases the Defense of all enemies for 2 turns with a 60% chance. Guarantees that the enemy target's Defense is decreased for 2 turns. Afterwards, increases your Attack Bar by 100%.",
    "recoveryUpgrades": [
     0,
     0
@@ -17386,7 +18447,9 @@
    "name": "Vision of Athena",
    "slot": 2,
    "passive": false,
-   "description": "Decreases the Defense of all enemies for 2 turns with a 60% chance. Increases your Attack Bar by 100% after using the skill.",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Decreases the Defense of all enemies for 2 turns with a 60% chance. Guarantees that the enemy target's Defense is decreased for 2 turns. Afterwards, increases your Attack Bar by 100%.",
    "recoveryUpgrades": [
     0,
     0
@@ -17408,6 +18471,8 @@
    "name": "Wrath of Ares",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies with an attack that always has attribute advantage to reset their Attack Bar, and increases your Attack Speed for 1 turn. The damage dealt increases by 30% if the enemy's Attack Power is lower than yours.",
    "recoveryUpgrades": [
     0,
@@ -17430,6 +18495,8 @@
    "name": "Thrill of War (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against inability effects. Each attack removes 1 beneficial effect granted on the enemy with a 75% chance. Increases your Attack Bar by 10% whenever an enemy or an ally gains a turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17449,6 +18516,8 @@
    "name": "Assailing Horn",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases all allies' Attack Power for 3 turns and Attack Bar by 30%. Afterwards, all allies, except yourself, attack random enemies.",
    "recoveryUpgrades": [
     0
@@ -17470,6 +18539,8 @@
    "name": "Launch Order",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to remove all beneficial effects. Afterwards, increases the Attack Bar of the ally with the highest Attack Bar by 25% and the Attack Power of the ally with the second highest Attack Bar for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -17494,6 +18565,8 @@
    "name": "The Piercer",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Inflicts damage that ignores the enemy's Defense, and fills up your Attack Bar if the enemy gets defeated. Additionally, passive skills of all enemies excluding the boss are not activated.",
    "recoveryUpgrades": [
     0,
@@ -17518,6 +18591,8 @@
    "name": "Sand Blade (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Inflicts Continuous Damage on the enemy for 3 turns when attacking. Inflicts additional damage that's 7% of your MAX HP when you attack on your turn. In addition, increases your Attack Bar by 10% whenever the enemy is inflicted with Continuous Damage on the enemy's turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17537,7 +18612,9 @@
    "name": "Hunt Preparation",
    "slot": 2,
    "passive": false,
-   "description": "Decreases the Defense of all enemies for 2 turns with a 60% chance. Increases your Attack Bar by 100% after using the skill.",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Decreases the Defense of all enemies for 2 turns with a 60% chance. Guarantees that the enemy target's Defense is decreased for 2 turns. Afterwards, increases your Attack Bar by 100%.",
    "recoveryUpgrades": [
     0,
     0
@@ -17559,7 +18636,9 @@
    "name": "Hunt Preparation",
    "slot": 2,
    "passive": false,
-   "description": "Decreases the Defense of all enemies for 2 turns with a 60% chance. Increases your Attack Bar by 100% after using the skill.",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Decreases the Defense of all enemies for 2 turns with a 60% chance. Guarantees that the enemy target's Defense is decreased for 2 turns. Afterwards, increases your Attack Bar by 100%.",
    "recoveryUpgrades": [
     0,
     0
@@ -17581,6 +18660,8 @@
    "name": "Vigor Crush",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies with an attack that always has attribute advantage to reset their Attack Bar, and increases your Attack Speed for 1 turn. The damage dealt increases by 30% if the enemy's Attack Power is lower than yours.",
    "recoveryUpgrades": [
     0,
@@ -17603,6 +18684,8 @@
    "name": "Outlaw (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against inability effects. Each attack removes 1 beneficial effect granted on the enemy with a 75% chance. Increases your Attack Bar by 10% whenever an enemy or an ally gains a turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17622,6 +18705,8 @@
    "name": "Flag of Ambush",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases all allies' Attack Power for 3 turns and Attack Bar by 30%. Afterwards, all allies, except yourself, attack random enemies.",
    "recoveryUpgrades": [
     0
@@ -17643,6 +18728,8 @@
    "name": "Might · Resurrection (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Revives with 30% HP when you're defeated and then falls under the Thunderer state for 3 turns. While under the Thunderer state, decreases the incoming damage from the enemy by 25% and increases your Attack Bar by 15% if you get attacked during the enemy's turn. If the incoming damage is less than 10% of your MAX HP, the duration of the Thunderer state increases by 1 turn. [Automatic Effect]",
    "recoveryUpgrades": [
     0
@@ -17664,6 +18751,8 @@
    "name": "The Wind Thunderer",
    "slot": 4,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Falls under the Thunderer state that enhances your skills for 3 turns and instantly gains another turn. While under the Thunderer state, your Attack Speed increases by 100%. Once the Thunderer state ends, you become stunned for 1 turn. In addition, decreases the skill cooldown of [The Wind Thunderer] by 2 turns each when you are not under the Thunderer state.",
    "recoveryUpgrades": [
     0
@@ -17685,6 +18774,8 @@
    "name": "Might · Resurrection (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Revives with 30% HP when you're defeated and then falls under the Thunderer state for 3 turns. While under the Thunderer state, decreases the incoming damage from the enemy by 25% and increases your Attack Bar by 15% if you get attacked during the enemy's turn. If the incoming damage is less than 10% of your MAX HP, the duration of the Thunderer state increases by 1 turn. [Automatic Effect]",
    "recoveryUpgrades": [
     0
@@ -17706,6 +18797,8 @@
    "name": "The Wind Thunderer",
    "slot": 4,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Falls under the Thunderer state that enhances your skills for 3 turns and instantly gains another turn. While under the Thunderer state, your Attack Speed increases by 100%. Once the Thunderer state ends, you become stunned for 1 turn. In addition, decreases the skill cooldown of [The Wind Thunderer] by 2 turns each when you are not under the Thunderer state.",
    "recoveryUpgrades": [
     0
@@ -17727,6 +18820,8 @@
    "name": "Stormfist",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times and increases your Attack Bar by 15% each if the attack lands as a Critical Hit. The number of attacks increases up to 6 times according to your Attack Power.",
    "recoveryUpgrades": [
     0,
@@ -17752,6 +18847,8 @@
    "name": "Stormfist",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times and increases your Attack Bar by 15% each if the attack lands as a Critical Hit. The number of attacks increases up to 6 times according to your Attack Power.",
    "recoveryUpgrades": [
     0,
@@ -17777,6 +18874,8 @@
    "name": "Stormfist",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times and increases your Attack Bar by 15% each if the attack lands as a Critical Hit. The number of attacks increases up to 6 times according to your Attack Power.",
    "recoveryUpgrades": [
     0,
@@ -17802,6 +18901,8 @@
    "name": "Here Come the Ghosts!",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Spooky ghosts appear from the bag to attack all enemies 2 times. The first hit removes 1 beneficial effect with a 50% chance, and the second hit decreases the Attack Speed for 2 turns with a 50% chance.",
    "recoveryUpgrades": [
     0,
@@ -17826,6 +18927,8 @@
    "name": "Mischievous Curse (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When you attack an enemy granted with a harmful effect, blocks the enemy from removing harmful effects for 1 turn with a 30% chance. When you attack an enemy with no harmful effects, silences the enemy for 1 turn with a 30% chance. In addition, increases your Attack Bar by 20% whenever an enemy is granted with a harmful effect. [Automatic Effect]",
    "recoveryUpgrades": [
     0,
@@ -17848,6 +18951,8 @@
    "name": "Mischievous Curse (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When you attack an enemy granted with a harmful effect, blocks the enemy from removing harmful effects for 1 turn with a 30% chance. When you attack an enemy with no harmful effects, silences the enemy for 1 turn with a 30% chance. In addition, increases your Attack Bar by 20% whenever an enemy is granted with a harmful effect. [Automatic Effect]",
    "recoveryUpgrades": [
     0,
@@ -17870,6 +18975,8 @@
    "name": "Dokkaebi's Secret Spell (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 10%, up to 30%, whenever the enemy recovers the HP. In addition, removes 1 harmful effect granted on the ally with the lowest HP status and recovers that ally's HP by 10% when you gain a turn. [Automatic Effect]",
    "recoveryUpgrades": [
     0,
@@ -17892,6 +18999,8 @@
    "name": "Gold Please!",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Grants Immunity for 2 turns on allies and increases their Attack Power for 2 turns. Additionally, increases the Attack Bar of the target ally by 15%.",
    "recoveryUpgrades": [
     0
@@ -17913,6 +19022,8 @@
    "name": "Sapsaree Is My Friend (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the Attack Bar of the allies under inability effects by 30% at the start of your turn. In addition, you gain immunity to Attack Bar decreasing effects while under inability effects. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17932,6 +19043,8 @@
    "name": "Gold Please!",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Grants Immunity for 2 turns on allies and increases their Attack Power for 2 turns. Additionally, increases the Attack Bar of the target ally by 15%.",
    "recoveryUpgrades": [
     0
@@ -17953,6 +19066,8 @@
    "name": "Sapsaree Is My Friend (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the Attack Bar of the allies under inability effects by 30% at the start of your turn. In addition, you gain immunity to Attack Bar decreasing effects while under inability effects. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -17972,6 +19087,8 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
@@ -17996,6 +19113,8 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
@@ -18020,6 +19139,8 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
@@ -18044,6 +19165,8 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
@@ -18068,6 +19191,8 @@
    "name": "Horn of Charge",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the ally target's Attack Bar by 12%.",
    "recoveryUpgrades": [
     0,
@@ -18092,6 +19217,8 @@
    "name": "Horn of Initiation",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases all allies' Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -18116,6 +19243,8 @@
    "name": "Horn of Fate",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes 1 harmful effect granted on the ally target and grants a turn instantly.",
    "recoveryUpgrades": [
     0,
@@ -18140,6 +19269,8 @@
    "name": "Adrenaline Rush (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Stacks 1 Adrenaline score whenever you attack the enemy, up to 5 scores. The damage you take decreases by up to 25% based on your Adrenaline score. At 3 or higher Adrenaline scores, [Whirl] can be used regardless of its cooldown. You lose 1 Adrenaline score and increase your Attack Bar by 50% when you are attacked by the enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18159,6 +19290,8 @@
    "name": "Teleportation Slash",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 times, with each hit decreasing their Attack Speed for 2 turns. Afterwards, increases your Attack Bar by 35% in proportion to the number of enemies with slower Attack Speed than you.",
    "recoveryUpgrades": [
     0,
@@ -18181,6 +19314,8 @@
    "name": "Electric Orb",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 3 times. Each hit stuns them for 1 turn with a 70% chance and prevents them from removing harmful effects for 2 turns with a 70% chance. Increases your Attack Bar by 15% for each harmful effect granted on the enemies after the attack.",
    "recoveryUpgrades": [
     0,
@@ -18203,6 +19338,8 @@
    "name": "Magic Control (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When an enemy removes a harmful effect or an ally's beneficial effect, beneficial effects granted on the enemy are also removed. Afterwards, removes 1 harmful effect from the 2 allies with the highest Attack Bar and increases their Attack Bar by 20%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18231,6 +19368,8 @@
    "name": "Fire Storm",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 to 4 times to inflict Continuous Damage for 2 turns. Increases your Attack Bar by 10% in proportion to the number of Continuous Damage inflicted by this attack.",
    "recoveryUpgrades": [
     0,
@@ -18253,6 +19392,8 @@
    "name": "Adrenaline Activation (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Stacks 1 Adrenaline score whenever you attack the enemy, up to 5 scores. The damage you take decreases by up to 25% based on your Adrenaline score. At 3 or higher Adrenaline scores, [Swirling] can be used regardless of its cooldown. You lose 1 Adrenaline score and increase your Attack Bar by 50% when you are attacked by the enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18272,6 +19413,8 @@
    "name": "Storm Gash",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 times, with each hit decreasing their Attack Speed for 2 turns. Afterwards, increases your Attack Bar by 35% in proportion to the number of enemies with slower Attack Speed than you.",
    "recoveryUpgrades": [
     0,
@@ -18294,6 +19437,8 @@
    "name": "Turning Slash (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "After attacking the enemy on your turn, attacks 2 more times to deal damage that increases as the target's HP status decreases and increases your Attack Speed by 50 each, up to 250. [Automatic Effect]",
    "recoveryUpgrades": [
     0,
@@ -18316,6 +19461,8 @@
    "name": "Crow Field",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 3 times. Each hit stuns them for 1 turn with a 70% chance and prevents them from removing harmful effects for 2 turns with a 70% chance. Increases your Attack Bar by 15% for each harmful effect granted on the enemies after the attack.",
    "recoveryUpgrades": [
     0,
@@ -18338,6 +19485,8 @@
    "name": "Magic Mastery (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When an enemy removes a harmful effect or an ally's beneficial effect, beneficial effects granted on the enemy are also removed. Afterwards, removes 1 harmful effect from the 2 allies with the highest Attack Bar and increases their Attack Bar by 20%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18366,6 +19515,8 @@
    "name": "Spiritual Thunder",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 to 4 times to inflict Continuous Damage for 2 turns. Increases your Attack Bar by 10% in proportion to the number of Continuous Damage inflicted by this attack.",
    "recoveryUpgrades": [
     0,
@@ -18388,6 +19539,8 @@
    "name": "Six Eyes (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against Attack Bar reduction effects. Increases your Defense for 1 turn and Attack Bar by 30% whenever your turn ends. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18407,6 +19560,8 @@
    "name": "Hollow Purple",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on all allies and attacks all enemies to deal damage proportionate to your Defense. The damage increases up to 200% by the number of harmful effects removed. In addition, increases your Attack Bar by 10% each, up to 100%, when an ally is granted a harmful effect while the skill is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -18429,6 +19584,8 @@
    "name": "Poison Immunity (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against Continuous Damage and inability effects. Increases your Attack Bar by 30% each whenever you resist a harmful effect. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18448,6 +19605,8 @@
    "name": "Pride of the Sorcerer (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 20% whenever an ally, excluding yourself, is attacked. In addition, steals 1 beneficial effect from the enemy target when you attack the enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18467,6 +19626,8 @@
    "name": "Shadow Manipulation Cursed Technique",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Grants Invincible and Immunity for 1 turn on all allies, increases their Attack Power for 2 turns, and increases their Attack Bar by 20% each.",
    "recoveryUpgrades": [
     0
@@ -18488,6 +19649,8 @@
    "name": "Strong Willpower (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 30% when you are granted with a harmful effect. Decreases your HP by 20% and the HP of all enemies (excluding the boss) by 25% each if you have a harmful effect when you gain a turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18507,6 +19670,8 @@
    "name": "Path of the Brave Warrior (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When you receive HP recovery, increases your Attack Bar in proportion to the recovered HP instead and increases the damage dealt to the enemy, up to 200%, on the next turn. In addition, recovers your HP to the MAX when you defeat an enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18526,6 +19691,8 @@
    "name": "Duel of Honor",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all beneficial and harmful effects from both the enemy target and yourself with an irresistible effect, then initiates a 1v1 {duel}. All Monsters on the winning side will have their Attack Bar increased by 50%, while all Monsters on the losing side will have their Attack Bar decreased by 50%.",
    "recoveryUpgrades": [
     0
@@ -18547,6 +19714,8 @@
    "name": "Honored One (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against Attack Bar reduction effects. Increases your Defense for 1 turn and Attack Bar by 30% whenever your turn ends. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18566,6 +19735,8 @@
    "name": "Explosion and Blaze",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on all allies and attacks all enemies to deal damage proportionate to your Defense. The damage increases up to 200% by the number of harmful effects removed. In addition, increases your Attack Bar by 10% each, up to 100%, when an ally is granted a harmful effect while the skill is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -18588,6 +19759,8 @@
    "name": "Unique Constitution (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against Continuous Damage and inability effects. Increases your Attack Bar by 30% each whenever you resist a harmful effect. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18607,6 +19780,8 @@
    "name": "Exorcist's Pride (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 20% whenever an ally, excluding yourself, is attacked. In addition, steals 1 beneficial effect from the enemy target when you attack the enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18626,6 +19801,8 @@
    "name": "Potential Release",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Grants Invincible and Immunity for 1 turn on all allies, increases their Attack Power for 2 turns, and increases their Attack Bar by 20% each.",
    "recoveryUpgrades": [
     0
@@ -18647,6 +19824,8 @@
    "name": "Strong Vengeance (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 30% when you are granted with a harmful effect. Decreases your HP by 20% and the HP of all enemies (excluding the boss) by 25% each if you have a harmful effect when you gain a turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18666,6 +19845,8 @@
    "name": "Blessing of Pain (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Removes 1 harmful effect granted on yourself at the start of your turn. Each time an ally is granted with a harmful effect, increases the Attack Bar of the affected ally and yourself by 20%, up to 60%. This effect does not accumulate with that of the same skill. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18685,6 +19866,8 @@
    "name": "Price of Pain (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "When an ally with reduced HP attacks the enemy, the damage dealt increases in proportion to the amount of HP lost. Fills up your Attack Bar by 100% if an ally or enemy dies in battle. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18704,6 +19887,8 @@
    "name": "Dancing Flash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy to deal damage that ignores Defense. Increases your Attack Bar by 50% when attacked by an enemy while [Dancing Flash] is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -18728,6 +19913,8 @@
    "name": "Dancing Flash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy to deal damage that ignores Defense. Increases your Attack Bar by 50% when attacked by an enemy while [Dancing Flash] is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -18752,6 +19939,8 @@
    "name": "Dancing Flash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy to deal damage that ignores Defense. Increases your Attack Bar by 50% when attacked by an enemy while [Dancing Flash] is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -18776,6 +19965,8 @@
    "name": "Clear Blue Sky",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies, and then grants yourself Increase Attack Speed and Immunity for 2 turns. In addition, increases your Attack Bar by 50% when attacked by an enemy while [Clear Blue Sky] is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -18807,6 +19998,8 @@
    "name": "Triple Roundhouse Kick",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times to stun the target for 1 turn with a 30% chance and decrease their Attack Bar by 30% with a 30% chance. Increases your Attack Bar by 30% if the target is stunned. This attack will deal more damage according to your MAX HP.",
    "recoveryUpgrades": [
     0,
@@ -18832,6 +20025,8 @@
    "name": "Triple Roundhouse Kick",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times to stun the target for 1 turn with a 30% chance and decrease their Attack Bar by 30% with a 30% chance. Increases your Attack Bar by 30% if the target is stunned. This attack will deal more damage according to your MAX HP.",
    "recoveryUpgrades": [
     0,
@@ -18857,6 +20052,8 @@
    "name": "Exploding Blood Sword",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills up the Attack Bar of the ally target and increases its Attack Power and Defense for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -18874,10 +20071,26 @@
    ]
   },
   {
+   "com2usId": 21415,
+   "name": "Purification, Cooperation!",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 2,
+   "description": "Removes all harmful effects from yourself and 2 allies with the lowest HP and grants Immunity for 3 turns. Then, attacks the enemy target together with the target allies and removes all beneficial effects from the target.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 21606,
    "name": "Thunderclap and Flash Sixfold",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Speed for 2 turns, then attacks the target once and random enemies 5 times. The faster your Attack Speed, the greater the damage becomes. When attacking, stuns targets for 1 turn with a 30% chance.",
    "recoveryUpgrades": [
     0,
@@ -18903,6 +20116,8 @@
    "name": "Thunderclap and Flash Sixfold",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Speed for 2 turns, then attacks the target once and random enemies 5 times. The faster your Attack Speed, the greater the damage becomes. When attacking, stuns targets for 1 turn with a 30% chance.",
    "recoveryUpgrades": [
     0,
@@ -18928,6 +20143,8 @@
    "name": "Thunderclap and Flash Sixfold",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Speed for 2 turns, then attacks the target once and random enemies 5 times. The faster your Attack Speed, the greater the damage becomes. When attacking, stuns targets for 1 turn with a 30% chance.",
    "recoveryUpgrades": [
     0,
@@ -18953,6 +20170,8 @@
    "name": "Unconscious Self (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against inability effects. Increases your Attack Bar by 35% whenever you attack an enemy under an inability effect or an ally falls under an inability effect. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18972,6 +20191,8 @@
    "name": "Extraordinary Hearing (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against inability effects. Increases your Attack Bar by 50% when an ally (excluding yourself) under an inability effect gets a turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -18991,6 +20212,8 @@
    "name": "Hidden Sense of Justice (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against inability effects. Additionally, increases the damage dealt according to your Critical Rate. Increases your Attack Bar by 10% whenever your attack lands as a Critical Hit. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19010,6 +20233,8 @@
    "name": "Azure Dragon Sever",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy to deal damage that ignores Defense. Increases your Attack Bar by 50% when attacked by an enemy while [Azure Dragon Sever] is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -19034,6 +20259,8 @@
    "name": "Azure Dragon Sever",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy to deal damage that ignores Defense. Increases your Attack Bar by 50% when attacked by an enemy while [Azure Dragon Sever] is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -19058,6 +20285,8 @@
    "name": "Azure Dragon Sever",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy to deal damage that ignores Defense. Increases your Attack Bar by 50% when attacked by an enemy while [Azure Dragon Sever] is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -19082,6 +20311,8 @@
    "name": "Wind Dragon Rend",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies, and then grants yourself Increase Attack Speed and Immunity for 2 turns. In addition, increases your Attack Bar by 50% when attacked by an enemy while [Wind Dragon Rend] is on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -19113,6 +20344,8 @@
    "name": "Triple Flame Kick",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times to stun the target for 1 turn with a 30% chance and decrease their Attack Bar by 30% with a 30% chance. Increases your Attack Bar by 30% if the target is stunned. This attack will deal more damage according to your MAX HP.",
    "recoveryUpgrades": [
     0,
@@ -19138,6 +20371,8 @@
    "name": "Triple Flame Kick",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times to stun the target for 1 turn with a 30% chance and decrease their Attack Bar by 30% with a 30% chance. Increases your Attack Bar by 30% if the target is stunned. This attack will deal more damage according to your MAX HP.",
    "recoveryUpgrades": [
     0,
@@ -19163,6 +20398,8 @@
    "name": "Vermilion Dance",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Fills up the Attack Bar of the ally target and increases its Attack Power and Defense for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -19180,10 +20417,26 @@
    ]
   },
   {
+   "com2usId": 22015,
+   "name": "Rite of Ashes",
+   "slot": 3,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 2,
+   "description": "Removes all harmful effects from yourself and 2 allies with the lowest HP and grants Immunity for 3 turns. Then, attacks the enemy target together with the target allies and removes all beneficial effects from the target.",
+   "recoveryUpgrades": [
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 22206,
    "name": "Divine Slash Sixfold",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Speed for 2 turns, then attacks the target once and random enemies 5 times. The faster your Attack Speed, the greater the damage becomes. When attacking, stuns targets for 1 turn with a 30% chance.",
    "recoveryUpgrades": [
     0,
@@ -19209,6 +20462,8 @@
    "name": "Divine Slash Sixfold",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Speed for 2 turns, then attacks the target once and random enemies 5 times. The faster your Attack Speed, the greater the damage becomes. When attacking, stuns targets for 1 turn with a 30% chance.",
    "recoveryUpgrades": [
     0,
@@ -19234,6 +20489,8 @@
    "name": "Divine Slash Sixfold",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Speed for 2 turns, then attacks the target once and random enemies 5 times. The faster your Attack Speed, the greater the damage becomes. When attacking, stuns targets for 1 turn with a 30% chance.",
    "recoveryUpgrades": [
     0,
@@ -19259,6 +20516,8 @@
    "name": "Relentless Momentum (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against inability effects. Increases your Attack Bar by 35% whenever you attack an enemy under an inability effect or an ally falls under an inability effect. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19278,6 +20537,8 @@
    "name": "Reversed Momentum (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against inability effects. Increases your Attack Bar by 50% when an ally (excluding yourself) under an inability effect gets a turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19297,6 +20558,8 @@
    "name": "Lethal Intent (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against inability effects. Additionally, increases the damage dealt according to your Critical Rate. Increases your Attack Bar by 10% whenever your attack lands as a Critical Hit. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19316,6 +20579,8 @@
    "name": "Black Wing Flash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 2 times, increasing your Attack Bar by 50% when landing a Critical Hit. Afterwards, increases your Attack Power for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -19340,6 +20605,8 @@
    "name": "Black Wing Flash",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 2 times, increasing your Attack Bar by 50% when landing a Critical Hit. Afterwards, increases your Attack Power for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -19364,6 +20631,8 @@
    "name": "Cascading Attacks (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Decreases the enemy's Attack Bar by 20% whenever you attack. In addition, increases your Attack Bar by 50% of the Attack Bar you decreased. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19383,7 +20652,9 @@
    "name": "Dynamite Heel",
    "slot": 3,
    "passive": false,
-   "description": "Increases your Attack Speed for 3 turns and attacks the enemy to set its Attack Bar to 0. At this time, increases your Attack Bar by the Attack Bar you decreased. This effect ignores immunity.",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Increases your Attack Speed for 2 turns and attacks the enemy to set its Attack Bar to 0. At this time, increases your Attack Bar by the amount you decreased. This effect ignores immunity.",
    "recoveryUpgrades": [
     0,
     0
@@ -19414,6 +20685,8 @@
    "name": "Punch Parry (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Always gains attribute advantage when you are attacked by an enemy. Increases your Attack Speed by 15%, up to 150%, whenever you are attacked or attacking an enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19433,6 +20706,8 @@
    "name": "Big Bang Phoenix Smasher",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 15% and attacks the enemy to deal damage proportionate to your MAX HP. Deals additional damage by 40% of your MAX HP when this attack does not land as a Glancing Hit.",
    "recoveryUpgrades": [
     0
@@ -19454,6 +20729,8 @@
    "name": "Hot-blooded Destroyer (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against Attack Bar reduction effects and increases the Attack Bar of all allies by 30% whenever an ally's cooldown increases. In addition, at the start of your turn, decreases the skill cooldown of the ally with the highest Attack Bar (excluding yourself) by 1 turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19473,6 +20750,8 @@
    "name": "Assassination Arts (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Inflicts Continuous Damage for 2 turns on each attack. In addition, increases your Attack Bar by 100% when an enemy with 70% HP or below recovers HP. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19492,6 +20771,8 @@
    "name": "Ascending Fist",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 2 times, increasing your Attack Bar by 50% when landing a Critical Hit. Afterwards, increases your Attack Power for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -19516,6 +20797,8 @@
    "name": "Ascending Fist",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 2 times, increasing your Attack Bar by 50% when landing a Critical Hit. Afterwards, increases your Attack Power for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -19540,6 +20823,8 @@
    "name": "Wave Attack (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Decreases the enemy's Attack Bar by 20% whenever you attack. In addition, increases your Attack Bar by 50% of the Attack Bar you decreased. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19559,7 +20844,9 @@
    "name": "Spinning Roundhouse Kick",
    "slot": 3,
    "passive": false,
-   "description": "Increases your Attack Speed for 3 turns and attacks the enemy to set its Attack Bar to 0. At this time, increases your Attack Bar by the Attack Bar you decreased. This effect ignores immunity.",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Increases your Attack Speed for 2 turns and attacks the enemy to set its Attack Bar to 0. At this time, increases your Attack Bar by the amount you decreased. This effect ignores immunity.",
    "recoveryUpgrades": [
     0,
     0
@@ -19590,6 +20877,8 @@
    "name": "Backsteps (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Always gains attribute advantage when you are attacked by an enemy. Increases your Attack Speed by 15%, up to 150%, whenever you are attacked or attacking an enemy. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19609,6 +20898,8 @@
    "name": "Big Bang Punch",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 15% and attacks the enemy to deal damage proportionate to your MAX HP. Deals additional damage by 40% of your MAX HP when this attack does not land as a Glancing Hit.",
    "recoveryUpgrades": [
     0
@@ -19630,6 +20921,8 @@
    "name": "Rule Breaker (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Gains immunity against Attack Bar reduction effects and increases the Attack Bar of all allies by 30% whenever an ally's cooldown increases. In addition, at the start of your turn, decreases the skill cooldown of the ally with the highest Attack Bar (excluding yourself) by 1 turn. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19649,6 +20942,8 @@
    "name": "Shadow Arts (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Inflicts Continuous Damage for 2 turns on each attack. In addition, increases your Attack Bar by 100% when an enemy with 70% HP or below recovers HP. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19668,6 +20963,8 @@
    "name": "Spear of Penetration (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Speed for 1 turn after attacking the enemy on your turn. Deals damage that ignores Defense in proportion to the Attack Speed difference in boss battles. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19687,6 +20984,8 @@
    "name": "Sword of Justice",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to decrease the Attack Bar by 20% with a 50% chance. If the Attack Bar was not decreased, increases the Attack Bar of the ally with the highest Attack Bar by 10%.",
    "recoveryUpgrades": [
     0,
@@ -19713,6 +21012,8 @@
    "name": "Sword of Justice",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to decrease the Attack Bar by 20% with a 50% chance. If the Attack Bar was not decreased, increases the Attack Bar of the ally with the highest Attack Bar by 10%.",
    "recoveryUpgrades": [
     0,
@@ -19739,6 +21040,8 @@
    "name": "Sword of Justice",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to decrease the Attack Bar by 20% with a 50% chance. If the Attack Bar was not decreased, increases the Attack Bar of the ally with the highest Attack Bar by 10%.",
    "recoveryUpgrades": [
     0,
@@ -19765,6 +21068,8 @@
    "name": "Sword of Justice",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to decrease the Attack Bar by 20% with a 50% chance. If the Attack Bar was not decreased, increases the Attack Bar of the ally with the highest Attack Bar by 10%.",
    "recoveryUpgrades": [
     0,
@@ -19791,6 +21096,8 @@
    "name": "Sword of Justice",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to decrease the Attack Bar by 20% with a 50% chance. If the Attack Bar was not decreased, increases the Attack Bar of the ally with the highest Attack Bar by 10%.",
    "recoveryUpgrades": [
     0,
@@ -19817,6 +21124,8 @@
    "name": "Purifying Mediation",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes 1 harmful effect on all allies and recovers their HP by 20%. In addition, increases the Attack Bar of all allies by 15% if no harmful effects were removed.",
    "recoveryUpgrades": [
     0
@@ -19838,6 +21147,8 @@
    "name": "Purifying Mediation",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes 1 harmful effect on all allies and recovers their HP by 20%. In addition, increases the Attack Bar of all allies by 15% if no harmful effects were removed.",
    "recoveryUpgrades": [
     0
@@ -19859,6 +21170,8 @@
    "name": "Authority of Justice",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on the ally target, increases its Attack Bar by 20% per harmful effect removed, and resets its skill cooldown. [Authority of Justice] is not affected by cooldown increasing or decreasing skills.",
    "recoveryUpgrades": [
     0,
@@ -19881,6 +21194,8 @@
    "name": "Judgment Storm",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Compares the HP of all Monsters on the field and activates the skill on 4 targets with the worst HP conditions. For enemy targets, attacks them and resets their Attack Bar and grants Oblivion for 1 turn. For ally targets, increases their Attack Bar by 50% and recovers their HP in proportion to your Attack Power.",
    "recoveryUpgrades": [
     0,
@@ -19904,6 +21219,8 @@
    "name": "Maia's Authority (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 10% whenever an ally with a Shield is attacked. In addition, removes 1 harmful effect on allies with a Shield whenever you gain a turn and recovers their HP by 10%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19923,6 +21240,8 @@
    "name": "Immortal Light",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on all allies and increases their Attack Bar by 30%. In addition, if the skill is not on cooldown at the moment of death, revives with 30% HP and activates {gandalf_3_light_ex}. {gandalf_3_light_ex} is maintained until the battle ends.",
    "recoveryUpgrades": [
     0,
@@ -19945,6 +21264,8 @@
    "name": "Enhanced Immortal Light",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on all allies, increases their Attack Bar by 30%, and revives all allies with 30% HP. The cooldown increases by 2 turns per revived ally. In addition, if the skill is not on cooldown at the moment of death, revives with 30% HP and activates the skill instantly.",
    "recoveryUpgrades": [
     0,
@@ -19963,10 +21284,57 @@
    ]
   },
   {
+   "com2usId": 23806,
+   "name": "Band of Blades",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Increases the Attack Power of the ally with the highest Attack Power for 1 turn and teams up with the ally to attack the enemy. While attacking, your attack deals damage 2 times, decreasing its Defense for 2 turns with a 50% chance each.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 23808,
+   "name": "Band of Blades",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Increases the Attack Power of the ally with the highest Attack Power for 1 turn and teams up with the ally to attack the enemy. While attacking, your attack deals damage 2 times, decreasing its Defense for 2 turns with a 50% chance each.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 23810,
+   "name": "Band of Blades",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Increases the Attack Power of the ally with the highest Attack Power for 1 turn and teams up with the ally to attack the enemy. While attacking, your attack deals damage 2 times, decreasing its Defense for 2 turns with a 50% chance each.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 23814,
    "name": "Qualities of a King (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 10% when an ally, excluding yourself, is attacked. Increases your Attack Bar by 50% whenever an ally, excluding yourself, falls under an inability effect. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -19995,6 +21363,8 @@
    "name": "Power of Mirkwood",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Power and Attack Speed for 2 turns. Gains a turn instantly.",
    "recoveryUpgrades": [
     0,
@@ -20017,6 +21387,8 @@
    "name": "Power of Mirkwood",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Power and Attack Speed for 2 turns. Gains a turn instantly.",
    "recoveryUpgrades": [
     0,
@@ -20039,6 +21411,8 @@
    "name": "Power of Mirkwood",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Power and Attack Speed for 2 turns. Gains a turn instantly.",
    "recoveryUpgrades": [
     0,
@@ -20061,6 +21435,8 @@
    "name": "Chase of the Sindar",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 4 times. Increases your Attack Bar in proportion to the damage dealt.",
    "recoveryUpgrades": [
     0,
@@ -20083,6 +21459,8 @@
    "name": "Quick Steps (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Whenever an ally, including yourself, attacks the enemy with a Critical Hit, increases your Attack Bar by 10% and your Attack Power and Defense by 10%, up to 150%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -20102,6 +21480,8 @@
    "name": "Sméagol's Gift",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of an ally target by 50%. Also grants Vampire and Increase Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -20132,6 +21512,8 @@
    "name": "World Tree Roots (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 10% whenever an ally with a Shield is attacked. In addition, removes 1 harmful effect on allies with a Shield whenever you gain a turn and recovers their HP by 10%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -20151,6 +21533,8 @@
    "name": "World Tree Blessing",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on all allies and increases their Attack Bar by 30%. In addition, if the skill is not on cooldown at the moment of death, revives with 30% HP and activates {rp_gandalf_3_light_ex}. {rp_gandalf_3_light_ex} is maintained until the battle ends.",
    "recoveryUpgrades": [
     0,
@@ -20173,6 +21557,8 @@
    "name": "Enhanced World Tree Blessing",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Removes all harmful effects on all allies, increases their Attack Bar by 30%, and revives all allies with 30% HP. The cooldown increases by 2 turns per revived ally. In addition, if the skill is not on cooldown at the moment of death, revives with 30% HP and activates the skill instantly.",
    "recoveryUpgrades": [
     0,
@@ -20191,10 +21577,57 @@
    ]
   },
   {
+   "com2usId": 24306,
+   "name": "Bond of the Pack",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Increases the Attack Power of the ally with the highest Attack Power for 1 turn and teams up with the ally to attack the enemy. While attacking, your attack deals damage 2 times, decreasing its Defense for 2 turns with a 50% chance each.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 24308,
+   "name": "Bond of the Pack",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Increases the Attack Power of the ally with the highest Attack Power for 1 turn and teams up with the ally to attack the enemy. While attacking, your attack deals damage 2 times, decreasing its Defense for 2 turns with a 50% chance each.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
+   "com2usId": 24310,
+   "name": "Bond of the Pack",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 1,
+   "description": "Increases the Attack Power of the ally with the highest Attack Power for 1 turn and teams up with the ally to attack the enemy. While attacking, your attack deals damage 2 times, decreasing its Defense for 2 turns with a 50% chance each.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0
+   ],
+   "effects": []
+  },
+  {
    "com2usId": 24314,
    "name": "Qualities of an Alpha (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 10% when an ally, excluding yourself, is attacked. Increases your Attack Bar by 50% whenever an ally, excluding yourself, falls under an inability effect. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -20223,6 +21656,8 @@
    "name": "Leaf Blessing",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Power and Attack Speed for 2 turns. Gains a turn instantly.",
    "recoveryUpgrades": [
     0,
@@ -20245,6 +21680,8 @@
    "name": "Leaf Blessing",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Power and Attack Speed for 2 turns. Gains a turn instantly.",
    "recoveryUpgrades": [
     0,
@@ -20267,6 +21704,8 @@
    "name": "Leaf Blessing",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases your Attack Power and Attack Speed for 2 turns. Gains a turn instantly.",
    "recoveryUpgrades": [
     0,
@@ -20289,6 +21728,8 @@
    "name": "Scout's Chase",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 4 times. Increases your Attack Bar in proportion to the damage dealt.",
    "recoveryUpgrades": [
     0,
@@ -20311,6 +21752,8 @@
    "name": "Deer Steps (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Whenever an ally, including yourself, attacks the enemy with a Critical Hit, increases your Attack Bar by 10% and your Attack Power and Defense by 10%, up to 150%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -20330,6 +21773,8 @@
    "name": "Gift of the Wild",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the Attack Bar of an ally target by 50%. Also grants Vampire and Increase Attack Speed for 2 turns.",
    "recoveryUpgrades": [
     0
@@ -20360,6 +21805,8 @@
    "name": "Electric Shock",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to transfer 1 harmful effect granted on yourself to the enemy. Increases your Attack Bar by 10% if there are no harmful effects to transfer.",
    "recoveryUpgrades": [
     0,
@@ -20385,6 +21832,8 @@
    "name": "Electric Shock",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to transfer 1 harmful effect granted on yourself to the enemy. Increases your Attack Bar by 10% if there are no harmful effects to transfer.",
    "recoveryUpgrades": [
     0,
@@ -20410,6 +21859,8 @@
    "name": "Electric Shock",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to transfer 1 harmful effect granted on yourself to the enemy. Increases your Attack Bar by 10% if there are no harmful effects to transfer.",
    "recoveryUpgrades": [
     0,
@@ -20435,6 +21886,8 @@
    "name": "Electric Shock",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to transfer 1 harmful effect granted on yourself to the enemy. Increases your Attack Bar by 10% if there are no harmful effects to transfer.",
    "recoveryUpgrades": [
     0,
@@ -20460,6 +21913,8 @@
    "name": "Electric Shock",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to transfer 1 harmful effect granted on yourself to the enemy. Increases your Attack Bar by 10% if there are no harmful effects to transfer.",
    "recoveryUpgrades": [
     0,
@@ -20485,6 +21940,8 @@
    "name": "Super Solenoid",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies to steal all their beneficial effects. Increases your Attack Bar by 25% for each beneficial effect removed.",
    "recoveryUpgrades": [
     0,
@@ -20507,6 +21964,8 @@
    "name": "Fast Charge (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases the Attack Bar of all allies by 35% when you fall under an inability effect or gain a turn with a harmful effect granted on you. In addition, increases your Attack Speed by 100% when you are under an inability effect. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -20535,6 +21994,8 @@
    "name": "Magic Interpretation (Passive)",
    "slot": 2,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 25%. [Automatic Effect]",
    "recoveryUpgrades": [
     0
@@ -20556,6 +22017,8 @@
    "name": "Magic Interpretation (Passive)",
    "slot": 2,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 25%. [Automatic Effect]",
    "recoveryUpgrades": [
     0
@@ -20577,6 +22040,8 @@
    "name": "Magic Interpretation (Passive)",
    "slot": 2,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 25%. [Automatic Effect]",
    "recoveryUpgrades": [
     0
@@ -20598,6 +22063,8 @@
    "name": "Zoltraak",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -20623,6 +22090,8 @@
    "name": "Zoltraak",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -20648,6 +22117,8 @@
    "name": "Zoltraak",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -20673,6 +22144,8 @@
    "name": "Zoltraak",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -20698,6 +22171,8 @@
    "name": "Zoltraak",
    "slot": 1,
    "passive": false,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
    "recoveryUpgrades": [
     0,
@@ -20723,6 +22198,8 @@
    "name": "Zoltraak・Barrage",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times to decrease its Defense for 2 turns with a 30% chance each. Increases your Attack Bar by 35% whenever this attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -20747,6 +22224,8 @@
    "name": "Zoltraak・Bombardment",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 times. Each hit decreases their Attack Power for 2 turns with a 50% chance and blocks them from receiving beneficial effects for 2 turns with a 50% chance. In addition, increases your Attack Bar by 15% for each harmful effect granted on the enemies after the attack.",
    "recoveryUpgrades": [
     0,
@@ -20772,6 +22251,8 @@
    "name": "Zoltraak・Barrage",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times to decrease its Defense for 2 turns with a 30% chance each. Increases your Attack Bar by 35% whenever this attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -20796,6 +22277,8 @@
    "name": "Zoltraak・Bombardment",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks all enemies 2 times. Each hit decreases their Attack Power for 2 turns with a 50% chance and blocks them from receiving beneficial effects for 2 turns with a 50% chance. In addition, increases your Attack Bar by 15% for each harmful effect granted on the enemies after the attack.",
    "recoveryUpgrades": [
     0,
@@ -20821,6 +22304,8 @@
    "name": "Zoltraak・Barrage",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy 3 times to decrease its Defense for 2 turns with a 30% chance each. Increases your Attack Bar by 35% whenever this attack lands as a Critical Hit.",
    "recoveryUpgrades": [
     0,
@@ -20845,7 +22330,9 @@
    "name": "Defensive Magic (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "When an ally (including yourself) takes fatal damage from an attack, offsets the damage, and then grants Invincible on the ally target for 1 turn. Afterwards, increases your Attack Bar by 50%. [Automatic Effect]",
+   "cooldown": true,
+   "pulls": 0,
+   "description": "When an ally (including yourself) takes fatal damage from an attack, offsets the damage, and then grants Invincible on the ally target for 1 turn. Afterwards, increases your Attack Speed for 2 turns and increases your Attack Bar by 50%. [Automatic Effect]",
    "recoveryUpgrades": [
     0
    ],
@@ -20853,6 +22340,15 @@
     {
      "effect": "attack-bar",
      "quantity": 50,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    },
+    {
+     "effect": "speed-buff",
+     "quantity": 2,
      "aoe": false,
      "self": true,
      "single": false,
@@ -20866,6 +22362,8 @@
    "name": "Ally Cover (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Grants Reflect Harmful Effect on all allies for 1 turn at the start of your turn. In addition, increases your Attack Bar by 5% whenever an ally (including yourself) is attacked and decreases the damage other allies receive by 10%. This does not accumulate with other damage reduction effects. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -20885,6 +22383,8 @@
    "name": "One Step Ahead (Passive)",
    "slot": 3,
    "passive": true,
+   "cooldown": false,
+   "pulls": 0,
    "description": "Increases your Attack Bar by 20% whenever you are attacked by the enemy. In addition, increases the damage you deal to enemies as the total HP condition of all allies worsens, and by 100% per defeated ally. The increase in damage is limited to 200%. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
@@ -20892,7 +22392,7 @@
      "effect": "attack-bar",
      "quantity": 20,
      "aoe": false,
-     "self": false,
+     "self": true,
      "single": false,
      "onCrit": false,
      "chance": 100
@@ -20904,7 +22404,431 @@
    "name": "Inheriting Master's Will (Passive)",
    "slot": 3,
    "passive": true,
-   "description": "Increases your Attack Bar by 20% when using [Heavy Strike], and deals additional damage equal to 15% of your MAX HP when using [Lightning Strike!]. In addition, removes 1 harmful effect granted on yourself when you gain a turn with less than 50% HP. [Automatic Effect]",
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Increases your Attack Bar by 20% when using [Heavy Strike], and deals additional damage equal to 10% of your MAX HP when using [Lightning Strike!]. In addition, removes 1 harmful effect granted on yourself when you gain a turn with less than 50% HP. [Automatic Effect]",
+   "recoveryUpgrades": [],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 20,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25407,
+   "name": "Mana Detection (Passive)",
+   "slot": 2,
+   "passive": true,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 25%. [Automatic Effect]",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 25,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": null
+    }
+   ]
+  },
+  {
+   "com2usId": 25408,
+   "name": "Mana Detection (Passive)",
+   "slot": 2,
+   "passive": true,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 25%. [Automatic Effect]",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 25,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": null
+    }
+   ]
+  },
+  {
+   "com2usId": 25410,
+   "name": "Mana Detection (Passive)",
+   "slot": 2,
+   "passive": true,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "After you attack, recovers your HP by 10% per enemy granted with a harmful effect among the targets you attacked. In addition, when an enemy granted with a harmful effect gains a turn, increases your Attack Bar by 25%. [Automatic Effect]",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 25,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": null
+    }
+   ]
+  },
+  {
+   "com2usId": 25501,
+   "name": "Mana Particle Cannon",
+   "slot": 1,
+   "passive": false,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 30,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25502,
+   "name": "Mana Particle Cannon",
+   "slot": 1,
+   "passive": false,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 30,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25503,
+   "name": "Mana Particle Cannon",
+   "slot": 1,
+   "passive": false,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 30,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25504,
+   "name": "Mana Particle Cannon",
+   "slot": 1,
+   "passive": false,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 30,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25505,
+   "name": "Mana Particle Cannon",
+   "slot": 1,
+   "passive": false,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Attacks the enemy to remove 1 beneficial effect with a 50% chance. Increases your Attack Bar by 30% if all your skills are on cooldown.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 30,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25506,
+   "name": "Mana Particle Cannon・Barrage",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Attacks the enemy 3 times to decrease its Defense for 2 turns with a 30% chance each. Increases your Attack Bar by 35% whenever this attack lands as a Critical Hit.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 35,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": true,
+     "chance": null
+    }
+   ]
+  },
+  {
+   "com2usId": 25507,
+   "name": "Mana Particle Cannon・Bombardment",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Attacks all enemies 2 times. Each hit decreases their Attack Power for 2 turns with a 50% chance and blocks them from receiving beneficial effects for 2 turns with a 50% chance. In addition, increases your Attack Bar by 15% for each harmful effect granted on the enemies after the attack.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 15,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25508,
+   "name": "Mana Particle Cannon・Barrage",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Attacks the enemy 3 times to decrease its Defense for 2 turns with a 30% chance each. Increases your Attack Bar by 35% whenever this attack lands as a Critical Hit.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 35,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": true,
+     "chance": null
+    }
+   ]
+  },
+  {
+   "com2usId": 25509,
+   "name": "Mana Particle Cannon・Bombardment",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Attacks all enemies 2 times. Each hit decreases their Attack Power for 2 turns with a 50% chance and blocks them from receiving beneficial effects for 2 turns with a 50% chance. In addition, increases your Attack Bar by 15% for each harmful effect granted on the enemies after the attack.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 15,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25510,
+   "name": "Mana Particle Cannon・Barrage",
+   "slot": 2,
+   "passive": false,
+   "cooldown": true,
+   "pulls": 0,
+   "description": "Attacks the enemy 3 times to decrease its Defense for 2 turns with a 30% chance each. Increases your Attack Bar by 35% whenever this attack lands as a Critical Hit.",
+   "recoveryUpgrades": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 35,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": true,
+     "chance": null
+    }
+   ]
+  },
+  {
+   "com2usId": 25513,
+   "name": "Safety Barrier (Passive)",
+   "slot": 3,
+   "passive": true,
+   "cooldown": true,
+   "pulls": 0,
+   "description": "When an ally (including yourself) takes fatal damage from an attack, offsets the damage, and then grants Invincible on the ally target for 1 turn. Afterwards, increases your Attack Speed for 2 turns and increases your Attack Bar by 50%. [Automatic Effect]",
+   "recoveryUpgrades": [
+    0
+   ],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 50,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25514,
+   "name": "Safety Protocol (Passive)",
+   "slot": 3,
+   "passive": true,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Grants Reflect Harmful Effect on all allies for 1 turn at the start of your turn. In addition, increases your Attack Bar by 5% whenever an ally (including yourself) is attacked and decreases the damage other allies receive by 10%. This does not accumulate with other damage reduction effects. [Automatic Effect]",
+   "recoveryUpgrades": [],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 5,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25613,
+   "name": "Unwavering Axe (Passive)",
+   "slot": 3,
+   "passive": true,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Increases your Attack Bar by 20% whenever you are attacked by the enemy. In addition, increases the damage you deal to enemies as the total HP condition of all allies worsens, and by 100% per defeated ally. The increase in damage is limited to 200%. [Automatic Effect]",
+   "recoveryUpgrades": [],
+   "effects": [
+    {
+     "effect": "attack-bar",
+     "quantity": 20,
+     "aoe": false,
+     "self": true,
+     "single": false,
+     "onCrit": false,
+     "chance": 100
+    }
+   ]
+  },
+  {
+   "com2usId": 25615,
+   "name": "Overpower (Passive)",
+   "slot": 3,
+   "passive": true,
+   "cooldown": false,
+   "pulls": 0,
+   "description": "Increases your Attack Bar by 20% when using [Dash Smash], and deals additional damage equal to 10% of your MAX HP when using [Jump Smash]. In addition, removes 1 harmful effect granted on yourself when you gain a turn with less than 50% HP. [Automatic Effect]",
    "recoveryUpgrades": [],
    "effects": [
     {
@@ -20923,6 +22847,8 @@
    "name": "Flaming Magic Bullet - Accelerate",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Attacks the enemy target to weaken the Defense for 2 turns and increases your Attack Bar by 100%.",
    "recoveryUpgrades": [
     0,
@@ -20948,6 +22874,8 @@
    "name": "Operation Alpha - Accelerate",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the ally target's HP by 35% and extends the time of beneficial effects granted on the target. In addition, fills up the ally target's Attack Bar.",
    "recoveryUpgrades": [
     0,
@@ -20973,6 +22901,8 @@
    "name": "Operation Beta - Accelerate",
    "slot": 2,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Recovers the HP and Attack Bar of all allies by 20% each and grants immunity for 1 turn.",
    "recoveryUpgrades": [
     0,
@@ -20998,6 +22928,8 @@
    "name": "Fast Pace",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Makes the Attack Bar of the ally and the enemy to 100%. In addition, increases the Attack Speed of the ally target for 2 turns.",
    "recoveryUpgrades": [
     0,
@@ -21029,6 +22961,8 @@
    "name": "Unbalanced Field",
    "slot": 3,
    "passive": false,
+   "cooldown": true,
+   "pulls": 0,
    "description": "Increases the skill cooldown time of all enemies by 2 turns each and decreases the Attack Speed for 2 turns. After that, the skill cooldown time of all allies will be decreased by 2 turns each and the Attack Speed will be increased for 2 turns.",
    "recoveryUpgrades": [
     0,

@@ -38,7 +38,7 @@ export function relation(first: Map<string, TurnEvent>, events: readonly TurnEve
    pessimistic reading. Another player's team has no bosses. */
 export function enemyUnit(speed: number, at: number, opponent: SpeedOpponent): TickUnit {
   return {
-    key: `enemy-${at + 1}`, side: 'enemy', speed, effects: [], exemptFromCap: opponent === 'stages',
+    key: `enemy-${at + 1}`, side: 'enemy', speed, firstTurn: [], laterTurns: [], exemptFromCap: opponent === 'stages',
   };
 }
 

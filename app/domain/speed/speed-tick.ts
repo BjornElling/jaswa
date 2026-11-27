@@ -219,7 +219,12 @@ export type TurnEffect =
   /** A speed buff for a number of the recipient's own turns. */
   | { kind: 'allies-speed-buff'; turns: number }
   | { kind: 'ally-speed-buff'; turns: number; target: AllyTarget }
-  | { kind: 'self-speed-buff'; turns: number };
+  | { kind: 'self-speed-buff'; turns: number }
+  /**
+   * Up to `count` other allies attack together with the acting monster, each
+   * bringing its `jointAttack` effects. Only the acting monster pulls.
+   */
+  | { kind: 'pull-allies'; count: number };
 
 /**
  * Which ally a one-ally effect lands on (`SPEED-TICK-CANONICAL.md` §4): the
@@ -239,8 +244,15 @@ export type TickUnit = {
   speed: number;
   /** What a speed buff adds on this unit, in percent (`speedBuffPotency`); 30 where omitted. */
   speedBuffPercent?: number;
-  /** Applied on every turn the unit takes. */
-  effects: readonly TurnEffect[];
+  /**
+   * Applied on the unit's first turn, and on every later one. A skill behind a
+   * cooldown is in `firstTurn` only (`SPEED-TICK-CANONICAL.md` §5.1); an effect
+   * that comes every turn is in both.
+   */
+  firstTurn: readonly TurnEffect[];
+  laterTurns: readonly TurnEffect[];
+  /** What the unit brings when another ally pulls it into a joint attack: its first skill and its attack passives. */
+  jointAttack?: readonly TurnEffect[];
   /** Carries a team attack-bar passive, so a `skipsSimilar` boost passes it over. */
   similarBoostPassive?: boolean;
   /** Leo's Eye of the Storm: every other unit on the field moves no faster than this one. */
@@ -385,52 +397,66 @@ export function simulateBattle(units: readonly TickUnit[], options: {
     bars.set(mover.key, 0);
     const hadBuff = (buffTurns.get(mover.key) ?? 0) > 0;
     let refreshedOwnBuff = false;
-    const allies = units.filter((unit) => unit.side === mover.side && unit.key !== mover.key);
-    /* A one-ally target is chosen from the bars as the turn begins, so a skill
-       that fills a bar and grants a buff gives both to the same ally rather
-       than letting its own boost send the buff elsewhere. Level bars go to the
-       one listed first. */
-    const byBar = [...allies].sort((left, right) => (bars.get(left.key) ?? 0) - (bars.get(right.key) ?? 0)
-      || (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0));
-    const lowestBar = byBar[0];
-    const highestBar = [...allies].sort((left, right) => (bars.get(right.key) ?? 0) - (bars.get(left.key) ?? 0)
-      || (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0))[0];
-    const targetOf = (target: AllyTarget) => target === 'highest-attack-bar' ? highestBar : lowestBar;
     const grantBuff = (key: string, count: number) => {
       buffTurns.set(key, Math.max(buffTurns.get(key) ?? 0, count));
       if (key === mover.key) refreshedOwnBuff = true;
     };
     const boost = (key: string, amount: number) => bars.set(key, (bars.get(key) ?? 0) + amount * clockScale);
-    for (const effect of mover.effects) {
-      switch (effect.kind) {
-        case 'allies-attack-bar':
-          for (const ally of allies) if (!(effect.skipsSimilar && ally.similarBoostPassive)) boost(ally.key, effect.amount);
-          break;
-        case 'ally-attack-bar': {
-          const ally = targetOf(effect.target);
-          if (ally) {
-            boost(ally.key, effect.amount);
-            allyBoosts.push({ key: ally.key, amount: effect.amount });
+    /* `caster` is the mover, or an ally it pulled into a joint attack, whose
+       "all allies" and one-ally effects then reach the mover too. */
+    const apply = (caster: TickUnit, effects: readonly TurnEffect[]) => {
+      const allies = units.filter((unit) => unit.side === caster.side && unit.key !== caster.key);
+      /* A one-ally target is chosen from the bars as the caster acts, so a
+         skill that fills a bar and grants a buff gives both to the same ally
+         rather than letting its own boost send the buff elsewhere. Level bars
+         go to the one listed first. */
+      const lowestBar = [...allies].sort((left, right) => (bars.get(left.key) ?? 0) - (bars.get(right.key) ?? 0)
+        || (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0))[0];
+      const highestBar = [...allies].sort((left, right) => (bars.get(right.key) ?? 0) - (bars.get(left.key) ?? 0)
+        || (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0))[0];
+      const targetOf = (target: AllyTarget) => target === 'highest-attack-bar' ? highestBar : lowestBar;
+      for (const effect of effects) {
+        switch (effect.kind) {
+          case 'allies-attack-bar':
+            for (const ally of allies) if (!(effect.skipsSimilar && ally.similarBoostPassive)) boost(ally.key, effect.amount);
+            break;
+          case 'ally-attack-bar': {
+            const ally = targetOf(effect.target);
+            if (ally) {
+              boost(ally.key, effect.amount);
+              if (caster === mover) allyBoosts.push({ key: ally.key, amount: effect.amount });
+            }
+            break;
           }
-          break;
+          case 'self-attack-bar':
+            boost(caster.key, effect.amount);
+            break;
+          case 'allies-speed-buff':
+            grantBuff(caster.key, effect.turns);
+            for (const ally of allies) grantBuff(ally.key, effect.turns);
+            break;
+          case 'ally-speed-buff': {
+            const ally = targetOf(effect.target);
+            if (ally) grantBuff(ally.key, effect.turns);
+            break;
+          }
+          case 'self-speed-buff':
+            grantBuff(caster.key, effect.turns);
+            break;
+          case 'pull-allies':
+            /* Auto battle's choice of partner is not visible, so the allies
+               that bring a boost are the ones assumed to come along, in the
+               order they are listed (§4.1). A pulled ally pulls nobody. */
+            if (caster === mover) {
+              for (const ally of allies.filter((unit) => unit.jointAttack?.length).slice(0, effect.count)) {
+                apply(ally, ally.jointAttack ?? []);
+              }
+            }
+            break;
         }
-        case 'self-attack-bar':
-          boost(mover.key, effect.amount);
-          break;
-        case 'allies-speed-buff':
-          grantBuff(mover.key, effect.turns);
-          for (const ally of allies) grantBuff(ally.key, effect.turns);
-          break;
-        case 'ally-speed-buff': {
-          const ally = targetOf(effect.target);
-          if (ally) grantBuff(ally.key, effect.turns);
-          break;
-        }
-        case 'self-speed-buff':
-          grantBuff(mover.key, effect.turns);
-          break;
       }
-    }
+    };
+    apply(mover, turn === 1 ? mover.firstTurn : mover.laterTurns);
     /* A buff counts down at the end of its holder's own turn — but not the
        turn that granted it, which is the one it was cast in. */
     if (hadBuff && !refreshedOwnBuff) buffTurns.set(mover.key, (buffTurns.get(mover.key) ?? 0) - 1);
