@@ -107,10 +107,12 @@ evidence of a change JASWA missed.
 - An unknown command whose request acts on account items (a sale, conversion,
   feeding, gear move or building move).
 
-Three answers that move monsters between places are set aside whole when they
+Answers that move monsters between places are set aside whole when they
 lack a half they need, because applying part of them would count a monster in
-two places or none: a Shrine move, `ConvertUnitToItem`, and a top-level
-Summoned list under a command not known to send one. So is an answer that would
+two places or none: a Shrine move, `ConvertUnitToItem`, `ConvertUnitToStorage`
+(putting monsters away in the Summoned tab: the named monsters must be removed
+and each one's stack restated at its new total), and a top-level Summoned list
+under a command not known to send one. So is an answer that would
 leave a rune or artifact on two monsters. These are missed changes too, and
 capture goes on.
 

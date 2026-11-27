@@ -409,11 +409,12 @@ impl ProfileStore {
         {
             return false;
         }
-        /* These three answers move monsters between places. Read in part they
+        /* These answers move monsters between places. Read in part they
         would count a monster in two places or in none, so an answer missing
         one of the halves they need is set aside whole. */
         if let Some(reason) = unmodeled_shrine_move(self.profile.as_ref(), request, response)
             .or_else(|| unmodeled_unit_conversion(self.profile.as_ref(), request, response))
+            .or_else(|| unmodeled_storage_conversion(self.profile.as_ref(), request, response))
             .or_else(|| unmodeled_summoned_stacks(request, response))
         {
             self.miss(&command_name, reason);
@@ -504,7 +505,7 @@ impl ProfileStore {
                 set_collection(&mut profile, "unit_storage_list", next);
                 changed = true;
             }
-        } else if command == "sacrificeunit_v4" {
+        } else if command == "sacrificeunit_v4" || command == STORAGE_CONVERSION {
             changed |= merge_touched_stacks(&mut profile, collection(response, "unit_storage_list"));
         }
         let normal_storage_list = response
@@ -976,7 +977,9 @@ fn unmodeled_summoned_stacks(request: &Value, response: &Value) -> Option<String
         return None;
     }
     let lower = command.to_ascii_lowercase();
-    if lower == WHOLE_SUMMONED_TAB_COMMAND || lower == "movestoragefromto" {
+    /* `unmodeled_storage_conversion` holds the stored monsters against the
+    stacks this answer restates. */
+    if lower == WHOLE_SUMMONED_TAB_COMMAND || lower == "movestoragefromto" || lower == STORAGE_CONVERSION {
         return None;
     }
     let restated = collection(response, "unit_storage_list")
@@ -1140,6 +1143,67 @@ fn unmodeled_unit_conversion(
             "ConvertUnitToItem spent a monster that still carries equipment, which JASWA does not model yet."
                 .into(),
         );
+    }
+    None
+}
+
+/* Putting monsters away in the Summoned tab (`ConvertUnitToStorage`) answers
+with the monsters gone in `remove_unit_id_list` and each stack they joined in
+`unit_storage_list`, restated at its new total: the next whole-tab read showed
+the very same quantity (captured November 27, 2026). The generic removal and
+`merge_touched_stacks` apply those two halves. A stack holds no gear, so a
+stored monster still carrying some has nowhere to put it, and a monster whose
+stack the answer leaves out would leave the roster without being counted in
+the tab. */
+const STORAGE_CONVERSION: &str = "convertunittostorage";
+
+fn unmodeled_storage_conversion(
+    profile: Option<&Value>,
+    request: &Value,
+    response: &Value,
+) -> Option<String> {
+    let command = request.get("command").and_then(Value::as_str)?;
+    if !command.eq_ignore_ascii_case(STORAGE_CONVERSION) || !successful_response(response) {
+        return None;
+    }
+    let refuse = |why: &str| Some(format!("ConvertUnitToStorage {why}, which JASWA does not model yet."));
+    let stored = request_identifiers(request, "unit_id");
+    if stored.is_empty() {
+        return refuse("named no monster JASWA can read");
+    }
+    let removed = response_removals(response)
+        .into_iter()
+        .filter(|(entity, _)| entity.collection == "unit_list")
+        .flat_map(|(_, ids)| ids)
+        .collect::<Vec<_>>();
+    if !stored.iter().all(|id| removed.contains(id)) {
+        return refuse("did not say a monster it named left the roster");
+    }
+    let stacks = collection(response, "unit_storage_list");
+    let restated = stacks
+        .iter()
+        .filter_map(|stack| identifier(stack, "unit_master_id"))
+        .collect::<Vec<_>>();
+    if restated.len() != stacks.len() {
+        return refuse("restated a Summoned stack JASWA cannot read");
+    }
+    let units = profile
+        .map(|profile| collection(profile, "unit_list"))
+        .unwrap_or(&[])
+        .iter()
+        .filter(|unit| identifier(unit, "unit_id").is_some_and(|id| stored.contains(&id)))
+        .collect::<Vec<_>>();
+    if units.iter().any(|unit| {
+        ["runes", "artifacts", "relics"]
+            .iter()
+            .any(|key| !collection(unit, key).is_empty())
+    }) {
+        return refuse("stored a monster that still carries equipment");
+    }
+    if units.iter().any(|unit| {
+        identifier(unit, "unit_master_id").is_none_or(|master| !restated.contains(&master))
+    }) {
+        return refuse("stored a monster whose Summoned stack its answer did not restate");
     }
     None
 }
@@ -3291,6 +3355,67 @@ mod tests {
             ),
             None
         );
+    }
+
+    /* The captured answer, ids aside: the monster leaves the roster and the
+    stack it joined is restated at its new total, which the next whole-tab read
+    confirmed. It was missed for want of a reader. */
+    #[test]
+    fn storing_a_monster_moves_it_into_its_summoned_stack() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [
+                {"unit_id": 1, "unit_master_id": 12703},
+                {"unit_id": 2, "unit_master_id": 10101}
+            ],
+            "unit_storage_list": [
+                {"class": 2, "quantity": 2, "unit_master_id": 12703},
+                {"class": 3, "quantity": 5, "unit_master_id": 22401}
+            ],
+            "runes": []
+        })));
+        let request = json!({"command": "ConvertUnitToStorage", "unit_id_list": [1]});
+        let response = json!({
+            "command": "ConvertUnitToStorage",
+            "ret_code": 0,
+            "remove_unit_id_list": [1],
+            "unit_storage_list": [{"class": 2, "quantity": 3, "unit_master_id": 12703}]
+        });
+        assert_eq!(store.missed_by(&response, &request), None);
+        assert!(store.apply_update(&response, &request));
+        let data = store.read().unwrap().data;
+        assert_eq!(data["unit_list"], json!([{"unit_id": 2, "unit_master_id": 10101}]));
+        assert_eq!(
+            data["unit_storage_list"],
+            json!([
+                {"class": 2, "quantity": 3, "unit_master_id": 12703},
+                {"class": 3, "quantity": 5, "unit_master_id": 22401}
+            ])
+        );
+        assert!(store.status().missed_changes.is_empty());
+    }
+
+    #[test]
+    fn a_storage_conversion_it_cannot_place_is_missed() {
+        let mut store = ProfileStore::default();
+        assert!(store.accept_snapshot(json!({
+            "unit_list": [
+                {"unit_id": 1, "unit_master_id": 12703},
+                {"unit_id": 3, "unit_master_id": 12703, "runes": [{"rune_id": 9, "occupied_id": 3}]}
+            ],
+            "runes": []
+        })));
+        let stack = json!([{"quantity": 3, "unit_master_id": 12703}]);
+        let answer = |removed: Value, stacks: Value| {
+            json!({"ret_code": 0, "remove_unit_id_list": removed, "unit_storage_list": stacks})
+        };
+        let store_one = |id: u64| json!({"command": "ConvertUnitToStorage", "unit_id_list": [id]});
+        assert!(store.missed_by(&answer(json!([1]), stack.clone()), &json!({"command": "ConvertUnitToStorage"})).is_some());
+        assert!(store.missed_by(&answer(json!([]), stack.clone()), &store_one(1)).is_some());
+        assert!(store.missed_by(&answer(json!([1]), json!([])), &store_one(1)).is_some());
+        assert!(store.missed_by(&answer(json!([1]), json!([{"quantity": 3}])), &store_one(1)).is_some());
+        assert!(store.missed_by(&answer(json!([3]), stack.clone()), &store_one(3)).is_some());
+        assert_eq!(store.missed_by(&json!({"ret_code": 1}), &store_one(1)), None);
     }
 
     /* A copy of engraved gear in the inventory is not kept in step but taken out:
