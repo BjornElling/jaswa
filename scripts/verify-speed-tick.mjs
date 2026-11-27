@@ -377,7 +377,7 @@ check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is
   check(boiled.after.verdehile === 4_000 && boiled.after.plain === boiled.bars.plain + 4_000 && boiled.after.second === boiled.bars.second,
     'Boiling Blood gives 40 % to Verdehile and the team, and passes over another Verdehile');
   /* Full HP holds until the first enemy turn, and a boost behind it with it. */
-  const unhurt = [{ kind: 'self-attack-bar', amount: 10_000, whileTeamUnhurt: true }];
+  const unhurt = [{ kind: 'self-attack-bar', amount: 10_000, untilEnemyActs: true }];
   const hurt = simulateBattle([unit('healthy', 300, unhurt), unit('enemy', 200, [], 'enemy')],
     { done: (events) => events.slice(events.findIndex((event) => event.key === 'enemy') + 1)
       .filter((event) => event.key === 'healthy' && events.some((other) => other.key === 'enemy')).length >= 2 });
@@ -401,6 +401,18 @@ check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is
   check(others.events[0].key === 'friend' && gain(others, 0) === 1_000 && gain(others, 1) === 1_000,
     'a boost on everybody else\'s turns lands on an ally\'s turn and an enemy\'s');
   check(gain(enemies, 0) === 0 && gain(enemies, 1) === 1_000, 'a boost on enemy turns does not land on an ally\'s turn');
+  const allies = onTurns('allies');
+  check(gain(allies, 0) === 1_000 && gain(allies, 1) === 0, 'a boost on allies\' turns does not land on an enemy\'s turn');
+  /* Quick Steps: its own turn, and every other ally's. */
+  const quickSteps = speedSkillProfile({ skills: [[23914, 1]] });
+  check(quickSteps.firstTurn.some((effect) => effect.kind === 'self-attack-bar' && effect.amount === 1_000)
+    && quickSteps.onTurnsOf.some((effect) => effect.of === 'allies' && effect.amount === 1_000), 'Quick Steps gains on its own turn and on other allies\'');
+  /* Zoltraak waits for the second turn, when the other skills are cooling. */
+  const zoltraak = speedSkillProfile({ skills: [[25001, 1]] });
+  check(zoltraak.firstTurn.length === 0 && zoltraak.laterTurns.some((effect) => effect.amount === 3_000) && zoltraak.jointAttack.length === 0,
+    'Zoltraak counts from the second turn, and not in a joint attack');
+  /* No harmful effects holds until the first enemy turn, as full HP does. */
+  check(effectsOf(24701).some((effect) => effect.untilEnemyActs && effect.amount === 1_000), 'Electric Shock counts until the first enemy turn');
   /* Every skill whose wording or figure needs a decision has one, so a
      refresh cannot bring a new misreading in unreviewed. */
   const undecided = speedSkillData.skills.filter((skill) => skill.effects.length > 0 && !skillReadings.has(skill.com2usId)).filter((skill) => {

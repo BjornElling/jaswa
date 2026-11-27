@@ -22,11 +22,14 @@
  * - Counted, on exactly those turns: a boost set off by another unit simply
  *   taking a turn, which the clock knows (`barOnTurnOf`). An enemy's turn never
  *   sets off a boost worded for the allies' turns, nor the other way round.
+ * - Counted while it holds: full HP and no harmful effects on the team until
+ *   the first enemy turn (`untilEnemyActs`), and the monster's other skills on
+ *   cooldown from its second turn (`fromSecondTurn`).
  * - Not counted: a boost behind any other condition — a kill, a percentage
- *   chance, the target's or the team's state (beneficial or harmful effects,
- *   full HP, sleep, a stun landing), a harmful effect of the skill's own that
- *   the enemy may resist, or a size set by the enemies' number, HP lost or bar.
- *   The page cannot know whether it happens, so it says so beside the monster.
+ *   chance, the target's state (beneficial or harmful effects, sleep, a stun
+ *   landing), a harmful effect of the skill's own that the enemy may resist,
+ *   or a size set by the enemies' number, HP lost or bar. The page cannot know
+ *   whether it happens, so it says so beside the monster.
  * - Lowering an enemy's attack bar is never counted, and neither is a gain
  *   taken from it (the user's decision of November 27, 2026).
  *
@@ -39,8 +42,12 @@ import type { AllyTarget } from './speed-tick';
 /** Who a read effect reaches: the caster, every other ally, or one other ally. */
 export type ReadRecipient = 'self' | 'allies' | 'ally';
 
-/** Behind full HP of the caster or the allies: holds only until the first enemy turn. */
-type Unhurt = { whileTeamUnhurt?: true };
+/**
+ * `untilEnemyActs`: behind full HP or no harmful effects, which hold until the
+ * first enemy turn. `fromSecondTurn`: behind the other skills' cooldowns, which
+ * hold from the second turn (`speed-tick.ts`, `Timing`).
+ */
+type Timing = { untilEnemyActs?: true; fromSecondTurn?: true };
 
 export type ReadEffect =
   /**
@@ -48,14 +55,14 @@ export type ReadEffect =
    * An "all allies" boost reaches the caster only with `includesCaster`, and
    * passes over allies with a similar passive with `skipsSimilar`.
    */
-  | ({ bar: number; to: ReadRecipient; target?: AllyTarget; includesCaster?: true; skipsSimilar?: true } & Unhurt)
+  | ({ bar: number; to: ReadRecipient; target?: AllyTarget; includesCaster?: true; skipsSimilar?: true } & Timing)
   /** A speed buff for `buff` of the recipient's turns. */
-  | ({ buff: number; to: ReadRecipient; excludesCaster?: true } & Unhurt)
+  | ({ buff: number; to: ReadRecipient; excludesCaster?: true } & Timing)
   /** `bar` percent on the caster's own bar on every turn of the units named — never on its own. */
   | { barOnTurnOf: OtherTurns; bar: number };
 
-/** Whose turns set off a boost on another unit's turn: everybody else's, or the enemies' only. */
-export type OtherTurns = 'others' | 'enemies';
+/** Whose turns set off a boost on another unit's turn: everybody else's, the other allies', or the enemies'. */
+export type OtherTurns = 'others' | 'allies' | 'enemies';
 
 /**
  * `swarfarm`: reviewed, and Swarfarm's reading is what happens.
@@ -72,10 +79,14 @@ const decisions: Array<[ids: number[], reading: SkillReading]> = [
   /* On a critical hit of the monster's own, once per skill as worded — the
      spears, the smashes, Squall, Multiple Throw ("if this attack lands"),
      Destruction Wedge, Black Wing Flash ("when landing a Critical Hit", not
-     "each"), Soaring Wings, Hidden Sense of Justice and Lethal Intent, and
-     Quick Steps on the monster's own critical hit. */
+     "each"), Soaring Wings, Hidden Sense of Justice and Lethal Intent. */
   [[1201, 1202, 1203, 1204, 1205, 2751, 2752, 2753, 2754, 2755, 4206, 4208, 4209, 5406, 5409,
-    9313, 22406, 22410, 22906, 22910, 12412, 12413, 12415, 21615, 22215, 23914, 24414], 'swarfarm'],
+    9313, 22406, 22410, 22906, 22910, 12412, 12413, 12415, 21615, 22215], 'swarfarm'],
+  /* Quick Steps, Deer Steps: "Whenever an ally, including yourself, attacks
+     the enemy with a Critical Hit, increases your Attack Bar by 10%". With
+     every critical hit assumed, that is the monster's own turn and every other
+     ally's turn — never an enemy's (the user's decision, November 27, 2026). */
+  [[23914, 24414], { effects: [{ bar: 10, to: 'self' }, { barOnTurnOf: 'allies', bar: 10 }] }],
   /* Unconditional on use; the flagged wording is about something else in the
      skill (damage, a cooldown, a revive "at the moment of death"). */
   [[1556, 1614, 7111, 7908, 8006, 8008, 8009, 8026, 8028, 8029, 8311, 9513, 9514, 10225, 10908,
@@ -154,14 +165,30 @@ const decisions: Array<[ids: number[], reading: SkillReading]> = [
      (the user's instruction, November 27, 2026), so a boost behind full HP
      counts until then and not after. Fiery Dance: "the allies with full HP by
      15%"; Amuse: "the allies with full HP by 25%". */
-  [[3462], { effects: [{ bar: 15, to: 'allies', whileTeamUnhurt: true }] }],
-  [[9117], { effects: [{ bar: 25, to: 'allies', whileTeamUnhurt: true }] }],
+  [[3462], { effects: [{ bar: 15, to: 'allies', untilEnemyActs: true }] }],
+  [[9117], { effects: [{ bar: 25, to: 'allies', untilEnemyActs: true }] }],
   /* "Increases your Attack Bar by 100% if your HP is full after the attack";
      "recovers your attack Bar by 100% when used with full HP". */
-  [[5508, 5509, 5515], { effects: [{ bar: 100, to: 'self', whileTeamUnhurt: true }] }],
+  [[5508, 5509, 5515], { effects: [{ bar: 100, to: 'self', untilEnemyActs: true }] }],
   /* Wheel of Fire: "Increases your Attack Speed for 2 turns after the attack
      when used with full HP". */
-  [[5512], { effects: [{ buff: 2, to: 'self', whileTeamUnhurt: true }] }],
+  [[5512], { effects: [{ buff: 2, to: 'self', untilEnemyActs: true }] }],
+  /* No harmful effects holds as long, for the same reason: nothing can debuff
+     the team before an enemy acts. Cleanse: "the Attack Bar of allies without
+     harmful effects to be removed by 15%"; "increases the Attack Bar of all
+     allies by 15% if no harmful effects were removed"; Electric Shock: "10% if
+     there are no harmful effects to transfer". */
+  [[2211], { effects: [{ bar: 15, to: 'allies', untilEnemyActs: true }] }],
+  [[23506, 23509], { effects: [{ bar: 15, to: 'allies', untilEnemyActs: true }] }],
+  [[24701, 24702, 24703, 24704, 24705], { effects: [{ bar: 10, to: 'self', untilEnemyActs: true }] }],
+
+  /* ── The other skills on cooldown: holds from the second turn ──────────── */
+
+  /* Zoltraak, Mana Particle Cannon: "Increases your Attack Bar by 30% if all
+     your skills are on cooldown". The first turn uses the skills with a
+     cooldown (§5.1), so from the second turn they are all on it. */
+  [[25001, 25002, 25003, 25004, 25005, 25501, 25502, 25503, 25504, 25505],
+    { effects: [{ bar: 30, to: 'self', fromSecondTurn: true }] }],
 
   /* ── Part of the skill counts ──────────────────────────────────────────── */
 
@@ -217,9 +244,6 @@ const decisions: Array<[ids: number[], reading: SkillReading]> = [
      decreased" by a 50 % chance (Sword of Justice). */
   [[2059, 10906, 10907, 10910, 5301, 5302, 5303, 5304, 5305, 21406, 21410, 22006, 22010,
     23501, 23502, 23503, 23504, 23505], none],
-  /* The team's or the caster's own state: allies without harmful effects to
-     remove, no harmful effects on the caster to transfer. */
-  [[2211, 23506, 23509, 24701, 24702, 24703, 24704, 24705], none],
   /* Stormfist: "15% each if the attack lands as a Critical Hit", over 3 hits
      that rise "up to 6 times according to your Attack Power" — the three are
      certain, the rest depend on the build. */
@@ -271,10 +295,9 @@ const decisions: Array<[ids: number[], reading: SkillReading]> = [
     23511], none],
   /* A boost in proportion to damage, HP lost or the enemy's bar. */
   [[13611, 17306, 17309], none],
-  /* Depends on a state another skill sets up: a pose, a song, the other
-     skills' cooldowns, the HP order of the field, or a duel's winner. */
-  [[13215, 25001, 25002, 25003, 25004, 25005, 25501, 25502, 25503, 25504, 25505, 23513, 20415,
-    25115, 25615], none],
+  /* Depends on a state another skill sets up: a pose, which skill is used,
+     the HP order of the field, or a duel's winner. */
+  [[13215, 23513, 20415, 25115, 25615], none],
   /* Caffeine, Mind and Body Rest: one of three buffs at random. */
   [[16313, 16813], none],
 ];

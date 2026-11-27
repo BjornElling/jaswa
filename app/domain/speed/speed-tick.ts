@@ -211,16 +211,16 @@ export type TurnEffect =
    * is Verdehile's clause: the boost passes over allies that carry the same
    * kind of passive themselves.
    */
-  | ({ kind: 'allies-attack-bar'; amount: number; skipsSimilar: boolean; includesCaster?: boolean } & WhileTeamUnhurt)
+  | ({ kind: 'allies-attack-bar'; amount: number; skipsSimilar: boolean; includesCaster?: boolean } & Timing)
   /** One other ally's attack bar, chosen by `target`. */
-  | ({ kind: 'ally-attack-bar'; amount: number; target: AllyTarget } & WhileTeamUnhurt)
+  | ({ kind: 'ally-attack-bar'; amount: number; target: AllyTarget } & Timing)
   /** The acting monster's own bar, after its turn has emptied it. */
-  | ({ kind: 'self-attack-bar'; amount: number } & WhileTeamUnhurt)
+  | ({ kind: 'self-attack-bar'; amount: number } & Timing)
   /** Every ally's speed buff, the caster's too unless the skill excludes it. */
-  | ({ kind: 'allies-speed-buff'; turns: number; excludesCaster?: boolean } & WhileTeamUnhurt)
+  | ({ kind: 'allies-speed-buff'; turns: number; excludesCaster?: boolean } & Timing)
   /** A speed buff for a number of the recipient's own turns. */
-  | ({ kind: 'ally-speed-buff'; turns: number; target: AllyTarget } & WhileTeamUnhurt)
-  | ({ kind: 'self-speed-buff'; turns: number } & WhileTeamUnhurt)
+  | ({ kind: 'ally-speed-buff'; turns: number; target: AllyTarget } & Timing)
+  | ({ kind: 'self-speed-buff'; turns: number } & Timing)
   /**
    * Up to `count` other allies attack together with the acting monster, each
    * bringing its `jointAttack` effects. Only the acting monster pulls.
@@ -228,16 +228,22 @@ export type TurnEffect =
   | { kind: 'pull-allies'; count: number }
   /**
    * The holder's own bar, on every turn of the units named and never on its
-   * own: `others` is every other unit, `enemies` the other side's only.
+   * own: `others` is every other unit, `allies` the other units of its side,
+   * `enemies` the other side's.
    */
-  | { kind: 'attack-bar-on-turn-of'; of: 'others' | 'enemies'; amount: number };
+  | { kind: 'attack-bar-on-turn-of'; of: 'others' | 'allies' | 'enemies'; amount: number };
 
 /**
- * An effect behind full HP — the caster's or the allies' — lands only until
- * the first enemy turn: every monster of the team has full HP until an enemy
- * has acted (the user's instruction, November 27, 2026).
+ * When an effect behind a condition lands.
+ * - `untilEnemyActs`: behind full HP or the absence of harmful effects — the
+ *   caster's or the allies' — which hold until the first enemy turn: no
+ *   monster of the team is hurt or debuffed before an enemy has acted (the
+ *   user's instruction, November 27, 2026).
+ * - `fromSecondTurn`: behind the monster's other skills being on cooldown,
+ *   which they are once its first turn has used them (§5.1). `speed-skills.ts`
+ *   keeps such an effect out of the first turn.
  */
-type WhileTeamUnhurt = { whileTeamUnhurt?: boolean };
+type Timing = { untilEnemyActs?: boolean; fromSecondTurn?: boolean };
 
 /**
  * Which ally a one-ally effect lands on (`SPEED-TICK-CANONICAL.md` §4): the
@@ -432,7 +438,7 @@ export function simulateBattle(units: readonly TickUnit[], options: {
         || (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0))[0];
       const targetOf = (target: AllyTarget) => target === 'highest-attack-bar' ? highestBar : lowestBar;
       for (const effect of effects) {
-        if ('whileTeamUnhurt' in effect && effect.whileTeamUnhurt && enemyHasMoved) continue;
+        if ('untilEnemyActs' in effect && effect.untilEnemyActs && enemyHasMoved) continue;
         switch (effect.kind) {
           case 'allies-attack-bar':
             for (const ally of allies) if (!(effect.skipsSimilar && ally.similarBoostPassive)) boost(ally.key, effect.amount);
@@ -485,7 +491,9 @@ export function simulateBattle(units: readonly TickUnit[], options: {
     for (const unit of units) {
       if (unit.key === mover.key) continue;
       for (const effect of unit.onTurnsOf ?? []) {
-        if (effect.kind === 'attack-bar-on-turn-of' && (effect.of === 'others' || unit.side !== mover.side)) boost(unit.key, effect.amount);
+        if (effect.kind !== 'attack-bar-on-turn-of') continue;
+        const sameSide = unit.side === mover.side;
+        if (effect.of === 'others' || (effect.of === 'allies') === sameSide) boost(unit.key, effect.amount);
       }
     }
     /* A buff counts down at the end of its holder's own turn — but not the

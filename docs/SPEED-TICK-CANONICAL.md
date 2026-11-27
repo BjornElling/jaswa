@@ -397,15 +397,22 @@ boost comes per critical hit. Per the rule of §5.1:
   buff or heal — and anything behind a condition the turn does not guarantee.
   The mark beside the monster names such a skill under *Not included in the
   calculations*.
-- **Full HP until the first enemy turn:** every monster of the team has full
-  HP until an enemy has taken a turn (the user's instruction, November 27,
-  2026), so a boost behind full HP — Colleen's *Fiery Dance*, *Amuse*, *Air
-  Slash*, *Dark Force*, *Wheel of Fire* — counts until then and never after
-  (`whileTeamUnhurt`).
+- **Full HP and no harmful effects until the first enemy turn:** no monster of
+  the team is hurt or debuffed until an enemy has taken a turn (the user's
+  instructions, November 27, 2026), so a boost behind full HP — Colleen's
+  *Fiery Dance*, *Amuse*, *Air Slash*, *Dark Force*, *Wheel of Fire* — or
+  behind no harmful effects — *Cleanse*, *Electric Shock* — counts until then
+  and never after (`untilEnemyActs`).
+- **The other skills on cooldown from the second turn:** *Zoltraak* and *Mana
+  Particle Cannon* give 30 % "if all your skills are on cooldown", which they
+  are once the first turn has used them (`fromSecondTurn`); not in a joint
+  attack, whose timing against the cooldowns is unknown.
 - **Counted on exactly those turns:** a boost set off by another unit simply
   taking a turn, which the clock knows (`attack-bar-on-turn-of`): *Outlaw* and
   *Thrill of War* on every other unit's turn, *Tip of the Spear* on enemy turns
-  only. It never lands on the holder's own turn, and an enemy-turn boost never
+  only, and *Quick Steps* and *Deer Steps* on every other ally's turn ("whenever
+  an ally, including yourself, attacks the enemy with a Critical Hit", with
+  every critical hit assumed) besides their own. It never lands on the holder's own turn, and an enemy-turn boost never
   lands on an ally's.
 
 `verify:speed-tick` fails when the snapshot holds a skill whose wording

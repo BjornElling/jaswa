@@ -185,16 +185,16 @@ function speedBuffTurns(effect: SnapshotEffect, skill: SnapshotSkill): Reading {
 function decidedEffects(reading: Exclude<SkillReading, 'swarfarm'>, boostScale: number, target: AllyTarget): TurnEffect[] {
   return reading.effects.map((effect): TurnEffect => {
     if ('barOnTurnOf' in effect) return { kind: 'attack-bar-on-turn-of', of: effect.barOnTurnOf, amount: effect.bar * boostScale };
-    const unhurt = effect.whileTeamUnhurt ? { whileTeamUnhurt: true } : {};
+    const timing = { ...(effect.untilEnemyActs ? { untilEnemyActs: true } : {}), ...(effect.fromSecondTurn ? { fromSecondTurn: true } : {}) };
     if ('bar' in effect) {
       const amount = effect.bar * boostScale;
       if (effect.to === 'allies') {
-        return { kind: 'allies-attack-bar', amount, skipsSimilar: effect.skipsSimilar === true, includesCaster: effect.includesCaster === true, ...unhurt };
+        return { kind: 'allies-attack-bar', amount, skipsSimilar: effect.skipsSimilar === true, includesCaster: effect.includesCaster === true, ...timing };
       }
-      return effect.to === 'ally' ? { kind: 'ally-attack-bar', amount, target: effect.target ?? target, ...unhurt } : { kind: 'self-attack-bar', amount, ...unhurt };
+      return effect.to === 'ally' ? { kind: 'ally-attack-bar', amount, target: effect.target ?? target, ...timing } : { kind: 'self-attack-bar', amount, ...timing };
     }
-    if (effect.to === 'allies') return { kind: 'allies-speed-buff', turns: effect.buff, excludesCaster: effect.excludesCaster === true, ...unhurt };
-    return effect.to === 'ally' ? { kind: 'ally-speed-buff', turns: effect.buff, target, ...unhurt } : { kind: 'self-speed-buff', turns: effect.buff, ...unhurt };
+    if (effect.to === 'allies') return { kind: 'allies-speed-buff', turns: effect.buff, excludesCaster: effect.excludesCaster === true, ...timing };
+    return effect.to === 'ally' ? { kind: 'ally-speed-buff', turns: effect.buff, target, ...timing } : { kind: 'self-speed-buff', turns: effect.buff, ...timing };
   });
 }
 
@@ -326,7 +326,10 @@ function jointAttackSkills(read: readonly ReadSkill[]): SpeedSkill[] {
     const joins = skill.passive
       ? !skill.cooldown && firesOnOwnAttack(skill.description)
       : skill.slot === 1;
-    const brought = effects.filter((effect) => effect.kind !== 'pull-allies' && effect.kind !== 'attack-bar-on-turn-of');
+    /* An effect held back to the second turn waits on the monster's own
+       cooldowns, which a joint attack does not show. */
+    const brought = effects.filter((effect) => effect.kind !== 'pull-allies' && effect.kind !== 'attack-bar-on-turn-of'
+      && !('fromSecondTurn' in effect && effect.fromSecondTurn));
     return joins && brought.length > 0 ? [{ name: skill.name, passive: skill.passive, turns: 'every', effects: brought }] : [];
   });
 }
@@ -365,7 +368,8 @@ export function speedSkillProfile(monster: GameRecord, teammates: readonly GameR
   return {
     used,
     effects: used.flatMap((skill) => skill.effects),
-    firstTurn: used.filter((skill) => skill.turns !== 'later').flatMap((skill) => skill.effects).filter(onOwnTurn),
+    firstTurn: used.filter((skill) => skill.turns !== 'later').flatMap((skill) => skill.effects).filter(onOwnTurn)
+      .filter((effect) => !('fromSecondTurn' in effect && effect.fromSecondTurn)),
     laterTurns: used.filter((skill) => skill.turns !== 'first').flatMap((skill) => skill.effects).filter(onOwnTurn),
     jointAttack: jointAttackSkills(read),
     onTurnsOf: used.flatMap((skill) => skill.effects).filter((effect) => !onOwnTurn(effect)),
@@ -388,7 +392,8 @@ const targetWords: Record<AllyTarget, string> = {
 
 export function describeTurnEffect(effect: TurnEffect): string {
   const words = describeEffectAlone(effect);
-  return 'whileTeamUnhurt' in effect && effect.whileTeamUnhurt ? `${words} until the first enemy turn` : words;
+  if ('untilEnemyActs' in effect && effect.untilEnemyActs) return `${words} until the first enemy turn`;
+  return 'fromSecondTurn' in effect && effect.fromSecondTurn ? `${words} from the second turn` : words;
 }
 
 function describeEffectAlone(effect: TurnEffect): string {
@@ -401,9 +406,15 @@ function describeEffectAlone(effect: TurnEffect): string {
     case 'self-speed-buff': return `own speed buff for ${effect.turns} turns`;
     case 'pull-allies': return effect.count === 1 ? 'an ally attacks together' : `up to ${effect.count} allies attack together`;
     case 'attack-bar-on-turn-of':
-      return `+${attackBarPercent(effect.amount)} % own attack bar on every ${effect.of === 'enemies' ? 'enemy' : 'other unit\'s'} turn`;
+      return `+${attackBarPercent(effect.amount)} % own attack bar on every ${otherTurnWords[effect.of]} turn`;
   }
 }
+
+const otherTurnWords: Record<'others' | 'allies' | 'enemies', string> = {
+  others: 'other unit\'s',
+  allies: 'other ally\'s',
+  enemies: 'enemy',
+};
 
 const skillTurnWords: Record<SkillTurns, string> = {
   every: 'every turn',
@@ -440,7 +451,7 @@ export function shortTurnEffect(effect: TurnEffect, recipientPotency?: number): 
     case 'ally-speed-buff': return `${recipientPotency === undefined ? `${spd} buff` : `+${recipientPotency} % ${spd}`} · 1 ally`;
     case 'self-speed-buff': return recipientPotency === undefined ? `own ${spd} buff` : `+${recipientPotency} % own ${spd}`;
     case 'pull-allies': return `team-up · ${effect.count}`;
-    case 'attack-bar-on-turn-of': return `+${attackBarPercent(effect.amount)} % own ATB · ${effect.of === 'enemies' ? 'enemy turns' : 'others\' turns'}`;
+    case 'attack-bar-on-turn-of': return `+${attackBarPercent(effect.amount)} % own ATB · ${otherTurnWords[effect.of]} turns`;
   }
 }
 
