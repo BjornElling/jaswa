@@ -351,7 +351,8 @@ check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is
   check(pulling.firstTurn.some((effect) => effect.kind === 'pull-allies' && effect.count === 3)
     && !pulling.laterTurns.some((effect) => effect.kind === 'pull-allies'), 'Team Up pulls on the first turn only');
   check(speedSkillProfile(icaru, [icaru, raoq]).effects.length === 0, 'a pull with no teammate to bring a boost is not counted');
-  check(speedSkillProfile(verdehileCopy).jointAttack.some((skill) => skill.effects.some((effect) => effect.kind === 'allies-attack-bar' && effect.amount === 2_000)),
+  check(speedSkillProfile(verdehileCopy).jointAttack.some((skill) => skill.effects.some((effect) => effect.kind === 'allies-attack-bar'
+    && effect.amount === 4_000 && effect.includesCaster && effect.skipsSimilar)),
     'Verdehile brings Boiling Blood into a joint attack');
   check(speedSkillProfile({ skills: [[11801, 1]] }).jointAttack.length === 1, 'a first skill with a boost is brought into a joint attack');
   check(speedSkillProfile({ skills: [[12312, 1]] }).jointAttack.length === 0, 'a passive bound to its own turn is not');
@@ -365,6 +366,27 @@ check(shortLeaderSkill(leaderSkill(14712)) === 'SPD 28 % · Dungeon', 'a lead is
   check(effectsOf(2064)[0]?.amount === 3_000, 'Mobilize fills 30 %, not the 35 % of its heal');
   check(effectsOf(7101)[0]?.amount === 3_000, 'Passing Time counts 10 % on each of its three critical hits');
   check(effectsOf(14612).length === 0, 'an enemy\'s lowered bar is not a boost to allies');
+  /* Boiling Blood: two critical hits a turn, Verdehile himself included, and a
+     second Verdehile passed over. */
+  const boiling = speedSkillProfile({ skills: [[6512, 1]] }).firstTurn;
+  const verdehiles = simulateBattle([
+    unit('verdehile', 300, boiling, 'ally', { similarBoostPassive: true }),
+    unit('second', 100, [], 'ally', { similarBoostPassive: true }), unit('plain', 100),
+  ], { done: (events) => events.length >= 1 });
+  const boiled = verdehiles.snapshots[verdehiles.events[0].tick - 1];
+  check(boiled.after.verdehile === 4_000 && boiled.after.plain === boiled.bars.plain + 4_000 && boiled.after.second === boiled.bars.second,
+    'Boiling Blood gives 40 % to Verdehile and the team, and passes over another Verdehile');
+  /* Full HP holds until the first enemy turn, and a boost behind it with it. */
+  const unhurt = [{ kind: 'self-attack-bar', amount: 10_000, whileTeamUnhurt: true }];
+  const hurt = simulateBattle([unit('healthy', 300, unhurt), unit('enemy', 200, [], 'enemy')],
+    { done: (events) => events.slice(events.findIndex((event) => event.key === 'enemy') + 1)
+      .filter((event) => event.key === 'healthy' && events.some((other) => other.key === 'enemy')).length >= 2 });
+  const healthyTurns = hurt.events.filter((event) => event.key === 'healthy');
+  const enemyFirst = hurt.events.findIndex((event) => event.key === 'enemy');
+  check(enemyFirst > 0 && hurt.snapshots[healthyTurns[0].tick - 1].after.healthy === 10_000
+    && healthyTurns.filter((event) => hurt.events.indexOf(event) > enemyFirst)
+      .every((event) => hurt.snapshots[event.tick - 1].after.healthy === 0),
+    'a boost behind full HP lands before the first enemy turn and never after');
   /* A boost on other units' turns lands on exactly those turns. */
   const outlaw = speedSkillProfile({ skills: [[18014, 1]] });
   check(outlaw.firstTurn.length === 0 && outlaw.laterTurns.length === 0 && outlaw.onTurnsOf[0]?.amount === 1_000,

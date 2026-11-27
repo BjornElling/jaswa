@@ -296,8 +296,11 @@ having just moved — Homunculus, Lyn, then Teshar again before Prilea. The team
 table names the recipient of a member's first turn in the tag under it:
 `+100 % ATB → Teshar`.
 
-Verdehile's Boiling Blood passes over allies that carry a similar passive
-(`skipsSimilar`), as its text says.
+Verdehile's *Boiling Blood* is the exception, as the user states the game
+plays it (November 27, 2026): it gives 20 % per critical hit and both of
+Verdehile's attacking skills hit twice, so 40 % a turn; it reaches Verdehile
+himself (`includesCaster`); and its "similar skill effects" clause
+(`skipsSimilar`) passes over only another Verdehile.
 
 ### 4.1 Joint attacks
 
@@ -394,6 +397,11 @@ boost comes per critical hit. Per the rule of §5.1:
   buff or heal — and anything behind a condition the turn does not guarantee.
   The mark beside the monster names such a skill under *Not included in the
   calculations*.
+- **Full HP until the first enemy turn:** every monster of the team has full
+  HP until an enemy has taken a turn (the user's instruction, November 27,
+  2026), so a boost behind full HP — Colleen's *Fiery Dance*, *Amuse*, *Air
+  Slash*, *Dark Force*, *Wheel of Fire* — counts until then and never after
+  (`whileTeamUnhurt`).
 - **Counted on exactly those turns:** a boost set off by another unit simply
   taking a turn, which the clock knows (`attack-bar-on-turn-of`): *Outlaw* and
   *Thrill of War* on every other unit's turn, *Tip of the Spear* on enemy turns

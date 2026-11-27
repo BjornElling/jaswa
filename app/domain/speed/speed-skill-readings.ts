@@ -39,11 +39,18 @@ import type { AllyTarget } from './speed-tick';
 /** Who a read effect reaches: the caster, every other ally, or one other ally. */
 export type ReadRecipient = 'self' | 'allies' | 'ally';
 
+/** Behind full HP of the caster or the allies: holds only until the first enemy turn. */
+type Unhurt = { whileTeamUnhurt?: true };
+
 export type ReadEffect =
-  /** An attack-bar boost of `bar` percent, before "Attack Bar Recovery" skill-ups. */
-  | { bar: number; to: ReadRecipient; target?: AllyTarget }
+  /**
+   * An attack-bar boost of `bar` percent, before "Attack Bar Recovery" skill-ups.
+   * An "all allies" boost reaches the caster only with `includesCaster`, and
+   * passes over allies with a similar passive with `skipsSimilar`.
+   */
+  | ({ bar: number; to: ReadRecipient; target?: AllyTarget; includesCaster?: true; skipsSimilar?: true } & Unhurt)
   /** A speed buff for `buff` of the recipient's turns. */
-  | { buff: number; to: ReadRecipient; excludesCaster?: true }
+  | ({ buff: number; to: ReadRecipient; excludesCaster?: true } & Unhurt)
   /** `bar` percent on the caster's own bar on every turn of the units named — never on its own. */
   | { barOnTurnOf: OtherTurns; bar: number };
 
@@ -129,6 +136,33 @@ const decisions: Array<[ids: number[], reading: SkillReading]> = [
   /* 3 hits, "35% whenever this attack lands as a Critical Hit". */
   [[25006, 25008, 25010, 25506, 25508, 25510], { effects: [{ bar: 105, to: 'self' }] }],
 
+  /* Boiling Blood, Verdehile's only: "Your Critical Hits increase the Attack
+     Bars of all allies by 20%". Three things the plain reading gets wrong, each
+     the user's statement of how the game plays it (November 27, 2026):
+     - per critical hit, and both of Verdehile's attacking skills hit twice —
+       Vampire Bat "Attacks 2 times", Noble Agreement "two strong blows" — so a
+       turn, or a joint attack with the first skill, gives 40 %;
+     - "all allies" includes Verdehile himself, unlike the active "all allies"
+       boosts the clock reads, which never reach their caster (§4);
+     - "allies that have similar skill effects" are other Verdehiles; his own
+       passive always reaches him. */
+  [[6512], { effects: [{ bar: 40, to: 'allies', includesCaster: true, skipsSimilar: true }] }],
+
+  /* ── Full HP: holds until the first enemy turn ─────────────────────────── */
+
+  /* Every monster of the team has full HP until an enemy has taken a turn
+     (the user's instruction, November 27, 2026), so a boost behind full HP
+     counts until then and not after. Fiery Dance: "the allies with full HP by
+     15%"; Amuse: "the allies with full HP by 25%". */
+  [[3462], { effects: [{ bar: 15, to: 'allies', whileTeamUnhurt: true }] }],
+  [[9117], { effects: [{ bar: 25, to: 'allies', whileTeamUnhurt: true }] }],
+  /* "Increases your Attack Bar by 100% if your HP is full after the attack";
+     "recovers your attack Bar by 100% when used with full HP". */
+  [[5508, 5509, 5515], { effects: [{ bar: 100, to: 'self', whileTeamUnhurt: true }] }],
+  /* Wheel of Fire: "Increases your Attack Speed for 2 turns after the attack
+     when used with full HP". */
+  [[5512], { effects: [{ buff: 2, to: 'self', whileTeamUnhurt: true }] }],
+
   /* ── Part of the skill counts ──────────────────────────────────────────── */
 
   /* "increases the Attack Bar of all allies by 10%, and additionally by 10% if
@@ -141,7 +175,7 @@ const decisions: Array<[ids: number[], reading: SkillReading]> = [
   [[8906, 8908, 8909], { effects: [{ bar: 50, to: 'self' }], uncounted: true }],
   /* Duty of the Monarch: 10 % to allies at the end of every turn; the extra
      "5% based on the number of beneficial effects" depends on the target. */
-  [[11414], { effects: [{ bar: 10, to: 'allies' }], uncounted: true }],
+  [[11414], { effects: [{ bar: 10, to: 'allies', skipsSimilar: true }], uncounted: true }],
   /* 50 % after the attack; "up to 50% in proportion to the enemy's HP lost"
      depends on the damage. */
   [[15912], { effects: [{ bar: 50, to: 'self' }], uncounted: true }],
@@ -183,10 +217,9 @@ const decisions: Array<[ids: number[], reading: SkillReading]> = [
      decreased" by a 50 % chance (Sword of Justice). */
   [[2059, 10906, 10907, 10910, 5301, 5302, 5303, 5304, 5305, 21406, 21410, 22006, 22010,
     23501, 23502, 23503, 23504, 23505], none],
-  /* The team's or the caster's own state: allies with full HP, without
-     harmful effects to remove, no harmful effects on the caster to transfer,
-     full HP after the attack. */
-  [[2211, 3462, 9117, 23506, 23509, 24701, 24702, 24703, 24704, 24705, 5508, 5509, 5512, 5515], none],
+  /* The team's or the caster's own state: allies without harmful effects to
+     remove, no harmful effects on the caster to transfer. */
+  [[2211, 23506, 23509, 24701, 24702, 24703, 24704, 24705], none],
   /* Stormfist: "15% each if the attack lands as a Critical Hit", over 3 hits
      that rise "up to 6 times according to your Attack Power" — the three are
      certain, the rest depend on the build. */

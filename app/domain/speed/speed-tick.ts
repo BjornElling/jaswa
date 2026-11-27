@@ -211,16 +211,16 @@ export type TurnEffect =
    * is Verdehile's clause: the boost passes over allies that carry the same
    * kind of passive themselves.
    */
-  | { kind: 'allies-attack-bar'; amount: number; skipsSimilar: boolean }
+  | ({ kind: 'allies-attack-bar'; amount: number; skipsSimilar: boolean; includesCaster?: boolean } & WhileTeamUnhurt)
   /** One other ally's attack bar, chosen by `target`. */
-  | { kind: 'ally-attack-bar'; amount: number; target: AllyTarget }
+  | ({ kind: 'ally-attack-bar'; amount: number; target: AllyTarget } & WhileTeamUnhurt)
   /** The acting monster's own bar, after its turn has emptied it. */
-  | { kind: 'self-attack-bar'; amount: number }
-  /** A speed buff for a number of the recipient's own turns. */
+  | ({ kind: 'self-attack-bar'; amount: number } & WhileTeamUnhurt)
   /** Every ally's speed buff, the caster's too unless the skill excludes it. */
-  | { kind: 'allies-speed-buff'; turns: number; excludesCaster?: boolean }
-  | { kind: 'ally-speed-buff'; turns: number; target: AllyTarget }
-  | { kind: 'self-speed-buff'; turns: number }
+  | ({ kind: 'allies-speed-buff'; turns: number; excludesCaster?: boolean } & WhileTeamUnhurt)
+  /** A speed buff for a number of the recipient's own turns. */
+  | ({ kind: 'ally-speed-buff'; turns: number; target: AllyTarget } & WhileTeamUnhurt)
+  | ({ kind: 'self-speed-buff'; turns: number } & WhileTeamUnhurt)
   /**
    * Up to `count` other allies attack together with the acting monster, each
    * bringing its `jointAttack` effects. Only the acting monster pulls.
@@ -231,6 +231,13 @@ export type TurnEffect =
    * own: `others` is every other unit, `enemies` the other side's only.
    */
   | { kind: 'attack-bar-on-turn-of'; of: 'others' | 'enemies'; amount: number };
+
+/**
+ * An effect behind full HP — the caster's or the allies' — lands only until
+ * the first enemy turn: every monster of the team has full HP until an enemy
+ * has acted (the user's instruction, November 27, 2026).
+ */
+type WhileTeamUnhurt = { whileTeamUnhurt?: boolean };
 
 /**
  * Which ally a one-ally effect lands on (`SPEED-TICK-CANONICAL.md` §4): the
@@ -348,6 +355,7 @@ export function simulateBattle(units: readonly TickUnit[], options: {
   const rank = new Map(units.map((unit, index) => [unit.key, (unit.side === 'ally' ? 0 : 1_000) + index]));
   const events: TurnEvent[] = [];
   const snapshots: TickSnapshot[] = [];
+  let enemyHasMoved = false;
 
   const leos = units.filter((unit) => unit.capsOthersSpeed);
   /* Combat speed in hundredths, buff included: a whole number however the
@@ -424,9 +432,13 @@ export function simulateBattle(units: readonly TickUnit[], options: {
         || (rank.get(left.key) ?? 0) - (rank.get(right.key) ?? 0))[0];
       const targetOf = (target: AllyTarget) => target === 'highest-attack-bar' ? highestBar : lowestBar;
       for (const effect of effects) {
+        if ('whileTeamUnhurt' in effect && effect.whileTeamUnhurt && enemyHasMoved) continue;
         switch (effect.kind) {
           case 'allies-attack-bar':
             for (const ally of allies) if (!(effect.skipsSimilar && ally.similarBoostPassive)) boost(ally.key, effect.amount);
+            /* Verdehile's own passive reaches Verdehile, its "similar skill"
+               clause passing over only the others that carry one. */
+            if (effect.includesCaster) boost(caster.key, effect.amount);
             break;
           case 'ally-attack-bar': {
             const ally = targetOf(effect.target);
@@ -468,6 +480,7 @@ export function simulateBattle(units: readonly TickUnit[], options: {
       }
     };
     apply(mover, turn === 1 ? mover.firstTurn : mover.laterTurns);
+    if (mover.side === 'enemy') enemyHasMoved = true;
     /* Whoever counts this turn as one of "others" or "enemies" gains on it. */
     for (const unit of units) {
       if (unit.key === mover.key) continue;

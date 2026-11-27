@@ -185,13 +185,16 @@ function speedBuffTurns(effect: SnapshotEffect, skill: SnapshotSkill): Reading {
 function decidedEffects(reading: Exclude<SkillReading, 'swarfarm'>, boostScale: number, target: AllyTarget): TurnEffect[] {
   return reading.effects.map((effect): TurnEffect => {
     if ('barOnTurnOf' in effect) return { kind: 'attack-bar-on-turn-of', of: effect.barOnTurnOf, amount: effect.bar * boostScale };
+    const unhurt = effect.whileTeamUnhurt ? { whileTeamUnhurt: true } : {};
     if ('bar' in effect) {
       const amount = effect.bar * boostScale;
-      if (effect.to === 'allies') return { kind: 'allies-attack-bar', amount, skipsSimilar: false };
-      return effect.to === 'ally' ? { kind: 'ally-attack-bar', amount, target: effect.target ?? target } : { kind: 'self-attack-bar', amount };
+      if (effect.to === 'allies') {
+        return { kind: 'allies-attack-bar', amount, skipsSimilar: effect.skipsSimilar === true, includesCaster: effect.includesCaster === true, ...unhurt };
+      }
+      return effect.to === 'ally' ? { kind: 'ally-attack-bar', amount, target: effect.target ?? target, ...unhurt } : { kind: 'self-attack-bar', amount, ...unhurt };
     }
-    if (effect.to === 'allies') return { kind: 'allies-speed-buff', turns: effect.buff, excludesCaster: effect.excludesCaster === true };
-    return effect.to === 'ally' ? { kind: 'ally-speed-buff', turns: effect.buff, target } : { kind: 'self-speed-buff', turns: effect.buff };
+    if (effect.to === 'allies') return { kind: 'allies-speed-buff', turns: effect.buff, excludesCaster: effect.excludesCaster === true, ...unhurt };
+    return effect.to === 'ally' ? { kind: 'ally-speed-buff', turns: effect.buff, target, ...unhurt } : { kind: 'self-speed-buff', turns: effect.buff, ...unhurt };
   });
 }
 
@@ -384,8 +387,13 @@ const targetWords: Record<AllyTarget, string> = {
 };
 
 export function describeTurnEffect(effect: TurnEffect): string {
+  const words = describeEffectAlone(effect);
+  return 'whileTeamUnhurt' in effect && effect.whileTeamUnhurt ? `${words} until the first enemy turn` : words;
+}
+
+function describeEffectAlone(effect: TurnEffect): string {
   switch (effect.kind) {
-    case 'allies-attack-bar': return `+${attackBarPercent(effect.amount)} % attack bar to allies`;
+    case 'allies-attack-bar': return `+${attackBarPercent(effect.amount)} % attack bar to allies${effect.includesCaster ? ', itself included' : ''}`;
     case 'ally-attack-bar': return `+${attackBarPercent(effect.amount)} % attack bar to the ally with the ${targetWords[effect.target]}`;
     case 'self-attack-bar': return `+${attackBarPercent(effect.amount)} % own attack bar`;
     case 'allies-speed-buff': return `speed buff to allies for ${effect.turns} turns`;
